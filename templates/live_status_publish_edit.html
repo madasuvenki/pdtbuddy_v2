@@ -678,9 +678,22 @@ window.LSP_DATA = {
     if(m) return 'Meta-'+String(parseInt(m[1],10)).padStart(3,'0');
     return b.split(/[\s_\-.]+/).slice(0,2).join('-')||b;
   }
+    /* Use Core Slide's _guessDeckType if available (checks build string for
+     ADAS/ADP/RIDE/FLEX keywords) — same logic as _cdModalDeckMatch.
+     Falls back to deck_type/domain field if not yet loaded. */
+  function _rbGuessDeck(o){
+    if(typeof window._guessDeckType==='function') return window._guessDeckType(o);
+    // inline fallback identical to _guessDeckType in live_status_published_safe.js
+    var s=(typeof o==='string'?o:[
+      o.build_id||'',o.build_tail||'',o.software_product||'',
+      o.product_flavor||'',o.deck_type||'',o.domain||''
+    ].join(' ')).toUpperCase();
+    if(/(^|[^A-Z0-9])ADAS([^A-Z0-9]|$)|ADP|RIDE|VISION|CAMERA/.test(s)) return 'ADAS';
+    if(/(^|[^A-Z0-9])FLEX([^A-Z0-9]|$)|FLE/.test(s)) return 'FLEX';
+    return 'IVI';
+  }
   function _rbDeckMatch(o, deck){
-    var dt=String(o.deck_type||o.domain||'').toUpperCase();
-    return dt===deck || dt==='';
+    return _rbGuessDeck(o) === String(deck||'IVI').toUpperCase();
   }
 
   /* ── ensure modal DOM (built once, never re-created) ── */
@@ -727,23 +740,24 @@ window.LSP_DATA = {
     document.body.appendChild(m);
   }
 
-  /* ── render the build list ── */
+    /* ── render the build list ── */
   function rbPickRender(){
     var list=document.getElementById('rbPickList'); if(!list) return;
     var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
-    // Use _cdJiraBuilds if loaded, else _rbRows as fallback
     var src=[];
+    var usingAxiom=false;
     if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
-      src=window._cdJiraBuilds.filter(function(o){
-        return _rbDeckMatch(o,_rbPickDomain);
-      });
-    } else {
-      // fallback: use running_builds_db rows
-      src=_rbRows.filter(function(r){
-        return String(r.domain||'').toUpperCase()===_rbPickDomain;
-      }).map(function(r){
-        return {build_id:r.build_id,meta_id:r.meta_id,product_flavor:r.product_flavor,deck_type:r.domain,device_count:r.device_count,submitted:r.started_at};
-      });
+      // Primary: Axiom build options (same data as Core Slide modal)
+      usingAxiom=true;
+      src=window._cdJiraBuilds.filter(function(o){ return _rbDeckMatch(o,_rbPickDomain); });
+    } else if(_rbRows.length){
+      // Fallback: running_builds_db rows — use domain field directly
+      src=_rbRows.filter(function(r){ return String(r.domain||'').toUpperCase()===_rbPickDomain; })
+        .map(function(r){
+          return {build_id:r.build_id,meta_id:r.meta_id,product_flavor:r.product_flavor||'',
+            deck_type:r.domain,domain:r.domain,device_count:r.device_count,
+            submitted:r.started_at,job_count:1,software_product:''};
+        });
     }
     if(q){
       src=src.filter(function(o){
@@ -753,9 +767,18 @@ window.LSP_DATA = {
     }
     var cnt=document.getElementById('rbPickCount');
     var selCount=_rbPickSel.size;
-    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'');
+    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(usingAxiom?' (Axiom)':' (DB fallback)');
     if(!src.length){
-      list.innerHTML='<div class="empty"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>No '+_esc(_rbPickDomain)+' builds found.<br><small>Try a different domain or search term.</small></div>';
+      // Show which domains have data to help user switch
+      var allDomains={};
+      (usingAxiom?(window._cdJiraBuilds||[]):_rbRows).forEach(function(o){
+        var d=usingAxiom?_rbGuessDeck(o):String(o.domain||'').toUpperCase();
+        allDomains[d]=(allDomains[d]||0)+1;
+      });
+      var hint=Object.keys(allDomains).length
+        ? ' Available: '+Object.keys(allDomains).sort().map(function(k){return k+' ('+allDomains[k]+')';}).join(', ')+'. Try switching domain.'
+        : ' No builds loaded. Check DB connection or try Refresh on the main table.';
+      list.innerHTML='<div class="empty"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>No '+_esc(_rbPickDomain)+' builds found.<br><small>'+_esc(hint)+'</small></div>';
       return;
     }
     var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'};
@@ -823,7 +846,7 @@ window.LSP_DATA = {
     rbPickRender();
   };
 
-  /* ── open the picker ── */
+    /* ── open the picker ── */
   window.rbOpenAddModal = async function(){
     _ensurePickModal();
     _rbPickSel.clear();
@@ -831,15 +854,22 @@ window.LSP_DATA = {
     var search=document.getElementById('rbPickSearch'); if(search) search.value='';
     document.getElementById('rbPickModal').style.display='flex';
     rbPickSetDomain(_rbPickDomain);
-    // Load Axiom builds if not yet loaded (same as loadCoreDeckJiraBuilds)
+    // Always try to load Axiom builds fresh (same as Core Slide openCoreDeckBuildModal)
     var list=document.getElementById('rbPickList');
-    if(!window._cdJiraBuilds||!window._cdJiraBuilds.length){
-      if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom...</div>';
-      try{
-        if(typeof loadCoreDeckJiraBuilds==='function') await loadCoreDeckJiraBuilds();
-      }catch(e){
-        // fallback: _rbRows already loaded
+    if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom...</div>';
+    try{
+      // loadCoreDeckJiraBuilds is defined in live_status_published_safe.js
+      // It fetches /api/core_deck/build_options?target=PRIMARY_TARGET
+      if(typeof loadCoreDeckJiraBuilds==='function'){
+        await loadCoreDeckJiraBuilds();
       }
+    }catch(e){
+      // If Axiom API fails, fall back to running_builds_db rows
+      if(!_rbRows.length) await window.loadRunningBuildsDb();
+    }
+    // If still nothing, try running_builds_db as additional source
+    if((!window._cdJiraBuilds||!window._cdJiraBuilds.length) && !_rbRows.length){
+      await window.loadRunningBuildsDb();
     }
     rbPickRender();
   };
