@@ -1,0 +1,1764 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Live Status View</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#eef3fb;--panel:rgba(255,255,255,.9);--ink:#0f172a;--muted:#64748b;--line:#dbe3ef;--brand:#2563eb;--brand2:#7c3aed;--brand3:#06b6d4;--good:#16a34a;--warn:#d97706;--bad:#dc2626;--chip:#eef4ff;--shadow:0 24px 70px rgba(15,23,42,.16)}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 12% -8%,rgba(59,130,246,.34) 0,transparent 30%),radial-gradient(circle at 88% 0%,rgba(124,58,237,.30) 0,transparent 31%),radial-gradient(circle at 50% 105%,rgba(6,182,212,.20) 0,transparent 32%),linear-gradient(135deg,#f8fbff 0,#eef3ff 42%,#f8f7ff 100%);color:var(--ink);min-height:100vh}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),transparent 78%)}
+    header{position:relative;margin:18px 18px 0;width:calc(100% - 36px);padding:20px 28px;background:linear-gradient(135deg,#ffffff 0%,#eff6ff 38%,#f5f3ff 72%,#ecfeff 100%);color:#1e2f55;box-shadow:0 24px 70px rgba(37,99,235,.16);border:1px solid #bfdbfe;border-radius:32px;overflow:hidden}
+    header:before{content:"";position:absolute;inset:1px;border-radius:29px;background:linear-gradient(135deg,rgba(37,99,235,.10),rgba(124,58,237,.05) 42%,transparent 70%);pointer-events:none}
+    header:after{content:"";position:absolute;right:-70px;top:-95px;width:310px;height:310px;border-radius:999px;background:radial-gradient(circle,rgba(59,130,246,.18),rgba(124,58,237,.08) 54%,transparent 72%)}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border:1px solid #bfdbfe;border-radius:999px;background:linear-gradient(135deg,#dbeafe,#ede9fe);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#1e3a8a}
+    h1{position:relative;margin:10px 0 0;font-size:34px;letter-spacing:-.05em;line-height:1.02;color:#1e3a8a}.sub{position:relative;margin-top:8px;color:#475569;font-weight:700}
+    main{position:relative;padding:22px 18px 28px;width:100%;max-width:none;margin:0}.panel{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.90));backdrop-filter:blur(20px);border:1px solid rgba(203,213,225,.78);border-radius:28px;box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}.panel-h{padding:20px 24px;border-bottom:1px solid rgba(219,227,239,.82);display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(90deg,rgba(248,250,252,.98),rgba(239,246,255,.76),rgba(245,243,255,.55))}.panel-h h2{display:inline-flex;align-items:center;gap:10px;font-size:17px;margin:0;font-weight:1000;letter-spacing:.01em;color:#4f46e5}.panel-h h2:before{content:"";width:6px;height:22px;border-radius:999px;background:linear-gradient(180deg,#3b82f6,#7c3aed,#06b6d4);box-shadow:0 8px 18px rgba(79,70,229,.26)}.panel-b{padding:22px 24px}
+    button{border:0;border-radius:16px;padding:12px 18px;font-weight:950;cursor:pointer;letter-spacing:.01em;transition:.18s transform,.18s box-shadow,.18s filter,.18s background;position:relative;overflow:hidden}button:hover{transform:translateY(-2px);filter:saturate(1.08)}button:disabled{opacity:.55;cursor:not-allowed;transform:none}.primary{background:linear-gradient(135deg,#3b82f6,#7c3aed 58%,#06b6d4)!important;color:#fff!important;border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 14px 28px rgba(59,130,246,.26)!important}.ghost{background:linear-gradient(135deg,#f8fbff,#e8eef8);color:#18315b;border:1px solid #cddaf0;box-shadow:0 8px 18px rgba(15,23,42,.06)}.danger{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;border:1px solid #fecaca}.small{padding:8px 11px;border-radius:12px;font-size:12px}
+        input,textarea{width:100%;border:1px solid #cbd8ec;border-radius:16px;padding:13px 14px;background:linear-gradient(180deg,#fff,#f8fbff);color:var(--ink);outline:none;box-shadow:inset 0 1px 0 #fff,0 7px 18px rgba(15,23,42,.04);font-family:inherit}.filter{min-width:260px;max-width:460px}    .toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}.toolbar .left,.toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:linear-gradient(135deg,#eef4ff,#f5f3ff 55%,#ecfeff);border:1px solid #c7d7ff;padding:7px 11px;font-size:12px;margin:3px;box-shadow:0 8px 20px rgba(37,99,235,.10);font-weight:800;color:#1e2f55}.pill.warn{background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fed7aa;color:#9a3412}.pill.good{background:linear-gradient(135deg,#ecfdf5,#dcfce7);border-color:#bbf7d0;color:#166534}.pill.bad{background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#fca5a5;color:#991b1b}
+    .table-wrap{max-height:68vh;overflow:auto;border:1px solid rgba(203,213,225,.85);border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.07);background:#fff}table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:11px 12px;text-align:left;vertical-align:top}th{position:sticky;top:0;background:linear-gradient(180deg,#eef4ff,#f8fafc);z-index:1;font-size:12px;color:#1e2f55;font-weight:950;text-transform:uppercase;letter-spacing:.025em;user-select:none}tbody tr:nth-child(even){background:#fbfdff}tbody tr:hover{background:linear-gradient(90deg,#eff6ff,#f8fbff)}
+    .linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.muted{color:#64748b;font-size:12px}.empty{padding:44px 18px;text-align:center;color:#94a3b8}.empty i{display:block;font-size:34px;margin-bottom:8px}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .ai-summary-cell{min-width:260px;max-width:420px;font-size:12px;line-height:1.35;color:#334155;font-weight:650}.ai-summary-cell.loading{color:#7c3aed;font-style:italic}.ai-summary-cell.error{color:#b91c1c}.ai-status{font-size:11px;font-weight:900;color:#7c3aed;margin-left:4px}
+
+    .meta-builds{max-width:520px;white-space:normal;color:#334155}.check{width:18px;height:18px;accent-color:#2563eb}.exclusion-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.metric{padding:16px;border:1px solid #dbe3ef;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 10px 22px rgba(15,23,42,.05)}.metric .num{font-size:28px;font-weight:1000;color:#1e3a8a}.metric .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:900}    .tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{padding:9px 13px;border-radius:999px;border:1px solid #cbd8ec;background:#fff;font-weight:950;color:#334155;cursor:pointer}.tab.active{background:linear-gradient(135deg,#dbeafe,#ede9fe);border-color:#93c5fd;color:#1e3a8a}.hidden{display:none!important}
+    /* ADAS MTBF styles */
+    .adas-crash-ck{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#334155;cursor:pointer;padding:5px 11px;border:1.5px solid #e2e8f0;border-radius:999px;background:#fff;user-select:none;transition:all .15s;white-space:nowrap}
+    .adas-crash-ck:hover{border-color:var(--ck);color:#1e293b}
+    .adas-crash-ck:has(input:checked){background:var(--ck);color:#fff;border-color:var(--ck);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+    .adas-crash-ck input{display:none}
+    .adas-ck-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(255,255,255,.6)}
+    .adas-crash-ck:has(input:checked) .adas-ck-dot{background:#fff!important;border-color:rgba(255,255,255,.8)}
+    .adas-flt-btn{border:1.5px solid #e2e8f0;background:#fff;color:#475569;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;transition:all .15s}
+    .adas-flt-btn:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
+    .adas-flt-btn.active{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(79,70,229,.22)}
+    .adas-mtbf-badge{font-weight:900;color:#fff;background:linear-gradient(135deg,#059669,#10b981);border-radius:5px;padding:2px 9px;font-size:11px;box-shadow:0 1px 4px rgba(5,150,105,.22)}
+    .adas-edit-btn{border:1px solid #a5f3fc;background:#ecfeff;color:#0e7490;border-radius:7px;padding:4px 9px;font-size:10px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+    .adas-edit-btn:hover{background:#cffafe;border-color:#06b6d4}
+        .adas-del-btn{border:1px solid #fca5a5;background:#fee2e2;color:#b91c1c;border-radius:7px;padding:4px 9px;font-size:10px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+    .adas-del-btn:hover{background:#fecaca;border-color:#ef4444}
+    .adas-axis-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+    .adas-axis-note span{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0}
+    .adas-axis-shell{display:grid;grid-template-columns:38px minmax(0,1fr) 38px;gap:8px;align-items:stretch}
+    .adas-side-axis{min-height:420px;border:1px solid #e2e8f0;border-radius:12px;background:linear-gradient(180deg,#fff,#f8fafc);display:flex;align-items:center;justify-content:center;gap:18px;box-shadow:inset 0 1px 0 #fff}
+    .adas-axis-chip{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+        .adas-axis-hours{color:#1f4e79}.adas-axis-crashes{color:#c55a11}.adas-axis-mtbf{color:#ed7d31}
+    @media(max-width:700px){.adas-axis-shell{grid-template-columns:28px minmax(0,1fr) 28px}.adas-side-axis{min-height:360px}.adas-axis-chip{font-size:10px}}
+
+    @media(max-width:1000px){.summary-grid{grid-template-columns:1fr}.toolbar{flex-direction:column;align-items:stretch}.toolbar .right{justify-content:flex-start}header{padding:18px 20px}}
+
+    /* Current Report styles */
+    .cr-domain-radio{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;border:2px solid var(--dc);background:#fff;color:var(--dc);font-size:12px;font-weight:900;cursor:pointer;transition:all .18s;user-select:none;letter-spacing:.02em}
+    .cr-domain-radio input{display:none}
+    .cr-domain-radio:has(input:checked){background:var(--dc);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:translateY(-1px)}
+    .cr-domain-radio:hover:not(:has(input:checked)){background:var(--dcs)}
+    .cr-build-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:850;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .cr-build-chip.active{background:#eef2ff;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}
+    .cr-build-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}
+    .cr-run-tbl td,.cr-run-tbl th{padding:9px 11px;font-size:12px}
+    .cr-run-tbl .build-cell{font-weight:750;color:#1e3a8a;min-width:280px;max-width:520px;white-space:normal;overflow-wrap:anywhere}
+    .cr-status-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:900}
+    .cr-status-live{background:#dcfce7;color:#166534;border:1px solid #86efac}
+    .cr-status-draft{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+  </style>
+</head>
+<body>
+<header>
+  <div class="eyebrow"><i class="fas fa-database"></i> Live Status Workspace</div>
+  <h1>Live Status View - {{ ((TARGETS_CONFIG.get(target_name, {}) or {}).display_name or target_name) }}</h1>
+  <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
+</header>
+
+<main>
+  <section class="panel">
+
+
+    <div class="panel-h">
+      <h2>META Selection</h2>
+      <div class="muted">Select one or more META rows and submit to view consolidated CR and Open JIRA details.</div>
+    </div>
+    <div class="panel-b">
+      <div id="topPills" style="margin-bottom:10px"></div>
+                  <div class="toolbar">
+        <div class="left">
+          <input id="metaFilter" class="filter" placeholder="Filter META, build, hours, crashes..." autocomplete="off">
+          <span id="metaCount" class="muted"></span>
+        </div>
+        <div class="right">
+          <button class="ghost small" onclick="selectAllVisible(true)"><i class="fas fa-check-square"></i> Select visible</button>
+          <button class="ghost small" onclick="selectAllVisible(false)"><i class="far fa-square"></i> Clear visible</button>
+          <button class="primary" id="submitBtn" onclick="submitSelection()"><i class="fas fa-paper-plane"></i> Submit Selected</button>
+          <button class="ghost" onclick="loadMetaRows()"><i class="fas fa-sync-alt"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Select</th><th>S.No</th><th>META ID</th><th>First Reported</th><th>Meta Builds</th><th>Hours</th><th>Crashes</th><th>MTBF</th>
+            </tr>
+          </thead>
+          <tbody id="metaBody"><tr><td colspan="8" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading META rows...</p></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+       ADAS MTBF TAB
+  ═══════════════════════════════════════════════════════════════════ -->
+  <section class="panel" id="adasMtbfPanel">
+        <div class="panel-h">
+      <h2><i class="fas fa-chart-line" style="color:#059669"></i> ADAS MTBF Trend</h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <!-- View selector: each loads its own JSON -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">View</label>
+          <select id="adasViewSelect" onchange="adasSwitchView()" style="border:1.5px solid #cbd5e1;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:#0f172a;background:#fff;outline:none">
+            <option value="ADAS">ADAS</option>
+            <option value="IVI">IVI</option>
+            <option value="FLEX">FLEX</option>
+          </select>
+        </div>
+        <div style="width:1px;height:22px;background:#e2e8f0;flex-shrink:0"></div>
+        <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-filter"></i> Show</span>
+        <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
+        <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
+        <button class="adas-flt-btn" data-n="0" onclick="adasSetFilter(0,this)">All</button>
+        <span id="adasSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
+        <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+        <button class="primary small" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+        <button class="ghost small" onclick="adasLoadData(true)"><i class="fas fa-sync-alt"></i> Refresh</button>
+      </div>
+    </div>
+    <div class="panel-b" style="padding:0">
+
+      <!-- Crash-type checkboxes: check/uncheck instantly recomputes Total Crashes + MTBF in chart & table (display only, no save) -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 24px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-bottom:1px solid #e0e7ff">
+        <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-bug"></i> Include in Total Crashes</span>
+        <label id="ck_system" class="adas-crash-ck" style="--ck:#dc2626">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#dc2626"></span> System
+        </label>
+        <label id="ck_ssr" class="adas-crash-ck" style="--ck:#d97706">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#d97706"></span> SSR
+        </label>
+        <label id="ck_process" class="adas-crash-ck" style="--ck:#7c3aed">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#7c3aed"></span> Process
+        </label>
+        <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly in chart &amp; table — does not modify saved data</span>
+      </div>
+
+      <!-- Chart -->
+            <div style="padding:16px 24px 8px">
+        <div class="adas-axis-note">
+          <span style="color:#1f4e79"><i class="fas fa-arrow-left"></i> Left Y-Axis: Hours / Crashes</span>
+          <span style="color:#ed7d31">Right Y-Axis: MTBF <i class="fas fa-arrow-right"></i></span>
+        </div>
+        <div class="adas-axis-shell">
+          <div class="adas-side-axis" aria-label="Left y-axis labels">
+            <span class="adas-axis-chip adas-axis-hours">Hours</span>
+            <span class="adas-axis-chip adas-axis-crashes">Crashes</span>
+          </div>
+          <div id="adasChartWrap" style="position:relative;overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 8px 4px">
+            <canvas id="adasChartCanvas" style="display:block;"></canvas>
+            <div id="adasChartEmpty" style="display:none;padding:44px;text-align:center;color:#94a3b8">
+              <i class="fas fa-chart-line" style="font-size:34px;display:block;margin-bottom:10px"></i>
+              No MTBF data yet. Click <strong>Add Build</strong> to get started.
+            </div>
+          </div>
+          <div class="adas-side-axis" aria-label="Right y-axis label">
+            <span class="adas-axis-chip adas-axis-mtbf">MTBF</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- MTBF Table -->
+      <div style="padding:8px 24px 20px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-table"></i> MTBF Table</span>
+          <span id="adasRowCount" class="muted"></span>
+          <input id="adasTableSearch" class="filter" style="max-width:260px;padding:7px 12px;font-size:12px" placeholder="Search Meta-ID, date..." oninput="adasFilterTable()">
+          <button class="ghost small" onclick="adasCopyTable()"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+        <div class="table-wrap" style="max-height:420px">
+          <table id="adasMtbfTable">
+                        <thead>
+              <tr>
+                <th>S.No.</th>
+                <th>Date</th>
+                <th>Meta-ID</th>
+                <th>Hours</th>
+                <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>System</th>
+                <th style="text-align:center;color:#d97706;background:#fffbeb"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>SSR</th>
+                <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>Process</th>
+                <th>Total Crashes</th>
+                <th>MTBF</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adasTableBody">
+              <tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Add/Edit Build Modal -->
+  <div id="adasModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:20px;width:520px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+        <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px">
+          <i class="fas fa-chart-line"></i> <span id="adasModalTitle">Add MTBF Build</span>
+        </div>
+        <button onclick="adasCloseModal()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;color:#fff;width:28px;height:28px;cursor:pointer;font-size:14px"><i class="fas fa-times"></i></button>
+      </div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+        <input type="hidden" id="adasModalRowId">
+        <!-- Row 0: View selector (shown when opened from Current Report) -->
+        <div id="adasModalViewRow" style="display:none">
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">MTBF View <span style="font-size:9px;color:#94a3b8">(target domain)</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <label style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:2px solid #2563eb;background:#fff;color:#2563eb;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+              <input type="radio" name="adasModalView" value="ADAS" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-car"></i> ADAS
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:2px solid #7c3aed;background:#fff;color:#7c3aed;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+              <input type="radio" name="adasModalView" value="FLEX" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-microchip"></i> FLEX
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:2px solid #059669;background:#fff;color:#059669;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+              <input type="radio" name="adasModalView" value="IVI" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-display"></i> IVI
+            </label>
+          </div>
+        </div>
+        <!-- Row 1: Date + Meta-ID -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Meta-ID <span style="color:#dc2626">*</span></label>
+            <input type="text" id="adasModalMetaId" placeholder="e.g. Meta-651" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Date</label>
+            <input type="date" id="adasModalDate" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none">
+          </div>
+        </div>
+        <!-- Row 2: Hours -->
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Hours</label>
+          <input type="number" id="adasModalHours" min="0" step="0.1" placeholder="e.g. 620" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none">
+        </div>
+        <!-- Row 3: Crash types -->
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Crashes</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:10px;font-weight:800;color:#dc2626;display:block;margin-bottom:3px">System</label>
+              <input type="number" id="adasModalSystem" min="0" placeholder="0" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none" oninput="adasAutoMtbf()">
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:800;color:#d97706;display:block;margin-bottom:3px">SSR</label>
+              <input type="number" id="adasModalSsr" min="0" placeholder="0" style="width:100%;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none" oninput="adasAutoMtbf()">
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:800;color:#7c3aed;display:block;margin-bottom:3px">Process</label>
+              <input type="number" id="adasModalProcess" min="0" placeholder="0" style="width:100%;border:1.5px solid #c4b5fd;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none" oninput="adasAutoMtbf()">
+            </div>
+          </div>
+        </div>
+        <!-- Row 4: Total Crashes + MTBF -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
+            <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc" oninput="adasAutoMtbf()">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">MTBF <span style="font-size:9px;color:#94a3b8">(auto-calc)</span></label>
+            <input type="number" id="adasModalMtbf" min="0" step="0.01" placeholder="auto" style="width:100%;border:1.5px solid #a7f3d0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#059669;outline:none">
+          </div>
+        </div>
+        <div id="adasModalMsg" style="font-size:11px;font-weight:700;min-height:16px"></div>
+      </div>
+      <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;justify-content:flex-end">
+        <button class="ghost" onclick="adasCloseModal()">Cancel</button>
+        <button class="primary" id="adasModalSaveBtn" onclick="adasSaveModal()"><i class="fas fa-save"></i> Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       CURRENT REPORT SECTION
+  ═══════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════
+       UNIQUE CRs BY TARGET (FLEX / ADAS / IVI)
+  ═══════════════════════════════════════════════════════════════ -->
+  <section class="panel" id="uniqueCrsByTargetPanel">
+    <div class="panel-h" style="cursor:pointer;user-select:none" onclick="ucbToggle()">
+      <h2><i class="fas fa-layer-group" style="color:#6366f1"></i> Unique CRs by Target
+        <span id="ucbTotalBadge" style="display:none;margin-left:8px;background:#4f46e5;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:900"></span>
+      </h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span id="ucbSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
+        <span id="ucbMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+        <i class="fas fa-chevron-down" id="ucbChevron" style="transition:transform .2s;color:#64748b"></i>
+      </div>
+    </div>
+    <div id="ucbBody" style="display:none;padding:0 18px 18px">
+      <!-- Tab buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <button class="ucb-tab-btn" id="ucbTabFLEX" onclick="ucbShowTab('FLEX')"
+          style="border:2px solid #f97316;background:#fff7ed;color:#c2410c;border-radius:999px;padding:6px 18px;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+          <i class="fas fa-microchip"></i> FLEX <span id="ucbCntFLEX" style="background:#f97316;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;margin-left:4px">0</span>
+        </button>
+        <button class="ucb-tab-btn" id="ucbTabADAS" onclick="ucbShowTab('ADAS')"
+          style="border:2px solid #22c55e;background:#f0fdf4;color:#15803d;border-radius:999px;padding:6px 18px;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+          <i class="fas fa-car"></i> ADAS <span id="ucbCntADAS" style="background:#22c55e;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;margin-left:4px">0</span>
+        </button>
+        <button class="ucb-tab-btn" id="ucbTabIVI" onclick="ucbShowTab('IVI')"
+          style="border:2px solid #3b82f6;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:6px 18px;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+          <i class="fas fa-tv"></i> IVI <span id="ucbCntIVI" style="background:#3b82f6;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;margin-left:4px">0</span>
+        </button>
+        <button onclick="ucbLoad()" style="margin-left:auto;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+      </div>
+      <!-- Table -->
+      <div id="ucbTableWrap" style="overflow:auto;max-height:50vh">
+        <table id="ucbTable" style="width:100%;border-collapse:collapse;font-size:11.5px">
+          <thead id="ucbThead"></thead>
+          <tbody id="ucbTbody"><tr><td style="padding:14px;color:#94a3b8">Click Refresh to load.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="currentReportPanel">
+    <div class="panel-h">
+      <h2><i class="fas fa-circle" style="color:#16a34a;font-size:10px"></i> Current Report</h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="crJobBadge" style="display:none"></span>
+        <span id="crJobStatus" class="muted"></span>
+        <span id="crReportSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
+                <span id="crReportMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+        <button class="primary small" id="crRefreshBtn" onclick="crRunReport(true)"><i class="fas fa-rotate"></i> Refresh</button>
+        <button class="ghost small" onclick="crLoadData(true)"><i class="fas fa-sync-alt"></i> Reload Builds</button>
+        <button class="primary small" onclick="crAddBuildFromRow()" title="Add a running build to ADAS MTBF Trend"><i class="fas fa-plus"></i> Add Build</button>
+      </div>
+    </div>
+    <div class="panel-b" style="padding:0">
+
+      <!-- Running Builds sub-panel -->
+      <div style="padding:14px 24px;border-bottom:1px solid rgba(219,227,239,.7)">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</span>
+          <span id="crRunCount" class="pill"></span>
+          <!-- Domain filter -->
+          <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Domain</span>
+          <label class="cr-domain-radio" style="--dc:#2563eb;--dcs:#dbeafe">
+            <input type="radio" name="crDomain" value="ADAS" checked onchange="crApplyDomainFilter('ADAS')"> <i class="fas fa-car"></i> ADAS
+          </label>
+          <label class="cr-domain-radio" style="--dc:#7c3aed;--dcs:#ede9fe">
+            <input type="radio" name="crDomain" value="FLEX" onchange="crApplyDomainFilter('FLEX')"> <i class="fas fa-microchip"></i> FLEX
+          </label>
+          <label class="cr-domain-radio" style="--dc:#059669;--dcs:#d1fae5">
+            <input type="radio" name="crDomain" value="IVI" onchange="crApplyDomainFilter('IVI')"> <i class="fas fa-display"></i> IVI
+          </label>
+        </div>
+        <!-- Build filter chips -->
+        <div style="font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;margin-bottom:7px"><i class="fas fa-code-branch"></i> Build filter</div>
+        <div id="crBuildChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+        <div class="muted" style="font-size:11px;font-weight:800">Click a build chip to scope the JIRA query to that build. Domain chip queries all builds in that domain.</div>
+                <!-- Running builds table -->
+        <div class="table-wrap" style="max-height:340px;margin-top:10px">
+          <table class="cr-run-tbl">
+            <thead><tr>
+              <th><input type="checkbox" id="crSelectAll" checked onchange="crToggleAllBuilds(this.checked)" title="Select all"></th>
+              <th>Week</th><th>Meta</th><th>Full Build</th><th>Hours</th><th>Crashes</th><th>MTBF</th><th>Jobs</th><th>Devices</th><th>Comment</th><th>Add to MTBF</th>
+            </tr></thead>
+            <tbody id="crRunBody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading running builds...</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CR / JIRA Results -->
+      <div style="padding:14px 24px 20px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                    <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Current Report</span>
+          <span id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+          <button class="ghost small" id="crCopyReportBtn" onclick="crCopyReport()" style="margin-left:auto"><i class="fas fa-copy"></i> Copy Crash Report</button>
+        </div>
+        <!-- CR Table -->
+        <div class="table-wrap" style="max-height:420px;margin-bottom:14px">
+          <table>
+            <thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead>
+            <tbody id="crReportBody"><tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading current report...</p></td></tr></tbody>
+          </table>
+        </div>
+        <!-- Open JIRAs -->
+        <div id="crOpenJiraSection" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs</span>
+            <span id="crOpenJiraBadge" class="pill warn"></span>
+          </div>
+          <div class="table-wrap" style="max-height:320px">
+            <table>
+              <thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead>
+              <tbody id="crOpenJiraBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="resultsPanel" class="panel hidden">
+
+
+    <div class="panel-h">
+      <h2>Consolidated Result</h2>
+      <div class="tabs">
+        <button id="tabSummary" class="tab active" onclick="showTab('summary')">Summary</button>
+        <button id="tabCrs" class="tab" onclick="showTab('crs')">CRs</button>
+        <button id="tabJiras" class="tab" onclick="showTab('jiras')">Open JIRAs</button>
+        <button id="tabExclusions" class="tab" onclick="showTab('exclusions')">Exclusions</button>
+      </div>
+    </div>
+    <div class="panel-b">
+      <div id="summaryTab">
+        <div class="summary-grid">
+          <div class="metric"><div id="mSelected" class="num">0</div><div class="lbl">Selected META</div></div>
+          <div class="metric"><div id="mJiras" class="num">0</div><div class="lbl">Active JIRAs</div></div>
+          <div class="metric"><div id="mCrs" class="num">0</div><div class="lbl">CR Rows</div></div>
+          <div class="metric"><div id="mOpen" class="num">0</div><div class="lbl">Open JIRAs</div></div>
+        </div>
+        <div id="selectedPills" style="margin-top:14px"></div>
+      </div>
+
+      <div id="crsTab" class="hidden">
+        <div class="toolbar">
+                    <input id="crFilter" class="filter" placeholder="Filter CR rows..." oninput="renderCrRows()">
+          <button class="primary small" id="crAiAllBtn" onclick="generateAllCrAiSummaries()"><i class="fas fa-wand-magic-sparkles"></i> Generate AI Summaries</button>
+          <span id="crAiStatus" class="ai-status"></span>
+                    <button class="ghost small" onclick="exportTable('cr')"><i class="fas fa-download"></i> Export CR CSV</button>
+          <button class="ghost small" id="crCopyRecentBtn" onclick="crCopyRecentMetas()"><i class="fas fa-copy"></i> Copy CRs in Recent metas</button>
+
+        </div>
+        <div class="table-wrap">
+          <table>
+                        <thead><tr><th>CR</th><th>JIRA Count</th><th>JIRAs</th><th>Title</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Status</th><th>Age</th><th>Category</th><th>AI Summary</th></tr></thead>
+
+            <tbody id="crBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="jirasTab" class="hidden">
+        <div class="toolbar">
+          <input id="jiraFilter" class="filter" placeholder="Filter open JIRAs..." oninput="renderOpenJiras()">
+          <button class="ghost small" onclick="exportTable('jira')"><i class="fas fa-download"></i> Export JIRA CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>JIRA</th><th>Date</th><th>Title</th><th>META</th><th>Build</th><th>Status</th><th>Reporter</th><th>Component</th><th>Source</th></tr></thead>
+            <tbody id="jiraBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="exclusionsTab" class="hidden">
+        <div class="muted" style="margin-bottom:12px">Exclude JIRA IDs or CR IDs. Exclusions are saved and applied to future submissions for this target.</div>
+        <div class="exclusion-row">
+          <input id="exclusionInput" placeholder="Example: QSTABILITY-12345 or CR4171973">
+          <button class="primary" onclick="addExclusion()"><i class="fas fa-plus"></i> Add</button>
+        </div>
+        <div id="exclusionList" style="margin-top:14px"></div>
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="primary" onclick="saveExclusionsAndRefresh()"><i class="fas fa-save"></i> Save & Refresh</button>
+          <button class="danger" onclick="clearExclusions()"><i class="fas fa-trash"></i> Clear All</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const TARGET = {{ target_name|tojson }};
+const META_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/meta_rows`;
+const CONSOLIDATED_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/consolidated`;
+
+
+const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
+const ORBIT_BASE = 'https://orbit/cr/';
+
+let metaRows = [];
+let filteredMetaRows = [];
+let selectedMeta = new Set();
+let exclusions = [];
+let currentResult = {summary:{}, cr_rows:[], open_jiras:[]};
+let crAiSummaryCache = {};
+
+
+function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function norm(v){ return String(v || '').trim().toUpperCase().replace(/\s+/g, ''); }
+function num(v){ const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
+function fmt(v){ return v == null || v === '' ? '?' : esc(v); }
+
+async function loadMetaRows(){
+
+
+  document.getElementById('metaBody').innerHTML = `<tr><td colspan="8" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading META rows...</p></td></tr>`;
+  try{
+    const res = await fetch(META_API, {headers:{'Accept':'application/json'}});
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load META rows');
+    metaRows = data.meta_rows || [];
+    exclusions = data.excluded || [];
+    renderTopPills();
+    renderExclusions();
+    applyMetaFilter();
+  }catch(err){
+    document.getElementById('metaBody').innerHTML = `<tr><td colspan="8" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
+  }
+}
+
+function renderTopPills(){
+  const hours = metaRows.reduce((s,r)=>s+num(r.hours),0);
+  const crashes = metaRows.reduce((s,r)=>s+num(r.crashes),0);
+  document.getElementById('topPills').innerHTML = `
+    <span class="pill"><i class="fas fa-layer-group"></i> ${metaRows.length} META rows</span>
+    <span class="pill"><i class="fas fa-clock"></i> ${hours.toFixed(2)} Hours</span>
+    <span class="pill warn"><i class="fas fa-bug"></i> ${crashes} Crashes</span>
+    <span class="pill ${exclusions.length ? 'warn' : 'good'}"><i class="fas fa-ban"></i> ${exclusions.length} Exclusions</span>`;
+}
+
+function applyMetaFilter(){
+  const q = (document.getElementById('metaFilter').value || '').toLowerCase();
+  filteredMetaRows = q ? metaRows.filter(r => JSON.stringify(r).toLowerCase().includes(q)) : [...metaRows];
+  renderMetaRows();
+}
+
+function renderMetaRows(){
+  const body = document.getElementById('metaBody');
+  document.getElementById('metaCount').textContent = `${filteredMetaRows.length} row${filteredMetaRows.length === 1 ? '' : 's'} shown`;
+  if(!filteredMetaRows.length){
+    body.innerHTML = `<tr><td colspan="8" class="empty"><i class="fas fa-inbox"></i><p>No META rows found.</p></td></tr>`;
+    return;
+  }
+  body.innerHTML = filteredMetaRows.map(r => {
+    const metaId = String(r.meta_id || '');
+    const builds = (r.meta_builds || []).map(b => esc(b)).join('<br>');
+    return `<tr>
+      <td><input class="check" type="checkbox" ${selectedMeta.has(metaId) ? 'checked' : ''} onchange="toggleMeta('${esc(metaId)}', this.checked)"></td>
+      <td>${fmt(r.s_no)}</td>
+      <td><b>${fmt(metaId)}</b></td>
+      <td>${fmt(String(r.first_jira_date || '').substring(0,10))}</td>
+      <td class="meta-builds">${builds || '?'}</td>
+      <td>${fmt(r.hours)}</td>
+      <td><b style="color:${num(r.crashes)>0 ? '#dc2626' : '#16a34a'}">${fmt(r.crashes)}</b></td>
+      <td>${fmt(r.mtbf)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleMeta(metaId, checked){ checked ? selectedMeta.add(metaId) : selectedMeta.delete(metaId); }
+function selectAllVisible(checked){ filteredMetaRows.forEach(r => checked ? selectedMeta.add(String(r.meta_id || '')) : selectedMeta.delete(String(r.meta_id || ''))); renderMetaRows(); }
+
+async function submitSelection(){
+  const metaIds = [...selectedMeta].filter(Boolean);
+  if(!metaIds.length){ alert('Please select at least one META row.'); return; }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Loading...';
+  try{
+    const res = await fetch(CONSOLIDATED_API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({meta_ids: metaIds})
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load consolidated data');
+    currentResult = data;
+    exclusions = data.excluded || exclusions;
+    renderResults();
+    showTab('summary');
+    document.getElementById('resultsPanel').classList.remove('hidden');
+    document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(err){
+    alert(err.message || err);
+  }finally{
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Selected';
+  }
+}
+
+function renderResults(){
+  const s = currentResult.summary || {};
+  document.getElementById('mSelected').textContent = (currentResult.selected_meta_ids || []).length;
+  document.getElementById('mJiras').textContent = s.total_jiras || 0;
+  document.getElementById('mCrs').textContent = s.cr_count || 0;
+  document.getElementById('mOpen').textContent = s.open_jira_count || 0;
+  document.getElementById('selectedPills').innerHTML = (currentResult.selected_meta_ids || []).map(x => `<span class="pill"><i class="fas fa-microchip"></i> ${esc(x)}</span>`).join('');
+  renderCrRows();
+  renderOpenJiras();
+  renderExclusions();
+}
+
+function showTab(name){
+  for(const key of ['summary','crs','jiras','exclusions']){
+    document.getElementById(`${key}Tab`).classList.toggle('hidden', key !== name);
+    document.getElementById(`tab${key[0].toUpperCase()+key.slice(1)}`).classList.toggle('active', key === name);
+  }
+}
+
+function crLink(value){
+  const text = String(value || '').trim();
+  const m = text.match(/(\d{6,8})/);
+  if(!m) return fmt(text);
+  return `<a class="linkBtn" href="${ORBIT_BASE}${encodeURIComponent(m[1])}" target="_blank" rel="noopener">CR${m[1]}</a>`;
+}
+
+function jiraLink(value){
+  const text = String(value || '').trim();
+  return text ? `<a class="linkBtn" href="${JIRA_BASE}${encodeURIComponent(text)}" target="_blank">${esc(text)}</a>` : '?';
+}
+
+function getVisibleCrRows(){
+  const q = (document.getElementById('crFilter')?.value || '').toLowerCase();
+  return (currentResult.cr_rows || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
+}
+
+function crIdFromRow(r){
+  return (String((r || {}).mapped_cr || (r || {}).cr || '').match(/(\d{6,8})/) || [])[1] || '';
+}
+
+function renderCrRows(){
+  const body = document.getElementById('crBody');
+  const rows = getVisibleCrRows();
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No CR rows found.</p></td></tr>`; return; }
+  body.innerHTML = rows.map(r => {
+    const crId = crIdFromRow(r);
+    const cached = crId ? (crAiSummaryCache[crId] || '') : '';
+    return `<tr>
+      <td>${crLink(r.mapped_cr || r.cr)}</td>
+      <td><b>${fmt(r.jira_count)}</b></td>
+      <td>${(r.jira_display || []).map(jiraLink).join('<br>') || '?'}</td>
+      <td>${fmt(r.cr_title)}</td>
+      <td>${fmt(r.cr_area)}</td>
+      <td>${fmt(r.cr_subsystem)}</td>
+      <td>${fmt(r.cr_functionality)}</td>
+      <td>${fmt(r.cr_status)}</td>
+      <td>${fmt(r.cr_age)}</td>
+      <td>${fmt(r.cr_category)}</td>
+      <td class="ai-summary-cell" id="aiSummary_${esc(crId)}">${cached ? esc(cached) : '<span class="muted">Click Generate AI Summaries</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function generateAllCrAiSummaries(){
+  const rows = getVisibleCrRows().filter(r => crIdFromRow(r));
+  if(!rows.length){ alert('No CR rows available for AI summary.'); return; }
+  const btn = document.getElementById('crAiAllBtn');
+  const status = document.getElementById('crAiStatus');
+  const oldHtml = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Generating...'; }
+  if(status) status.textContent = `0/${rows.length}`;
+
+  rows.forEach(r => {
+    const id = crIdFromRow(r);
+    const cell = document.getElementById(`aiSummary_${id}`);
+    if(cell){ cell.className = 'ai-summary-cell loading'; cell.textContent = 'Generating...'; }
+  });
+
+  let done = 0;
+  await Promise.all(rows.map(async (r) => {
+    const crId = crIdFromRow(r);
+    const cell = document.getElementById(`aiSummary_${crId}`);
+    try{
+      const res = await fetch('/api/cr_ai_summary', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify({
+          cr_number: crId,
+          one_line: true,
+          model: 'anthropic::claude-4-6-sonnet:1M',
+          prompt: `cr/${crId} need overall summary in single line`,
+          cr_data: {
+            cr_title: r.cr_title,
+            cr_status: r.cr_status,
+            cr_area: r.cr_area,
+            cr_subsystem: r.cr_subsystem,
+            cr_functionality: r.cr_functionality,
+            cr_age: r.cr_age,
+            jira_count: r.jira_count,
+            mapped_cr: r.mapped_cr || r.cr,
+            cr_category: r.cr_category
+          }
+        })
+      });
+      const data = await res.json();
+      if(!res.ok || data.error) throw new Error(data.error || 'AI summary failed');
+      const summary = String(data.summary || '').replace(/\*\*/g,'').replace(/^✨\s*/,'').trim() || 'No summary returned.';
+      crAiSummaryCache[crId] = summary;
+      if(cell){ cell.className = 'ai-summary-cell'; cell.textContent = summary; }
+    }catch(err){
+      if(cell){ cell.className = 'ai-summary-cell error'; cell.textContent = err.message || 'AI summary failed.'; }
+    }finally{
+      done += 1;
+      if(status) status.textContent = `${done}/${rows.length}`;
+    }
+  }));
+
+  if(btn){ btn.disabled = false; btn.innerHTML = oldHtml; }
+  if(status) status.textContent = 'Done';
+  setTimeout(() => { if(status) status.textContent = ''; }, 2500);
+}
+
+
+function renderOpenJiras(){
+  const body = document.getElementById('jiraBody');
+  const q = (document.getElementById('jiraFilter')?.value || '').toLowerCase();
+  const rows = (currentResult.open_jiras || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
+  if(!rows.length){ body.innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-inbox"></i><p>No open/unmapped JIRAs found.</p></td></tr>`; return; }
+  body.innerHTML = rows.map(r => `<tr>
+    <td>${jiraLink(r.stability_ticket)}</td>
+    <td>${fmt(String(r.jira_date || '').substring(0,10))}</td>
+    <td>${fmt(r.jira_title)}</td>
+    <td>${fmt(r.meta_id)}</td>
+    <td>${fmt(r.metabuild)}</td>
+    <td>${fmt(r.status)}</td>
+    <td>${fmt(r.reporter)}</td>
+    <td>${fmt(r.component)}</td>
+    <td>${fmt(r.source_table)}</td>
+  </tr>`).join('');
+}
+
+function renderExclusions(){
+  const box = document.getElementById('exclusionList');
+  if(!box) return;
+  if(!exclusions.length){ box.innerHTML = '<span class="pill good"><i class="fas fa-check"></i> No exclusions configured</span>'; return; }
+  box.innerHTML = exclusions.map(x => `<span class="pill bad">${esc(x)} <button class="danger small" style="padding:3px 7px;margin-left:6px" onclick="removeExclusion('${esc(x)}')">?</button></span>`).join('');
+}
+function addExclusion(){
+  const input = document.getElementById('exclusionInput');
+  const value = norm(input.value);
+  if(!value) return;
+  if(!exclusions.map(norm).includes(value)) exclusions.push(value);
+  input.value = '';
+  renderExclusions();
+  renderTopPills();
+}
+function removeExclusion(value){ exclusions = exclusions.filter(x => norm(x) !== norm(value)); renderExclusions(); renderTopPills(); }
+function clearExclusions(){ if(confirm('Clear all exclusions for this target?')){ exclusions = []; renderExclusions(); renderTopPills(); } }
+
+async function saveExclusionsAndRefresh(){
+  const metaIds = [...selectedMeta].filter(Boolean);
+  try{
+    const res = await fetch(CONSOLIDATED_API, {
+      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({meta_ids: metaIds, excluded: exclusions})
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to save exclusions');
+    exclusions = data.excluded || [];
+    currentResult = data;
+    renderTopPills();
+    renderResults();
+    showTab('summary');
+  }catch(err){ alert(err.message || err); }
+}
+
+function exportTable(type){
+  const rows = type === 'cr' ? (currentResult.cr_rows || []) : (currentResult.open_jiras || []);
+  if(!rows.length){ alert('No rows to export.'); return; }
+  const cols = type === 'cr'
+    ? ['mapped_cr','jira_count','jira_display','cr_title','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','cr_category']
+    : ['stability_ticket','jira_date','jira_title','meta_id','metabuild','status','reporter','component','source_table'];
+  const csvRows = [cols.join(',')].concat(rows.map(r => cols.map(c => `"${String(Array.isArray(r[c]) ? r[c].join('; ') : (r[c] ?? '')).replace(/"/g,'""')}"`).join(',')));
+  const blob = new Blob([csvRows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `live_status_${TARGET}_${type}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('metaFilter').addEventListener('input', applyMetaFilter);
+document.getElementById('exclusionInput').addEventListener('keydown', e => { if(e.key === 'Enter') addExclusion(); });
+loadMetaRows();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADAS MTBF SECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNIQUE CRs BY TARGET  (FLEX / ADAS / IVI)
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  var _ucbData   = null;   // full API response
+  var _ucbTab    = 'FLEX'; // active tab
+  var _ucbOpen   = false;
+
+  var TAB_CFG = {
+    FLEX: { color:'#c2410c', bg:'#fff7ed', border:'#f97316', dot:'#f97316' },
+    ADAS: { color:'#15803d', bg:'#f0fdf4', border:'#22c55e', dot:'#22c55e' },
+    IVI:  { color:'#1d4ed8', bg:'#eff6ff', border:'#3b82f6', dot:'#3b82f6' },
+  };
+
+  var COLS = [
+    {key:'crid',           label:'CR ID'},
+    {key:'title',          label:'Title'},
+    {key:'area',           label:'Area'},
+    {key:'subsystem',      label:'Subsystem'},
+    {key:'func',           label:'Functionality'},
+    {key:'status',         label:'Status'},
+    {key:'seen_in_targets',label:'Seen In Targets'},
+    {key:'label',          label:'Label'},
+    {key:'host',           label:'Host'},
+    {key:'si',             label:'SI'},
+  ];
+
+  window.ucbToggle = function(){
+    _ucbOpen = !_ucbOpen;
+    document.getElementById('ucbBody').style.display = _ucbOpen ? 'block' : 'none';
+    var ch = document.getElementById('ucbChevron');
+    if(ch) ch.style.transform = _ucbOpen ? 'rotate(180deg)' : '';
+    if(_ucbOpen && !_ucbData) ucbLoad();
+  };
+
+  window.ucbLoad = function(){
+    var sp = document.getElementById('ucbSpinner');
+    var msg = document.getElementById('ucbMsg');
+    if(sp) sp.style.display='inline';
+    if(msg) msg.textContent='Loading...';
+    fetch('/api/live_status_view/'+encodeURIComponent(TARGET)+'/unique_crs_by_target',{cache:'no-store'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(sp) sp.style.display='none';
+        if(!d.ok){
+          if(msg) msg.textContent='Error: '+(d.error||'unknown');
+          return;
+        }
+        _ucbData = d;
+        var counts = d.counts || {};
+        // Update count badges
+        ['FLEX','ADAS','IVI'].forEach(function(t){
+          var el = document.getElementById('ucbCnt'+t);
+          if(el) el.textContent = counts[t]||0;
+        });
+        var badge = document.getElementById('ucbTotalBadge');
+        if(badge){ badge.textContent = (counts.total||0)+' total'; badge.style.display='inline'; }
+        if(msg) msg.textContent = 'Loaded '+( counts.total||0)+' unique CRs';
+        ucbShowTab(_ucbTab);
+      })
+      .catch(function(e){
+        if(sp) sp.style.display='none';
+        if(msg) msg.textContent='Error: '+e;
+      });
+  };
+
+  window.ucbShowTab = function(tab){
+    _ucbTab = tab;
+    // Update tab button styles
+    ['FLEX','ADAS','IVI'].forEach(function(t){
+      var btn = document.getElementById('ucbTab'+t);
+      if(!btn) return;
+      var cfg = TAB_CFG[t];
+      if(t===tab){
+        btn.style.background = cfg.border;
+        btn.style.color = '#fff';
+        btn.style.borderColor = cfg.border;
+        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,.15)';
+        btn.style.transform = 'scale(1.04)';
+      } else {
+        btn.style.background = cfg.bg;
+        btn.style.color = cfg.color;
+        btn.style.borderColor = cfg.border;
+        btn.style.boxShadow = '';
+        btn.style.transform = '';
+      }
+    });
+    if(!_ucbData) return;
+    var rows = (_ucbData.buckets||{})[tab] || [];
+    _ucbRenderTable(rows, tab);
+  };
+
+  function _ucbRenderTable(rows, tab){
+    var cfg = TAB_CFG[tab] || TAB_CFG.IVI;
+    var thead = document.getElementById('ucbThead');
+    var tbody = document.getElementById('ucbTbody');
+    if(!thead||!tbody) return;
+
+    // Header
+    var thHtml = '<tr style="background:'+cfg.bg+'">';
+    thHtml += '<th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:900;color:'+cfg.color+';border-bottom:2px solid '+cfg.border+';white-space:nowrap">#</th>';
+    COLS.forEach(function(c){
+      thHtml += '<th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:900;color:'+cfg.color+';border-bottom:2px solid '+cfg.border+';white-space:nowrap">'+c.label+'</th>';
+    });
+    thHtml += '</tr>';
+    thead.innerHTML = thHtml;
+
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="'+(COLS.length+1)+'" style="padding:14px;color:#94a3b8;text-align:center">No CRs in this bucket.</td></tr>';
+      return;
+    }
+
+    var html = '';
+    rows.forEach(function(row, i){
+      html += '<tr style="border-bottom:1px solid #f1f5f9" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">';
+      html += '<td style="padding:6px 10px;color:#94a3b8;font-size:11px;font-weight:700">'+(i+1)+'</td>';
+      COLS.forEach(function(c){
+        var val = row[c.key];
+        if(val===null||val===undefined) val='';
+        var cell = String(val);
+        // Seen in targets: render as pills
+        if(c.key==='seen_in_targets' && cell){
+          var parts = cell.split(';').filter(function(p){return p.trim();});
+          cell = parts.map(function(p){
+            p = p.trim();
+            var bg='#e0e7ff',co='#3730a3';
+            if(p.toUpperCase().indexOf('FLEX')>=0){bg='#ffedd5';co='#c2410c';}
+            else if(p.toUpperCase().indexOf('ADAS')>=0){bg='#dcfce7';co='#15803d';}
+            return '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:'+bg+';color:'+co+';font-size:10px;font-weight:800;margin:1px">'+p+'</span>';
+          }).join('');
+        } else if(c.key==='crid' && cell){
+          cell = '<strong style="color:#1e40af">'+cell+'</strong>';
+        } else {
+          // Truncate long text
+          if(cell.length>60) cell='<span title="'+cell.replace(/"/g,'&quot;')+'">'+cell.slice(0,58)+'...</span>';
+        }
+        html += '<td style="padding:6px 10px;color:#0f172a;font-size:11px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis">'+cell+'</td>';
+      });
+      html += '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  // Auto-load when page is ready
+  document.addEventListener('DOMContentLoaded', function(){
+    // Show panel open by default
+    _ucbOpen = true;
+    document.getElementById('ucbBody').style.display = 'block';
+    var ch = document.getElementById('ucbChevron');
+    if(ch) ch.style.transform = 'rotate(180deg)';
+    ucbLoad();
+  });
+})();
+
+const ADAS_API_BASE = `/api/live_status_view/${encodeURIComponent(TARGET)}/adas_mtbf`;
+let _adasRows      = [];    // all rows for current view
+let _adasChart     = null;  // Chart.js instance
+let _adasView      = 'ADAS'; // current view: ADAS / IVI / FLEX — each has its own JSON
+let _adasNFilter   = 10;    // default: Last 10
+let _adasCrashTypes = ['system','ssr','process']; // which crash types count toward Total Crashes
+let _adasTableRows = [];    // rows shown in table after search
+
+// Read which crash types are currently checked
+function _adasGetCrashTypes(){
+  const types = [];
+  if(document.querySelector('#ck_system input')?.checked)  types.push('system');
+  if(document.querySelector('#ck_ssr input')?.checked)     types.push('ssr');
+  if(document.querySelector('#ck_process input')?.checked) types.push('process');
+  return types.length ? types : ['system','ssr','process'];
+}
+
+// Compute effective total crashes + MTBF for a row given active crash types (display only)
+function _adasEffective(r, crashTypes){
+  const sys  = Number(r.system_crashes  || 0);
+  const ssr  = Number(r.ssr_crashes     || 0);
+  const proc = Number(r.process_crashes || 0);
+  let total = 0;
+  if(crashTypes.includes('system'))  total += sys;
+  if(crashTypes.includes('ssr'))     total += ssr;
+  if(crashTypes.includes('process')) total += proc;
+  // If all three are checked (or no individual values), fall back to stored total_crashes
+  if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
+  const hours = Number(r.hours || 0);
+  const storedMtbf = Number(r.mtbf || 0);
+  // Recompute MTBF only when crash types change from the full set
+  const allChecked = crashTypes.includes('system') && crashTypes.includes('ssr') && crashTypes.includes('process');
+  const mtbf = allChecked && storedMtbf > 0
+    ? storedMtbf
+    : (total > 0 && hours > 0 ? Math.round((hours / total) * 10) / 10 : storedMtbf);
+  return { total, mtbf };
+}
+
+// ── data load (fetches the JSON for the selected view) ──────────────────────────
+async function adasLoadData(force){
+  const sp  = document.getElementById('adasSpinner');
+  const msg = document.getElementById('adasMsg');
+  if(sp)  sp.style.display = 'inline';
+  if(msg) msg.textContent  = '';
+  try{
+    const res  = await fetch(`${ADAS_API_BASE}?view=${encodeURIComponent(_adasView)}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load ADAS MTBF data');
+    _adasRows = data.rows || [];
+    _adasCrashTypes = _adasGetCrashTypes();
+    _adasRenderAll();
+    if(msg && data.updated_at){
+      msg.textContent = `${_adasView} — Updated ${new Date(data.updated_at).toLocaleString()}`;
+      msg.style.color = '#059669';
+    }
+  }catch(err){
+    if(msg){ msg.textContent = 'Error: ' + err.message; msg.style.color = '#dc2626'; }
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+// Switch view → reload JSON for that view
+function adasSwitchView(){
+  _adasView = document.getElementById('adasViewSelect')?.value || 'ADAS';
+  adasLoadData(true);
+}
+
+// Crash-type checkbox changed → instantly recompute Total Crashes + MTBF (no API call, no save)
+function adasCrashTypeChanged(){
+  _adasCrashTypes = _adasGetCrashTypes();
+  _adasRenderAll(); // re-renders chart + table with new effective totals
+}
+
+function adasSetFilter(n, btn){
+  _adasNFilter = n;
+  document.querySelectorAll('.adas-flt-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  _adasRenderAll();
+}
+
+function _adasRenderAll(){
+  _adasCrashTypes = _adasGetCrashTypes();
+  const chartRows = _adasNFilter > 0 ? _adasRows.slice(-_adasNFilter) : [..._adasRows];
+  _adasRenderChart(chartRows, _adasCrashTypes);
+  _adasRenderTable(_adasRows, _adasCrashTypes);
+}
+
+// ── chart ────────────────────────────────────────────────────────────────────────
+function _adasRenderChart(rows, crashTypes){
+  crashTypes = crashTypes || ['system','ssr','process'];
+  const canvas = document.getElementById('adasChartCanvas');
+  const empty  = document.getElementById('adasChartEmpty');
+  if(!canvas) return;
+  if(!rows.length){
+    canvas.style.display = 'none';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  if(empty) empty.style.display = 'none';
+
+  const labels    = rows.map(r => r.meta_id || '');
+  const hoursVals = rows.map(r => Number(r.hours || 0));
+  // Use effective totals based on active crash types
+  const crashVals = rows.map(r => _adasEffective(r, crashTypes).total);
+  const mtbfVals  = rows.map(r => _adasEffective(r, crashTypes).mtbf);
+
+  const minW = Math.max(700, labels.length * 90);
+  canvas.width  = minW; canvas.height = 420;
+  canvas.style.width = minW + 'px'; canvas.style.height = '420px';
+
+  if(_adasChart){ _adasChart.destroy(); _adasChart = null; }
+
+  const datalabelsPlugin = {
+    id: 'datalabels',
+    afterDatasetsDraw(chart){
+      const ctx = chart.ctx;
+      chart.data.datasets.forEach((ds, di) => {
+        const meta = chart.getDatasetMeta(di);
+        if(meta.hidden) return;
+        meta.data.forEach((el, i) => {
+          const val = ds.data[i];
+          if(val == null || val === 0) return;
+          ctx.save();
+          ctx.font = 'bold 10px Inter,Arial,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = ds.type === 'bar' ? '#1e3a8a' : ds.borderColor;
+          ctx.fillText(String(val), el.x, ds.type === 'bar' ? el.y - 3 : el.y - 7);
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  _adasChart = new Chart(canvas, {
+    type: 'bar',
+    plugins: [datalabelsPlugin],
+    data: {
+      labels,
+      datasets: [
+        { type:'bar',  label:'Hours',   data:hoursVals, backgroundColor:'#1f4e79', borderColor:'#1f4e79', borderWidth:0, borderRadius:2, maxBarThickness:40, yAxisID:'yHours', order:2 },
+                { type:'line', label:'Crashes', data:crashVals, borderColor:'#c55a11', backgroundColor:'rgba(197,90,17,.15)', borderWidth:2, pointRadius:5, pointBackgroundColor:'#c55a11', pointBorderColor:'#fff', pointBorderWidth:1.5, tension:0, yAxisID:'yCrashes', order:1 },
+
+        { type:'line', label:'MTBF',    data:mtbfVals,  borderColor:'#ed7d31', backgroundColor:'transparent', borderWidth:2, pointRadius:5, pointBackgroundColor:'#ed7d31', pointBorderColor:'#fff', pointBorderWidth:1.5, tension:0, yAxisID:'yMtbf', order:0 },
+      ],
+    },
+    options: {
+      responsive:false, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        title:{ display:true, text:`${String(TARGET||'').toUpperCase().replace(/_/g,' ')} ${_adasView} MTBF`, font:{size:14,weight:'700'}, color:'#1e293b', padding:{bottom:10} },
+        legend:{
+          display:true, position:'bottom',
+          labels:{ usePointStyle:true, font:{size:12,weight:'700'}, padding:18,
+            generateLabels(chart){ return chart.data.datasets.map((ds,i)=>({ text:ds.label, fillStyle:ds.type==='bar'?ds.backgroundColor:ds.borderColor, strokeStyle:ds.borderColor, pointStyle:ds.type==='bar'?'rect':'circle', hidden:chart.getDatasetMeta(i).hidden, datasetIndex:i })); }
+          }
+        },
+        tooltip:{ backgroundColor:'rgba(15,23,42,.92)', titleFont:{size:13,weight:'bold'}, bodyFont:{size:12}, padding:12, cornerRadius:10,
+          callbacks:{ label:ctx=>{ const v=ctx.parsed.y; if(ctx.dataset.label==='Hours') return `  Hours: ${v}`; if(ctx.dataset.label==='Crashes') return `  Crashes: ${v}`; return `  MTBF: ${v}`; } }
+        }
+      },
+            scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:11,weight:'700'},color:'#334155',maxRotation:0} },
+        yHours:{
+          type:'linear', position:'left', beginAtZero:true,
+          title:{display:true,text:'Hours',color:'#1f4e79',font:{size:12,weight:'900'},padding:{bottom:6}},
+          ticks:{color:'#1f4e79',font:{size:11,weight:'700'}},
+          grid:{color:'rgba(226,232,240,.7)'}
+        },
+        yCrashes:{
+          type:'linear', position:'left', beginAtZero:true, offset:true,
+          title:{display:true,text:'Crashes',color:'#c55a11',font:{size:12,weight:'900'},padding:{bottom:6}},
+          ticks:{color:'#c55a11',font:{size:11,weight:'700'}},
+          grid:{drawOnChartArea:false}
+        },
+        yMtbf:{
+          type:'linear', position:'right', beginAtZero:true,
+          title:{display:true,text:'MTBF',color:'#ed7d31',font:{size:12,weight:'900'},padding:{bottom:6}},
+          ticks:{color:'#ed7d31',font:{size:11,weight:'700'}},
+          grid:{drawOnChartArea:false}
+        },
+      },
+      layout:{ padding:{top:24,bottom:8,left:18,right:18} },
+
+    },
+  });
+}
+
+// ── table ────────────────────────────────────────────────────────────────────────
+function _adasRenderTable(rows, crashTypes){
+  crashTypes = crashTypes || ['system','ssr','process'];
+  const body = document.getElementById('adasTableBody');
+  const q    = (document.getElementById('adasTableSearch')?.value || '').toLowerCase();
+  const filtered = q ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(q)) : [...rows];
+  _adasTableRows = filtered;
+  document.getElementById('adasRowCount').textContent = `${filtered.length} row${filtered.length === 1 ? '' : 's'}`;
+  if(!filtered.length){
+    body.innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-inbox"></i><p>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</p></td></tr>`;
+    return;
+  }
+  body.innerHTML = filtered.map(r => {
+    const { total: effTotal, mtbf: effMtbf } = _adasEffective(r, crashTypes);
+    const mtbfBadge = effMtbf > 0
+      ? `<span class="adas-mtbf-badge">${effMtbf}</span>`
+      : '<span class="muted">—</span>';
+    const sys  = r.system_crashes  !== '' && r.system_crashes  != null ? r.system_crashes  : '—';
+    const ssr  = r.ssr_crashes     !== '' && r.ssr_crashes     != null ? r.ssr_crashes     : '—';
+    const proc = r.process_crashes !== '' && r.process_crashes != null ? r.process_crashes : '—';
+    // Highlight unchecked crash type cells as dimmed
+    const sysDim  = !crashTypes.includes('system')  ? 'opacity:.35;' : '';
+    const ssrDim  = !crashTypes.includes('ssr')     ? 'opacity:.35;' : '';
+    const procDim = !crashTypes.includes('process') ? 'opacity:.35;' : '';
+    return `<tr>
+      <td style="text-align:center">${esc(r.s_no || '')}</td>
+      <td style="white-space:nowrap">${esc(r.date || '')}</td>
+      <td><b style="color:#1e3a8a">${esc(r.meta_id || '')}</b></td>
+      <td style="text-align:right;font-weight:700">${esc(r.hours || '')}</td>
+      <td style="text-align:center;color:#dc2626;font-weight:800;border-left:2px solid #fca5a5;${sysDim}">${esc(sys)}</td>
+      <td style="text-align:center;color:#d97706;font-weight:800;${ssrDim}">${esc(ssr)}</td>
+      <td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;${procDim}">${esc(proc)}</td>
+      <td style="text-align:center;font-weight:900">${effTotal > 0 ? effTotal : '—'}</td>
+      <td style="text-align:center">${mtbfBadge}</td>
+      <td style="white-space:nowrap">
+        <button class="adas-edit-btn" onclick="adasOpenEditModal('${esc(r.id || '')}')">
+          <i class="fas fa-pen"></i> Edit
+        </button>
+        <button class="adas-del-btn" onclick="adasDeleteRow('${esc(r.id || '')}')" style="margin-left:4px">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function adasFilterTable(){ _adasRenderTable(_adasRows, _adasCrashTypes); }
+
+// ── modal ────────────────────────────────────────────────────────────────────────
+function _adasModalClear(){
+  ['adasModalRowId','adasModalMetaId','adasModalHours',
+   'adasModalSystem','adasModalSsr','adasModalProcess',
+   'adasModalTotal','adasModalMtbf'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value = ''; delete el.dataset.manualEdit; }
+  });
+  document.getElementById('adasModalMsg').textContent = '';
+}
+
+function adasOpenAddModal(){
+  document.getElementById('adasModalTitle').textContent = 'Add MTBF Build';
+  _adasModalClear();
+  document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
+  // Hide the view-selector row when opened from the ADAS MTBF panel directly
+  const viewRow = document.getElementById('adasModalViewRow');
+  if(viewRow) viewRow.style.display = 'none';
+  document.getElementById('adasModal').style.display = 'flex';
+  document.getElementById('adasModalMetaId').focus();
+}
+
+// ── Open Add-Build modal pre-filled from a Current Report running-build row ──
+function crAddBuildFromRow(metaId, buildFull, domain){
+  // Resolve domain: use passed domain, else current domain filter, else ADAS
+  const validDomains = ['ADAS','IVI','FLEX'];
+  const targetDomain = String(domain || _crCurrentDomain || 'ADAS').toUpperCase();
+  const resolvedDomain = validDomains.includes(targetDomain) ? targetDomain : 'ADAS';
+
+  // Sync _adasView and the ADAS panel view-selector dropdown
+  _adasView = resolvedDomain;
+  const viewSelect = document.getElementById('adasViewSelect');
+  if(viewSelect) viewSelect.value = resolvedDomain;
+
+  // Reload ADAS MTBF data for the resolved domain so table/chart stay in sync
+  adasLoadData(false);
+
+  // Open the shared modal
+  document.getElementById('adasModalTitle').textContent = 'Add MTBF Build';
+  _adasModalClear();
+  document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
+
+  // Pre-fill Meta-ID when called from a row
+  if(metaId){
+    document.getElementById('adasModalMetaId').value = String(metaId);
+  }
+
+  // Show the view-selector row so the user can confirm / change the domain
+  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  const viewRow = document.getElementById('adasModalViewRow');
+  if(viewRow){
+    viewRow.style.display = 'block';
+    document.querySelectorAll('input[name="adasModalView"]').forEach(radio => {
+      const lbl = radio.closest('label');
+      radio.checked = (radio.value === resolvedDomain);
+      if(lbl){
+        const col = domainColors[radio.value] || '#2563eb';
+        if(radio.checked){
+          lbl.style.background = col;
+          lbl.style.color = '#fff';
+          lbl.style.opacity = '1';
+          lbl.style.transform = 'scale(1.05)';
+        } else {
+          lbl.style.background = '#fff';
+          lbl.style.color = col;
+          lbl.style.opacity = '0.55';
+          lbl.style.transform = '';
+        }
+      }
+    });
+  }
+
+  document.getElementById('adasModal').style.display = 'flex';
+  // Focus hours field if Meta-ID is pre-filled, otherwise focus Meta-ID
+  const focusEl = metaId
+    ? document.getElementById('adasModalHours')
+    : document.getElementById('adasModalMetaId');
+  if(focusEl) setTimeout(() => focusEl.focus(), 80);
+}
+
+// Handle view-selector radio change inside the modal
+function _adasModalViewChanged(radio){
+  if(!radio) return;
+  const newView = radio.value;
+  _adasView = newView;
+  const viewSelect = document.getElementById('adasViewSelect');
+  if(viewSelect) viewSelect.value = newView;
+  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  document.querySelectorAll('input[name="adasModalView"]').forEach(r => {
+    const lbl = r.closest('label');
+    if(!lbl) return;
+    const col = domainColors[r.value] || '#2563eb';
+    if(r.checked){
+      lbl.style.background = col;
+      lbl.style.color = '#fff';
+      lbl.style.opacity = '1';
+      lbl.style.transform = 'scale(1.05)';
+    } else {
+      lbl.style.background = '#fff';
+      lbl.style.color = col;
+      lbl.style.opacity = '0.55';
+      lbl.style.transform = '';
+    }
+  });
+  // Reload ADAS data for the newly selected view
+  adasLoadData(false);
+}
+
+function adasOpenEditModal(rowId){
+  const row = _adasRows.find(r => String(r.id || '') === String(rowId));
+  if(!row){ alert('Row not found.'); return; }
+  document.getElementById('adasModalTitle').textContent = 'Edit MTBF Build';
+  _adasModalClear();
+  document.getElementById('adasModalRowId').value  = row.id   || '';
+  document.getElementById('adasModalDate').value   = row.date || '';
+  document.getElementById('adasModalMetaId').value = row.meta_id || '';
+  document.getElementById('adasModalHours').value  = row.hours !== '' && row.hours != null ? row.hours : '';
+  document.getElementById('adasModalSystem').value  = row.system_crashes  !== '' && row.system_crashes  != null ? row.system_crashes  : '';
+  document.getElementById('adasModalSsr').value     = row.ssr_crashes     !== '' && row.ssr_crashes     != null ? row.ssr_crashes     : '';
+  document.getElementById('adasModalProcess').value = row.process_crashes !== '' && row.process_crashes != null ? row.process_crashes : '';
+  document.getElementById('adasModalTotal').value   = row.total_crashes   !== '' && row.total_crashes   != null ? row.total_crashes   : '';
+  document.getElementById('adasModalMtbf').value    = row.mtbf            !== '' && row.mtbf            != null ? row.mtbf            : '';
+  document.getElementById('adasModal').style.display = 'flex';
+}
+
+function adasCloseModal(){
+  document.getElementById('adasModal').style.display = 'none';
+}
+
+function adasAutoMtbf(){
+  const sys  = Number(document.getElementById('adasModalSystem').value  || 0);
+  const ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
+  const proc = Number(document.getElementById('adasModalProcess').value || 0);
+  const autoTotal = sys + ssr + proc;
+  const totalEl = document.getElementById('adasModalTotal');
+  if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
+  const hours = Number(document.getElementById('adasModalHours').value || 0);
+  const totalCrashes = Number(totalEl?.value || autoTotal);
+  const mtbfEl = document.getElementById('adasModalMtbf');
+  if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && totalCrashes > 0)
+    mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
+}
+
+document.getElementById('adasModalTotal')?.addEventListener('input', function(){
+  this.dataset.manualEdit = '1';
+  const hours = Number(document.getElementById('adasModalHours').value || 0);
+  const total = Number(this.value || 0);
+  const mtbfEl = document.getElementById('adasModalMtbf');
+  if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && total > 0)
+    mtbfEl.value = Math.round((hours / total) * 10) / 10;
+});
+document.getElementById('adasModalMtbf')?.addEventListener('input', function(){ this.dataset.manualEdit = '1'; });
+document.getElementById('adasModalHours')?.addEventListener('input', adasAutoMtbf);
+
+async function adasSaveModal(){
+  const rowId  = document.getElementById('adasModalRowId').value.trim();
+  const metaId = document.getElementById('adasModalMetaId').value.trim();
+  const msg    = document.getElementById('adasModalMsg');
+  if(!metaId){ msg.textContent = 'Meta-ID is required.'; msg.style.color = '#dc2626'; return; }
+  const payload = {
+    id:              rowId || undefined,
+    view:            _adasView,
+    meta_id:         metaId,
+    date:            document.getElementById('adasModalDate').value    || '',
+    hours:           document.getElementById('adasModalHours').value   || '',
+    system_crashes:  document.getElementById('adasModalSystem').value  || '',
+    ssr_crashes:     document.getElementById('adasModalSsr').value     || '',
+    process_crashes: document.getElementById('adasModalProcess').value || '',
+    total_crashes:   document.getElementById('adasModalTotal').value   || '',
+    mtbf:            document.getElementById('adasModalMtbf').value    || '',
+    crash_types:     ['system','ssr','process'],
+  };
+  const btn = document.getElementById('adasModalSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...';
+  try{
+    const endpoint = rowId ? `${ADAS_API_BASE}/edit` : `${ADAS_API_BASE}/add`;
+    const res  = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Save failed');
+    _adasRows = data.rows || [];
+    _adasRenderAll();
+    adasCloseModal();
+    const adasMsg = document.getElementById('adasMsg');
+    if(adasMsg){ adasMsg.textContent = data.message || 'Saved!'; adasMsg.style.color = '#059669'; }
+  }catch(err){
+    msg.textContent = err.message || 'Save failed.'; msg.style.color = '#dc2626';
+  }finally{
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save';
+  }
+}
+
+async function adasDeleteRow(rowId){
+  if(!confirm('Delete this MTBF row?')) return;
+  try{
+    const res  = await fetch(`${ADAS_API_BASE}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:rowId, view:_adasView }) });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Delete failed');
+    _adasRows = data.rows || [];
+    _adasRenderAll();
+    const adasMsg = document.getElementById('adasMsg');
+    if(adasMsg){ adasMsg.textContent = 'Row deleted.'; adasMsg.style.color = '#059669'; }
+  }catch(err){ alert(err.message || 'Delete failed.'); }
+}
+
+function adasCopyTable(){
+  const rows = _adasTableRows.length ? _adasTableRows : _adasRows;
+  if(!rows.length){ alert('No rows to copy.'); return; }
+  const headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+  const lines   = [headers.join('\t')];
+  rows.forEach(r => lines.push([
+    r.s_no, r.date, r.meta_id, r.hours,
+    r.system_crashes, r.ssr_crashes, r.process_crashes,
+    r.total_crashes, r.mtbf
+  ].map(v => v == null || v === '' ? '' : String(v)).join('\t')));
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => { const m = document.getElementById('adasMsg'); if(m){ m.textContent='Table copied!'; m.style.color='#059669'; } })
+    .catch(() => alert('Copy failed.'));
+}
+
+document.getElementById('adasModal').addEventListener('click', e => { if(e.target === document.getElementById('adasModal')) adasCloseModal(); });
+
+// Initial load
+adasLoadData(false);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CURRENT REPORT SECTION
+// ═══════════════════════════════════════════════════════════════════════════
+const CR_REPORT_DATA_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/current_report_data`;
+const ORBIT_CR_BASE = 'https://orbit/CR/';
+
+let _crJobId        = null;
+let _crRunningRows  = [];   // all running rows from the job
+let _crPersistedJql = '';
+let _crAllRows      = [];   // CR rows from current report
+let _crOpenJiraGroups = [];
+let _crExcludedJiras  = [];
+let _crLastJiraCount  = null;
+let _crJqlCustom      = '';
+let _crCurrentDomain  = 'ADAS';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function _crLeafBuild(v){
+  const s = String(v || '').trim().replace(/\//g, '\\');
+  const parts = s.split('\\').filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : s;
+}
+
+function _crRowBuilds(row){
+  const r = row || {};
+  const out = [];
+  (Array.isArray(r.merged_builds) ? r.merged_builds : []).forEach(b => { if(b) out.push(_crLeafBuild(b)); });
+  ['build_full','display_build','build_id','build'].forEach(k => { if(r[k]) out.push(_crLeafBuild(r[k])); });
+  return [...new Set(out.filter(Boolean))];
+}
+
+function _crInferDomain(row){
+  const text = JSON.stringify(row || '').toLowerCase();
+  if(/\bivi\b|infotainment|cockpit/.test(text)) return 'IVI';
+  if(/\bflex\b|compute|desktop/.test(text)) return 'FLEX';
+  return 'ADAS';
+}
+
+function _crSelectedBuilds(){
+  const checks = [...document.querySelectorAll('.cr-run-check')];
+  const selected = [];
+  checks.forEach(ch => {
+    if(!ch.checked) return;
+    const idx = Number(ch.getAttribute('data-row-idx'));
+    _crRowBuilds((_crRunningRows || [])[idx]).forEach(b => selected.push(b));
+  });
+  return [...new Set(selected)];
+}
+
+function _crJqlQuote(v){ return String(v || '').replace(/"/g, '\\"'); }
+
+function _crGetJql(){
+  const base = (_crJqlCustom || _crPersistedJql || '').trim();
+  if(!base) return '';
+  const allBuilds = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
+  const selected  = _crSelectedBuilds();
+  if(!allBuilds.length || selected.length === allBuilds.length) return base;
+  if(!selected.length) return '';
+  const buildClause = '(' + selected.map(b => `summary ~ "${_crJqlQuote(b)}"`).join(' OR ') + ')';
+  return `${buildClause} AND (${base})`;
+}
+
+function _crUpdateRunPill(){
+  const all      = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
+  const selected = _crSelectedBuilds();
+  const pill = document.getElementById('crRunCount');
+  if(pill) pill.textContent = `${selected.length || 0}/${all.length || 0} build${all.length !== 1 ? 's' : ''} selected`;
+  const allBox = document.getElementById('crSelectAll');
+  if(allBox){
+    allBox.checked       = selected.length > 0 && selected.length === all.length;
+    allBox.indeterminate = selected.length > 0 && selected.length < all.length;
+  }
+}
+
+function crToggleAllBuilds(checked){
+  document.querySelectorAll('.cr-run-check').forEach(ch => ch.checked = checked);
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+function crOnBuildSelectionChanged(){
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── domain filter ─────────────────────────────────────────────────────────────
+function crApplyDomainFilter(domain){
+  _crCurrentDomain = domain;
+  _crRenderRunningBuilds();
+  _crRenderBuildChips();
+}
+
+// ── load job data ─────────────────────────────────────────────────────────────
+async function crLoadData(force){
+  const sp  = document.getElementById('crReportSpinner');
+  const msg = document.getElementById('crReportMsg');
+  if(sp) sp.style.display = 'inline';
+  if(msg) msg.textContent = '';
+  try{
+    const res  = await fetch(CR_REPORT_DATA_API);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load current report data');
+    if(!data.found){
+      document.getElementById('crRunBody').innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-info-circle"></i><p>No live status job found for this target.</p></td></tr>`;
+      document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>No live status job configured for this target.</p></td></tr>`;
+      if(msg){ msg.textContent = 'No job found for this target.'; msg.style.color = '#d97706'; }
+      return;
+    }
+    _crJobId        = data.job_id || null;
+    _crRunningRows  = data.running_rows || [];
+    _crPersistedJql = data.persisted_jql || '';
+    _crJqlCustom    = '';
+
+    // Update job badge
+    const badge  = document.getElementById('crJobBadge');
+    const status = document.getElementById('crJobStatus');
+    if(badge){
+      badge.style.display = 'inline-flex';
+      badge.className = data.job_status === 'published' ? 'pill good' : 'pill warn';
+      badge.innerHTML = data.job_status === 'published'
+        ? `<i class="fas fa-circle" style="font-size:7px"></i> LIVE`
+        : `<i class="fas fa-pen" style="font-size:9px"></i> DRAFT`;
+    }
+    if(status) status.textContent = data.job_name ? `Job: ${data.job_name}` : '';
+
+    _crRenderRunningBuilds();
+    _crRenderBuildChips();
+    _crUpdateRunPill();
+
+    if(_crPersistedJql && _crRunningRows.length){
+      await crRunReport(false);
+    } else {
+      document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>${_crRunningRows.length ? 'No JIRA query configured for this job.' : 'No running builds found.'}</p></td></tr>`;
+    }
+    if(msg && data.job_status === 'published'){
+      msg.textContent = data.published_at ? `Published ${new Date(data.published_at).toLocaleString()}` : 'Published';
+      msg.style.color = '#059669';
+    }
+  }catch(err){
+    if(msg){ msg.textContent = 'Error: ' + err.message; msg.style.color = '#dc2626'; }
+    document.getElementById('crRunBody').innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message)}</p></td></tr>`;
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+// ── render running builds table ───────────────────────────────────────────────
+function _crRenderRunningBuilds(){
+  const body = document.getElementById('crRunBody');
+  if(!body) return;
+  const rows = (_crRunningRows || []).filter(r => {
+    const dom = _crInferDomain(r);
+    return dom === _crCurrentDomain;
+  });
+    if(!rows.length){
+    body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No running builds for ${esc(_crCurrentDomain)} domain.</p></td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((r, i) => {
+    const globalIdx = (_crRunningRows || []).indexOf(r);
+    const hv = String(r.display_hours !== undefined && r.display_hours !== null && r.display_hours !== '' ? r.display_hours : (r.hours || '')).trim();
+    const mv = String(r.display_mtbf  !== undefined && r.display_mtbf  !== null && r.display_mtbf  !== '' ? r.display_mtbf  : (r.mtbf  || '')).trim();
+    const missing = !hv || /^(na|none|--|-)$/i.test(hv);
+    const builds = Array.isArray(r.merged_builds) && r.merged_builds.length ? r.merged_builds : [r.build_full || r.display_build || '--'];
+    const rowDomain = _crInferDomain(r);
+    const metaIdSafe  = String(r.meta_id  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const buildSafe   = String(builds[0]  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const domainSafe  = String(rowDomain  || '').replace(/'/g,"\\'");
+    return `<tr data-cr-row-idx="${globalIdx}">
+      <td><input type="checkbox" class="cr-run-check check" checked data-row-idx="${globalIdx}" onchange="crOnBuildSelectionChanged()" title="Include in JIRA query"></td>
+      <td>${fmt(r.week || r.first_submitted || '--')}</td>
+      <td style="font-weight:950;color:#1e3a8a;white-space:nowrap">${fmt(r.meta_id || '--')}${missing ? '<div class="pill warn" style="margin-top:4px;padding:2px 7px;font-size:10px"><i class="fas fa-user-clock"></i> Not updated</div>' : ''}</td>
+      <td class="build-cell">${builds.map(b => esc(b)).join('<br>')}</td>
+      <td>${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : `<strong>${esc(hv)}</strong>`}</td>
+      <td style="font-weight:800;color:#dc2626">${fmt(r.crashes || '--')}</td>
+      <td style="font-weight:950;color:#6366f1">${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : esc(mv)}</td>
+      <td>${fmt(r.job_count || '--')}</td>
+      <td>${fmt(r.device_count || '--')}</td>
+      <td>${fmt(r.comments || r.test_eng_comment || '--')}</td>
+      <td style="white-space:nowrap">
+        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534"
+          onclick="crAddBuildFromRow('${metaIdSafe}','${buildSafe}','${domainSafe}')"
+          title="Add this build to ADAS MTBF Trend">
+          <i class="fas fa-plus"></i> Add to MTBF
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── render build chips ────────────────────────────────────────────────────────
+function _crRenderBuildChips(){
+  const host = document.getElementById('crBuildChips');
+  if(!host) return;
+  const domainRows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain);
+  const allBuilds  = [...new Set(domainRows.flatMap(_crRowBuilds))];
+  if(!allBuilds.length){ host.innerHTML = '<span class="muted">No builds available</span>'; return; }
+  // Domain chip
+  const domainChip = `<button class="cr-build-chip" onclick="crSelectDomainBuilds()" title="Query all ${esc(_crCurrentDomain)} builds"><i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)}</button>`;
+  const buildChips = allBuilds.map(b => `<button class="cr-build-chip running" onclick="crSelectSingleBuild('${esc(b).replace(/'/g, "&#39;")}')" title="${esc(b)}">${esc(b.length > 40 ? b.slice(-40) : b)}</button>`).join('');
+  host.innerHTML = domainChip + buildChips;
+}
+
+function crSelectDomainBuilds(){
+  // Select all builds in current domain
+  document.querySelectorAll('.cr-run-check').forEach(ch => {
+    const idx = Number(ch.getAttribute('data-row-idx'));
+    const row = (_crRunningRows || [])[idx];
+    ch.checked = row ? _crInferDomain(row) === _crCurrentDomain : false;
+  });
+  crOnBuildSelectionChanged();
+}
+
+function crSelectSingleBuild(buildName){
+  // Uncheck all, then check only the row(s) containing this build
+  document.querySelectorAll('.cr-run-check').forEach(ch => {
+    const idx  = Number(ch.getAttribute('data-row-idx'));
+    const row  = (_crRunningRows || [])[idx];
+    ch.checked = row ? _crRowBuilds(row).includes(buildName) : false;
+  });
+  crOnBuildSelectionChanged();
+}
+
+// ── run CR report ─────────────────────────────────────────────────────────────
+async function crRunReport(force){
+  if(!_crJobId){ return; }
+  const jql = _crGetJql();
+  if(!jql){
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
+    document.getElementById('crOpenJiraSection').style.display = 'none';
+    return;
+  }
+  const sp = document.getElementById('crReportSpinner');
+  if(sp) sp.style.display = 'inline';
+  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
+  try{
+    const res  = await fetch(`/api/live_status/jobs/${encodeURIComponent(_crJobId)}/current_report`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({force: force === true, custom_jql: jql})
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Report failed');
+    const report  = data.report || {};
+    const meta    = report.meta || {};
+    const newCount = meta.jira_count !== undefined ? meta.jira_count : (report.jiras || []).length;
+    const shouldRender = force === true || _crLastJiraCount === null || newCount !== _crLastJiraCount;
+    _crLastJiraCount = newCount;
+    _crExcludedJiras = (report.excluded_jiras || []).map(k => String(k).toUpperCase());
+    if(shouldRender){
+      _crRenderCrTable(report.hierarchical_report || []);
+      _crRenderOpenJiras(report.hierarchical_report || []);
+    }
+    // Summary pills
+    const pills = document.getElementById('crSummaryPills');
+    if(pills){
+      const total   = newCount;
+      const withCr  = (report.hierarchical_report || []).filter(r => r.cr && r.cr !== 'NO_CR').reduce((s, r) => s + (r.cr_count || 0), 0);
+      const selCount = _crSelectedBuilds().length;
+      pills.innerHTML = `<span class="pill"><i class="fas fa-vial"></i> ${selCount} builds</span><span class="pill"><i class="fas fa-ticket-alt"></i> ${total} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${withCr} with CR</span><span class="pill warn"><i class="fas fa-circle-exclamation"></i> ${_crOpenJiraGroups.length} open JIRAs</span>`;
+    }
+    const msg = document.getElementById('crReportMsg');
+    const checkedAt = meta.last_fresh_check_at || meta.generated_at || '';
+    if(msg && checkedAt) msg.textContent = `Last check: ${new Date(checkedAt).toLocaleString()}`;
+  }catch(err){
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-exclamation-triangle" style="color:#b91c1c"></i> ${esc(String(err))}</td></tr>`;
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+function _crIsCycleMapped(j){
+  const mt = String(j.mapping_type || '').toLowerCase();
+  const fr = String(j.final_resolution || j.resolution || '').toLowerCase();
+  const fs = String(j.final_status || '').toLowerCase();
+  return mt.includes('cycl') || fr.includes('cycl') || fr.includes('cycle') || (fs === 'resolved' && (fr.includes('cycl') || mt.includes('cycl')));
+}
+
+function _crShouldShowOpen(j){
+  const st = String(j.final_status || j.status || '').toLowerCase();
+  const fr = String(j.final_resolution || j.resolution || '').toLowerCase();
+  if(st === 'rejected') return false;
+  if((st === 'closed' || st === 'resolved') && ['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn'].includes(fr)) return false;
+  if(st.includes('transfer')) return false;
+  if(_crIsCycleMapped(j)) return true;
+  return !(st.includes('closed') || st.includes('resolved'));
+}
+
+function _crAgeColor(d){ const n = parseInt(d || 0); return n > 30 ? '#b91c1c' : n > 14 ? '#d97706' : '#16a34a'; }
+
+function _crRenderCrTable(reportRows){
+  const crRows = (reportRows || []).filter(r => r.cr && r.cr !== 'NO_CR').map(r => ({
+    cr: r.cr, jiras: r.jiras || [], title: r.cr_title || '',
+    area: r.cr_area || r.area || '', sub: r.cr_subsystem || r.subsystem || '',
+    func: r.cr_function || r.cr_functionality || r.functionality || '',
+    date: r.cr_date || r.cr_built_date || '', age: r.cr_age || r.overall_age,
+    count: r.cr_count || ((r.jiras || []).length),
+    parent: r.cr_parent || r.parent_cr || r.mapped_cr || ''
+  })).sort((a, b) => (b.count || 0) - (a.count || 0));
+  _crAllRows = crRows;
+  const body = document.getElementById('crReportBody');
+  if(!crRows.length){
+    body.innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-check-circle" style="color:#16a34a"></i> No CRs found.</td></tr>`;
+    return;
+  }
+  body.innerHTML = crRows.map((g, i) => {
+    const crId     = String(g.cr || '').replace(/^CR/i, '');
+    const crLink   = crId ? `<a class="linkBtn" href="${ORBIT_CR_BASE}${esc(crId)}" target="_blank">${esc(g.cr)}</a>` : '--';
+    const parentId = String(g.parent || '').replace(/^CR/i, '');
+    const parentLink = parentId && parentId !== crId ? `<a class="linkBtn" href="${ORBIT_CR_BASE}${esc(parentId)}" target="_blank">${esc(g.parent)}</a>` : '--';
+    const age = g.age !== undefined && g.age !== null && g.age !== '' ? Number(g.age) : (g.date ? Math.floor((Date.now() - new Date(g.date).getTime()) / 86400000) : null);
+    const ageHtml = age != null ? `<span style="font-weight:900;color:${_crAgeColor(age)}">${age}d</span>` : '--';
+    return `<tr>
+      <td class="muted" style="font-weight:800">${i + 1}</td>
+      <td>${crLink}</td>
+      <td style="font-weight:650;max-width:300px">${esc(g.title || '--')}</td>
+      <td style="text-align:center;font-weight:950;color:#6366f1">${g.count || 0}</td>
+      <td>${esc(g.area || '--')}</td>
+      <td>${esc(g.sub || '--')}</td>
+      <td>${esc(g.func || '--')}</td>
+      <td>${parentLink}</td>
+      <td style="text-align:center">${ageHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _crRenderOpenJiras(reportRows){
+  const groups = {};
+  (reportRows || []).forEach(crRow => (crRow.jiras || []).forEach(j => {
+    if(crRow.cr && crRow.cr !== 'NO_CR' && !_crIsCycleMapped(j)) return;
+    const key = String(j.final_key || j.key || '').toUpperCase();
+    if(!key || _crExcludedJiras.includes(key) || !_crShouldShowOpen(j)) return;
+    if(!groups[key]) groups[key] = {key, grouping: j.mapping_type || 'Unmapped', occurrence: 0, title: j.final_summary || j.title || j.summary || '', status: j.final_status || j.status || '', items: []};
+    groups[key].occurrence++;
+    groups[key].items.push(j);
+  }));
+  _crOpenJiraGroups = Object.values(groups).sort((a, b) => b.occurrence - a.occurrence);
+  const sec = document.getElementById('crOpenJiraSection');
+  if(!_crOpenJiraGroups.length){ sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  const badge = document.getElementById('crOpenJiraBadge');
+  if(badge) badge.textContent = _crOpenJiraGroups.length + ' open';
+  document.getElementById('crOpenJiraBody').innerHTML = _crOpenJiraGroups.map((g, i) => `<tr>
+    <td class="muted" style="font-weight:800">${i + 1}</td>
+    <td><a class="linkBtn" href="${JIRA_BASE}${esc(g.key)}" target="_blank">${esc(g.key)}</a></td>
+    <td>${_crIsCycleMapped(g.items[0] || {}) ? '<span class="pill warn" style="font-size:10px">Cycle-Mapped</span>' : esc(g.grouping)}</td>
+    <td style="text-align:center;font-weight:950;color:#6366f1">${g.occurrence}</td>
+    <td style="max-width:440px">${esc(g.title || '--')}</td>
+    <td>${esc(g.status || '--')}</td>
+  </tr>`).join('');
+}
+
+// ── rich HTML table copy helpers (works on HTTPS and HTTP) ───────────────────
+function _crPlainTextFromTable(headers, rows){
+  return [headers.join('\t')].concat(rows.map(r => r.map(v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim(
