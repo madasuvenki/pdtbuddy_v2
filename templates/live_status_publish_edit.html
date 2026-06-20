@@ -1,0 +1,1246 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ (job.name or "Live Status")|upper }} -- Published</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#f0f4ff,#fff7ed);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#fff,#eef6ff 45%,#fff7ed);border:1px solid #bfdbfe;box-shadow:0 8px 30px rgba(37,99,235,.10);margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}.tab-section{display:none}.tab-section.active{display:block}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 4px 22px rgba(15,23,42,.08);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#f0f4ff,#faf5ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
+    /* Domain radio buttons */
+    .pub-domain-radio{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:2px solid var(--dc);background:#fff;color:var(--dc);font-size:12px;font-weight:900;cursor:pointer;transition:all .18s;user-select:none;letter-spacing:.02em;}
+    .pub-domain-radio input{display:none;}
+    .pub-domain-radio:has(input:checked){background:var(--dc);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:translateY(-1px);}
+    .pub-domain-radio:hover:not(:has(input:checked)){background:var(--dcs);}.meta-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:850;cursor:pointer}.meta-chip.active{background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.meta-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.metric-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(15,23,42,.05)}.metric-title{font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:7px}.bar-row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar-label{min-width:115px;font-weight:800;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-track{height:13px;flex:1;background:#f1f5f9;border-radius:999px;overflow:hidden}.bar-fill{height:100%;border-radius:999px}.bar-value{min-width:46px;text-align:right;font-weight:950;color:#0f172a}.section-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;color:#94a3b8}.sticky-table th{position:sticky;top:0;z-index:2}.compact-input{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit}.subtle-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px}.wk-cr-scroll{max-height:560px;overflow:auto}.wk-jira-scroll{max-height:460px;overflow:auto}.wk-load-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:16px;padding:16px}.wk-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.58);align-items:center;justify-content:center;padding:24px}.wk-modal-card{width:min(760px,96vw);max-height:88vh;background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 24px 90px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden}.wk-modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}.wk-build-list{flex:1;overflow:auto;padding:12px 18px;display:flex;flex-direction:column;gap:7px}.wk-build-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #f1f5f9;border-radius:10px;background:#fff;cursor:pointer}.wk-build-row.selected{border-color:#c7d2fe;background:#f5f3ff}.wk-build-row input{width:16px;height:16px;accent-color:#6366f1}.wk-build-name{font-size:12px;font-weight:750;color:#1e293b;word-break:break-all;flex:1}.wk-selected-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:none}.wk-selected-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.wk-selected-list{display:flex;gap:6px;flex-wrap:wrap;max-height:92px;overflow:auto}.wk-hidden{display:none!important}
+  </style>
+</head>
+<body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
+<div class="shell" {% if embedded_core_deck %}style="padding:0;background:#fff;"{% endif %}>
+  {% if not embedded_core_deck and job.status != 'published' and can_edit %}
+  <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <i class="fas fa-triangle-exclamation" style="color:#d97706;font-size:16px;"></i>
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#92400e;">DRAFT -- not yet published. Viewers cannot see this page.</div>
+        <div style="font-size:11px;color:#b45309;margin-top:1px;">Use <strong>Edit &amp; Publish</strong> to go live.</div>
+      </div>
+    </div>
+    <a class="btn" href="{{ url_for('live_status_publish_bp.edit_job', job_id=job.id) }}" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;" onclick="lspOpenEdit(this.href);return false;"><i class="fas fa-rocket"></i> Edit &amp; Publish</a>
+  </div>
+  {% endif %}
+  {% if not embedded_core_deck %}
+  <header class="hero">
+    <div>
+      <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Published {{ (job.job_type or 'CRM')|upper }} Live Status</div>
+      <h1>{{ (job.name or "Live Status")|upper }}</h1>
+      <p><strong>{{ primary_target|upper }}</strong> &nbsp; Published: <span id="publishedHeaderTime" data-raw="{{ job.published_at or '' }}">{{ job.published_at or '--' }}</span> by <strong>{{ job.published_by or '-' }}</strong> &nbsp; Latest update: <span id="updatedHeaderTime" data-raw="{{ job.updated_at or '' }}">{{ job.updated_at or '--' }}</span>{% if job.active_viewers %} &nbsp; Active viewers: <strong>{{ job.active_viewers|length }}</strong>{% endif %}</p>
+    </div>
+                <div class="hero-actions">
+      {% if job.status == 'published' %}
+        <span class="badge badge-live"><i class="fas fa-circle" style="font-size:8px"></i> LIVE</span>
+        <span class="badge badge-info">Published <span id="pubTimeDisplay">--</span></span>
+        <span id="lastRefreshBadge" class="badge badge-warn" style="display:none"><i id="lastRefreshIcon" class="fas fa-rotate"></i> Last refresh <span id="lastRefreshDisplay">never</span></span>
+      {% else %}
+        <span class="badge badge-warn"><i class="fas fa-pen" style="font-size:9px"></i> DRAFT -- not published</span>
+      {% endif %}
+      {% if can_edit %}
+        <a class="btn" href="{{ url_for('live_status_publish_bp.edit_job', job_id=job.id) }}" onclick="lspOpenEdit(this.href);return false;"><i class="fas fa-pen"></i> {% if job.status == 'published' %}Edit{% else %}Edit &amp; Publish{% endif %}</a>
+      {% endif %}
+              <a class="btn btn-primary" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+    </div>
+  </header>
+  {% endif %}
+
+    {% if not embedded_core_deck %}
+    <div class="tabs">
+        {% if is_auto_bu and 'core' in visible_tabs %}
+    <button class="tab {{ 'active' if initial_tab == 'core' else '' }}" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
+    {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
+    {% endif %}
+        {% if not mtbf_only and 'current' in visible_tabs %}
+    <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build</button>
+    {% endif %}
+    {% if 'mtbf' in visible_tabs %}<button class="tab {{ 'active' if mtbf_only or initial_tab == 'mtbf' else '' }}" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>{% endif %}
+    {% if not is_eng_job %}
+                {% if not mtbf_only and 'weekly' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'weekly' else '' }}" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>{% endif %}
+    {% endif %}
+    {% if not is_eng_job and 'openjiras' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'openjiras' else '' }}" id="tab-btn-openjiras" onclick="switchTab('openjiras')"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</button>{% endif %}
+    {% if 'buildreport' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'buildreport' else '' }}" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report</button>{% endif %}
+  </div>
+  {% endif %}
+
+    {% if is_auto_bu and 'core' in visible_tabs %}
+  <section id="tab-core" class="tab-section {{ 'active' if embedded_core_deck or initial_tab == 'core' else '' }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px;">
+      <div class="metric-card" style="border-left:4px solid #16a34a;">
+        <div class="metric-title"><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</div>
+        <div id="cd-running-count" style="font-size:32px;font-weight:950;color:#16a34a;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Active builds in test</div>
+      </div>
+      <div class="metric-card" style="border-left:4px solid #dc2626;">
+        <div class="metric-title"><i class="fas fa-bug" style="color:#dc2626"></i> Total Crashes</div>
+        <div id="cd-crash-count" style="font-size:32px;font-weight:950;color:#dc2626;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Across all running builds</div>
+      </div>
+      <div class="metric-card" style="border-left:4px solid #6366f1;">
+        <div class="metric-title"><i class="fas fa-chart-line" style="color:#6366f1"></i> Avg MTBF</div>
+        <div id="cd-mtbf-val" style="font-size:32px;font-weight:950;color:#6366f1;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Hours between failures</div>
+      </div>
+      <div class="metric-card" style="border-left:4px solid #f59e0b;">
+        <div class="metric-title"><i class="fas fa-clock" style="color:#f59e0b"></i> Total Hours</div>
+        <div id="cd-hours-val" style="font-size:32px;font-weight:950;color:#f59e0b;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Test hours accumulated</div>
+      </div>
+      <div class="metric-card" style="border-left:4px solid #0ea5e9;">
+        <div class="metric-title"><i class="fas fa-ticket-alt" style="color:#0ea5e9"></i> Open CRs / JIRAs</div>
+        <div id="cd-cr-count" style="font-size:32px;font-weight:950;color:#0ea5e9;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">From current report</div>
+      </div>
+      <div class="metric-card" style="border-left:4px solid #8b5cf6;">
+        <div class="metric-title"><i class="fas fa-calendar-check" style="color:#8b5cf6"></i> Published</div>
+        <div id="cd-pub-time" style="font-size:14px;font-weight:900;color:#8b5cf6;margin-top:6px;">--</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Last publish time</div>
+      </div>
+    </div>
+
+    <!-- Core Slides Builder / Normal Build Selection -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-head">
+          <h2><i class="fas fa-layer-group" style="color:#ef1747"></i> Core Slides Builder</h2>
+        <div class="mini-toolbar">
+          <button class="btn btn-primary" onclick="loadCoreDeckBuilds(true)"><i class="fas fa-plus"></i> Add / Load Builds</button>
+          {% if can_edit %}
+          <button class="btn" onclick="saveCoreDeckFromTab()"><i class="fas fa-save"></i> Save</button>
+          <button class="btn" onclick="refreshCoreDeckCrashesFromTab()"><i class="fas fa-sync"></i> Refresh Crashes Only</button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="subtle-panel" style="margin-bottom:12px;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input id="cdBuildSearch" class="compact-input" style="flex:1;min-width:260px" placeholder="Search normal builds / meta / alias..." oninput="renderCoreDeckBuildList()">
+            <button class="btn" onclick="coreDeckSelectVisible(true)">Select Visible</button>
+            <button class="btn" onclick="coreDeckSelectVisible(false)">Clear Visible</button>
+            <span id="cdBuilderStatus" class="pill">Not loaded</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(280px,.7fr);gap:14px;align-items:start;">
+          <div>
+            <div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;margin-bottom:8px;"><i class="fas fa-check-square"></i> Normal Builds</div>
+            <div id="cdBuildCheckboxList" style="max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff;">
+              <div class="empty" style="padding:24px;">Click Add / Load Builds.</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;margin-bottom:8px;"><i class="fas fa-pen"></i> Exec Summary / Revisions</div>
+            <textarea id="cdExecSummary" rows="7" placeholder="One exec summary bullet per line" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-family:inherit;font-size:12px;margin-bottom:10px;"></textarea>
+            <select id="cdRevisionSelect" class="compact-input" style="width:100%;margin-bottom:8px;"><option value="">No revisions loaded</option></select>
+            {% if can_edit %}<button class="btn" onclick="revertCoreDeckRevisionFromTab()" style="width:100%;justify-content:center;background:#f59e0b;color:#111827;"><i class="fas fa-undo"></i> Revert Selected Revision</button>{% endif %}
+            <div id="cdSaveStatus" class="muted" style="font-size:11px;margin-top:8px;line-height:1.4;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Running Builds Summary -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</h2><span id="cd-run-pill" class="pill"></span></div>
+      <div style="overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:linear-gradient(90deg,#4f46e5,#0ea5e9);">
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;">Meta</th>
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;">Full Build</th>
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;">Hours</th>
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;">Crashes</th>
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;">MTBF</th>
+            <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;">Comment</th>
+          </tr></thead>
+          <tbody id="cd-run-tbody"><tr><td colspan="6" style="text-align:center;padding:28px;color:#94a3b8;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MTBF Trend Summary -->
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend (Last 10 Metas)</h2></div>
+      <div id="cd-mtbf-pills" class="card-body" style="display:none;"></div>
+      <div style="overflow-x:auto;padding:12px;">
+        <canvas id="cdMtbfCanvas" style="display:block;height:320px;"></canvas>
+        <div id="cd-mtbf-empty" style="display:none;text-align:center;padding:32px;color:#94a3b8;">No MTBF data available.</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if 'current' in visible_tabs %}
+  <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'current' else '' }}">
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build</h2><div class="mini-toolbar">
+            {% if is_auto_bu %}<!-- Domain Radio Buttons -->
+      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+      <label class="pub-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;">
+        <input type="radio" name="pubDomain" value="ADAS" checked onchange="applyCurrentDomainFilter('ADAS')">
+        <i class="fas fa-car"></i> ADAS
+      </label>
+      <label class="pub-domain-radio" data-domain="FLEX" style="--dc:#7c3aed;--dcs:#ede9fe;">
+        <input type="radio" name="pubDomain" value="FLEX" onchange="applyCurrentDomainFilter('FLEX')">
+        <i class="fas fa-microchip"></i> FLEX
+      </label>
+      <label class="pub-domain-radio" data-domain="IVI" style="--dc:#059669;--dcs:#d1fae5;">
+        <input type="radio" name="pubDomain" value="IVI" onchange="applyCurrentDomainFilter('IVI')">
+                <i class="fas fa-display"></i> IVI
+      </label>
+      {% endif %}<span id="runCount" class="pill"></span></div></div>
+      <!-- ═══ Current Running Build DB Table ═══ -->
+      <div id="rbDbPanel" style="padding:12px 20px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:950;color:#1e3a8a"><i class="fas fa-satellite-dish" style="color:#2563eb"></i> Current Running Builds (DB)</span>
+          <span id="rbDbCount" class="pill" style="background:#dbeafe;color:#1e40af"></span>
+          <span id="rbDbStatus" style="font-size:11px;font-weight:700;color:#64748b"></span>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px" onclick="rbOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+          <button class="btn" style="font-size:11px;padding:3px 10px" onclick="loadRunningBuildsDb(true)"><i class="fas fa-sync"></i> Refresh</button>
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Auto-refreshes every 15 min after publish &nbsp;<span id="rbCrashTimerDb" style="font-weight:700;color:#6366f1"></span></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:320px">
+          <table class="tbl" id="rbDbTable">
+            <thead><tr><th>S.No</th><th>Build ID</th><th>Meta ID</th><th>Domain</th><th>Device Name</th><th>Hours</th><th>Reduction %</th><th>Crashes</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="rbDbTbody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- ═══ end Current Running Build DB Table ═══ -->
+
+      <div class="card">
+      <div class="card-head"><h2><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Current Report</h2><div class="mini-toolbar"><span id="crFreshStatus" class="muted" style="font-size:12px"></span><span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span><button class="btn btn-primary" onclick="runCrReport(true)"><i class="fas fa-rotate"></i> Refresh</button></div></div>
+      <div id="crSummaryPills" class="card-body" style="display:none;gap:8px;flex-wrap:wrap"></div>
+      <div class="search-row"><i class="fas fa-search muted"></i><input id="crSearchInput" oninput="filterCrTable()" placeholder="Search CRs..."></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead><tbody id="crTbody"><tr><td colspan="9" class="empty">Loading current report...</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card" id="jiraSection" style="display:none">
+      <div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs <span id="jiraBadge" class="badge badge-warn"></span></h2></div>
+      <div class="search-row"><i class="fas fa-search muted"></i><input id="jiraSearchInput" oninput="filterJiraTable()" placeholder="Search JIRAs..."></div>
+      <div class="tbl-wrap"><table class="tbl" id="jiraTable"><thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead><tbody id="jiraTbody"></tbody></table></div>
+    </div>
+    </section>
+  {% endif %}
+
+  {% if 'mtbf' in visible_tabs %}
+    <section id="tab-mtbf" class="tab-section {{ 'active' if not embedded_core_deck and (mtbf_only or initial_tab == 'mtbf') else '' }}">
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="mini-toolbar"><select id="mtbfShowN" onchange="renderMtbfTrend()"><option value="5">Last 5</option><option value="10" selected>Last 10</option><option value="20">Last 20</option><option value="0">All</option></select><span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span><button class="btn" onclick="loadMtbfData(true)"><i class="fas fa-rotate"></i> Refresh</button></div></div>
+            <div id="mtbfLivePills" class="card-body" style="display:none"></div>
+      <div id="mtbfColumnPanel" class="card-body" style="display:none"></div>
+      <div id="mtbfSummaryPills" class="card-body" style="display:none"></div>
+      <div id="mtbfChartWrap" class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfCanvas" style="display:block;height:320px"></canvas><div id="mtbfEmpty" class="empty" style="display:none">No MTBF Excel data available.</div></div>
+    </div>
+
+    <!-- MTBF Build Table -- full-width, full-height, SWPDT-style -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head">
+        <h2><i class="fas fa-table" style="color:#059669"></i> <span id="mtbfTableTitle">MTBF Build Table</span></h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="mtbfTableSearch" placeholder="Search meta / build..." oninput="renderMtbfTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;min-width:200px;">
+          <label style="font-size:11px;font-weight:800;color:#64748b;display:flex;align-items:center;gap:5px;cursor:pointer;">
+            <input type="checkbox" id="mtbfMay1Filter" checked onchange="renderMtbfTable()" style="accent-color:#6366f1;"> May 1st+
+          </label>
+          <span id="mtbfTableCount" class="pill" style="font-size:11px;"></span>
+          {% if can_edit %}
+          
+          {% endif %}
+        </div>
+      </div>
+      <div id="mtbfTableWrap" style="overflow:auto;width:100%;max-height:calc(100vh - 220px);">
+        <table id="mtbfBuildTable" style="width:100%;min-width:1100px;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+          <thead id="mtbfTableHead" style="position:sticky;top:0;z-index:4;"></thead>
+          <tbody id="mtbfTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+      </section>
+  {% endif %}
+
+  {% if 'weekly' in visible_tabs %}
+  <section id="tab-weekly" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'weekly' else '' }}">
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-calendar-week" style="color:#6366f1"></i> Weekly Report</h2><div class="mini-toolbar"><span id="weeklyDateLabel" class="muted"></span><span id="weeklySpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span></div></div>
+      <div class="card-body">
+        <div class="wk-load-panel">
+          <div><div style="font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-vial"></i> Weekly Build Filter</div><div class="muted" style="font-size:12px;margin-top:4px">Select builds from the popup. Selected builds are shown here and weekly data loads below.</div></div>
+          <div class="mini-toolbar"><button class="btn" onclick="refreshWeeklyPageBuilds()"><i class="fas fa-rotate"></i> Refresh Builds</button><button class="btn btn-primary" onclick="openWeeklyBuildModal()"><i class="fas fa-list-check"></i> Select Builds</button></div>
+        </div>
+        <div id="wkSelectedBuildPanel" class="wk-selected-panel" style="margin-top:12px">
+          <div class="wk-selected-head"><strong style="font-size:11px;color:#4338ca;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-check-circle"></i> Selected Builds</strong><div class="mini-toolbar"><span id="wkSelectedBuildCount" class="pill"></span><button class="btn btn-primary" onclick="refreshWeeklySelectedData()"><i class="fas fa-rotate"></i> Refresh Data</button></div></div>
+          <div id="wkSelectedBuildList" class="wk-selected-list"></div>
+        </div>
+      </div>
+      <div id="weeklySummaryPills" class="card-body" style="display:none;gap:8px;flex-wrap:wrap"></div>
+      <div id="wkBuildModal" class="wk-modal">
+        <div class="wk-modal-card">
+          <div class="wk-modal-head"><div><div style="font-size:14px;font-weight:950;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-vial"></i> Select Builds</div><div style="font-size:11px;color:#bfdbfe;margin-top:3px">Search and tick builds line-by-line</div></div><button class="btn" onclick="closeWeeklyBuildModal()"><i class="fas fa-times"></i></button></div>
+          <div style="display:flex;gap:10px;align-items:center;padding:12px 18px;border-bottom:1px solid #f1f5f9;background:#f8fafc;flex-wrap:wrap"><input id="wkBuildModalSearch" class="compact-input" style="flex:1;min-width:220px" placeholder="Search builds..." oninput="renderWeeklyBuildList()"><button class="btn" onclick="weeklyModalSelectAll(true)">All</button><button class="btn" onclick="weeklyModalSelectAll(false)">None</button><span id="wkBuildModalCount" class="muted" style="font-size:12px;font-weight:800"></span></div>
+          <div id="wkBuildModalList" class="wk-build-list"><div class="empty">Click Load Weekly Report to fetch builds.</div></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #f1f5f9;background:#f8fafc"><button class="btn" onclick="closeWeeklyBuildModal()">Cancel</button><button class="btn btn-primary" onclick="applyWeeklyBuildSelection()"><i class="fas fa-check"></i> Load Data & Save</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-bug" style="color:#7c3aed"></i> Weekly CR Table <span id="wkCrCount"></span></h2><div class="mini-toolbar"><input id="wkCrSearch" class="compact-input" oninput="wkFilterCrTable()" placeholder="Search CRs"><select id="wkCrSortBy" onchange="wkFilterCrTable()"><option value="occ_desc">Occurrence high-low</option><option value="occ_asc">Occurrence low-high</option><option value="age_desc">Age high-low</option><option value="age_asc">Age low-high</option><option value="cr_asc">CR ID</option></select><button class="btn" onclick="wkCopyCrTable()"><i class="fas fa-copy"></i> Copy</button></div></div>
+      <div class="tbl-wrap wk-cr-scroll"><table class="tbl sticky-table" id="wkCrTable"><thead><tr id="wkCrThead"><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>Age</th></tr></thead><tbody id="wkCrTbody"><tr><td colspan="9" class="empty">Load the weekly report and select builds to view CRs.</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card" id="wkOpenJiraSection" style="display:none"><div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Weekly Open JIRAs <span id="wkOpenJiraBadge" class="badge badge-warn"></span></h2></div><div class="tbl-wrap wk-jira-scroll"><table class="tbl sticky-table"><thead><tr><th>#</th><th>Ticket</th><th>Summary</th><th>Date</th><th>Meta Build</th></tr></thead><tbody id="wkOpenJiraTbody"></tbody></table></div></div>
+
+    <div class="card" id="wkAreaChartSection" style="display:none">
+      <div class="card-head"><h2><i class="fas fa-chart-column" style="color:#6366f1"></i> Build Performance Analysis - CR Distribution by Area</h2><div class="mini-toolbar"><span id="wkAreaChartBadge" class="badge badge-info"></span><button class="btn" onclick="wkCopyAreaChart()"><i class="fas fa-copy"></i> Copy Chart</button></div></div>
+      <div class="chart-wrap" style="height:760px"><canvas id="wkAreaStackedCanvas" style="display:block;height:720px"></canvas></div>
+    </div>
+
+    <div class="card" id="wkHeatmapSection" style="display:none">
+      <div class="card-head"><h2><i class="fas fa-table-cells" style="color:#ef4444"></i> Build x Area Heatmap (for CR)</h2><span id="wkHeatmapFooter" class="mini-toolbar"></span></div>
+      <div class="tbl-wrap"><table class="tbl sticky-table" id="wkHeatmapTable"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-chart-pie" style="color:#10b981"></i> Weekly Analytics</h2><span id="wkDistTotal" class="pill"></span></div>
+      <div class="card-body"><div id="wkAnalytics" class="info-grid"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2><i class="fas fa-clock" style="color:#6366f1"></i> Age Distribution</h2></div>
+      <div class="card-body"><div id="wkAgeDist" class="metric-card"></div></div>
+    </div>
+
+    <div class="card" id="wkAreaDistSection" style="display:none">
+      <div class="card-head"><h2><i class="fas fa-layer-group" style="color:#0ea5e9"></i> Area-wise CR / JIRA Distribution</h2><span id="wkAreaDistBadge" class="badge badge-info"></span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Area</th><th>CR Count</th><th>CR %</th><th>Open JIRA Count</th><th>Open JIRA %</th><th>Distribution</th></tr></thead><tbody id="wkAreaDistTbody"></tbody></table></div>
+    </div>
+        </section>
+  {% endif %}
+
+  {% if 'openjiras' in visible_tabs %}
+  <section id="tab-openjiras" class="tab-section {{ 'active' if initial_tab == 'openjiras' else '' }}">
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs <span id="ojBadge" style="font-size:11px;font-weight:800;color:#7c3aed;background:#f5f3ff;padding:2px 10px;border-radius:999px;border:1px solid #ddd6fe;margin-left:8px;"></span></h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="date" id="ojFrom" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;">
+          <span style="font-size:11px;color:#94a3b8;font-weight:600;">to</span>
+          <input type="date" id="ojTo" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;">
+          <button onclick="ojLoad()" style="height:30px;padding:0 12px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:12px;font-weight:700;cursor:pointer;"><i class="fas fa-sync-alt"></i> Apply</button>
+        </div>
+      </div>
+      <div id="ojLoading" style="text-align:center;padding:40px;display:none;"><i class="fas fa-spinner fa-spin" style="font-size:22px;color:#6366f1;"></i><div style="margin-top:10px;font-weight:600;color:#64748b;">Loading&hellip;</div></div>
+      <div id="ojError" style="display:none;padding:20px;font-weight:700;"></div>
+      <div id="ojContent" style="display:none;">
+        <div id="ojKpi" style="display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid #f1f5f9;"></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fbfdff;">
+          <select id="ojAreaSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;" onchange="ojFilter()"><option value="">All Areas</option></select>
+          <select id="ojTeamSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;" onchange="ojFilter()"><option value="">All Teams</option></select>
+          <input id="ojSearch" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;min-width:180px;" placeholder="Search ticket / title&hellip;" oninput="ojFilter()">
+          <button onclick="ojClear()" style="height:30px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;">Clear</button>
+        </div>
+        <div style="overflow-x:auto;"><table class="tbl" style="width:100%;"><thead><tr><th>#</th><th>JIRA</th><th>Date</th><th>Area</th><th>CR</th><th>Team</th><th>Title</th></tr></thead><tbody id="ojTbody"></tbody></table></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #f1f5f9;">
+          <span id="ojPageInfo" style="font-size:12px;font-weight:600;color:#64748b;"></span>
+          <div style="display:flex;gap:6px;">
+            <button id="ojPrev" onclick="ojPage(-1)" style="height:30px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;"><i class="fas fa-chevron-left"></i> Prev</button>
+            <button id="ojNext" onclick="ojPage(1)" style="height:30px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;">Next <i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+
+  <!-- ===== BUILD REPORT TAB ===== -->
+  {% if 'buildreport' in visible_tabs %}
+  <section id="tab-buildreport" class="tab-section {{ 'active' if initial_tab == 'buildreport' else '' }}">
+
+    <!-- Top toolbar: domain selector + Add Build + All/Clear + crash type filters -->
+    <div id="brTopPanel" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+
+      <!-- Domain pills -->
+      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+      <label id="brDomainBtn_ADAS" class="lsp-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;background:var(--dcs);border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="brDomain" value="ADAS" style="display:none" onchange="brSetDomain('ADAS')">
+        <i class="fas fa-car"></i> ADAS
+      </label>
+      <label id="brDomainBtn_FLEX" class="lsp-domain-radio" data-domain="FLEX" style="--dc:#059669;--dcs:#d1fae5;background:#fff;border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="brDomain" value="FLEX" style="display:none" onchange="brSetDomain('FLEX')">
+        <i class="fas fa-microchip"></i> FLEX
+      </label>
+      <label id="brDomainBtn_IVI" class="lsp-domain-radio" data-domain="IVI" style="--dc:#7c3aed;--dcs:#ede9fe;background:#fff;border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="brDomain" value="IVI" style="display:none" onchange="brSetDomain('IVI')">
+        <i class="fas fa-display"></i> IVI
+      </label>
+
+      <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
+
+      <!-- Add Build button -->
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="brOpenAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>
+      <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(true)">All</button>
+      <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(false)">Clear</button>
+
+      <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
+
+      <!-- Crash type filters -->
+      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Crash type</span>
+      <button id="brCrashBtn_system" class="btn" style="font-size:11px;padding:4px 10px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;" onclick="brToggleCrashType('system')"><i class="fas fa-circle-xmark"></i> System</button>
+      <button id="brCrashBtn_ssr" class="btn" style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;" onclick="brToggleCrashType('ssr')"><i class="fas fa-triangle-exclamation"></i> SSR</button>
+      <button id="brCrashBtn_process" class="btn" style="font-size:11px;padding:4px 10px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;" onclick="brToggleCrashType('process')"><i class="fas fa-gear"></i> Process</button>
+      <button id="brCrashBtn_open_jira" class="btn" style="font-size:11px;padding:4px 10px;background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd;" onclick="brToggleCrashType('open_jira')"><i class="fas fa-ticket-alt"></i> Open JIRA</button>
+
+      <span style="flex:1"></span>
+      <span id="brBuildCount" class="pill" style="font-size:11px;">0 builds</span>
+    </div>
+
+    <!-- Build chips row -->
+    <div id="brBuildChipsRow" style="display:flex;gap:6px;flex-wrap:wrap;max-height:72px;overflow:auto;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;">
+      <span class="muted" style="font-size:12px;">Select a domain to load builds.</span>
+    </div>
+
+    <!-- KPI cards -->
+    <div id="brKpiCards" style="display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:8px;margin-bottom:12px;"></div>
+
+    <!-- CR Table -->
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CRs in Selected Builds <span id="brCrBadge" class="badge badge-warn"></span></h2>
+        <div class="mini-toolbar">
+          <input id="brCrSearch" class="compact-input" oninput="brFilterCrTable()" placeholder="Search CRs...">
+          <select id="brCrSort" onchange="brFilterCrTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit;">
+            <option value="occ_desc">Occurrences high-low</option>
+            <option value="occ_asc">Occurrences low-high</option>
+            <option value="age_desc">Age high-low</option>
+            <option value="cr_asc">CR ID</option>
+          </select>
+          <button class="btn btn-primary" onclick="brGenerateReport()" style="font-size:12px;padding:6px 14px;"><i class="fas fa-chart-bar"></i> Generate Report</button>
+          <span id="brGenSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+          <span id="brGenStatus" class="muted" style="font-size:11px;"></span>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Status</th></tr></thead><tbody id="brCrTbody"><tr><td colspan="9" class="empty">Select a domain, choose builds, then click Generate Report.</td></tr></tbody></table></div>
+    </div>
+
+    <!-- Open JIRAs -->
+    <div class="card" id="brJiraSection" style="display:none;">
+      <div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open JIRAs <span id="brJiraBadge" class="badge badge-warn"></span></h2></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>JIRA</th><th>Summary</th><th>Status</th><th>Occurrences</th></tr></thead><tbody id="brJiraTbody"></tbody></table></div>
+    </div>
+
+    <!-- Add Build Modal -->
+    <div id="brAddBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:16px;width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#6366f1);">
+          <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build — <span id="brModalDomainLabel">ADAS</span></h3>
+          <button onclick="brCloseAddBuildModal()" style="background:rgba(255,255,255,.18);border:none;font-size:22px;cursor:pointer;color:#fff;border-radius:8px;width:30px;height:30px;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:950;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Domain</span>
+          <button id="brModalDomainBtn_ADAS" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('ADAS');return false;"><i class="fas fa-car"></i> ADAS</button>
+          <button id="brModalDomainBtn_FLEX" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('FLEX');return false;"><i class="fas fa-microchip"></i> FLEX</button>
+          <button id="brModalDomainBtn_IVI" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('IVI');return false;"><i class="fas fa-display"></i> IVI</button>
+          <span style="width:1px;height:24px;background:#e2e8f0;"></span>
+          <input id="brBuildSearchModal" class="compact-input" style="flex:1;min-width:220px;" placeholder="Search builds..." oninput="brRenderModalList()">
+          <button class="btn" onclick="brModalSelectAll(true)">All</button>
+          <button class="btn" onclick="brModalSelectAll(false)">None</button>
+          <span id="brModalCount" class="muted" style="font-size:12px;font-weight:800;"></span>
+        </div>
+        <div id="brModalBuildList" style="flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px;min-height:200px;max-height:400px;">
+          <div class="empty">Loading builds...</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #f1f5f9;background:#f8fafc;">
+          <button class="btn" onclick="brCloseAddBuildModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="brApplyModalSelection()"><i class="fas fa-check"></i> Apply</button>
+        </div>
+      </div>
+    </div>
+
+    </section>
+  {% endif %}
+</div>
+
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+// Safety stub — bsOpen is defined fully later in this script.
+// This early definition prevents ReferenceError from any cached page version.
+window.bsOpen=window.bsOpen||function(){};
+window.bsClose=window.bsClose||function(){};
+window.LSP_DATA = {
+  job_id: {{ job.id|tojson }},
+  primary_target: {{ primary_target|tojson }},
+  published_at: {{ (job.published_at or '')|tojson }},
+  updated_at: {{ (job.updated_at or '')|tojson }},
+  cache_checked_at: {{ ((job.current_report_cache or {}).get('last_fresh_check_at') or '')|tojson }},
+  running_rows: {{ running_rows|tojson }},
+  can_edit: {{ can_edit|tojson }},
+  is_auto_bu: {{ is_auto_bu|default(false)|tojson }},
+  is_eng_job: {{ is_eng_job|default(false)|tojson }},
+  mtbf_only: {{ mtbf_only|default(false)|tojson }},
+  initial_tab: {{ initial_tab|default('current')|tojson }},
+  visible_tabs: {{ (visible_tabs or [])|tojson }},
+  persisted_jql: {{ (job.current_report_jql or '')|tojson }},
+  saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
+  landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// Current Running Build DB table — Add Build, detail modal, publish, 15-min JQL
+// ═══════════════════════════════════════════════════════════════════════
+(function(){
+  /* ---- state ---- */
+  var _rbRows       = [];   // DB rows (from axiom_job_summary)
+  var _rbSaved      = [];   // user-saved build entries [{...meta, hours, reduction, deviceName, published, crashes, jql}]
+  var _rbInterval   = null;
+  var _rbJqlTimers  = {};   // rowKey -> setInterval id
+  var _rbNextMs     = 0;
+  var _rbDomain     = 'ADAS';
+  var _rbAddSel     = null; // build row selected in step-1 modal
+  var TARGET        = (window.LSP_DATA||{}).primary_target || '';
+  var RB_API        = '/api/live_status_view/'+encodeURIComponent(TARGET)+'/running_builds_db';
+  var INTERVAL_MS   = 15*60*1000;
+  var STORAGE_KEY   = 'rb_saved:'+(TARGET||'default');
+
+  /* ---- helpers ---- */
+  function _esc(v){var d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;}
+  function _load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(_){return [];}}
+  function _save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(_rbSaved));}catch(_){}}
+
+  /* ---- hours / reduction calc (mirrors lsp_v2 logic) ---- */
+  function _effectiveHours(row){
+    var base=parseFloat(row.hours||0)||0;
+    var red=Math.min(100,Math.max(0,parseFloat(row.reduction||0)||0));
+    var devices=Math.max(1,parseInt(row.device_count||1)||1);
+    var pubMs=row.publishedAt?new Date(row.publishedAt).getTime():0;
+    var elapsed=pubMs?Math.max(0,(Date.now()-pubMs)/3600000):0;
+    if(!base && !elapsed) return null;
+    return base + elapsed*(1-red/100)*devices;
+  }
+  function _effectiveMtbf(row){
+    var h=_effectiveHours(row);
+    var c=parseFloat(row.crashes||0)||0;
+    if(!h||!c) return null;
+    return Math.round((h/c)*10)/10;
+  }
+  function _fmtH(v){return v==null?'--':(Math.round(v*10)/10).toFixed(1)+'h';}
+
+    /* ---- render main table ---- */
+  function _sameBuild(a,b){
+    return String((a&&a.build_id)||'').toUpperCase()===String((b&&b.build_id)||'').toUpperCase()
+      && String((a&&a.domain)||'').toUpperCase()===String((b&&b.domain)||'').toUpperCase();
+  }
+  function _syncDomainRadio(){
+    document.querySelectorAll('input[name="pubDomain"]').forEach(function(inp){inp.checked=(String(inp.value).toUpperCase()===_rbDomain);});
+  }
+  function _render(){
+    var tbody=document.getElementById('rbDbTbody');
+    var countEl=document.getElementById('rbDbCount');
+    if(!tbody) return;
+    var savedVisible=[];
+    _rbSaved.forEach(function(s,idx){
+      if(!_rbDomain||String(s.domain||'').toUpperCase()===_rbDomain) savedVisible.push({row:s,savedIdx:idx});
+    });
+    var dbVisible=_rbRows.filter(function(r){return !_rbDomain||String(r.domain||'').toUpperCase()===_rbDomain;});
+    var dbOnly=dbVisible.filter(function(r){return !savedVisible.some(function(x){return _sameBuild(x.row,r);});});
+    var total=savedVisible.length+dbOnly.length;
+    if(countEl) countEl.textContent=total+' build'+(total===1?'':'s')+(dbOnly.length?' (DB '+dbOnly.length+')':'');
+    if(!total){
+      var domainCounts={};
+      _rbRows.forEach(function(r){var d=String(r.domain||'UNKNOWN').toUpperCase();domainCounts[d]=(domainCounts[d]||0)+1;});
+      var hint=Object.keys(domainCounts).length
+        ? ' Available in DB: '+Object.keys(domainCounts).sort().map(function(k){return k+' '+domainCounts[k];}).join(', ')+'. Switch domain or click Refresh.'
+        : ' Click Refresh to load from axiom_job_summary.';
+      tbody.innerHTML='<tr><td colspan="11" class="empty">No running '+_esc(_rbDomain)+' builds found.'+_esc(hint)+'</td></tr>';
+      return;
+    }
+    var html=[];
+    savedVisible.forEach(function(x,i){
+      var r=x.row, savedIdx=x.savedIdx;
+      var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
+      var effH=_effectiveHours(r);
+      var effM=_effectiveMtbf(r);
+      var hCell=r.hours?('<b>'+_esc(r.hours)+'h</b>'+(r.reduction?'<span style="color:#7c3aed"> → '+_esc(r.reduction)+'%</span>':'')+' <span style="color:#059669">='+_fmtH(effH)+'</span>'):'<span style="color:#94a3b8">--</span>';
+      var mCell=effM?('<span style="color:#6366f1;font-weight:950">'+effM+'h</span>'):'<span style="color:#94a3b8">--</span>';
+      var crashes=r.crashes!=null?('<b style="color:#dc2626">'+_esc(r.crashes)+'</b>'):'<span style="color:#94a3b8">--</span>';
+      var pubBtn=r.published
+        ?'<button onclick="rbUnpublish('+savedIdx+')" style="font-size:10px;padding:3px 9px;border-radius:8px;border:1px solid #bbf7d0;background:#dcfce7;color:#166534;cursor:pointer;font-weight:900"><i class="fas fa-check-circle"></i> Published</button>'
+        :'<button onclick="rbPublish('+savedIdx+')" style="font-size:10px;padding:3px 9px;border-radius:8px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-weight:900"><i class="fas fa-rocket"></i> Publish</button>';
+      html.push('<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td style="font-size:11px;word-break:break-all;max-width:220px">'+_esc(r.build_id)+'</td>'
+        +'<td><strong>'+_esc(r.meta_id)+'</strong></td>'
+        +'<td><span style="font-size:11px;font-weight:900;color:'+domCol+'">'+_esc(r.domain)+'</span></td>'
+        +'<td style="font-size:11px;color:#334155">'+_esc(r.deviceName||r.build_id)+'</td>'
+        +'<td style="font-size:11px">'+hCell+'</td>'
+        +'<td style="font-size:11px;text-align:center">'+mCell+'</td>'
+        +'<td style="text-align:center">'+crashes+'</td>'
+        +'<td style="text-align:center;color:#6366f1;font-weight:800">'+_esc(r.device_count||'--')+'</td>'
+        +'<td>'+pubBtn+'</td>'
+        +'<td style="white-space:nowrap">'
+          +'<button onclick="rbEdit('+savedIdx+')" style="font-size:10px;padding:3px 8px;border-radius:7px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;margin-right:3px" title="Edit"><i class="fas fa-pen"></i></button>'
+          +'<button onclick="rbDelete('+savedIdx+')" style="font-size:10px;padding:3px 8px;border-radius:7px;border:1px solid #fecaca;background:#fff1f2;color:#dc2626;cursor:pointer" title="Delete"><i class="fas fa-trash"></i></button>'
+        +'</td>'
+        +'</tr>');
+    });
+    dbOnly.forEach(function(r,j){
+      var rowNo=savedVisible.length+j+1;
+      var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
+      var crashes=r.crashes!=null?('<b style="color:#dc2626">'+_esc(r.crashes)+'</b>'):'<span style="color:#94a3b8">--</span>';
+      html.push('<tr style="background:#fbfdff">'
+        +'<td>'+rowNo+'</td>'
+        +'<td style="font-size:11px;word-break:break-all;max-width:220px">'+_esc(r.build_id)+'</td>'
+        +'<td><strong>'+_esc(r.meta_id)+'</strong></td>'
+        +'<td><span style="font-size:11px;font-weight:900;color:'+domCol+'">'+_esc(r.domain)+'</span></td>'
+        +'<td style="font-size:11px;color:#334155">'+_esc(r.product_flavor||r.build_id)+'</td>'
+        +'<td style="font-size:11px;color:#94a3b8">--</td>'
+        +'<td style="font-size:11px;text-align:center;color:#94a3b8">--</td>'
+        +'<td style="text-align:center">'+crashes+'</td>'
+        +'<td style="text-align:center;color:#6366f1;font-weight:800">'+_esc(r.device_count||'--')+'</td>'
+        +'<td><span style="font-size:10px;font-weight:900;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:2px 8px"><i class="fas fa-circle" style="font-size:7px"></i> DB Running</span></td>'
+        +'<td style="white-space:nowrap"><button onclick="rbAddDbRow('+j+')" style="font-size:10px;padding:3px 9px;border-radius:8px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-weight:900"><i class="fas fa-plus"></i> Add</button></td>'
+        +'</tr>');
+    });
+    tbody.innerHTML=html.join('');
+    window._rbDbOnlyVisibleRows=dbOnly;
+  }
+
+
+  /* ---- timer countdown ---- */
+  function _updateTimer(){
+    var el=document.getElementById('rbCrashTimerDb');
+    if(!el) return;
+    var rem=Math.max(0,Math.round((_rbNextMs-Date.now())/1000));
+    var m=Math.floor(rem/60),s=rem%60;
+    el.textContent=_rbSaved.some(function(r){return r.published;})
+      ?'(JQL next: '+m+'m '+String(s).padStart(2,'0')+'s)':'';
+  }
+
+  /* ---- load DB rows ---- */
+  window.loadRunningBuildsDb=function(){
+    var st=document.getElementById('rbDbStatus');
+    if(st) st.textContent='Loading DB...';
+    fetch(RB_API+'?_='+Date.now())
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Failed');
+                _rbRows=d.rows||[];
+        _rbNextMs=Date.now()+INTERVAL_MS;
+        if(_rbRows.length && !_rbRows.some(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;})){
+          _rbDomain=String((_rbRows[0]||{}).domain||_rbDomain).toUpperCase();
+          _syncDomainRadio();
+          if(typeof window.lspSetCurrentDomain==='function') window.lspSetCurrentDomain(_rbDomain);
+        }
+        if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' — '+(_rbRows.length||0)+' row(s)';
+        _render();
+
+      })
+      .catch(function(e){if(st) st.textContent='DB error: '+e.message;});
+  };
+
+  /* ---- domain filter (called by radio buttons) ---- */
+    window.applyCurrentDomainFilter=function(domain){
+    _rbDomain=String(domain||'ADAS').toUpperCase();
+    _syncDomainRadio();
+    _render();
+    if(typeof window.lspSetCurrentDomain==='function') window.lspSetCurrentDomain(_rbDomain);
+  };
+
+
+  /* ================================================================
+     STEP 1 MODAL — pick a build from DB (filtered by domain)
+  ================================================================ */
+  function _ensureAddModal(){
+    if(document.getElementById('rbAddModal')) return;
+    var m=document.createElement('div');
+    m.id='rbAddModal';
+    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10100;align-items:center;justify-content:center;padding:20px';
+    m.innerHTML=
+      '<div style="width:min(680px,96vw);max-height:88vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.3);display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#6366f1);display:flex;align-items:center;gap:10px">'
+        +'<i class="fas fa-satellite-dish" style="color:#fff;font-size:16px"></i>'
+        +'<b style="color:#fff;font-size:14px">Add Running Build</b>'
+        +'<span id="rbAddDomainBadge" style="background:rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:900;margin-left:4px"></span>'
+        +'<button onclick="rbCloseAddModal()" style="margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">×</button>'
+      +'</div>'
+      +'<div style="padding:10px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc">'
+        +'<input id="rbAddSearch" placeholder="Search build ID or meta..." oninput="rbFilterAddList()" style="width:100%;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 12px;font-size:13px;font-family:inherit">'
+      +'</div>'
+      +'<div id="rbAddList" style="overflow:auto;flex:1;padding:10px 14px"></div>'
+      +'<div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:8px">'
+        +'<button onclick="rbCloseAddModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>'
+        +'<button onclick="rbAddNext()" style="border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-arrow-right"></i> Next — Set Details</button>'
+      +'</div>'
+      +'</div>';
+    document.body.appendChild(m);
+  }
+
+    window.rbOpenAddModal=function(){
+    _ensureAddModal();
+    _rbAddSel=null;
+    var badge=document.getElementById('rbAddDomainBadge');
+    if(badge) badge.textContent=_rbDomain;
+    var s=document.getElementById('rbAddSearch'); if(s) s.value='';
+    // Mirror Core Slide pattern: load DB rows first if not yet loaded
+    if(!_rbRows.length){
+      var list=document.getElementById('rbAddList');
+      if(list) list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from DB...</div>';
+      document.getElementById('rbAddModal').style.display='flex';
+      window.loadRunningBuildsDb();
+      // loadRunningBuildsDb calls _render() on success, but we also need to
+      // refresh the modal list — patch the existing fetch callback via a
+      // one-shot observer on _rbRows population
+      var _pollCount=0;
+      var _poll=setInterval(function(){
+        _pollCount++;
+        if(_rbRows.length||_pollCount>20){
+          clearInterval(_poll);
+          _rbRenderAddList('');
+        }
+      },300);
+      return;
+    }
+    _rbRenderAddList('');
+    document.getElementById('rbAddModal').style.display='flex';
+  };
+  window.rbCloseAddModal=function(){
+    var m=document.getElementById('rbAddModal'); if(m) m.style.display='none';
+  };
+  window.rbFilterAddList=function(){
+    var q=(document.getElementById('rbAddSearch')||{}).value||'';
+    _rbRenderAddList(q);
+  };
+
+    function _rbRenderAddList(q){
+    var list=document.getElementById('rbAddList'); if(!list) return;
+    // Fix: use case-insensitive comparison (mirrors _render() which uses .toUpperCase())
+    var rows=_rbRows.filter(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;});
+    if(q){
+      var ql=q.toLowerCase();
+      rows=rows.filter(function(r){
+        return (r.build_id||'').toLowerCase().includes(ql)||(r.meta_id||'').toLowerCase().includes(ql);
+      });
+    }
+    if(!rows.length){
+      list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>No running '+_esc(_rbDomain)+' builds in DB.<br><small>Click Refresh to reload from axiom_job_summary.</small></div>';
+      return;
+    }
+    list.innerHTML=rows.map(function(r,i){
+      var sel=_rbAddSel&&_rbAddSel.build_id===r.build_id&&_rbAddSel.domain===r.domain;
+      var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
+      return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1.5px solid '+(sel?'#6366f1':'#e2e8f0')+';border-radius:12px;margin-bottom:7px;cursor:pointer;background:'+(sel?'#eef2ff':'#fff')+'">'
+        +'<input type="radio" name="rbAddPick" '+(sel?'checked':'')+' onchange="rbPickBuild('+i+')" style="margin-top:3px">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+            +'<strong style="color:#1e3a8a;font-size:13px">'+_esc(r.meta_id)+'</strong>'
+            +'<span style="font-size:10px;font-weight:900;color:'+domCol+';background:#f0f4ff;border-radius:999px;padding:1px 8px">'+_esc(r.domain)+'</span>'
+            +'<span style="font-size:10px;color:#64748b">Jobs: '+_esc(r.job_count||0)+' &nbsp; Devices: '+_esc(r.device_count||0)+'</span>'
+            +'<span style="font-size:10px;color:#94a3b8">Started: '+_esc((r.started_at||'').slice(0,16))+'</span>'
+          +'</div>'
+          +'<div style="font-size:11px;color:#475569;word-break:break-all;margin-top:3px">'+_esc(r.build_id)+'</div>'
+        +'</div>'
+        +'</label>';
+    }).join('');
+    // store filtered rows for index lookup
+    window._rbAddFilteredRows=rows;
+  }
+
+  window.rbPickBuild=function(idx){
+    var rows=window._rbAddFilteredRows||[];
+    _rbAddSel=rows[idx]||null;
+  };
+
+  window.rbAddNext=function(){
+    if(!_rbAddSel){alert('Please select a build first.');return;}
+    rbCloseAddModal();
+    rbOpenDetailModal(_rbAddSel, null);
+  };
+
+  /* ================================================================
+     STEP 2 MODAL — set hours, reduction, device name, card preview
+  ================================================================ */
+  function _ensureDetailModal(){
+    if(document.getElementById('rbDetailModal')) return;
+    var m=document.createElement('div');
+    m.id='rbDetailModal';
+    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10200;align-items:center;justify-content:center;padding:20px';
+    m.innerHTML=
+      '<div style="width:min(700px,96vw);max-height:92vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.3);display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#7c3aed);display:flex;align-items:center;gap:10px">'
+        +'<i class="fas fa-sliders" style="color:#fff;font-size:16px"></i>'
+        +'<b style="color:#fff;font-size:14px" id="rbDetailTitle">Build Details</b>'
+        +'<button onclick="rbCloseDetailModal()" style="margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">×</button>'
+      +'</div>'
+      +'<div style="overflow:auto;flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:14px">'
+        /* card preview */
+        +'<div id="rbDetailCard" style="border:1.5px solid #c7d2fe;border-radius:14px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#faf5ff);display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"></div>'
+        /* form */
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Device / Build Name<input id="rbDetailDeviceName" class="ci" style="height:36px" placeholder="e.g. SAFE IVI, FLEX PVM..."></label>'
+          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Hours (base tested hours)<input id="rbDetailHours" class="ci" type="number" min="0" step="0.5" style="height:36px" placeholder="e.g. 120" oninput="rbDetailPreview()"></label>'
+          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Reduction % <span style="font-weight:700;color:#7c3aed">(earlier method)</span>'
+            +'<div style="display:flex;align-items:center;gap:8px">'
+              +'<input id="rbDetailRedSlider" type="range" min="0" max="90" step="10" value="0" style="flex:1" oninput="rbDetailSyncRed(this)">'
+              +'<input id="rbDetailRedText" class="ci" type="number" min="0" max="99" style="width:64px;height:36px" placeholder="%" oninput="rbDetailSyncRedText(this)">'
+            +'</div>'
+          +'</label>'
+          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Devices (count)<input id="rbDetailDevices" class="ci" type="number" min="0" style="height:36px" placeholder="auto" oninput="rbDetailPreview()"></label>'
+        +'</div>'
+        +'<div id="rbDetailMsg" style="font-size:12px;font-weight:800;min-height:14px;color:#dc2626"></div>'
+      +'</div>'
+      +'<div style="padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        +'<button onclick="rbOpenAddModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer"><i class="fas fa-arrow-left"></i> Back</button>'
+        +'<div style="display:flex;gap:8px">'
+          +'<button onclick="rbCloseDetailModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>'
+          +'<button onclick="rbDetailSave()" style="border:0;background:linear-gradient(135deg,#059669,#2563eb);color:#fff;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Save Build</button>'
+        +'</div>'
+      +'</div>'
+      +'</div>';
+    document.body.appendChild(m);
+  }
+
+  window._rbDetailRow=null; // current DB row being configured
+  window._rbDetailEditIdx=null; // index in _rbSaved if editing
+
+  window.rbOpenDetailModal=function(dbRow, editIdx){
+    _ensureDetailModal();
+    window._rbDetailRow=dbRow;
+    window._rbDetailEditIdx=editIdx;
+    var title=document.getElementById('rbDetailTitle');
+    if(title) title.textContent='Details — '+_esc(dbRow.meta_id||dbRow.build_id);
+    // pre-fill if editing
+    var existing=editIdx!=null?_rbSaved[editIdx]:null;
+    document.getElementById('rbDetailDeviceName').value=(existing&&existing.deviceName)||dbRow.build_id||'';
+    document.getElementById('rbDetailHours').value=(existing&&existing.hours)||'';
+    document.getElementById('rbDetailRedSlider').value=(existing&&existing.reduction)||0;
+    document.getElementById('rbDetailRedText').value=(existing&&existing.reduction)||'';
+    document.getElementById('rbDetailDevices').value=(existing&&existing.device_count)||dbRow.device_count||'';
+    document.getElementById('rbDetailMsg').textContent='';
+    rbDetailPreview();
+    document.getElementById('rbDetailModal').style.display='flex';
+  };
+  window.rbCloseDetailModal=function(){
+    var m=document.getElementById('rbDetailModal'); if(m) m.style.display='none';
+  };
+  window.rbDetailSyncRed=function(slider){
+    document.getElementById('rbDetailRedText').value=slider.value;
+    rbDetailPreview();
+  };
+  window.rbDetailSyncRedText=function(input){
+    var v=Math.min(99,Math.max(0,parseFloat(input.value)||0));
+    document.getElementById('rbDetailRedSlider').value=Math.min(90,Math.round(v/10)*10);
+    rbDetailPreview();
+  };
+  window.rbDetailPreview=function(){
+    var card=document.getElementById('rbDetailCard'); if(!card) return;
+    var r=window._rbDetailRow||{};
+    var hours=parseFloat(document.getElementById('rbDetailHours').value)||0;
+    var red=parseFloat(document.getElementById('rbDetailRedText').value)||0;
+    var devices=parseInt(document.getElementById('rbDetailDevices').value)||parseInt(r.device_count||1)||1;
+    var deviceName=document.getElementById('rbDetailDeviceName').value||r.build_id||'';
+    var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
+    // effective hours = base + elapsed*(1-red/100)*devices (no publish time yet)
+    var effH=hours>0?(hours*(1-red/100)*devices):null;
+    var mtbf=null; // no crashes yet
+    function _card(icon,label,val,color){
+      return '<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0">'
+        +'<div style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;margin-bottom:4px"><i class="fas fa-'+icon+'"></i> '+label+'</div>'
+        +'<div style="font-size:18px;font-weight:950;color:'+(color||'#1e3a8a')+'">'+val+'</div>'
+        +'</div>';
+    }
+    card.innerHTML=
+      _card('tag','Meta ID',_esc(r.meta_id||'--'),'#1e3a8a')
+      +_card('layer-group','Domain','<span style="color:'+domCol+'">'+_esc(r.domain||'--')+'</span>')
+      +_card('display','Device Name',_esc(deviceName||'--'),'#334155')
+      +_card('hourglass-half','Base Hours',hours?hours+'h':'--','#6366f1')
+      +_card('percent','Reduction',red?red+'%':'0%','#7c3aed')
+      +_card('calculator','Eff. Hours',effH!=null?(Math.round(effH*10)/10).toFixed(1)+'h':'--','#059669')
+      +_card('microchip','Devices',devices,'#0ea5e9')
+      +_card('bug','Crashes','-- (after publish)','#dc2626');
+  };
+
+  window.rbDetailSave=function(){
+    var r=window._rbDetailRow;
+    if(!r){alert('No build selected.');return;}
+    var deviceName=document.getElementById('rbDetailDeviceName').value.trim();
+    var hours=document.getElementById('rbDetailHours').value.trim();
+    var red=document.getElementById('rbDetailRedText').value.trim();
+    var devices=document.getElementById('rbDetailDevices').value.trim()||r.device_count||'';
+    var entry={
+      build_id:    r.build_id,
+      build_full:  r.build_full||r.build_id,
+      meta_id:     r.meta_id,
+      domain:      r.domain,
+      deviceName:  deviceName||r.build_id,
+      hours:       hours?parseFloat(hours):null,
+      reduction:   red?parseFloat(red):0,
+      device_count:devices?parseInt(devices):null,
+      published:   false,
+      publishedAt: null,
+      crashes:     null,
+      jql:         null,
+      savedAt:     new Date().toISOString()
+    };
+    var idx=window._rbDetailEditIdx;
+    if(idx!=null && idx>=0) _rbSaved[idx]=entry;
+    else _rbSaved.push(entry);
+    _save();
+    _render();
+    rbCloseDetailModal();
+  };
+
+    window.rbAddDbRow=function(idx){
+    var rows=window._rbDbOnlyVisibleRows||[];
+    var r=rows[idx];
+    if(!r) return;
+    rbOpenDetailModal(r, null);
+  };
+
+  /* ---- edit / delete ---- */
+  window.rbEdit=function(idx){
+    var s=_rbSaved[idx]; if(!s) return;
+
+    // find matching DB row or create a stub
+    var dbRow=_rbRows.find(function(r){return r.build_id===s.build_id&&r.domain===s.domain;})||{build_id:s.build_id,meta_id:s.meta_id,domain:s.domain,device_count:s.device_count};
+    rbOpenDetailModal(dbRow, idx);
+  };
+  window.rbDelete=function(idx){
+    if(!confirm('Remove this build from the table?')) return;
+    var s=_rbSaved[idx];
+    if(s&&s.published) rbStopJql(idx);
+    _rbSaved.splice(idx,1);
+    _save(); _render();
+  };
+
+  /* ================================================================
+     PUBLISH / UNPUBLISH + 15-min JQL background refresh
+  ================================================================ */
+  window.rbPublish=function(idx){
+    var s=_rbSaved[idx]; if(!s) return;
+    if(!s.hours&&!confirm('No hours set. Publish anyway?')) return;
+    s.published=true;
+    s.publishedAt=new Date().toISOString();
+    _save(); _render();
+    rbStartJql(idx);
+  };
+  window.rbUnpublish=function(idx){
+    var s=_rbSaved[idx]; if(!s) return;
+    s.published=false;
+    _save(); _render();
+    rbStopJql(idx);
+  };
+
+  function _rbJqlKey(s){return (s.domain||'')+'__'+(s.build_id||'');}
+
+  window.rbStartJql=function(idx){
+    var s=_rbSaved[idx]; if(!s||!s.published) return;
+    rbRunJql(idx); // immediate first run
+    var key=_rbJqlKey(s);
+    if(_rbJqlTimers[key]) clearInterval(_rbJqlTimers[key]);
+    _rbJqlTimers[key]=setInterval(function(){rbRunJql(idx);},INTERVAL_MS);
+  };
+  window.rbStopJql=function(idx){
+    var s=_rbSaved[idx]; if(!s) return;
+    var key=_rbJqlKey(s);
+    if(_rbJqlTimers[key]){clearInterval(_rbJqlTimers[key]);delete _rbJqlTimers[key];}
+  };
+
+  window.rbRunJql=function(idx){
+    var s=_rbSaved[idx]; if(!s) return;
+    var buildId=s.build_id||'';
+    if(!buildId) return;
+    // Build JQL same as lsp_v2: filter + project + summary ~ buildId
+    var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
+    var jql='filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"';
+    s.jql=jql;
+    fetch('/api/consolidated_report',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({builds:[buildId],traverse:true,orbit:false,target:TARGET,force:false,custom_jql:jql})
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error) return;
+      // if async job, poll result
+      if(d.job_id){
+        var jid=d.job_id;
+        var poll=setInterval(function(){
+          fetch('/api/consolidated_report/result/'+jid)
+            .then(function(r2){return r2.status===202?null:r2.json();})
+            .then(function(res){
+              if(!res) return;
+              clearInterval(poll);
+              _rbApplyCrashes(idx,res);
+            }).catch(function(){clearInterval(poll);});
+        },3000);
+        return;
+      }
+      _rbApplyCrashes(idx,d);
+    })
+    .catch(function(){});
+  };
+
+  function _rbApplyCrashes(idx,data){
+    var s=_rbSaved[idx]; if(!s) return;
+    var total=0;
+    var summary=(data.summary||{});
+    // by_build map
+    var byBuild=summary.by_build||{};
+    var bid=String(s.build_id||'').trim().toUpperCase();
+    Object.keys(byBuild).forEach(function(k){
+      if(k.trim().toUpperCase()===bid) total+=parseInt(byBuild[k]||0)||0;
+    });
+    if(!total) total=parseInt(summary.total_jiras||0)||0;
+    s.crashes=total;
+    s.lastJqlAt=new Date().toISOString();
+    _save(); _render();
+    // also update effective MTBF display
+    _rbNextMs=Date.now()+INTERVAL_MS;
+  }
+
+  /* ---- auto-start JQL for already-published rows on page load ---- */
+  function _rbRestorePublished(){
+    _rbSaved.forEach(function(s,i){
+      if(s.published) rbStartJql(i);
+    });
+  }
+
+    /* ---- tab switch hook ---- */
+  window.rbEnsureDbRunning=function(){
+    if(!_rbRows.length) window.loadRunningBuildsDb();
+    if(!_rbInterval){
+      _rbNextMs=Date.now()+INTERVAL_MS;
+      _rbInterval=setInterval(function(){
+        window.loadRunningBuildsDb();
+        _rbNextMs=Date.now()+INTERVAL_MS;
+      },INTERVAL_MS);
+      setInterval(_updateTimer,1000);
+    }
+  };
+  var _origSwitch=window.switchTab;
+  window.switchTab=function(name){
+    if(typeof _origSwitch==='function') _origSwitch(name);
+    if(name==='current') window.rbEnsureDbRunning();
+  };
+
+
+  /* ---- init ---- */
+  _rbSaved=_load();
+  _rbDomain=(function(){
+    var t=String(TARGET||'').toUpperCase();
+    if(t.includes('FLEX')) return 'FLEX';
+    if(t.includes('IVI')) return 'IVI';
+    return 'ADAS';
+  })();
+
+  document.addEventListener('DOMContentLoaded',function(){
+    var cur=document.getElementById('tab-current');
+    if(cur&&cur.classList.contains('active')){
+      window.loadRunningBuildsDb();
+      _rbNextMs=Date.now()+INTERVAL_MS;
+      _rbInterval=setInterval(function(){
+        window.loadRunningBuildsDb();
+        _rbNextMs=Date.now()+INTERVAL_MS;
+      },INTERVAL_MS);
+      setInterval(_updateTimer,1000);
+    }
+    _rbRestorePublished();
+    _render();
+  });
+}());
+</script>
+<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260618_no_help_time_fix"></script>
+
+<script>
+/* Open JIRAs tab */
+(function(){
+  var PG=100,_all=[],_fil=[],_pg=1;
+  var JB='https://jira-dc2.qualcomm.com/jira/browse/';
+  var AC={ADSP:'#f59e0b',APPS:'#6366f1',Modem:'#0ea5e9',WConnect:'#10b981',Video:'#8b5cf6',TZ:'#f97316',BOOT:'#64748b'};
+  function _e(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function _c(a){return AC[a]||'#94a3b8';}
+  function _g(i){return document.getElementById(i);}
+  window.ojLoad=function(){
+    var from=(_g('ojFrom')||{}).value||'';
+    var to=(_g('ojTo')||{}).value||'';
+    var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();
+    console.log('[OJ DEBUG] tgt=',tgt,'LSP_DATA=',JSON.stringify(window.LSP_DATA));
+    if(!tgt)return;
+    _g('ojLoading').style.display='block';
+    _g('ojContent').style.display='none';
+    _g('ojError').style.display='none';
+    var url='/api/dashboard/'+encodeURIComponent(tgt)+'/open_jiras';
+    console.log('[OJ DEBUG] fetching:',url);
+    var p=[];
+    if(from)p.push('date_from='+encodeURIComponent(from));
+    if(to)p.push('date_to='+encodeURIComponent(to));
+    if(p.length)url+='?'+p.join('&');
+    fetch(url).then(function(r){return r.json();}).then(function(d){console.log('[OJ DEBUG] response:',JSON.stringify(d).substring(0,300));
+      _g('ojLoading').style.display='none';
+      console.log('[OJ DEBUG] success=',d.success,'rows=',d.rows&&d.rows.length,'notice=',d.notice);
+      if(!d.success)throw new Error(d.message||'Load failed');
+      if(d.notice&&!(d.rows&&d.rows.length)){
+        var el=_g('ojError');el.style.display='block';el.style.color='#64748b';
+        el.innerHTML='<i class="fas fa-info-circle" style="color:#6366f1"></i> '+_e(d.notice);return;
+      }
+      _all=d.rows||[];_fil=_all.slice();_pg=1;
+      console.log('[OJ DEBUG] rows loaded:',_all.length,'ojContent=',!!_g('ojContent'));
+      _kpi();_buildFilters();
+      if(_g('ojContent'))_g('ojContent').style.display='block';
+      else console.error('[OJ DEBUG] ojContent NOT FOUND in DOM');
+      _table();
+      console.log('[OJ DEBUG] after _table, tbody html=',(_g('ojTbody')||{innerHTML:''}).innerHTML.substring(0,100));
+    }).catch(function(e){
+      _g('ojLoading').style.display='none';
+      var el=_g('ojError');el.style.display='block';el.style.color='#dc2626';
+      el.textContent='Error: '+e.message;
+    });
+  };
+  function _kpi(){
+    var el=_g('ojKpi');if(!el)return;
+    var map={};_all.forEach(function(r){map[r.area]=(map[r.area]||0)+1;});
+    var s=Object.entries(map).sort(function(a,b){return b[1]-a[1];});
+    var h='<div onclick="ojFilterArea(\'\')" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:#f0f4ff;border:1px solid #c7d2fe;font-weight:900;font-size:13px;color:#1e3a5f;">Total <span style="color:#4f46e5;">'+_all.length+'</span></div>';
+    s.forEach(function(kv){var c=_c(kv[0]);h+='<div onclick="ojFilterArea(\''+_e(kv[0])+'\')" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:'+c+'18;border:1px solid '+c+'44;font-weight:800;font-size:12px;color:'+c+';">'+_e(kv[0])+' <span style="font-weight:900;">'+kv[1]+'</span></div>';});
+    el.innerHTML=h;
+    var b=_g('ojBadge');if(b)b.textContent=_all.length+' tickets';
+  }
+  function _buildFilters(){
+    var areas=[...new Set(_all.map(function(r){return r.area;}).filter(Boolean))].sort();
+    var teams=[...new Set(_all.map(function(r){return r.test_team;}).filter(Boolean))].sort();
+    var as=_g('ojAreaSel'),ts=_g('ojTeamSel');
+    if(as)as.innerHTML='<option value="">All Areas</option>'+areas.map(function(a){return '<option value="'+_e(a)+'">'+_e(a)+'</option>';}).join('');
+    if(ts)ts.innerHTML='<option value="">All Teams</option>'+teams.map(function(t){return '<option value="'+_e(t)+'">'+_e(t)+'</option>';}).join('');
+  }
+  window.ojFilterArea=function(a){var s=_g('ojAreaSel');if(s)s.value=a;ojFilter();};
+  window.ojFilter=function(){
+    var area=(_g('ojAreaSel')||{}).value||'';
+    var team=(_g('ojTeamSel')||{}).value||'';
+    var q=((_g('ojSearch')||{}).value||'').toLowerCase();
+    _fil=_all.filter(function(r){
+      if(area&&r.area!==area)return false;
+      if(team&&r.test_team!==team)return false;
+      if(q&&!((r.stability_ticket||'').toLowerCase().includes(q)||(r.jira_title||'').toLowerCase().includes(q)||(r.cr_current_ticket||'').toLowerCase().includes(q)))return false;
+      return true;
+    });
+    _pg=1;_table();
+  };
+  window.ojClear=function(){
+    ['ojAreaSel','ojTeamSel','ojSearch'].forEach(function(id){var el=_g(id);if(el)el.value='';});
+    _fil=_all.slice();_pg=1;_table();
+  };
+  window.ojPage=function(dir){
+    var pages=Math.ceil(_fil.length/PG)||1;
+    _pg=Math.max(1,Math.min(pages,_pg+dir));_table();
+  };
+  function _table(){
+    console.log('[OJ DEBUG] _table called _fil=',_fil.length,'_pg=',_pg);
+    var tb=_g('ojTbody');if(!tb){console.error('[OJ DEBUG] ojTbody NOT FOUND');return;}
+    var start=(_pg-1)*PG,page=_fil.slice(start,start+PG),total=_fil.length,pages=Math.ceil(total/PG)||1;
+    var info=_g('ojPageInfo');if(info)info.textContent=total?'Showing '+(start+1)+'\u2013'+Math.min(start+PG,total)+' of '+total+' (page '+_pg+'/'+pages+')':'0 results';
+    var prev=_g('ojPrev'),next=_g('ojNext');
+    if(prev)prev.disabled=(_pg<=1);if(next)next.disabled=(_pg>=pages);
+    var b=_g('ojBadge');if(b)b.textContent=total+' tickets';
+    if(!page.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;font-weight:600;">No tickets match the current filters.</td></tr>';return;}
+    tb.innerHTML=page.map(function(r,i){
+      var c=_c(r.area);
+      var tUrl=r.stability_ticket?JB+encodeURIComponent(r.stability_ticket):'#';
+      var cUrl=r.cr_current_ticket?JB+encodeURIComponent(r.cr_current_ticket):'#';
+      return '<tr>'+
+        '<td style="color:#94a3b8;font-size:11px;">'+(start+i+1)+'</td>'+
+        '<td><a href="'+tUrl+'" target="_blank" style="font-weight:700;color:#4f46e5;text-decoration:none;">'+_e(r.stability_ticket||'\u2014')+'</a></td>'+
+        '<td style="font-size:11px;color:#64748b;white-space:nowrap;">'+_e(r.jira_date||'\u2014')+'</td>'+
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:6px;background:'+c+'18;color:'+c+';font-size:10px;font-weight:700;">'+_e(r.area||'\u2014')+'</span></td>'+
+        '<td>'+(r.cr_current_ticket?'<a href="'+cUrl+'" target="_blank" style="font-weight:700;color:#0ea5e9;text-decoration:none;">'+_e(r.cr_current_ticket)+'</a>':'<span style="color:#cbd5e1;">\u2014</span>')+'</td>'+
+        '<td style="font-size:11px;color:#64748b;">'+_e(r.test_team||'\u2014')+'</td>'+
+        '<td style="font-size:11px;color:#374151;max-width:320px;">'+_e(r.jira_title||'\u2014')+'</td>'+
+        '</tr>';
+    }).join('');
+  }
+    var _ojLoaded=false;
+  /* Patch switchTab to trigger ojLoad on first open */
+  var _origSwitchTab=window.switchTab;
+    window.switchTab=function(name){
+    if(typeof _origSwitchTab==='function')_origSwitchTab(name);
+    if(name==='current'&&typeof window.rbEnsureDbRunning==='function')window.rbEnsureDbRunning();
+    if(name==='openjiras'&&!_ojLoaded){_ojLoaded=true;ojLoad();}
+  };
+
+})();
+
+/* Build Summary Modal */
+(function(){
+  function _modal(){
+    var m=document.getElementById('bsModal');if(m)return m;
+    m=document.createElement('div');m.id='bsModal';
+    m.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);overflow-y:auto;padding:24px 16px;';
+    m.innerHTML=
+      '<div style="max-width:820px;margin:0 auto;background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.22);overflow:hidden;">'+
+        '<div style="background:linear-gradient(135deg,#1e3a5f,#4f46e5);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;">'+
+          '<div><div id="bsTitle" style="font-size:15px;font-weight:900;color:#fff;"></div>'+
+          '<div id="bsSub" style="font-size:11px;color:#a5b4fc;margin-top:2px;"></div></div>'+
+          '<button onclick="bsClose()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1;">&times;</button>'+
+        '</div>'+
+        '<div style="padding:18px 22px;">'+
+          '<div id="bsKpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;"></div>'+
+          '<div style="margin-bottom:14px;">'+
+            '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;"><i class="fas fa-cubes" style="color:#6366f1;"></i> Builds</div>'+
+            '<div id="bsBuilds" style="display:flex;flex-direction:column;gap:4px;"></div>'+
+          '</div>'+
+          '<div>'+
+            '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;"><i class="fas fa-comment-dots" style="color:#0ea5e9;"></i> Test Eng Comment</div>'+
+            '<div id="bsComment" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:12px;color:#374151;line-height:1.6;"></div>'+
+          '</div>'+
+        '</div>'+
+        '<div style="padding:10px 22px 18px;display:flex;justify-content:flex-end;border-top:1px solid #f1f5f9;">'+
+          '<button onclick="bsClose()" style="padding:7px 18px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;">Close</button>'+
+        '</div>'+
+      '</div>';
+    m.addEventListener('click',function(e){if(e.target===m)bsClose();});
+    document.body.appendChild(m);return m;
+  }
+  window.bsOpen=function(idx){
+    var rows=(window.LSP_DATA&&window.LSP_DATA.running_rows)||[];
+    var r=rows[idx];if(!r)return;
+    var m=_modal();
+    var hv=r.display_hours||r.hours||'NA';
+    var mv=r.display_mtbf||r.mtbf||'NA';
+    var builds=[];
+    if(r.merged_builds&&r.merged_builds.length)builds=r.merged_builds;
+    else if(r.build_full||r.display_build)builds=[r.build_full||r.display_build];
+    document.getElementById('bsTitle').textContent=r.meta_id||'Build Summary';
+    document.getElementById('bsSub').textContent='Week: '+(r.week||r.first_submitted||'--')+(r.source?' \u2022 '+r.source:'');
+    var kpis=[
+      {l:'Hours',   v:hv,               i:'fa-clock',      c:'#6366f1',bg:'#eef2ff'},
+      {l:'Crashes', v:r.crashes||0,     i:'fa-bug',        c:'#dc2626',bg:'#fef2f2'},
+      {l:'MTBF',    v:mv,               i:'fa-chart-line', c:'#059669',bg:'#ecfdf5'},
+      {l:'Jobs',    v:r.job_count||'--',    i:'fa-vial',       c:'#0ea5e9',bg:'#f0f9ff'},
+      {l:'Devices', v:r.device_count||'--', i:'fa-mobile-alt',  c:'#7c3aed',bg:'#f5f3ff'}
+    ];
+    document.getElementById('bsKpi').innerHTML=kpis.map(function(k){
+      return '<div style="background:'+k.bg+';border:1px solid '+k.c+'22;border-radius:12px;padding:12px;text-align:center;">'+
+        '<div style="font-size:20px;font-weight:900;color:'+k.c+';">'+k.v+'</div>'+
+        '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;">'+
+          '<i class="fas '+k.i+'" style="margin-right:3px;"></i>'+k.l+'</div></div>';
+    }).join('');
+    document.getElementById('bsBuilds').innerHTML=builds.length
+      ?builds.map(function(b){
+          return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:11px;font-family:monospace;color:#334155;word-break:break-all;">'+
+            '<i class="fas fa-cube" style="color:#6366f1;margin-right:5px;"></i>'+String(b||'')+'</div>';
+        }).join('')
+      :'<div style="color:#94a3b8;font-size:12px;">No build info.</div>';
+    document.getElementById('bsComment').textContent=r.comments||r.test_eng_comment||'No comment recorded.';
+    m.style.display='block';document.body.style.overflow='hidden';
+  };
+  window.bsClose=function(){
+    var m=document.getElementById('bsModal');if(m)m.style.display='none';
+    document.body.style.overflow='';
+  };
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')bsClose();});
+})();
