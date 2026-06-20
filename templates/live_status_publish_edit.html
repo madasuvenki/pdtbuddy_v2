@@ -652,82 +652,233 @@ window.LSP_DATA = {
   };
 
 
-    /* ================================================================
-     STEP 1 MODAL — reuse Core Slide premium modal exactly
-     (ensureCoreDeckBuildModal / openCoreDeckBuildModal from
-      live_status_published_safe.js — same wk-modal, same domain
-      switcher IVI/FLEX/ADAS, same search, Select Visible, count badge)
+      /* ================================================================
+     STEP 1 MODAL — dedicated "Add Running Build" picker
+     Own DOM (id=rbPickModal), own title, own domain buttons,
+     own search + Select Visible + count badge.
+     Reads _cdJiraBuilds data (same Axiom source) but NEVER touches
+     Core Slide state (_cdMetas, _cdModalSelected, applyCoreDeckBuildModalSelection).
+     "Next → Set Details" goes straight to rbOpenDetailModal().
   ================================================================ */
 
-  // Called by the Core Slide modal's "Save / Next" button after user picks builds.
-  // We intercept applyCoreDeckBuildModalSelection to route into rbOpenDetailModal.
-  window._rbUsingCdModal = false;  // flag: modal opened from Add Build button
+  var _rbPickSel = new Set();   // keys of selected build options
+  var _rbPickDomain = 'ADAS';   // active domain in picker
 
-  // Override applyCoreDeckBuildModalSelection only when opened from Add Build
-  var _origApplyCdModal = window.applyCoreDeckBuildModalSelection;
-  window.applyCoreDeckBuildModalSelection = function(){
-    if(!window._rbUsingCdModal){
-      // Normal Core Slide usage — call original
-      if(typeof _origApplyCdModal==='function') _origApplyCdModal();
+  /* ── build a key identical to Core Slide's _cdOptKey ── */
+  function _rbOptKey(o){
+    if(typeof o==='string') return o;
+    return [o.build_id||'',o.product_flavor||'',o.software_product||''].join('||');
+  }
+  function _rbOptBuild(o){ return typeof o==='string'?o:(o.build_id||''); }
+  function _rbOptFlavor(o){ return typeof o==='string'?'':(o.product_flavor||''); }
+  function _rbOptMeta(o){
+    if(o.meta_id) return o.meta_id;
+    var b=_rbOptBuild(o);
+    var m=b.match(/meta[-_ ]?0*(\d{2,6})/i);
+    if(m) return 'Meta-'+String(parseInt(m[1],10)).padStart(3,'0');
+    return b.split(/[\s_\-.]+/).slice(0,2).join('-')||b;
+  }
+  function _rbDeckMatch(o, deck){
+    var dt=String(o.deck_type||o.domain||'').toUpperCase();
+    return dt===deck || dt==='';
+  }
+
+  /* ── ensure modal DOM (built once, never re-created) ── */
+  function _ensurePickModal(){
+    if(document.getElementById('rbPickModal')) return;
+    var m=document.createElement('div');
+    m.id='rbPickModal';
+    m.className='wk-modal';
+    m.innerHTML=
+      '<div class="wk-modal-card" style="width:94vw;max-width:1450px">'
+      +'<div class="wk-modal-head">'
+        +'<div>'
+          +'<div style="font-size:14px;font-weight:950;text-transform:uppercase;letter-spacing:.04em">'
+            +'<i class="fas fa-satellite-dish"></i> Add Running Build — Current Report'
+          +'</div>'
+          +'<div style="font-size:11px;color:#bfdbfe;margin-top:3px">'
+            +'Build/flavor rows loaded from Axiom. Select one build then click Next to set hours, devices, JQL and generate CR report.'
+          +'</div>'
+        +'</div>'
+        +'<button class="btn" onclick="rbClosePickModal()"><i class="fas fa-times"></i></button>'
+      +'</div>'
+      /* toolbar: domain buttons + search + Select Visible + count */
+      +'<div style="display:flex;gap:10px;align-items:center;padding:12px 18px;border-bottom:1px solid #f1f5f9;background:#f8fafc;flex-wrap:wrap">'
+        +'<span style="font-size:12px;font-weight:950;color:#334155">Domain</span>'
+        +'<button id="rbPickDomBtn_IVI" class="btn" style="font-size:11px;padding:5px 12px" onclick="rbPickSetDomain(\"IVI\")" ><i class="fas fa-display"></i> IVI</button>'
+        +'<button id="rbPickDomBtn_FLEX" class="btn" style="font-size:11px;padding:5px 12px" onclick="rbPickSetDomain(\"FLEX\")"><i class="fas fa-microchip"></i> FLEX</button>'
+        +'<button id="rbPickDomBtn_ADAS" class="btn" style="font-size:11px;padding:5px 12px" onclick="rbPickSetDomain(\"ADAS\")"><i class="fas fa-car"></i> ADAS</button>'
+        +'<input id="rbPickSearch" class="compact-input" style="flex:1;min-width:240px" placeholder="Search meta / build / flavor..." oninput="rbPickRender()">'
+        +'<button class="btn" onclick="rbPickSelectVisible(true)">Select Visible</button>'
+        +'<button class="btn" onclick="rbPickSelectVisible(false)">Clear Visible</button>'
+        +'<span id="rbPickCount" class="muted" style="font-size:12px;font-weight:800"></span>'
+      +'</div>'
+      /* list */
+      +'<div id="rbPickList" class="wk-build-list"><div class="empty">Loading builds from Axiom...</div></div>'
+      /* footer */
+      +'<div style="display:flex;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid #f1f5f9;background:#f8fafc;align-items:center">'
+        +'<span class="muted" style="font-size:12px;font-weight:800">Step 1 of 2: select a build row. Step 2 sets hours, devices, JQL and generates CR / JIRA report.</span>'
+        +'<span>'
+          +'<button class="btn" onclick="rbClosePickModal()">Cancel</button>'
+          +' <button class="btn btn-primary" id="rbPickNextBtn" onclick="rbPickNext()"><i class="fas fa-arrow-right"></i> Next — Set Details</button>'
+        +'</span>'
+      +'</div>'
+      +'</div>';
+    document.body.appendChild(m);
+  }
+
+  /* ── render the build list ── */
+  function rbPickRender(){
+    var list=document.getElementById('rbPickList'); if(!list) return;
+    var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
+    // Use _cdJiraBuilds if loaded, else _rbRows as fallback
+    var src=[];
+    if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
+      src=window._cdJiraBuilds.filter(function(o){
+        return _rbDeckMatch(o,_rbPickDomain);
+      });
+    } else {
+      // fallback: use running_builds_db rows
+      src=_rbRows.filter(function(r){
+        return String(r.domain||'').toUpperCase()===_rbPickDomain;
+      }).map(function(r){
+        return {build_id:r.build_id,meta_id:r.meta_id,product_flavor:r.product_flavor,deck_type:r.domain,device_count:r.device_count,submitted:r.started_at};
+      });
+    }
+    if(q){
+      src=src.filter(function(o){
+        var hay=[_rbOptMeta(o),_rbOptBuild(o),_rbOptFlavor(o),o.software_product||''].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    var cnt=document.getElementById('rbPickCount');
+    var selCount=_rbPickSel.size;
+    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'');
+    if(!src.length){
+      list.innerHTML='<div class="empty"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>No '+_esc(_rbPickDomain)+' builds found.<br><small>Try a different domain or search term.</small></div>';
       return;
     }
-    // Running Build usage — take the first selected build and open detail modal
-    window._rbUsingCdModal = false;
-    if(typeof closeCoreDeckBuildModal==='function') closeCoreDeckBuildModal();
-    // _cdModalSelected is a Set of build option keys from Core Slide
-    var sel = window._cdModalSelected ? Array.from(window._cdModalSelected) : [];
-    if(!sel.length){ alert('Please select a build first.'); return; }
-    // Find the matching build option from _cdJiraBuilds
-    var builds = window._cdJiraBuilds || [];
-    var picked = builds.find(function(o){
-      var key = typeof o==='string' ? o : [o.build_id||'',o.product_flavor||'',o.software_product||''].join('||');
-      return sel.indexOf(key) !== -1;
-    }) || builds.find(function(o){
-      return sel.indexOf(typeof o==='string'?o:o.build_id||'') !== -1;
+    var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'};
+    list.innerHTML=src.map(function(o){
+      var key=_rbOptKey(o);
+      var sel=_rbPickSel.has(key);
+      var dc=domCol[_rbPickDomain]||'#475569';
+      var meta=_rbOptMeta(o);
+      var build=_rbOptBuild(o);
+      var flavor=_rbOptFlavor(o);
+      return '<label class="wk-build-row'+(sel?' selected':'')+'" style="cursor:pointer">'
+        +'<input type="checkbox" '+(sel?'checked':'')+' style="width:16px;height:16px;accent-color:#6366f1" onchange="rbPickToggle(\"'+_esc(key.replace(/"/g,'&quot;'))+'\",this.checked)">'
+        +'<div class="wk-build-name" style="flex:1">'
+          +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+            +'<strong style="color:#1e3a8a;font-size:12px">'+_esc(meta)+'</strong>'
+            +'<span style="font-size:10px;font-weight:900;color:'+dc+';background:#f0f4ff;border-radius:999px;padding:1px 8px">'+_esc(_rbPickDomain)+'</span>'
+            +(flavor?'<span style="font-size:10px;color:#7c3aed;font-weight:800">'+_esc(flavor)+'</span>':'')
+            +(o.device_count?'<span style="font-size:10px;color:#64748b">'+_esc(o.device_count)+' devices</span>':'')
+            +(o.submitted?'<span style="font-size:10px;color:#94a3b8">'+_esc(String(o.submitted).slice(0,10))+'</span>':'')
+          +'</div>'
+          +'<div style="font-size:10px;color:#475569;word-break:break-all;margin-top:2px">'+_esc(build)+'</div>'
+        +'</div>'
+        +'</label>';
+    }).join('');
+  }
+  window.rbPickRender=rbPickRender;
+
+  window.rbPickToggle=function(key,on){
+    if(on) _rbPickSel.add(key); else _rbPickSel.delete(key);
+    rbPickRender();
+  };
+
+  window.rbPickSetDomain=function(d){
+    _rbPickDomain=d;
+    // highlight active button
+    ['IVI','FLEX','ADAS'].forEach(function(dk){
+      var b=document.getElementById('rbPickDomBtn_'+dk);
+      if(!b) return;
+      if(dk===d){
+        b.style.background='linear-gradient(135deg,#2563eb,#7c3aed)';
+        b.style.color='#fff';
+        b.style.border='0';
+      } else {
+        b.style.background='#fff';
+        b.style.color='#334155';
+        b.style.border='1px solid #e2e8f0';
+      }
     });
+    rbPickRender();
+  };
+
+  window.rbPickSelectVisible=function(on){
+    var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
+    var src=[];
+    if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
+      src=window._cdJiraBuilds.filter(function(o){ return _rbDeckMatch(o,_rbPickDomain); });
+    } else {
+      src=_rbRows.filter(function(r){ return String(r.domain||'').toUpperCase()===_rbPickDomain; })
+        .map(function(r){ return {build_id:r.build_id,meta_id:r.meta_id,product_flavor:r.product_flavor,deck_type:r.domain}; });
+    }
+    if(q) src=src.filter(function(o){
+      return [_rbOptMeta(o),_rbOptBuild(o),_rbOptFlavor(o)].join(' ').toLowerCase().includes(q);
+    });
+    src.forEach(function(o){ on?_rbPickSel.add(_rbOptKey(o)):_rbPickSel.delete(_rbOptKey(o)); });
+    rbPickRender();
+  };
+
+  /* ── open the picker ── */
+  window.rbOpenAddModal = async function(){
+    _ensurePickModal();
+    _rbPickSel.clear();
+    _rbPickDomain = _rbDomain;  // start on current domain
+    var search=document.getElementById('rbPickSearch'); if(search) search.value='';
+    document.getElementById('rbPickModal').style.display='flex';
+    rbPickSetDomain(_rbPickDomain);
+    // Load Axiom builds if not yet loaded (same as loadCoreDeckJiraBuilds)
+    var list=document.getElementById('rbPickList');
+    if(!window._cdJiraBuilds||!window._cdJiraBuilds.length){
+      if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom...</div>';
+      try{
+        if(typeof loadCoreDeckJiraBuilds==='function') await loadCoreDeckJiraBuilds();
+      }catch(e){
+        // fallback: _rbRows already loaded
+      }
+    }
+    rbPickRender();
+  };
+
+  window.rbClosePickModal=function(){
+    var m=document.getElementById('rbPickModal'); if(m) m.style.display='none';
+  };
+
+  /* ── Next button: resolve selected build → open detail modal ── */
+  window.rbPickNext=function(){
+    var sel=Array.from(_rbPickSel);
+    if(!sel.length){ alert('Please select a build first.'); return; }
+    // Resolve first selected key back to a build option object
+    var key=sel[0];
+    var src=window._cdJiraBuilds||[];
+    var picked=src.find(function(o){ return _rbOptKey(o)===key; });
+    if(!picked){
+      // fallback: try _rbRows
+      picked=_rbRows.find(function(r){ return _rbOptKey(r)===key||r.build_id===key; });
+    }
     if(!picked){ alert('Could not resolve selected build. Please try again.'); return; }
-    // Map Core Slide build option fields → Running Build DB row shape
-    var domain = (typeof window._guessDeckType==='function')
-      ? window._guessDeckType(picked)
-      : (String(picked.deck_type||picked.domain||'').toUpperCase()||_rbDomain);
-    var dbRow = {
-      build_id:       picked.build_id || (typeof picked==='string'?picked:''),
-      build_full:     picked.build_id || '',
-      meta_id:        picked.meta_id  || '',
-      product_flavor: picked.product_flavor || '',
+    // Map to Running Build row shape
+    var domain=String(picked.deck_type||picked.domain||_rbPickDomain||'').toUpperCase()||_rbPickDomain;
+    if(!['IVI','FLEX','ADAS'].includes(domain)) domain=_rbPickDomain;
+    var dbRow={
+      build_id:       picked.build_id||(typeof picked==='string'?picked:''),
+      build_full:     picked.build_id||'',
+      meta_id:        picked.meta_id||_rbOptMeta(picked),
+      product_flavor: picked.product_flavor||'',
       domain:         domain,
-      device_count:   picked.device_count || null,
-      started_at:     picked.submitted || ''
+      device_count:   picked.device_count||null,
+      started_at:     picked.submitted||''
     };
+    rbClosePickModal();
     rbOpenDetailModal(dbRow, null);
   };
 
-  // Open the Core Slide premium modal, pre-set to current domain, intercept Apply
-  window.rbOpenAddModal = async function(){
-    window._rbUsingCdModal = true;
-    // Pre-set the deck type selector to match current running build domain
-    var deckSel = document.getElementById('cdBuildModalDeckType');
-    if(deckSel) deckSel.value = _rbDomain;
-    // Use Core Slide's own open function — it handles spinner + await fetch + render
-    if(typeof openCoreDeckBuildModal === 'function'){
-      await openCoreDeckBuildModal();
-    } else {
-      // Fallback: Core Slide JS not yet loaded — wait for it
-      var waited = 0;
-      while(typeof openCoreDeckBuildModal !== 'function' && waited < 3000){
-        await new Promise(function(r){setTimeout(r,100);});
-        waited += 100;
-      }
-      if(typeof openCoreDeckBuildModal === 'function') await openCoreDeckBuildModal();
-      else alert('Core Slide modal not available. Please switch to Core Slides tab first.');
-    }
-  };
-
-  // Keep close wired (Core Slide already has closeCoreDeckBuildModal)
-  window.rbCloseAddModal = function(){
-    window._rbUsingCdModal = false;
-    if(typeof closeCoreDeckBuildModal==='function') closeCoreDeckBuildModal();
-  };
+  // Legacy alias
+  window.rbCloseAddModal=window.rbClosePickModal;
 
     /* ================================================================
      STEP 2 MODAL — Axiom jobs, unique devices, cumulative hours,
