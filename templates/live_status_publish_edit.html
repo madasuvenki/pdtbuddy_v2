@@ -729,129 +729,466 @@ window.LSP_DATA = {
     if(typeof closeCoreDeckBuildModal==='function') closeCoreDeckBuildModal();
   };
 
-  /* ================================================================
-     STEP 2 MODAL — set hours, reduction, device name, card preview
+    /* ================================================================
+     STEP 2 MODAL — Axiom jobs, unique devices, cumulative hours,
+     reduction %, editable JQL, crash breakdown, CR + Open JIRA tables
+     Same premium wk-modal pattern as Core Slide flavor alias modal
   ================================================================ */
+  var _rbD = {};  // detail modal state
+
   function _ensureDetailModal(){
     if(document.getElementById('rbDetailModal')) return;
     var m=document.createElement('div');
     m.id='rbDetailModal';
-    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10200;align-items:center;justify-content:center;padding:20px';
+    m.className='wk-modal';
     m.innerHTML=
-      '<div style="width:min(700px,96vw);max-height:92vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.3);display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#7c3aed);display:flex;align-items:center;gap:10px">'
-        +'<i class="fas fa-sliders" style="color:#fff;font-size:16px"></i>'
-        +'<b style="color:#fff;font-size:14px" id="rbDetailTitle">Build Details</b>'
-        +'<button onclick="rbCloseDetailModal()" style="margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">×</button>'
-      +'</div>'
-      +'<div style="overflow:auto;flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:14px">'
-        /* card preview */
-        +'<div id="rbDetailCard" style="border:1.5px solid #c7d2fe;border-radius:14px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#faf5ff);display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"></div>'
-        /* form */
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Device / Build Name<input id="rbDetailDeviceName" class="ci" style="height:36px" placeholder="e.g. SAFE IVI, FLEX PVM..."></label>'
-          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Hours (base tested hours)<input id="rbDetailHours" class="ci" type="number" min="0" step="0.5" style="height:36px" placeholder="e.g. 120" oninput="rbDetailPreview()"></label>'
-          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Reduction % <span style="font-weight:700;color:#7c3aed">(earlier method)</span>'
-            +'<div style="display:flex;align-items:center;gap:8px">'
-              +'<input id="rbDetailRedSlider" type="range" min="0" max="90" step="10" value="0" style="flex:1" oninput="rbDetailSyncRed(this)">'
-              +'<input id="rbDetailRedText" class="ci" type="number" min="0" max="99" style="width:64px;height:36px" placeholder="%" oninput="rbDetailSyncRedText(this)">'
-            +'</div>'
-          +'</label>'
-          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">Devices (count)<input id="rbDetailDevices" class="ci" type="number" min="0" style="height:36px" placeholder="auto" oninput="rbDetailPreview()"></label>'
-        +'</div>'
-        +'<div id="rbDetailMsg" style="font-size:12px;font-weight:800;min-height:14px;color:#dc2626"></div>'
-      +'</div>'
-      +'<div style="padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;gap:8px">'
-        +'<button onclick="rbOpenAddModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer"><i class="fas fa-arrow-left"></i> Back</button>'
-        +'<div style="display:flex;gap:8px">'
-          +'<button onclick="rbCloseDetailModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>'
-          +'<button onclick="rbDetailSave()" style="border:0;background:linear-gradient(135deg,#059669,#2563eb);color:#fff;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Save Build</button>'
-        +'</div>'
-      +'</div>'
-      +'</div>';
+     '<div class="wk-modal-card" style="width:94vw;max-width:1350px">'
+     +'<div class="wk-modal-head">'
+       +'<div>'
+         +'<div style="font-size:14px;font-weight:950;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-sliders"></i> <span id="rbDtTitle">Build Details</span></div>'
+         +'<div id="rbDtSub" style="font-size:11px;color:#bfdbfe;margin-top:3px">Axiom jobs · unique devices · cumulative hours · reduction · JQL · crashes</div>'
+       +'</div>'
+       +'<button class="btn" onclick="rbCloseDetailModal()"><i class="fas fa-times"></i></button>'
+     +'</div>'
+     /* ── KPI bar ── */
+     +'<div id="rbDtKpi" style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0"></div>'
+     /* ── scrollable body ── */
+     +'<div style="overflow:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:16px">'
+       /* Axiom jobs table */
+       +'<div>'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-vial"></i> Axiom Jobs for this Build</div>'
+         +'<div id="rbDtJobsWrap" style="overflow:auto;max-height:180px;border:1px solid #e2e8f0;border-radius:10px">'
+           +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+             +'<thead><tr style="background:linear-gradient(90deg,#1e3a8a,#4f46e5);color:#fff">'
+               +'<th style="padding:7px 10px;text-align:left">Job ID</th>'
+               +'<th style="padding:7px 10px;text-align:left">Build Name</th>'
+               +'<th style="padding:7px 10px">Flavor</th>'
+               +'<th style="padding:7px 10px">State</th>'
+               +'<th style="padding:7px 10px;text-align:right">Devices</th>'
+               +'<th style="padding:7px 10px;text-align:right">Hours</th>'
+               +'<th style="padding:7px 10px">Started</th>'
+             +'</tr></thead>'
+             +'<tbody id="rbDtJobsTbody"><tr><td colspan="7" style="text-align:center;padding:18px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading Axiom jobs...</td></tr></tbody>'
+           +'</table>'
+         +'</div>'
+       +'</div>'
+       /* Editable fields: device name, hours, reduction, devices, JQL */
+       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+         +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
+           +'Device / Build Name (alias)'
+           +'<input id="rbDtDeviceName" class="compact-input" style="height:36px" placeholder="e.g. SAFE IVI, FLEX PVM...">'
+         +'</label>'
+         +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
+           +'Cumulative Hours <span style="font-weight:700;color:#94a3b8">(auto-filled from Axiom · editable)</span>'
+           +'<input id="rbDtHours" class="compact-input" type="number" min="0" step="0.5" style="height:36px" placeholder="e.g. 120" oninput="rbDtPreview()">'
+         +'</label>'
+         +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
+           +'Reduction % <span style="font-weight:700;color:#7c3aed">(earlier method — same as Core Slide)</span>'
+           +'<div style="display:flex;align-items:center;gap:8px">'
+             +'<input id="rbDtRedSlider" type="range" min="0" max="90" step="10" value="0" style="flex:1;accent-color:#7c3aed" oninput="rbDtSyncSlider(this)">'
+             +'<input id="rbDtRedText" class="compact-input" type="number" min="0" max="99" style="width:70px;height:36px" placeholder="%" oninput="rbDtSyncText(this)">'
+           +'</div>'
+         +'</label>'
+         +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
+           +'Unique Devices <span style="font-weight:700;color:#94a3b8">(auto-filled · editable)</span>'
+           +'<input id="rbDtDevices" class="compact-input" type="number" min="0" style="height:36px" placeholder="auto" oninput="rbDtPreview()">'
+         +'</label>'
+       +'</div>'
+       /* JQL row */
+       +'<div>'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-code"></i> JQL Query <span style="font-weight:700;color:#94a3b8;text-transform:none">(editable · runs on Generate)</span></div>'
+         +'<div style="display:flex;gap:8px;align-items:flex-start">'
+           +'<textarea id="rbDtJql" rows="2" style="flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 10px;font-family:monospace;font-size:11px;resize:vertical"></textarea>'
+           +'<button onclick="rbDtGenerate()" style="border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap"><i class="fas fa-bolt"></i> Generate</button>'
+         +'</div>'
+         +'<div id="rbDtGenStatus" style="font-size:11px;font-weight:800;color:#6366f1;margin-top:4px"></div>'
+       +'</div>'
+       /* Crash type breakdown */
+       +'<div id="rbDtCrashSection" style="display:none">'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px"><i class="fas fa-bug"></i> Crash Breakdown by Type</div>'
+         +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+           +'<button id="rbDtCrashBtn_system" class="btn" style="font-size:11px;padding:5px 12px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5" onclick="rbDtToggleCrash(\"system\")"><i class="fas fa-circle-xmark"></i> System <span id="rbDtCrashN_system"></span></button>'
+           +'<button id="rbDtCrashBtn_ssr" class="btn" style="font-size:11px;padding:5px 12px;background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d" onclick="rbDtToggleCrash(\"ssr\")"><i class="fas fa-triangle-exclamation"></i> SSR <span id="rbDtCrashN_ssr"></span></button>'
+           +'<button id="rbDtCrashBtn_process" class="btn" style="font-size:11px;padding:5px 12px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd" onclick="rbDtToggleCrash(\"process\")"><i class="fas fa-gear"></i> Process <span id="rbDtCrashN_process"></span></button>'
+           +'<span id="rbDtCrashTotal" style="font-size:13px;font-weight:950;color:#dc2626;align-self:center"></span>'
+         +'</div>'
+       +'</div>'
+       /* CR table */
+       +'<div id="rbDtCrSection" style="display:none">'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-bug" style="color:#7c3aed"></i> CRs <span id="rbDtCrBadge" class="pill" style="font-size:10px"></span></div>'
+         +'<div style="display:flex;gap:8px;margin-bottom:6px">'
+           +'<input id="rbDtCrSearch" class="compact-input" style="flex:1" placeholder="Search CRs..." oninput="rbDtFilterCr()">'
+         +'</div>'
+         +'<div style="overflow:auto;max-height:280px;border:1px solid #e2e8f0;border-radius:10px">'
+           +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+             +'<thead><tr style="background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff">'
+               +'<th style="padding:7px 10px">#</th><th style="padding:7px 10px">CR</th><th style="padding:7px 10px">Title</th>'
+               +'<th style="padding:7px 10px;text-align:center">Occ</th><th style="padding:7px 10px">Area</th>'
+               +'<th style="padding:7px 10px">Subsystem</th><th style="padding:7px 10px">Functionality</th>'
+               +'<th style="padding:7px 10px;text-align:center">Age</th><th style="padding:7px 10px">Status</th>'
+             +'</tr></thead>'
+             +'<tbody id="rbDtCrTbody"></tbody>'
+           +'</table>'
+         +'</div>'
+       +'</div>'
+       /* Open JIRA table */
+       +'<div id="rbDtJiraSection" style="display:none">'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs <span id="rbDtJiraBadge" class="badge badge-warn" style="font-size:10px"></span></div>'
+         +'<div style="overflow:auto;max-height:220px;border:1px solid #e2e8f0;border-radius:10px">'
+           +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+             +'<thead><tr style="background:linear-gradient(90deg,#f97316,#ef4444);color:#fff">'
+               +'<th style="padding:7px 10px">#</th><th style="padding:7px 10px">Ticket</th>'
+               +'<th style="padding:7px 10px">Summary</th><th style="padding:7px 10px">Date</th>'
+               +'<th style="padding:7px 10px">Meta Build</th><th style="padding:7px 10px">Status</th>'
+             +'</tr></thead>'
+             +'<tbody id="rbDtJiraTbody"></tbody>'
+           +'</table>'
+         +'</div>'
+       +'</div>'
+     +'</div>'
+     /* footer */
+     +'<div style="padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+       +'<button onclick="rbOpenAddModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer"><i class="fas fa-arrow-left"></i> Back</button>'
+       +'<div style="display:flex;gap:8px">'
+         +'<button onclick="rbCloseDetailModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>'
+         +'<button onclick="rbDtSave()" style="border:0;background:linear-gradient(135deg,#059669,#2563eb);color:#fff;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Save Build</button>'
+       +'</div>'
+     +'</div>'
+     +'</div>';
     document.body.appendChild(m);
   }
 
-  window._rbDetailRow=null; // current DB row being configured
-  window._rbDetailEditIdx=null; // index in _rbSaved if editing
+  /* ── helpers ── */
+  function _rbDtKpiCard(icon,label,val,color,bg){
+    return '<div style="background:'+(bg||'#f8fafc')+';border:1px solid '+(color||'#e2e8f0')+'33;border-radius:12px;padding:10px 14px;min-width:100px">'
+      +'<div style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px"><i class="fas fa-'+icon+'"></i> '+label+'</div>'
+      +'<div style="font-size:18px;font-weight:950;color:'+(color||'#1e3a8a')+'">'+val+'</div>'
+      +'</div>';
+  }
+
+  function _rbDtUpdateKpi(){
+    var el=document.getElementById('rbDtKpi'); if(!el) return;
+    var r=_rbD.row||{};
+    var hours=parseFloat(document.getElementById('rbDtHours').value)||0;
+    var red=parseFloat(document.getElementById('rbDtRedText').value)||0;
+    var devices=parseInt(document.getElementById('rbDtDevices').value)||_rbD.uniqueDevices||0;
+    var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
+    var effH=hours>0?Math.round((hours*(1-red/100))*10)/10:null;
+    var crashes=_rbD.crashes!=null?_rbD.crashes:null;
+    var mtbf=(effH&&crashes)?Math.round((effH/crashes)*10)/10:null;
+    el.innerHTML=
+      _rbDtKpiCard('tag','Meta',_esc(r.meta_id||'--'),'#1e3a8a','#eff6ff')
+      +_rbDtKpiCard('layer-group','Domain','<span style="color:'+domCol+'">'+_esc(r.domain||'--')+'</span>',domCol,'#f8fafc')
+      +_rbDtKpiCard('vial','Axiom Jobs',_rbD.jobCount||0,'#0ea5e9','#f0f9ff')
+      +_rbDtKpiCard('microchip','Unique Devices',devices||'--','#7c3aed','#faf5ff')
+      +_rbDtKpiCard('hourglass-half','Cumul. Hours',hours?hours+'h':'--','#6366f1','#eef2ff')
+      +_rbDtKpiCard('percent','Reduction',red?red+'%':'0%','#7c3aed','#faf5ff')
+      +_rbDtKpiCard('calculator','Eff. Hours',effH!=null?effH+'h':'--','#059669','#ecfdf5')
+      +_rbDtKpiCard('bug','Crashes',crashes!=null?crashes:'--','#dc2626','#fef2f2')
+      +_rbDtKpiCard('chart-line','MTBF',mtbf!=null?mtbf+'h':'--','#6366f1','#eef2ff');
+  }
+
+  window.rbDtPreview=function(){ _rbDtUpdateKpi(); };
+  window.rbDtSyncSlider=function(s){
+    document.getElementById('rbDtRedText').value=s.value;
+    _rbDtUpdateKpi();
+  };
+  window.rbDtSyncText=function(inp){
+    var v=Math.min(99,Math.max(0,parseFloat(inp.value)||0));
+    document.getElementById('rbDtRedSlider').value=Math.min(90,Math.round(v/10)*10);
+    _rbDtUpdateKpi();
+  };
+
+  /* ── load Axiom jobs for the selected build ── */
+  function _rbDtLoadJobs(row){
+    var tbody=document.getElementById('rbDtJobsTbody'); if(!tbody) return;
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
+    // Use the same running_builds_db API — it already has axiom_jobs per row
+    // But we need per-build detail: call current_report_data which has axiom_jobs array
+    fetch('/api/live_status_view/'+encodeURIComponent(TARGET)+'/current_report_data')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var allJobs=[];
+        // Also check _rbRows for matching row
+        var matchRow=_rbRows.find(function(r){
+          return String(r.build_id||'').toUpperCase()===String(row.build_id||'').toUpperCase();
+        });
+        // Build axiom jobs from running_rows in the response
+        (d.running_rows||[]).forEach(function(rr){
+          var bid=String(rr.build_full||rr.display_build||'').toUpperCase();
+          var rbid=String(row.build_id||'').toUpperCase();
+          if(bid.includes(rbid)||rbid.includes(bid)||(rr.meta_id&&rr.meta_id===row.meta_id)){
+            (rr.axiom_jobs||[]).forEach(function(j){allJobs.push(j);});
+          }
+        });
+        // Fallback: use _rbRows axiom data if available
+        if(!allJobs.length && matchRow){
+          // No axiom_jobs in _rbRows directly, but we have device_count and started_at
+          allJobs=[{job_id:'(from DB)',build_name:matchRow.build_id,product_flavor:matchRow.product_flavor,state:'Running',device_count:matchRow.device_count,hours:null,started_at:matchRow.started_at}];
+        }
+        _rbD.jobCount=allJobs.length;
+        // Compute unique devices (union of chip_ids)
+        var uniqueChips=new Set();
+        var totalHours=0;
+        allJobs.forEach(function(j){
+          totalHours+=parseFloat(j.hours||0)||0;
+          // device_count as fallback
+        });
+        // Use device_count from DB row as unique devices
+        _rbD.uniqueDevices=parseInt(matchRow&&matchRow.device_count||row.device_count||0)||0;
+        _rbD.axiomHours=Math.round(totalHours*10)/10;
+        // Auto-fill hours if not already set
+        var hEl=document.getElementById('rbDtHours');
+        if(hEl&&!hEl.value&&totalHours>0) hEl.value=_rbD.axiomHours;
+        // Auto-fill devices
+        var dEl=document.getElementById('rbDtDevices');
+        if(dEl&&!dEl.value&&_rbD.uniqueDevices>0) dEl.value=_rbD.uniqueDevices;
+        _rbDtUpdateKpi();
+        // Render jobs table
+        if(!allJobs.length){
+          tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:#94a3b8">No Axiom jobs found for this build.</td></tr>';
+          return;
+        }
+        tbody.innerHTML=allJobs.map(function(j){
+          var stateCol={'Running':'#16a34a','Completed':'#2563eb','Aborted':'#dc2626'}[j.state]||'#64748b';
+          return '<tr style="border-bottom:1px solid #f1f5f9">'
+            +'<td style="padding:6px 10px;font-family:monospace;font-size:10px;color:#6366f1">'+_esc(j.job_id||'--')+'</td>'
+            +'<td style="padding:6px 10px;font-size:10px;word-break:break-all;max-width:200px">'+_esc(j.build_name||'--')+'</td>'
+            +'<td style="padding:6px 10px;font-size:10px;text-align:center">'+_esc(j.product_flavor||'--')+'</td>'
+            +'<td style="padding:6px 10px;text-align:center"><span style="font-size:10px;font-weight:900;color:'+stateCol+'">'+_esc(j.state||'--')+'</span></td>'
+            +'<td style="padding:6px 10px;text-align:right;font-weight:800;color:#7c3aed">'+_esc(j.device_count||0)+'</td>'
+            +'<td style="padding:6px 10px;text-align:right;font-weight:800;color:#6366f1">'+_esc(j.hours?j.hours+'h':'--')+'</td>'
+            +'<td style="padding:6px 10px;font-size:10px;color:#64748b">'+_esc((j.started_at||'').slice(0,16))+'</td>'
+            +'</tr>';
+        }).join('');
+      })
+      .catch(function(e){
+        tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:#dc2626">'+_esc(e.message)+'</td></tr>';
+      });
+  }
+
+  /* ── build default JQL from build_id (same pattern as rbRunJql) ── */
+  function _rbDtDefaultJql(row){
+    var buildId=String(row.build_id||'').trim();
+    var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
+    return 'filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"';
+  }
+
+  /* ── Generate: run JQL, populate crash breakdown + CR + JIRA tables ── */
+  window.rbDtGenerate=function(){
+    var jql=(document.getElementById('rbDtJql')||{}).value||'';
+    var st=document.getElementById('rbDtGenStatus');
+    if(!jql.trim()){if(st)st.textContent='JQL is empty.';return;}
+    if(st){st.style.color='#6366f1';st.innerHTML='<i class="fas fa-circle-notch spin"></i> Running JQL...';}
+    fetch('/api/consolidated_report',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({builds:[(_rbD.row||{}).build_id||''],traverse:true,orbit:false,target:TARGET,force:true,custom_jql:jql})
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){if(st){st.style.color='#dc2626';st.textContent='Error: '+d.error;}return;}
+      if(d.job_id){
+        var jid=d.job_id;
+        var poll=setInterval(function(){
+          fetch('/api/consolidated_report/result/'+jid)
+            .then(function(r2){return r2.status===202?null:r2.json();})
+            .then(function(res){
+              if(!res) return;
+              clearInterval(poll);
+              _rbDtApplyResult(res);
+            }).catch(function(){clearInterval(poll);});
+        },2500);
+        return;
+      }
+      _rbDtApplyResult(d);
+    })
+    .catch(function(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+e.message;}});
+  };
+
+  /* ── crash type toggle (same as brToggleCrashType) ── */
+  _rbD.crashFilters={system:true,ssr:true,process:true};
+  _rbD.crashData=null;
+  window.rbDtToggleCrash=function(type){
+    _rbD.crashFilters[type]=!_rbD.crashFilters[type];
+    var btn=document.getElementById('rbDtCrashBtn_'+type);
+    if(btn) btn.style.opacity=_rbD.crashFilters[type]?'1':'0.4';
+    _rbDtRenderCrashTotal();
+  };
+  function _rbDtRenderCrashTotal(){
+    var cd=_rbD.crashData||{};
+    var total=0;
+    ['system','ssr','process'].forEach(function(t){
+      var n=parseInt(cd[t]||0)||0;
+      var el=document.getElementById('rbDtCrashN_'+t);
+      if(el) el.textContent='('+n+')';
+      if(_rbD.crashFilters[t]) total+=n;
+    });
+    var tel=document.getElementById('rbDtCrashTotal');
+    if(tel) tel.textContent='Total: '+total+' crashes';
+    _rbD.crashes=total;
+    _rbDtUpdateKpi();
+  }
+
+  function _rbDtApplyResult(data){
+    var st=document.getElementById('rbDtGenStatus');
+    var summary=data.summary||{};
+    var crRows=data.cr_rows||[];
+    var openJiras=data.open_jiras||[];
+    // Crash breakdown — same fields as Core Slide: system_crashes, ssr_crashes, process_crashes
+    _rbD.crashData={
+      system: parseInt(summary.system_crashes||0)||0,
+      ssr:    parseInt(summary.ssr_crashes||0)||0,
+      process:parseInt(summary.process_crashes||0)||0
+    };
+    // Fallback: total_jiras as total crashes if no breakdown
+    if(!_rbD.crashData.system&&!_rbD.crashData.ssr&&!_rbD.crashData.process){
+      var tot=parseInt(summary.total_jiras||0)||0;
+      _rbD.crashData.system=tot;
+    }
+    // Show crash section
+    var cs=document.getElementById('rbDtCrashSection');
+    if(cs) cs.style.display='block';
+    _rbDtRenderCrashTotal();
+    // CR table
+    _rbD.crRows=crRows;
+    _rbDtRenderCrTable('');
+    var crs=document.getElementById('rbDtCrSection');
+    if(crs) crs.style.display=crRows.length?'block':'none';
+    var crb=document.getElementById('rbDtCrBadge');
+    if(crb) crb.textContent=crRows.length+' CRs';
+    // Open JIRA table
+    _rbD.jiraRows=openJiras;
+    _rbDtRenderJiraTable();
+    var js=document.getElementById('rbDtJiraSection');
+    if(js) js.style.display=openJiras.length?'block':'none';
+    var jb=document.getElementById('rbDtJiraBadge');
+    if(jb) jb.textContent=openJiras.length+' JIRAs';
+    if(st){st.style.color='#059669';st.textContent='Done — '+crRows.length+' CRs, '+openJiras.length+' open JIRAs, '+(_rbD.crashes||0)+' crashes.';}
+  }
+
+  function _rbDtRenderCrTable(q){
+    var tbody=document.getElementById('rbDtCrTbody'); if(!tbody) return;
+    var rows=(_rbD.crRows||[]).filter(function(r){
+      if(!q) return true;
+      var hay=[r.mapped_cr,r.cr_title,r.cr_area,r.cr_subsystem,r.cr_functionality].join(' ').toLowerCase();
+      return hay.includes(q.toLowerCase());
+    });
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:18px;color:#94a3b8">No CRs found.</td></tr>';return;}
+    var JB='https://jira-dc2.qualcomm.com/jira/browse/';
+    tbody.innerHTML=rows.map(function(r,i){
+      var cr=r.mapped_cr||r.cr||'';
+      var occ=r.jira_count||r.cr_occurrence||0;
+      var age=r.cr_age||'';
+      var st=String(r.cr_status||'').toLowerCase();
+      var stCls=st.includes('built')?'cr-built':st.includes('ready')?'cr-ready':st.includes('close')?'cr-closed':'cr-open';
+      return '<tr style="border-bottom:1px solid #f1f5f9">'
+        +'<td style="padding:6px 10px;color:#94a3b8;font-size:10px">'+(i+1)+'</td>'
+        +'<td style="padding:6px 10px"><a href="'+JB+encodeURIComponent(cr)+'" target="_blank" style="font-weight:900;color:#4f46e5;text-decoration:none;font-size:11px">'+_esc(cr)+'</a></td>'
+        +'<td style="padding:6px 10px;font-size:11px;max-width:220px">'+_esc(r.cr_title||'--')+'</td>'
+        +'<td style="padding:6px 10px;text-align:center;font-weight:900;color:#dc2626">'+_esc(occ)+'</td>'
+        +'<td style="padding:6px 10px;font-size:10px">'+_esc(r.cr_area||'--')+'</td>'
+        +'<td style="padding:6px 10px;font-size:10px">'+_esc(r.cr_subsystem||'--')+'</td>'
+        +'<td style="padding:6px 10px;font-size:10px">'+_esc(r.cr_functionality||'--')+'</td>'
+        +'<td style="padding:6px 10px;text-align:center;font-size:10px">'+_esc(age)+'</td>'
+        +'<td style="padding:6px 10px"><span class="'+stCls+'">'+_esc(r.cr_status||'--')+'</span></td>'
+        +'</tr>';
+    }).join('');
+  }
+  window.rbDtFilterCr=function(){
+    var q=(document.getElementById('rbDtCrSearch')||{}).value||'';
+    _rbDtRenderCrTable(q);
+  };
+
+  function _rbDtRenderJiraTable(){
+    var tbody=document.getElementById('rbDtJiraTbody'); if(!tbody) return;
+    var rows=_rbD.jiraRows||[];
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:18px;color:#94a3b8">No open JIRAs.</td></tr>';return;}
+    var JB='https://jira-dc2.qualcomm.com/jira/browse/';
+    tbody.innerHTML=rows.map(function(r,i){
+      var t=r.stability_ticket||'';
+      return '<tr style="border-bottom:1px solid #f1f5f9">'
+        +'<td style="padding:6px 10px;color:#94a3b8;font-size:10px">'+(i+1)+'</td>'
+        +'<td style="padding:6px 10px"><a href="'+JB+encodeURIComponent(t)+'" target="_blank" style="font-weight:900;color:#4f46e5;text-decoration:none;font-size:11px">'+_esc(t)+'</a></td>'
+        +'<td style="padding:6px 10px;font-size:11px;max-width:240px">'+_esc(r.jira_title||'--')+'</td>'
+        +'<td style="padding:6px 10px;font-size:10px;color:#64748b">'+_esc(r.jira_date||'--')+'</td>'
+        +'<td style="padding:6px 10px;font-size:10px;word-break:break-all">'+_esc(r.metabuild||r.meta_id||'--')+'</td>'
+        +'<td style="padding:6px 10px"><span class="cr-open">'+_esc(r.status||'Open')+'</span></td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  window._rbDetailRow=null;
+  window._rbDetailEditIdx=null;
 
   window.rbOpenDetailModal=function(dbRow, editIdx){
     _ensureDetailModal();
     window._rbDetailRow=dbRow;
     window._rbDetailEditIdx=editIdx;
-    var title=document.getElementById('rbDetailTitle');
-    if(title) title.textContent='Details — '+_esc(dbRow.meta_id||dbRow.build_id);
-    // pre-fill if editing
+    _rbD.row=dbRow;
+    _rbD.jobCount=0;
+    _rbD.uniqueDevices=parseInt(dbRow.device_count||0)||0;
+    _rbD.axiomHours=0;
+    _rbD.crashes=null;
+    _rbD.crashData=null;
+    _rbD.crRows=[];
+    _rbD.jiraRows=[];
+    _rbD.crashFilters={system:true,ssr:true,process:true};
+    // Reset UI
+    var title=document.getElementById('rbDtTitle');
+    if(title) title.textContent=(dbRow.meta_id||dbRow.build_id)+' — '+_esc(dbRow.domain||'');
+    var sub=document.getElementById('rbDtSub');
+    if(sub) sub.textContent=_esc(dbRow.build_id||'')+(dbRow.product_flavor?' · '+dbRow.product_flavor:'');
+    // Pre-fill from existing saved entry if editing
     var existing=editIdx!=null?_rbSaved[editIdx]:null;
-    document.getElementById('rbDetailDeviceName').value=(existing&&existing.deviceName)||dbRow.build_id||'';
-    document.getElementById('rbDetailHours').value=(existing&&existing.hours)||'';
-    document.getElementById('rbDetailRedSlider').value=(existing&&existing.reduction)||0;
-    document.getElementById('rbDetailRedText').value=(existing&&existing.reduction)||'';
-    document.getElementById('rbDetailDevices').value=(existing&&existing.device_count)||dbRow.device_count||'';
-    document.getElementById('rbDetailMsg').textContent='';
-    rbDetailPreview();
+    document.getElementById('rbDtDeviceName').value=(existing&&existing.deviceName)||dbRow.product_flavor||dbRow.build_id||'';
+    document.getElementById('rbDtHours').value=(existing&&existing.hours!=null)?existing.hours:'';
+    document.getElementById('rbDtRedSlider').value=(existing&&existing.reduction)||0;
+    document.getElementById('rbDtRedText').value=(existing&&existing.reduction)||'';
+    document.getElementById('rbDtDevices').value=(existing&&existing.device_count)||dbRow.device_count||'';
+    document.getElementById('rbDtJql').value=(existing&&existing.jql)||_rbDtDefaultJql(dbRow);
+    document.getElementById('rbDtGenStatus').textContent='';
+    // Hide result sections until Generate is clicked
+    ['rbDtCrashSection','rbDtCrSection','rbDtJiraSection'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.style.display='none';
+    });
+    // Reset crash buttons opacity
+    ['system','ssr','process'].forEach(function(t){
+      var b=document.getElementById('rbDtCrashBtn_'+t); if(b) b.style.opacity='1';
+    });
+    _rbDtUpdateKpi();
     document.getElementById('rbDetailModal').style.display='flex';
+    // Load Axiom jobs async
+    _rbDtLoadJobs(dbRow);
   };
+
   window.rbCloseDetailModal=function(){
     var m=document.getElementById('rbDetailModal'); if(m) m.style.display='none';
   };
-  window.rbDetailSyncRed=function(slider){
-    document.getElementById('rbDetailRedText').value=slider.value;
-    rbDetailPreview();
-  };
-  window.rbDetailSyncRedText=function(input){
-    var v=Math.min(99,Math.max(0,parseFloat(input.value)||0));
-    document.getElementById('rbDetailRedSlider').value=Math.min(90,Math.round(v/10)*10);
-    rbDetailPreview();
-  };
-  window.rbDetailPreview=function(){
-    var card=document.getElementById('rbDetailCard'); if(!card) return;
-    var r=window._rbDetailRow||{};
-    var hours=parseFloat(document.getElementById('rbDetailHours').value)||0;
-    var red=parseFloat(document.getElementById('rbDetailRedText').value)||0;
-    var devices=parseInt(document.getElementById('rbDetailDevices').value)||parseInt(r.device_count||1)||1;
-    var deviceName=document.getElementById('rbDetailDeviceName').value||r.build_id||'';
-    var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
-    // effective hours = base + elapsed*(1-red/100)*devices (no publish time yet)
-    var effH=hours>0?(hours*(1-red/100)*devices):null;
-    var mtbf=null; // no crashes yet
-    function _card(icon,label,val,color){
-      return '<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0">'
-        +'<div style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;margin-bottom:4px"><i class="fas fa-'+icon+'"></i> '+label+'</div>'
-        +'<div style="font-size:18px;font-weight:950;color:'+(color||'#1e3a8a')+'">'+val+'</div>'
-        +'</div>';
-    }
-    card.innerHTML=
-      _card('tag','Meta ID',_esc(r.meta_id||'--'),'#1e3a8a')
-      +_card('layer-group','Domain','<span style="color:'+domCol+'">'+_esc(r.domain||'--')+'</span>')
-      +_card('display','Device Name',_esc(deviceName||'--'),'#334155')
-      +_card('hourglass-half','Base Hours',hours?hours+'h':'--','#6366f1')
-      +_card('percent','Reduction',red?red+'%':'0%','#7c3aed')
-      +_card('calculator','Eff. Hours',effH!=null?(Math.round(effH*10)/10).toFixed(1)+'h':'--','#059669')
-      +_card('microchip','Devices',devices,'#0ea5e9')
-      +_card('bug','Crashes','-- (after publish)','#dc2626');
-  };
 
-  window.rbDetailSave=function(){
-    var r=window._rbDetailRow;
+  /* ── Save ── */
+  window.rbDtSave=function(){
+    var r=_rbD.row;
     if(!r){alert('No build selected.');return;}
-    var deviceName=document.getElementById('rbDetailDeviceName').value.trim();
-    var hours=document.getElementById('rbDetailHours').value.trim();
-    var red=document.getElementById('rbDetailRedText').value.trim();
-    var devices=document.getElementById('rbDetailDevices').value.trim()||r.device_count||'';
+    var deviceName=document.getElementById('rbDtDeviceName').value.trim();
+    var hours=document.getElementById('rbDtHours').value.trim();
+    var red=document.getElementById('rbDtRedText').value.trim();
+    var devices=document.getElementById('rbDtDevices').value.trim()||r.device_count||'';
+    var jql=document.getElementById('rbDtJql').value.trim();
     var entry={
       build_id:    r.build_id,
       build_full:  r.build_full||r.build_id,
       meta_id:     r.meta_id,
       domain:      r.domain,
-      deviceName:  deviceName||r.build_id,
+      deviceName:  deviceName||r.product_flavor||r.build_id,
       hours:       hours?parseFloat(hours):null,
       reduction:   red?parseFloat(red):0,
       device_count:devices?parseInt(devices):null,
+      jql:         jql||null,
+      crashes:     _rbD.crashes!=null?_rbD.crashes:null,
+      crashData:   _rbD.crashData||null,
       published:   false,
       publishedAt: null,
-      crashes:     null,
-      jql:         null,
       savedAt:     new Date().toISOString()
     };
     var idx=window._rbDetailEditIdx;
@@ -862,7 +1199,10 @@ window.LSP_DATA = {
     rbCloseDetailModal();
   };
 
-    window.rbAddDbRow=function(idx){
+  // Legacy alias so rbDetailSave still works from Back button etc.
+  window.rbDetailSave=window.rbDtSave;
+
+      window.rbAddDbRow=function(idx){
     var rows=window._rbDbOnlyVisibleRows||[];
     var r=rows[idx];
     if(!r) return;
@@ -918,13 +1258,13 @@ window.LSP_DATA = {
     if(_rbJqlTimers[key]){clearInterval(_rbJqlTimers[key]);delete _rbJqlTimers[key];}
   };
 
-  window.rbRunJql=function(idx){
+    window.rbRunJql=function(idx){
     var s=_rbSaved[idx]; if(!s) return;
     var buildId=s.build_id||'';
     if(!buildId) return;
-    // Build JQL same as lsp_v2: filter + project + summary ~ buildId
+    // Use saved JQL if available, else build default
     var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
-    var jql='filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"';
+    var jql=s.jql||('filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"');
     s.jql=jql;
     fetch('/api/consolidated_report',{
       method:'POST',
