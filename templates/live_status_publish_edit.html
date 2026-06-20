@@ -652,106 +652,81 @@ window.LSP_DATA = {
   };
 
 
-  /* ================================================================
-     STEP 1 MODAL — pick a build from DB (filtered by domain)
+    /* ================================================================
+     STEP 1 MODAL — reuse Core Slide premium modal exactly
+     (ensureCoreDeckBuildModal / openCoreDeckBuildModal from
+      live_status_published_safe.js — same wk-modal, same domain
+      switcher IVI/FLEX/ADAS, same search, Select Visible, count badge)
   ================================================================ */
-  function _ensureAddModal(){
-    if(document.getElementById('rbAddModal')) return;
-    var m=document.createElement('div');
-    m.id='rbAddModal';
-    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10100;align-items:center;justify-content:center;padding:20px';
-    m.innerHTML=
-      '<div style="width:min(680px,96vw);max-height:88vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.3);display:flex;flex-direction:column;overflow:hidden">'
-      +'<div style="padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#6366f1);display:flex;align-items:center;gap:10px">'
-        +'<i class="fas fa-satellite-dish" style="color:#fff;font-size:16px"></i>'
-        +'<b style="color:#fff;font-size:14px">Add Running Build</b>'
-        +'<span id="rbAddDomainBadge" style="background:rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:900;margin-left:4px"></span>'
-        +'<button onclick="rbCloseAddModal()" style="margin-left:auto;background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px">×</button>'
-      +'</div>'
-      +'<div style="padding:10px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc">'
-        +'<input id="rbAddSearch" placeholder="Search build ID or meta..." oninput="rbFilterAddList()" style="width:100%;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 12px;font-size:13px;font-family:inherit">'
-      +'</div>'
-      +'<div id="rbAddList" style="overflow:auto;flex:1;padding:10px 14px"></div>'
-      +'<div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:8px">'
-        +'<button onclick="rbCloseAddModal()" style="border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>'
-        +'<button onclick="rbAddNext()" style="border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-arrow-right"></i> Next — Set Details</button>'
-      +'</div>'
-      +'</div>';
-    document.body.appendChild(m);
-  }
 
-      // Exact same pattern as openCoreDeckBuildModal in live_status_published_safe.js:
-  // open modal → show spinner → await fetch → render list
-  window.rbOpenAddModal=async function(){
-    _ensureAddModal();
-    _rbAddSel=null;
-    var badge=document.getElementById('rbAddDomainBadge');
-    if(badge) badge.textContent=_rbDomain;
-    var s=document.getElementById('rbAddSearch'); if(s) s.value='';
-    var list=document.getElementById('rbAddList');
-    document.getElementById('rbAddModal').style.display='flex';  // open first
-    try{
-      if(!_rbRows.length){
-        // show spinner while loading — same as cdBuildModalList spinner in Core Slide
-        if(list) list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from DB...</div>';
-        await window.loadRunningBuildsDb();  // await the Promise — same as: await loadCoreDeckJiraBuilds()
-      }
-      _rbRenderAddList('');  // render when done — same as: renderCoreDeckBuildModalList()
-    }catch(e){
-      if(list) list.innerHTML='<div style="text-align:center;color:#dc2626;padding:28px">'+_esc(String(e))+'</div>';
-    }
-  };
-  window.rbCloseAddModal=function(){
-    var m=document.getElementById('rbAddModal'); if(m) m.style.display='none';
-  };
-  window.rbFilterAddList=function(){
-    var q=(document.getElementById('rbAddSearch')||{}).value||'';
-    _rbRenderAddList(q);
-  };
+  // Called by the Core Slide modal's "Save / Next" button after user picks builds.
+  // We intercept applyCoreDeckBuildModalSelection to route into rbOpenDetailModal.
+  window._rbUsingCdModal = false;  // flag: modal opened from Add Build button
 
-    function _rbRenderAddList(q){
-    var list=document.getElementById('rbAddList'); if(!list) return;
-    // Fix: use case-insensitive comparison (mirrors _render() which uses .toUpperCase())
-    var rows=_rbRows.filter(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;});
-    if(q){
-      var ql=q.toLowerCase();
-      rows=rows.filter(function(r){
-        return (r.build_id||'').toLowerCase().includes(ql)||(r.meta_id||'').toLowerCase().includes(ql);
-      });
-    }
-    if(!rows.length){
-      list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px"></i>No running '+_esc(_rbDomain)+' builds in DB.<br><small>Click Refresh to reload from axiom_job_summary.</small></div>';
+  // Override applyCoreDeckBuildModalSelection only when opened from Add Build
+  var _origApplyCdModal = window.applyCoreDeckBuildModalSelection;
+  window.applyCoreDeckBuildModalSelection = function(){
+    if(!window._rbUsingCdModal){
+      // Normal Core Slide usage — call original
+      if(typeof _origApplyCdModal==='function') _origApplyCdModal();
       return;
     }
-    list.innerHTML=rows.map(function(r,i){
-      var sel=_rbAddSel&&_rbAddSel.build_id===r.build_id&&_rbAddSel.domain===r.domain;
-      var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
-      return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1.5px solid '+(sel?'#6366f1':'#e2e8f0')+';border-radius:12px;margin-bottom:7px;cursor:pointer;background:'+(sel?'#eef2ff':'#fff')+'">'
-        +'<input type="radio" name="rbAddPick" '+(sel?'checked':'')+' onchange="rbPickBuild('+i+')" style="margin-top:3px">'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-            +'<strong style="color:#1e3a8a;font-size:13px">'+_esc(r.meta_id)+'</strong>'
-            +'<span style="font-size:10px;font-weight:900;color:'+domCol+';background:#f0f4ff;border-radius:999px;padding:1px 8px">'+_esc(r.domain)+'</span>'
-            +'<span style="font-size:10px;color:#64748b">Jobs: '+_esc(r.job_count||0)+' &nbsp; Devices: '+_esc(r.device_count||0)+'</span>'
-            +'<span style="font-size:10px;color:#94a3b8">Started: '+_esc((r.started_at||'').slice(0,16))+'</span>'
-          +'</div>'
-          +'<div style="font-size:11px;color:#475569;word-break:break-all;margin-top:3px">'+_esc(r.build_id)+'</div>'
-        +'</div>'
-        +'</label>';
-    }).join('');
-    // store filtered rows for index lookup
-    window._rbAddFilteredRows=rows;
-  }
-
-  window.rbPickBuild=function(idx){
-    var rows=window._rbAddFilteredRows||[];
-    _rbAddSel=rows[idx]||null;
+    // Running Build usage — take the first selected build and open detail modal
+    window._rbUsingCdModal = false;
+    if(typeof closeCoreDeckBuildModal==='function') closeCoreDeckBuildModal();
+    // _cdModalSelected is a Set of build option keys from Core Slide
+    var sel = window._cdModalSelected ? Array.from(window._cdModalSelected) : [];
+    if(!sel.length){ alert('Please select a build first.'); return; }
+    // Find the matching build option from _cdJiraBuilds
+    var builds = window._cdJiraBuilds || [];
+    var picked = builds.find(function(o){
+      var key = typeof o==='string' ? o : [o.build_id||'',o.product_flavor||'',o.software_product||''].join('||');
+      return sel.indexOf(key) !== -1;
+    }) || builds.find(function(o){
+      return sel.indexOf(typeof o==='string'?o:o.build_id||'') !== -1;
+    });
+    if(!picked){ alert('Could not resolve selected build. Please try again.'); return; }
+    // Map Core Slide build option fields → Running Build DB row shape
+    var domain = (typeof window._guessDeckType==='function')
+      ? window._guessDeckType(picked)
+      : (String(picked.deck_type||picked.domain||'').toUpperCase()||_rbDomain);
+    var dbRow = {
+      build_id:       picked.build_id || (typeof picked==='string'?picked:''),
+      build_full:     picked.build_id || '',
+      meta_id:        picked.meta_id  || '',
+      product_flavor: picked.product_flavor || '',
+      domain:         domain,
+      device_count:   picked.device_count || null,
+      started_at:     picked.submitted || ''
+    };
+    rbOpenDetailModal(dbRow, null);
   };
 
-  window.rbAddNext=function(){
-    if(!_rbAddSel){alert('Please select a build first.');return;}
-    rbCloseAddModal();
-    rbOpenDetailModal(_rbAddSel, null);
+  // Open the Core Slide premium modal, pre-set to current domain, intercept Apply
+  window.rbOpenAddModal = async function(){
+    window._rbUsingCdModal = true;
+    // Pre-set the deck type selector to match current running build domain
+    var deckSel = document.getElementById('cdBuildModalDeckType');
+    if(deckSel) deckSel.value = _rbDomain;
+    // Use Core Slide's own open function — it handles spinner + await fetch + render
+    if(typeof openCoreDeckBuildModal === 'function'){
+      await openCoreDeckBuildModal();
+    } else {
+      // Fallback: Core Slide JS not yet loaded — wait for it
+      var waited = 0;
+      while(typeof openCoreDeckBuildModal !== 'function' && waited < 3000){
+        await new Promise(function(r){setTimeout(r,100);});
+        waited += 100;
+      }
+      if(typeof openCoreDeckBuildModal === 'function') await openCoreDeckBuildModal();
+      else alert('Core Slide modal not available. Please switch to Core Slides tab first.');
+    }
+  };
+
+  // Keep close wired (Core Slide already has closeCoreDeckBuildModal)
+  window.rbCloseAddModal = function(){
+    window._rbUsingCdModal = false;
+    if(typeof closeCoreDeckBuildModal==='function') closeCoreDeckBuildModal();
   };
 
   /* ================================================================
