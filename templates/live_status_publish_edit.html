@@ -622,15 +622,15 @@ window.LSP_DATA = {
       ?'(JQL next: '+m+'m '+String(s).padStart(2,'0')+'s)':'';
   }
 
-  /* ---- load DB rows ---- */
+    /* ---- load DB rows — returns a Promise (same pattern as loadCoreDeckJiraBuilds) ---- */
   window.loadRunningBuildsDb=function(){
     var st=document.getElementById('rbDbStatus');
     if(st) st.textContent='Loading DB...';
-    fetch(RB_API+'?_='+Date.now())
+    return fetch(RB_API+'?_='+Date.now())
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed');
-                _rbRows=d.rows||[];
+        _rbRows=d.rows||[];
         _rbNextMs=Date.now()+INTERVAL_MS;
         if(_rbRows.length && !_rbRows.some(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;})){
           _rbDomain=String((_rbRows[0]||{}).domain||_rbDomain).toUpperCase();
@@ -639,7 +639,6 @@ window.LSP_DATA = {
         }
         if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' — '+(_rbRows.length||0)+' row(s)';
         _render();
-
       })
       .catch(function(e){if(st) st.textContent='DB error: '+e.message;});
   };
@@ -681,33 +680,26 @@ window.LSP_DATA = {
     document.body.appendChild(m);
   }
 
-    window.rbOpenAddModal=function(){
+      // Exact same pattern as openCoreDeckBuildModal in live_status_published_safe.js:
+  // open modal → show spinner → await fetch → render list
+  window.rbOpenAddModal=async function(){
     _ensureAddModal();
     _rbAddSel=null;
     var badge=document.getElementById('rbAddDomainBadge');
     if(badge) badge.textContent=_rbDomain;
     var s=document.getElementById('rbAddSearch'); if(s) s.value='';
-    // Mirror Core Slide pattern: load DB rows first if not yet loaded
-    if(!_rbRows.length){
-      var list=document.getElementById('rbAddList');
-      if(list) list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from DB...</div>';
-      document.getElementById('rbAddModal').style.display='flex';
-      window.loadRunningBuildsDb();
-      // loadRunningBuildsDb calls _render() on success, but we also need to
-      // refresh the modal list — patch the existing fetch callback via a
-      // one-shot observer on _rbRows population
-      var _pollCount=0;
-      var _poll=setInterval(function(){
-        _pollCount++;
-        if(_rbRows.length||_pollCount>20){
-          clearInterval(_poll);
-          _rbRenderAddList('');
-        }
-      },300);
-      return;
+    var list=document.getElementById('rbAddList');
+    document.getElementById('rbAddModal').style.display='flex';  // open first
+    try{
+      if(!_rbRows.length){
+        // show spinner while loading — same as cdBuildModalList spinner in Core Slide
+        if(list) list.innerHTML='<div style="text-align:center;color:#94a3b8;padding:28px"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from DB...</div>';
+        await window.loadRunningBuildsDb();  // await the Promise — same as: await loadCoreDeckJiraBuilds()
+      }
+      _rbRenderAddList('');  // render when done — same as: renderCoreDeckBuildModalList()
+    }catch(e){
+      if(list) list.innerHTML='<div style="text-align:center;color:#dc2626;padding:28px">'+_esc(String(e))+'</div>';
     }
-    _rbRenderAddList('');
-    document.getElementById('rbAddModal').style.display='flex';
   };
   window.rbCloseAddModal=function(){
     var m=document.getElementById('rbAddModal'); if(m) m.style.display='none';
