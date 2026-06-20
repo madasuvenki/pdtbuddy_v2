@@ -678,12 +678,58 @@ window.LSP_DATA = {
     if(m) return 'Meta-'+String(parseInt(m[1],10)).padStart(3,'0');
     return b.split(/[\s_\-.]+/).slice(0,2).join('-')||b;
   }
-    /* Use Core Slide's _guessDeckType if available (checks build string for
-     ADAS/ADP/RIDE/FLEX keywords) — same logic as _cdModalDeckMatch.
-     Falls back to deck_type/domain field if not yet loaded. */
+      /* ----------------------------------------------------------------
+   Build-to-domain lookup from Core Slide saved state.
+   /api/core_deck/public_state returns selected_metas[].deck_type
+   which is the AUTHORITATIVE domain set by the user in Config —
+   not a keyword guess from the build string.
+   ---------------------------------------------------------------- */
+  var _rbBuildDeckMap = {};   // build_id (uppercase tail) → 'IVI'|'FLEX'|'ADAS'
+  var _rbDeckMapLoaded = false;
+
+  async function _rbLoadDeckMap(){
+    if(_rbDeckMapLoaded) return;
+    _rbDeckMapLoaded = true;
+    // 1. Use _cdBuildTypes if already populated by live_status_published_safe.js
+    if(window._cdBuildTypes && Object.keys(window._cdBuildTypes).length){
+      Object.keys(window._cdBuildTypes).forEach(function(b){
+        _rbBuildDeckMap[String(b).toUpperCase()] = String(window._cdBuildTypes[b]||'IVI').toUpperCase();
+      });
+      return;
+    }
+    // 2. Fetch public_state directly — same endpoint as loadCoreDeckSavedConfig()
+    try{
+      var resp = await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET));
+      var data = await resp.json().catch(function(){return {};});
+      var metas = (data.state && data.state.selected_metas) || [];
+      metas.forEach(function(m){
+        var deck = String(m.deck_type||'IVI').toUpperCase();
+        (m.build_ids||[]).forEach(function(b){
+          // store both full path and tail
+          _rbBuildDeckMap[String(b).toUpperCase()] = deck;
+          var tail = String(b).split(/[\\/]/).filter(Boolean).pop()||String(b);
+          _rbBuildDeckMap[tail.toUpperCase()] = deck;
+        });
+      });
+    }catch(_){}
+  }
+
+  /* Resolve deck for a build option object.
+     Priority: 1) saved state map  2) _cdBuildTypes  3) _guessDeckType  4) deck_type field */
   function _rbGuessDeck(o){
+    var bid = String((typeof o==='string'?o:o.build_id)||'').toUpperCase();
+    var tail = bid.split(/[\\/]/).filter(Boolean).pop()||bid;
+    // 1. Authoritative saved state map
+    if(_rbBuildDeckMap[bid]) return _rbBuildDeckMap[bid];
+    if(_rbBuildDeckMap[tail]) return _rbBuildDeckMap[tail];
+    // 2. _cdBuildTypes populated by live_status_published_safe.js
+    if(window._cdBuildTypes){
+      if(window._cdBuildTypes[bid]) return String(window._cdBuildTypes[bid]).toUpperCase();
+      if(window._cdBuildTypes[tail]) return String(window._cdBuildTypes[tail]).toUpperCase();
+    }
+    // 3. Core Slide's _guessDeckType (keyword match on full build string)
     if(typeof window._guessDeckType==='function') return window._guessDeckType(o);
-    // inline fallback identical to _guessDeckType in live_status_published_safe.js
+    // 4. Inline fallback
     var s=(typeof o==='string'?o:[
       o.build_id||'',o.build_tail||'',o.software_product||'',
       o.product_flavor||'',o.deck_type||'',o.domain||''
@@ -846,7 +892,7 @@ window.LSP_DATA = {
     rbPickRender();
   };
 
-    /* ── open the picker ── */
+      /* ── open the picker ── */
   window.rbOpenAddModal = async function(){
     _ensurePickModal();
     _rbPickSel.clear();
@@ -854,20 +900,16 @@ window.LSP_DATA = {
     var search=document.getElementById('rbPickSearch'); if(search) search.value='';
     document.getElementById('rbPickModal').style.display='flex';
     rbPickSetDomain(_rbPickDomain);
-    // Always try to load Axiom builds fresh (same as Core Slide openCoreDeckBuildModal)
     var list=document.getElementById('rbPickList');
-    if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom...</div>';
+    if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom + Core Slide config...</div>';
+    // Load deck map from saved Core Slide state (authoritative domain mapping)
+    await _rbLoadDeckMap();
+    // Load Axiom build options (same as Core Slide openCoreDeckBuildModal)
     try{
-      // loadCoreDeckJiraBuilds is defined in live_status_published_safe.js
-      // It fetches /api/core_deck/build_options?target=PRIMARY_TARGET
-      if(typeof loadCoreDeckJiraBuilds==='function'){
-        await loadCoreDeckJiraBuilds();
-      }
+      if(typeof loadCoreDeckJiraBuilds==='function') await loadCoreDeckJiraBuilds();
     }catch(e){
-      // If Axiom API fails, fall back to running_builds_db rows
       if(!_rbRows.length) await window.loadRunningBuildsDb();
     }
-    // If still nothing, try running_builds_db as additional source
     if((!window._cdJiraBuilds||!window._cdJiraBuilds.length) && !_rbRows.length){
       await window.loadRunningBuildsDb();
     }
@@ -891,8 +933,8 @@ window.LSP_DATA = {
       picked=_rbRows.find(function(r){ return _rbOptKey(r)===key||r.build_id===key; });
     }
     if(!picked){ alert('Could not resolve selected build. Please try again.'); return; }
-    // Map to Running Build row shape
-    var domain=String(picked.deck_type||picked.domain||_rbPickDomain||'').toUpperCase()||_rbPickDomain;
+        // Map to Running Build row shape
+    var domain = _rbGuessDeck(picked);  // uses saved state map first
     if(!['IVI','FLEX','ADAS'].includes(domain)) domain=_rbPickDomain;
     var dbRow={
       build_id:       picked.build_id||(typeof picked==='string'?picked:''),
