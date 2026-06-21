@@ -1,0 +1,2037 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Apply saved dark/light theme instantly before paint (no flash). Default is light unless user saved dark. -->
+  <script>(function(){try{var t=localStorage.getItem('pdt_theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title|default('PDT Buddy') }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+  <!-- Font Awesome 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ cache_buster }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}?v={{ cache_buster }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/topbar_chat_admin.css') }}?v={{ cache_buster }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/qgenie_access.css') }}?v={{ cache_buster }}">
+
+    <!-- Highcharts v12 — local first, CDN fallback -->
+  <script src="{{ url_for('static', filename='js/highcharts/highcharts.js') }}"></script>
+  <script>if(typeof Highcharts==='undefined'){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/highcharts@12/highcharts.js"><\/scr'+'ipt>');}</script>
+  <script src="{{ url_for('static', filename='js/highcharts/highcharts-more.js') }}"></script>
+  <script>if(typeof Highcharts!=='undefined'&&!Highcharts.seriesTypes.gauge){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/highcharts@12/highcharts-more.js"><\/scr'+'ipt>');}</script>
+  <script src="{{ url_for('static', filename='js/highcharts/modules-exporting.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/highcharts/modules-accessibility.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/highcharts/modules-export-data.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/highcharts/modules-full-screen.js') }}"></script>
+
+  <!-- Minimal body defaults -->
+    <style>
+                html, body { height: 100%; }
+
+    #globalNavLoadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.34);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2147483646;
+      padding: 20px;
+    }
+    #globalNavLoadingOverlay.is-visible {
+      display: flex;
+    }
+    .global-nav-loading-card {
+      min-width: 260px;
+      max-width: 92vw;
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+      padding: 20px 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .global-nav-loading-spinner {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 4px solid #dbeafe;
+      border-top-color: #4f46e5;
+      animation: globalNavSpin .8s linear infinite;
+      flex-shrink: 0;
+    }
+    .global-nav-loading-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .global-nav-loading-subtitle {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    @keyframes globalNavSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .topbar-center{gap:8px;flex-shrink:0;display:flex;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;}
+        .topbar-compare-pill{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 16px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      text-decoration:none;
+      letter-spacing:.02em;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 3px 10px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.14);
+      transition:transform .16s ease, box-shadow .18s ease, filter .18s ease, background .18s ease, color .18s ease;
+      overflow:hidden;
+    }
+    .topbar-compare-pill::before{
+      display:none !important;
+      content:none !important;
+    }
+    .topbar-compare-pill i,
+    .topbar-compare-pill span{position:relative;z-index:1;}
+    .topbar-compare-pill:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.08);
+    }
+    .topbar-compare-pill:active{transform:scale(.98);}
+                .topbar-compare-pill--compare{
+      background:rgba(99,102,241,0.18);
+      color:#3730a3;
+      border:1px solid rgba(99,102,241,0.30);
+      box-shadow:0 2px 12px rgba(99,102,241,.12), inset 0 1px 0 rgba(255,255,255,.70), inset 0 -1px 0 rgba(99,102,241,.10);
+      backdrop-filter:blur(12px) saturate(1.6);
+      -webkit-backdrop-filter:blur(12px) saturate(1.6);
+      font-weight:900;
+    }
+    .topbar-compare-pill--compare i{color:#6366f1;}
+    .topbar-compare-pill--compare:hover{
+      background:rgba(99,102,241,0.26);
+      color:#312e81;
+      box-shadow:0 4px 18px rgba(99,102,241,.18), inset 0 1px 0 rgba(255,255,255,.80);
+    }
+    .topbar-compare-pill--explore{
+      background:linear-gradient(135deg,#5b3a00 0%,#8a5a00 34%,#b7791f 70%,#f59e0b 100%);
+      color:#fffdf5;
+      border-color:rgba(253,230,138,.34);
+      box-shadow:0 10px 26px rgba(245,158,11,.30), 0 0 18px rgba(252,211,77,.16), inset 0 1px 0 rgba(255,248,220,.20);
+    }
+    .topbar-compare-pill--explore::before{
+      background:linear-gradient(135deg,rgba(255,247,204,.96),rgba(253,230,138,.94),rgba(245,158,11,.92));
+      box-shadow:0 0 0 1px rgba(255,248,220,.14), 0 0 22px rgba(245,158,11,.28), 0 0 34px rgba(252,211,77,.14);
+    }
+    .topbar-compare-pill--explore i{color:#fff7cc;}
+    .topbar-compare-pill--explore:hover{
+      color:#fff;
+      box-shadow:0 14px 30px rgba(245,158,11,.38), 0 0 0 4px rgba(252,211,77,.14), 0 0 28px rgba(252,211,77,.18);
+    }
+    body { overflow-y: auto; }
+    /* Do NOT lock body scroll when chat opens — only the dock is fixed-positioned */
+    body.chat-open { overflow-y: auto; }
+
+
+                                                                                                                                                /* Chatbot FAB — anchored bottom-right */
+.chat-toggle-btn--topbar,
+#openChatBtn {
+  position: fixed !important;
+  top: auto !important;
+  right: 28px !important;
+  bottom: 36px !important;
+  left: auto !important;
+  width: 48px !important;
+  height: 48px !important;
+  z-index: 2147483647 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg,#1e3a5f,#0f172a) !important;
+  border: 2px solid rgba(103,232,249,0.9) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 18px rgba(103,232,249,0.55) !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transform: none !important;
+  transition: box-shadow .15s !important;
+}
+.chat-toggle-btn--topbar:hover {
+  transform: scale(1.08) !important;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.4) !important;
+}
+.chat-toggle-btn--topbar .chat-toggle-logo {
+  width: 26px !important;
+  height: 26px !important;
+}
+.chat-toggle-btn--topbar .chat-toggle-label {
+  display: none !important;
+}
+
+/* Remove the old floating admin button space */
+.admin-toggle-wrapper { display: none !important; }
+
+/* app-bg-shell: zero padding on bu_selection (full-bleed) */
+body:has(.bu-simple-page) .app-bg-shell {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+body:has(.bu-simple-page) .app-bg-gradient {
+  display: none !important;
+}
+
+
+      
+
+
+        .chat-toggle-btn:hover {
+      transform: translateY(-2px) scale(1.03);
+      filter: drop-shadow(0 16px 24px rgba(15,23,42,0.16));
+    }
+
+    /* Robot float animation */
+    @keyframes buddyFloat {
+      0%,100% { transform: translateY(0px); }
+      50%      { transform: translateY(-6px); }
+    }
+    #buddyBotSvg {
+      animation: buddyFloat 3s ease-in-out infinite;
+    }
+    #openChatBtn:hover #buddyBotSvg {
+      animation: buddyFloat 0.6s ease-in-out infinite;
+    }
+
+    .chat-toggle-btn:active {
+      transform: scale(0.98);
+    }
+            .chat-toggle-btn .chat-toggle-logo {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #f8fafc, #dbe4f3);
+      border: 1px solid rgba(255,255,255,0.55);
+      backdrop-filter: blur(4px);
+      position: relative;
+      z-index: 2;
+      animation: robotBob 2.6s ease-in-out infinite;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.65), 0 8px 18px rgba(15,23,42,0.18);
+    }
+    .chat-toggle-btn .chat-toggle-logo::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 18px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      transform: rotate(-18deg);
+    }
+
+
+        .chat-toggle-btn::after {
+      content: none;
+    }
+
+        .chat-toggle-btn .chat-toggle-label {
+      display: none;
+    }
+    .mini-bot {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      display: block;
+    }
+    .mini-bot-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      background: radial-gradient(circle at 50% 30%, #0f2f4b, #071a2b 72%);
+      box-shadow: inset 0 0 16px rgba(34,211,238,0.12);
+    }
+    .mini-bot-eye {
+      position: absolute;
+      top: 14px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #67e8f9;
+      box-shadow: 0 0 10px rgba(103,232,249,0.7);
+      animation: botBlink 4.2s infinite;
+      transform-origin: center;
+    }
+    .mini-bot-eye.left { left: 9px; }
+    .mini-bot-eye.right { right: 9px; }
+    .mini-bot-mouth {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      width: 12px;
+      height: 8px;
+      transform: translateX(-50%);
+      border-radius: 0 0 10px 10px;
+      background: #67e8f9;
+      box-shadow: 0 0 8px rgba(103,232,249,0.5);
+      animation: botSmile 2.8s ease-in-out infinite;
+    }
+    .mini-bot-antenna {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      width: 2px;
+      height: 10px;
+      background: rgba(226,232,240,0.9);
+      transform: translateX(-50%);
+    }
+    .mini-bot-antenna::after {
+      content: "";
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transform: translateX(-50%);
+      background: #67e8f9;
+      box-shadow: 0 0 10px rgba(103,232,249,0.8);
+      animation: botPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes robotBob {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-1px) rotate(-3deg); }
+      50% { transform: translateY(-4px) rotate(0deg); }
+      75% { transform: translateY(-1px) rotate(3deg); }
+    }
+    @keyframes botBlink {
+      0%, 44%, 48%, 100% { transform: scaleY(1); opacity: 1; }
+      46% { transform: scaleY(0.12); opacity: 0.9; }
+    }
+    @keyframes botSmile {
+      0%, 100% { transform: translateX(-50%) scaleX(1); }
+      50% { transform: translateX(-50%) scaleX(1.18); }
+    }
+    @keyframes botPulse {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.18); opacity: 0.75; }
+    }
+
+
+    @keyframes chatRipple {
+      0% { transform: scale(0.92); opacity: 0.65; }
+      100% { transform: scale(1.22); opacity: 0; }
+    }
+
+
+
+                                    /* ══ Chat dock & window — FIXED positioning, fully out of page flow ══ */
+    #chatDock {
+      /* Hidden by default — JS sets width when open */
+      display: block !important;
+      position: fixed !important;
+      top: 0 !important;
+      right: 0 !important;
+      width: 0 !important;
+      height: 100vh !important;
+      z-index: 9990 !important;
+      overflow: hidden !important;
+      transition: width .25s ease !important;
+      pointer-events: none;
+    }
+    #chatDock.dock-open {
+      width: 432px !important;
+      pointer-events: auto;
+    }
+    @media (max-width: 768px) {
+      #chatDock.dock-open { width: 100vw !important; }
+    }
+
+        .chat-window {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: none;
+      flex-direction: column;
+      overflow: hidden !important;
+      background: #f8fafc !important;
+      border-left: 1px solid #e2e8f0 !important;
+      box-shadow: -8px 0 32px rgba(15,23,42,0.14) !important;
+      border-radius: 0 !important;
+      z-index: 1 !important;
+    }
+    .chat-window.open {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* Hide the open-chat FAB when dock is open */
+    #chatDock.dock-open ~ #openChatBtn,
+    body.chat-open #openChatBtn {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* ── Header ── */
+    .chat-header {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 0 14px !important;
+      background: linear-gradient(135deg, #0c1e35 0%, #1e3a8a 60%, #2563eb 100%) !important;
+      border-bottom: none !important;
+      flex-shrink: 0;
+      min-height: 56px;
+    }
+    .chat-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .chat-header-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .chat-title {
+      font-weight: 900 !important;
+      font-size: 13px !important;
+      color: #fff !important;
+      line-height: 1.2;
+      letter-spacing: .02em;
+    }
+    .chat-title-sub {
+      font-size: 10px;
+      color: rgba(186,230,253,.75);
+      font-weight: 500;
+      margin-top: 1px;
+    }
+    .chat-header-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .chat-header-btn {
+      background: rgba(255,255,255,0.10) !important;
+      border: 1px solid rgba(255,255,255,0.14) !important;
+      color: rgba(255,255,255,0.82) !important;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .chat-header-btn:hover { background: rgba(255,255,255,0.24) !important; color: #fff !important; }
+
+    /* ── Tab bar ── */
+    .chat-tab-bar {
+      display: flex;
+      background: #fff;
+      border-bottom: 2px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+    .chat-tab {
+      flex: 1;
+      padding: 8px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .chat-tab:hover { color: #4f46e5; }
+    .chat-tab.active {
+      color: #4f46e5;
+      border-bottom-color: #4f46e5;
+      background: #f5f3ff;
+    }
+    .chat-tab-badge {
+      background: #ef4444;
+      color: #fff;
+      border-radius: 999px;
+      padding: 0 5px;
+      font-size: 9px;
+      font-weight: 900;
+      min-width: 14px;
+      text-align: center;
+    }
+
+                /* ── Tab panels ── */
+    .chat-tab-panel {
+      display: none;
+      flex: 1 1 0;
+      min-height: 0;
+      flex-direction: column;
+      /* NO overflow:hidden — would clip chatMessages scroll */
+    }
+    .chat-tab-panel.active { display: flex; }
+
+        /* ── Chat tab inner layout ── */
+    #panelChat {
+      display: none;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    #panelChat.active { display: flex; }
+
+    /* ── Messages area — grows to fill remaining space, always scrollable ── */
+    .chat-messages {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto !important;
+      overflow-x: hidden;
+      padding: 14px 12px;
+      background: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+      box-sizing: border-box;
+    }
+        .chat-messages {
+      scrollbar-width: auto;
+      scrollbar-color: #4f46e5 #dbeafe;
+    }
+    .chat-messages::-webkit-scrollbar { width: 12px; }
+    .chat-messages::-webkit-scrollbar-track { background: #dbeafe; border-radius: 999px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#6366f1,#3b82f6); border-radius: 999px; border: 2px solid #dbeafe; }
+    .chat-messages::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#4f46e5,#2563eb); }
+
+
+    /* ── Session restore banner ── */
+    .chat-restore-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 12px;
+      background: linear-gradient(135deg,#eff6ff,#eef2ff);
+      border-bottom: 1px solid #c7d2fe;
+      flex-shrink: 0;
+      font-size: 11px;
+      color: #3730a3;
+      font-weight: 700;
+    }
+    .chat-restore-banner button {
+      background: linear-gradient(135deg,#6366f1,#4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+        /* ── CR Info tab panel ── */
+    #panelCrInfo {
+      display: none;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    #panelCrInfo.active { display: flex; }
+    #chatCrInfoPanel {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px;
+      background: #f8fafc;
+    }
+        #chatCrInfoPanel {
+      scrollbar-width: auto;
+      scrollbar-color: #7c3aed #ede9fe;
+    }
+    #chatCrInfoPanel::-webkit-scrollbar { width: 12px; }
+    #chatCrInfoPanel::-webkit-scrollbar-track { background: #ede9fe; border-radius: 999px; }
+    #chatCrInfoPanel::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#8b5cf6,#6366f1); border-radius: 999px; border: 2px solid #ede9fe; }
+
+
+    /* CR Info panel inner cards */
+    .ccip-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(15,23,42,.04);
+      position: relative;
+      overflow: hidden;
+    }
+    .ccip-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--ccip-accent, linear-gradient(90deg,#6366f1,#0ea5e9));
+      border-radius: 14px 14px 0 0;
+    }
+    .ccip-card-title {
+      font-size: 11px; font-weight: 900; color: #0f172a;
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .ccip-row {
+      display: flex; align-items: flex-start;
+      gap: 6px; font-size: 11px;
+      padding: 4px 0;
+      border-bottom: 1px solid #f8faff;
+    }
+    .ccip-row:last-child { border-bottom: none; }
+    .ccip-row-label {
+      font-weight: 700; color: #64748b;
+      min-width: 90px; flex-shrink: 0;
+      font-size: 10px;
+    }
+    .ccip-row-val { color: #1e293b; font-weight: 600; flex: 1; word-break: break-word; font-size: 11px; }
+    .ccip-stat-row {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 6px;
+      margin-bottom: 10px;
+    }
+    .ccip-stat {
+      background: linear-gradient(135deg,#f8faff,#eef2ff);
+      border: 1px solid #e0e7ff;
+      border-radius: 10px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+    .ccip-stat-val { font-size: 18px; font-weight: 900; color: #0f172a; line-height: 1; }
+    .ccip-stat-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-top: 2px; }
+    .ccip-badge {
+      display: inline-block; padding: 2px 9px;
+      border-radius: 999px; font-size: 10px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .ccip-badge-open   { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .ccip-badge-closed { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+    .ccip-badge-other  { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
+    .ccip-badge-area   { background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; }
+    .ccip-badge-func   { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+    .ccip-linked {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 999px;
+      font-size: 10px; font-weight: 800;
+      color: #fff; margin: 2px 3px 2px 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    }
+    .ccip-linked:nth-child(1){background:linear-gradient(135deg,#f43f5e,#fb923c);}
+    .ccip-linked:nth-child(2){background:linear-gradient(135deg,#a855f7,#6366f1);}
+    .ccip-linked:nth-child(3){background:linear-gradient(135deg,#06b6d4,#3b82f6);}
+    .ccip-linked:nth-child(4){background:linear-gradient(135deg,#10b981,#14b8a6);}
+    .ccip-linked:nth-child(5){background:linear-gradient(135deg,#f59e0b,#ef4444);}
+    .ccip-linked:nth-child(6){background:linear-gradient(135deg,#ec4899,#a855f7);}
+    .ccip-linked:nth-child(7){background:linear-gradient(135deg,#0ea5e9,#6366f1);}
+    .ccip-linked:nth-child(8){background:linear-gradient(135deg,#84cc16,#10b981);}
+    .ccip-build-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: linear-gradient(135deg,#f0f9ff,#e0f2fe);
+      border: 1px solid #bae6fd; border-radius: 8px;
+      padding: 3px 9px; font-size: 10px; font-weight: 600;
+      color: #0c4a6e; margin: 2px 3px 2px 0;
+    }
+    .ccip-build-count {
+      background: #0369a1; color: #fff;
+      border-radius: 999px; padding: 0 6px;
+      font-size: 9px; font-weight: 800;
+    }
+    .ccip-empty {
+      text-align: center; padding: 32px 16px;
+      color: #94a3b8; font-size: 12px;
+    }
+    .ccip-search-bar {
+      display: flex; gap: 6px; margin-bottom: 10px;
+    }
+    .ccip-search-input {
+      flex: 1; border: 1px solid #e2e8f0; border-radius: 999px;
+      padding: 7px 14px; font-size: 12px; outline: none;
+      background: #f8fafc; color: #1e293b;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .ccip-search-input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+      background: #fff;
+    }
+    .ccip-search-btn {
+      background: linear-gradient(135deg,#6366f1,#4f46e5);
+      color: #fff; border: none; border-radius: 999px;
+      padding: 7px 16px; font-size: 11px; font-weight: 800;
+      cursor: pointer; white-space: nowrap;
+    }
+    .ccip-search-btn:hover { background: linear-gradient(135deg,#4f46e5,#3730a3); }
+    .ccip-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: ccipSpin .7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes ccipSpin { to { transform: rotate(360deg); } }
+    .ccip-open-full-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 999px;
+      background: linear-gradient(135deg,#6366f1,#4f46e5);
+      color: #fff; font-size: 11px; font-weight: 800;
+      text-decoration: none; border: none; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(79,70,229,.3);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .ccip-open-full-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(79,70,229,.4);
+    }
+
+    /* ── Input area ── */
+    .chat-input-area {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      padding: 10px 12px !important;
+      background: #fff !important;
+      border-top: 1px solid #e2e8f0 !important;
+      flex-shrink: 0;
+    }
+        .chat-input-area input[type="text"] {
+      flex: 1;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 9px 16px;
+      font-size: 14px;
+      outline: none;
+      background: #f8fafc;
+      color: #111827;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .chat-input-area input[type="text"]:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+      background: #fff;
+    }
+    .chat-input-area button {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(79,70,229,0.35);
+      transition: transform .15s, box-shadow .15s;
+      flex-shrink: 0;
+    }
+        .chat-input-area button:hover {
+      transform: scale(1.07);
+      box-shadow: 0 6px 18px rgba(79,70,229,0.45);
+    }
+    
+
+
+                                                /* chatDock width overrides no longer needed — dock is now position:fixed */
+        #chatPageShell.chat-layout-open #mainPagePane {
+      min-width: 0;
+      flex: 1 1 auto;
+      /* Shrink main content to make room for the fixed 432px dock */
+      padding-right: 432px;
+      transition: padding-right .25s ease;
+      /* Keep page scrollable when chat is open */
+      overflow-y: auto;
+    }
+    @media (max-width: 768px) {
+      #chatPageShell.chat-layout-open #mainPagePane { padding-right: 0; }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body{% if session.get('needs_qgenie_popup') %} style="overflow:hidden"{% endif %}>
+{% block topbar %}
+<header>
+  <nav class="qc-topbar">
+    {# ── Brand ── #}
+    <a href="{{ url_for('cr_overview_embed') }}" class="brand home-link">
+      <i class="fas fa-chart-line"></i>
+      <span>PDT Buddy</span>
+      <small style="margin-left:6px;font-size:11px;opacity:.7;font-weight:600;">{{ APP_VERSION }}</small>
+    </a>
+
+    {# ── BU → Target selector (only on non-bu_selection pages) ── #}
+    {% if current_user.is_authenticated and ALL_TARGETS_LIST_GLOBAL %}
+    <div class="topbar-target-selector" id="topbar-bu-target-selector">
+      <label for="global_bu_select" class="topbar-target-label">BU:</label>
+      <select id="global_bu_select" class="topbar-target-select" style="min-width:100px;max-width:130px;">
+        <option value="">Select BU</option>
+        {% if BUSINESS_UNITS %}
+          {% for bu_key, bu_info in BUSINESS_UNITS.items() %}
+            {% set bu_key_upper = bu_key|upper %}
+            {% if bu_key_upper not in ['WEEKLY_QIPL_REPORTS'] %}
+              {% if (bu_info.get('targets') or [])|length > 0 or bu_key_upper in ['AUTO','AUTOMOTIVE','AUTOMO','WBC','MDM_TELEMATICS','AUTO_TELEMATICS'] %}
+                <option value="{{ bu_key }}">{{ (bu_info.get('display_name') or bu_key)|upper }}</option>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </select>
+      <label for="global_mobile_select" class="topbar-target-label" id="global_mobile_label" style="margin-left:4px;display:none;">Sub:</label>
+      <select id="global_mobile_select" class="topbar-target-select" style="min-width:80px;max-width:100px;display:none;">
+        <option value="">All</option>
+        <option value="VT">VT</option>
+        <option value="PT">PT</option>
+        <option value="PT-AU">PT-AU</option>
+      </select>
+      <label for="global_target_select" class="topbar-target-label" style="margin-left:4px;">Target:</label>
+      <select id="global_target_select" class="topbar-target-select">
+        <option value="">Select Target</option>
+      </select>
+      <button type="button" id="global_target_go" class="btn primary-btn topbar-target-go">Go</button>
+    </div>
+    {% endif %}
+
+    {# ── Compare + Explore pills ── #}
+        {% if current_user.is_authenticated %}
+    <div class="topbar-center">
+      <a href="{{ url_for('cr_compare_bp.target_compare_page') }}" class="topbar-compare-pill topbar-compare-pill--compare" title="Target Delta Studio" target="_blank" rel="noopener noreferrer">
+        <i class="fas fa-columns"></i><span>Target Delta</span>
+      </a>
+    </div>
+    {% endif %}
+
+        {# ── Clock + Date (right side, always) ── #}
+    <div class="topbar-right">
+      {# CLOCK WIDGET COMMENTED OUT — re-enable by removing these comment tags
+      <div class="topbar-item topbar-clock-item">
+        <div class="icon-badge calendar-badge"><i class="fas fa-calendar-alt"></i></div>
+        <div class="topbar-text">
+          <span id="liveDate" class="topbar-value" style="font-size:13px;">{{ current_date }}</span>
+          <div class="live-time-row">
+            <span id="hours" class="time-box">00</span>
+            <span class="time-separator">:</span>
+            <span id="minutes" class="time-box">00</span>
+            <span class="time-separator">:</span>
+            <span id="seconds" class="time-box seconds-box">00</span>
+          </div>
+        </div>
+      </div>
+      #}
+              {% if current_user.is_authenticated %}
+                <a href="{{ url_for('live_status_publish_bp.landing') }}"
+           target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:7px;
+                  padding:0 16px;height:34px;border-radius:10px;
+                  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+                  color:#fff;font-size:13px;font-weight:900;
+                  letter-spacing:.03em;text-decoration:none;
+                  box-shadow:0 4px 14px rgba(99,102,241,.40);
+                  border:1.5px solid rgba(255,255,255,.18);
+                  transition:filter .15s,transform .15s;"
+           onmouseover="this.style.filter='brightness(1.12)';this.style.transform='translateY(-1px)'"
+           onmouseout="this.style.filter='';this.style.transform=''"
+           title="Published Live Status Reports">
+          <i class="fas fa-paper-plane" style="font-size:12px;"></i>
+          <span>Published Report</span>
+        </a>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+        <div class="topbar-item">
+          <div class="icon-badge user-badge">
+            <i class="fas fa-user user-main"></i>
+            <span class="check-mark"><i class="fas fa-check"></i></span>
+        </div>
+        <div class="topbar-text">
+          <span class="topbar-value" style="font-size:12px;">{{ current_user.name or current_user.username or current_user.email or current_user.id or 'Guest' }}</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    </nav>
+</header>
+{% endblock %}
+
+<div id="globalNavLoadingOverlay" aria-live="polite" aria-hidden="true">
+  <div class="global-nav-loading-card">
+    <div class="global-nav-loading-spinner"></div>
+    <div>
+      <div class="global-nav-loading-title">Opening in progress...</div>
+      <div class="global-nav-loading-subtitle">Please wait while the page loads.</div>
+    </div>
+  </div>
+</div>
+
+{# Background wrapper for all content #}
+<div class="app-bg-shell">
+  <div class="app-bg-gradient"></div>
+  <div class="app-bg-grid"></div>
+  <div class="app-bg-glow app-glow-1"></div>
+  <div class="app-bg-glow app-glow-2"></div>
+  <div class="app-bg-glow app-glow-3"></div>
+
+    <div id="chatPageShell" style="position:relative;z-index:1;display:flex;align-items:flex-start;gap:0;min-height:calc(100vh - 58px);">
+    <div id="mainPagePane" class="qcom-page-shell" style="position:relative;z-index:1;flex:1 1 auto;min-width:0;">
+      {% block content %}{% endblock %}
+    </div>
+
+{% if current_user.is_authenticated and not request.args.get('embed') == '1' %}
+        {# Chatbot FAB — compact, anchored bottom-right #}
+    <button id="openChatBtn" class="chat-toggle-btn chat-toggle-btn--topbar" title="Open PDT Buddy AI" style="position:fixed !important; top:auto !important; right:28px !important; bottom:36px !important; left:auto !important; width:56px !important; height:56px !important; z-index:2147483647 !important; background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important;">
+    <!-- Animated Robot Icon -->
+        <svg id="buddyBotSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110"
+         style="width:62px;height:62px;filter:drop-shadow(0 4px 14px rgba(0,0,0,0.38));transition:transform .2s;"
+         onmouseover="this.style.transform='scale(1.12)'" onmouseout="this.style.transform='scale(1)'">
+
+      <!-- Background circle -->
+      <circle cx="50" cy="58" r="52" fill="url(#bgGrad)"/>
+      <defs>
+        <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e40af"/>
+          <stop offset="100%" stop-color="#0f172a"/>
+        </radialGradient>
+      </defs>
+      <rect x="47" y="2" width="6" height="12" rx="3" fill="#cbd5e1"/>
+      <circle cx="50" cy="2" r="4" fill="#67e8f9"/>
+
+            <!-- Head -->
+      <rect x="18" y="13" width="64" height="42" rx="14" fill="#f0f9ff"/>
+      <!-- Head shine -->
+      <rect x="22" y="16" width="56" height="36" rx="11" fill="#1e293b"/>
+
+      <!-- Left Eye white -->
+      <ellipse cx="37" cy="34" rx="9" ry="9" fill="#0e7490"/>
+      <!-- Left Eye pupil -->
+      <ellipse cx="37" cy="34" rx="5" ry="5" fill="#67e8f9"/>
+      <!-- Left Eye blink (animated) -->
+      <ellipse id="blinkL" cx="37" cy="34" rx="9" ry="0" fill="#1e293b">
+        <animate attributeName="ry" values="0;9;0" dur="0.15s" begin="blink.begin" fill="freeze"/>
+      </ellipse>
+
+      <!-- Right Eye white -->
+      <ellipse cx="63" cy="34" rx="9" ry="9" fill="#0e7490"/>
+      <!-- Right Eye pupil -->
+      <ellipse cx="63" cy="34" rx="5" ry="5" fill="#67e8f9"/>
+      <!-- Right Eye blink (animated) -->
+      <ellipse id="blinkR" cx="63" cy="34" rx="9" ry="0" fill="#1e293b">
+        <animate attributeName="ry" values="0;9;0" dur="0.15s" begin="blink.begin" fill="freeze"/>
+      </ellipse>
+
+      <!-- Smile -->
+      <path d="M40 46 Q50 54 60 46" stroke="#67e8f9" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+            <!-- Neck -->
+      <rect x="44" y="55" width="12" height="8" rx="3" fill="#bae6fd"/>
+
+            <!-- Body -->
+      <rect x="22" y="63" width="56" height="38" rx="16" fill="#f0f9ff"/>
+            <!-- Body panel -->
+      <rect x="32" y="72" width="36" height="20" rx="7" fill="#bae6fd"/>
+      <!-- Body light -->
+      <circle cx="50" cy="82" r="5" fill="#67e8f9" opacity="0.85">
+        <animate attributeName="opacity" values="0.85;0.3;0.85" dur="2s" repeatCount="indefinite"/>
+      </circle>
+
+                  <!-- Left Arm -->
+      <ellipse cx="14" cy="78" rx="8" ry="14" fill="#f0f9ff" transform="rotate(-10 14 78)"/>
+      <!-- Right Arm -->
+      <ellipse cx="86" cy="78" rx="8" ry="14" fill="#f0f9ff" transform="rotate(10 86 78)"/>
+
+      <!-- Blink trigger (invisible, fires every 3s) -->
+      <animate id="blink" attributeName="opacity" values="1;1" dur="3s" repeatCount="indefinite"/>
+    </svg>
+  </button>
+
+    <div id="chatDock">
+<!-- Chatbot UI side panel -->
+<div id="chatWindow" class="chat-window">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="chat-header-avatar" style="background:transparent;border:none;padding:0;">
+        <img src="{{ url_for('static', filename='img/buddy_bot.png') }}" alt="PDT Buddy" style="width:34px;height:34px;border-radius:8px;object-fit:cover;">
+      </div>
+      <div>
+        <div class="chat-title">PDT Buddy</div>
+        <div class="chat-title-sub" id="chatStatusLine">Ready to help</div>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <!-- CR Info quick-open -->
+      <button id="chatCrInfoToggleBtn" class="chat-header-btn" title="CR Info Panel" style="display:none;">
+        <i class="fas fa-search-plus"></i>
+      </button>
+      <a href="/chatbot_help" target="_blank" class="chat-header-btn" title="Help &amp; Commands">
+        <i class="fas fa-question-circle"></i>
+      </a>
+      <button id="chat-reset" class="chat-header-btn" title="Reset Chat">
+        <i class="fas fa-redo"></i>
+      </button>
+      <button id="chatbot-minimize" class="chat-header-btn" title="Minimize">
+        <i class="fas fa-minus"></i>
+      </button>
+      <button id="chatbot-close" class="chat-header-btn" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ SESSION RESTORE BANNER (shown when history exists but window was closed) ═══ -->
+  <div id="chatRestoreBanner" class="chat-restore-banner" style="display:none;">
+    <span><i class="fas fa-history" style="margin-right:5px;"></i>Previous session available</span>
+    <div style="display:flex;gap:6px;">
+      <button id="chatRestoreBtn">Restore</button>
+      <button id="chatDismissRestoreBtn" style="background:rgba(99,102,241,.15);color:#4f46e5;">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- ═══ TAB BAR ═══ -->
+  <div class="chat-tab-bar" id="chatTabBar">
+    <button class="chat-tab active" data-tab="chat" id="tabChat">
+      <i class="fas fa-comments"></i> Chat
+    </button>
+    <button class="chat-tab" data-tab="crinfo" id="tabCrInfo">
+      <i class="fas fa-file-alt"></i> CR Info
+      <span class="chat-tab-badge" id="crInfoTabBadge" style="display:none;">!</span>
+    </button>
+    <button class="chat-tab" data-tab="history" id="tabHistory">
+      <i class="fas fa-clock"></i> History
+    </button>
+  </div>
+
+        <!-- ═══ TAB: CHAT ═══ -->
+    <div class="chat-tab-panel active" id="panelChat" style="display:flex;flex-direction:column;flex:1 1 0;min-height:0;">
+      <div id="chatMessages" class="chat-messages"></div>
+      <div class="chat-input-area" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;">
+
+            <input type="text" id="chatInput" placeholder="Ask about a CR, status, builds..." autocomplete="off" style="flex:1;border:1px solid #e2e8f0;border-radius:999px;padding:9px 16px;font-size:14px;outline:none;background:#f8fafc;color:#111827;">
+
+      <button id="sendBtn" title="Send" style="width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CR INFO ═══ -->
+  <div class="chat-tab-panel" id="panelCrInfo" style="display:none;flex-direction:column;flex:1 1 0;min-height:0;overflow:hidden;">
+    <div id="chatCrInfoPanel" style="flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px;background:#f8fafc;">
+      <div class="ccip-search-bar">
+        <input type="text" id="ccipSearchInput" class="ccip-search-input" placeholder="Enter CR number..." autocomplete="off">
+        <button id="ccipSearchBtn" class="ccip-search-btn"><i class="fas fa-search"></i> Go</button>
+      </div>
+      <div id="ccipContent">
+        <div class="ccip-empty">
+          <div style="font-size:32px;margin-bottom:8px;">🔍</div>
+          <div>Search a CR number to see full details here.</div>
+          <div style="margin-top:6px;font-size:10px;color:#cbd5e1;">CR info auto-loads when chatbot detects a CR number.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: HISTORY ═══ -->
+  <div class="chat-tab-panel" id="panelHistory" style="display:none;flex-direction:column;flex:1 1 0;min-height:0;overflow:hidden;">
+    <div style="flex:1 1 0;min-height:0;overflow-y:auto;padding:12px;background:#f8fafc;">
+      <div id="chatHistoryList" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="text-align:center;padding:32px 16px;color:#94a3b8;font-size:12px;">
+          <div style="font-size:28px;margin-bottom:8px;">📋</div>
+          No conversation history yet.
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:8px;flex-shrink:0;">
+      <button id="chatExportBtn" style="flex:1;padding:8px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#374151;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+        <i class="fas fa-download"></i> Export Chat
+      </button>
+      <button id="chatClearHistoryBtn" style="flex:1;padding:8px;border-radius:999px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+        <i class="fas fa-trash"></i> Clear All
+      </button>
+    </div>
+  </div>
+
+</div>
+    </div>
+{% endif %}
+  </div>
+</div>
+
+{% if current_user.is_authenticated and not request.args.get('embed') == '1' %}
+{% include 'qgenie_access.html' %}
+
+<!-- ═══════════════════════════════════════════════════════
+     CR Insight Panel  —  LEFT-SIDE sliding panel
+     Auto-triggered when chatbot mentions a CR number
+     ═══════════════════════════════════════════════════════ -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cr_insight_panel.css') }}?v={{ cache_buster }}">
+
+<!-- CR Insight panel: no toggle button — auto-opens only when chatbot detects a CR -->
+
+<div id="crInsightPanel" class="cr-insight-panel">
+
+  <!-- Header -->
+  <div class="cip-header">
+    <div class="cip-header-left">
+      <div class="cip-header-icon">&#128269;</div>
+      <div class="cip-header-text">
+        <div class="cip-title">CR Insight</div>
+        <div id="cipCrBadge" class="cip-subtitle" style="display:none;"></div>
+      </div>
+    </div>
+    <button id="cipClose" class="cip-close-btn" title="Close">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+      <!-- Search bar -->
+  <div class="cip-search-bar">
+    <i class="fas fa-search"></i>
+    <input id="cipSearchInput" class="cip-search-input" type="text"
+           placeholder="CR number..." autocomplete="off">
+    <button id="cipSearchBtn" class="cip-search-btn">Go</button>
+  </div>
+
+  <!-- Loading -->
+  <div id="cipLoading" style="display:none;padding:32px 0;text-align:center;">
+    <div class="cip-spinner"></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:10px;">Loading CR data...</div>
+  </div>
+
+  <!-- Empty -->
+  <div id="cipEmpty" style="display:none;padding:40px 16px;text-align:center;">
+    <div style="font-size:28px;margin-bottom:8px;">&#128270;</div>
+    <div class="cip-empty-text" style="font-size:12px;color:#94a3b8;">No CR data found.</div>
+  </div>
+
+    <!-- Content: single scrollable overview -->
+  <div id="cipContent" style="display:none;overflow-y:auto;flex:1;padding:10px 12px 20px;">
+
+    <!-- Title card -->
+    <div id="cipTitleCard" class="cip-card cip-title-card"></div>
+
+    <!-- Stats row -->
+    <div id="cipStatsRow" class="cip-stats-row"></div>
+
+    <!-- Target selector (pills only — chatbot-detected targets) -->
+    <div id="cipTargetCard" class="cip-card cip-target-card" style="display:none;margin-top:0;">
+      <div class="cip-card-label"><i class="fas fa-crosshairs"></i> Target <span id="cipTargetHint" style="font-size:9px;color:#94a3b8;font-weight:500;margin-left:4px;">click to switch</span></div>
+      <div id="cipTargetList"></div>
+    </div>
+
+    <!-- AI Summary — auto-loads, shown at top -->
+    <div class="cip-card cip-ai-card" style="margin-top:0;">
+      <div class="cip-card-label" style="justify-content:space-between;">
+        <span><i class="fas fa-robot"></i> Orbit AI Summary</span>
+        <button id="cipAiBtn" class="cip-ai-btn-sm">
+          <i class="fas fa-magic"></i> Analyse
+        </button>
+      </div>
+      <div id="cipAiSummary" class="cip-ai-body">Click <b>Analyse</b> to get the Orbit AI summary.</div>
+      <!-- Last seen meta shown below AI summary -->
+      <div id="cipLastSeenMeta" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid #ede9fe;"></div>
+    </div>
+
+    <!-- Meta grid -->
+    <div class="cip-card" style="margin-top:0;">
+      <div class="cip-card-label"><i class="fas fa-info-circle"></i> Details</div>
+      <div id="cipMetaGrid" class="cip-meta-grid"></div>
+    </div>
+
+    <!-- Linked CRs -->
+    <div class="cip-card" style="margin-top:0;">
+      <div class="cip-card-label">
+        <i class="fas fa-link"></i> Linked CRs
+        <span id="cipLinkedCount" class="cip-badge"></span>
+      </div>
+      <div id="cipLinkedList"></div>
+    </div>
+
+    <!-- Orbit link -->
+    <div id="cipOrbitLink" style="display:none;text-align:center;margin-top:4px;">
+      <a id="cipOrbitAnchor" href="#" target="_blank"
+         style="font-size:11px;color:#6366f1;text-decoration:none;font-weight:700;">
+        <i class="fas fa-external-link-alt"></i> Open in Orbit
+      </a>
+    </div>
+
+  </div><!-- /cipContent -->
+</div><!-- /crInsightPanel -->
+
+<script src="{{ url_for('static', filename='js/cr_insight_panel.js') }}?v={{ cache_buster }}"></script>
+{% endif %}
+
+
+{# Admin floating button removed — now in sidebar #}
+
+{% if current_user.is_authenticated and current_user.role == 'admin' %}
+<!-- Admin Modal -->
+<div id="adminModal" class="admin-modal-overlay">
+  <div class="admin-modal-content">
+    <button id="closeAdminModalXBtn" class="modal-close-btn">&times;</button>
+    <h3 class="admin-section-title"><i class="fas fa-cogs"></i> Milestone Admin</h3>
+    <hr>
+
+        <style>
+      .admin-tabbar { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+      #milestonePickerModal[style*="display: flex"],
+      #milestonePickerModal[style*="display:flex"] { display: flex !important; }
+      #milestonePickerModal .admin-modal-content { background: #fff; }
+
+      .admin-card { border:1px solid rgba(255,255,255,.28); border-radius:20px; padding:16px; color:#fff; min-height:84px; box-shadow:0 10px 25px rgba(0,0,0,.10); text-align:left; }
+      .admin-card .card-title { font-weight:900; font-size:15px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+      .admin-card .card-desc { font-size:12px; opacity:.92; line-height:1.45; }
+      .admin-card.card-blue { background:linear-gradient(135deg, #2563eb, #60a5fa); }
+      .admin-card.card-green { background:linear-gradient(135deg, #059669, #34d399); }
+      .admin-card.card-amber { background:linear-gradient(135deg, #d97706, #fbbf24); }
+      .admin-section-blue { background:rgba(37,99,235,.08); border-left:4px solid #2563eb; padding:14px 14px 10px; border-radius:18px; }
+      .admin-section-green { background:rgba(5,150,105,.08); border-left:4px solid #059669; padding:14px 14px 10px; border-radius:18px; }
+      .admin-section-amber { background:rgba(217,119,6,.08); border-left:4px solid #d97706; padding:14px 14px 10px; border-radius:18px; }
+            .admin-tab-panel { display:none !important; }
+      .admin-tab-panel.active { display:block !important; }
+      .admin-spacer { height:14px; }
+    </style>
+
+        <div class="admin-tabbar">
+      <button type="button" id="adminTabAddTarget" class="admin-card card-blue" style="flex:1; min-width:160px;">
+        <div class="card-title"><i class="fas fa-plus-circle"></i> Add / Update Target</div>
+        <div class="card-desc">Target details, SP name, and ingest setup.</div>
+      </button>
+      <button type="button" id="adminTabResyncMilestones" class="admin-card card-green" style="flex:1; min-width:160px;">
+        <div class="card-title"><i class="fas fa-rotate"></i> Milestone Save / Sync</div>
+        <div class="card-desc">Fetch, edit, save ES/FC/CS/CS1 for a selected target.</div>
+      </button>
+                  <button type="button" id="adminTabRemoveTarget" class="admin-card card-amber" style="flex:1; min-width:160px;">
+        <div class="card-title"><i class="fas fa-trash"></i> Full Resync / Remove</div>
+        <div class="card-desc">Resync all data or remove a target from DB.</div>
+      </button>
+      <a href="/admin/paths" class="admin-card" style="flex:1; min-width:160px; background:linear-gradient(135deg,#0ea5e9,#2563eb); text-decoration:none; display:flex; flex-direction:column; justify-content:center;">
+        <div class="card-title"><i class="fas fa-folder-open"></i> Unique CR Paths</div>
+        <div class="card-desc">Set unique_cr_path and run ingest per target.</div>
+      </a>
+            <a href="/admin/page_visibility" class="admin-card" style="flex:1; min-width:160px; background:linear-gradient(135deg,#7c3aed,#a855f7); text-decoration:none; display:flex; flex-direction:column; justify-content:center;">
+        <div class="card-title"><i class="fas fa-eye"></i> Page Visibility</div>
+        <div class="card-desc">Show/hide pages &amp; workspaces per BU or target.</div>
+      </a>
+      <a href="/admin/user_privileges" class="admin-card" style="flex:1; min-width:160px; background:linear-gradient(135deg,#0f766e,#14b8a6); text-decoration:none; display:flex; flex-direction:column; justify-content:center;">
+        <div class="card-title"><i class="fas fa-user-shield"></i> User Privileges</div>
+        <div class="card-desc">Add viewers, admins &amp; extra groups for PDT Buddy access.</div>
+      </a>
+
+    </div>
+
+    <div id="admin_section_add_target" class="admin-section-blue admin-tab-panel">
+            <h3 class="admin-section-title" style="margin-bottom:4px;"><i class="fas fa-plus-circle"></i> Add &amp; Ingest New Target</h3>
+      <p style="font-size:11px;color:#6b7280;margin:0 0 10px;">Fill in all required fields. Fields change based on the Business Unit selected.</p>
+      <!-- MODE TOGGLE -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+<button type="button" id="adminModeFullTarget" class="btn primary-btn" style="flex:1;font-size:12px;font-weight:800;"><i class="fas fa-database"></i> Full Target</button>
+<button type="button" id="adminModeUniqueCrOnly" class="btn" style="flex:1;font-size:12px;font-weight:800;background:#fff7ed;color:#c2410c;border:2px solid #fed7aa;"><i class="fas fa-fingerprint"></i> Unique CR Only</button>
+      </div>
+      <div id="adminModeUniqueCrBanner" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:9px 12px;font-size:11px;color:#92400e;margin-bottom:12px;">
+        <strong>&#128273; Unique CR Only mode:</strong> Registers the target with only a <code>unique_cr_path</code>. No Excel ingestion needed. Only BU, Target Key, Display Name and Unique CR Path are required.
+      </div>
+      <hr style="margin-bottom:14px;">
+
+      <!-- STEP 1: BU -->
+      <div style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#4338ca;margin-bottom:8px;">
+          <i class="fas fa-layer-group" style="margin-right:5px;"></i>Step 1 &mdash; Business Unit
+        </div>
+        <div class="admin-form-group" style="margin-bottom:6px;">
+          <label style="font-weight:800;">Business Unit <span style="color:#dc2626;">*</span></label>
+          <select id="admin_bu_add"><option value="">Select Business Unit</option></select>
+        </div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:11px;color:#92400e;line-height:1.7;">
+          <strong>&#9432; What is a Business Unit?</strong> The BU determines the <strong>hierarchy structure</strong>:<br>
+          &bull; <span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:4px;font-weight:700;">AUTO</span>
+          &nbsp;Automotive &mdash; 5-level: <code>Gen &rarr; Program &rarr; Family &rarr; Category &rarr; SP</code><br>
+                    &bull; <span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:4px;font-weight:700;">WBC</span>
+          &nbsp;Wireless Base Chip &mdash; 2-level: <code>Target &rarr; SP</code><br>
+                      &bull; <span style="background:#dbeafe;color:#0369a1;padding:1px 6px;border-radius:4px;font-weight:700;">AUTO_TELEMATICS</span>
+            &nbsp;Auto Telematics &mdash; 2-level: <code>Target &rarr; SP</code> (same as WBC)<br>
+          &bull; <span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:4px;font-weight:700;">MOBILE / COMPUTE / XR</span>
+          &nbsp;Standard &mdash; flat target list, no sub-hierarchy
+        </div>
+      </div>
+
+      <!-- STEP 2a: Standard target key -->
+      <div id="admin_target_name_group" style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#4338ca;margin-bottom:8px;">
+          <i class="fas fa-key" style="margin-right:5px;"></i>Step 2 &mdash; Target Key
+        </div>
+        <div class="admin-form-group" style="margin-bottom:6px;">
+          <label style="font-weight:800;">Target Key / DB Name <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="admin_target_add" placeholder="e.g. molokai_v2">
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;font-size:11px;color:#991b1b;line-height:1.7;">
+          <strong>&#9888; Important:</strong> This is the <strong>internal DB identifier</strong> &mdash; used as the database table prefix and URL key.<br>
+          &bull; Use <code>lowercase_with_underscores</code> only &mdash; no spaces or special chars<br>
+          &bull; Must be <strong>unique</strong> across all targets &mdash; e.g. <code>skyros</code>, <code>molokai_v2</code>, <code>balsam_r2</code>
+        </div>
+      </div>
+
+      <!-- STEP 2b: Mobile fields -->
+      <div id="admin_mobile_fields" style="display:none;">
+        <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#6d28d9;margin-bottom:10px;">
+            <i class="fas fa-mobile-alt" style="margin-right:5px;"></i>Step 2 &mdash; Mobile Product Family
+          </div>
+          <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:8px 10px;font-size:11px;color:#5b21b6;margin-bottom:12px;line-height:1.7;">
+            <strong>&#128241; Mobile grouping:</strong> Mobile targets are grouped using <code>product_family</code>.<br>
+            &bull; <strong>VT</strong> &mdash; default/current Mobile targets<br>
+            &bull; <strong>PT</strong><br>
+            &bull; <strong>PT-AU</strong>
+          </div>
+          <div class="form-group">
+            <label for="admin_mobile_product_family" style="font-weight:800;">Product Family <span style="color:#dc2626;">*</span></label>
+            <select id="admin_mobile_product_family" class="form-control">
+              <option value="VT">VT</option>
+              <option value="PT">PT</option>
+              <option value="PT-AU">PT-AU</option>
+            </select>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>product_family</code> in DB and used by the Mobile target selector dropdown.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2b: AUTO fields -->
+      <div id="admin_auto_fields" style="display:none;">
+        <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#1d4ed8;margin-bottom:10px;">
+            <i class="fas fa-car" style="margin-right:5px;"></i>Step 2 &mdash; Automotive Hierarchy
+          </div>
+          <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:8px 10px;font-size:11px;color:#1e40af;margin-bottom:12px;line-height:1.7;">
+            <strong>&#128663; AUTO Hierarchy:</strong> <code>Generation &rarr; Program &rarr; Family &rarr; [Category &rarr; SP Label]</code><br>
+            &bull; <strong>Gen + Program + Family only</strong> &rarr; creates the <span style="background:#e0e7ff;padding:1px 5px;border-radius:3px;">Family Overall Dashboard</span> (the &ldquo;Open Dashboard&rdquo; button on the Family pill)<br>
+            &bull; <strong>+ Category + SP Label</strong> &rarr; creates an <span style="background:#dcfce7;padding:1px 5px;border-radius:3px;">SP-level card</span> shown when user clicks &ldquo;Expand SPs&rdquo;
+          </div>
+          <div class="form-group">
+            <label for="admin_auto_gen" style="font-weight:800;">Generation <span style="color:#dc2626;">*</span></label>
+            <select id="admin_auto_gen" class="form-control">
+              <option value="">Select Generation</option>
+              <option value="Gen5">Gen5</option>
+              <option value="Gen4.5">Gen4.5</option>
+            </select>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>platform</code> in DB &mdash; groups targets by hardware generation (e.g. Gen5, Gen4.5)</div>
+          </div>
+          <div class="form-group">
+            <label for="admin_auto_program" style="font-weight:800;">Program <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="admin_auto_program" class="form-control" placeholder="e.g. Nord, Lemans">
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>program</code> in DB &mdash; the vehicle program name. Shown as a <strong>Program pill</strong> in the hierarchy.</div>
+          </div>
+          <div class="form-group">
+            <label for="admin_auto_family" style="font-weight:800;">Family <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
+            <select id="admin_auto_family" class="form-control">
+              <option value="">Select Family</option>
+              <option value="HGY">HGY</option>
+              <option value="HQX">HQX</option>
+              <option value="QE">QE</option>
+              <option value="LE">LE</option>
+            </select>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>product_family</code> in DB &mdash; the chip family. Shown as a <strong>Family pill</strong> in the hierarchy.</div>
+          </div>
+          <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:8px 10px;font-size:11px;color:#713f12;margin:10px 0;">
+            <strong>&#9888; Category &amp; SP Label are optional:</strong><br>
+            &bull; Leave <strong>Category empty</strong> &rarr; Family Overall Dashboard (no SP card)<br>
+            &bull; Fill <strong>Category + SP Label</strong> &rarr; SP-level card shown under &ldquo;Expand SPs&rdquo;
+          </div>
+          <div class="form-group">
+            <label for="admin_auto_category" style="font-weight:800;">Category <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
+            <select id="admin_auto_category" class="form-control">
+              <option value="">-- None (Family-level overall target) --</option>
+              <option value="ADAS">ADAS</option>
+              <option value="IVI">IVI</option>
+              <option value="FLEX">FLEX</option>
+            </select>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>application_domain</code> in DB &mdash; the use-case domain (ADAS, IVI, FLEX). Leave empty for family-level overall.</div>
+          </div>
+          <div class="form-group" id="admin_auto_sp_group" style="display:none;">
+                        <label for="admin_auto_sp" style="font-weight:800;">SP Label <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
+            <input type="text" id="admin_auto_sp" class="form-control" placeholder="e.g. 5.1.7.0 (optional)">
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>cpl</code> in DB &mdash; the SP version label shown as the <strong>bold title on the SP card</strong>. <code>NULL</code> = family-level overall.</div>
+          </div>
+          <div class="form-group" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;">
+            <label for="admin_auto_target_key_preview" style="color:#15803d;font-weight:800;">&#128279; Generated DB Name / Target Key</label>
+            <input type="text" id="admin_auto_target_key_preview" class="form-control" readonly style="font-family:monospace;font-weight:700;background:#fff;letter-spacing:.03em;">
+            <small id="admin_auto_key_hint" style="color:#6b7280;font-size:11px;">Pattern: <code>Program</code> or <code>Program_Family</code> e.g. <code>Nord</code> / <code>Nord_HGY</code> &nbsp;|&nbsp; With Category+SP: <code>Nord_HGY_ADAS_5_1_7_0</code></small>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2c: WBC fields -->
+      <div id="admin_wbc_fields" style="display:none;">
+        <div style="background:#f0fdf4;border:1.5px solid #6ee7b7;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#065f46;margin-bottom:10px;">
+            <i class="fas fa-microchip" style="margin-right:5px;"></i>Step 2 &mdash; WBC Hierarchy
+          </div>
+          <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 10px;font-size:11px;color:#065f46;margin-bottom:12px;line-height:1.7;">
+            <strong>&#128268; WBC Hierarchy:</strong> <code>Target &rarr; SP Label</code><br>
+            &bull; <strong>Target</strong> = chip/platform name e.g. <code>Kuno</code>, <code>Kobuk</code>, <code>Pinnacles</code> &mdash; stored as <code>product_family</code> &amp; <code>program</code> in DB<br>
+            &bull; <strong>SP Label</strong> = optional software platform version e.g. <code>LE.1.1</code> &mdash; stored as <code>cpl</code> in DB &mdash; blank creates the target-level overall dashboard
+          </div>
+          <div class="form-group">
+            <label for="admin_wbc_target" style="font-weight:800;">Target Name <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="admin_wbc_target" class="form-control" placeholder="e.g. Kuno, Kobuk, Pinnacles">
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>product_family</code> &amp; <code>program</code> in DB &mdash; groups all SPs under this <strong>Target pill</strong> in the hierarchy.</div>
+          </div>
+          <div class="form-group">
+                        <label for="admin_wbc_sp" style="font-weight:800;">SP Label <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
+            <input type="text" id="admin_wbc_sp" class="form-control" placeholder="e.g. LE.1.1, LE.1.2 (optional)">
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>cpl</code> in DB. Leave blank for the target-level overall dashboard; use dot notation e.g. <code>LE.1.1</code> for an SP card.</div>
+          </div>
+          <div class="form-group" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;">
+            <label for="admin_wbc_target_key_preview" style="color:#15803d;font-weight:800;">&#128279; Generated DB Name / Target Key</label>
+            <input type="text" id="admin_wbc_target_key_preview" class="form-control" readonly style="font-family:monospace;font-weight:700;background:#fff;letter-spacing:.03em;">
+            <small style="color:#6b7280;font-size:11px;">Pattern: <code>Target_SP</code> e.g. <code>kuno_le1_1</code> &mdash; used as DB table prefix &amp; URL key</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Common fields -->
+      <div style="background:#f8faff;border:1.5px solid #c7d2fe;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#4338ca;margin-bottom:10px;">
+          <i class="fas fa-info-circle" style="margin-right:5px;"></i>Step 3 &mdash; Target Details (all BUs)
+        </div>
+        <div class="admin-form-group">
+          <label style="font-weight:800;">Display Name (UI) <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="admin_target_display_add" placeholder="e.g. Nord HGY ADAS, Kuno.LE.1.1">
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Shown in the dashboard header and target selector. Can contain spaces &amp; mixed case. Stored as <code>target_display</code> in DB.</div>
+        </div>
+        <div class="admin-form-group">
+          <label style="font-weight:800;">CHIP Name <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="admin_chip_name_add" placeholder="e.g. SA8797P, QAM8255, SM8850" required>
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; The physical SoC/chip identifier. Stored as <code>chip_name</code> in DB. Used for display and filtering.</div>
+        </div>
+        <div class="admin-form-group">
+          <label style="font-weight:800;">SP Name &mdash; OneView Software Product <span style="color:#dc2626;">*</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="admin_sp_name_add" placeholder="e.g. SA8797P_ADAS.HGY.5.1.7.0" style="flex:1;min-width:180px;">
+            <button type="button" id="admin_fetch_sp_milestones_btn" class="btn secondary-btn">Fetch Milestones</button>
+          </div>
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; The <strong>exact OneView SP identifier</strong> used to fetch milestone dates (ES, FC, CS, CS1). Stored as <code>sp_name</code> in DB.<br>
+            Format: <code>CHIP.Family.Version</code> &mdash; e.g. <code>SA8797P_ADAS.HGY.5.1.7.0</code> or <code>QAM8255.LE1.1</code></div>
+          <div id="admin_sp_milestones_preview" class="admin-help-text" style="margin-top:4px;"></div>
+          <div id="admin_raw_milestones_preview" class="admin-help-text" style="margin-top:6px;white-space:pre-wrap;font-family:Consolas,monospace;"></div>
+        </div>
+                        <div class="admin-form-group" id="admin_excel_path_group">
+          <label style="font-weight:800;">Excel Folder / File Path <span id="admin_excel_path_star" style="color:#dc2626;">*</span></label>
+          <input type="text" id="admin_path_add" placeholder="\\server\share\folder or \\server\share\file.xlsx">
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Network path to the Excel file or folder for data ingestion. Stored as <code>excel_path</code> in DB.</div>
+        </div>
+        <div class="admin-form-group">
+          <label style="font-weight:800;">Unique CR Path <span id="admin_unique_cr_req_star" style="color:#dc2626;display:none;">*</span><span id="admin_unique_cr_opt_label" style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
+          <input type="text" id="admin_unique_cr_path_add" placeholder="\\server\share\UniqueCRs.xlsx or folder path">
+          <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Path for Unique CR data. <strong>Required</strong> in Unique CR Only mode. Stored as <code>unique_cr_path</code> in DB.</div>
+        </div>
+      </div>
+
+      <!-- DB Column Reference -->
+      <details style="margin-bottom:14px;">
+        <summary style="cursor:pointer;font-size:11px;font-weight:800;color:#4338ca;padding:8px 12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;list-style:none;">
+          <i class="fas fa-table" style="margin-right:5px;"></i>&#9660; DB Column Reference &mdash; what each field stores &amp; why
+        </summary>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:0 0 8px 8px;padding:12px;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:10.5px;">
+            <thead>
+              <tr style="background:#f8faff;">
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #c7d2fe;color:#4338ca;">DB Column</th>
+                                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #c7d2fe;color:#1d4ed8;">AUTO value</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #c7d2fe;color:#059669;">WBC / MDM value</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #c7d2fe;color:#6b7280;">Other BUs</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid #c7d2fe;color:#374151;">Purpose / Why it matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 8px;"><code>bu</code></td>
+                <td style="color:#1d4ed8;">AUTO</td><td style="color:#059669;">WBC</td><td style="color:#6b7280;">MOBILE etc.</td>
+                <td>Identifies which BU this target belongs to. Controls which hierarchy page it appears on.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <td style="padding:5px 8px;"><code>platform</code></td>
+                <td style="color:#1d4ed8;">Gen5 / Gen4.5</td><td style="color:#059669;">WBC</td><td style="color:#6b7280;">GENERIC</td>
+                <td>Hardware generation. AUTO: groups targets into Gen cards on the hierarchy page.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 8px;"><code>program</code></td>
+                <td style="color:#1d4ed8;">NORD / LEMANS</td><td style="color:#059669;">KUNO / KOBUK</td><td style="color:#6b7280;">target_name</td>
+                <td>AUTO: vehicle program &rarr; Program pill. WBC: target name &rarr; Target pill grouping.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <td style="padding:5px 8px;"><code>product_family</code></td>
+                <td style="color:#1d4ed8;">HGY / HQX</td><td style="color:#059669;">KUNO / KOBUK</td><td style="color:#6b7280;">VT / PT / PT-AU</td>
+                <td>AUTO: chip family &rarr; Family pill. WBC: target name &rarr; Target pill label. MOBILE: sub-BU grouping value used in the target selector.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 8px;"><code>application_domain</code></td>
+                <td style="color:#1d4ed8;">ADAS / IVI / FLEX</td><td style="color:#059669;">(empty)</td><td style="color:#6b7280;">GENERIC</td>
+                <td>AUTO only: use-case category &rarr; yellow badge on SP card. Empty = family-level overall.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <td style="padding:5px 8px;font-weight:800;"><code>cpl</code></td>
+                <td style="color:#1d4ed8;">5.1.7.0 / NULL</td><td style="color:#059669;">LE.1.1 / NULL</td><td style="color:#6b7280;">NULL</td>
+                <td><strong>SP Label</strong> &mdash; the bold title on the SP card. <code>NULL</code> = this target IS the overall dashboard. Value = SP-level card.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 8px;"><code>target_name</code></td>
+                <td colspan="3" style="color:#374151;font-family:monospace;">nord_hgy &nbsp;|&nbsp; nord_hgy_adas_5_1_7_0 &nbsp;|&nbsp; kuno_le_1_1</td>
+                <td>Internal DB key. Used as table prefix, URL slug, and unique identifier.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <td style="padding:5px 8px;"><code>target_display</code></td>
+                <td colspan="3" style="color:#374151;font-family:monospace;">Nord HGY &nbsp;|&nbsp; Nord HGY ADAS &nbsp;|&nbsp; Kuno.LE.1.1</td>
+                <td>Human-readable name shown in dashboard header and target selector dropdown.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 8px;"><code>chip_name</code></td>
+                <td colspan="3" style="color:#374151;font-family:monospace;">SA8797P &nbsp;|&nbsp; QAM8255 &nbsp;|&nbsp; SM8850</td>
+                <td>Physical SoC identifier. Shown on dashboard cards and used for chip-level filtering.</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <td style="padding:5px 8px;"><code>sp_name</code></td>
+                <td colspan="3" style="color:#374151;font-family:monospace;">SA8797P_ADAS.HGY.5.1.7.0 &nbsp;|&nbsp; QAM8255.LE1.1</td>
+                <td>OneView SP identifier. Used to fetch milestone dates (ES, FC, CS, CS1) from OneView API.</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 8px;"><code>excel_path</code></td>
+                <td colspan="3" style="color:#374151;font-family:monospace;">\\server\share\file.xlsx</td>
+                <td>Network path to Excel data file. Used by the ingestion engine to load dashboard data.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <div id="admin_status_add" class="admin-status-text"></div>
+      <div class="admin-btn-row">
+        <button id="submitNewTargetBtn" type="button" class="btn primary-btn add-btn">Add &amp; Ingest</button>
+        <button id="cancelAddTargetModalBtn" type="button" class="btn secondary-btn cancel-btn">Cancel</button>
+      </div>
+    </div>
+
+          <div id="admin_section_resync_milestones" class="admin-section-green admin-tab-panel">
+        <h3 class="admin-section-title" style="margin-bottom:8px;"><i class="fas fa-flag-checkered"></i> Milestone Save / Sync</h3>
+        <hr>
+        <div class="admin-form-group">
+          <label>Select Target:</label>
+          <select id="admin_target_milestone_resync_select">
+            <option value="">Select Target</option>
+            {% for target_key in ALL_TARGETS_LIST_GLOBAL %}
+                        <option value="{{ target_key }}">{{ ((TARGETS_CONFIG.get(target_key, {}) or {}).display_name or target_key)|upper }}</option>
+
+            {% endfor %}
+          </select>
+        </div>
+                <div class="admin-form-group">
+          <label>SP Name (editable):</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="admin_milestone_sp_name" class="admin-input" placeholder="SP name for this target" style="flex:1; min-width:220px;">
+            <button id="admin_load_sp_btn" type="button" class="btn secondary-btn">Load SP</button>
+            <button id="admin_update_sp_btn" type="button" class="btn secondary-btn">Update SP Name</button>
+          </div>
+        </div>
+        <div id="admin_status_milestone_resync" class="admin-status-text"></div>
+        <button id="resyncMilestonesBtn" type="button" class="btn secondary-btn full-btn">Fetch Milestones from OneView &amp; Preview</button>
+
+      </div>
+
+
+    <div id="admin_section_remove_target" class="admin-section-amber admin-tab-panel">
+      <h3 class="admin-section-title" style="margin-bottom:8px;"><i class="fas fa-trash"></i> Full Resync / Remove</h3>
+      <hr>
+      <div class="admin-help-text">Use this to fully resync all data for a target, or remove it from DB.</div>
+            <div class="admin-form-group"><label>Select Target to Remove:</label><select id="admin_target_remove_select"><option value="">Select Target</option>{% for target_key in ALL_TARGETS_LIST_GLOBAL %}            <option value="{{ target_key }}">{{ ((TARGETS_CONFIG.get(target_key, {}) or {}).display_name or target_key)|upper }}</option>
+{% endfor %}</select></div>
+
+      <!-- Active / Inactive toggle -->
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:800;color:#166534;margin-bottom:10px;"><i class="fas fa-toggle-on" style="margin-right:5px;"></i>Active / Inactive</div>
+        <div style="display:flex;gap:8px;">
+          <button id="setActiveBtn" type="button" class="btn" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">
+            <i class="fas fa-check-circle"></i> Set Active
+          </button>
+          <button id="setInactiveBtn" type="button" class="btn" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">
+            <i class="fas fa-ban"></i> Set Inactive
+          </button>
+        </div>
+        <div id="admin_status_toggle" class="admin-status-text" style="margin-top:8px;"></div>
+      </div>
+
+      <button id="removeTargetBtn" type="button" class="btn secondary-btn full-btn">Remove Target</button>
+      <div class="admin-spacer"></div>
+      <div id="admin_section_update_target" class="admin-section-blue admin-tab-panel" style="display:none;">
+        <h3 class="admin-section-title" style="margin-bottom:8px;"><i class="fas fa-sync-alt"></i> Update Existing Target Data</h3>
+        <hr>
+        <div class="admin-form-group"><label>Select Target to Update:</label><select id="admin_target_update_select"><option value="">Select Target to Update</option>{% for target_key in ALL_TARGETS_LIST_GLOBAL %}            <option value="{{ target_key }}">{{ ((TARGETS_CONFIG.get(target_key, {}) or {}).display_name or target_key)|upper }}</option>
+{% endfor %}</select></div>
+        <div id="admin_status_update" class="admin-status-text"></div>
+        <button id="updateExistingTargetDataBtn" type="button" class="btn primary-btn full-btn">Run Ingestion &amp; Update DB</button>
+      </div>
+      <div class="admin-spacer"></div>
+      <div class="admin-section-blue"><h3 class="admin-section-title" style="margin-bottom:8px;"><i class="fas fa-database"></i> Recover &amp; Sync Config</h3><hr><div class="admin-help-text">Use this if targets are missing from the UI but present in DB.</div><button id="syncDbBtn" type="button" class="btn secondary-btn full-btn">Sync Config from Database</button></div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Milestone Picker Modal -->
+<div id="milestonePickerModal" class="admin-modal-overlay" style="display:none; z-index:10050;">
+  <div class="admin-modal-content" style="max-width:600px; position:relative; z-index:10051;">
+
+    <button id="msCloseBtn" class="modal-close-btn">&times;</button>
+    <h3 class="admin-section-title"><i class="fas fa-flag"></i> Milestones</h3>
+    <hr>
+    <div class="admin-form-group">
+      <div class="admin-small-note">Use the checkboxes to apply fetched dates; adjust via calendar if needed. Leave unchecked to skip.</div>
+    </div>
+        <div style="display:grid; grid-template-columns:1fr; gap:14px; margin-top:10px;">
+      <div class="admin-milestone-card" style="background:linear-gradient(135deg,#f8fbff,#eef4ff); border:1px solid #dbe7ff; border-radius:18px; padding:14px 14px 12px; box-shadow:0 8px 24px rgba(13, 38, 76, 0.08);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div style="font-weight:800; color:#17324d; letter-spacing:.2px;">ES</div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#4b5563;">
+            <input type="checkbox" id="ms_use_es">
+            Apply
+          </label>
+        </div>
+        <input type="date" id="ms_es" class="admin-input" style="width:100%; padding:12px 14px; border-radius:14px; border:1px solid #cfd9ea; background:#fff; box-shadow: inset 0 1px 2px rgba(0,0,0,.03);">
+      </div>
+      <div class="admin-milestone-card" style="background:linear-gradient(135deg,#f8fff9,#eefcf3); border:1px solid #d6f1df; border-radius:18px; padding:14px 14px 12px; box-shadow:0 8px 24px rgba(13, 38, 76, 0.08);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div style="font-weight:800; color:#17324d; letter-spacing:.2px;">FC</div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#4b5563;">
+            <input type="checkbox" id="ms_use_fc">
+            Apply
+          </label>
+        </div>
+        <input type="date" id="ms_fc" class="admin-input" style="width:100%; padding:12px 14px; border-radius:14px; border:1px solid #cfd9ea; background:#fff; box-shadow: inset 0 1px 2px rgba(0,0,0,.03);">
+      </div>
+      <div class="admin-milestone-card" style="background:linear-gradient(135deg,#fffaf8,#fff2ed); border:1px solid #f5dccf; border-radius:18px; padding:14px 14px 12px; box-shadow:0 8px 24px rgba(13, 38, 76, 0.08);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div style="font-weight:800; color:#17324d; letter-spacing:.2px;">CS</div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#4b5563;">
+            <input type="checkbox" id="ms_use_cs">
+            Apply
+          </label>
+        </div>
+        <input type="date" id="ms_cs" class="admin-input" style="width:100%; padding:12px 14px; border-radius:14px; border:1px solid #cfd9ea; background:#fff; box-shadow: inset 0 1px 2px rgba(0,0,0,.03);">
+      </div>
+      <div class="admin-milestone-card" style="background:linear-gradient(135deg,#fcf8ff,#f3edff); border:1px solid #e4d7ff; border-radius:18px; padding:14px 14px 12px; box-shadow:0 8px 24px rgba(13, 38, 76, 0.08);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div style="font-weight:800; color:#17324d; letter-spacing:.2px;">CS1</div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#4b5563;">
+            <input type="checkbox" id="ms_use_cs1">
+            Apply
+          </label>
+        </div>
+        <input type="date" id="ms_cs1" class="admin-input" style="width:100%; padding:12px 14px; border-radius:14px; border:1px solid #cfd9ea; background:#fff; box-shadow: inset 0 1px 2px rgba(0,0,0,.03);">
+      </div>
+    </div>
+        <div class="admin-action-row" style="justify-content:flex-end; gap:10px; margin-top:16px; flex-wrap:wrap;">
+      <div id="msModalStatus" style="flex:1; font-size:13px; font-weight:700; padding:6px 10px; border-radius:8px; display:none;"></div>
+      <button id="msCancelBtn" class="btn secondary-btn" style="border-radius:999px; padding:10px 18px;">Cancel</button>
+      <button id="msSaveBtn" class="btn primary-btn" style="border-radius:999px; padding:10px 18px; box-shadow:0 10px 22px rgba(37,99,235,.22);">Save Milestones</button>
+    </div>
+
+  </div>
+</div>{# /milestonePickerModal #}
+
+
+  </div>{# /admin-modal-content #}
+</div>{# /adminModal #}
+
+{%- endif %}{# end admin block #}
+
+{% if current_user.is_authenticated %}
+<!-- Inject global navigation data for all authenticated users -->
+<script>
+    window.BUSINESS_UNITS_DATA = {{ (BUSINESS_UNITS or {}) | tojson }};
+  window.ALL_TARGETS_DATA = {{ (ALL_TARGETS_LIST_GLOBAL or []) | tojson }};
+  window.TARGETS_CONFIG_DATA = {{ (TARGETS_CONFIG or {}) | tojson }};
+  window.FLASK_CURRENT_TARGET = "{{ target|default('global') }}";
+    window.GLOBAL_COMBINED_TARGETS = (function () {
+    var cfg = window.TARGETS_CONFIG_DATA || {};
+    return Object.keys(cfg).map(function (tk) {
+      var info = cfg[tk] || {};
+      return {
+        name: tk,
+        key: tk,
+        label: (info.display_name || tk).toUpperCase(),
+        bu: String(info.bu || info.business_unit || info.bu_key || '').toUpperCase(),
+        is_active: info.is_active !== false,
+        product_family: String(info.product_family || info.mobile_family || info.sub_bu || '').toUpperCase(),
+        display_name: info.display_name || tk,
+        program: info.program || '',
+        platform: info.platform || '',
+        application_domain: info.application_domain || '',
+        chip_name: info.chip_name || '',
+        sp_name: info.sp_name || '',
+        cpl: info.cpl || '',
+        db_name: info.db_name || tk,
+        db_prefix: info.db_prefix || tk,
+        target_name: tk
+      };
+    });
+  })();
+
+</script>
+
+</script>
+{% endif %}
+
+
+
+{% if current_user.is_authenticated and not request.args.get('embed') == '1' %}
+<script src="{{ url_for('static', filename='js/chatbot.js') }}?v={{ cache_buster }}"></script>
+<script src="{{ url_for('static', filename='js/qgenie_access.js') }}?v={{ cache_buster }}"></script>
+{% endif %}
+
+
+<!-- BU → Target cascade selector -->
+<script>
+    (function () {
+    function getAllTargetsList() {
+      var tgtCfg = window.TARGETS_CONFIG_DATA || {};
+      return Object.keys(tgtCfg).map(function (tk) {
+        var cfg = tgtCfg[tk] || {};
+        return { name: tk, active: cfg.is_active !== false };
+      });
+    }
+
+    function getTargetDisplay(tk) {
+      var cfg = (window.TARGETS_CONFIG_DATA || {})[tk] || {};
+      return (cfg.display_name || tk).toUpperCase();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+            var buSel  = document.getElementById('global_bu_select');
+      var mobSel = document.getElementById('global_mobile_select');
+      var mobLbl = document.getElementById('global_mobile_label');
+      var tgtSel = document.getElementById('global_target_select');
+      var goBtn  = document.getElementById('global_target_go');
+      if (!buSel || !mobSel || !mobLbl || !tgtSel || !goBtn) return;
+
+
+      var allTargets = getAllTargetsList();
+
+                  function isMobileBu(buKey) {
+        var key = String(buKey || '').toUpperCase();
+        return ['MOBILE', 'MDM_TELEMATICS'].indexOf(key) !== -1;
+      }
+
+      function populateTargetsForBu() {
+        var bu = String(buSel.value || '').toUpperCase();
+        var mobile = mobSel.value;
+        tgtSel.innerHTML = '<option value="">Select Target</option>';
+        if (!bu) return;
+
+        if (isMobileBu(bu)) {
+          mobLbl.style.display = '';
+          mobSel.style.display = '';
+          allTargets.forEach(function (tk) {
+            var cfg = (window.TARGETS_CONFIG_DATA || {})[tk.name] || {};
+            // Must belong to this BU
+            var targetBu = String(cfg.bu || cfg.business_unit || cfg.bu_key || '').toUpperCase();
+            if (targetBu && targetBu !== bu) return;
+            // Only show targets that have actual data (excel_path set)
+            if (!cfg.excel_path) return;
+            var pf = String(cfg.product_family || cfg.mobile_family || cfg.sub_bu || '').toUpperCase();
+            // If a sub-group is selected, filter to that sub-group only
+            if (mobile && pf !== mobile) return;
+            // If no sub selected, show all valid mobile sub-groups
+            if (!mobile && ['VT', 'PT', 'PT-AU'].indexOf(pf) === -1) return;
+            var opt = document.createElement('option');
+            opt.value = tk.name;
+            opt.textContent = getTargetDisplay(tk.name);
+            tgtSel.appendChild(opt);
+          });
+          return;
+        }
+
+        mobSel.value = '';
+        mobLbl.style.display = 'none';
+        mobSel.style.display = 'none';
+        allTargets.forEach(function (tk) {
+          var cfg = (window.TARGETS_CONFIG_DATA || {})[tk.name] || {};
+          // Only show targets that have actual data (excel_path or unique_cr_path set)
+          if (!cfg.excel_path) return;  // only show targets with a full Excel/dashboard
+          var targetBu = String(cfg.bu || cfg.business_unit || cfg.bu_key || '').toUpperCase();
+          if (targetBu && targetBu !== bu) return;
+          var opt = document.createElement('option');
+          opt.value = tk.name;
+          opt.textContent = getTargetDisplay(tk.name);
+          tgtSel.appendChild(opt);
+        });
+      }
+
+
+
+      // Populate BU dropdown from full target config so every BU is visible.
+      if (buSel.options.length <= 1) {
+        var buMap = { ALL: { display: 'ALL TARGETS', targets: allTargets } };
+        Object.keys((window.BUSINESS_UNITS_DATA || {})).forEach(function(buKey) {
+          var info = (window.BUSINESS_UNITS_DATA || {})[buKey] || {};
+          if (!buMap[buKey]) buMap[buKey] = { display: (info.display_name || buKey).toUpperCase(), targets: [] };
+        });
+        Object.keys((window.TARGETS_CONFIG_DATA || {})).forEach(function(tk) {
+          var cfg = (window.TARGETS_CONFIG_DATA || {})[tk] || {};
+          var bu = String(cfg.bu || cfg.business_unit || cfg.bu_key || 'ALL').toUpperCase();
+          if (!buMap[bu]) buMap[bu] = { display: bu, targets: [] };
+        });
+        Object.keys(buMap).sort().forEach(function(buKey) {
+          var opt = document.createElement('option');
+          opt.value = buKey;
+          opt.textContent = buMap[buKey].display;
+          buSel.appendChild(opt);
+        });
+      }
+
+
+                buSel.addEventListener('change', function () { populateTargetsForBu(); });
+      mobSel.addEventListener('change', function () { populateTargetsForBu(); });
+
+      populateTargetsForBu();
+
+      var currentTarget = window.FLASK_CURRENT_TARGET || '';
+      if (currentTarget && currentTarget !== 'global') {
+        tgtSel.value = currentTarget;
+      }
+
+            // Go button
+      goBtn.addEventListener('click', function () {
+        var tgt = tgtSel.value;
+        if (!tgt) { alert('Please select a target.'); return; }
+                var mobile = mobSel.value;
+                var url = '/dashboard/' + encodeURIComponent(tgt) + '/dashboard';
+
+        if (mobile) url += (url.indexOf('?') === -1 ? '?' : '&') + 'mobile=' + encodeURIComponent(mobile);
+        if (window.showGlobalNavLoading) window.showGlobalNavLoading('Opening dashboard...', 'Please wait while the dashboard loads.');
+        window.location.href = url;
+      });
+    });
+  })();
+</script>
+
+<script>
+(function () {
+  function getOverlay() {
+    return document.getElementById('globalNavLoadingOverlay');
+  }
+
+  window.showGlobalNavLoading = function (title, subtitle) {
+    var overlay = getOverlay();
+    if (!overlay) return;
+    var titleEl = overlay.querySelector('.global-nav-loading-title');
+    var subEl = overlay.querySelector('.global-nav-loading-subtitle');
+    if (titleEl && title) titleEl.textContent = title;
+    if (subEl && subtitle) subEl.textContent = subtitle;
+    overlay.classList.add('is-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  };
+
+  window.hideGlobalNavLoading = function () {
+    var overlay = getOverlay();
+    if (!overlay) return;
+    overlay.classList.remove('is-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('click', function (event) {
+      // Do not show the in-page navigation overlay for browser-managed new-tab actions.
+      // Ctrl/Cmd/Shift/Alt-click and middle-click open elsewhere, so the current page will not unload.
+      if (event.defaultPrevented || event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+      var el = event.target.closest('a, button');
+      if (!el) return;
+      if (el.hasAttribute('download')) return;
+      if ((el.getAttribute('target') || '').toLowerCase() === '_blank') return;
+      if (el.id === 'openChatBtn' || el.id === 'sendBtn') return;
+      if (el.closest('#chatDock') || el.closest('#adminModal') || el.closest('#milestonePickerModal')) return;
+      if (el.closest('#ratingPopup') || el.closest('#crInsightPanel')) return;
+
+      var href = el.getAttribute('href') || '';
+      var opensNavigation = false;
+
+      if (href) {
+        opensNavigation = href.indexOf('/dashboard/') === 0
+          || href.indexOf('/bu-selection') === 0
+          || href.indexOf('/target-selection') === 0
+          || href.indexOf('/auto_hierarchy') === 0
+          || href.indexOf('/mdm_hierarchy') === 0
+          || href.indexOf('/wbc_hierarchy') === 0
+          || href === '/';
+      }
+
+      if (!opensNavigation && el.id === 'global_target_go') {
+        opensNavigation = true;
+      }
+
+      if (!opensNavigation && (el.classList.contains('tsel-card') || el.classList.contains('td-nav-item') || el.classList.contains('ah-overall-btn') || el.classList.contains('ah-tgt-card') || el.classList.contains('mdm-overall-btn') || el.classList.contains('mdm-sp-card') || el.classList.contains('wbc-overall-btn') || el.classList.contains('wbc-sp-card') || el.classList.contains('bu-open-btn'))) {
+        opensNavigation = true;
+      }
+
+            if (opensNavigation) {
+        window.showGlobalNavLoading('Opening in progress...', 'Please wait while the next page loads.');
+      }
+    }, true);
+
+    document.addEventListener('auxclick', function (event) {
+      // Middle-click should never leave a loading overlay on the current tab.
+      if (event.button === 1) window.hideGlobalNavLoading();
+    }, true);
+
+    window.addEventListener('pageshow', function () {
+      window.hideGlobalNavLoading();
+    });
+  });
+})();
+</script>
+
+<!-- Live clock — COMMENTED OUT, re-enable by restoring the script tag
+<script>
+(function () {
+
+  const liveDateEl = document.getElementById("liveDate");
+  const hoursEl = document.getElementById("hours");
+  const minutesEl = document.getElementById("minutes");
+  const secondsEl = document.getElementById("seconds");
+  if (!liveDateEl || !hoursEl || !minutesEl || !secondsEl) return;
+  let prevHours = "", prevMinutes = "", prevSeconds = "";
+  function pad(value) { return String(value).padStart(2, "0"); }
+  function formatDate(now) {
+    const day = now.getDate();
+    const month = now.toLocaleString("en-GB", { month: "short" });
+    const year = now.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
+  function animateFlip(el, newValue) {
+    if (el.textContent === newValue) return;
+    el.classList.remove("flip-tick");
+    void el.offsetWidth;
+    el.textContent = newValue;
+    el.classList.add("flip-tick");
+  }
+  function updateClock() {
+    const now = new Date();
+    const hh = pad(now.getHours());
+    const mm = pad(now.getMinutes());
+    const ss = pad(now.getSeconds());
+    liveDateEl.textContent = formatDate(now);
+    if (prevHours !== hh) { animateFlip(hoursEl, hh); prevHours = hh; }
+    if (prevMinutes !== mm) { animateFlip(minutesEl, mm); prevMinutes = mm; }
+    if (prevSeconds !== ss) { animateFlip(secondsEl, ss); prevSeconds = ss; }
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+})();
+</script>
+-->
+
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "base",
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: "basis",
+        nodeSpacing: 25,
+        rankSpacing: 45
+      },
+      themeVariables: {
+        fontSize: "13px",
+        primaryColor: "#f7f9ff",
+        primaryTextColor: "#1f2a44",
+        primaryBorderColor: "#6c63ff",
+        lineColor: "#9aa4c7",
+        secondaryColor: "#eef2ff",
+        tertiaryColor: "#f5f7ff"
+      }
+    });
+  }
+});
+</script>
+
+{% if current_user.is_authenticated and current_user.role == 'admin' %}
+<script src="{{ url_for('static', filename='js/admin.js') }}?v={{ cache_buster }}"></script>
+{% endif %}
+
+{% if current_user.is_authenticated %}
+<!-- Global Feedback Popup — minimal fallback, shared by sidebar Feedback buttons -->
+<div id="ratingPopup" style="display:none;position:fixed;top:68px;right:20px;z-index:9900;width:340px;background:linear-gradient(135deg,#1e293b,#312e81);border-radius:16px;box-shadow:0 8px 32px rgba(15,23,42,.35);padding:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:800;color:#f8fafc;">&#11088; Rate this tool</div>
+    <button type="button" id="ratingPopupClose" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:13px;">&#x2715;</button>
+  </div>
+  <div style="font-size:11px;color:#cbd5e1;margin-bottom:14px;line-height:1.5;">Thanks for your feedback. Please use your standard feedback channel if the detailed rating form is unavailable.</div>
+  <button type="button" id="ratingPopupOk" style="width:100%;padding:9px 12px;border:none;border-radius:999px;background:#6366f1;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">OK, got it</button>
+</div>
+<script>
+(function(){
+  var p=document.getElementById("ratingPopup");
+  var c=document.getElementById("ratingPopupClose");
+  var ok=document.getElementById("ratingPopupOk");
+  if(c) c.onclick=function(){ if(p) p.style.display="none"; };
+  if(ok) ok.onclick=function(){ if(p) p.style.display="none"; };
+})();
+</script>
+{% endif %}
+</body>
+</html>

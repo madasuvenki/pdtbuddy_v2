@@ -1,0 +1,815 @@
+{% extends "target_layout.html" %}
+
+{% block page_heading %}
+{{ page_heading or (target_name|upper ~ " – SWPDT") }}
+{% endblock %}
+
+{% block page_content %}
+
+{# --- SERVER-SIDE META COUNTS FOR INITIAL LABEL --- #}
+{% set crm_meta_set = [] %}
+{% set eng_meta_set = [] %}
+{% for row in build_report_rows %}
+  {% set has_crm = false %}
+  {% set has_eng = false %}
+  {% for b in row.builds %}
+    {% if b.is_selected %}
+      {% if b.mode == 'ENG' %}
+        {% set has_eng = true %}
+      {% else %}
+        {% set has_crm = true %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if has_crm and (row.meta_id not in crm_meta_set) %}
+    {% set _ = crm_meta_set.append(row.meta_id) %}
+  {% endif %}
+  {% if has_eng and (row.meta_id not in eng_meta_set) %}
+    {% set _ = eng_meta_set.append(row.meta_id) %}
+  {% endif %}
+{% endfor %}
+{% set crm_count = crm_meta_set|length %}
+{% set eng_count = eng_meta_set|length %}
+{% if toggle_mode == 'CRM' %}
+  {% set visible_count = crm_count %}
+  {% set builds_label = 'CRM META-IDs tested (selected builds)' %}
+{% elif toggle_mode == 'ENG' %}
+  {% set visible_count = eng_count %}
+  {% set builds_label = 'ENG META-IDs tested (selected builds)' %}
+{% else %}
+  {% set visible_count = crm_count + eng_count %}
+  {% set builds_label = 'CRM+ENG META-IDs tested (selected builds)' %}
+{% endif %}
+
+<style>
+body {
+  background: radial-gradient(circle at top, #e5f0ff 0, #f5f5f5 40%, #f3f4f6 100%);
+  color: #111827;
+}
+:root{ --mtbf-build-width: 620px; }
+.td-main-content { background: transparent; min-width:0; overflow-x:hidden; }
+.mtbf-page-wrap{width:100%;max-width:100%;overflow:hidden;}
+.mtbf-info-row{display:flex;justify-content:flex-end;align-items:center;margin:0 0 8px;padding:0 2px;}
+.mtbf-info-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(99,102,241,.12);}
+.mtbf-actions{
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:10px 14px;
+  border-radius:14px; background:linear-gradient(135deg,#ffffff,#e5edff);
+  box-shadow:0 10px 25px rgba(15,23,42,0.08), 0 0 0 1px rgba(148,163,184,0.35);
+}
+.mtbf-actions-left,.mtbf-actions-right{display:flex; gap:8px; align-items:center;flex-wrap:wrap;}
+.btn{
+  padding:6px 14px; border-radius:999px; border:1px solid rgba(148,163,184,0.7); background:#ffffff; color:#111827;
+  font-size:11px; font-weight:600; cursor:pointer; transition:all 0.18s ease-out;
+}
+.btn:hover{ border-color:#6366f1; box-shadow:0 0 0 1px rgba(99,102,241,0.35); transform:translateY(-0.5px); }
+.btn--primary{ background:linear-gradient(135deg,#6366f1,#4f46e5); border-color:transparent; color:#f9fafb; box-shadow:0 10px 20px rgba(79,70,229,0.35); }
+.btn--ghost{ background:transparent; border-color:transparent; color:#6b7280; }
+.btn:disabled{ opacity:0.5; cursor:default; box-shadow:none; }
+.mtbf-filter-row{ margin-bottom:8px; }
+.table-wrapper{
+  width:100%; max-width:100%; overflow:auto; max-height:calc(100vh - 185px); padding:4px 4px 12px; border-radius:18px;
+  background:radial-gradient(circle at top, #eef2ff 0, #f9fafb 60%, #e5e7eb 100%);
+  box-shadow:0 18px 40px rgba(15,23,42,0.18), 0 0 0 1px rgba(148,163,184,0.4), inset 0 0 0 1px rgba(255,255,255,0.9);
+  scrollbar-gutter:stable both-edges;
+}
+.table-wrapper::-webkit-scrollbar{height:10px;width:10px;}
+.table-wrapper::-webkit-scrollbar-thumb{ background:linear-gradient(90deg,#4f46e5,#22c55e); border-radius:999px; }
+.premium-table{
+  width:max-content; min-width:1280px; border-collapse:collapse; font-size:12px; color:#111827; background:linear-gradient(135deg,#ffffff,#f9fafb);
+  border-radius:14px; overflow:hidden; border:1px solid rgba(148,163,184,0.45);
+}
+.premium-table th{
+  padding:7px 10px; text-align:left; vertical-align:middle; background:linear-gradient(90deg,#4f46e5,#0ea5e9); color:#f9fafb;
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid rgba(15,23,42,0.35);
+  position:sticky;top:0;z-index:3;
+}
+.premium-table td{ padding:6px 10px; border-bottom:1px solid #e5e7eb; vertical-align:top; }
+.premium-table tbody tr:nth-child(even){ background:rgba(249,250,251,0.85); }
+.premium-table tbody tr:hover{ background:linear-gradient(90deg,#eef2ff,#ecfeff); transition:background 0.12s ease-out; }
+.premium-table th:nth-child(1), .premium-table td:nth-child(1){ width:48px; min-width:48px; }
+.premium-table th:nth-child(2), .premium-table td:nth-child(2){ width:210px; min-width:210px; }
+.premium-table th:nth-child(3), .premium-table td:nth-child(3){ width:760px; min-width:760px; }
+.premium-table th:nth-child(4), .premium-table td:nth-child(4){ width:190px; min-width:190px; text-align:center; }
+.premium-table th:nth-child(5), .premium-table td:nth-child(5),
+.premium-table th:nth-child(6), .premium-table td:nth-child(6),
+.premium-table th:nth-child(7), .premium-table td:nth-child(7),
+.premium-table th:nth-child(8), .premium-table td:nth-child(8){ width:130px; min-width:130px; }
+.mtbf-build-cell{ max-width:760px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.premium-table input[type="number"], .premium-table select{ width:100%; border-radius:6px; border:1px solid #d1d5db; padding:2px 6px; font-size:11px; background:#ffffff; color:#111827; }
+.premium-table input[disabled], .premium-table select[disabled]{ background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; cursor:default; }
+.build-list{ list-style:none; margin:0; padding:0; }
+.build-list li{ display:flex; align-items:center; gap:4px; margin-bottom:2px; font-size:11px; }
+.build-list li span{ white-space:nowrap; }
+.pill{ padding:2px 6px; border-radius:999px; font-size:10px; font-weight:600; text-transform:uppercase; }
+.pill--auto{ background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
+.pill--manual{ background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.edit-only{display:none;}
+body.mtbf-edit-mode .edit-only{display:table-cell;}
+.btn-exclude-jiras-row{display:none;}
+body.mtbf-edit-mode .btn-exclude-jiras-row{display:inline-flex;}
+.modal-backdrop{ position:fixed; inset:0; background:rgba(148,163,184,0.55); display:none; align-items:center; justify-content:center; z-index:50; }
+.modal{ background:#ffffff; border-radius:12px; padding:16px 18px; width:420px; box-shadow:0 18px 40px rgba(100,116,139,0.45), 0 0 0 1px rgba(148,163,184,0.6); font-size:13px; color:#111827; }
+.modal-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.modal-title{ font-weight:700; font-size:14px; }
+.modal-body{ display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:10px; }
+.modal-field{ display:flex; flex-direction:column; gap:3px; }
+.modal-field label{ font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#6b7280; font-weight:600; }
+.modal-field input, .modal-field select{ border-radius:6px; border:1px solid #d1d5db; padding:4px 6px; font-size:12px; }
+.modal-field small{ font-size:10px; color:#6b7280; }
+.modal-footer{ display:flex; justify-content:flex-end; gap:8px; }
+#exclude-jiras-modal .modal{ max-width:800px; width:95%; max-height:80vh; overflow:hidden; }
+
+</style>
+
+<div class="mtbf-actions">
+  <div class="mtbf-actions-left">
+    <span style="font-size:12px; color:#6b7280;">View mode:</span>
+    <form method="get" action="">
+      <input type="hidden" name="pdt_type" value="{{ pdt_type }}">
+      <select name="toggle_mode" onchange="this.form.submit()" class="btn">
+        <option value="CRM" {{ 'selected' if toggle_mode == 'CRM' else '' }}>CRM</option>
+        <option value="ENG" {{ 'selected' if toggle_mode == 'ENG' else '' }}>ENG</option>
+        <option value="ALL" {{ 'selected' if toggle_mode == 'ALL' else '' }}>All</option>
+      </select>
+    </form>
+  </div>
+  <div class="mtbf-actions-right">
+    <button type="button" class="btn btn--primary" id="edit-btn">Edit</button>
+    <button type="button" class="btn" id="add-build-btn" style="display:none;">Add Build</button>
+    <button type="button" class="btn" id="cancel-btn" style="display:none;">Cancel</button>
+    <button type="button" class="btn btn--primary" id="save-btn" style="display:none;">Save</button>
+  </div>
+</div>
+
+<div class="mtbf-info-row">
+  <span id="builds-tested-label"
+        class="mtbf-info-pill"
+        data-crm-count="{{ crm_count }}"
+        data-eng-count="{{ eng_count }}">
+    {{ builds_label }}:
+    <strong id="builds-tested-count">{{ visible_count }}</strong>
+  </span>
+</div>
+
+<form id="mtbf-save-form" method="post" action="{{ url_for('dashboard_bp.mtbf_table_save_view', target_name=target_name) }}">
+  <input type="hidden" name="payload_json" id="payload_json">
+  <div class="table-wrapper">
+    <table class="premium-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>META ID</th>
+          <th>BUILD ID (SWPDT CRASHES)</th>
+                    <th>SWPDT CRASHES</th>
+          <th class="edit-only">MODE</th>
+          <th class="edit-only">SOURCE</th>
+        </tr>
+      </thead>
+      <tbody id="mtbf-table-body">
+      {% for row in build_report_rows %}
+        {% set builds = row.builds %}
+        {% if builds|length > 0 %}
+          {% set meta_source = 'AUTO' %}
+          {% for b in builds %}
+            {% if b.build_source != 'AUTO' %}{% set meta_source = 'MANUAL' %}{% endif %}
+          {% endfor %}
+          <tr class="mtbf-meta-row" data-meta-id="{{ row.meta_id }}">
+            <td>{{ row.s_no }}</td>
+            <td>
+                            {{ row.meta_id }}
+              <div style="display:inline-flex; align-items:center; gap:6px; margin-left:4px;">
+                                <button type="button" class="btn btn--ghost btn-exclude-jiras-row" data-meta-id="{{ row.meta_id }}" style="padding:2px 6px; font-size:10px;">Exclude JIRAs</button>
+                {% set excluded = row.excluded_crashes or 0 %}
+                {% if excluded %}
+                <span class="exclude-jiras-count" data-meta-id="{{ row.meta_id }}" style="font-size:10px; color:#6b7280;">Excluded: {{ excluded }}</span>
+                {% else %}
+                <span class="exclude-jiras-count" data-meta-id="{{ row.meta_id }}" style="display:none; font-size:10px; color:#6b7280;">Excluded: 0</span>
+                {% endif %}
+                <span class="edit-only">
+
+                  <button type="button" class="btn btn--ghost btn-reset-meta" data-meta-id="{{ row.meta_id }}" style="padding:2px 6px; font-size:10px;">Reset to Auto</button>
+                </span>
+
+              </div>
+
+            </td>
+            <td class="mtbf-build-cell">
+                            <ul class="build-list">
+              {% for b in builds %}
+                {% if b.build_id != '__META__' %}
+                <li data-build-id="{{ b.build_id }}" data-source="{{ b.build_source }}" data-pdt-type="{{ b.pdt_type }}" data-swpdt-crashes="{{ b.swpdt_crashes }}">
+                  <input type="checkbox" class="build-select-checkbox" {{ 'checked' if b.is_selected else '' }}>
+                  <span>{{ b.build_id }}{% if b.swpdt_crashes %} ({{ b.swpdt_crashes }}){% endif %}</span>
+                </li>
+                {% endif %}
+              {% endfor %}
+              </ul>
+
+            </td>
+
+                                                                                                <td class="meta-crashes-cell">
+              {# View mode: crash count pill is the clickable link #}
+              <a href="{{ url_for('dashboard_bp.mtbf_meta_jiras_view', target_name=target_name, meta_id=row.meta_id) }}"
+                 target="_blank"
+                 class="mtbf-crashes-link"
+                 style="text-decoration:none;">
+                <span class="mtbf-crashes-value"
+                      style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:2px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;font-weight:800;font-size:12px;cursor:pointer;">
+                  {{ row.crashes or 0 }}
+                </span>
+              </a>
+
+              {# Edit mode: plain input (no link) #}
+              <input type="number"
+                     step="1"
+                     class="meta-crashes-input mtbf-crashes-input-edit"
+                     value="{{ row.crashes or 0 }}"
+                     style="display:none; width:100%;">
+            </td>
+
+
+            
+            <td class="edit-only">
+              {% set first_mode = builds[0].mode or 'CRM' %}
+              <select class="meta-mode-select">
+                <option value="CRM" {{ 'selected' if first_mode == 'CRM' else '' }}>CRM</option>
+                <option value="ENG" {{ 'selected' if first_mode == 'ENG' else '' }}>ENG</option>
+              </select>
+            </td>
+            <td class="edit-only"><span class="pill {{ 'pill--auto' if meta_source == 'AUTO' else 'pill--manual' }}">{{ meta_source }}</span></td>
+          </tr>
+        {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{# ------------ Add Build Modal ------------ #}
+<div class="modal-backdrop" id="add-build-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add Build</div><button type="button" class="btn btn--ghost" id="add-build-close-btn">✕</button></div>
+    <div class="modal-body">
+      <div class="modal-field"><label for="add-build-id">BUILD ID</label><input id="add-build-id" type="text" placeholder="e.g. ALDABRA.LA.1.0-00131-STD.INT-1"></div>
+      <div class="modal-field"><label for="add-meta-id">META ID</label><input id="add-meta-id" type="text" placeholder="Auto from Build ID"><small>Auto-filled from Build ID; you can adjust if needed.</small></div>
+            <div class="modal-field"><label for="add-crashes">SWPDT CRASHES</label><input id="add-crashes" type="number" step="1" placeholder="0"></div>
+      <div class="modal-field"><label for="add-mode">MODE</label><select id="add-mode"><option value="CRM" selected>CRM</option><option value="ENG">ENG</option></select></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn" id="add-build-cancel-btn">Cancel</button><button type="button" class="btn btn--primary" id="add-build-save-btn">Add</button></div>
+  </div>
+</div>
+
+{# ------------ Exclude JIRAs Modal ------------ #}
+<div class="modal-backdrop" id="exclude-jiras-modal">
+  <div class="modal">
+        <div class="modal-header"><div class="modal-title">Exclude JIRAs from SWPDT</div><div style="display:flex;gap:6px;align-items:center;"><button id="excludeEnlargeBtn" title="Open in new page" style="border:none;background:#ede9fe;color:#6366f1;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-external-link-alt"></i></button><button type="button" class="btn btn--ghost" id="exclude-jiras-close">✕</button></div></div>
+
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+      <input id="exclude-jiras-search" type="text" placeholder="Search by title or device (e.g. modem, WS48501...)" style="flex:1; padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; font-size:12px;">
+      <button type="button" class="btn" id="exclude-jiras-clear">Clear</button>
+    </div>
+    <div style="font-size:11px; color:#6b7280; margin-bottom:6px;">All JIRAs for this META‑ID (JIRAs + open JIRAs). Checked rows will be <b>excluded</b> from crash counts. This only adjusts the crash count; no separate exclusion table is stored.</div>
+    <div style="max-height:50vh; overflow:auto; border-radius:8px; border:1px solid #e5e7eb;"><table style="width:100%; border-collapse:collapse; font-size:11px;"><thead><tr style="background:#f3f4f6;"><th style="padding:4px 6px;">Exc</th><th style="padding:4px 6px;">Ticket</th><th style="padding:4px 6px;">Title</th><th style="padding:4px 6px;">Device</th><th style="padding:4px 6px;">Build</th></tr></thead><tbody id="exclude-jiras-body"></tbody></table></div>
+    <div style="font-size:11px; color:#6b7280; margin-top:6px;"><span id="exclude-jiras-summary"></span></div>
+    <div class="modal-footer" style="margin-top:8px;"><button type="button" class="btn" id="exclude-jiras-cancel">Cancel</button><button type="button" class="btn btn--primary" id="exclude-jiras-apply">Apply to Crashes</button></div>
+  </div>
+</div>
+  <script>
+let editMode = false;
+let currentExcludeMetaId = null;
+
+function setEditMode(on) {
+  editMode = on;
+  document.getElementById('edit-btn').style.display = on ? 'none' : 'inline-block';
+  document.getElementById('add-build-btn').style.display = on ? 'inline-block' : 'none';
+  document.getElementById('save-btn').style.display = on ? 'inline-block' : 'none';
+  document.getElementById('cancel-btn').style.display = on ? 'inline-block' : 'none';
+  if (on) document.body.classList.add('mtbf-edit-mode'); else document.body.classList.remove('mtbf-edit-mode');
+  document.querySelectorAll('.meta-hours-input, .meta-mode-select, .meta-crashes-input, .meta-mtbf-input, .meta-qc-mtbf-input, .meta-product-mtbf-input').forEach(function (el) {
+    if (el) el.disabled = !on;
+  });
+  document.querySelectorAll('.build-select-checkbox').forEach(function (cb) { cb.disabled = !on; });
+}
+
+function recomputeMetaFromRow(tr) {
+  var hoursInput = tr.querySelector('.meta-hours-input');
+  var mtbfInput = tr.querySelector('.meta-mtbf-input');
+  var crashesInput = tr.querySelector('.meta-crashes-input');
+  var hours = parseFloat(hoursInput.value || '0');
+  var overridden = tr.dataset.crashesOverridden === '1';
+  var totalCrashes;
+
+  if (!overridden) {
+    totalCrashes = 0;
+    tr.querySelectorAll('.build-list li').forEach(function (li) {
+      var cb = li.querySelector('.build-select-checkbox');
+      if (!cb || !cb.checked) return;
+      var c = parseInt(li.dataset.swpdtCrashes || '0', 10) || 0;
+      totalCrashes += c;
+    });
+    crashesInput.value = totalCrashes;
+  } else {
+    totalCrashes = parseInt(crashesInput.value || '0', 10) || 0;
+  }
+
+  /* ─ instantly update the view-mode crash count display ─ */
+  var crashSpan = tr.querySelector('.mtbf-crashes-value');
+  if (crashSpan) crashSpan.textContent = totalCrashes;
+
+  if (hours > 0) {
+    if (totalCrashes > 0) mtbfInput.value = (hours / totalCrashes).toFixed(2);
+    else mtbfInput.value = hours.toFixed(2);
+  } else {
+    mtbfInput.value = '';
+  }
+}
+
+function recomputeTotalsLabel() {
+  var crmMeta = new Set();
+  var engMeta = new Set();
+  document.querySelectorAll('#mtbf-table-body tr').forEach(function (tr) {
+    var metaId = tr.dataset.metaId;
+    if (!metaId) return;
+    var metaModeSelect = tr.querySelector('.meta-mode-select');
+    var metaMode = metaModeSelect ? (metaModeSelect.value || '{{ toggle_mode if toggle_mode in ["CRM","ENG"] else "CRM" }}') : '{{ toggle_mode if toggle_mode in ["CRM","ENG"] else "CRM" }}';
+    var hasSelected = false;
+    tr.querySelectorAll('.build-list li').forEach(function (li) {
+      var cb = li.querySelector('.build-select-checkbox');
+      if (cb && cb.checked) hasSelected = true;
+    });
+    if (hasSelected) {
+      if (metaMode === 'ENG') engMeta.add(metaId);
+      else crmMeta.add(metaId);
+    }
+  });
+
+  var visibleCount = 0;
+  var label = '';
+  var currentMode = '{{ toggle_mode }}';
+  if (currentMode === 'CRM') {
+    visibleCount = crmMeta.size;
+    label = 'CRM META-IDs tested (selected builds)';
+  } else if (currentMode === 'ENG') {
+    visibleCount = engMeta.size;
+    label = 'ENG META-IDs tested (selected builds)';
+  } else {
+    visibleCount = crmMeta.size + engMeta.size;
+    label = 'CRM+ENG META-IDs tested (selected builds)';
+  }
+
+  var labelSpan = document.getElementById('builds-tested-label');
+  var countSpan = document.getElementById('builds-tested-count');
+  if (labelSpan && countSpan) {
+    labelSpan.childNodes[0].nodeValue = label + ': ';
+    countSpan.textContent = String(visibleCount);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.meta-hours-input').forEach(function (input) {
+    if (!input.value || Number(input.value) === 0) {
+      var randomHours = Math.floor(200 + Math.random() * 301);
+      input.value = String(randomHours);
+      var tr = input.closest('tr');
+      if (tr) recomputeMetaFromRow(tr);
+    }
+  });
+  recomputeTotalsLabel();
+});
+
+var editBtn = document.getElementById('edit-btn');
+if (editBtn) editBtn.addEventListener('click', function () { setEditMode(true); });
+var cancelBtn = document.getElementById('cancel-btn');
+if (cancelBtn) cancelBtn.addEventListener('click', function () { window.location.reload(); });
+var saveBtn = document.getElementById('save-btn');
+if (saveBtn) saveBtn.addEventListener('click', function () { submitMtbfChanges(); });
+
+
+document.addEventListener('input', function (e) {
+  if (!editMode) return;
+  if (e.target.classList.contains('meta-hours-input')) {
+    var tr = e.target.closest('tr');
+    if (tr) { recomputeMetaFromRow(tr); recomputeTotalsLabel(); renderTrendFromSelection(); }
+  } else if (e.target.classList.contains('meta-crashes-input')) {
+    var tr = e.target.closest('tr');
+    if (tr) { tr.dataset.crashesOverridden = '1'; recomputeMetaFromRow(tr); recomputeTotalsLabel(); renderTrendFromSelection(); }
+  }
+});
+
+document.addEventListener('change', function (e) {
+  if (e.target.classList.contains('build-select-checkbox')) {
+    /* always recompute crash count display, even in view mode */
+    var tr = e.target.closest('tr');
+    if (tr) { recomputeMetaFromRow(tr); recomputeTotalsLabel(); renderTrendFromSelection(); }
+  } else if (e.target.classList.contains('meta-mode-select')) {
+    if (!editMode) return;
+    var tr = e.target.closest('tr');
+    if (tr) { recomputeMetaFromRow(tr); recomputeTotalsLabel(); renderTrendFromSelection(); }
+  }
+});
+
+function submitMtbfChanges() {
+  var payload = { pdt_type: "SWPDT", toggle_mode: "{{ toggle_mode }}", rows: [] };
+
+  document.querySelectorAll('#mtbf-table-body tr').forEach(function (tr) {
+    var metaId = tr.dataset.metaId;
+    var metaHours = parseFloat(tr.querySelector('.meta-hours-input').value || 0);
+    var metaMtbfInput = tr.querySelector('.meta-mtbf-input');
+    var metaQcMtbfInput = tr.querySelector('.meta-qc-mtbf-input');
+    var metaProductMtbfInput = tr.querySelector('.meta-product-mtbf-input');
+    var metaMtbf = metaMtbfInput ? parseFloat(metaMtbfInput.value || 0) : 0;
+    var metaQcMtbf = metaQcMtbfInput ? parseFloat(metaQcMtbfInput.value || 0) : 0;
+    var metaProductMtbf = metaProductMtbfInput ? parseFloat(metaProductMtbfInput.value || 0) : 0;
+    var metaCrashesInput = tr.querySelector('.meta-crashes-input');
+        var metaCrashes = metaCrashesInput ? parseInt(metaCrashesInput.value || 0, 10) : 0;
+    var excludedTickets = tr.dataset.excludedTickets || '';
+    var metaModeSelect = tr.querySelector('.meta-mode-select');
+
+    var metaMode = metaModeSelect ? metaModeSelect.value : '{{ toggle_mode if toggle_mode in ["CRM","ENG"] else "CRM" }}';
+    var builds = [];
+    tr.querySelectorAll('.build-list li').forEach(function (li) {
+      var buildId = li.dataset.buildId;
+      var source = li.dataset.source || 'MANUAL';
+      var pdtType = li.dataset.pdtType || 'SWPDT';
+      var checkbox = li.querySelector('.build-select-checkbox');
+      var isSelected = checkbox.checked;
+      var swpdtCrashes = parseInt(li.dataset.swpdtCrashes || '0', 10);
+      builds.push({
+        build_id: buildId,
+        hours: metaHours,
+        mode: metaMode,
+                pdt_type: 'SWPDT',
+
+        is_selected: isSelected,
+        swpdt_crashes: swpdtCrashes,
+        hwpdt_crashes: 0,
+        build_source: source,
+        mtbf: metaMtbf,
+        qc_mtbf: metaQcMtbf,
+        product_mtbf: metaProductMtbf
+      });
+    });
+            payload.rows.push({
+      meta_id: metaId,
+      mode: metaMode,
+            pdt_type: "SWPDT",
+
+      hours: metaHours,
+      crashes: metaCrashes,
+      mtbf: metaMtbf,
+      qc_mtbf: metaQcMtbf,
+      product_mtbf: metaProductMtbf,
+      reset_to_auto_meta: tr.dataset.resetToAutoMeta === '1',
+      excluded_tickets: excludedTickets,
+      builds: builds
+    });
+
+
+  });
+  document.getElementById('payload_json').value = JSON.stringify(payload);
+  document.getElementById('mtbf-save-form').submit();
+}
+
+/* ------- Add Build modal JS ------- */
+const addModal = document.getElementById('add-build-modal');
+const openAddBtn = document.getElementById('add-build-btn');
+const addCloseBtns = [ document.getElementById('add-build-close-btn'), document.getElementById('add-build-cancel-btn') ];
+const addMetaInput = document.getElementById('add-meta-id');
+const addBuildInput = document.getElementById('add-build-id');
+const addHoursInput = document.getElementById('add-hours');
+const addCrashesInput = document.getElementById('add-crashes');
+const addMtbfInput = document.getElementById('add-mtbf');
+const addQcMtbfInput = document.getElementById('add-qc-mtbf');
+const addProductMtbfInput = document.getElementById('add-product-mtbf');
+const addModeSelect = document.getElementById('add-mode');
+
+if (openAddBtn) openAddBtn.addEventListener('click', function () {
+  if (!addModal || !addMetaInput || !addBuildInput || !addHoursInput || !addCrashesInput) return;
+  var firstRow = document.querySelector('#mtbf-table-body tr');
+  addMetaInput.value = firstRow ? (firstRow.dataset.metaId || '') : '';
+  addBuildInput.value = '';
+  addHoursInput.value = '';
+  addCrashesInput.value = '0';
+  if (addMtbfInput) addMtbfInput.value = '';
+  if (addQcMtbfInput) addQcMtbfInput.value = '';
+  if (addProductMtbfInput) addProductMtbfInput.value = '';
+  if (addModeSelect) addModeSelect.value = '{{ toggle_mode if toggle_mode in ["CRM","ENG"] else "CRM" }}';
+  addModal.style.display = 'flex';
+});
+
+addCloseBtns.forEach(function (btn) {
+  if (btn) btn.addEventListener('click', function () { if (addModal) addModal.style.display = 'none'; });
+});
+
+
+function jsNormalizeMetaId(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+  var m = s.match(/^([A-Za-z0-9]+(?:\.[A-Za-z0-9]+){2}-\d{4,6})/);
+  if (m) return m[1].toUpperCase();
+  var parts = s.split('.');
+  if (parts.length >= 4) {
+    var prefix = parts.slice(0, 4).join('.');
+    var m2 = prefix.match(/^(.+?-\d{4,6})/);
+    if (m2) return m2[1].toUpperCase();
+  }
+  return s.toUpperCase();
+}
+
+if (addBuildInput) addBuildInput.addEventListener('blur', function () {
+  var buildVal = addBuildInput.value || '';
+  if (buildVal && addMetaInput && !addMetaInput.value) addMetaInput.value = jsNormalizeMetaId(buildVal);
+});
+
+
+function recomputePopupMtbf() {
+  if (!addHoursInput || !addCrashesInput) return;
+  var h = parseFloat(addHoursInput.value || '0') || 0;
+  var c = parseInt(addCrashesInput.value || '0', 10) || 0;
+
+  var totalMtbf = 0;
+  if (h > 0) {
+    if (c > 0) totalMtbf = h / c;
+    else totalMtbf = h;
+  }
+  if (typeof IS_COMPUTE_BU !== 'undefined' && IS_COMPUTE_BU) {
+    var half = totalMtbf > 0 ? (totalMtbf / 2).toFixed(2) : '';
+    if (addQcMtbfInput) addQcMtbfInput.value = half;
+    if (addProductMtbfInput) addProductMtbfInput.value = half;
+  } else {
+    if (addMtbfInput) addMtbfInput.value = totalMtbf > 0 ? totalMtbf.toFixed(2) : 'N/A';
+  }
+}
+
+if (addHoursInput) addHoursInput.addEventListener('input', recomputePopupMtbf);
+if (addCrashesInput) addCrashesInput.addEventListener('input', recomputePopupMtbf);
+
+var addBuildSaveBtn = document.getElementById('add-build-save-btn');
+if (addBuildSaveBtn) addBuildSaveBtn.addEventListener('click', function () {
+  if (!addMetaInput || !addBuildInput || !addHoursInput || !addCrashesInput || !addModeSelect || !addModal) return;
+  var metaId = (addMetaInput.value || '').trim();
+
+  var buildId = (addBuildInput.value || '').trim();
+  var hoursVal = parseFloat(addHoursInput.value || '0');
+  var crashesVal = parseInt(addCrashesInput.value || '0', 10);
+  var mode = addModeSelect.value || 'CRM';
+
+  if (!buildId) { alert('BUILD ID is required.'); return; }
+  if (!metaId) { alert('META ID is required (auto-filled from Build ID).'); return; }
+
+  var tr = Array.from(document.querySelectorAll('#mtbf-table-body tr')).find(function (r) {
+    return r.dataset.metaId === metaId;
+  });
+
+  if (!tr) {
+    var tbody = document.getElementById('mtbf-table-body');
+    tr = document.createElement('tr');
+    tr.dataset.metaId = metaId;
+    tr.classList.add('mtbf-meta-row');
+    tbody.insertBefore(tr, tbody.firstChild);
+    tr.innerHTML =
+      '<td>*</td><td>' + metaId + '</td><td class="mtbf-build-cell"><ul class="build-list"></ul></td>' +
+      '<td><input type="number" step="0.01" class="meta-hours-input" value=""></td>' +
+      '<td class="meta-crashes-cell"><input type="number" step="1" class="meta-crashes-input" value="0"></td>' +
+      (typeof IS_COMPUTE_BU !== 'undefined' && IS_COMPUTE_BU
+        ? '<td class="meta-qc-mtbf-cell"><input type="number" step="0.01" class="meta-qc-mtbf-input" value=""></td><td class="meta-product-mtbf-cell"><input type="number" step="0.01" class="meta-product-mtbf-input" value=""></td>'
+        : '<td class="meta-mtbf-cell"><input type="number" step="0.01" class="meta-mtbf-input" value=""></td>') +
+      '<td class="edit-only"><select class="meta-mode-select"><option value="CRM"' + (mode === 'CRM' ? ' selected' : '') + '>CRM</option><option value="ENG"' + (mode === 'ENG' ? ' selected' : '') + '>ENG</option></select></td><td class="edit-only"><span class="pill pill--manual">MANUAL</span></td>';
+  }
+
+  var buildList = tr.querySelector('.build-list');
+  var li = document.createElement('li');
+  li.dataset.buildId = buildId;
+  li.dataset.source = 'MANUAL';
+    li.dataset.pdtType = 'SWPDT';
+
+  li.dataset.swpdtCrashes = String(crashesVal || 0);
+  li.innerHTML = '<input type="checkbox" class="build-select-checkbox" checked><span>' + buildId + ' (' + (crashesVal || 0) + ')</span>';
+  buildList.appendChild(li);
+
+  var metaHoursInput = tr.querySelector('.meta-hours-input');
+  if (!metaHoursInput.value && hoursVal) metaHoursInput.value = hoursVal;
+  var metaCrashesInput = tr.querySelector('.meta-crashes-input');
+  metaCrashesInput.value = String((parseInt(metaCrashesInput.value || '0', 10) || 0) + crashesVal);
+
+  recomputeMetaFromRow(tr);
+  recomputeTotalsLabel();
+  renderTrendFromSelection();
+  addModal.style.display = 'none';
+});
+
+/* ---------------- Exclude JIRAs popup JS ---------------- */
+const excludeModal = document.getElementById('exclude-jiras-modal');
+const excludeBody = document.getElementById('exclude-jiras-body');
+const excludeSearch = document.getElementById('exclude-jiras-search');
+const excludeSummary = document.getElementById('exclude-jiras-summary');
+
+document.addEventListener('click', function (e) {
+  if (!editMode) return;
+  var resetBtn = e.target.closest('.btn-reset-meta');
+  if (resetBtn) {
+    var metaId = (resetBtn.dataset.metaId || '').trim();
+    var row = document.querySelector('#mtbf-table-body tr[data-meta-id="' + metaId + '"]');
+    if (row) {
+      row.dataset.resetToAutoMeta = '1';
+      row.dataset.crashesOverridden = '0';
+      recomputeMetaFromRow(row);
+      recomputeTotalsLabel();
+      renderTrendFromSelection();
+    }
+    return;
+  }
+  var btn = e.target.closest('.btn-exclude-jiras-row');
+  if (!btn) return;
+  var metaId = (btn.dataset.metaId || '').trim();
+  if (!metaId) return;
+  currentExcludeMetaId = metaId;
+  loadExcludeJiras(metaId);
+});
+
+
+function loadExcludeJiras(metaId) {
+  if (!excludeBody || !excludeModal) { alert('Exclude JIRAs modal is not available on this page.'); return; }
+  var target = "{{ target_name }}";
+
+
+  /* ─ read currently CHECKED build IDs from the DOM ─
+     This reflects real-time checkbox state, not saved state */
+  var metaRow = document.querySelector('#mtbf-table-body tr[data-meta-id="' + metaId + '"]');
+  var checkedBuilds = [];
+  if (metaRow) {
+    metaRow.querySelectorAll('.build-list li').forEach(function (li) {
+      var cb = li.querySelector('.build-select-checkbox');
+      if (cb && cb.checked) {
+        var bid = (li.dataset.buildId || '').trim();
+        if (bid) checkedBuilds.push(bid);
+      }
+    });
+  }
+
+  /* build URL — pass checked builds so API filters to them only */
+  var url = '/api/mtbf_jiras/' + encodeURIComponent(target) + '/' + encodeURIComponent(metaId);
+  if (checkedBuilds.length > 0) {
+    url += '?builds=' + checkedBuilds.map(encodeURIComponent).join(',');
+  }
+
+  fetch(url)
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      excludeBody.innerHTML = '';
+      (data.jiras || []).forEach(function (j) {
+        var tr = document.createElement('tr');
+        tr.dataset.ticket = j.stability_ticket || '';
+        tr.dataset.title = (j.jira_title || '').toLowerCase();
+        tr.dataset.serial = (j.serial_no || '').toLowerCase();
+        tr.dataset.crashes = j.crash_count || 1;
+        tr.innerHTML =
+          '<td style="padding:3px 6px; text-align:center;"><input type="checkbox" class="exclude-jira-checkbox"></td>' +
+          '<td style="padding:3px 6px;">' + (j.stability_ticket || '') + '</td>' +
+          '<td style="padding:3px 6px;">' + (j.jira_title || '') + '</td>' +
+          '<td style="padding:3px 6px;">' + (j.serial_no || '') + '</td>' +
+          '<td style="padding:3px 6px;">' + (j.build_id || j.metabuild || '') + '</td>';
+        excludeBody.appendChild(tr);
+      });
+      updateExcludeSummary();
+      excludeModal.style.display = 'flex';
+    })
+    .catch(function (err) {
+      console.error(err);
+      alert('Unable to load JIRAs for exclusions.');
+    });
+}
+
+function filterExcludeJiras() {
+  if (!excludeSearch || !excludeBody) return;
+  var q = (excludeSearch.value || '').toLowerCase();
+  excludeBody.querySelectorAll('tr').forEach(function (tr) {
+
+    var title = tr.dataset.title || '';
+    var serial = tr.dataset.serial || '';
+    var cb = tr.querySelector('.exclude-jira-checkbox');
+    var match = q && (title.indexOf(q) !== -1 || serial.indexOf(q) !== -1);
+    tr.style.display = '';
+    if (match && cb) cb.checked = true;
+  });
+  updateExcludeSummary();
+}
+
+if (excludeSearch) excludeSearch.addEventListener('input', filterExcludeJiras);
+
+
+function updateExcludeSummary() {
+  if (!excludeBody) return;
+  var total = 0, excluded = 0;
+  excludeBody.querySelectorAll('tr').forEach(function (tr) {
+
+    var cb = tr.querySelector('.exclude-jira-checkbox');
+    var c = parseInt(tr.dataset.crashes || '1', 10) || 1;
+    total += c;
+    if (cb && cb.checked) excluded += c;
+  });
+    if (excludeSummary) excludeSummary.textContent = 'Total JIRA crashes (estimate): ' + total + ' | Excluded: ' + excluded + ' | New crashes: ' + Math.max(total - excluded, 0);
+
+  if (currentExcludeMetaId) {
+    var lbl = document.querySelector('.exclude-jiras-count[data-meta-id="' + currentExcludeMetaId + '"]');
+    if (lbl) lbl.textContent = 'Excluded: ' + excluded;
+  }
+}
+
+if (excludeBody) excludeBody.addEventListener('change', function (e) {
+  if (e.target.classList.contains('exclude-jira-checkbox')) updateExcludeSummary();
+});
+
+var excludeApplyBtn = document.getElementById('exclude-jiras-apply');
+if (excludeApplyBtn) excludeApplyBtn.addEventListener('click', function () {
+  if (!excludeBody) return;
+  var total = 0, excluded = 0;
+  var excludedTickets = [];
+  excludeBody.querySelectorAll('tr').forEach(function (tr) {
+
+    var cb = tr.querySelector('.exclude-jira-checkbox');
+    var c = parseInt(tr.dataset.crashes || '1', 10) || 1;
+    total += c;
+    if (cb && cb.checked) {
+      excluded += c;
+      if (tr.dataset.ticket) excludedTickets.push(tr.dataset.ticket);
+    }
+  });
+
+  var newCrashes = Math.max(total - excluded, 0);
+  if (!currentExcludeMetaId) { alert('Internal error: no META selected.'); return; }
+  var row = document.querySelector('#mtbf-table-body tr[data-meta-id="' + currentExcludeMetaId + '"]');
+    if (!row) { alert('Could not find META row for ' + currentExcludeMetaId); return; }
+    var crashesInput = row.querySelector('.meta-crashes-input');
+  if (crashesInput) {
+    crashesInput.value = newCrashes;
+    row.dataset.crashesOverridden = '1';
+    row.dataset.excludedTickets = excludedTickets.join(',');
+    recomputeMetaFromRow(row);
+    recomputeTotalsLabel();
+    renderTrendFromSelection();
+  }
+
+    if (excludeModal) excludeModal.style.display = 'none';
+});
+var excludeCloseBtn = document.getElementById('exclude-jiras-close');
+
+  if (excludeCloseBtn) excludeCloseBtn.addEventListener('click', function () { if (excludeModal) excludeModal.style.display = 'none'; });
+  var excludeCancelBtn = document.getElementById('exclude-jiras-cancel');
+  if (excludeCancelBtn) excludeCancelBtn.addEventListener('click', function () { if (excludeModal) excludeModal.style.display = 'none'; });
+  var excludeClearBtn = document.getElementById('exclude-jiras-clear');
+  if (excludeClearBtn) excludeClearBtn.addEventListener('click', function () { if (excludeSearch) excludeSearch.value = ''; filterExcludeJiras(); });
+
+  // Enlarge — open exclude JIRAs table in rich new page
+  var excludeEnlargeBtn = document.getElementById('excludeEnlargeBtn');
+  if (excludeEnlargeBtn) excludeEnlargeBtn.addEventListener('click', function() {
+
+    const rows = [];
+    document.querySelectorAll('#exclude-jiras-body tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 4) {
+        const chk = tr.querySelector('input[type=checkbox]');
+        rows.push([
+          chk ? (chk.checked ? 'Yes' : 'No') : '',
+          cells[1]?.textContent.trim() || '',
+          cells[2]?.textContent.trim() || '',
+          cells[3]?.textContent.trim() || '',
+          cells[4]?.textContent.trim() || ''
+        ]);
+      }
+    });
+    const cols = [
+      {label:'Excluded', type:'text', filterable:true},
+      {label:'Ticket',   type:'text'},
+      {label:'Title',    type:'text'},
+      {label:'Device',   type:'text', filterable:true},
+      {label:'Build',    type:'text', filterable:true}
+    ];
+    openRichPageFromData('Exclude JIRAs from SWPDT', 'JIRA exclusion list', cols, rows);
+  });
+
+  function openRichPageFromData(title, subtitle, cols, rows) {
+    const colsJson = JSON.stringify(cols);
+    const rowsJson = JSON.stringify(rows);
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${title}</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:system-ui,sans-serif;background:#f8fafc;color:#111827;}.rp-header{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:20px 32px;display:flex;align-items:center;justify-content:space-between;}.rp-title{font-size:20px;font-weight:900;}.rp-sub{font-size:13px;opacity:.8;margin-top:3px;}.rp-count{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}.rp-toolbar{display:flex;align-items:center;gap:10px;padding:14px 32px;background:#fff;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;}.rp-search{display:flex;align-items:center;gap:8px;background:#f1f5f9;border-radius:10px;padding:7px 12px;flex:1;min-width:200px;max-width:360px;}.rp-search input{border:none;background:transparent;outline:none;font-size:13px;width:100%;}.rp-filters{display:flex;gap:8px;flex-wrap:wrap;}.rp-filter select{padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;background:#fff;cursor:pointer;}.rp-filter label{font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:2px;}.rp-btn{padding:7px 14px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:#10b981;color:#fff;display:flex;align-items:center;gap:6px;}.rp-wrap{padding:20px 32px;}.rp-table-wrap{background:#fff;border-radius:14px;border:1px solid #e5e7eb;box-shadow:0 4px 18px rgba(15,23,42,.06);overflow:auto;}table{width:100%;border-collapse:collapse;font-size:13px;}thead th{background:#f8fafc;padding:10px 14px;text-align:left;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;z-index:1;}thead th:hover{background:#f1f5f9;color:#4f46e5;}tbody tr{border-bottom:1px solid #f1f5f9;}tbody tr:hover{background:#f8faff;}td{padding:9px 14px;color:#374151;}.rp-empty{text-align:center;padding:48px;color:#9ca3af;font-size:14px;}.rp-footer{padding:12px 32px;font-size:12px;color:#9ca3af;text-align:right;}</style></head><body><div class="rp-header"><div><div class="rp-title"><i class="fas fa-table" style="margin-right:8px;"></i>${title}</div><div class="rp-sub">${subtitle}</div></div><span class="rp-count" id="rpCount">0 rows</span></div><div class="rp-toolbar"><div class="rp-search"><i class="fas fa-search"></i><input id="rpSearch" placeholder="Search..." oninput="applyFilters()"></div><div class="rp-filters" id="rpFilters"></div><button class="rp-btn" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button></div><div class="rp-wrap"><div class="rp-table-wrap"><table><thead id="rpThead"></thead><tbody id="rpTbody"></tbody></table></div></div><div class="rp-footer" id="rpFooter"></div><script>const COLS=${colsJson};const ALL_ROWS=${rowsJson};let sortCol=-1,sortDir=1,filteredRows=[...ALL_ROWS];function buildFilters(){const wrap=document.getElementById('rpFilters');COLS.forEach((col,ci)=>{if(!col.filterable)return;const vals=[...new Set(ALL_ROWS.map(r=>String(r[ci]??'')).filter(Boolean))].sort();if(vals.length<2||vals.length>60)return;const div=document.createElement('div');div.className='rp-filter';div.innerHTML='<label>'+col.label+'</label><select data-col="'+ci+'" onchange="applyFilters()"><option value="">All</option>'+vals.map(v=>'<option>'+v+'</option>').join('')+'</select>';wrap.appendChild(div);});}function applyFilters(){const q=document.getElementById('rpSearch').value.toLowerCase();const selects=document.querySelectorAll('#rpFilters select');filteredRows=ALL_ROWS.filter(row=>{for(const sel of selects){const ci=parseInt(sel.dataset.col);if(sel.value&&String(row[ci]??'')!==sel.value)return false;}if(q){const t=row.map(v=>String(v??'').toLowerCase()).join(' ');if(!t.includes(q))return false;}return true;});if(sortCol>=0)doSort(sortCol,false);else renderBody();}function doSort(ci,toggle){if(toggle){sortDir=(sortCol===ci)?-sortDir:1;sortCol=ci;}filteredRows.sort((a,b)=>{const av=a[ci]??'';const bv=b[ci]??'';const an=parseFloat(av);const bn=parseFloat(bv);if(!isNaN(an)&&!isNaN(bn))return(an-bn)*sortDir;return String(av).localeCompare(String(bv))*sortDir;});document.querySelectorAll('thead th').forEach((th,i)=>{th.classList.remove('sorted-asc','sorted-desc');if(i===ci)th.classList.add(sortDir===1?'sorted-asc':'sorted-desc');});renderBody();}function renderBody(){const tbody=document.getElementById('rpTbody');document.getElementById('rpCount').textContent=filteredRows.length+' rows';document.getElementById('rpFooter').textContent='Showing '+filteredRows.length+' of '+ALL_ROWS.length+' rows';if(!filteredRows.length){tbody.innerHTML='<tr><td colspan="'+COLS.length+'" class="rp-empty">No matching records</td></tr>';return;}tbody.innerHTML=filteredRows.map(row=>'<tr>'+COLS.map((col,ci)=>'<td>'+String(row[ci]??''||'-')+'</td>').join('')+'</tr>').join('');}function buildHeader(){document.getElementById('rpThead').innerHTML='<tr>'+COLS.map((col,ci)=>'<th onclick="doSort('+ci+',true)">'+col.label+'</th>').join('')+'</tr>';}function exportCSV(){const rows=[COLS.map(c=>c.label).join(','),...filteredRows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','))];const blob=new Blob([rows.join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='${title.replace(/[^a-z0-9]/gi,'_')}.csv';a.click();}buildHeader();buildFilters();applyFilters();<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
+function metaSuffixNum(v) {
+  var m = String(v || '').match(/(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function renderTrendFromSelection() {
+  // This SWPDT MTBF table currently has no inline trend chart object.
+  // Keep this as a safe no-op because checkbox/edit handlers call it.
+  if (typeof chart === 'undefined' || !chart || typeof chart.update !== 'function') return;
+  try {
+    chart.update({}, true, true, false);
+  } catch (e) {
+    console.warn('Trend chart refresh skipped:', e);
+  }
+}
+</script>
+{% endblock %}

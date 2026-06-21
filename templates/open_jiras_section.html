@@ -1,0 +1,463 @@
+{% extends "target_layout.html" %}
+{% block page_heading %}{{ page_heading }}{% endblock %}
+
+{% block page_content %}
+<style>
+/* ── KPI summary row ── */
+.oj-kpi-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+.oj-kpi{flex:1;min-width:120px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);padding:16px 18px;position:relative;overflow:hidden;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.oj-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.12);}
+.oj-kpi.active{box-shadow:0 0 0 3px #6366f1,0 8px 24px rgba(99,102,241,.18)!important;transform:translateY(-2px);}
+.oj-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;background:var(--acc,#6366f1);}
+.oj-kpi-val{font-size:28px;font-weight:900;color:#0f172a;line-height:1;}
+.oj-kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-top:5px;}
+
+/* ── Area summary table ── */
+.oj-area-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:16px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;margin-bottom:20px;}
+.oj-area-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);
+  border-bottom:1px solid #e5e7eb;gap:10px;flex-wrap:wrap;}
+.oj-area-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
+.oj-area-table{width:100%;border-collapse:collapse;font-size:12px;}
+.oj-area-table th{background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#f0f9ff;
+  padding:9px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap;}
+.oj-area-table td{padding:9px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+.oj-area-table tr:last-child td{border-bottom:none;font-weight:800;background:#f8fafc;}
+.oj-area-table tr:hover td{background:#f0f4ff;}
+.oj-count-link{font-weight:800;color:#4f46e5;cursor:pointer;text-decoration:underline;
+  text-decoration-style:dotted;text-underline-offset:3px;}
+.oj-count-link:hover{color:#3730a3;}
+.oj-dl-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;
+  border:1px solid #d1d5db;background:#fff;font-size:11px;font-weight:700;color:#374151;
+  cursor:pointer;transition:background .15s,border-color .15s;}
+.oj-dl-btn:hover{background:#f0f4ff;border-color:#6366f1;color:#4f46e5;}
+
+/* ── Filter bar ── */
+.oj-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:linear-gradient(135deg,#fff,#f0f4ff);border:1px solid rgba(148,163,184,.35);
+  border-radius:14px;padding:12px 16px;margin-bottom:18px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);}
+.oj-filter-label{font-size:11px;font-weight:800;color:#4f46e5;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap;}
+.oj-select,.oj-input{height:34px;padding:0 12px;border-radius:10px;border:1px solid #d1d5db;
+  font-size:12px;font-weight:600;color:#374151;background:#fff;outline:none;cursor:pointer;
+  box-shadow:0 1px 3px rgba(15,23,42,.06);transition:border-color .15s;}
+.oj-select:focus,.oj-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.oj-input{min-width:200px;flex:1;}
+.oj-date{height:34px;padding:0 10px;border-radius:10px;border:1px solid #d1d5db;
+  font-size:12px;font-weight:600;color:#374151;background:#fff;outline:none;
+  box-shadow:0 1px 3px rgba(15,23,42,.06);}
+.oj-date:focus{border-color:#6366f1;}
+.oj-btn{height:34px;padding:0 14px;border-radius:10px;border:none;font-size:12px;
+  font-weight:700;cursor:pointer;transition:background .15s;}
+.oj-btn-primary{background:#6366f1;color:#fff;}
+.oj-btn-primary:hover{background:#4f46e5;}
+.oj-btn-clear{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
+.oj-btn-clear:hover{background:#fee2e2;color:#dc2626;border-color:#fca5a5;}
+.oj-btn-excel{background:#16a34a;color:#fff;}
+.oj-btn-excel:hover{background:#15803d;}
+
+/* ── Main table ── */
+.oj-table-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:16px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;}
+.oj-table-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);
+  border-bottom:1px solid #e5e7eb;gap:10px;flex-wrap:wrap;}
+.oj-table-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
+.oj-badge{font-size:11px;font-weight:800;color:#4f46e5;background:#eef2ff;
+  padding:3px 10px;border-radius:999px;border:1px solid #c7d2fe;}
+.oj-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+.oj-table th{background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#f0f9ff;
+  padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08);}
+.oj-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top;
+  word-break:break-word;line-height:1.45;}
+.oj-table tr:hover td{background:#f8faff;}
+.oj-table tr:last-child td{border-bottom:none;}
+.oj-ticket-link{font-weight:700;color:#4f46e5;text-decoration:none;}
+.oj-ticket-link:hover{text-decoration:underline;color:#3730a3;}
+.oj-area-pill{display:inline-block;padding:2px 8px;border-radius:6px;
+  background:#f0f4ff;color:#4f46e5;font-size:10px;font-weight:700;white-space:nowrap;}
+.oj-empty{text-align:center;padding:40px;color:#94a3b8;font-size:13px;font-weight:600;}
+.oj-pagination{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-top:1px solid #f1f5f9;flex-wrap:wrap;gap:8px;}
+.oj-page-btn{height:32px;padding:0 14px;border-radius:8px;border:1px solid #e2e8f0;
+  background:#fff;font-size:12px;font-weight:700;color:#374151;cursor:pointer;}
+.oj-page-btn:hover:not(:disabled){background:#f0f4ff;border-color:#6366f1;color:#4f46e5;}
+.oj-page-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* col widths */
+.oj-col-num  {width:44px;}
+.oj-col-tick {width:150px;}
+.oj-col-date {width:100px;}
+.oj-col-area {width:90px;}
+.oj-col-cr   {width:140px;}
+.oj-col-team {width:120px;}
+.oj-col-title{width:auto;}
+</style>
+
+<div id="ojLoading" style="text-align:center;padding:60px;display:none;">
+  <i class="fas fa-spinner fa-spin" style="font-size:28px;color:#6366f1;"></i>
+  <div style="margin-top:12px;font-weight:600;color:#64748b;">Loading Open JIRAs&hellip;</div>
+</div>
+
+<div id="ojContent" style="display:none;">
+
+  <!-- KPI row -->
+  <div class="oj-kpi-row" id="ojKpiRow"></div>
+
+  <!-- Area summary table -->
+  <div class="oj-area-wrap">
+    <div class="oj-area-head">
+      <div class="oj-area-title"><i class="fas fa-layer-group" style="color:#6366f1;"></i> Area Summary</div>
+      <button class="oj-dl-btn" onclick="ojDownloadExcel('ALL')">
+        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Download All
+      </button>
+    </div>
+    <table class="oj-area-table">
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th># Open JIRAs</th>
+          </tr>
+      </thead>
+      <tbody id="ojAreaBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="oj-filter-bar">
+    <span class="oj-filter-label"><i class="fas fa-filter"></i> Filters</span>
+    <input type="date" class="oj-date" id="ojDateFrom" title="From date">
+    <span style="font-size:11px;color:#94a3b8;font-weight:600;">to</span>
+    <input type="date" class="oj-date" id="ojDateTo" title="To date">
+    <button class="oj-btn oj-btn-primary" onclick="ojApplyDate()"><i class="fas fa-sync-alt"></i> Apply</button>
+    <select class="oj-select" id="ojAreaFilter" onchange="ojApplyFilter()">
+      <option value="">All Areas</option>
+    </select>
+    <select class="oj-select" id="ojTeamFilter" onchange="ojApplyFilter()">
+      <option value="">All Teams</option>
+    </select>
+    <input class="oj-input" id="ojSearch" placeholder="Search ticket / title…" oninput="ojApplyFilter()">
+    <button class="oj-btn oj-btn-clear" onclick="ojClear()"><i class="fas fa-times"></i> Clear</button>
+    <button class="oj-btn oj-btn-excel" onclick="ojDownloadExcel('FILTERED')">
+      <i class="fas fa-file-excel"></i> Download Filtered
+    </button>
+  </div>
+
+  <!-- Main table -->
+  <div class="oj-table-wrap">
+    <div class="oj-table-head">
+      <div class="oj-table-title">
+        <i class="fas fa-ticket-alt" style="color:#6366f1;"></i>
+        Open JIRA Tickets
+        <span class="oj-badge" id="ojCountBadge">—</span>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="oj-table">
+        <thead>
+          <tr>
+            <th class="oj-col-num">#</th>
+            <th class="oj-col-tick">JIRA Ticket</th>
+            <th class="oj-col-date">Jira Date</th>
+            <th class="oj-col-area">Area</th>
+            <th class="oj-col-cr">CR / Current Ticket</th>
+            <th class="oj-col-team">Test Team</th>
+            <th class="oj-col-title">Jira Title</th>
+          </tr>
+        </thead>
+        <tbody id="ojTableBody">
+          <tr><td colspan="7" class="oj-empty">
+            <i class="fas fa-spinner fa-spin" style="font-size:20px;color:#6366f1;"></i>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="oj-pagination">
+      <span id="ojPageInfo" style="font-size:12px;font-weight:600;color:#64748b;">—</span>
+      <div style="display:flex;gap:8px;">
+        <button class="oj-page-btn" id="ojPrevBtn" onclick="ojPage(-1)" disabled>
+          <i class="fas fa-chevron-left"></i> Prev
+        </button>
+        <button class="oj-page-btn" id="ojNextBtn" onclick="ojPage(1)">
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /ojContent -->
+
+<div id="ojError" style="display:none;background:#fff;border:1px solid #fca5a5;border-radius:16px;padding:28px;text-align:center;color:#dc2626;font-weight:700;"></div>
+
+<script>
+(function(){
+  const TARGET   = {{ target_name | tojson }};
+  const PAGE_SIZE = 100;
+  let allRows = [], filtered = [], areaSummary = [];
+  let currentPage = 1;
+
+  function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  /* ── Load data ── */
+  function loadData(dateFrom, dateTo){
+    document.getElementById('ojLoading').style.display = 'block';
+    document.getElementById('ojContent').style.display = 'none';
+    document.getElementById('ojError').style.display   = 'none';
+
+    let url = '/api/dashboard/' + encodeURIComponent(TARGET) + '/open_jiras';
+    const params = [];
+    if(dateFrom) params.push('date_from=' + encodeURIComponent(dateFrom));
+    if(dateTo)   params.push('date_to='   + encodeURIComponent(dateTo));
+    if(params.length) url += '?' + params.join('&');
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('ojLoading').style.display = 'none';
+        if(!data.success) throw new Error(data.message || 'Load failed');
+        allRows     = data.rows     || [];
+        areaSummary = data.area_summary || [];
+        filtered    = allRows.slice();
+        document.getElementById('ojContent').style.display = 'block';
+        renderKpi();
+        renderAreaSummary();
+        populateFilters();
+        currentPage = 1;
+        renderTable();
+      })
+      .catch(e => {
+        document.getElementById('ojLoading').style.display = 'none';
+        const el = document.getElementById('ojError');
+        el.style.display = 'block';
+        el.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:24px;"></i>'
+          + '<div style="margin-top:10px;">' + esc(e.message) + '</div>';
+      });
+  }
+
+  /* ── KPI cards ── */
+  const AREA_COLORS = {
+    'ADSP':'#f59e0b','APPS':'#6366f1','Modem':'#0ea5e9','WLAN':'#10b981',
+    'BT':'#8b5cf6','BOOT':'#f97316','Other':'#94a3b8','Total':'#1e3a5f'
+  };
+  function renderKpi(){
+    const row = document.getElementById('ojKpiRow');
+    // Total + top areas
+    const areaMap = {};
+    allRows.forEach(r => { areaMap[r.area] = (areaMap[r.area]||0) + 1; });
+    const sorted = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]);
+    let html = `<div class="oj-kpi" style="--acc:#1e3a5f;" onclick="ojFilterArea('')">
+      <div class="oj-kpi-val">${allRows.length}</div>
+      <div class="oj-kpi-lbl">Total Open JIRAs</div>
+    </div>`;
+    sorted.forEach(([area, cnt]) => {
+      const col = AREA_COLORS[area] || '#6366f1';
+      html += `<div class="oj-kpi" style="--acc:${col};" onclick="ojFilterArea('${esc(area)}')">
+        <div class="oj-kpi-val" style="color:${col};">${cnt}</div>
+        <div class="oj-kpi-lbl">${esc(area)}</div>
+      </div>`;
+    });
+    row.innerHTML = html;
+  }
+
+  /* ── Area summary table ── */
+  function renderAreaSummary(){
+    const tbody = document.getElementById('ojAreaBody');
+    tbody.innerHTML = areaSummary.map(r => {
+      const isTotal = r.area === 'Total';
+      const col = AREA_COLORS[r.area] || '#6366f1';
+      return `<tr>
+        <td style="font-weight:${isTotal?'800':'600'};color:${isTotal?'#0f172a':'#374151'};">${esc(r.area)}</td>
+        <td>
+          ${isTotal
+            ? `<span style="font-weight:900;color:#1e3a5f;font-size:14px;">${r.count}</span>`
+            : `<span class="oj-count-link" style="color:${col};" onclick="ojFilterArea('${esc(r.area)}')">${r.count}</span>`
+          }
+        </td>
+
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Populate filter dropdowns ── */
+  function populateFilters(){
+    const areas = [...new Set(allRows.map(r=>r.area).filter(Boolean))].sort();
+    const teams = [...new Set(allRows.map(r=>r.test_team).filter(Boolean))].sort();
+    const areaSel = document.getElementById('ojAreaFilter');
+    const teamSel = document.getElementById('ojTeamFilter');
+    // keep first option
+    areaSel.innerHTML = '<option value="">All Areas</option>';
+    teamSel.innerHTML = '<option value="">All Teams</option>';
+    areas.forEach(a => { areaSel.innerHTML += `<option value="${esc(a)}">${esc(a)}</option>`; });
+    teams.forEach(t => { teamSel.innerHTML += `<option value="${esc(t)}">${esc(t)}</option>`; });
+  }
+
+  /* ── Filter ── */
+  window.ojFilterArea = function(area){
+    document.getElementById('ojAreaFilter').value = area;
+    ojApplyFilter();
+    // scroll to table
+    document.getElementById('ojContent').scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  window.ojApplyFilter = function(){
+    const area  = document.getElementById('ojAreaFilter').value;
+    const team  = document.getElementById('ojTeamFilter').value;
+    const q     = (document.getElementById('ojSearch').value || '').toLowerCase();
+    filtered = allRows.filter(r => {
+      if(area && r.area !== area) return false;
+      if(team && r.test_team !== team) return false;
+      if(q && !(
+        (r.stability_ticket||'').toLowerCase().includes(q) ||
+        (r.jira_title||'').toLowerCase().includes(q) ||
+        (r.cr_current_ticket||'').toLowerCase().includes(q)
+      )) return false;
+      return true;
+    });
+    currentPage = 1;
+    renderTable();
+  };
+
+  window.ojApplyDate = function(){
+    const from = document.getElementById('ojDateFrom').value;
+    const to   = document.getElementById('ojDateTo').value;
+    loadData(from, to);
+  };
+
+  window.ojClear = function(){
+    document.getElementById('ojAreaFilter').value = '';
+    document.getElementById('ojTeamFilter').value = '';
+    document.getElementById('ojSearch').value     = '';
+    filtered = allRows.slice();
+    currentPage = 1;
+    renderTable();
+  };
+
+  /* ── Render table ── */
+  function renderTable(){
+    const tbody = document.getElementById('ojTableBody');
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page  = filtered.slice(start, start + PAGE_SIZE);
+    const total = filtered.length;
+    const pages = Math.ceil(total / PAGE_SIZE) || 1;
+
+    document.getElementById('ojCountBadge').textContent = total + ' tickets';
+    document.getElementById('ojPageInfo').textContent   = total
+      ? 'Showing ' + (start+1) + '–' + Math.min(start+PAGE_SIZE, total) + ' of ' + total + ' (page ' + currentPage + '/' + pages + ')'
+      : '0 results';
+    document.getElementById('ojPrevBtn').disabled = currentPage <= 1;
+    document.getElementById('ojNextBtn').disabled = currentPage >= pages;
+
+    if(!page.length){
+      tbody.innerHTML = '<tr><td colspan="7" class="oj-empty">No tickets match the current filters.</td></tr>';
+      return;
+    }
+
+    const JIRA_BASE = 'https://jira.qualcomm.com/jira/browse/';
+    tbody.innerHTML = page.map((r, i) => {
+      const col = AREA_COLORS[r.area] || '#6366f1';
+      const ticketUrl = r.stability_ticket ? JIRA_BASE + encodeURIComponent(r.stability_ticket) : '#';
+      const crUrl     = r.cr_current_ticket ? JIRA_BASE + encodeURIComponent(r.cr_current_ticket) : '#';
+      return `<tr>
+        <td class="oj-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;">${start+i+1}</td>
+        <td class="oj-col-tick">
+          <a href="${ticketUrl}" target="_blank" class="oj-ticket-link">${esc(r.stability_ticket||'—')}</a>
+        </td>
+        <td class="oj-col-date" style="font-size:11px;color:#64748b;white-space:nowrap;">${esc(r.jira_date||'—')}</td>
+        <td class="oj-col-area">
+          <span class="oj-area-pill" style="background:${col}18;color:${col};">${esc(r.area||'—')}</span>
+        </td>
+        <td class="oj-col-cr">
+          ${r.cr_current_ticket
+            ? `<a href="${crUrl}" target="_blank" class="oj-ticket-link" style="color:#0ea5e9;">${esc(r.cr_current_ticket)}</a>`
+            : '<span style="color:#cbd5e1;">—</span>'}
+        </td>
+        <td class="oj-col-team" style="font-size:11px;color:#64748b;">${esc(r.test_team||'—')}</td>
+        <td class="oj-col-title" style="font-size:11px;color:#374151;">${esc(r.jira_title||'—')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Pagination ── */
+  window.ojPage = function(dir){
+    const pages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+    currentPage = Math.max(1, Math.min(pages, currentPage + dir));
+    renderTable();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+
+  /* ── Excel download (.xlsx via SheetJS) ── */
+  function _loadSheetJS(cb){
+    if(window.XLSX){ cb(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.onload = cb;
+    document.head.appendChild(s);
+  }
+
+  window.ojDownloadExcel = function(areaFilter){
+    let rows;
+    if(areaFilter === 'ALL'){
+      rows = allRows;
+    } else if(areaFilter === 'FILTERED'){
+      rows = filtered;
+    } else {
+      rows = allRows.filter(r => r.area === areaFilter);
+    }
+    if(!rows.length){ alert('No data to download.'); return; }
+
+    _loadSheetJS(function(){
+      const headers = ['S.No','JIRA Ticket','Jira Date','Area','CR / Current Ticket','Test Team','Jira Title','Category','Status','Reporter'];
+      const data = [headers];
+      rows.forEach((r, i) => {
+        const clean = v => String(v==null?'':v);
+        data.push([
+          i+1,
+          clean(r.stability_ticket),
+          clean(r.jira_date),
+          clean(r.area),
+          clean(r.cr_current_ticket),
+          clean(r.test_team),
+          clean(r.jira_title),
+          clean(r.jira_category),
+          clean(r.status),
+          clean(r.jira_reporter),
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      /* column widths */
+      ws['!cols'] = [8,20,14,12,22,22,60,16,12,20].map(w=>({wch:w}));
+
+      /* header row style */
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for(let c = range.s.c; c <= range.e.c; c++){
+        const cell = ws[XLSX.utils.encode_cell({r:0, c:c})];
+        if(cell){
+          cell.s = {
+            font:    {bold:true, color:{rgb:'FFFFFF'}},
+            fill:    {fgColor:{rgb:'1E3A5F'}},
+            alignment:{horizontal:'center'}
+          };
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      const label = areaFilter === 'ALL' ? 'All' : areaFilter === 'FILTERED' ? 'Filtered' : areaFilter;
+      XLSX.utils.book_append_sheet(wb, ws, label.substring(0,31));
+      XLSX.writeFile(wb, TARGET.toUpperCase() + '_OpenJIRAs_' + label + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    });
+  };
+
+  /* ── Init ── */
+  loadData('', '');
+
+})();
+</script>
+{% endblock %}

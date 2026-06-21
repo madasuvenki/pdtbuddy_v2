@@ -1,0 +1,900 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_extra_css %}{% endblock %}
+{% block shell_inner_content %}
+<style>
+.ocb-wrap{display:flex;flex-direction:column;gap:14px;font-family:'Inter',system-ui,sans-serif}
+/* venn */
+.ocb-venn-panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 4px 18px rgba(15,23,42,.07);padding:18px 22px}
+.ocb-venn-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.ocb-venn-title{font-size:13px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:7px}
+.ocb-venn-hint{display:none}
+.ocb-venn-body{display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap;padding:4px 0}
+.ocb-venn-svg{flex-shrink:0;filter:drop-shadow(0 4px 14px rgba(15,23,42,.13));overflow:visible}
+.ocb-venn-legend{display:flex;flex-direction:column;gap:8px;min-width:170px}
+.ocb-leg-row{display:flex;align-items:center;gap:10px;cursor:pointer;padding:7px 11px;border-radius:10px;transition:background .16s;font-size:12px;font-weight:800}
+.ocb-leg-row:hover{background:#f8fafc}
+.ocb-leg-row.active{background:#f1f5f9;font-weight:900}
+.ocb-leg-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0}
+.ocb-leg-cnt{margin-left:auto;background:#f1f5f9;border-radius:7px;padding:1px 8px;font-size:11px;font-weight:900;color:#475569}
+.ocb-venn-pct{display:none}
+.ocb-copy-btn{border:none;background:#f1f5f9;border-radius:7px;padding:4px 10px;font-size:10px;font-weight:800;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .14s}
+.ocb-copy-btn:hover{background:#e2e8f0}
+.ocb-copy-btn.copied{background:#dcfce7;color:#166534}
+/* bar panel */
+.ocb-bar-panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 4px 18px rgba(15,23,42,.07);padding:16px 20px}
+.ocb-bar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.ocb-bar-title{font-size:12px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:6px}
+.ocb-bar-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ocb-select{border:1.5px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;cursor:pointer;outline:none;transition:border-color .15s}
+.ocb-select:focus{border-color:#6366f1}
+.ocb-topn-btn{border:1.5px solid #e2e8f0;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:800;color:#475569;background:#f8fafc;cursor:pointer;transition:all .14s}
+.ocb-topn-btn.active{background:#4f46e5;color:#fff;border-color:#4f46e5}
+/* grouped bar chart */
+.ocb-gbar-wrap{overflow-x:auto;padding-bottom:4px;width:100%}
+.ocb-gbar-chart{display:flex;align-items:flex-end;justify-content:flex-start;gap:0;padding:0;min-height:280px;width:100%;box-sizing:border-box}
+.ocb-gbar-group{display:flex;flex-direction:column;align-items:center;gap:0;flex:1 1 0;min-width:80px;cursor:pointer;padding:0 6px;box-sizing:border-box}
+.ocb-gbar-group:hover .ocb-gbar-bars{filter:brightness(1.08)}
+.ocb-gbar-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;width:100%;margin:0 auto}
+.ocb-gbar-bar{flex:1 1 0;max-width:28px;min-width:10px;border-radius:5px 5px 0 0;transition:height .4s ease;position:relative}
+.ocb-gbar-bar:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:10;margin-bottom:5px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.ocb-gbar-val{font-size:10px;font-weight:900;color:#334155;text-align:center;margin-bottom:2px;line-height:1.2}
+.ocb-gbar-lbl{font-size:11px;font-weight:700;color:#334155;text-align:center;word-break:break-word;width:100%;line-height:1.3;margin-top:6px;padding:0 2px}
+.ocb-gbar-axis{width:100%;height:2px;background:#e2e8f0;margin-bottom:0}
+.ocb-bar-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;font-weight:800;margin-top:12px}
+.ocb-bar-leg-item{display:flex;align-items:center;gap:6px}
+.ocb-bar-leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+/* table */
+.ocb-tbl-panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 4px 18px rgba(15,23,42,.07);overflow:hidden}
+.ocb-tbl-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-bottom:1px solid #e5e7eb;cursor:pointer;user-select:none;flex-wrap:wrap}
+.ocb-tbl-head-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ocb-tbl-title{font-size:13px;font-weight:950;color:#0f172a}
+.ocb-tbl-sub{font-size:11px;color:#64748b;font-weight:700}
+.ocb-tbl-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.ocb-btn{border:none;border-radius:9px;padding:6px 13px;font-weight:900;font-size:11px;cursor:pointer;transition:all .14s}
+.ocb-btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.22)}
+.ocb-btn-ghost{background:#fff;border:1.5px solid #cbd5e1;color:#334155}
+.ocb-btn-ghost:hover{background:#f1f5f9}
+.ocb-btn-active{background:linear-gradient(135deg,#4f46e5,#6366f1)!important;color:#fff!important;border-color:transparent!important}
+.ocb-tbl-body{display:none}
+.ocb-tbl-body.open{display:block}
+.ocb-tablewrap{overflow:auto;max-height:55vh}
+.ocb-table{width:100%;border-collapse:collapse;font-size:11.5px}
+/* table header - light colored bands */
+.ocb-table thead th{position:sticky;top:0;z-index:3;background:#e8edf5;color:#1e3a5f;padding:9px 10px 6px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;border-bottom:2px solid #c7d4e8}
+.ocb-table thead th:nth-child(1){background:#e8edf5;color:#64748b}
+.ocb-table thead th:nth-child(2){background:#dbeafe;color:#1e40af}
+.ocb-table thead th:nth-child(3){background:#dcfce7;color:#166534}
+.ocb-table thead th:nth-child(4){background:#ede9fe;color:#5b21b6}
+.ocb-table thead th:nth-child(n+5){background:#f0f9ff;color:#0369a1}
+.ocb-table thead th .ocb-th-label{display:block;padding-bottom:4px;font-size:12px;font-weight:900}
+/* multi-select dropdown trigger */
+.ocb-msd-btn{width:100%;box-sizing:border-box;padding:2px 20px 2px 5px;font-size:10px;border:1px solid #334155;border-radius:4px;background:#1e293b;color:#f1f5f9;outline:none;cursor:pointer;text-align:left;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.ocb-msd-btn:after{content:'\25BE';position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;color:#94a3b8}
+.ocb-msd-btn.active{border-color:#6366f1;background:#1e1b4b;color:#a5b4fc}
+/* dropdown panel */
+.ocb-msd-wrap{position:relative;display:inline-block;width:100%}
+.ocb-msd-panel{display:none;position:fixed;z-index:9999;background:#1e293b;border:1px solid #334155;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:160px;max-width:260px;max-height:220px;overflow:hidden;flex-direction:column}
+.ocb-msd-panel.open{display:flex}
+.ocb-msd-search{padding:5px 7px;border:none;border-bottom:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:10px;outline:none;width:100%;box-sizing:border-box}
+.ocb-msd-search::placeholder{color:#64748b}
+.ocb-msd-list{overflow-y:auto;flex:1;padding:3px 0}
+.ocb-msd-item{display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;font-size:10px;color:#f1f5f9;white-space:nowrap}
+.ocb-msd-item:hover{background:#334155}
+.ocb-msd-item input[type=checkbox]{accent-color:#6366f1;cursor:pointer;flex-shrink:0}
+.ocb-msd-footer{display:flex;gap:4px;padding:4px 6px;border-top:1px solid #334155;background:#0f172a}
+.ocb-msd-footer button{flex:1;font-size:9px;padding:2px 4px;border:1px solid #334155;border-radius:3px;background:#1e293b;color:#f1f5f9;cursor:pointer}
+.ocb-msd-footer button:hover{background:#334155}
+.ocb-table tbody td{padding:7px 11px;border-bottom:1px solid #f1f5f9;color:#0f172a;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.ocb-table tbody tr:hover td{background:#f8fafc}
+.ocb-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:900}
+.ocb-pill-u{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.ocb-pill-r{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+.ocb-pill-o{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.ocb-muted{color:#64748b}
+.ocb-chevron{transition:transform .22s;font-size:12px;color:#64748b}
+.ocb-chevron.open{transform:rotate(180deg)}
+.ocb-sno{color:#94a3b8;font-weight:700;font-size:11px;text-align:center;min-width:32px}
+/* target filter bar */
+.ocb-tgt-bar{display:none;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 20px;background:#f8fafc;border-radius:14px;box-shadow:0 2px 12px rgba(15,23,42,.08);border:1.5px solid #e2e8f0}
+.ocb-tgt-label{font-size:12px;font-weight:900;color:#475569;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:7px;margin-right:4px;white-space:nowrap}
+.ocb-tgt-chip{display:inline-flex;align-items:center;gap:9px;padding:8px 16px;border-radius:999px;border:2px solid #cbd5e1;background:#fff;font-size:13px;font-weight:800;color:#334155;cursor:pointer;transition:all .18s;user-select:none;box-shadow:0 1px 4px rgba(15,23,42,.07)}
+.ocb-tgt-chip:hover{border-color:#94a3b8;background:#f1f5f9}
+.ocb-tgt-chip input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:inherit;margin:0}
+.ocb-tgt-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.ocb-tgt-chip.checked{border-width:2.5px;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.13);transform:scale(1.05)}
+.ocb-tgt-cnt{display:none}
+.ocb-tbl-count-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:#4f46e5;color:#fff;font-size:12px;font-weight:900;margin-left:8px}
+.ocb-tgt-excl{display:none;align-items:center;gap:9px;padding:8px 16px;border-radius:999px;border:2px dashed #f59e0b;background:#fffbeb;color:#b45309;font-size:13px;font-weight:800;cursor:pointer;transition:all .18s;user-select:none;box-shadow:0 1px 4px rgba(15,23,42,.07)}
+.ocb-tgt-excl:hover{background:#fef3c7}
+.ocb-tgt-excl input[type=checkbox]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:#f59e0b;margin:0}
+.ocb-tgt-excl.checked{background:#fef3c7;border-style:solid;font-weight:900;box-shadow:0 4px 14px rgba(245,158,11,.25);transform:scale(1.05)}
+.ocb-tgt-divider{width:1px;height:30px;background:#e2e8f0;margin:0 4px;flex-shrink:0}
+.ocb-isect-row{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;transition:all .15s;font-size:12px;font-weight:800;color:#334155}
+.ocb-isect-row:hover{border-color:#6366f1;background:#eef2ff;color:#4f46e5}
+.ocb-isect-row.active{border-color:#4f46e5;background:#eef2ff;color:#4f46e5;box-shadow:0 2px 8px rgba(99,102,241,.2)}
+.ocb-isect-cnt{font-size:13px;font-weight:900;padding:2px 9px;border-radius:7px;background:#4f46e5;color:#fff;margin-left:4px}
+</style>
+
+<div class="ocb-wrap" id="ocbRoot">
+  <div class="ocb-venn-panel">
+    <div class="ocb-venn-header">
+      <div class="ocb-venn-title"><i class="fas fa-circle-notch" style="color:#6366f1"></i> CR Distribution</div>
+
+      <button class="ocb-copy-btn" id="ocbCopyVenn" onclick="ocbCopyVenn()"><i class="fas fa-copy"></i> Copy</button>
+    </div>
+    <div class="ocb-venn-body">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div id="vTitle" style="font-size:13px;font-weight:900;color:#1e3a8a;text-align:center;letter-spacing:.01em">-</div>
+      <svg class="ocb-venn-svg" id="ocbVenn" width="380" height="230" viewBox="0 0 380 230">
+        <defs>
+          <radialGradient id="gU" cx="38%" cy="38%" r="62%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb" stop-opacity=".9"/></radialGradient>
+          <radialGradient id="gO" cx="62%" cy="38%" r="62%"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ea580c" stop-opacity=".9"/></radialGradient>
+          <filter id="vShadow"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity=".12"/></filter>
+        </defs>
+        <circle id="vCircleU" cx="148" cy="112" r="100" fill="url(#gU)" opacity=".82" filter="url(#vShadow)"/>
+        <circle id="vCircleO" cx="232" cy="112" r="100" fill="url(#gO)" opacity=".82" filter="url(#vShadow)"/>
+        <text x="90"  y="107" text-anchor="middle" font-size="28" font-weight="900" fill="#fff" font-family="system-ui,sans-serif" id="vLabelU">-</text>
+        <text x="190" y="107" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" font-family="system-ui,sans-serif" id="vLabelR">-</text>
+        <text x="290" y="107" text-anchor="middle" font-size="28" font-weight="900" fill="#fff" font-family="system-ui,sans-serif" id="vLabelO">-</text>
+        <text x="90"  y="138" text-anchor="middle" font-size="11" font-weight="800" fill="#dbeafe" font-family="system-ui,sans-serif">PDT Unique</text>
+        <text x="290" y="138" text-anchor="middle" font-size="11" font-weight="800" fill="#ffedd5" font-family="system-ui,sans-serif">Other Teams</text>
+      </svg>
+    </div>
+      <div class="ocb-venn-legend">
+        <div class="ocb-leg-row" id="legAll" onclick="ocbFilter('')"><div class="ocb-leg-dot" style="background:#0f172a"></div><span>All CRs</span>    <span class="ocb-leg-cnt" id="legAllCnt">-</span></div>
+        <div class="ocb-leg-row" id="legU"   onclick="ocbFilter('PDT_Unique')"><div class="ocb-leg-dot" style="background:#2563eb"></div><span>PDT Unique</span> <span class="ocb-leg-cnt" id="legUCnt">-</span></div>
+        <div class="ocb-leg-row" id="legR"   onclick="ocbFilter('PDT_Reported')"><div class="ocb-leg-dot" style="background:#059669"></div><span>Overlapping</span><span class="ocb-leg-cnt" id="legRCnt">-</span></div>
+        <div class="ocb-leg-row" id="legO"   onclick="ocbFilter('OtherTeam Reported')"><div class="ocb-leg-dot" style="background:#ea580c"></div><span>Other Teams</span><span class="ocb-leg-cnt" id="legOCnt">-</span></div>
+        <div class="ocb-venn-pct" id="ocbPctLine">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Target filter bar: between Venn and Bar chart -->
+  <div class="ocb-tgt-bar" id="ocbTargetBar"></div>
+
+  <!-- Intersection breakdown panel -->
+  <div id="ocbIntersectPanel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 2px 12px rgba(15,23,42,.07);padding:14px 18px">
+    <div style="font-size:12px;font-weight:900;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:7px">
+      <i class="fas fa-project-diagram" style="color:#6366f1"></i> Target Intersection Breakdown
+      <span style="font-size:11px;font-weight:700;color:#64748b">(click a row to filter table)</span>
+    </div>
+    <div id="ocbIntersectRows" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+  </div>
+
+  <!-- Bar Chart (full width, grouped side-by-side) -->
+  <div class="ocb-bar-panel">
+        <div class="ocb-bar-head">
+      <div class="ocb-bar-title"><i class="fas fa-chart-bar" style="color:#6366f1"></i><span id="ocbBarTitleText">CR Breakdown by Area</span></div>
+      <div class="ocb-bar-controls">
+        <select class="ocb-select" id="ocbGroupBy" onchange="ocbApplyFilters()">
+          <option value="area">By Area</option>
+          <option value="subs">By Subsystem</option>
+          <option value="func">By Functionality</option>
+          <option value="status">By Status</option>
+        </select>
+        <button class="ocb-topn-btn active" id="topn5"  onclick="ocbSetTopN(5)">Top 5</button>
+        <button class="ocb-topn-btn"        id="topn10" onclick="ocbSetTopN(10)">Top 10</button>
+        <button class="ocb-topn-btn"        id="topnAll" onclick="ocbSetTopN(0)">All</button>
+        <button class="ocb-copy-btn" id="ocbCopyBar" onclick="ocbCopyBar()"><i class="fas fa-copy"></i> Copy</button>
+      </div>
+    </div>
+        <div class="ocb-gbar-wrap">
+      <div class="ocb-gbar-chart" id="ocbGBar" style="min-height:280px">
+        <div class="ocb-muted" style="font-size:12px;padding:10px">Loading...</div>
+      </div>
+    </div>
+    <div class="ocb-bar-legend">
+      <div class="ocb-bar-leg-item"><div class="ocb-bar-leg-dot" style="background:#2563eb"></div>PDT Unique</div>
+      <div class="ocb-bar-leg-item"><div class="ocb-bar-leg-dot" style="background:#059669"></div>Overlapping</div>
+      <div class="ocb-bar-leg-item"><div class="ocb-bar-leg-dot" style="background:#ea580c"></div>Other Teams</div>
+    </div>
+  </div>
+
+  <!-- Table (collapsed) -->
+  <div class="ocb-tbl-panel">
+    <div class="ocb-tbl-head" id="ocbTblToggle" onclick="ocbToggleTable()">
+      <div class="ocb-tbl-head-left">
+        <i class="fas fa-chevron-down ocb-chevron" id="ocbChevron"></i>
+        <div><div class="ocb-tbl-title" id="ocbTableTitle">All CRs - Table</div><div class="ocb-tbl-sub">Click to expand &nbsp;<span class="ocb-tbl-count-badge" id="ocbRowCountBadge"><i class="fas fa-list"></i> <span id="ocbRowCount">0</span> rows</span></div></div>
+      </div>
+      <div class="ocb-tbl-actions" onclick="event.stopPropagation()">
+        <button class="ocb-btn ocb-btn-ghost ocb-btn-active" id="btnAll" onclick="ocbFilter('')">All</button>
+        <button class="ocb-btn ocb-btn-ghost" id="btnU"  onclick="ocbFilter('PDT_Unique')">PDT Unique</button>
+        <button class="ocb-btn ocb-btn-ghost" id="btnR"  onclick="ocbFilter('PDT_Reported')">Overlapping</button>
+        <button class="ocb-btn ocb-btn-ghost" id="btnO"  onclick="ocbFilter('OtherTeam Reported')">Other Teams</button>
+        <button class="ocb-copy-btn" id="ocbCopyTbl" onclick="ocbCopyTable()"><i class="fas fa-copy"></i> Copy</button>
+        <button class="ocb-btn ocb-btn-primary" onclick="ocbReload()"><i class="fas fa-sync-alt"></i> Reload</button>
+      </div>
+    </div>
+    <div class="ocb-tbl-body" id="ocbTblBody">
+      <div class="ocb-tablewrap">
+        <table class="ocb-table">
+          <thead id="ocbThead"><tr><th colspan="3" style="padding:14px">Loading...</th></tr></thead>
+          <tbody id="ocbTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var target  = {{ target_name|tojson }};
+  var sumUrl  = '/api/overall_crs_summary/'+encodeURIComponent(target);
+  var rowsUrl = function(team,grpVal){ 
+    var b='/api/overall_crs_rows/'+encodeURIComponent(target)+'?limit=500';
+    if(team) b+='&reported_team='+encodeURIComponent(team);
+    if(grpVal) b+='&grp_val='+encodeURIComponent(grpVal);
+    if(_seenTargets.length){ b+='&seen_target='+encodeURIComponent(_seenTargets.join(',')); }
+    return b;
+  };
+  var brkUrlFor = function(col){
+    var b='/api/overall_crs_breakdown/'+encodeURIComponent(target)+'?col='+encodeURIComponent(col);
+    if(_seenTargets.length){ b+='&seen_target='+encodeURIComponent(_seenTargets.join(',')); }
+    return b;
+  };
+
+  var _activeFilter='', _tableLoaded=false, _tableOpen=false;
+  var _brkCache={}, _activeGrpVal=null, _topN=5;
+  var _seenTargets=[];  /* array of selected target strings - multi-select */
+
+  function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function num(v){ return v==null?'-':Number(v).toLocaleString(); }
+
+  function pill(team){
+    if(team==='PDT_Unique')   return '<span class="ocb-pill ocb-pill-u">PDT Unique</span>';
+    if(team==='PDT_Reported') return '<span class="ocb-pill ocb-pill-r">Overlapping</span>';
+    return '<span class="ocb-pill ocb-pill-o">Other Teams</span>';
+  }
+
+  function setActive(team){
+    ['btnAll','btnU','btnR','btnO'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('ocb-btn-active'); });
+    ['legAll','legU','legR','legO'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('active'); });
+    var map={'':'All CRs - Table','PDT_Unique':'PDT Unique CRs','PDT_Reported':'Overlapping CRs','OtherTeam Reported':'Other Teams CRs'};
+    var el=document.getElementById('ocbTableTitle'); if(el) el.textContent=map[team]||'All CRs - Table';
+    if(team===''){document.getElementById('btnAll').classList.add('ocb-btn-active');document.getElementById('legAll').classList.add('active');}
+    if(team==='PDT_Unique'){document.getElementById('btnU').classList.add('ocb-btn-active');document.getElementById('legU').classList.add('active');}
+    if(team==='PDT_Reported'){document.getElementById('btnR').classList.add('ocb-btn-active');document.getElementById('legR').classList.add('active');}
+    if(team==='OtherTeam Reported'){document.getElementById('btnO').classList.add('ocb-btn-active');document.getElementById('legO').classList.add('active');}
+  }
+
+  
+  /* distinct vivid colors per target slot */
+    var _tgtColors=[
+    {bg:'#eff6ff', border:'#3b82f6', checkedBg:'#dbeafe', color:'#1d4ed8', dot:'#3b82f6'},
+    {bg:'#f0fdf4', border:'#22c55e', checkedBg:'#dcfce7', color:'#15803d', dot:'#22c55e'},
+    {bg:'#fff7ed', border:'#f97316', checkedBg:'#ffedd5', color:'#c2410c', dot:'#f97316'},
+    {bg:'#faf5ff', border:'#a855f7', checkedBg:'#f3e8ff', color:'#7e22ce', dot:'#a855f7'},
+    {bg:'#fdf2f8', border:'#ec4899', checkedBg:'#fce7f3', color:'#be185d', dot:'#ec4899'},
+    {bg:'#f0fdfa', border:'#14b8a6', checkedBg:'#ccfbf1', color:'#0f766e', dot:'#14b8a6'},
+    {bg:'#fefce8', border:'#eab308', checkedBg:'#fef9c3', color:'#a16207', dot:'#eab308'},
+    {bg:'#fff1f2', border:'#f43f5e', checkedBg:'#ffe4e6', color:'#be123c', dot:'#f43f5e'},
+  ];
+
+  /* ---- Target filter (seen_in_targets) ---- */
+  function loadTargetFilters(){
+    fetch('/api/overall_crs_targets/'+encodeURIComponent(target),{cache:'no-store'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var bar=document.getElementById('ocbTargetBar');
+        if(!bar) return;
+        var targets=d.targets||[];
+        if(!targets.length){bar.style.display='none';return;}
+        var html='<div class="ocb-tgt-label"><i class="fas fa-layer-group"></i> Seen In Target</div>';
+        html+='<div class="ocb-tgt-divider"></div>';
+        targets.forEach(function(t,i){
+          var c=_tgtColors[i%_tgtColors.length];
+          var safeT=t.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          html+='<label class="ocb-tgt-chip" id="chip_'+encodeURIComponent(t)+'" '
+            +'data-bg="'+c.bg+'" data-checked-bg="'+c.checkedBg+'" '
+            +'style="background:'+c.bg+';border-color:'+c.border+';color:'+c.color+'" '
+            +'onclick="ocbTargetClick(this,\''+safeT+'\')">';
+          html+='<input type="checkbox" value="'+t+'" style="accent-color:'+c.dot+'">'
+            +'<span class="ocb-tgt-dot" style="background:'+c.dot+'"></span>'
+            +'<span class="ocb-tgt-name">'+t+'</span>'
+            +'<span class="ocb-tgt-cnt" id="cnt_'+encodeURIComponent(t)+'">?</span></label>';
+        });
+        bar.innerHTML=html;
+        bar.style.display='flex';
+        /* build color map for pill rendering in table */
+        window._ocbTgtColorMap={};
+        targets.forEach(function(t,i){ window._ocbTgtColorMap[t]=_tgtColors[i%_tgtColors.length]; });
+      }).catch(function(){document.getElementById('ocbTargetBar').style.display='none';});
+    }
+
+  window.ocbTargetClick=function(label,val){
+    var cb=label.querySelector('input[type=checkbox]');
+    var isChecked=label.classList.contains('checked');
+    /* toggle this chip */
+    if(isChecked){
+      label.classList.remove('checked');
+      label.style.background=label.dataset.bg||'';
+      if(cb) cb.checked=false;
+      _seenTargets=_seenTargets.filter(function(t){return t!==val;});
+    } else {
+      label.classList.add('checked');
+      label.style.background=label.dataset.checkedBg||label.dataset.bg||'';
+      if(cb) cb.checked=true;
+      if(_seenTargets.indexOf(val)<0) _seenTargets.push(val);
+    }
+    _refreshAll();
+    _renderIntersections();
+  };
+
+
+    /* update row count badge in table header */
+  function _updateRowCount(n){
+    var el=document.getElementById('ocbRowCount'); if(el) el.textContent=n;
+  }
+
+
+  /* ---- Intersection breakdown ---- */
+  var _activeIntersect = null;  /* currently selected combo key */
+
+  function _renderIntersections(){
+    var panel = document.getElementById('ocbIntersectPanel');
+    var rowsEl = document.getElementById('ocbIntersectRows');
+    if(!panel || !rowsEl) return;
+    if(!_seenTargets.length){ panel.style.display='none'; _activeIntersect=null; return; }
+
+    panel.style.display='block';
+    rowsEl.innerHTML='<span style="color:#94a3b8;font-size:11px">Computing...</span>';
+
+    /* fetch all rows for selected targets */
+    var url='/api/overall_crs_rows/'+encodeURIComponent(target)+'?limit=9999'
+      +'&seen_target='+encodeURIComponent(_seenTargets.join(','));
+    fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+            var rows=d.rows||[];
+      /* build combo map: for each CR, use its FULL seen_in_targets list as the combo key */
+      var comboMap={};
+      rows.forEach(function(row){
+        var sit=String(row.seen_in_targets||'');
+        var parts=sit.split(';').map(function(x){return x.trim();}).filter(Boolean);
+        if(!parts.length) return;
+        var key=parts.slice().sort().join(' + ');
+        if(!comboMap[key]) comboMap[key]={count:0,targets:parts.slice().sort(),crids:[]};
+        comboMap[key].count++;
+        if(row.crid) comboMap[key].crids.push(row.crid);
+      });
+
+      /* sort: exclusive first (single target), then combos by count desc */
+      var combos=Object.keys(comboMap).map(function(k){return{key:k,count:comboMap[k].count,targets:comboMap[k].targets,crids:comboMap[k].crids};});
+      combos.sort(function(a,b){
+        if(a.targets.length!==b.targets.length) return a.targets.length-b.targets.length;
+        return b.count-a.count;
+      });
+
+      if(!combos.length){rowsEl.innerHTML='<span style="color:#94a3b8;font-size:11px">No data.</span>';return;}
+
+      rowsEl.innerHTML='';
+      combos.forEach(function(combo){
+        var div=document.createElement('div');
+        div.className='ocb-isect-row'+((_activeIntersect===combo.key)?' active':'');
+        div.dataset.key=combo.key;
+        div.dataset.crids=combo.crids.join(',');
+
+                /* colored dots for each target in combo */
+        var dots='';
+        combo.targets.forEach(function(t){
+          var c=(window._ocbTgtColorMap&&window._ocbTgtColorMap[t])
+            ? window._ocbTgtColorMap[t]
+            : _tgtColors[0];
+          dots+='<span style="width:9px;height:9px;border-radius:50%;background:'+c.dot+';flex-shrink:0;display:inline-block"></span>';
+        });
+
+                /* label: full target names, "only" suffix if single target */
+        var label=combo.targets.join(' + ');
+        if(combo.targets.length===1) label+=' only';
+
+        div.innerHTML=dots
+          +'<span>'+label+'</span>'
+          +'<span class="ocb-isect-cnt">'+combo.count+'</span>';
+
+        div.onclick=function(){
+          /* toggle active */
+          document.querySelectorAll('.ocb-isect-row').forEach(function(r){r.classList.remove('active');});
+          if(_activeIntersect===combo.key){
+            _activeIntersect=null;
+            /* reset to all selected targets */
+            _tableLoaded=false;
+            if(_tableOpen) _loadTable(_activeFilter, document.getElementById('ocbGroupBy').value||'area', _activeGrpVal);
+          } else {
+            _activeIntersect=combo.key;
+            div.classList.add('active');
+            /* load table filtered to these specific CRs */
+            _loadTableByCrids(combo.crids);
+          }
+        };
+        rowsEl.appendChild(div);
+      });
+    }).catch(function(){rowsEl.innerHTML='<span style="color:#b91c1c;font-size:11px">Error loading.</span>';});
+  }
+
+  function _loadTableByCrids(crids){
+    if(!_tableOpen) ocbToggleTable();
+    var tbody=document.getElementById('ocbTbody');
+    tbody.innerHTML='<tr><td colspan="20" class="ocb-muted" style="padding:14px">Loading...</td></tr>';
+    /* filter _allRows if already loaded, else fetch and filter */
+    if(_allRows.length){
+      var set={}; crids.forEach(function(c){set[c]=1;});
+      var filtered=_allRows.filter(function(r){return set[r.crid];});
+      _updateRowCount(filtered.length);
+      _renderRows(filtered);
+    } else {
+      var url='/api/overall_crs_rows/'+encodeURIComponent(target)+'?limit=9999'
+        +'&seen_target='+encodeURIComponent(_seenTargets.join(','));
+      fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+        renderTable(d.rows||[]);
+        var set={}; crids.forEach(function(c){set[c]=1;});
+        var filtered=(d.rows||[]).filter(function(r){return set[r.crid];});
+        _updateRowCount(filtered.length);
+        _renderRows(filtered);
+      }).catch(function(e){
+        tbody.innerHTML='<tr><td colspan="20" style="padding:14px;color:#b91c1c">Error: '+esc(e)+'</td></tr>';
+      });
+    }
+  }
+
+  function _refreshAll(){
+    _brkCache={}; _tableLoaded=false;
+    /* update bar title to show active targets */
+    var col=document.getElementById('ocbGroupBy');
+    var colVal=col?col.value:'area';
+    var labels={'area':'CR Breakdown by Area','subs':'CR Breakdown by Subsystem','func':'CR Breakdown by Functionality','status':'CR Breakdown by Status'};
+    var titleEl=document.getElementById('ocbBarTitleText');
+    if(titleEl){
+      var base=labels[colVal]||'CR Breakdown';
+      titleEl.textContent=_seenTargets.length?base+' — '+_seenTargets.join(' + '):base;
+    }
+    /* reload summary */
+    fetch(sumUrl,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.success) renderSummary(d.summary||{});}).catch(function(){});
+    /* reload bar */
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    fetch(brkUrlFor(col),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(d.success){ _brkCache[col]=d.rows||[]; renderGBar(_brkCache[col]); }
+    }).catch(function(){});
+    /* reload table if open */
+    if(_tableOpen) _loadTable(_activeFilter, col, _activeGrpVal);
+  }
+
+  /* ---- Summary ---- */
+  function renderSummary(s){
+    var total=+(s.total_crs||0), u=+(s.pdt_unique||0), r=+(s.pdt_reported||0), o=+(s.other_team_reported||0);
+    var disp=(s.sp_name||target).toUpperCase();
+    document.getElementById('vTitle').textContent=disp+' (Total: '+num(total)+')';
+    document.getElementById('vLabelU').textContent=num(u);
+    document.getElementById('vLabelR').textContent=num(r);
+    document.getElementById('vLabelO').textContent=num(o);
+    document.getElementById('legAllCnt').textContent=num(total);
+    document.getElementById('legUCnt').textContent=num(u);
+    document.getElementById('legRCnt').textContent=num(r);
+    document.getElementById('legOCnt').textContent=num(o);
+
+  }
+
+  /* ---- Grouped Side-by-Side Bar Chart ---- */
+    function renderGBar(rows){
+    var container=document.getElementById('ocbGBar');
+    if(!rows||!rows.length){container.innerHTML='<div class="ocb-muted" style="font-size:12px;padding:20px">No data.</div>';return;}
+
+    /* aggregate */
+    var agg={};
+    rows.forEach(function(r){
+      var g=r.grp||'(blank)';
+      if(!agg[g]) agg[g]={u:0,r:0,o:0};
+      if(r.reported_team==='PDT_Unique') agg[g].u+=+r.cnt;
+      else if(r.reported_team==='PDT_Reported') agg[g].r+=+r.cnt;
+      else agg[g].o+=+r.cnt;
+    });
+    var sorted=Object.keys(agg).map(function(g){
+      return{g:g,u:agg[g].u,r:agg[g].r,o:agg[g].o,t:agg[g].u+agg[g].r+agg[g].o};
+    }).sort(function(a,b){return b.t-a.t;});
+    var sliced=(_topN>0)?sorted.slice(0,_topN):sorted;
+    if(!sliced.length){container.innerHTML='<div class="ocb-muted" style="font-size:12px;padding:20px">No data.</div>';return;}
+
+    /* scale on max individual bar value */
+    var maxVal=0;
+    sliced.forEach(function(row){ maxVal=Math.max(maxVal,row.u,row.r,row.o); });
+    if(!maxVal) maxVal=1;
+    var barH=200;
+
+    var html='';
+    sliced.forEach(function(row){
+      var isActive=(_activeGrpVal && row.g===_activeGrpVal);
+      var hu=Math.max(22,Math.round((row.u/maxVal)*barH));
+      var hr=Math.max(22,Math.round((row.r/maxVal)*barH));
+      var ho=Math.max(22,Math.round((row.o/maxVal)*barH));
+      var grpBg=isActive?'background:#f5f3ff;border-radius:10px;':'';
+      var outline=isActive?'outline:2.5px solid #6366f1;outline-offset:2px;border-radius:6px;':'';
+
+      html+='<div class="ocb-gbar-group" onclick="ocbBarClick(\''+esc(row.g)+'\')" style="'+grpBg+'">';
+
+      /* bars — count label sits INSIDE each bar at the top */
+      html+='<div class="ocb-gbar-bars" style="'+outline+';align-items:flex-end">';
+      if(row.u) html+=
+        '<div class="ocb-gbar-bar" style="height:'+hu+'px;background:linear-gradient(180deg,#60a5fa,#2563eb);position:relative" data-tip="PDT Unique: '+row.u+'">'
+        +'<span style="position:absolute;top:3px;left:0;right:0;text-align:center;font-size:10px;font-weight:900;color:#fff;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.5)">'+row.u+'</span>'
+        +'</div>';
+      if(row.r) html+=
+        '<div class="ocb-gbar-bar" style="height:'+hr+'px;background:linear-gradient(180deg,#34d399,#059669);position:relative" data-tip="Overlapping: '+row.r+'">'
+        +'<span style="position:absolute;top:3px;left:0;right:0;text-align:center;font-size:10px;font-weight:900;color:#fff;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.5)">'+row.r+'</span>'
+        +'</div>';
+      if(row.o) html+=
+        '<div class="ocb-gbar-bar" style="height:'+ho+'px;background:linear-gradient(180deg,#fb923c,#ea580c);position:relative" data-tip="Other Teams: '+row.o+'">'
+        +'<span style="position:absolute;top:3px;left:0;right:0;text-align:center;font-size:10px;font-weight:900;color:#fff;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.5)">'+row.o+'</span>'
+        +'</div>';
+      html+='</div>';
+
+      /* axis */
+      html+='<div class="ocb-gbar-axis"></div>';
+
+      /* x-axis label — full text */
+      html+='<div class="ocb-gbar-lbl" title="'+esc(row.g)+'" style="'+(isActive?'color:#4f46e5;font-weight:900;':'')+'">'+esc(row.g)+'</div>';
+      html+='</div>';
+    });
+    container.innerHTML=html;
+  }
+
+  /* Top N selector */
+  window.ocbSetTopN=function(n){
+    _topN=n;
+    ['topn5','topn10','topnAll'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('active'); });
+    var idMap={5:'topn5',10:'topn10',0:'topnAll'};
+    var btn=document.getElementById(idMap[n]); if(btn) btn.classList.add('active');
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    if(_brkCache[col]) renderGBar(_brkCache[col]);
+  };
+
+  /* bar click -> filter table */
+  window.ocbBarClick=function(grpVal){
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    _activeGrpVal=(_activeGrpVal===grpVal)?null:grpVal;
+    if(_brkCache[col]) renderGBar(_brkCache[col]);
+    var tEl=document.getElementById('ocbTableTitle');
+    if(tEl) tEl.textContent=_activeGrpVal?(col.charAt(0).toUpperCase()+col.slice(1)+': '+_activeGrpVal):'All CRs - Table';
+    _tableLoaded=false;
+    if(_tableOpen) _loadTable(_activeFilter, col, _activeGrpVal);
+  };
+
+  window.ocbApplyFilters=function(){
+    _activeGrpVal=null;
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    var labels={'area':'CR Breakdown by Area','subs':'CR Breakdown by Subsystem','func':'CR Breakdown by Functionality','status':'CR Breakdown by Status'};
+    var titleEl=document.getElementById('ocbBarTitleText');
+    if(titleEl) titleEl.textContent=labels[col]||'CR Breakdown';
+    if(_brkCache[col]){
+      renderGBar(_brkCache[col]);
+    } else {
+      var container=document.getElementById('ocbGBar');
+      container.innerHTML='<div class="ocb-muted" style="font-size:12px;padding:10px">Loading...</div>';
+      fetch(brkUrlFor(col),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+        if(d.success){ _brkCache[col]=d.rows||[]; renderGBar(_brkCache[col]); }
+        else { container.innerHTML='<div class="ocb-muted" style="font-size:12px;padding:10px">No data.</div>'; }
+      }).catch(function(){ container.innerHTML='<div class="ocb-muted" style="font-size:12px;padding:10px">Error loading.</div>'; });
+    }
+    _tableLoaded=false;
+    if(_tableOpen) _loadTable(_activeFilter, col, null);
+  };
+
+  /* ---- Table ---- */
+  var _allRows    = [];
+  var _colFilters = {};  /* col -> Set of selected values (empty Set = no filter) */
+  var _openPanel  = null; /* currently open dropdown col */
+
+  /* close any open panel when clicking outside */
+  document.addEventListener('click', function(){ _closeAllPanels(); });
+
+  function _closeAllPanels(){
+    document.querySelectorAll('.ocb-msd-panel.open').forEach(function(p){ p.classList.remove('open'); });
+    _openPanel = null;
+  }
+
+  function _applyColFilters(){
+    var filtered = _allRows.filter(function(r){
+      return Object.keys(_colFilters).every(function(col){
+        var sel = _colFilters[col];
+        if(!sel || sel.size === 0) return true;
+        return sel.has(String(r[col]||'').trim());
+      });
+    });
+    _renderRows(filtered);
+    /* update button labels */
+    Object.keys(_colFilters).forEach(function(col){
+      var btn = document.querySelector('.ocb-msd-btn[data-col="'+col+'"]');
+      if(!btn) return;
+      var sel = _colFilters[col];
+      if(!sel || sel.size === 0){ btn.textContent='All'; btn.classList.remove('active'); }
+      else { btn.textContent = sel.size+' selected'; btn.classList.add('active'); }
+    });
+  }
+
+  function _fmtVal(col, v){
+    /* strip time from date/datetime columns */
+    if(!v) return v;
+    var s = String(v);
+    if(/date|time/i.test(col) && /^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0,10);
+    if(/date|time/i.test(col) && /^\d{4}-\d{2}-\d{2} \d{2}:/.test(s)) return s.slice(0,10);
+    return s;
+  }
+
+    function _renderRows(rows){
+    var tbody = document.getElementById('ocbTbody');
+    var cols  = window._ocbCols || [];
+    _updateRowCount(rows.length);
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="'+(cols.length+1)+'" class="ocb-muted" style="padding:14px">No matching rows.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r,i){
+      return '<tr><td class="ocb-sno">'+(i+1)+'</td>'+cols.map(function(c){
+        var v = _fmtVal(c, r[c]);
+                if(c==='reported_team') return '<td>'+pill(r[c]||'')+'</td>';
+        if(c==='crid') return '<td style="font-weight:900;color:#1d4ed8">'+esc(v)+'</td>';
+        if(c==='seen_in_targets') return '<td style="white-space:normal;min-width:160px">'+_tgtPills(r[c])+'</td>';
+        return '<td title="'+esc(v)+'">'+esc(v)+'</td>';
+      }).join('')+'</tr>';
+    }).join('');
+  }
+
+  function _tgtPills(val){
+    if(!val||String(val).trim()===''||String(val).toLowerCase()==='null') return '<span style="color:#94a3b8;font-size:10px">—</span>';
+    var parts=String(val).split(';');
+    return parts.map(function(t){
+      t=t.trim(); if(!t) return '';
+      var c=_tgtColors[0];
+      if(window._ocbTgtColorMap&&window._ocbTgtColorMap[t]) c=window._ocbTgtColorMap[t];
+      return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;border:1.5px solid '+c.border+';background:'+c.checkedBg+';color:'+c.color+';font-size:10px;font-weight:800;white-space:nowrap;margin:1px 2px">'
+        +'<span style="width:7px;height:7px;border-radius:50%;background:'+c.dot+';flex-shrink:0"></span>'
+        +esc(t)+'</span>';
+    }).join('');
+  }
+
+  function _buildMsdHtml(col, vals){
+    var items = vals.map(function(v){
+      return '<label class="ocb-msd-item">'
+        +'<input type="checkbox" value="'+esc(v)+'" data-col="'+esc(col)+'">'
+        +esc(v)
+        +'</label>';
+    }).join('');
+    return '<div class="ocb-msd-wrap">'
+      +'<button type="button" class="ocb-msd-btn" data-col="'+esc(col)+'" onclick="ocbMsdToggle(event,\''+esc(col)+'\')" >All</button>'
+      +'<div class="ocb-msd-panel" id="ocbMsd_'+esc(col)+'">'
+        +'<input class="ocb-msd-search" placeholder="Search..." oninput="ocbMsdSearch(this,\''+esc(col)+'\')" onclick="event.stopPropagation()">'
+        +'<div class="ocb-msd-list" id="ocbMsdList_'+esc(col)+'">'+items+'</div>'
+        +'<div class="ocb-msd-footer">'
+          +'<button onclick="ocbMsdAll(\''+esc(col)+'\',true);event.stopPropagation()">All</button>'
+          +'<button onclick="ocbMsdAll(\''+esc(col)+'\',false);event.stopPropagation()">None</button>'
+          +'<button onclick="ocbMsdApply(\''+esc(col)+'\');event.stopPropagation()">Apply</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  window.ocbMsdToggle = function(e, col){
+    e.stopPropagation();
+    var panel = document.getElementById('ocbMsd_'+col);
+    if(!panel) return;
+    var isOpen = panel.classList.contains('open');
+    _closeAllPanels();
+    if(!isOpen){
+      /* position panel below the button */
+      var btn = e.currentTarget;
+      var rect = btn.getBoundingClientRect();
+      panel.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+      panel.style.left = (rect.left   + window.scrollX)     + 'px';
+      panel.classList.add('open');
+      _openPanel = col;
+      var si = panel.querySelector('.ocb-msd-search'); if(si){ si.value=''; ocbMsdSearch(si,col); si.focus(); }
+    }
+  };
+
+  window.ocbMsdSearch = function(inp, col){
+    var q = inp.value.trim().toLowerCase();
+    var list = document.getElementById('ocbMsdList_'+col);
+    if(!list) return;
+    list.querySelectorAll('.ocb-msd-item').forEach(function(item){
+      var txt = item.textContent.trim().toLowerCase();
+      item.style.display = (!q || txt.indexOf(q)>=0) ? '' : 'none';
+    });
+  };
+
+  window.ocbMsdAll = function(col, check){
+    var list = document.getElementById('ocbMsdList_'+col);
+    if(!list) return;
+    list.querySelectorAll('input[type=checkbox]').forEach(function(cb){ cb.checked = check; });
+  };
+
+  window.ocbMsdApply = function(col){
+    var list = document.getElementById('ocbMsdList_'+col);
+    if(!list) return;
+    var checked = [];
+    list.querySelectorAll('input[type=checkbox]:checked').forEach(function(cb){ checked.push(cb.value); });
+    _colFilters[col] = new Set(checked);
+    _closeAllPanels();
+    _applyColFilters();
+  };
+
+  function renderTable(rows){
+    var thead=document.getElementById('ocbThead'), tbody=document.getElementById('ocbTbody');
+    if(!rows.length){thead.innerHTML='<tr><th>#</th><th>No Data</th></tr>';tbody.innerHTML='<tr><td colspan="2" class="ocb-muted" style="padding:14px">No rows returned.</td></tr>';return;}
+    var priority=['crid','reported_team','seen_in_targets'], allCols=Object.keys(rows[0]);
+    var front=priority.filter(function(c){return allCols.indexOf(c)>=0;});
+    var cols=front.concat(allCols.filter(function(c){return priority.indexOf(c)<0;}));
+    window._ocbCols = cols;
+    _allRows = rows;
+    _colFilters = {};
+    /* unique sorted values per col */
+    var uniq = {};
+    cols.forEach(function(c){
+      var vals = {};
+      rows.forEach(function(r){ var v=_fmtVal(c, String(r[c]||'').trim()); if(v) vals[v]=1; });
+      uniq[c] = Object.keys(vals).sort(function(a,b){ return a.localeCompare(b); });
+    });
+    thead.innerHTML='<tr><th class="ocb-sno"><span class="ocb-th-label">#</span></th>'
+      +cols.map(function(c){
+        return '<th onclick="event.stopPropagation()">'
+          +'<span class="ocb-th-label" title="'+esc(c)+'">'+esc(c.replace(/_/g,' ').toUpperCase())+'</span>'
+          +_buildMsdHtml(c, uniq[c])
+          +'</th>';
+      }).join('')+'</tr>';
+    _renderRows(rows);
+  }
+
+  function _loadTable(team, col, grpVal){
+    var tbody=document.getElementById('ocbTbody');
+    tbody.innerHTML='<tr><td colspan="20" class="ocb-muted" style="padding:14px">Loading...</td></tr>';
+    fetch(rowsUrl(team, grpVal),{cache:'no-store'}).then(function(r){return r.json();}).then(function(data){
+      if(!data.success) throw new Error(data.message||'Failed');
+      renderTable(data.rows||[]); _tableLoaded=true;
+    }).catch(function(e){
+      tbody.innerHTML='<tr><td colspan="20" style="padding:14px;color:#b91c1c;font-weight:800">Error: '+esc(e.message||e)+'</td></tr>';
+    });
+  }
+
+  window.ocbToggleTable=function(){
+    _tableOpen=!_tableOpen;
+    var body=document.getElementById('ocbTblBody'), chev=document.getElementById('ocbChevron');
+    body.classList.toggle('open',_tableOpen);
+    chev.classList.toggle('open',_tableOpen);
+    if(_tableOpen&&!_tableLoaded){
+      var col=document.getElementById('ocbGroupBy').value||'area';
+      _loadTable(_activeFilter, col, _activeGrpVal);
+    }
+  };
+
+  window.ocbFilter=function(team){
+    _activeFilter=team; setActive(team); _tableLoaded=false;
+    if(!_tableOpen) return;
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    _loadTable(team, col, _activeGrpVal);
+  };
+
+  window.ocbReload=function(){
+    _brkCache={};
+    fetch(sumUrl,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.success) renderSummary(d.summary||{});}).catch(function(){});
+    var col=document.getElementById('ocbGroupBy').value||'area';
+    fetch(brkUrlFor(col),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(d.success){ _brkCache[col]=d.rows||[]; renderGBar(_brkCache[col]); }
+    }).catch(function(){});
+    if(_tableOpen){ _loadTable(_activeFilter, col, _activeGrpVal); }
+  };
+
+  /* ---- Copy functions ---- */
+  window.ocbCopyVenn = function(){
+    var title = document.getElementById('vTitle').textContent||'';
+    var u = document.getElementById('legUCnt').textContent||'-';
+    var r = document.getElementById('legRCnt').textContent||'-';
+    var o = document.getElementById('legOCnt').textContent||'-';
+    var all = document.getElementById('legAllCnt').textContent||'-';
+    var text = title+'\n'+'All CRs: '+all+'\nPDT Unique: '+u+'\nOverlapping: '+r+'\nOther Teams: '+o;
+    navigator.clipboard.writeText(text).then(function(){
+      var btn=document.getElementById('ocbCopyVenn');
+      btn.classList.add('copied'); btn.innerHTML='<i class="fas fa-check"></i> Copied';
+      setTimeout(function(){ btn.classList.remove('copied'); btn.innerHTML='<i class="fas fa-copy"></i> Copy'; },2000);
+    }).catch(function(){ alert('Copy failed'); });
+  };
+
+  window.ocbCopyBar = function(){
+    var col = document.getElementById('ocbGroupBy').value||'area';
+    var rows = _brkCache[col]||[];
+    if(!rows.length){ alert('No data to copy'); return; }
+    var agg={};
+    rows.forEach(function(r){
+      var g=r.grp||'(blank)';
+      if(!agg[g]) agg[g]={u:0,r:0,o:0};
+      if(r.reported_team==='PDT_Unique') agg[g].u+=+r.cnt;
+      else if(r.reported_team==='PDT_Reported') agg[g].r+=+r.cnt;
+      else agg[g].o+=+r.cnt;
+    });
+    var sorted=Object.keys(agg).map(function(g){return{g:g,u:agg[g].u,r:agg[g].r,o:agg[g].o,t:agg[g].u+agg[g].r+agg[g].o};}).sort(function(a,b){return b.t-a.t;});
+    var disp=(_topN>0)?sorted.slice(0,_topN):sorted;
+    var lines=[col.toUpperCase()+'\tPDT Unique\tOverlapping\tOther Teams\tTotal'];
+    disp.forEach(function(row){ lines.push(row.g+'\t'+row.u+'\t'+row.r+'\t'+row.o+'\t'+row.t); });
+    navigator.clipboard.writeText(lines.join('\n')).then(function(){
+      var btn=document.getElementById('ocbCopyBar');
+      btn.classList.add('copied'); btn.innerHTML='<i class="fas fa-check"></i> Copied';
+      setTimeout(function(){ btn.classList.remove('copied'); btn.innerHTML='<i class="fas fa-copy"></i> Copy'; },2000);
+    }).catch(function(){ alert('Copy failed'); });
+  };
+
+  window.ocbCopyTable = function(){
+    var thead = document.getElementById('ocbThead');
+    var tbody = document.getElementById('ocbTbody');
+    if(!thead || !tbody){ alert('No table to copy'); return; }
+    var trs = tbody.querySelectorAll('tr');
+    if(!trs.length){ alert('No data to copy'); return; }
+
+    /* ---- Build styled HTML table (pastes correctly into Outlook / Excel) ---- */
+    var thStyle  = 'background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;padding:5px 8px;border:1px solid #ccc;white-space:nowrap;text-align:left;';
+    var tdStyle  = 'font-size:11px;padding:4px 8px;border:1px solid #ddd;white-space:nowrap;vertical-align:middle;';
+    var trEven   = 'background:#f0f4ff;';
+    var trOdd    = 'background:#ffffff;';
+
+    var html = '<table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;">';
+
+    /* header row */
+    var hCells = thead.querySelectorAll('th');
+    if(hCells.length){
+      html += '<thead><tr>';
+      hCells.forEach(function(th){
+        html += '<th style="'+thStyle+'">'+th.textContent.trim()+'</th>';
+      });
+      html += '</tr></thead>';
+    }
+
+    /* body rows */
+    html += '<tbody>';
+    trs.forEach(function(tr, idx){
+      var bg = (idx % 2 === 0) ? trOdd : trEven;
+      html += '<tr style="'+bg+'">';
+      tr.querySelectorAll('td').forEach(function(td){
+        /* strip pill/badge HTML — keep plain text */
+        var val = td.textContent.trim();
+        html += '<td style="'+tdStyle+'">'+val+'</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    /* plain-text fallback (tab-separated) */
+    var textRows = [];
+    if(hCells.length) textRows.push(Array.from(hCells).map(function(th){ return th.textContent.trim(); }).join('\t'));
+    trs.forEach(function(tr){
+      textRows.push(Array.from(tr.querySelectorAll('td')).map(function(td){ return td.textContent.trim(); }).join('\t'));
+    });
+    var plainText = textRows.join('\n');
+
+    var btn = document.getElementById('ocbCopyTbl');
+    function _markCopied(){
+      if(btn){ btn.classList.add('copied'); btn.innerHTML='<i class="fas fa-check"></i> Copied'; }
+      setTimeout(function(){ if(btn){ btn.classList.remove('copied'); btn.innerHTML='<i class="fas fa-copy"></i> Copy'; } }, 2000);
+    }
+
+    /* Use ClipboardItem (HTML + plain) so Excel/Outlook get the table */
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      try{
+        var item = new ClipboardItem({
+          'text/html' : new Blob([html],      {type:'text/html'}),
+          'text/plain': new Blob([plainText], {type:'text/plain'})
+        });
+        navigator.clipboard.write([item]).then(_markCopied).catch(function(){
+          /* fallback to plain text */
+          navigator.clipboard.writeText(plainText).then(_markCopied).catch(function(){ alert('Copy failed'); });
+        });
+      } catch(e){
+        navigator.clipboard.writeText(plainText).then(_markCopied).catch(function(){ alert('Copy failed'); });
+      }
+    } else {
+      navigator.clipboard.writeText(plainText).then(_markCopied).catch(function(){ alert('Copy failed'); });
+    }
+  };
+
+  window.ocbLoadRows=window.ocbFilter;
+
+  ocbReload();
+  loadTargetFilters();
+})();
+</script>
+{% endblock %}

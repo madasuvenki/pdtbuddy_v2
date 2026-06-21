@@ -1,0 +1,838 @@
+{% extends "target_layout.html" %}
+{% block page_heading %}{{ target_display_name }} – Device Summary{% endblock %}
+{% block page_content %}
+<style>
+.ds-wrap{padding:0 2px 32px}
+.ds-hero{background:linear-gradient(135deg,#0f172a 0%,#065f46 55%,#059669 100%);border-radius:20px;padding:20px 26px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;box-shadow:0 8px 32px rgba(15,23,42,.2)}
+.ds-hero-title{color:#fff;font-size:21px;font-weight:900;letter-spacing:-.3px}
+.ds-hero-sub{color:rgba(255,255,255,.65);font-size:12px;margin-top:3px}
+.ds-hero-pills{display:flex;gap:8px;flex-wrap:wrap}
+.ds-pill{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
+.ds-card{background:#fff;border:1px solid #e8edf3;border-radius:16px;box-shadow:0 3px 18px rgba(15,23,42,.07);overflow:hidden;margin-bottom:14px}
+/* setup */
+.ds-setup-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;cursor:pointer;background:linear-gradient(135deg,#f0fdf4,#fff);border-bottom:1px solid #e8edf3;user-select:none}
+.ds-setup-hdr-title{font-size:13px;font-weight:900;color:#065f46;display:flex;align-items:center;gap:8px}
+.ds-setup-arrow{font-size:11px;color:#94a3b8;transition:transform .2s}
+.ds-setup-arrow.open{transform:rotate(180deg)}
+.ds-setup-body{padding:16px 18px;display:none}
+.ds-setup-body.open{display:block}
+.ds-upload-panel{display:flex;flex-direction:column;gap:10px}
+.ds-file-inp{border:1.5px dashed #a7f3d0;border-radius:10px;padding:8px 12px;font-size:13px;background:#f0fdf4;color:#065f46;width:100%;cursor:pointer}
+.ds-upload-help{font-size:11px;color:#6b7280;margin-top:4px}
+.ds-managed-note{background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ds-field{display:flex;flex-direction:column;gap:4px}
+.ds-label{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+.ds-input,.ds-select{width:100%;border:1.5px solid #dbe3ee;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#0f172a;background:#fff;outline:none;transition:border-color .15s,box-shadow .15s}
+.ds-input:focus,.ds-select:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.1)}
+.ds-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end}
+.ds-btn{border:none;border-radius:10px;padding:9px 15px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.ds-btn-green{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 12px rgba(5,150,105,.25)}
+.ds-btn-green:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(5,150,105,.32)}
+.ds-btn-blue{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;box-shadow:0 4px 12px rgba(29,78,216,.25)}
+.ds-btn-blue:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(29,78,216,.32)}
+.ds-btn-ghost{background:#f8fafc;color:#475569;border:1px solid #e2e8f0}
+.ds-btn-ghost:hover{background:#f1f5f9}
+.ds-msg{margin-top:8px;font-size:12px;font-weight:700;min-height:16px}
+.ds-msg.ok{color:#059669}.ds-msg.err{color:#dc2626}
+.ds-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.ds-chip{border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:4px;border:1px solid}
+.ds-chip-blue{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.ds-chip-green{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+.ds-chip-gray{background:#f8fafc;color:#475569;border-color:#e2e8f0;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-chip-err{background:#fee2e2;color:#dc2626;border-color:#fca5a5}
+/* table head */
+.ds-table-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:13px 18px;border-bottom:1px solid #edf2f7;background:linear-gradient(135deg,#f0fdf4,#fff)}
+.ds-table-hdr-title{font-size:14px;font-weight:900;color:#065f46;display:flex;align-items:center;gap:8px}
+.ds-table-hdr-sub{font-size:11px;color:#64748b;margin-top:2px}
+/* deploy table */
+.ds-deploy-wrap{overflow-x:auto}
+.ds-deploy-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;min-width:520px}
+.ds-deploy-table thead tr:first-child th{background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:11px 14px;text-align:center;border:none}
+.ds-deploy-table thead tr:first-child th:first-child{text-align:left}
+.ds-deploy-table thead tr:nth-child(2) th{background:#f0fdf4;color:#065f46;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:7px 14px;text-align:center;border-bottom:2px solid #bbf7d0}
+.ds-deploy-table thead tr:nth-child(2) th.left{text-align:left}
+.ds-deploy-table tbody td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#334155;text-align:center;vertical-align:middle}
+.ds-deploy-table tbody td.left{text-align:left}
+.ds-deploy-table tbody tr:hover td{background:#f0fdf4}
+.ds-deploy-table tbody tr:nth-child(even) td{background:#fafbfd}
+.ds-deploy-table tfoot td{background:linear-gradient(180deg,#f0fdf4,#dcfce7);font-weight:900;color:#065f46;border-top:2px solid #86efac;padding:10px 14px;text-align:center}
+.ds-deploy-table tfoot td.left{text-align:left}
+.ds-ff-badge{display:inline-block;background:#dcfce7;color:#065f46;border:1px solid #86efac;border-radius:7px;padding:2px 10px;font-size:11px;font-weight:900}
+.ds-mcn{font-family:monospace;font-size:12px;font-weight:700;color:#1e40af}
+.ds-sto{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+.ds-num{font-weight:800;color:#0f172a}
+.ds-dash{color:#d1d5db}
+/* chart */
+.ds-chart-section{border-top:1px solid #f1f5f9;padding:14px 18px 10px}
+.ds-chart-title{font-size:12px;font-weight:900;color:#065f46;margin-bottom:12px}
+.ds-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.ds-bar-label{font-size:11px;font-weight:700;color:#475569;width:150px;flex-shrink:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-bar-track{flex:1;background:#f1f5f9;border-radius:999px;height:22px;overflow:hidden}
+.ds-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#059669,#10b981);display:flex;align-items:center;justify-content:flex-end;padding-right:8px;min-width:30px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.ds-bar-val{font-size:11px;font-weight:900;color:#fff;white-space:nowrap}
+/* empty */
+.ds-empty{padding:36px 20px;text-align:center;color:#94a3b8;font-size:13px}
+.ds-empty i{font-size:34px;color:#e2e8f0;display:block;margin-bottom:10px}
+/* ── Device List Modal (Rework-style) ── */
+.dv-ov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9000;display:none;align-items:center;justify-content:center;padding:16px}
+.dv-ov.open{display:flex}
+.dv-modal{background:#fff;border-radius:18px;box-shadow:0 28px 90px rgba(15,23,42,.32);width:100%;max-width:1340px;height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.dv-head{background:linear-gradient(135deg,#b45309 0%,#d97706 50%,#f59e0b 100%);padding:16px 22px 14px;flex-shrink:0}
+.dv-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.dv-head-title{color:#fff;font-size:17px;font-weight:900;display:flex;align-items:center;gap:10px}
+.dv-head-close{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.dv-head-close:hover{background:rgba(255,255,255,.35)}
+.dv-stats{display:flex;gap:10px;flex-wrap:wrap}
+.dv-stat{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 18px;text-align:center;min-width:80px}
+.dv-stat-val{color:#fff;font-size:22px;font-weight:900;line-height:1}
+.dv-stat-lbl{color:rgba(255,255,255,.8);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.dv-stat.hi{background:rgba(255,255,255,.28);border-color:rgba(255,255,255,.5)}
+.dv-toolbar{padding:10px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.dv-search{flex:1;min-width:200px;border:1.5px solid #fcd34d;border-radius:9px;padding:8px 12px 8px 32px;font-size:12px;font-weight:600;color:#1c1917;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 9px center;outline:none}
+.dv-search:focus{border-color:#d97706;box-shadow:0 0 0 2px rgba(217,119,6,.15)}
+.dv-filter{border:1.5px solid #fcd34d;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;color:#92400e;background:#fff;outline:none;cursor:pointer;min-width:160px}
+.dv-filter:focus{border-color:#d97706}
+.dv-body{overflow:auto;flex:1}
+.dv-table{width:100%;border-collapse:collapse;font-size:12px}
+.dv-table thead th{position:sticky;top:0;background:linear-gradient(180deg,#f59e0b,#d97706);color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:.07em;padding:10px 12px;text-align:left;white-space:nowrap;z-index:2;border-right:1px solid rgba(255,255,255,.2)}
+.dv-table thead th:last-child{border-right:none}
+.dv-table tbody td{padding:8px 12px;border-bottom:1px solid #fef3c7;color:#1c1917;vertical-align:middle;white-space:nowrap}
+.dv-table tbody tr:nth-child(even) td{background:#fafaf9}
+.dv-table tbody tr:hover td{background:#fef9c3}
+.dv-edit-cell{outline:none;border:1px solid transparent;border-radius:5px;padding:1px 3px;min-width:80px}
+.dv-edit-cell:focus{background:#fff;border-color:#d97706;box-shadow:0 0 0 2px rgba(217,119,6,.15)}
+.dv-row-actions{display:flex;gap:4px;align-items:center}
+.dv-mini-btn{border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.dv-mini-save{background:#dcfce7;color:#166534;border:1px solid #86efac}
+.dv-mini-del{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5}
+.dv-footer{padding:8px 16px;background:#fffbeb;border-top:1px solid #fde68a;font-size:11px;color:#92400e;font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
+.ds-modal-close{background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:2px 8px;border-radius:8px;line-height:1;flex-shrink:0}
+.ds-modal-close:hover{background:#f1f5f9;color:#334155}
+/* add device modal */
+.ds-add-ov{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9100;display:none;align-items:center;justify-content:center;padding:20px}
+.ds-add-ov.open{display:flex}
+.ds-add-modal{background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,.3);width:100%;max-width:580px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.ds-add-head{padding:14px 20px;background:linear-gradient(135deg,#f0fdf4,#fff);border-bottom:1px solid #e8edf3;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ds-add-title{font-size:14px;font-weight:900;color:#065f46;display:flex;align-items:center;gap:8px}
+.ds-add-body{padding:18px 20px;overflow-y:auto;flex:1}
+.ds-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:480px){.ds-add-grid{grid-template-columns:1fr}}
+.ds-add-field{display:flex;flex-direction:column;gap:4px}
+.ds-add-label{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em}
+.ds-add-field.mandatory .ds-add-label::after{content:" *";color:#dc2626}
+.ds-add-input{border:1.5px solid #dbe3ee;border-radius:9px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;background:#fff;outline:none;transition:border-color .15s}
+.ds-add-input:focus{border-color:#059669;box-shadow:0 0 0 2px rgba(5,150,105,.1)}
+.ds-add-input.req-err{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.1)}
+.ds-add-foot{padding:12px 20px;background:#f8fafc;border-top:1px solid #e8edf3;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.ds-add-msg{font-size:12px;font-weight:700;min-height:16px;padding:0 20px 8px}
+.ds-add-msg.ok{color:#059669}.ds-add-msg.err{color:#dc2626}
+</style>
+
+<div class="ds-wrap">
+
+<!-- hero -->
+<div class="ds-hero">
+  <div>
+    <div class="ds-hero-title">{{ target_display_name }} &mdash; Device Summary</div>
+          <div class="ds-hero-sub">SW PDT Global Deployment &mdash; Excel import or direct device entry saved to Excel</div>
+
+  </div>
+    <div class="ds-hero-pills">
+    {% if sw_table %}<div class="ds-pill"><i class="fas fa-check-circle"></i> {{ sw_table.rows|length }} rows</div>{% endif %}
+    <div class="ds-pill"><i class="fas fa-microchip"></i> <span id="dsHeroDeviceTotal">{{ devices_total }}</span> devices</div>
+    <div class="ds-pill"><i class="fas fa-database"></i> {{ (data_mode or 'excel')|upper }}</div>
+        {% if project_options %}<div class="ds-pill"><i class="fas fa-layer-group"></i> {{ (project_filter or 'All')|upper }}</div>{% endif %}
+
+  </div>
+</div>
+
+<!-- collapsible setup -->
+<div class="ds-card">
+  <div class="ds-setup-hdr" id="dsSetupHdr" onclick="dsToggleSetup()">
+    <div class="ds-setup-hdr-title">
+      <i class="fas fa-file-excel" style="color:#059669"></i> Excel Setup
+      {% if devices_sheet %}<span class="ds-chip ds-chip-green" style="font-size:10px;padding:2px 8px">{{ devices_sheet }}</span>{% endif %}
+      {% if page_error %}<span class="ds-chip ds-chip-err" style="font-size:10px;padding:2px 8px"><i class="fas fa-exclamation-triangle"></i> Error</span>{% endif %}
+    </div>
+    <span class="ds-setup-arrow {% if not sw_table %}open{% endif %}" id="dsSetupArrow">&#9660;</span>
+  </div>
+  <div class="ds-setup-body {% if not sw_table %}open{% endif %}" id="dsSetupBody">
+    <div class="ds-upload-panel">
+      <div class="ds-field">
+        <label class="ds-label"><i class="fas fa-upload"></i> Upload Device Summary Excel</label>
+        <input id="dsUploadFile" class="ds-file-inp" type="file" accept=".xlsx,.xlsm">
+        <div class="ds-upload-help">Upload from any location. Buddy stores a managed copy &mdash; path is not shown.</div>
+      </div>
+      <div class="ds-actions">
+        <button class="ds-btn ds-btn-green" id="dsUploadBtn" type="button"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
+        <button class="ds-btn ds-btn-blue" id="dsManagedBtn"><i class="fas fa-folder-plus"></i> Create Blank</button>
+      </div>
+    </div>
+    {% if excel_path %}
+    <div class="ds-managed-note"><i class="fas fa-database"></i> Using saved Buddy Excel{% if original_filename %}: {{ original_filename }}{% endif %}. Internal path is hidden.</div>
+    {% endif %}
+    {% if sheet_names or devices_sheet %}
+    <div class="ds-chips">
+      {% if sheet_names %}<span class="ds-chip ds-chip-blue"><i class="fas fa-layer-group"></i> {{ sheet_names|length }} sheets</span>{% endif %}
+      {% if devices_sheet %}<span class="ds-chip ds-chip-green"><i class="fas fa-microchip"></i> {{ devices_sheet }}</span>{% endif %}
+      {% if original_filename %}<span class="ds-chip ds-chip-gray"><i class="fas fa-file-excel"></i> {{ original_filename }}</span>{% endif %}
+    </div>
+    {% endif %}
+    <div id="dsMsg" class="ds-msg {% if page_error %}err{% endif %}">{{ page_error or "" }}</div>
+  </div>
+</div>
+
+<!-- deployment table card -->
+<div class="ds-card">
+      <div class="ds-table-hdr">
+    <div>
+      <div class="ds-table-hdr-title"><i class="fas fa-table"></i> SW PDT &mdash; Global Device Deployment</div>
+      <div class="ds-table-hdr-sub">Delivered &amp; Deployed per site &bull; sites detected dynamically from Excel</div>
+    </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      {% if project_options %}
+      <select id="dsProjectFilter" class="ds-select" style="min-width:180px;padding:7px 10px;" onchange="dsApplyProjectFilter()">
+        <option value="All" {{ 'selected' if (project_filter or 'All') == 'All' else '' }}>All Projects</option>
+                {% for proj in project_options %}<option value="{{ proj }}" {{ 'selected' if (proj|lower) == ((project_filter or '')|lower) else '' }}>{{ proj }}</option>{% endfor %}
+
+      </select>
+      {% endif %}
+      <button class="ds-btn ds-btn-green" onclick="dsOpenDevices()" title="Badge shows SW PDT Summary Grand Total. Popup shows detailed Devices sheet rows.">
+        <i class="fas fa-microchip"></i> View Devices
+        <span id="dsViewDeviceBadge" style="background:rgba(255,255,255,.25);border-radius:999px;padding:1px 8px;font-size:11px">{{ sw_table.grand_del if sw_table else devices_total }}</span>
+      </button>
+      <button class="ds-btn ds-btn-ghost" id="dsRefreshBtn" onclick="dsRefreshPage()"><i class="fas fa-sync-alt"></i> Refresh Devices</button>
+      <button class="ds-btn" id="dsCopyBtn" onclick="dsCopyTable()" style="background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff;border:none">
+        <i class="fas fa-copy"></i> Copy Table
+      </button>
+      <button class="ds-btn ds-btn-blue" onclick="dsOpenAdd()">
+        <i class="fas fa-plus"></i> Add Device
+      </button>
+    </div>
+  </div>
+
+  {% if sw_table and sw_table.rows %}
+  <div class="ds-deploy-wrap">
+    <table class="ds-deploy-table">
+      <thead>
+        <tr>
+          <th class="left" rowspan="2" style="min-width:90px">Form Factor</th>
+          <th class="left" rowspan="2" style="min-width:130px">MCN</th>
+          <th rowspan="2">Storage</th>
+                                                            {% for site in sw_table.sites %}<th colspan="2">{{ site }}</th>{% endfor %}
+          {% if sw_table.sites|length > 1 %}<th colspan="2">TOTAL</th>{% endif %}
+
+
+
+        </tr>
+        <tr>
+                                                            {% for site in sw_table.sites %}<th>Delivered</th><th>Deployed</th>{% endfor %}
+          {% if sw_table.sites|length > 1 %}<th>Delivered</th><th>Deployed</th>{% endif %}
+
+
+
+        </tr>
+      </thead>
+      <tbody id="dsDeployBody">
+        {% for r in sw_table.rows %}
+        <tr data-ff="{{ r.form_factor | e }}">
+          <td class="left ds-ff-cell"><span class="ds-ff-badge">{{ r.form_factor }}</span></td>
+          <td class="left"><span class="ds-mcn">{{ r.mcn }}</span></td>
+          <td><span class="ds-sto">{{ r.storage }}</span></td>
+          {% for site in sw_table.sites %}
+            {% set sd = r.sites.get(site, {'del':0,'dep':0}) %}
+            <td>{% if sd.del %}<span class="ds-num">{{ sd.del }}</span>{% else %}<span class="ds-dash">&mdash;</span>{% endif %}</td>
+            <td>{% if sd.dep %}<span class="ds-num">{{ sd.dep }}</span>{% else %}<span class="ds-dash">&mdash;</span>{% endif %}</td>
+          {% endfor %}
+                                                            {% if sw_table.sites|length > 1 %}
+          <td><strong class="ds-num">{{ r.total_del }}</strong></td>
+          <td><span class="ds-num">{{ r.total_dep }}</span></td>
+          {% endif %}
+
+
+
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+                    <td colspan="3" class="left">Grand Total</td>
+          {% for site in sw_table.sites %}
+            {% set t = sw_table.totals.get(site, {'del':0,'dep':0}) %}
+            <td><strong>{{ t.del }}</strong></td><td>{{ t.dep }}</td>
+          {% endfor %}
+                                        {% if sw_table.sites|length > 1 %}
+          <td style="font-size:15px"><strong>{{ sw_table.grand_del }}</strong></td>
+          <td>{{ sw_table.grand_dep }}</td>
+          {% endif %}
+
+
+
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  {% if sw_table.rows %}
+  <div class="ds-chart-section">
+    <div class="ds-chart-hdr">
+      <div class="ds-chart-title"><i class="fas fa-chart-bar"></i> <span id="dsChartTitle">MCN &mdash; Total Delivered</span></div>
+      <select class="ds-chart-dd" id="dsChartGroup" onchange="dsRenderChart()">
+        <option value="mcn">Group by MCN</option>
+        <option value="storage">Group by Storage</option>
+        <option value="form_factor">Group by Form Factor</option>
+      </select>
+      <select class="ds-chart-dd" id="dsChartSite" onchange="dsRenderChart()">
+        <option value="total">All Sites (Total)</option>
+        {% for site in sw_table.sites %}<option value="{{ site }}">{{ site }}</option>{% endfor %}
+      </select>
+      <select class="ds-chart-dd" id="dsChartMetric" onchange="dsRenderChart()">
+        <option value="del">Delivered</option>
+        <option value="dep">Deployed</option>
+      </select>
+    </div>
+    <div id="dsChartBars"></div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="ds-empty">
+    <i class="fas fa-table"></i>
+    No deployment data. Open <strong>Excel Setup</strong> above, select the Device List sheet and click <strong>Save</strong>.
+  </div>
+  {% endif %}
+</div>
+
+<!-- DEVICES POPUP (Rework-style) -->
+<div class="dv-ov" id="dsDevicesOv" onclick="if(event.target===this)dsCloseDevices()">
+  <div class="dv-modal">
+    <!-- amber header -->
+    <div class="dv-head">
+      <div class="dv-head-top">
+        <div class="dv-head-title"><i class="fas fa-microchip"></i> Device List{% if devices_sheet %} &mdash; {{ devices_sheet }}{% endif %}</div>
+        <button class="dv-head-close" onclick="dsCloseDevices()"><i class="fas fa-times"></i></button>
+      </div>
+            {% if not is_compute_bu %}
+      <div class="dv-stats" id="dvStats">
+        <div class="dv-stat hi"><div class="dv-stat-val" id="dvStatTotal">{{ devices_total }}</div><div class="dv-stat-lbl">Total Devices</div></div>
+        <div class="dv-stat" id="dvStatReworkBox"><div class="dv-stat-val" id="dvStatRework">0</div><div class="dv-stat-lbl">Rework Types</div></div>
+        <div class="dv-stat" id="dvStatLocBox"><div class="dv-stat-val" id="dvStatLoc">0</div><div class="dv-stat-lbl">Locations</div></div>
+      </div>
+      {% endif %}
+
+    </div>
+    <!-- toolbar -->
+    <div class="dv-toolbar">
+      <input type="text" id="devSearch" class="dv-search" placeholder="Search any column…">
+            {% if not is_compute_bu %}
+      <select id="dvReworkFilter" class="dv-filter" onchange="dvApplyFilters()">
+        <option value="">All Rework Types</option>
+      </select>
+      <select id="dvLocFilter" class="dv-filter" style="min-width:120px" onchange="dvApplyFilters()">
+        <option value="">All Locations</option>
+      </select>
+      {% endif %}
+
+      <button class="ds-btn ds-btn-blue" style="padding:7px 13px" onclick="dsOpenAdd()"><i class="fas fa-plus"></i> Add Device</button>
+      <button class="ds-btn ds-btn-ghost" style="padding:7px 13px" id="dvRefreshBtn" onclick="dsRefreshDevices()"><i class="fas fa-sync-alt"></i> Refresh</button>
+      <span id="devCount" style="font-size:11px;font-weight:700;color:#92400e;white-space:nowrap">{{ devices_total }} rows</span>
+    </div>
+    <!-- table -->
+    <div class="dv-body" id="dvBody">
+      {% if devices_headers and devices_rows %}
+      <table class="dv-table" id="dvTable">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            {% for col in devices_headers %}<th>{{ col }}</th>{% endfor %}
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="devBody">
+          {% for row in devices_rows %}
+          <tr data-index="{{ loop.index0 }}" data-search="{{ row|join(' ')|lower|e }}" data-rework="{{ row[19]|lower|e if row|length > 19 else '' }}" data-loc="{{ row[21]|lower|e if row|length > 21 else '' }}">
+            <td class="dev-row-num" style="color:#a16207;font-size:11px;text-align:center;font-weight:700">{{ loop.index }}</td>
+            {% for cell in row %}<td class="dv-edit-cell" contenteditable="true" data-col="{{ loop.index0 }}">{{ cell }}</td>{% endfor %}
+            <td><div class="dv-row-actions"><button class="dv-mini-btn dv-mini-save" onclick="dsSaveDeviceRow(this)"><i class="fas fa-save"></i> Save</button><button class="dv-mini-btn dv-mini-del" onclick="dsDeleteDeviceRow(this)"><i class="fas fa-trash"></i></button></div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="ds-empty"><i class="fas fa-microchip"></i>No device list. Select the Device List sheet in Excel Setup and save.</div>
+      {% endif %}
+    </div>
+    <!-- footer -->
+    <div class="dv-footer">
+      <span>Showing <strong id="devShown">{{ devices_rows|length }}</strong> of <strong id="devTotalFooter">{{ devices_total }}</strong> devices</span>
+      {% if devices_sheet %}<span>Sheet: <strong>{{ devices_sheet }}</strong></span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ADD DEVICE POPUP -->
+<div class="ds-add-ov" id="dsAddOv" onclick="if(event.target===this)dsCloseAdd()">
+    <div class="ds-add-modal">
+    <div class="ds-add-head">
+      <div class="ds-add-title"><i class="fas fa-plus-circle" style="color:#059669"></i> Add Device</div>
+      <button class="ds-modal-close" onclick="dsCloseAdd()">&times;</button>
+    </div>
+    <div class="ds-add-body">
+      <!-- lock warning -->
+      <div id="dsAddLockBox" style="display:none;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:12px;align-items:center;gap:8px">
+        <i class="fas fa-lock" style="font-size:16px;color:#d97706"></i>
+        <div><strong>Excel file is locked</strong><br><span id="dsAddLockUser"></span><br><span style="font-size:11px;color:#78350f">Queued locally in this app session. Will sync to Excel when unlocked.</span></div>
+      </div>
+      <p style="font-size:11px;color:#64748b;margin:0 0 14px;padding:8px 12px;background:#f0fdf4;border-radius:8px;border-left:3px solid #059669">
+        Fields marked <strong style="color:#dc2626">*</strong> are mandatory. Saves directly to the configured Excel device sheet.
+      </p>
+      <div class="ds-add-grid">
+        <div class="ds-add-field mandatory"><label class="ds-add-label">Serial</label><input class="ds-add-input" id="af_serial" placeholder="e.g. TDC00002VRBB"></div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">DDR Type</label><input class="ds-add-input" id="af_ddr" placeholder="e.g. LP4X"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Memory Bundle</label><input class="ds-add-input" id="af_mem" placeholder="e.g. 8GB"></div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">Storage</label><input class="ds-add-input" id="af_storage" placeholder="e.g. 12 gb"></div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">Platform</label><input class="ds-add-input" id="af_platform" placeholder="e.g. MTP"></div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">MCN</label><input class="ds-add-input" id="af_mcn" placeholder="e.g. 10-79246-1000"></div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">Axiom Deploy</label>
+          <select class="ds-add-input" id="af_axiom"><option value="">— select —</option><option>Yes</option><option>No</option></select>
+        </div>
+        <div class="ds-add-field mandatory"><label class="ds-add-label">Station</label><input class="ds-add-input" id="af_station" placeholder="e.g. lab8976(B235)"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Asset Tag</label><input class="ds-add-input" id="af_asset" placeholder="e.g. EX1112235"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Adb ID</label><input class="ds-add-input" id="af_adb" placeholder="e.g. a914ff8f"></div>
+        <div class="ds-add-field"><label class="ds-add-label">UFS</label><input class="ds-add-input" id="af_ufs"></div>
+        <div class="ds-add-field"><label class="ds-add-label">RF Card</label><input class="ds-add-input" id="af_rf" placeholder="e.g. Magnus"></div>
+        <div class="ds-add-field"><label class="ds-add-label">QRD Version</label><input class="ds-add-input" id="af_qrd"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Receive Date</label><input class="ds-add-input" id="af_rcvdate" type="date"></div>
+        <div class="ds-add-field"><label class="ds-add-label">INT / EXT</label>
+          <select class="ds-add-input" id="af_intext"><option value="">— select —</option><option>INT</option><option>EXT</option></select>
+        </div>
+        <div class="ds-add-field"><label class="ds-add-label">Team</label><input class="ds-add-input" id="af_team" placeholder="e.g. Shivani"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Rework Part Details</label><input class="ds-add-input" id="af_rework_part"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Rework Date</label><input class="ds-add-input" id="af_rework_date" type="date"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Rework Type</label><input class="ds-add-input" id="af_rework_type"></div>
+        <div class="ds-add-field"><label class="ds-add-label">DDR Rework</label><input class="ds-add-input" id="af_ddr_rework"></div>
+        <div class="ds-add-field"><label class="ds-add-label">Location</label>
+          <select class="ds-add-input" id="af_location"><option value="">— select —</option><option>QIPL</option><option>CH</option><option>SD</option></select>
+        </div>
+        <div class="ds-add-field"><label class="ds-add-label">WCN Card</label><input class="ds-add-input" id="af_wcn"></div>
+        <div class="ds-add-field" style="grid-column:1/-1"><label class="ds-add-label">Comments</label><input class="ds-add-input" id="af_comments"></div>
+      </div>
+    </div>
+        <div class="ds-add-msg" id="dsAddMsg"></div>
+    <div class="ds-add-foot">
+      <button class="ds-btn ds-btn-ghost" onclick="dsCloseAdd()">Cancel</button>
+      <button class="ds-btn" id="dsAddRetryBtn" style="display:none;background:#f59e0b;color:#fff;border:none" onclick="dsRetryDeviceSync()"><i class="fas fa-sync"></i> Retry Sync</button>
+      <button class="ds-btn ds-btn-green" id="dsAddSaveBtn" onclick="dsSubmitAdd()"><i class="fas fa-save"></i> Save Device</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /ds-wrap -->
+
+<!-- File Browser Modal -->
+<style>
+.fb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center}
+.fb-overlay.open{display:flex}
+.fb-modal{background:#fff;border-radius:14px;width:520px;max-width:96vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden}
+.fb-hdr{background:linear-gradient(135deg,#0e7490,#06b6d4);padding:13px 18px;display:flex;align-items:center;gap:10px}
+.fb-hdr-title{color:#fff;font-size:13px;font-weight:900;flex:1}
+.fb-close{background:rgba(255,255,255,.2);border:none;border-radius:7px;color:#fff;width:26px;height:26px;cursor:pointer;font-size:13px}
+.fb-path-bar{padding:8px 14px;background:#f0fdff;border-bottom:1px solid #a5f3fc;font-size:11px;color:#0e7490;font-weight:700;word-break:break-all}
+.fb-list{flex:1;overflow-y:auto;padding:6px 0}
+.fb-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .1s}
+.fb-item:hover{background:#ecfeff}
+.fb-item.selected{background:#cffafe;border-left:3px solid #06b6d4}
+.fb-item-icon{font-size:14px;width:18px;text-align:center}
+.fb-item-name{flex:1;font-size:12px;font-weight:600;color:#1e293b}
+.fb-item-size{font-size:10px;color:#94a3b8}
+.fb-footer{padding:10px 14px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px}
+.fb-manual-inp{flex:1;border:1.5px solid #a5f3fc;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:600;color:#0f172a;outline:none}
+.fb-manual-inp:focus{border-color:#06b6d4}
+</style>
+<div class="fb-overlay" id="fbOverlay">
+  <div class="fb-modal">
+    <div class="fb-hdr">
+      <div class="fb-hdr-title"><i class="fas fa-folder-open"></i> Browse for Excel File</div>
+      <button class="fb-close" onclick="fbClose()"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+      <button onclick="fbNavigate('root')" title="This PC" style="border:1px solid #e2e8f0;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:#475569"><i class="fas fa-desktop"></i></button>
+      <button id="fbUpBtn" onclick="fbGoUp()" title="Up" style="border:1px solid #e2e8f0;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:#475569"><i class="fas fa-arrow-up"></i></button>
+      <input id="fbAddrBar" class="fb-manual-inp" style="flex:1;font-size:12px" placeholder="Type path or \\server\share..." onkeydown="if(event.key==='Enter'){fbNavigate(this.value)}">
+      <button onclick="fbNavigate(document.getElementById('fbAddrBar').value)" style="border:1px solid #e2e8f0;background:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;color:#475569"><i class="fas fa-arrow-right"></i></button>
+    </div>
+    <div id="fbBreadcrumb" style="padding:4px 12px;background:#f0fdff;border-bottom:1px solid #a5f3fc;font-size:11px;color:#0e7490;font-weight:700;min-height:24px;display:flex;align-items:center;gap:4px;flex-wrap:wrap"></div>
+    <div class="fb-list" id="fbList"></div>
+    <div class="fb-footer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:2px">Selected file:</div>
+        <div id="fbSelectedLabel" style="font-size:11px;font-weight:800;color:#0e7490;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">None</div>
+      </div>
+      <button style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:800;cursor:pointer" onclick="fbClose()">Cancel</button>
+      <button style="background:linear-gradient(135deg,#0e7490,#06b6d4);border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:800;cursor:pointer;color:#fff" id="fbSelectBtn" disabled onclick="fbSelect()"><i class="fas fa-check"></i> Select</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══ Chart ═══ */
+(function(){
+  const TABLE_ROWS = {{ sw_table.rows | tojson if sw_table and sw_table.rows else '[]' }};
+  const COLORS = ['#059669','#10b981','#34d399','#0e7490','#06b6d4','#22d3ee','#7c3aed','#8b5cf6','#d97706','#f59e0b','#dc2626','#f87171','#0284c7','#38bdf8','#65a30d','#a3e635'];
+  window.dsRenderChart = function(){
+    const group  = document.getElementById('dsChartGroup')?.value  || 'mcn';
+    const site   = document.getElementById('dsChartSite')?.value   || 'total';
+    const metric = document.getElementById('dsChartMetric')?.value || 'del';
+    const title  = document.getElementById('dsChartTitle');
+    const bars   = document.getElementById('dsChartBars');
+    if(!bars) return;
+    const agg = {};
+    TABLE_ROWS.forEach(r => {
+      const key = r[group] || 'Unknown';
+      let val = 0;
+      if(site === 'total'){ val = metric==='del' ? (r.total_del||0) : (r.total_dep||0); }
+      else { const sd=(r.sites||{})[site]||{}; val = metric==='del' ? (sd.del||0) : (sd.dep||0); }
+      agg[key] = (agg[key]||0) + val;
+    });
+    const sorted = Object.entries(agg).sort((a,b)=>b[1]-a[1]);
+    const maxVal = sorted.length ? sorted[0][1] : 1;
+    const groupLabel  = {mcn:'MCN',storage:'Storage',form_factor:'Form Factor'}[group]||group;
+    const siteLabel   = site==='total' ? 'All Sites' : site;
+    const metricLabel = metric==='del' ? 'Delivered' : 'Deployed';
+    if(title) title.textContent = groupLabel+' \u2014 '+metricLabel+' ('+siteLabel+')';
+    bars.innerHTML = '';
+    if(!sorted.length){ bars.innerHTML='<div style="padding:12px;color:#94a3b8;font-size:12px">No data.</div>'; return; }
+    sorted.forEach(([label,val],idx)=>{
+      const pct = maxVal ? Math.max((val/maxVal)*100, val>0?2:0) : 0;
+      const color = COLORS[idx%COLORS.length];
+      const row = document.createElement('div');
+      row.className='ds-bar-row';
+      row.innerHTML=`<div class="ds-bar-label" title="${label}">${label}</div><div class="ds-bar-track"><div class="ds-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}bb)"><span class="ds-bar-val">${val}</span></div></div>`;
+      bars.appendChild(row);
+    });
+  };
+  document.addEventListener('DOMContentLoaded',()=>{ if(document.getElementById('dsChartBars')) dsRenderChart(); });
+})();
+
+/* ═══ Merge FF cells ═══ */
+(function(){
+  function mergeCells(){
+    const tbody=document.getElementById('dsDeployBody'); if(!tbody) return;
+    let lastVal=null,masterCell=null,count=0;
+    Array.from(tbody.rows).forEach(row=>{
+      const val=row.dataset.ff, cell=row.querySelector('.ds-ff-cell');
+      if(val && val===lastVal){ count++; if(cell) cell.style.display='none'; }
+      else{
+        if(masterCell && count>1){ masterCell.rowSpan=count; masterCell.style.verticalAlign='middle'; masterCell.style.borderRight='2px solid #d1fae5'; }
+        lastVal=val; masterCell=cell; count=1; if(masterCell) masterCell.style.display='';
+      }
+    });
+    if(masterCell && count>1){ masterCell.rowSpan=count; masterCell.style.verticalAlign='middle'; masterCell.style.borderRight='2px solid #d1fae5'; }
+  }
+  document.addEventListener('DOMContentLoaded', mergeCells);
+})();
+
+/* ═══ Main page logic ═══ */
+(function(){
+    const target  = {{ target_name|tojson }};
+  const IS_COMPUTE_BU = {{ is_compute_bu|default(false)|tojson }};
+  const msgEl   = document.getElementById('dsMsg');
+
+  let deviceHeaders = {{ devices_headers | tojson }};
+  let deviceRows    = {{ devices_rows    | tojson }};
+
+  function setMsg(t,ok){ msgEl.textContent=t||''; msgEl.className='ds-msg'+(t?(ok?' ok':' err'):''); }
+
+  window.dsToggleSetup = function(){
+    const body=document.getElementById('dsSetupBody'), arrow=document.getElementById('dsSetupArrow');
+    const open=body.classList.toggle('open'); arrow.classList.toggle('open',open);
+  };
+
+  /* Upload Excel */
+  document.getElementById('dsUploadBtn').addEventListener('click', async function(){
+    const fileInput = document.getElementById('dsUploadFile');
+    if(!fileInput.files.length){ setMsg('Please choose an Excel file to upload.',false); return; }
+    const btn = this; btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    setMsg('Uploading...', true);
+    try{
+      const fd = new FormData(); fd.append('file', fileInput.files[0]);
+      const r = await fetch(`/api/ds/${encodeURIComponent(target)}/upload`,{method:'POST',body:fd});
+      const d = await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Upload failed');
+      setMsg(d.message||'Uploaded. Reloading...', true);
+      setTimeout(()=>window.location.reload(), 800);
+    }catch(e){ setMsg(e.message||'Upload failed',false); }
+    finally{ btn.disabled=false; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Upload'; }
+  });
+
+  /* Create Blank Managed Workbook */
+  document.getElementById('dsManagedBtn').addEventListener('click', async function(){
+    setMsg('Creating managed workbook...', true);
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/config/save`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({excel_path:'',summary_sheet:'',devices_sheet:'Devices',data_mode:'excel'})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Create failed');
+      setMsg('Managed Excel ready. Reloading...', true);
+      setTimeout(()=>window.location.reload(), 700);
+    }catch(e){ setMsg(e.message||'Create failed',false); }
+  });
+
+  /* Refresh page */
+    window.dsRefreshPage = function(){
+    const btn=document.getElementById('dsRefreshBtn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Refreshing\u2026'; }
+    const url=new URL(window.location.href); url.searchParams.set('_r',Date.now());
+    window.location.replace(url.toString());
+  };
+
+  window.dsApplyProjectFilter = function(){
+    const sel=document.getElementById('dsProjectFilter');
+    const url=new URL(window.location.href);
+    if(sel && sel.value && sel.value !== 'All') url.searchParams.set('project', sel.value);
+    else url.searchParams.delete('project');
+    window.location.replace(url.toString());
+  };
+
+    /* Devices popup */
+  window.dsOpenDevices  = async ()=>{ document.getElementById('dsDevicesOv').classList.add('open'); await dsRefreshDevices(false); dvBuildFilters(); document.getElementById('devSearch')?.focus(); };
+  window.dsCloseDevices = ()=>document.getElementById('dsDevicesOv').classList.remove('open');
+
+  const devSearch=document.getElementById('devSearch'), devShown=document.getElementById('devShown'), devCount=document.getElementById('devCount');
+
+  function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function updateDeviceTotals(n){
+    const footer=document.getElementById('devTotalFooter'); if(footer) footer.textContent=n;
+    if(devCount) devCount.textContent=n+' rows';
+    const st=document.getElementById('dvStatTotal'); if(st) st.textContent=n;
+  }
+
+  /* Build rework + location filter dropdowns from current rows */
+  function dvBuildFilters(){
+    const rows=document.querySelectorAll('#devBody tr');
+    const reworks=new Set(), locs=new Set();
+    rows.forEach(tr=>{
+      const rw=(tr.dataset.rework||'').trim(); if(rw) reworks.add(rw);
+      const lc=(tr.dataset.loc||'').trim();   if(lc) locs.add(lc);
+    });
+    const rwSel=document.getElementById('dvReworkFilter');
+    const lcSel=document.getElementById('dvLocFilter');
+    if(rwSel){
+      const cur=rwSel.value;
+      rwSel.innerHTML='<option value="">All Rework Types</option>'+[...reworks].sort().map(r=>`<option value="${esc(r)}">${r}</option>`).join('');
+      if(cur) rwSel.value=cur;
+    }
+    if(lcSel){
+      const cur=lcSel.value;
+      lcSel.innerHTML='<option value="">All Locations</option>'+[...locs].sort().map(l=>`<option value="${esc(l)}">${l}</option>`).join('');
+      if(cur) lcSel.value=cur;
+    }
+    // update stat pills
+    const rwStat=document.getElementById('dvStatRework'); if(rwStat) rwStat.textContent=reworks.size;
+    const lcStat=document.getElementById('dvStatLoc');   if(lcStat) lcStat.textContent=locs.size;
+        // rework type pills in header. Hidden for Compute BU to keep Device List clean.
+    if (!IS_COMPUTE_BU) dvBuildReworkPills(reworks);
+
+  }
+
+  function dvBuildReworkPills(reworks){
+    const stats=document.getElementById('dvStats'); if(!stats) return;
+    // remove old type pills
+    stats.querySelectorAll('.dv-stat-type').forEach(el=>el.remove());
+    const rows=document.querySelectorAll('#devBody tr');
+    reworks.forEach(rw=>{
+      let cnt=0; rows.forEach(tr=>{ if((tr.dataset.rework||'')==rw) cnt++; });
+      const d=document.createElement('div');
+      d.className='dv-stat dv-stat-type'; d.style.cursor='pointer';
+      d.innerHTML=`<div class="dv-stat-val">${cnt}</div><div class="dv-stat-lbl">${rw}</div>`;
+      d.onclick=()=>{ const sel=document.getElementById('dvReworkFilter'); if(sel){ sel.value=rw; dvApplyFilters(); } };
+      stats.appendChild(d);
+    });
+  }
+
+  window.dvApplyFilters = function(){
+    const q=(devSearch?.value||'').trim().toLowerCase();
+    const rw=(document.getElementById('dvReworkFilter')?.value||'').toLowerCase();
+    const lc=(document.getElementById('dvLocFilter')?.value||'').toLowerCase();
+    const rows=document.querySelectorAll('#devBody tr');
+    let shown=0;
+    rows.forEach(tr=>{
+      const matchQ=!q||(tr.dataset.search||'').includes(q);
+      const matchR=!rw||(tr.dataset.rework||'')==rw;
+      const matchL=!lc||(tr.dataset.loc||'')==lc;
+      const vis=matchQ&&matchR&&matchL;
+      tr.style.display=vis?'':' none';
+      if(vis){ shown++; const td=tr.querySelector('.dev-row-num'); if(td) td.textContent=shown; }
+    });
+    if(devShown) devShown.textContent=shown;
+  };
+
+  function applyDeviceSearch(){ dvApplyFilters(); }
+
+    function renderDeviceTable(headers,rows){
+    deviceHeaders=headers||[]; deviceRows=rows||[];
+    // find rework-type and location column indices from headers
+    const rwIdx = deviceHeaders.findIndex(h=>/(rework.?type|rework type)/i.test(h));
+    const lcIdx = deviceHeaders.findIndex(h=>/^location$/i.test(h));
+    const bodyWrap=document.getElementById('dvBody'); if(!bodyWrap) return;
+    let html='<table class="dv-table" id="dvTable"><thead><tr><th style="width:36px">#</th>'+deviceHeaders.map(h=>`<th>${esc(h)}</th>`).join('')+'<th>Actions</th></tr></thead><tbody id="devBody">';
+    deviceRows.forEach((row,ri)=>{
+      const search=row.join(' ').toLowerCase();
+      const rwVal=rwIdx>=0?(row[rwIdx]||'').toLowerCase():'';
+      const lcVal=lcIdx>=0?(row[lcIdx]||'').toLowerCase():'';
+      html+=`<tr data-index="${ri}" data-search="${esc(search)}" data-rework="${esc(rwVal)}" data-loc="${esc(lcVal)}"><td class="dev-row-num" style="color:#a16207;font-size:11px;text-align:center;font-weight:700">${ri+1}</td>`;
+      for(let ci=0;ci<deviceHeaders.length;ci++) html+=`<td class="dv-edit-cell" contenteditable="true" data-col="${ci}">${esc(row[ci]||'')}</td>`;
+      html+='<td><div class="dv-row-actions"><button class="dv-mini-btn dv-mini-save" onclick="dsSaveDeviceRow(this)"><i class="fas fa-save"></i> Save</button><button class="dv-mini-btn dv-mini-del" onclick="dsDeleteDeviceRow(this)"><i class="fas fa-trash"></i></button></div></td></tr>';
+    });
+    html+='</tbody></table>';
+    bodyWrap.innerHTML=deviceRows.length ? html : '<div class="ds-empty"><i class="fas fa-microchip"></i>No device list.</div>';
+    updateDeviceTotals(deviceRows.length);
+    dvBuildFilters();
+    dvApplyFilters();
+  }
+
+  window.dsRefreshDevices = async function(showMsg=true){
+    const btn=document.getElementById('dvRefreshBtn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Refreshing\u2026'; }
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/list?_=${Date.now()}`,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Refresh failed');
+      renderDeviceTable(d.headers||[],d.rows||[]);
+      if(showMsg) setMsg(`Refreshed \u2014 ${d.total||0} device(s).`,true);
+    }catch(e){ if(showMsg) setMsg(e.message||'Refresh failed',false); }
+    finally{ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-sync-alt"></i> Refresh'; } }
+  };
+
+  window.dsSaveDeviceRow = async function(btn){
+    const tr=btn.closest('tr'); if(!tr) return;
+    const idx=parseInt(tr.dataset.index||'-1',10), row=[];
+    tr.querySelectorAll('.ds-edit-cell').forEach(td=>row[parseInt(td.dataset.col,10)]=td.innerText.trim());
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving';
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx,row})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Save failed');
+      renderDeviceTable(d.headers||deviceHeaders,d.rows||deviceRows);
+      setMsg('Device row saved to Excel.',true);
+    }catch(e){ alert(e.message||'Save failed'); }
+    finally{ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save'; }
+  };
+
+  window.dsDeleteDeviceRow = async function(btn){
+    const tr=btn.closest('tr'); if(!tr) return;
+    const idx=parseInt(tr.dataset.index||'-1',10);
+    if(!confirm('Remove this device from Excel?')) return;
+    btn.disabled=true;
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Remove failed');
+      renderDeviceTable(d.headers||deviceHeaders,d.rows||[]);
+      setMsg('Device removed from Excel.',true);
+    }catch(e){ alert(e.message||'Remove failed'); }
+    finally{ btn.disabled=false; }
+  };
+
+  if(devSearch) devSearch.addEventListener('input', dvApplyFilters);
+  document.addEventListener('DOMContentLoaded', ()=>{ if(document.getElementById('devBody')) dvBuildFilters(); });
+
+  /* Copy Table */
+  window.dsCopyTable = function(){
+    const table=document.querySelector('.ds-deploy-table'); if(!table){ alert('No table found'); return; }
+    const btn=document.getElementById('dsCopyBtn');
+    const grid=[], occupied={};
+    Array.from(table.querySelectorAll('tr')).forEach((tr,ri)=>{
+      if(!grid[ri]) grid[ri]=[];
+      let ci=0;
+      Array.from(tr.cells).forEach(cell=>{
+        while(occupied[`${ri},${ci}`]) ci++;
+        const rs=cell.rowSpan||1, cs=cell.colSpan||1, txt=cell.innerText.trim().replace(/\n+/g,' ');
+        for(let r=ri;r<ri+rs;r++){ if(!grid[r]) grid[r]=[]; for(let c=ci;c<ci+cs;c++){ grid[r][c]=txt; occupied[`${r},${c}`]=true; } }
+        ci+=cs;
+      });
+    });
+    const tsv=grid.map((row,ri)=>{
+      const maxC=Math.max(...Object.keys(occupied).filter(k=>k.startsWith(ri+',')).map(k=>parseInt(k.split(',')[1])),0);
+      const cells=[]; for(let c=0;c<=maxC;c++) cells.push(row[c]||''); return cells.join('\t');
+    }).join('\n');
+    navigator.clipboard.writeText(tsv).then(()=>{
+      btn.innerHTML='<i class="fas fa-check"></i> Copied!'; btn.style.background='linear-gradient(135deg,#059669,#10b981)';
+      setTimeout(()=>{ btn.innerHTML='<i class="fas fa-copy"></i> Copy Table'; btn.style.background='linear-gradient(135deg,#0e7490,#06b6d4)'; },2000);
+    }).catch(()=>{
+      const sel=window.getSelection(), range=document.createRange(); range.selectNodeContents(table); sel.removeAllRanges(); sel.addRange(range); document.execCommand('copy'); sel.removeAllRanges();
+      btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(()=>{ btn.innerHTML='<i class="fas fa-copy"></i> Copy Table'; },2000);
+    });
+  };
+
+  /* Add Device */
+  window.dsOpenAdd = ()=>{
+    document.getElementById('dsAddOv').classList.add('open');
+    document.getElementById('dsAddLockBox').style.display='none';
+    document.getElementById('dsAddRetryBtn').style.display='none';
+    document.getElementById('dsAddSaveBtn').disabled=false;
+    document.getElementById('dsAddSaveBtn').innerHTML='<i class="fas fa-save"></i> Save Device';
+    setTimeout(()=>document.getElementById('af_serial')?.focus(),100);
+  };
+  window.dsCloseAdd = ()=>{
+    document.getElementById('dsAddOv').classList.remove('open');
+    document.getElementById('dsAddMsg').textContent='';
+    document.querySelectorAll('.ds-add-input').forEach(i=>{ i.value=''; i.classList.remove('req-err'); });
+  };
+  function addMsg(t,ok){ const el=document.getElementById('dsAddMsg'); el.textContent=t||''; el.className='ds-add-msg'+(t?(ok?' ok':' err'):''); }
+
+  window.dsSubmitAdd = async function(){
+    const mandatory=['af_serial','af_ddr','af_storage','af_platform','af_mcn','af_axiom','af_station'];
+    let valid=true;
+    mandatory.forEach(id=>{ const el=document.getElementById(id); if(!el||!el.value.trim()){ if(el) el.classList.add('req-err'); valid=false; } else if(el) el.classList.remove('req-err'); });
+    if(!valid){ addMsg('Please fill all mandatory fields (marked *).',false); return; }
+    const g=id=>(document.getElementById(id)||{}).value||'';
+    const row=['',g('af_asset'),g('af_serial'),g('af_adb'),g('af_ddr'),g('af_mem'),g('af_storage'),g('af_ufs'),g('af_rf'),g('af_platform'),g('af_qrd'),g('af_mcn'),g('af_rcvdate'),g('af_axiom'),g('af_intext'),g('af_team'),g('af_station'),g('af_rework_part'),g('af_rework_date'),g('af_rework_type'),g('af_ddr_rework'),g('af_location'),g('af_wcn'),g('af_comments')];
+    addMsg('Saving\u2026',true); document.getElementById('dsAddSaveBtn').disabled=true;
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/add`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw new Error(d.message||'Save failed');
+      if(d.locked){
+        document.getElementById('dsAddLockBox').style.display='flex';
+        document.getElementById('dsAddLockUser').textContent=d.locked_by?`Locked by: ${d.locked_by}`:'File locked.';
+        document.getElementById('dsAddRetryBtn').style.display='inline-flex';
+        addMsg('Excel is locked. Queued locally \u2014 click Retry Sync after unlocking.',true);
+        document.getElementById('dsAddSaveBtn').disabled=false; return;
+      }
+      addMsg(`\u2713 Device saved! Total: ${d.total}. Reloading\u2026`,true);
+      setTimeout(()=>{ dsCloseAdd(); window.location.reload(); },900);
+    }catch(e){ addMsg(e.message||'Save failed',false); document.getElementById('dsAddSaveBtn').disabled=false; }
+  };
+
+  window.dsRetryDeviceSync = async function(){
+    const btn=document.getElementById('dsAddRetryBtn'); btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Retrying...';
+    try{
+      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/retry_sync`,{method:'POST',headers:{'Content-Type':'application/json'}});
+      const d=await r.json().catch(()=>({}));
+      if(d.locked){ document.getElementById('dsAddLockUser').textContent=d.locked_by?`Still locked by: ${d.locked_by}`:'Still locked.'; addMsg('Still locked. Try again later.',false); btn.disabled=false; btn.innerHTML='<i class="fas fa-sync"></i> Retry Sync'; return; }
+      if(!r.ok||d.success===false) throw new Error(d.message||'Sync failed');
+      addMsg(`\u2713 ${d.message} Reloading\u2026`,true);
+      document.getElementById('dsAddLockBox').style.display='none'; btn.style.display='none';
+      setTimeout(()=>{ dsCloseAdd(); window.location.reload(); },900);
+    }catch(e){ addMsg(e.message||'Sync failed.',false); btn.disabled=false; btn.innerHTML='<i class="fas fa-sync"></i> Retry Sync'; }
+  };
+
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.getElementById('dsDevicesOv').classList.remove('open'); document.getElementById('dsAddOv').classList.remove('open'); } });
+})();
+
+/* ═══ File Browser ═══ */
+(function(){
+  let _fbTarget=null,_fbSelected=null,_fbHistory=[];
+  const ICONS={drive:'<i class="fas fa-hdd" style="color:#6366f1"></i>',network:'<i class="fas fa-network-wired" style="color:#8b5cf6"></i>',quick:'<i class="fas fa-star" style="color:#f59e0b"></i>',up:'<i class="fas fa-level-up-alt" style="color:#64748b"></i>',dir:'<i class="fas fa-folder" style="color:#f59e0b"></i>',file:'<i class="fas fa-file-excel" style="color:#16a34a"></i>'};
+  window.fbOpen=function(inputId,startPath){_fbTarget=inputId;_fbSelected=null;_fbHistory=[];document.getElementById('fbSelectBtn').disabled=true;document.getElementById('fbSelectedLabel').textContent='None';document.getElementById('fbOverlay').classList.add('open');const cur=document.getElementById(inputId)?.value?.trim();fbNavigate(startPath||cur||'root');};
+  window.fbClose=function(){document.getElementById('fbOverlay').classList.remove('open');};
+  window.fbGoUp=function(){if(_fbHistory.length>1){_fbHistory.pop();fbNavigate(_fbHistory.pop()||'root',true);}else{fbNavigate('root',true);}};
+  function buildBreadcrumb(path,isRoot){const bc=document.getElementById('fbBreadcrumb');bc.innerHTML='';const mkC=(label,p)=>{const s=document.createElement('span');s.style.cssText='cursor:pointer;color:#0e7490;font-weight:700;padding:2px 5px;border-radius:4px;font-size:11px';s.innerHTML=label;s.onmouseover=()=>s.style.background='#cffafe';s.onmouseout=()=>s.style.background='';s.onclick=()=>fbNavigate(p);return s;};bc.appendChild(mkC('<i class="fas fa-desktop"></i> This PC','root'));if(isRoot||!path)return;const sep=()=>{const s=document.createElement('span');s.textContent=' \u203a ';s.style.color='#94a3b8';return s;};const parts=path.replace(/\\/g,'/').split('/').filter(Boolean);let built='';parts.forEach((p,i)=>{built=i===0?p+'\\':built+p+'\\';const cp=built.replace(/\\$/,'')||built;bc.appendChild(sep());bc.appendChild(mkC(p,cp));});}
+  window.fbNavigate=async function(path,isBack){const list=document.getElementById('fbList');list.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8"><i class="fas fa-spinner fa-spin fa-lg"></i><br><span style="font-size:11px;margin-top:8px;display:block">Loading...</span></div>';try{const r=await fetch('/api/browse_files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path||'root'})});const d=await r.json();if(!d.success){list.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> ${d.message}</div>`;return;}if(!isBack)_fbHistory.push(path||'root');document.getElementById('fbAddrBar').value=d.is_root?'':d.path;buildBreadcrumb(d.is_root?'':d.path,d.is_root);document.getElementById('fbUpBtn').disabled=!!d.is_root;list.innerHTML='';if(!d.items.length){list.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8;font-size:12px"><i class="fas fa-folder-open fa-2x" style="display:block;margin-bottom:8px"></i>Empty folder</div>';return;}d.items.forEach(item=>{const el=document.createElement('div');el.className='fb-item';const icon=ICONS[item.type]||ICONS.dir;const sz=item.size?`<span class="fb-item-size">${item.size}</span>`:'';el.innerHTML=`<span class="fb-item-icon">${icon}</span><span class="fb-item-name">${item.name}</span>${sz}`;if(item.type==='file'){el.onclick=()=>{document.querySelectorAll('#fbList .fb-item').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');_fbSelected=item.path;document.getElementById('fbSelectBtn').disabled=false;document.getElementById('fbSelectedLabel').textContent=item.name;document.getElementById('fbAddrBar').value=item.path;};el.ondblclick=()=>{el.click();fbSelect();};}else{el.onclick=()=>fbNavigate(item.path);}list.appendChild(el);});}catch(e){list.innerHTML=`<div style="padding:16px;color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> Error: ${e.message}</div>`;}};
+  window.fbSelect=function(){const path=_fbSelected||document.getElementById('fbAddrBar').value.trim();if(!path)return;if(_fbTarget)document.getElementById(_fbTarget).value=path;fbClose();};
+  document.getElementById('fbOverlay')?.addEventListener('click',function(e){if(e.target===this)fbClose();});
+})();
+</script>
+
+{% endblock %}

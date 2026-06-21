@@ -1,0 +1,217 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_inner_content %}
+<style>
+.ap-shell{width:100%;max-width:none;margin:0;padding:18px 14px 44px;box-sizing:border-box}
+.ap-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ap-title{font-size:22px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:10px}
+.ap-sub{font-size:12px;color:#64748b;font-weight:650;margin-top:4px}
+.ap-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 6px 18px rgba(15,23,42,.07);overflow:hidden}
+.ap-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;background:linear-gradient(135deg,#eef2ff,#f8fafc);border-bottom:1px solid #e5e7eb}
+.ap-search{flex:1;min-width:220px;max-width:420px;border:1.5px solid #c7d2fe;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:750;outline:none}
+.ap-search:focus{box-shadow:0 0 0 3px rgba(99,102,241,.12);border-color:#6366f1}
+.ap-btn{border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer}
+.ap-btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 6px 14px rgba(79,70,229,.22)}
+.ap-btn-ghost{background:#fff;border:1px solid #cbd5e1;color:#334155}
+.ap-status{font-size:12px;font-weight:800;color:#64748b}
+.ap-tablewrap{overflow:auto;max-height:70vh}
+.ap-table{width:100%;border-collapse:collapse;min-width:860px}
+.ap-table th{position:sticky;top:0;background:#0f172a;color:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;text-align:left;z-index:2}
+.ap-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:top}
+.ap-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:900}
+.ap-pill-ok{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.ap-pill-no{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.ap-input{width:100%;min-width:340px;max-width:680px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;outline:none}
+.ap-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.ap-row-actions{display:flex;gap:8px;align-items:center}
+</style>
+
+<div class="ap-shell">
+  <div class="ap-head">
+    <div>
+      <div class="ap-title"><i class="fas fa-folder-open" style="color:#4f46e5"></i> Target Paths (Admin)</div>
+      <div class="ap-sub">Update <b>unique_cr_path</b> per target. If empty, the Unique CRs / Overall CRs tabs will be hidden automatically.</div>
+    </div>
+    <a href="{{ url_for('admin_usage') }}" class="ap-btn ap-btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+
+  <div class="ap-card">
+    <div class="ap-toolbar">
+      <input id="apSearch" class="ap-search" placeholder="Search target / BU / SP…" />
+      <button class="ap-btn ap-btn-primary" id="apReload"><i class="fas fa-sync-alt"></i> Reload</button>
+      <span class="ap-status" id="apStatus"></span>
+    </div>
+
+    <div class="ap-tablewrap">
+      <table class="ap-table">
+        <thead>
+          <tr>
+            <th style="width:210px">Target</th>
+            <th style="width:120px">BU</th>
+            <th style="width:200px">SP</th>
+            <th>Unique CR Path (folder)</th>
+            <th style="width:150px">Unique Tabs</th>
+            <th style="width:140px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="apTbody">
+          <tr><td colspan="6" style="padding:18px;color:#64748b">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const tbody = document.getElementById('apTbody');
+  const status = document.getElementById('apStatus');
+  const search = document.getElementById('apSearch');
+
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}
+
+  async function apiGet(){
+    const resp = await fetch('/admin/targets_paths', {cache:'no-store'});
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Failed to load targets');
+    return data.rows || [];
+  }
+
+  async function apiSave(target_name, unique_cr_path){
+    const resp = await fetch('/admin/update_unique_cr_path', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target_name, unique_cr_path})
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
+    return data;
+  }
+
+  function pill(ok){
+    return ok
+      ? '<span class="ap-pill ap-pill-ok"><i class="fas fa-eye"></i> Enabled</span>'
+      : '<span class="ap-pill ap-pill-no"><i class="fas fa-eye-slash"></i> Hidden</span>';
+  }
+
+  function render(rows){
+    const q = (search.value || '').trim().toLowerCase();
+    const filtered = (rows||[]).filter(r => {
+      if(!q) return true;
+      const s = [r.target_name, r.bu, r.sp_name, r.target_display].map(x => String(x||'').toLowerCase()).join(' ');
+      return s.includes(q);
+    });
+
+    if(!filtered.length){
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">No matches.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(r => {
+      const t = r.target_name;
+      const display = r.target_display || t;
+      const bu = r.bu || '';
+      const sp = r.sp_name || '';
+      const path = r.unique_cr_path || '';
+      const enabled = !!path;
+      return `
+        <tr>
+          <td><div style="font-weight:950;color:#0f172a">${esc(display)}</div><div style="font-size:10px;color:#94a3b8;font-family:ui-monospace,monospace">${esc(t)}</div></td>
+          <td style="font-weight:800;color:#334155">${esc(bu)}</td>
+          <td style="color:#475569">${esc(sp)}</td>
+          <td>
+            <input class="ap-input" data-target="${esc(t)}" value="${esc(path)}" placeholder="\\\\sphere\\...\\DailyData\\Latest" />
+          </td>
+          <td>${pill(enabled)}</td>
+          <td>
+            <div class="ap-row-actions">
+              <button class="ap-btn ap-btn-primary" data-save="${esc(t)}"><i class="fas fa-save"></i> Save</button>
+              <button class="ap-btn ap-btn-ghost" data-ingest="${esc(t)}"><i class="fas fa-play-circle"></i> Ingest</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.querySelectorAll('button[data-save]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const t = btn.getAttribute('data-save');
+        const inp = tbody.querySelector(`input[data-target="${CSS.escape(t)}"]`);
+        const v = (inp?.value || '').trim();
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving';
+        status.textContent = 'Saving ' + t + '…';
+        try{
+          await apiSave(t, v || null);
+          status.textContent = 'Saved. Reloading…';
+          await load();
+          status.textContent = 'Saved.';
+        }catch(e){
+          status.textContent = 'Error: ' + (e.message||e);
+        }finally{
+          btn.disabled = false;
+          btn.innerHTML = oldHtml;
+        }
+      });
+    });
+
+    tbody.querySelectorAll('button[data-ingest]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const t = btn.getAttribute('data-ingest');
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ingesting';
+
+        // Show progress steps
+        const steps = [
+          '🔍 Resolving workbook…',
+          '📂 Reading OverallCrs sheet…',
+          '🗂️ Building reported_team map…',
+          '💾 Creating DB table…',
+          '📥 Inserting rows…',
+          '✅ Finalising…'
+        ];
+        let stepIdx = 0;
+        status.innerHTML = `<span style="color:#6366f1;font-weight:800">${steps[stepIdx]}</span>`;
+        const stepTimer = setInterval(() => {
+          stepIdx = Math.min(stepIdx + 1, steps.length - 1);
+          status.innerHTML = `<span style="color:#6366f1;font-weight:800">${steps[stepIdx]}</span>`;
+        }, 2200);
+
+        try{
+          const resp = await fetch('/admin/update_target', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({target_name: t})
+          });
+          clearInterval(stepTimer);
+          const data = await resp.json().catch(()=>({}));
+          if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Ingest failed');
+          status.innerHTML = `<span style="color:#16a34a;font-weight:800">✅ ${(data && data.message) ? data.message : ('Ingest complete for ' + t)}</span>`;
+          await load();
+        }catch(e){
+          clearInterval(stepTimer);
+          status.innerHTML = `<span style="color:#dc2626;font-weight:800">❌ Error: ${e.message||e}</span>`;
+        }finally{
+          btn.disabled = false;
+          btn.innerHTML = oldHtml;
+        }
+      });
+    });
+  }
+
+  let _cache = [];
+  async function load(){
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">Loading…</td></tr>';
+    status.textContent = '';
+    _cache = await apiGet();
+    render(_cache);
+  }
+
+  document.getElementById('apReload').addEventListener('click', load);
+  search.addEventListener('input', () => render(_cache));
+
+  load();
+})();
+</script>
+{% endblock %}

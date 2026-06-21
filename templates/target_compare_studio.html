@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Target Delta Studio</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <style>
+    :root{--bg:#eef3fb;--panel:rgba(255,255,255,.9);--ink:#0f172a;--muted:#64748b;--line:#dbe3ef;--brand:#2563eb;--brand2:#7c3aed;--brand3:#06b6d4;--good:#16a34a;--warn:#d97706;--bad:#dc2626;--chip:#eef4ff;--shadow:0 24px 70px rgba(15,23,42,.16)}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 12% -8%,rgba(59,130,246,.34) 0,transparent 30%),radial-gradient(circle at 88% 0%,rgba(124,58,237,.30) 0,transparent 31%),radial-gradient(circle at 50% 105%,rgba(6,182,212,.20) 0,transparent 32%),linear-gradient(135deg,#f8fbff 0,#eef3ff 42%,#f8f7ff 100%);color:var(--ink);min-height:100vh}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),transparent 78%)}
+    header{position:relative;margin:18px 18px 0;width:calc(100% - 36px);padding:38px 44px;background:linear-gradient(135deg,#08111f 0%,#102a68 44%,#5521a8 78%,#0f9fbc 120%);color:#fff;box-shadow:0 28px 80px rgba(30,58,138,.35);border:1px solid rgba(255,255,255,.22);border-radius:32px;overflow:hidden}
+    header:before{content:"";position:absolute;inset:1px;border-radius:29px;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent 36%);pointer-events:none}header:after{content:"";position:absolute;right:-70px;top:-95px;width:310px;height:310px;border-radius:999px;background:radial-gradient(circle,rgba(255,255,255,.22),rgba(255,255,255,.05) 54%,transparent 70%)}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;backdrop-filter:blur(10px)}
+    h1{position:relative;margin:12px 0 0;font-size:44px;letter-spacing:-.06em;line-height:.98}.sub{position:relative;opacity:.9;margin-top:12px;font-size:15px;max-width:920px;line-height:1.6}.heroBadges{position:relative;display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.heroBadges span{padding:8px 13px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);font-size:12px;font-weight:850;color:#eaf2ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+    main{position:relative;padding:22px 18px 28px;width:100%;max-width:none;margin:0}.panel{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.90));backdrop-filter:blur(20px);border:1px solid rgba(203,213,225,.78);border-radius:28px;box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+    .panel-h{padding:20px 24px;border-bottom:1px solid rgba(219,227,239,.82);display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(90deg,rgba(248,250,252,.98),rgba(239,246,255,.76),rgba(245,243,255,.55))}.panel-h h2{font-size:18px;margin:0;letter-spacing:-.025em;color:#0f1f3d}.panel-b{padding:22px 24px}
+    .grid{display:grid;gap:16px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(520px,1fr))}
+    label{display:block;font-size:12px;font-weight:900;color:#243b63;margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase}select,input{width:100%;border:1px solid #cbd8ec;border-radius:16px;padding:13px 14px;background:linear-gradient(180deg,#fff,#f8fbff);color:var(--ink);outline:none;box-shadow:inset 0 1px 0 #fff,0 7px 18px rgba(15,23,42,.04);transition:.18s box-shadow,.18s border,.18s transform}select:hover,input:hover{border-color:#a8c2f5}select:focus,input:focus{border-color:#7aa7ff;box-shadow:0 0 0 5px rgba(37,99,235,.13),0 12px 30px rgba(37,99,235,.10);transform:translateY(-1px)}#compareSearch{font-weight:800;background:linear-gradient(180deg,#fff,#f3f7ff);border-width:1.5px}
+    button{border:0;border-radius:16px;padding:12px 18px;font-weight:950;cursor:pointer;letter-spacing:.01em;transition:.18s transform,.18s box-shadow,.18s filter,.18s background;position:relative;overflow:hidden}button:before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent,rgba(255,255,255,.22),transparent);transform:translateX(-120%);transition:.45s}button:hover:before{transform:translateX(120%)}button:hover{transform:translateY(-2px);filter:saturate(1.08)}.primary{background:linear-gradient(135deg,var(--brand),var(--brand2) 62%,var(--brand3));color:#fff;box-shadow:0 14px 30px rgba(37,99,235,.30),inset 0 1px 0 rgba(255,255,255,.22)}.ghost{background:linear-gradient(135deg,#f8fbff,#e8eef8);color:#18315b;border:1px solid #cddaf0;box-shadow:0 8px 18px rgba(15,23,42,.06)}.danger{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;border:1px solid #fecaca}.small{padding:8px 11px;border-radius:12px;font-size:12px}.addBtn{background:linear-gradient(135deg,#ecfeff,#eef2ff);color:#1e3a8a;border:1px solid #bfdbfe}.addBtn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+    .entity{border:1px solid rgba(185,198,218,.8);border-radius:20px;padding:15px;background:linear-gradient(180deg,#fff,#f8fbff);position:relative;box-shadow:inset 0 1px 0 #fff,0 12px 30px rgba(15,23,42,.08)}.row{display:flex;gap:10px;align-items:end}.row>*{flex:1}.muted{color:var(--muted);font-size:12px}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:linear-gradient(135deg,#eef4ff,#f5f3ff 55%,#ecfeff);border:1px solid #c7d7ff;padding:7px 11px;font-size:12px;margin:3px;box-shadow:0 8px 20px rgba(37,99,235,.10);font-weight:800;color:#1e2f55}.hidden{display:none!important}.compareSearchWrap{display:grid;grid-template-columns:minmax(360px,520px) minmax(0,1fr);gap:20px;align-items:stretch}.searchHero{padding:22px;border:1px solid rgba(185,198,218,.82);border-radius:24px;background:linear-gradient(180deg,#ffffff,#f6f9ff);box-shadow:inset 0 1px 0 #fff,0 16px 38px rgba(15,23,42,.09);display:flex;flex-direction:column;justify-content:center}.matchList{border:1px solid rgba(185,198,218,.82);border-radius:24px;background:linear-gradient(180deg,#fff,#f8fbff);overflow:hidden;box-shadow:inset 0 1px 0 #fff,0 16px 38px rgba(15,23,42,.09);min-height:174px}.matchHead{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:15px 18px;background:linear-gradient(90deg,#f8fafc,#eef4ff);border-bottom:1px solid #e5edf8}.matchHead b{font-size:15px;color:#10244a}.targetCheck{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;padding:13px 18px;border-bottom:1px solid #eef2f7;transition:.16s background,.16s transform}.targetCheck:last-child{border-bottom:0}.targetCheck:hover{background:linear-gradient(90deg,#f8fbff,#f3f7ff);transform:translateX(2px)}.targetCheck input{width:19px;height:19px;accent-color:#2563eb}.targetCheck:has(input:checked){background:linear-gradient(90deg,#eff6ff,#f5f3ff)}.targetCheck b{display:block;font-size:13px;color:#10233f}.targetCheck span{display:block;font-size:11px;color:var(--muted);margin-top:2px}.buTag{font-size:11px;font-weight:950;color:#1e3a8a;background:linear-gradient(135deg,#eef4ff,#ecfeff);border:1px solid #cddcff;border-radius:999px;padding:5px 9px}.selectedTarget{margin-top:9px;display:flex;justify-content:space-between;gap:8px;align-items:center;background:linear-gradient(135deg,#eef4ff,#f5f3ff);border:1px solid #cddcff;border-radius:13px;padding:8px 10px;font-size:12px;font-weight:900}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.kpi{padding:18px;border:1px solid rgba(203,213,225,.82);border-radius:20px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 14px 32px rgba(15,23,42,.08);position:relative;overflow:hidden;min-height:150px}.kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,var(--brand),var(--brand2),var(--brand3))}.kpi .name{font-size:12px;color:#334155;font-weight:900}.kpi .val{font-size:32px;font-weight:950;margin-top:7px;letter-spacing:-.045em;color:#0f1f3d}.kpi .delta{font-size:12px;margin-top:5px;font-weight:900}.pos{color:var(--bad)}.neg{color:var(--good)}
+    table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:11px 12px;text-align:left;vertical-align:top}th{position:sticky;top:0;background:linear-gradient(180deg,#eef4ff,#f8fafc);z-index:1;font-size:12px;color:#1e2f55;font-weight:950;text-transform:uppercase;letter-spacing:.025em}tbody tr:nth-child(even){background:#fbfdff}tbody tr:hover{background:linear-gradient(90deg,#eff6ff,#f8fbff)}.table-wrap{max-height:70vh;overflow:auto;border:1px solid rgba(203,213,225,.85);border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.07)}.collapsible-table{clear:both;margin:12px 0 20px;border:1px solid rgba(203,213,225,.85);border-radius:20px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 16px 38px rgba(15,23,42,.10);overflow:hidden;transition:.18s transform,.18s box-shadow,.18s border-color}.collapsible-table:hover{transform:translateY(-1px);box-shadow:0 22px 50px rgba(15,23,42,.13);border-color:#b8c7e3}.collapsible-table summary{cursor:pointer;list-style:none;padding:15px 18px;font-size:12px;font-weight:950;color:#13264a;background:linear-gradient(135deg,#f8fafc,#eef4ff);border-bottom:1px solid transparent;display:flex;align-items:center;gap:10px;letter-spacing:.01em}.collapsible-table summary::-webkit-details-marker{display:none}.collapsible-table summary:before{content:'+';display:inline-grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border-radius:999px;background:rgba(37,99,235,.12);color:#1d4ed8;font-size:15px;font-weight:950;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.collapsible-table summary:after{content:'Click to expand';margin-left:auto;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.8);color:#475569;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}.collapsible-table[open] summary{border-bottom-color:#dbe3ef}.collapsible-table[open] summary:before{content:'–';background:rgba(15,23,42,.12);color:#0f172a}.collapsible-table[open] summary:after{content:'Expanded';background:#ecfdf5;color:#047857;border-color:#bbf7d0}.collapsible-table .table-wrap{border:0;border-radius:0;box-shadow:none}.collapsible-table .copyBtn{float:none;margin:10px 12px 10px auto;display:block}.collapsible-table:nth-of-type(5n+1) summary{background:linear-gradient(135deg,#eff6ff,#e0e7ff);color:#1e3a8a}.collapsible-table:nth-of-type(5n+1){border-color:#bfdbfe}.collapsible-table:nth-of-type(5n+1) summary:before{background:#dbeafe;color:#1d4ed8}.collapsible-table:nth-of-type(5n+2) summary{background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#5b21b6}.collapsible-table:nth-of-type(5n+2){border-color:#ddd6fe}.collapsible-table:nth-of-type(5n+2) summary:before{background:#ede9fe;color:#7c3aed}.collapsible-table:nth-of-type(5n+3) summary{background:linear-gradient(135deg,#ecfeff,#cffafe);color:#155e75}.collapsible-table:nth-of-type(5n+3){border-color:#a5f3fc}.collapsible-table:nth-of-type(5n+3) summary:before{background:#cffafe;color:#0891b2}.collapsible-table:nth-of-type(5n+4) summary{background:linear-gradient(135deg,#fff7ed,#ffedd5);color:#9a3412}.collapsible-table:nth-of-type(5n+4){border-color:#fed7aa}.collapsible-table:nth-of-type(5n+4) summary:before{background:#ffedd5;color:#ea580c}.collapsible-table:nth-of-type(5n+5) summary{background:linear-gradient(135deg,#ecfdf5,#dcfce7);color:#166534}.collapsible-table:nth-of-type(5n+5){border-color:#bbf7d0}.collapsible-table:nth-of-type(5n+5) summary:before{background:#dcfce7;color:#16a34a}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{background:linear-gradient(135deg,#eef2ff,#f8fafc);color:#334155;border:1px solid #d9e3f5;box-shadow:0 6px 14px rgba(15,23,42,.05)}.tab.active{background:linear-gradient(135deg,#1e3a8a,#2563eb,#7c3aed);color:#fff;box-shadow:0 12px 24px rgba(37,99,235,.22)}.tab-content{display:none}.tab-content.active{display:block}.chartbox{height:420px;padding:14px;border:1px solid #e2e8f0;border-radius:20px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:inset 0 1px 0 #fff,0 10px 24px rgba(15,23,42,.05)}.loading{opacity:.65;pointer-events:none}.err{color:#991b1b;background:linear-gradient(135deg,#fff1f2,#fee2e2);border:1px solid #fecaca;padding:11px 13px;border-radius:14px;font-weight:800}.copyBtn{float:right;margin:0 0 10px 10px;background:linear-gradient(135deg,#0f172a,#1e3a8a,#2563eb);color:#fff;box-shadow:0 12px 24px rgba(15,23,42,.22)}.statusBox{border:1px solid #cbd8ec;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fbff);padding:12px;max-height:none;overflow:visible;display:flex;gap:8px;flex-wrap:wrap;align-items:center;box-shadow:inset 0 1px 0 #fff,0 10px 22px rgba(15,23,42,.05)}.statusCheck{display:inline-flex;align-items:center;gap:6px;margin:3px 4px 3px 0;padding:8px 11px;border:1px solid #dbe3ef;border-radius:999px;background:linear-gradient(135deg,#f8fafc,#eef4ff);font-size:11px;font-weight:900;color:#334155;cursor:pointer;transition:.16s transform,.16s box-shadow,.16s border}.statusCheck:hover{transform:translateY(-1px);box-shadow:0 8px 16px rgba(37,99,235,.10);border-color:#b9ccff}.statusCheck:has(input:checked){background:linear-gradient(135deg,#dbeafe,#eef2ff);border-color:#93b5ff;color:#1e3a8a}.statusCheck input{width:14px;height:14px;padding:0;accent-color:#2563eb}    .statusActions{display:flex;gap:7px;margin-top:9px}
+        /* Light premium theme overrides: soft colors only, no dark headers/buttons */
+    header{background:linear-gradient(135deg,#ffffff 0%,#eff6ff 38%,#f5f3ff 72%,#ecfeff 100%)!important;color:#1e2f55!important;border:1px solid #bfdbfe!important;box-shadow:0 24px 70px rgba(37,99,235,.16)!important}
+    header:before{background:linear-gradient(135deg,rgba(37,99,235,.10),rgba(124,58,237,.05) 42%,transparent 70%)!important}
+    header:after{background:radial-gradient(circle,rgba(59,130,246,.18),rgba(124,58,237,.08) 54%,transparent 72%)!important}
+    h1{color:#1e3a8a!important;text-shadow:0 1px 0 rgba(255,255,255,.85)}.sub{color:#475569!important;opacity:1!important}.eyebrow{background:linear-gradient(135deg,#dbeafe,#ede9fe)!important;color:#1e3a8a!important;border-color:#bfdbfe!important}.heroBadges span{background:linear-gradient(135deg,#ffffff,#eef4ff)!important;color:#1e3a8a!important;border-color:#c7d2fe!important;box-shadow:0 8px 18px rgba(37,99,235,.08)!important}
+    .primary,.copyBtn{background:linear-gradient(135deg,#3b82f6,#7c3aed 58%,#06b6d4)!important;color:#ffffff!important;border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 14px 28px rgba(59,130,246,.26)!important}.primary:hover,.copyBtn:hover{filter:saturate(1.08) brightness(1.03);box-shadow:0 18px 34px rgba(124,58,237,.28)!important}.tab.active{background:linear-gradient(135deg,#60a5fa,#8b5cf6,#22d3ee)!important;color:#ffffff!important;border-color:#93c5fd!important;box-shadow:0 12px 24px rgba(59,130,246,.22)!important}
+    .collapsible-table[open] summary:before{background:#e2e8f0!important;color:#334155!important}.collapsible-table summary:after{background:rgba(255,255,255,.82)!important}.collapsible-table[open] summary:after{background:#dcfce7!important;color:#15803d!important;border-color:#bbf7d0!important}
+    .panel-h h2{display:inline-flex!important;align-items:center;gap:10px;font-size:17px!important;font-weight:1000!important;letter-spacing:.01em!important;color:#4f46e5!important;text-transform:none!important}.panel-h h2:before{content:"";width:6px;height:22px;border-radius:999px;background:linear-gradient(180deg,#3b82f6,#7c3aed,#06b6d4);box-shadow:0 8px 18px rgba(79,70,229,.26)}.cr-section-title{display:inline-flex;align-items:center;gap:10px;margin:12px 0 10px;padding:8px 13px;border-radius:14px;background:linear-gradient(135deg,#eef2ff,#e0f2fe);border:1px solid #bfdbfe;color:#4f46e5;font-size:13px;font-weight:1000;letter-spacing:.02em;box-shadow:0 10px 24px rgba(59,130,246,.13)}.cr-section-title:before{content:"";width:8px;height:8px;border-radius:999px;background:#06b6d4;box-shadow:0 0 0 4px rgba(6,182,212,.14)}.collapsible-table summary{font-weight:1000!important;color:#4f46e5!important}
+    @media(max-width:1000px){.g4,.g3,.g2,.compareSearchWrap{grid-template-columns:1fr}.row{display:block}.row>*{margin-bottom:10px}}
+
+
+              /* ── CR by Tech Area Table ── */
+    .crd-wrap{overflow-x:auto;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.09);border:1px solid rgba(203,213,225,.7);}
+    .crd-table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;}
+    .crd-table thead tr{background:linear-gradient(90deg,#f0f5ff,#eef4ff);}
+    .crd-table th{padding:11px 16px;text-align:left;font-size:11px;font-weight:900;color:#1e2f55;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #dbe8f8;white-space:nowrap;position:sticky;top:0;z-index:2;}
+    .crd-table th.area-col{min-width:170px;max-width:220px;position:sticky;left:0;z-index:3;background:linear-gradient(90deg,#eef4ff,#f0f5ff);}
+    .crd-table th.delta-col{min-width:70px;text-align:right;}
+    .crd-table td{padding:10px 16px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+    .crd-table td.area-cell{position:sticky;left:0;background:#fafcff;font-weight:800;color:#1e2f55;font-size:12px;border-right:2px solid #e8eef8;z-index:1;white-space:nowrap;min-width:170px;max-width:220px;}
+    .crd-table tr:last-child td{border-bottom:none;}
+    .crd-table tr:hover td{background:#f4f8ff;}
+    .crd-table tr:hover td.area-cell{background:#eaf1ff;}
+    .crd-total{font-size:14px;font-weight:900;color:#1e2f55;margin-bottom:5px;line-height:1.3;display:flex;align-items:baseline;gap:5px;}
+    .crd-occ{color:#7c3aed;font-size:11px;font-weight:700;}
+    .crd-status-pills{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;}
+    .crd-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;border:1px solid;}
+    .crd-bar-wrap{height:3px;background:#eef2f8;border-radius:3px;overflow:hidden;margin-top:4px;}
+    .crd-bar{height:100%;border-radius:3px;transition:width .4s ease;}
+    .crd-delta-pos{color:#dc2626;font-weight:900;font-size:12px;}
+    .crd-delta-neg{color:#16a34a;font-weight:900;font-size:12px;}
+    .crd-delta-zero{color:#94a3b8;font-size:12px;}
+    .crd-entity-td{min-width:220px;}
+    .imageFilterGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0 14px;}
+    .imageFilterBox{border:1px solid #dbe3ef;border-radius:14px;background:linear-gradient(180deg,#fff,#f8fbff);padding:10px;}
+    .imageFilterBox summary{cursor:pointer;font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;}
+    .imageCheckWrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;max-height:150px;overflow:auto;}
+    .imageCheck{display:inline-flex;align-items:center;gap:5px;border:1px solid #dbe3ef;border-radius:999px;padding:5px 8px;background:#f8fafc;font-size:10px;font-weight:800;color:#334155;}
+    .imageCheck input{width:13px;height:13px;padding:0;accent-color:#2563eb;}
+    .siDetails{min-width:110px;max-width:260px;}
+    .siDetails summary{cursor:pointer;color:#1d4ed8;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;}
+    .siDetails div{margin-top:6px;padding:7px 9px;border:1px solid #dbeafe;border-radius:10px;background:#f8fbff;color:#334155;font-size:11px;line-height:1.45;white-space:normal;word-break:break-word;}
+  </style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Premium Target Delta Workspace</div>
+  <h1>Target Delta Studio</h1>
+  <div class="sub">Create target sets, calculate CR deltas side-by-side, and drill into common, exclusive, and regression CRs with premium charts, filters, and copy-ready tables.</div>
+  <div class="heroBadges"><span>Target Delta</span><span>Status Filters</span><span>Common vs Exclusive</span><span>Copy-Ready Insights</span></div>
+</header>
+<main>
+  <section class="panel" id="controlsPanel">
+    <div class="panel-h"><h2>Target Delta Setup</h2><div class="muted">Search target families, add delta sets, then review CR delta metrics side-by-side.</div></div>
+    <div class="panel-b">
+      <div class="compareSearchWrap">
+        <div class="searchHero">
+          <label>Search targets</label>
+          <input id="compareSearch" placeholder="Example: lemans, kailua, nord, skyros..." autocomplete="off">
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button type="button" class="primary small" id="addSetBtn" onclick="addCurrentSelection()">Add as Delta Set</button>
+            <button type="button" class="ghost small" id="clearSearchBtn" onclick="clearCurrentSearch()">Clear Search</button>
+          </div>
+          <div class="muted" style="margin-top:9px">Type a target, family, program, or BU name to filter results, then add them as one delta set.</div>
+        </div>
+        <div class="matchList">
+          <div class="matchHead"><b>Matched targets</b><span class="muted" id="targetCountMsg">Type to search.</span><button type="button" class="ghost small" id="clearAllChecksBtn" onclick="clearAllChecked()" style="margin-left:auto;font-size:11px;padding:3px 10px;">Clear All</button></div>
+          <div id="matchedTargets"><div class="muted" style="padding:14px">Type a target, family, program, or BU name to see relevant targets.</div></div>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        <div><label>From JIRA Date</label><input id="dateFrom" type="date"></div>
+        <div><label>To JIRA Date</label><input id="dateTo" type="date"></div>
+      </div>
+      <div style="margin-top:14px">
+        <label>CR Status Filter</label>
+        <div class="statusBox" id="statusFilterBox"></div>
+        <div class="statusActions"><button type="button" class="ghost small" onclick="setAllStatuses(true)">All</button><button type="button" class="ghost small" onclick="setAllStatuses(false)">None</button></div>
+      </div>
+      <div id="compareSets" style="margin-top:14px"></div>
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+        <button class="primary" id="runBtn">Run Target Delta</button><button class="ghost" id="resetBtn">Reset</button><span id="stateMsg" class="muted"></span>
+      </div>
+      <div id="compareDebug" class="muted" style="margin-top:10px;font-size:11px;color:#64748b;"></div>
+      <div id="selectedPreview" style="margin-top:12px"></div>
+      <div id="errorBox" class="err hidden" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="summaryPanel"><div class="panel-h"><h2>Summary</h2></div><div class="panel-b"><div id="summaryKpis" class="kpis"></div></div></section>
+
+  <section class="panel hidden" id="chartsPanel">
+    <div class="panel-h"><h2>Target Delta Studio Charts</h2></div>
+    <div class="panel-b grid g2">
+      <div><h3 class="muted">Status mix</h3><div class="chartbox"><canvas id="statusChart"></canvas></div></div>
+      <div><h3 class="muted">Age buckets</h3><div class="chartbox"><canvas id="ageChart"></canvas></div></div>
+      <div><h3 class="muted">Site split</h3><div class="chartbox"><canvas id="siteChart"></canvas></div></div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="tablesPanel">
+    <div class="panel-h"><h2>Target Delta Studio Details</h2><div class="tabs" id="tabs"></div></div>
+    <div class="panel-b" id="tabContents"></div>
+  </section>
+</main>
+
+<script>
+/* ── Status badge helper ── */
+const STATUS_COLORS={
+  open:       {bg:'#dbeafe',color:'#1d4ed8',border:'#93c5fd'},
+  analysis:   {bg:'#ede9fe',color:'#6d28d9',border:'#c4b5fd'},
+  built:      {bg:'#dcfce7',color:'#15803d',border:'#86efac'},
+  fix:        {bg:'#d1fae5',color:'#065f46',border:'#6ee7b7'},
+  ready:      {bg:'#ecfdf5',color:'#047857',border:'#a7f3d0'},
+  closed:     {bg:'#f1f5f9',color:'#475569',border:'#cbd5e1'},
+  withdrawn:  {bg:'#fef3c7',color:'#92400e',border:'#fcd34d'},
+  cannotduplicate:{bg:'#fef9c3',color:'#713f12',border:'#fde047'},
+  nosir:      {bg:'#fff7ed',color:'#c2410c',border:'#fdba74'},
+  notapplicable:{bg:'#f8fafc',color:'#64748b',border:'#e2e8f0'},
+  obsolete:   {bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},
+  postponed:  {bg:'#fff1f2',color:'#be123c',border:'#fecdd3'},
+  invalid:    {bg:'#fee2e2',color:'#b91c1c',border:'#fca5a5'},
+  dup:        {bg:'#fef3c7',color:'#92400e',border:'#fcd34d'},
+};
+function statusBadge(raw){
+  if(!raw) return '<span style="color:#94a3b8;">—</span>';
+  // raw may be "Built(2), Open(1)" — split and render each
+  const parts = String(raw).split(',').map(s=>s.trim()).filter(Boolean);
+  return parts.map(part=>{
+    const m = part.match(/^([^(]+)(?:\((\d+)\))?$/);
+    const label = m ? m[1].trim() : part;
+    const count = m && m[2] ? ` ×${m[2]}` : '';
+    const key = label.toLowerCase().replace(/[^a-z]/g,'');
+    const c = STATUS_COLORS[key] || {bg:'#f1f5f9',color:'#334155',border:'#cbd5e1'};
+    return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:${c.bg};color:${c.color};border:1px solid ${c.border};font-size:10px;font-weight:800;white-space:nowrap;margin:1px 2px;">${esc(label)}${count}</span>`;
+  }).join('');
+}
+function ageBadge(age){
+  const a=Number(age||0);
+  if(!a) return '<span style="color:#94a3b8;">—</span>';
+  let bg='#dcfce7',color='#15803d',border='#86efac';
+  if(a>=40){bg='#fee2e2';color='#b91c1c';border='#fca5a5';}
+  else if(a>=20){bg='#fef3c7';color='#92400e';border='#fcd34d';}
+  else if(a>=5){bg='#fff7ed';color='#c2410c';border='#fdba74';}
+  return `<span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:${bg};color:${color};border:1px solid ${border};font-size:10px;font-weight:800;white-space:nowrap;">${a}d</span>`;
+}
+function siCell(value){
+  const text=String(value||'').trim();
+  if(!text) return '<span style="color:#94a3b8;">—</span>';
+  return `<details class="siDetails"><summary>Show SI/Image</summary><div>${esc(text)}</div></details>`;
+}
+const MAX_ENTITIES = 100;
+let OPTIONS = null, RESULT = null, charts = {}, MATCHES = [], CHECKED_TARGETS = new Set(), ADDED_ENTITIES = [];
+const colors = ['#6366f1','#06b6d4','#f59e0b','#ef4444','#8b5cf6','#10b981','#f97316','#ec4899'];
+const colorsDark  = ['#4338ca','#0e7490','#b45309','#b91c1c','#6d28d9','#047857','#c2410c','#be185d'];
+const colorsLight = ['#a5b4fc','#67e8f9','#fde68a','#fca5a5','#c4b5fd','#6ee7b7','#fed7aa','#fbcfe8'];
+function premiumDataset(label, i, data) {
+  return {
+    label: label,
+    data: data,
+    backgroundColor: colors[i % colors.length] + 'cc',
+    borderColor: colorsDark[i % colorsDark.length],
+    borderWidth: 1.5,
+    borderRadius: 6,
+    borderSkipped: false,
+    hoverBackgroundColor: colors[i % colors.length],
+    hoverBorderColor: colorsDark[i % colorsDark.length],
+    hoverBorderWidth: 2,
+  };
+}
+function hasChart(){return typeof window.Chart !== 'undefined';}
+if(hasChart() && window.ChartDataLabels){Chart.register(ChartDataLabels);}
+const chartPluginOpts={legend:{position:'bottom'},datalabels:{anchor:'end',align:'top',offset:2,clip:false,color:'#0f172a',font:{weight:'800',size:10},formatter:v=>v?Number(v).toLocaleString():''}};
+function esc(v){return String(v == null ? '' : v).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function escAttr(v){return String(v == null ? '' : v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function num(v){return Number(v||0).toLocaleString();}
+function destroyCharts(){Object.values(charts).forEach(c=>c&&c.destroy()); charts={};}
+function makeDatasets(labels,rows,valueFn){return labels.map((l,i)=>premiumDataset(l,i,rows.map(r=>valueFn(r,l))));}
+function renderCharts(){
+  destroyCharts();
+  if(!hasChart()){
+    const chartsPanel=document.getElementById('chartsPanel');
+    if(chartsPanel) chartsPanel.classList.add('hidden');
+    return;
+  }
+  const labels=RESULT.entities.map(e=>e.label);
+  const statusRows=RESULT.status_comparison;
+  charts.status=new Chart(document.getElementById('statusChart'),{type:'bar',data:{labels:statusRows.map(r=>r.status),datasets:makeDatasets(labels,statusRows,(r,l)=>r.entities[l]||0)},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},plugins:chartPluginOpts,scales:{y:{beginAtZero:true,grace:'15%'}}}});
+  charts.age=new Chart(document.getElementById('ageChart'),{type:'bar',data:{labels:RESULT.age_buckets.map(r=>r.bucket),datasets:makeDatasets(labels,RESULT.age_buckets,(r,l)=>r.entities[l]||0)},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},plugins:chartPluginOpts,scales:{y:{beginAtZero:true,grace:'15%'}}}});
+  charts.site=new Chart(document.getElementById('siteChart'),{type:'bar',data:{labels:RESULT.site_comparison.map(r=>r.site_label),datasets:makeDatasets(labels,RESULT.site_comparison,(r,l)=>r.entities[l]||0)},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},plugins:chartPluginOpts,scales:{y:{beginAtZero:true,grace:'15%'}}}});
+}
+function setMsg(t){document.getElementById('stateMsg').textContent=t||''}
+function showErr(t){const e=document.getElementById('errorBox'); e.textContent=t||''; e.classList.toggle('hidden',!t)}
+function normText(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'');}
+function targetOptions(){
+  const combined = window.GLOBAL_COMBINED_TARGETS || [];
+  let items = combined.map(function(info){
+    const key = String(info.key || info.name || info.target_name || '');
+    const label = String(info.display_name || info.label || key);
+    const bu = String(info.bu || '').toUpperCase();
+    const searchText = [
+      info.program,
+      info.product_family,
+      info.platform,
+      info.application_domain,
+      info.chip_name,
+      info.sp_name,
+      info.cpl,
+      info.db_name,
+      info.db_prefix,
+      info.target_name,
+      info.display_name,
+      info.label,
+      key,
+      bu
+    ].filter(Boolean).join(' ');
+    return {id:key,label:label,target:key,bu:bu,tokens:normText(`${label} ${key} ${bu} ${searchText}`)};
+  }).filter(x => x.target);
+
+  if (!items.length) {
+    const cfg = (window.TARGETS_CONFIG_DATA || {});
+    items = Object.keys(cfg).map(function(key){
+      const info = cfg[key] || {};
+      const label = String(info.display_name || key);
+      const bu = String(info.bu || info.business_unit || info.bu_key || '').toUpperCase();
+      const searchText = [
+        info.program,
+        info.product_family,
+        info.platform,
+        info.application_domain,
+        info.chip_name,
+        info.sp_name,
+        info.cpl,
+        info.db_name,
+        info.db_prefix,
+        info.target_name,
+        info.display_name,
+        key,
+        bu
+      ].filter(Boolean).join(' ');
+      return {id:key,label:label,target:key,bu:bu,tokens:normText(`${label} ${key} ${bu} ${searchText}`)};
+    });
+  }
+
+  if (!items.length && OPTIONS && Array.isArray(OPTIONS.single_targets)) {
+    items = OPTIONS.single_targets.map(function(g){
+      const target = (g.targets && g.targets[0]) || g.target || g.id || '';
+      const label = String(g.label || target);
+      const bu = String(g.bu || '').toUpperCase();
+      const searchText = String(g.search_text || '');
+      return {id:g.id||target,label:label,target:target,bu:bu,tokens:normText(`${label} ${target} ${bu} ${searchText}`)};
+    });
+  }
+
+  return items;
+}
+function queryTerms(q){return String(q||'').toLowerCase().split(/[^a-z0-9]+/).map(x=>x.trim()).filter(Boolean);}
+function scoreTarget(opt,q,qn){
+  const l=opt.label.toLowerCase(), t=opt.target.toLowerCase();
+  const terms=queryTerms(q);
+  if(terms.length>1 && !terms.every(term=>opt.tokens.includes(term))) return 0;
+  if(t===q||l===q)return 1000;
+  if(t.startsWith(q)||l.startsWith(q))return 850;
+  if(opt.tokens.startsWith(qn))return 700;
+  if(t.includes(q)||l.includes(q))return 560;
+  if(terms.length && terms.every(term=>opt.tokens.includes(term))) return 520 + terms.length;
+  if(opt.tokens.includes(qn))return 380;
+  return 0;
+}
+function alreadyAddedTargets(){const s=new Set(); ADDED_ENTITIES.forEach(e=>(e.targets||[]).forEach(t=>s.add(t))); return s;}
+function findMatches(q){q=String(q||'').trim().toLowerCase(); const qn=normText(q); if(!q)return []; const used=alreadyAddedTargets(); return targetOptions().filter(o=>!used.has(o.target)).map(o=>({...o,score:scoreTarget(o,q,qn)})).filter(o=>o.score>0).sort((a,b)=>b.score-a.score||a.label.localeCompare(b.label)).slice(0,24);}
+function renderMatches(){
+  const box=document.getElementById('matchedTargets');
+  if(!MATCHES.length){box.innerHTML='<div class="muted" style="padding:14px">Type a target, family, program, or BU name to see relevant targets.</div>'; updatePreview(); return;}
+  box.innerHTML=MATCHES.map(m=>`<label class="targetCheck"><input type="checkbox" data-target="${esc(m.target)}" ${CHECKED_TARGETS.has(m.target)?'checked':''}><div><b>${esc(m.label)}</b><span>${esc(m.target)}</span></div><em class="buTag">${esc(m.bu||'BU')}</em></label>`).join('');
+  box.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.onchange=()=>{if(cb.checked){CHECKED_TARGETS.add(cb.dataset.target);}else{CHECKED_TARGETS.delete(cb.dataset.target);} updatePreview();});
+  updatePreview();
+}
+function runSearch(){
+  showErr('');
+  const q=document.getElementById('compareSearch').value;
+    MATCHES=findMatches(q);
+  CHECKED_TARGETS.clear();
+  if(!String(q||'').trim()){
+    document.getElementById('matchedTargets').innerHTML='<div class="muted" style="padding:14px">Type a target, family, program, or BU name to see relevant targets.</div>';
+    updatePreview();
+    return;
+  }
+  MATCHES.forEach(m=>CHECKED_TARGETS.add(m.target));
+  renderMatches();
+}
+function buildStatusFilter(){
+  const statuses=(OPTIONS.cr_statuses||[]);
+  const box=document.getElementById('statusFilterBox');
+  box.innerHTML=statuses.map(s=>`<label class="statusCheck"><input type="checkbox" class="crStatusCheck" value="${esc(s)}" checked> ${esc(s)}</label>`).join('');
+}
+function setAllStatuses(checked){document.querySelectorAll('.crStatusCheck').forEach(cb=>cb.checked=checked);}
+function selectedStatuses(){return Array.from(document.querySelectorAll('.crStatusCheck:checked')).map(cb=>cb.value);}
+  function fillOptions(){
+    buildStatusFilter();
+    const input=document.getElementById('compareSearch');
+    if(input) input.oninput = runSearch;
+    if(input) input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault(); runCompare();}});
+    const params=new URLSearchParams(location.search);
+    const pre=(params.get('targets')||params.get('entities')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  
+    if(pre.length){
+      input.value=pre.join(' ');
+      MATCHES=[];
+      pre.forEach(p=>{const exact=targetOptions().find(o=>o.target.toLowerCase()===p.toLowerCase()||o.label.toLowerCase()===p.toLowerCase())||findMatches(p)[0]; if(exact){MATCHES.push(exact); CHECKED_TARGETS.add(exact.target);}});
+      renderMatches();
+    }else{
+      updatePreview();
+    }
+    
+  }
+
+function clearAllChecked(){
+  CHECKED_TARGETS.clear();
+  document.querySelectorAll('#matchedTargets input[type="checkbox"]').forEach(cb=>cb.checked=false);
+  updatePreview();
+}
+function clearCurrentSearch(){
+  MATCHES=[];
+  CHECKED_TARGETS.clear();
+  const input=document.getElementById('compareSearch'); if(input) input.value='';
+  document.getElementById('matchedTargets').innerHTML='<div class="muted" style="padding:14px">Type a target, family, program, or BU name to see relevant targets.</div>';
+  updatePreview();
+}
+async function fetchImageOptions(targets){
+  try{
+    const r=await fetch('/api/cr_compare/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({targets})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Image load failed');
+    return data.images||[];
+  }catch(e){
+    showErr(e.message||String(e));
+    return [];
+  }
+}
+async function addCurrentSelection(){
+  showErr('');
+  document.querySelectorAll('#matchedTargets input[type="checkbox"]').forEach(cb=>{
+    if(cb.checked) CHECKED_TARGETS.add(cb.dataset.target);
+    else CHECKED_TARGETS.delete(cb.dataset.target);
+  });
+  const selected=Array.from(CHECKED_TARGETS).filter(Boolean);
+  if(!selected.length){showErr('Select at least one target before adding a delta set.'); return;}
+  const search=(document.getElementById('compareSearch').value||'').trim();
+  const byTarget=new Map(targetOptions().map(o=>[o.target,o]));
+  const firstTarget=selected[0];
+  const firstLabel=(byTarget.get(firstTarget)||{}).label||firstTarget;
+  const label=search ? `${search.toUpperCase()} - ${firstLabel}` : `Set ${ADDED_ENTITIES.length+1} - ${firstLabel}`;
+  const used=alreadyAddedTargets();
+  const deduped=selected.filter(t=>!used.has(t));
+  if(!deduped.length){showErr('All selected targets are already added in previous delta sets.'); return;}
+  setMsg(`Loading image list for ${label}...`);
+  const imageOptions=await fetchImageOptions(deduped);
+  ADDED_ENTITIES.push({
+    label:label,
+    targets:deduped,
+    date_from:document.getElementById('dateFrom').value||'',
+    date_to:document.getElementById('dateTo').value||'',
+    image_options:imageOptions,
+    images:[],
+    image_filter_active:false
+  });
+
+  clearCurrentSearch();
+  setMsg(`${label} added with ${deduped.length} target(s) and ${imageOptions.length} image option(s). Search the next target/group and add it as another delta set.`);
+}
+function removeSet(idx){ADDED_ENTITIES.splice(idx,1); if((document.getElementById('compareSearch').value||'').trim()) runSearch(); else updatePreview();}
+function getSelectedEntities(){return ADDED_ENTITIES.map(e=>({...e,images:e.images||[],image_filter_active:!!e.image_filter_active}));}
+function updatePreview(){
+  const currentCount=CHECKED_TARGETS.size;
+  document.getElementById('selectedPreview').innerHTML=currentCount?`<span class="pill"><b>Current search selection</b> ${currentCount} target(s) ready to add</span>`:'';
+  const msg=document.getElementById('targetCountMsg'); if(msg)msg.textContent=`${currentCount} selected · ${MATCHES.length} matched`;
+  const dbg=document.getElementById('compareDebug');
+  if(dbg){
+    const all=targetOptions();
+    const nord=all.filter(x=>String(x.target||'').toUpperCase().includes('NORD'));
+    dbg.textContent = `Targets loaded: ${all.length} | Nord matches in index: ${nord.length}`;
+  }
+  const sets=document.getElementById('compareSets');
+  if(sets){
+        sets.innerHTML=ADDED_ENTITIES.length?`<div class="muted" style="margin-bottom:7px;font-weight:800">Added delta sets</div>`+ADDED_ENTITIES.map((e,i)=>`<div class="entity" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill" title="${esc((e.targets||[]).join(', '))}"><b>${esc(e.label)}</b> ${e.targets.length} target(s)</span><button type="button" class="danger small" style="padding:3px 7px" onclick="removeSet(${i})">x</button></div><div class="grid g2" style="margin-top:10px"><div><label>From JIRA Date</label><input type="date" value="${escAttr(e.date_from||'')}" onchange="ADDED_ENTITIES[${i}].date_from=this.value"></div><div><label>To JIRA Date</label><input type="date" value="${escAttr(e.date_to||'')}" onchange="ADDED_ENTITIES[${i}].date_to=this.value"></div></div><div class="muted" style="margin-top:8px">Images found: <b>${num((e.image_options||[]).length)}</b>. Image checkboxes appear in CR by Tech Area after running target delta.</div></div>`).join(''):'<div class="muted">No delta sets added yet. Search, uncheck if needed, then click “Add as Delta Set”.</div>';
+
+  }
+}
+  async function loadOptions(){
+    setMsg('Loading target delta options...');
+    const r=await fetch('/api/cr_compare/options');
+    if(!r.ok) throw new Error(await r.text());
+    OPTIONS=await r.json();
+    
+
+        const merged = {};
+    const cfgFromServer = (OPTIONS && OPTIONS.targets_config) || {};
+    Object.keys(cfgFromServer).forEach(function(target){
+      const info = cfgFromServer[target] || {};
+      merged[target] = {
+        display_name: info.display_name || info.label || target,
+        bu: info.bu || info.business_unit || info.bu_key || '',
+        program: info.program || '',
+        product_family: info.product_family || '',
+        platform: info.platform || '',
+        application_domain: info.application_domain || '',
+        chip_name: info.chip_name || '',
+        sp_name: info.sp_name || '',
+        cpl: info.cpl || '',
+        db_name: info.db_name || target,
+        db_prefix: info.db_prefix || target,
+        target_name: target,
+        excel_path: info.excel_path || '',
+        is_active: info.is_active !== false
+      };
+    });
+    if (!Object.keys(merged).length && OPTIONS && Array.isArray(OPTIONS.single_targets)) {
+      OPTIONS.single_targets.forEach(function(g){
+        const target = (g.targets && g.targets[0]) || g.target || g.id;
+        if (!target) return;
+        merged[target] = {
+          display_name: g.label || target,
+          bu: g.bu || '',
+          program: '',
+          product_family: '',
+          platform: '',
+          application_domain: '',
+          chip_name: '',
+          sp_name: '',
+          cpl: '',
+          db_name: target,
+          db_prefix: target,
+          target_name: target,
+          excel_path: g.excel_path || 'server-selectable',
+          is_active: g.is_active !== false
+        };
+      });
+    }
+
+    window.TARGETS_CONFIG_DATA = merged;
+    window.GLOBAL_COMBINED_TARGETS = Object.keys(merged).map(function(key){
+      const info = merged[key] || {};
+      return {
+        key: key,
+        name: key,
+        display_name: info.display_name || key,
+        label: info.display_name || key,
+        bu: info.bu || '',
+        program: info.program || '',
+        product_family: info.product_family || '',
+        platform: info.platform || '',
+        application_domain: info.application_domain || '',
+        chip_name: info.chip_name || '',
+        sp_name: info.sp_name || '',
+        cpl: info.cpl || '',
+        db_name: info.db_name || key,
+        db_prefix: info.db_prefix || key,
+                target_name: key,
+        excel_path: info.excel_path || '',
+        is_active: info.is_active !== false
+      };
+    });
+    fillOptions();
+    setMsg('');
+  }
+
+async function runCompare(){
+  showErr(''); const entities=getSelectedEntities(); if(entities.length<2){showErr('Please add at least 2 delta sets. Example: add LEMANS, then search KAILUA and add it.'); return;}
+  document.body.classList.add('loading'); setMsg('Calculating target delta...');
+  try{
+    const payload={entities,dimension:'cr_area',status_filter:'all',cr_statuses:selectedStatuses(),date_from:document.getElementById('dateFrom').value,date_to:document.getElementById('dateTo').value};
+    const r=await fetch('/api/cr_compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await r.json(); if(!r.ok) throw new Error(data.error||'Target delta failed'); RESULT=data; renderAll(); setMsg(`Generated ${new Date().toLocaleTimeString()}`);
+  }catch(e){showErr(e.message||String(e));}
+  finally{document.body.classList.remove('loading');}
+}
+function renderAll(){
+  ['summaryPanel','chartsPanel','tablesPanel'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  renderSummary();
+  renderCharts();
+  renderTabs();
+}
+function renderSummary(){
+  const box=document.getElementById('summaryKpis');
+  box.innerHTML=RESULT.summary.map((s,idx)=>{
+    const d=s.delta_vs_second||{};
+    const sc = s.status_counts || {};
+    const statusOrder = ['Open','Analysis','Fix','Ready','Built','Withdrawn','CannotDuplicate','NoSIR','NotApplicable','Postponed','Obsolete','Closed'];
+    const statusPills = statusOrder.filter(st => sc[st] > 0).map(st => {
+      const key = st.toLowerCase().replace(/[^a-z]/g,'');
+      const c2 = STATUS_COLORS[key] || {bg:'#f1f5f9',color:'#334155',border:'#cbd5e1'};
+      return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:${c2.bg};color:${c2.color};border:1px solid ${c2.border};margin:1px;">${esc(st)} <b>${num(sc[st])}</b></span>`;
+    }).join('');
+    const invalidCount = (sc['Invalid']||0) + (sc['Dup']||0) + (s.invalid_duplicate||0);
+    return `<div class="kpi"><div class="name">${esc(s.entity)}</div><div class="val">${num(s.total_unique_crs)}</div><div class="muted">CRs</div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;">${statusPills}</div>
+      <div style="margin-top:8px;font-size:11px;line-height:1.8;color:#475569;">Occurrences: <b>${num(s.total_occurrences)}</b> &nbsp;|&nbsp; Avg age: <b>${s.avg_cr_age}d</b> &nbsp;|&nbsp; JIRAs: <b>${num(s.total_jiras)}</b>${invalidCount>0?` &nbsp;|&nbsp; Invalid/Dup: <b>${num(invalidCount)}</b>`:''}</div>
+      ${idx!==1&&d.total_unique_crs!=null?`<div class="delta ${d.total_unique_crs>=0?'pos':'neg'}">Δ CRs vs 2nd: ${d.total_unique_crs>0?'+':''}${num(d.total_unique_crs)}</div>`:''}</div>`
+    }).join('');
+}
+
+function renderDimTab() {
+  return `
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#f8fbff,#eef4ff);border:1px solid #dbe8f8;border-radius:14px;">
+    <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.04em;margin:0;">Dimension</label>
+    <select id="dimTabSelect" onchange="refreshDimTab()" style="width:auto;padding:6px 12px;border-radius:10px;font-size:11px;min-width:180px;">
+      <option value="area_comparison">CR Area</option>
+      <option value="subsystem_comparison">CR Subsystem</option>
+      <option value="functionality_comparison">CR Functionality</option>
+    </select>
+    <span id="dimTabMeta" style="font-size:11px;color:#64748b;"></span>
+  </div>
+  <div style="height:340px;padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:inset 0 1px 0 #fff,0 8px 20px rgba(15,23,42,.05);margin-bottom:16px;">
+    <canvas id="dimTabChart"></canvas>
+  </div>
+  <div id="dimTabTableContainer"></div>`;
+}
+
+let _dimTabChart = null;
+window.refreshDimTab = function() {
+  const sel = document.getElementById('dimTabSelect');
+  if (!sel || !RESULT) return;
+  const key      = sel.value;
+  const dimLabel = sel.options[sel.selectedIndex].text;
+  const rows     = (RESULT[key] || []);
+  const labels   = RESULT.entities.map(e => e.label);
+
+  // meta
+  const meta = document.getElementById('dimTabMeta');
+  if (meta) meta.textContent = `${rows.length} ${dimLabel} values`;
+
+  // chart (top 15)
+  if (_dimTabChart) { _dimTabChart.destroy(); _dimTabChart = null; }
+  const canvas = document.getElementById('dimTabChart');
+  const top15  = rows.slice(0, 15);
+  if (canvas) {
+    _dimTabChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: top15.map(r => r.label.length > 18 ? r.label.slice(0,16)+'…' : r.label),
+        datasets: labels.map((l,i) => premiumDataset(l, i, top15.map(r => r.entities[l] || 0)))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
+        plugins: {
+          legend: { position: 'bottom' },
+          datalabels: { anchor:'end', align:'top', offset:2, clip:false, color:'#0f172a', font:{weight:'800',size:9}, formatter: v => v ? num(v) : '' }
+        },
+        scales: { x: { ticks: { autoSkip:false, maxRotation:40, minRotation:0, font:{size:10} } }, y: { beginAtZero:true, grace:'15%' } }
+      }
+    });
+  }
+
+  // table
+  const tableRows = rows.map((r,i) => `<tr><td>${i+1}</td><td>${esc(r.label)}</td>${labels.map(l=>`<td>${num(r.entities[l]||0)}</td>`).join('')}<td>${num(r.total)}</td><td>${r.delta == null ? '' : r.delta}</td></tr>`).join('');
+  document.getElementById('dimTabTableContainer').innerHTML =
+    table(['S.No', dimLabel, ...labels, 'Total', 'Delta first-second'], tableRows);
+};
+
+function crLink(cr, target){
+  const crVal = String(cr || '').trim();
+  const tgt = String(target || '').trim();
+  if(!crVal) return '<span style="color:#94a3b8;">—</span>';
+  if(!tgt) return `<b>${esc(crVal)}</b>`;
+  return `<a href="/dashboard/${encodeURIComponent(tgt)}/cr-info?cr=${encodeURIComponent(crVal)}" target="_blank" rel="noopener" style="font-weight:800;color:#1d4ed8;text-decoration:underline;">${esc(crVal)}</a>`;
+}
+function table(headers, rows){
+  const rowCount = (String(rows || '').match(/<tr\b/g) || []).length;
+  return `<details class="collapsible-table"><summary>Show table (${num(rowCount)} rows)</summary><button type="button" class="copyBtn small" onclick="copyActiveTable(this)">Copy Table</button><div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></details>`;
+}
+
+async function copyActiveTable(btn){
+  const wrap = btn.nextElementSibling;
+  const targetEl = wrap && wrap.classList.contains('table-wrap') ? wrap : null;
+  if (!targetEl) return;
+  const old = btn.textContent;
+  btn.textContent = 'Capturing...';
+  try {
+    if (typeof html2canvas === 'undefined') {
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        sc.onload = res; sc.onerror = rej;
+        document.head.appendChild(sc);
+      });
+    }
+    const canvas = await html2canvas(targetEl, {
+      scale: 3, useCORS: true, backgroundColor: '#ffffff',
+      scrollX: -window.scrollX, scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      logging: false,
+    });
+    copyImageToClipboard(canvas, btn, old, 1400);
+  } catch(e) {
+    btn.textContent = old;
+    showErr('Capture failed: ' + e.message);
+  }
+}
+function markImageFilterPending(){
+  const el=document.getElementById('imageFilterPending');
+  if(el) el.textContent='Image selection changed. Click Apply Image Filters to refresh charts and data.';
+}
+function renderImageFilterControls(){
+  if(!ADDED_ENTITIES.length) return '';
+  const boxes=ADDED_ENTITIES.map((e,i)=>{
+    const opts=e.image_options||[];
+    if(!opts.length) return '';
+    const selected=new Set((e.images||[]).map(x=>String(x).toLowerCase()));
+    const active=!!e.image_filter_active;
+    const checks=opts.map(img=>`<label class="imageCheck"><input type="checkbox" class="imageFilterCheck" data-entity-index="${i}" value="${escAttr(img)}" ${(!active||selected.has(String(img).toLowerCase()))?'checked':''} onchange="markImageFilterPending()"> ${esc(img)}</label>`).join('');
+    const activeText=active?`${(e.images||[]).length} selected`:'All images';
+    return `<details class="imageFilterBox" open><summary>${esc(e.label)} Images · ${esc(activeText)}</summary><div class="imageCheckWrap">${checks}</div></details>`;
+  }).filter(Boolean).join('');
+  if(!boxes) return '';
+  return `<div class="imageFilterGrid">${boxes}</div><div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="primary small" onclick="applyImageFilters()">Apply Image Filters</button><button type="button" class="ghost small" onclick="selectAllImageFilters(true)">Select All</button><button type="button" class="ghost small" onclick="selectAllImageFilters(false)">Clear All</button><span class="muted" id="imageFilterPending">Select required images, then click Apply Image Filters.</span></div>`;
+}
+function selectAllImageFilters(checked){document.querySelectorAll('.imageFilterCheck').forEach(cb=>cb.checked=checked); markImageFilterPending();}
+function applyImageFilters(){
+  ADDED_ENTITIES.forEach((e,i)=>{
+    const all=e.image_options||[];
+    const selected=Array.from(document.querySelectorAll(`.imageFilterCheck[data-entity-index="${i}"]:checked`)).map(cb=>cb.value);
+    e.images=selected;
+    e.image_filter_active=selected.length!==all.length;
+  });
+  runCompare();
+}
+function renderAreaStatusTable(){
+    return `
+  ${renderImageFilterControls()}
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#f8fbff,#eef4ff);border:1px solid #dbe8f8;border-radius:14px;">
+    <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.04em;margin:0;">Dimension</label>
+    <select id="areaDimSelect" onchange="onAreaDimChange()" style="width:auto;padding:6px 12px;border-radius:10px;font-size:11px;min-width:180px;">
+      <option value="area_comparison">CR Area</option>
+      <option value="subsystem_comparison">CR Subsystem</option>
+      <option value="functionality_comparison">CR Functionality</option>
+    </select>
+    <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.04em;margin:0 0 0 8px;">Regression</label>
+    <select id="areaRegressionSelect" onchange="refreshAreaTable()" style="width:auto;padding:6px 12px;border-radius:10px;font-size:11px;min-width:150px;">
+      <option value="all">All</option>
+      <option value="yes">Regression = Yes</option>
+      <option value="no">Regression = No</option>
+    </select>
+        <div id="areaSubsysFilterWrap" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-left:4px;">
+      <label style="font-size:11px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.04em;margin:0;">Area</label>
+      <select id="areaPickSelect" onchange="onAreaPickChange()" style="padding:6px 12px;border-radius:10px;font-size:11px;min-width:140px;"></select>
+      <div id="subsysDropdownWrap" style="position:relative;display:inline-block;">
+        <button type="button" id="subsysDropdownBtn" onclick="toggleSubsysDropdown(event)"
+          style="padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;border:1.5px solid #c7d2fe;
+          background:#eef2ff;color:#3730a3;cursor:pointer;min-width:160px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span id="subsysDropdownLabel">Subsystem</span>
+          <i class="fas fa-chevron-down" style="font-size:9px;"></i>
+        </button>
+        <div id="subsysDropdownMenu" style="display:none;position:absolute;top:110%;left:0;z-index:999;
+          background:#fff;border:1.5px solid #c7d2fe;border-radius:12px;box-shadow:0 8px 24px rgba(79,70,229,.15);
+          padding:8px;min-width:220px;max-height:280px;overflow-y:auto;">
+          <div style="display:flex;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e2e8f0;">
+            <button type="button" onclick="subsysSelectAll(true)" style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid #c7d2fe;background:#eef2ff;color:#4f46e5;cursor:pointer;">All</button>
+            <button type="button" onclick="subsysSelectAll(false)" style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;">None</button>
+          </div>
+          <div id="subsysCheckboxWrap" style="display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+      </div>
+    </div>
+        <div style="display:flex;gap:6px;margin-left:auto;">
+      <button type="button" class="primary small" onclick="openTechAreaFullPage()">Open Full Page</button>
+      <button type="button" class="copyBtn small" onclick="copyAreaTable(this)">Copy Table</button>
+      <button type="button" class="copyBtn small" onclick="copyAreaChart(this)">Copy Chart</button>
+    </div>
+  </div>
+  <div class="cr-section-title" id="areaChartSectionTitle">CR Area Chart</div>
+  <div style="height:340px;padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:inset 0 1px 0 #fff,0 8px 20px rgba(15,23,42,.05);margin-bottom:16px;">
+    <canvas id="areaBarChart"></canvas>
+  </div>
+  <div class="cr-section-title" id="areaTableSectionTitle">CR Area Table</div>
+  <div id="areaTableContainer"></div>`;
+}
+
+function renderRegressionTab(){
+  if(!RESULT||!RESULT.regression_comparison) return '<p class="muted">No regression data.</p>';
+  const rc = RESULT.regression_comparison;
+  const labels = RESULT.entities.map(e=>e.label);
+  const perEntity = rc.per_entity || {};
+  if(!labels.length) return '<p class="muted">No data.</p>';
+  let html = '';
+  labels.forEach(l => {
+    const rows = perEntity[l] || [];
+    html += `<h3 style="margin:16px 0 8px;font-size:13px;font-weight:900;color:#1e2f55;">${esc(l)} &mdash; Regression CRs <span style="font-size:11px;font-weight:700;color:#6366f1;">(${rows.length})</span></h3>`;
+    if(!rows.length){ html += '<p class="muted" style="font-size:12px;">No regression CRs.</p>'; return; }
+    html += table(
+      ['S.No','CR','Title','Area','Subsystem','Image','Status','Age (d)','Occurrence','JIRAs'],
+      rows.map((r,i)=>`<tr>
+        <td>${i+1}</td>
+                <td>${crLink(r.cr, (r.target_source||'').split(',')[0].trim())}</td>
+        <td>${esc(r.title)}</td>
+
+        <td>${esc(r.area)}</td>
+        <td>${esc(r.subsystem||'')}</td>
+        <td>${siCell(r.image || (r.images||[]).join(', '))}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td>${ageBadge(r.age)}</td>
+        <td>${num(r.occurrence)}</td>
+        <td>${num(r.jiras)}</td>
+      </tr>`).join('')
+    );
+  });
+  return html;
+}
+
+function renderTabs(){
+  const tabs=[['area-status','CR by Tech Area'],['regression','Regression CRs'],['common','Common CRs'],['exclusive','Exclusive CRs'],['sites','Sites']];
+  document.getElementById('tabs').innerHTML=tabs.map((t,i)=>`<button class="tab ${i?'':'active'}" data-tab="${t[0]}" id="tab-btn-${t[0]}">${t[1]}</button>`).join('');
+  const labels=RESULT.entities.map(e=>e.label);
+    const commonRows=RESULT.common_crs.map((r,i)=>`<tr><td>${i+1}</td><td>${crLink(r.cr, (((r.entities||{})[labels[0]]||{}).targets||[])[0])}</td><td>${esc(r.title)}</td><td>${esc(r.area)}</td><td>${esc(r.subsystem)}</td><td>${siCell(r.image || (r.images||[]).join(', '))}</td>${labels.map(l=>{const e=r.entities[l]||{};return `<td>${statusBadge(e.status)}<br><span style="font-size:11px;">Age: ${esc(e.age)}d · Occ: ${num(e.occurrence)} · JIRAs: ${num(e.jiras)}</span><br><span class="muted" style="font-size:10px;">${esc((e.targets||[]).join(', '))}</span><br><span class="muted" style="font-size:10px;">Image: ${siCell(e.image || (e.images||[]).join(', '))}</span></td>`}).join('')}</tr>`).join('');
+
+    const exHtml=labels.map(l=>`<h3>${esc(l)} exclusive (${num((RESULT.counts.exclusive_crs||{})[l]||0)})</h3>`+table(['S.No','CR','Title','Area','Subsystem','Image','CR Status','Age (d)','Occurrence','JIRAs','Targets'],(RESULT.exclusive_crs[l]||[]).map((r,i)=>`<tr><td>${i+1}</td><td>${crLink(r.cr, (r.target_source||'').split(',')[0].trim())}</td><td>${esc(r.title)}</td><td>${esc(r.area)}</td><td>${esc(r.subsystem)}</td><td>${siCell(r.image || (r.images||[]).join(', '))}</td><td>${statusBadge(r.status)}</td><td>${ageBadge(r.age)}</td><td>${num(r.occurrence)}</td><td>${num(r.jiras)}</td><td>${esc(r.target_source)}</td></tr>`).join(''))).join('<br>');
+
+  const siteRows=RESULT.site_comparison.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.site_label)}</td>${labels.map(l=>`<td>${num(r.entities[l]||0)}</td>`).join('')}</tr>`).join('');
+    document.getElementById('tabContents').innerHTML=`
+    <div class="tab-content active" id="tab-area-status">${renderAreaStatusTable()}</div>
+    <div class="tab-content" id="tab-regression">${renderRegressionTab()}</div>
+    <div class="tab-content" id="tab-common">${table(['S.No','CR','CR Title','Area','Subsystem','Image',...labels.map(l=>l+' (Status / Age / Occ / JIRAs)')],commonRows)}</div>
+    <div class="tab-content" id="tab-exclusive">${exHtml}</div>
+    <div class="tab-content" id="tab-sites">${table(['S.No','Site',...labels],siteRows)}</div>`;
+    document.querySelectorAll('.tab').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('.tab,.tab-content').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+btn.dataset.tab).classList.add('active');if(btn.dataset.tab==='area-status'){ refreshAreaTable(); onAreaDimChange(); }});
+      setTimeout(()=>{ refreshAreaTable(); onAreaDimChange(); }, 0);
+  }
+function exportJson(){if(!RESULT)return; const blob=new Blob([JSON.stringify(RESULT,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='target_delta.json'; a.click(); URL.revokeObjectURL(a.href);}
+document.getElementById('runBtn').onclick=runCompare;
+document.getElementById('resetBtn').onclick=()=>{
+  RESULT=null;
+  MATCHES=[];
+  CHECKED_TARGETS.clear();
+  ADDED_ENTITIES=[];
+  document.getElementById('compareSearch').value='';
+  document.getElementById('matchedTargets').innerHTML='<div class="muted" style="padding:14px">Type a target, family, program, or BU name to see relevant targets.</div>';
+  ['summaryPanel','chartsPanel','tablesPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  showErr('');
+  setMsg('');
+  updatePreview();
+};
+
+
+// Works on both HTTP and HTTPS
+function copyImageToClipboard(canvas, btn, oldText, timeout) {
+  const dataUrl = canvas.toDataURL('image/png');
+  if (location.protocol === 'https:' && navigator.clipboard && window.ClipboardItem) {
+    canvas.toBlob(async function(blob) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = oldText, timeout);
+      } catch(e) {
+        copyImageViaExecCommand(dataUrl, btn, oldText, timeout);
+      }
+    }, 'image/png');
+  } else {
+    copyImageViaExecCommand(dataUrl, btn, oldText, timeout);
+  }
+}
+
+function copyImageViaExecCommand(dataUrl, btn, oldText, timeout) {
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.display = 'block';
+  img.style.maxWidth = 'none';
+  img.style.width = 'auto';
+  img.style.height = 'auto';
+  const div = document.createElement('div');
+  div.contentEditable = 'true';
+  // Keep real image size while off-screen. A 1px container makes pasted images tiny on HTTP fallback.
+  div.style.cssText = 'position:fixed;top:-100000px;left:0;opacity:0.01;pointer-events:none;overflow:visible;background:#fff;';
+  div.appendChild(img);
+  document.body.appendChild(div);
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(div);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    btn.textContent = ok ? 'Copied!' : 'Copy failed';
+    setTimeout(() => btn.textContent = oldText, timeout);
+  } catch(e) {
+    btn.textContent = 'Copy failed';
+    setTimeout(() => btn.textContent = oldText, timeout);
+  } finally {
+    document.body.removeChild(div);
+  }
+}
+
+// ── CR by Tech Area ──────────────────────────────────────────────────────────
+let _areaChart = null;
+
+/* ---- Subsystem filter helpers ---- */
+window.onAreaDimChange = function(){
+  const dimSel = document.getElementById('areaDimSelect');
+  const wrap   = document.getElementById('areaSubsysFilterWrap');
+  if(dimSel && wrap){
+    const isArea = !dimSel || dimSel.value === 'area_comparison';
+    wrap.style.display = isArea ? 'flex' : 'none';
+    if(isArea) buildAreaPickList();
+  }
+  refreshAreaTable();
+};
+
+function buildAreaPickList(){
+  if(!RESULT) return;
+  const allCRs = [...(RESULT.common_crs||[]),...Object.values(RESULT.exclusive_crs||{}).flat()];
+  const areas  = [...new Set(allCRs.map(r=>r.area||'').filter(Boolean))].sort();
+  const sel    = document.getElementById('areaPickSelect');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">-- All Areas --</option>' + areas.map(a=>`<option value="${a}">${a}</option>`).join('');
+  buildSubsysCheckboxes('');
+}
+
+window.onAreaPickChange = function(){
+  const sel = document.getElementById('areaPickSelect');
+  buildSubsysCheckboxes(sel ? sel.value : '');
+  refreshAreaTable();
+};
+
+function buildSubsysCheckboxes(area){
+  const wrap = document.getElementById('subsysCheckboxWrap');
+  const btn  = document.getElementById('subsysDropdownBtn');
+  const ddWrap = document.getElementById('subsysDropdownWrap');
+  if(!wrap) return;
+  if(!area){
+    wrap.innerHTML='';
+    if(ddWrap) ddWrap.style.display='none';
+    return;
+  }
+  if(ddWrap) ddWrap.style.display='inline-block';
+  const allCRs = [...(RESULT.common_crs||[]),...Object.values(RESULT.exclusive_crs||{}).flat()];
+  const subs   = [...new Set(allCRs.filter(r=>(r.area||'')=== area).map(r=>r.subsystem||'').filter(Boolean))].sort();
+  if(!subs.length){
+    wrap.innerHTML='<span style="font-size:11px;color:#94a3b8;padding:4px;">No subsystems</span>';
+    updateSubsysLabel();
+    return;
+  }
+  wrap.innerHTML = subs.map(s=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#334155;
+      padding:5px 8px;border-radius:8px;cursor:pointer;transition:background .12s;"
+      onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+      <input type="checkbox" value="${s}" checked onchange="refreshAreaTable();updateSubsysLabel()"
+        style="accent-color:#4f46e5;width:14px;height:14px;cursor:pointer;">
+      <span>${s}</span>
+    </label>`).join('');
+  updateSubsysLabel();
+}
+
+window.toggleSubsysDropdown = function(e){
+  e.stopPropagation();
+  const menu = document.getElementById('subsysDropdownMenu');
+  if(menu) menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+};
+
+document.addEventListener('click', function(){
+  const menu = document.getElementById('subsysDropdownMenu');
+  if(menu) menu.style.display='none';
+});
+
+window.subsysSelectAll = function(checked){
+  const wrap = document.getElementById('subsysCheckboxWrap');
+  if(!wrap) return;
+  wrap.querySelectorAll('input[type=checkbox]').forEach(b=>b.checked=checked);
+  updateSubsysLabel();
+  refreshAreaTable();
+};
+
+function updateSubsysLabel(){
+  const wrap = document.getElementById('subsysCheckboxWrap');
+  const lbl  = document.getElementById('subsysDropdownLabel');
+  if(!wrap||!lbl) return;
+  const boxes   = wrap.querySelectorAll('input[type=checkbox]');
+  const checked = [...boxes].filter(b=>b.checked);
+  if(!boxes.length)       lbl.textContent = 'Subsystem';
+  else if(checked.length === boxes.length) lbl.textContent = `All (${boxes.length})`;
+  else if(checked.length === 0)            lbl.textContent = 'None selected';
+  else                                     lbl.textContent = `${checked.length} / ${boxes.length} selected`;
+}
+
+function getSelectedSubsystems(){
+  const wrap = document.getElementById('subsysCheckboxWrap');
+  if(!wrap) return null;
+  const boxes = wrap.querySelectorAll('input[type=checkbox]');
+  if(!boxes.length) return null;
+  const checked = [...boxes].filter(b=>b.checked).map(b=>b.value);
+  return checked.length === boxes.length ? null : checked; // null = no filter
+}
+
+window.refreshAreaTable = function() {
+  if (!RESULT) return;
+    const dimSel    = document.getElementById('areaDimSelect');
+  const regSel    = document.getElementById('areaRegressionSelect');
+  const dim       = dimSel ? dimSel.value : 'area_comparison';
+  const regFilter = regSel ? regSel.value : 'all';
+  const labels    = RESULT.entities.map(e => e.label);
+  const statusTableMap = {
+    area_comparison: 'area_status_comparison',
+    subsystem_comparison: 'subsystem_status_comparison',
+    functionality_comparison: 'functionality_status_comparison'
+  };
+    const statusKey = statusTableMap[dim] || 'area_status_comparison';
+  let compRows  = ((RESULT[statusKey] || {})[regFilter]) || [];
+
+      /* Apply area + subsystem filter when dim = area_comparison */
+  const selectedArea = (document.getElementById('areaPickSelect')||{}).value || '';
+  const selectedSubs = getSelectedSubsystems(); // null = no filter, [] = none, [...] = some
+  window._subsysFilter = selectedSubs;
+
+  if(dim === 'area_comparison' && selectedArea && selectedSubs !== null){
+    /* Build subsystem-level rows from raw CRs */
+    const allCRs = [
+      ...(RESULT.common_crs||[]).map(cr=>({...cr, _src:'common'})),
+      ...labels.flatMap(l=>((RESULT.exclusive_crs||{})[l]||[]).map(cr=>({...cr, _excl_label:l, _src:'excl'})))
+    ].filter(cr => (cr.area||'') === selectedArea
+               && (!selectedSubs.length || selectedSubs.includes(cr.subsystem||'')));
+
+    /* Group by subsystem */
+    const subsMap = {};
+    allCRs.forEach(cr => {
+      const sub = cr.subsystem || '(none)';
+      if(!subsMap[sub]) subsMap[sub] = {};
+      labels.forEach(l => {
+        if(!subsMap[sub][l]) subsMap[sub][l] = {count:0, statuses:{}, occurrence:0};
+        let ent = null;
+        if(cr._src === 'common')   ent = (cr.entities||{})[l];
+        if(cr._src === 'excl' && cr._excl_label === l) ent = cr;
+        if(!ent) return;
+        subsMap[sub][l].count++;
+        const st = (ent.status||'').trim();
+        if(st) subsMap[sub][l].statuses[st] = (subsMap[sub][l].statuses[st]||0)+1;
+        subsMap[sub][l].occurrence += Number(ent.occurrence||0);
+      });
+    });
+
+    compRows = Object.entries(subsMap).map(([sub, ents]) => ({
+      label: sub,
+      entities: ents,
+      total: labels.reduce((s,l)=>s+((ents[l]||{}).count||0), 0)
+    })).sort((a,b)=>b.total-a.total);
+
+  } else if(dim === 'area_comparison' && selectedArea){
+    compRows = compRows.filter(r => (r.label||'') === selectedArea);
+  }
+
+  if (!compRows.length) {
+    const c = document.getElementById('areaTableContainer');
+    if (c) c.innerHTML = '<p style="color:#94a3b8;padding:16px;">No data for this dimension.</p>';
+    return;
+  }
+
+    // compRows structure: [{label,total,entities:{label:{count,occurrence,statuses}},delta}, ...]
+  const maxTotal = {};
+  labels.forEach(l => {
+    maxTotal[l] = Math.max(...compRows.map(r => Number(((r.entities||{})[l]||{}).count||0)), 1);
+  });
+
+  // Sort by combined total desc (already sorted from API but re-sort to be safe)
+  const sorted = [...compRows].sort((a,b) => (b.total||0) - (a.total||0));
+
+  // Build status breakdown per area+entity from common_crs + exclusive_crs
+    const areaStatus = {};
+  const areaOcc    = {};
+  const dimKeyMap  = { area_comparison:'area', subsystem_comparison:'subsystem', functionality_comparison:'functionality' };
+  /* When drilling into subsystem level, group status by subsystem */
+  const isDrilling = (dim==='area_comparison' && selectedArea && selectedSubs!==null);
+  const dimKey     = isDrilling ? 'subsystem' : (dimKeyMap[dim] || 'area');
+
+  (RESULT.common_crs || []).forEach(cr => {
+    if(isDrilling && (cr.area||'') !== selectedArea) return;
+    if(isDrilling && selectedSubs.length && !selectedSubs.includes(cr.subsystem||'')) return;
+    const areaVal = cr[dimKey] || cr.area || '';
+    if (!areaVal) return;
+    if (!areaStatus[areaVal]) areaStatus[areaVal] = {};
+    if (!areaOcc[areaVal])    areaOcc[areaVal]    = {};
+    labels.forEach(l => {
+      const e = (cr.entities||{})[l] || {};
+      if (!areaStatus[areaVal][l]) areaStatus[areaVal][l] = {};
+      const st = (e.status||'').trim();
+      if (st) areaStatus[areaVal][l][st] = (areaStatus[areaVal][l][st]||0) + 1;
+      areaOcc[areaVal][l] = (areaOcc[areaVal][l]||0) + (e.occurrence||0);
+    });
+  });
+  labels.forEach(l => {
+        ((RESULT.exclusive_crs||{})[l]||[]).forEach(cr => {
+      if(isDrilling && (cr.area||'') !== selectedArea) return;
+      if(isDrilling && selectedSubs.length && !selectedSubs.includes(cr.subsystem||'')) return;
+      if(!isDrilling && window._subsysFilter && !window._subsysFilter.includes(cr.subsystem||'')) return;
+      const areaVal = cr[dimKey] || cr.area || '';
+      if (!areaVal) return;
+      if (!areaStatus[areaVal]) areaStatus[areaVal] = {};
+      if (!areaOcc[areaVal])    areaOcc[areaVal]    = {};
+      if (!areaStatus[areaVal][l]) areaStatus[areaVal][l] = {};
+      const st = (cr.status||'').trim();
+      if (st) areaStatus[areaVal][l][st] = (areaStatus[areaVal][l][st]||0) + 1;
+      areaOcc[areaVal][l] = (areaOcc[areaVal][l]||0) + (cr.occurrence||0);
+    });
+  });
+
+    const sortedStatuses = ['Open','Analysis','Fix','Ready','Built','Withdrawn','CannotDuplicate','NoSIR','NotApplicable','Postponed','Obsolete','Closed'];
+  const dimLabel = dimKey.charAt(0).toUpperCase() + dimKey.slice(1);
+  const dimDisplay = {area_comparison:'CR Area', subsystem_comparison:'CR Subsystem', functionality_comparison:'CR Functionality'}[dim] || dimLabel;
+  const chartTitleEl = document.getElementById('areaChartSectionTitle');
+  const tableTitleEl = document.getElementById('areaTableSectionTitle');
+    const drillLabel = (dim==='area_comparison' && selectedArea && selectedSubs!==null)
+    ? `CR Area ▸ ${selectedArea} ▸ Subsystem` : dimDisplay;
+  if(chartTitleEl) chartTitleEl.textContent = drillLabel + ' Chart';
+  if(tableTitleEl) tableTitleEl.textContent = drillLabel + ' Table';
+
+  // Build chart — moved from Dimension tab into CR by Tech Area tab
+  const chartCanvas = document.getElementById('areaBarChart');
+  if (chartCanvas && hasChart()) {
+    if (_areaChart) { _areaChart.destroy(); _areaChart = null; }
+    const topRows = sorted.slice(0, 20);
+    _areaChart = new Chart(chartCanvas, {
+      type: 'bar',
+      data: {
+        labels: topRows.map(r => r.label && r.label.length > 18 ? r.label.slice(0,16)+'…' : r.label),
+        datasets: labels.map((l,i) => premiumDataset(l, i, topRows.map(r => Number((((r.entities||{})[l]||{}).count)||0))))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 24 } },
+        plugins: chartPluginOpts,
+        scales: {
+          x: { ticks: { autoSkip:false, maxRotation:40, minRotation:0, font:{size:10} } },
+          y: { beginAtZero:true, grace:'15%' }
+        }
+      }
+    });
+  }
+
+  // Build table
+  let html = `<div class="crd-wrap" id="areaTableWrap"><table class="crd-table">
+  <thead><tr><th class="area-col">${esc(dimLabel)}</th>`;
+    labels.forEach((l, i) => { html += `<th style="color:${colors[i%colors.length]};min-width:220px;">${esc(l)}</th>`; });
+  html += `<th class="delta-col">Delta</th></tr></thead><tbody>`;
+
+  sorted.forEach(row => {
+    const area = row.label;
+    html += `<tr><td class="area-cell">${esc(area)}</td>`;
+    labels.forEach((l, i) => {
+            const ent      = ((row.entities||{})[l] || {});
+      const total    = Number(ent.count || 0);
+      const byStatus = ent.statuses || {};
+      const occ      = Number(ent.occurrence || 0);
+      const barPct   = total ? Math.round(total / maxTotal[l] * 100) : 0;
+      const barColor = colors[i % colors.length];
+      const pills = sortedStatuses.filter(s => byStatus[s] > 0).map(s => {
+        const key = s.toLowerCase().replace(/[^a-z]/g,'');
+        const c = STATUS_COLORS[key] || {bg:'#f1f5f9',color:'#475569',border:'#cbd5e1'};
+        return `<span class="crd-pill" style="background:${c.bg};color:${c.color};border-color:${c.border};">${esc(s)} ${byStatus[s]}</span>`;
+      }).join('');
+                        const countHtml = total > 0
+        ? '<span class="crd-drill-link" data-area="' + escAttr(area) + '" data-entity="' + escAttr(l) + '" title="Open ' + esc(area) + ' CRs for ' + esc(l) + '" style="cursor:pointer;text-decoration:underline dotted #6366f1;color:#1e2f55;">' + num(total) + '</span>' + (occ > 0 ? ' <span class="crd-occ">(' + num(occ) + ')</span>' : '')
+        : '<span style="color:#cbd5e1;">&mdash;</span>';
+      html += '<td class="crd-entity-td">'
+        + '<div class="crd-total">' + countHtml + '</div>'
+        + '<div class="crd-status-pills">' + (pills || '<span style="color:#cbd5e1;font-size:10px;">&mdash;</span>') + '</div>'
+        + '<div class="crd-bar-wrap"><div class="crd-bar" style="width:' + barPct + '%;background:' + barColor + ';"></div></div>'
+        + '</td>';
+        });
+    const delta = row.delta != null
+      ? row.delta
+      : (Number((((row.entities||{})[labels[0]]||{}).count)||0) - Number((((row.entities||{})[labels[1]]||{}).count)||0));
+    html += `<td style="text-align:right;vertical-align:middle;">
+      <span class="${delta > 0 ? 'crd-delta-pos' : delta < 0 ? 'crd-delta-neg' : 'crd-delta-zero'}">${delta > 0 ? '+' : ''}${delta !== 0 ? num(delta) : '&mdash;'}</span>
+    </td>`;
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+    const container = document.getElementById('areaTableContainer');
+  if (container) {
+    container.innerHTML = `<details class="collapsible-table"><summary>Show table (${num(sorted.length)} rows)</summary>${html}</details>`;
+    container.querySelectorAll('.crd-drill-link').forEach(function(el){
+      el.addEventListener('click', function(){
+        openDrilldown(this.getAttribute('data-area') || '', this.getAttribute('data-entity') || '');
+      });
+    });
+  }
+  
+};
+
+
+
+
+window.openTechAreaFullPage = function(){
+  if(!RESULT) return;
+  const dimSel=document.getElementById('areaDimSelect');
+  const regSel=document.getElementById('areaRegressionSelect');
+  const key='cr_compare_tech_area_'+Date.now()+'_'+Math.random().toString(36).slice(2,10);
+  window.__CR_COMPARE_TRANSFER__ = window.__CR_COMPARE_TRANSFER__ || {};
+  window.__CR_COMPARE_TRANSFER__[key] = RESULT;
+  const dim=dimSel?dimSel.value:'area_comparison';
+  const reg=regSel?regSel.value:'all';
+  const tab = window.open('/target_compare/tech_area?key='+encodeURIComponent(key)+'&dim='+encodeURIComponent(dim)+'&reg='+encodeURIComponent(reg),'_blank');
+  if(!tab){
+    try { sessionStorage.setItem(key, JSON.stringify(RESULT)); } catch(e) {}
+    window.location.href='/target_compare/tech_area?key='+encodeURIComponent(key)+'&dim='+encodeURIComponent(dim)+'&reg='+encodeURIComponent(reg);
+  }
+};
+
+window.copyAreaChart = async function(btn) {
+    const chartCanvas = document.getElementById('areaBarChart');
+  const targetEl = chartCanvas ? chartCanvas.parentElement : null;
+  if (!targetEl || !hasChart()) return;
+  const old = btn.textContent;
+  btn.textContent = 'Capturing...';
+  try {
+    if (typeof html2canvas === 'undefined') {
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        sc.onload = res; sc.onerror = rej;
+        document.head.appendChild(sc);
+      });
+    }
+    const canvas = await html2canvas(targetEl, {
+      scale: 3, useCORS: true, backgroundColor: '#ffffff',
+      scrollX: -window.scrollX, scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      logging: false,
+    });
+    copyImageToClipboard(canvas, btn, old, 1400);
+  } catch(e) {
+    btn.textContent = old;
+  }
+};
+
+window.copyAreaTable = async function(btn) {
+  const targetEl = document.getElementById('areaTableContainer');
+  if (!targetEl) { return; }
+  const detailsEl = targetEl.querySelector('details.collapsible-table');
+  const wasOpen = detailsEl ? detailsEl.open : false;
+  if (detailsEl) detailsEl.open = true;
+  const old = btn.textContent;
+  btn.textContent = 'Capturing...';
+  try {
+    if (typeof html2canvas === 'undefined') {
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        sc.onload = res; sc.onerror = rej;
+        document.head.appendChild(sc);
+      });
+    }
+    const canvas = await html2canvas(targetEl, {
+      scale: 3, useCORS: true, backgroundColor: '#ffffff',
+      scrollX: -window.scrollX, scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      logging: false,
+    });
+        copyImageToClipboard(canvas, btn, old, 1400);
+  } catch(e) {
+    btn.textContent = old;
+  } finally {
+    if (detailsEl) detailsEl.open = wasOpen;
+  }
+};
+
+// ── Drilldown — opens in new tab ─────────────────────────────────────────────
+async function openDrilldown(area, entityLabel) {
+  if (!RESULT) return;
+  const dimSel = document.getElementById('areaDimSelect');
+  const regSel = document.getElementById('areaRegressionSelect');
+  const dim = dimSel ? dimSel.value : 'area_comparison';
+  const regFilter = regSel ? regSel.value : 'all';
+  const payload = {
+    entities: getSelectedEntities(),
+    entity_label: entityLabel,
+    dimension: dim,
+    dimension_value: area,
+    regression_filter: regFilter,
+    status_filter: RESULT.status_filter || 'all',
+    cr_statuses: selectedStatuses(),
+    date_from: document.getElementById('dateFrom').value,
+    date_to: document.getElementById('dateTo').value,
+  };
+
+  const tab = window.open('', '_blank');
+  try {
+    const r = await fetch('/api/cr_compare/drilldown', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Drilldown failed');
+        const drilldownKey = 'cr_drilldown_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    window.__CR_DRILLDOWN_TRANSFER__ = window.__CR_DRILLDOWN_TRANSFER__ || {};
+    window.__CR_DRILLDOWN_TRANSFER__[drilldownKey] = data;
+    if (tab) tab.location.href = '/target_compare/drilldown?key=' + encodeURIComponent(drilldownKey);
+    else {
+      try { sessionStorage.setItem(drilldownKey, JSON.stringify(data)); } catch(e) {}
+      window.open('/target_compare/drilldown?key=' + encodeURIComponent(drilldownKey), '_blank');
+    }
+  } catch(e) {
+    if (tab) tab.close();
+    showErr(e.message || String(e));
+  }
+}
+
+loadOptions().catch(e=>showErr(e.message||String(e)));
+</script>
+
+</body>
+</html>

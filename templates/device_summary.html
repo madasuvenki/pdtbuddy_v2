@@ -1,0 +1,491 @@
+    <style>
+        .ds-body {
+            max-height: none !important;
+            overflow-y: visible !important;
+        }
+        #hwMetricsTable .ds-sticky-first {
+            width: 220px; /* Adjust as needed */
+        }
+    </style>{% extends "target_layout.html" %}
+
+{% block page_heading %}
+  {{ target_display_name }} – PDT Device Summary
+{% endblock %}
+
+{% block page_content %}
+<style>
+.ds-grid { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start; }
+.ds-card:nth-child(2) { font-size: 11px; } /* Make SWPDT table more compact */
+.ds-card:nth-child(2) .ds-table th, .ds-card:nth-child(2) .ds-table td { padding: 8px 8px; } /* Reduce padding in SWPDT table */
+.ds-card:nth-child(2) .ds-input { padding: 5px 6px; } /* Smaller inputs in SWPDT table */
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+  .ds-grid { grid-template-columns: 1fr; }
+  .ds-card:nth-child(2) { margin-top: -10px; } /* Reduce space between cards */
+}
+
+/* Improved scrolling */
+.ds-body { overflow-x: auto; }
+.ds-card:nth-child(2) .ds-table { font-size: 11px; } /* Smaller font for SWPDT table */
+.ds-card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow:0 8px 24px rgba(15,23,42,.06); overflow:hidden; }
+.ds-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:16px 18px; border-bottom:1px solid #e5e7eb; background:linear-gradient(180deg,#ffffff,#fafcff); }
+.ds-title { font-size:15px; font-weight:900; color:#111827; }
+.ds-subtitle { font-size:12px; color:#64748b; margin-top:2px; }
+.ds-btn { border:none; border-radius:999px; padding:8px 14px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+.ds-btn.primary { background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; }
+.ds-btn.secondary { background:#fff7ed; color:#b45309; border:1px solid #fed7aa; }
+.ds-btn.ghost { background:#f8fafc; color:#475569; border:1px solid #e2e8f0; }
+.ds-body { padding:14px 16px 16px; overflow-x:auto; }
+.ds-table { width:100%; min-width:720px; border-collapse:separate; border-spacing:0; table-layout:auto; }
+.ds-table th, .ds-table td { border-bottom:1px solid #eef2f7; padding:10px 10px; text-align:left; font-size:12px; vertical-align:middle; }
+.ds-table thead th { background:#f8fafc; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#64748b; position:sticky; top:0; z-index:1; }
+.ds-table tbody tr:nth-child(even) td { background:#fcfdff; }
+.ds-table tbody tr:hover td { background:#f8fbff; }
+.ds-total-row th, .ds-total-row td { font-weight:900; background:#f1f5f9; }
+.ds-muted { color:#6b7280; font-size:12px; }
+.ds-input { width:100%; min-width:54px; padding:7px 8px; border:1px solid #d6dbe4; border-radius:8px; font-size:12px; background:#fff; box-sizing:border-box; }
+.ds-input-wide { min-width:220px; }
+.ds-col-input { min-width:120px; }
+.ds-part-type { min-width:260px; }
+.ds-readonly { background:#f8fafc; color:#475569; pointer-events:none; border-color:#e5e7eb; }
+.ds-hidden { display:none !important; }
+.ds-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+.ds-section-note { margin:0 0 12px; color:#64748b; font-size:12px; }
+.ds-sticky-first { position:sticky; left:0; z-index:2; background:#fff; box-shadow:1px 0 0 #eef2f7; }
+.ds-table thead .ds-sticky-first { z-index:3; background:#f8fafc; }
+.ds-table tbody tr:nth-child(even) .ds-sticky-first { background:#fcfdff; }
+.ds-table tbody tr:hover .ds-sticky-first { background:#f8fbff; }
+.ds-status { font-size:12px; color:#0f766e; font-weight:700; }
+
+/* Improved scrolling for tables */
+.ds-body { max-height: 600px; overflow-y: auto; }
+.ds-card:nth-child(2) .ds-body { max-height: 450px; } /* Make SWPDT table more compact vertically */
+
+@media (max-width: 1180px) { .ds-grid { grid-template-columns: 1fr; } }
+</style>
+
+
+
+{% if not axiom_enabled %}
+  <div class="ds-card">
+    <div class="ds-card-head"><div class="ds-title">Axiom Device Data</div></div>
+    <div class="ds-body">
+      <p class="ds-muted">{{ axiom_error or 'Axiom device data is disabled for this target.' }}</p>
+    </div>
+  </div>
+{% else %}
+
+<div class="ds-grid">
+    {% if hw_summary %}
+  <div class="ds-card">
+        <div class="ds-card-head">
+      <div>
+        <div class="ds-title">HW PDT – MSM Screening Summary</div>
+        <div class="ds-subtitle">Chipset: {{ chip_name }}</div>
+      </div>
+            <div class="ds-actions">
+                                <span class="ds-status" id="hwStatusText"></span>
+                <button class="ds-btn ghost" id="hwViewDevicesBtn" data-url="{{ hw_view_devices_url }}&refresh=0">View Devices</button>
+        <button class="ds-btn ghost" id="hwRefreshBtn">Refresh HW</button>
+        <button class="ds-btn ghost" id="hwRefreshQdtBtn" data-url="{{ hw_view_devices_url }}&refresh=1">Refresh QDT</button>
+
+        <button class="ds-btn secondary" id="hwEditBtn">Edit</button>
+
+        <button class="ds-btn secondary ds-hidden" id="hwCancelBtn">Cancel</button>
+        <button class="ds-btn secondary ds-hidden" id="hwAddColumnBtn">Add Column</button>
+        <button class="ds-btn secondary ds-hidden" id="hwAddRowBtn">Add Row</button>
+        <button class="ds-btn primary ds-hidden" id="hwSaveBtn">Save Metrics</button>
+      </div>
+
+    </div>
+
+        <div class="ds-body">
+      <p class="ds-section-note">Default is read-only. Click <strong>Edit</strong> to enable Add Column, Add Row and Save. Devices under taxonomy path /PDT/QIPL/HW will have DEP column updated with MCN.</p>
+            <table class="ds-table rich-table" id="hwMetricsTable" style="min-width: 640px; table-layout: fixed;">
+
+
+                <thead id="hwMetricsHead">
+                              <tr id="hwMetricsHeadRow">
+                        <th class="ds-sticky-first">Metric</th>
+
+            {% set hw_columns = hw_summary.columns if hw_summary.columns else ['REV0', 'REV1', 'Part Type', 'Total'] %}
+            {% for col in hw_columns %}
+                                    <th><input class="ds-input ds-col-input hw-col-name ds-readonly{% if loop.index0 == 2 %} ds-part-type{% endif %}" type="text" value="{{ col }}" readonly></th>
+
+
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody id="hwMetricsBody">
+          {% for m in hw_summary.metrics %}
+          <tr>
+                                    <td class="ds-sticky-first"><input class="ds-input ds-input-wide hw-edit-field ds-readonly" type="text" value="{{ m.label }}" readonly /></td>
+
+
+                        {% for cell in m['values'] %}
+
+                                    <td><input class="ds-input{% if loop.index0 == 2 %} ds-input-wide ds-part-type{% endif %} hw-edit-field ds-readonly" type="text" value="{{ cell }}" readonly /></td>
+
+
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+                <tfoot></tfoot>
+
+
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+
+  <div class="ds-card">
+    <div class="ds-card-head">
+      <div>
+        <div class="ds-title">SW PDT – Global Device Deployment</div>
+        <div class="ds-subtitle">Chipset: {{ chip_name }}</div>
+      </div>
+            <div class="ds-actions">
+        <span class="ds-status" id="swStatusText"></span>
+                <button class="ds-btn ghost" id="swRefreshBtn">Refresh SW</button>
+        <button class="ds-btn primary" id="swViewDevicesBtn" data-url="{{ sw_view_devices_url }}">View Devices</button>
+
+        <button class="ds-btn secondary" onclick="window.open('#','_blank')">Rework Status</button>
+        <button class="ds-btn secondary" id="swEditBtn">Edit</button>
+        <button class="ds-btn secondary ds-hidden" id="swCancelBtn">Cancel</button>
+        <button class="ds-btn primary ds-hidden" id="dsSaveSwDelBtn">Save DEL overrides</button>
+      </div>
+
+    </div>
+    <div class="ds-body">
+      {% if sw_table %}
+            <p class="ds-section-note">DEL is editable and saved from user override. DEP always stays from Axiom. Devices with taxonomy path /PDT/QIPL/HW are excluded from this list.</p>
+            <table class="ds-table rich-table" style="min-width: 860px; table-layout: fixed;">
+
+
+                <thead>
+          <tr>
+                        <th rowspan="2" class="ds-sticky-first">Form Factor</th>
+
+            <th rowspan="2">MCN</th>
+            <th rowspan="2">Storage</th>
+            {% for s in sw_table.sites %}
+              <th colspan="2">{{ s }}</th>
+            {% endfor %}
+            <th colspan="2">Total</th>
+          </tr>
+          <tr>
+            {% for s in sw_table.sites %}
+              <th>DEL</th>
+              <th>DEP</th>
+            {% endfor %}
+            <th>DEL</th>
+            <th>DEP</th>
+          </tr>
+        </thead>
+                <tbody>
+          {% for r in sw_table.rows %}
+          <tr data-form-factor="{{ r.form_factor }}" data-mcn="{{ r.mcn }}" data-storage="{{ r.storage }}">
+                        <td class="ds-sticky-first">{{ r.form_factor }}</td>
+
+            <td>{{ r.mcn }}</td>
+            <td>{{ r.storage }}</td>
+            {% for s in sw_table.sites %}
+            {% set d = r.sites.get(s) or { 'del': 0, 'dep': 0 } %}
+              <td>
+                                <input class="ds-input ds-readonly sw-del-input" type="number" min="0" value="{{ d.del }}" data-ff="{{ r.form_factor }}" data-mcn="{{ r.mcn }}" data-sto="{{ r.storage }}" data-site="{{ s }}" data-field="del" readonly />
+
+              </td>
+              <td>{{ d.dep }}</td>
+            {% endfor %}
+            <td>{{ r.total_del }}</td>
+            <td>{{ r.total_dep }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+                <tfoot>
+          <tr>
+            <td colspan="3" style="text-align:right; padding:10px;">
+            </td>
+
+            {% for s in sw_table.sites %}
+            {% set t = sw_table.totals.get(s) %}
+              <td>{{ t.del }}</td>
+              <td>{{ t.dep }}</td>
+            {% endfor %}
+            <td>{{ sw_table.grand_del }}</td>
+            <td>{{ sw_table.grand_dep }}</td>
+          </tr>
+        </tfoot>
+      </table>
+      {% else %}
+        <p class="ds-muted">No SWPDT devices found for this chipset.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endif %}
+<script>
+(function(){
+  const target = {{ target_name|tojson }};
+  const swViewDevicesBtn = document.getElementById('swViewDevicesBtn');
+  const hwViewDevicesBtn = document.getElementById('hwViewDevicesBtn');
+  const hwRefreshQdtBtn = document.getElementById('hwRefreshQdtBtn');
+  const saveDelBtn = document.getElementById('dsSaveSwDelBtn');
+  const swEditBtn = document.getElementById('swEditBtn');
+  const swCancelBtn = document.getElementById('swCancelBtn');
+  const swRefreshBtn = document.getElementById('swRefreshBtn');
+  const swStatusText = document.getElementById('swStatusText');
+  const hwRefreshBtn = document.getElementById('hwRefreshBtn');
+  const hwStatusText = document.getElementById('hwStatusText');
+  const hwEditBtn = document.getElementById('hwEditBtn');
+  const hwCancelBtn = document.getElementById('hwCancelBtn');
+  const hwAddRowBtn = document.getElementById('hwAddRowBtn');
+  const hwAddColumnBtn = document.getElementById('hwAddColumnBtn');
+  const hwSaveBtn = document.getElementById('hwSaveBtn');
+  const hwBody = document.getElementById('hwMetricsBody');
+  const hwHeadRow = document.getElementById('hwMetricsHeadRow');
+  let swSnapshot = [];
+  let hwSnapshot = '';
+
+    function openJsonViewer(btn) {
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      window.open(btn.getAttribute('data-url') || '#', '_blank', 'noopener');
+    });
+  }
+
+  openJsonViewer(swViewDevicesBtn);
+  openJsonViewer(hwViewDevicesBtn);
+  openJsonViewer(hwRefreshQdtBtn);
+
+  function setSwEditable(editable) {
+    document.querySelectorAll('.sw-del-input').forEach(inp => {
+      inp.readOnly = !editable;
+      inp.classList.toggle('ds-readonly', !editable);
+    });
+    if (saveDelBtn) saveDelBtn.classList.toggle('ds-hidden', !editable);
+    if (swCancelBtn) swCancelBtn.classList.toggle('ds-hidden', !editable);
+    if (swEditBtn) swEditBtn.classList.toggle('ds-hidden', editable);
+  }
+
+  function captureSwSnapshot() {
+    return Array.from(document.querySelectorAll('.sw-del-input')).map(inp => inp.value);
+  }
+  function restoreSwSnapshot(snapshot) {
+    document.querySelectorAll('.sw-del-input').forEach((inp, idx) => {
+      if (snapshot[idx] !== undefined) inp.value = snapshot[idx];
+    });
+  }
+
+  if (swEditBtn) swEditBtn.addEventListener('click', function(){ swSnapshot = captureSwSnapshot(); setSwEditable(true); });
+  if (swCancelBtn) swCancelBtn.addEventListener('click', function(){ restoreSwSnapshot(swSnapshot); setSwEditable(false); });
+  if (swRefreshBtn) swRefreshBtn.addEventListener('click', async function(){
+    try {
+      if (swStatusText) swStatusText.textContent = 'Refreshing SW...';
+      const resp = await fetch(`/api/device_summary_data/${encodeURIComponent(target)}?pdt=SWPDT&refresh=1`);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) throw new Error(data.message || 'Refresh failed');
+      if (swStatusText) swStatusText.textContent = 'SW refreshed';
+      window.location.reload();
+    } catch (e) {
+      if (swStatusText) swStatusText.textContent = '';
+      alert(e.message || 'Failed to refresh SW data');
+    }
+  });
+  if (saveDelBtn) saveDelBtn.addEventListener('click', async function(){
+    const rows = Array.from(document.querySelectorAll('input[data-field="del"]')).map(inp => ({
+      form_factor: inp.getAttribute('data-ff') || '',
+      mcn: inp.getAttribute('data-mcn') || '',
+      storage: inp.getAttribute('data-sto') || '',
+      site: inp.getAttribute('data-site') || '',
+      del: parseInt(inp.value || '0', 10)
+    }));
+    try {
+      const resp = await fetch(`/api/device_summary_data/save_sw_del/${encodeURIComponent(target)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
+      alert('DEL overrides saved successfully.');
+      swSnapshot = captureSwSnapshot();
+      setSwEditable(false);
+    } catch (e) {
+      alert(e.message || 'Failed to save DEL overrides');
+    }
+  });
+
+  function adjustTableSizes() {
+    const cards = document.querySelectorAll('.ds-card');
+    const hwCard = cards[0];
+    const swCard = cards[1];
+    if (!hwCard || !swCard) return;
+    const windowHeight = window.innerHeight;
+    const hwCardTop = hwCard.getBoundingClientRect().top;
+    const swCardTop = swCard.getBoundingClientRect().top;
+    const hwBodyEl = hwCard.querySelector('.ds-body');
+    const swBodyEl = swCard.querySelector('.ds-body');
+    if (hwBodyEl) hwBodyEl.style.maxHeight = Math.min(600, windowHeight - hwCardTop - 100) + 'px';
+    if (swBodyEl) swBodyEl.style.maxHeight = Math.min(450, windowHeight - swCardTop - 100) + 'px';
+  }
+
+  function filterSwpdtTable() {
+    const swRows = document.querySelectorAll('.ds-card:nth-child(2) tbody tr');
+    fetch(`/api/device_summary_data/${encodeURIComponent(target)}/taxonomy?path=/PDT/QIPL/HW`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.devices || !data.devices.length) return;
+        const taxonomyFormFactors = data.devices.map(d => d.form_factor || d.name || '').filter(Boolean);
+        const taxonomyMCNs = data.devices.map(d => d.mcn || '').filter(Boolean);
+        swRows.forEach(row => {
+          const formFactor = row.getAttribute('data-form-factor') || row.querySelector('td:first-child')?.textContent.trim();
+          const mcn = row.getAttribute('data-mcn') || row.querySelector('td:nth-child(2)')?.textContent.trim();
+          if ((taxonomyFormFactors.includes(formFactor) || taxonomyMCNs.includes(mcn)) ||
+              data.devices.some(d => (d.form_factor === formFactor || d.name === formFactor) && (d.mcn === mcn || d.id === mcn))) {
+            row.style.display = 'none';
+          }
+        });
+      })
+      .catch(err => console.error('Error filtering SWPDT table:', err));
+  }
+
+  function setHwEditable(editable) {
+    document.querySelectorAll('#hwMetricsTable input').forEach(inp => {
+      inp.readOnly = !editable;
+      inp.classList.toggle('ds-readonly', !editable);
+    });
+    if (hwAddColumnBtn) hwAddColumnBtn.classList.toggle('ds-hidden', !editable);
+    if (hwAddRowBtn) hwAddRowBtn.classList.toggle('ds-hidden', !editable);
+    if (hwSaveBtn) hwSaveBtn.classList.toggle('ds-hidden', !editable);
+    if (hwCancelBtn) hwCancelBtn.classList.toggle('ds-hidden', !editable);
+    if (hwEditBtn) hwEditBtn.classList.toggle('ds-hidden', editable);
+  }
+
+  function makeInput(val, wide) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'ds-input hw-edit-field' + (wide ? ' ds-input-wide' : '') + ' ds-readonly';
+    input.value = val || '';
+    input.readOnly = true;
+    return input;
+  }
+  function captureHwSnapshot() {
+    return JSON.stringify({
+      columns: Array.from(document.querySelectorAll('#hwMetricsHeadRow .hw-col-name')).map(inp => inp.value || ''),
+      rows: Array.from(document.querySelectorAll('#hwMetricsBody tr')).map(tr => Array.from(tr.querySelectorAll('td input')).map(inp => inp.value || ''))
+    });
+  }
+  function restoreHwSnapshot(snapshot) {
+    if (!snapshot) return;
+    try {
+      const data = JSON.parse(snapshot);
+      const headInputs = Array.from(document.querySelectorAll('#hwMetricsHeadRow .hw-col-name'));
+      data.columns.forEach((val, idx) => { if (headInputs[idx]) headInputs[idx].value = val; });
+      const rowEls = Array.from(document.querySelectorAll('#hwMetricsBody tr'));
+      data.rows.forEach((vals, rIdx) => {
+        const rowInputs = rowEls[rIdx] ? Array.from(rowEls[rIdx].querySelectorAll('td input')) : [];
+        vals.forEach((val, cIdx) => { if (rowInputs[cIdx]) rowInputs[cIdx].value = val; });
+      });
+    } catch (e) {}
+  }
+  function getHwColumnCount() { return document.querySelectorAll('#hwMetricsHeadRow .hw-col-name').length; }
+
+  if (hwRefreshBtn) hwRefreshBtn.addEventListener('click', async function(){
+    try {
+      if (hwStatusText) hwStatusText.textContent = 'Refreshing HW...';
+      const resp = await fetch(`/api/device_summary_data/${encodeURIComponent(target)}?pdt=HWPDT&refresh=1`);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) throw new Error(data.message || 'Refresh failed');
+      if (hwStatusText) hwStatusText.textContent = 'HW refreshed';
+      window.location.reload();
+    } catch (e) {
+      if (hwStatusText) hwStatusText.textContent = '';
+      alert(e.message || 'Failed to refresh HW data');
+    }
+  });
+  if (hwEditBtn) hwEditBtn.addEventListener('click', function(){ hwSnapshot = captureHwSnapshot(); setHwEditable(true); });
+  if (hwCancelBtn) hwCancelBtn.addEventListener('click', function(){ restoreHwSnapshot(hwSnapshot); setHwEditable(false); });
+  if (hwAddColumnBtn && hwHeadRow) hwAddColumnBtn.addEventListener('click', function(){
+    const th = document.createElement('th');
+    const idx = getHwColumnCount() + 1;
+    const input = document.createElement('input');
+    input.className = 'ds-input ds-col-input hw-col-name' + (idx === 3 ? ' ds-part-type' : '');
+    input.type = 'text';
+    input.value = 'Column ' + idx;
+    th.appendChild(input);
+    hwHeadRow.appendChild(th);
+    document.querySelectorAll('#hwMetricsBody tr').forEach(tr => {
+      const td = document.createElement('td');
+      const cellInput = makeInput('', false);
+      if (idx === 3) cellInput.classList.add('ds-part-type');
+      td.appendChild(cellInput);
+      tr.appendChild(td);
+    });
+  });
+  if (hwAddRowBtn && hwBody) hwAddRowBtn.addEventListener('click', function(){
+    const tr = document.createElement('tr');
+    const first = document.createElement('td');
+    const metricInput = makeInput('', true);
+    first.appendChild(metricInput);
+    tr.appendChild(first);
+    const count = getHwColumnCount();
+    for (let i = 0; i < count; i++) {
+      const td = document.createElement('td');
+      const newInput = makeInput('', i === 2);
+      if (i === 2) newInput.classList.add('ds-part-type');
+      td.appendChild(newInput);
+      tr.appendChild(td);
+    }
+    hwBody.appendChild(tr);
+  });
+  if (hwSaveBtn) hwSaveBtn.addEventListener('click', async function(){
+    const columns = Array.from(document.querySelectorAll('#hwMetricsHeadRow .hw-col-name')).map(inp => inp.value || '');
+    const rows = [];
+    document.querySelectorAll('#hwMetricsBody tr').forEach(tr => {
+      const inputs = tr.querySelectorAll('td input');
+      if (inputs.length >= 1) {
+        rows.push({ label: inputs[0].value || '', values: Array.from(inputs).slice(1).map(inp => inp.value || '') });
+      }
+    });
+    try {
+      const resp = await fetch(`/api/device_summary_data/save_hw_metrics/${encodeURIComponent(target)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columns, rows })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
+      alert('HWPDT metrics saved successfully.');
+      hwSnapshot = captureHwSnapshot();
+      setHwEditable(false);
+    } catch (e) {
+      alert(e.message || 'Failed to save HWPDT metrics');
+    }
+  });
+
+  if (hwRefreshQdtBtn) hwRefreshQdtBtn.addEventListener('click', async function(){
+    try {
+      if (hwStatusText) hwStatusText.textContent = 'Refreshing QDT + Axiom...';
+      const resp = await fetch(hwRefreshQdtBtn.getAttribute('data-url') || `/api/device_summary_data/${encodeURIComponent(target)}?pdt=HWPDT&refresh=1`);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.success === false) throw new Error(data.message || 'Refresh failed');
+      if (hwStatusText) hwStatusText.textContent = 'QDT refreshed';
+      window.location.reload();
+    } catch (e) {
+      if (hwStatusText) hwStatusText.textContent = '';
+      alert(e.message || 'Failed to refresh QDT data');
+    }
+  });
+
+  adjustTableSizes();
+  filterSwpdtTable();
+  window.addEventListener('resize', adjustTableSizes);
+})();
+</script>
+{% endblock %}

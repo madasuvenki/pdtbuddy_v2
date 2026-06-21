@@ -1,0 +1,32 @@
+{
+  "excluded": [
+    "Lemans_HQX_IVI_4_5_6_0",
+    "lemans_hgy_adas_4_1_6_0",
+    "lemans_hgy_flex_4_1_6_0",
+    "lemans_hgy_ivi_4_1_6_0",
+    "lemans_hgy_ivi_4_1_8_0",
+    "lemans_hqx_adas_4_5_6_0_1",
+    "lemans_hqx_adas_4_8_9_0_1",
+    "lemans_hqx_flex_4_5_6_0",
+    "lemans_hqx_flex_4_5_7_0",
+    "lemans_hqx_flex_4_8_9_0_2",
+    "lemans_hqx_ivi_4_5_7_0",
+    "lemans_hqx_ivi_4_5_7_1",
+    "lemans_hqx_ivi_4_5_8_0",
+    "monaco_hgy_adas_4_1_6_0",
+    "monaco_hqx_adas_4_5_6_0_1",
+    "monaco_hqx_adas_4_8_9_0_1",
+    "monaco_hqx_flex_4_5_7_0",
+    "monaco_hqx_flex_4_8_9_0_2",
+    "monaco_hqx_ivi_4_5_6_0",
+    "monaco_hqx_ivi_4_5_7_0",
+    "monaco_hqx_ivi_4_5_8_0",
+    "monaco_hqx_ivi_4_8_9_0",
+    "nord_hgy_adas_5_1_7_0",
+    "nord_hgy_flex_5_1_7_0",
+    "nord_hgy_ivi_5_1_7_0",
+    "nord_hqx_adas_5_7_7_0",
+    "nord_hqx_flex_5_7_7_0",
+    "nord_hqx_ivi_5_7_7_0"
+  ]
+}

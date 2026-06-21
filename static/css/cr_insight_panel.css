@@ -1,0 +1,288 @@
+/* cr_insight_panel.css — premium, wide, AI-first */
+
+/* ── Shell ── */
+.cr-insight-panel {
+  position: fixed;
+  top: 58px;
+  right: 0;
+  width: 460px;
+  height: calc(100vh - 66px);
+  z-index: 9980;                    /* BELOW chatDock (9990) — chatbot always on top */
+  background: linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
+  border-left: 1px solid #cbd5e1;
+  box-shadow: -12px 0 48px rgba(15,23,42,0.18);
+  border-radius: 20px 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(110%);      /* hidden off-screen to the right */
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .32s cubic-bezier(.4,0,.2,1), opacity .28s ease;
+}
+.cr-insight-panel.cip-visible {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+/* When chatbot dock is open, shift panel left of the dock */
+body.chat-open .cr-insight-panel.cip-visible {
+  right: 432px;
+}
+
+/* ── Header ── */
+.cip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #0c1e35 0%, #1e3a8a 100%);
+  flex-shrink: 0;
+}
+.cip-header-left  { display:flex; align-items:center; gap:10px; }
+.cip-header-icon  { font-size:17px; }
+.cip-header-text  { display:flex; flex-direction:column; gap:2px; }
+.cip-title        { font-size:13px; font-weight:900; color:#f0f9ff; letter-spacing:.02em; }
+.cip-subtitle     { font-size:10px; color:rgba(186,230,253,.8); font-weight:600; }
+.cip-close-btn {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.8);
+  width: 30px; height: 30px; border-radius: 8px;
+  cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.cip-close-btn:hover { background: rgba(255,255,255,.22); color:#fff; }
+
+/* ── Search bar ── */
+.cip-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+.cip-search-bar i { color:#94a3b8; font-size:12px; flex-shrink:0; }
+.cip-search-input {
+  flex: 1; border: none; outline: none;
+  font-size: 13px; color: #1e293b; background: transparent;
+  font-weight: 600;
+}
+.cip-search-input::placeholder { color:#94a3b8; font-weight:400; }
+.cip-search-btn {
+  background: #6366f1; color: #fff; border: none;
+  border-radius: 7px; padding: 5px 14px;
+  font-size: 12px; font-weight: 800; cursor: pointer;
+  flex-shrink: 0;
+}
+.cip-search-btn:hover { background: #4f46e5; }
+
+/* ── Spinner ── */
+.cip-spinner {
+  width: 34px; height: 34px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: cipSpin .7s linear infinite;
+  margin: 0 auto;
+}
+@keyframes cipSpin { to { transform: rotate(360deg); } }
+
+/* ── Content scroll area ── */
+#cipContent {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 24px;
+  gap: 8px;
+}
+#cipContent::-webkit-scrollbar { width: 4px; }
+#cipContent::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+/* ── Cards ── */
+.cip-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(15,23,42,.04);
+}
+.cip-card-label {
+  font-size: 10px; font-weight: 900;
+  color: #64748b; text-transform: uppercase;
+  letter-spacing: .6px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+
+/* ── Title card ── */
+.cip-title-card {
+  background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%);
+  border-color: #c7d2fe;
+  box-shadow: 0 2px 8px rgba(99,102,241,.08);
+}
+
+/* ── Stats row ── */
+.cip-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.cip-stat {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+  transition: box-shadow .15s;
+}
+.cip-stat:hover { box-shadow: 0 3px 10px rgba(99,102,241,.12); }
+.cip-stat-val { font-size:22px; font-weight:900; color:#1e293b; line-height:1; }
+.cip-stat-lbl { font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+
+/* ── Target card ── */
+.cip-target-card {
+  background: #fafbff;
+  border-color: #dbeafe;
+  padding: 10px 12px;
+}
+.cip-target-pill {
+  display: inline-flex; align-items: center;
+  background: #eff6ff; border: 1.5px solid #bfdbfe;
+  color: #1d4ed8; border-radius: 999px;
+  padding: 5px 14px; font-size: 11px; font-weight: 800;
+  cursor: pointer; margin: 3px 3px 0 0;
+  transition: all .15s; letter-spacing:.02em;
+}
+.cip-target-pill:hover { background: #dbeafe; border-color: #93c5fd; }
+.cip-target-pill.active {
+  background: linear-gradient(135deg,#1d4ed8,#6366f1);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 2px 8px rgba(99,102,241,.35);
+}
+
+/* ── AI card ── */
+.cip-ai-card {
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+  border-color: #ddd6fe;
+  box-shadow: 0 2px 10px rgba(124,58,237,.07);
+}
+.cip-ai-body {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.75;
+  min-height: 32px;
+}
+.cip-ai-body strong { color: #1e293b; }
+.orbit-summary-text {
+  background: #fff;
+  border: 1px solid #ede9fe;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #1e293b;
+}
+.orbit-disclaimer {
+  font-size: 10px;
+  color: #9ca3af;
+  font-style: italic;
+  margin-bottom: 6px;
+}
+
+/* ── AI button (small, inline) ── */
+.cip-ai-btn-sm {
+  background: linear-gradient(135deg,#7c3aed,#6366f1);
+  color: #fff; border: none; border-radius: 999px;
+  padding: 4px 12px; font-size: 10px; font-weight: 800;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+  box-shadow: 0 2px 8px rgba(99,102,241,.3);
+  transition: transform .15s, box-shadow .15s;
+  white-space: nowrap; margin-left: auto;
+}
+.cip-ai-btn-sm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.4); }
+.cip-ai-btn-sm:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
+/* ── Last seen meta (below AI summary) ── */
+.cip-last-seen-meta {
+  display: flex; gap: 16px; flex-wrap: wrap;
+}
+.cip-last-seen-meta span { font-size: 10px; color: #64748b; font-weight: 600; }
+.cip-last-seen-meta b { color: #1e293b; }
+
+/* ── Meta grid ── */
+.cip-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.cip-meta-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 7px 10px;
+}
+.cip-meta-label { font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+.cip-meta-value { font-size:12px; font-weight:700; color:#1e293b; word-break:break-word; }
+
+/* ── Badge ── */
+.cip-badge {
+  background: #6366f1; color: #fff;
+  border-radius: 999px; padding: 1px 8px;
+  font-size: 10px; font-weight: 800; margin-left: 4px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .cr-insight-panel {
+    right: 0; left: 0; width: 100%; top: 56px;
+    height: 55vh; border-radius: 0;
+    transform: translateY(110%);
+  }
+  .cr-insight-panel.cip-visible { transform: translateY(0); }
+  body.chat-open .cr-insight-panel.cip-visible { right: 0; }
+}
+
+/* ── Chatbot message table — prevent overflow ── */
+.chat-messages table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  font-size: 11px !important;
+  word-break: break-word !important;
+}
+.chat-messages table th,
+.chat-messages table td {
+  padding: 5px 6px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 0 !important;
+}
+.chat-messages table th:nth-child(1),
+.chat-messages table td:nth-child(1) { width: 8%  !important; }
+.chat-messages table th:nth-child(2),
+.chat-messages table td:nth-child(2) { width: 34% !important; white-space:normal !important; }
+.chat-messages table th:nth-child(3),
+.chat-messages table td:nth-child(3) { width: 16% !important; }
+.chat-messages table th:nth-child(4),
+.chat-messages table td:nth-child(4) { width: 16% !important; }
+.chat-messages table th:nth-child(5),
+.chat-messages table td:nth-child(5) { width: 26% !important; white-space:normal !important; }
+
+/* Bot bubble containing a table: expand to full chat width */
+.message-bot:has(table) {
+  max-width: 96% !important;
+  width: 96% !important;
+  overflow-x: hidden !important;
+}
+.message-bot table {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}

@@ -1,0 +1,951 @@
+{% extends "target_layout.html" %}
+
+{% block page_heading %}
+{{ page_heading or (target_name|upper ~ " - CR / JIRA Info") }}
+{% endblock %}
+
+{% block page_content %}
+<style>
+/* ── base card ── */
+.cri-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  padding: 20px 22px;
+  box-shadow: 0 8px 28px rgba(15,23,42,.07);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.cri-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--card-accent, linear-gradient(90deg,#6366f1,#0ea5e9));
+  border-radius: 20px 20px 0 0;
+}
+.cri-card-title {
+  font-size: 14px; font-weight: 900; color: #0f172a;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.cri-card-sub {
+  font-size: 11px; color: #94a3b8; margin-bottom: 14px;
+}
+
+/* ── two-col layout ── */
+.cri-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+@media(max-width:860px){ .cri-cols { grid-template-columns: 1fr; } }
+
+.cri-col {
+  padding: 0 20px 0 0;
+}
+.cri-col + .cri-col {
+  padding: 0 0 0 20px;
+  border-left: 2px solid #e0e7ff;
+}
+
+/* ── section label ── */
+.cri-section-label {
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: #6366f1;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.cri-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg,#e0e7ff,transparent);
+}
+
+/* ── identity rows ── */
+.cri-row {
+  display: flex; align-items: flex-start;
+  gap: 6px; font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid #f8faff;
+}
+.cri-row:last-child { border-bottom: none; }
+.cri-row-label {
+  font-weight: 700; color: #64748b;
+  min-width: 110px; flex-shrink: 0;
+  font-size: 11px;
+}
+.cri-row-val { color: #1e293b; font-weight: 500; flex: 1; word-break: break-word; }
+
+/* ── stat pills ── */
+.cri-stat-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.cri-stat {
+  flex: 1; min-width: 80px;
+  background: linear-gradient(135deg,#f8faff,#eef2ff);
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.cri-stat-val { font-size: 22px; font-weight: 900; color: #0f172a; line-height: 1; }
+.cri-stat-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; margin-top: 3px; }
+
+/* ── tags ── */
+.cri-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid #e0e7ff;
+  font-size: 11px; font-weight: 600; color: #374151;
+  background: linear-gradient(135deg,#f8faff,#eef2ff);
+  margin: 2px 3px 2px 0;
+}
+.cri-tag-count {
+  background: #4f46e5; color: #fff;
+  border-radius: 999px; padding: 0 6px;
+  font-size: 10px; font-weight: 800;
+}
+.cri-tag-count-teal {
+  background: #0369a1; color: #fff;
+  border-radius: 999px; padding: 0 6px;
+  font-size: 10px; font-weight: 800;
+}
+
+/* ── linked CR rainbow tags ── */
+.cri-linked {
+  display: inline-flex; align-items: center;
+  padding: 4px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 800;
+  color: #fff; margin: 2px 4px 2px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  animation: shimmer 2.8s ease-in-out infinite alternate;
+}
+.cri-linked:nth-child(1){background:linear-gradient(135deg,#f43f5e,#fb923c);}
+.cri-linked:nth-child(2){background:linear-gradient(135deg,#a855f7,#6366f1);}
+.cri-linked:nth-child(3){background:linear-gradient(135deg,#06b6d4,#3b82f6);}
+.cri-linked:nth-child(4){background:linear-gradient(135deg,#10b981,#14b8a6);}
+.cri-linked:nth-child(5){background:linear-gradient(135deg,#f59e0b,#ef4444);}
+.cri-linked:nth-child(6){background:linear-gradient(135deg,#ec4899,#a855f7);}
+.cri-linked:nth-child(7){background:linear-gradient(135deg,#0ea5e9,#6366f1);}
+.cri-linked:nth-child(8){background:linear-gradient(135deg,#84cc16,#10b981);}
+@keyframes shimmer{0%{filter:brightness(1) saturate(1);}100%{filter:brightness(1.12) saturate(1.2);}}
+
+/* ── CR classification badges ── */
+.cri-badge {
+  display: inline-block; padding: 3px 12px;
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+  white-space: nowrap;
+}
+.cri-badge-status-open   { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+.cri-badge-status-closed { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+.cri-badge-status-other  { background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; }
+.cri-badge-area          { background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; }
+.cri-badge-func          { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.cri-badge-sub           { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+
+/* ── divider ── */
+.cri-divider {
+  border: none;
+  border-top: 1px solid #e0e7ff;
+  margin: 14px 0 12px;
+}
+
+/* ── build pills ── */
+.cri-build-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg,#f0f9ff,#e0f2fe);
+  border: 1px solid #bae6fd; border-radius: 10px;
+  padding: 5px 12px; font-size: 11px; font-weight: 600;
+  color: #0c4a6e; margin: 3px 4px 3px 0;
+}
+button.cri-build-pill { cursor:pointer; }
+button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px rgba(14,165,233,.18); }
+.cri-build-pill-active { background:linear-gradient(135deg,#0ea5e9,#6366f1)!important; border-color:#6366f1!important; color:#fff!important; font-weight:800!important; }
+.cri-build-count {
+  background: #0369a1; color: #fff;
+  border-radius: 999px; padding: 1px 8px;
+  font-size: 10px; font-weight: 800;
+}
+
+/* ── JIRA table card ── */
+.cri-table-card {
+  background: linear-gradient(135deg,#faf5ff,#eef2ff);
+  border-color: #e9d5ff;
+  --card-accent: linear-gradient(90deg,#7c3aed,#a855f7);
+}
+.cri-table-wrap {
+  border-radius: 12px; max-height: 420px; overflow: auto;
+  box-shadow: 0 4px 14px rgba(129,140,248,.2);
+}
+.cri-table-wrap table { width:100%; border-collapse:collapse; font-size:12px; }
+.cri-table-wrap thead th {
+  background: linear-gradient(90deg,#7c3aed,#a855f7);
+  color:#fff; padding:7px 10px; font-weight:700; white-space:nowrap;
+  position: sticky; top: 0; z-index: 2;
+}
+.cri-table-wrap tbody td { padding:6px 10px; border-bottom:1px solid #f3f0ff; }
+.cri-table-wrap tbody tr:nth-child(even) td { background:#f5f3ff; }
+.cri-table-wrap tbody tr:hover td { background:#ede9fe; }
+.cri-badge-ticket {
+  display:inline-block; padding:2px 9px; border-radius:999px;
+  background:#eff6ff; border:1px solid #bfdbfe;
+  font-weight:700; color:#1d4ed8; font-size:11px;
+}
+.cri-link { color:#1d4ed8; text-decoration:none; }
+.cri-link:hover { text-decoration:underline; }
+
+/* ── filters ── */
+.cri-filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.cri-filter-input, .cri-filter-select {
+  padding:5px 12px; border-radius:999px;
+  border:1px solid #d1d5db; font-size:11px;
+  background:#f9fafb; color:#374151; outline:none;
+}
+.cri-filter-input:focus, .cri-filter-select:focus {
+  border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,.15);
+}
+.cri-tag-btn { cursor:pointer; user-select:none; transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
+.cri-tag-btn:hover { transform:translateY(-1px); box-shadow:0 5px 14px rgba(99,102,241,.18); border-color:#a5b4fc; }
+.cri-tag-active-team { background:linear-gradient(135deg,#4f46e5,#7c3aed)!important; color:#fff!important; border-color:transparent!important; box-shadow:0 7px 18px rgba(79,70,229,.32)!important; }
+.cri-tag-related-mcn { background:linear-gradient(135deg,#fef3c7,#fde68a)!important; color:#92400e!important; border-color:#f59e0b!important; box-shadow:0 5px 14px rgba(245,158,11,.20)!important; }
+.cri-tag-related-device { background:linear-gradient(135deg,#ccfbf1,#99f6e4)!important; color:#115e59!important; border-color:#14b8a6!important; box-shadow:0 5px 14px rgba(20,184,166,.20)!important; }
+.cri-row-team-match td { background:#fff7ed!important; }
+.cri-team-context { display:none; align-items:center; justify-content:space-between; gap:10px; margin:0 0 10px; padding:8px 12px; border-radius:12px; background:linear-gradient(135deg,#eef2ff,#f5f3ff); border:1px solid #c7d2fe; color:#4338ca; font-size:11px; font-weight:800; }
+.cri-clear-team { border:0; border-radius:999px; padding:4px 10px; background:#fff; color:#4338ca; font-size:10px; font-weight:900; cursor:pointer; }
+</style>
+
+{% if cr_quick_summary.error %}
+<div class="cri-card" style="--card-accent:linear-gradient(90deg,#ef4444,#f97316);background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#fca5a5;">
+  <div style="font-size:14px;font-weight:800;color:#b91c1c;margin-bottom:6px;"><i class="fas fa-exclamation-circle"></i> Not Found</div>
+  <div style="font-size:13px;color:#7f1d1d;">{{ cr_quick_summary.error }}</div>
+  <div style="margin-top:8px;font-size:12px;color:#991b1b;"><b>Tip:</b> Try with or without "CR" prefix e.g. "4483004" or "CR4483004"</div>
+</div>
+{% endif %}
+
+{% if cr_info or jira_info %}
+
+<!-- ═══ QUICK SUMMARY CARD ═══ -->
+<div class="cri-card" style="--card-accent:linear-gradient(90deg,#6366f1,#0ea5e9);background:linear-gradient(135deg,#f8faff,#eef2ff);border-color:#c7d2fe;">
+
+  <div class="cri-card-title">
+    <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#0ea5e9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#128202;</span>
+    Quick Summary
+  </div>
+  <div class="cri-card-sub">JIRA ticket details and occurrences</div>
+
+  <!-- stat strip -->
+  <div class="cri-stat-row">
+    <div class="cri-stat">
+      <div class="cri-stat-val">{{ (cr_quick_summary.linked_crs or [])|length }}</div>
+      <div class="cri-stat-lbl">Linked CRs</div>
+    </div>
+   
+    {% if cr_quick_summary.cr_age %}
+    <div class="cri-stat" style="border-color:#fde68a;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+      <div class="cri-stat-val" style="color:#d97706;">{{ cr_quick_summary.cr_age }}</div>
+      <div class="cri-stat-lbl">CR Age (d)</div>
+    </div>
+    {% endif %}
+    {% set jira_tickets_all = [] %}
+    {% for r in cr_jiras %}
+      {% if r.stability_ticket and r.stability_ticket not in jira_tickets_all %}
+        {% set _ = jira_tickets_all.append(r.stability_ticket) %}
+      {% endif %}
+    {% endfor %}
+    {% if jira_tickets_all %}
+      {% set tickets_str_all = jira_tickets_all | join(',') %}
+      <div class="cri-stat" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff5f5,#fee2e2);cursor:pointer;padding:14px 16px;" onclick="window.open('https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_all | urlencode }})%20ORDER%20BY%20created%20DESC','_blank','noopener')" title="Open all {{ jira_tickets_all|length }} related JIRAs">
+        <div class="cri-stat-val" style="color:#dc2626;">{{ cr_quick_summary.occurrences or 0 }}</div>
+        <div class="cri-stat-lbl">Occurrences</div>
+        <div style="font-size:10px;color:#b91c1c;margin-top:8px;font-weight:900;line-height:1.3;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.55);display:inline-block;">Open in JIRAs (limited 48)</div>
+      </div>
+    {% else %}
+      <div class="cri-stat" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff5f5,#fee2e2);">
+        <div class="cri-stat-val" style="color:#dc2626;">{{ cr_quick_summary.occurrences or 0 }}</div>
+        <div class="cri-stat-lbl">Occurrences</div>
+      </div>
+    {% endif %}
+    <div class="cri-stat" style="border-color:#bbf7d0;background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+      <div class="cri-stat-val" style="color:#16a34a;">{{ cr_quick_summary.devices or 0 }}</div>
+      <div class="cri-stat-lbl">Devices</div>
+    </div>
+    {% if cr_quick_summary.latest_meta_count %}
+    <div class="cri-stat" style="border-color:#a5b4fc;background:linear-gradient(135deg,#eef2ff,#e0e7ff);">
+      <div class="cri-stat-val" style="color:#4338ca;">{{ cr_quick_summary.latest_meta_count }}</div>
+      <div class="cri-stat-lbl">Latest Meta Hits</div>
+    </div>
+    {% endif %}
+
+
+  </div>
+
+  <!-- two columns -->
+  <div class="cri-cols">
+
+    <!-- LEFT: Identity -->
+    <div class="cri-col">
+      <div class="cri-section-label"><i class="fas fa-id-card"></i> Identity</div>
+
+      <div class="cri-row">
+        <span class="cri-row-label">CR</span>
+        <span class="cri-row-val" style="font-weight:800;color:#0f172a;font-size:13px;">{{ cr_quick_summary.searched_cr or cr_number or 'N/A' }}</span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">Mapped CRs</span>
+        <span class="cri-row-val" style="font-weight:700;">{{ cr_info.mapped_cr or cr_quick_summary.canonical_mapped_cr or 'N/A' }}</span>
+      </div>
+      {% if jira_info %}
+      <div class="cri-row">
+        <span class="cri-row-label">JIRA Ticket</span>
+        <span class="cri-row-val"><a href="https://jira-dc2.qualcomm.com/jira/browse/{{ jira_info.stability_ticket }}" target="_blank" class="cri-link" style="font-weight:700;">{{ jira_info.stability_ticket }}</a></span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">Title</span>
+        <span class="cri-row-val" style="white-space:normal;line-height:1.5;">{{ jira_info.jira_title }}</span>
+      </div>
+      {% endif %}
+      {% if cr_quick_summary.canonical_mapped_cr %}
+      <div class="cri-row">
+        <span class="cri-row-label">Mapped CR Group</span>
+        <span class="cri-row-val" style="color:#2563eb;font-weight:800;">{{ cr_quick_summary.canonical_mapped_cr }}</span>
+      </div>
+      {% endif %}
+      {% if cr_quick_summary.latest_meta %}
+      <div class="cri-row">
+        <span class="cri-row-label">Latest Meta Seen</span>
+        <span class="cri-row-val" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="color:#2563eb;font-weight:700;">{{ cr_quick_summary.latest_meta }}</span>
+          {% if cr_quick_summary.latest_meta_count %}
+            <span style="background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;border-radius:999px;padding:1px 9px;font-size:10px;font-weight:800;white-space:nowrap;">{{ cr_quick_summary.latest_meta_count }} hit{{ 's' if cr_quick_summary.latest_meta_count != 1 else '' }} in this meta</span>
+          {% endif %}
+          {% if cr_quick_summary.latest_meta_mcn_counts %}
+            <span style="background:#f0fdf4;color:#166534;border:1px solid #86efac;border-radius:999px;padding:1px 9px;font-size:10px;font-weight:700;white-space:nowrap;">{{ cr_quick_summary.latest_meta_mcn_counts|length }} MCN type{{ 's' if cr_quick_summary.latest_meta_mcn_counts|length != 1 else '' }}</span>
+          {% endif %}
+          {% if cr_quick_summary.latest_meta_device_counts %}
+            <span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:1px 9px;font-size:10px;font-weight:700;white-space:nowrap;">{{ cr_quick_summary.latest_meta_device_counts|length }} device{{ 's' if cr_quick_summary.latest_meta_device_counts|length != 1 else '' }}</span>
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      {% if cr_quick_summary.linked_crs %}
+      <div style="margin-top:10px;">
+        <div class="cri-section-label"><i class="fas fa-link"></i> Linked CRs</div>
+        <div>
+          {% for c in cr_quick_summary.linked_crs %}
+            <span class="cri-linked">{{ c }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if cr_quick_summary.test_teams %}
+      <div style="margin-top:10px;">
+        <div class="cri-section-label"><i class="fas fa-users"></i> Test Teams</div>
+        <div>
+          {% for t in cr_quick_summary.test_teams %}
+            <span class="cri-tag cri-tag-btn cri-team-tag" data-team="{{ t|e }}" title="Click to highlight related MCNs/devices and filter JIRAs">{{ t }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:10px;">
+        <div class="cri-section-label"><i class="fas fa-microchip"></i> MCN Types <span style="font-size:9px;color:#94a3b8;font-weight:500;text-transform:none;letter-spacing:0;">(all builds &mdash; x = total hits)</span></div>
+        <div>
+          {% set mcn_counts = cr_quick_summary.mcn_counts or {} %}
+          {% set lm_mcn_counts = cr_quick_summary.latest_meta_mcn_counts or {} %}
+          {% for m in cr_quick_summary.mcn_types or [] %}
+            <span class="cri-tag cri-mcn-tag" data-mcn="{{ m|e }}">{{ m }}
+              {% if mcn_counts.get(m) %}<span class="cri-tag-count" title="Total hits">{{ mcn_counts[m] }}</span>{% endif %}
+              {% if lm_mcn_counts.get(m) %}<span class="cri-tag-count" style="background:#0ea5e9;" title="Latest meta hits">{{ lm_mcn_counts[m] }}&#9733;</span>{% endif %}
+            </span>
+          {% endfor %}
+          {% if not cr_quick_summary.mcn_types %}<span style="color:#94a3b8;font-size:12px;">N/A</span>{% endif %}
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="cri-section-label"><i class="fas fa-mobile-alt"></i> Device ID <span style="font-size:9px;color:#94a3b8;font-weight:500;text-transform:none;letter-spacing:0;">(all builds &mdash; x = total, &#9733; = latest meta)</span></div>
+        <div>
+          {% set dev_counts = cr_quick_summary.device_counts or {} %}
+          {% set lm_dev_counts = cr_quick_summary.latest_meta_device_counts or {} %}
+          {% for d, cnt in dev_counts.items() %}
+            <span class="cri-tag cri-device-tag" data-device="{{ d|e }}">{{ d }}
+              <span class="cri-tag-count-teal" title="Total hits">{{ cnt }}</span>
+              {% if lm_dev_counts.get(d) %}<span class="cri-tag-count" style="background:#0ea5e9;" title="Latest meta hits">{{ lm_dev_counts[d] }}&#9733;</span>{% endif %}
+            </span>
+          {% endfor %}
+          {% if not dev_counts %}<span style="color:#94a3b8;font-size:12px;">N/A</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CR Classification + Build Details -->
+    {% if cr_info %}
+    <div class="cri-col">
+      <div class="cri-section-label"><i class="fas fa-tag"></i> CR Classification</div>
+
+      <div class="cri-row">
+        <span class="cri-row-label">CR Status</span>
+        <span class="cri-row-val">
+          {% if cr_info.cr_status %}
+            {% if cr_info.cr_status|lower in ['open','active','new','undisposed'] %}
+              <span class="cri-badge cri-badge-status-open">{{ cr_info.cr_status }}</span>
+            {% elif cr_info.cr_status|lower in ['closed','fixed','resolved','built'] %}
+              <span class="cri-badge cri-badge-status-closed">{{ cr_info.cr_status }}</span>
+            {% else %}
+              <span class="cri-badge cri-badge-status-other">{{ cr_info.cr_status }}</span>
+            {% endif %}
+          {% else %}<span style="color:#94a3b8;">N/A</span>{% endif %}
+        </span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">Area</span>
+        <span class="cri-row-val">
+          {% if cr_info.cr_area %}<span class="cri-badge cri-badge-area">{{ cr_info.cr_area }}</span>
+          {% else %}<span style="color:#94a3b8;">N/A</span>{% endif %}
+        </span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">Functionality</span>
+        <span class="cri-row-val">
+          {% if cr_info.cr_functionality %}<span class="cri-badge cri-badge-func">{{ cr_info.cr_functionality }}</span>
+          {% else %}<span style="color:#94a3b8;">N/A</span>{% endif %}
+        </span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">Subsystem</span>
+        <span class="cri-row-val">
+          {% if cr_info.cr_subsystem %}<span class="cri-badge cri-badge-sub">{{ cr_info.cr_subsystem }}</span>
+          {% else %}<span style="color:#94a3b8;">N/A</span>{% endif %}
+        </span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">CR Title</span>
+        <span class="cri-row-val" style="white-space:normal;line-height:1.5;font-style:italic;color:#334155;">{{ cr_info.cr_title or cr_info.title or 'N/A' }}</span>
+      </div>
+      <div class="cri-row">
+        <span class="cri-row-label">CR Date</span>
+        <span class="cri-row-val">{{ (cr_info.cr_date or 'N/A') | string | truncate(10, True, '') }}</span>
+      </div>
+
+      <!-- Build Details -->
+      {% set build_counts = cr_quick_summary.build_counts or {} %}
+      {% set latest_meta  = cr_quick_summary.latest_meta or '' %}
+      {% if build_counts %}
+      <hr class="cri-divider">
+      <div class="cri-section-label"><i class="fas fa-cube"></i> Build Details <span style="font-size:9px;color:#94a3b8;font-weight:500;text-transform:none;letter-spacing:0;">({{ build_counts|length }} meta{{ 's' if build_counts|length != 1 else '' }} &mdash; x = occurrences &mdash; &#9733; = latest meta)</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        {% for build, cnt in build_counts.items() %}
+          {% if build == latest_meta %}
+          <button type="button" class="cri-build-pill cri-build-filter-btn" data-build="{{ build|e }}" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border-color:#6366f1;color:#fff;font-weight:800;">
+            <i class="fas fa-star" style="color:#fbbf24;font-size:9px;"></i>
+            {{ build }}
+            <span class="cri-build-count" style="background:rgba(255,255,255,0.25);">{{ cnt }}</span>
+          </button>
+          {% else %}
+          <button type="button" class="cri-build-pill cri-build-filter-btn" data-build="{{ build|e }}">
+            <i class="fas fa-cube" style="color:#0ea5e9;font-size:9px;"></i>
+            {{ build }}
+            <span class="cri-build-count">{{ cnt }}</span>
+          </button>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% set cr_group_rows = cr_quick_summary.cr_group_rows or [] %}
+{% if cr_group_rows %}
+<!-- ═══ MAPPED CR TABLE CARD ═══ -->
+<div class="cri-card cri-table-card" style="--card-accent:linear-gradient(90deg,#0ea5e9,#14b8a6);background:linear-gradient(135deg,#f0fdfa,#eff6ff);border-color:#bae6fd;">
+  <div class="cri-card-title" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#14b8a6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#128196;</span>
+      CRs under Mapped CR: {{ cr_quick_summary.canonical_mapped_cr or cr_info.mapped_cr or cr_quick_summary.searched_cr }}
+      <span style="font-size:11px;font-weight:700;color:#0369a1;background:#e0f2fe;padding:2px 10px;border-radius:999px;border:1px solid #7dd3fc;">{{ cr_group_rows|length }} row{{ 's' if cr_group_rows|length != 1 else '' }}</span>
+    </div>
+  </div>
+  <div class="cri-card-sub">All columns available from the mapped CR group. Latest Meta Seen is unchanged above.</div>
+
+  <div class="cri-table-wrap" style="max-height:360px;box-shadow:0 4px 14px rgba(14,165,233,.18);">
+    <table id="crInfoMappedCrTable">
+      <thead>
+        <tr>
+          <th style="width:30px;background:linear-gradient(90deg,#0ea5e9,#14b8a6);">#</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">CR</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Mapped CR</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Status</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Age</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Occurrence</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Area</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Functionality</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Subsystem</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Title</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Built Date</th>
+          <th style="background:linear-gradient(90deg,#0ea5e9,#14b8a6);">Image</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in cr_group_rows %}
+          {% set row_cr = r.cr or r.cr_number or '' %}
+          {% set row_mapped = r.mapped_cr or cr_quick_summary.canonical_mapped_cr or '' %}
+          {% set row_cr_orbit_id = (row_cr|string)|replace('CR','')|replace('cr','')|trim %}
+          {% set row_mapped_orbit_id = (row_mapped|string)|replace('CR','')|replace('cr','')|trim %}
+          {% set row_status = r.cr_status or r.cr_category or '' %}
+          {% set row_age = r.effective_cr_age or r.cr_age or '' %}
+          {% set row_occ = r.effective_jira_count or r.cr_occurrence or r.jira_count or '' %}
+          {% set row_area = r.cr_area or '' %}
+          {% set row_func = r.cr_functionality or '' %}
+          {% set row_sub = r.cr_subsystem or '' %}
+          {% set row_title = r.cr_title or r.title or '' %}
+          {% set row_date = r.built_date or r.first_seen_date or r.last_seen_date or r.jira_date__last_instance or '' %}
+          {% set row_image = r.image or r.cr_si or r.metabuild or '' %}
+          <tr>
+            <td style="color:#94a3b8;font-size:11px;">{{ loop.index }}</td>
+            <td style="font-size:11px;font-weight:800;color:#0369a1;white-space:nowrap;">
+              {% if row_cr %}
+                <a href="https://orbit/cr/{{ row_cr_orbit_id }}" target="_blank" rel="noopener" class="cri-link" style="font-weight:900;color:#0369a1;">{{ row_cr }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:11px;font-weight:700;color:#0f766e;white-space:nowrap;">
+              {% if row_mapped %}
+                <a href="https://orbit/cr/{{ row_mapped_orbit_id }}" target="_blank" rel="noopener" class="cri-link" style="font-weight:900;color:#0f766e;">{{ row_mapped }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_status if row_status else '—' }}</td>
+            <td style="font-size:11px;">{{ row_age if row_age else '—' }}</td>
+            <td style="font-size:11px;">{{ row_occ if row_occ else '—' }}</td>
+            <td style="font-size:11px;">{{ row_area if row_area else '—' }}</td>
+            <td style="font-size:11px;">{{ row_func if row_func else '—' }}</td>
+            <td style="font-size:11px;">{{ row_sub if row_sub else '—' }}</td>
+            <td style="font-size:11px;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ row_title|e }}">{{ row_title if row_title else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_date if row_date else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_image if row_image else '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ ALL JIRA DETAILS TABLE CARD ═══ -->
+<div id="allJiraDetailsCard" class="cri-card cri-table-card" style="--card-accent:linear-gradient(90deg,#7c3aed,#0ea5e9);background:linear-gradient(135deg,#faf5ff,#eff6ff);border-color:#c7d2fe;">
+  <div class="cri-card-title" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#0ea5e9);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#127915;</span>
+      All JIRA Details
+      <span style="font-size:11px;font-weight:700;color:#1d4ed8;background:#eff6ff;padding:2px 10px;border-radius:999px;border:1px solid #bfdbfe;">{{ cr_jiras|length }} row{{ 's' if cr_jiras|length != 1 else '' }}</span>
+    </div>
+  </div>
+  <div class="cri-card-sub">Complete JIRA list linked to this CR / mapped CR group.</div>
+
+  <div class="cri-table-wrap" style="max-height:520px;box-shadow:0 4px 14px rgba(99,102,241,.18);">
+    <table id="crInfoAllJiraTable">
+      <thead>
+        <tr>
+          <th style="width:40px;">S.No.</th>
+          <th>JIRA</th>
+          <th>JIRA Date</th>
+          <th>Metabuild</th>
+          <th>MCN</th>
+          <th>Device</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in cr_jiras %}
+          {% set ticket = r.stability_ticket or '' %}
+          {% set row_date = r.jira_date or r.test_date or r.date or r.created or '' %}
+          {% set row_meta = r.metabuild or r.meta_build or r.image or '' %}
+          {% set row_mcn = r.mcn or '' %}
+          {% set row_device = r.serial_no or r.device_id or '' %}
+          {% set row_location = r.location or r.device_location or r.test_location or r.lab_location or r.host_name or r.host or '' %}
+          <tr data-build="{{ row_meta|e }}">
+            <td style="color:#94a3b8;font-size:11px;">{{ loop.index }}</td>
+            <td style="white-space:nowrap;">
+              {% if ticket %}
+                <a href="https://jira-dc2.qualcomm.com/jira/browse/{{ ticket }}" target="_blank" rel="noopener" class="cri-link">
+                  <span class="cri-badge-ticket">{{ ticket }}</span>
+                </a>
+              {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+            </td>
+            <td style="font-size:11px;color:#64748b;white-space:nowrap;">{{ row_date if row_date else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;" title="{{ row_meta|e }}">{{ row_meta if row_meta else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_mcn if row_mcn else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_device if row_device else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_location if row_location else '—' }}</td>
+          </tr>
+        {% endfor %}
+        {% if cr_jiras|length == 0 %}
+          <tr><td colspan="7" style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;">No JIRAs found for this CR.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if false %}
+<!-- ═══ LEGACY JIRA TABLE CARD - intentionally disabled ═══ -->
+<div class="cri-card cri-table-card">
+  <div class="cri-card-title" style="justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleJiraCard()">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#127915;</span>
+      JIRAs (Latest 45)
+      <span id="jiraCountPill" style="font-size:11px;font-weight:700;color:#7c3aed;background:#ede9fe;padding:2px 10px;border-radius:999px;border:1px solid #c4b5fd;">{{ cr_jiras[:45]|length }} rows</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      {# ── Bulk open in JIRA — up to 45 tickets — #}
+      {% set jira_tickets_45 = [] %}
+      {% for r in cr_jiras[:45] %}
+        {% if r.stability_ticket %}
+          {% set _ = jira_tickets_45.append(r.stability_ticket) %}
+        {% endif %}
+      {% endfor %}
+      {% if jira_tickets_45 %}
+      {% set tickets_str = jira_tickets_45 | join(',') %}
+      <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str | urlencode }})%20ORDER%20BY%20created%20DESC"
+         target="_blank" rel="noopener"
+         onclick="event.stopPropagation();"
+         style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;
+                background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;
+                font-size:11px;font-weight:800;text-decoration:none;
+                box-shadow:0 3px 10px rgba(29,78,216,0.35);
+                transition:transform .15s,box-shadow .15s;"
+         onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 14px rgba(29,78,216,0.45)';"
+         onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(29,78,216,0.35)';">
+        <i class="fas fa-external-link-alt"></i>
+        Open {{ jira_tickets_45|length }} in JIRA
+      </a>
+      {% endif %}
+      <button id="jiraToggleBtn" style="border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">
+        <i class="fas fa-chevron-up" id="jiraToggleIcon"></i> Collapse
+      </button>
+    </div>
+  </div>
+  <div class="cri-card-sub">All JIRA tickets linked to this CR &mdash; filter by serial, team or MCN</div>
+
+  <div id="jiraCardBody">
+    <div class="cri-filters">
+      <input id="crInfoJiraSearch" type="text" placeholder="&#128269; Search ticket, serial, title..." class="cri-filter-input" style="flex:2 1 160px;">
+      <select id="crInfoJiraSerial" class="cri-filter-select" style="flex:1 1 130px;">
+        <option value="">Serial: All</option>
+        {% for s in cr_quick_summary.serials or [] %}
+          <option value="{{ s }}">{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select id="crInfoJiraTeam" class="cri-filter-select" style="flex:1 1 120px;">
+        <option value="">Team: All</option>
+        {% for t in cr_quick_summary.test_teams or [] %}
+          <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+      <select id="crInfoJiraMcn" class="cri-filter-select" style="flex:1 1 130px;">
+        <option value="">MCN: All</option>
+        {% for m in cr_quick_summary.mcn_types or [] %}
+          <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="crInfoTeamContext" class="cri-team-context">
+      <span id="crInfoTeamContextText"></span>
+      <button type="button" class="cri-clear-team" onclick="clearCrInfoTeamSelection()">Clear team filter</button>
+    </div>
+
+    <div class="cri-table-wrap">
+      <table id="crInfoJiraTable">
+        <thead>
+          <tr>
+            <th style="width:30px;">#</th>
+            <th>Ticket</th>
+            <th>Jira Date</th>
+            <th>CR</th>
+            <th>Metabuild</th>
+            <th>Jira Title</th>
+            <th>Serial No</th>
+            <th>Test Team</th>
+            <th>MCN</th>
+            <th>Host Name</th>
+            <th>Scenario</th>
+            <th>PL ID</th>
+            <th>Mapped CRs</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in cr_jiras[:45] %}
+          {% set row_date   = r.jira_date or r.test_date or r.date or r.created or '' %}
+          {% set row_serial = r.serial_no or '' %}
+          {% set row_mcn    = r.mcn or '' %}
+          {% set ticket     = r.stability_ticket or '' %}
+          {% set row_cr     = r.cr or r.mapped_cr or '' %}
+          {% set row_meta   = r.metabuild or r.build_id or '' %}
+          {% set row_title  = r.jira_title or r.title or '' %}
+          {% set row_host   = r.host_name or r.host or '' %}
+          {% set row_scen   = r.scenario or '' %}
+          {% set row_plid   = r.pl_id or '' %}
+          {% set row_mapped = r.mapped_crs or r.mapped_cr or '' %}
+          <tr data-team="{{ (r.test_team or '')|e }}" data-serial="{{ row_serial|e }}" data-mcn="{{ row_mcn|e }}">
+            <td style="color:#94a3b8;font-size:11px;">{{ loop.index }}</td>
+            <td>
+              {% if ticket %}
+                <a href="https://jira-dc2.qualcomm.com/jira/browse/{{ ticket }}" target="_blank" rel="noopener" class="cri-link">
+                  <span class="cri-badge-ticket">{{ ticket }}</span>
+                </a>
+              {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+            </td>
+            <td class="td-date" style="font-size:11px;color:#64748b;white-space:nowrap;">{{ row_date }}</td>
+            <td style="font-size:11px;font-weight:700;color:#4f46e5;">{{ row_cr if row_cr else '—' }}</td>
+            <td style="font-size:11px;white-space:nowrap;">{{ row_meta if row_meta else '—' }}</td>
+            <td class="td-title" style="font-size:11px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ row_title|e }}">{{ row_title if row_title else '—' }}</td>
+            <td class="td-serial" style="font-size:11px;">{{ row_serial if row_serial else '—' }}</td>
+            <td class="td-team" style="font-size:11px;">{{ r.test_team or '—' }}</td>
+            <td class="td-mcn" style="font-size:11px;">{{ row_mcn if row_mcn else '—' }}</td>
+            <td style="font-size:11px;">{{ row_host if row_host else '—' }}</td>
+            <td style="font-size:11px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ row_scen|e }}">{{ row_scen if row_scen else '—' }}</td>
+            <td style="font-size:11px;">{{ row_plid if row_plid else '—' }}</td>
+            <td style="font-size:11px;">{{ row_mapped if row_mapped else '—' }}</td>
+          </tr>
+        {% endfor %}
+        {% if cr_jiras|length == 0 %}
+          <tr><td colspan="13" style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;">No JIRAs found for this CR.</td></tr>
+        {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── Footer: bulk JIRA link — shown below table too — #}
+    {% set jira_tickets_45b = [] %}
+    {% for r in cr_jiras[:45] %}
+      {% if r.stability_ticket %}
+        {% set _ = jira_tickets_45b.append(r.stability_ticket) %}
+      {% endif %}
+    {% endfor %}
+    {% if jira_tickets_45b %}
+    {% set tickets_str_b = jira_tickets_45b | join(',') %}
+    <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:11px;color:#64748b;">
+        Showing <b>{{ jira_tickets_45b|length }}</b> of {{ cr_jiras|length }} total JIRA(s)
+      </span>
+      <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_b | urlencode }})%20ORDER%20BY%20created%20DESC"
+         target="_blank" rel="noopener"
+         style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;
+                background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;
+                font-size:11px;font-weight:800;text-decoration:none;
+                box-shadow:0 3px 10px rgba(124,58,237,0.35);
+                transition:transform .15s,box-shadow .15s;"
+         onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 14px rgba(124,58,237,0.45)';"
+         onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(124,58,237,0.35)';">
+        <i class="fas fa-external-link-alt"></i>
+        Open all {{ jira_tickets_45b|length }} tickets in JIRA
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endif %}
+
+<!-- ═══ QRAfter / AI Card ═══ -->
+<div class="cri-card" style="--card-accent:linear-gradient(90deg,#f97316,#fbbf24);background:linear-gradient(135deg,#fff7ed,#fef3c7);border-color:#fed7aa;">
+  <div class="cri-card-title">
+    <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#f97316,#fbbf24);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#128200;</span>
+    QRAfter Data Stats
+  </div>
+  <div class="cri-card-sub">Environment / failure stats from QRAfter for this CR (integration coming soon)</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div style="font-size:12px;color:#6b7280;line-height:1.6;">
+      This section will show: top failing scenarios, failure rate by build, trend over time for CR <b>{{ cr_quick_summary.searched_cr or cr_number }}</b>.
+    </div>
+    <button type="button" onclick="openQGenieModal()"
+            style="padding:8px 18px;border-radius:999px;border:none;background:linear-gradient(135deg,#6366f1,#ec4899);color:#fff;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(99,102,241,.35);">
+      <span style="font-size:16px;">&#129302;</span> AI Summary &mdash; QGenie
+    </button>
+  </div>
+</div>
+
+<!-- QGenie Modal -->
+<div id="qgenieModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.6);z-index:9999;">
+  <div style="width:min(860px,95vw);max-height:88vh;background:#f9fafb;border-radius:24px;box-shadow:0 24px 50px rgba(15,23,42,.4);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#4f46e5,#ec4899);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:38px;height:38px;border-radius:999px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:20px;">&#129302;</div>
+        <div>
+          <div style="font-size:14px;font-weight:900;">QGenie AI &mdash; PDT Stability Analysis</div>
+          <div style="font-size:11px;opacity:.85;">CR: {{ cr_quick_summary.searched_cr or cr_number }}</div>
+        </div>
+      </div>
+      <button onclick="closeQGenieModal()" style="border:none;background:rgba(255,255,255,.15);color:#fff;width:30px;height:30px;border-radius:999px;font-size:16px;cursor:pointer;font-weight:900;">&#215;</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;flex:1;">
+      <div style="background:#eef2ff;border-radius:16px;padding:14px;border:1px dashed #c7d2fe;font-size:12px;color:#4b5563;line-height:1.6;">
+        Chatbot summary for this CR will appear here once QGenie AI integration is enabled.
+      </div>
+    </div>
+    <div style="padding:10px 20px 14px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;background:#f3f4f6;">
+      <button onclick="closeQGenieModal()" style="padding:7px 20px;border-radius:999px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+window.clearCrInfoBuildSelection = function(){};
+(function(){
+  const crInfoTeamDeviceMap = {{ (cr_quick_summary.team_device_map or {}) | tojson }};
+  const crInfoTeamMcnMap = {{ (cr_quick_summary.team_mcn_map or {}) | tojson }};
+  const search = document.getElementById('crInfoJiraSearch');
+  const serial = document.getElementById('crInfoJiraSerial');
+  const team   = document.getElementById('crInfoJiraTeam');
+  const mcn    = document.getElementById('crInfoJiraMcn');
+  const rows   = Array.from(document.querySelectorAll('#crInfoJiraTable tbody tr'));
+  function filter(){
+    const q  = (search?.value||'').toLowerCase();
+    const s  = serial?.value||'';
+    const t  = team?.value||'';
+    const m  = mcn?.value||'';
+    rows.forEach(tr=>{
+      if(!tr.dataset) return;
+      const txt  = tr.innerText.toLowerCase();
+      const tSer = tr.dataset.serial || tr.querySelector('.td-serial')?.innerText || '';
+      const tTm  = tr.dataset.team || tr.querySelector('.td-team')?.innerText || '';
+      const tMcn = tr.dataset.mcn || tr.querySelector('.td-mcn')?.innerText || '';
+      const show = (!q||txt.includes(q))&&(!s||tSer===s)&&(!t||tTm===t)&&(!m||tMcn===m);
+      tr.style.display = show ? '' : 'none';
+      tr.classList.toggle('cri-row-team-match', !!t && tTm===t && show);
+    });
+    updateJiraCountPill();
+  }
+  function updateJiraCountPill(){
+    const pill = document.getElementById('jiraCountPill');
+    if(!pill) return;
+    const visible = rows.filter(tr => tr.style.display !== 'none' && tr.querySelector('td')).length;
+    pill.textContent = visible + ' row' + (visible===1?'':'s');
+  }
+  window.clearCrInfoTeamSelection = function(){
+    if(team) team.value = '';
+    document.querySelectorAll('.cri-team-tag').forEach(el=>el.classList.remove('cri-tag-active-team'));
+    document.querySelectorAll('.cri-mcn-tag').forEach(el=>el.classList.remove('cri-tag-related-mcn'));
+    document.querySelectorAll('.cri-device-tag').forEach(el=>el.classList.remove('cri-tag-related-device'));
+    const ctx = document.getElementById('crInfoTeamContext');
+    if(ctx) ctx.style.display = 'none';
+    filter();
+  };
+  function selectCrInfoTeam(teamName){
+    if(team && team.value === teamName){ window.clearCrInfoTeamSelection(); return; }
+    if(team) team.value = teamName;
+    const relatedMcns = new Set(crInfoTeamMcnMap[teamName] || []);
+    const relatedDevices = new Set(crInfoTeamDeviceMap[teamName] || []);
+    rows.forEach(tr=>{
+      if((tr.dataset.team||'') === teamName){
+        if(tr.dataset.mcn) relatedMcns.add(tr.dataset.mcn);
+        if(tr.dataset.serial) relatedDevices.add(tr.dataset.serial);
+      }
+    });
+    document.querySelectorAll('.cri-team-tag').forEach(el=>el.classList.toggle('cri-tag-active-team', (el.dataset.team||'')===teamName));
+    document.querySelectorAll('.cri-mcn-tag').forEach(el=>el.classList.toggle('cri-tag-related-mcn', relatedMcns.has(el.dataset.mcn||'')));
+    document.querySelectorAll('.cri-device-tag').forEach(el=>el.classList.toggle('cri-tag-related-device', relatedDevices.has(el.dataset.device||'')));
+    const ctx = document.getElementById('crInfoTeamContext');
+    const ctxText = document.getElementById('crInfoTeamContextText');
+    if(ctx && ctxText){
+      ctxText.textContent = 'Selected team: ' + teamName + ' | Related MCNs: ' + relatedMcns.size + ' | Related devices: ' + relatedDevices.size;
+      ctx.style.display = 'flex';
+    }
+    filter();
+    const card = document.getElementById('jiraCardBody');
+    if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  document.querySelectorAll('.cri-team-tag').forEach(el=>el.addEventListener('click', function(){ selectCrInfoTeam(this.dataset.team||''); }));
+  [search,serial,team,mcn].forEach(el=>{ if(el) el.addEventListener(el.tagName==='INPUT'?'input':'change', filter); });
+})();
+
+(function(){
+  const buildBtns = Array.from(document.querySelectorAll('.cri-build-filter-btn'));
+  const rows = Array.from(document.querySelectorAll('#crInfoAllJiraTable tbody tr'));
+  let activeBuild = '';
+  if(!buildBtns.length || !rows.length) return;
+
+  function norm(v){ return String(v||'').trim().toLowerCase(); }
+  function updateBuildHighlights(){
+    const relatedMcns = new Set();
+    const relatedDevices = new Set();
+    let visible = 0;
+    rows.forEach(function(tr){
+      const meta = norm(tr.getAttribute('data-build') || '');
+      const show = !activeBuild || meta === activeBuild;
+      tr.style.display = show ? '' : 'none';
+      if(show && tr.children && tr.children.length >= 6){
+        visible += 1;
+        const mcn = (tr.children[4] && tr.children[4].innerText || '').trim();
+        const device = (tr.children[5] && tr.children[5].innerText || '').trim();
+        if(mcn && mcn !== '—') relatedMcns.add(mcn);
+        if(device && device !== '—') relatedDevices.add(device);
+      }
+    });
+    buildBtns.forEach(function(btn){
+      btn.classList.toggle('cri-build-pill-active', !!activeBuild && norm(btn.getAttribute('data-build')) === activeBuild);
+    });
+    document.querySelectorAll('.cri-mcn-tag').forEach(function(el){
+      el.classList.toggle('cri-tag-related-mcn', !!activeBuild && relatedMcns.has((el.getAttribute('data-mcn') || '').trim()));
+    });
+    document.querySelectorAll('.cri-device-tag').forEach(function(el){
+      el.classList.toggle('cri-tag-related-device', !!activeBuild && relatedDevices.has((el.getAttribute('data-device') || '').trim()));
+    });
+  }
+
+  window.clearCrInfoBuildSelection = function(){
+    activeBuild = '';
+    updateBuildHighlights();
+  };
+
+  buildBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const clickedBuild = norm(this.getAttribute('data-build') || '');
+      activeBuild = activeBuild === clickedBuild ? '' : clickedBuild;
+      updateBuildHighlights();
+    });
+  });
+
+  updateBuildHighlights();
+})();
+
+var _jiraOpen = true;
+function toggleJiraCard(){
+  _jiraOpen = !_jiraOpen;
+  const body = document.getElementById('jiraCardBody');
+  const icon = document.getElementById('jiraToggleIcon');
+  const btn  = document.getElementById('jiraToggleBtn');
+  if(_jiraOpen){
+    body.style.display = '';
+    icon.className = 'fas fa-chevron-up';
+    btn.innerHTML  = '<i class="fas fa-chevron-up"></i> Collapse';
+  } else {
+    body.style.display = 'none';
+    icon.className = 'fas fa-chevron-down';
+    btn.innerHTML  = '<i class="fas fa-chevron-down"></i> Expand';
+  }
+}
+
+function scrollToAllJiraDetails(){
+  const el = document.getElementById('allJiraDetailsCard');
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function openQGenieModal(){ document.getElementById('qgenieModal').style.display='flex'; }
+function closeQGenieModal(){ document.getElementById('qgenieModal').style.display='none'; }
+document.addEventListener('click',function(e){ var m=document.getElementById('qgenieModal'); if(m&&e.target===m) m.style.display='none'; });
+</script>
+{% endblock %}

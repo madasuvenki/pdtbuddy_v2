@@ -341,12 +341,14 @@
       <div id="ojContent" style="display:none;">
         <div id="ojKpi" style="display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid #f1f5f9;"></div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fbfdff;">
+                    <select id="ojDomainSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;display:none;" onchange="ojFilter()"><option value="">All Domains</option></select>
+          <select id="ojCrashSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;display:none;" onchange="ojFilter()"><option value="">All Crash Types</option></select>
           <select id="ojAreaSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;" onchange="ojFilter()"><option value="">All Areas</option></select>
           <select id="ojTeamSel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;" onchange="ojFilter()"><option value="">All Teams</option></select>
           <input id="ojSearch" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;min-width:180px;" placeholder="Search ticket / title&hellip;" oninput="ojFilter()">
           <button onclick="ojClear()" style="height:30px;padding:0 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;cursor:pointer;">Clear</button>
         </div>
-        <div style="overflow-x:auto;"><table class="tbl" style="width:100%;"><thead><tr><th>#</th><th>JIRA</th><th>Date</th><th>Area</th><th>CR</th><th>Team</th><th>Title</th></tr></thead><tbody id="ojTbody"></tbody></table></div>
+        <div style="overflow-x:auto;"><table class="tbl" style="width:100%;"><thead><tr><th>#</th><th>JIRA</th><th>Date</th><th class="ojAutoCol" style="display:none;">Domain</th><th class="ojAutoCol" style="display:none;">Type</th><th>Area</th><th>CR</th><th>Team</th><th>Title</th></tr></thead><tbody id="ojTbody"></tbody></table></div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #f1f5f9;">
           <span id="ojPageInfo" style="font-size:12px;font-weight:600;color:#64748b;"></span>
           <div style="display:flex;gap:6px;">
@@ -1650,74 +1652,117 @@ window.LSP_DATA = {
 }());
 </script>
 <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260622_ascii_fix"></script>
+<script src="{{ url_for('static', filename='js/live_status_weekly_report.js') }}?v=20260622_weekly_report"></script>
 
 <script>
 /* Open JIRAs tab */
 (function(){
-  var PG=100,_all=[],_fil=[],_pg=1;
+  var PG=100,_all=[],_fil=[],_pg=1,_isAuto=false;
   var JB='https://jira-dc2.qualcomm.com/jira/browse/';
   var AC={ADSP:'#f59e0b',APPS:'#6366f1',Modem:'#0ea5e9',WConnect:'#10b981',Video:'#8b5cf6',TZ:'#f97316',BOOT:'#64748b'};
+  var DC={ADAS:'#2563eb',FLEX:'#7c3aed',IVI:'#059669',Unassigned:'#64748b'};
+  var TC={System:'#dc2626',SSR:'#f59e0b',Process:'#2563eb'};
   function _e(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function _c(a){return AC[a]||'#94a3b8';}
+    function _normDomain(d){d=String(d||'').trim();return (!d||d==='Unassigned')?'IVI':d;}
+  function _dc(d){return DC[_normDomain(d)]||'#64748b';}
+  function _tc(t){return TC[t]||'#64748b';}
+  function _domainRank(d){return ({ADAS:1,FLEX:2,IVI:3,Unassigned:4})[d||'Unassigned']||9;}
+  function _typeRank(t){return ({System:1,SSR:2,Process:3})[t||'']||9;}
   function _g(i){return document.getElementById(i);}
   window.ojLoad=function(){
     var from=(_g('ojFrom')||{}).value||'';
     var to=(_g('ojTo')||{}).value||'';
     var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();
-    console.log('[OJ DEBUG] tgt=',tgt,'LSP_DATA=',JSON.stringify(window.LSP_DATA));
     if(!tgt)return;
     _g('ojLoading').style.display='block';
     _g('ojContent').style.display='none';
     _g('ojError').style.display='none';
-    var url='/api/dashboard/'+encodeURIComponent(tgt)+'/open_jiras';
-    console.log('[OJ DEBUG] fetching:',url);
+        var url='/api/dashboard/'+encodeURIComponent(tgt)+'/open_jiras';
     var p=[];
     if(from)p.push('date_from='+encodeURIComponent(from));
     if(to)p.push('date_to='+encodeURIComponent(to));
     if(p.length)url+='?'+p.join('&');
-    fetch(url).then(function(r){return r.json();}).then(function(d){console.log('[OJ DEBUG] response:',JSON.stringify(d).substring(0,300));
+        fetch(url).then(function(r){return r.json();}).then(function(d){
       _g('ojLoading').style.display='none';
-      console.log('[OJ DEBUG] success=',d.success,'rows=',d.rows&&d.rows.length,'notice=',d.notice);
       if(!d.success)throw new Error(d.message||'Load failed');
       if(d.notice&&!(d.rows&&d.rows.length)){
         var el=_g('ojError');el.style.display='block';el.style.color='#64748b';
         el.innerHTML='<i class="fas fa-info-circle" style="color:#6366f1"></i> '+_e(d.notice);return;
       }
-      _all=d.rows||[];_fil=_all.slice();_pg=1;
-      console.log('[OJ DEBUG] rows loaded:',_all.length,'ojContent=',!!_g('ojContent'));
+                  _all=d.rows||[];_fil=_all.slice();_pg=1;_isAuto=!!d.is_auto_bu;
+            if(_isAuto){
+        _all.forEach(function(r){r.domain=_normDomain(r.domain);});
+        _all.sort(function(a,b){return (_domainRank(a.domain)-_domainRank(b.domain))||(_typeRank(a.crash_type)-_typeRank(b.crash_type))||String(a.jira_date||'').localeCompare(String(b.jira_date||''));});
+        _fil=_all.slice();
+      }
+      document.querySelectorAll('.ojAutoCol').forEach(function(el){el.style.display=_isAuto?'':'none';});
       _kpi();_buildFilters();
       if(_g('ojContent'))_g('ojContent').style.display='block';
-      else console.error('[OJ DEBUG] ojContent NOT FOUND in DOM');
       _table();
-      console.log('[OJ DEBUG] after _table, tbody html=',(_g('ojTbody')||{innerHTML:''}).innerHTML.substring(0,100));
     }).catch(function(e){
       _g('ojLoading').style.display='none';
       var el=_g('ojError');el.style.display='block';el.style.color='#dc2626';
       el.textContent='Error: '+e.message;
     });
   };
-  function _kpi(){
+      function _kpi(){
     var el=_g('ojKpi');if(!el)return;
-    var map={};_all.forEach(function(r){map[r.area]=(map[r.area]||0)+1;});
-    var s=Object.entries(map).sort(function(a,b){return b[1]-a[1];});
-    var h='<div onclick="ojFilterArea(\'\')" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:#f0f4ff;border:1px solid #c7d2fe;font-weight:900;font-size:13px;color:#1e3a5f;">Total <span style="color:#4f46e5;">'+_all.length+'</span></div>';
-    s.forEach(function(kv){var c=_c(kv[0]);h+='<div onclick="ojFilterArea(\''+_e(kv[0])+'\')" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:'+c+'18;border:1px solid '+c+'44;font-weight:800;font-size:12px;color:'+c+';">'+_e(kv[0])+' <span style="font-weight:900;">'+kv[1]+'</span></div>';});
+    var h='<div onclick="ojClear()" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:#f0f4ff;border:1px solid #c7d2fe;font-weight:900;font-size:13px;color:#1e3a5f;">Total <span style="color:#4f46e5;">'+_all.length+'</span></div>';
+    if(_isAuto){
+      var domainType={};
+      _all.forEach(function(r){
+        var d=r.domain||'Unassigned', t=r.crash_type||'System';
+        domainType[d]=domainType[d]||{total:0,types:{}};
+        domainType[d].total+=1;
+        domainType[d].types[t]=(domainType[d].types[t]||0)+1;
+      });
+      ['ADAS','FLEX','IVI'].forEach(function(d){
+        if(!domainType[d])return;
+        var c=_dc(d), m=domainType[d];
+        h+='<div style="min-width:210px;padding:10px 12px;border-radius:14px;background:'+c+'12;border:1px solid '+c+'44;">'
+          +'<div onclick="ojFilterDomain(\''+d+'\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:950;color:'+c+';text-transform:uppercase;letter-spacing:.04em;">'
+            +'<span>'+d+'</span><span style="font-size:18px;">'+m.total+'</span>'
+          +'</div>'
+          +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">';
+        ['System','SSR','Process'].forEach(function(t){
+          var n=m.types[t]||0;if(!n)return;
+          var tc=_tc(t);
+          h+='<button onclick="ojFilterDomainCrash(\''+d+'\',\''+t+'\')" style="cursor:pointer;border:1px solid '+tc+'55;background:#fff;color:'+tc+';border-radius:999px;padding:3px 8px;font-size:10px;font-weight:900;">'+t+' '+n+'</button>';
+        });
+        h+='</div></div>';
+      });
+    } else {
+      var map={};_all.forEach(function(r){map[r.area]=(map[r.area]||0)+1;});
+      Object.entries(map).sort(function(a,b){return b[1]-a[1];}).forEach(function(kv){var c=_c(kv[0]);h+='<div onclick="ojFilterArea(\''+_e(kv[0])+'\')" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:'+c+'18;border:1px solid '+c+'44;font-weight:800;font-size:12px;color:'+c+';">'+_e(kv[0])+' <span style="font-weight:900;">'+kv[1]+'</span></div>';});
+    }
     el.innerHTML=h;
     var b=_g('ojBadge');if(b)b.textContent=_all.length+' tickets';
   }
-  function _buildFilters(){
+    function _buildFilters(){
     var areas=[...new Set(_all.map(function(r){return r.area;}).filter(Boolean))].sort();
     var teams=[...new Set(_all.map(function(r){return r.test_team;}).filter(Boolean))].sort();
-    var as=_g('ojAreaSel'),ts=_g('ojTeamSel');
+    var domains=[...new Set(_all.map(function(r){return _normDomain(r.domain);}).filter(Boolean))].sort(function(a,b){return _domainRank(a)-_domainRank(b);});
+    var types=[...new Set(_all.map(function(r){return r.crash_type;}).filter(Boolean))].sort();
+    var as=_g('ojAreaSel'),ts=_g('ojTeamSel'),ds=_g('ojDomainSel'),cs=_g('ojCrashSel');
+    if(ds){ds.style.display=_isAuto?'':'none';ds.innerHTML='<option value="">All Domains</option>'+domains.map(function(d){return '<option value="'+_e(d)+'">'+_e(d)+'</option>';}).join('');}
+    if(cs){cs.style.display=_isAuto?'':'none';cs.innerHTML='<option value="">All Crash Types</option>'+types.map(function(t){return '<option value="'+_e(t)+'">'+_e(t)+'</option>';}).join('');}
     if(as)as.innerHTML='<option value="">All Areas</option>'+areas.map(function(a){return '<option value="'+_e(a)+'">'+_e(a)+'</option>';}).join('');
     if(ts)ts.innerHTML='<option value="">All Teams</option>'+teams.map(function(t){return '<option value="'+_e(t)+'">'+_e(t)+'</option>';}).join('');
   }
-  window.ojFilterArea=function(a){var s=_g('ojAreaSel');if(s)s.value=a;ojFilter();};
+    window.ojFilterArea=function(a){var s=_g('ojAreaSel');if(s)s.value=a;ojFilter();};
+    window.ojFilterDomain=function(d){var s=_g('ojDomainSel');if(s)s.value=d;var c=_g('ojCrashSel');if(c)c.value='';ojFilter();};
+  window.ojFilterCrash=function(t){var s=_g('ojCrashSel');if(s)s.value=t;ojFilter();};
+  window.ojFilterDomainCrash=function(d,t){var ds=_g('ojDomainSel'),cs=_g('ojCrashSel');if(ds)ds.value=d;if(cs)cs.value=t;ojFilter();};
   window.ojFilter=function(){
+    var domain=(_g('ojDomainSel')||{}).value||'';
+    var ctype=(_g('ojCrashSel')||{}).value||'';
     var area=(_g('ojAreaSel')||{}).value||'';
     var team=(_g('ojTeamSel')||{}).value||'';
     var q=((_g('ojSearch')||{}).value||'').toLowerCase();
     _fil=_all.filter(function(r){
+      if(domain&&(r.domain||'')!==domain)return false;
+      if(ctype&&(r.crash_type||'')!==ctype)return false;
       if(area&&r.area!==area)return false;
       if(team&&r.test_team!==team)return false;
       if(q&&!((r.stability_ticket||'').toLowerCase().includes(q)||(r.jira_title||'').toLowerCase().includes(q)||(r.cr_current_ticket||'').toLowerCase().includes(q)))return false;
@@ -1726,22 +1771,21 @@ window.LSP_DATA = {
     _pg=1;_table();
   };
   window.ojClear=function(){
-    ['ojAreaSel','ojTeamSel','ojSearch'].forEach(function(id){var el=_g(id);if(el)el.value='';});
+    ['ojDomainSel','ojCrashSel','ojAreaSel','ojTeamSel','ojSearch'].forEach(function(id){var el=_g(id);if(el)el.value='';});
     _fil=_all.slice();_pg=1;_table();
   };
   window.ojPage=function(dir){
     var pages=Math.ceil(_fil.length/PG)||1;
     _pg=Math.max(1,Math.min(pages,_pg+dir));_table();
   };
-  function _table(){
-    console.log('[OJ DEBUG] _table called _fil=',_fil.length,'_pg=',_pg);
-    var tb=_g('ojTbody');if(!tb){console.error('[OJ DEBUG] ojTbody NOT FOUND');return;}
+    function _table(){
+    var tb=_g('ojTbody');if(!tb)return;
     var start=(_pg-1)*PG,page=_fil.slice(start,start+PG),total=_fil.length,pages=Math.ceil(total/PG)||1;
     var info=_g('ojPageInfo');if(info)info.textContent=total?'Showing '+(start+1)+'\u2013'+Math.min(start+PG,total)+' of '+total+' (page '+_pg+'/'+pages+')':'0 results';
     var prev=_g('ojPrev'),next=_g('ojNext');
     if(prev)prev.disabled=(_pg<=1);if(next)next.disabled=(_pg>=pages);
     var b=_g('ojBadge');if(b)b.textContent=total+' tickets';
-    if(!page.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;font-weight:600;">No tickets match the current filters.</td></tr>';return;}
+    if(!page.length){tb.innerHTML='<tr><td colspan="'+(_isAuto?9:7)+'" style="text-align:center;padding:30px;color:#94a3b8;font-weight:600;">No tickets match the current filters.</td></tr>';return;}
     tb.innerHTML=page.map(function(r,i){
       var c=_c(r.area);
       var tUrl=r.stability_ticket?JB+encodeURIComponent(r.stability_ticket):'#';
@@ -1749,7 +1793,9 @@ window.LSP_DATA = {
       return '<tr>'+
         '<td style="color:#94a3b8;font-size:11px;">'+(start+i+1)+'</td>'+
         '<td><a href="'+tUrl+'" target="_blank" style="font-weight:700;color:#4f46e5;text-decoration:none;">'+_e(r.stability_ticket||'\u2014')+'</a></td>'+
-        '<td style="font-size:11px;color:#64748b;white-space:nowrap;">'+_e(r.jira_date||'\u2014')+'</td>'+
+                '<td style="font-size:11px;color:#64748b;white-space:nowrap;">'+_e(r.jira_date||'\u2014')+'</td>'+(_isAuto?
+                '<td><span style="display:inline-block;padding:2px 8px;border-radius:999px;background:'+_dc(r.domain||'Unassigned')+'18;color:'+_dc(r.domain||'Unassigned')+';font-size:10px;font-weight:900;">'+_e(r.domain||'Unassigned')+'</span></td>'+
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:999px;background:'+_tc(r.crash_type)+'18;color:'+_tc(r.crash_type)+';font-size:10px;font-weight:900;">'+_e(r.crash_type||'\u2014')+'</span></td>':'')+
         '<td><span style="display:inline-block;padding:2px 8px;border-radius:6px;background:'+c+'18;color:'+c+';font-size:10px;font-weight:700;">'+_e(r.area||'\u2014')+'</span></td>'+
         '<td>'+(r.cr_current_ticket?'<a href="'+cUrl+'" target="_blank" style="font-weight:700;color:#0ea5e9;text-decoration:none;">'+_e(r.cr_current_ticket)+'</a>':'<span style="color:#cbd5e1;">\u2014</span>')+'</td>'+
         '<td style="font-size:11px;color:#64748b;">'+_e(r.test_team||'\u2014')+'</td>'+

@@ -1,0 +1,452 @@
+{% extends "bu_shell_layout.html" %}
+
+{% block shell_extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cr_overview_v2.css') }}?v={{ cache_buster }}">
+<style>
+  /* Make the CR Overview content fill the shell panel cleanly */
+  .bu-shell-page .bu-shell-inline-content { padding: 0 !important; overflow-x: auto !important; overflow-y: auto !important; }
+  .crv2-shell--embedded { padding: 0 !important; margin: 0 !important; max-width: 100% !important; overflow-x: auto !important; }
+  .crv2-shell--embedded .crv2-hero { margin-top: 0; padding-top: 18px; }
+  .crv2-shell--embedded, .crv2-shell--embedded * { box-sizing: border-box; }
+  /* Allow chart sections to scroll horizontally */
+  .crv2-shell--embedded .crv2-section { overflow-x: auto !important; max-width: 100% !important; }
+  .crv2-shell--embedded .crv2-card { overflow-x: auto !important; max-width: 100% !important; }
+  .crv2-shell--embedded .crv2-content { overflow-x: auto !important; }
+  /* Chart containers: auto height, scroll horizontally */
+  #crv2MainChart, #crv2DrillTargetChart { overflow-x: auto !important; overflow-y: visible !important; height: auto !important; min-height: 0 !important; }
+  /* Drill panel: allow content to show, not clip */
+  #crv2AreaTargetPanel.crv2-drill { overflow: visible !important; }
+  /* Inner cards inside drill panel: restore proper styling */
+  #crv2AreaTargetPanel .crv2-card--inner { border: 1px solid #eef2ff !important; border-radius: 14px !important; box-shadow: 0 4px 12px rgba(15,23,42,.05) !important; background: #fff !important; }
+  /* Full-width rows table — stretch to panel edge */
+  #crv2DrillRows { width: 100% !important; min-width: 0 !important; }
+  #crv2DrillRows .crv2-table { width: 100% !important; }
+  /* Row 3 wrapper full width */
+  #crv2AreaTargetPanel .drill-rows-wrap { width: 100% !important; box-sizing: border-box !important; }
+</style>
+{% endblock %}
+
+{% block shell_inner_content %}
+
+{# ── Pass BU targets to JS for the target dropdown ── #}
+<script>
+window.CRV2_BU_TARGETS = {
+  {% for bu in bu_list %}"{{ bu.key|upper }}": {{ (bu.target_entries or []) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}
+};
+</script>
+
+{# ── Help overlay ── #}
+<div id="crHelpOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9850;backdrop-filter:blur(4px);overflow-y:auto;">
+  <div style="max-width:720px;margin:20px auto 28px;background:#fff;border-radius:16px;box-shadow:0 18px 48px rgba(15,23,42,.24);overflow:hidden;">
+    <div style="background:linear-gradient(120deg,#eff6ff 0%,#e0f2fe 40%,#ecfdf5 100%);padding:16px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(199,210,254,0.55);">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.12);border:1px solid #c7d2fe;border-radius:999px;padding:2px 8px;font-size:9px;font-weight:800;color:#4338ca;margin-bottom:6px;"><i class="fas fa-chart-bar"></i> CR Overview</div>
+        <div style="font-size:16px;font-weight:900;color:#172554;margin-bottom:2px;">How to Use CR Age Overview</div>
+        <div style="font-size:10px;color:#64748b;">Everything you need to understand and navigate this page</div>
+      </div>
+      <button type="button" id="crHelpClose" style="background:rgba(99,102,241,.10);border:1px solid #c7d2fe;color:#4338ca;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:14px;flex-shrink:0;margin-top:2px;">&#x2715;</button>
+    </div>
+    <div style="padding:18px 20px 20px;font-family:system-ui,sans-serif;">
+      <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:800;color:#3730a3;margin-bottom:6px;"><i class="fas fa-info-circle" style="margin-right:5px;"></i>What is this page?</div>
+        <p style="font-size:11px;color:#475569;line-height:1.55;margin:0;">CR Age Overview is a cross-BU dashboard for Change Requests. Use the top filters to control BU, Target, Date Range, CR Status, View and Age Unit. Every chart, card and table below follows those filters.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#6366f1;margin-bottom:4px;">Business Unit / Target</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Select a BU or Target to narrow the entire page.</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#8b5cf6;margin-bottom:4px;">CR Status</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Choose only the statuses you want. All sections update together.</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#0ea5e9;margin-bottom:4px;">Main Chart</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Click any bar to open target/site drilldown and matching CR details.</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#10b981;margin-bottom:4px;">Left Panel</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Use the BU rail on the left to navigate to any BU workspace.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Main CR Overview shell ── #}
+<div class="crv2-shell crv2-shell--embedded">
+  <section class="crv2-hero">
+    <div class="crv2-hero__left">
+      <div class="crv2-pill"><i class="fas fa-chart-line"></i> Live Intelligence</div>
+      <h1>CR Age Overview</h1>
+      <p id="crv2ContextText">BU-wise CR age analysis with stable filtering.</p>
+    </div>
+    <div class="crv2-hero__stats" id="crv2HeroStats"></div>
+  </section>
+
+  <section class="crv2-filters">
+    <div class="crv2-filter">
+      <label>Business Unit</label>
+      <select id="crv2Bu">
+        <option value="ALL">All BUs</option>
+        {% for bu in bu_list %}<option value="{{ bu.key|upper }}">{{ bu.display_name|upper }}</option>{% endfor %}
+      </select>
+    </div>
+    {# All Targets — placed immediately after All BUs for quick access #}
+    <div class="crv2-filter crv2-multi" id="crv2TargetFilterWrap" style="position:relative;">
+      <label><i class="fas fa-crosshairs" style="color:#6366f1"></i> Target</label>
+      <button type="button" id="crv2TargetBtn" class="crv2-top-chip" style="min-width:140px;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-crosshairs" style="color:#6366f1;"></i>
+        <span id="crv2TargetBtnLabel">All Targets</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <div class="crv2-menu" id="crv2TargetMenu" style="min-width:240px;position:absolute;left:0;top:calc(100% + 4px);z-index:999;">
+        <div class="crv2-menu__head">
+          <b>Target</b>
+          <span>
+            <button type="button" id="crv2TargetAll">All</button>
+            <button type="button" id="crv2TargetNone">None</button>
+            <button type="button" id="crv2TargetClose" aria-label="Close">&#x2715;</button>
+          </span>
+        </div>
+        <div style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+          <input type="text" id="crv2TargetSearch" placeholder="Search targets..." style="width:100%;height:30px;border:1px solid #dbe4f0;border-radius:8px;padding:0 10px;font-size:12px;font-weight:700;box-sizing:border-box;">
+        </div>
+        <div id="crv2TargetList" class="crv2-menu__list"></div>
+        <button type="button" id="crv2TargetApply" class="crv2-apply">Apply</button>
+      </div>
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-calendar-alt"></i> Date Range</label>
+      <button type="button" id="crv2DateBtn" class="crv2-filter-trigger">
+        <i class="fas fa-calendar-alt"></i>
+        <span id="crv2DateLabel">All Time</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <input type="hidden" id="crv2DatePreset" value="all">
+      <input type="hidden" id="crv2DateFrom">
+      <input type="hidden" id="crv2DateTo">
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-ban"></i> NoSIR</label>
+      <button type="button" id="crv2NosirBtn" class="crv2-mode-chip crv2-mode-chip--nosir"><i class="fas fa-ban"></i> <span class="crv2-mode-chip__text">NoSIR</span> <b id="crv2NosirCount">0</b></button>
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-clone"></i> Dup</label>
+      <button type="button" id="crv2DupBtn" class="crv2-mode-chip crv2-mode-chip--dup"><i class="fas fa-clone"></i> <span class="crv2-mode-chip__text">Dup</span> <b id="crv2DupCount">0</b></button>
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-eye-slash"></i> Invalid</label>
+      <button type="button" id="crv2InvalidBtn" class="crv2-mode-chip crv2-mode-chip--invalid"><i class="fas fa-eye-slash"></i> <span class="crv2-mode-chip__text">Invalid</span> <b id="crv2InvalidCount">0</b></button>
+    </div>
+    <div class="crv2-filter crv2-multi" id="crv2StatusWrap">
+      <label>CR Status</label>
+      <button type="button" id="crv2StatusBtn">All Statuses</button>
+      <div class="crv2-menu" id="crv2StatusMenu">
+                  <div class="crv2-menu__head"><b>CR Status</b><span><button type="button" id="crv2StatusAll">All</button><button type="button" id="crv2StatusNone">None</button><button type="button" id="crv2StatusClose" aria-label="Close">&#x2715;</button></span></div>
+        <div id="crv2StatusList" class="crv2-menu__list"></div>
+        <button type="button" id="crv2StatusApply" class="crv2-apply">Apply</button>
+      </div>
+    </div>
+    <div class="crv2-filter">
+      <label>View</label>
+      <select id="crv2Dim">
+        <option value="bu_key">BU</option>
+        <option value="cr_area">Area</option>
+        <option value="cr_subsystem">Subsystem</option>
+        <option value="cr_functionality">Functionality</option>
+        <option value="cr_status">Status</option>
+      </select>
+    </div>
+    <div class="crv2-filter">
+      <label>Age Unit</label>
+      <select id="crv2AgeUnit">
+        <option value="days">Days</option>
+        <option value="weeks">Weeks</option>
+      </select>
+    </div>
+    <button type="button" id="crv2Reset" class="crv2-btn crv2-btn--ghost"><i class="fas fa-undo"></i> Reset</button>
+    <div class="crv2-top-actions">
+      <button type="button" id="crv2ExpandAllSections" class="crv2-top-chip crv2-top-chip--section"><i class="fas fa-plus-square"></i> Expand All</button>
+      <button type="button" id="crv2CollapseAllSections" class="crv2-top-chip crv2-top-chip--section"><i class="fas fa-minus-square"></i> Collapse All</button>
+      <button type="button" id="crv2HelpBtn" class="crv2-top-chip crv2-top-chip--help"><i class="fas fa-question-circle"></i> Help</button>
+
+      {% if current_user.is_authenticated and current_user.role == 'admin' %}
+      <button type="button" id="crv2TargetsBtn" class="crv2-top-chip"><i class="fas fa-sliders-h"></i> Manage Targets</button>
+      {% endif %}
+    </div>
+  </section>
+
+  <div id="crv2Loading" class="crv2-loading">Loading CR data...</div>
+
+  <main id="crv2Content" class="crv2-content" style="display:none;">
+    <section id="crv2BuSection" class="crv2-section">
+      <div class="crv2-section__head"><h2><i class="fas fa-layer-group"></i> BU Summary</h2><span id="crv2BuSub"></span></div>
+      <div id="crv2BuCards" class="crv2-bu-grid"></div>
+    </section>
+
+    <section class="crv2-section">
+      <div class="crv2-section__head"><h2><i class="fas fa-map-marker-alt"></i> Site-wise CR Distribution</h2><span id="crv2SiteSub"></span></div>
+      <div id="crv2SiteCards" class="crv2-site-grid"></div>
+    </section>
+
+    <section id="crv2SiteDetailSection" class="crv2-drill crv2-site-detail" style="display:none;">
+      <div class="crv2-drill__head crv2-site-detail__head">
+        <div><div class="crv2-drill__eyebrow">SITE FOCUS</div><h2 id="crv2SiteDetailTitle">--</h2><p id="crv2SiteDetailSub">Selected site data will appear here.</p></div>
+        <button type="button" id="crv2SiteDetailClear" class="crv2-btn crv2-btn--ghost">Clear Site</button>
+      </div>
+      <div id="crv2SiteDetailKpis" class="crv2-drill-kpis"></div>
+      <div class="crv2-grid2">
+        <div class="crv2-card crv2-card--inner">
+          <div class="crv2-section__head"><h2><i class="fas fa-list-ol"></i> Site Breakdown</h2><div class="crv2-card-actions"><span id="crv2SiteDetailTableSub"></span><button type="button" id="crv2CopySiteBreakdownTable" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button></div></div>
+          <div id="crv2SiteDetailBreakdown" class="crv2-table-wrap"></div>
+        </div>
+        <div class="crv2-card crv2-card--inner">
+          <div class="crv2-section__head"><h2><i class="fas fa-table"></i> Site CR Details</h2><div class="crv2-card-actions"><span id="crv2SiteDetailRowsSub"></span><button type="button" id="crv2CopySiteRowsTable" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button></div></div>
+          <div id="crv2SiteDetailRows" class="crv2-table-wrap"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="crv2-section">
+      <div class="crv2-section__head">
+        <h2 id="crv2MainChartHeader"><i class="fas fa-chart-bar"></i> CR Distribution by Selection <span id="crv2ChartSub" style="margin-left:8px;font-size:12px;font-weight:800;color:#64748b;"></span></h2>
+        <div class="crv2-card-actions">
+          <button type="button" id="crv2ExpandMainChart" class="crv2-copy-btn crv2-expand-btn" title="Expand chart to full page"><i class="fas fa-expand-alt"></i> Expand</button>
+          <button type="button" id="crv2CopyMainChart" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Chart</button>
+        </div>
+      </div>
+      <div id="crv2MainChart" class="crv2-chart"></div>
+    </section>
+
+    <section class="crv2-grid2 crv2-grid2--status-breakdown">
+      <div class="crv2-card crv2-status-card">
+        <div class="crv2-section__head">
+          <h2><i class="fas fa-hourglass-half"></i> CR Age by Status</h2>
+
+        </div>
+        <div id="crv2StatusAgeChart" class="crv2-status-chart"></div>
+        <div class="crv2-age-dots-title">Age Count Dots</div>
+        <div id="crv2AgeDots" class="crv2-age-dots"></div>
+      </div>
+      <div class="crv2-card crv2-breakdown-card">
+        <div class="crv2-section__head"><h2><i class="fas fa-list-ol"></i> Occurrence / Breakdown <span id="crv2BreakdownDimCount" class="crv2-breakdown-dim-count"></span></h2><button type="button" id="crv2CopyBreakdownTable" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button></div>
+        <div id="crv2BreakdownTable" class="crv2-table-wrap"></div>
+        <div id="crv2BreakdownTotal" class="crv2-breakdown-total"></div>
+      </div>
+    </section>
+
+    <section id="crv2AreaTargetPanel" class="crv2-drill" style="display:none;">
+      <div class="crv2-drill__head">
+        <div><div class="crv2-drill__eyebrow">AREA → TARGET BREAKDOWN</div><h2 id="crv2DrillTitle">--</h2><p id="crv2DrillSub">Targets and site distribution for selected value.</p></div>
+        <button type="button" id="crv2DrillClose" class="crv2-btn crv2-btn--ghost">Close</button>
+      </div>
+
+      {# KPI row #}
+      <div id="crv2DrillKpis" class="crv2-drill-kpis"></div>
+
+      {# ROW 1: Chart — full width #}
+      <div style="padding:12px 16px 0;">
+        <div class="crv2-card crv2-card--inner" style="border-radius:14px;border:1px solid #eef2ff;padding:14px;">
+          <div class="crv2-section__head">
+            <h2><i class="fas fa-crosshairs"></i> <span id="crv2DrillChartTitle">Targets Reporting</span></h2>
+            <div class="crv2-card-actions">
+              <span id="crv2DrillTargetSub" style="font-size:11px;color:#64748b;font-weight:700;"></span>
+              <button type="button" id="crv2ExpandDrillChart" class="crv2-copy-btn crv2-expand-btn"><i class="fas fa-expand-alt"></i> Expand</button>
+              <button type="button" id="crv2CopyDrillTargetChart" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Chart</button>
+            </div>
+          </div>
+          <div id="crv2DrillTargetChart" style="overflow-x:auto;width:100%;min-height:0;"></div>
+        </div>
+      </div>
+
+      {# ROW 2: Target Table (left 60%) + Site Cards (right 40%) #}
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px;padding:12px 16px 0;">
+        <div class="crv2-card crv2-card--inner" style="border-radius:14px;border:1px solid #eef2ff;padding:14px;">
+          <div class="crv2-section__head">
+            <h2><i class="fas fa-table"></i> Target Breakdown</h2>
+            <button type="button" id="crv2CopyDrillTargetTable" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button>
+          </div>
+          <div id="crv2DrillTargetTable" class="crv2-table-wrap" style="max-height:320px;"></div>
+        </div>
+        <div class="crv2-card crv2-card--inner" style="border-radius:14px;border:1px solid #eef2ff;padding:14px;">
+          <div class="crv2-section__head">
+            <h2><i class="fas fa-map-marker-alt"></i> Site-wise for Selection</h2>
+            <span id="crv2DrillSiteSub" style="font-size:11px;color:#64748b;font-weight:700;"></span>
+          </div>
+          <div id="crv2DrillSiteCards" class="crv2-site-grid"></div>
+        </div>
+      </div>
+
+      {# ROW 3: CR Detail Rows — full width #}
+      <div class="drill-rows-wrap" style="padding:12px 16px 16px;width:100%;box-sizing:border-box;">
+        <div class="crv2-card crv2-card--inner" style="border-radius:14px;border:1px solid #eef2ff;padding:14px;width:100%;box-sizing:border-box;">
+          <div class="crv2-section__head">
+            <h2><i class="fas fa-list-ul"></i> CR Detail Rows
+              <span id="crv2DrillRowsSub" style="font-size:11px;color:#64748b;font-weight:700;margin-left:8px;"></span>
+            </h2>
+            <div class="crv2-card-actions">
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#475569;">Rows
+                <select id="crv2DrillRowsPerPage" style="height:28px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:11px;">
+                  <option value="40">40</option><option value="100">100</option><option value="200">200</option>
+                </select>
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#475569;">Sort
+                <select id="crv2DrillRowsSort" style="height:28px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:11px;">
+                  <option value="age_desc">Age High → Low</option>
+                  <option value="age_asc">Age Low → High</option>
+                  <option value="site_asc">Site A → Z</option>
+                  <option value="occ_desc">Occurrence High → Low</option>
+                </select>
+              </label>
+              <button type="button" id="crv2DrillLoadRows" class="crv2-btn"><i class="fas fa-sync-alt"></i> Reload</button>
+              <button type="button" id="crv2CopyDrillRows" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button>
+            </div>
+          </div>
+          <div id="crv2DrillRows" class="crv2-table-wrap" style="max-height:480px;overflow-x:auto;overflow-y:auto;width:100%;"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="crv2-grid2" id="crv2DetailSection">
+      <div class="crv2-card">
+        <div class="crv2-section__head"><h2><i class="fas fa-table"></i> CR Detail</h2><div class="crv2-card-actions"><span id="crv2DetailSub"></span><button type="button" id="crv2CopyRowsTable" class="crv2-copy-btn"><i class="fas fa-copy"></i> Copy Table</button></div></div>
+        <div class="crv2-detail-toolbar">
+          <span class="crv2-detail-note"><i class="fas fa-filter"></i> Detail rows use the CR Status checkbox filter above.</span>
+          <label class="crv2-detail-page-size">Rows per page
+            <select id="crv2RowsPerPage"><option value="40">40</option><option value="100">100</option><option value="200">200</option></select>
+          </label>
+          <label class="crv2-detail-page-size">Sort by
+            <select id="crv2RowsSort">
+              <option value="age_desc">Age (Days) High → Low</option>
+              <option value="age_asc">Age (Days) Low → High</option>
+              <option value="weeks_desc">Age (Weeks) High → Low</option>
+              <option value="weeks_asc">Age (Weeks) Low → High</option>
+              <option value="site_asc">Site A → Z</option>
+              <option value="site_desc">Site Z → A</option>
+              <option value="jira_date_desc">JIRA Date New → Old</option>
+              <option value="jira_date_asc">JIRA Date Old → New</option>
+              <option value="last_jira_date_desc">Last JIRA Date New → Old</option>
+              <option value="last_jira_date_asc">Last JIRA Date Old → New</option>
+              <option value="occ_desc">Occurrence High → Low</option>
+              <option value="occ_asc">Occurrence Low → High</option>
+            </select>
+          </label>
+          <button type="button" id="crv2LoadRows" class="crv2-btn">Load Rows</button>
+        </div>
+        <div id="crv2Rows" class="crv2-table-wrap"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+{# ── Full-page Chart Expand Modal ── #}
+<div id="crv2ChartExpandModal" style="display:none;position:fixed;inset:0;z-index:9950;background:rgba(15,23,42,.72);backdrop-filter:blur(6px);overflow:auto;">
+  <div style="min-height:100vh;display:flex;flex-direction:column;padding:20px;">
+    <div style="background:#fff;border-radius:20px;box-shadow:0 24px 72px rgba(15,23,42,.36);overflow:hidden;flex:1;display:flex;flex-direction:column;">
+
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(120deg,#eff6ff 0%,#e0f2fe 40%,#ecfdf5 100%);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid rgba(199,210,254,0.55);">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
+          <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#dbeafe,#ede9fe);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-chart-bar" style="color:#4338ca;font-size:15px;"></i></div>
+          <div style="min-width:0;">
+            <div id="crv2ExpandModalTitle" style="font-size:16px;font-weight:900;color:#172554;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+            <div id="crv2ExpandModalSub" style="font-size:11px;color:#64748b;margin-top:2px;"></div>
+          </div>
+        </div>
+        <div id="crv2SlideDropdownArea" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button type="button" id="crv2SlidePrev" style="height:34px;padding:0 12px;border-radius:10px;border:1px solid rgba(199,210,254,.7);background:rgba(99,102,241,.10);color:#4338ca;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><i class="fas fa-chevron-left"></i> Prev</button>
+          <button type="button" id="crv2SlideNext" style="height:34px;padding:0 12px;border-radius:10px;border:1px solid rgba(199,210,254,.7);background:rgba(99,102,241,.10);color:#4338ca;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">Next <i class="fas fa-chevron-right"></i></button>
+          <button type="button" id="crv2ExpandCopyBtn" style="height:34px;padding:0 14px;border-radius:10px;border:1px solid rgba(199,210,254,.7);background:rgba(99,102,241,.12);color:#4338ca;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class="fas fa-copy"></i> Copy Chart</button>
+          <button type="button" id="crv2ChartExpandClose" style="width:34px;height:34px;border-radius:10px;border:1px solid rgba(199,210,254,.7);background:rgba(239,68,68,.08);color:#dc2626;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+        </div>
+      </div>
+
+      <!-- Slide progress bar -->
+      <div id="crv2SlideProgressBar" style="height:4px;background:#e0e7ff;position:relative;flex-shrink:0;">
+        <div id="crv2SlideProgressFill" style="height:100%;background:linear-gradient(90deg,#6366f1,#0ea5e9);width:0%;transition:width .3s ease;"></div>
+      </div>
+
+      <!-- Chart area -->
+      <div style="flex:1;padding:20px 20px 0;overflow-x:auto;">
+        <div id="crv2ExpandChartContainer" style="min-width:100%;height:460px;"></div>
+      </div>
+
+      <!-- Table area -->
+      <div style="padding:16px 20px 20px;">
+        <div style="font-size:12px;font-weight:800;color:#475569;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-table" style="color:#6366f1;"></i>
+          <span id="crv2ExpandTableLabel">Data Table</span>
+        </div>
+        <div id="crv2ExpandTableWrap" style="overflow-x:auto;max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── Date range popup ── #}
+<div id="crv2DatePopup" class="crv2-date-popup" style="display:none;">
+  <div class="crv2-date-popup__head"><div><div class="crv2-date-popup__title"><i class="fas fa-calendar-alt"></i> Select Date Range</div><div class="crv2-date-popup__sub">Choose preset, year, or custom range</div></div><button type="button" id="crv2DateClose" class="crv2-date-popup__close">&#x2715;</button></div>
+  <div class="crv2-date-popup__presets">
+    <button type="button" class="crv2-date-preset" data-preset="3m">Last 3 Months</button>
+    <button type="button" class="crv2-date-preset" data-preset="6m">Last 6 Months</button>
+    <button type="button" class="crv2-date-preset" data-preset="9m">Last 9 Months</button>
+    <button type="button" class="crv2-date-preset" data-preset="12m">Last 12 Months</button>
+  </div>
+  <div class="crv2-date-popup__years"><div class="crv2-date-popup__label">By Year</div><div id="crv2DateYears" class="crv2-date-popup__year-list"></div></div>
+  <div class="crv2-date-popup__custom">
+    <div class="crv2-date-popup__label">Custom Range</div>
+    <div class="crv2-date-popup__inputs">
+      <label><span>From</span><input type="date" id="crv2CustomDateFrom"></label>
+      <label><span>To</span><input type="date" id="crv2CustomDateTo"></label>
+    </div>
+    <button type="button" id="crv2DateApply" class="crv2-btn">Apply Custom Range</button>
+  </div>
+  <button type="button" id="crv2DateClear" class="crv2-date-clear">Clear • All Time</button>
+</div>
+
+{# ── Manage Targets overlay (admin only) ── #}
+<div id="crv2TargetsOverlay" class="crv2-targets-overlay" style="display:none;">
+  <div class="crv2-targets-modal">
+    <div class="crv2-targets-modal__hero"><div><div class="crv2-targets-modal__eyebrow">Admin</div><div class="crv2-targets-modal__title">Manage Targets</div><div class="crv2-targets-modal__sub">Select which targets remain active in the BU dropdown</div></div><button type="button" id="crv2TargetsClose" class="crv2-date-popup__close">&#x2715;</button></div>
+    <div class="crv2-targets-toolbar"><input id="crv2TargetsSearch" type="text" placeholder="Search targets..." class="crv2-targets-search"><div class="crv2-targets-toolbar__meta"><span id="crv2TargetsCount" class="crv2-targets-count">0 BU groups</span><button id="crv2TargetsEdit" type="button" class="crv2-btn">Edit</button><button id="crv2TargetsSave" type="button" class="crv2-btn">Save & Refresh</button><button id="crv2TargetsCancel" type="button" class="crv2-btn crv2-btn--ghost">Close</button></div></div>
+    <div id="crv2TargetsList" class="crv2-targets-list"></div>
+  </div>
+</div>
+
+<style>
+  /* Expand button green style */
+  .crv2-expand-btn{background:linear-gradient(135deg,#f0fdf4,#dcfce7)!important;border-color:#86efac!important;color:#15803d!important;}
+  .crv2-expand-btn:hover{background:linear-gradient(135deg,#dcfce7,#bbf7d0)!important;}
+  /* Slide select inside dark modal header */
+  #crv2SlideSelect option{background:#1e293b;color:#f8fafc;font-weight:800;}
+  #crv2SlideWrap{transition:opacity .2s;}
+  #crv2SlidePrev:hover,#crv2SlideNext:hover{background:rgba(99,102,241,.4)!important;}
+  /* Manage Targets modal styles */
+  .crv2-targets-overlay{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:9900;backdrop-filter:blur(5px);overflow:auto;}
+  .crv2-targets-modal{max-width:1060px;margin:32px auto 48px;background:#fff;border-radius:24px;box-shadow:0 24px 72px rgba(15,23,42,.36);overflow:hidden;border:1px solid rgba(255,255,255,.24);}
+  .crv2-targets-modal__hero{padding:22px 24px;background:linear-gradient(120deg,#eff6ff 0%,#e0f2fe 40%,#ecfdf5 100%);color:#172554;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid rgba(199,210,254,0.55);}
+  .crv2-targets-modal__eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#4338ca;margin-bottom:6px;}
+  .crv2-targets-modal__title{font-size:22px;font-weight:950;line-height:1.1;color:#172554;}
+  .crv2-targets-modal__sub{font-size:12px;color:#64748b;margin-top:6px;}
+  .crv2-targets-toolbar{padding:16px 18px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#fafcff);}
+  .crv2-targets-search{flex:1;min-width:260px;height:42px;padding:0 14px;border:1px solid #dbe4f0;border-radius:14px;font-size:13px;font-weight:700;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.04);}
+  .crv2-targets-toolbar__meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .crv2-targets-count{font-size:12px;color:#64748b;font-weight:800;white-space:nowrap;}
+  .crv2-targets-list{max-height:64vh;overflow:auto;padding:16px 18px 20px;background:linear-gradient(180deg,#fff,#fbfdff);}
+  .crv2-target-group{margin-bottom:18px;padding:16px;border:1px solid rgba(148,163,184,.18);border-radius:20px;background:linear-gradient(180deg,#ffffff,#f8fbff);box-shadow:0 10px 24px rgba(15,23,42,.05);}
+  .crv2-target-group__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+  .crv2-target-group__title b{display:block;font-size:15px;font-weight:950;color:#0f172a;letter-spacing:-.01em;}
+  .crv2-target-group__title span{display:block;margin-top:2px;font-size:12px;color:#64748b;font-weight:700;}
+  .crv2-target-group__badge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-size:11px;font-weight:900;white-space:nowrap;}
+  .crv2-target-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+  .crv2-target-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;border:1px solid #e2e8f0;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.04);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}
+  .crv2-target-card:hover{transform:translateY(-1px);box-shadow:0 12px 22px rgba(15,23,42,.08);border-color:#c7d2fe;}
+  .crv2-target-card input{margin:0;accent-color:#4f46e5;}
+  .crv2-target-card__icon{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:950;font-size:13px;background:linear-gradient(180deg,#eef2ff,#dbeafe);color:#1e3a8a;flex-shrink:0;}
+  .crv2-target-card--excluded .crv2-target-card__icon{background:linear-gradient(180deg,#fff1f2,#ffe4e6);color:#9f1239;}
+  .crv2-target-card__body{flex:1;min-width:0;}
+  .crv2-target-card__name{font-size:13px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .crv2-target-card__sub{font-size:11px;color:#64748b;font-weight:700;margin-top:3px;}
+  .crv2-target-card__state{font-size:11px;font-weight:900;padding:6px 10px;border-radius:999px;white-space:nowrap;background:#ecfdf5;color:#047857;border:1px solid #bbf7d0;}
+  .crv2-target-card--excluded .crv2-target-card__state{background:#fef2f2;color:#b91c1c;border-color:#fecaca;}
+  .crv2-target-card--inactive:not(.crv2-target-card--excluded){border-color:#fed7aa;background:linear-gradient(180deg,#fff,#fff7ed);}
+  .crv2-target-card--inactive:not(.crv2-target-card--excluded) .crv2-target-card__icon{background:linear-gradient(180deg,#ffedd5,#fed7aa);color:#9a3412;}
+  .crv2-target-card--inactive:not(.crv2-target-card--excluded) .crv2-target-card__state{background:#fff7ed;color:#c2410c;border-color:#fed7aa;}
+  .crv2-copy-btn{border:1px solid #c7d2fe;border-radius:10px;padding:6px 10px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);font-size:11px;font-weight:800;color:#4338ca;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+  .crv2-copy-btn:hover{background:linear-gradient(135deg,#e0e7ff,#c7d2fe);}
+</style>
+
+<script src="{{ url_for('static', filename='js/cr_overview_v2.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

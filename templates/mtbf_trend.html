@@ -1,0 +1,479 @@
+{% extends "target_layout.html" %}
+{% set page_title = (target_name|upper if target_name else "Target") ~ " MTBF Trend" %}
+{% set page_heading = "MTBF Trend" %}
+{% set page_subtitle = "Trend view for MTBF, crashes and hours." %}
+
+{% block page_extra_head %}
+<style>
+        .tr-card{
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:18px;
+      padding:12px;
+      box-shadow:0 10px 24px rgba(15,23,42,.06);
+  }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:flex-end;
+      justify-content:space-between;
+      margin-bottom:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(237,242,255,.84));
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 8px 20px rgba(15,23,42,.05);
+  }
+  .toolbar-group{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+  }
+  .toolbar-label{
+      font-size:11px;
+      color:#64748b;
+      font-weight:800;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+  }
+  .premium-select{
+      min-width:150px;
+      height:34px;
+      padding:0 34px 0 10px;
+      border-radius:10px;
+      border:1px solid #d6ddeb;
+      background:linear-gradient(180deg,#fff,#f8fbff);
+      color:#0f172a;
+      font-size:12px;
+      font-weight:700;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 4px 10px rgba(15,23,42,.05);
+      appearance:none;
+  }
+  .premium-select:focus{
+      outline:none;
+      border-color:#7c8cf8;
+      box-shadow:0 0 0 3px rgba(99,102,241,.10), 0 8px 18px rgba(79,70,229,.08);
+  }
+  .premium-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      height:34px;
+      padding:0 12px;
+      border:none;
+      border-radius:10px;
+      background:linear-gradient(135deg,#2563eb 0%, #4f46e5 55%, #7c3aed 100%);
+      color:#fff;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 6px 16px rgba(79,70,229,.18), inset 0 1px 0 rgba(255,255,255,.18);
+      transition:all .18s ease;
+  }
+  .premium-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 8px 18px rgba(79,70,229,.22), inset 0 1px 0 rgba(255,255,255,.20);
+  }
+  .metric-group{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      padding:6px 8px;
+      border-radius:12px;
+      background:rgba(255,255,255,.8);
+      border:1px solid rgba(226,232,240,.9);
+  }
+  .metric-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:11px;
+      font-weight:700;
+      color:#334155;
+      padding:5px 8px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff,#f8fafc);
+      border:1px solid #e2e8f0;
+      box-shadow:0 3px 8px rgba(15,23,42,.04);
+  }
+
+        #trendChart{
+    width:100%;
+    height:190px;
+    margin-top: 2px;
+}
+#trendChartWrap{
+    width:100%;
+    overflow-x:auto;
+    overflow-y:hidden;
+    margin-top:2px;
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="tr-card">
+    <div class="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">View mode</span>
+      <form method="get" action="">
+        <input type="hidden" name="pdt_type" value="{{ pdt_type }}">
+        <input type="hidden" name="compute_bu" value="{{ 1 if is_compute_bu else 0 }}">
+        <select name="toggle_mode" class="premium-select" onchange="this.form.submit()">
+          <option value="CRM" {{ 'selected' if toggle_mode == 'CRM' else '' }}>CRM</option>
+          <option value="ENG" {{ 'selected' if toggle_mode == 'ENG' else '' }}>ENG</option>
+          <option value="ALL" {{ 'selected' if toggle_mode == 'ALL' else '' }}>All</option>
+        </select>
+      </form>
+    </div>
+
+    <div class="toolbar-group metric-group">
+      <label class="metric-chip"><input type="checkbox" id="seriesCrashes" checked> Crashes</label>
+      <label class="metric-chip"><input type="checkbox" id="seriesHours" checked> Hours</label>
+      {% if is_compute_bu %}
+        <label class="metric-chip"><input type="checkbox" id="seriesProductMtbf" checked> Product MTBF</label>
+        <label class="metric-chip"><input type="checkbox" id="seriesQcMtbf" checked> QC MTBF</label>
+      {% else %}
+        <label class="metric-chip"><input type="checkbox" id="seriesMtbf" checked> MTBF</label>
+      {% endif %}
+    </div>
+
+        <div class="toolbar-group">
+      <button type="button" id="mtbfTrendMetaSelectToggle" class="premium-btn">Select metas…</button>
+      <select id="mtbfTrendPresetSelect" class="premium-select" style="min-width:160px; width:auto;">
+        <option value="">Latest 5/10</option>
+        <option value="5">Latest 5</option>
+        <option value="10">Latest 10</option>
+      </select>
+    </div>
+  </div>
+
+
+    <div id="mtbfTrendMetaSelectPanel"
+       style="display:none; margin-bottom:12px; border:1px solid #e5e7eb; border-radius:16px; background:#ffffff; padding:12px; max-height:340px; overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+      <div style="font-size:13px; font-weight:800; color:#1e293b;">Meta IDs</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input type="text" id="mtbfTrendMetaSearch" placeholder="Search meta id..." style="min-width:240px; width:320px; max-width:100%; padding:10px 14px; border-radius:999px; border:1px solid #d6ddeb; font-size:13px;">
+        <button type="button" id="mtbfTrendSelectAll" class="premium-btn" style="height:38px; padding:0 14px; font-size:13px;">Select All</button>
+        <button type="button" id="mtbfTrendClearAll" class="premium-btn" style="height:38px; padding:0 14px; font-size:13px; background:linear-gradient(135deg,#64748b,#475569);">Clear All</button>
+      </div>
+    </div>
+    <div id="mtbfTrendMetaList"
+         style="display:flex; flex-direction:column; gap:6px; font-size:13px; max-height:250px; overflow:auto; padding-right:4px;">
+            {% set all_meta_ids = trend_rows | map(attribute='meta_id') | list | reverse %}
+      {% for mid in all_meta_ids %}
+        {% if mid %}
+        <label class="mtbfTrendMetaItem" data-meta="{{ mid|lower }}" style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border-radius:12px; border:1px solid #edf2f7; background:linear-gradient(180deg,#fff,#f8fbff);">
+          <input type="checkbox" class="mtbfTrendMetaCheckbox" value="{{ mid }}">
+          <span style="font-weight:700; color:#0f172a;">{{ mid }}</span>
+        </label>
+        {% endif %}
+      {% endfor %}
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+        <button type="button" id="mtbfTrendCancelSelection" class="premium-btn" style="height:38px; padding:0 14px; font-size:13px; background:linear-gradient(135deg,#64748b,#475569);">Cancel</button>
+        <button type="button" id="mtbfTrendDoneSelection" class="premium-btn" style="height:38px; padding:0 14px; font-size:13px;">Done</button>
+      </div>
+
+    </div>
+  </div>
+
+
+
+      <h3 style="margin:2px 0 4px; font-size:16px; font-weight:800; color:#111827;">
+    MTBF / Crashes / Hours Trend
+  </h3>
+  <p style="margin:0 0 6px; color:#64748b; font-size:11px;">
+    One point per META-ID from current DB-fed trend rows.
+
+    {% if is_compute_bu %}
+      Showing Product MTBF and QC MTBF separately.
+    {% else %}
+      Showing single MTBF line.
+    {% endif %}
+  </p>
+
+
+  <div id="trendChartWrap"><div id="trendChart"></div></div>
+
+  <script>
+    const trendRows        = {{ trend_rows|default([], true)|tojson }};
+  const trendIsComputeBU = {{ is_compute_bu|default(false)|tojson }};
+
+
+  function toNum(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+      const rows = Array.isArray(trendRows) ? trendRows : [];
+      const chartEl = document.getElementById('trendChart');
+      if (!chartEl) {
+          console.warn("[MTBF-TREND] #trendChart not found");
+          return;
+      }
+
+      if (!rows.length) {
+          chartEl.innerHTML =
+              '<div style="padding:40px;text-align:center;color:#64748b;' +
+              'border:1px dashed #cbd5e1;border-radius:16px;background:#fafcff;">' +
+              'No trend data available.</div>';
+          return;
+      }
+
+            const orderedMeta = [...new Set(rows.map(r => r.meta_id).filter(Boolean))].reverse();
+
+
+      const baseByMeta = {};
+      rows.forEach(r => {
+        const mid = r.meta_id;
+        if (!mid) return;
+        baseByMeta[mid] = {
+          crashes: toNum(r.crashes),
+          hours:   toNum(r.hours || r.total_hours),
+          mtbf:    toNum(r.mtbf),
+          product_mtbf: toNum(r.product_mtbf),
+          qc_mtbf:      toNum(r.qc_mtbf)
+        };
+      });
+
+                  const panelToggle = document.getElementById('mtbfTrendMetaSelectToggle');
+      const panel = document.getElementById('mtbfTrendMetaSelectPanel');
+      const presetSelect = document.getElementById('mtbfTrendPresetSelect');
+      const selectAllBtn = document.getElementById('mtbfTrendSelectAll');
+      const clearAllBtn = document.getElementById('mtbfTrendClearAll');
+            const checkboxes = Array.from(document.querySelectorAll('.mtbfTrendMetaCheckbox'));
+      const metaSearch = document.getElementById('mtbfTrendMetaSearch');
+      const metaItems  = Array.from(document.querySelectorAll('.mtbfTrendMetaItem'));
+      const cancelSelectionBtn = document.getElementById('mtbfTrendCancelSelection');
+      const doneSelectionBtn = document.getElementById('mtbfTrendDoneSelection');
+
+      const seriesCrashes = document.getElementById('seriesCrashes');
+      const seriesHours = document.getElementById('seriesHours');
+      const seriesMtbf = document.getElementById('seriesMtbf');
+      const seriesProductMtbf = document.getElementById('seriesProductMtbf');
+      const seriesQcMtbf = document.getElementById('seriesQcMtbf');
+      const allMetaOrdered = checkboxes.map(cb => cb.value);
+
+
+                  let appliedSelection = new Set(allMetaOrdered);
+      let pendingSelection = new Set(allMetaOrdered);
+
+      function applyMetaSearch() {
+        if (!metaSearch) return;
+        const q = metaSearch.value.trim().toLowerCase();
+        metaItems.forEach(item => {
+          const val = item.getAttribute('data-meta') || '';
+          item.style.display = (!q || val.includes(q)) ? '' : 'none';
+        });
+      }
+
+            function syncCheckboxesFromPending() {
+        checkboxes.forEach(cb => { cb.checked = pendingSelection.has(cb.value); });
+      }
+
+      function latestSlice(n) {
+        return allMetaOrdered.slice(0, n);
+      }
+
+      function applySelection(list) {
+        appliedSelection = new Set(list || []);
+        pendingSelection = new Set(appliedSelection);
+        syncCheckboxesFromPending();
+        applyTrendFilter();
+      }
+
+
+
+
+
+
+                                let chart = Highcharts.chart('trendChart', {
+                    chart: { backgroundColor: 'transparent', marginBottom: 40, spacingTop: 0, spacingRight: 2, spacingBottom: 0, spacingLeft: 2, animation: false },
+          title: { text: '' },
+          credits: { enabled: false },
+          legend: {
+              enabled: true,
+              align: 'center',
+              verticalAlign: 'bottom',
+                                                        itemStyle: { fontSize: '9px', fontWeight: '600', color: '#64748b' },
+              symbolRadius: 0,
+              symbolHeight: 6,
+              symbolWidth: 8,
+              itemDistance: 6,
+              margin: 2
+          },
+          xAxis: {
+                            categories: [],
+                            title: { text: null },
+              lineColor: '#e2e8f0',
+              tickColor: '#e2e8f0',
+              tickLength: 2,
+              labels: { rotation: 0, autoRotation: false, style: { fontSize: '8px', color: '#94a3b8' }, reserveSpace: true, step: 2, y: 12 }
+          },
+          yAxis: [{
+                                          title: { text: null },
+              gridLineColor: '#f1f5f9',
+              gridLineWidth: 1,
+              labels: { style: { fontSize:'8px', color:'#94a3b8' } },
+              min: 0
+          }, {
+                                          title: { text: null },
+              gridLineWidth: 0,
+              opposite: true,
+              labels: { style: { fontSize:'8px', color:'#94a3b8' } },
+              min: 0
+          }],
+          tooltip: { shared: true, valueDecimals: 2, outside: false },
+          plotOptions: {
+                            series: {
+                  animation: false,
+                  marker: { enabled: true, radius: 1.5, lineWidth: 0.5 },
+                  states: { inactive: { opacity: 1 } }
+              },
+              column: {
+                                                      pointPadding: 0.28,
+                  groupPadding: 0.32,
+                  borderRadius: 1,
+                  maxPointWidth: 6,
+                  borderWidth: 0,
+                  opacity: 0.42,
+                  dataLabels: { enabled: false }
+              },
+              line: {
+                                                      lineWidth: 1,
+                  marker: { enabled: true, radius: 1.5 },
+                  states: { hover: { lineWidthPlus: 0 } },
+                  dataLabels: { enabled: false }
+              }
+          },
+          series: []
+      });
+
+
+                  function applyTrendFilter() {
+        const selected = Array.from(appliedSelection);
+        const categories = selected.length ? selected : orderedMeta;
+
+        // Step 1: calculate correct dimensions FIRST
+        var maxRawLen = categories.reduce(function(a,c){ return Math.max(a, String(c).length); }, 0);
+                                                var minBarPx = categories.length <= 10 ? 28 : categories.length <= 20 ? 22 : categories.length <= 40 ? 18 : categories.length <= 80 ? 15 : 12;
+        var catWidths = categories.map(function(c){ return Math.max(minBarPx, Math.ceil(String(c).length * 3.2 * 0.707)); });
+        var totalW = catWidths.reduce(function(a,b){ return a+b; }, 0) + 24;
+        var wrap = document.getElementById('trendChartWrap');
+        var containerW = (wrap && wrap.offsetWidth > 100) ? wrap.offsetWidth : (window.innerWidth - 80);
+        var chartW = Math.max(containerW, totalW);
+                                var xLabelH = Math.max(24, Math.round(maxRawLen * 3.2 * 0.707) + 6);
+        var chartH = 150 + xLabelH;
+
+        // Step 2: resize the inner div and chart BEFORE setting categories
+        var inner = document.getElementById('trendChart');
+        if (inner) inner.style.width = chartW + 'px';
+                        chart.setSize(chartW, chartH, false);
+        chart.update({ chart: { marginBottom: xLabelH + 8 } }, false);
+
+        // Step 3: set categories and series
+        chart.xAxis[0].setCategories(categories, false);
+
+        const crashesData     = categories.map(mid => (baseByMeta[mid] || {}).crashes || 0);
+        const hoursData       = categories.map(mid => (baseByMeta[mid] || {}).hours || 0);
+        const mtbfData        = categories.map(mid => (baseByMeta[mid] || {}).mtbf || 0);
+        const productMtbfData = categories.map(mid => (baseByMeta[mid] || {}).product_mtbf || 0);
+        const qcMtbfData      = categories.map(mid => (baseByMeta[mid] || {}).qc_mtbf || 0);
+
+        // Step 4: rebuild series and redraw once
+        const newSeries = [];
+                                if (seriesCrashes && seriesCrashes.checked) newSeries.push({ type: 'column', name: 'Crashes', yAxis: 0, data: crashesData, color: 'rgba(251,191,36,0.55)' });
+        if (seriesHours && seriesHours.checked) newSeries.push({ type: 'column', name: 'Hours', yAxis: 0, data: hoursData, color: 'rgba(125,211,252,0.55)' });
+        if (trendIsComputeBU) {
+          if (seriesProductMtbf && seriesProductMtbf.checked) newSeries.push({ type: 'line', name: 'Product MTBF', yAxis: 1, data: productMtbfData, color: 'rgba(34,197,94,0.85)' });
+          if (seriesQcMtbf && seriesQcMtbf.checked) newSeries.push({ type: 'line', name: 'QC MTBF', yAxis: 1, data: qcMtbfData, color: 'rgba(245,158,11,0.75)' });
+        } else {
+          if (seriesMtbf && seriesMtbf.checked) newSeries.push({ type: 'line', name: 'MTBF', yAxis: 1, data: mtbfData, color: 'rgba(34,197,94,0.85)' });
+        }
+
+        while (chart.series.length) chart.series[0].remove(false);
+        newSeries.forEach(s => chart.addSeries(s, false));
+        chart.redraw();
+      }
+
+      [seriesCrashes, seriesHours, seriesMtbf, seriesProductMtbf, seriesQcMtbf].filter(Boolean).forEach(el => el.addEventListener('change', applyTrendFilter));
+
+            if (panelToggle && panel) {
+        panelToggle.addEventListener('click', function () {
+          panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+          if (panel.style.display === 'block') {
+            syncCheckboxesFromPending();
+            applyMetaSearch();
+          }
+        });
+      }
+
+                  if (presetSelect) {
+        presetSelect.addEventListener('change', function () {
+          const n = parseInt(presetSelect.value || '0', 10);
+          if (n > 0) {
+            applySelection(latestSlice(n));
+          }
+        });
+      }
+
+
+
+            if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function () {
+          applySelection(allMetaOrdered);
+          if (presetSelect) presetSelect.value = '';
+        });
+      }
+
+      if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function () {
+          applySelection([]);
+          if (presetSelect) presetSelect.value = '';
+        });
+      }
+
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', function () {
+          if (cb.checked) pendingSelection.add(cb.value);
+          else pendingSelection.delete(cb.value);
+          if (presetSelect) presetSelect.value = '';
+        });
+      });
+
+      if (metaSearch) metaSearch.addEventListener('input', applyMetaSearch);
+
+            if (cancelSelectionBtn) {
+        cancelSelectionBtn.addEventListener('click', function () {
+          pendingSelection = new Set(appliedSelection);
+          syncCheckboxesFromPending();
+          if (panel) panel.style.display = 'none';
+        });
+      }
+      if (doneSelectionBtn) {
+        doneSelectionBtn.addEventListener('click', function () {
+          applySelection(Array.from(pendingSelection));
+          if (panel) panel.style.display = 'none';
+        });
+      }
+
+      appliedSelection = new Set(allMetaOrdered);
+      pendingSelection = new Set(appliedSelection);
+      syncCheckboxesFromPending();
+      applyMetaSearch();
+      applyTrendFilter();
+
+
+
+
+  });
+  </script>
+</div>
+  {% endblock %}

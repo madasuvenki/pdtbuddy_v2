@@ -1,0 +1,193 @@
+{% set s = status or {} %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot RAG / Vector Concept - Admin Docs</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: linear-gradient(180deg, #eff6ff, #f8fafc 240px); color:#0f172a; }
+    .shell { max-width: 1240px; margin:0 auto; padding:24px 16px 48px; }
+    .hero { background: linear-gradient(135deg, #0f172a, #1d4ed8); color:#fff; border-radius:24px; padding:24px; box-shadow:0 18px 40px rgba(15,23,42,.20); }
+    .hero-top { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.16em; font-size:11px; opacity:.8; font-weight:800; }
+    h1 { margin:6px 0 10px; font-size:34px; line-height:1.1; }
+    .subtitle { max-width:920px; font-size:15px; line-height:1.6; opacity:.95; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { display:inline-flex; align-items:center; gap:8px; text-decoration:none; border:none; border-radius:999px; padding:11px 16px; font-weight:800; cursor:pointer; }
+    .btn-primary { background:#7c3aed; color:#fff; }
+    .btn-secondary { background:#fff; color:#1e293b; }
+    .grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; margin:18px 0; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:14px; box-shadow:0 10px 24px rgba(15,23,42,.05); }
+    .card-label { font-size:12px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.06em; }
+    .card-value { margin-top:6px; font-size:20px; font-weight:900; }
+    .section { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; margin-top:16px; box-shadow:0 10px 24px rgba(15,23,42,.05); }
+    .section h2 { margin:0 0 12px; font-size:22px; }
+    .section p, .section li { line-height:1.65; }
+    .columns { display:grid; grid-template-columns:1.2fr .8fr; gap:16px; }
+    .table { width:100%; border-collapse:collapse; }
+    .table th, .table td { border:1px solid #e2e8f0; padding:10px 12px; vertical-align:top; text-align:left; }
+    .table th { background:#f8fafc; font-size:13px; }
+    .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-weight:800; font-size:12px; }
+    .mermaid-box { overflow:auto; background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:12px; }
+    code { background:#eef2ff; padding:2px 6px; border-radius:6px; }
+    @media (max-width:1100px) { .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .columns { grid-template-columns:1fr; } }
+    @media (max-width:680px) { h1 { font-size:26px; } .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">Admin Documentation</div>
+        <h1>Chatbot RAG / Vector Concept</h1>
+        <div class="subtitle">
+          This page explains the chatbot architecture, the exact role of each table, how the tables relate to one another,
+          and why the system uses a hybrid approach: deterministic SQL for correctness plus vector / semantic retrieval for chatbot-style search.
+        </div>
+      </div>
+      <div class="actions">
+        <button id="syncCentralBtn" class="btn btn-primary" onclick="triggerCentralSync()"><i class="fas fa-sync-alt"></i> Sync Central Tables</button>
+        <a href="{{ url_for('admin_live_status_docs') }}" class="btn btn-secondary"><i class="fas fa-satellite-dish"></i> Live Status Docs</a>
+        <a href="{{ url_for('admin_usage') }}" class="btn btn-secondary"><i class="fas fa-chart-line"></i> Admin Stats</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="syncCentralResult" style="display:none;margin-top:14px;padding:12px 14px;border-radius:14px;font-weight:700;"></div>
+
+  <div class="grid">
+    <div class="card"><div class="card-label">DB Connection</div><div class="card-value">{{ 'Online' if s.db_connected else 'Offline' }}</div><div style="margin-top:4px;font-size:12px;color:#64748b;">Targets: {{ s.total_targets }}</div></div>
+    <div class="card"><div class="card-label">OneView MCP</div><div class="card-value">{{ 'Online' if s.mcp_connected else 'Offline' }}</div><div style="margin-top:4px;font-size:12px;color:#64748b;">{{ s.oneview_url }}</div></div>
+    <div class="card"><div class="card-label">Central Tables</div><div class="card-value">{{ s.cr_master_rows }} / {{ s.cr_relationships_rows }}</div><div style="margin-top:4px;font-size:12px;color:#64748b;">Summary: {{ s.target_summary_rows }} | Cache: {{ s.orbit_cache_rows }}</div></div>
+    <div class="card"><div class="card-label">Last Ingest</div><div class="card-value" style="font-size:15px;">{{ s.last_ingest or 'Unknown' }}</div><div style="margin-top:4px;font-size:12px;color:#64748b;">Python2 bridge: {{ 'Yes' if s.python2_available else 'No' }}</div></div>
+  </div>
+
+  <div class="section">
+    <h2>1) Why this is not pure RAG</h2>
+    <p>The application uses a hybrid chatbot architecture. Vector search is useful for semantic lookup, but the CR domain is highly structured and must stay numerically correct. For counts, filters, trends, and per-target answers, deterministic SQL is safer than pure embedding-based retrieval.</p>
+    <ul>
+      <li><strong>SQL first</strong> for exact metrics, counts, filter logic, and target-specific queries.</li>
+      <li><strong>Vector / semantic search</strong> only for fuzzy lookup, title similarity, and chatbot-style fallback.</li>
+      <li><strong>LLM</strong> formats answers and helps interpret intent; it does not directly write to the DB.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>2) System flow</h2>
+    <div class="mermaid-box"><div class="mermaid">
+flowchart LR
+  User[User Chat Query] --> Intent[Intent Detection]
+  Intent -->|structured metric| SQL[Deterministic SQL]
+  Intent -->|semantic lookup| Vector[Vector / RAG Search]
+  SQL --> CRMaster[cr_master]
+  SQL --> Summary[target_summary]
+  Vector --> Search[cr_master_search / semantic index]
+  CRMaster --> Enrich[Orbit Cache Enrichment]
+  Enrich --> Orbit[orbit_cr_cache]
+  Orbit --> MCP[OneView MCP]
+  Orbit --> Py2[Python2 Fallback]
+  SQL --> LLM[LLM Formatting]
+  Vector --> LLM
+  LLM --> Answer[Final Answer]
+    </div></div>
+  </div>
+
+  <div class="section">
+    <h2>3) Table inventory and relationship model</h2>
+    <table class="table">
+      <thead><tr><th>Table</th><th>Why it exists</th><th>How it relates to others</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill">dashboard_status</span></td><td>Source of truth for active targets, BU mapping, display metadata, milestone dates, and latest ingest timestamp.</td><td>Drives target discovery. Provides <code>db_name</code> / prefix used to locate BU tables.</td></tr>
+        <tr><td><span class="pill">&lt;db_name&gt;_unique_crs</span></td><td>Raw BU-level CR table loaded from Excel. This is the ingestion source for the central layer.</td><td>Input to <code>cr_master</code>, <code>cr_relationships</code>, and summary metrics.</td></tr>
+        <tr><td><span class="pill">&lt;db_name&gt;_jiras</span> / <span class="pill">&lt;db_name&gt;_openjiras</span></td><td>BU-level JIRA data used for JIRA counts and open issue analytics.</td><td>Input to <code>target_summary</code> and chatbot JIRA queries.</td></tr>
+        <tr><td><span class="pill">cr_master</span></td><td>Narrow, fast, cross-target CR lookup table. One row per CR per target.</td><td>Built from <code>&lt;db_name&gt;_unique_crs</code>. Used by chatbot SQL, dashboards, and fast answers.</td></tr>
+        <tr><td><span class="pill">cr_relationships</span></td><td>Captures sibling / related CR links derived from <code>mapped_cr</code>.</td><td>Built from <code>&lt;db_name&gt;_unique_crs</code>. Useful for related CR views and regression trees.</td></tr>
+        <tr><td><span class="pill">target_summary</span></td><td>Daily snapshot of counts and progress metrics per target.</td><td>Derived from raw BU CR/JIRA tables and dashboard metadata.</td></tr>
+        <tr><td><span class="pill">orbit_cr_cache</span></td><td>Cached Orbit / OneView CR payloads to avoid repeated MCP calls.</td><td>Attached on-demand when chatbot or UI needs rich CR detail.</td></tr>
+        <tr><td><span class="pill">cr_master_search</span></td><td>Semantic / search-friendly mirror for chatbot retrieval.</td><td>Complements <code>cr_master</code>; this is the layer where vector / RAG-style lookup fits.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section columns">
+    <div>
+      <h2>4) Why each table was created</h2>
+      <ul>
+        <li><strong>dashboard_status</strong> keeps target metadata centralized so the app never has to guess active targets or prefixes.</li>
+        <li><strong>cr_master</strong> makes cross-target CR queries fast and predictable.</li>
+        <li><strong>cr_relationships</strong> stores related CR networks so sibling / regression relationships are queryable.</li>
+        <li><strong>target_summary</strong> gives the UI and chatbot a single daily snapshot for charts and headline metrics.</li>
+        <li><strong>orbit_cr_cache</strong> reduces latency and external API pressure by caching CR details.</li>
+        <li><strong>cr_master_search</strong> supports semantic retrieval and chatbot RAG-like fallback without polluting the transactional tables.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>5) Relationship map</h2>
+      <ul>
+        <li><code>dashboard_status</code> tells ingest which target is active and which BU schema to use.</li>
+        <li><code>&lt;db_name&gt;_unique_crs</code> is the source input for the central tables.</li>
+        <li><code>cr_master</code> is the main query table for chatbot and reports.</li>
+        <li><code>cr_relationships</code> is derived from <code>mapped_cr</code> in the raw BU table.</li>
+        <li><code>target_summary</code> is aggregated from raw BU CR + JIRA tables.</li>
+        <li><code>orbit_cr_cache</code> enriches detail views and chatbot responses.</li>
+        <li><code>cr_master_search</code> is the semantic retrieval layer for vector / RAG-style lookup.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>6) Sync cycle</h2>
+    <ol>
+      <li>Excel ingestion loads BU tables.</li>
+      <li>Central sync refreshes <code>cr_master</code>, <code>cr_relationships</code>, and <code>target_summary</code>.</li>
+      <li>Orbit cache is refreshed on demand when CR detail is fetched.</li>
+      <li>The chatbot first tries exact SQL or cached detail, then semantic retrieval when appropriate.</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2>7) Admin health snapshot</h2>
+    <ul>
+      <li>Active targets: <strong>{{ s.total_targets }}</strong></li>
+      <li>cr_master rows: <strong>{{ s.cr_master_rows }}</strong></li>
+      <li>cr_relationships rows: <strong>{{ s.cr_relationships_rows }}</strong></li>
+      <li>target_summary rows: <strong>{{ s.target_summary_rows }}</strong></li>
+      <li>orbit_cr_cache rows: <strong>{{ s.orbit_cache_rows }}</strong> — expired: <strong>{{ s.orbit_cache_expired }}</strong></li>
+    </ul>
+  </div>
+</div>
+<script>
+if (window.mermaid) { mermaid.initialize({ startOnLoad:true, securityLevel:'loose', theme:'base' }); }
+function triggerCentralSync() {
+  const btn = document.getElementById('syncCentralBtn');
+  const res = document.getElementById('syncCentralResult');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+  fetch('/admin/sync_central', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sync Central Tables';
+      res.style.display = 'block';
+      res.style.background = data.success ? '#ecfdf5' : '#fef2f2';
+      res.style.color = data.success ? '#166534' : '#991b1b';
+      res.style.border = '1px solid ' + (data.success ? '#bbf7d0' : '#fecaca');
+      res.innerHTML = '<i class="fas fa-info-circle"></i> ' + (data.message || 'Done');
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sync Central Tables';
+      res.style.display = 'block';
+      res.style.background = '#fef2f2';
+      res.style.border = '1px solid #fecaca';
+      res.style.color = '#991b1b';
+      res.innerHTML = '<i class="fas fa-times-circle"></i> Network error: ' + err;
+    });
+}
+</script>
+</body>
+</html>

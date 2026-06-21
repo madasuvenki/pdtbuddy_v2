@@ -1,0 +1,619 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── RESET for this page ── */
+body{background:#f1f5f9 !important;}
+
+/* ── PROGRESS OVERLAY — pure inline CSS, no external deps, shows instantly ── */
+#teOverlay{
+  position:fixed;inset:0;z-index:9999;
+  background:rgba(15,23,42,.82);
+  display:flex;align-items:center;justify-content:center;
+}
+.te-pbox{
+  background:#1e293b;border-radius:20px;padding:44px 56px;
+  min-width:380px;max-width:480px;text-align:center;
+  box-shadow:0 24px 64px rgba(0,0,0,.6);
+}
+.te-pbox-icon{font-size:36px;color:#a5b4fc;margin-bottom:14px;}
+.te-pbox-title{font-size:16px;font-weight:800;color:#f8fafc;margin-bottom:4px;}
+.te-pbox-sub{font-size:12px;color:#94a3b8;font-weight:600;margin-bottom:24px;}
+.te-bar-wrap{background:rgba(255,255,255,.08);border-radius:999px;height:12px;overflow:hidden;margin-bottom:12px;}
+.te-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,#6366f1,#a5b4fc);width:0%;transition:width .5s ease;}
+.te-pct{font-size:28px;font-weight:900;color:#a5b4fc;}
+.te-step{font-size:11px;color:#64748b;font-weight:600;margin-top:6px;min-height:16px;}
+.te-retry{background:linear-gradient(135deg,#6366f1,#4f46e5);border:none;color:#fff;
+  border-radius:8px;padding:10px 26px;font-size:12px;font-weight:700;cursor:pointer;margin-top:18px;}
+
+/* ── TOP BAR ── */
+.te-topbar{
+  background:linear-gradient(135deg,#1e293b,#312e81);
+  padding:0 28px;height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);
+  position:sticky;top:0;z-index:100;
+}
+.te-topbar-left{display:flex;align-items:center;gap:14px;}
+.te-topbar-icon{background:rgba(165,180,252,.2);border-radius:10px;padding:8px 11px;}
+.te-topbar-icon i{color:#a5b4fc;font-size:15px;}
+.te-topbar-lbl{font-size:10px;font-weight:700;color:#a5b4fc;letter-spacing:.8px;text-transform:uppercase;}
+.te-topbar-title{font-size:17px;font-weight:900;color:#f8fafc;margin-top:1px;}
+.te-topbar-right{display:flex;align-items:center;gap:8px;}
+
+/* ── BUTTONS ── */
+.te-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;
+  font-size:11px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;}
+.te-btn:hover{opacity:.82;}
+.te-btn-ghost{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;}
+.te-btn-close{background:rgba(255,255,255,.12);color:#fff;width:34px;height:34px;
+  padding:0;justify-content:center;font-size:15px;border-radius:9px;}
+
+/* ── DAYS/WEEKS PILL ── */
+.te-pill{display:flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;overflow:hidden;}
+.te-pill button{padding:5px 13px;font-size:11px;font-weight:700;border:none;cursor:pointer;
+  transition:background .15s,color .15s;}
+.te-pill button.active{background:rgba(99,102,241,.85);color:#fff;}
+.te-pill button:not(.active){background:transparent;color:#94a3b8;}
+
+/* ── KPI STRIP ── */
+.te-kpis{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;
+  box-shadow:0 1px 4px rgba(15,23,42,.04);}
+.te-kpi{flex:1;padding:13px 20px;border-right:1px solid #f1f5f9;}
+.te-kpi:last-child{border-right:none;}
+.te-kpi-lbl{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.6px;margin-bottom:3px;}
+.te-kpi-val{font-size:23px;font-weight:900;}
+.kv-blue{color:#6366f1;} .kv-dark{color:#0f172a;} .kv-green{color:#10b981;}
+.age-red{color:#ef4444;} .age-amber{color:#f59e0b;} .age-green{color:#10b981;}
+
+/* ── BODY ── */
+.te-body{padding:22px 26px;display:flex;flex-direction:column;gap:18px;}
+
+/* ── CARD ── */
+.te-card{background:#fff;border-radius:16px;border:1px solid #e2e8f0;
+  box-shadow:0 2px 12px rgba(15,23,42,.05);overflow:hidden;}
+.te-card-hdr{padding:13px 18px;border-bottom:1px solid #f1f5f9;
+  display:flex;align-items:center;justify-content:space-between;}
+.te-card-hdr-l{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#1e293b;}
+.te-card-hdr-l i{color:#6366f1;}
+.te-card-hdr-r{font-size:11px;color:#94a3b8;font-weight:600;}
+
+/* ── COLLAPSE BTN ── */
+.te-collapse{width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:13px 18px;background:#f8fafc;border:none;cursor:pointer;border-top:1px solid #f1f5f9;}
+.te-collapse:hover{background:#f1f5f9;}
+.te-collapse-l{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#1e293b;}
+.te-collapse-l i{color:#6366f1;}
+.te-badge{background:#eef1ff;color:#4338ca;border-radius:999px;
+  padding:2px 10px;font-size:10px;font-weight:800;margin-left:4px;}
+
+/* ── TABLE ── */
+.te-tbl-wrap{overflow-x:auto;}
+.te-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.te-tbl thead tr{background:linear-gradient(135deg,#1e293b,#312e81);}
+.te-tbl thead th{padding:10px 13px;font-weight:800;color:#f8fafc;white-space:nowrap;text-align:center;}
+.te-tbl thead th.tl{text-align:left;}
+.te-tbl tbody tr:nth-child(even){background:#f8fafc;}
+.te-tbl tbody tr:nth-child(odd){background:#fff;}
+.te-tbl tbody tr:hover{background:#eef1ff !important;}
+.te-tbl tbody td{padding:9px 13px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:600;color:#374151;}
+.te-tbl tbody td.sno{color:#94a3b8;font-size:11px;font-weight:700;}
+.te-tbl tbody td.tl{text-align:left;font-weight:700;color:#1e293b;}
+.te-tbl tbody td.crs{font-size:13px;font-weight:800;color:#1e293b;}
+.te-tbl tbody td.jiras{color:#10b981;font-weight:700;}
+.te-tbl tfoot tr{background:linear-gradient(135deg,#eef1ff,#f0fdf4);}
+.te-tbl tfoot td{padding:11px 13px;font-weight:900;border-top:2px solid #6366f1;text-align:center;}
+.te-tbl tfoot td.tl{text-align:left;font-size:13px;color:#1e293b;}
+.te-tbl tfoot td.sno{color:#6366f1;}
+.te-tbl tfoot td.crs{font-size:14px;color:#1e293b;}
+.te-tbl tfoot td.jiras{font-size:14px;color:#10b981;}
+</style>
+
+<!-- ── PROGRESS OVERLAY — visible immediately on page load ── -->
+<div id="teOverlay">
+  <div class="te-pbox" id="tePBox">
+    <div class="te-pbox-icon"><i class="fas fa-chart-bar fa-pulse"></i></div>
+    <div class="te-pbox-title">Loading Target Explorer</div>
+    <div class="te-pbox-sub">{{ area_label }}</div>
+    <div class="te-bar-wrap"><div class="te-bar" id="teBar"></div></div>
+    <div class="te-pct" id="tePct">0%</div>
+    <div class="te-step" id="teStep">Connecting&hellip;</div>
+  </div>
+</div>
+
+<!-- ── TOP BAR ── -->
+<div class="te-topbar">
+  <div class="te-topbar-left">
+    <div class="te-topbar-icon"><i class="fas fa-expand-alt"></i></div>
+    <div>
+      <div class="te-topbar-lbl">Full Target Explorer</div>
+      <div class="te-topbar-title" id="teTitle">{{ area_label }} &mdash; Loading&hellip;</div>
+    </div>
+  </div>
+  <div class="te-topbar-right">
+    <div id="teTargetPickerWrap" style="position:relative;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:5px 10px;min-width:260px;">
+      <i class="fas fa-crosshairs" style="color:#a5b4fc;font-size:10px;"></i>
+      <span style="font-size:10px;font-weight:700;color:#a5b4fc;white-space:nowrap;">Targets:</span>
+      <button id="teTargetPickerBtn" type="button" style="flex:1;height:28px;background:rgba(15,23,42,.28);border:1px solid rgba(255,255,255,.16);color:#f8fafc;font-size:11px;font-weight:700;cursor:pointer;outline:none;border-radius:6px;padding:0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:160px;">
+        <span id="teTargetPickerLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;">All Targets</span>
+        <i class="fas fa-chevron-down" style="font-size:10px;color:#c7d2fe;"></i>
+      </button>
+      <div id="teTargetPickerDropdown" style="display:none;position:absolute;top:110%;right:0;z-index:9999;min-width:320px;max-width:380px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 28px rgba(15,23,42,.22);padding:10px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <input id="teTargetSearch" type="text" placeholder="Search target..." style="flex:1;height:32px;border:1px solid #dbe2ea;border-radius:8px;padding:0 10px;font-size:12px;color:#1e293b;outline:none;">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <button id="teTargetSelectAll" type="button" style="height:28px;padding:0 10px;border-radius:8px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer;">Select All</button>
+          <button id="teTargetSelectNone" type="button" style="height:28px;padding:0 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:11px;font-weight:800;cursor:pointer;">None</button>
+        </div>
+        <div id="teTargetCheckboxList" style="max-height:260px;overflow:auto;padding-right:4px;"></div>
+      </div>
+    </div>
+    <div class="te-pill" id="tePill">
+      <button class="active" data-mode="daily"   onclick="teSetMode('daily')">Days</button>
+      <button               data-mode="weekly"  onclick="teSetMode('weekly')">Weeks</button>
+    </div>
+    <button class="te-btn te-btn-ghost" id="teResetBtn" onclick="teResetFilters()"><i class="fas fa-undo"></i> Reset</button>
+    <button class="te-btn te-btn-ghost" id="teCopyTbl"   onclick="teCopyTable()"><i class="fas fa-copy"></i> Copy Table</button>
+    <button class="te-btn te-btn-ghost" id="teCopyChart" onclick="teCopyChart()"><i class="fas fa-image"></i> Copy Chart</button>
+    <button class="te-btn te-btn-close" onclick="window.close()" title="Close tab"><i class="fas fa-times"></i></button>
+  </div>
+</div>
+
+<!-- ── KPI STRIP ── -->
+<div class="te-kpis">
+  <div class="te-kpi"><div class="te-kpi-lbl">Targets</div><div class="te-kpi-val kv-blue"  id="teKpiT">--</div></div>
+  <div class="te-kpi"><div class="te-kpi-lbl">Total CRs</div><div class="te-kpi-val kv-dark" id="teKpiC">--</div></div>
+  <div class="te-kpi"><div class="te-kpi-lbl">Avg Age</div><div class="te-kpi-val"           id="teKpiA">--</div></div>
+  <div class="te-kpi"><div class="te-kpi-lbl">Total JIRAs</div><div class="te-kpi-val kv-green" id="teKpiJ">--</div></div>
+  <div class="te-kpi"><div class="te-kpi-lbl">Area</div>
+    <div class="te-kpi-val kv-blue" style="font-size:14px;padding-top:5px;">{{ area_label }}</div></div>
+</div>
+
+<!-- ── BODY ── -->
+<div class="te-body">
+
+  <!-- CHART -->
+  <div class="te-card">
+    <div class="te-card-hdr">
+      <div class="te-card-hdr-l"><i class="fas fa-chart-bar"></i> Across Targets &mdash; CR Count &amp; Avg Age</div>
+      <div class="te-card-hdr-r" id="teChartHdr">Selected targets shown | Orange line = Avg Age</div>
+    </div>
+    <div style="padding:16px 18px;overflow-x:auto;">
+      <div id="teChart" style="width:100%;min-width:600px;"></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="te-card">
+    <button class="te-collapse" onclick="teToggleTbl()">
+      <div class="te-collapse-l">
+        <i class="fas fa-bullseye"></i> Target Summary
+        <span class="te-badge" id="teTblBadge">loading&hellip;</span>
+      </div>
+      <i class="fas fa-chevron-up" id="teTblChev" style="color:#64748b;font-size:13px;"></i>
+    </button>
+    <div id="teTblWrap">
+      <div class="te-tbl-wrap">
+        <table class="te-tbl" id="teTbl">
+          <thead><tr>
+            <th style="width:46px;">S.No.</th>
+            <th class="tl" style="min-width:160px;">Target</th>
+            <th>Total CRs</th>
+            <th id="teAgeHdr">Avg Age (days)</th>
+            <th>JIRAs</th>
+          </tr></thead>
+          <tbody id="teTblBody"></tbody>
+          <tfoot  id="teTblFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /te-body -->
+
+<script>
+(function(){
+  /* ── PARAMS from URL ── */
+  var P = (function(){
+    var q = new URLSearchParams(window.location.search);
+    return {
+      area:     q.get('area')          || '',
+      dim:      q.get('dim')           || 'cr_area',
+      bu:       q.get('bu')            || 'ALL',
+      sf:       q.get('status_filter') || 'all',
+      site:     q.get('site')          || 'ALL',
+      df:       q.get('date_from')     || '',
+      dt:       q.get('date_to')       || '',
+      targets:  q.get('targets')       || ''
+    };
+  })();
+
+  var RAW   = [];
+  var MODE  = 'daily';
+  var _chart = null;
+  var TE_ALL_TARGETS = [];
+  var TE_SELECTED_TARGETS = [];
+  var TE_TARGET_SEARCH = '';
+
+  /* ── HELPERS ── */
+  function G(id){ return document.getElementById(id); }
+  function fmtInt(n){ return (parseInt(n,10)||0).toLocaleString(); }
+  function fmtD(n){ var v=parseFloat(n); return (!v||isNaN(v))?'--':v.toFixed(1)+'d'; }
+  function fmtW(n){ var v=parseFloat(n); return (!v||isNaN(v))?'--':v.toFixed(1)+'w'; }
+  function ageClass(d){ var v=parseFloat(d||0); return v>=40?'age-red':v>=20?'age-amber':'age-green'; }
+  function ageDisp(d){ return MODE==='weekly'?fmtW(d/7):fmtD(d); }
+  function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function getFilteredRows(){
+    if(!TE_SELECTED_TARGETS.length && !TE_ALL_TARGETS.length) return RAW.slice();
+    if(!TE_SELECTED_TARGETS.length) return [];
+    return RAW.filter(function(r){ return TE_SELECTED_TARGETS.indexOf(String(r.target||''))>=0; });
+  }
+  function updateTeTargetLabel(){
+    var lbl=G('teTargetPickerLabel'); if(!lbl) return;
+    if(!TE_ALL_TARGETS.length){ lbl.textContent='No Targets'; return; }
+    if(TE_SELECTED_TARGETS.length===TE_ALL_TARGETS.length){ lbl.textContent='All Targets'; return; }
+    if(!TE_SELECTED_TARGETS.length){ lbl.textContent='No Targets'; return; }
+    if(TE_SELECTED_TARGETS.length===1){ lbl.textContent=TE_SELECTED_TARGETS[0]; return; }
+    lbl.textContent=TE_SELECTED_TARGETS.length+' selected';
+  }
+  function getTeSearchMatchedTargets(){
+    var q=String(TE_TARGET_SEARCH||'').toLowerCase().trim();
+    return TE_ALL_TARGETS.filter(function(t){ return !q || String(t).toLowerCase().indexOf(q)>=0; });
+  }
+  function renderTeTargetCheckboxes(){
+    var list=G('teTargetCheckboxList'); if(!list) return;
+    var filtered=getTeSearchMatchedTargets();
+    list.innerHTML='';
+    if(!filtered.length){
+      list.innerHTML='<div style="padding:10px 6px;color:#94a3b8;font-size:12px;font-weight:700;">No matching targets</div>';
+      return;
+    }
+    filtered.forEach(function(t){
+      var row=document.createElement('label');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:12px;color:#1e293b;font-weight:600;';
+      var cb=document.createElement('input');
+      cb.type='checkbox';
+      cb.value=t;
+      cb.checked=TE_SELECTED_TARGETS.indexOf(t)>=0;
+      cb.style.accentColor='#6366f1';
+      cb.addEventListener('change',function(e){
+        e.stopPropagation();
+        if(this.checked){
+          if(TE_SELECTED_TARGETS.indexOf(t)<0) TE_SELECTED_TARGETS.push(t);
+        }else{
+          TE_SELECTED_TARGETS=TE_SELECTED_TARGETS.filter(function(x){ return x!==t; });
+        }
+        updateTeTargetLabel();
+        renderAll();
+      });
+      row.appendChild(cb);
+      row.appendChild(document.createTextNode(' '+t));
+      list.appendChild(row);
+    });
+  }
+  function initTeTargetPicker(){
+    TE_ALL_TARGETS=RAW.map(function(t){ return String(t.target||''); }).filter(function(t){ return !!t; });
+    var initial=(P.targets||'').split(',').map(function(t){ return t.trim(); }).filter(function(t){ return !!t; });
+    TE_SELECTED_TARGETS=initial.length ? TE_ALL_TARGETS.filter(function(t){ return initial.indexOf(t)>=0; }) : TE_ALL_TARGETS.slice();
+    TE_TARGET_SEARCH='';
+    updateTeTargetLabel();
+    renderTeTargetCheckboxes();
+    var btn=G('teTargetPickerBtn'), dd=G('teTargetPickerDropdown'), search=G('teTargetSearch'), allBtn=G('teTargetSelectAll'), noneBtn=G('teTargetSelectNone'), wrap=G('teTargetPickerWrap');
+    if(btn&&dd){ btn.onclick=function(e){ e.stopPropagation(); dd.style.display=(dd.style.display==='block'?'none':'block'); }; }
+    if(search){ search.value=''; search.oninput=function(e){ e.stopPropagation(); TE_TARGET_SEARCH=this.value||''; renderTeTargetCheckboxes(); }; search.onclick=function(e){ e.stopPropagation(); }; }
+    if(allBtn){ allBtn.onclick=function(e){ e.stopPropagation(); var matched=getTeSearchMatchedTargets(); if(String(TE_TARGET_SEARCH||'').trim()){ TE_SELECTED_TARGETS=matched.slice(); } else { TE_SELECTED_TARGETS=TE_ALL_TARGETS.slice(); } updateTeTargetLabel(); renderTeTargetCheckboxes(); renderAll(); }; }
+    if(noneBtn){ noneBtn.onclick=function(e){ e.stopPropagation(); var matched=getTeSearchMatchedTargets(); if(String(TE_TARGET_SEARCH||'').trim()){ TE_SELECTED_TARGETS=TE_SELECTED_TARGETS.filter(function(t){ return matched.indexOf(t)<0; }); } else { TE_SELECTED_TARGETS=[]; } updateTeTargetLabel(); renderTeTargetCheckboxes(); renderAll(); }; }
+    document.addEventListener('click',function(e){ if(wrap&&dd&&!wrap.contains(e.target)) dd.style.display='none'; });
+    if(wrap){ wrap.onclick=function(e){ e.stopPropagation(); }; }
+  }
+
+  /* ── PROGRESS ── */
+  function setP(pct, step){
+    var b=G('teBar'), p=G('tePct'), s=G('teStep');
+    if(b) b.style.width = Math.min(100,Math.round(pct))+'%';
+    if(p) p.textContent = Math.round(pct)+'%';
+    if(s) s.textContent = step||'';
+  }
+  function hideOverlay(){
+    var ov=G('teOverlay'); if(!ov) return;
+    ov.style.transition='opacity .4s';
+    ov.style.opacity='0';
+    setTimeout(function(){ ov.style.display='none'; }, 420);
+  }
+  function showError(msg){
+    var box=G('tePBox'); if(!box) return;
+    box.innerHTML =
+      '<div class="te-pbox-icon" style="color:#ef4444"><i class="fas fa-exclamation-triangle"></i></div>'
+     +'<div class="te-pbox-title">Failed to load data</div>'
+     +'<div class="te-pbox-sub" style="word-break:break-all;max-width:340px;">'+escH(msg)+'</div>'
+     +'<button class="te-retry" onclick="window.teLoad()"><i class="fas fa-redo"></i> Retry</button>';
+  }
+
+  /* ── FETCH ── */
+  function load(){
+    /* restore box if retrying */
+    var box=G('tePBox');
+    if(box && box.querySelector('.te-retry')){
+      box.innerHTML=
+        '<div class="te-pbox-icon"><i class="fas fa-chart-bar fa-pulse"></i></div>'
+       +'<div class="te-pbox-title">Loading Target Explorer</div>'
+       +'<div class="te-pbox-sub">'+escH(P.area)+'</div>'
+       +'<div class="te-bar-wrap"><div class="te-bar" id="teBar"></div></div>'
+       +'<div class="te-pct" id="tePct">0%</div>'
+       +'<div class="te-step" id="teStep">Connecting&hellip;</div>';
+    }
+    var ov=G('teOverlay');
+    if(ov){ ov.style.display='flex'; ov.style.opacity='1'; }
+
+    var fakePct = 5;
+    var steps = [
+      'Connecting to server\u2026',
+      'Resolving targets\u2026',
+      'Fetching CR records\u2026',
+      'Calculating ages\u2026',
+      'Building breakdown\u2026',
+      'Almost done\u2026'
+    ];
+    setP(fakePct, steps[0]);
+    var ticker = setInterval(function(){
+      if(fakePct >= 88) return;
+      fakePct += Math.random()*5 + 2;
+      setP(fakePct, steps[Math.min(steps.length-1, Math.floor(fakePct/18))]);
+    }, 700);
+
+    var url = '/api/cr_overview/area_targets'
+      +'?area='          +encodeURIComponent(P.area)
+      +'&dim='           +encodeURIComponent(P.dim)
+      +'&bu='            +encodeURIComponent(P.bu)
+      +'&status_filter=' +encodeURIComponent(P.sf)
+      +'&site='          +encodeURIComponent(P.site)
+      +'&date_from='     +encodeURIComponent(P.df)
+      +'&date_to='       +encodeURIComponent(P.dt);
+
+    fetch(url)
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(d){
+        clearInterval(ticker);
+        if(d && d.error){ showError(d.error); return; }
+        setP(100,'Done!');
+        RAW = (d && d.targets) ? d.targets : [];
+        initTeTargetPicker();
+        setTimeout(function(){ hideOverlay(); renderAll(); }, 350);
+      })
+      .catch(function(e){ clearInterval(ticker); showError(e.message||'Unknown error'); });
+  }
+  window.teLoad = load;   /* exposed for retry button */
+
+  /* ── RENDER ALL ── */
+  function renderAll(){
+    var area = P.area || 'All';
+    var t = G('teTitle');     if(t) t.textContent = area+' \u2014 All '+RAW.length+' Targets';
+    var b = G('teTblBadge');  if(b) b.textContent = RAW.length+' rows + Total';
+    var h = G('teChartHdr');  if(h) h.textContent = 'All '+RAW.length+' targets shown \u2014 no cap | Orange line = Avg Age';
+    buildKpis(); buildTable(); buildChart();
+  }
+
+  /* ── KPI STRIP ── */
+  function buildKpis(){
+    var rows=getFilteredRows();
+    var tc=0,tj=0,wa=0,wc=0;
+    rows.forEach(function(t){
+      var c=parseInt(t.total_count||0,10)||0, a=parseFloat(t.avg_days||0)||0;
+      tc+=c; tj+=(parseInt(t.jira_count||0,10)||0);
+      if(c>0&&a>0){wa+=c*a;wc+=c;}
+    });
+    var avg=wc?wa/wc:0;
+    var kT=G('teKpiT'); if(kT) kT.textContent=rows.length;
+    var kC=G('teKpiC'); if(kC) kC.textContent=fmtInt(tc);
+    var kJ=G('teKpiJ'); if(kJ) kJ.textContent=fmtInt(tj);
+    var kA=G('teKpiA'); if(kA){ kA.textContent=ageDisp(avg); kA.className='te-kpi-val '+ageClass(avg); }
+  }
+
+  /* ── TABLE ── */
+  function buildTable(){
+    var rows=getFilteredRows();
+    var tc=0,tj=0;
+    rows.forEach(function(t){ tc+=(parseInt(t.total_count||0,10)||0); tj+=(parseInt(t.jira_count||0,10)||0); });
+    var html='';
+    rows.forEach(function(t,i){
+      var avg=parseFloat(t.avg_days||0)||0;
+      html+='<tr>'
+        +'<td class="sno">'+(i+1)+'</td>'
+        +'<td class="tl">'+escH(t.target||'')+'</td>'
+        +'<td class="crs">'+fmtInt(t.total_count||0)+'</td>'
+        +'<td class="'+ageClass(avg)+'" style="font-weight:700;">'+ageDisp(avg)+'</td>'
+        +'<td class="jiras">'+fmtInt(t.jira_count||0)+'</td>'
+        +'</tr>';
+    });
+    G('teTblBody').innerHTML=html;
+    G('teTblFoot').innerHTML='<tr>'
+      +'<td class="sno"><i class="fas fa-calculator" style="color:#6366f1;font-size:11px;"></i></td>'
+      +'<td class="tl" style="font-size:13px;font-weight:900;">TOTAL ('+rows.length+' targets)</td>'
+      +'<td class="crs" style="font-size:14px;">'+fmtInt(tc)+'</td>'
+      +'<td style="color:#94a3b8;">&mdash;</td>'
+      +'<td class="jiras" style="font-size:14px;">'+fmtInt(tj)+'</td>'
+      +'</tr>';
+    G('teAgeHdr').textContent='Avg Age ('+(MODE==='weekly'?'weeks':'days')+')';
+  }
+
+  /* ── CHART ── */
+  function buildChart(){
+    if(_chart){try{_chart.destroy();}catch(e){}_chart=null;}
+    var rows=getFilteredRows();
+    var cats  =rows.map(function(t){return t.target||'Unknown';});
+    var counts=rows.map(function(t){return parseInt(t.total_count||0,10)||0;});
+    var ages  =rows.map(function(t){
+      var d=parseFloat(t.avg_days||0)||0; if(!d) return null;
+      return MODE==='weekly'?parseFloat((d/7).toFixed(1)):parseFloat(d.toFixed(1));
+    });
+    var h=Math.max(400,cats.length*26+180);
+    G('teChart').style.height=h+'px';
+    _chart=Highcharts.chart('teChart',{
+      chart:{type:'column',backgroundColor:'#fff',height:h,style:{fontFamily:'inherit'},
+        marginBottom:cats.length>10?140:100,marginLeft:65,marginRight:75},
+      title:{text:'CR Count & Avg Age \u2014 '+(P.area||'All')+' ('+cats.length+' Targets)',
+        style:{fontSize:'14px',fontWeight:'800',color:'#1e293b'}},
+      xAxis:{categories:cats,
+        labels:{useHTML:true,style:{fontSize:'11px',color:'#374151',fontWeight:'700',whiteSpace:'nowrap'},rotation:-45,align:'right',formatter:function(){ return '<span title="'+String(this.value).replace(/"/g,'&quot;')+'">'+escH(this.value)+'</span>'; }},
+        lineColor:'#e2e8f0'},
+      yAxis:[
+        {title:{text:'CR Count',style:{color:'#6366f1',fontSize:'11px'}},
+          gridLineColor:'#f1f5f9',labels:{style:{color:'#6366f1',fontSize:'11px'}},min:0},
+        {title:{text:'Avg Age ('+(MODE==='weekly'?'weeks':'days')+')',style:{color:'#f59e0b',fontSize:'11px'}},
+          opposite:true,gridLineWidth:0,labels:{style:{color:'#f59e0b',fontSize:'11px'}},min:0}
+      ],
+      legend:{enabled:true,itemStyle:{fontSize:'12px',fontWeight:'700',color:'#374151'},
+        layout:'horizontal',align:'center',verticalAlign:'top'},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'12px'},
+        borderRadius:10,borderWidth:0},
+      plotOptions:{
+        column:{borderRadius:4,pointPadding:0.05,groupPadding:0.1,
+          dataLabels:{enabled:true,style:{fontSize:'10px',fontWeight:'700',color:'#374151',textOutline:'none'},y:-2}},
+        line:{dataLabels:{enabled:true,
+          formatter:function(){if(this.y===null||this.y===0)return '';return this.y.toFixed(1)+(MODE==='weekly'?'w':'d');},
+          style:{fontSize:'10px',fontWeight:'700',color:'#f59e0b',textOutline:'none'},y:-10}}
+      },
+      series:[
+        {name:'CR Count',type:'column',data:counts,color:'#6366f1',yAxis:0,tooltip:{valueSuffix:' CRs'}},
+        {name:'Avg Age', type:'line',  data:ages,  color:'#f59e0b',yAxis:1,lineWidth:2.5,
+          connectNulls:true,marker:{radius:5,symbol:'circle'},tooltip:{valueSuffix:MODE==='weekly'?'w':'d'}}
+      ],
+      credits:{enabled:false},
+      exporting:{enabled:true,buttons:{contextButton:{menuItems:['downloadPNG','downloadSVG','downloadCSV']}}}
+    });
+  }
+
+  /* ── MODE TOGGLE ── */
+  window.teSetMode = function(mode){
+    MODE=mode;
+    document.querySelectorAll('#tePill button').forEach(function(b){
+      b.classList.toggle('active',b.dataset.mode===mode);
+    });
+    if(RAW.length){ buildKpis(); buildTable(); buildChart(); }
+  };
+
+  window.teResetFilters = function(){
+    MODE='daily';
+    document.querySelectorAll('#tePill button').forEach(function(b){
+      b.classList.toggle('active',b.dataset.mode==='daily');
+    });
+    TE_TARGET_SEARCH='';
+    if(G('teTargetSearch')) G('teTargetSearch').value='';
+    TE_SELECTED_TARGETS=TE_ALL_TARGETS.slice();
+    updateTeTargetLabel();
+    renderTeTargetCheckboxes();
+    renderAll();
+  };
+
+  /* ── TABLE COLLAPSE ── */
+  var _tblOpen=true;
+  window.teToggleTbl = function(){
+    _tblOpen=!_tblOpen;
+    G('teTblWrap').style.display=_tblOpen?'block':'none';
+    G('teTblChev').className='fas fa-chevron-'+(_tblOpen?'up':'down');
+  };
+
+  /* ── COPY TABLE — same HTML+TSV dual format as cr_overview_landing ── */
+  window.teCopyTable = function(){
+    var btn=G('teCopyTbl'), orig=btn.innerHTML;
+    var rows=getFilteredRows();
+    if(!rows.length){ btn.innerHTML='<i class="fas fa-times"></i> No data'; setTimeout(function(){btn.innerHTML=orig;},1800); return; }
+    var thS ='padding:8px 12px;background:#1e293b;color:#f8fafc;font-weight:800;font-size:11px;border:1px solid #334155;text-align:center;white-space:nowrap;';
+    var thLS='padding:8px 12px;background:#1e293b;color:#f8fafc;font-weight:800;font-size:11px;border:1px solid #334155;text-align:left;white-space:nowrap;';
+    var tdS ='padding:7px 12px;font-size:11px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;';
+    var tdLS='padding:7px 12px;font-size:11px;border:1px solid #e2e8f0;text-align:left;white-space:nowrap;font-weight:700;';
+    var ageHdr='Avg Age ('+(MODE==='weekly'?'weeks':'days')+')';
+    var tc=0,tj=0;
+    rows.forEach(function(t){tc+=(parseInt(t.total_count||0,10)||0);tj+=(parseInt(t.jira_count||0,10)||0);});
+    var h='<table style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;">'
+      +'<thead><tr>'
+      +'<th style="'+thS+'width:40px;">S.No.</th>'
+      +'<th style="'+thLS+'">Target</th>'
+      +'<th style="'+thS+'">Total CRs</th>'
+      +'<th style="'+thS+'">'+ageHdr+'</th>'
+      +'<th style="'+thS+'">JIRAs</th>'
+      +'</tr></thead><tbody>';
+    var lines=['S.No.\tTarget\tTotal CRs\t'+ageHdr+'\tJIRAs'];
+    rows.forEach(function(t,i){
+      var avg=parseFloat(t.avg_days||0)||0, av=ageDisp(avg), bg=i%2===0?'#fff':'#f8fafc';
+      h+='<tr style="background:'+bg+';">'
+        +'<td style="'+tdS+'color:#94a3b8;">'+(i+1)+'</td>'
+        +'<td style="'+tdLS+'">'+escH(t.target||'')+'</td>'
+        +'<td style="'+tdS+'font-weight:800;">'+fmtInt(t.total_count||0)+'</td>'
+        +'<td style="'+tdS+'font-weight:700;">'+av+'</td>'
+        +'<td style="'+tdS+'color:#10b981;font-weight:700;">'+fmtInt(t.jira_count||0)+'</td>'
+        +'</tr>';
+      lines.push((i+1)+'\t'+(t.target||'')+'\t'+fmtInt(t.total_count||0)+'\t'+av+'\t'+fmtInt(t.jira_count||0));
+    });
+    h+='<tr style="background:#eef1ff;">'
+      +'<td style="'+tdS+'border-top:2px solid #6366f1;color:#6366f1;">\u2211</td>'
+      +'<td style="'+tdLS+'border-top:2px solid #6366f1;font-size:13px;font-weight:900;">TOTAL ('+rows.length+' targets)</td>'
+      +'<td style="'+tdS+'border-top:2px solid #6366f1;font-size:13px;font-weight:900;">'+fmtInt(tc)+'</td>'
+      +'<td style="'+tdS+'border-top:2px solid #6366f1;color:#94a3b8;">&mdash;</td>'
+      +'<td style="'+tdS+'border-top:2px solid #6366f1;font-size:13px;font-weight:900;color:#10b981;">'+fmtInt(tj)+'</td>'
+      +'</tr></tbody></table>';
+    lines.push('TOTAL\t\t'+fmtInt(tc)+'\t\t'+fmtInt(tj));
+    var htmlFull='<html><body>'+h+'</body></html>', plain=lines.join('\n');
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+    function ok(){ btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){btn.innerHTML=orig;},2000); }
+    function fail(){ btn.innerHTML='<i class="fas fa-times"></i> Failed'; setTimeout(function(){btn.innerHTML=orig;},2000); }
+    if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+      try{
+        navigator.clipboard.write([new ClipboardItem({
+          'text/html' :new Blob([htmlFull],{type:'text/html'}),
+          'text/plain':new Blob([plain],   {type:'text/plain'})
+        })]).then(ok).catch(function(){navigator.clipboard.writeText(plain).then(ok).catch(fail);});
+      }catch(e){navigator.clipboard.writeText(plain).then(ok).catch(fail);}
+    } else if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(plain).then(ok).catch(fail);
+    } else { fail(); }
+  };
+
+  /* ── COPY CHART — 2× scaled SVG→PNG for crisp output ── */
+  window.teCopyChart = function(){
+    var btn=G('teCopyChart'), orig=btn.innerHTML;
+    if(!_chart){ btn.innerHTML='<i class="fas fa-times"></i> No chart'; setTimeout(function(){btn.innerHTML=orig;},1800); return; }
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Copying...';
+    var SCALE=2;
+    var w=_chart.chartWidth, h=_chart.chartHeight;
+    function fallback(){
+      btn.innerHTML='<i class="fas fa-times"></i> Failed';
+      setTimeout(function(){btn.innerHTML=orig;},2000);
+    }
+    try{
+      /* Ask Highcharts to render SVG at 2× so text/lines are crisp */
+      var svg=_chart.getSVG({chart:{width:w*SCALE, height:h*SCALE}});
+      var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+      var url=URL.createObjectURL(svgBlob);
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var canvas=document.createElement('canvas');
+          canvas.width=w*SCALE; canvas.height=h*SCALE;
+          var ctx=canvas.getContext('2d');
+          ctx.fillStyle='#ffffff';
+          ctx.fillRect(0,0,canvas.width,canvas.height);
+          ctx.drawImage(img,0,0,canvas.width,canvas.height);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(pngBlob){
+            if(!pngBlob){fallback();return;}
+            if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+              navigator.clipboard.write([new ClipboardItem({'image/png':pngBlob})])
+                .then(function(){btn.innerHTML='<i class="fas fa-check"></i> Copied!';setTimeout(function(){btn.innerHTML=orig;},2000);})
+                .catch(function(){fallback();});
+            } else {fallback();}
+          },'image/png');
+        }catch(e){URL.revokeObjectURL(url);fallback();}
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);fallback();};
+      img.src=url;
+    }catch(e){fallback();}
+  };
+
+  /* ── INIT ── */
+  document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
+{% endblock %}

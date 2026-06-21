@@ -1,0 +1,488 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_inner_content %}
+
+<style>
+/* ── Page shell ── */
+.pv-shell { max-width:1400px; margin:0 auto; padding:24px 18px 60px; }
+
+/* ── Page header ── */
+.pv-page-header {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; margin-bottom:24px;
+}
+.pv-page-title {
+  font-size:22px; font-weight:900; color:#0f172a;
+  display:flex; align-items:center; gap:10px;
+}
+.pv-page-title i { color:#7c3aed; }
+.pv-page-sub { font-size:12px; color:#64748b; font-weight:600; margin-top:2px; }
+
+/* ── Toolbar ── */
+.pv-toolbar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  background:#fff; border:1px solid #e9d5ff; border-radius:14px;
+  padding:12px 16px; margin-bottom:20px;
+  box-shadow:0 2px 12px rgba(124,58,237,.07);
+}
+.pv-search-wrap { position:relative; flex:1; min-width:200px; max-width:360px; }
+.pv-search-wrap i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#a78bfa; font-size:12px; pointer-events:none; }
+.pv-search { width:100%; box-sizing:border-box; border:1.5px solid #c4b5fd; border-radius:9px; padding:8px 12px 8px 32px; font-size:12px; font-weight:600; color:#1e293b; background:#faf5ff; outline:none; transition:.15s; }
+.pv-search:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.12); background:#fff; }
+
+.pv-btn { border-radius:8px; padding:7px 14px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; transition:.15s; }
+.pv-btn:hover { opacity:.85; transform:translateY(-1px); }
+.pv-btn-ghost  { border:1.5px solid #c4b5fd; background:#ede9fe; color:#6d28d9; }
+.pv-btn-green  { border:1.5px solid #86efac; background:#f0fdf4; color:#166534; }
+.pv-btn-red    { border:1.5px solid #fca5a5; background:#fff1f2; color:#b91c1c; }
+.pv-btn-save   { border:none; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; padding:8px 20px; font-size:12px; box-shadow:0 4px 14px rgba(124,58,237,.3); }
+.pv-btn-save:hover { box-shadow:0 6px 20px rgba(124,58,237,.45); }
+.pv-btn-refresh { border:none; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; }
+
+.pv-status { font-size:11px; font-weight:700; min-height:16px; padding:4px 10px; border-radius:6px; }
+.pv-status.unsaved { background:#fef9c3; color:#92400e; }
+.pv-status.saved   { background:#dcfce7; color:#166534; }
+.pv-status.error   { background:#fee2e2; color:#b91c1c; }
+
+/* ── Legend ── */
+.pv-legend {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  background:#f5f3ff; border:1px solid #e9d5ff; border-radius:10px;
+  padding:8px 14px; margin-bottom:16px;
+}
+.pv-legend-label { font-size:10px; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:.08em; margin-right:4px; }
+.pv-legend-pill {
+  display:inline-flex; align-items:center; gap:4px;
+  background:#fff; border:1px solid #e2e8f0; border-radius:6px;
+  padding:3px 8px; font-size:10px; font-weight:700; color:#374151;
+}
+
+/* ── BU accordion ── */
+.pv-bu-block { background:#fff; border-radius:14px; border:1px solid #e9d5ff; box-shadow:0 2px 12px rgba(124,58,237,.06); margin-bottom:12px; overflow:hidden; }
+
+.pv-bu-head {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 18px; cursor:pointer; user-select:none;
+  background:linear-gradient(135deg,#f5f3ff,#ede9fe);
+  border-bottom:2px solid #c4b5fd;
+  transition:background .15s;
+}
+.pv-bu-head:hover { background:linear-gradient(135deg,#ede9fe,#ddd6fe); }
+.pv-bu-chevron { font-size:11px; color:#7c3aed; transition:transform .25s; flex-shrink:0; }
+.pv-bu-chevron.closed { transform:rotate(-90deg); }
+.pv-bu-name { font-size:13px; font-weight:900; color:#4c1d95; flex:1; letter-spacing:.04em; }
+.pv-bu-count { font-size:10px; color:#7c3aed; font-weight:700; background:#ede9fe; border-radius:999px; padding:2px 10px; }
+.pv-bu-on  { border:1.5px solid #86efac; background:#f0fdf4; color:#166534; border-radius:7px; padding:4px 12px; font-size:10px; font-weight:800; cursor:pointer; }
+.pv-bu-off { border:1.5px solid #fca5a5; background:#fff1f2; color:#b91c1c; border-radius:7px; padding:4px 12px; font-size:10px; font-weight:800; cursor:pointer; }
+.pv-bu-on:hover, .pv-bu-off:hover { opacity:.8; }
+
+/* ── Column header ── */
+.pv-col-hdr {
+  display:flex; align-items:center;
+  padding:6px 18px; background:#faf5ff;
+  border-bottom:1.5px solid #e9d5ff;
+}
+.pv-col-hdr-name { width:240px; flex-shrink:0; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.08em; }
+.pv-col-hdr-page { flex:1; min-width:72px; text-align:center; padding:2px 4px; }
+.pv-col-hdr-page i { font-size:11px; display:block; margin-bottom:2px; }
+.pv-col-hdr-page span { font-size:8px; font-weight:900; color:#475569; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; display:block; }
+.pv-col-hdr-act { width:52px; flex-shrink:0; }
+
+/* ── Target row ── */
+.pv-target-row {
+  display:flex; align-items:center;
+  padding:8px 18px; border-bottom:1px solid #f1f5f9;
+  transition:background .12s;
+}
+.pv-target-row:last-child { border-bottom:none; }
+.pv-target-row:hover { background:#faf5ff; }
+.pv-target-name { width:240px; flex-shrink:0; }
+.pv-target-name-main { font-size:12px; font-weight:800; color:#1e293b; }
+.pv-target-name-key  { font-size:9px; color:#94a3b8; font-family:monospace; }
+.pv-target-cb { flex:1; min-width:72px; display:flex; align-items:center; justify-content:center; }
+.pv-target-cb input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
+.pv-target-act { width:52px; flex-shrink:0; display:flex; justify-content:flex-end; }
+.pv-row-save { border:1px solid #c4b5fd; background:#faf5ff; color:#7c3aed; border-radius:7px; padding:4px 8px; font-size:11px; cursor:pointer; transition:.15s; }
+.pv-row-save:hover { background:#ede9fe; }
+
+/* ── Empty / loading ── */
+.pv-loading { padding:48px; text-align:center; color:#94a3b8; font-size:13px; }
+.pv-loading i { font-size:28px; display:block; margin-bottom:10px; color:#a78bfa; }
+.pv-empty { padding:40px; text-align:center; color:#94a3b8; font-size:13px; }
+
+/* ── Toast ── */
+.pv-toast { position:fixed; bottom:24px; right:24px; z-index:9999; padding:12px 20px; border-radius:12px; font-size:13px; font-weight:700; color:#fff; box-shadow:0 8px 24px rgba(0,0,0,.18); transition:opacity .3s; pointer-events:none; }
+.pv-toast.ok  { background:#16a34a; }
+.pv-toast.err { background:#dc2626; }
+</style>
+
+<!-- Toast -->
+<div id="pvToast" class="pv-toast" style="opacity:0;"></div>
+
+<div class="pv-shell">
+
+  <!-- ── Page header ── -->
+  <div class="pv-page-header">
+    <div>
+      <div class="pv-page-title"><i class="fas fa-eye"></i> Page Visibility Control</div>
+      <div class="pv-page-sub">Show or hide pages &amp; workspaces per target — changes sync to users instantly</div>
+    </div>
+    <a href="{{ url_for('admin_usage') }}"
+       style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:999px;text-decoration:none;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366f1,#4f46e5);box-shadow:0 6px 18px rgba(79,70,229,.22);font-size:13px;">
+      <i class="fas fa-arrow-left"></i> Back to Admin Stats
+    </a>
+  </div>
+
+  <!-- ── Toolbar ── -->
+  <div class="pv-toolbar">
+    <div class="pv-search-wrap">
+      <i class="fas fa-search"></i>
+      <input id="pvSearch" class="pv-search" type="text" placeholder="Search BU or target…">
+    </div>
+    <button id="pvEnableAll"   class="pv-btn pv-btn-green"><i class="fas fa-check-double"></i> Enable All</button>
+    <button id="pvDisableAll"  class="pv-btn pv-btn-red"><i class="fas fa-times"></i> Disable All</button>
+    <button id="pvSaveAll"     class="pv-btn pv-btn-save"><i class="fas fa-save"></i> Save All Changes</button>
+    <button id="pvRefresh"     class="pv-btn pv-btn-refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+    <span id="pvStatus" class="pv-status"></span>
+  </div>
+
+  <!-- ── Legend ── -->
+  <div class="pv-legend">
+    <span class="pv-legend-label">Pages:</span>
+    <span class="pv-legend-pill"><i class="fas fa-table"          style="color:#7c3aed;"></i> SWPDT</span>
+    <span class="pv-legend-pill"><i class="fas fa-microchip"      style="color:#0891b2;"></i> HWPDT</span>
+    <span class="pv-legend-pill"><i class="fas fa-file-alt"       style="color:#0f766e;"></i> Weekly Report</span>
+    <span class="pv-legend-pill"><i class="fas fa-microscope"     style="color:#be123c;"></i> Open CR Analysis</span>
+    <span class="pv-legend-pill"><i class="fas fa-bug"            style="color:#b45309;"></i> PDT CRs</span>
+    <span class="pv-legend-pill"><i class="fas fa-ticket-alt"     style="color:#047857;"></i> Open JIRAs</span>
+    <span class="pv-legend-pill"><i class="fas fa-clipboard-list" style="color:#4f46e5;"></i> PDT Planning</span>
+    <span class="pv-legend-pill"><i class="fas fa-play-circle"    style="color:#0891b2;"></i> PDT Execution</span>
+    <span class="pv-legend-pill"><i class="fas fa-chart-bar"      style="color:#059669;"></i> PDT Analysis</span>
+    <span class="pv-legend-pill"><i class="fas fa-users"          style="color:#d97706;"></i> Customer Issues</span>
+  </div>
+
+  <!-- ── BU / Target tree ── -->
+  <div id="pvTree">
+    <div class="pv-loading" id="pvTreeLoading">
+      <i class="fas fa-spinner fa-spin"></i>
+      Loading targets…
+    </div>
+  </div>
+
+</div><!-- /pv-shell -->
+
+<script>
+(function () {
+
+  /* ── Page definitions ── */
+  var PAGES = [
+    { key:'swpdt',            label:'SWPDT',            icon:'fa-table',          color:'#7c3aed' },
+    { key:'hwpdt',            label:'HWPDT',            icon:'fa-microchip',      color:'#0891b2' },
+          { key:'weekly_report',    label:'Weekly Report',    icon:'fa-file-alt',       color:'#0f766e' },
+      { key:'open_cr_analysis', label:'Open CR Analysis', icon:'fa-microscope',     color:'#be123c' },
+      { key:'pdt_crs',          label:'PDT CRs',          icon:'fa-bug',            color:'#b45309' },
+      { key:'open_jiras',       label:'Open JIRAs',       icon:'fa-ticket-alt',     color:'#047857' },
+
+    { key:'pdt_planning',     label:'PDT Planning',     icon:'fa-clipboard-list', color:'#4f46e5' },
+    { key:'pdt_execution',    label:'PDT Execution',    icon:'fa-play-circle',    color:'#0891b2' },
+    { key:'pdt_analysis',     label:'PDT Analysis',     icon:'fa-chart-bar',      color:'#059669' },
+    { key:'customer_issues',  label:'Customer Issues',  icon:'fa-users',          color:'#d97706' },
+  ];
+
+  /* Use Jinja data first. On this page, base.html injects window.* later, so
+     reading window.TARGETS_CONFIG_DATA here can be too early and show no rows. */
+  var TARGETS_CFG  = {{ (TARGETS_CONFIG or {}) | tojson }};
+  var ALL_TARGETS  = {{ (ALL_TARGETS_LIST_GLOBAL or []) | tojson }};
+  if (!ALL_TARGETS.length && TARGETS_CFG) ALL_TARGETS = Object.keys(TARGETS_CFG).sort();
+  var _settings    = {};   /* { target_key: { page_key: bool } } */
+  var _dirty       = false;
+
+  /* ── helpers ── */
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function toast(msg, ok) {
+    var t = document.getElementById('pvToast');
+    t.textContent = msg;
+    t.className = 'pv-toast ' + (ok ? 'ok' : 'err');
+    t.style.opacity = '1';
+    setTimeout(function(){ t.style.opacity = '0'; }, 3000);
+  }
+
+  function setStatus(msg, type) {
+    var el = document.getElementById('pvStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'pv-status' + (type ? ' ' + type : '');
+  }
+
+  /* ── API ── */
+  function apiFetchAll(cb) {
+    fetch('/admin/get_page_visibility?scope=all')
+      .then(function(r){ return r.json(); })
+      .then(function(d){ cb(null, d.all_settings || {}); })
+      .catch(function(e){ cb(e, {}); });
+  }
+
+  function apiSave(target, settings, cb) {
+    fetch('/admin/save_page_visibility', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ target: target, settings: settings })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ cb(null, d); })
+    .catch(function(e){ cb(e, {}); });
+  }
+
+  /* ── Build tree ── */
+  function buildTree(filter) {
+    var tree = document.getElementById('pvTree');
+    var loading = document.getElementById('pvTreeLoading');
+    if (loading) loading.style.display = 'none';
+    tree.innerHTML = '';
+
+    /* Group targets by BU */
+    var buMap = {};
+    ALL_TARGETS.forEach(function(tKey) {
+      var cfg = TARGETS_CFG[tKey] || {};
+      var bu  = String(cfg.bu || cfg.business_unit || cfg.bu_key || 'OTHER').toUpperCase();
+      var name = cfg.display_name || tKey.toUpperCase();
+      if (filter) {
+        var q = filter.toLowerCase();
+        if (!name.toLowerCase().includes(q) && !tKey.toLowerCase().includes(q) && !bu.toLowerCase().includes(q)) return;
+      }
+      if (!buMap[bu]) buMap[bu] = [];
+      buMap[bu].push({ key: tKey, name: name });
+    });
+
+    var buKeys = Object.keys(buMap).sort();
+    if (!buKeys.length) {
+      tree.innerHTML = '<div class="pv-empty"><i class="fas fa-search" style="font-size:24px;display:block;margin-bottom:8px;"></i>No targets match.</div>';
+      return;
+    }
+
+    buKeys.forEach(function(bu) {
+      var targets = buMap[bu];
+      var block = document.createElement('div');
+      block.className = 'pv-bu-block';
+      block.dataset.bu = bu;
+
+      /* ── BU header ── */
+      var head = document.createElement('div');
+      head.className = 'pv-bu-head';
+      head.innerHTML =
+        '<i class="fas fa-chevron-down pv-bu-chevron" data-bu="'+esc(bu)+'"></i>'
+        +'<i class="fas fa-layer-group" style="color:#7c3aed;font-size:13px;flex-shrink:0;"></i>'
+        +'<span class="pv-bu-name">'+esc(bu)+'</span>'
+        +'<span class="pv-bu-count">'+targets.length+' target'+(targets.length!==1?'s':'')+'</span>'
+        +'<button class="pv-bu-on"  data-bu="'+esc(bu)+'" title="Enable all pages for this BU"><i class="fas fa-check"></i> All ON</button>'
+        +'<button class="pv-bu-off" data-bu="'+esc(bu)+'" title="Disable all pages for this BU"><i class="fas fa-times"></i> All OFF</button>';
+      block.appendChild(head);
+
+      /* ── BU body ── */
+      var body = document.createElement('div');
+      body.className = 'pv-bu-body';
+      body.dataset.bu = bu;
+
+      /* Column header */
+      var colHdr = document.createElement('div');
+      colHdr.className = 'pv-col-hdr';
+      var hdrHtml = '<div class="pv-col-hdr-name">Target</div>';
+      PAGES.forEach(function(p) {
+        hdrHtml += '<div class="pv-col-hdr-page">'
+          +'<i class="fas '+p.icon+'" style="color:'+p.color+';"></i>'
+          +'<span>'+esc(p.label)+'</span>'
+          +'</div>';
+      });
+      hdrHtml += '<div class="pv-col-hdr-act"></div>';
+      colHdr.innerHTML = hdrHtml;
+      body.appendChild(colHdr);
+
+      /* Target rows */
+      targets.forEach(function(t) {
+        var tKey     = t.key;
+        var tSettings = _settings[tKey] || {};
+
+        var row = document.createElement('div');
+        row.className = 'pv-target-row';
+        row.dataset.target = tKey;
+
+        /* Name cell */
+        var nameDiv = document.createElement('div');
+        nameDiv.className = 'pv-target-name';
+        nameDiv.innerHTML = '<div class="pv-target-name-main">'+esc(t.name)+'</div>'
+          +'<div class="pv-target-name-key">'+esc(tKey)+'</div>';
+        row.appendChild(nameDiv);
+
+        /* Checkbox cells */
+        PAGES.forEach(function(page) {
+          var enabled = tSettings[page.key] !== false;
+          var cell = document.createElement('div');
+          cell.className = 'pv-target-cb';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = enabled;
+          cb.dataset.target = tKey;
+          cb.dataset.page   = page.key;
+          cb.title = page.label + ' — ' + (enabled ? 'Visible' : 'Hidden');
+          cb.style.accentColor = page.color;
+          cb.addEventListener('change', function() {
+            if (!_settings[tKey]) _settings[tKey] = {};
+            _settings[tKey][page.key] = cb.checked;
+            _dirty = true;
+            setStatus('Unsaved changes — click Save All Changes', 'unsaved');
+          });
+          cell.appendChild(cb);
+          row.appendChild(cell);
+        });
+
+        /* Per-row save button */
+        var actDiv = document.createElement('div');
+        actDiv.className = 'pv-target-act';
+        var rowSave = document.createElement('button');
+        rowSave.className = 'pv-row-save';
+        rowSave.innerHTML = '<i class="fas fa-save"></i>';
+        rowSave.title = 'Save ' + t.name;
+        rowSave.addEventListener('click', function() {
+          rowSave.disabled = true;
+          rowSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          apiSave(tKey, _settings[tKey] || {}, function(err, d) {
+            if (!err && d.success) {
+              rowSave.innerHTML = '<i class="fas fa-check"></i>';
+              rowSave.style.background = '#dcfce7'; rowSave.style.color = '#166534';
+              toast('Saved: ' + t.name, true);
+              setStatus('Saved: ' + t.name, 'saved');
+            } else {
+              rowSave.innerHTML = '<i class="fas fa-times"></i>';
+              rowSave.style.background = '#fee2e2'; rowSave.style.color = '#b91c1c';
+              toast('Failed to save: ' + t.name, false);
+            }
+            setTimeout(function(){
+              rowSave.innerHTML = '<i class="fas fa-save"></i>';
+              rowSave.style.background = ''; rowSave.style.color = '';
+              rowSave.disabled = false;
+            }, 1800);
+          });
+        });
+        actDiv.appendChild(rowSave);
+        row.appendChild(actDiv);
+        body.appendChild(row);
+      });
+
+      block.appendChild(body);
+
+      /* ── BU toggle ── */
+      head.addEventListener('click', function(e) {
+        if (e.target.closest('.pv-bu-on') || e.target.closest('.pv-bu-off')) return;
+        var open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        var chev = head.querySelector('.pv-bu-chevron');
+        if (chev) chev.classList.toggle('closed', open);
+      });
+
+      /* BU All ON / OFF */
+      head.querySelector('.pv-bu-on').addEventListener('click', function(e) {
+        e.stopPropagation();
+        setBuAll(bu, true);
+      });
+      head.querySelector('.pv-bu-off').addEventListener('click', function(e) {
+        e.stopPropagation();
+        setBuAll(bu, false);
+      });
+
+      tree.appendChild(block);
+    });
+  }
+
+  function setBuAll(bu, val) {
+    document.querySelectorAll('.pv-target-row').forEach(function(row) {
+      var tKey = row.dataset.target;
+      var cfg  = TARGETS_CFG[tKey] || {};
+      var tBu  = String(cfg.bu || cfg.business_unit || cfg.bu_key || 'OTHER').toUpperCase();
+      if (tBu !== bu) return;
+      if (!_settings[tKey]) _settings[tKey] = {};
+      row.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+        cb.checked = val;
+        _settings[tKey][cb.dataset.page] = val;
+      });
+    });
+    _dirty = true;
+    setStatus('Unsaved changes — click Save All Changes', 'unsaved');
+  }
+
+  /* ── Load ── */
+  function pvLoad() {
+    var tree = document.getElementById('pvTree');
+    tree.innerHTML = '<div class="pv-loading" id="pvTreeLoading"><i class="fas fa-spinner fa-spin"></i>Loading targets…</div>';
+    apiFetchAll(function(err, allSettings) {
+      _settings = allSettings;
+      _dirty = false;
+      setStatus('', '');
+      buildTree(document.getElementById('pvSearch').value.trim().toLowerCase());
+    });
+  }
+
+  /* ── Save All ── */
+  document.getElementById('pvSaveAll').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+    var keys = Object.keys(_settings);
+    if (!keys.length) {
+      btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+      btn.disabled = false;
+      setStatus('Nothing to save.', '');
+      return;
+    }
+    var done = 0, ok = 0, fail = 0;
+    keys.forEach(function(tKey) {
+      apiSave(tKey, _settings[tKey], function(err, d) {
+        done++;
+        if (!err && d.success) ok++; else fail++;
+        if (done === keys.length) {
+          btn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+          btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+          setStatus('Saved '+ok+' target(s)'+(fail?' — '+fail+' failed':''), fail===0?'saved':'error');
+          toast('Saved '+ok+' target(s)'+(fail?' — '+fail+' failed':''), fail===0);
+          _dirty = false;
+          setTimeout(function(){
+            btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+            btn.style.background = '';
+            btn.disabled = false;
+          }, 2200);
+        }
+      });
+    });
+  });
+
+  /* ── Enable / Disable All ── */
+  function setGlobalAll(val) {
+    document.querySelectorAll('#pvTree input[type=checkbox]').forEach(function(cb) {
+      cb.checked = val;
+      if (!_settings[cb.dataset.target]) _settings[cb.dataset.target] = {};
+      _settings[cb.dataset.target][cb.dataset.page] = val;
+    });
+    _dirty = true;
+    setStatus('Unsaved changes — click Save All Changes', 'unsaved');
+  }
+  document.getElementById('pvEnableAll').addEventListener('click',  function(){ setGlobalAll(true);  });
+  document.getElementById('pvDisableAll').addEventListener('click', function(){ setGlobalAll(false); });
+
+  /* ── Refresh ── */
+  document.getElementById('pvRefresh').addEventListener('click', pvLoad);
+
+  /* ── Search ── */
+  document.getElementById('pvSearch').addEventListener('input', function() {
+    buildTree(this.value.trim().toLowerCase());
+  });
+
+  /* ── Warn on unsaved changes ── */
+  window.addEventListener('beforeunload', function(e) {
+    if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  /* ── Init ── */
+  pvLoad();
+
+})();
+</script>
+
+{% endblock %}

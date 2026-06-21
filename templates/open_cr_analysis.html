@@ -1,0 +1,650 @@
+{% extends "target_layout.html" %}
+{% block page_heading %}{{ page_heading }}{% endblock %}
+{% block page_content %}
+
+<script>
+window.OCR_CR_ROWS = {{ (cr_rows or []) | tojson }};
+window.OCR_TARGET  = {{ target_name | tojson }};
+</script>
+
+
+<style>
+.ocr-wrap { display:flex; flex-direction:column; gap:14px; }
+.ocr-selector-card { background:#fff; border-radius:16px; border:1px solid #e5e7eb; box-shadow:0 4px 16px rgba(15,23,42,.07); padding:18px 20px; }
+.ocr-selector-title { font-size:13px; font-weight:800; color:#1e293b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.ocr-cr-picker { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.ocr-search-wrap { position:relative; flex:1; min-width:260px; max-width:420px; }
+.ocr-search-input { width:100%; padding:10px 14px 10px 36px; border:1px solid #d1d5db; border-radius:12px; font-size:13px; font-weight:600; background:#f9fafb; color:#111827; outline:none; box-sizing:border-box; }
+.ocr-search-input:focus { border-color:#6366f1; background:#fff; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+.ocr-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:13px; pointer-events:none; }
+.ocr-dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 12px 32px rgba(15,23,42,.14); max-height:280px; overflow-y:auto; z-index:200; display:none; }
+.ocr-dropdown.open { display:block; }
+.ocr-dropdown-item { display:flex; align-items:flex-start; gap:10px; padding:9px 14px; cursor:pointer; transition:.12s; border-bottom:1px solid #f1f5f9; }
+.ocr-dropdown-item:last-child { border-bottom:none; }
+.ocr-dropdown-item:hover { background:#f5f3ff; }
+.ocr-dropdown-item input[type=checkbox] { margin-top:2px; flex-shrink:0; accent-color:#6366f1; }
+.ocr-dropdown-item .cr-id { font-weight:800; color:#4f46e5; font-size:12px; white-space:nowrap; }
+.ocr-dropdown-item .cr-ttl { font-size:11px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px; }
+.ocr-dropdown-item .cr-status-chip { margin-left:auto; flex-shrink:0; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:700; }
+.ocr-dropdown::-webkit-scrollbar { width:5px; }
+.ocr-dropdown::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+.ocr-tags { display:flex; flex-wrap:wrap; gap:6px; min-height:36px; align-items:center; flex:1; }
+.ocr-tag { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:12px; font-weight:700; border:1px solid #c7d2fe; }
+.ocr-tag-remove { cursor:pointer; color:#818cf8; font-size:13px; line-height:1; background:none; border:none; padding:0; }
+.ocr-tag-remove:hover { color:#4338ca; }
+.ocr-btn { padding:10px 18px; border-radius:12px; border:none; font-size:13px; font-weight:800; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:7px; }
+.ocr-btn-primary { background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; box-shadow:0 8px 18px rgba(99,102,241,.28); }
+.ocr-btn-primary:hover { background:linear-gradient(135deg,#4338ca,#4f46e5); }
+.ocr-btn-secondary { background:#f1f5f9; color:#475569; }
+.ocr-btn-secondary:hover { background:#e2e8f0; }
+.ocr-btn-save-all { background:linear-gradient(135deg,#16a34a,#22c55e); color:#fff; box-shadow:0 8px 18px rgba(34,197,94,.28); }
+.ocr-btn-save-all:hover { background:linear-gradient(135deg,#15803d,#16a34a); }
+.ocr-filters { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; background:#f8faff; border-top:1px solid #e5e7eb; border-radius:0 0 16px 16px; margin-top:14px; }
+.ocr-filters label { font-size:12px; font-weight:700; color:#6b7280; }
+.ocr-filters select { padding:7px 11px; border-radius:9px; border:1px solid #d1d5db; font-size:12px; font-weight:600; background:#fff; color:#111827; outline:none; }
+.ocr-filters select:focus { border-color:#6366f1; }
+.ocr-count-badge { padding:5px 13px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:12px; font-weight:800; }
+.ocr-table-card { background:#fff; border-radius:16px; border:1px solid #e5e7eb; box-shadow:0 6px 20px rgba(15,23,42,.07); overflow:hidden; display:none; }
+.ocr-table-card.visible { display:block; }
+.ocr-table-wrap { overflow-x:auto; max-height:62vh; overflow-y:auto; }
+.ocr-table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:2200px; table-layout:fixed; }
+
+.ocr-table thead th { position:sticky; top:0; z-index:5; background:#1e293b; color:#f1f5f9; padding:11px 13px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; border-right:1px solid rgba(255,255,255,.08); }
+.ocr-table tbody tr { border-bottom:1px solid #f1f5f9; transition:.12s; }
+.ocr-table tbody tr:hover { background:#f8faff; }
+.ocr-table td { padding:9px 13px; vertical-align:top; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ocr-table td.wrap-cell { white-space:normal; min-width:0; max-width:none; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; word-break:break-word; line-height:1.35; }
+
+.chip { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+.chip-open { background:#fef3c7; color:#92400e; }
+.chip-analysis { background:#dbeafe; color:#1e40af; }
+.chip-other { background:#f3f4f6; color:#374151; }
+.notes-cell { min-width:180px; max-width:260px; white-space:normal; }
+.notes-textarea { width:100%; min-height:48px; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:6px 8px; font-size:12px; font-family:inherit; background:#fafafa; color:#111827; transition:.15s; box-sizing:border-box; }
+.notes-textarea:focus { border-color:#6366f1; background:#fff; box-shadow:0 0 0 3px rgba(99,102,241,.10); outline:none; }
+.notes-dirty { border-color:#f59e0b !important; background:#fffbeb !important; }
+.ai-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; background:linear-gradient(135deg,#f5f3ff,#ede9fe); color:#7c3aed; font-size:11px; font-weight:700; border:1px solid #ddd6fe; }
+/* AI Analysis cell — premium styles */
+.ai-analyse-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:10px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+  color:#fff; font-size:11px; font-weight:800; white-space:nowrap;
+  box-shadow:0 2px 8px rgba(99,102,241,.35);
+  transition:all .18s ease; letter-spacing:.02em;
+}
+.ai-analyse-btn:hover {
+  background:linear-gradient(135deg,#6d28d9,#4338ca);
+  box-shadow:0 4px 14px rgba(99,102,241,.45);
+  transform:translateY(-1px);
+}
+.ai-analyse-btn:active { transform:translateY(0); }
+.ai-analyse-btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+.ai-refresh-btn {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:8px; border:1px solid #ddd6fe;
+  background:#f5f3ff; color:#7c3aed; font-size:10px; font-weight:700;
+  cursor:pointer; margin-top:5px; transition:all .15s;
+}
+.ai-refresh-btn:hover { background:#ede9fe; border-color:#c4b5fd; }
+.ai-result {
+  font-size:11px; line-height:1.6; color:#1e293b;
+  max-height:180px; overflow-y:auto; overflow-x:hidden; padding:8px 10px;
+  background:linear-gradient(135deg,#faf5ff,#f5f3ff);
+  border:1px solid #e9d5ff; border-radius:10px;
+  border-left:3px solid #7c3aed;
+  white-space:normal;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+.ai-result strong { color:#4f46e5; font-weight:800; }
+.ai-result em { color:#6b7280; font-style:italic; font-size:10px; }
+.ai-result * { max-width:100%; box-sizing:border-box; }
+.ai-cell { vertical-align:top; padding:8px !important; min-width:200px; max-width:320px; width:320px; }
+/* Analyse All button in toolbar */
+#analyseAllBtn {
+  background:linear-gradient(135deg,#7c3aed,#4f46e5) !important;
+  color:#fff !important; border:none !important;
+  box-shadow:0 2px 8px rgba(99,102,241,.3);
+  font-weight:800 !important; letter-spacing:.02em;
+  transition:all .18s ease !important;
+}
+#analyseAllBtn:hover {
+  background:linear-gradient(135deg,#6d28d9,#4338ca) !important;
+  box-shadow:0 4px 14px rgba(99,102,241,.4) !important;
+  transform:translateY(-1px);
+}
+.ocr-state { text-align:center; padding:50px 20px; color:#9ca3af; font-size:13px; }
+.ocr-table-wrap::-webkit-scrollbar { width:6px; height:6px; }
+.ocr-table-wrap::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+</style>
+
+<div class="ocr-wrap">
+  <div class="ocr-selector-card">
+    <div class="ocr-selector-title"><i class="fas fa-filter" style="color:#6366f1;"></i> Open_Analysis CR</div>
+    <div class="ocr-cr-picker">
+      <div class="ocr-search-wrap" id="ocrPickerWrap">
+        <i class="fas fa-search ocr-search-icon"></i>
+        <input type="text" id="ocrSearchInput" class="ocr-search-input" placeholder="Search any CR from this target…" autocomplete="off" onfocus="openDropdown()" oninput="filterDropdown()">
+        <div class="ocr-dropdown" id="ocrDropdown"></div>
+      </div>
+            <div class="ocr-tags" id="ocrTags"><span style="color:#9ca3af;font-size:12px;font-style:italic;">Auto-loading Open / Analysis CRs…</span></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="ocr-btn ocr-btn-secondary" onclick="clearSelection()"><i class="fas fa-times"></i> Clear</button>
+      <button class="ocr-btn ocr-btn-secondary" id="ocrCopyBtn" onclick="ocrCopyTable()"><i class="fas fa-copy"></i> Copy Table</button>
+      </div>
+    </div>
+    <div class="ocr-filters" id="ocrFilters" style="display:none;">
+      <label>Area:</label>
+      <select id="ocrAreaFilter" onchange="applyFilters()"><option value="">All Areas</option></select>
+            <label>Status:</label>
+      <select id="ocrStatusFilter" onchange="applyFilters()"><option value="">All Statuses</option></select>
+      <span class="ocr-count-badge" id="ocrCount">0 CRs</span>
+      <button class="ocr-btn ocr-btn-save-all" onclick="saveAllNotes()" id="saveAllBtn"><i class="fas fa-save"></i> Save All Notes</button>
+      <button class="ocr-btn" id="analyseAllBtn" onclick="analyseAllCRs()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;"><i class="fas fa-magic"></i> Analyse All</button>
+      <span id="saveAllStatus" style="font-size:12px;font-weight:700;"></span>
+    </div>
+  </div>
+
+  <div class="ocr-table-card" id="ocrTableCard">
+    <div class="ocr-table-wrap">
+            <table class="ocr-table">
+        <colgroup>
+          <col style="width:44px">
+          <col style="width:120px">
+          <col style="width:110px">
+          <col style="width:190px">
+          <col style="width:420px">
+          <col style="width:220px">
+          <col style="width:260px">
+          <col style="width:150px">
+          <col style="width:150px">
+          <col style="width:130px">
+          <col style="width:155px">
+          <col style="width:110px">
+          <col style="width:160px">
+          <col style="width:180px">
+          <col style="width:240px">
+          <col style="width:320px">
+        </colgroup>
+        <thead>
+
+          <tr>
+            <th style="width:42px;">#</th>
+            <th>CR ID</th>
+            <th>Occurrences</th>
+            <th>Latest Meta</th>
+            <th>CR Title</th>
+            <th>Scenarios</th>
+            <th>Tech Notes / Debug Notes</th>
+            <th>JIRA First Instance</th>
+            <th>JIRA Last Instance</th>
+            <th>Area</th>
+            <th>CR Creation Date</th>
+            <th>CR Status</th>
+            <th>Seen In (Image)</th>
+            <th>Test Team</th>
+            <th>CR Notes</th>
+            <th>AI Analysis</th>
+          </tr>
+        </thead>
+        <tbody id="ocrTbody">
+          <tr><td colspan="16" class="ocr-state">Auto-loading Open / Analysis CRs…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    let ALL_CR_ROWS = window.OCR_CR_ROWS || [];
+  const TARGET      = window.OCR_TARGET  || '';
+  const CR_MAP = {};
+
+    function ocrCopyTable() {
+    const tbl = document.querySelector('.ocr-table');
+    if (!tbl) { alert('No table to copy'); return; }
+    const visibleRows = Array.from(tbl.querySelectorAll('tbody tr')).filter(tr => tr.style.display !== 'none');
+    const headerRows = Array.from(tbl.querySelectorAll('thead tr'));
+    const thStyle = 'background:#1e293b;color:#f8fafc;padding:8px 10px;border:1px solid #334155;font-weight:700;font-size:11px;white-space:nowrap;text-align:left;';
+    const tdStyle = 'padding:7px 10px;border:1px solid #e5e7eb;font-size:12px;vertical-align:top;white-space:nowrap;';
+    const tdAltStyle = 'padding:7px 10px;border:1px solid #e5e7eb;font-size:12px;vertical-align:top;white-space:nowrap;background:#f8fafc;';
+    let html = '<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">';
+    if (headerRows.length) {
+      html += '<thead>';
+      headerRows.forEach(tr => {
+        html += '<tr>';
+        tr.querySelectorAll('th').forEach(th => {
+          html += '<th style="'+thStyle+'">'+esc(th.textContent.trim())+'</th>';
+        });
+        html += '</tr>';
+      });
+      html += '</thead>';
+    }
+    html += '<tbody>';
+    visibleRows.forEach((tr, i) => {
+      const cellStyle = i % 2 === 0 ? tdStyle : tdAltStyle;
+      html += '<tr>';
+      tr.querySelectorAll('td').forEach(td => {
+        const link = td.querySelector('a[href]');
+        if (link) {
+          const href = link.getAttribute('href') || '';
+          const text = (link.textContent || td.textContent || '').trim();
+          html += '<td style="'+cellStyle+'"><a href="'+esc(href)+'" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:800;text-decoration:underline;">'+esc(text)+'</a></td>';
+        } else {
+          html += '<td style="'+cellStyle+'">'+td.innerHTML+'</td>';
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    const tmp = document.createElement('div'); tmp.contentEditable = 'true';
+    tmp.style.cssText = 'position:fixed;left:-9999px;top:0'; tmp.innerHTML = html;
+    document.body.appendChild(tmp);
+    const range = document.createRange(); range.selectNodeContents(tmp);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    let ok = false; try { ok = document.execCommand('copy'); } catch(e) {}
+    sel.removeAllRanges(); tmp.remove();
+    const btn = document.getElementById('ocrCopyBtn');
+    if (btn) { const orig = btn.innerHTML; btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied!' : '<i class="fas fa-times"></i> Copy failed'; setTimeout(() => btn.innerHTML = orig, 2000); }
+    if (!ok) alert('Copy failed — try Ctrl+C after selecting the table.');
+  }
+
+  window.ocrCopyTable = ocrCopyTable;
+  function indexCrRows(rows) {
+    rows.forEach(r => {
+      const mapped = String(r.cr_id  || r.mapped_cr || '').trim();
+      const raw    = String(r.cr_raw || r.cr        || '').trim();
+      if (mapped) CR_MAP[mapped] = r;
+      if (raw && raw !== mapped) CR_MAP[raw] = r;
+    });
+  }
+  function isOpenOrAnalysis(row) {
+    const status = String((row || {}).cr_status || '').trim().toLowerCase();
+    return status.includes('open') || status.includes('analysis') || status.includes('anal');
+  }
+  indexCrRows(ALL_CR_ROWS);
+    let SELECTED_IDS = new Set();
+  let NOTES_MAP    = {};
+  let TABLE_ROWS   = [];
+  let LOADED_ROWS  = [];
+  let API_MAP      = {};   // cr_id -> full API row, cached after first fetch
+
+  /* ── Boot: load notes first, then auto-load saved CRs ── */
+  async function boot() {
+    try {
+            const [noteResp, allResp] = await Promise.all([
+        fetch(`/api/cr_debug_notes/${encodeURIComponent(TARGET)}`),
+        fetch(`/api/open_crs/${encodeURIComponent(TARGET)}?scope=all`)
+      ]);
+      const noteData = await noteResp.json();
+      (noteData.notes || []).forEach(n => {
+        NOTES_MAP[n.cr_id] = {
+          scenarios:  n.scenarios  || '',
+          tech_notes: n.tech_notes || '',
+          cr_notes:   n.cr_notes   || ''
+        };
+      });
+
+      const allData = await allResp.json();
+      ALL_CR_ROWS = allData.crs || ALL_CR_ROWS || [];
+      indexCrRows(ALL_CR_ROWS);
+      API_MAP = {};
+      ALL_CR_ROWS.forEach(r => {
+        const mapped = String(r.cr_id  || '').trim();
+        const raw    = String(r.cr_raw || '').trim();
+        if (mapped) API_MAP[mapped] = r;
+        if (raw && raw !== mapped) API_MAP[raw] = r;
+      });
+
+      // Auto-load only CRs whose status is Open or Analysis.
+      ALL_CR_ROWS.forEach(r => {
+        if (!isOpenOrAnalysis(r)) return;
+        const mapped = String(r.cr_id || r.mapped_cr || '').trim();
+        const raw = String(r.cr_raw || r.cr || '').trim();
+        const id = mapped || raw;
+        if (id) SELECTED_IDS.add(id);
+      });
+
+      renderTags();
+      if (SELECTED_IDS.size) {
+        await _fetchAndRender();
+      } else {
+        document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="16" class="ocr-state">No Open / Analysis CRs found. Search above to add any target CR manually.</td></tr>';
+        document.getElementById('ocrTableCard').classList.add('visible');
+      }
+    } catch (e) {
+      console.warn('Boot error:', e);
+    }
+  }
+
+
+    /* ── Shared fetch + render (used by boot AND loadSelectedCRs) ── */
+  async function _fetchAndRender() {
+    document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="16" class="ocr-state"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>';
+    document.getElementById('ocrTableCard').classList.add('visible');
+    document.getElementById('ocrFilters').style.display = 'flex';
+    try {
+      // Only call API once; cache result
+      if (!Object.keys(API_MAP).length) {
+        const resp = await fetch(`/api/open_crs/${encodeURIComponent(TARGET)}?scope=all`);
+        const data = await resp.json();
+        (data.crs || []).forEach(r => {
+          const mapped = String(r.cr_id  || '').trim();
+          const raw    = String(r.cr_raw || '').trim();
+          if (mapped) API_MAP[mapped] = r;
+          if (raw && raw !== mapped) API_MAP[raw] = r;
+        });
+      }
+
+      LOADED_ROWS = [...SELECTED_IDS].map(id => {
+        const api  = API_MAP[id] || {};
+        const base = CR_MAP[id]  || {};
+        return {
+          cr_id:               id,
+          cr_title:            api.cr_title            || base.cr_title      || '',
+          area:                api.area               || base.cr_area       || '',
+          cr_status:           api.cr_status          || base.cr_status     || '',
+          cr_creation_date:    api.cr_creation_date   || base.cr_date       || '',
+          cr_age:              api.cr_age             || base.cr_age        || '',
+          occurrences:         api.occurrences        || base.cr_occurrence || '',
+          seen_in:             api.seen_in            || base.image         || '',
+          cr_notes:            api.cr_notes           || '',
+          jira_first_instance: api.jira_first_instance|| '',
+          jira_last_instance:  api.jira_last_instance || '',
+          test_teams:          api.test_teams         || '',
+          latest_meta:         api.latest_meta        || '',
+        };
+      });
+
+      populateAreaFilter();
+      populateStatusFilter();
+      applyFilters();
+    } catch (e) {
+      document.getElementById('ocrTbody').innerHTML = `<tr><td colspan="16" class="ocr-state">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  window.openDropdown = function () { filterDropdown(); document.getElementById('ocrDropdown').classList.add('open'); };
+
+
+  window.filterDropdown = function () {
+    const q  = (document.getElementById('ocrSearchInput').value || '').toLowerCase().trim();
+    const dd = document.getElementById('ocrDropdown');
+    dd.innerHTML = '';
+    const filtered = ALL_CR_ROWS.filter(r => {
+      const mapped = String(r.cr_id  || r.mapped_cr || '').trim();
+      const raw    = String(r.cr_raw || r.cr        || '').trim();
+      const ttl    = String(r.cr_title || '').toLowerCase();
+      return !q || mapped.toLowerCase().includes(q) || raw.toLowerCase().includes(q) || ttl.includes(q);
+    }).slice(0, 80);
+    if (!filtered.length) { dd.innerHTML = '<div style="padding:12px 14px;color:#9ca3af;font-size:12px;">No CRs found</div>'; dd.classList.add('open'); return; }
+    filtered.forEach(r => {
+      const mapped  = String(r.cr_id  || r.mapped_cr || '').trim();
+      const raw     = String(r.cr_raw || r.cr        || '').trim();
+      const id      = mapped || raw;
+      const title   = String(r.cr_title  || '').trim();
+      const status  = String(r.cr_status || '').trim();
+      const sLow    = status.toLowerCase();
+      const chipCls = sLow.includes('open') ? 'chip-open' : sLow.includes('anal') ? 'chip-analysis' : 'chip-other';
+      const idDisp  = (raw && raw !== mapped && mapped) ? `${esc(mapped)} <span style="color:#9ca3af;font-size:10px;">(${esc(raw)})</span>` : esc(id);
+      const item = document.createElement('div');
+      item.className = 'ocr-dropdown-item';
+      item.innerHTML = `<input type="checkbox" value="${esc(id)}" ${SELECTED_IDS.has(id) ? 'checked' : ''}><div style="flex:1;min-width:0;"><div class="cr-id">${idDisp}</div><div class="cr-ttl">${esc(title)}</div></div><span class="cr-status-chip chip ${chipCls}">${esc(status)}</span>`;
+      item.querySelector('input').addEventListener('change', async function () { if (this.checked) SELECTED_IDS.add(id); else SELECTED_IDS.delete(id); renderTags(); if (SELECTED_IDS.size) await _fetchAndRender(); else clearSelection(); });
+      item.addEventListener('click', function (e) { if (e.target.tagName === 'INPUT') return; const cb = item.querySelector('input'); cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); });
+      dd.appendChild(item);
+    });
+    dd.classList.add('open');
+  };
+
+  document.addEventListener('click', function (e) { const w = document.getElementById('ocrPickerWrap'); if (w && !w.contains(e.target)) document.getElementById('ocrDropdown').classList.remove('open'); });
+
+  function renderTags() {
+    const c = document.getElementById('ocrTags');
+        if (!SELECTED_IDS.size) { c.innerHTML = '<span style="color:#9ca3af;font-size:12px;font-style:italic;">No CRs selected.</span>'; return; }
+    c.innerHTML = `<span class="ocr-tag">${SELECTED_IDS.size} CRs selected</span>`;
+  }
+  window.removeTag = function (id) { SELECTED_IDS.delete(id); renderTags(); };
+    window.clearSelection = function () {
+    SELECTED_IDS.clear(); renderTags();
+    document.getElementById('ocrSearchInput').value = '';
+    document.getElementById('ocrDropdown').classList.remove('open');
+    document.getElementById('ocrTableCard').classList.remove('visible');
+    document.getElementById('ocrFilters').style.display = 'none';
+    LOADED_ROWS = []; TABLE_ROWS = [];
+  };
+
+
+    window.loadSelectedCRs = async function () {
+        if (!SELECTED_IDS.size) { alert('No CRs selected.'); return; }
+    await _fetchAndRender();
+  };
+
+
+    function populateAreaFilter() {
+    const sel = document.getElementById('ocrAreaFilter');
+    const current = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    [...new Set(LOADED_ROWS.map(r => (r.area || '').trim()).filter(Boolean))].sort()
+      .forEach(a => { const o = document.createElement('option'); o.value = a.toLowerCase(); o.textContent = a; sel.appendChild(o); });
+    sel.value = [...sel.options].some(o => o.value === current) ? current : '';
+  }
+
+  function populateStatusFilter() {
+    const sel = document.getElementById('ocrStatusFilter');
+    const current = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    [...new Set(LOADED_ROWS.map(r => (r.cr_status || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+      .forEach(s => { const o = document.createElement('option'); o.value = s.toLowerCase(); o.textContent = s; sel.appendChild(o); });
+    sel.value = [...sel.options].some(o => o.value === current) ? current : '';
+  }
+
+  window.applyFilters = function () {
+    const area   = (document.getElementById('ocrAreaFilter').value   || '').toLowerCase();
+    const status = (document.getElementById('ocrStatusFilter').value || '').toLowerCase();
+    TABLE_ROWS = LOADED_ROWS.filter(r => {
+      if (area   && (r.area      || '').toLowerCase() !== area)          return false;
+      if (status && (r.cr_status || '').toLowerCase() !== status) return false;
+      return true;
+    });
+    document.getElementById('ocrCount').textContent = `${TABLE_ROWS.length} CRs`;
+    renderTable();
+  };
+
+  function renderTable() {
+    const tbody = document.getElementById('ocrTbody');
+    if (!TABLE_ROWS.length) { tbody.innerHTML = '<tr><td colspan="16" class="ocr-state">No CRs match the current filters.</td></tr>'; return; }
+    tbody.innerHTML = TABLE_ROWS.map((r, idx) => {
+      const note    = NOTES_MAP[r.cr_id] || {};
+      const sLow    = (r.cr_status || '').toLowerCase();
+      const chipCls = sLow.includes('open') ? 'chip-open' : sLow.includes('anal') ? 'chip-analysis' : 'chip-other';
+      return `
+      <tr data-cr="${esc(r.cr_id)}">
+        <td style="text-align:center;color:#94a3b8;font-weight:700;">${idx + 1}</td>
+        <td><a href="https://orbit/cr/${esc(r.cr_id).replace(/^CR/i,'')}" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:800;text-decoration:none;border-bottom:1.5px solid rgba(79,70,229,0.3);">${esc(r.cr_id)}</a></td>
+        <td style="text-align:center;font-weight:700;">${esc(r.occurrences)}</td>
+                <td class="wrap-cell" title="${esc(r.latest_meta)}" style="font-size:11px;color:#6b7280;">${esc(r.latest_meta)}</td>
+        <td class="wrap-cell" title="${esc(r.cr_title)}">${esc(r.cr_title)}</td>
+
+        <td class="notes-cell">
+          <textarea class="notes-textarea" data-field="scenarios" data-cr="${esc(r.cr_id)}" placeholder="Add scenarios…" oninput="markDirty(this)">${esc(note.scenarios || '')}</textarea>
+        </td>
+        <td class="notes-cell">
+          <textarea class="notes-textarea" data-field="tech_notes" data-cr="${esc(r.cr_id)}" placeholder="Add tech / debug notes…" oninput="markDirty(this)">${esc(note.tech_notes || '')}</textarea>
+        </td>
+        <td>${esc(r.jira_first_instance)}</td>
+        <td>${esc(r.jira_last_instance)}</td>
+        <td><span class="chip chip-other">${esc(r.area)}</span></td>
+        <td>${esc(r.cr_creation_date)}</td>
+        <td><span class="chip ${chipCls}">${esc(r.cr_status)}</span></td>
+        <td class="wrap-cell" style="font-size:11px;">${esc(r.seen_in)}</td>
+        <td class="wrap-cell" style="font-size:11px;">${esc(r.test_teams)}</td>
+        <td class="wrap-cell" style="font-size:11px;color:#374151;">${esc(r.cr_notes)}</td>
+        <td style="min-width:200px;" class="ai-cell" id="ai-cell-${esc(r.cr_id)}">
+          <button class="ai-analyse-btn" onclick="runAiAnalysis('${esc(r.cr_id)}', this)">
+            <i class="fas fa-magic" style="font-size:10px;"></i> ? AI Analyse
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  window.markDirty = function (ta) { ta.classList.add('notes-dirty'); };
+
+  /* ── AI Analysis per CR ── */
+  const AI_CACHE = {};  /* cr_id -> summary html, avoid re-fetching */
+
+  window.runAiAnalysis = async function(crId, btn) {
+    if (AI_CACHE[crId]) {
+      document.getElementById('ai-cell-' + crId).innerHTML =
+        '<div class="ai-result">' + AI_CACHE[crId] + '</div>';
+      return;
+    }
+    const cell = document.getElementById('ai-cell-' + crId);
+    cell.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:linear-gradient(135deg,#faf5ff,#f5f3ff);border-radius:10px;border:1px solid #e9d5ff;"><i class="fas fa-spinner fa-spin" style="color:#7c3aed;"></i><span style="color:#7c3aed;font-size:11px;font-weight:700;">QGenie is analysing…</span></div>';
+
+    /* build cr_data context from what we already have in the row */
+    const row = LOADED_ROWS.find(r => r.cr_id === crId) || {};
+    const crData = {
+      cr_title        : row.cr_title         || '',
+      cr_status       : row.cr_status        || '',
+      cr_area         : row.area             || '',
+      cr_age          : row.cr_age           || '',
+      image           : row.seen_in          || '',
+      jira_first_instance: row.jira_first_instance || '',
+      jira_last_instance : row.jira_last_instance  || '',
+      occurrences     : row.occurrences      || ''
+    };
+
+    try {
+      const resp = await fetch('/api/cr_ai_summary', {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ cr_number: crId, cr_data: crData })
+      });
+            const d = await resp.json();
+            if (d.needs_qgenie_config) {
+        cell.innerHTML =
+          '<div class="ai-result">' +
+          '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e9d5ff;">' +
+          '<i class="fas fa-key" style="color:#7c3aed;font-size:10px;"></i>' +
+          '<span style="font-size:9px;font-weight:800;color:#7c3aed;letter-spacing:.05em;text-transform:uppercase;">QGenie required for AI summary</span>' +
+          '</div>' +
+          '<div>PDT DB data is available, but AI summary requires a valid QGenie API key.</div>' +
+          '<div style="margin-top:8px;color:#475569;">Configure your key, then we will rerun this CR analysis using PDT DB + QGenie.</div>' +
+          '</div>' +
+          '<button class="ai-refresh-btn" onclick="configureQGenieAndRetry(\'' + esc(crId) + '\')" title="Configure QGenie key">' +
+          '<i class="fas fa-cog"></i> Configure & Retry</button>';
+      } else if (d.summary) {
+        const html = d.summary
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g,   '<em>$1</em>')
+          .replace(/\n/g, '<br>');
+        AI_CACHE[crId] = html;
+        cell.innerHTML =
+          '<div class="ai-result">' +
+          '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e9d5ff;">' +
+          '<i class="fas fa-robot" style="color:#7c3aed;font-size:10px;"></i>' +
+          '<span style="font-size:9px;font-weight:800;color:#7c3aed;letter-spacing:.05em;text-transform:uppercase;">' + (d.source || 'QGenie AI') + ' Analysis</span>' +
+          '</div>' +
+          html +
+          (d.user_test_suggestion ? ('<div style="margin-top:8px;padding-top:6px;border-top:1px solid #e9d5ff;font-size:10px;color:#64748b;">Suggested test: ' + esc(d.user_test_suggestion) + '</div>') : '') +
+          '</div>' +
+          '<button class="ai-refresh-btn" onclick="delete AI_CACHE[\'' + esc(crId) + '\'];runAiAnalysis(\'' + esc(crId) + '\',this)" title="Refresh analysis">' +
+          '<i class="fas fa-sync-alt"></i> Refresh</button>';
+      } else {
+        cell.innerHTML = '<span style="color:#ef4444;font-size:11px;">' + esc(d.error || 'Failed') + '</span>' +
+          '<button class="ai-analyse-btn" style="margin-top:4px;" onclick="runAiAnalysis(\'' + esc(crId) + '\',this)"><i class="fas fa-redo"></i> Retry</button>';
+      }
+    } catch(e) {
+      cell.innerHTML = '<span style="color:#ef4444;font-size:11px;">Error: ' + esc(e.message) + '</span>' +
+        '<button class="ai-analyse-btn" style="margin-top:4px;" onclick="runAiAnalysis(\'' + esc(crId) + '\',this)"><i class="fas fa-redo"></i> Retry</button>';
+    }
+  };
+
+  /* Analyse All visible rows */
+    window.configureQGenieAndRetry = async function(crId) {
+    if (!window.openQGenieConfigPanel || !window.saveQGenieKeyFromPanel) {
+      alert('QGenie configuration panel is unavailable on this page.');
+      return;
+    }
+    window.openQGenieConfigPanel();
+
+    const saveBtn = document.getElementById('saveQGenieConfigBtn');
+    if (!saveBtn) return;
+
+    const handler = async function() {
+      const ok = await window.saveQGenieKeyFromPanel();
+      if (ok) {
+        saveBtn.removeEventListener('click', handler);
+        setTimeout(function(){ runAiAnalysis(crId, null); }, 650);
+      }
+    };
+
+    saveBtn.addEventListener('click', handler, { once: true });
+  };
+
+  window.analyseAllCRs = async function() {
+    const btn = document.getElementById('analyseAllBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysing…'; }
+    const ids = TABLE_ROWS.map(r => r.cr_id);
+    for (const id of ids) {
+      await runAiAnalysis(id, null);
+      await new Promise(r => setTimeout(r, 300)); /* small delay to avoid hammering */
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> ✨ Analyse All'; }
+  };
+
+  window.saveAllNotes = async function () {
+    const btn    = document.getElementById('saveAllBtn');
+    const status = document.getElementById('saveAllStatus');
+    const rows = [];
+    document.querySelectorAll('#ocrTbody tr[data-cr]').forEach(tr => {
+      const crId = tr.dataset.cr;
+      if (!crId) return;
+      let scenarios = '', tech_notes = '';
+      tr.querySelectorAll('.notes-textarea').forEach(ta => {
+        if (ta.dataset.field === 'scenarios')  scenarios  = ta.value;
+        if (ta.dataset.field === 'tech_notes') tech_notes = ta.value;
+      });
+      rows.push({ cr_id: crId, scenarios, tech_notes });
+    });
+    if (!rows.length) { alert('No rows to save.'); return; }
+    btn.disabled = true;
+    status.style.color = '#6b7280';
+    status.textContent = 'Saving…';
+    try {
+      const resp = await fetch(`/api/cr_debug_notes/${encodeURIComponent(TARGET)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        rows.forEach(r => { NOTES_MAP[r.cr_id] = { scenarios: r.scenarios, tech_notes: r.tech_notes, cr_notes: (NOTES_MAP[r.cr_id] || {}).cr_notes || '' }; });
+        document.querySelectorAll('.notes-dirty').forEach(ta => ta.classList.remove('notes-dirty'));
+        status.style.color = '#16a34a';
+        status.textContent = `✓ Saved ${data.saved} rows`;
+        setTimeout(() => { status.textContent = ''; }, 3000);
+      } else {
+        status.style.color = '#dc2626';
+        status.textContent = 'Save failed: ' + (data.message || 'Unknown');
+      }
+    } catch (e) {
+      status.style.color = '#dc2626';
+      status.textContent = 'Error: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  function esc(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* ── Start ── */
+  boot();
+
+})();
+</script>
+{% endblock %}

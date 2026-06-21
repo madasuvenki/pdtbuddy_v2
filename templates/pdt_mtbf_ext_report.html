@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ primary_target|upper }} — Live Status</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;}
+    body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh;}
+    .shell{padding:14px 18px 40px;width:100%;}
+
+    /* Hero */
+    .hero{background:linear-gradient(135deg,#0f172a,#1e3a8a 58%,#7c3aed);color:#fff;border-radius:14px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .eyebrow{font-size:10px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:#bfdbfe;display:flex;align-items:center;gap:6px}
+    .title{font-size:24px;font-weight:950;letter-spacing:-.04em;margin-top:3px}
+    .sub{font-size:12px;color:#dbeafe;font-weight:700;margin-top:3px}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .btn{height:34px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#1e293b;padding:0 12px;font-weight:900;display:inline-flex;align-items:center;gap:6px;text-decoration:none;cursor:pointer;font-size:12px;transition:all .15s}
+    .btn:hover{background:#f1f5f9}
+    .btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}
+    .btn-primary:hover{filter:brightness(1.1)}
+    .btn-back{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff}
+    .btn-back:hover{background:rgba(255,255,255,.28)}
+    .btn-sm{height:28px;font-size:11px;padding:0 10px;border-radius:7px}
+    .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:950}
+    .live{background:#dcfce7;color:#166534;border:1px solid #86efac}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;flex-shrink:0}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.25)}50%{box-shadow:0 0 0 5px rgba(34,197,94,.08)}}
+
+    /* Inline edit panel */
+    .edit-panel{display:none;background:#fff;border:2px solid #6366f1;border-radius:14px;padding:14px 18px;margin-bottom:12px}
+    .edit-panel.open{display:block}
+    .edit-panel iframe{width:100%;border:none;border-radius:10px;min-height:calc(100vh - 200px)}
+
+    /* Tabs */
+    .tabs{display:flex;gap:0;margin:12px 0 0;background:#fff;border-radius:10px 10px 0 0;border:1px solid #e2e8f0;border-bottom:none;overflow:hidden}
+    .tab{flex:1;border:none;border-right:1px solid #e2e8f0;background:#fff;color:#64748b;padding:12px 8px;font-weight:900;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s;white-space:nowrap}
+    .tab:last-child{border-right:none}
+    .tab:hover{background:#f8faff;color:#4f46e5}
+    .tab.active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-right-color:transparent}
+    .tab-panels{background:#fff;border:1px solid #e2e8f0;border-radius:0 0 12px 12px;margin-bottom:14px}
+    .panel{display:none;padding:14px}
+    .panel.active{display:block}
+
+    /* Cards */
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px}
+    .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff)}
+    .card-title{font-size:12px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+    .body{padding:12px 14px}
+
+    /* Table */
+    .tbl-wrap{overflow-x:auto;width:100%}
+    table{width:100%;border-collapse:collapse}
+    th{background:#eef2ff;color:#3730a3;text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:950;text-align:left;padding:9px 11px;border-bottom:2px solid #dbeafe;white-space:nowrap}
+    td{padding:9px 11px;border-bottom:1px solid #f1f5f9;vertical-align:top;color:#1e293b;font-size:12px}
+    tr:hover td{background:#f8fbff}
+    .meta{font-weight:950;color:#1d4ed8;white-space:nowrap;font-size:12px}
+    .build-cell{white-space:normal;overflow-wrap:anywhere;font-weight:700;color:#1e3a8a;font-size:11px;max-width:300px}
+
+    /* Pills */
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;padding:4px 9px;font-size:11px;font-weight:900}
+    .pill.good{background:#dcfce7;color:#166534;border-color:#86efac}
+    .pill.warn{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
+    .empty{text-align:center;padding:36px!important;color:#94a3b8;font-weight:850;font-size:13px}
+    .chart-wrap{overflow-x:auto;overflow-y:hidden;padding:12px;width:100%}
+    .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .input{height:32px;border:1.5px solid #cbd5e1;border-radius:9px;padding:0 10px;font-weight:750;font-size:12px;outline:none}
+    .input:focus{border-color:#6366f1}
+    .spin{animation:spin .85s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Crash drawer */
+    .crash-row{background:#f8faff}
+    .crash-drawer{display:none;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:12px 14px}
+    .crash-drawer.open{display:block}
+    .crash-drawer table{font-size:11px}
+    .crash-drawer th{font-size:9px;padding:6px 9px;background:#e0e7ff;color:#3730a3}
+    .crash-drawer td{padding:6px 9px;font-size:11px}
+
+    @media(max-width:760px){
+      .shell{padding:8px 8px 24px}
+      .hero{flex-direction:column;align-items:flex-start}
+      .actions{justify-content:flex-start}
+      .title{font-size:18px}
+      .tab{font-size:11px;padding:10px 4px;gap:3px}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Draft banner -->
+  {% if job.status != 'published' and can_edit %}
+  <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <i class="fas fa-triangle-exclamation" style="color:#d97706;font-size:16px;"></i>
+      <div>
+        <div style="font-size:13px;font-weight:900;color:#92400e;">This report is a DRAFT — not yet published</div>
+        <div style="font-size:11px;color:#b45309;margin-top:1px;">Viewers cannot see this page until you publish it.</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="toggleEditPanel()">
+      <i class="fas fa-rocket"></i> Edit &amp; Publish
+    </button>
+  </div>
+  {% endif %}
+
+  <!-- Hero -->
+  <header class="hero">
+    <div>
+      <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Live Status</div>
+      <div class="title">{{ primary_target|upper }}</div>
+      <div class="sub">{{ job.name }} &bull;
+        {% if job.status == 'published' %}Published {{ (job.published_at or '')[:10] }} by {{ job.published_by or '-' }}
+        {% else %}<span style="color:#fde68a;font-weight:900;">DRAFT — not yet published</span>{% endif %}
+      </div>
+    </div>
+    <div class="actions">
+      {% if job.status == 'published' %}
+        <span class="badge live"><span class="live-dot"></span> LIVE</span>
+      {% else %}
+        <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;"><i class="fas fa-pen" style="font-size:9px"></i> DRAFT</span>
+      {% endif %}
+      {% if can_edit %}
+        <button class="btn btn-primary" onclick="toggleEditPanel()">
+          <i class="fas fa-pen"></i> {% if job.status == 'published' %}Edit{% else %}Edit &amp; Publish{% endif %}
+        </button>
+      {% endif %}
+      <a class="btn btn-back" href="/pdt/live_status"><i class="fas fa-arrow-left"></i> All Reports</a>
+    </div>
+  </header>
+
+  <!-- Inline edit panel (no redirect) -->
+  {% if can_edit %}
+  <div class="edit-panel" id="editPanel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:13px;font-weight:900;color:#1e3a8a;"><i class="fas fa-pen"></i> Editor — {{ primary_target|upper }}</span>
+      <button class="btn" onclick="toggleEditPanel()"><i class="fas fa-times"></i> Close Editor</button>
+    </div>
+    <iframe id="editIframe" src="" title="Live Status Editor" allowfullscreen></iframe>
+  </div>
+  {% endif %}
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-vial"></i> Current Build</button>
+    <button class="tab" id="tab-btn-builds"  onclick="switchTab('builds')"><i class="fas fa-layer-group"></i> Builds</button>
+    <button class="tab" id="tab-btn-mtbf"    onclick="switchTab('mtbf')"><i class="fas fa-chart-column"></i> MTBF</button>
+    <button class="tab" id="tab-btn-crs"     onclick="switchTab('crs')"><i class="fas fa-bug"></i> CRs</button>
+  </nav>
+
+  <div class="tab-panels">
+
+    <!-- Tab 1: Current Build -->
+    <section id="tab-current" class="panel active">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-circle" style="color:#16a34a;font-size:8px"></i> Current Running Builds</div>
+          <span class="pill good">{{ running_rows|length }} running</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Week</th><th>Meta</th><th>Build</th><th>Hours</th><th>Crashes</th><th>MTBF</th><th>Devices</th><th>Comment</th></tr>
+            </thead>
+            <tbody>
+              {% for r in running_rows %}
+              <tr>
+                <td style="white-space:nowrap">{{ r.week or r.first_submitted or '—' }}</td>
+                <td class="meta">{{ r.meta_id or '—' }}</td>
+                <td class="build-cell">
+                  {% if r.merged_builds %}{% for b in r.merged_builds %}<div>{{ b }}</div>{% endfor %}
+                  {% else %}{{ r.build_full or r.display_build or '—' }}{% endif %}
+                </td>
+                <td><strong>{{ r.display_hours or r.hours or 'NA' }}</strong></td>
+                <td style="font-weight:950;color:#dc2626">{{ r.crashes or '—' }}</td>
+                <td style="font-weight:950;color:#7c3aed">{{ r.display_mtbf or r.mtbf or 'NA' }}</td>
+                <td>{{ r.device_count or '—' }}</td>
+                <td>{{ r.comments or r.test_eng_comment or '—' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="8" class="empty"><i class="fas fa-inbox"></i> No current running builds published.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Builds (May 1st+, with First JIRA Date + Get Crashes) -->
+    <section id="tab-builds" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-layer-group"></i> Builds <span style="font-weight:600;color:#64748b;font-size:10px;text-transform:none;letter-spacing:0">(from May 1st onwards)</span></div>
+          <div class="toolbar">
+            <span id="buildsSpin" style="display:none"><i class="fas fa-circle-notch spin"></i></span>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>First JIRA Date</th>
+                <th>Meta</th>
+                <th>Build</th>
+                <th>Status</th>
+                <th>Hours</th>
+                <th>Crashes</th>
+                <th>MTBF</th>
+                <th>Source</th>
+                <th>Comment</th>
+                <th>Crash Info</th>
+              </tr>
+            </thead>
+            <tbody id="buildsBody">
+              {% for r in build_rows %}
+              <tr data-meta="{{ r.meta_id|e }}">
+                <td class="first-jira-date" style="white-space:nowrap;color:#64748b;font-size:11px">{{ r.week or r.first_submitted or '—' }}</td>
+                <td class="meta">{{ r.meta_id or '—' }}</td>
+                <td class="build-cell">
+                  {% if r.merged_builds %}{% for b in r.merged_builds %}<div>{{ b }}</div>{% endfor %}
+                  {% else %}{{ r.build_full or r.display_build or '—' }}{% endif %}
+                </td>
+                <td><span class="pill">{{ r.run_status or 'published' }}</span></td>
+                <td><strong>{{ r.display_hours or r.hours or 'NA' }}</strong></td>
+                <td style="font-weight:950;color:#dc2626">{{ r.crashes or '—' }}</td>
+                <td style="font-weight:950;color:#7c3aed">{{ r.display_mtbf or r.mtbf or 'NA' }}</td>
+                <td>{{ r.source or '—' }}</td>
+                <td>{{ r.comments or r.test_eng_comment or '—' }}</td>
+                <td>
+                  <button class="btn btn-sm" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;"
+                    onclick="toggleCrashInfo(this, '{{ r.meta_id|e }}')">
+                    <i class="fas fa-bug"></i> Get Crashes
+                  </button>
+                </td>
+              </tr>
+              <tr class="crash-row" style="display:none">
+                <td colspan="10" style="padding:0 11px 10px;background:#f8faff;">
+                  <div class="crash-drawer" id="crash-{{ r.meta_id|e }}"></div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="10" class="empty">No completed build rows published.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: MTBF — chart only, no table -->
+    <section id="tab-mtbf" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-chart-column"></i> MTBF Trend</div>
+          <div class="toolbar">
+            <select id="showN" class="input" onchange="renderMtbf()">
+              <option value="5">Last 5</option>
+              <option value="10" selected>Last 10</option>
+              <option value="20">Last 20</option>
+              <option value="0">All</option>
+            </select>
+            <span id="mtbfSpin" style="display:none"><i class="fas fa-circle-notch spin"></i></span>
+            <button class="btn btn-primary btn-sm" onclick="loadMtbf(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="body" id="mtbfPills"></div>
+        <div class="chart-wrap" id="mtbfChartWrap">
+          <canvas id="mtbfCanvas"></canvas>
+          <div id="mtbfEmpty" class="empty" style="display:none">No MTBF data available.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: CRs -->
+    <section id="tab-crs" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-bug"></i> Current CRs</div>
+          <div class="toolbar">
+            <input id="crSearch" class="input" oninput="renderCrs()" placeholder="Search CRs…" style="width:200px">
+            <span id="crSpin" style="display:none"><i class="fas fa-circle-notch spin"></i></span>
+            <button class="btn btn-primary btn-sm" onclick="loadCrs(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="body" id="crPills"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Age</th></tr>
+            </thead>
+            <tbody id="crBody">
+              <tr><td colspan="8" class="empty"><i class="fas fa-circle-notch spin"></i> Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /tab-panels -->
+</div><!-- /shell -->
+
+<script>
+var JOB_ID   = {{ job.id|tojson }};
+var TARGET   = {{ primary_target|tojson }};
+var EDIT_URL = {{ url_for('live_status_publish_bp.edit_job', job_id=job.id)|tojson }};
+var CR_BASE  = 'https://orbit/CR/';
+
+function $(id){ return document.getElementById(id); }
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* ── Inline edit panel (no redirect) ── */
+var editPanelOpen = false;
+function toggleEditPanel(){
+  var panel = $('editPanel');
+  if(!panel) return;
+  editPanelOpen = !editPanelOpen;
+  panel.classList.toggle('open', editPanelOpen);
+  if(editPanelOpen){
+    var iframe = $('editIframe');
+    if(iframe && !iframe.src) iframe.src = EDIT_URL;
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+/* ── Tab switching ── */
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  var panel = $('tab-'+name), btn = $('tab-btn-'+name);
+  if(panel) panel.classList.add('active');
+  if(btn)   btn.classList.add('active');
+  if(name==='mtbf' && !mtbfLoaded) loadMtbf(false);
+  if(name==='crs'  && !crLoaded)   loadCrs(false);
+}
+
+/* ── MTBF — chart only ── */
+var mtbfLoaded=false, mtbfRows=[], mtbfChart=null;
+
+async function loadMtbf(force){
+  if(mtbfLoaded && !force) return;
+  $('mtbfSpin').style.display='inline';
+  try{
+    var r = await fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/mtbf_dashboard');
+    var d = await r.json();
+    if(!d.success) throw new Error(d.message||'MTBF unavailable');
+    mtbfRows   = d.mtbf_series || [];
+    mtbfLoaded = true;
+    renderMtbf();
+  }catch(e){
+    $('mtbfEmpty').style.display='block';
+    $('mtbfEmpty').textContent=String(e);
+    $('mtbfCanvas').style.display='none';
+  }finally{
+    $('mtbfSpin').style.display='none';
+  }
+}
+
+function renderMtbf(){
+  var rows = mtbfRows.slice();
+  var n = parseInt(($('showN')||{}).value||'10');
+  if(n>0) rows=rows.slice(-n);
+  var canvas=$('mtbfCanvas'), empty=$('mtbfEmpty'), wrap=$('mtbfChartWrap');
+  if(!rows.length){ canvas.style.display='none'; empty.style.display='block'; return; }
+  canvas.style.display='block'; empty.style.display='none';
+
+  var labels  = rows.map(function(r){ return r.meta_id||''; });
+  var hours   = rows.map(function(r){ return Number(r.total_hours||0); });
+  var crashes = rows.map(function(r){ return Number(r.crashes||0); });
+  var mtbf    = rows.map(function(r){ return Number(r.mtbf||0); });
+  var totalH  = hours.reduce(function(s,v){return s+v;},0);
+  var totalC  = crashes.reduce(function(s,v){return s+v;},0);
+
+  $('mtbfPills').innerHTML =
+    '<span class="pill">'+Math.round(totalH)+'h total</span> '+
+    '<span class="pill warn">'+totalC+' crashes</span> '+
+    '<span class="pill good">Avg MTBF '+(totalH&&totalC?(totalH/totalC).toFixed(1):'NA')+'h</span>';
+
+  var wrapW = (wrap||{}).offsetWidth || 900;
+  var minW  = Math.max(wrapW - 28, rows.length * 90);
+  canvas.width  = minW;
+  canvas.height = 400;
+  canvas.style.width  = minW+'px';
+  canvas.style.height = '400px';
+
+  if(mtbfChart) mtbfChart.destroy();
+  mtbfChart = new Chart(canvas,{
+    type:'bar',
+    data:{labels:labels, datasets:[
+      {type:'bar',  label:'Hours',   data:hours,   backgroundColor:'rgba(37,99,235,.75)', borderRadius:4},
+      {type:'bar',  label:'Crashes', data:crashes, backgroundColor:'rgba(245,158,11,.85)', borderRadius:4, yAxisID:'y1'},
+      {type:'line', label:'MTBF',    data:mtbf,    borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.1)', tension:.35, pointRadius:4, yAxisID:'y2'}
+    ]},
+    options:{
+      responsive:false, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{font:{weight:'bold'}}}},
+      scales:{
+        x:{ticks:{maxRotation:45, font:{size:10}}},
+        y: {beginAtZero:true, title:{display:true,text:'Hours'}},
+        y1:{position:'right', beginAtZero:true, grid:{drawOnChartArea:false}, title:{display:true,text:'Crashes'}},
+        y2:{position:'right', offset:true, beginAtZero:true, grid:{drawOnChartArea:false}, title:{display:true,text:'MTBF (h)'}}
+      }
+    }
+  });
+}
+
+/* ── Builds: Get Crashes per row ── */
+var crashCache = {};
+
+async function toggleCrashInfo(btn, metaId){
+  var row    = btn.closest('tr');
+  var next   = row.nextElementSibling;
+  var drawer = $('crash-'+metaId);
+  if(!next || !drawer) return;
+
+  var isOpen = next.style.display !== 'none';
+  if(isOpen){
+    next.style.display='none';
+    drawer.classList.remove('open');
+    btn.innerHTML='<i class="fas fa-bug"></i> Get Crashes';
+    return;
+  }
+
+  next.style.display='table-row';
+  drawer.classList.add('open');
+  btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Loading…';
+  btn.disabled=true;
+
+  if(crashCache[metaId]){
+    renderCrashDrawer(drawer, crashCache[metaId]);
+    btn.innerHTML='<i class="fas fa-times"></i> Hide';
+    btn.disabled=false;
+    return;
+  }
+
+  try{
+    /* Fetch weekly data from May 1st onwards */
+    var r = await fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/weekly_full?from=2025-05-01&to=2099-01-01');
+    var d = await r.json();
+    if(!d.success) throw new Error(d.message||'No data');
+
+    /* Filter jira/cr rows to this meta */
+    var metaUp = String(metaId||'').toUpperCase();
+    var allJiras = (d.jira_rows||[]).concat(d.open_jira_rows||[]);
+    var jiras = allJiras.filter(function(j){
+      return String(j.metabuild||'').toUpperCase().indexOf(metaUp)!==-1;
+    });
+    var crs = d.cr_rows||[];
+
+    /* First JIRA date for this meta — update the cell */
+    var dates = jiras.map(function(j){ return j.jira_date||''; }).filter(Boolean).sort();
+    var firstDate = dates.length ? dates[0].slice(0,10) : null;
+    if(firstDate){
+      var dateCell = row.querySelector('.first-jira-date');
+      if(dateCell) dateCell.textContent = firstDate;
+    }
+
+    crashCache[metaId] = {jiras:jiras, crs:crs, firstDate:firstDate};
+    renderCrashDrawer(drawer, crashCache[metaId]);
+    btn.innerHTML='<i class="fas fa-times"></i> Hide';
+  }catch(e){
+    drawer.innerHTML='<div style="color:#dc2626;font-size:12px;padding:8px;">'+esc(String(e))+'</div>';
+    btn.innerHTML='<i class="fas fa-bug"></i> Get Crashes';
+  }
+  btn.disabled=false;
+}
+
+function renderCrashDrawer(drawer, data){
+  var jiras=data.jiras||[], crs=data.crs||[];
+  var html='';
+
+  if(crs.length){
+    html+='<div style="font-size:11px;font-weight:900;color:#1e3a8a;margin-bottom:6px;"><i class="fas fa-circle-dot"></i> CRs ('+crs.length+')</div>';
+    html+='<div class="tbl-wrap"><table><thead><tr><th>CR</th><th>Title</th><th>Status</th><th>Area</th><th>Subsystem</th><th>Category</th><th>Age</th></tr></thead><tbody>';
+    crs.slice(0,60).forEach(function(c){
+      var id=String(c.cr||c.mapped_cr||'').replace(/^CR/i,'');
+      html+='<tr>'+
+        '<td><a href="'+CR_BASE+esc(id)+'" target="_blank" style="color:#2563eb;font-weight:900;">'+esc(c.cr||c.mapped_cr||'—')+'</a></td>'+
+        '<td style="max-width:260px;white-space:normal;overflow-wrap:anywhere">'+esc(c.cr_title||'—')+'</td>'+
+        '<td>'+esc(c.cr_status||'—')+'</td>'+
+        '<td>'+esc(c.cr_area||'—')+'</td>'+
+        '<td>'+esc(c.cr_subsystem||'—')+'</td>'+
+        '<td>'+esc(c.cr_category||'—')+'</td>'+
+        '<td>'+esc(c.cr_age||'—')+'</td>'+
+      '</tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+
+  if(jiras.length){
+    html+='<div style="font-size:11px;font-weight:900;color:#1e3a8a;margin:10px 0 6px;"><i class="fas fa-ticket"></i> JIRAs ('+jiras.length+')</div>';
+    html+='<div class="tbl-wrap"><table><thead><tr><th>JIRA</th><th>Date</th><th>Title</th><th>Build</th></tr></thead><tbody>';
+    jiras.slice(0,60).forEach(function(j){
+      html+='<tr>'+
+        '<td><a href="https://jira/browse/'+esc(j.stability_ticket||'')+'" target="_blank" style="color:#2563eb;font-weight:900;">'+esc(j.stability_ticket||'—')+'</a></td>'+
+        '<td style="white-space:nowrap">'+esc((j.jira_date||'').slice(0,10))+'</td>'+
+        '<td style="max-width:260px;white-space:normal;overflow-wrap:anywhere">'+esc(j.jira_title||'—')+'</td>'+
+        '<td style="font-size:10px;color:#64748b">'+esc(j.metabuild||'—')+'</td>'+
+      '</tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+
+  if(!crs.length && !jiras.length){
+    html='<div class="empty">No CRs or JIRAs found for this build (from May 1st).</div>';
+  }
+  drawer.innerHTML=html;
+}
+
+/* ── CRs tab ── */
+var crLoaded=false, crRows=[];
+
+async function loadCrs(force){
+  if(crLoaded && !force) return;
+  $('crSpin').style.display='inline';
+  try{
+    var r = await fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/current_report',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({force:force===true})
+    });
+    var d = await r.json();
+    if(!d.ok) throw new Error(d.error||'CR report unavailable');
+    crRows=((d.report&&d.report.hierarchical_report)||[])
+      .filter(function(x){ return x.cr && x.cr!=='NO_CR'; })
+      .map(function(x){ return {
+        cr:x.cr, title:x.cr_title||'', count:x.cr_count||((x.jiras||[]).length),
+        area:x.cr_area||x.area||'', sub:x.cr_subsystem||x.subsystem||'',
+        func:x.cr_function||x.cr_functionality||'', age:x.cr_age||x.overall_age||''
+      };});
+    crLoaded=true;
+    renderCrs();
+  }catch(e){
+    $('crBody').innerHTML='<tr><td colspan="8" class="empty">'+esc(String(e))+'</td></tr>';
+  }finally{
+    $('crSpin').style.display='none';
+  }
+}
+
+function renderCrs(){
+  var q=(($('crSearch')||{}).value||'').toLowerCase();
+  var rows=crRows.filter(function(r){
+    return !q||(r.cr+r.title+r.area+r.sub+r.func).toLowerCase().indexOf(q)!==-1;
+  });
+  $('crPills').innerHTML='<span class="pill warn">'+rows.length+' CRs</span>';
+  $('crBody').innerHTML=rows.length?rows.map(function(r,i){
+    var id=String(r.cr||'').replace(/^CR/i,'');
+    return '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td>'+(id?'<a href="'+CR_BASE+esc(id)+'" target="_blank" style="font-weight:950;color:#2563eb">'+esc(r.cr)+'</a>':esc(r.cr||'—'))+'</td>'+
+      '<td style="min-width:240px;max-width:460px;white-space:normal;overflow-wrap:anywhere">'+esc(r.title||'—')+'</td>'+
+      '<td style="text-align:center;font-weight:950;color:#7c3aed">'+esc(r.count||0)+'</td>'+
+      '<td>'+esc(r.area||'—')+'</td>'+
+      '<td>'+esc(r.sub||'—')+'</td>'+
+      '<td>'+esc(r.func||'—')+'</td>'+
+      '<td>'+esc(r.age||'—')+'</td>'+
+    '</tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No CRs found.</td></tr>';
+}
+
+/* auto-load CRs */
+loadCrs(false);
+</script>
+</body>
+</html>

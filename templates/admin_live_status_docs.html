@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Status Publish - Admin Docs</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#eef4ff,#f8fafc 280px);color:#0f172a;}
+    .shell{max-width:1180px;margin:0 auto;padding:24px 18px 54px;}
+    .hero{background:linear-gradient(135deg,#0f172a,#1d4ed8 55%,#7c3aed);color:#fff;border-radius:24px;padding:26px;box-shadow:0 18px 44px rgba(15,23,42,.22);}
+    .eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:11px;font-weight:900;opacity:.8;}
+    h1{margin:6px 0 10px;font-size:34px;line-height:1.1;}
+    .subtitle{max-width:900px;font-size:15px;line-height:1.6;opacity:.94;}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+    .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;border-radius:999px;padding:10px 15px;font-size:13px;font-weight:900;}
+    .btn-primary{background:#fff;color:#1e293b;}.btn-secondary{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);}
+    .doc{background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:24px;margin-top:18px;box-shadow:0 12px 30px rgba(15,23,42,.07);}
+    .doc h1{font-size:30px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:10px;}
+    .doc h2{font-size:23px;margin-top:32px;color:#1e3a8a;border-left:5px solid #6366f1;padding-left:12px;}
+    .doc h3{font-size:18px;margin-top:24px;color:#334155;}
+    .doc p,.doc li{line-height:1.72;color:#334155;}
+    .doc table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;}
+    .doc th{background:#f0f4ff;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:10px;border:1px solid #dbeafe;}
+    .doc td{padding:10px;border:1px solid #e2e8f0;vertical-align:top;}
+    .doc code{background:#eef2ff;color:#1e3a8a;padding:2px 6px;border-radius:6px;font-size:.92em;}
+    .doc pre{background:#0f172a;color:#e2e8f0;border-radius:14px;padding:14px 16px;overflow-x:auto;font-size:12px;line-height:1.65;}
+    .doc pre code{background:transparent;color:inherit;padding:0;}
+    .doc blockquote{border-left:5px solid #6366f1;background:#f8fafc;margin:16px 0;padding:10px 16px;border-radius:0 12px 12px 0;}
+    .mermaid{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin:12px 0;overflow:auto;}
+    .toc{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:14px 18px;margin-top:18px;}
+    .toc-title{font-weight:900;color:#1e3a8a;margin-bottom:8px;}
+    .toc a{display:inline-block;margin:4px 10px 4px 0;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;}
+    .toc a:hover{text-decoration:underline;}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="hero">
+    <div class="eyebrow">Admin Documentation</div>
+    <h1>Live Status Publish</h1>
+    <div class="subtitle">Detailed operational and technical documentation for SWPDT/Axiom polling, Add Build, draft/publish flow, JIRA/CR consolidated report, MTBF trend, weekly report, and Excel sync.</div>
+    <div class="actions">
+      <a class="btn btn-primary" href="{{ url_for('admin_system_docs') }}"><i class="fas fa-arrow-left"></i> Back to System Docs</a>
+      <a class="btn btn-secondary" href="/live_status_view"><i class="fas fa-satellite-dish"></i> Open Live Status</a>
+    </div>
+  </div>
+  <div class="toc" id="toc"><div class="toc-title"><i class="fas fa-list"></i> Contents</div></div>
+  <div class="doc" id="docContent">Loading...</div>
+</div>
+<script>
+const MD = {{ markdown|tojson }};
+if(window.mermaid){mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'base'});}
+marked.setOptions({gfm:true,breaks:false});
+const html = marked.parse(MD);
+document.getElementById('docContent').innerHTML = html;
+// Render mermaid fenced blocks
+Array.from(document.querySelectorAll('pre code.language-mermaid')).forEach((code,idx)=>{
+  const div=document.createElement('div');
+  div.className='mermaid';
+  div.textContent=code.textContent;
+  code.parentElement.replaceWith(div);
+});
+if(window.mermaid){mermaid.run({querySelector:'.mermaid'});}
+// Build small TOC
+const toc=document.getElementById('toc');
+Array.from(document.querySelectorAll('#docContent h2')).forEach((h,i)=>{
+  const id='sec-'+i;
+  h.id=id;
+  const a=document.createElement('a');
+  a.href='#'+id;
+  a.textContent=h.textContent;
+  toc.appendChild(a);
+});
+</script>
+</body>
+</html>

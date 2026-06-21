@@ -1,0 +1,1163 @@
+{% extends "target_layout.html" %}
+
+{% block page_heading %}
+{{ page_heading or (target_name|upper ~ " – HWPDT Build Table") }}
+{% endblock %}
+
+{% block page_content %}
+<style>
+body {
+  background: radial-gradient(circle at top, #fef3c7 0, #f5f5f5 40%, #f3f4f6 100%);
+  color: #111827;
+}
+.td-main-content { background: transparent; }
+
+/* Top bar: view + edit controls */
+.hw-actions{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+  padding:10px 14px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#ffffff,#fffbeb);
+  box-shadow:
+    0 10px 25px rgba(15,23,42,0.08),
+    0 0 0 1px rgba(248,250,252,0.8);
+}
+.hw-actions-left{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.hw-actions-right{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.hw-btn{
+  padding:6px 14px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  background:#ffffff;
+  color:#111827;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.18s ease-out;
+}
+.hw-btn:hover{
+  border-color:#6366f1;
+  box-shadow:0 0 0 1px rgba(99,102,241,0.35);
+  transform:translateY(-0.5px);
+}
+.hw-btn--primary{
+  background:linear-gradient(135deg,#6366f1,#4f46e5);
+  border-color:transparent;
+  color:#f9fafb;
+  box-shadow:0 8px 18px rgba(79,70,229,0.45);
+}
+.hw-btn:disabled{
+  opacity:0.5;
+  cursor:default;
+  box-shadow:none;
+}
+
+/* Table wrapper */
+.hw-table-wrap{
+  width:100%;
+  overflow:auto;
+  padding:3px;
+  border-radius:14px;
+  background:#fff7ed;
+  box-shadow:
+    inset 0 0 0 1px rgba(251,191,36,0.5),
+    0 12px 25px rgba(251,191,36,0.35);
+}
+.hw-table-wrap::-webkit-scrollbar{ height:7px; }
+.hw-table-wrap::-webkit-scrollbar-thumb{
+  background:linear-gradient(90deg,#fb923c,#6366f1);
+  border-radius:999px;
+}
+
+/* Table */
+.hw-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  color:#111827;
+  background:#ffffff;
+  border-radius:12px;
+  overflow:hidden;
+  min-width:900px;
+}
+.hw-table th,
+.hw-table td{
+  border-bottom:1px solid #e5e7eb;
+  padding:6px 8px;
+  text-align:left;
+}
+.hw-table th{
+  background:linear-gradient(90deg,#ffedd5,#fee2e2);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:#4b5563;
+  font-weight:700;
+  border-bottom:1px solid #f97316;
+}
+.hw-table tbody tr:nth-child(even){
+  background:#fff7ed;
+}
+.hw-table tbody tr:hover{
+  background:#fffbeb;
+  transition:background 0.12s ease-out;
+}
+
+/* column widths */
+.hw-table th:nth-child(1),
+.hw-table td:nth-child(1){ width:40px; }
+
+.hw-table th:nth-child(2),
+.hw-table td:nth-child(2){ width:190px; }
+
+/* Build column: clamp width + ellipsis */
+.hw-table th:nth-child(3),
+.hw-table td:nth-child(3){
+  max-width:260px;
+}
+
+/* Build text with ellipsis */
+.hw-build-cell{
+  max-width:260px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* CHIPMD pill */
+.hw-chipmd-pill{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#fef9c3;
+  border:1px solid #facc15;
+  font-size:11px;
+  font-weight:600;
+  color:#854d0e;
+}
+.hw-chipmd-link{
+  text-decoration:none;
+  color:inherit;
+}
+.hw-chipmd-link:hover{
+  text-decoration:underline;
+}
+
+/* MODE select */
+.hw-mode-select{
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  font-size:11px;
+  background:#ffffff;
+  color:#111827;
+}
+.hw-mode-select:disabled{
+  background:#f3f4f6;
+  color:#9ca3af;
+}
+
+/* Edit-mode column visibility */
+.hw-edit-only{ display:none; }
+body.hwpdt-edit-mode .hw-edit-only{ display:table-cell; }
+
+/* HWPDT vs SWPDT CR venn */
+.hw-hero-grid{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(0, 1fr));
+  gap:10px;
+  margin:0 0 14px;
+}
+.hw-hero-card{
+  background:linear-gradient(135deg,#ffffff,#fff7ed);
+  border:1px solid #fed7aa;
+  border-radius:14px;
+  padding:12px;
+  box-shadow:0 10px 22px rgba(15,23,42,0.06);
+}
+.hw-hero-label{
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  color:#64748b;
+}
+.hw-hero-value{
+  font-size:28px;
+  font-weight:900;
+  line-height:1.1;
+  color:#0f172a;
+  margin-top:8px;
+}
+.hw-hero-sub{
+  font-size:11px;
+  color:#94a3b8;
+  margin-top:6px;
+}
+.hw-cr-card{
+
+  margin:0 0 14px;
+  padding:14px;
+  border-radius:16px;
+  background:linear-gradient(135deg,#ffffff,#eff6ff 60%,#f8fafc);
+  box-shadow:0 12px 24px rgba(15,23,42,0.08), 0 0 0 1px rgba(191,219,254,0.8);
+}
+.hw-cr-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+.hw-cr-title{
+  font-size:15px;
+  font-weight:800;
+  color:#0f172a;
+}
+.hw-cr-sub{
+  font-size:12px;
+  color:#64748b;
+  margin-top:4px;
+}
+.hw-cr-venn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  min-height:180px;
+  margin:6px 0 10px;
+}
+.hw-cr-circle{
+  width:150px;
+  height:150px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:14px;
+  cursor:pointer;
+  user-select:none;
+  border:2px solid rgba(255,255,255,0.9);
+  box-shadow:0 10px 20px rgba(15,23,42,0.12);
+  transition:transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.hw-cr-circle:hover{
+  transform:translateY(-2px) scale(1.01);
+  box-shadow:0 14px 28px rgba(15,23,42,0.16);
+}
+.hw-cr-circle.is-active{
+  outline:3px solid rgba(37,99,235,0.22);
+  filter:saturate(1.08);
+}
+.hw-cr-circle--hw{
+  background:radial-gradient(circle at 35% 35%, rgba(34,197,94,0.28), rgba(22,163,74,0.9));
+  color:#052e16;
+}
+.hw-cr-circle--ov{
+  margin-left:-28px;
+  margin-right:-28px;
+  z-index:2;
+  background:radial-gradient(circle at 35% 35%, rgba(168,85,247,0.26), rgba(124,58,237,0.9));
+  color:#2e1065;
+}
+.hw-cr-circle--sw{
+  background:radial-gradient(circle at 35% 35%, rgba(59,130,246,0.28), rgba(37,99,235,0.9));
+  color:#172554;
+}
+.hw-cr-circle-label{
+  display:block;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+.hw-cr-circle-value{
+  display:block;
+  font-size:30px;
+  font-weight:900;
+  line-height:1.05;
+  margin-top:6px;
+}
+.hw-cr-circle-hint{
+  display:block;
+  font-size:11px;
+  font-weight:700;
+  margin-top:6px;
+  opacity:0.9;
+}
+.hw-cr-stats{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.hw-cr-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  background:#f8fafc;
+  border:1px solid #dbeafe;
+  color:#1e3a8a;
+}
+.hw-cr-detail{
+  margin-top:12px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden;
+}
+.hw-cr-detail-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  background:linear-gradient(90deg,#eff6ff,#f8fafc);
+  border-bottom:1px solid #e2e8f0;
+}
+.hw-cr-detail-title{
+  font-size:13px;
+  font-weight:800;
+  color:#0f172a;
+}
+.hw-cr-detail-sub{
+  font-size:11px;
+  color:#64748b;
+}
+.hw-cr-table-wrap{
+  max-height:360px;
+  overflow:auto;
+}
+.hw-cr-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.hw-cr-table th,
+.hw-cr-table td{
+  padding:8px 10px;
+  border-bottom:1px solid #e5e7eb;
+  text-align:left;
+  vertical-align:top;
+}
+.hw-cr-table th{
+  background:#f8fafc;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:#475569;
+}
+.hw-cr-table tbody tr:hover{ background:#f8fafc; }
+.hw-cr-tag{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:0.04em;
+}
+.hw-cr-tag--hw{ background:#dcfce7; color:#166534; }
+.hw-cr-tag--sw{ background:#dbeafe; color:#1d4ed8; }
+.hw-cr-tag--ov{ background:#f3e8ff; color:#7e22ce; }
+.hw-cr-empty{
+  padding:18px;
+  text-align:center;
+  color:#64748b;
+  font-size:12px;
+}
+</style>
+
+
+<div class="hw-actions">
+  <div class="hw-actions-left">
+    <span style="font-size:12px; color:#6b7280;">View mode:</span>
+    <form method="get"
+          action="{{ url_for('dashboard_bp.dashboard',
+                             target_name=target_name,
+                             section='hwpdt') }}"
+          style="margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <input type="hidden" name="pdt_type" value="HWPDT">
+      <select name="toggle_mode" onchange="this.form.submit()" class="hw-btn">
+        <option value="CRM" {{ 'selected' if toggle_mode == 'CRM' else '' }}>CRM</option>
+        <option value="ENG" {{ 'selected' if toggle_mode == 'ENG' else '' }}>ENG</option>
+        <option value="ALL" {{ 'selected' if toggle_mode == 'ALL' else '' }}>All</option>
+      </select>
+      <button type="button" class="hw-btn" id="hwpdtMetaToggle">Select metas…</button>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <span style="font-size:12px; color:#374151; font-weight:600;">Show last</span>
+        <input type="number" id="hwpdtLastN" value="5" min="1" step="1" style="width:72px; padding:4px 8px; border:1px solid #d1d5db; border-radius:8px; font-size:12px;">
+        <span style="font-size:12px; color:#374151; font-weight:600;">metas</span>
+      </label>
+    </form>
+  </div>
+
+    <div class="hw-actions-right"></div>
+</div>
+
+
+<div class="hw-hero-grid">
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Total CRs</div>
+    <div class="hw-hero-value" id="hwHeroTotalCrs">0</div>
+        <div class="hw-hero-sub">Distinct CR values from JIRA table</div>
+
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">SWPDT CRs</div>
+    <div class="hw-hero-value" id="hwHeroSwCrs">0</div>
+    <div class="hw-hero-sub">SW-only + overlap</div>
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">HWPDT CRs</div>
+    <div class="hw-hero-value" id="hwHeroHwCrs">0</div>
+    <div class="hw-hero-sub">HW-only + overlap</div>
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Total HWPDT JIRAs</div>
+    <div class="hw-hero-value" id="hwHeroHwJiras">0</div>
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Invalid JIRAs</div>
+    <div class="hw-hero-value" id="hwHeroInvalidJiras">0</div>
+        <div class="hw-hero-sub">CHIPMD in closed_jiras excluding Manual force crash / Test Log</div>
+
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Total Tested Parts</div>
+    <div class="hw-hero-value" id="hwHeroTestedParts">0</div>
+    <div class="hw-hero-sub">Placeholder for now</div>
+  </div>
+</div>
+
+
+<div class="hw-cr-card">
+  <div class="hw-cr-head">
+    <div>
+      <div class="hw-cr-title">HWPDT vs SWPDT CR Distribution</div>
+      <div class="hw-cr-sub">CRs are classified by JIRA Test Team: <b>PDT_QIPL_HWPDT</b> → HWPDT, all others → SWPDT.</div>
+    </div>
+    <button type="button" class="hw-btn" id="hwCrRefreshBtn">Refresh CRs</button>
+  </div>
+
+  <div id="hwCrVennLoading" class="hw-cr-empty">Loading CR distribution…</div>
+
+  <div id="hwCrVennBody" style="display:none;">
+
+        <!-- PIE + VENN side by side -->
+    <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:10px;">
+
+      <!-- LEFT: Tested Parts Pie (50%) -->
+      <div id="hwPieCard" style="flex:1 1 0; min-width:220px;
+           background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+           border:1px solid #86efac; border-radius:14px; padding:16px;">
+
+        <div style="font-size:13px; font-weight:800; color:#14532d; margin-bottom:4px;">
+          <i class="fas fa-microchip" style="color:#16a34a;"></i> Tested Parts
+        </div>
+        <div style="font-size:11px; color:#166534; margin-bottom:10px; word-break:break-word;" id="hwPieSpName">Loading…</div>
+
+        <!-- Projected input -->
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
+          <label style="font-size:11px; font-weight:700; color:#15803d; white-space:nowrap;">Projected:</label>
+          <input type="number" id="hwProjectedInput" min="1" placeholder="e.g. 100"
+            style="flex:1; min-width:0; padding:4px 8px; border:1px solid #86efac;
+                   border-radius:8px; font-size:12px; background:#fff;">
+                    <button type="button" class="hw-btn" id="hwProjectedApply"
+            style="font-size:11px; padding:4px 12px; white-space:nowrap;">Apply</button>
+          <button type="button" class="hw-btn hw-btn--primary" id="hwProjectedSave"
+            style="font-size:11px; padding:4px 12px; white-space:nowrap; background:#0891b2; color:#fff; border-color:#0891b2;">Save</button>
+        </div>
+
+        <!-- Canvas for pie (centered) -->
+        <div style="display:flex; justify-content:center; margin-bottom:10px;">
+          <div style="position:relative; width:160px; height:160px;">
+            <canvas id="hwTestedPieChart" width="160" height="160"></canvas>
+            <div id="hwPieCenter" style="position:absolute; top:50%; left:50%;
+                 transform:translate(-50%,-50%); text-align:center; pointer-events:none;">
+              <div style="font-size:22px; font-weight:900; color:#14532d; line-height:1.1;" id="hwPieCenterVal">0</div>
+              <div style="font-size:10px; color:#166534; font-weight:700; margin-top:2px;" id="hwPieCenterLabel">Tested</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend (centered) -->
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;" id="hwPieLegend">
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px;">
+            <span style="width:12px;height:12px;border-radius:3px;background:#16a34a;display:inline-block;flex-shrink:0;"></span>
+            <span>Tested: <b id="hwPieLegendTested">0</b></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:11px;" id="hwPieLegendProjectedRow">
+            <span style="width:12px;height:12px;border-radius:3px;background:#d1fae5;border:1px solid #86efac;display:inline-block;flex-shrink:0;"></span>
+            <span>Remaining: <b id="hwPieLegendRemaining">—</b></span>
+          </div>
+        </div>
+
+        <div style="font-size:10px; color:#6b7280; margin-top:8px; text-align:center;" id="hwPieUpdatedAt"></div>
+      </div>
+
+      <!-- RIGHT: Venn diagram (50%) -->
+      <div style="flex:1 1 0; min-width:220px;">
+        <div class="hw-cr-venn">
+          <div class="hw-cr-circle hw-cr-circle--hw" data-cat="HWPDT_ONLY" title="Show HWPDT-only CRs">
+            <div>
+              <span class="hw-cr-circle-label">HWPDT Only</span>
+              <span class="hw-cr-circle-value" id="hwCrHwOnlyCount">0</span>
+            </div>
+          </div>
+          <div class="hw-cr-circle hw-cr-circle--ov" data-cat="OVERLAP" title="Show overlapping CRs">
+            <div>
+              <span class="hw-cr-circle-label">Overlap</span>
+              <span class="hw-cr-circle-value" id="hwCrOverlapCount">0</span>
+              <span class="hw-cr-circle-hint">Seen in both</span>
+            </div>
+          </div>
+          <div class="hw-cr-circle hw-cr-circle--sw" data-cat="SWPDT_ONLY" title="Show SWPDT-only CRs">
+            <div>
+              <span class="hw-cr-circle-label">SWPDT Only</span>
+              <span class="hw-cr-circle-value" id="hwCrSwOnlyCount">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hw-cr-stats">
+          <span class="hw-cr-pill">Total CRs: <b id="hwCrTotalCount">0</b></span>
+          <span class="hw-cr-pill">Visible rows: <b id="hwCrVisibleCount">0</b></span>
+          <span class="hw-cr-pill">Filter: <b id="hwCrActiveFilter">All</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hw-cr-detail">
+      <div class="hw-cr-detail-head">
+        <div>
+          <div class="hw-cr-detail-title">CR Details</div>
+          <div class="hw-cr-detail-sub">Mapped CR / Area / Subsystem / Status / CR Age</div>
+        </div>
+        <button type="button" class="hw-btn" id="hwCrToggleBtn">Collapse</button>
+      </div>
+      <div id="hwCrDetailWrap" class="hw-cr-table-wrap">
+        <table class="hw-cr-table">
+          <thead>
+            <tr>
+              <th>CR</th>
+              <th>Category</th>
+              <th>Area</th>
+              <th>Subsystem</th>
+              <th>Status</th>
+              <th>CR Age</th>
+              <th>JIRAs</th>
+              <th>Test Teams</th>
+            </tr>
+          </thead>
+          <tbody id="hwCrTableBody">
+            <tr><td colspan="8" class="hw-cr-empty">Loading rows…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form id="hwpdt-save-form" method="post"
+
+      action="{{ url_for('dashboard_bp.hwpdt_save_view', target_name=target_name) }}">
+  <input type="hidden" name="payload_json" id="hwpdt_payload_json">
+
+    <div id="hwpdtMetaPanel" style="display:none; margin:0 0 12px; border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+      <strong style="font-size:13px;">Meta IDs</strong>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="text" id="hwpdtMetaSearch" placeholder="Search meta id..." style="padding:6px 10px; border:1px solid #d1d5db; border-radius:999px; min-width:220px;">
+        <button type="button" class="hw-btn" id="hwpdtSelectAll">Select All</button>
+        <button type="button" class="hw-btn" id="hwpdtClearAll">Clear All</button>
+      </div>
+    </div>
+    <div id="hwpdtMetaList" style="max-height:220px; overflow:auto; display:flex; flex-direction:column; gap:6px;">
+      {% for row in hwpdt_rows %}
+        <label class="hwpdtMetaItem" data-meta="{{ row.meta_id|lower }}" style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 10px; border:1px solid #edf2f7; border-radius:10px;">
+          <input type="checkbox" class="hwpdtMetaCheckbox" value="{{ row.meta_id }}" checked>
+          <span>{{ row.meta_id }}</span>
+        </label>
+      {% endfor %}
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+      <button type="button" class="hw-btn" id="hwpdtCancelSelection">Cancel</button>
+      <button type="button" class="hw-btn hw-btn--primary" id="hwpdtDoneSelection">Done</button>
+    </div>
+  </div>
+
+  <div class="hw-actions" style="margin-top:0; margin-bottom:10px;">
+    <div class="hw-actions-left">
+      <span style="font-size:12px; color:#6b7280;">Table edit:</span>
+    </div>
+    <div class="hw-actions-right">
+      <button type="button" class="hw-btn hw-btn--primary" id="hw-edit-btn">Edit Mode</button>
+      <button type="button" class="hw-btn" id="hw-save-btn" style="display:none;">Save</button>
+      <button type="button" class="hw-btn" id="hw-cancel-btn" style="display:none;">Cancel</button>
+    </div>
+  </div>
+
+  <div class="hw-table-wrap">
+
+    <table class="hw-table">
+            <thead>
+        <tr>
+          <th>#</th>
+          <th>Meta ID</th>
+          <th>Build</th>
+          <th>HWPDT Crashes</th>
+          <th class="hw-edit-only">MODE</th>
+        </tr>
+      </thead>
+
+
+      <tbody>
+      {% for row in hwpdt_rows %}
+        {% set builds = row.builds %}
+        {% if builds|length > 0 %}
+                    <tr data-meta-id="{{ row.meta_id }}" class="hwpdt-meta-row">
+
+            <td>{{ row.s_no }}</td>
+            <td>{{ row.meta_id }}</td>
+                        <td class="hw-build-cell">
+              <ul style="list-style:none; margin:0; padding:0;">
+              {% for b in builds %}
+                <li class="hw-build-list-item"
+                    data-build-id="{{ b.build_id or b.build }}"
+                    data-hwpdt-crashes="{{ b.hwpdt_crashes or 0 }}"
+                    data-source="{{ b.build_source or 'AUTO' }}"
+                    title="{{ b.build_id or b.build }}">
+                  {{ b.build_id or b.build }}
+                  {% set chipmd = b.chipmd_ticket or b.chipmd or row.chipmd_ticket or '' %}
+                  {% if chipmd and chipmd != 'NA' %}
+                    - {{ chipmd }}
+                  {% endif %}
+                </li>
+              {% endfor %}
+              </ul>
+            </td>
+            <td>{{ row.hwpdt_crashes or 0 }}</td>
+            <td class="hw-edit-only">
+
+
+              {% set mode = row.mode or toggle_mode if toggle_mode in ['CRM','ENG'] else 'CRM' %}
+              <select class="hw-mode-select" disabled>
+                <option value="CRM" {{ 'selected' if mode == 'CRM' else '' }}>CRM</option>
+                <option value="ENG" {{ 'selected' if mode == 'ENG' else '' }}>ENG</option>
+              </select>
+            </td>
+            
+          </tr>
+        {% endif %}
+      {% endfor %}
+
+      {% if hwpdt_rows|length == 0 %}
+        <tr>
+                              <td colspan="5" style="padding:6px; font-size:12px; color:#6b7280;">
+
+
+            No HWPDT build rows found for this target / filter.
+          </td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+<script>
+let hwEditMode = false;
+
+function setHwEditMode(on){
+  hwEditMode = on;
+  document.body.classList.toggle('hwpdt-edit-mode', on);
+  document.getElementById('hw-edit-btn').style.display   = on ? 'none' : 'inline-block';
+  document.getElementById('hw-save-btn').style.display   = on ? 'inline-block' : 'none';
+  document.getElementById('hw-cancel-btn').style.display = on ? 'inline-block' : 'none';
+  document.querySelectorAll('.hw-mode-select').forEach(sel => {
+    sel.disabled = !on;
+  });
+}
+
+document.getElementById('hw-edit-btn').addEventListener('click', () => setHwEditMode(true));
+document.getElementById('hw-cancel-btn').addEventListener('click', () => window.location.reload());
+document.getElementById('hw-save-btn').addEventListener('click', () => submitHwpdtChanges());
+
+(function () {
+  const loadingEl = document.getElementById('hwCrVennLoading');
+  const bodyEl = document.getElementById('hwCrVennBody');
+  const tableBody = document.getElementById('hwCrTableBody');
+  const refreshBtn = document.getElementById('hwCrRefreshBtn');
+  const toggleBtn = document.getElementById('hwCrToggleBtn');
+  const detailWrap = document.getElementById('hwCrDetailWrap');
+  const filterLabel = document.getElementById('hwCrActiveFilter');
+  const totalCountEl = document.getElementById('hwCrTotalCount');
+  const visibleCountEl = document.getElementById('hwCrVisibleCount');
+    const hwOnlyCountEl = document.getElementById('hwCrHwOnlyCount');
+  const swOnlyCountEl = document.getElementById('hwCrSwOnlyCount');
+  const overlapCountEl = document.getElementById('hwCrOverlapCount');
+  const heroTotalCrsEl = document.getElementById('hwHeroTotalCrs');
+  const heroSwCrsEl = document.getElementById('hwHeroSwCrs');
+  const heroHwCrsEl = document.getElementById('hwHeroHwCrs');
+  const heroHwJirasEl = document.getElementById('hwHeroHwJiras');
+  const heroInvalidJirasEl = document.getElementById('hwHeroInvalidJiras');
+  const heroTestedPartsEl = document.getElementById('hwHeroTestedParts');
+  const circles = Array.from(document.querySelectorAll('.hw-cr-circle'));
+
+
+  if (!loadingEl || !bodyEl || !tableBody) return;
+
+  let allRows = [];
+  let activeFilter = 'ALL';
+  let collapsed = false;
+
+  function catLabel(cat){
+    if (cat === 'HWPDT_ONLY') return 'HWPDT Only';
+    if (cat === 'SWPDT_ONLY') return 'SWPDT Only';
+    if (cat === 'OVERLAP') return 'Overlap';
+    return 'All';
+  }
+
+  function catBadge(cat){
+    if (cat === 'HWPDT_ONLY') return '<span class="hw-cr-tag hw-cr-tag--hw">HWPDT Only</span>';
+    if (cat === 'SWPDT_ONLY') return '<span class="hw-cr-tag hw-cr-tag--sw">SWPDT Only</span>';
+    return '<span class="hw-cr-tag hw-cr-tag--ov">Overlap</span>';
+  }
+
+  function renderRows(){
+    const rows = activeFilter === 'ALL' ? allRows : allRows.filter(r => r.category === activeFilter);
+    visibleCountEl.textContent = String(rows.length);
+    filterLabel.textContent = catLabel(activeFilter);
+    circles.forEach(el => el.classList.toggle('is-active', el.dataset.cat === activeFilter));
+
+    if (!rows.length) {
+      tableBody.innerHTML = '<tr><td colspan="8" class="hw-cr-empty">No CR rows found for the selected category.</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = rows.map(row => `
+      <tr>
+        <td style="font-weight:800;color:#1d4ed8;">${row.cr_id || '—'}</td>
+        <td>${catBadge(row.category)}</td>
+        <td>${row.area || '—'}</td>
+        <td>${row.subsystem || '—'}</td>
+        <td>${row.status || '—'}</td>
+        <td>${row.cr_age ?? '—'}</td>
+        <td>${row.jira_count ?? 0}</td>
+        <td style="max-width:220px;">${row.test_teams || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function setLoading(msg){
+    loadingEl.style.display = '';
+    bodyEl.style.display = 'none';
+    loadingEl.textContent = msg;
+  }
+
+  function loadData(){
+    setLoading('Loading CR distribution…');
+    fetch('/api/hwpdt_cr_venn/{{ target_name|urlencode }}', { credentials:'same-origin' })
+      .then(r => r.json().then(data => ({ ok:r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data || data.success === false) {
+          throw new Error((data && (data.message || data.error)) || 'Failed to load HWPDT CR distribution.');
+        }
+                const summary = data.summary || {};
+        const hero = data.hero_cards || {};
+        allRows = Array.isArray(data.rows) ? data.rows : [];
+        hwOnlyCountEl.textContent = String(summary.hwpdt_only || 0);
+        swOnlyCountEl.textContent = String(summary.swpdt_only || 0);
+        overlapCountEl.textContent = String(summary.overlap || 0);
+        totalCountEl.textContent = String(summary.all || allRows.length || 0);
+        if (heroTotalCrsEl) heroTotalCrsEl.textContent = String(hero.total_crs || 0);
+        if (heroSwCrsEl) heroSwCrsEl.textContent = String(hero.swpdt_crs || 0);
+        if (heroHwCrsEl) heroHwCrsEl.textContent = String(hero.hwpdt_crs || 0);
+        if (heroHwJirasEl) heroHwJirasEl.textContent = String(hero.total_hwpdt_jiras || 0);
+        if (heroInvalidJirasEl) heroInvalidJirasEl.textContent = String(hero.invalid_jiras || 0);
+        if (heroTestedPartsEl) heroTestedPartsEl.textContent = String(hero.total_tested_parts || 0);
+
+        loadingEl.style.display = 'none';
+        bodyEl.style.display = '';
+        renderRows();
+      })
+      .catch(err => {
+        loadingEl.style.display = '';
+        bodyEl.style.display = 'none';
+        loadingEl.textContent = err && err.message ? err.message : 'Failed to load CR distribution.';
+      });
+  }
+
+  circles.forEach(el => {
+    el.addEventListener('click', function(){
+      activeFilter = (activeFilter === el.dataset.cat) ? 'ALL' : el.dataset.cat;
+      renderRows();
+    });
+  });
+
+  refreshBtn?.addEventListener('click', loadData);
+  toggleBtn?.addEventListener('click', function(){
+    collapsed = !collapsed;
+    detailWrap.style.display = collapsed ? 'none' : '';
+    toggleBtn.textContent = collapsed ? 'Expand' : 'Collapse';
+  });
+
+  loadData();
+})();
+
+(function () {
+
+  const rows = Array.from(document.querySelectorAll('.hwpdt-meta-row'));
+  if (!rows.length) return;
+
+  const metaCheckboxes = Array.from(document.querySelectorAll('.hwpdtMetaCheckbox'));
+  const metaItems = Array.from(document.querySelectorAll('.hwpdtMetaItem'));
+  const metaSearch = document.getElementById('hwpdtMetaSearch');
+  const metaPanel = document.getElementById('hwpdtMetaPanel');
+  const metaToggle = document.getElementById('hwpdtMetaToggle');
+  const lastNInput = document.getElementById('hwpdtLastN');
+  const selectAllBtn = document.getElementById('hwpdtSelectAll');
+  const clearAllBtn = document.getElementById('hwpdtClearAll');
+  const cancelBtn = document.getElementById('hwpdtCancelSelection');
+  const doneBtn = document.getElementById('hwpdtDoneSelection');
+
+  const metaOrder = rows.map(r => r.dataset.metaId).filter(Boolean);
+  const latestMeta = [...new Set(metaOrder)].sort((a, b) => {
+    const an = parseInt(String(a).match(/(\d+)$/)?.[1] || '0', 10);
+    const bn = parseInt(String(b).match(/(\d+)$/)?.[1] || '0', 10);
+    return an - bn;
+  });
+
+  let appliedSelection = new Set(metaOrder);
+  let pendingSelection = new Set(metaOrder);
+
+  function applyMetaSearch() {
+    const q = (metaSearch?.value || '').trim().toLowerCase();
+    metaItems.forEach(item => {
+      const val = item.getAttribute('data-meta') || '';
+      item.style.display = (!q || val.includes(q)) ? '' : 'none';
+    });
+  }
+
+  function syncCheckboxes() {
+    metaCheckboxes.forEach(cb => cb.checked = pendingSelection.has(cb.value));
+  }
+
+  function applyMetaFilter() {
+    const selected = metaCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+    const allowed = new Set(selected.length ? selected : metaOrder);
+    rows.forEach(row => {
+      row.style.display = allowed.has(row.dataset.metaId) ? '' : 'none';
+    });
+    appliedSelection = new Set(selected.length ? selected : metaOrder);
+    pendingSelection = new Set(appliedSelection);
+  }
+
+  function applyLastNSelection() {
+    const n = Math.max(1, parseInt((lastNInput && lastNInput.value) || '5', 10) || 5);
+    const latestN = latestMeta.slice(-n);
+    metaCheckboxes.forEach(cb => cb.checked = latestN.includes(cb.value));
+    applyMetaFilter();
+  }
+
+  metaToggle?.addEventListener('click', function () {
+    metaPanel.style.display = (metaPanel.style.display === 'block') ? 'none' : 'block';
+  });
+  metaSearch?.addEventListener('input', applyMetaSearch);
+  selectAllBtn?.addEventListener('click', function () {
+    metaCheckboxes.forEach(cb => cb.checked = true);
+    if (lastNInput) lastNInput.value = '';
+    applyMetaFilter();
+  });
+  clearAllBtn?.addEventListener('click', function () {
+    metaCheckboxes.forEach(cb => cb.checked = false);
+    if (lastNInput) lastNInput.value = '';
+    applyMetaFilter();
+  });
+  cancelBtn?.addEventListener('click', function () {
+    pendingSelection = new Set(appliedSelection);
+    syncCheckboxes();
+    if (metaPanel) metaPanel.style.display = 'none';
+  });
+  doneBtn?.addEventListener('click', function () {
+    appliedSelection = new Set(metaCheckboxes.filter(cb => cb.checked).map(cb => cb.value));
+    pendingSelection = new Set(appliedSelection);
+    if (metaPanel) metaPanel.style.display = 'none';
+    applyMetaFilter();
+  });
+  metaCheckboxes.forEach(cb => {
+    cb.addEventListener('change', function () {
+      if (lastNInput) lastNInput.value = '';
+      applyMetaFilter();
+    });
+  });
+  if (lastNInput) {
+    lastNInput.addEventListener('change', applyLastNSelection);
+    lastNInput.addEventListener('input', function () {
+      const n = parseInt(lastNInput.value || '5', 10);
+      if (Number.isFinite(n) && n > 0) applyLastNSelection();
+    });
+    applyLastNSelection();
+  }
+  applyMetaSearch();
+  applyMetaFilter();
+})();
+
+function submitHwpdtChanges(){
+  const payload = {
+    pdt_type: "HWPDT",
+    toggle_mode: "{{ toggle_mode }}",
+    projected_parts: parseInt(document.getElementById('hwProjectedInput')?.value || '0') || null,
+    rows: []
+  };
+
+  document.querySelectorAll('.hw-table tbody tr[data-meta-id]').forEach(tr => {
+    const metaId = tr.dataset.metaId;
+    const modeSel = tr.querySelector('.hw-mode-select');
+    const mode = modeSel ? modeSel.value : "{{ toggle_mode if toggle_mode in ['CRM','ENG'] else 'CRM' }}";
+    const builds = [];
+    let totalHwCrashes = 0;
+
+    tr.querySelectorAll('.hw-build-list-item').forEach(li => {
+      const buildId = li.dataset.buildId || '';
+      const hwCrashes = parseInt(li.dataset.hwpdtCrashes || '0', 10) || 0;
+      const source = li.dataset.source || 'AUTO';
+      totalHwCrashes += hwCrashes;
+      builds.push({
+        build_id: buildId,
+        hours: 0,
+        mode: mode,
+        pdt_type: 'HWPDT',
+        is_selected: true,
+        swpdt_crashes: 0,
+        hwpdt_crashes: hwCrashes,
+        build_source: source,
+        mtbf: 0,
+        qc_mtbf: 0,
+        product_mtbf: 0
+      });
+    });
+
+    payload.rows.push({
+      meta_id: metaId,
+      mode: mode,
+      pdt_type: 'HWPDT',
+      hwpdt_crashes: totalHwCrashes,
+      builds: builds
+    });
+  });
+
+  document.getElementById('hwpdt_payload_json').value = JSON.stringify(payload);
+  document.getElementById('hwpdt-save-form').submit();
+}
+
+// ── Tested Parts Pie Chart ──────────────────────────────────────────────────
+(function () {
+  const canvas    = document.getElementById('hwTestedPieChart');
+  const centerVal   = document.getElementById('hwPieCenterVal');
+  const centerLabel = document.getElementById('hwPieCenterLabel');
+  const spNameEl  = document.getElementById('hwPieSpName');
+  const updatedEl = document.getElementById('hwPieUpdatedAt');
+  const legendTested    = document.getElementById('hwPieLegendTested');
+  const legendRemaining = document.getElementById('hwPieLegendRemaining');
+  const legendProjRow   = document.getElementById('hwPieLegendProjectedRow');
+  const projInput  = document.getElementById('hwProjectedInput');
+  const projApply  = document.getElementById('hwProjectedApply');
+  const heroTested = document.getElementById('hwHeroTestedParts');
+
+    if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const _storageKey = 'hwpdt_projected_{{ target_name }}';
+
+    let testedParts  = 0;
+  let projectedVal = parseInt(localStorage.getItem(_storageKey) || '0', 10) || 0;
+
+  // restore saved projected value — server first, then localStorage
+  fetch('/api/hwpdt_chip_parts/{{ target_name }}', {cache:'no-store'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success && d.projected_parts && d.projected_parts > 0) {
+        projectedVal = d.projected_parts;
+        if (projInput) projInput.value = projectedVal;
+        localStorage.setItem(_storageKey, projectedVal);
+        drawPie(testedParts, projectedVal);
+      } else if (projectedVal > 0 && projInput) {
+        projInput.value = projectedVal;
+      }
+    })
+    .catch(() => {
+      if (projectedVal > 0 && projInput) projInput.value = projectedVal;
+    });
+
+  function drawPie(tested, projected) {
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 6;
+    ctx.clearRect(0, 0, W, H);
+
+    if (tested === 0 && projected === 0) {
+      // empty circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      ctx.fillStyle = '#e5e7eb';
+      ctx.fill();
+      return;
+    }
+
+    const total     = projected > 0 ? Math.max(projected, tested) : tested;
+    const remaining = projected > 0 ? Math.max(0, projected - tested) : 0;
+
+    const slices = [];
+    if (tested > 0)    slices.push({ val: tested,    color: '#16a34a' });
+    if (remaining > 0) slices.push({ val: remaining, color: '#d1fae5' });
+
+    let startAngle = -Math.PI / 2;
+    slices.forEach(s => {
+      const sweep = (s.val / total) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, startAngle, startAngle + sweep);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      startAngle += sweep;
+    });
+
+    // donut hole
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.52, 0, 2 * Math.PI);
+    ctx.fillStyle = '#f0fdf4';
+    ctx.fill();
+  }
+
+      function updatePie() {
+    const proj = projectedVal;
+    drawPie(testedParts, proj);
+    legendTested.textContent = testedParts;
+    if (proj > 0) {
+      const rem = Math.max(0, proj - testedParts);
+      const pct = Math.min(100, Math.round((testedParts / proj) * 100));
+      legendRemaining.textContent = rem;
+      legendProjRow.style.display = '';
+      centerVal.textContent   = pct + '%';
+      if (centerLabel) centerLabel.textContent = testedParts + ' / ' + proj;
+    } else {
+      legendProjRow.style.display = 'none';
+      centerVal.textContent   = testedParts;
+      if (centerLabel) centerLabel.textContent = 'Tested';
+    }
+    if (heroTested) heroTested.textContent = testedParts;
+  }
+
+  // Load chip data from API
+  fetch('/api/hwpdt_chip_parts/{{ target_name|urlencode }}', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        spNameEl.textContent = data.message || 'No chip data';
+        drawPie(0, 0);
+        return;
+      }
+      testedParts = data.tested_parts || 0;
+      spNameEl.textContent = data.sp_name +
+        (data.matched_products.length ? ' → ' + data.matched_products.join(', ') : '');
+      if (data.generated_at) {
+        updatedEl.textContent = 'JSON: ' + data.generated_at.replace('T',' ').replace('Z',' UTC');
+      }
+      updatePie();
+    })
+    .catch(() => {
+      spNameEl.textContent = 'Could not load chip data';
+      drawPie(0, 0);
+    });
+
+      projApply?.addEventListener('click', () => {
+    const v = parseInt(projInput.value || '0', 10);
+        projectedVal = isNaN(v) || v < 1 ? 0 : v;
+    localStorage.setItem(_storageKey, projectedVal);
+    drawPie(testedParts, projectedVal);
+    updatePie();
+  });
+
+  // ── Save projected to server ──
+  document.getElementById('hwProjectedSave')?.addEventListener('click', () => {
+    const v = parseInt(projInput?.value || '0', 10);
+    if (!v || v < 1) {
+      _showProjToast('Enter a valid projected parts number first.', 'error');
+      return;
+    }
+    // Apply locally first
+        projectedVal = v;
+    localStorage.setItem(_storageKey, projectedVal);
+    drawPie(testedParts, projectedVal);
+    updatePie();
+
+    // Save to server
+    const btn = document.getElementById('hwProjectedSave');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    fetch('/api/hwpdt_projected/{{ target_name }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ projected_parts: v })
+    })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+      if (d.success) {
+        _showProjToast(`Projected parts (${v}) saved successfully.`, 'success');
+      } else {
+        _showProjToast(d.message || 'Save failed.', 'error');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+      _showProjToast('Network error — could not save.', 'error');
+    });
+  });
+
+  function _showProjToast(msg, type) {
+    let t = document.getElementById('hwProjToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'hwProjToast';
+      t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:opacity .3s;';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.background = type === 'success' ? '#059669' : '#dc2626';
+    t.style.color = '#fff';
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+  }
+
+  projInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') projApply.click();
+  });
+})();
+
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDT Buddy Help</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background:#0b1220; color:#e8eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 18px 40px; }
+    .card { background:#121b2f; border:1px solid rgba(255,255,255,0.08); border-radius: 12px; padding:18px; margin:14px 0; }
+    h1 { margin: 8px 0 10px; }
+    h2 { margin: 0 0 10px; font-size: 1.15rem; }
+    p, li { line-height: 1.5; color:#cfe0ff; }
+    code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }
+    .kbd { border: 1px solid rgba(255,255,255,0.18); padding:2px 6px; border-radius: 6px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .note { color:#9fb7e8; font-size: 13px; }
+    .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#1e2a45; margin-right:6px; margin-top:4px; }
+    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PDT Buddy — Quick Help</h1>
+    <p>
+      Use PDT Buddy like a search assistant. Ask in plain English, and it will return a simple answer at user level.
+      You do <b>not</b> need to know table names, joins, or internal relationships.
+    </p>
+
+    <div class="card">
+      <h2>How to search</h2>
+      <div class="grid">
+        <div>
+          <p><span class="pill">Search by CR</span></p>
+          <ul>
+            <li>Type a CR number directly, like <code>CR123456</code></li>
+            <li>Ask for a specific CR: <code>show CR123456 details</code></li>
+            <li>Ask for related CRs: <code>related CRs for CR123456</code></li>
+          </ul>
+        </div>
+        <div>
+          <p><span class="pill">Search by status or keyword</span></p>
+          <ul>
+            <li><code>show open CRs</code></li>
+            <li><code>show built CRs</code></li>
+            <li><code>find crash CRs</code></li>
+            <li><code>show CRs for modem with status open</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>What output you will see</h2>
+      <ul>
+        <li><b>Short summary</b> — a plain-English response first.</li>
+        <li><b>List or table</b> — if multiple results are found, PDT Buddy may show a compact table or list.</li>
+        <li><b>Counts</b> — for questions like “how many”, you will get a count with a short explanation.</li>
+        <li><b>Details</b> — for a single CR, you will get the main information only, not internal technical metadata.</li>
+      </ul>
+      <p class="note">Example: “I found 6 open CRs for modem. Here are the top results.”</p>
+    </div>
+
+    <div class="card">
+      <h2>Common examples</h2>
+      <ul>
+        <li><code>show me CRs for camera</code></li>
+        <li><code>how many built CRs do we have?</code></li>
+        <li><code>find crash CRs in infotainment</code></li>
+        <li><code>show details for CR123456</code></li>
+        <li><code>what are the related CRs for CR123456?</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>JiraQuery / filter report</h2>
+      <p>
+        To run a JiraQuery filter report, paste the full command into PDT Buddy. The command must include
+        <code>jiraquery=</code>; PDT Buddy will start the report and show progress.
+      </p>
+      <ul>
+        <li>Use <code>filter=&lt;id&gt;</code> when you already have a saved JIRA filter ID.</li>
+        <li>Use <code>JiraQueryLimit</code> to control the maximum number of rows returned.</li>
+        <li>Use <code>$SkipHwPdtQStabilityCheck</code> when you want to skip the HW PDT QStability check.</li>
+      </ul>
+      <p><b>Sample:</b></p>
+      <p><code>jiraquery="filter=115827" $processCRinfo JiraQueryLimit=2000 $SkipHwPdtQStabilityCheck</code></p>
+    </div>
+
+    <div class="card">
+      <h2>Tips for best results</h2>
+      <ul>
+        <li>Be specific if you know the target, team, or CR number.</li>
+        <li>Use simple phrases like <code>open</code>, <code>built</code>, <code>crash</code>, <code>related</code>, or <code>count</code>.</li>
+        <li>If the chatbot asks for confirmation, choose <span class="kbd">No</span> if you want a normal answer instead of a workflow action.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>What this page does not show</h2>
+      <ul>
+        <li>No internal table mapping</li>
+        <li>No table interlink details</li>
+        <li>No admin / database-level explanation</li>
+      </ul>
+      <p class="note">This page is intentionally user-facing and kept simple.</p>
+    </div>
+  </div>
+</body>
+</html>

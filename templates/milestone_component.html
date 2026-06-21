@@ -1,0 +1,405 @@
+{# templates/milestone_component.html #}
+
+{% macro milestone_component(
+    component_id='milestone',
+    target_name='',
+    milestones={},
+    title='Milestones',
+    editable=True,
+    save_url='',
+    phase_default='PRE-FC',
+    show_target=True
+) %}
+  {% set ms = milestones if milestones else {} %}
+  {% set phase = ms.get('current_phase', phase_default) %}
+  {% set es = ms.get('ES', '') %}
+  {% set fc = ms.get('FC', '') %}
+  {% set cs = ms.get('CS', '') %}
+
+  <div
+    id="{{ component_id }}"
+    class="ms-card"
+    data-milestone-component
+    data-component-id="{{ component_id }}"
+    data-target-name="{{ target_name }}"
+    data-save-url="{{ save_url }}"
+  >
+    <div class="ms-top">
+      <div class="ms-head">
+        <div class="ms-title">
+          {{ title }}
+          {% if show_target and target_name %}
+            <span class="ms-target">- {{ target_name }}</span>
+          {% endif %}
+        </div>
+
+        <div class="ms-phase" data-ms-phase>
+          {{ phase or phase_default }}
+        </div>
+      </div>
+
+            {% if editable %}
+            <div class="ms-actions">
+        <button type="button" class="ms-edit-chip" data-ms-edit title="Edit milestones">
+          <i class="fas fa-pen"></i>
+          <span class="ms-edit-text">Edit</span>
+        </button>
+      </div>
+
+      {% endif %}
+
+    </div>
+
+        <div class="ms-grid">
+      <div class="ms-box ms-box-blue"><div class="ms-label">ES</div><div class="ms-value" data-ms-view="ES">{{ es if es else '-' }}</div></div>
+      <div class="ms-box ms-box-green"><div class="ms-label">FC</div><div class="ms-value" data-ms-view="FC">{{ fc if fc else '-' }}</div></div>
+      <div class="ms-box ms-box-amber"><div class="ms-label">CS</div><div class="ms-value" data-ms-view="CS">{{ cs if cs else '-' }}</div></div>
+      <div class="ms-box ms-box-purple"><div class="ms-label">CS1</div><div class="ms-value" data-ms-view="CS1">{{ cs1 if cs1 else '-' }}</div></div>
+    </div>
+
+    <div class="ms-status" data-ms-status></div>
+  </div>
+
+  {% if editable %}
+  <div class="ms-modal-overlay" data-ms-modal hidden>
+    <div class="ms-modal">
+      <div class="ms-modal-header">
+        <div class="ms-modal-title"><i class="fas fa-flag"></i> Milestone Editor</div>
+        <button type="button" class="modal-close-btn" data-ms-close>&times;</button>
+      </div>
+      <div class="ms-modal-body">
+                <div class="ms-modal-subtitle">
+          {% if show_target and target_name %}<span class="ms-chip">Target: {{ target_name }}</span>{% endif %}
+        </div>
+        <div class="ms-modal-grid">
+          <div class="ms-modal-card" style="grid-column:1 / -1;">
+            <div class="ms-label">SP Name</div>
+            <input class="ms-input" data-ms-sp-name type="text" value="{{ sp_name if sp_name else '' }}" placeholder="Enter SP name">
+          </div>
+          <div class="ms-modal-card"><div class="ms-label">ES</div><input class="ms-input" data-ms-input="ES" type="date" value="{{ es if es and es != '-' else '' }}"></div>
+          <div class="ms-modal-card"><div class="ms-label">FC</div><input class="ms-input" data-ms-input="FC" type="date" value="{{ fc if fc and fc != '-' else '' }}"></div>
+          <div class="ms-modal-card"><div class="ms-label">CS</div><input class="ms-input" data-ms-input="CS" type="date" value="{{ cs if cs and cs != '-' else '' }}"></div>
+          <div class="ms-modal-card"><div class="ms-label">CS1</div><input class="ms-input" data-ms-input="CS1" type="date" value="{{ cs1 if cs1 and cs1 != '-' else '' }}"></div>
+        </div>
+
+      </div>
+      <div class="ms-modal-footer">
+        <button type="button" class="ms-btn ms-btn-secondary" data-ms-cancel>Cancel</button>
+        <button type="button" class="ms-btn ms-btn-primary" data-ms-save>Save Milestones</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+
+<style>
+  .ms-card{
+    padding:16px;
+    background:rgba(255,255,255,.96);
+    border:1px solid #dbe3f0;
+    border-radius:24px;
+    box-shadow:0 10px 26px rgba(35,65,130,.10);
+  }
+
+  .ms-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:14px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+
+  .ms-head{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    flex:1;
+    min-width:220px;
+  }
+
+  .ms-title{
+    font-size:20px;
+    font-weight:900;
+    color:#243f98;
+    line-height:1.2;
+  }
+
+  .ms-target{
+    color:#5d6b8a;
+    font-weight:700;
+    font-size:15px;
+  }
+
+  .ms-phase{
+    min-height:50px;
+    border-radius:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-size:16px;
+    font-weight:900;
+    color:#2a9558;
+    background:#e6f5e9;
+    border:1px solid #d8eadc;
+    padding:0 14px;
+    max-width:260px;
+  }
+
+      .ms-actions{ display:flex; flex-wrap:wrap; gap:10px; }
+    .ms-edit-chip{ min-width:96px; height:44px; padding:0 14px; border-radius:16px; border:1px solid #d7ddff; background:linear-gradient(135deg,#4e44d9,#6d63ff); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 12px 24px rgba(78,68,217,.22); gap:8px; font-weight:900; position:relative; overflow:hidden; }
+  .ms-edit-chip:hover{ transform:translateY(-1px); }
+  .ms-edit-chip::after{ content:''; position:absolute; inset:-2px; border-radius:18px; border:1px solid rgba(255,255,255,.22); animation:msPulse 1.8s infinite; }
+  .ms-edit-text{ font-size:13px; letter-spacing:.2px; }
+  @keyframes msPulse { 0%{ transform:scale(.98); opacity:.85; } 70%{ transform:scale(1.08); opacity:0; } 100%{ opacity:0; } }
+
+
+  .ms-grid{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
+  .ms-box{ border-radius:18px; padding:14px 12px; min-height:94px; border:1px solid #dbe3ef; box-shadow:0 8px 18px rgba(35,65,130,.08); background:#fff; }
+  .ms-box-blue{ background:linear-gradient(180deg,#f7faff,#eef5ff); }
+  .ms-box-green{ background:linear-gradient(180deg,#f7fff9,#edfdf1); }
+  .ms-box-amber{ background:linear-gradient(180deg,#fffaf4,#fff2e7); }
+  .ms-box-purple{ background:linear-gradient(180deg,#fbf7ff,#f3edff); }
+
+  .ms-label{ font-size:12px; font-weight:900; margin-bottom:8px; color:#51627f; letter-spacing:.4px; }
+  .ms-value{ font-size:18px; font-weight:900; word-break:break-word; color:#24365b; }
+  .ms-status{ margin-top:12px; min-height:20px; font-size:13px; font-weight:700; color:#51627f; }
+  .ms-chip{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:#eef4ff; color:#38508b; font-weight:800; font-size:12px; }
+  .ms-modal-overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); backdrop-filter:blur(10px); z-index:10060; padding:20px; }
+  .ms-modal-overlay.is-open{ display:flex; }
+  .ms-modal{ width:min(860px, 100%); background:linear-gradient(180deg,#ffffff 0%, #f7fbff 100%); border:1px solid rgba(120,144,180,.28); border-radius:30px; box-shadow:0 28px 90px rgba(15,23,42,.30); overflow:hidden; }
+  .ms-modal-header{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 22px; background:linear-gradient(135deg,#f4f7ff,#eef3ff); border-bottom:1px solid #dde6f6; }
+  .ms-modal-title{ font-size:18px; font-weight:900; color:#1f3360; display:flex; align-items:center; gap:10px; }
+  .ms-modal-body{ padding:18px 22px 0; }
+  .ms-modal-subtitle{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; color:#5a6a86; font-weight:700; }
+  .ms-modal-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+  .ms-modal-card{ background:#fff; border:1px solid #dde6f4; border-radius:18px; padding:14px; box-shadow:0 10px 24px rgba(15,23,42,.06); }
+  .ms-modal-card .ms-label{ color:#50607d; font-size:12px; margin-bottom:8px; }
+  .ms-modal-card input{ width:100%; border:1px solid #cfd9ea; border-radius:14px; padding:12px 14px; font-size:14px; font-weight:800; color:#24365b; background:#fff; outline:none; }
+  .ms-modal-card input:focus{ border-color:#685cff; box-shadow:0 0 0 3px rgba(104,92,255,.12); }
+  .ms-modal-footer{ display:flex; justify-content:flex-end; gap:10px; padding:18px 22px 22px; }
+
+  .ms-btn{ appearance:none; border:none; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:900; transition:.18s ease; }
+  .ms-btn:hover{ transform:translateY(-1px); }
+  .ms-btn-primary{ color:#fff; background:linear-gradient(135deg,#4e44d9,#665bff); box-shadow:0 10px 20px rgba(102,91,255,.18); }
+  .ms-btn-secondary{ color:#30457b; background:#eef2ff; border:1px solid #d7ddff; }
+
+
+
+  .ms-btn{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:11px 18px;
+    border-radius:999px;
+    font-size:14px;
+    font-weight:900;
+    transition:.18s ease;
+  }
+
+  .ms-btn:hover{
+    transform:translateY(-1px);
+  }
+
+  .ms-btn-primary{
+    color:#fff;
+    background:linear-gradient(135deg,#4e44d9,#665bff);
+    box-shadow:0 10px 20px rgba(102,91,255,.18);
+  }
+
+  .ms-btn-secondary{
+    color:#30457b;
+    background:#eef2ff;
+    border:1px solid #d7ddff;
+  }
+
+  .ms-btn-muted{
+    color:#fff;
+    background:linear-gradient(135deg,#8d9ab5,#6e7d98);
+    box-shadow:0 10px 18px rgba(90,105,135,.18);
+  }
+
+  @media (max-width: 900px){
+    .ms-grid{
+      grid-template-columns:1fr;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    function initMilestoneCard(card) {
+      if (!card || card.dataset.initialized === '1') return;
+      card.dataset.initialized = '1';
+
+      const editBtn = card.querySelector('[data-ms-edit]');
+      const modal = card.querySelector('[data-ms-modal]');
+      const closeBtn = card.querySelector('[data-ms-close]');
+      const cancelBtn = card.querySelector('[data-ms-cancel]');
+      const saveBtn = card.querySelector('[data-ms-save]');
+            const statusEl = card.querySelector('[data-ms-status]');
+      const phaseEl = card.querySelector('[data-ms-phase]');
+      const saveUrl = card.dataset.saveUrl || '';
+      const targetName = card.dataset.targetName || '';
+      const spNameEl = card.querySelector('[data-ms-sp-name]');
+
+
+            function toDate(v) {
+        if (!v) return null;
+        const s = String(v).trim();
+        if (!s || s === '-') return null;
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+      }
+
+      function computePhase() {
+        if (!phaseEl) return;
+        const es = toDate(phaseEl.dataset.es);
+        const fc = toDate(phaseEl.dataset.fc);
+        const cs = toDate(phaseEl.dataset.cs);
+        const cs1 = toDate(phaseEl.dataset.cs1);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        let label = phaseEl.textContent.trim() || 'PRE-FC';
+        if (es && today < es) label = 'PRE-ES';
+        else if (es && (!fc || today < fc)) label = 'ES';
+        else if (fc && (!cs || today < cs)) label = 'FC';
+        else if (cs && (!cs1 || today < cs1)) label = 'CS';
+        else if (cs1 && today >= cs1) label = 'CS1';
+        phaseEl.textContent = label;
+      }
+
+      function setStatus(msg, isError=false) {
+
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.style.color = isError ? '#c62828' : '#51627f';
+      }
+
+      function openModal() {
+        if (!modal) return;
+        modal.classList.add('is-open');
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.hidden = true;
+        document.body.style.overflow = '';
+      }
+
+      function getInput(key) {
+        return card.querySelector(`[data-ms-input="${key}"]`);
+      }
+
+                  function preloadFromViews() {
+        computePhase();
+        ['ES','FC','CS','CS1'].forEach((key) => {
+
+          const view = card.querySelector(`[data-ms-view="${key}"]`);
+          const input = getInput(key);
+          if (view && input) {
+            const val = (view.textContent || '').trim();
+            input.value = val && val !== '-' ? val : '';
+          }
+        });
+        if (spNameEl) {
+          const existingSp = (card.dataset.spName || '').trim();
+          spNameEl.value = existingSp;
+        }
+      }
+
+
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          preloadFromViews();
+          setStatus('');
+          openModal();
+        });
+      }
+
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      if (modal) {
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      }
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+                    const payload = {
+            target_name: targetName,
+            sp_name: (spNameEl?.value || '').trim(),
+            milestones: {
+              ES: getInput('ES')?.value || '',
+              FC: getInput('FC')?.value || '',
+              CS: getInput('CS')?.value || '',
+              CS1: getInput('CS1')?.value || ''
+            }
+          };
+
+
+          if (!saveUrl) {
+            ['ES','FC','CS','CS1'].forEach((key) => {
+              const view = card.querySelector(`[data-ms-view="${key}"]`);
+              if (view) view.textContent = payload.milestones[key] || '-';
+            });
+            setStatus('Updated locally.');
+            closeModal();
+            return;
+          }
+
+          try {
+            setStatus('Saving...');
+            const response = await fetch(saveUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.success === false) {
+              throw new Error(data.message || `Save failed (${response.status})`);
+            }
+
+                      const saved = data.milestones || payload.milestones;
+            ['ES','FC','CS','CS1'].forEach((key) => {
+              const view = card.querySelector(`[data-ms-view="${key}"]`);
+              if (view) view.textContent = saved[key] || '-';
+            });
+            if (phaseEl) {
+              phaseEl.dataset.es = saved.ES || payload.milestones.ES || '';
+              phaseEl.dataset.fc = saved.FC || payload.milestones.FC || '';
+              phaseEl.dataset.cs = saved.CS || payload.milestones.CS || '';
+              phaseEl.dataset.cs1 = saved.CS1 || payload.milestones.CS1 || '';
+              computePhase();
+            }
+
+            setStatus(data.message || 'Saved successfully.');
+            closeModal();
+          } catch (err) {
+            setStatus(err.message || 'Failed to save milestone data.', true);
+          }
+        });
+      }
+    }
+
+    function initAll() {
+      document.querySelectorAll('[data-milestone-component]').forEach(initMilestoneCard);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAll);
+    } else {
+      initAll();
+    }
+  })();
+</script>

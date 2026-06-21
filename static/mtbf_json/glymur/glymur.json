@@ -1,0 +1,1138 @@
+{
+  "rows": [
+    {
+      "id": "",
+      "build": "Meta-00279",
+      "date": "2025-02-07",
+      "total_crashes": 191,
+      "qc_crashes": "",
+      "product_mtbf": 2.0,
+      "qc_mtbf": 2.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00309",
+      "date": "2025-02-08",
+      "total_crashes": 158,
+      "qc_crashes": "",
+      "product_mtbf": 2.4,
+      "qc_mtbf": 2.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00313.1",
+      "date": "2025-02-09",
+      "total_crashes": 305,
+      "qc_crashes": "",
+      "product_mtbf": 3.9,
+      "qc_mtbf": 3.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00314",
+      "date": "2025-02-14",
+      "total_crashes": 233,
+      "qc_crashes": "",
+      "product_mtbf": 4.9,
+      "qc_mtbf": 4.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00370.3",
+      "date": "2025-02-17",
+      "total_crashes": 577,
+      "qc_crashes": "",
+      "product_mtbf": 3.2,
+      "qc_mtbf": 3.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00414.1",
+      "date": "2025-02-19",
+      "total_crashes": 775,
+      "qc_crashes": "",
+      "product_mtbf": 3.3,
+      "qc_mtbf": 3.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00426.2",
+      "date": "2025-02-28",
+      "total_crashes": 491,
+      "qc_crashes": "",
+      "product_mtbf": 3.6,
+      "qc_mtbf": 3.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00432.1_SHRM_PCI34_AUD_PDP",
+      "date": "2025-03-03",
+      "total_crashes": 570,
+      "qc_crashes": "",
+      "product_mtbf": 3.5,
+      "qc_mtbf": 3.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00907.3-STD.INT-1_tz_4016425_0303",
+      "date": "2025-03-04",
+      "total_crashes": 465,
+      "qc_crashes": "",
+      "product_mtbf": 2.5,
+      "qc_mtbf": 2.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00909.2-STD.INT-1_aud_tz_xbl_0305",
+      "date": "2025-03-07",
+      "total_crashes": 539,
+      "qc_crashes": "",
+      "product_mtbf": 2.2,
+      "qc_mtbf": 2.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00913.2-STD.INT-1",
+      "date": "2025-03-10",
+      "total_crashes": 1530,
+      "qc_crashes": "",
+      "product_mtbf": 1.8,
+      "qc_mtbf": 1.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-00917.1-STD.INT-1_0311",
+      "date": "2025-03-15",
+      "total_crashes": 697,
+      "qc_crashes": "",
+      "product_mtbf": 3.4,
+      "qc_mtbf": 3.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta--00923.5-STD.INT-1_0314",
+      "date": "2025-03-17",
+      "total_crashes": 791,
+      "qc_crashes": "",
+      "product_mtbf": 4.2,
+      "qc_mtbf": 4.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-01107.2-STD.INT-1_0317",
+      "date": "2025-03-22",
+      "total_crashes": 478,
+      "qc_crashes": "",
+      "product_mtbf": 6.4,
+      "qc_mtbf": 6.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Meta-01114.4-STD.INT-1_0321",
+      "date": "2025-03-25",
+      "total_crashes": 857,
+      "qc_crashes": "",
+      "product_mtbf": 4.4,
+      "qc_mtbf": 4.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01117.1-STD.INT-1_0324",
+      "date": "2025-03-28",
+      "total_crashes": 610,
+      "qc_crashes": "",
+      "product_mtbf": 4.5,
+      "qc_mtbf": 4.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01121.2-STD.INT-1",
+      "date": "2025-04-03",
+      "total_crashes": 923,
+      "qc_crashes": "",
+      "product_mtbf": 5.6,
+      "qc_mtbf": 5.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01123.3-STD.INT-1_03_30",
+      "date": "2025-04-04",
+      "total_crashes": 451,
+      "qc_crashes": "",
+      "product_mtbf": 4.4,
+      "qc_mtbf": 4.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01307.2-STD.INT-1_0401",
+      "date": "2025-04-02",
+      "total_crashes": 698,
+      "qc_crashes": "",
+      "product_mtbf": 4.2,
+      "qc_mtbf": 4.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01314.1-STD.INT-1",
+      "date": "2025-04-05",
+      "total_crashes": 633,
+      "qc_crashes": "",
+      "product_mtbf": 4.7,
+      "qc_mtbf": 4.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01321.1-STD.INT-1_0409",
+      "date": "2025-04-07",
+      "total_crashes": 519,
+      "qc_crashes": "",
+      "product_mtbf": 2.1,
+      "qc_mtbf": 2.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01321.4-STD.INT-6",
+      "date": "2025-04-14",
+      "total_crashes": 361,
+      "qc_crashes": "",
+      "product_mtbf": 6.6,
+      "qc_mtbf": 6.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01324.1-STD.INT-2_0412",
+      "date": "2025-04-15",
+      "total_crashes": 1232,
+      "qc_crashes": "",
+      "product_mtbf": 4.3,
+      "qc_mtbf": 4.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01517.1-STD.INT-1_0423",
+      "date": "2025-04-24",
+      "total_crashes": 475,
+      "qc_crashes": "",
+      "product_mtbf": 3.1,
+      "qc_mtbf": 3.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01517.3-STD.INT-1_0423",
+      "date": "2025-04-25",
+      "total_crashes": 334,
+      "qc_crashes": "",
+      "product_mtbf": 5.0,
+      "qc_mtbf": 4.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01520.1-STD.INT-1",
+      "date": "2025-04-25",
+      "total_crashes": 290,
+      "qc_crashes": "",
+      "product_mtbf": 5.1,
+      "qc_mtbf": 5.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-01520.1-STD.INT-2",
+      "date": "2025-04-25",
+      "total_crashes": 290,
+      "qc_crashes": "",
+      "product_mtbf": 5.1,
+      "qc_mtbf": 5.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01523.7-STD.INT-1",
+      "date": "2025-04-28",
+      "total_crashes": 584,
+      "qc_crashes": "",
+      "product_mtbf": 6.5,
+      "qc_mtbf": 6.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01714.8-STD.INT-1_0506",
+      "date": "2025-05-11",
+      "total_crashes": 365,
+      "qc_crashes": "",
+      "product_mtbf": 9.8,
+      "qc_mtbf": 10.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01714.9-STD.INT-1_0508",
+      "date": "2025-05-19",
+      "total_crashes": 258,
+      "qc_crashes": "",
+      "product_mtbf": 6.5,
+      "qc_mtbf": 7.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01714.9-GAM.INT-1_0508",
+      "date": "2025-05-19",
+      "total_crashes": 258,
+      "qc_crashes": "",
+      "product_mtbf": 6.5,
+      "qc_mtbf": 7.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01730.1-STD.INT-1_0509",
+      "date": "2025-05-19",
+      "total_crashes": 1625,
+      "qc_crashes": "",
+      "product_mtbf": 7.3,
+      "qc_mtbf": 8.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01730.1-GAM.INT-1_0509",
+      "date": "2025-05-19",
+      "total_crashes": 1625,
+      "qc_crashes": "",
+      "product_mtbf": 7.3,
+      "qc_mtbf": 8.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01918.2-STD.INT-3_NH_IMG_OS_PEP_FIX_0519",
+      "date": "2025-05-23",
+      "total_crashes": 1001,
+      "qc_crashes": "",
+      "product_mtbf": 5.8,
+      "qc_mtbf": 6.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-1930.1-STD.INT-1",
+      "date": "2025-05-27",
+      "total_crashes": 1291,
+      "qc_crashes": "",
+      "product_mtbf": 5.2,
+      "qc_mtbf": 6.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-01934.3-STD.INT-1",
+      "date": "2025-06-03",
+      "total_crashes": 1933,
+      "qc_crashes": "",
+      "product_mtbf": 5.6,
+      "qc_mtbf": 6.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02123.1-STD.INT-1_6_5",
+      "date": "2025-06-11",
+      "total_crashes": 381,
+      "qc_crashes": "",
+      "product_mtbf": 14.9,
+      "qc_mtbf": 16.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02126.1-STD.INT-2_mainfam_0607_172336",
+      "date": "2025-06-15",
+      "total_crashes": 408,
+      "qc_crashes": "",
+      "product_mtbf": 18.3,
+      "qc_mtbf": 20.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02133.05-STD.INT_0611_0611_183223",
+      "date": "2025-06-19",
+      "total_crashes": 524,
+      "qc_crashes": "",
+      "product_mtbf": 12.4,
+      "qc_mtbf": 15.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02137.3-STD.INT-1_0618",
+      "date": "2025-06-22",
+      "total_crashes": 1050,
+      "qc_crashes": "",
+      "product_mtbf": 14.2,
+      "qc_mtbf": 14.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02326.1-STD.INT-1_0626",
+      "date": "2025-06-27",
+      "total_crashes": 1171,
+      "qc_crashes": "",
+      "product_mtbf": 6.3,
+      "qc_mtbf": 6.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02333.10-STD.INT-1_0630",
+      "date": "2025-07-02",
+      "total_crashes": 907,
+      "qc_crashes": "",
+      "product_mtbf": 8.8,
+      "qc_mtbf": 8.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02512.1-STD.INT_0707_104301",
+      "date": "2025-07-08",
+      "total_crashes": 191,
+      "qc_crashes": "",
+      "product_mtbf": 20.4,
+      "qc_mtbf": 24.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02513.5-STD.INT-1_0708_095801",
+      "date": "2025-07-09",
+      "total_crashes": 728,
+      "qc_crashes": "",
+      "product_mtbf": 9.6,
+      "qc_mtbf": 11.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02521.6-STD.INT-1_0711",
+      "date": "2025-07-11",
+      "total_crashes": 675,
+      "qc_crashes": "",
+      "product_mtbf": 11.5,
+      "qc_mtbf": 12.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02526.1-STD.INT-1_0716",
+      "date": "2025-07-17",
+      "total_crashes": 1168,
+      "qc_crashes": "",
+      "product_mtbf": 5.5,
+      "qc_mtbf": 6.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02532.1-STD.INT-1_0720_152055",
+      "date": "2025-07-24",
+      "total_crashes": 797,
+      "qc_crashes": "",
+      "product_mtbf": 6.3,
+      "qc_mtbf": 6.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02536.1-STD.INT-1_0723",
+      "date": "2025-07-28",
+      "total_crashes": 653,
+      "qc_crashes": "",
+      "product_mtbf": 8.8,
+      "qc_mtbf": 9.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02548.2-STD.INT-1_AOP_0731",
+      "date": "2025-07-31",
+      "total_crashes": 786,
+      "qc_crashes": "",
+      "product_mtbf": 6.3,
+      "qc_mtbf": 6.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02911.1-STD.INT-1_0805",
+      "date": "2025-08-05",
+      "total_crashes": 634,
+      "qc_crashes": "",
+      "product_mtbf": 6.6,
+      "qc_mtbf": 8.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02923.1-STD.INT-1_MF_0812",
+      "date": "2025-08-10",
+      "total_crashes": 1159,
+      "qc_crashes": "",
+      "product_mtbf": 6.9,
+      "qc_mtbf": 8.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-02929.25-STD.INT-1_0815_200029",
+      "date": "2025-08-15",
+      "total_crashes": 495,
+      "qc_crashes": "",
+      "product_mtbf": 12.5,
+      "qc_mtbf": 13.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03015.6-STD.INT-1_0819_193044",
+      "date": "2025-08-20",
+      "total_crashes": 712,
+      "qc_crashes": "",
+      "product_mtbf": 10.2,
+      "qc_mtbf": 10.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03024.1-STD.INT-1_0825",
+      "date": "2025-08-25",
+      "total_crashes": 1476,
+      "qc_crashes": "",
+      "product_mtbf": 5.7,
+      "qc_mtbf": 6.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03024.1-STD.INT-1_0830",
+      "date": "2025-08-31",
+      "total_crashes": 466,
+      "qc_crashes": "",
+      "product_mtbf": 4.2,
+      "qc_mtbf": 4.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03315.1-STD.INT-1_MF_0905",
+      "date": "2025-09-05",
+      "total_crashes": 127,
+      "qc_crashes": "",
+      "product_mtbf": 22.0,
+      "qc_mtbf": 23.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03500-STD.INT-4",
+      "date": "2025-09-15",
+      "total_crashes": 514,
+      "qc_crashes": "",
+      "product_mtbf": 4.0,
+      "qc_mtbf": 4.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03500-STD.INT-5_0918_124204",
+      "date": "2025-09-20",
+      "total_crashes": 222,
+      "qc_crashes": "",
+      "product_mtbf": 9.0,
+      "qc_mtbf": 9.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03515.5-STD.INT-1_0920",
+      "date": "2025-09-25",
+      "total_crashes": 323,
+      "qc_crashes": "",
+      "product_mtbf": 17.9,
+      "qc_mtbf": 18.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03522.2-STD.INT-1_0927",
+      "date": "2025-09-30",
+      "total_crashes": 143,
+      "qc_crashes": "",
+      "product_mtbf": 22.3,
+      "qc_mtbf": 35.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03529.1-STD.INT-1_CPUCP-28_0930_MF",
+      "date": "2025-10-05",
+      "total_crashes": 348,
+      "qc_crashes": "",
+      "product_mtbf": 14.9,
+      "qc_mtbf": 15.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03536.1-STD.INT-1_1004_155340",
+      "date": "2025-10-10",
+      "total_crashes": 526,
+      "qc_crashes": "",
+      "product_mtbf": 10.6,
+      "qc_mtbf": 10.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03912.1-STD.INT-1_1009_MF",
+      "date": "2025-10-12",
+      "total_crashes": 167,
+      "qc_crashes": "",
+      "product_mtbf": 22.1,
+      "qc_mtbf": 23.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03914.5-STD.INT-1_1010_165957",
+      "date": "2025-10-14",
+      "total_crashes": 233,
+      "qc_crashes": "",
+      "product_mtbf": 16.7,
+      "qc_mtbf": 19.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03917.10-STD.INT-1_1014_MF",
+      "date": "2025-10-16",
+      "total_crashes": 226,
+      "qc_crashes": "",
+      "product_mtbf": 11.0,
+      "qc_mtbf": 11.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03922.1-STD.INT-1_1016_MF",
+      "date": "2025-10-18",
+      "total_crashes": 252,
+      "qc_crashes": "",
+      "product_mtbf": 12.3,
+      "qc_mtbf": 14.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03926.1-STD.INT-1_1017_MF",
+      "date": "2025-10-20",
+      "total_crashes": 326,
+      "qc_crashes": "",
+      "product_mtbf": 15.6,
+      "qc_mtbf": 17.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03932.1-STD.INT-1_1019_PDTMF",
+      "date": "2025-10-25",
+      "total_crashes": 472,
+      "qc_crashes": "",
+      "product_mtbf": 11.0,
+      "qc_mtbf": 11.9,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-3937.10-STD.INT-1_1024_MF",
+      "date": "2025-10-28",
+      "total_crashes": 417,
+      "qc_crashes": "",
+      "product_mtbf": 6.7,
+      "qc_mtbf": 6.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03941.5-STD.INT-1_1027_145654",
+      "date": "2025-10-31",
+      "total_crashes": 266,
+      "qc_crashes": "",
+      "product_mtbf": 16.1,
+      "qc_mtbf": 24.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03943.1-STD.INT-1",
+      "date": "2025-11-03",
+      "total_crashes": 295,
+      "qc_crashes": "",
+      "product_mtbf": 16.6,
+      "qc_mtbf": 23.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04012.5-STD.INT-1_1102_080711",
+      "date": "2025-11-06",
+      "total_crashes": 334,
+      "qc_crashes": "",
+      "product_mtbf": 12.5,
+      "qc_mtbf": 19.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04018.1-STD.INT-1",
+      "date": "2025-11-11",
+      "total_crashes": 154,
+      "qc_crashes": "",
+      "product_mtbf": 18.8,
+      "qc_mtbf": 22.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04024.1-STD.INT-1",
+      "date": "2025-11-15",
+      "total_crashes": 150,
+      "qc_crashes": "",
+      "product_mtbf": 28.0,
+      "qc_mtbf": 35.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04111.1-STD.INT-1_1114",
+      "date": "2025-11-18",
+      "total_crashes": 268,
+      "qc_crashes": "",
+      "product_mtbf": 17.9,
+      "qc_mtbf": 20.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04114.1-STD.INT-1",
+      "date": "2025-11-25",
+      "total_crashes": 192,
+      "qc_crashes": "",
+      "product_mtbf": 21.8,
+      "qc_mtbf": 26.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-04125.1-STD.INT-3_1121_MF",
+      "date": "2025-11-28",
+      "total_crashes": 235,
+      "qc_crashes": "",
+      "product_mtbf": 20.0,
+      "qc_mtbf": 32.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04127.3-STD.INT-1_1125_MF",
+      "date": "2025-11-30",
+      "total_crashes": 296,
+      "qc_crashes": "",
+      "product_mtbf": 11.4,
+      "qc_mtbf": 13.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-4313.1-STD.INT-1",
+      "date": "2025-12-03",
+      "total_crashes": 513,
+      "qc_crashes": "",
+      "product_mtbf": 19.4,
+      "qc_mtbf": 29.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-4315.10-STD.INT-1",
+      "date": "2025-12-09",
+      "total_crashes": 363,
+      "qc_crashes": "",
+      "product_mtbf": 15.9,
+      "qc_mtbf": 26.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-4358.5-STD.INT-1",
+      "date": "2025-12-12",
+      "total_crashes": 102,
+      "qc_crashes": "",
+      "product_mtbf": 31.3,
+      "qc_mtbf": 57.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04358.20-STD.INT-1_1211_MF",
+      "date": "2025-12-18",
+      "total_crashes": 282,
+      "qc_crashes": "",
+      "product_mtbf": 39.0,
+      "qc_mtbf": 60.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04413.1-STD.INT-1",
+      "date": "2025-12-23",
+      "total_crashes": 278,
+      "qc_crashes": "",
+      "product_mtbf": 19.7,
+      "qc_mtbf": 84.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04469.5-STD.INT-1",
+      "date": "2025-12-29",
+      "total_crashes": 492,
+      "qc_crashes": "",
+      "product_mtbf": 21.3,
+      "qc_mtbf": 25.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-4505.1-STD.INT-2",
+      "date": "2026-01-03",
+      "total_crashes": 133,
+      "qc_crashes": "",
+      "product_mtbf": 51.1,
+      "qc_mtbf": 58.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04510.1-STD.INT-2_12_29_PDTMF",
+      "date": "2026-01-06",
+      "total_crashes": 322,
+      "qc_crashes": "",
+      "product_mtbf": 30.7,
+      "qc_mtbf": 55.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04511.1-STD.INT-1_0101",
+      "date": "2026-01-10",
+      "total_crashes": 145,
+      "qc_crashes": "",
+      "product_mtbf": 52.4,
+      "qc_mtbf": 74.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04516.1-STD.INT-1",
+      "date": "2025-01-12",
+      "total_crashes": 215,
+      "qc_crashes": "",
+      "product_mtbf": 28.3,
+      "qc_mtbf": 48.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04550.11-STD.INT-1",
+      "date": "2025-01-14",
+      "total_crashes": 185,
+      "qc_crashes": "",
+      "product_mtbf": 17.2,
+      "qc_mtbf": 20.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04557.11-STD.INT-2_0108_MF",
+      "date": "2025-01-16",
+      "total_crashes": 308,
+      "qc_crashes": "",
+      "product_mtbf": 30.8,
+      "qc_mtbf": 77.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-4558.10-STD.INT-1",
+      "date": "2025-01-19",
+      "total_crashes": 348,
+      "qc_crashes": "",
+      "product_mtbf": 28.7,
+      "qc_mtbf": 78.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04605.10-STD.INT-1_0116_MF",
+      "date": "2025-01-23",
+      "total_crashes": 340,
+      "qc_crashes": "",
+      "product_mtbf": 36.7,
+      "qc_mtbf": 93.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04609.1-STD.INT-1",
+      "date": "2025-01-25",
+      "total_crashes": 199,
+      "qc_crashes": "",
+      "product_mtbf": 32.1,
+      "qc_mtbf": 59.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-4617.1-STD.INT-2",
+      "date": "2025-01-28",
+      "total_crashes": 429,
+      "qc_crashes": "",
+      "product_mtbf": 37.2,
+      "qc_mtbf": 60.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04650.1-STD.INT-1",
+      "date": "2025-01-31",
+      "total_crashes": 429,
+      "qc_crashes": "",
+      "product_mtbf": 32.6,
+      "qc_mtbf": 53.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-4659.1-STD.INT-1",
+      "date": "2025-02-05",
+      "total_crashes": 477,
+      "qc_crashes": "",
+      "product_mtbf": 11.1,
+      "qc_mtbf": 13.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-4661.1-STD.INT-1",
+      "date": "2026-02-06",
+      "total_crashes": 196,
+      "qc_crashes": "",
+      "product_mtbf": 38.2,
+      "qc_mtbf": 76.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4786.1-STD.INT-1",
+      "date": "2026-02-11",
+      "total_crashes": 217,
+      "qc_crashes": "",
+      "product_mtbf": 34.1,
+      "qc_mtbf": 77.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04798.1-STD.INT-1",
+      "date": "2026-02-20",
+      "total_crashes": 206,
+      "qc_crashes": "",
+      "product_mtbf": 35.9,
+      "qc_mtbf": 53.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04810.1-STD.INT-1",
+      "date": "2026-02-28",
+      "total_crashes": 175,
+      "qc_crashes": "",
+      "product_mtbf": 17.7,
+      "qc_mtbf": 20.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4810.11-STD.INT-1",
+      "date": "2026-02-17",
+      "total_crashes": 409,
+      "qc_crashes": "",
+      "product_mtbf": 22.4,
+      "qc_mtbf": 27.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4813.1-STD.INT-1",
+      "date": "2026-02-17",
+      "total_crashes": 239,
+      "qc_crashes": "",
+      "product_mtbf": 21.3,
+      "qc_mtbf": 28.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4816.1-STD.INT-1",
+      "date": "2026-02-17",
+      "total_crashes": 372,
+      "qc_crashes": "",
+      "product_mtbf": 22.0,
+      "qc_mtbf": 34.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04821.1-STD.INT-2",
+      "date": "2026-02-17",
+      "total_crashes": 245,
+      "qc_crashes": "",
+      "product_mtbf": 26.5,
+      "qc_mtbf": 61.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4829.1-STD.INT-1",
+      "date": "2026-03-26",
+      "total_crashes": 337,
+      "qc_crashes": "",
+      "product_mtbf": 27.8,
+      "qc_mtbf": 66.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04842.18-STD.INT-1",
+      "date": "2026-04-02",
+      "total_crashes": 135,
+      "qc_crashes": "",
+      "product_mtbf": 25.8,
+      "qc_mtbf": 51.0,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04901.1-STD.INT-1",
+      "date": "2026-04-14",
+      "total_crashes": 236,
+      "qc_crashes": "",
+      "product_mtbf": 41.5,
+      "qc_mtbf": 74.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04923.1-STD.INT-1_0412_MF",
+      "date": "2026-04-18",
+      "total_crashes": 112,
+      "qc_crashes": "",
+      "product_mtbf": 45.5,
+      "qc_mtbf": 66.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04930.15-STD.INT-1_0416_MF",
+      "date": "2026-04-21",
+      "total_crashes": 290,
+      "qc_crashes": "",
+      "product_mtbf": 18.9,
+      "qc_mtbf": 23.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04954.1-STD.INT-1_0420_MF",
+      "date": "2026-04-24",
+      "total_crashes": 110,
+      "qc_crashes": "",
+      "product_mtbf": 38.1,
+      "qc_mtbf": 56.7,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-05000.1-STD.INT-2",
+      "date": "2026-04-30",
+      "total_crashes": 209,
+      "qc_crashes": "",
+      "product_mtbf": 43.5,
+      "qc_mtbf": 75.2,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-05010.01-STD.INT-1_0426_MF",
+      "date": "2026-05-05",
+      "total_crashes": 62,
+      "qc_crashes": "",
+      "product_mtbf": 29.0,
+      "qc_mtbf": 46.1,
+      "comments": ""
+    }
+  ],
+  "target": "glymur",
+  "view": "Glymur",
+  "headers": [
+    "Build",
+    "Date",
+    "Total Crashes",
+    "QC Crashes",
+    "Product MTBF",
+    "QC MTBF",
+    "Comments"
+  ],
+  "updated_at": "2026-06-10T15:56:52.992535Z",
+  "migrated_from_excel": true,
+  "source_excel_path": "\\\\sphere\\pdtqipl_internal\\PDTBuddy\\managed_excel\\COMPUTE\\GLYMUR\\MTBF\\GMK_MTBF.xlsx"
+}

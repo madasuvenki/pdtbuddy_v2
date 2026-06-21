@@ -1,0 +1,161 @@
+{% block shell_inner_content %}
+<style>
+.up-shell { max-width:1100px; margin:0 auto; padding:24px 18px 60px; }
+.up-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px; }
+.up-title { font-size:22px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:10px; }
+.up-subtitle { font-size:12px; color:#64748b; margin-top:2px; }
+.up-card { background:#fff; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 2px 12px rgba(15,23,42,.06); padding:20px 22px; margin-bottom:20px; }
+.up-card-title { font-size:13px; font-weight:900; color:#0f172a; display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.up-card-desc { font-size:11px; color:#64748b; margin-bottom:14px; }
+.up-tag-wrap { display:flex; flex-wrap:wrap; gap:8px; min-height:36px; padding:8px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; margin-bottom:10px; }
+.up-tag { display:inline-flex; align-items:center; gap:6px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; color:#3730a3; }
+.up-tag.viewer { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+.up-tag.group  { background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+.up-tag .rm { background:none; border:none; color:inherit; cursor:pointer; font-size:13px; font-weight:900; padding:0 2px; opacity:.6; }
+.up-tag .rm:hover { opacity:1; }
+.up-add-row { display:flex; gap:8px; }
+.up-input { flex:1; padding:8px 12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:12px; font-weight:600; outline:none; transition:border-color .15s; }
+.up-input:focus { border-color:#6366f1; }
+.up-btn { padding:8px 16px; border-radius:10px; border:none; font-size:12px; font-weight:800; cursor:pointer; transition:all .15s; }
+.up-btn.add  { background:#4f46e5; color:#fff; }
+.up-btn.add:hover { background:#3730a3; }
+.up-btn.save { background:linear-gradient(135deg,#059669,#34d399); color:#fff; font-size:13px; padding:10px 28px; border-radius:12px; }
+.up-btn.save:hover { opacity:.9; }
+.up-static-list { display:flex; flex-wrap:wrap; gap:6px; }
+.up-static-tag { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:700; color:#475569; }
+.up-info { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 14px; font-size:11px; color:#1e40af; margin-bottom:16px; }
+.up-save-bar { position:sticky; bottom:0; background:#fff; border-top:1px solid #e2e8f0; padding:14px 0 0; margin-top:24px; display:flex; align-items:center; gap:12px; }
+#upSaveMsg { font-size:12px; font-weight:700; }
+</style>
+
+<div class="up-shell">
+  <div class="up-header">
+    <div>
+      <div class="up-title"><i class="fas fa-user-shield" style="color:#0f766e;"></i> User Privileges</div>
+      <div class="up-subtitle">Manage admin users, viewer-only users, and additional LDAP groups for PDT Buddy access.</div>
+    </div>
+    <a href="/admin/usage" style="font-size:12px;color:#6366f1;font-weight:700;text-decoration:none;">← Back to Admin</a>
+  </div>
+
+  <!-- Static Admins (read-only) -->
+  <div class="up-card">
+    <div class="up-card-title"><i class="fas fa-lock" style="color:#6366f1;"></i> Static Admins <span style="font-size:10px;font-weight:600;color:#94a3b8;margin-left:4px;">(config.py — edit file to change)</span></div>
+    <div class="up-card-desc">These users always have admin access. Defined in <code>config.py</code>.</div>
+    <div class="up-static-list">
+      {% for u in static_admins %}
+      <span class="up-static-tag"><i class="fas fa-user-cog" style="font-size:9px;"></i> {{ u }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Target Group (read-only) -->
+  <div class="up-card">
+    <div class="up-card-title"><i class="fas fa-users" style="color:#0ea5e9;"></i> Primary Access Group <span style="font-size:10px;font-weight:600;color:#94a3b8;margin-left:4px;">(config.py)</span></div>
+    <div class="up-card-desc">All members of this LDAP group can log in with full access.</div>
+    <span class="up-tag group" style="font-size:13px;padding:6px 14px;"><i class="fas fa-layer-group"></i> {{ target_group }}</span>
+  </div>
+
+  <!-- Dynamic Admins -->
+  <div class="up-card">
+    <div class="up-card-title"><i class="fas fa-user-cog" style="color:#7c3aed;"></i> Dynamic Admins</div>
+    <div class="up-card-desc">Additional users with admin privileges (can access Admin Panel, edit targets, etc.).</div>
+    <div class="up-tag-wrap" id="adminTagWrap">
+      {% for u in dynamic_admins %}
+      <span class="up-tag" data-val="{{ u }}">{{ u }}<button class="rm" onclick="removeTag(this)">×</button></span>
+      {% endfor %}
+    </div>
+    <div class="up-add-row">
+      <input class="up-input" id="adminInput" placeholder="Enter user ID (e.g. jsmith)" onkeydown="if(event.key==='Enter')addTag('adminTagWrap','adminInput','')">
+      <button class="up-btn add" onclick="addTag('adminTagWrap','adminInput','')"><i class="fas fa-plus"></i> Add</button>
+    </div>
+  </div>
+
+  <!-- Viewers -->
+  <div class="up-card">
+    <div class="up-card-title"><i class="fas fa-eye" style="color:#0891b2;"></i> Viewer-Only Users</div>
+    <div class="up-card-desc">These users can log in and <strong>view</strong> dashboards but cannot edit, save, or access admin features.</div>
+    <div class="up-info"><i class="fas fa-info-circle"></i> Viewers do not need to be in the primary LDAP group. They get read-only access to all dashboards.</div>
+    <div class="up-tag-wrap" id="viewerTagWrap">
+      {% for u in viewers %}
+      <span class="up-tag viewer" data-val="{{ u }}">{{ u }}<button class="rm" onclick="removeTag(this)">×</button></span>
+      {% endfor %}
+    </div>
+    <div class="up-add-row">
+      <input class="up-input" id="viewerInput" placeholder="Enter user ID (e.g. jdoe)" onkeydown="if(event.key==='Enter')addTag('viewerTagWrap','viewerInput','viewer')">
+      <button class="up-btn add" onclick="addTag('viewerTagWrap','viewerInput','viewer')"><i class="fas fa-plus"></i> Add</button>
+    </div>
+  </div>
+
+  <!-- Extra Groups -->
+  <div class="up-card">
+    <div class="up-card-title"><i class="fas fa-layer-group" style="color:#d97706;"></i> Additional Access Groups</div>
+    <div class="up-card-desc">Extra LDAP groups whose members get full access (same as primary group). Useful for adding partner teams.</div>
+    <div class="up-tag-wrap" id="groupTagWrap">
+      {% for g in extra_groups %}
+      <span class="up-tag group" data-val="{{ g }}">{{ g }}<button class="rm" onclick="removeTag(this)">×</button></span>
+      {% endfor %}
+    </div>
+    <div class="up-add-row">
+      <input class="up-input" id="groupInput" placeholder="e.g. qipl.partner.team" onkeydown="if(event.key==='Enter')addTag('groupTagWrap','groupInput','group')">
+      <button class="up-btn add" onclick="addTag('groupTagWrap','groupInput','group')"><i class="fas fa-plus"></i> Add</button>
+    </div>
+  </div>
+
+  <!-- Save Bar -->
+  <div class="up-save-bar">
+    <button class="up-btn save" onclick="savePrivileges()"><i class="fas fa-save"></i> Save All Changes</button>
+    <span id="upSaveMsg"></span>
+  </div>
+</div>
+
+<script>
+function removeTag(btn){
+  btn.closest('.up-tag').remove();
+}
+
+function addTag(wrapId, inputId, cls){
+  const inp = document.getElementById(inputId);
+  const val = (inp.value||'').trim().toLowerCase();
+  if(!val) return;
+  const wrap = document.getElementById(wrapId);
+  // Check duplicate
+  if([...wrap.querySelectorAll('[data-val]')].some(t=>t.dataset.val===val)){
+    inp.value=''; return;
+  }
+  const tag = document.createElement('span');
+  tag.className = 'up-tag' + (cls ? ' '+cls : '');
+  tag.dataset.val = val;
+  tag.innerHTML = `${val}<button class="rm" onclick="removeTag(this)">×</button>`;
+  wrap.appendChild(tag);
+  inp.value='';
+}
+
+function getTags(wrapId){
+  return [...document.getElementById(wrapId).querySelectorAll('[data-val]')].map(t=>t.dataset.val);
+}
+
+function savePrivileges(){
+  const msg = document.getElementById('upSaveMsg');
+  msg.textContent = 'Saving...'; msg.style.color='#6366f1';
+  fetch('/admin/user_privileges/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      admins:       getTags('adminTagWrap'),
+      viewers:      getTags('viewerTagWrap'),
+      extra_groups: getTags('groupTagWrap'),
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.success){
+      msg.textContent='✓ Saved successfully!'; msg.style.color='#059669';
+    } else {
+      msg.textContent='✗ '+d.message; msg.style.color='#dc2626';
+    }
+    setTimeout(()=>msg.textContent='', 3000);
+  })
+  .catch(e=>{ msg.textContent='✗ Network error'; msg.style.color='#dc2626'; });
+}
+</script>
+{% endblock %}

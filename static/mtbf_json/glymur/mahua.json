@@ -1,0 +1,688 @@
+{
+  "rows": [
+    {
+      "id": "excel-mahua-67",
+      "build": "Glymur.WP.1.0.r0-05014.10-STD.INT-1",
+      "date": "",
+      "total_crashes": "",
+      "qc_crashes": "",
+      "product_mtbf": "",
+      "qc_mtbf": "",
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03500-MAH.INT-1",
+      "date": "",
+      "total_crashes": 563,
+      "qc_crashes": 554,
+      "product_mtbf": 4.62,
+      "qc_mtbf": 4.69,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03515.11-MAH.INT-1_50mv_bumpup_0922",
+      "date": "",
+      "total_crashes": 225,
+      "qc_crashes": 224,
+      "product_mtbf": 5.56,
+      "qc_mtbf": 5.58,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03517.11-MAH.INT-1_0924",
+      "date": "",
+      "total_crashes": 399,
+      "qc_crashes": 395,
+      "product_mtbf": 10.03,
+      "qc_mtbf": 10.13,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03522.2-MAH.INT-1_0929",
+      "date": "",
+      "total_crashes": 144,
+      "qc_crashes": 127,
+      "product_mtbf": 9.86,
+      "qc_mtbf": 11.18,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03529.1-MAH.INT-1_CPUCP-28_1001",
+      "date": "",
+      "total_crashes": 547,
+      "qc_crashes": 263,
+      "product_mtbf": 6.95,
+      "qc_mtbf": 14.45,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03536.11-STD.INT-1_1006",
+      "date": "",
+      "total_crashes": 137,
+      "qc_crashes": 132,
+      "product_mtbf": 12.77,
+      "qc_mtbf": 13.26,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03912.11-MAH.INT-1_1009",
+      "date": "",
+      "total_crashes": 319,
+      "qc_crashes": 294,
+      "product_mtbf": 10.03,
+      "qc_mtbf": 10.88,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03914.15-MAH.INT-1_1011",
+      "date": "",
+      "total_crashes": 404,
+      "qc_crashes": 370,
+      "product_mtbf": 6.18,
+      "qc_mtbf": 6.75,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03917.11-MAH.INT-1_1014",
+      "date": "",
+      "total_crashes": 166,
+      "qc_crashes": 162,
+      "product_mtbf": 6.02,
+      "qc_mtbf": 6.17,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03922.1-MAH.INT-1_1016",
+      "date": "",
+      "total_crashes": 188,
+      "qc_crashes": 162,
+      "product_mtbf": 3.99,
+      "qc_mtbf": 4.63,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03926.1-MAH.INT-1_1017",
+      "date": "",
+      "total_crashes": 307,
+      "qc_crashes": 232,
+      "product_mtbf": 9.28,
+      "qc_mtbf": 12.28,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03932.11-MAH.INT-1_1020",
+      "date": "",
+      "total_crashes": 299,
+      "qc_crashes": 228,
+      "product_mtbf": 9.7,
+      "qc_mtbf": 12.72,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-3937.10-MAH.INT-1_1024_MF_PDP",
+      "date": "",
+      "total_crashes": 253,
+      "qc_crashes": 216,
+      "product_mtbf": 7.11,
+      "qc_mtbf": 8.33,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03940.5-MAH.INT-1_MF_1026_PDP",
+      "date": "",
+      "total_crashes": 218,
+      "qc_crashes": 187,
+      "product_mtbf": 8.25,
+      "qc_mtbf": 9.62,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-03941.15-MAH.INT-1_1028",
+      "date": "",
+      "total_crashes": 98,
+      "qc_crashes": 82,
+      "product_mtbf": 16.2,
+      "qc_mtbf": 19.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-03943.11-MAH.INT-1",
+      "date": "",
+      "total_crashes": 412,
+      "qc_crashes": 320,
+      "product_mtbf": 10.19,
+      "qc_mtbf": 13.12,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04012.5-MAH.INT-1_1103",
+      "date": "",
+      "total_crashes": 279,
+      "qc_crashes": 223,
+      "product_mtbf": 7.89,
+      "qc_mtbf": 9.87,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04014.1-MAH.INT-1_1105",
+      "date": "",
+      "total_crashes": 371,
+      "qc_crashes": 262,
+      "product_mtbf": 1.35,
+      "qc_mtbf": 1.91,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04018.1-STD.INT-1",
+      "date": "",
+      "total_crashes": 212,
+      "qc_crashes": 169,
+      "product_mtbf": 13.68,
+      "qc_mtbf": 17.16,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04024.1-MAH.INT-1_1111",
+      "date": "",
+      "total_crashes": 235,
+      "qc_crashes": 191,
+      "product_mtbf": 10.0,
+      "qc_mtbf": 12.3,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04026.1-MAH.INT-1_1113",
+      "date": "",
+      "total_crashes": 176,
+      "qc_crashes": 146,
+      "product_mtbf": 6.82,
+      "qc_mtbf": 8.22,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04111.1-MAH.INT-1_1114",
+      "date": "",
+      "total_crashes": 487,
+      "qc_crashes": 452,
+      "product_mtbf": 5.13,
+      "qc_mtbf": 5.53,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04117.50-MAH.INT-1_1118_MF",
+      "date": "",
+      "total_crashes": 290,
+      "qc_crashes": 253,
+      "product_mtbf": 11.28,
+      "qc_mtbf": 12.93,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-04125.1-MAH.INT-3_1121_MF",
+      "date": "",
+      "total_crashes": 266,
+      "qc_crashes": 234,
+      "product_mtbf": 8.27,
+      "qc_mtbf": 9.4,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-04127.3-MAH.INT-1_1125_MF",
+      "date": "",
+      "total_crashes": 142,
+      "qc_crashes": 111,
+      "product_mtbf": 15.49,
+      "qc_mtbf": 19.82,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-4313.1-MAH.INT-1",
+      "date": "",
+      "total_crashes": 452,
+      "qc_crashes": 347,
+      "product_mtbf": 8.41,
+      "qc_mtbf": 10.95,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0-06006.1-MAH.INT-1",
+      "date": "",
+      "total_crashes": 201,
+      "qc_crashes": 168,
+      "product_mtbf": 10.7,
+      "qc_mtbf": 12.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0-4315.10-MAH.INT-1_1204_MF",
+      "date": "",
+      "total_crashes": 238,
+      "qc_crashes": 104,
+      "product_mtbf": 13.91,
+      "qc_mtbf": 31.83,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04358.20-MAH.INT-1_1211",
+      "date": "",
+      "total_crashes": 149,
+      "qc_crashes": 136,
+      "product_mtbf": 34.9,
+      "qc_mtbf": 38.24,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04413.1-MAH.INT-1_1216",
+      "date": "",
+      "total_crashes": 102,
+      "qc_crashes": 51,
+      "product_mtbf": 24.9,
+      "qc_mtbf": 49.8,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04469.5-MAH.INT-1_1222",
+      "date": "",
+      "total_crashes": 446,
+      "qc_crashes": 247,
+      "product_mtbf": 12.15,
+      "qc_mtbf": 21.94,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04500.12-MAH.INT-1_1227",
+      "date": "",
+      "total_crashes": 37,
+      "qc_crashes": 31,
+      "product_mtbf": 89.19,
+      "qc_mtbf": 106.45,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04510.1-MAH.INT-1_1230",
+      "date": "",
+      "total_crashes": 63,
+      "qc_crashes": 55,
+      "product_mtbf": 71.43,
+      "qc_mtbf": 81.82,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04511.1-MAH.INT-1_0101",
+      "date": "",
+      "total_crashes": 107,
+      "qc_crashes": 86,
+      "product_mtbf": 42.15,
+      "qc_mtbf": 52.44,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04516.1-MAH.INT-1_0105",
+      "date": "",
+      "total_crashes": 179,
+      "qc_crashes": 168,
+      "product_mtbf": 20.18,
+      "qc_mtbf": 21.5,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04550.11-MAH.INT-1_0108",
+      "date": "",
+      "total_crashes": 26,
+      "qc_crashes": 26,
+      "product_mtbf": 61.15,
+      "qc_mtbf": 61.15,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04557.11-MAH.INT-2_0109",
+      "date": "",
+      "total_crashes": 144,
+      "qc_crashes": 92,
+      "product_mtbf": 36.22,
+      "qc_mtbf": 56.68,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-4558.10-MAH.INT-1_0113",
+      "date": "",
+      "total_crashes": 260,
+      "qc_crashes": 87,
+      "product_mtbf": 17.92,
+      "qc_mtbf": 53.56,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04605.10-MAH.INT-1_0116_MF",
+      "date": "",
+      "total_crashes": 338,
+      "qc_crashes": 131,
+      "product_mtbf": 18.15,
+      "qc_mtbf": 46.83,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04609.1-MAH.INT-1_0121",
+      "date": "",
+      "total_crashes": 245,
+      "qc_crashes": 132,
+      "product_mtbf": 11.39,
+      "qc_mtbf": 21.14,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "CI_Glymur.WP.1.0.c4-04617.1-MAH.INT-1_0123",
+      "date": "",
+      "total_crashes": 307,
+      "qc_crashes": 117,
+      "product_mtbf": 24.22,
+      "qc_mtbf": 63.55,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04650.1-MAH.INT-1_0129",
+      "date": "",
+      "total_crashes": 527,
+      "qc_crashes": 323,
+      "product_mtbf": 14.78,
+      "qc_mtbf": 24.12,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04659.1-MAH.INT-1_0203",
+      "date": "",
+      "total_crashes": 193,
+      "qc_crashes": 149,
+      "product_mtbf": 11.66,
+      "qc_mtbf": 15.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04660.1-MAH.INT-1_0205",
+      "date": "",
+      "total_crashes": 85,
+      "qc_crashes": 57,
+      "product_mtbf": 15.41,
+      "qc_mtbf": 22.98,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04661.1-MAH.INT-1_0206",
+      "date": "",
+      "total_crashes": 207,
+      "qc_crashes": 108,
+      "product_mtbf": 21.84,
+      "qc_mtbf": 41.85,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.c4-04664.1-MAH.INT-1_0209",
+      "date": "",
+      "total_crashes": 64,
+      "qc_crashes": 42,
+      "product_mtbf": 51.56,
+      "qc_mtbf": 78.57,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04786.1-MAH.INT-1_0211",
+      "date": "",
+      "total_crashes": 257,
+      "qc_crashes": 167,
+      "product_mtbf": 15.18,
+      "qc_mtbf": 23.35,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04798.1-MAH.INT-1",
+      "date": "",
+      "total_crashes": 72,
+      "qc_crashes": 47,
+      "product_mtbf": 62.5,
+      "qc_mtbf": 95.74,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04810.1-MAH.INT-1",
+      "date": "",
+      "total_crashes": 153,
+      "qc_crashes": 129,
+      "product_mtbf": 12.09,
+      "qc_mtbf": 14.34,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04810.11-MAH.INT-1_0226",
+      "date": "",
+      "total_crashes": 408,
+      "qc_crashes": 242,
+      "product_mtbf": 13.24,
+      "qc_mtbf": 22.31,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04813.1-MAH.INT-1_0303",
+      "date": "",
+      "total_crashes": 492,
+      "qc_crashes": 285,
+      "product_mtbf": 7.52,
+      "qc_mtbf": 12.98,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04816.1-MAH.INT-1_0306",
+      "date": "",
+      "total_crashes": 324,
+      "qc_crashes": 116,
+      "product_mtbf": 14.51,
+      "qc_mtbf": 40.52,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04821.1-MAH.INT-2_0310",
+      "date": "",
+      "total_crashes": 424,
+      "qc_crashes": 116,
+      "product_mtbf": 7.55,
+      "qc_mtbf": 27.59,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04827.1-MAH.INT-1_0313",
+      "date": "",
+      "total_crashes": 134,
+      "qc_crashes": 32,
+      "product_mtbf": 23.13,
+      "qc_mtbf": 96.88,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04829.1-MAH.INT-1_0317",
+      "date": "",
+      "total_crashes": 270,
+      "qc_crashes": 124,
+      "product_mtbf": 22.78,
+      "qc_mtbf": 49.6,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04842.18-MAH.INT-1_0324",
+      "date": "",
+      "total_crashes": 146,
+      "qc_crashes": 76,
+      "product_mtbf": 19.86,
+      "qc_mtbf": 38.16,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04901.1-MAH.INT-1_0326",
+      "date": "",
+      "total_crashes": 264,
+      "qc_crashes": 198,
+      "product_mtbf": 21.97,
+      "qc_mtbf": 29.29,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04900.1-MAH.INT-1_0331",
+      "date": "",
+      "total_crashes": 256,
+      "qc_crashes": 151,
+      "product_mtbf": 18.36,
+      "qc_mtbf": 31.13,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04912.1-MAH.INT-1_0403",
+      "date": "",
+      "total_crashes": 214,
+      "qc_crashes": 186,
+      "product_mtbf": 15.42,
+      "qc_mtbf": 17.74,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04918.14-MAH.INT-2_0407",
+      "date": "",
+      "total_crashes": 185,
+      "qc_crashes": 115,
+      "product_mtbf": 23.78,
+      "qc_mtbf": 38.26,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-4921.20-MAH.INT-1_0410",
+      "date": "",
+      "total_crashes": 108,
+      "qc_crashes": 72,
+      "product_mtbf": 27.78,
+      "qc_mtbf": 41.67,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04923.1-MAH.INT-1_0412",
+      "date": "",
+      "total_crashes": 95,
+      "qc_crashes": 51,
+      "product_mtbf": 43.16,
+      "qc_mtbf": 80.39,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04930.15-MAH.INT-1_0416",
+      "date": "",
+      "total_crashes": 148,
+      "qc_crashes": 77,
+      "product_mtbf": 34.46,
+      "qc_mtbf": 66.23,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-04954.1-MAH.INT-1_0420",
+      "date": "",
+      "total_crashes": 238,
+      "qc_crashes": 194,
+      "product_mtbf": 10.92,
+      "qc_mtbf": 12.37,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-05000.1-MAH.INT-1_0422",
+      "date": "",
+      "total_crashes": 182,
+      "qc_crashes": 132,
+      "product_mtbf": 31.1,
+      "qc_mtbf": 43.1,
+      "comments": ""
+    },
+    {
+      "id": "",
+      "build": "Glymur.WP.1.0.r0-5006.10-STD.INT-1",
+      "date": "",
+      "total_crashes": 250,
+      "qc_crashes": 250,
+      "product_mtbf": 36.8,
+      "qc_mtbf": 36.8,
+      "comments": ""
+    }
+  ],
+  "target": "glymur",
+  "view": "Mahua",
+  "headers": [
+    "Build",
+    "Date",
+    "Total Crashes",
+    "QC Crashes",
+    "Product MTBF",
+    "QC MTBF",
+    "Comments"
+  ],
+  "updated_at": "2026-06-10T15:57:24.892095Z",
+  "migrated_from_excel": true,
+  "source_excel_path": "\\\\sphere\\pdtqipl_internal\\PDTBuddy\\managed_excel\\COMPUTE\\GLYMUR\\MTBF\\GMK_MTBF.xlsx"
+}

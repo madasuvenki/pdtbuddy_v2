@@ -1,0 +1,186 @@
+{% extends "base.html" if request.args.get("embed") == "1" else "bu_shell_layout.html" %}
+{% block topbar %}{% if request.args.get("embed") == "1" %}{% else %}{{ super() }}{% endif %}{% endblock %}
+
+{% block extra_css %}{% if request.args.get("embed") == "1" %}{{ self.shell_extra_css() }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block shell_extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bu_selection.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/target_selection.css') }}?v={{ cache_buster }}">
+{% endblock %}
+
+{% block content %}{% if request.args.get("embed") == "1" %}{{ self.shell_inner_content() }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block shell_inner_content %}
+{% set active_bu_key = "WBC" %}
+<style>
+.wbc-page{position:relative;width:100%;min-height:100vh;padding:18px 0 32px;background:radial-gradient(circle at 0% 0%,rgba(124,58,237,.12) 0,transparent 45%),radial-gradient(circle at 100% 0%,rgba(139,92,246,.10) 0,transparent 45%),transparent;}
+.wbc-wrap{width:min(1400px,calc(100vw - 40px));margin:0 auto;}
+.wbc-page-title{margin:0 0 2px;color:#3b0764;font-weight:800;font-size:clamp(1.1rem,1.8vw,1.6rem);letter-spacing:-.02em;display:flex;align-items:center;gap:8px;}
+.wbc-page-sub{margin:0 0 16px;color:#6b7280;font-size:12px;}
+.wbc-explorer{background:#fff;border-radius:24px;border:1px solid #e9d5ff;box-shadow:0 16px 48px rgba(124,58,237,.09);overflow:visible;animation:wbcIn .36s cubic-bezier(.4,0,.2,1) both;}
+@keyframes wbcIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.wbc-topbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(90deg,#faf5ff,#f5f3ff);border-bottom:1px solid #e9d5ff;border-radius:24px 24px 0 0;flex-wrap:wrap;}
+.wbc-topbar-title{font-size:12px;font-weight:800;color:#3b0764;}
+.wbc-topbar-hint{font-size:10px;color:#9ca3af;}
+.wbc-topbar-pill{margin-left:auto;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-radius:999px;padding:2px 10px;font-size:10px;font-weight:700;}
+.wbc-body{padding:16px 20px 20px;}
+.wbc-level-row{display:flex;align-items:flex-start;gap:0;margin-bottom:12px;flex-wrap:wrap;}
+.wbc-level-label{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.14em;color:#d1d5db;min-width:58px;padding-top:8px;flex-shrink:0;}
+.wbc-pill-group{display:flex;flex-wrap:wrap;gap:6px;flex:1;}
+.wbc-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;transition:all .18s ease;white-space:nowrap;user-select:none;}
+.wbc-pill--target{background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#3b0764;border-color:#c4b5fd;}
+.wbc-pill--target:hover{background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(124,58,237,.35);transform:translateY(-2px);}
+.wbc-pill--target.active{background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(124,58,237,.45);transform:translateY(-3px) scale(1.04);}
+.wbc-divider{width:100%;height:1px;background:linear-gradient(90deg,transparent,#e9d5ff 20%,#e9d5ff 80%,transparent);margin:2px 0 12px;}
+.wbc-overall-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:14px;background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1.5px solid #c4b5fd;border-radius:12px;}
+.wbc-overall-bar-label{font-size:11px;font-weight:700;color:#3b0764;flex:1;}
+.wbc-overall-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-size:11px;font-weight:800;text-decoration:none;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.28);transition:box-shadow .18s,transform .18s;}
+.wbc-overall-btn:hover{box-shadow:0 6px 18px rgba(124,58,237,.42);transform:translateY(-1px);color:#fff;text-decoration:none;}
+.wbc-sp-panel{display:none;background:linear-gradient(135deg,#faf5ff,#f8faff);border:1px solid #c4b5fd;border-radius:16px;padding:16px 18px;margin-top:8px;}
+.wbc-sp-panel.visible{display:block;animation:wbcPanelIn .28s ease both;}
+@keyframes wbcPanelIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.wbc-sp-panel-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e9d5ff;}
+.wbc-sp-panel-title{font-size:13px;font-weight:800;color:#3b0764;}
+.wbc-sp-panel-sub{font-size:10px;color:#64748b;}
+.wbc-sp-panel-badge{margin-left:auto;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-radius:999px;padding:3px 12px;font-size:10px;font-weight:700;}
+.wbc-sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.wbc-sp-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:2px solid #c4b5fd;border-radius:12px;text-decoration:none;color:#3b0764;font-weight:700;font-size:12px;box-shadow:0 3px 10px rgba(124,58,237,.10);transition:all .18s ease;}
+.wbc-sp-card:hover{background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 8px 24px rgba(124,58,237,.40);transform:translateY(-3px) scale(1.02);text-decoration:none;}
+.wbc-sp-card-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#ede9fe,#ddd6fe);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:background .18s;}
+.wbc-sp-card:hover .wbc-sp-card-icon{background:rgba(255,255,255,.2);}
+.wbc-sp-card-body{flex:1;min-width:0;}
+.wbc-sp-card-sub{font-size:9px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;display:block;}
+.wbc-sp-card:hover .wbc-sp-card-sub{color:rgba(255,255,255,.75);}
+.wbc-sp-card-name{font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.wbc-sp-card-arrow{font-size:11px;opacity:.5;flex-shrink:0;transition:transform .18s,opacity .18s;}
+.wbc-sp-card:hover .wbc-sp-card-arrow{transform:translateX(3px);opacity:1;}
+.wbc-placeholder{text-align:center;padding:20px 14px;color:#9ca3af;font-size:12px;border:2px dashed #e9d5ff;border-radius:12px;margin-top:8px;}
+.wbc-placeholder i{font-size:20px;display:block;margin-bottom:6px;color:#d1d5db;}
+.wbc-empty{text-align:center;padding:60px 20px;color:#9ca3af;font-size:14px;}
+.wbc-empty span{font-size:40px;display:block;margin-bottom:10px;}
+
+  /* ── Premium Live Status Banner (compact) ── */
+  .plsw-hero{position:relative;display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;margin:0 0 14px;padding:8px 14px;border-radius:12px;background:linear-gradient(135deg,#1d4ed8 0%,#7c3aed 52%,#06b6d4 100%);border:1px solid rgba(99,102,241,.28);box-shadow:0 4px 14px rgba(79,70,229,.18);overflow:hidden;text-decoration:none}
+  .plsw-hero-before{display:none}
+  .plsw-hero > *{position:relative;z-index:1}
+  .plsw-hero-copy{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  .plsw-hero-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;font-size:13px;flex-shrink:0}
+  .plsw-hero-title{font-size:12px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:0}
+  .plsw-hero-sub{display:none}
+  .plsw-hero-cta{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);color:#fff;font-size:11px;font-weight:800;white-space:nowrap;flex-shrink:0;transition:background .15s ease}
+  .plsw-hero:hover .plsw-hero-cta{background:rgba(255,255,255,.26)}
+  .tsel-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:1000}.tsel-modal-backdrop.open{display:flex}.tsel-modal{width:min(760px,94vw);max-height:88vh;overflow:auto;background:#fff;border:1px solid #dbe3ef;border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.22)}.tsel-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 22px;border-bottom:1px solid #e5e7eb;background:linear-gradient(90deg,#f8fbff,#eef4ff)}.tsel-modal-title{font-size:18px;font-weight:900;color:#312e81}.tsel-modal-body{padding:18px 22px}.tsel-target-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.tsel-target-btn{width:100%;text-align:left;border:1px solid #dbe3ef;border-radius:16px;background:linear-gradient(135deg,#fff,#f8fbff);padding:14px 16px;cursor:pointer;box-shadow:0 8px 20px rgba(15,23,42,.06)}.tsel-target-btn:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(15,23,42,.10)}.tsel-target-btn-name{font-size:14px;font-weight:900;color:#1e3a8a}.tsel-target-btn-key{font-size:10px;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:.08em}
+</style>
+
+<div class="wbc-page">
+<div class="wbc-wrap">
+  <h1 class="wbc-page-title">
+    <i class="fas fa-microchip" style="color:#7c3aed;"></i>
+    WBC &mdash; Target Hierarchy
+    <a href="{{ url_for('bu_selection') }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-size:11px;font-weight:800;text-decoration:none;"><i class="fas fa-arrow-left"></i> Back</a>
+  </h1>
+  <p class="wbc-page-sub">Click a Target to view its overall dashboard and SP targets</p>
+
+  
+
+
+  <div id="hierarchyLiveStatusPicker" class="tsel-modal-backdrop">
+    <div class="tsel-modal">
+      <div class="tsel-modal-head">
+        <div>
+          <div class="tsel-modal-title">Open Live Status</div>
+          <div class="tsel-subtitle" style="margin:4px 0 0">Select a target for {{ bu_name }}</div>
+        </div>
+        <button type="button" class="tsel-back" onclick="closeHierarchyLiveStatusPicker()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="tsel-modal-body">
+        <div class="tsel-target-list">
+          {% for t in live_status_targets if t.is_active %}
+          <button type="button" class="tsel-target-btn" onclick="openHierarchyLiveStatusForTarget('{{ t.key }}')">
+            <div class="tsel-target-btn-name">{{ t.display_name }}</div>
+            <div class="tsel-target-btn-key">{{ t.key }}</div>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not wbc_tree_json or wbc_tree_json == '{}' %}
+    <div class="wbc-empty"><span>&#9881;&#65039;</span>No WBC targets configured yet.</div>
+  {% else %}
+  <div class="wbc-explorer">
+    <div class="wbc-topbar">
+      <span style="font-size:18px;">&#128268;</span>
+      <span class="wbc-topbar-title">WBC Hierarchy</span>
+      <span class="wbc-topbar-hint">&mdash; click a <strong>Target</strong> to view its dashboard &amp; SPs</span>
+      <span class="wbc-topbar-pill">{{ total_targets }} Target{{ 's' if total_targets != 1 }}</span>
+    </div>
+    <div class="wbc-body">
+      <div class="wbc-level-row">
+        <div class="wbc-level-label">Target</div>
+        <div class="wbc-pill-group" id="wbc-target-pills"></div>
+      </div>
+      <div class="wbc-divider"></div>
+      <div id="wbc-sel-bar" style="display:none;align-items:center;gap:8px;padding:8px 14px;background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1.5px solid #c4b5fd;border-radius:10px;margin-bottom:10px;">
+        <span style="font-size:16px;">&#127919;</span>
+        <div id="wbc-sel-crumb"></div>
+      </div>
+      <div id="wbc-detail">
+        <div class="wbc-placeholder">
+          <i class="fas fa-hand-pointer"></i>
+          Click a <strong>Target</strong> pill to view its dashboard &amp; SP targets
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+</div>
+
+<script>
+const WBC_TREE = {{ wbc_tree_json | safe }};
+function wbcDashUrl(tkey){ return '/dashboard/' + encodeURIComponent(tkey) + '/dashboard'; }
+let activeWbcTarget = null;
+function wbcTargetClick(target, pillEl){
+  const isActive = pillEl.classList.contains('active');
+  document.querySelectorAll('.wbc-pill--target').forEach(p => p.classList.remove('active'));
+  if(isActive){
+    activeWbcTarget = null;
+    document.getElementById('wbc-detail').innerHTML = '<div class="wbc-placeholder"><i class="fas fa-hand-pointer"></i> Click a <strong>Target</strong> pill</div>';
+    document.getElementById('wbc-sel-bar').style.display = 'none';
+    return;
+  }
+  pillEl.classList.add('active');
+  activeWbcTarget = target;
+  const tdata = WBC_TREE[target] || {};
+  const overallKey = tdata.overall || '';
+  const sps = tdata.sps || [];
+  const overallBar = overallKey
+    ? `<div class="wbc-overall-bar"><span class="wbc-overall-bar-label"><i class="fas fa-chart-bar" style="margin-right:6px;"></i>${target} Overall Dashboard</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${tdata.has_overallcrs ? `<a href="/overall_crs/${encodeURIComponent(overallKey)}" class="wbc-overall-btn" target="_top" style="background:linear-gradient(135deg,#c2410c,#ea580c)"><i class="fas fa-fingerprint"></i> Unique CRs</a>` : ''}${tdata.overall_has_dashboard ? `<a href="${wbcDashUrl(overallKey)}" class="wbc-overall-btn" target="_top"><i class="fas fa-external-link-alt"></i> Open Dashboard</a>` : ''}</div></div>`
+    : `<div class="wbc-overall-bar"><span class="wbc-overall-bar-label" style="color:#94a3b8;"><i class="fas fa-info-circle" style="margin-right:6px;"></i>No overall dashboard configured</span></div>`;
+  const spCards = sps.map(e => `<a href="${wbcDashUrl(e.tkey||'')}" class="wbc-sp-card" target="_top"><span class="wbc-sp-card-icon">&#128268;</span><span class="wbc-sp-card-body"><span class="wbc-sp-card-sub">${e.sp_name||e.tkey||''}</span><span class="wbc-sp-card-name">${e.cpl||e.sp_name||e.tkey||''}</span></span><span class="wbc-sp-card-arrow"><i class="fas fa-arrow-right"></i></span></a>`).join('');
+  const spSection = sps.length > 0
+    ? `<div><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;margin-bottom:10px;">SP Targets (${sps.length})</div><div class="wbc-sp-grid">${spCards}</div></div>`
+    : `<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;">No SP targets configured yet.</div>`;
+  document.getElementById('wbc-detail').innerHTML = `<div class="wbc-sp-panel visible"><div class="wbc-sp-panel-header"><span style="font-size:20px;">&#128268;</span><div><div class="wbc-sp-panel-title">${target}</div><div class="wbc-sp-panel-sub">WBC &rsaquo; ${target}</div></div><div class="wbc-sp-panel-badge">${sps.length} SP${sps.length!==1?'s':''}</div></div>${overallBar}${spSection}</div>`;
+  const selBar = document.getElementById('wbc-sel-bar');
+  selBar.style.display = 'flex';
+  document.getElementById('wbc-sel-crumb').innerHTML = `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#3b0764;">${target}</span>`;
+}
+function openHierarchyLiveStatusPicker(){ document.getElementById('hierarchyLiveStatusPicker').classList.add('open'); }
+function closeHierarchyLiveStatusPicker(){ document.getElementById('hierarchyLiveStatusPicker').classList.remove('open'); }
+function openHierarchyLiveStatusForTarget(target){ if(!target) return; const url = `/live_status_view/target/${encodeURIComponent(target)}?bu_key={{ selected_bu_key }}`; const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); a.remove(); closeHierarchyLiveStatusPicker(); }
+document.addEventListener('DOMContentLoaded', function(){
+  var picker = document.getElementById('hierarchyLiveStatusPicker');
+  if (picker) picker.addEventListener('click', function(e){ if(e.target.id === 'hierarchyLiveStatusPicker') closeHierarchyLiveStatusPicker(); });
+  const pg = document.getElementById('wbc-target-pills');
+  if(!pg) return;
+  const targets = Object.keys(WBC_TREE);
+  pg.innerHTML = targets.map(t => {
+    const cnt = (WBC_TREE[t].sps||[]).length;
+    return `<div class="wbc-pill wbc-pill--target" onclick="wbcTargetClick('${t}',this)">${t}${cnt>0?`<span style="font-size:9px;opacity:.65;margin-left:3px;">(${cnt})</span>`:''}</div>`;
+  }).join('');
+  const fp = pg.querySelector('.wbc-pill--target');
+  if(fp) fp.click();
+});
+</script>
+{% endblock %}

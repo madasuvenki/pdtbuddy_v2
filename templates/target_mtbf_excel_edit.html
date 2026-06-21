@@ -1,0 +1,388 @@
+{% extends "target_layout.html" %}
+{% block page_heading %}{{ target_display_name }} — Edit Build Table{% endblock %}
+{% block page_content %}
+<style>
+.ed-wrap{padding:0 2px 40px}
+.ed-hero{background:linear-gradient(135deg,#111827 0%,#334155 55%,#64748b 100%);border-radius:18px;padding:18px 24px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:0 8px 24px rgba(15,23,42,.18)}
+.ed-hero-title{color:#fff;font-size:19px;font-weight:900;letter-spacing:-.3px}
+.ed-hero-sub{color:rgba(255,255,255,.72);font-size:12px;margin-top:3px}
+.ed-card{background:#fff;border:1px solid #dbe3ee;border-radius:14px;box-shadow:0 3px 16px rgba(15,23,42,.07);overflow:hidden;margin-bottom:14px}
+.ed-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:linear-gradient(135deg,#334155,#475569);border-bottom:1px solid #1e293b}
+.ed-toolbar-title{font-size:13px;font-weight:900;color:#fff;display:flex;align-items:center;gap:7px;flex:1;min-width:160px}
+.ed-btn{border:none;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;text-decoration:none}
+.ed-btn-teal{background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff;box-shadow:0 3px 10px rgba(6,182,212,.25)}
+.ed-btn-teal:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(6,182,212,.35)}
+.ed-btn-green{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,.25)}
+.ed-btn-green:hover{transform:translateY(-1px)}
+.ed-btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.ed-btn-ghost:hover{background:rgba(255,255,255,.28)}
+.ed-btn-danger{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff}
+.ed-btn-danger:hover{transform:translateY(-1px)}
+.ed-search{border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:7px 10px 7px 28px;font-size:12px;font-weight:600;outline:none;min-width:160px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,.6)' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:8px center}
+.ed-search::placeholder{color:rgba(255,255,255,.5)}
+.ed-search:focus{border-color:rgba(255,255,255,.6);background-color:rgba(255,255,255,.18)}
+.ed-msg{font-size:12px;font-weight:700;padding:8px 16px;min-height:32px;display:flex;align-items:center;gap:8px}
+.ed-msg.ok{background:#f0fdf4;color:#059669;border-bottom:1px solid #bbf7d0}
+.ed-msg.err{background:#fef2f2;color:#dc2626;border-bottom:1px solid #fecaca}
+.ed-msg.warn{background:#fffbeb;color:#d97706;border-bottom:1px solid #fde68a}
+.ed-msg.info{background:#f0f9ff;color:#0369a1;border-bottom:1px solid #bae6fd}
+.ed-tbl-wrap{overflow-x:auto;max-height:calc(100vh - 260px);overflow-y:auto}
+.ed-tbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.ed-tbl thead th{position:sticky;top:0;z-index:3;background:linear-gradient(135deg,#334155,#475569);color:#fff;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;border-right:1px solid rgba(255,255,255,.12);text-align:center}
+.ed-tbl thead th:first-child{width:44px;background:linear-gradient(135deg,#0c4a6e,#0e7490);position:sticky;left:0;z-index:4}
+.ed-tbl tbody td{padding:5px 8px;border-bottom:1px solid #f1f5f9;border-right:1px solid #f1f5f9;vertical-align:middle}
+.ed-tbl tbody td:first-child{position:sticky;left:0;z-index:1;background:#fafbfd;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;min-width:44px}
+.ed-tbl tbody tr:hover td{background:#f0f9ff}
+.ed-tbl tbody tr:hover td:first-child{background:#e0f2fe}
+.ed-tbl tbody tr.ed-row-dirty td{background:#fffbeb!important}
+.ed-tbl tbody tr.ed-row-dirty td:first-child{background:#fef3c7!important}
+.ed-tbl tbody tr.ed-row-new td{background:#f0fdf4!important}
+.ed-tbl tbody tr.ed-row-new td:first-child{background:#dcfce7!important}
+.ed-tbl tbody tr.ed-row-deleted td{background:#fef2f2!important;opacity:.55;text-decoration:line-through}
+.ed-cell{border:1.5px solid transparent;border-radius:5px;padding:4px 7px;font-size:12px;font-weight:600;color:#0f172a;background:transparent;outline:none;width:100%;min-width:80px;transition:border-color .12s,background .12s}
+.ed-cell:focus{border-color:#06b6d4;background:#f0fdff;box-shadow:0 0 0 2px rgba(6,182,212,.12)}
+.ed-cell.ed-changed{border-color:#f59e0b;background:#fffbeb}
+.ed-del-btn{border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .12s}
+.ed-del-btn:hover{background:#fecaca;border-color:#ef4444}
+.ed-del-btn.ed-restore{border-color:#a5f3fc;background:#ecfeff;color:#0e7490}
+.ed-del-btn.ed-restore:hover{background:#cffafe}
+.ed-footer{padding:10px 16px;background:linear-gradient(135deg,#f8fafc,#eef2f7);border-top:2px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.ed-footer-info{font-size:11px;color:#475569;font-weight:700;display:flex;align-items:center;gap:12px}
+.ed-badge{background:#e2e8f0;color:#334155;border-radius:999px;padding:2px 9px;font-size:10px;font-weight:900}
+.ed-badge.dirty{background:#fef3c7;color:#92400e}
+.ed-badge.new{background:#dcfce7;color:#065f46}
+.ed-badge.del{background:#fee2e2;color:#991b1b}
+.ed-lock-box{background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400e;display:none;align-items:center;gap:8px;margin:8px 16px}
+.ed-lock-box.show{display:flex}
+.ed-loading{padding:48px 20px;text-align:center;color:#94a3b8}
+.ed-loading i{font-size:32px;display:block;margin-bottom:12px;color:#cbd5e1}
+</style>
+
+<div class="ed-wrap">
+
+<!-- Hero -->
+<div class="ed-hero">
+  <div>
+    <div class="ed-hero-title"><i class="fas fa-table" style="color:#67e8f9"></i> {{ target_display_name }} — Edit Build Table</div>
+    <div class="ed-hero-sub">Click any cell to edit &bull; changes highlighted in yellow &bull; save all at once</div>
+  </div>
+  <a href="/dashboard/{{ target_name }}/mtbf-excel{% if selected_sheet %}?sheet={{ selected_sheet | urlencode }}{% endif %}"
+     class="ed-btn ed-btn-ghost" style="font-size:12px;color:#fff;text-decoration:none">
+    <i class="fas fa-arrow-left"></i> Back to Chart
+  </a>
+</div>
+
+<!-- Edit card -->
+<div class="ed-card">
+  <!-- Toolbar -->
+  <div class="ed-toolbar">
+    <span class="ed-toolbar-title"><i class="fas fa-edit"></i> <span id="edSheetLabel">{{ selected_sheet or 'Build Table' }}</span></span>
+    <input type="text" id="edSearch" class="ed-search" placeholder="Search rows…">
+    <button class="ed-btn ed-btn-teal" id="edSaveBtn" onclick="edSaveAll()"><i class="fas fa-save"></i> Save All Changes</button>
+    <button class="ed-btn ed-btn-ghost" onclick="edReloadTable()" title="Discard unsaved changes and reload"><i class="fas fa-undo"></i> Discard</button>
+  </div>
+
+  <!-- Status message -->
+  <div id="edMsg" class="ed-msg info" style="display:none"></div>
+
+  <!-- Lock warning -->
+  <div class="ed-lock-box" id="edLockBox">
+    <i class="fas fa-lock" style="font-size:16px;color:#d97706"></i>
+    <div><strong>Excel file is locked</strong><br><span id="edLockUser"></span></div>
+  </div>
+
+  <!-- Table -->
+  <div class="ed-tbl-wrap" id="edTblWrap">
+    <div class="ed-loading" id="edLoading">
+      <i class="fas fa-spinner fa-spin"></i>
+      Loading table data…
+    </div>
+    <table class="ed-tbl" id="edTbl" style="display:none">
+      <thead id="edThead"></thead>
+      <tbody id="edTbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="ed-footer">
+    <div class="ed-footer-info">
+      <span>Rows: <strong id="edRowCount">—</strong></span>
+      <span id="edDirtyBadge" class="ed-badge dirty" style="display:none">0 changed</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="edSaveStatus" style="font-size:11px;font-weight:700;color:#059669"></span>
+      <button class="ed-btn ed-btn-green" id="edSaveBtn2" onclick="edSaveAll()"><i class="fas fa-save"></i> Save All Changes</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /ed-wrap -->
+
+<script>
+(function(){
+  const TARGET   = {{ target_name|tojson }};
+  const SHEET    = {{ selected_sheet|tojson }};
+  let _resolvedSheet = SHEET;  // updated after load with actual workbook sheet name
+
+  let _headers  = [];
+  let _rows     = [];      // [{excel_row, values:[...], _dirty:bool, _deleted:bool, _new:bool}]
+  let _dirtySet = new Set();
+
+  const msgEl      = document.getElementById('edMsg');
+  const loadingEl  = document.getElementById('edLoading');
+  const tblEl      = document.getElementById('edTbl');
+  const theadEl    = document.getElementById('edThead');
+  const tbodyEl    = document.getElementById('edTbody');
+  const rowCountEl = document.getElementById('edRowCount');
+  const dirtyBadge = document.getElementById('edDirtyBadge');
+  const saveStatus = document.getElementById('edSaveStatus');
+  const lockBox    = document.getElementById('edLockBox');
+  const lockUser   = document.getElementById('edLockUser');
+  const searchEl   = document.getElementById('edSearch');
+
+  function setMsg(text, cls){
+    if(!msgEl) return;
+    if(!text){ msgEl.style.display='none'; return; }
+    msgEl.style.display='flex';
+    msgEl.className = 'ed-msg ' + (cls||'info');
+    msgEl.innerHTML = `<i class="fas fa-${cls==='ok'?'check-circle':cls==='err'?'exclamation-circle':cls==='warn'?'exclamation-triangle':'info-circle'}"></i> ${text}`;
+  }
+
+  function updateDirtyBadge(){
+    const n = _dirtySet.size;
+    if(dirtyBadge){
+      dirtyBadge.style.display = n ? '' : 'none';
+      dirtyBadge.textContent = n + ' changed';
+    }
+  }
+
+  // ── Build table DOM ──────────────────────────────────────────────────────
+  function buildTable(){
+    // Header
+    theadEl.innerHTML = '';
+    const tr = document.createElement('tr');
+    // Action col
+    const thA = document.createElement('th');
+    thA.textContent = '#';
+    tr.appendChild(thA);
+    _headers.forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      tr.appendChild(th);
+    });
+    theadEl.appendChild(tr);
+
+    // Body
+    tbodyEl.innerHTML = '';
+    _rows.forEach((row, ri) => renderRow(row, ri));
+
+    if(rowCountEl) rowCountEl.textContent = _rows.filter(r => !r._deleted).length;
+    loadingEl.style.display = 'none';
+    tblEl.style.display = '';
+  }
+
+  function renderRow(row, ri){
+    const tr = document.createElement('tr');
+    tr.dataset.ri = ri;
+    if(row._deleted) tr.classList.add('ed-row-deleted');
+    else if(row._new) tr.classList.add('ed-row-new');
+    else if(row._dirty) tr.classList.add('ed-row-dirty');
+
+    // Row number / delete button
+    const tdA = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ed-del-btn' + (row._deleted ? ' ed-restore' : '');
+    delBtn.innerHTML = row._deleted
+      ? '<i class="fas fa-undo"></i>'
+      : '<i class="fas fa-trash"></i>';
+    delBtn.title = row._deleted ? 'Restore row' : 'Delete row';
+    delBtn.onclick = () => toggleDelete(ri);
+    tdA.appendChild(delBtn);
+    tr.appendChild(tdA);
+
+        // Data cells
+    row.values.forEach((val, ci) => {
+      const td = document.createElement('td');
+      const isLastCol = ci === _headers.length - 1; // Comments — read-only
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'ed-cell';
+      inp.value = val;
+      inp.disabled = row._deleted;
+      inp.dataset.ri = ri;
+      inp.dataset.ci = ci;
+      if(isLastCol){
+        inp.readOnly = true;
+        inp.style.background = '#f8fafc';
+        inp.style.color = '#94a3b8';
+        inp.style.cursor = 'not-allowed';
+        inp.title = 'Comments — edit via Add Build';
+      } else {
+        inp.addEventListener('input', () => onCellChange(inp, ri, ci));
+        inp.addEventListener('change', () => onCellChange(inp, ri, ci));
+      }
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+
+    // Replace existing row if re-rendering, else append
+    const existing = tbodyEl.querySelector(`tr[data-ri="${ri}"]`);
+    if(existing) tbodyEl.replaceChild(tr, existing);
+    else tbodyEl.appendChild(tr);
+  }
+
+  function onCellChange(inp, ri, ci){
+    const row = _rows[ri];
+    if(!row) return;
+    const orig = row._origValues ? row._origValues[ci] : null;
+    row.values[ci] = inp.value;
+    inp.classList.toggle('ed-changed', orig !== null && inp.value !== orig);
+    row._dirty = true;
+    _dirtySet.add(ri);
+    const tr = tbodyEl.querySelector(`tr[data-ri="${ri}"]`);
+    if(tr && !row._new) tr.classList.add('ed-row-dirty');
+    updateDirtyBadge();
+  }
+
+    function toggleDelete(ri){
+    const row = _rows[ri];
+    if(!row) return;
+    row._deleted = !row._deleted;
+    if(row._deleted) _dirtySet.add(ri);
+    else if(!row._dirty) _dirtySet.delete(ri);
+
+    const existing = tbodyEl.querySelector(`tr[data-ri="${ri}"]`);
+    if(row._deleted){
+      if(existing) existing.remove();
+    }else{
+      renderRow(row, ri);
+    }
+
+    updateDirtyBadge();
+    if(rowCountEl) rowCountEl.textContent = _rows.filter(r => !r._deleted).length;
+  }
+
+  // ── Load data from API ───────────────────────────────────────────────────
+  async function loadTable(){
+    loadingEl.style.display = '';
+    tblEl.style.display = 'none';
+    setMsg('Loading table data…', 'info');
+    try{
+      const url = `/api/dashboard/${encodeURIComponent(TARGET)}/excel/full_table?sheet=${encodeURIComponent(SHEET||'')}`;
+      const r = await fetch(url);
+      const d = await r.json().catch(()=>({}));
+      if(!r.ok || d.success===false) throw new Error(d.message || 'Failed to load table');
+      _headers = d.headers || [];
+      _rows = (d.rows || []).map(row => ({
+        excel_row:    row.excel_row,
+        values:       [...(row.values || [])],
+        _origValues:  [...(row.values || [])],
+        _dirty:       false,
+        _deleted:     false,
+        _new:         false,
+      }));
+      _dirtySet.clear();
+      buildTable();
+      updateDirtyBadge();
+      _resolvedSheet = d.sheet_name || SHEET;  // use exact name the server resolved
+      setMsg(`Loaded ${_rows.length} rows from "${_resolvedSheet}".`, 'ok');
+      setTimeout(()=>setMsg('',''), 3000);
+    }catch(e){
+      loadingEl.innerHTML = `<i class="fas fa-exclamation-circle" style="color:#ef4444"></i><br><span style="color:#dc2626;font-size:13px">${e.message}</span>`;
+      setMsg(e.message, 'err');
+    }
+  }
+
+  window.edReloadTable = function(){
+    if(_dirtySet.size > 0){
+      if(!confirm('Discard all unsaved changes and reload from Excel?')) return;
+    }
+    loadTable();
+  };
+
+  // ── Save all ─────────────────────────────────────────────────────────────
+  window.edSaveAll = async function(){
+    const saveBtn  = document.getElementById('edSaveBtn');
+    const saveBtn2 = document.getElementById('edSaveBtn2');
+    if(lockBox) lockBox.classList.remove('show');
+
+    // Build payload: only non-deleted rows (deleted rows are simply omitted)
+    // We send ALL rows so the server can rewrite the sheet cleanly.
+    const rowsToSend = _rows
+      .filter(r => !r._deleted)
+      .map(r => ({ excel_row: r.excel_row, values: r.values }));
+
+    if(!rowsToSend.length){
+      setMsg('Nothing to save.', 'warn');
+      return;
+    }
+
+    [saveBtn, saveBtn2].forEach(b => {
+      if(b){ b.disabled=true; b.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+    });
+    setMsg('Saving…', 'info');
+
+    try{
+      const resp = await fetch(
+        `/api/dashboard/${encodeURIComponent(TARGET)}/excel/save_table`,
+        {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ sheet_name: _resolvedSheet || SHEET, rows: rowsToSend }),
+        }
+      );
+      const d = await resp.json().catch(()=>({}));
+
+      if(d.locked){
+        if(lockUser) lockUser.textContent = d.locked_by ? `Locked by ${d.locked_by}` : 'Locked by another user';
+        if(lockBox) lockBox.classList.add('show');
+        setMsg(d.message || 'Excel file is locked.', 'warn');
+        return;
+      }
+      if(!resp.ok || d.success===false) throw new Error(d.message || 'Save failed');
+
+            // Mark all rows clean
+      _rows.forEach(r => { r._dirty=false; r._origValues=[...r.values]; });
+      _dirtySet.clear();
+      updateDirtyBadge();
+      setMsg(d.message || `Saved ${d.updated} row(s) successfully.`, 'ok');
+      if(saveStatus) saveStatus.textContent = '✓ Saved ' + new Date().toLocaleTimeString();
+      buildTable();
+      // Reload from Excel so deletions/edits are reflected immediately in the table view
+      setTimeout(() => loadTable(), 250);
+    }catch(e){
+      setMsg(e.message || 'Save failed', 'err');
+    }finally{
+      [saveBtn, saveBtn2].forEach(b => {
+        if(b){ b.disabled=false; b.innerHTML='<i class="fas fa-save"></i> Save All Changes'; }
+      });
+    }
+  };
+
+  // ── Search / filter ──────────────────────────────────────────────────────
+  if(searchEl){
+    searchEl.addEventListener('input', function(){
+      const q = this.value.trim().toLowerCase();
+      tbodyEl.querySelectorAll('tr[data-ri]').forEach(tr => {
+        const ri = parseInt(tr.dataset.ri, 10);
+        const row = _rows[ri];
+        if(!row){ tr.style.display='none'; return; }
+        const text = row.values.join(' ').toLowerCase();
+        tr.style.display = (!q || text.includes(q)) ? '' : 'none';
+      });
+    });
+  }
+
+  // ── Keyboard shortcut: Ctrl+S ────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if((e.ctrlKey || e.metaKey) && e.key === 's'){
+      e.preventDefault();
+      edSaveAll();
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  loadTable();
+})();
+</script>
+{% endblock %}

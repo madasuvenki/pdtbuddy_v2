@@ -1,0 +1,2278 @@
+﻿{% extends "target_layout.html" %}
+
+{% block page_heading %}
+  {{ page_heading }}
+{% endblock %}
+
+{% block page_content %}
+{% set _excel_sync = dashboard_latest_update if dashboard_latest_update is defined else target_update if target_update is defined else 'N/A' %}
+{% set _ms = milestones if milestones is defined and milestones else {} %}
+{% block page_extra_head %}
+<style>
+/* Glance tiles in a single scrollable row */
+.glance-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  margin: 0 0 14px;
+  overflow-x: auto;
+  padding-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+.glance-row::-webkit-scrollbar {
+  height: 6px;
+}
+.glance-row::-webkit-scrollbar-thumb {
+  background: #cbd5f5;
+  border-radius: 999px;
+}
+.glance-card {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: linear-gradient(135deg, #ffffff, #f9fafb);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.glance-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background:
+    radial-gradient(circle at top left, #4f46e5, transparent 55%),
+    radial-gradient(circle at bottom right, #ec4899, transparent 55%);
+  pointer-events: none;
+}
+.glance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
+  border-color: rgba(129, 140, 248, 0.6);
+}
+  .glance-card--primary { background: linear-gradient(135deg, #eff6ff, #ffffff); border-color:#bfdbfe; }
+  .glance-card--warning { background: linear-gradient(135deg, #fff7ed, #ffffff); border-color:#fed7aa; }
+  .glance-card--success { background: linear-gradient(135deg, #ecfdf5, #ffffff); border-color:#bbf7d0; }
+  .glance-card:nth-child(4) { background: linear-gradient(135deg, #f8fafc, #ffffff); border-color:#e2e8f0; }
+  .glance-card:nth-child(5) { background: linear-gradient(135deg, #f5f3ff, #ffffff); border-color:#ddd6fe; }
+  .glance-card--primary .glance-value { color: #2563eb; }
+  .glance-card--warning .glance-value { color: #f97316; }
+  .glance-card--success .glance-value { color: #16a34a; }
+
+
+.glance-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.glance-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.glance-chip {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(15, 23, 42, 0.06);
+  color: #4b5563;
+}
+
+/* Card */
+.card {
+  background: #ffffff;
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 10px 14px 8px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 16px rgba(15,23,42,0.06);
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.card-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+@media (max-width: 900px) {
+  .glance-card {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 1400px) {
+  .glance-card {
+    padding: 12px 14px;
+  }
+}
+
+/* subtle pulse for >40 bucket */
+@keyframes crAgePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%      { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.cr-age-badge-critical {
+  animation: crAgePulse 1.8s ease-in-out infinite;
+}
+
+
+.dashboard-milestone-mini{
+  margin:0 0 16px;
+  padding:16px 18px;
+  border-radius:16px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  box-shadow:0 6px 16px rgba(15,23,42,0.06);
+}
+.dashboard-milestone-mini-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.dashboard-milestone-mini-title{
+  font-size:15px;
+  font-weight:900;
+  color:#111827;
+}
+.dashboard-milestone-mini-btn{
+  border:none;
+  border-radius:14px;
+  padding:10px 14px;
+  background:linear-gradient(135deg,#4e44d9,#6d63ff);
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 10px 20px rgba(78,68,217,.18);
+}
+.dashboard-milestone-mini-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.dashboard-milestone-mini-item{
+  padding:12px;
+  border-radius:14px;
+  background:#f8fbff;
+  border:1px solid #e5e7eb;
+}
+.dashboard-milestone-mini-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#6b7280;
+  font-weight:800;
+  margin-bottom:6px;
+}
+.dashboard-milestone-mini-value{
+  font-size:14px;
+  font-weight:900;
+  color:#111827;
+}
+.dashboard-milestone-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  padding:16px;
+}
+.dashboard-milestone-modal.is-open{ display:flex; }
+.dashboard-milestone-panel{
+  width:min(860px, 96vw);
+  background:#fff;
+  border-radius:18px;
+  box-shadow:0 20px 60px rgba(15,23,42,0.35);
+  overflow:hidden;
+}
+.dashboard-milestone-panel-head{
+  padding:14px 16px;
+  border-bottom:1px solid #e5e7eb;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.dashboard-milestone-panel-body{ padding:16px; }
+.dashboard-milestone-form{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.dashboard-milestone-form .full{ grid-column:1 / -1; }
+.dashboard-milestone-input{
+  width:100%;
+  padding:12px 14px;
+  border:1px solid #d1d5db;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+}
+.dashboard-milestone-panel-footer{
+  padding:14px 16px 16px;
+  border-top:1px solid #e5e7eb;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+}
+.dashboard-milestone-btn{
+  border:none;
+  border-radius:14px;
+  padding:10px 14px;
+  font-weight:900;
+  cursor:pointer;
+}
+.dashboard-milestone-btn.primary{ background:linear-gradient(135deg,#4e44d9,#6d63ff); color:#fff; }
+.dashboard-milestone-btn.secondary{ background:#eef2ff; color:#30457b; }
+@media (max-width: 900px){
+  .dashboard-milestone-mini-grid{ grid-template-columns:1fr 1fr; }
+  .dashboard-milestone-form{ grid-template-columns:1fr; }
+}
+.pt-header { text-align:center; margin: 6px 0 12px; }
+.pt-title { font-size:16px; font-weight:900; color:#0f172a; }
+.pt-search { display:flex; justify-content:center; gap:8px; align-items:center; }
+.pt-input { max-width:360px; text-align:center; }
+.pt-modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+.pt-modal-backdrop.show { display:flex; }
+.pt-modal { background:#fff; width:min(860px, 92vw); border-radius:16px; border:1px solid #e5e7eb; box-shadow:0 20px 60px rgba(15,23,42,.35); padding:16px; }
+.pt-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.pt-modal-title { font-weight:900; font-size:18px; }
+.pt-modal-body { font-size:13px; color:#334155; line-height:1.6; max-height:70vh; overflow:auto; }
+.pt-modal-close { border:0; background:#f1f5f9; padding:6px 10px; border-radius:8px; cursor:pointer; }
+.dashboard-overview-page-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 12px;
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px solid #dbeafe;
+  background:linear-gradient(135deg,#ffffff,#eff6ff);
+  box-shadow:0 6px 16px rgba(15,23,42,0.06);
+}
+.dashboard-overview-page-title h2{
+  margin:0;
+  color:#0f172a;
+  font-size:18px;
+  font-weight:950;
+  letter-spacing:.01em;
+}
+.dashboard-overview-page-title span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+
+</style>
+{% endblock %}
+
+
+
+
+<div class="dashboard-overview-page-title">
+  <h2><i class="fas fa-chart-bar" style="color:#4f46e5;margin-right:8px;"></i>{{ page_heading|default('Dashboard Overview') }}</h2>
+  <span>{{ target_name|default(target)|upper }} PDT execution summary</span>
+</div>
+
+{% if glance %}
+<div class="glance-row" style="width:100%;">
+  <!-- Mapped JIRAs -->
+  <a href="{{ mapped_jiras_url }}" target="_blank" rel="noopener"
+     class="glance-card glance-card--primary">
+    <div class="glance-label">Mapped JIRAs</div>
+    <div class="glance-value">{{ glance.mapped_jiras }}</div>
+    <div class="glance-chip">All mapped</div>
+  </a>
+
+  <!-- Open JIRAs -->
+  <a href="{{ open_jiras_url }}" target="_blank" rel="noopener"
+     class="glance-card glance-card--warning">
+    <div class="glance-label">Open JIRAs</div>
+    <div class="glance-value">{{ glance.open_jiras }}</div>
+    <div class="glance-chip">Needs action</div>
+  </a>
+
+  {% if (glance.closed_jiras|default(0)|int) > 0 %}
+  <!-- Closed JIRAs -->
+  <a href="{{ closed_jiras_url }}" target="_blank" rel="noopener"
+     class="glance-card glance-card--success">
+    <div class="glance-label">Closed JIRAs</div>
+    <div class="glance-value">{{ glance.closed_jiras }}</div>
+    <div class="glance-chip">Resolved</div>
+  </a>
+  {% endif %}
+
+  <!-- Total JIRAs (non-clickable) -->
+  <div class="glance-card">
+    <div class="glance-label">Total JIRAs</div>
+    <div class="glance-value">{{ glance.total_jiras }}</div>
+    <div class="glance-chip">Overall volume</div>
+  </div>
+
+    <!-- Unique CRs -->
+  <a href="{{ total_crs_url }}" target="_blank" rel="noopener"
+     class="glance-card">
+    <div class="glance-label">Total PDT CRs</div>
+    <div class="glance-value">{{ glance.total_crs }}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
+      <span style="padding:2px 7px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:10px;font-weight:800;">Valid: {{ glance.cr_valid_count|default(0) }}</span>
+      <span style="padding:2px 7px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:800;">Invalid: {{ glance.cr_invalid_count|default(0) }}</span>
+      <span style="padding:2px 7px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:10px;font-weight:800;">Dup: {{ glance.cr_dup_count|default(0) }}</span>
+    </div>
+  </a>
+
+</div>
+{% endif %}
+
+<!-- CR charts row -->
+<div style="display:grid; grid-template-columns:minmax(0, 2fr) minmax(320px, 1fr); gap:16px; align-items:start; width:100%; margin-top:0; box-sizing:border-box;">
+  <div style="display:flex; flex-direction:column; gap:16px; min-width:0; width:100%;">
+    <div class="card" style="background:linear-gradient(135deg,#ffffff,#eef4ff); margin:0; min-width:0; padding-top:10px; padding-bottom:8px; box-sizing:border-box;">
+        <div class="card-header">
+      <div>
+                <div class="card-title" id="crAgeCardTitle">CR Avg Age</div>
+      </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                <span style="font-size:10px;font-weight:700;color:#6b7280;white-space:nowrap;">View:</span>
+        <select id="crAgeViewMode" onchange="setCrAgeViewMode(this.value)" style="height:28px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;background:#fff;font-size:11px;font-weight:700;color:#475569;">
+          <option value="summary">Summary</option>
+          <option value="oa_buckets">Open/Analysis Age Buckets</option>
+        </select>
+        <span style="font-size:10px;font-weight:700;color:#6b7280;white-space:nowrap;">Age unit:</span>
+        <select id="crAgeUnit" onchange="setCrAgeUnit(this.value)" style="height:28px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;background:#fff;font-size:11px;font-weight:700;color:#475569;">
+          <option value="days" selected>Days</option>
+          <option value="weeks">Weeks</option>
+        </select>
+        <span style="font-size:10px;font-weight:700;color:#6b7280;white-space:nowrap;">Group by:</span>
+        <div id="crAgeGroupBtns" style="display:flex;gap:4px;">
+          <button type="button" onclick="setCrAgeGroup('area')"      id="crGrpArea"   style="padding:3px 10px;border-radius:999px;border:1px solid #6366f1;background:#6366f1;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Area</button>
+          <button type="button" onclick="setCrAgeGroup('subsystem')" id="crGrpSub"    style="padding:3px 10px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:11px;font-weight:700;cursor:pointer;">Subsystem</button>
+          <button type="button" onclick="setCrAgeGroup('func')"      id="crGrpFunc"  style="padding:3px 10px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:11px;font-weight:700;cursor:pointer;">Functionality</button>
+        </div>
+        <button id="crAgeCopyChartBtn" type="button" onclick="crAgeCopyChart()" style="border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;background:#f8fafc;font-size:11px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:5px;"><i class="fas fa-chart-bar"></i> Copy Chart</button>
+      </div>
+    </div>
+        <div id="crAgeChart" style="height:580px;width:100%;"></div>
+
+                <!-- CR Status radio buttons + Detailed Status checkboxes (dynamic) -->
+
+    <div style="margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:10px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+                <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;white-space:nowrap;min-width:78px;">CR Status:</span>
+
+        <div id="crCategoryCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+                <span id="crDetailedStatusLabel" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;white-space:nowrap;min-width:78px;">Detailed Status:</span>
+        <div id="crStatusCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;"></div>
+
+                <div id="crAgeFooterBadges" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+
+                    <button type="button" class="cr-age-badge" data-band="0_7" style="padding:4px 10px;border-radius:999px;border:none;background:#f0fdf4;color:#15803d;cursor:pointer;font-size:11px;font-weight:700;">0-7d: â€”</button>
+          <button type="button" class="cr-age-badge" data-band="7_14" style="padding:4px 10px;border-radius:999px;border:none;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:700;">7-14d: â€”</button>
+          <button type="button" class="cr-age-badge cr-age-badge-warn" data-band="14_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fef3c7;color:#b45309;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(245,158,11,.4);">14-21d: â€”</button>
+          <button type="button" class="cr-age-badge cr-age-badge-critical" data-band="over_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fee2e2;color:#b91c1c;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(239,68,68,.6);">&gt;21d: â€”</button>
+          <span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Dup: <span style="color:#b45309;">{{ cr_dup_count|default(0) }}</span></span>
+                    <span style="font-size:10px;font-weight:700;color:#6b7280;">Invalid: <span style="color:#b91c1c;">{{ cr_invalid_count|default(0) }}</span></span>
+
+        </div>
+      </div>
+    </div>
+    </div>
+
+    {% if is_compute_bu %}
+    <div id="dovExcludePanel" style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:14px;padding:14px 18px;margin:0 0 0;display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:2px;">
+        <input type="checkbox" id="dovExcludeEnabled" style="width:16px;height:16px;accent-color:#f59e0b;cursor:pointer;" onchange="dovExcludeToggle()">
+        <label for="dovExcludeEnabled" style="font-size:12px;font-weight:900;color:#92400e;cursor:pointer;white-space:nowrap;"><i class="fas fa-filter" style="margin-right:4px;"></i>Exclude CRs by Title Keywords</label>
+      </div>
+      <div style="flex:1;min-width:260px;">
+        <textarea id="dovExcludeKeywords" rows="2"
+          style="width:100%;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;color:#0f172a;resize:vertical;outline:none;background:#fff;"
+          placeholder="One keyword/substring per line (e.g. LMK&#10;some substring)"></textarea>
+        <div style="font-size:10px;color:#92400e;margin-top:3px;">Check/uncheck applies instantly. Save persists across reloads.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+        <button onclick="dovExcludeSave()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-save" style="margin-right:4px;"></i>Save</button>
+        <span id="dovExcludeMsg" style="font-size:11px;font-weight:700;color:#059669;"></span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="background:linear-gradient(135deg,#ffffff,#f8fafc); margin:0; min-width:0; padding-top:10px; padding-bottom:10px; box-sizing:border-box;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">CR Age Bucket Table</div>
+          <div class="card-subtitle">Detailed count table for the selected chart view</div>
+        </div>
+        <button id="crAgeCopyTableBtn" type="button" onclick="crAgeCopyTable()" style="border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;background:#f8fafc;font-size:11px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:5px;"><i class="fas fa-table"></i> Copy Table</button>
+      </div>
+      <div id="crAgeSummaryTableWrap" style="margin-top:6px;overflow:auto;width:100%;"></div>
+    </div>
+  </div>
+
+    <div class="card" style="background:linear-gradient(135deg,#fffaf2,#fff1fb); margin:0; min-width:0; display:flex; flex-direction:column; padding-top:10px; padding-bottom:8px; box-sizing:border-box;">
+    <div class="card-header">
+      <div>
+                <div class="card-title">CR Area Bar Chart</div>
+        <div class="card-subtitle">Click a bar to filter the table by CR area</div>
+      </div>
+      <button id="crAreaCopyChartBtn" type="button" onclick="crAreaCopyChart()" style="border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;background:#f8fafc;font-size:11px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:5px;"><i class="fas fa-chart-bar"></i> Copy Chart</button>
+    </div>
+    <div id="undispStatusPie" style="height: 420px; width:100%;"></div>
+        <div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:10px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;white-space:nowrap;min-width:92px;">Bar CR Status:</span>
+
+        <div id="pieCategoryMirror" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;"></div>
+      </div>
+      <div id="pieDetailedStatusRow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;white-space:nowrap;min-width:92px;">Bar Detail Status:</span>
+        <div id="pieStatusMirror" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;"></div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+  <!-- CR Age details modal -->
+  <div id="crAgeModalOverlay"
+       style="position:fixed; inset:0; background:rgba(15,23,42,0.35);
+              display:none; align-items:center; justify-content:center;
+              z-index:9999;">
+    <div id="crAgeModal"
+         style="background:#ffffff; border-radius:14px; width:min(960px, 96vw);
+                max-height:80vh; box-shadow:0 20px 60px rgba(15,23,42,0.35);
+                display:flex; flex-direction:column;">
+      <div style="padding:10px 14px; border-bottom:1px solid #e5e7eb;
+                  display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div id="crAgeModalTitle"
+               style="font-size:14px; font-weight:700; color:#111827;">
+            CRs in selected age band
+          </div>
+          <div id="crAgeModalSubtitle"
+               style="font-size:12px; color:#6b7280; margin-top:2px;">
+            Undisposed CRs
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="crAgeCopyBtn"
+                  type="button"
+                  style="padding:6px 10px; border-radius:8px; border:1px solid #d1d5db;
+                         background:#f9fafb; font-size:12px; font-weight:600;
+                         cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <span>Copy table</span>
+          </button>
+          <button id="crAgeModalEnlarge"
+                  type="button"
+                  title="Open in new page"
+                  style="width:28px; height:28px; border-radius:999px; border:none;
+                         background:#ede9fe; color:#6366f1; cursor:pointer; font-size:13px;
+                         display:flex; align-items:center; justify-content:center;">
+            <i class="fas fa-external-link-alt"></i>
+          </button>
+          <button id="crAgeModalClose"
+                  type="button"
+                  title="Close"
+                  style="width:28px; height:28px; border-radius:999px; border:none; background:#f3f4f6; cursor:pointer; font-size:18px; line-height:1; color:#6b7280; font-weight:700; display:flex; align-items:center; justify-content:center;">
+            &times;
+          </button>
+        </div>
+      </div>
+      <div style="padding:10px 14px; overflow:auto;">
+        <table class="simple-table" id="crAgeTable"
+               style="width:100%; min-width:600px;">
+                      <thead>
+            <tr>
+              <th>S.No</th>
+              <th>CR ID</th>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Area</th>
+              <th>Age (days)</th>
+            </tr>
+            </thead>
+
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof Highcharts === 'undefined') {
+    console.error('Highcharts is not loaded');
+    return;
+  }
+
+  const builtData = {
+    categories: {{ cr_age_chart_built.categories|tojson }},
+    count:      {{ cr_age_chart_built.cr_count|tojson }},
+    avgAge:     {{ cr_age_chart_built.avg_cr_age|tojson }},
+  };
+  const undispData = {
+    categories: {{ cr_age_chart_undisposed.categories|tojson }},
+    count:      {{ cr_age_chart_undisposed.cr_count|tojson }},
+    avgAge:     {{ cr_age_chart_undisposed.avg_cr_age|tojson }},
+  };
+  const crAgeRows = {
+    "5_20":    {{ cr_age_list_5_20|tojson }},
+    "20_40":   {{ cr_age_list_20_40|tojson }},
+    "over_40": {{ cr_age_list_over_40|tojson }},
+  };
+    // Raw list — never mutated; used to re-filter when exclude state changes
+  window._allCrRowsRaw = {{ all_cr_rows|default([], true)|tojson }};
+  window._dovExcludeEnabled  = false;
+  window._dovExcludeKeywords = [];
+  const allCrRows = window._allCrRowsRaw.slice();
+  const crRows    = allCrRows;  // alias for legacy code
+
+  // â”€â”€ Build dynamic CR category radio buttons and status checkboxes from actual data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  var _activeStatuses = {};  // { "Open": true, "Analysis": true, ... }
+  var _activeCrCategories = { valid:true, invalid:false, dup:false }; // single-selected cr_category group
+
+
+  (function buildStatusCheckboxes(){
+    var container = document.getElementById("crStatusCheckboxes");
+    if(!container) return;
+
+    // Collect all unique statuses from data, preserve original casing
+    var statusMap = {};  // lowercase -> original label
+    (allCrRows||[]).forEach(function(r){
+      var s = String(r.cr_status||r.status||"").trim();
+      if(s) statusMap[s.toLowerCase()] = s;
+    });
+    var statuses = Object.values(statusMap).sort();
+    if(!statuses.length) statuses = ["Open","Analysis","Built"];
+
+        // Default checked: show every status immediately.
+    // Users can click a chip to hide/show that status, but statuses like NoSIR/Dup/Invalid
+    // should not be invisible until manually selected.
+    var defaultOn = null;
+
+            // Category filters from cr_category. Valid = built + undisposed; Invalid = invalid variants; Dup = dup.
+    (function buildCategoryFilters(){
+      var categoryContainer = document.getElementById('crCategoryCheckboxes');
+      if(!categoryContainer) return;
+      var categoryDefs = [
+
+        {key:'valid', label:'Valid', bg:'#ecfdf5', border:'#6ee7b7', color:'#047857', accent:'#059669'},
+        {key:'invalid', label:'Invalid', bg:'#fee2e2', border:'#fecaca', color:'#b91c1c', accent:'#dc2626'},
+        {key:'dup', label:'Dup', bg:'#fff7ed', border:'#fed7aa', color:'#c2410c', accent:'#f97316'}
+      ];
+      categoryDefs.forEach(function(def){
+        var label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 10px;border-radius:8px;border:2px solid '+def.border+';background:'+def.bg+';font-size:11px;font-weight:800;color:'+def.color+';transition:all .15s;white-space:nowrap;';
+        var cb = document.createElement('input');
+        cb.type = 'radio';
+        cb.name = 'crCategoryGroup';
+        cb.checked = !!_activeCrCategories[def.key];
+        cb.dataset.categoryGroup = def.key;
+        cb.style.cssText = 'accent-color:'+def.accent+';width:13px;height:13px;';
+        function setCategoryChipState(){
+          label.style.opacity = cb.checked ? '1' : '0.65';
+          label.style.background = cb.checked ? def.bg : '#ffffff';
+          label.style.color = cb.checked ? def.color : '#475569';
+        }
+        cb.addEventListener('change', function(){
+          if(!this.checked) return;
+          Object.keys(_activeCrCategories).forEach(function(k){ _activeCrCategories[k] = false; });
+          _activeCrCategories[this.dataset.categoryGroup] = true;
+          document.querySelectorAll('#crCategoryCheckboxes input[type="radio"]').forEach(function(other){
+            var otherLabel = other.closest('label');
+            if(!otherLabel) return;
+            otherLabel.style.opacity = other.checked ? '1' : '0.65';
+            otherLabel.style.background = other.checked ? (otherLabel.dataset.activeBg || '#ffffff') : '#ffffff';
+            otherLabel.style.color = other.checked ? (otherLabel.dataset.activeColor || '#475569') : '#475569';
+          });
+          _syncStatusChipsForCategories(true);
+          _rerender();
+        });
+        label.dataset.activeBg = def.bg;
+        label.dataset.activeColor = def.color;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' '+def.label));
+        setCategoryChipState();
+                categoryContainer.appendChild(label);
+      });
+    })();
+
+    // Color palette per status keyword
+
+
+    var palette = {
+      "built":    {bg:"#eef2ff",border:"#c7d2fe",color:"#4338ca",accent:"#4338ca"},
+      "open":     {bg:"#fff7ed",border:"#fed7aa",color:"#c2410c",accent:"#c2410c"},
+      "analysis": {bg:"#f0fdf4",border:"#bbf7d0",color:"#15803d",accent:"#15803d"},
+      "fix":      {bg:"#fdf4ff",border:"#e9d5ff",color:"#7c3aed",accent:"#7c3aed"},
+      "ready":    {bg:"#ecfdf5",border:"#6ee7b7",color:"#065f46",accent:"#059669"},
+      "postponed":{bg:"#f1f5f9",border:"#cbd5e1",color:"#475569",accent:"#64748b"},
+      "notapplicable":{bg:"#f8fafc",border:"#e2e8f0",color:"#94a3b8",accent:"#94a3b8"},
+      "default":  {bg:"#f8fafc",border:"#e2e8f0",color:"#374151",accent:"#6b7280"}
+    };
+    function _palette(s){
+      var k = s.toLowerCase().replace(/[^a-z]/g,"");
+      for(var key in palette){ if(k.indexOf(key)>=0) return palette[key]; }
+      return palette["default"];
+    }
+
+        // Default ON: Built, Fix, Ready â€” all others OFF
+    var _defaultOn = ['built','fix','ready'];
+
+    statuses.forEach(function(status){
+            var key = status.toLowerCase().replace(/[^a-z]/g,'');
+      var isOn = _defaultOn.some(function(d){ return key.indexOf(d) >= 0; });
+
+      _activeStatuses[status] = isOn;
+      var p = _palette(status);
+      var cbId = "cbStatus_" + key.replace(/[^a-z0-9]/g,"_");
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;align-items:center;gap:5px;cursor:pointer;padding:4px 10px;border-radius:8px;border:2px solid "+p.border+";background:"+p.bg+";font-size:11px;font-weight:700;color:"+p.color+";transition:all .15s;white-space:nowrap;opacity:1;";
+      label.dataset.activeBg = p.bg;
+      label.dataset.activeColor = p.color;
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.id = cbId; cb.checked = isOn;
+      cb.style.cssText = "accent-color:"+p.accent+";width:13px;height:13px;";
+      cb.dataset.status = status;
+      function setChipState(){
+        label.style.opacity = cb.checked ? "1" : "0.72";
+        label.style.background = cb.checked ? p.bg : "#ffffff";
+        label.style.color = cb.checked ? p.color : "#475569";
+      }
+      cb.addEventListener("change", function(){
+        _activeStatuses[this.dataset.status] = this.checked;
+        setChipState();
+        _rerender();
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(" "+status));
+      setChipState();
+      container.appendChild(label);
+    });
+  })();
+
+  // â”€â”€ Filter helpers using _activeStatuses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    function _rowCategoryGroup(r){
+    var cat = String(r.cr_category||'').trim().toLowerCase();
+    if(cat === 'dup') return 'dup';
+    if(cat === 'invalid' || cat === 'invalid_dup' || cat === 'nosir') return 'invalid';
+    if(cat === 'built' || cat === 'undisposed') return 'valid';
+    return 'valid';
+  }
+
+  function _isStatusActive(r){
+    var s = String(r.cr_status||r.status||"").trim();
+    if(!s) return true;
+    // exact match first
+    if(_activeStatuses.hasOwnProperty(s)) return _activeStatuses[s];
+    // case-insensitive fallback
+    var sl = s.toLowerCase();
+    for(var k in _activeStatuses){
+      if(k.toLowerCase()===sl) return _activeStatuses[k];
+    }
+    return false;
+  }
+
+    function _isRowActive(r){
+    var group = _rowCategoryGroup(r);
+    if(!_activeCrCategories[group]) return false;
+    // Status chips refine Valid and Invalid CRs. Dup CRs do not have meaningful
+    // detailed statuses, so the Dup category bypasses the detailed status filter.
+    if(group === 'valid' || group === 'invalid') return _isStatusActive(r);
+    return true;
+  }
+
+  function _groupLabel(){
+    return _crAgeGroup==='subsystem' ? 'Subsystem' : (_crAgeGroup==='func' ? 'Functionality' : 'Area');
+  }
+
+  function _isInvalidDupOnlyView(){
+    return !_activeCrCategories.valid && (_activeCrCategories.invalid || _activeCrCategories.dup);
+  }
+
+  function _isDupOnlyView(){
+    return !_activeCrCategories.valid && !_activeCrCategories.invalid && _activeCrCategories.dup;
+  }
+
+  function _statusMatchesRow(status, r){
+    var s = String(r.cr_status||r.status||"").trim();
+    return s && s.toLowerCase() === String(status||'').toLowerCase();
+  }
+
+  function _statusBelongsToActiveCrCategories(status){
+    return (allCrRows||[]).some(function(r){
+      var group = _rowCategoryGroup(r);
+      return (group === 'valid' || group === 'invalid') && _activeCrCategories[group] && _statusMatchesRow(status, r);
+    });
+  }
+
+  function _applyStatusChipState(label, input){
+    if(!label || !input) return;
+    label.style.opacity = input.checked ? '1' : '0.72';
+    label.style.background = input.checked ? (label.dataset.activeBg || '#f8fafc') : '#ffffff';
+    label.style.color = input.checked ? (label.dataset.activeColor || '#374151') : '#475569';
+  }
+
+  function _syncStatusChipsForCategories(resetVisibleStatuses){
+    document.querySelectorAll('#crStatusCheckboxes label').forEach(function(label){
+      var input = label.querySelector('input[type="checkbox"]');
+      if(!input) return;
+      var visible = _statusBelongsToActiveCrCategories(input.dataset.status);
+      label.style.display = visible ? 'flex' : 'none';
+      if(visible && resetVisibleStatuses){
+        input.checked = true;
+        _activeStatuses[input.dataset.status] = true;
+      }
+      _applyStatusChipState(label, input);
+    });
+  }
+
+  function _activeStatusLabelsForSelectedCategories(){
+    return Object.keys(_activeStatuses).filter(function(k){
+      return _activeStatuses[k] && _statusBelongsToActiveCrCategories(k);
+    });
+  }
+
+  function _syncDetailedStatusVisibility(){
+    var hideDetailedStatus = _isDupOnlyView();
+    var label = document.getElementById('crDetailedStatusLabel');
+    var statusBox = document.getElementById('crStatusCheckboxes');
+    var barRow = document.getElementById('pieDetailedStatusRow');
+    if(label) label.style.display = hideDetailedStatus ? 'none' : '';
+    if(statusBox) statusBox.style.display = hideDetailedStatus ? 'none' : 'flex';
+    if(barRow) barRow.style.display = hideDetailedStatus ? 'none' : 'flex';
+  }
+
+  function _selectedCrCategoryTitlePrefix(){
+    if(_activeCrCategories.valid) return 'CR Avg Age';
+    var parts = [];
+    if(_activeCrCategories.invalid) parts.push('Invalid CRs');
+    if(_activeCrCategories.dup) parts.push('Dup CRs');
+    return parts.length ? parts.join(' / ') : 'Selected CRs';
+  }
+
+
+    // -- CR Age group-by toggle --
+    var _crAgeGroup = 'area'; // 'area' | 'subsystem' | 'func'
+  var _crAgeViewMode = 'summary';
+  var _crAgeUnit = 'days'; // 'days' | 'weeks'
+  function _ageDisplay(days){ return _crAgeUnit==='weeks' ? Math.round(days/7*10)/10 : days; }
+  function _ageLabel(){ return _crAgeUnit==='weeks' ? 'CR Average Age (weeks)' : 'CR Average Age (days)'; }
+  window.setCrAgeUnit = function(unit){
+    _crAgeUnit = unit || 'days';
+    _rerender();
+  };
+
+  function _crAgeGroupKey(r){
+    if(_crAgeGroup==='subsystem') return String(r.cr_subsystem||r.subsystem||'Unknown').trim()||'Unknown';
+    if(_crAgeGroup==='func')      return String(r.cr_functionality||r.functionality||'Unknown').trim()||'Unknown';
+    return String(r.cr_area||r.area||'Unknown').trim()||'Unknown';
+  }
+  function setCrAgeGroup(g){
+    _crAgeGroup = g;
+    ['area','subsystem','func'].forEach(function(k){
+      var btn = document.getElementById('crGrp'+k.charAt(0).toUpperCase()+k.slice(1));
+      if(!btn) return;
+      var active = (k===g);
+      btn.style.background    = active ? '#6366f1' : '#f8fafc';
+      btn.style.color         = active ? '#fff'    : '#475569';
+      btn.style.borderColor   = active ? '#6366f1' : '#e2e8f0';
+    });
+    // fix button id mismatch: crGrpArea / crGrpSub / crGrpFunc
+    var ids = {area:'crGrpArea', subsystem:'crGrpSub', func:'crGrpFunc'};
+    Object.keys(ids).forEach(function(k){
+      var btn = document.getElementById(ids[k]);
+      if(!btn) return;
+      var active = (k===g);
+      btn.style.background  = active ? '#6366f1' : '#f8fafc';
+      btn.style.color       = active ? '#fff'    : '#475569';
+      btn.style.borderColor = active ? '#6366f1' : '#e2e8f0';
+    });
+    areaPieRows = (allCrRows||[]).reduce(function(acc,row){
+      var key=_crAgeGroupKey(row); if(!acc[key]) acc[key]=[]; acc[key].push(row); return acc;
+    },{});
+        renderCrAgeChart();
+    renderUndispStatusPie();
+  }
+  window.setCrAgeGroup = setCrAgeGroup;
+
+    function _getActiveData(){
+    var totalMap = {};
+    var selectedMap = {};
+
+    (allCrRows||[]).forEach(function(r){
+      var key = _crAgeGroupKey(r);
+      if(!totalMap[key]) totalMap[key]={count:0,totalAge:0,ageCount:0};
+      totalMap[key].count++;
+      var ta=Number(r.cr_age||0);
+      if(ta>0){ totalMap[key].totalAge+=ta; totalMap[key].ageCount++; }
+
+      if(_isRowActive(r)){
+        if(!selectedMap[key]) selectedMap[key]={count:0,totalAge:0,ageCount:0};
+        selectedMap[key].count++;
+        var sa=Number(r.cr_age||0);
+        if(sa>0){ selectedMap[key].totalAge+=sa; selectedMap[key].ageCount++; }
+      }
+    });
+
+    if(!Object.keys(totalMap).length){
+      return {categories:undispData.categories||[],totalCount:undispData.count||[],selectedCount:undispData.count||[],avgAge:undispData.avgAge||[]};
+    }
+
+        var cats=[], totalCounts=[], selectedCounts=[], avgAges=[];
+    Object.keys(totalMap).sort(function(a,b){ return totalMap[b].count-totalMap[a].count; }).forEach(function(k){
+      var total = totalMap[k] || {count:0,totalAge:0,ageCount:0};
+      var sel = selectedMap[k] || {count:0,totalAge:0,ageCount:0};
+      cats.push(k);
+      totalCounts.push(total.count||0);
+      selectedCounts.push(sel.count||0);
+            // avgAge uses SELECTED rows so it reacts to status/category filters.
+      // Do not fall back to total when viewing Invalid/Dup, otherwise Average TAT
+      // can show unrelated Valid CR age.
+      var rawAge = sel.ageCount > 0 ? Math.round(sel.totalAge/sel.ageCount*10)/10 : 0;
+
+      avgAges.push(_ageDisplay(rawAge));
+    });
+    return {categories:cats,totalCount:totalCounts,selectedCount:selectedCounts,avgAge:avgAges};
+  }
+
+  function _getActivePieData(){
+    var src=(allCrRows||[]).filter(_isRowActive);
+    if(!src.length){
+      var d=_getActiveData();
+      return d.categories.map(function(n,i){return {name:n,y:(d.selectedCount||d.totalCount||[])[i]||0};});
+    }
+    var am={};
+        src.forEach(function(r){var k=_crAgeGroupKey(r);am[k]=(am[k]||0)+1;});
+
+    return Object.keys(am).map(function(k){return {name:k,y:am[k]};}).sort(function(a,b){return b.y-a.y;});
+  }
+
+    var areaPieRows=(allCrRows||[]).reduce(function(acc,row){
+    var key=_crAgeGroupKey(row);
+
+    if(!acc[key]) acc[key]=[];
+    acc[key].push(row);
+    return acc;
+  },{});
+
+  // Index lookup for pie click -> row table
+  var areaPieRowsByIndex = [];
+  (function(){ var pd=_getActivePieData(); pd.forEach(function(p){ areaPieRowsByIndex.push(areaPieRows[p.name]||[]); }); })();
+
+        function getOpenAnalysisBucketData(){
+    var groups = {};
+    (allCrRows||[]).filter(_isRowActive).forEach(function(r){
+      var key = _crAgeGroupKey(r);
+      if(!groups[key]) groups[key] = {lt2:0,b2_5:0,b5_7:0,b7_10:0,gt10:0,sum:0};
+          var age = Number(r.cr_age||0);
+    if(age < 2)        groups[key].lt2++;
+    else if(age < 5)   groups[key].b2_5++;
+    else if(age < 7)   groups[key].b5_7++;
+    else if(age < 10)  groups[key].b7_10++;
+    else               groups[key].gt10++;
+      groups[key].sum++;
+    });
+    var rows = Object.keys(groups).map(function(k){ return {label:k,lt2:groups[k].lt2,b2_5:groups[k].b2_5,b5_7:groups[k].b5_7,b7_10:groups[k].b7_10,gt10:groups[k].gt10,sum:groups[k].sum}; });
+    rows = rows.filter(function(r){ return r.sum>0; }).sort(function(a,b){ return b.sum-a.sum; });
+    return rows;
+  }
+
+  function renderFooterBadges(){
+    var box = document.getElementById('crAgeFooterBadges');
+    if(!box) return;
+    if(_crAgeViewMode === 'oa_buckets'){
+      var rows = getOpenAnalysisBucketData();
+      var totals = {lt2:0,b2_5:0,b5_7:0,b7_10:0,gt10:0,sum:0};
+      rows.forEach(function(r){ totals.lt2+=r.lt2; totals.b2_5+=r.b2_5; totals.b5_7+=r.b5_7; totals.b7_10+=r.b7_10; totals.gt10+=r.gt10; totals.sum+=r.sum; });
+      box.innerHTML = ''
+                        + '<span style="padding:4px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700;">&lt;2d: '+totals.lt2+'</span>'
+        + '<span style="padding:4px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:700;">2-5d: '+totals.b2_5+'</span>'
+        + '<span style="padding:4px 10px;border-radius:999px;background:#f5f3ff;color:#7c3aed;font-size:11px;font-weight:700;">5-7d: '+totals.b5_7+'</span>'
+        + '<span style="padding:4px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:700;">7-10d: '+totals.b7_10+'</span>'
+        + '<span style="padding:4px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;">&gt;10d: '+totals.gt10+'</span>'
+        + '<span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Total: <span style="color:#111827;">'+totals.sum+'</span></span>';
+      return;
+    }
+            // Compute 4 buckets live from filtered allCrRows â€” reacts to status filter + unit
+    var b0_7=0, b7_14=0, b14_21=0, bOver21=0, bDup=0, bInvalid=0;
+    (allCrRows||[]).forEach(function(r){
+      var age = Number(r.cr_age||0);
+      var st  = String(r.cr_status||'').toLowerCase();
+      var cat = String(r.cr_category||'').toLowerCase();
+      var isDup     = st.indexOf('dup')>=0 || cat.indexOf('dup')>=0;
+      var isInvalid = st.indexOf('invalid')>=0 || st.indexOf('nosir')>=0 || cat.indexOf('invalid')>=0;
+      if(isDup||isInvalid){ bDup++; if(isInvalid) bInvalid++; return; }
+      if(!_isRowActive(r)) return;
+      if(age<=7)       b0_7++;
+      else if(age<=14) b7_14++;
+      else if(age<=21) b14_21++;
+      else             bOver21++;
+    });
+    var isWeeks = _crAgeUnit==='weeks';
+    var b1lbl = isWeeks ? '0-1w'  : '0-7d';
+    var b2lbl = isWeeks ? '1-2w'  : '7-14d';
+    var b3lbl = isWeeks ? '2-3w'  : '14-21d';
+    var b4lbl = isWeeks ? '>3w'   : '>21d';
+    box.innerHTML = ''
+      + '<button type="button" class="cr-age-badge" data-band="0_7"    style="padding:4px 10px;border-radius:999px;border:none;background:#f0fdf4;color:#15803d;cursor:pointer;font-size:11px;font-weight:700;">'+b1lbl+': '+b0_7+'</button>'
+      + '<button type="button" class="cr-age-badge" data-band="7_14"   style="padding:4px 10px;border-radius:999px;border:none;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:700;">'+b2lbl+': '+b7_14+'</button>'
+      + '<button type="button" class="cr-age-badge cr-age-badge-warn" data-band="14_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fef3c7;color:#b45309;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(245,158,11,.4);">'+b3lbl+': '+b14_21+'</button>'
+      + '<button type="button" class="cr-age-badge cr-age-badge-critical" data-band="over_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fee2e2;color:#b91c1c;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(239,68,68,.6);">'+b4lbl+': '+bOver21+'</button>'
+      + '<span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Dup: <span style="color:#b45309;">'+bDup+'</span></span>'
+            + '<span style="font-size:10px;font-weight:700;color:#6b7280;">Invalid: <span style="color:#b91c1c;">'+bInvalid+'</span></span>';
+
+    bindAgeBadgeClicks();
+  }
+
+  function renderCrAgeSummaryTable(data, selectedLabel, showAverageTat){
+    var wrap = document.getElementById('crAgeSummaryTableWrap');
+    if(!wrap) return;
+    var cats = data.categories || [];
+    if(!cats.length){ wrap.innerHTML=''; return; }
+    var totalTotal = 0, selectedTotal = 0;
+    var labelName = _crAgeGroup==='subsystem' ? 'CR Subsystem' : (_crAgeGroup==='func' ? 'CR Functionality' : 'CR Area');
+        var html = '<table id="crAgeSummaryTable" width="100%" border="1" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e5e7eb;table-layout:fixed;word-wrap:break-word;">'
+      + '<thead><tr>'
+      + '<th style="padding:8px 10px;text-align:left;background:#f8fafc;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#475569;">'+labelName+'</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#1d4ed8;">Total CRs</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#fff7ed;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#c2410c;">'+selectedLabel+'</th>'
+      + (showAverageTat ? '<th style="padding:8px 10px;text-align:center;background:#f3f4f6;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#4b5563;">Average TAT</th>' : '')
+      + '</tr></thead><tbody>'; 
+        cats.forEach(function(cat, i){
+      var total = Number((data.totalCount||[])[i]||0);
+      var sel = Number((data.selectedCount||[])[i]||0);
+      var avg = Number((data.avgAge||[])[i]||0);
+      if(sel<=0) return;
+      totalTotal += total; selectedTotal += sel;
+            html += '<tr>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:700;color:#111827;word-wrap:break-word;">'+cat+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;background:#eef2ff;">'+total+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+sel+'</td>'
+        + (showAverageTat ? '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+(avg>0 ? Math.round(avg) : 0)+'</td>' : '')
+        + '</tr>'; 
+    });
+        html += '</tbody><tfoot><tr>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:900;background:#f8fafc;">Grand Total</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#eef2ff;">'+totalTotal+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+selectedTotal+'</td>'
+      + (showAverageTat ? '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#f8fafc;"></td>' : '')
+      + '</tr></tfoot></table>'; 
+    wrap.innerHTML = html;
+  }
+
+    function renderOpenAnalysisBucketTable(){
+    var wrap = document.getElementById('crAgeSummaryTableWrap');
+    if(!wrap) return;
+    var rows = getOpenAnalysisBucketData();
+    if(!rows.length){ wrap.innerHTML=''; return; }
+    var totals={lt2:0,b2_5:0,b5_7:0,b7_10:0,gt10:0,sum:0};
+    var labelName = _crAgeGroup==='subsystem' ? 'CR Subsystem' : (_crAgeGroup==='func' ? 'CR Functionality' : 'CR Area');
+    var html = '<table id="crAgeSummaryTable" width="100%" border="1" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e5e7eb;table-layout:fixed;word-wrap:break-word;">'
+      + '<thead><tr>'
+      + '<th style="padding:8px 10px;text-align:left;background:#f8fafc;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#475569;">'+labelName+'</th>'
+                        + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">&lt;2d</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">2-5d</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">5-7d</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">7-10d</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">&gt;10d</th>'
+      + '<th style="padding:8px 10px;text-align:center;background:#fff7ed;border:1px solid #e5e7eb;font-size:11px;font-weight:800;">Sum</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach(function(r){ totals.lt2+=r.lt2; totals.b2_5+=r.b2_5; totals.b5_7+=r.b5_7; totals.b7_10+=r.b7_10; totals.gt10+=r.gt10; totals.sum+=r.sum;
+      html += '<tr><td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:700;color:#111827;">'+r.label+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+r.lt2+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+r.b2_5+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+r.b5_7+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+r.b7_10+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+r.gt10+'</td>'
+        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:800;">'+r.sum+'</td></tr>'; });
+    html += '</tbody><tfoot><tr><td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:900;background:#f8fafc;">Grand Total</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+totals.lt2+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+totals.b2_5+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+totals.b5_7+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+totals.b7_10+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+totals.gt10+'</td>'
+      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#fff7ed;">'+totals.sum+'</td></tr></tfoot></table>';
+        wrap.innerHTML = html;
+  }
+
+  function _syncAverageTatAxis(chart, redraw) {
+    if(!chart || !chart.yAxis || !chart.yAxis[1]) return;
+    var avgSeries = null;
+    (chart.series || []).forEach(function(s){
+      if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
+    });
+    if(!avgSeries) return;
+    var showAxis = avgSeries.visible !== false;
+    var axis = chart.yAxis[1];
+    axis.update({
+      visible: showAxis,
+      title: { text: showAxis ? _ageLabel() : null, style:{fontSize:"11px",color:"#6b7280"} },
+      labels: { enabled: showAxis, style:{fontSize:"11px",color:"#6b7280"} }
+    }, false);
+    chart.update({ chart: { spacingRight: showAxis ? 8 : 0 } }, false);
+    if(redraw !== false) chart.redraw();
+  }
+
+  function renderCrAgeChart() {
+
+
+    var el = document.getElementById("crAgeChart");
+    if (!el) return;
+        if(_crAgeViewMode === 'oa_buckets'){
+      var oaRows = getOpenAnalysisBucketData();
+      renderOpenAnalysisBucketTable();
+      var catsOA  = oaRows.map(function(r){ return r.label; });
+      var sumsOA  = oaRows.map(function(r){ return r.sum; });
+      var lt2Data  = oaRows.map(function(r){ return r.lt2;  });
+      var b25Data  = oaRows.map(function(r){ return r.b2_5; });
+      var b57Data  = oaRows.map(function(r){ return r.b5_7; });
+      var b710Data = oaRows.map(function(r){ return r.b7_10; });
+      var gt10Data = oaRows.map(function(r){ return r.gt10; });
+            var _ctEl2=document.getElementById("crAgeCardTitle");
+      var crAgeBucketsTitle = 'CR Age Buckets by ' + (_crAgeGroup==='subsystem'?'Subsystem':_crAgeGroup==='func'?'Functionality':'Area');
+      if(_ctEl2) _ctEl2.innerHTML='CR Age Buckets <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">Open / Analysis</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by '+(_crAgeGroup==='subsystem'?'Subsystem':_crAgeGroup==='func'?'Functionality':'Area')+'</span>';
+        Highcharts.chart("crAgeChart", {
+                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 72, marginBottom: 170, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
+
+        title: { text: crAgeBucketsTitle, style:{fontSize:"18px",fontWeight:"900",color:"#0f172a"} },
+        xAxis: {
+          categories: catsOA,
+                    labels:{rotation:-35,y:22,style:{fontSize:"13px",fontWeight:"800",color:"#334155"}},
+          title:{text:_crAgeGroup==='subsystem'?'CR Subsystem':_crAgeGroup==='func'?'CR Functionality':'CR Area', margin:36, style:{fontSize:"22px",fontWeight:"bold",color:"#0f172a"}}
+
+        },
+
+        yAxis: { min:0, title:{text:'Open / Analysis CRs'}, gridLineColor:'#e5e7eb', stackLabels:{ enabled:true, style:{fontWeight:'800',fontSize:'10px',color:'#1e293b',textOutline:'none'} } },
+        legend: { enabled:true, align:'center', verticalAlign:'top', y: 28, itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:'11px',fontWeight:'700',color:'#374151'} },
+        tooltip: { shared:true, headerFormat:'<b>{point.key}</b><br/>', pointFormat:'<span style="color:{point.color}">â—</span> {series.name}: <b>{point.y}</b><br/>' },
+        plotOptions: { column:{ stacking:'normal', borderRadius:2, pointPadding:0.1, groupPadding:0.12, dataLabels:{ enabled:true, crop:false, overflow:'allow', style:{fontSize:'9px',fontWeight:'800',textOutline:'2px #0003',color:'#fff'}, formatter:function(){ return this.y > 0 ? this.y : null; } } } },
+        credits: { enabled:false },
+        series: [
+                              { name:'&lt;2d',  data:lt2Data,  color:'#22d3ee' },
+          { name:'2-5d',  data:b25Data,  color:'#818cf8' },
+          { name:'5-7d',  data:b57Data,  color:'#a78bfa' },
+          { name:'7-10d', data:b710Data, color:'#fb923c' },
+          { name:'&gt;10d', data:gt10Data, color:'#f87171' }
+        ]
+      });
+      return;
+    }
+    var data = _getActiveData();
+
+        var activeLabels = _activeStatusLabelsForSelectedCategories();
+    var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
+    var totalOverall = (allCrRows||[]).length;
+        var selectedLabelParts = [];
+    if(_activeCrCategories.valid || _activeCrCategories.invalid) {
+      if(activeLabels.length) selectedLabelParts = selectedLabelParts.concat(activeLabels);
+      else selectedLabelParts.push('CR Status');
+    }
+    if(_activeCrCategories.invalid && !activeLabels.length) selectedLabelParts.push('Invalid');
+    if(_activeCrCategories.dup) selectedLabelParts.push('Dup');
+    var selectedLabel = selectedLabelParts.length ? selectedLabelParts.join('/') : 'Selected';
+
+
+    var selectedColor = '#f59e0b';
+    if(activeLabels.length===1){
+      var _sl = activeLabels[0].toLowerCase();
+      if(_sl.indexOf('open')>=0) selectedColor = '#f97316';
+      else if(_sl.indexOf('analysis')>=0) selectedColor = '#10b981';
+      else if(_sl.indexOf('built')>=0) selectedColor = '#94a3b8';
+      else if(_sl.indexOf('fix')>=0 || _sl.indexOf('ready')>=0) selectedColor = '#7c3aed';
+    }
+
+            var _ctEl=document.getElementById("crAgeCardTitle");
+    var showAverageTat = !_isInvalidDupOnlyView();
+    var titlePrefix = _selectedCrCategoryTitlePrefix();
+    var crAgeSummaryTitle = titlePrefix + ' by ' + _groupLabel();
+    if(_ctEl) _ctEl.innerHTML=titlePrefix+' <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">'+totalSelected+' selected / '+totalOverall+' total</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by '+_groupLabel()+'</span>';
+
+    renderCrAgeSummaryTable(data, selectedLabel, showAverageTat);
+
+    var maxIdx = Math.min(data.categories.length-1, 11);
+    var avgAgePoints = (data.avgAge || []).slice(0, maxIdx + 1).map(function(y, i){ return [i, y]; });
+        var crAgeChart = Highcharts.chart("crAgeChart", {
+
+                                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 72, marginBottom: 178, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
+
+
+
+      title: { text: crAgeSummaryTitle, style:{fontSize:"18px",fontWeight:"900",color:"#0f172a"} },
+      xAxis: {
+        type: "linear",
+        tickPositions: data.categories.slice(0, maxIdx + 1).map(function(_, i){ return i; }),
+        crosshair: true,
+        min: 0,
+        max: maxIdx,
+        maxPadding: 0,
+        minPadding: 0,
+        startOnTick: false,
+        endOnTick: false,
+        labels: {
+          rotation:-35,
+          y:22,
+                                        style:{fontSize:"13px",fontWeight:"800",color:"#334155"},
+          formatter:function(){ return data.categories[this.value] || ""; }
+        },
+        title: { text: _crAgeGroup==='subsystem'?'CR Subsystem':_crAgeGroup==='func'?'CR Functionality':'CR Area', margin:36, style:{fontSize:"22px",fontWeight:"bold",color:"#0f172a"} }
+
+
+      },
+            yAxis: [
+        { min:0, title:{text:"CR Count"}, gridLineColor:"#e5e7eb", labels:{style:{fontSize:"11px",color:"#6b7280"}} },
+        { visible: showAverageTat, title:{text: showAverageTat ? _ageLabel() : null, style:{fontSize:"11px",color:"#6b7280"}}, opposite:true, gridLineWidth:0, minPadding:0, maxPadding:0, endOnTick:false, startOnTick:false, labels:{enabled:showAverageTat, style:{fontSize:"11px",color:"#6b7280"}} }
+      ],
+      legend: { enabled:true, align:"center", verticalAlign:"top", y: 28, itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:"11px",fontWeight:"700",color:"#374151"} },
+      tooltip: { shared:true, headerFormat:"<span style='font-size:11px'>{point.key}</span><br/>" },
+            plotOptions: {
+        series: {
+          events: {
+            legendItemClick: function(){
+              var chart = this.chart;
+              // Run after Highcharts toggles the series so the secondary axis follows Average TAT visibility.
+              setTimeout(function(){ _syncAverageTatAxis(chart, true); }, 0);
+            }
+          }
+        },
+        column: { borderRadius:2, pointPadding:0.08, groupPadding:0.12,
+                    dataLabels:{ enabled:true, formatter:function(){ return this.y>0?this.y:""; },
+            style:{fontSize:"9px",fontWeight:"700",textOutline:"none",color:"#111827"} } },
+        spline: { dataLabels:{ enabled:true, crop:false, overflow:"allow", y:-8,
+                    formatter:function(){ return this.point && this.point.y>0 ? this.point.y.toFixed(0) : ""; },
+          style:{fontSize:"8px",fontWeight:"600",textOutline:"none",color:"#6b7280"} } }
+      },
+
+      credits: { enabled:false },
+            series: [
+        { name:"Total CRs", type:"column", data:(data.totalCount||[]).slice(0, maxIdx + 1), color:"#3b82f6", yAxis:0 },
+        { name:selectedLabel, type:"column", data:(data.selectedCount||[]).slice(0, maxIdx + 1), color:selectedColor, yAxis:0 }
+      ].concat(showAverageTat ? [{ name:"CR Average Age", type:"column", data:(data.avgAge||[]).slice(0, maxIdx + 1), color:"#a3a3a3", yAxis:1 }] : [])
+    });
+    _syncAverageTatAxis(crAgeChart, true);
+  }
+
+    function renderCrAreaTable(areaName, pointIndex) {
+    let rows = [];
+    if (typeof pointIndex === 'number' && areaPieRowsByIndex[pointIndex]) {
+      rows = (areaPieRowsByIndex[pointIndex] || []).filter(_isRowActive);
+    } else {
+      const key = String(areaName || '').trim() || 'Unknown';
+      rows = (crRows || []).filter(function(r){ return String(r.cr_area || r.area || 'Unknown').trim() === key && _isRowActive(r); });
+    }
+    const tbody = document.querySelector('#crAgeTable tbody');
+    const titleEl = document.getElementById('crAgeModalTitle');
+    const subtitleEl = document.getElementById('crAgeModalSubtitle');
+    const overlay = document.getElementById('crAgeModalOverlay');
+    if (!tbody || !overlay) return;
+
+    if (titleEl) titleEl.textContent = `CRs in area: ${areaName}`;
+    if (subtitleEl) {
+      const activeStatuses = _activeStatusLabelsForSelectedCategories();
+      subtitleEl.textContent = 'Filtered by status: ' + (activeStatuses.length ? activeStatuses.join('/') : 'None');
+    }
+
+    tbody.innerHTML = '';
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'No CRs found for this area.';
+      td.style.fontSize = '13px';
+      td.style.color = '#6b7280';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+            rows.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        const crValue = r.cr_id || r.cr || '-';
+        const orbitId = String(crValue).replace(/^CR/i,'');
+        const crHtml = orbitId && orbitId !== '-' ? `<a href="https://orbit/cr/${orbitId}" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:800;text-decoration:underline;">${crValue}</a>` : crValue;
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${crHtml}</td>
+          <td>${r.cr_title || '-'}</td>
+          <td>${r.cr_status || '-'}</td>
+          <td>${r.cr_area || areaName || '-'}</td>
+          <td>${r.cr_age != null ? r.cr_age : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+    }
+
+    overlay.style.display = 'flex';
+  }
+
+    function renderUndispStatusPie() {
+    var el = document.getElementById("undispStatusPie");
+    if (!el) return;
+    var barData = _getActivePieData();
+    if (!barData || !barData.length) {
+      el.innerHTML = "<div style='padding:20px;color:#6b7280;font-size:13px;'>No CR area data available.</div>";
+      return;
+    }
+    var activeStatuses = _activeStatusLabelsForSelectedCategories();
+    var chartTitle = _isDupOnlyView()
+      ? (_selectedCrCategoryTitlePrefix() + ' by Area')
+      : ((activeStatuses.length ? activeStatuses.join('/') : _selectedCrCategoryTitlePrefix()) + ' CRs by Area');
+    var pieTitleEl = document.querySelector('#undispStatusPie').previousElementSibling && document.querySelector('#undispStatusPie').previousElementSibling.querySelector('.card-title');
+    var pieSubEl = document.querySelector('#undispStatusPie').previousElementSibling && document.querySelector('#undispStatusPie').previousElementSibling.querySelector('.card-subtitle');
+        if(pieTitleEl) pieTitleEl.textContent = chartTitle;
+    if(pieSubEl) pieSubEl.textContent = 'Click a bar to filter the table by CR area';
+
+    var colors = ['#3b82f6','#f97316','#10b981','#8b5cf6','#ef4444','#06b6d4','#f59e0b','#64748b','#ec4899','#84cc16'];
+    var categories = barData.map(function(p){ return p.name; });
+    var points = barData.map(function(p, i){
+      return { name:p.name, y:p.y, color:colors[i % colors.length] };
+    });
+
+        Highcharts.chart("undispStatusPie", {
+      chart: { type:"bar", height: 400, backgroundColor:"transparent", spacingRight: 8, marginTop: 42, style:{fontFamily:"Inter,system-ui,sans-serif"} },
+      title: { text: chartTitle, style:{fontSize:"15px",fontWeight:"900",color:"#0f172a"} },
+      credits: { enabled:false },
+      exporting: { enabled:false },
+      xAxis: {
+        categories: categories,
+        title: { text:null },
+        labels: { style:{fontSize:"10px",fontWeight:"700",color:"#475569"} }
+      },
+      yAxis: {
+        min:0,
+        allowDecimals:false,
+        title:{ text:"CR Count", style:{fontSize:"11px",color:"#6b7280"} },
+        gridLineColor:'#e5e7eb'
+      },
+      tooltip: { headerFormat:'', pointFormat:'<b>{point.name}</b><br/>{series.name}: <b>{point.y}</b> CRs' },
+      legend: { enabled:false },
+      plotOptions: {
+        bar: {
+          borderRadius:4,
+          pointPadding:0.08,
+          groupPadding:0.08,
+          dataLabels: {
+            enabled:true,
+            crop:false,
+            overflow:'allow',
+            formatter:function(){ return this.y > 0 ? this.y : ''; },
+            style:{fontSize:"10px",fontWeight:"800",textOutline:"none",color:"#111827"}
+          },
+          point: { events: { click:function(){ renderCrAreaTable(this.name || this.category, this.index); } } }
+        },
+        series: { animation:false }
+      },
+      series: [{ name:"CR Areas", data:points }]
+    });
+  }
+  function renderCrAgeTable(bandKey) {
+    // Compute rows live from allCrRows filtered by active status + band
+    var minAge=0, maxAge=Infinity;
+    var isWeeks = _crAgeUnit==='weeks';
+    var bandLabel = '';
+    if(bandKey==='0_7')     { minAge=0;  maxAge=7;        bandLabel=isWeeks?'0-1w':'0-7d'; }
+    else if(bandKey==='7_14')  { minAge=8;  maxAge=14;       bandLabel=isWeeks?'1-2w':'7-14d'; }
+    else if(bandKey==='14_21') { minAge=15; maxAge=21;       bandLabel=isWeeks?'2-3w':'14-21d'; }
+    else if(bandKey==='over_21'){ minAge=22; maxAge=Infinity; bandLabel=isWeeks?'>3w':'>21d'; }
+    else if(bandKey==='5_20')  { minAge=5;  maxAge=20;  bandLabel='5-20d'; }
+    else if(bandKey==='20_40') { minAge=21; maxAge=40;  bandLabel='20-40d'; }
+    else if(bandKey==='over_40'){ minAge=41; maxAge=Infinity; bandLabel='>40d'; }
+    const rows = (allCrRows||[]).filter(function(r){
+      if(!_isRowActive(r)) return false;
+      var age = Number(r.cr_age||0);
+      return age>=minAge && age<=maxAge;
+    });
+    const tbody = document.querySelector('#crAgeTable tbody');
+    const titleEl = document.getElementById('crAgeModalTitle');
+    const subtitleEl = document.getElementById('crAgeModalSubtitle');
+    const overlay = document.getElementById('crAgeModalOverlay');
+    if (!tbody || !overlay) return;
+
+    if (titleEl) {
+      titleEl.textContent = `CRs in age band ${bandLabel}`;
+    }
+    if (subtitleEl) {
+      subtitleEl.textContent = 'Undisposed CRs (click Copy to paste into Outlook / Excel).';
+    }
+
+    tbody.innerHTML = '';
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'No CRs in this age band.';
+      td.style.fontSize = '13px';
+      td.style.color = '#6b7280';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+            rows.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        const crValue = r.cr_id || '-';
+        const orbitId = String(crValue).replace(/^CR/i,'');
+        const crHtml = orbitId && orbitId !== '-' ? `<a href="https://orbit/cr/${orbitId}" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:800;text-decoration:underline;">${crValue}</a>` : crValue;
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${crHtml}</td>
+          <td>${r.cr_title || '-'}</td>
+          <td>${r.cr_status || '-'}</td>
+          <td>${r.cr_area || '-'}</td>
+          <td>${r.cr_age != null ? r.cr_age : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+    }
+
+    overlay.style.display = 'flex';
+  }
+
+  // Initial render - default: Open + Analysis checked
+                function _mirrorCheckboxGroup(sourceSelector, targetId){
+    var box = document.getElementById(targetId);
+    if(!box) return;
+    box.innerHTML = '';
+    Array.from(document.querySelectorAll(sourceSelector + ' label')).forEach(function(label){
+      var srcInput = label.querySelector('input[type="checkbox"], input[type="radio"]');
+      if(!srcInput) return;
+      var clone = label.cloneNode(true);
+      clone.style.pointerEvents = 'auto';
+      clone.style.opacity = '1';
+      var input = clone.querySelector('input[type="checkbox"], input[type="radio"]');
+      if(input){
+        input.disabled = false;
+        input.checked = srcInput.checked;
+        if(input.type === 'radio') input.name = 'mirror_' + targetId;
+        input.addEventListener('change', function(){
+          if(input.type === 'radio' && !input.checked) return;
+          srcInput.checked = input.checked;
+          srcInput.dispatchEvent(new Event('change', {bubbles:true}));
+        });
+      }
+      box.appendChild(clone);
+    });
+  }
+
+  function renderPieStatusMirror(){
+    _mirrorCheckboxGroup('#crCategoryCheckboxes', 'pieCategoryMirror');
+    _mirrorCheckboxGroup('#crStatusCheckboxes', 'pieStatusMirror');
+  }
+
+
+    function _rerender(){
+    areaPieRowsByIndex = [];
+    _getActivePieData().forEach(function(p){ areaPieRowsByIndex.push(areaPieRows[p.name]||[]); });
+    renderFooterBadges();
+    _syncStatusChipsForCategories(false);
+    renderPieStatusMirror();
+    _syncDetailedStatusVisibility();
+    renderCrAgeChart();
+    renderUndispStatusPie();
+  }
+
+    // Exposed on window so the compute-only script block below can call it
+    // Single source-of-truth re-filter: always reads from window._dovExclude* state.
+  // Call this whenever the exclude state changes (checkbox, textarea, load, save).
+  function _dovRefilterAndRender(){
+    var result = (window._dovExcludeEnabled && window._dovExcludeKeywords.length)
+      ? window._allCrRowsRaw.filter(function(r){
+          var t = (r.cr_title||r.title||'').toLowerCase();
+          return !window._dovExcludeKeywords.some(function(kw){ return t.indexOf(kw) >= 0; });
+        })
+      : window._allCrRowsRaw.slice();
+    allCrRows.length = 0;
+    result.forEach(function(r){ allCrRows.push(r); });
+    for(var k in areaPieRows) delete areaPieRows[k];
+    allCrRows.forEach(function(row){
+      var key = _crAgeGroupKey(row);
+      if(!areaPieRows[key]) areaPieRows[key] = [];
+      areaPieRows[key].push(row);
+    });
+    _rerender();
+  }
+
+  // Called by the checkbox onchange and textarea oninput — reads DOM into state then re-renders.
+  function dovApplyExcludeState(){
+    var cb = document.getElementById('dovExcludeEnabled');
+    var ta = document.getElementById('dovExcludeKeywords');
+    window._dovExcludeEnabled  = cb ? cb.checked : false;
+    window._dovExcludeKeywords = (ta ? ta.value : '').split('\n').map(function(k){ return k.trim().toLowerCase(); }).filter(Boolean);
+    _dovRefilterAndRender();
+  }
+
+  window.dovExcludeToggle = dovApplyExcludeState;
+  var dovExcludeKeywordsEl = document.getElementById('dovExcludeKeywords');
+  if(dovExcludeKeywordsEl){
+    dovExcludeKeywordsEl.addEventListener('input', dovApplyExcludeState);
+  }
+
+  _rerender();
+
+  // Category/status control changes -> re-render both charts
+  // Control wiring handled inside buildStatusCheckboxes() above
+
+    function bindAgeBadgeClicks(){
+    document.querySelectorAll('.cr-age-badge').forEach(function(btn){
+      btn.addEventListener('click', function () {
+        const band = this.getAttribute('data-band');
+        renderCrAgeTable(band);
+      });
+    });
+  }
+  bindAgeBadgeClicks();
+
+  // Modal close
+  const overlayEl = document.getElementById('crAgeModalOverlay');
+  const closeBtn = document.getElementById('crAgeModalClose');
+  if (closeBtn && overlayEl) {
+    closeBtn.addEventListener('click', () => {
+      overlayEl.style.display = 'none';
+    });
+    overlayEl.addEventListener('click', (e) => {
+      if (e.target === overlayEl) {
+        overlayEl.style.display = 'none';
+      }
+    });
+  }
+
+  // â”€â”€ Shared: open any table data as a rich full page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function openRichPage(title, subtitle, columns, rows) {
+    const colsJson = JSON.stringify(columns);
+    const rowsJson = JSON.stringify(rows);
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>${title}</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;color:#111827;padding:0;}
+.rp-header{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:20px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.rp-title{font-size:20px;font-weight:900;}
+.rp-sub{font-size:13px;opacity:.8;margin-top:3px;}
+.rp-count{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.rp-toolbar{display:flex;align-items:center;gap:10px;padding:14px 32px;background:#fff;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;}
+.rp-search{display:flex;align-items:center;gap:8px;background:#f1f5f9;border-radius:10px;padding:7px 12px;flex:1;min-width:200px;max-width:360px;}
+.rp-search input{border:none;background:transparent;outline:none;font-size:13px;width:100%;color:#111827;}
+.rp-search i{color:#9ca3af;font-size:13px;}
+.rp-filters{display:flex;gap:8px;flex-wrap:wrap;}
+.rp-filter select{padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;background:#fff;color:#374151;cursor:pointer;}
+.rp-filter label{font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:2px;}
+.rp-btn{padding:7px 14px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.rp-btn-export{background:#10b981;color:#fff;}
+.rp-btn-export:hover{background:#059669;}
+.rp-wrap{padding:20px 32px;}
+.rp-table-wrap{background:#fff;border-radius:14px;border:1px solid #e5e7eb;box-shadow:0 4px 18px rgba(15,23,42,.06);overflow:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{background:#f8fafc;padding:10px 14px;text-align:left;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;border-bottom:2px solid #e5e7eb;white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;z-index:1;}
+thead th:hover{background:#f1f5f9;color:#4f46e5;}
+thead th .sort-icon{margin-left:4px;opacity:.4;font-size:10px;}
+thead th.sorted-asc .sort-icon::after{content:'\\25B2';opacity:1;}
+thead th.sorted-desc .sort-icon::after{content:'\\25BC';opacity:1;}
+thead th .sort-icon::after{content:'\\25B2';}
+tbody tr{border-bottom:1px solid #f1f5f9;transition:background .1s;}
+tbody tr:hover{background:#f8faff;}
+td{padding:9px 14px;color:#374151;vertical-align:middle;}
+td:first-child{font-weight:700;color:#6b7280;font-size:11px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-open{background:#fee2e2;color:#dc2626;}
+.badge-closed{background:#dcfce7;color:#16a34a;}
+.badge-analysis{background:#fef3c7;color:#d97706;}
+.badge-default{background:#f1f5f9;color:#475569;}
+.rp-empty{text-align:center;padding:48px;color:#9ca3af;font-size:14px;}
+.rp-footer{padding:12px 32px;font-size:12px;color:#9ca3af;text-align:right;}
+</style></head><body>
+<div class="rp-header">
+  <div><div class="rp-title"><i class="fas fa-table" style="margin-right:8px;"></i>${title}</div><div class="rp-sub">${subtitle}</div></div>
+  <span class="rp-count" id="rpCount">0 rows</span>
+</div>
+<div class="rp-toolbar">
+  <div class="rp-search"><i class="fas fa-search"></i><input id="rpSearch" placeholder="Search all columns..." oninput="applyFilters()"></div>
+  <div class="rp-filters" id="rpFilters"></div>
+  <button class="rp-btn rp-btn-export" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button>
+</div>
+<div class="rp-wrap">
+  <div class="rp-table-wrap">
+    <table id="rpTable">
+      <thead id="rpThead"></thead>
+      <tbody id="rpTbody"></tbody>
+    </table>
+  </div>
+</div>
+<div class="rp-footer" id="rpFooter"></div>
+<script>
+const COLS = ${colsJson};
+const ALL_ROWS = ${rowsJson};
+let sortCol = -1, sortDir = 1;
+let filteredRows = [...ALL_ROWS];
+
+// Build column filter dropdowns for categorical columns
+function buildFilters() {
+  const wrap = document.getElementById('rpFilters');
+  COLS.forEach((col, ci) => {
+    if (!col.filterable) return;
+    const vals = [...new Set(ALL_ROWS.map(r => String(r[ci] ?? '')).filter(Boolean))].sort();
+    if (vals.length < 2 || vals.length > 60) return;
+    const div = document.createElement('div');
+    div.className = 'rp-filter';
+    div.innerHTML = '<label>' + col.label + '</label><select data-col="' + ci + '" onchange="applyFilters()"><option value="">All</option>' + vals.map(v => '<option>' + v + '</option>').join('') + '</select>';
+    wrap.appendChild(div);
+  });
+}
+
+function applyFilters() {
+  const q = document.getElementById('rpSearch').value.toLowerCase();
+  const selects = document.querySelectorAll('#rpFilters select');
+  filteredRows = ALL_ROWS.filter(row => {
+    // column filters
+    for (const sel of selects) {
+      const ci = parseInt(sel.dataset.col);
+      if (sel.value && String(row[ci] ?? '') !== sel.value) return false;
+    }
+    // global search
+    if (q) {
+      const rowText = row.map(v => String(v ?? '').toLowerCase()).join(' ');
+      if (!rowText.includes(q)) return false;
+    }
+    return true;
+  });
+  if (sortCol >= 0) doSort(sortCol, false);
+  else renderBody();
+}
+
+function doSort(ci, toggle) {
+  if (toggle) { sortDir = (sortCol === ci) ? -sortDir : 1; sortCol = ci; }
+  filteredRows.sort((a, b) => {
+    const av = a[ci] ?? ''; const bv = b[ci] ?? '';
+    const an = parseFloat(av); const bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+    return String(av).localeCompare(String(bv)) * sortDir;
+  });
+  document.querySelectorAll('thead th').forEach((th, i) => {
+    th.classList.remove('sorted-asc','sorted-desc');
+    if (i === ci) th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+  });
+  renderBody();
+}
+
+function statusBadge(v) {
+  const s = String(v||'').toLowerCase();
+  if (s.includes('open'))     return '<span class="badge badge-open">'     + v + '</span>';
+  if (s.includes('closed'))   return '<span class="badge badge-closed">'   + v + '</span>';
+  if (s.includes('analysis')) return '<span class="badge badge-analysis">' + v + '</span>';
+  if (!v) return '-';
+  return '<span class="badge badge-default">' + v + '</span>';
+}
+
+function renderBody() {
+  const tbody = document.getElementById('rpTbody');
+  document.getElementById('rpCount').textContent = filteredRows.length + ' rows';
+  document.getElementById('rpFooter').textContent = 'Showing ' + filteredRows.length + ' of ' + ALL_ROWS.length + ' rows';
+  if (!filteredRows.length) { tbody.innerHTML = '<tr><td colspan="' + COLS.length + '" class="rp-empty"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px;"></i>No matching records</td></tr>'; return; }
+  tbody.innerHTML = filteredRows.map((row, ri) => '<tr>' + COLS.map((col, ci) => {
+    let v = row[ci] ?? '';
+    if (col.type === 'status') v = statusBadge(v);
+    else if (col.type === 'number') v = v !== '' ? '<strong>' + v + '</strong>' : '-';
+    else v = String(v) || '-';
+    return '<td>' + v + '</td>';
+  }).join('') + '</tr>').join('');
+}
+
+function buildHeader() {
+  document.getElementById('rpThead').innerHTML = '<tr>' + COLS.map((col, ci) => '<th onclick="doSort(' + ci + ', true)"><span>' + col.label + '</span><span class="sort-icon"></span></th>').join('') + '</tr>';
+}
+
+function exportCSV() {
+  const rows = [COLS.map(c => c.label).join(','), ...filteredRows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))];
+  const blob = new Blob([rows.join('\\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '${title.replace(/[^a-z0-9]/gi, '_')}.csv'; a.click();
+}
+
+buildHeader(); buildFilters(); applyFilters();
+<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
+  // Enlarge â€” open CR age table in new rich page
+  const enlargeBtn = document.getElementById('crAgeModalEnlarge');
+  if (enlargeBtn) {
+    enlargeBtn.addEventListener('click', () => {
+      const title    = document.getElementById('crAgeModalTitle')?.textContent    || 'CR Age Details';
+      const subtitle = document.getElementById('crAgeModalSubtitle')?.textContent || '';
+      // Collect rows from current tbody
+      const tbody = document.querySelector('#crAgeTable tbody');
+      const rows = [];
+      if (tbody) {
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const cells = tr.querySelectorAll('td');
+          if (cells.length >= 5) rows.push([...cells].map(td => td.textContent.trim()));
+        });
+      }
+      const cols = [
+        {label:'S.No',    type:'number'},
+        {label:'CR ID',   type:'text'},
+        {label:'Title',   type:'text'},
+        {label:'Status',  type:'status',  filterable:true},
+        {label:'Area',    type:'text',    filterable:true},
+        {label:'Age (days)', type:'number'}
+      ];
+      openRichPage(title, subtitle, cols, rows);
+    });
+  }
+
+  // Copy table as HTML (rich), with text fallback
+  const copyBtn = document.getElementById('crAgeCopyBtn');
+  if (copyBtn) {
+    function showCopyFeedback() {
+      const original = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      copyBtn.disabled = true;
+      setTimeout(() => {
+        copyBtn.textContent = original;
+        copyBtn.disabled = false;
+      }, 1500);
+    }
+
+    copyBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+
+      const table = document.getElementById('crAgeTable');
+      if (!table) {
+        console.error('CR Age table not found');
+        return;
+      }
+
+      const tableHtml = table.outerHTML;
+
+      const rows = Array.from(table.querySelectorAll('tr'));
+      const lines = rows.map(tr => {
+        const cells = Array.from(tr.querySelectorAll('th,td'));
+        return cells
+          .map(td => (td.textContent || '').replace(/\s+/, ' ').trim())
+          .join('\t');
+      });
+      const plainText = lines.join('\n');
+
+      function copyHtmlWithExecCommand(html, text) {
+        const div = document.createElement('div');
+        div.contentEditable = 'true';
+        div.style.position = 'fixed';
+        div.style.pointerEvents = 'none';
+        div.style.opacity = '0';
+        div.innerHTML = html;
+        document.body.appendChild(div);
+
+        const range = document.createRange();
+        range.selectNodeContents(div);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (err) {
+          console.error('execCommand copy failed', err);
+        }
+        sel.removeAllRanges();
+        document.body.removeChild(div);
+
+        if (!ok) {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-1000px';
+          textarea.style.left = '-1000px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            console.error('Fallback text copy failed', err);
+          }
+          document.body.removeChild(textarea);
+        }
+      }
+
+      if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+        const blobHtml = new Blob([tableHtml], { type: 'text/html' });
+        const blobText = new Blob([plainText], { type: 'text/plain' });
+        const data = {
+          'text/html': blobHtml,
+          'text/plain': blobText
+        };
+        navigator.clipboard.write([new ClipboardItem(data)])
+          .then(() => {
+            showCopyFeedback();
+          })
+          .catch(() => {
+            copyHtmlWithExecCommand(tableHtml, plainText);
+            showCopyFeedback();
+          });
+      } else {
+        copyHtmlWithExecCommand(tableHtml, plainText);
+        showCopyFeedback();
+      }
+    });
+  }
+
+  // â”€â”€ Copy chart buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Shared clipboard helpers (works on HTTP intranet via execCommand fallback)
+
+            // CR Avg Age â€” Copy Chart
+  function crAgeCopyChart() {
+    var btn = document.getElementById('crAgeCopyChartBtn');
+    // Look up live â€” avoids cross-scope reference issues with _crAgeChartRef
+    var chart = (window.Highcharts && Highcharts.charts
+      ? Highcharts.charts.filter(function(c){ return c && c.renderTo && c.renderTo.id === 'crAgeChart'; }).pop()
+      : null) || _crAgeChartRef || null;
+    _copyHighchart(chart, btn);
+  }
+  window.crAgeCopyChart = crAgeCopyChart;
+
+  // CR Area Bar Chart — Copy Chart
+  function crAreaCopyChart(){
+    var btn = document.getElementById('crAreaCopyChartBtn');
+    var chart = (window.Highcharts && Highcharts.charts
+      ? Highcharts.charts.filter(function(c){ return c && c.renderTo && c.renderTo.id === 'undispStatusPie'; }).pop()
+      : null) || _crPieChartRef || null;
+    _copyHighchart(chart, btn);
+  }
+  window.crAreaCopyChart = crAreaCopyChart;
+
+  // CR Avg Age â€” Copy Table
+  function crAgeCopyTable() {
+    var btn = document.getElementById('crAgeCopyTableBtn');
+    var table = document.getElementById('crAgeSummaryTable');
+    if (!table) { alert('Table not ready'); return; }
+    var html = table.outerHTML;
+    var plain = Array.from(table.querySelectorAll('tr')).map(function(tr){
+      return Array.from(tr.querySelectorAll('th,td')).map(function(td){ return (td.textContent||'').trim(); }).join('\t');
+    }).join('\n');
+    function done(){ if(btn){ var o=btn.innerHTML; btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){ btn.innerHTML=o; }, 1800); } }
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plain], {type:'text/plain'})
+      })]).then(done).catch(function(){
+        if(_copyHtmlViaExecCommand(html, plain)) done();
+      });
+    } else {
+      if(_copyHtmlViaExecCommand(html, plain)) done();
+    }
+  }
+        window.crAgeCopyTable = crAgeCopyTable;
+  window.setCrAgeViewMode = function(mode){
+    _crAgeViewMode = mode || 'summary';
+    if(_crAgeViewMode === 'oa_buckets'){
+      Object.keys(_activeStatuses).forEach(function(k){
+        var kl = String(k||'').toLowerCase();
+                _activeStatuses[k] = (kl.indexOf('open') >= 0 || kl.indexOf('analysis') >= 0);
+      });
+      _activeCrCategories.valid = true;
+      _activeCrCategories.invalid = false;
+      _activeCrCategories.dup = false;
+            document.querySelectorAll('#crCategoryCheckboxes input[type="radio"]').forEach(function(cb){
+        cb.checked = !!_activeCrCategories[cb.dataset.categoryGroup];
+      });
+      document.querySelectorAll('#crStatusCheckboxes input[type="checkbox"]').forEach(function(cb){
+        var s = String(cb.dataset.status||'').toLowerCase();
+        cb.checked = (s.indexOf('open') >= 0 || s.indexOf('analysis') >= 0);
+      });
+
+
+    }
+    _rerender();
+  };
+  function _copyChartHtml(htmlStr, btn) {
+    var orig = btn.innerHTML;
+    var done = '<i class="fas fa-check"></i> Copied!';
+    var fail = '<i class="fas fa-times"></i> Failed';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    function _ok()   { btn.innerHTML = done; setTimeout(function(){ btn.innerHTML = orig; }, 2000); }
+    function _fail() { btn.innerHTML = fail; setTimeout(function(){ btn.innerHTML = orig; }, 2200); }
+    // Try ClipboardItem (HTTPS)
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+      var items = {};
+      items['text/html'] = new Blob([htmlStr], {type:'text/html'});
+      items['text/plain'] = new Blob([''], {type:'text/plain'});
+      navigator.clipboard.write([new ClipboardItem(items)]).then(_ok).catch(function() {
+        // HTTP intranet fallback
+        var tmp = document.createElement('div');
+        tmp.contentEditable = 'true';
+        tmp.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+        tmp.innerHTML = htmlStr;
+        document.body.appendChild(tmp);
+        var range = document.createRange();
+        range.selectNodeContents(tmp);
+        var sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(range);
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+        sel.removeAllRanges(); tmp.remove();
+        if (ok) _ok(); else _fail();
+      });
+      return;
+    }
+    // HTTP intranet: execCommand fallback
+    var tmp = document.createElement('div');
+    tmp.contentEditable = 'true';
+    tmp.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+    tmp.innerHTML = htmlStr;
+    document.body.appendChild(tmp);
+    var range = document.createRange();
+    range.selectNodeContents(tmp);
+    var sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+    sel.removeAllRanges(); tmp.remove();
+    if (ok) _ok(); else _fail();
+  }
+
+  function _blobToDataURL(blob) {
+    return new Promise(function(resolve, reject) {
+      var r = new FileReader();
+      r.onload  = function() { resolve(String(r.result)); };
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+    function _copyHtmlViaExecCommand(html, plainText) {
+    plainText = plainText == null ? '' : String(plainText);
+
+    // Prefer explicit clipboard MIME data so Outlook/Word receive HTML,
+    // not a selected data URL that can paste as encoded garbage text.
+    var explicitOk = false;
+    function onCopy(e) {
+      try {
+        e.preventDefault();
+        e.clipboardData.setData('text/html', html);
+        e.clipboardData.setData('text/plain', plainText);
+        explicitOk = true;
+      } catch(err) {}
+    }
+    document.addEventListener('copy', onCopy, true);
+    try { document.execCommand('copy'); } catch(e) {}
+    document.removeEventListener('copy', onCopy, true);
+    if(explicitOk) return true;
+
+    // Last-resort selection copy for older browsers.
+    var tmp = document.createElement('div');
+    tmp.contentEditable = 'true';
+    tmp.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+    tmp.innerHTML = html;
+    document.body.appendChild(tmp);
+    var range = document.createRange();
+    range.selectNodeContents(tmp);
+    var sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+    sel.removeAllRanges(); tmp.remove();
+    return ok;
+  }
+
+
+    function _enhanceCopiedSvgText(svg) {
+    if(!svg) return;
+    try {
+      var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = 'text{font-family:Inter,Segoe UI,Arial,sans-serif;text-rendering:geometricPrecision}';
+      svg.insertBefore(style, svg.firstChild);
+      Array.prototype.forEach.call(svg.querySelectorAll('text,tspan'), function(t){
+        t.removeAttribute('textLength');
+        t.removeAttribute('lengthAdjust');
+      });
+    } catch(e) {}
+  }
+
+    function _liveChartSvg(chart) {
+    try { _syncAverageTatAxis(chart, true); } catch(e) {}
+    if(chart && chart.tooltip) {
+      try { chart.tooltip.hide(0); } catch(e) {}
+    }
+
+    if(chart && chart.container) {
+      var liveSvg = chart.container.querySelector('svg');
+      if(liveSvg) return liveSvg;
+    }
+    if(chart && typeof chart.getSVG === 'function') {
+      try {
+        return new DOMParser().parseFromString(
+          chart.getSVG({chart:{width:chart.chartWidth, height:chart.chartHeight}}),
+          'image/svg+xml'
+        ).documentElement;
+      } catch(e) {}
+    }
+    return null;
+  }
+
+  function _svgElementToPngBlob(svgEl, chart) {
+    return new Promise(function(resolve, reject) {
+      try {
+        var clone = svgEl.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        _enhanceCopiedSvgText(clone);
+
+        var vb = clone.getAttribute('viewBox');
+        var srcW = Number(clone.getAttribute('width')) || (chart && chart.chartWidth) || 900;
+        var srcH = Number(clone.getAttribute('height')) || (chart && chart.chartHeight) || 520;
+        if(vb) {
+          var p = vb.trim().split(/[\s,]+/);
+          if(p.length === 4) {
+            srcW = Number(p[2]) || srcW;
+            srcH = Number(p[3]) || srcH;
+          }
+        } else {
+          clone.setAttribute('viewBox', '0 0 ' + srcW + ' ' + srcH);
+        }
+
+        // Export at higher resolution so pasted charts stay readable in Outlook/PowerPoint.
+        var scale = Math.max(2, Math.min(3, Math.ceil(window.devicePixelRatio || 1)));
+        var outW = Math.round(srcW * scale);
+        var outH = Math.round(srcH * scale);
+        clone.setAttribute('width', outW);
+        clone.setAttribute('height', outH);
+
+        var svgText = new XMLSerializer().serializeToString(clone);
+        var svgBlob = new Blob([svgText], {type:'image/svg+xml;charset=utf-8'});
+        var url = URL.createObjectURL(svgBlob);
+        var img = new Image();
+        img.onload = function() {
+          try {
+            var canvas = document.createElement('canvas');
+            canvas.width = outW;
+            canvas.height = outH;
+            var ctx = canvas.getContext('2d');
+            if(!ctx) { URL.revokeObjectURL(url); reject(new Error('Canvas unavailable')); return; }
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, outW, outH);
+            ctx.drawImage(img, 0, 0, outW, outH);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(function(blob) {
+              if(blob) resolve(blob);
+              else reject(new Error('PNG export failed'));
+            }, 'image/png', 1);
+          } catch(e) { URL.revokeObjectURL(url); reject(e); }
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
+        img.src = url;
+      } catch(e) { reject(e); }
+    });
+  }
+
+  function _downloadChartPng(blob) {
+    try {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'cr_age_chart_' + new Date().toISOString().slice(0,19).replace(/[T:]/g, '-') + '.png';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+      return true;
+    } catch(e) { return false; }
+  }
+
+  function _copyPngBlob(blob, ok, fail) {
+    if(typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({'image/png': blob})])
+        .then(ok)
+        .catch(function(){
+          _blobToDataURL(blob).then(function(dataUrl) {
+            var html = '<html><body><img src="' + dataUrl + '" style="max-width:100%;height:auto;image-rendering:auto;" alt="Chart"></body></html>';
+            if(_copyHtmlViaExecCommand(html, '')) ok();
+            else if(_downloadChartPng(blob)) ok();
+            else fail();
+          }).catch(fail);
+        });
+      return;
+    }
+    _blobToDataURL(blob).then(function(dataUrl) {
+      var html = '<html><body><img src="' + dataUrl + '" style="max-width:100%;height:auto;image-rendering:auto;" alt="Chart"></body></html>';
+      if(_copyHtmlViaExecCommand(html, '')) ok();
+      else if(_downloadChartPng(blob)) ok();
+      else fail();
+    }).catch(fail);
+  }
+
+    function _copyHighchart(chart, btn) {
+    if (!chart) {
+      var noChartOrig = btn ? btn.innerHTML : '';
+      if(btn) {
+        btn.innerHTML = '<i class="fas fa-times"></i> No chart';
+        setTimeout(function(){ btn.innerHTML = noChartOrig; }, 1800);
+      }
+      return;
+    }
+    var orig = btn ? btn.innerHTML : '';
+    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
+
+    function _ok() {
+      if(!btn) return;
+      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+      setTimeout(function(){ btn.innerHTML = orig; }, 2000);
+    }
+    function _fail() {
+      if(!btn) return;
+      btn.innerHTML = '<i class="fas fa-times"></i> Failed';
+      setTimeout(function(){ btn.innerHTML = orig; }, 2200);
+    }
+
+    // Copy behavior:
+    // - Average TAT enabled: copy it normally with the right-side y-axis.
+    // - Average TAT disabled: remove it from the copied image completely so
+    //   Outlook does not receive a struck-through legend item.
+    var avgSeries = null;
+    (chart.series || []).forEach(function(s){
+      if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
+    });
+    var restoreAvg = null;
+    var avgHiddenForCopy = !!(avgSeries && avgSeries.visible === false);
+    if(avgSeries) {
+      restoreAvg = {
+        visible: avgSeries.visible !== false,
+        showInLegend: avgSeries.options.showInLegend !== false,
+        enableMouseTracking: avgSeries.options.enableMouseTracking !== false
+      };
+    }
+
+    if(avgHiddenForCopy) {
+      try {
+        avgSeries.update({ visible:false, showInLegend:false, enableMouseTracking:false }, false);
+        if(chart.yAxis && chart.yAxis[1]) {
+          chart.yAxis[1].update({ visible:false, title:{text:null}, labels:{enabled:false} }, false);
+        }
+        chart.update({ chart:{ spacingRight:0 } }, false);
+        chart.redraw();
+      } catch(e) {}
+    } else {
+      try { _syncAverageTatAxis(chart, true); } catch(e) {}
+    }
+
+    var svgEl = _liveChartSvg(chart);
+    if(!svgEl) {
+      if(avgHiddenForCopy && avgSeries && restoreAvg) {
+        try {
+          avgSeries.update(restoreAvg, false);
+          _syncAverageTatAxis(chart, false);
+          chart.redraw();
+        } catch(e) {}
+      }
+      _fail();
+      return;
+    }
+
+    var exportPromise = _svgElementToPngBlob(svgEl, chart);
+
+    if(avgHiddenForCopy && avgSeries && restoreAvg) {
+      try {
+        avgSeries.update(restoreAvg, false);
+        _syncAverageTatAxis(chart, false);
+        chart.redraw();
+      } catch(e) {}
+    }
+
+    exportPromise
+
+      .then(function(blob){ _copyPngBlob(blob, _ok, _fail); })
+      .catch(_fail);
+  }
+
+
+
+  // Store chart references
+  var _crAgeChartRef = null;
+  var _crPieChartRef = null;
+
+  // Patch renderCrAgeChart to save reference
+  var _origRenderCrAgeChart = renderCrAgeChart;
+  renderCrAgeChart = function(view) {
+    _origRenderCrAgeChart(view);
+    _crAgeChartRef = Highcharts.charts.filter(function(c){ return c && c.renderTo && c.renderTo.id === 'crAgeChart'; }).pop() || null;
+  };
+
+    // Patch renderUndispStatusPie to save reference. Function name is kept for compatibility,
+  // but the right-side CR Area visualization now renders as a bar chart.
+  var _origRenderUndispStatusPie = renderUndispStatusPie;
+  renderUndispStatusPie = function() {
+    _origRenderUndispStatusPie();
+    _crPieChartRef = Highcharts.charts.filter(function(c){ return c && c.renderTo && c.renderTo.id === 'undispStatusPie'; }).pop() || null;
+  };
+
+
+
+  // Optional resize
+    window.addEventListener('resize', function () {
+    renderCrAgeChart();
+    renderUndispStatusPie();
+  });
+
+  const openBtn = document.getElementById('dashboardMilestoneOpenBtn');
+  const modal = document.getElementById('dashboardMilestoneModal');
+  const closeBtn2 = document.getElementById('dashboardMilestoneCloseBtn');
+  const cancelBtn2 = document.getElementById('dashboardMilestoneCancelBtn');
+  const saveBtn2 = document.getElementById('dashboardMilestoneSaveBtn');
+  const targetName = {{ target_name|tojson }};
+
+  function openMilestoneModal() {
+    if (!modal) return;
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMilestoneModal() {
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openMilestoneModal);
+  if (closeBtn2) closeBtn2.addEventListener('click', closeMilestoneModal);
+  if (cancelBtn2) cancelBtn2.addEventListener('click', closeMilestoneModal);
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeMilestoneModal();
+    });
+  }
+
+  if (saveBtn2) {
+    saveBtn2.addEventListener('click', async function () {
+      const payload = {
+        target_name: targetName,
+        sp_name: (document.getElementById('dashboardMsSpName')?.value || '').trim(),
+        milestones: {
+          ES: document.getElementById('dashboardMsEsInput')?.value || '',
+          FC: document.getElementById('dashboardMsFcInput')?.value || '',
+          CS: document.getElementById('dashboardMsCsInput')?.value || '',
+          CS1: document.getElementById('dashboardMsCs1Input')?.value || ''
+        }
+      };
+
+      try {
+        const resp = await fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json().catch(function(){ return {}; });
+        if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
+
+        const esEl = document.getElementById('dashboardMsES');
+        const fcEl = document.getElementById('dashboardMsFC');
+        const csEl = document.getElementById('dashboardMsCS');
+        const cs1El = document.getElementById('dashboardMsCS1');
+        if (esEl) esEl.textContent = payload.milestones.ES || 'TBD';
+        if (fcEl) fcEl.textContent = payload.milestones.FC || 'TBD';
+        if (csEl) csEl.textContent = payload.milestones.CS || 'TBD';
+        if (cs1El) cs1El.textContent = payload.milestones.CS1 || 'TBD';
+        closeMilestoneModal();
+      } catch (err) {
+        alert(err.message || 'Failed to save milestones');
+      }
+    });
+  }
+
+});
+</script>
+
+{% if is_compute_bu %}
+<script>
+(function(){
+  const TARGET = {{ target_name|tojson }};
+
+    async function dovExcludeLoad(){
+    try{
+      const r = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_title_exclude');
+      const d = await r.json();
+      // Set state first, then sync DOM, then re-render — never re-read DOM after this.
+      window._dovExcludeEnabled  = !!d.enabled;
+      window._dovExcludeKeywords = (d.keywords||[]).map(k=>k.toLowerCase());
+      const cb = document.getElementById('dovExcludeEnabled');
+      const ta = document.getElementById('dovExcludeKeywords');
+      if(cb) cb.checked = window._dovExcludeEnabled;
+      if(ta) ta.value  = (d.keywords||[]).join('\n');
+      _dovRefilterAndRender();
+    }catch(e){ /* silent */ }
+  }
+
+  window.dovExcludeSave = async function(){
+    const cb  = document.getElementById('dovExcludeEnabled');
+    const ta  = document.getElementById('dovExcludeKeywords');
+    const msg = document.getElementById('dovExcludeMsg');
+    const enabled  = cb ? cb.checked : false;
+    const keywords = (ta ? ta.value : '').split('\n').map(k=>k.trim()).filter(Boolean);
+        window._dovExcludeEnabled  = enabled;
+    window._dovExcludeKeywords = keywords.map(k=>k.toLowerCase());
+    if(cb) cb.checked = enabled;
+    _dovRefilterAndRender();
+    try{
+      const r = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_title_exclude',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({enabled, keywords})
+      });
+      const d = await r.json();
+      if(msg){ msg.textContent = d.success ? '\u2713 Saved' : (d.message||'Error'); msg.style.color = d.success ? '#059669' : '#dc2626'; setTimeout(()=>{ if(msg) msg.textContent=''; },2500); }
+    }catch(e){
+      if(msg){ msg.textContent='Save failed'; msg.style.color='#dc2626'; }
+    }
+  };
+
+  dovExcludeLoad();
+})();
+</script>
+{% endif %}
+{% endblock %}
+

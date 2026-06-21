@@ -105,23 +105,25 @@ TEAM_LABEL = {
 # Sub-teams only need enough recent IDs to cover their share of that window.
 # Distribution: QIPL~86%, CH~7%, SD~3%, HW~2% of all /PDT jobs.
 CROSS_MATCH_JOBS = {
-    HWPDT_TAXONOMY      : 500,
-    QIPL_SWPDT_TAXONOMY : 500,
-    CHINA_TAXONOMY      : 500,
-    SANDIEGO_TAXONOMY   : 500,
+    HWPDT_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_HWPDT", "5000")),
+    QIPL_SWPDT_TAXONOMY : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_QIPL",  "25000")),
+    CHINA_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_CHINA", "5000")),
+    SANDIEGO_TAXONOMY   : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_SD",    "5000")),
 }
 
 RETENTION_DAYS      = 20
 # Default poll interval -- 30 min.  Override via AXIOM_POLL_INTERVAL env var.
 # app.py reads this env var and passes it explicitly to run_combined_poller().
 # The module-level read here also covers standalone / script invocations.
-POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "1800"))  # default 30 min
+POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "900"))  # default 15 min
+
 
 # Job fetch counts per cycle
 FIRST_RUN_SWPDT_JOBS = 15000   # first cycle: full 20-day backfill
 FIRST_RUN_HWPDT_JOBS = 1000    # first cycle: full 20-day HWPDT backfill
-SWPDT_CYCLE_JOBS     = 100     # subsequent cycles: only new jobs
-HWPDT_CYCLE_JOBS     = 50      # subsequent cycles: only new HWPDT jobs
+SWPDT_CYCLE_JOBS     = 25000  # subsequent cycles: full 20-day DB refresh
+HWPDT_CYCLE_JOBS     = 1000   # subsequent cycles: HWPDT direct top-up
+
 
 # DB table for Axiom job summary (replaces JSON files long-term)
 AXIOM_DB_TABLE = "`pdt_stats_dashboard`.`axiom_job_summary`"
@@ -1517,8 +1519,12 @@ def run_cycle(host: str, token: str, app_name: str,
 
 
 # ---------------------------------------------------------------------------
-# Background poller — called as daemon thread from app.py
+# Background poller ? called as daemon thread from app.py
 # ---------------------------------------------------------------------------
+def _fmt_ts(ts: Optional[datetime] = None) -> str:
+    return (ts or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 def run_combined_poller(
     api_host: str       = DEFAULT_API_HOST,
     app_name: str       = DEFAULT_APP_NAME,
@@ -1526,11 +1532,12 @@ def run_combined_poller(
 ) -> None:
     """
     Runs forever in a background daemon thread.
-    First cycle  -> FIRST_RUN_SWPDT_JOBS (15000) + FIRST_RUN_HWPDT_JOBS (1000) — full 20-day backfill, merged into existing JSON.
-    Later cycles -> SWPDT_CYCLE_JOBS (100) + HWPDT_CYCLE_JOBS (50) — only new jobs since last poll.
+    First cycle  -> full backfill.
+    Later cycles -> full 20-day DB refresh so axiom_job_summary remains current.
     Token refreshed every TOKEN_TTL_SEC.
 
-    poll_interval is set by app.py from AXIOM_POLL_INTERVAL env var (default 1800 = 30 min).
+    poll_interval is set by app.py from AXIOM_POLL_INTERVAL env var
+    (default 900 = 15 min).
     """
     import traceback
 
@@ -1542,10 +1549,13 @@ def run_combined_poller(
     client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
 
     if not client_id or not client_secret:
-        logger.warning("[COMBINED POLLER] AXIOM_CLIENT_ID/SECRET not set — poller disabled.")
+        logger.warning("[COMBINED POLLER] AXIOM_CLIENT_ID/SECRET not set ? poller disabled.")
         return
 
-    logger.info("[COMBINED POLLER] Starting — interval=%ss", poll_interval)
+    logger.info(
+        "[COMBINED POLLER] Starting at %s ? interval=%ss (%d min)",
+        _fmt_ts(), poll_interval, poll_interval // 60,
+    )
 
     token          = None
     token_obtained = 0.0
@@ -1554,20 +1564,29 @@ def run_combined_poller(
 
     while True:
         cycle_start = time.time()
+        cycle_started_at = datetime.now(timezone.utc)
         try:
             cycle += 1
             is_first = (cycle == 1)
-            logger.info("[COMBINED POLLER] ===== cycle=%d first_run=%s =====", cycle, is_first)
+            logger.info(
+                "[COMBINED POLLER] ===== cycle=%d START %s first_run=%s =====",
+                cycle, _fmt_ts(cycle_started_at), is_first,
+            )
 
-            # Refresh token if TTL exceeded
+            # Refresh token if TTL exceeded.
             if token is None or (time.time() - token_obtained) > TOKEN_TTL_SEC:
                 logger.info("[COMBINED POLLER] Refreshing token (TTL)...")
                 token          = _get_token(api_host, client_id, client_secret)
                 token_obtained = time.time()
 
-              # First run: full 20-day backfill. Later cycles: only new jobs.
+            # First run: configured backfill. Later cycles: full 20-day refresh.
             swpdt_jobs = FIRST_RUN_SWPDT_JOBS if is_first else SWPDT_CYCLE_JOBS
             hwpdt_jobs = FIRST_RUN_HWPDT_JOBS if is_first else HWPDT_CYCLE_JOBS
+            logger.info(
+                "[COMBINED POLLER] cycle=%d planned pull: swpdt_jobs=%d hwpdt_jobs=%d started_at=%s",
+                cycle, swpdt_jobs, hwpdt_jobs, _fmt_ts(cycle_started_at),
+            )
+
             auth_failures = 0
             while True:
                 try:
@@ -1587,8 +1606,8 @@ def run_combined_poller(
                             f"token kept expiring after {auth_failures} refresh attempts in cycle {cycle}"
                         )
                     logger.warning(
-                        "[COMBINED POLLER] 401 mid-cycle — refreshing token, retry %d/%d (cycle %d)",
-                        auth_failures, AUTH_RETRY_LIMIT, cycle
+                        "[COMBINED POLLER] 401 mid-cycle ? refreshing token, retry %d/%d (cycle %d)",
+                        auth_failures, AUTH_RETRY_LIMIT, cycle,
                     )
                     token          = _get_token(api_host, client_id, client_secret)
                     token_obtained = time.time()
@@ -1599,27 +1618,27 @@ def run_combined_poller(
             consecutive_errors += 1
             is_auth_error = isinstance(exc, RuntimeError) and 'token kept expiring' in str(exc).lower()
             if is_auth_error:
-                # Known transient auth failure — log a clean warning, no traceback
                 logger.warning(
-                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s — "
-                    "token cleared, will retry next cycle.",
-                    cycle, consecutive_errors, exc
+                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s ? token cleared, will retry next cycle.",
+                    cycle, consecutive_errors, exc,
                 )
             else:
-                # Unexpected error — log full details for debugging
-                logger.error("[COMBINED POLLER] cycle=%d ERROR (#%d): %s",
-                             cycle, consecutive_errors, exc)
+                logger.error("[COMBINED POLLER] cycle=%d ERROR (#%d): %s", cycle, consecutive_errors, exc)
                 logger.error("[COMBINED POLLER] Traceback:\n%s", traceback.format_exc())
-            token   = None  # force token refresh next cycle
+            token = None  # force token refresh next cycle
             backoff = AUTH_BACKOFF_SEC if is_auth_error else min(poll_interval * consecutive_errors, 1800)
-            logger.warning("[COMBINED POLLER] backing off %ds before next cycle", backoff)
+            logger.warning("[COMBINED POLLER] cycle=%d failed at %s ? backing off %ds", cycle, _fmt_ts(), backoff)
             time.sleep(backoff)
             continue
 
-        elapsed   = time.time() - cycle_start
+        elapsed = time.time() - cycle_start
         sleep_for = max(0, poll_interval - elapsed)
-        logger.info("[COMBINED POLLER] cycle=%d done in %.1fs — sleeping %.0fs",
-                    cycle, elapsed, sleep_for)
+        cycle_finished_at = datetime.now(timezone.utc)
+        next_start_at = cycle_finished_at + timedelta(seconds=sleep_for)
+        logger.info(
+            "[COMBINED POLLER] ===== cycle=%d FINISHED %s elapsed=%.1fs next_start=%s sleeping=%.0fs =====",
+            cycle, _fmt_ts(cycle_finished_at), elapsed, _fmt_ts(next_start_at), sleep_for,
+        )
         time.sleep(sleep_for)
 
 

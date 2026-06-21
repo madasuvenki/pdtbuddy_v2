@@ -1,0 +1,840 @@
+﻿{% extends "bu_shell_layout.html" %}
+{% block title %}HWPDT Overview{% endblock %}
+
+{% block shell_extra_css %}
+<style>
+/* ── Base ── */
+.hwo-page{padding:24px 28px;max-width:1400px;margin:0 auto;width:100%;box-sizing:border-box;}
+
+/* Header */
+.hwo-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding:18px 22px;
+  background:linear-gradient(135deg,#0c4a6e,#0891b2);border-radius:18px;
+  box-shadow:0 8px 24px rgba(8,145,178,0.3);}
+.hwo-header-icon{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,0.15);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hwo-header-icon i{color:#fff;font-size:24px;}
+.hwo-header h1{font-size:22px;font-weight:900;color:#fff;margin:0;}
+.hwo-header p{font-size:12px;color:rgba(255,255,255,0.75);margin:3px 0 0;}
+
+/* Summary cards */
+.hwo-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px;}
+.hwo-card{background:#fff;border-radius:16px;padding:18px 20px;
+  box-shadow:0 3px 14px rgba(15,23,42,0.07);border:1px solid #e2e8f0;
+  position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.hwo-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(15,23,42,0.12);}
+.hwo-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0;}
+.hwo-card--cyan::before  {background:linear-gradient(90deg,#0891b2,#06b6d4);}
+.hwo-card--green::before {background:linear-gradient(90deg,#059669,#10b981);}
+.hwo-card--orange::before{background:linear-gradient(90deg,#d97706,#f59e0b);}
+.hwo-card--purple::before{background:linear-gradient(90deg,#7c3aed,#8b5cf6);}
+.hwo-card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;}
+.hwo-card-value{font-size:30px;font-weight:900;color:#0f172a;line-height:1.1;margin:4px 0 2px;}
+.hwo-card-sub  {font-size:11px;color:#94a3b8;}
+.hwo-card-icon {position:absolute;right:14px;top:14px;font-size:26px;opacity:.07;}
+
+/* Section */
+.hwo-section{margin-bottom:28px;}
+.hwo-section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.hwo-section-title{font-size:15px;font-weight:800;color:#0c4a6e;display:flex;align-items:center;gap:8px;}
+.hwo-section-title i{color:#0891b2;}
+
+/* Table */
+.hwo-table-wrap{background:#fff;border-radius:14px;border:1px solid #e2e8f0;
+  overflow:hidden;box-shadow:0 2px 12px rgba(15,23,42,0.06);}
+.hwo-table{width:100%;border-collapse:collapse;font-size:12px;}
+.hwo-table th{background:linear-gradient(90deg,#0891b2,#0e7490);color:#fff;padding:10px 14px;
+  text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.hwo-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:middle;}
+.hwo-table tbody tr:last-child td{border-bottom:none;}
+.hwo-table tbody tr:hover{background:#f0f9ff;}
+
+/* Buttons */
+.hwo-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;
+  font-size:11px;font-weight:700;text-decoration:none;transition:all .12s;cursor:pointer;border:none;}
+.hwo-btn--cyan {background:#0891b2;color:#fff;}
+.hwo-btn--cyan:hover{background:#0e7490;color:#fff;}
+.hwo-btn--ghost{background:#f0f9ff;color:#0891b2;border:1px solid #bae6fd;}
+.hwo-btn--ghost:hover{background:#0891b2;color:#fff;}
+.hwo-btn--green{background:#059669;color:#fff;}
+.hwo-btn--green:hover{background:#047857;color:#fff;}
+.hwo-btn--red  {background:#dc2626;color:#fff;}
+.hwo-btn--sm   {padding:3px 9px;font-size:10px;}
+
+/* Progress */
+.hwo-prog-wrap{min-width:140px;}
+.hwo-prog-nums{font-size:12px;font-weight:700;color:#0c4a6e;margin-bottom:4px;}
+.hwo-prog-nums span{font-size:10px;font-weight:600;color:#64748b;margin-left:4px;}
+.hwo-prog-bg{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden;}
+.hwo-prog-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#0891b2,#06b6d4);transition:width .5s ease;}
+.hwo-prog-sub{font-size:10px;color:#94a3b8;margin-top:3px;}
+
+/* Loading */
+.hwo-loading{text-align:center;padding:40px;color:#94a3b8;font-size:13px;}
+.hwo-loading i{font-size:28px;margin-bottom:10px;display:block;}
+
+/* ── Playlist Alias Panel ── */
+.pal-panel{background:#fff;border-radius:16px;border:1px solid #e2e8f0;
+  box-shadow:0 2px 12px rgba(15,23,42,0.06);margin-bottom:28px;overflow:hidden;}
+.pal-panel-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 20px;background:linear-gradient(90deg,#1e3a5f,#0891b2);}
+.pal-panel-title{font-size:14px;font-weight:900;color:#fff;display:flex;align-items:center;gap:8px;}
+.pal-panel-body{padding:16px 20px;}
+
+/* Alias chevron strip */
+.pal-strip{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-bottom:16px;}
+.pal-chevron{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  min-width:120px;height:54px;padding:0 28px 0 20px;
+  font-size:13px;font-weight:800;color:#fff;
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%);
+  cursor:pointer;transition:filter .15s;user-select:none;
+  margin-right:-1px;
+}
+.pal-chevron:first-child{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%);padding-left:16px;}
+.pal-chevron:hover{filter:brightness(1.12);}
+.pal-chevron--green {background:#22c55e;}
+.pal-chevron--red   {background:#ef4444;}
+.pal-chevron--amber {background:#f59e0b;}
+.pal-chevron--grey  {background:#94a3b8;}
+.pal-chevron--loading{background:#cbd5e1;}
+.pal-chevron-label{font-size:11px;font-weight:900;text-align:center;line-height:1.2;}
+.pal-chevron-sub{font-size:9px;font-weight:600;opacity:.85;}
+
+/* Alias cards row */
+.pal-aliases{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+.pal-alias-card{
+  background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;
+  padding:10px 14px;min-width:160px;max-width:220px;flex:1;
+  position:relative;
+}
+.pal-alias-card-name{font-size:13px;font-weight:900;color:#0c4a6e;margin-bottom:4px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.pal-alias-card-pls{font-size:10px;color:#64748b;line-height:1.5;}
+.pal-alias-del{background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0;}
+
+/* New alias form */
+.pal-new-form{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;
+  padding:14px;background:#f0f9ff;border-radius:12px;border:1px dashed #bae6fd;}
+.pal-new-form input[type=text]{padding:7px 12px;border:1px solid #bae6fd;border-radius:8px;
+  font-size:12px;font-weight:700;outline:none;min-width:140px;}
+.pal-pl-picker{background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+  padding:8px 10px;max-height:160px;overflow-y:auto;min-width:220px;flex:1;}
+.pal-pl-picker label{display:flex;align-items:center;gap:7px;padding:3px 0;
+  font-size:11px;font-weight:600;color:#1e293b;cursor:pointer;}
+.pal-pl-picker input[type=checkbox]{accent-color:#0891b2;width:13px;height:13px;}
+
+/* Chip status table extras */
+.pal-chip-status{display:flex;flex-wrap:wrap;gap:4px;}
+.pal-chip-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;
+}
+.pal-chip-badge--green{background:#dcfce7;color:#166534;}
+.pal-chip-badge--red  {background:#fee2e2;color:#dc2626;}
+.pal-chip-badge--grey {background:#f1f5f9;color:#64748b;}
+</style>
+{% endblock %}
+
+{% block shell_inner_content %}
+<div class="hwo-page">
+
+  <!-- Header -->
+  <div class="hwo-header">
+    <div class="hwo-header-icon"><i class="fas fa-microchip"></i></div>
+    <div style="flex:1;min-width:0;">
+      <h1>HWPDT Overview</h1>
+      <p>Hardware PDT &mdash; all targets at a glance: parts tested, playlist alias status &amp; unique CRs</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <button type="button" onclick="openAliasModal()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;
+               background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;
+               font-size:12px;font-weight:800;cursor:pointer;transition:background .15s;">
+        <i class="fas fa-tags"></i> Manage Aliases
+      </button>
+      {% if current_user.role == 'admin' %}
+      <button type="button" onclick="openHwpdtExcludeModal()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;
+               background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;
+               font-size:12px;font-weight:800;cursor:pointer;transition:background .15s;">
+        <i class="fas fa-eye-slash"></i> Manage Excluded
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="hwo-cards">
+    <div class="hwo-card hwo-card--cyan">
+      <i class="fas fa-crosshairs hwo-card-icon"></i>
+      <div class="hwo-card-label">HWPDT Targets</div>
+      <div class="hwo-card-value" id="hwoTotalTargets">&#8230;</div>
+      <div class="hwo-card-sub">Active targets</div>
+    </div>
+    <div class="hwo-card hwo-card--orange">
+      <i class="fas fa-vials hwo-card-icon"></i>
+      <div class="hwo-card-label">Total Tested Parts</div>
+      <div class="hwo-card-value" id="hwoTotalParts">&#8230;</div>
+      <div class="hwo-card-sub">Certicom IDs across all</div>
+    </div>
+    <div class="hwo-card hwo-card--purple">
+      <i class="fas fa-bug hwo-card-icon"></i>
+      <div class="hwo-card-label">HWPDT Only CRs</div>
+      <div class="hwo-card-value" id="hwoTotalCRs">&#8230;</div>
+      <div class="hwo-card-sub">HWPDT-only</div>
+    </div>
+    <div class="hwo-card hwo-card--green">
+      <i class="fas fa-ticket-alt hwo-card-icon"></i>
+      <div class="hwo-card-label">Total JIRAs</div>
+      <div class="hwo-card-value" id="hwoTotalJiras">&#8230;</div>
+      <div class="hwo-card-sub">Stability tickets combined</div>
+    </div>
+  </div>
+
+  <!-- Per-Target Table -->
+  <div class="hwo-section">
+    <div class="hwo-section-hdr">
+      <div class="hwo-section-title"><i class="fas fa-table"></i> Per-Target HWPDT Summary</div>
+    </div>
+    <div class="hwo-table-wrap">
+      <div id="hwoTableBody">
+        <div class="hwo-loading"><i class="fas fa-spinner fa-spin"></i>Loading HWPDT targets...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MANAGE ALIASES MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="aliasModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);
+     backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;
+              width:1100px;max-width:calc(100vw - 32px);
+              height:82vh;max-height:820px;
+              display:flex;flex-direction:column;
+              box-shadow:0 32px 80px rgba(15,23,42,.35);border:1px solid #e2e8f0;overflow:hidden;">
+
+    <!-- ── Header ── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+                padding:20px 28px;flex-shrink:0;
+                background:linear-gradient(90deg,#1e3a5f,#0891b2);border-radius:20px 20px 0 0;">
+      <div>
+        <div style="font-size:18px;font-weight:900;color:#fff;">
+          <i class="fas fa-tags" style="margin-right:10px;"></i>Manage Playlist Aliases
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:4px;">
+          Group playlists under a custom alias name (e.g. UEFI, APT PERF, SPT, HWPDT).
+          Each playlist can only belong to one alias. Aliases sync to hwpdt_parts pages automatically.
+        </div>
+      </div>
+      <button onclick="closeAliasModal()"
+        style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
+               color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;
+               font-size:18px;display:flex;align-items:center;justify-content:center;
+               flex-shrink:0;">&#x2715;</button>
+    </div>
+
+    <!-- ── Body: 2-column ── -->
+    <div style="display:flex;flex:1;overflow:hidden;">
+
+      <!-- LEFT: Current aliases -->
+      <div style="width:340px;flex-shrink:0;border-right:1px solid #e2e8f0;
+                  display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px 20px 10px;border-bottom:1px solid #f1f5f9;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:900;color:#0c4a6e;">Current Aliases</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Click &#x2715; to delete an alias</div>
+        </div>
+        <div id="aliasListWrap"
+          style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
+      <!-- RIGHT: Create new alias -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+
+        <!-- Name + buttons row -->
+        <div style="padding:16px 24px 12px;border-bottom:1px solid #f1f5f9;flex-shrink:0;
+                    display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:5px;">Alias Name</div>
+            <input type="text" id="newAliasName" placeholder="e.g. UEFI" maxlength="32"
+              style="padding:9px 14px;border:2px solid #bae6fd;border-radius:10px;
+                     font-size:15px;font-weight:900;outline:none;width:200px;
+                     transition:border .15s;"
+              onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#bae6fd'">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="hwo-btn hwo-btn--green" onclick="createAlias()"
+              style="padding:9px 20px;font-size:13px;">
+              <i class="fas fa-plus"></i> Add Alias
+            </button>
+            <button class="hwo-btn hwo-btn--ghost" onclick="clearNewAliasForm()"
+              style="padding:9px 16px;font-size:13px;">
+              <i class="fas fa-times"></i> Clear
+            </button>
+          </div>
+          <div id="aliasFormMsg" style="font-size:12px;font-weight:700;width:100%;margin-top:2px;"></div>
+        </div>
+
+        <!-- Playlist picker -->
+        <div style="padding:12px 24px 6px;flex-shrink:0;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:12px;font-weight:800;color:#0c4a6e;">
+            Select Playlists
+            <span id="plPickerCount" style="color:#0891b2;margin-left:6px;"></span>
+          </div>
+          <input type="text" id="plPickerSearch" placeholder="&#xf002; Search playlists..."
+            oninput="filterPlPicker()"
+            style="flex:1;max-width:320px;padding:7px 12px;border:1px solid #e2e8f0;
+                   border-radius:8px;font-size:12px;outline:none;
+                   transition:border .15s;"
+            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'">
+          <button onclick="selectAllVisible()" class="hwo-btn hwo-btn--ghost hwo-btn--sm">All</button>
+          <button onclick="clearAllVisible()"  class="hwo-btn hwo-btn--ghost hwo-btn--sm">None</button>
+        </div>
+
+        <!-- Playlist list (scrollable, fills remaining height) -->
+        <div id="plPickerList"
+          style="flex:1;overflow-y:auto;padding:6px 24px 16px;
+                 display:flex;flex-direction:column;gap:2px;">
+          <div style="color:#94a3b8;font-size:12px;padding:20px;">Loading playlists...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;
+                padding:14px 24px;border-top:1px solid #e5e7eb;background:#f8fafc;
+                border-radius:0 0 20px 20px;flex-shrink:0;">
+      <button onclick="closeAliasModal()"
+        style="padding:9px 22px;border-radius:10px;border:1px solid #e2e8f0;
+               background:#fff;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if current_user.role == 'admin' %}
+<!-- Exclude Targets Modal -->
+<div id="hwpdtExcludeModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);
+     backdrop-filter:blur(6px);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;width:min(640px,94vw);max-height:88vh;
+              overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.25);border:1px solid #e2e8f0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+                padding:18px 22px;border-bottom:1px solid #e5e7eb;
+                background:linear-gradient(90deg,#0c4a6e,#0891b2);border-radius:20px 20px 0 0;">
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#fff;"><i class="fas fa-eye-slash" style="margin-right:8px;"></i>Manage Excluded HWPDT Targets</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:3px;">Excluded targets are hidden from the HWPDT Overview page.</div>
+      </div>
+      <button onclick="closeHwpdtExcludeModal()" style="background:rgba(255,255,255,.15);border:none;
+              color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;
+              display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+    </div>
+    <div style="padding:14px 22px 0;">
+      <input id="hwpdtExcludeSearch" type="text" placeholder="Search targets..."
+        oninput="filterHwpdtExcludeList()"
+        style="width:100%;box-sizing:border-box;padding:9px 14px;border:1px solid #e2e8f0;
+               border-radius:10px;font-size:13px;outline:none;">
+    </div>
+    <div id="hwpdtExcludeList" style="padding:14px 22px;max-height:52vh;overflow-y:auto;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;
+                padding:14px 22px;border-top:1px solid #e5e7eb;background:#f8fafc;
+                border-radius:0 0 20px 20px;">
+      <span id="hwpdtExcludeCount" style="font-size:12px;color:#64748b;font-weight:700;"></span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="closeHwpdtExcludeModal()" style="padding:8px 18px;border-radius:10px;
+                border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;
+                font-weight:700;cursor:pointer;">Cancel</button>
+        <button onclick="saveHwpdtExcluded()" id="hwpdtExcludeSaveBtn"
+                style="padding:8px 18px;border-radius:10px;border:none;
+                       background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;
+                       font-size:12px;font-weight:800;cursor:pointer;
+                       display:flex;align-items:center;gap:6px;">
+          <i class="fas fa-save"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const HWPDT_TARGETS = {{ hwpdt_targets | tojson }};
+const HWPDT_ROWS    = {{ hwpdt_rows    | tojson }};
+const LS_ALIASES_KEY = 'hwpdt_playlist_aliases_v2';
+
+// -- Alias storage: server-side JSON (shared across all users) -------------
+// localStorage is used only as a fast local cache so the UI renders
+// immediately while the server fetch completes in the background.
+
+function loadAliases(){
+  // Return from local cache first (instant render), then refresh from server
+  try{ return JSON.parse(localStorage.getItem(LS_ALIASES_KEY)||'[]'); }catch(e){ return []; }
+}
+
+async function loadAliasesFromServer(){
+  try{
+    const r = await fetch('/api/hwpdt/aliases', {cache:'no-store'});
+    const d = await r.json();
+    if(d.ok && Array.isArray(d.aliases)){
+      try{ localStorage.setItem(LS_ALIASES_KEY, JSON.stringify(d.aliases)); }catch(e){}
+      return d.aliases;
+    }
+  }catch(e){ console.warn('[HWPDT ALIASES] server fetch failed:', e); }
+  return loadAliases();  // fall back to local cache
+}
+
+async function saveAliases(arr){
+  // Optimistically update local cache
+  try{ localStorage.setItem(LS_ALIASES_KEY, JSON.stringify(arr)); }catch(e){}
+  // Persist to server
+  try{
+    const r = await fetch('/api/hwpdt/aliases',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({aliases: arr}),
+    });
+    const d = await r.json();
+    if(d.ok && Array.isArray(d.aliases)){
+      try{ localStorage.setItem(LS_ALIASES_KEY, JSON.stringify(d.aliases)); }catch(e){}
+    } else {
+      console.warn('[HWPDT ALIASES] server save failed:', d.error||'unknown');
+    }
+  }catch(e){ console.warn('[HWPDT ALIASES] server save error:', e); }
+}
+// ── Global state ──────────────────────────────────────────────────────────
+let _allPlaylistsGlobal = [];   // all unique playlists across all loaded targets
+let _targetChipData    = {};    // target -> {chip_rows, playlist_filters}
+let _loadedCount       = 0;
+
+// ── Fetch one target ──────────────────────────────────────────────────────
+async function fetchTarget(t){
+  const [partsRes, vennRes] = await Promise.allSettled([
+    fetch(`/api/hwpdt_chip_parts/${encodeURIComponent(t)}`,{cache:'no-store'}),
+    fetch(`/api/hwpdt_cr_venn/${encodeURIComponent(t)}`,  {cache:'no-store'}),
+  ]);
+  let tested=0,projected=null,chipIds=[],chipRows=[],playlistFilters=[],crs='&#8230;',jiras='&#8230;',inJson=false;
+  if(partsRes.status==='fulfilled'){
+    const d=await partsRes.value.json().catch(()=>({}));
+    if(d.success){
+      tested=d.tested_parts||0;
+      projected=d.projected_parts??null;
+      chipIds=d.chip_ids||[];
+      chipRows=d.chip_rows||[];
+      playlistFilters=d.playlist_filters||[];
+      inJson=!d.message||!d.message.includes('No softwareProduct matched');
+    }
+  }
+  if(vennRes.status==='fulfilled'){
+    const d=await vennRes.value.json().catch(()=>({}));
+    if(d.success&&d.hero_cards){
+      crs  =d.summary?.hwpdt_only??'&#8230;';
+      jiras=d.hero_cards.total_hwpdt_jiras??'&#8230;';
+    }
+  }
+  // Collect playlists globally
+  playlistFilters.forEach(pl=>{ if(pl&&!_allPlaylistsGlobal.includes(pl)) _allPlaylistsGlobal.push(pl); });
+  _targetChipData[t]={chip_rows:chipRows,playlist_filters:playlistFilters};
+  return {target:t,tested,projected,chipIds,chipRows,playlistFilters,crs,jiras,inJson};
+}
+
+// ── Alias status for a target ─────────────────────────────────────────────
+// Returns [{aliasName, status:'green'|'red'|'grey', ran:[], missing:[]}]
+function computeAliasStatus(target, aliases){
+  const data      = _targetChipData[target]||{};
+  const chipRows  = data.chip_rows||[];
+  const totalChips = chipRows.length;
+
+  return aliases.map(alias=>{
+    if(!alias.playlists||!alias.playlists.length)
+      return {aliasName:alias.name, status:'grey', ran:[], missing:[], chipCount:0, totalChips};
+
+    // Playlists that ran on ANY chip
+    const ranPlaylists = new Set();
+    chipRows.forEach(cr=>{ (cr.playlists||[]).forEach(pl=>ranPlaylists.add(pl)); });
+    const ran     = alias.playlists.filter(pl=>ranPlaylists.has(pl));
+    const missing = alias.playlists.filter(pl=>!ranPlaylists.has(pl));
+    const status  = missing.length===0 ? 'green' : ran.length===0 ? 'red' : 'amber';
+
+    // Chips that have ALL alias playlists tested
+    const chipCount = chipRows.filter(cr=>{
+      const chipPls = new Set(cr.playlists||[]);
+      return alias.playlists.every(pl=>chipPls.has(pl));
+    }).length;
+
+    return {aliasName:alias.name, status, ran, missing, chipCount, totalChips};
+  });
+}
+
+function buildChevronStrip(target, aliases){
+  if(!aliases.length) return '<span style="font-size:11px;color:#94a3b8;">No aliases defined. Click <b>Manage Aliases</b> to create.</span>';
+  const statuses = computeAliasStatus(target, aliases);
+  const colorMap = {green:'pal-chevron--green',red:'pal-chevron--red',amber:'pal-chevron--amber',grey:'pal-chevron--grey'};
+  return statuses.map((s,i)=>{
+    const cls = colorMap[s.status]||'pal-chevron--grey';
+    const tip = s.status==='green'
+      ? `All playlists ran. ${s.chipCount}/${s.totalChips} parts fully tested. Playlists: ${s.ran.join(', ')}`
+      : s.status==='red'
+      ? `No playlists ran. Missing: ${s.missing.join(', ')}`
+      : s.status==='amber'
+      ? `Partial \u2014 ${s.chipCount}/${s.totalChips} parts fully tested. Missing: ${s.missing.join(', ')}`
+      : 'No playlists assigned';
+    const countLine = s.status!=='grey'
+      ? `<div class="pal-chevron-sub">${s.chipCount}/${s.totalChips} parts</div>`
+      : '';
+    return `<div class="pal-chevron ${cls}${i===0?' pal-chevron--first':''}" title="${tip}">
+      <div class="pal-chevron-label">${escHtml(s.aliasName)}</div>
+      ${countLine}
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Build main table ──────────────────────────────────────────────────────
+function buildTable(rows){
+  if(!rows.length){
+    document.getElementById('hwoTableBody').innerHTML='<div class="hwo-loading"><i class="fas fa-info-circle"></i>No HWPDT targets found.</div>';
+    return;
+  }
+  const meta={};
+  HWPDT_ROWS.forEach(r=>{ meta[r.target_name]=r; });
+  const aliases = loadAliases();
+
+  let html=`<table class="hwo-table">
+    <thead><tr>
+      <th style="width:36px;">#</th>
+      <th>Target / SP</th>
+      <th>BU</th>
+      <th>Parts (Tested / Projected)</th>
+      <th>Playlist Alias Status</th>
+      <th style="text-align:center;">HWPDT CRs</th>
+      <th style="text-align:center;">JIRAs</th>
+      <th style="text-align:center;">Actions</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach((r,i)=>{
+    const m    =meta[r.target]||{};
+    const disp =m.display_name||r.target.toUpperCase();
+    const spName=m.sp_name||'&#8212;';
+    const buKey =m.bu_key||'&#8212;';
+    const bg    =i%2===0?'#fff':'#f8faff';
+
+    // Parts cell
+    let partsCell='';
+    if(!r.inJson){
+      partsCell=`<div style="text-align:center;color:#cbd5e1;font-size:18px;font-weight:700;">&#8212;</div>`;
+    }else if(r.projected!==null&&r.projected>0){
+      const pct=Math.min(100,Math.round((r.tested/r.projected)*100));
+      const color=pct>=100?'#059669':pct>=60?'#0891b2':'#d97706';
+      partsCell=`<div class="hwo-prog-wrap">
+        <div class="hwo-prog-nums">${r.tested} / ${r.projected}<span style="color:${color};font-weight:800;">${pct}%</span></div>
+        <div class="hwo-prog-bg"><div class="hwo-prog-fill" style="width:${pct}%;background:${color};"></div></div>
+        <div class="hwo-prog-sub">Tested / Projected</div></div>`;
+    }else{
+      partsCell=r.tested===0
+        ?`<div style="text-align:center;color:#cbd5e1;font-size:18px;font-weight:700;">&#8212;</div>`
+        :`<div style="text-align:center;"><div style="font-size:20px;font-weight:900;color:#0c4a6e;">${r.tested}</div><div style="font-size:10px;color:#94a3b8;">tested parts</div></div>`;
+    }
+
+    // Alias chevron strip
+    const chevrons = buildChevronStrip(r.target, aliases);
+
+    const isAxiom = (m.source === 'axiom');
+    const axiomBadge = isAxiom
+      ? `<span style="display:inline-block;margin-left:5px;padding:1px 6px;border-radius:5px;
+                      background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;
+                      border:1px solid #fde68a;vertical-align:middle;"
+              title="Discovered from Axiom — not yet linked to a managed target">
+           <i class="fas fa-satellite-dish" style="font-size:8px;"></i>&nbsp;AXIOM
+         </span>`
+      : '';
+    const hwpdtLink = isAxiom
+      ? `<span class="hwo-btn" style="background:#e2e8f0;color:#94a3b8;cursor:default;margin-left:4px;"
+              title="No managed dashboard — target discovered from Axiom only">
+           <i class="fas fa-microchip"></i> HWPDT
+         </span>`
+      : `<a href="/dashboard/${encodeURIComponent(r.target)}/hwpdt?toggle_mode=CRM&pdt_type=HWPDT"
+            class="hwo-btn hwo-btn--cyan">
+           <i class="fas fa-microchip"></i> HWPDT
+         </a>`;
+    html+=`<tr style="background:${bg};">
+      <td style="text-align:center;color:#94a3b8;font-size:11px;">${i+1}</td>
+      <td><b style="color:#0c4a6e;">${disp}</b>${axiomBadge}<br><span style="font-size:10px;color:#64748b;">${spName}</span></td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:6px;
+                       background:#f0f9ff;color:#0369a1;font-size:10px;font-weight:700;">${buKey}</span></td>
+      <td>${partsCell}</td>
+      <td><div class="pal-strip" style="gap:0;">${chevrons}</div></td>
+      <td style="text-align:center;"><b>${r.crs}</b></td>
+      <td style="text-align:center;"><b>${r.jiras}</b></td>
+      <td style="text-align:center;white-space:nowrap;">
+        <a href="/hwpdt_parts/${encodeURIComponent(r.target)}" target="_blank"
+           class="hwo-btn hwo-btn--ghost" style="margin-right:4px;">
+          <i class="fas fa-list"></i> Parts
+        </a>
+        ${hwpdtLink}
+      </td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('hwoTableBody').innerHTML=html;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+// 哪 Init 哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪哪
+async function init(){
+  if(!HWPDT_TARGETS.length){
+    document.getElementById('hwoTableBody').innerHTML='<div class="hwo-loading"><i class="fas fa-info-circle"></i>No HWPDT targets configured.</div>';
+    document.getElementById('hwoTotalTargets').textContent='0';
+    return;
+  }
+  document.getElementById('hwoTotalTargets').textContent=HWPDT_TARGETS.length;
+  // Load aliases from server (shared), then fetch target data in parallel
+  const [serverAliases, results] = await Promise.all([
+    loadAliasesFromServer(),
+    Promise.all(HWPDT_TARGETS.map(fetchTarget)),
+  ]);
+  let tp=0,tc=0,tj=0;
+  results.forEach(r=>{
+    tp+=r.tested;
+    if(typeof r.crs==='number') tc+=r.crs;
+    if(typeof r.jiras==='number') tj+=r.jiras;
+  });
+  document.getElementById('hwoTotalParts').textContent=tp;
+  document.getElementById('hwoTotalCRs').textContent=tc||'&#8212;';
+  document.getElementById('hwoTotalJiras').textContent=tj||'&#8212;';
+  buildTable(results);
+}
+init();
+
+// ══════════════════════════════════════════════════════════════════════════
+// ALIAS MODAL
+// ══════════════════════════════════════════════════════════════════════════
+function openAliasModal(){
+  document.getElementById('aliasModal').style.display='flex';
+  renderAliasList();
+  renderPlPicker();
+}
+function closeAliasModal(){
+  document.getElementById('aliasModal').style.display='none';
+}
+function clearNewAliasForm(){
+  document.getElementById('newAliasName').value='';
+  document.querySelectorAll('#plPickerList input[type=checkbox]').forEach(cb=>cb.checked=false);
+  if(document.getElementById('plPickerSearch')) document.getElementById('plPickerSearch').value='';
+  updatePlPickerCount();
+  document.getElementById('aliasFormMsg').textContent='';
+  renderPlPicker();
+}
+
+// Render existing aliases in modal
+function renderAliasList(){
+  const aliases=loadAliases();
+  const wrap=document.getElementById('aliasListWrap');
+  if(!aliases.length){
+    wrap.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:12px 4px;">No aliases yet. Create one on the right.</div>';
+    return;
+  }
+  wrap.innerHTML=aliases.map((a,idx)=>`
+    <div style="background:#f8fafc;border:1.5px solid #bae6fd;border-radius:12px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;">
+        <span style="font-size:14px;font-weight:900;color:#0c4a6e;">${escHtml(a.name)}</span>
+        <button onclick="deleteAlias(${idx})" title="Delete"
+          style="background:#fee2e2;border:none;color:#dc2626;width:24px;height:24px;
+                 border-radius:6px;cursor:pointer;font-size:13px;display:flex;
+                 align-items:center;justify-content:center;">&#x2715;</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+        ${a.playlists.length
+          ? a.playlists.map(p=>`<span style="display:inline-block;background:#e0f2fe;border-radius:5px;
+              padding:2px 7px;font-size:10px;color:#0369a1;font-weight:700;">${escHtml(p)}</span>`).join('')
+          : '<span style="color:#94a3b8;font-size:11px;">No playlists</span>'}
+      </div>
+    </div>`).join('');
+}
+
+// Render playlist picker — exclude already-assigned playlists
+function renderPlPicker(){
+  const aliases=loadAliases();
+  const usedPls=new Set(aliases.flatMap(a=>a.playlists||[]));
+  const allPls=_allPlaylistsGlobal.slice().sort();
+  const list=document.getElementById('plPickerList');
+  const q=(document.getElementById('plPickerSearch')?.value||'').trim().toLowerCase();
+  const filtered=q?allPls.filter(p=>p.toLowerCase().includes(q)):allPls;
+  if(!filtered.length){
+    list.innerHTML=allPls.length
+      ?'<div style="color:#94a3b8;font-size:12px;padding:20px;">No playlists match search.</div>'
+      :'<div style="color:#94a3b8;font-size:12px;padding:20px;">No playlists loaded yet. Wait for targets to finish loading.</div>';
+    return;
+  }
+  list.innerHTML=filtered.map(pl=>{
+    const disabled=usedPls.has(pl);
+    const aliasName=aliases.find(a=>a.playlists.includes(pl))?.name||'';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:7px 10px;
+        border-radius:8px;cursor:${disabled?'default':'pointer'};
+        background:${disabled?'#f8fafc':'#fff'};
+        border:1px solid ${disabled?'#f1f5f9':'#e2e8f0'};
+        opacity:${disabled?'.5':'1'};
+        transition:background .1s;"
+        ${disabled?'':"onmouseover=\"this.style.background='#f0f9ff'\" onmouseout=\"this.style.background='#fff'\""}
+      >
+      <input type="checkbox" value="${escHtml(pl)}"
+        ${disabled?'disabled title="In alias: '+escHtml(aliasName)+'"':''}
+        style="width:15px;height:15px;accent-color:#0891b2;flex-shrink:0;cursor:${disabled?'default':'pointer'};">
+      <span style="font-size:12px;font-weight:600;color:${disabled?'#94a3b8':'#1e293b'};flex:1;">${escHtml(pl)}</span>
+      ${disabled?`<span style="font-size:10px;font-weight:800;color:#0891b2;background:#e0f2fe;
+          padding:1px 7px;border-radius:999px;">${escHtml(aliasName)}</span>`:''}
+    </label>`;
+  }).join('');
+  list.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',updatePlPickerCount));
+  updatePlPickerCount();
+}
+
+function filterPlPicker(){ renderPlPicker(); }
+
+function selectAllVisible(){
+  document.querySelectorAll('#plPickerList input[type=checkbox]:not(:disabled)').forEach(cb=>cb.checked=true);
+  updatePlPickerCount();
+}
+function clearAllVisible(){
+  document.querySelectorAll('#plPickerList input[type=checkbox]:not(:disabled)').forEach(cb=>cb.checked=false);
+  updatePlPickerCount();
+}
+
+function updatePlPickerCount(){
+  const n=document.querySelectorAll('#plPickerList input:checked').length;
+  document.getElementById('plPickerCount').textContent=n?`(${n} selected)`:'';
+}
+
+async function createAlias(){
+  const name=document.getElementById('newAliasName').value.trim();
+  const msg=document.getElementById('aliasFormMsg');
+  if(!name){ msg.style.color='#dc2626'; msg.textContent='Please enter an alias name.'; return; }
+  const selected=[...document.querySelectorAll('#plPickerList input:checked')].map(cb=>cb.value);
+  if(!selected.length){ msg.style.color='#dc2626'; msg.textContent='Select at least one playlist.'; return; }
+  const aliases=loadAliases();
+  if(aliases.find(a=>a.name.toLowerCase()===name.toLowerCase())){
+    msg.style.color='#dc2626'; msg.textContent='An alias with this name already exists.'; return;
+  }
+  aliases.push({id:Date.now(),name,playlists:selected});
+  msg.style.color='#64748b'; msg.textContent='Saving\u2026';
+  await saveAliases(aliases);
+  msg.style.color='#059669'; msg.textContent=`Alias "${name}" created with ${selected.length} playlist(s).`;
+  clearNewAliasForm();
+  renderAliasList();
+  renderPlPicker();
+  // Refresh table chevrons
+  const rows=[...document.querySelectorAll('#hwoTableBody tbody tr')];
+  if(rows.length) init(); // re-render table with new aliases
+}
+
+async function deleteAlias(idx){
+  const aliases=loadAliases();
+  const name=aliases[idx]?.name||'';
+  if(!confirm(`Delete alias "${name}"?`)) return;
+  aliases.splice(idx,1);
+  await saveAliases(aliases);
+  renderAliasList();
+  renderPlPicker();
+  init();
+}
+}
+
+document.getElementById('aliasModal').addEventListener('click',function(e){ if(e.target===this) closeAliasModal(); });
+
+// Expose for onclick
+window.openAliasModal=openAliasModal;
+window.closeAliasModal=closeAliasModal;
+window.createAlias=createAlias;
+window.deleteAlias=deleteAlias;
+window.clearNewAliasForm=clearNewAliasForm;
+window.filterPlPicker=filterPlPicker;
+window.selectAllVisible=selectAllVisible;
+window.clearAllVisible=clearAllVisible;
+
+})();
+</script>
+
+{% if current_user.role == 'admin' %}
+<script>
+var _hwpdtAllTargets=[];
+var _hwpdtExcluded=new Set();
+function openHwpdtExcludeModal(){
+  var modal=document.getElementById('hwpdtExcludeModal');
+  modal.style.display='flex';
+  document.getElementById('hwpdtExcludeSearch').value='';
+  document.getElementById('hwpdtExcludeList').innerHTML='<div style="text-align:center;padding:24px;color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+  fetch('/api/hwpdt/excluded_targets')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      _hwpdtAllTargets=data.targets||[];
+      _hwpdtExcluded=new Set(data.excluded||[]);
+      renderHwpdtExcludeList(_hwpdtAllTargets);
+    })
+    .catch(function(){
+      document.getElementById('hwpdtExcludeList').innerHTML='<div style="color:#dc2626;padding:16px;">Failed to load targets.</div>';
+    });
+}
+function closeHwpdtExcludeModal(){ document.getElementById('hwpdtExcludeModal').style.display='none'; }
+function filterHwpdtExcludeList(){
+  var q=document.getElementById('hwpdtExcludeSearch').value.trim().toLowerCase();
+  var filtered=q?_hwpdtAllTargets.filter(function(t){
+    return t.key.toLowerCase().includes(q)||(t.display||'').toLowerCase().includes(q)||(t.bu_key||'').toLowerCase().includes(q);
+  }):_hwpdtAllTargets;
+  renderHwpdtExcludeList(filtered);
+}
+function renderHwpdtExcludeList(targets){
+  var excl=_hwpdtExcluded,exclCount=0,html='';
+  targets.forEach(function(t){
+    var isExcl=excl.has(t.key);
+    if(isExcl) exclCount++;
+    var isAxiom=(t.source==='axiom');
+    var rowBg   = isExcl ? '#fef2f2' : (isAxiom ? '#fffbeb' : '#f8fafc');
+    var rowBdr  = isExcl ? '#fecaca' : (isAxiom ? '#fde68a' : '#e2e8f0');
+    var srcBadge= isAxiom
+      ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;border:1px solid #fde68a;"><i class="fas fa-satellite-dish" style="font-size:8px;"></i>&nbsp;AXIOM</span>'
+      : '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;background:#dbeafe;color:#1e40af;font-size:9px;font-weight:800;border:1px solid #bfdbfe;">DB</span>';
+    var subLine = (t.bu_key||'')+(t.display&&t.display!==t.key?' &mdash; '+t.display:'');
+    if(isAxiom && t.last_seen) subLine += ' &bull; Last job: '+t.last_seen;
+    if(isAxiom && t.job_count) subLine += ' ('+t.job_count+' jobs)';
+    html+='<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:'+rowBg+';border:1px solid '+rowBdr+';">';
+    html+='<input type="checkbox" id="hwex_'+t.key+'" '+(isExcl?'':'checked')+' onchange="toggleHwpdtExclude(\''+t.key+'\',this)" style="width:16px;height:16px;cursor:pointer;accent-color:#0891b2;">';
+    html+='<label for="hwex_'+t.key+'" style="flex:1;cursor:pointer;"><div style="font-size:13px;font-weight:800;color:'+(isExcl?'#dc2626':'#0c4a6e')+';">'+t.key+srcBadge+'</div><div style="font-size:10px;color:#94a3b8;">'+subLine+'</div></label>';
+    html+='<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:'+(isExcl?'#fee2e2':'#dcfce7')+';color:'+(isExcl?'#dc2626':'#166534')+';">'+(isExcl?'Hidden':'Visible')+'</span></div>';
+  });
+  if(!html) html='<div style="text-align:center;padding:24px;color:#94a3b8;">No targets found.</div>';
+  document.getElementById('hwpdtExcludeList').innerHTML=html;
+  var axiomCount=targets.filter(function(t){return t.source==='axiom';}).length;
+  var axiomNote=axiomCount?' &bull; <span style="color:#92400e;">'+axiomCount+' from Axiom</span>':'';
+  document.getElementById('hwpdtExcludeCount').textContent='';
+  document.getElementById('hwpdtExcludeCount').innerHTML=exclCount+' hidden, '+(targets.length-exclCount)+' visible'+axiomNote;
+}
+function toggleHwpdtExclude(key,cb){ if(cb.checked){_hwpdtExcluded.delete(key);}else{_hwpdtExcluded.add(key);} filterHwpdtExcludeList(); }
+function saveHwpdtExcluded(){
+  var btn=document.getElementById('hwpdtExcludeSaveBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving...';
+  fetch('/api/hwpdt/excluded_targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({excluded:Array.from(_hwpdtExcluded)})})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.ok){btn.innerHTML='<i class="fas fa-check"></i> Saved!';setTimeout(function(){closeHwpdtExcludeModal();location.reload();},800);}
+      else{btn.innerHTML='<i class="fas fa-times"></i> Error';btn.disabled=false;alert('Save failed: '+(data.error||'unknown error'));}
+    })
+    .catch(function(){btn.innerHTML='<i class="fas fa-times"></i> Error';btn.disabled=false;alert('Network error saving excluded targets.');});
+}
+document.getElementById('hwpdtExcludeModal').addEventListener('click',function(e){if(e.target===this)closeHwpdtExcludeModal();});
+window.openHwpdtExcludeModal=openHwpdtExcludeModal;
+window.closeHwpdtExcludeModal=closeHwpdtExcludeModal;
+window.saveHwpdtExcluded=saveHwpdtExcluded;
+window.toggleHwpdtExclude=toggleHwpdtExclude;
+window.filterHwpdtExcludeList=filterHwpdtExcludeList;
+</script>
+{% endif %}
+{% endblock %}
+

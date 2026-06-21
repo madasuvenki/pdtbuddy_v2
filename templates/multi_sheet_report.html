@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{{ table_name or 'Report' }}</title>
+<style>
+:root {
+  --primary: #7b2cff;
+  --primary-dark: #5a1fb5;
+  --bg: #f6f8fb;
+  --card: #ffffff;
+  --border: #d9e1ec;
+  --text: #223042;
+  --shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; background: var(--bg); margin: 0; color: var(--text); }
+.page { padding: 16px; }
+h1 { margin: 0 0 12px; font-size: 20px; color: var(--primary-dark); }
+
+/* tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 2px solid var(--border); margin-bottom: 14px; }
+.tab-btn {
+  border: 1px solid var(--border); border-bottom: none;
+  background: #fff; padding: 7px 14px; cursor: pointer;
+  border-radius: 8px 8px 0 0; font-weight: 600; color: var(--text); font-size: 13px;
+}
+.tab-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* card / controls */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 12px; }
+.controls { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; position: relative; flex-wrap: wrap; }
+.btn { border: none; background: var(--primary); color: #fff; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.btn.secondary { background: #4c6ef5; }
+.btn:hover { filter: brightness(.92); }
+
+/* table */
+.table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+table.rt { width: 100%; border-collapse: collapse; }
+table.rt thead th {
+  background: linear-gradient(90deg, #7b2cff, #ff2ec9);
+  color: #fff; padding: 8px 10px; font-size: 13px;
+  white-space: nowrap; position: sticky; top: 0; z-index: 5;
+  border-right: 1px solid rgba(255,255,255,.15);
+}
+table.rt thead tr.filter-row th {
+  background: #f0f4ff; padding: 4px 6px;
+  position: sticky; z-index: 4;
+}
+table.rt thead tr.filter-row th input {
+  width: 100%; padding: 4px 6px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 6px; outline: none;
+}
+table.rt tbody td {
+  padding: 6px 10px; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px;
+}
+table.rt tbody tr:nth-child(even) { background: #f9fbff; }
+table.rt tbody tr:hover { background: #eef2ff; }
+table.rt td.wrap, table.rt th.wrap {
+  white-space: normal !important; overflow: visible !important;
+  text-overflow: clip !important; word-break: break-word; min-width: 200px;
+}
+table.rt th.sno, table.rt td.sno { text-align: center; width: 52px; min-width: 52px; }
+
+/* links / badges */
+a { color: var(--primary-dark); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: #e7f0ff; border: 1px solid #c8dcff;
+  color: var(--primary-dark); font-weight: 700; font-size: 12px;
+}
+
+/* col toggle modal */
+.col-modal {
+  position: absolute; right: 0; top: 40px;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 10px; width: 280px;
+  max-height: 360px; overflow-y: auto; display: none; z-index: 100;
+}
+.col-modal.open { display: block; }
+.cm-tools { display: flex; gap: 6px; margin-bottom: 8px; }
+.cm-tools button { border: 1px solid var(--border); background: #fff; cursor: pointer; padding: 3px 8px; border-radius: 6px; font-size: 12px; }
+.col-modal label { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; cursor: pointer; }
+
+/* toast */
+.toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  background: #111827; color: #fff; padding: 10px 16px; border-radius: 10px;
+  opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 9999; font-size: 13px;
+}
+.toast.show { opacity: 1; }
+.empty { padding: 32px; text-align: center; color: #888; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+{# ── collect sheets from report_data dict ── #}
+{# sheet value can be either:
+   (a) a list of row-dicts  → use directly
+   (b) a dict {rows:[...], columns:[...], ...}  → extract rows key
+#}
+{% set sheets = [] %}
+{% if report_data is mapping %}
+  {% for sname, sval in report_data.items() %}
+    {% if sval is mapping %}
+      {# case (b): dict with rows key #}
+      {% set srows = sval.rows if sval.rows is defined and sval.rows is sequence else [] %}
+      {% set _ = sheets.append({'name': sname, 'rows': srows}) %}
+    {% elif sval is sequence and sval is not string %}
+      {# case (a): plain list #}
+      {% set _ = sheets.append({'name': sname, 'rows': sval}) %}
+    {% else %}
+      {% set _ = sheets.append({'name': sname, 'rows': []}) %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{# ── page header ── #}
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+  <h1>{{ table_name or 'Report' }}</h1>
+  {% if download_url %}
+    <a class="btn" href="{{ download_url }}">
+      &#11015; Download{% if download_name %} ({{ download_name }}){% endif %}
+    </a>
+  {% endif %}
+</div>
+
+{# ── tabs ── #}
+{% if sheets|length > 1 %}
+<div class="tabs">
+  {% for s in sheets %}
+    <button class="tab-btn{% if loop.first %} active{% endif %}"
+            data-tab="panel-{{ loop.index0 }}">{{ s.name }}</button>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── panels ── #}
+{% for s in sheets %}
+  {% set tid = 'tbl' ~ loop.index0 %}
+  {% set mid = 'mod' ~ loop.index0 %}
+
+  <div class="tab-panel{% if loop.first %} active{% endif %}" id="panel-{{ loop.index0 }}">
+    <div class="card">
+
+      <div class="controls">
+        <button class="btn secondary" onclick="copyOutlook('{{ tid }}')">&#128203; Copy (Outlook)</button>
+        <button class="btn" onclick="toggleMod('{{ mid }}','{{ tid }}')">&#9881; Columns</button>
+        <div class="col-modal" id="{{ mid }}">
+          <div class="cm-tools">
+            <button onclick="setAll('{{ tid }}',true)">All</button>
+            <button onclick="setAll('{{ tid }}',false)">None</button>
+            <button onclick="toggleMod('{{ mid }}','{{ tid }}')">&#10005; Close</button>
+          </div>
+          <div id="{{ mid }}body"></div>
+        </div>
+      </div>
+
+      {% if s.rows and s.rows|length > 0 %}
+
+        {# build visible column list — skip _url helpers, sno, occurrence #}
+        {% set cols = [] %}
+        {% for k in s.rows[0].keys() %}
+          {% set kl = k|string|lower %}
+          {% set kn = kl|replace(' ','')|replace('_','')|replace('.','') %}
+          {% if not kl.endswith('_url')
+             and kn != 'sno'
+             and 'occurrence' not in kn %}
+            {% set _ = cols.append(k) %}
+          {% endif %}
+        {% endfor %}
+
+        <div class="table-wrap">
+          <table class="rt" id="{{ tid }}">
+            <thead>
+              {# header row #}
+              <tr class="hdr-row">
+                <th class="sno">S.No.</th>
+                {% for c in cols %}
+                  {% set cu = c|string|upper %}
+                  {% set cn = c|string|lower|replace(' ','')|replace('_','')|replace('.','') %}
+                  <th data-col="{{ loop.index0 }}"
+                      class="{% if cn in ['crtitle','title','jiratitle'] %}wrap{% endif %}">
+                    {% if cu in ['JIRA TICKETS','JIRA_TICKETS','JIRA TICKET(S)'] %}Count
+                    {% else %}{{ c }}{% endif %}
+                  </th>
+                {% endfor %}
+              </tr>
+              {# filter row #}
+              <tr class="filter-row">
+                <th class="sno"></th>
+                {% for c in cols %}
+                  <th data-col="{{ loop.index0 }}">
+                    <input type="text" placeholder="Filter"
+                           data-colidx="{{ loop.index0 }}"
+                           oninput="filterTable('{{ tid }}')">
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in s.rows %}
+                <tr>
+                  <td class="sno">{{ loop.index }}</td>
+                  {% for c in cols %}
+                    {% set cu = c|string|upper %}
+                    {% set cn = c|string|lower|replace(' ','')|replace('_','')|replace('.','') %}
+                    {% set val = '' %}
+                    {% if c in row and row[c] is not none %}
+                      {% set val = row[c]|string %}
+                    {% endif %}
+                    {% set url_key = c ~ '_url' %}
+
+                    <td data-col="{{ loop.index0 }}"
+                        class="{% if cn in ['crtitle','title','jiratitle'] %}wrap{% endif %}">
+
+                      {# CR hyperlink #}
+                      {% if cu in ['CR','CR ID','CR-ID','CR NUMBER','CR_NUMBER'] %}
+                        {% set crn = val|replace('CR','')|replace(' ','') %}
+                        <a href="https://orbit/CR/{{ crn }}" target="_blank" class="badge">{{ val }}</a>
+
+                      {# single JIRA hyperlink #}
+                      {% elif cu in ['JIRA','JIRA ID','JIRA_ID','JIRA TICKET','JIRA-TICKET','JIRA KEY'] %}
+                        <a href="https://jira-dc2.qualcomm.com/jira/browse/{{ val|trim }}"
+                           target="_blank" class="badge">{{ val }}</a>
+
+                      {# JIRA TICKETS → count + JQL link #}
+                      {% elif cu in ['JIRA TICKETS','JIRA_TICKETS','JIRA TICKET(S)'] %}
+                        {% set tickets = val|replace(';',',')|replace(' ','') %}
+                        {% if tickets and tickets != '' and tickets|lower != 'none' %}
+                          {% set parts = tickets.split(',') %}
+                          {% set cnt = [] %}
+                          {% for p in parts %}{% if p|trim %}{% set _ = cnt.append(p) %}{% endif %}{% endfor %}
+                          {% if url_key in row and row[url_key] %}
+                            <a href="{{ row[url_key] }}" target="_blank">{{ cnt|length }}</a>
+                          {% else %}
+                            {% set jql = 'issue in (' ~ tickets ~ ')' %}
+                            {% set enc = jql
+                              |replace('%','%25')|replace(' ','%20')|replace('"','%22')
+                              |replace('#','%23')|replace('&','%26')
+                              |replace('(','%28')|replace(')','%29')|replace(',','%2C') %}
+                            <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql={{ enc }}"
+                               target="_blank">{{ cnt|length }}</a>
+                          {% endif %}
+                        {% else %}0{% endif %}
+
+                      {# column has a pre-built _url → show value as link #}
+                      {% elif url_key in row and row[url_key] %}
+                        <a href="{{ row[url_key] }}" target="_blank">{{ val }}</a>
+
+                      {# plain value #}
+                      {% else %}
+                        {{ val }}
+                      {% endif %}
+
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      {% else %}
+        <div class="empty">No data available for this sheet.</div>
+      {% endif %}
+
+    </div>
+  </div>
+{% endfor %}
+
+{% if not sheets %}
+  <div class="card"><div class="empty">No report data found.</div></div>
+{% endif %}
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* toast */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* tabs */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* column modal */
+function toggleMod(mid, tid) {
+  const m = document.getElementById(mid);
+  const opening = !m.classList.contains('open');
+  document.querySelectorAll('.col-modal.open').forEach(x => x.classList.remove('open'));
+  if (opening) { buildMod(mid, tid); m.classList.add('open'); }
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.col-modal') && !e.target.closest('.controls'))
+    document.querySelectorAll('.col-modal.open').forEach(x => x.classList.remove('open'));
+});
+
+function buildMod(mid, tid) {
+  const body = document.getElementById(mid + 'body');
+  const tbl  = document.getElementById(tid);
+  if (!body || !tbl) return;
+  body.innerHTML = '';
+  const key = 'cv:' + tid;
+  let vis = {};
+  try { vis = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+
+  tbl.querySelectorAll('thead tr.hdr-row th[data-col]').forEach(th => {
+    const idx   = th.dataset.col;
+    const label = th.textContent.trim();
+    const lbl   = document.createElement('label');
+    const cb    = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = vis[idx] !== false;
+    cb.onchange = () => {
+      colVisible(tbl, idx, cb.checked);
+      vis[idx] = cb.checked;
+      localStorage.setItem(key, JSON.stringify(vis));
+    };
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' ' + label));
+    body.appendChild(lbl);
+    colVisible(tbl, idx, cb.checked);
+  });
+}
+
+function colVisible(tbl, idx, show) {
+  tbl.querySelectorAll('[data-col="' + idx + '"]').forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+function setAll(tid, show) {
+  const tbl = document.getElementById(tid);
+  if (!tbl) return;
+  const key = 'cv:' + tid;
+  let vis = {};
+  tbl.querySelectorAll('thead tr.hdr-row th[data-col]').forEach(th => {
+    colVisible(tbl, th.dataset.col, show);
+    vis[th.dataset.col] = show;
+  });
+  localStorage.setItem(key, JSON.stringify(vis));
+}
+
+/* filter */
+function filterTable(tid) {
+  const tbl = document.getElementById(tid);
+  if (!tbl) return;
+  const filters = {};
+  tbl.querySelectorAll('thead tr.filter-row input').forEach(inp => {
+    const v = inp.value.trim().toLowerCase();
+    if (v) filters[inp.dataset.colidx] = v;
+  });
+  tbl.querySelectorAll('tbody tr').forEach(tr => {
+    let ok = true;
+    for (const [idx, needle] of Object.entries(filters)) {
+      const td = tr.querySelector('td[data-col="' + idx + '"]');
+      if (td && !td.innerText.toLowerCase().includes(needle)) { ok = false; break; }
+    }
+    tr.style.display = ok ? '' : 'none';
+  });
+}
+
+/* copy for Outlook */
+function copyOutlook(tid) {
+  const tbl = document.getElementById(tid);
+  if (!tbl) return;
+  const clone = tbl.cloneNode(true);
+  clone.querySelectorAll('tr.filter-row').forEach(r => r.remove());
+  clone.querySelectorAll('[style*="display: none"],[style*="display:none"]').forEach(el => el.remove());
+  clone.setAttribute('border','1');
+  clone.style.borderCollapse = 'collapse';
+  clone.querySelectorAll('th,td').forEach(c => {
+    c.style.border  = '1px solid #ccc';
+    c.style.padding = '5px 8px';
+    c.style.fontSize = '12px';
+    c.style.fontFamily = 'Arial,sans-serif';
+    c.style.whiteSpace = 'normal';
+  });
+  const html = '<html><body>' + clone.outerHTML + '</body></html>';
+  navigator.clipboard.write([
+    new ClipboardItem({'text/html': new Blob([html], {type:'text/html'})})
+  ]).then(() => showToast('Copied for Outlook ✓'))
+    .catch(() => navigator.clipboard.writeText(tbl.innerText)
+      .then(() => showToast('Copied as text')));
+}
+
+/* restore saved visibility on load */
+window.addEventListener('load', () => {
+  document.querySelectorAll('table.rt').forEach(tbl => {
+    const key = 'cv:' + tbl.id;
+    let vis = {};
+    try { vis = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    Object.entries(vis).forEach(([idx, show]) => colVisible(tbl, idx, show));
+  });
+});
+</script>
+</body>
+</html>

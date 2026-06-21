@@ -1,0 +1,98 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_extra_css %}
+<style>
+.pbi-rca-page{min-height:100vh;padding:18px 20px 28px;background:radial-gradient(circle at 0% 0%,rgba(14,165,233,.10),transparent 42%),radial-gradient(circle at 100% 0%,rgba(99,102,241,.10),transparent 42%),#f8fbff;}
+.pbi-rca-wrap{width:min(1600px,calc(100vw - 40px));margin:0 auto;}
+.pbi-rca-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.pbi-rca-title{display:flex;align-items:center;gap:10px;margin:0;color:#0c4a6e;font-size:clamp(1.15rem,1.8vw,1.7rem);font-weight:900;letter-spacing:-.03em;}
+.pbi-rca-sub{margin:2px 0 0;color:#64748b;font-size:12px;font-weight:700;}
+.pbi-rca-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pbi-rca-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:999px;border:0;text-decoration:none;font-size:11px;font-weight:900;box-shadow:0 6px 18px rgba(14,165,233,.22);transition:.18s transform,.18s box-shadow;}
+.pbi-rca-btn:hover{transform:translateY(-1px);text-decoration:none;box-shadow:0 10px 24px rgba(14,165,233,.30);}
+.pbi-rca-btn.primary{background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;}
+.pbi-rca-btn.ghost{background:#fff;color:#0c4a6e;border:1px solid #bae6fd;}
+.pbi-rca-card{background:#fff;border:1px solid #bae6fd;border-radius:22px;box-shadow:0 18px 50px rgba(14,165,233,.12);overflow:hidden;}
+.pbi-rca-card-top{display:flex;align-items:center;gap:8px;padding:10px 14px;background:linear-gradient(90deg,#f0f9ff,#ecfeff);border-bottom:1px solid #bae6fd;color:#0c4a6e;font-size:12px;font-weight:900;}
+.pbi-rca-frame-wrap{height:calc(100vh - 190px);min-height:620px;background:#f1f5f9;position:relative;}
+.pbi-rca-frame{width:100%;height:100%;border:0;display:block;background:#fff;}
+.pbi-rca-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fbff,#eef8ff);z-index:2;color:#0c4a6e;text-align:center;padding:24px;}
+.pbi-rca-loading-card{max-width:520px;background:#fff;border:1px solid #bae6fd;border-radius:18px;padding:22px 24px;box-shadow:0 16px 38px rgba(14,165,233,.15);}
+.pbi-rca-spinner{width:34px;height:34px;border:4px solid #dbeafe;border-top-color:#0ea5e9;border-radius:999px;margin:0 auto 12px;animation:pbiSpin .9s linear infinite;}
+@keyframes pbiSpin{to{transform:rotate(360deg)}}
+.pbi-rca-loading-title{font-size:14px;font-weight:900;margin-bottom:6px;}
+.pbi-rca-loading-text{font-size:12px;font-weight:700;color:#64748b;line-height:1.5;}
+.pbi-rca-fallback{display:none;margin-top:14px;}
+.pbi-rca-note{padding:9px 14px;border-top:1px solid #e0f2fe;background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;line-height:1.5;}
+@media (max-width:900px){.pbi-rca-frame-wrap{height:70vh;min-height:480px}.pbi-rca-actions{margin-left:0}.pbi-rca-wrap{width:calc(100vw - 24px)}}
+</style>
+{% endblock %}
+
+{% block shell_inner_content %}
+{% set active_bu_key = "MDM_TELEMATICS" %}
+<div class="pbi-rca-page">
+  <div class="pbi-rca-wrap">
+    <div class="pbi-rca-head">
+      <div>
+        <h1 class="pbi-rca-title"><i class="fas fa-chart-pie" style="color:#0ea5e9;"></i> PDT Telematics RCA</h1>
+        <p class="pbi-rca-sub">Live Power BI RCA dashboard embedded inside PDTBuddy.</p>
+      </div>
+      <div class="pbi-rca-actions">
+        <a class="pbi-rca-btn ghost" href="{{ url_for('mdm_hierarchy') }}"><i class="fas fa-arrow-left"></i> Back to Hierarchy</a>
+        <a class="pbi-rca-btn primary" href="{{ powerbi_original_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Open in Power BI</a>
+      </div>
+    </div>
+
+    <div class="pbi-rca-card">
+      <div class="pbi-rca-card-top">
+        <i class="fas fa-bolt"></i>
+        <span>Live RCA Report</span>
+      </div>
+      <div class="pbi-rca-frame-wrap">
+        <div id="pbiRcaLoading" class="pbi-rca-loading">
+          <div class="pbi-rca-loading-card">
+            <div class="pbi-rca-spinner"></div>
+            <div class="pbi-rca-loading-title">Loading Power BI report...</div>
+            <div class="pbi-rca-loading-text">
+              Power BI can take a few seconds, especially if Microsoft sign-in is needed.
+              <div id="pbiRcaFallback" class="pbi-rca-fallback">
+                If this area stays blank/refused, Power BI requires the official secure embed URL or embed access setting for this report.
+                <br><br>
+                <a class="pbi-rca-btn primary" href="{{ powerbi_original_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Open in Power BI</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <iframe
+          id="pbiRcaFrame"
+          class="pbi-rca-frame"
+          title="PDT Telematics RCA Power BI Report"
+          src="{{ powerbi_embed_url }}"
+          allowfullscreen="true">
+        </iframe>
+      </div>
+      <div class="pbi-rca-note">
+        If the report asks for sign-in, please log in with your Microsoft/Power BI account. If Power BI still refuses to connect, get the official <strong>Embed report / Website or portal</strong> URL from Power BI and share it for this page.
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var frame = document.getElementById('pbiRcaFrame');
+  var loading = document.getElementById('pbiRcaLoading');
+  var fallback = document.getElementById('pbiRcaFallback');
+  var loaded = false;
+  if(frame){
+    frame.addEventListener('load', function(){
+      loaded = true;
+      setTimeout(function(){ if(loading) loading.style.display = 'none'; }, 900);
+    });
+  }
+  setTimeout(function(){
+    if(!loaded && fallback){
+      fallback.style.display = 'block';
+    }
+  }, 12000);
+});
+</script>
+{% endblock %}

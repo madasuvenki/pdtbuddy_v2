@@ -1,0 +1,1229 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_inner_content %}
+
+<style>
+/* Allow admin dashboard to use normal browser/page scrolling inside the BU shell. */
+.bu-shell-page,
+.bu-simple-page--embedded,
+.bu-simple-shell--embedded,
+.bu-detail-panel--embedded,
+.bu-shell-inline-content,
+#buInlineContent,
+#mainPagePane,
+#chatPageShell {
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+}
+.bu-shell-page .bu-shell-inline-content {
+  overflow:visible !important;
+  display:block !important;
+}
+#buInlineContent {
+  display:block !important;
+}
+
+/* ── Page shell ── */
+.adm-shell {
+  width:100%;
+  max-width:1680px;
+  margin:0 auto;
+  padding:30px 38px 70px;
+  box-sizing:border-box;
+}
+@media(max-width:700px){ .adm-shell{ padding:18px 14px 48px; } }
+
+/* ── Page header ── */
+.adm-page-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:16px;
+  margin-bottom:28px;
+  padding:4px 2px 0;
+}
+.adm-page-title  { font-size:28px; font-weight:950; color:#0f172a; display:flex; align-items:center; gap:12px; letter-spacing:-.03em; }
+.adm-page-title i { color:#6366f1; }
+
+/* ── Accordion section ── */
+.adm-section {
+  width:100%;
+  background:rgba(255,255,255,.96);
+  border-radius:20px;
+  border:1px solid rgba(226,232,240,.95);
+  box-shadow:0 18px 45px rgba(15,23,42,.08);
+  margin-bottom:20px;
+  overflow:hidden;
+}
+.adm-section-head {
+  display:flex; align-items:center; justify-content:space-between;
+  min-height:76px;
+  padding:18px 26px; cursor:pointer; user-select:none;
+  border-bottom:1px solid transparent; transition:background .15s, border-color .15s;
+}
+.adm-section-head:hover { background:linear-gradient(135deg,#ffffff,#f8faff); }
+.adm-section-head.open  { border-bottom-color:#e5e7eb; background:linear-gradient(135deg,#ffffff,#fbfcff); }
+.adm-section-head-left  { display:flex; align-items:center; gap:14px; }
+.adm-section-icon { width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; box-shadow:inset 0 1px 0 rgba(255,255,255,.8); }
+.adm-section-label { font-size:17px; font-weight:900; color:#0f172a; letter-spacing:-.01em; }
+.adm-section-sub   { font-size:12px; color:#9ca3af; font-weight:700; margin-top:2px; }
+.adm-section-chevron { font-size:13px; color:#9ca3af; transition:transform .25s; }
+.adm-section-head.open .adm-section-chevron { transform:rotate(180deg); }
+.adm-section-body { display:none; padding:24px 26px 28px; }
+.adm-section-body.open { display:block; }
+
+/* ── Period tabs ── */
+.au-period-wrap  { display:flex; align-items:center; gap:8px; }
+.au-period-label { font-size:12px; font-weight:700; color:#6b7280; }
+.au-period-tabs  { display:flex; gap:4px; background:#f1f5f9; border-radius:10px; padding:4px; }
+.au-period-tab   { padding:5px 14px; border-radius:7px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:#64748b; background:transparent; transition:.15s; }
+.au-period-tab.active { background:#fff; color:#4f46e5; box-shadow:0 2px 8px rgba(99,102,241,.18); }
+.au-period-tab:hover:not(.active) { background:#e2e8f0; }
+
+/* ── Stat cards ── */
+.au-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; margin-bottom:22px; }
+@media(max-width:900px){ .au-cards{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:500px){ .au-cards{ grid-template-columns:1fr; } }
+.au-card { background:linear-gradient(135deg,#ffffff,#f8faff); border-radius:18px; border:1px solid #e5e7eb; padding:22px 24px; display:flex; flex-direction:column; gap:7px; position:relative; overflow:hidden; min-height:132px; box-shadow:0 10px 28px rgba(15,23,42,.05); }
+.au-card::before { content:''; position:absolute; top:-18px; right:-18px; width:70px; height:70px; border-radius:50%; opacity:.08; }
+.au-card-users::before    { background:#6366f1; }
+.au-card-activity::before { background:#0ea5e9; }
+.au-card-logins::before   { background:#10b981; }
+.au-card-fail::before     { background:#ef4444; }
+.au-card-icon { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; margin-bottom:2px; }
+.au-card-users    .au-card-icon { background:#ede9fe; color:#6366f1; }
+.au-card-activity .au-card-icon { background:#e0f2fe; color:#0284c7; }
+.au-card-logins   .au-card-icon { background:#dcfce7; color:#16a34a; }
+.au-card-fail     .au-card-icon { background:#fee2e2; color:#dc2626; }
+.au-card-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#9ca3af; }
+.au-card-value { font-size:34px; font-weight:950; color:#0f172a; line-height:1; letter-spacing:-.04em; }
+.au-card-sub   { font-size:11px; color:#9ca3af; font-weight:600; }
+
+/* ── Chart rows ── */
+.au-main-row   { display:grid; grid-template-columns:minmax(0,2fr) minmax(300px,.85fr); gap:14px; margin-bottom:14px; }
+.au-bottom-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:14px; }
+@media(max-width:900px){ .au-main-row,.au-bottom-row{ grid-template-columns:1fr; } }
+.au-chart-inner { background:linear-gradient(135deg,#ffffff,#f8faff); border-radius:18px; border:1px solid #e5e7eb; padding:20px 22px; box-shadow:0 10px 28px rgba(15,23,42,.045); }
+.au-chart-title { font-size:15px; font-weight:900; color:#0f172a; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.au-chart-title i { color:#6366f1; }
+
+/* ── Recent users ── */
+.au-recent-list { display:flex; flex-direction:column; gap:7px; max-height:300px; overflow-y:auto; }
+.au-recent-item { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:9px; background:#fff; border:1px solid #f1f5f9; }
+.au-avatar      { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; flex-shrink:0; }
+.au-recent-name { font-size:12px; font-weight:700; color:#1e293b; }
+.au-recent-time { font-size:10px; color:#9ca3af; }
+
+/* ── Failure list ── */
+.au-failure-list { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; }
+.au-failure-item { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:9px 12px; border-radius:10px; background:#fff5f5; border:1px solid #fecaca; }
+.au-failure-reason { font-size:11px; font-weight:700; color:#7f1d1d; line-height:1.4; }
+.au-failure-count  { flex-shrink:0; font-size:11px; font-weight:900; color:#dc2626; background:#fee2e2; border-radius:999px; padding:3px 9px; }
+
+/* ── Shared summary pills ── */
+.adm-summary-pills { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.adm-sum-pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:800; padding:4px 12px; border-radius:999px; }
+.adm-sum-pill.ok       { background:#dcfce7; color:#15803d; }
+.adm-sum-pill.fail     { background:#fee2e2; color:#dc2626; }
+.adm-sum-pill.skip     { background:#fef9c3; color:#92400e; }
+.adm-sum-pill.never    { background:#f1f5f9; color:#9ca3af; }
+.adm-sum-pill.active   { background:#dcfce7; color:#15803d; }
+.adm-sum-pill.inactive { background:#f1f5f9; color:#94a3b8; }
+
+/* ── Ingest table ── */
+.is-table-wrap { background:#f8faff; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden; }
+table.is-table { width:100%; border-collapse:collapse; font-size:13px; }
+table.is-table th { padding:10px 14px; text-align:left; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#6b7280; background:#f1f5f9; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+table.is-table td { padding:10px 14px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+table.is-table tr:last-child td { border-bottom:none; }
+table.is-table tr:hover td { background:#f0f4ff; }
+.is-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:800; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+.is-badge.SUCCESS { background:#dcfce7; color:#15803d; }
+.is-badge.FAILURE { background:#fee2e2; color:#dc2626; }
+.is-badge.SKIPPED { background:#fef9c3; color:#92400e; }
+.is-badge.RUNNING { background:#dbeafe; color:#1d4ed8; }
+.is-badge.NEVER   { background:#f1f5f9; color:#9ca3af; }
+.is-reason  { font-size:11px; color:#dc2626; background:#fff5f5; border:1px solid #fecaca; border-radius:6px; padding:2px 8px; max-width:360px; word-break:break-word; }
+.is-target  { font-weight:700; color:#0f172a; font-size:13px; }
+.is-bu      { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f1f5f9; color:#374151; }
+.is-empty   { text-align:center; padding:36px; color:#9ca3af; font-size:13px; }
+
+/* ── Target toggle table ── */
+.tm-filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.tm-search { flex:1; min-width:180px; padding:7px 13px; border-radius:8px; border:1px solid #e2e8f0; font-size:13px; outline:none; background:#f8faff; }
+.tm-search:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.12); background:#fff; }
+.tm-ftabs { display:flex; gap:4px; background:#f1f5f9; border-radius:10px; padding:4px; }
+.tm-ftab  { padding:4px 13px; border-radius:7px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:#64748b; background:transparent; transition:.15s; }
+.tm-ftab.active { background:#fff; color:#4f46e5; box-shadow:0 2px 8px rgba(99,102,241,.18); }
+.tm-ftab:hover:not(.active) { background:#e2e8f0; }
+.tm-table-wrap { background:#f8faff; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden; }
+table.tm-table { width:100%; border-collapse:collapse; font-size:13px; }
+table.tm-table th { padding:10px 14px; text-align:left; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#6b7280; background:#f1f5f9; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+table.tm-table td { padding:9px 14px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+table.tm-table tr:last-child td { border-bottom:none; }
+table.tm-table tr:hover td { background:#f0f4ff; }
+.tm-badge-active   { display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#dcfce7;color:#15803d;border:1px solid #6ee7b7; }
+.tm-badge-inactive { display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0; }
+.tm-dot { width:6px;height:6px;border-radius:50%;background:currentColor; }
+.tm-btn-enable  { padding:4px 13px;border-radius:7px;border:none;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-size:11px;font-weight:800;cursor:pointer;transition:.15s; }
+.tm-btn-disable { padding:4px 13px;border-radius:7px;border:none;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:11px;font-weight:800;cursor:pointer;transition:.15s; }
+.tm-btn-enable:hover,.tm-btn-disable:hover { opacity:.85; }
+.tm-btn-enable:disabled,.tm-btn-disable:disabled { opacity:.4;cursor:not-allowed; }
+.tm-bu-pill { font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#374151; }
+.tm-empty   { text-align:center;padding:36px;color:#9ca3af;font-size:13px; }
+
+/* ── Feedback ── */
+.fb-cards { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:16px; }
+@media(max-width:1100px){ .fb-cards{ grid-template-columns:repeat(3,1fr); } }
+@media(max-width:600px){  .fb-cards{ grid-template-columns:repeat(2,1fr); } }
+.fb-card     { background:#f8faff; border-radius:12px; border:1px solid #e5e7eb; padding:14px 16px; text-align:center; }
+.fb-card-val { font-size:24px; font-weight:900; line-height:1; margin-bottom:3px; }
+.fb-card-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; }
+.fb-table-inner { background:#f8faff; border-radius:12px; border:1px solid #e5e7eb; padding:16px 18px; margin-bottom:14px; }
+.fb-table-title { font-size:13px; font-weight:800; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+.fb-table { width:100%; border-collapse:collapse; font-size:12px; }
+.fb-table th { padding:8px 12px; text-align:left; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#6b7280; background:#f1f5f9; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+.fb-table td { padding:8px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.fb-table tr:last-child td { border-bottom:none; }
+.fb-table tr:hover td { background:#f0f4ff; }
+.fb-star       { color:#f59e0b; }
+.fb-star-empty { color:#e2e8f0; }
+.fb-empty      { text-align:center; padding:28px; color:#9ca3af; font-size:13px; }
+
+/* ── Shared spinner ── */
+.adm-spinner { display:flex; align-items:center; justify-content:center; height:160px; color:#9ca3af; font-size:13px; gap:8px; }
+
+/* ── Toast ── */
+.adm-toast { position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:opacity .3s;pointer-events:none; }
+.adm-toast.ok  { background:#16a34a; }
+.adm-toast.err { background:#dc2626; }
+
+/* ── Refresh button ── */
+.adm-refresh-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;color:#fff;font-size:12px;font-weight:800;border:none;cursor:pointer; }
+.adm-refresh-btn:hover { opacity:.88; }
+</style>
+
+<!-- Toast -->
+<div id="admToast" class="adm-toast" style="opacity:0;"></div>
+
+<div class="adm-shell">
+
+  <!-- ── Page header ── -->
+  <div class="adm-page-header">
+    <div class="adm-page-title"><i class="fas fa-shield-alt"></i> Admin Dashboard</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('admin_live_status_docs') }}"
+         style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:999px;text-decoration:none;font-weight:900;color:#fff;background:linear-gradient(135deg,#f97316,#ec4899);box-shadow:0 6px 18px rgba(236,72,153,.22);font-size:13px;">
+        <i class="fas fa-satellite-dish"></i> Live Status Docs
+      </a>
+      <a href="{{ url_for('admin_system_docs') }}"
+         style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:999px;text-decoration:none;font-weight:800;color:#fff;background:linear-gradient(135deg,#7c3aed,#4f46e5);box-shadow:0 6px 18px rgba(79,70,229,.22);font-size:13px;">
+        <i class="fas fa-book-open"></i> System Docs
+      </a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 1 — User Usage Dashboard (open by default)
+  ══════════════════════════════════════════ -->
+  <div class="adm-section" id="sec-usage">
+    <div class="adm-section-head open" onclick="admToggle('usage')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-chart-line"></i></div>
+        <div>
+          <div class="adm-section-label">User Usage Dashboard</div>
+          <div class="adm-section-sub">Logins · actions · top users · failures</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="au-period-wrap">
+          <span class="au-period-label">View:</span>
+          <div class="au-period-tabs">
+            <button class="au-period-tab active" data-period="daily"   onclick="event.stopPropagation()">Day</button>
+            <button class="au-period-tab"         data-period="weekly"  onclick="event.stopPropagation()">Week</button>
+            <button class="au-period-tab"         data-period="monthly" onclick="event.stopPropagation()">Month</button>
+          </div>
+        </div>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body open" id="body-usage">
+      <!-- Stat cards -->
+      <div class="au-cards">
+        <div class="au-card au-card-users">
+          <div class="au-card-icon"><i class="fas fa-users"></i></div>
+          <div class="au-card-label">Unique Users</div>
+          <div class="au-card-value" id="au-total-users">—</div>
+          <div class="au-card-sub" id="au-period-sub">Today</div>
+        </div>
+        <div class="au-card au-card-activity">
+          <div class="au-card-icon"><i class="fas fa-bolt"></i></div>
+          <div class="au-card-label">Total Actions</div>
+          <div class="au-card-value" id="au-total-actions">—</div>
+          <div class="au-card-sub" id="au-period-sub2">Today</div>
+        </div>
+        <div class="au-card au-card-logins">
+          <div class="au-card-icon"><i class="fas fa-sign-in-alt"></i></div>
+          <div class="au-card-label">Logins</div>
+          <div class="au-card-value" id="au-total-logins">—</div>
+          <div class="au-card-sub" id="au-period-sub3">Today</div>
+        </div>
+        <div class="au-card au-card-fail">
+          <div class="au-card-icon"><i class="fas fa-times-circle"></i></div>
+          <div class="au-card-label">Failures</div>
+          <div class="au-card-value" id="au-failures">—</div>
+          <div class="au-card-sub" id="au-period-sub4">Today</div>
+        </div>
+      </div>
+      <!-- Activity chart + Recent users -->
+      <div class="au-main-row">
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-chart-bar"></i> Activity Trend</div>
+          <div id="au-activity-chart" style="height:260px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-user-clock"></i> Recent Users</div>
+          <div class="au-recent-list" id="au-recent-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+        </div>
+      </div>
+      <!-- Top users + Action breakdown -->
+      <div class="au-bottom-row">
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-trophy"></i> Top Users</div>
+          <div id="au-top-users-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-th-large"></i> Action Breakdown</div>
+          <div id="au-action-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        </div>
+      </div>
+      <!-- Failure reasons -->
+      <div class="au-chart-inner">
+        <div class="au-chart-title"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Failure Reasons</div>
+        <div class="au-failure-list" id="au-failure-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 2 — Ingest Status (collapsed)
+  ══════════════════════════════════════════ -->
+  <div class="adm-section" id="sec-ingest">
+    <div class="adm-section-head" onclick="admToggle('ingest')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#dcfce7;color:#059669;"><i class="fas fa-database"></i></div>
+        <div>
+          <div class="adm-section-label">Ingest Status — All Targets</div>
+          <div class="adm-section-sub">Last ingest run result per target</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 3px 10px rgba(220,38,38,.22);"
+                onclick="event.stopPropagation();adminForceIngestAll(this)" id="forceIngestAllBtn">
+          <i class="fas fa-bolt"></i> Force Run All
+        </button>
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 3px 10px rgba(16,185,129,.22);"
+                onclick="event.stopPropagation();isLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body" id="body-ingest">
+      <div id="forceIngestResult" style="display:none;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:12px;"></div>
+      <div id="is-summary" class="adm-summary-pills"></div>
+      <div class="is-table-wrap">
+        <table class="is-table">
+          <thead><tr>
+            <th>#</th><th>Target</th><th>BU</th><th>Last Status</th><th>Reason (if failed)</th><th>Triggered By</th>
+          </tr></thead>
+          <tbody id="is-tbody">
+            <tr><td colspan="6" class="is-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 3 — Target Enable / Disable (collapsed)
+  ══════════════════════════════════════════ -->
+  <div class="adm-section" id="sec-targets">
+    <div class="adm-section-head" onclick="admToggle('targets')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-toggle-on"></i></div>
+        <div>
+          <div class="adm-section-label">Target Enable / Disable</div>
+          <div class="adm-section-sub">Activate or deactivate targets across all BUs</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5);box-shadow:0 3px 10px rgba(99,102,241,.22);"
+                onclick="event.stopPropagation();window.tmLoad && window.tmLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body" id="body-targets">
+      <div id="tmSummary" class="adm-summary-pills"></div>
+      <div class="tm-filter-bar">
+        <input class="tm-search" id="tmSearch" placeholder="Search target or BU…" oninput="tmRender()">
+        <div class="tm-ftabs">
+          <button class="tm-ftab active" id="tmTabAll"      onclick="tmSetFilter('all')">All</button>
+          <button class="tm-ftab"        id="tmTabActive"   onclick="tmSetFilter('active')">Active</button>
+          <button class="tm-ftab"        id="tmTabInactive" onclick="tmSetFilter('inactive')">Inactive</button>
+        </div>
+      </div>
+      <div class="tm-table-wrap">
+        <table class="tm-table">
+          <thead><tr>
+            <th>#</th><th>Target</th><th>BU</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody id="tmTbody">
+            <tr><td colspan="5" class="tm-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 4 — Tool Feedback (collapsed)
+  ══════════════════════════════════════════ -->
+  <div class="adm-section" id="sec-feedback">
+    <div class="adm-section-head" onclick="admToggle('feedback')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#fef9c3;color:#d97706;"><i class="fas fa-star"></i></div>
+        <div>
+          <div class="adm-section-label">Tool Feedback &amp; Ratings</div>
+          <div class="adm-section-sub">User satisfaction scores and comments</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 3px 10px rgba(245,158,11,.22);"
+                onclick="event.stopPropagation();fbLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body" id="body-feedback">
+      <div class="fb-cards">
+        <div class="fb-card"><div class="fb-card-val" style="color:#6366f1;" id="fbTotal">—</div><div class="fb-card-lbl">Responses</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbAvgRating">—</div><div class="fb-card-lbl">Avg Rating</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#10b981;" id="fbTotalHrs">—</div><div class="fb-card-lbl">Total Hrs Saved</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#0ea5e9;" id="fbAvgHrs">—</div><div class="fb-card-lbl">Avg Hrs Saved</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbFiveStar">—</div><div class="fb-card-lbl">5★ Ratings</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#84cc16;" id="fbFourStar">—</div><div class="fb-card-lbl">4★ Ratings</div></div>
+      </div>
+      <div class="fb-table-inner">
+        <div class="fb-table-title"><i class="fas fa-users" style="color:#6366f1;"></i> Per-User Breakdown</div>
+        <div style="overflow-x:auto;max-height:240px;overflow-y:auto;">
+          <table class="fb-table"><thead><tr>
+            <th>User</th><th>Submissions</th><th>Avg Rating</th><th>Total Hrs Saved</th><th>Last Submitted</th>
+          </tr></thead><tbody id="fbUserTbody">
+            <tr><td colspan="5" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="fb-table-inner">
+        <div class="fb-table-title"><i class="fas fa-comments" style="color:#10b981;"></i> Recent Feedback (last 50)</div>
+        <div style="overflow-x:auto;max-height:280px;overflow-y:auto;">
+          <table class="fb-table"><thead><tr>
+            <th>User</th><th>Rating</th><th>Hrs Saved</th><th>Comment</th><th>Page</th><th>Submitted At</th>
+          </tr></thead><tbody id="fbRecentTbody">
+            <tr><td colspan="6" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 5 — Page Visibility Control
+  ══════════════════════════════════════════ -->
+  <div class="adm-section" id="sec-pv" style="display:none;">
+    <div class="adm-section-head" onclick="admToggle('pv')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-eye"></i></div>
+        <div>
+          <div class="adm-section-label">Page Visibility Control</div>
+          <div class="adm-section-sub">Show or hide pages per target &mdash; changes sync to users instantly</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);box-shadow:0 3px 10px rgba(124,58,237,.22);"
+                onclick="event.stopPropagation();pvLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body" id="body-pv" style="padding:0;">
+
+      <!-- Toolbar -->
+      <div style="padding:12px 18px;background:#faf5ff;border-bottom:1.5px solid #e9d5ff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
+          <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#a78bfa;font-size:12px;pointer-events:none;"></i>
+          <input id="pv_search" type="text" placeholder="Search BU or target..."
+            style="width:100%;box-sizing:border-box;border:1.5px solid #c4b5fd;border-radius:9px;padding:7px 12px 7px 30px;font-size:12px;font-weight:600;color:#1e293b;background:#fff;outline:none;">
+        </div>
+        <button id="pv_expand_all" type="button" style="border:1px solid #c4b5fd;background:#ede9fe;color:#6d28d9;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+          <i class="fas fa-expand-alt"></i> Expand All
+        </button>
+        <button id="pv_collapse_all" type="button" style="border:1px solid #c4b5fd;background:#ede9fe;color:#6d28d9;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+          <i class="fas fa-compress-alt"></i> Collapse All
+        </button>
+        <button id="pv_enable_all_btn" type="button" style="border:1px solid #86efac;background:#f0fdf4;color:#166534;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+          <i class="fas fa-check-double"></i> Enable All
+        </button>
+        <button id="pv_disable_all_btn" type="button" style="border:1px solid #fca5a5;background:#fff1f2;color:#b91c1c;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+          <i class="fas fa-times"></i> Disable All
+        </button>
+        <button id="pv_save_all_btn" type="button" style="background:linear-gradient(135deg,#16a34a,#22c55e);border:none;color:#fff;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(22,163,74,.3);white-space:nowrap;">
+          <i class="fas fa-save"></i> Save All Changes
+        </button>
+        <span id="pv_status" style="font-size:11px;font-weight:700;color:#7c3aed;min-height:16px;"></span>
+      </div>
+
+      <!-- Legend: what each column means -->
+      <div style="padding:8px 18px;background:#f5f3ff;border-bottom:1px solid #e9d5ff;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-right:4px;">Columns:</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-th-large" style="color:#4f46e5;"></i> Dashboard</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-clipboard-list" style="color:#0891b2;"></i> Device Summary</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-file-excel" style="color:#7c3aed;"></i> MTBF</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-table" style="color:#7c3aed;"></i> SWPDT</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-microchip" style="color:#0891b2;"></i> HWPDT</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-file-alt" style="color:#0f766e;"></i> Weekly Report</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-microscope" style="color:#be123c;"></i> Open CR Analysis</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-fingerprint" style="color:#c2410c;"></i> Unique CRs</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-bug" style="color:#b45309;"></i> PDT CRs</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#374151;"><i class="fas fa-ticket-alt" style="color:#047857;"></i> Open JIRAs</span>
+      </div>
+
+      <!-- BU/Target tree -->
+      <div id="pv_bu_tree" style="background:#fff;min-height:120px;">
+        <div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px;" id="pv_tree_loading">
+          <i class="fas fa-spinner fa-spin fa-2x" style="display:block;margin-bottom:10px;color:#a78bfa;"></i>
+          Loading targets&hellip;
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /adm-shell -->
+
+<script>
+/* ══════════════════════════════════════════
+   SHARED HELPERS
+══════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function admShowToast(msg, ok) {
+  var t = document.getElementById('admToast');
+  t.textContent = msg;
+  t.className = 'adm-toast ' + (ok ? 'ok' : 'err');
+  t.style.opacity = '1';
+  setTimeout(function() { t.style.opacity = '0'; }, 3000);
+}
+
+/* ══════════════════════════════════════════
+   ACCORDION
+══════════════════════════════════════════ */
+function admToggle(id) {
+  var head = document.querySelector('#sec-' + id + ' .adm-section-head');
+  var body = document.getElementById('body-' + id);
+  if (!head || !body) return;
+  var opening = !body.classList.contains('open');
+  head.classList.toggle('open', opening);
+  body.classList.toggle('open', opening);
+  // Lazy-load data when a section is opened for the first time
+  if (opening) {
+    if (id === 'ingest'   && !_ingestLoaded)   { isLoad();  _ingestLoaded  = true; }
+    if (id === 'targets'  && !_targetsLoaded && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
+    if (id === 'feedback' && !_feedbackLoaded) { fbLoad();  _feedbackLoaded = true; }
+    /* Page Visibility moved to dedicated /admin/page_visibility page. */
+  }
+  try { localStorage.setItem('adm_sec_' + id, opening ? '1' : '0'); } catch(e) {}
+}
+
+var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
+
+// Restore saved state on load
+(function() {
+  var defaults = { usage:'1', ingest:'0', targets:'0', feedback:'0' };
+  Object.keys(defaults).forEach(function(id) {
+    var saved;
+    try { saved = localStorage.getItem('adm_sec_' + id); } catch(e) {}
+    // Always show the main Usage dashboard on initial page load.
+    // Previously, localStorage could keep it collapsed and make the default page look empty.
+    var open = id === 'usage' ? true : ((saved !== null ? saved : defaults[id]) === '1');
+    var head = document.querySelector('#sec-' + id + ' .adm-section-head');
+    var body = document.getElementById('body-' + id);
+    if (!head || !body) return;
+    head.classList.toggle('open', open);
+    body.classList.toggle('open', open);
+    // If a non-default section was saved as open, mark it loaded
+          if (open && id !== 'usage') {
+        if (id === 'ingest')   { isLoad();  _ingestLoaded  = true; }
+        if (id === 'targets' && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
+        if (id === 'feedback') { fbLoad();  _feedbackLoaded = true; }
+        /* Page Visibility is no longer embedded in Admin Usage. */
+      }
+  });
+})();
+
+/* ══════════════════════════════════════════
+   SECTION 1 — Usage Dashboard
+══════════════════════════════════════════ */
+(function() {
+  var COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
+  function avatarColor(n) { var h=0; for(var i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))&0xffff; return COLORS[h%COLORS.length]; }
+  function initials(n) { return (n||'?').slice(0,2).toUpperCase(); }
+
+  var period = 'daily';
+  var labels = { daily:'Today', weekly:'Last 7 days', monthly:'Last 30 days' };
+
+  document.querySelectorAll('.au-period-tab').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.querySelectorAll('.au-period-tab').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      period = btn.dataset.period;
+      loadUsage();
+    });
+  });
+
+  function loadUsage() {
+    fetch('/admin/usage_data?period=' + period)
+      .then(function(r){ return r.json(); })
+      .then(function(d) {
+        if (d.error) return;
+        var s = d.summary || {}, lbl = labels[period];
+        document.getElementById('au-total-users').textContent   = (s.unique_users  ||0).toLocaleString();
+        document.getElementById('au-total-actions').textContent = (s.total_actions ||0).toLocaleString();
+        document.getElementById('au-total-logins').textContent  = (s.total_logins  ||0).toLocaleString();
+        document.getElementById('au-failures').textContent      = (s.failure_count ||0).toLocaleString();
+        ['au-period-sub','au-period-sub2','au-period-sub3','au-period-sub4'].forEach(function(id){
+          var el=document.getElementById(id); if(el) el.textContent=lbl;
+        });
+        renderActivityChart(d);
+        renderTopUsersChart(d);
+        renderActionChart(d);
+        renderRecentUsers(d);
+        renderFailureReasons(d);
+      })
+      .catch(function(e){ console.error('Usage load failed:',e); });
+  }
+
+  function destroyChart(id) {
+    var c = Highcharts.charts.find(function(c){ return c && c.renderTo && c.renderTo.id===id; });
+    if (c) c.destroy();
+  }
+
+  function renderActivityChart(d) {
+    destroyChart('au-activity-chart');
+    var t = d.trend||{};
+    Highcharts.chart('au-activity-chart',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'},height:260},
+      title:{text:null},credits:{enabled:false},
+      legend:{enabled:true,itemStyle:{fontWeight:'700',fontSize:'11px'}},
+      xAxis:{categories:t.categories||[],labels:{style:{fontSize:'11px'}}},
+      yAxis:{title:{text:null},gridLineColor:'#f1f5f9',labels:{style:{fontSize:'11px'}}},
+      tooltip:{shared:true,borderRadius:10},
+      plotOptions:{column:{borderRadius:4,pointPadding:.1,groupPadding:.1}},
+      colors:COLORS,
+      series:[
+        {name:'Actions', data:t.total_actions||[]},
+        {name:'Users',   data:t.unique_users||[]},
+        {name:'Logins',  data:t.total_logins||[]},
+        {name:'Success', data:t.success_count||[]},
+        {name:'Failures',data:t.failure_count||[]}
+      ]
+    });
+  }
+
+  function renderTopUsersChart(d) {
+    destroyChart('au-top-users-chart');
+    var u = d.top_users||[];
+    Highcharts.chart('au-top-users-chart',{
+      chart:{type:'bar',backgroundColor:'transparent',style:{fontFamily:'inherit'},height:240},
+      title:{text:null},credits:{enabled:false},legend:{enabled:false},
+      xAxis:{categories:u.map(function(x){return x.user_id;}),labels:{style:{fontSize:'11px',fontWeight:'700'}}},
+      yAxis:{title:{text:null},gridLineColor:'#f1f5f9',labels:{style:{fontSize:'11px'}}},
+      tooltip:{borderRadius:10,pointFormat:'<b>{point.y}</b> actions'},
+      plotOptions:{bar:{borderRadius:4,colorByPoint:true,dataLabels:{enabled:true,style:{fontSize:'11px',fontWeight:'700'}}}},
+      colors:COLORS,
+      series:[{name:'Actions',data:u.map(function(x){return parseInt(x.total_actions||0);})}]
+    });
+  }
+
+  function renderActionChart(d) {
+    destroyChart('au-action-chart');
+    var bd = d.action_breakdown||[];
+    Highcharts.chart('au-action-chart',{
+      chart:{type:'pie',backgroundColor:'transparent',style:{fontFamily:'inherit'},height:240},
+      title:{text:null},credits:{enabled:false},
+      tooltip:{borderRadius:10,pointFormat:'<b>{point.percentage:.1f}%</b> ({point.y})'},
+      plotOptions:{pie:{allowPointSelect:true,cursor:'pointer',borderWidth:2,dataLabels:{enabled:true,format:'{point.name}<br><b>{point.percentage:.1f}%</b>',style:{fontSize:'11px',fontWeight:'700'}}}},
+      colors:COLORS,
+      series:[{name:'Count',data:bd.map(function(x){return {name:x.action_type,y:parseInt(x.cnt||0)};})}]
+    });
+  }
+
+  function renderRecentUsers(d) {
+    var users = d.recent_users||d.top_users||[];
+    var el = document.getElementById('au-recent-list');
+    if (!users.length){ el.innerHTML='<p style="color:#9ca3af;font-size:12px;text-align:center;padding:20px 0;">No recent users.</p>'; return; }
+    el.innerHTML = users.slice(0,8).map(function(u){
+      var c=avatarColor(u.user_id);
+      return '<div class="au-recent-item">'
+        +'<div class="au-avatar" style="background:'+c+'">'+initials(u.user_id)+'</div>'
+        +'<div><div class="au-recent-name">'+escHtml(u.user_id)+'</div>'
+        +'<div class="au-recent-time">'+escHtml(u.last_seen||u.total_actions+' actions')+'</div></div>'
+        +'</div>';
+    }).join('');
+  }
+
+  function renderFailureReasons(d) {
+    var rows=d.failure_reasons||[];
+    var el=document.getElementById('au-failure-list');
+    if(!el) return;
+    if(!rows.length){ el.innerHTML='<p style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0;">No failures for selected period.</p>'; return; }
+    el.innerHTML=rows.map(function(r){
+      return '<div class="au-failure-item">'
+        +'<div class="au-failure-reason">'+escHtml(r.reason||'Unknown')+'</div>'
+        +'<div class="au-failure-count">'+parseInt(r.cnt||0)+'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  loadUsage();
+})();
+
+/* ══════════════════════════════════════════
+   SECTION 2 — Ingest Status
+══════════════════════════════════════════ */
+function isLoad() {
+  fetch('/admin/ingest_log/latest')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var rows=data.rows||[], tbody=document.getElementById('is-tbody'), sumEl=document.getElementById('is-summary');
+      if(!rows.length){
+        tbody.innerHTML='<tr><td colspan="6" class="is-empty"><i class="fas fa-inbox"></i> No ingest runs recorded yet.</td></tr>';
+        sumEl.innerHTML=''; return;
+      }
+      var c={SUCCESS:0,FAILURE:0,SKIPPED:0,NEVER:0};
+      rows.forEach(function(r){ c[r.status]=(c[r.status]||0)+1; });
+      sumEl.innerHTML=[
+        c.SUCCESS?'<span class="adm-sum-pill ok"><i class="fas fa-check-circle"></i> '+c.SUCCESS+' Passed</span>':'',
+        c.FAILURE?'<span class="adm-sum-pill fail"><i class="fas fa-times-circle"></i> '+c.FAILURE+' Failed</span>':'',
+        c.SKIPPED?'<span class="adm-sum-pill skip"><i class="fas fa-minus-circle"></i> '+c.SKIPPED+' Skipped</span>':'',
+        c.NEVER  ?'<span class="adm-sum-pill never"><i class="fas fa-circle"></i> '+c.NEVER+' Never Run</span>':'',
+      ].join('');
+      var icons={SUCCESS:'fa-check-circle',FAILURE:'fa-times-circle',SKIPPED:'fa-minus-circle',RUNNING:'fa-spinner fa-spin',NEVER:'fa-circle'};
+      tbody.innerHTML=rows.map(function(r,i){
+        var icon=icons[r.status]||'fa-circle';
+        var reason=r.status==='FAILURE'&&r.message
+          ?'<span class="is-reason"><i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i>'+escHtml(r.message)+'</span>'
+          :r.status==='SKIPPED'&&r.message
+          ?'<span style="font-size:11px;color:#92400e;">'+escHtml(r.message)+'</span>'
+          :'<span style="color:#9ca3af;font-size:11px;">—</span>';
+        var byColor=(r.triggered_by||'').toLowerCase().includes('admin')
+          ?'background:#ede9fe;color:#6d28d9;':'background:#dbeafe;color:#1d4ed8;';
+        return '<tr>'
+          +'<td style="color:#9ca3af;font-size:11px;">'+(i+1)+'</td>'
+          +'<td><span class="is-target">'+escHtml(r.target_name)+'</span></td>'
+          +'<td><span class="is-bu">'+escHtml(r.bu||'-')+'</span></td>'
+          +'<td><span class="is-badge '+r.status+'"><i class="fas '+icon+'"></i> '+r.status+'</span></td>'
+          +'<td>'+reason+'</td>'
+          +'<td><span class="is-bu" style="'+byColor+'">'+escHtml(r.triggered_by||'-')+'</span></td>'
+          +'</tr>';
+      }).join('');
+    })
+    .catch(function(e){
+      document.getElementById('is-tbody').innerHTML=
+        '<tr><td colspan="6" class="is-empty" style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Failed: '+escHtml(String(e))+'</td></tr>';
+    });
+}
+setInterval(isLoad, 60000);
+
+/* ══════════════════════════════════════════
+   SECTION 3 — Target Toggle
+══════════════════════════════════════════ */
+(function(){
+  var _rows=[], _filter='all';
+
+  window.tmSetFilter=function(f){
+    _filter=f;
+    ['All','Active','Inactive'].forEach(function(x){
+      var el=document.getElementById('tmTab'+x); if(el) el.classList.toggle('active',x.toLowerCase()===f);
+    });
+    tmRender();
+  };
+
+  window.tmRender=function(){
+    var q=(document.getElementById('tmSearch').value||'').toLowerCase().trim();
+    var rows=_rows.filter(function(r){
+      if(_filter==='active'   && r.is_active!==1) return false;
+      if(_filter==='inactive' && r.is_active!==0) return false;
+      if(q&&!(r.target_name.toLowerCase().includes(q)||(r.bu||'').toLowerCase().includes(q))) return false;
+      return true;
+    });
+    var tbody=document.getElementById('tmTbody');
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" class="tm-empty"><i class="fas fa-inbox"></i> No targets match.</td></tr>'; return; }
+    tbody.innerHTML=rows.map(function(r,i){
+      var a=r.is_active===1;
+      var badge=a?'<span class="tm-badge-active"><span class="tm-dot"></span>Active</span>'
+                 :'<span class="tm-badge-inactive"><span class="tm-dot"></span>Inactive</span>';
+      var btn=a?'<button class="tm-btn-disable" onclick="tmToggle(\''+escHtml(r.target_name)+'\',0,this)"><i class="fas fa-ban"></i> Disable</button>'
+               :'<button class="tm-btn-enable"  onclick="tmToggle(\''+escHtml(r.target_name)+'\',1,this)"><i class="fas fa-check-circle"></i> Enable</button>';
+      return '<tr>'
+        +'<td style="color:#9ca3af;font-size:11px;">'+(i+1)+'</td>'
+        +'<td style="font-weight:700;color:#0f172a;">'+escHtml(r.target_name)+'</td>'
+        +'<td><span class="tm-bu-pill">'+escHtml(r.bu||'-')+'</span></td>'
+        +'<td>'+badge+'</td>'
+        +'<td>'+btn+'</td>'
+        +'</tr>';
+    }).join('');
+  };
+
+  window.tmToggle=function(target_name,is_active,btn){
+    if(!confirm('Are you sure you want to '+(is_active?'enable':'disable')+' "'+target_name+'"?')) return;
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+    fetch('/admin/toggle_target_active',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target_name:target_name,is_active:is_active})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.success){
+        admShowToast('"'+target_name+'" '+(is_active?'enabled':'disabled')+'.', true);
+        _rows.forEach(function(r){ if(r.target_name===target_name) r.is_active=is_active; });
+        tmUpdateSummary(); tmRender();
+      } else {
+        admShowToast(d.message||'Failed.',false);
+        btn.disabled=false;
+        btn.innerHTML=is_active?'<i class="fas fa-check-circle"></i> Enable':'<i class="fas fa-ban"></i> Disable';
+      }
+    })
+    .catch(function(e){
+      admShowToast('Network error: '+e,false); btn.disabled=false;
+      btn.innerHTML=is_active?'<i class="fas fa-check-circle"></i> Enable':'<i class="fas fa-ban"></i> Disable';
+    });
+  };
+
+  function tmUpdateSummary(){
+    var a=_rows.filter(function(r){return r.is_active===1;}).length;
+    var n=_rows.filter(function(r){return r.is_active===0;}).length;
+    var el=document.getElementById('tmSummary');
+    if(el) el.innerHTML='<span class="adm-sum-pill active"><i class="fas fa-check-circle"></i> '+a+' Active</span>'
+      +'<span class="adm-sum-pill inactive"><i class="fas fa-pause-circle"></i> '+n+' Inactive</span>';
+  }
+
+  window.tmLoad=function(){
+    document.getElementById('tmTbody').innerHTML='<tr><td colspan="5" class="tm-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+    fetch('/admin/all_targets_status')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        _rows=(d.rows||[]).sort(function(a,b){return a.target_name.localeCompare(b.target_name);});
+        tmUpdateSummary(); tmRender();
+      })
+      .catch(function(e){
+        document.getElementById('tmTbody').innerHTML=
+          '<tr><td colspan="5" class="tm-empty" style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Failed: '+escHtml(String(e))+'</td></tr>';
+      });
+  };
+})();
+
+/* ══════════════════════════════════════════
+   SECTION 4 — Feedback
+══════════════════════════════════════════ */
+function adminForceIngestAll(btn) {
+  if (!confirm('Force re-ingest ALL active targets?\nThis ignores dashboard_static timestamps and runs everything.\n\nThis may take several minutes.')) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+  const resultEl = document.getElementById('forceIngestResult');
+  if (resultEl) { resultEl.style.display='block'; resultEl.textContent='Starting force ingest...'; resultEl.style.background='#fef9c3'; resultEl.style.color='#92400e'; }
+  fetch('/admin/force_ingest_all', { method:'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt"></i> Force Run All';
+      if (resultEl) {
+        resultEl.textContent = d.message || (d.success ? 'Done!' : 'Failed');
+        resultEl.style.background = d.success ? '#dcfce7' : '#fee2e2';
+        resultEl.style.color      = d.success ? '#166534' : '#991b1b';
+      }
+      isLoad();
+    })
+    .catch(e => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-bolt"></i> Force Run All';
+      if (resultEl) { resultEl.textContent = 'Error: ' + e; resultEl.style.background='#fee2e2'; resultEl.style.color='#991b1b'; }
+    });
+}
+
+function fbLoad(){
+  function stars(v){
+    var s='',r=Math.round(parseFloat(v||0));
+    for(var i=1;i<=5;i++) s+='<span class="fb-star'+(i<=r?'':'-empty')+'">&#9733;</span>';
+    return s+' <span style="font-size:10px;color:#64748b;font-weight:700;">('+parseFloat(v||0).toFixed(1)+')</span>';
+  }
+  fetch('/api/feedback/stats')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.error) return;
+      var agg=d.aggregates||{},byUser=d.by_user||[],recent=d.recent||[];
+      document.getElementById('fbTotal').textContent    =(agg.total_responses||0).toLocaleString();
+      document.getElementById('fbAvgRating').textContent=parseFloat(agg.avg_rating||0).toFixed(1)+' ★';
+      document.getElementById('fbTotalHrs').textContent =parseFloat(agg.total_hours_saved||0).toFixed(1)+'h';
+      document.getElementById('fbAvgHrs').textContent   =parseFloat(agg.avg_hours_saved||0).toFixed(1)+'h';
+      document.getElementById('fbFiveStar').textContent =(agg.five_star||0);
+      document.getElementById('fbFourStar').textContent =(agg.four_star||0);
+
+      var ut=document.getElementById('fbUserTbody');
+      ut.innerHTML=!byUser.length?'<tr><td colspan="5" class="fb-empty">No feedback yet.</td></tr>'
+        :byUser.map(function(u,i){
+          return '<tr style="background:'+(i%2?'#f8faff':'#fff')+'">'
+            +'<td style="font-weight:700;color:#1e293b;">'+escHtml(u.username)+'</td>'
+            +'<td style="text-align:center;">'+u.submissions+'</td>'
+            +'<td>'+stars(u.avg_rating)+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:#10b981;">'+parseFloat(u.total_hours_saved||0).toFixed(1)+'h</td>'
+            +'<td style="color:#64748b;">'+escHtml((u.last_submitted||'').toString().substring(0,16))+'</td>'
+            +'</tr>';
+        }).join('');
+
+      var rt=document.getElementById('fbRecentTbody');
+      rt.innerHTML=!recent.length?'<tr><td colspan="6" class="fb-empty">No feedback yet.</td></tr>'
+        :recent.map(function(r,i){
+          return '<tr style="background:'+(i%2?'#f8faff':'#fff')+'">'
+            +'<td style="font-weight:700;color:#1e293b;">'+escHtml(r.username)+'</td>'
+            +'<td>'+stars(r.rating)+'</td>'
+            +'<td style="text-align:center;font-weight:800;color:#10b981;">'+r.hours_saved+'h</td>'
+            +'<td style="color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(r.feedback_text||'—')+'</td>'
+            +'<td><span style="font-size:10px;background:#f1f5f9;padding:2px 8px;border-radius:999px;font-weight:700;color:#374151;">'+escHtml(r.page||'—')+'</span></td>'
+            +'<td style="color:#64748b;">'+escHtml((r.submitted_at||'').toString().substring(0,16))+'</td>'
+            +'</tr>';
+        }).join('');
+    })
+    .catch(function(e){ console.error('Feedback load error:',e); });
+}
+/* ══════════════════════════════════════════
+   SECTION 5 — Page Visibility
+══════════════════════════════════════════ */
+(function(){
+  var PV_PAGES = [
+    { key:'dashboard',        label:'Dashboard',        icon:'fa-th-large',       color:'#4f46e5' },
+    { key:'device_summary',   label:'Device Summary',   icon:'fa-clipboard-list', color:'#0891b2' },
+    { key:'mtbf',             label:'MTBF',             icon:'fa-file-excel',     color:'#7c3aed' },
+    { key:'swpdt',            label:'SWPDT',            icon:'fa-table',          color:'#7c3aed' },
+    { key:'hwpdt',            label:'HWPDT',            icon:'fa-microchip',      color:'#0891b2' },
+    { key:'weekly_report',    label:'Weekly Report',    icon:'fa-file-alt',       color:'#0f766e' },
+    { key:'open_cr_analysis', label:'Open CR Analysis', icon:'fa-microscope',     color:'#be123c' },
+    { key:'unique_crs',       label:'Unique CRs',       icon:'fa-fingerprint',    color:'#c2410c' },
+    { key:'pdt_crs',          label:'PDT CRs',          icon:'fa-bug',            color:'#b45309' },
+    { key:'open_jiras',       label:'Open JIRAs',       icon:'fa-ticket-alt',     color:'#047857' },
+    { key:'pdt_planning',     label:'PDT Planning',     icon:'fa-clipboard-list', color:'#4f46e5' },
+    { key:'pdt_execution',    label:'PDT Execution',    icon:'fa-play-circle',    color:'#0891b2' },
+    { key:'pdt_analysis',     label:'PDT Analysis',     icon:'fa-chart-bar',      color:'#059669' },
+    { key:'customer_issues',  label:'Customer Issues',  icon:'fa-users',          color:'#d97706' },
+    { key:'help',             label:'Help',             icon:'fa-question-circle',color:'#4338ca' },
+  ];
+
+  var TARGETS_CFG  = window.TARGETS_CONFIG_DATA  || {};
+  var ALL_TARGETS  = window.ALL_TARGETS_DATA     || [];
+  var _pvSettings  = {};
+  var _pvDirty     = false;
+
+  function pvSetStatus(msg, ok) {
+    var el = document.getElementById('pv_status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = ok === true ? '#16a34a' : ok === false ? '#dc2626' : '#7c3aed';
+  }
+
+  /* Load all settings from server */
+  function pvFetchAll(cb) {
+    fetch('/admin/get_page_visibility?scope=all')
+      .then(function(r){ return r.json(); })
+      .then(function(d){ cb(d.all_settings || {}); })
+      .catch(function(){ cb({}); });
+  }
+
+  /* Save one target */
+  function pvSaveTarget(target, settings, cb) {
+    fetch('/admin/save_page_visibility', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ target: target, settings: settings })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      /* also push to localStorage so target pages pick it up immediately */
+      try {
+        var hidden = Object.keys(settings).filter(function(k){ return settings[k] === false; });
+        localStorage.setItem('pdt_hidden_tabs_' + target, JSON.stringify(hidden));
+      } catch(e){}
+      if (cb) cb(d);
+    })
+    .catch(function(){ if (cb) cb({success:false}); });
+  }
+
+  /* Build the tree */
+  function pvBuildTree(allSettings, filter) {
+    var tree = document.getElementById('pv_bu_tree');
+    if (!tree) return;
+    tree.innerHTML = '';
+    var buMap = {};
+    ALL_TARGETS.forEach(function(tKey) {
+      var cfg  = TARGETS_CFG[tKey] || {};
+      var bu   = String(cfg.bu || cfg.business_unit || cfg.bu_key || 'OTHER').toUpperCase();
+      var name = cfg.display_name || tKey.toUpperCase();
+      if (filter && !name.toLowerCase().includes(filter) && !tKey.toLowerCase().includes(filter) && !bu.toLowerCase().includes(filter)) return;
+      if (!buMap[bu]) buMap[bu] = [];
+      buMap[bu].push({ key: tKey, name: name });
+    });
+
+    var buKeys = Object.keys(buMap).sort();
+    if (!buKeys.length) {
+      tree.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px;"><i class="fas fa-search fa-2x" style="display:block;margin-bottom:10px;"></i> No targets match.</div>';
+      return;
+    }
+
+    buKeys.forEach(function(bu) {
+      var targets = buMap[bu];
+
+      /* BU header */
+      var buRow = document.createElement('div');
+      buRow.className = 'pv-bu-row';
+      buRow.style.cssText = 'background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-bottom:2px solid #c4b5fd;padding:10px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;';
+      buRow.innerHTML =
+        '<i class="fas fa-chevron-down pv-bu-chevron" style="font-size:11px;color:#7c3aed;transition:transform .25s;flex-shrink:0;"></i>'
+        +'<i class="fas fa-layer-group" style="font-size:13px;color:#7c3aed;flex-shrink:0;"></i>'
+        +'<span style="font-size:13px;font-weight:900;color:#4c1d95;flex:1;letter-spacing:.04em;">'+escHtml(bu)+'</span>'
+        +'<span style="font-size:10px;color:#7c3aed;font-weight:700;background:#ede9fe;border-radius:999px;padding:2px 10px;">'+targets.length+' target'+(targets.length!==1?'s':'')+'</span>'
+        +'<button class="pv-bu-on" data-bu="'+escHtml(bu)+'" style="border:1.5px solid #86efac;background:#f0fdf4;color:#166534;border-radius:7px;padding:4px 12px;font-size:10px;font-weight:800;cursor:pointer;" onclick="event.stopPropagation()"><i class="fas fa-check"></i> All ON</button>'
+        +'<button class="pv-bu-off" data-bu="'+escHtml(bu)+'" style="border:1.5px solid #fca5a5;background:#fff1f2;color:#b91c1c;border-radius:7px;padding:4px 12px;font-size:10px;font-weight:800;cursor:pointer;" onclick="event.stopPropagation()"><i class="fas fa-times"></i> All OFF</button>';
+      tree.appendChild(buRow);
+
+      /* BU body */
+      var buBody = document.createElement('div');
+      buBody.className = 'pv-bu-body';
+      buBody.style.cssText = 'border-bottom:3px solid #ede9fe;';
+
+      /* Column header with ICON + FULL TEXT LABEL */
+      var colHdr = document.createElement('div');
+      colHdr.style.cssText = 'display:flex;align-items:center;padding:6px 20px;background:#f5f3ff;border-bottom:1.5px solid #e9d5ff;gap:0;';
+      var hdrHtml = '<div style="width:220px;flex-shrink:0;font-size:9px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;">Target</div>';
+      PV_PAGES.forEach(function(p) {
+        hdrHtml += '<div style="flex:1;min-width:80px;text-align:center;padding:2px 4px;">'
+          +'<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;">'
+          +'<i class="fas '+p.icon+'" style="font-size:11px;color:'+p.color+';"></i>'
+          +'<span style="font-size:8px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;">'+escHtml(p.label)+'</span>'
+          +'</div></div>';
+      });
+      hdrHtml += '<div style="width:52px;flex-shrink:0;"></div>';
+      colHdr.innerHTML = hdrHtml;
+      buBody.appendChild(colHdr);
+
+      /* Target rows */
+      targets.forEach(function(t) {
+        var tKey     = t.key;
+        var settings = allSettings[tKey] || {};
+
+        var row = document.createElement('div');
+        row.className = 'pv-target-row';
+        row.dataset.target = tKey;
+        row.style.cssText = 'display:flex;align-items:center;padding:8px 20px;border-bottom:1px solid #f1f5f9;gap:0;transition:background .15s;';
+        row.onmouseenter = function(){ row.style.background='#faf5ff'; };
+        row.onmouseleave = function(){ row.style.background=''; };
+
+        /* Name cell */
+        var nameDiv = document.createElement('div');
+        nameDiv.style.cssText = 'width:220px;flex-shrink:0;';
+        nameDiv.innerHTML = '<div style="font-size:12px;font-weight:800;color:#1e293b;">'+escHtml(t.name)+'</div>'
+          +'<div style="font-size:9px;color:#94a3b8;font-family:monospace;">'+escHtml(tKey)+'</div>';
+        row.appendChild(nameDiv);
+
+        /* Checkbox cells */
+        PV_PAGES.forEach(function(page) {
+          var enabled = settings[page.key] !== false;
+          var cell = document.createElement('div');
+          cell.style.cssText = 'flex:1;min-width:80px;display:flex;align-items:center;justify-content:center;';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = enabled;
+          cb.dataset.target = tKey;
+          cb.dataset.page   = page.key;
+          cb.title = page.label + (enabled ? ' — Visible' : ' — Hidden');
+          cb.style.cssText = 'width:16px;height:16px;accent-color:'+page.color+';cursor:pointer;';
+          cb.addEventListener('change', function() {
+            if (!_pvSettings[tKey]) _pvSettings[tKey] = {};
+            _pvSettings[tKey][page.key] = cb.checked;
+            _pvDirty = true;
+            pvSetStatus('Unsaved changes — click Save All Changes', null);
+            var sab = document.getElementById('pv_save_all_btn');
+            if (sab) sab.style.boxShadow = '0 0 0 3px rgba(22,163,74,.4)';
+          });
+          cell.appendChild(cb);
+          row.appendChild(cell);
+        });
+
+        /* Per-row save button */
+        var actDiv = document.createElement('div');
+        actDiv.style.cssText = 'width:52px;flex-shrink:0;display:flex;justify-content:flex-end;';
+        var rowSave = document.createElement('button');
+        rowSave.type = 'button';
+        rowSave.innerHTML = '<i class="fas fa-save"></i>';
+        rowSave.title = 'Save ' + t.name;
+        rowSave.style.cssText = 'border:1px solid #c4b5fd;background:#faf5ff;color:#7c3aed;border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer;';
+        rowSave.addEventListener('click', function() {
+          rowSave.disabled = true;
+          rowSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          pvSaveTarget(tKey, _pvSettings[tKey] || {}, function(d) {
+            if (d && d.success) {
+              rowSave.innerHTML = '<i class="fas fa-check"></i>';
+              rowSave.style.background = '#dcfce7'; rowSave.style.color = '#166534';
+              pvSetStatus('Saved: ' + t.name, true);
+            } else {
+              rowSave.innerHTML = '<i class="fas fa-times"></i>';
+              rowSave.style.background = '#fee2e2'; rowSave.style.color = '#b91c1c';
+            }
+            setTimeout(function(){
+              rowSave.innerHTML = '<i class="fas fa-save"></i>';
+              rowSave.style.background = '#faf5ff'; rowSave.style.color = '#7c3aed';
+              rowSave.disabled = false;
+            }, 1800);
+          });
+        });
+        actDiv.appendChild(rowSave);
+        row.appendChild(actDiv);
+        buBody.appendChild(row);
+      });
+
+      tree.appendChild(buBody);
+
+      /* BU toggle */
+      buRow.addEventListener('click', function() {
+        var open = buBody.style.display !== 'none';
+        buBody.style.display = open ? 'none' : '';
+        var chev = buRow.querySelector('.pv-bu-chevron');
+        if (chev) chev.style.transform = open ? 'rotate(-90deg)' : '';
+      });
+
+      /* BU All ON / All OFF */
+      buRow.querySelector('.pv-bu-on').addEventListener('click', function(){ pvSetBuAll(bu, true); });
+      buRow.querySelector('.pv-bu-off').addEventListener('click', function(){ pvSetBuAll(bu, false); });
+    });
+  }
+
+  function pvSetBuAll(bu, val) {
+    document.querySelectorAll('.pv-target-row').forEach(function(row) {
+      var tKey = row.dataset.target;
+      var cfg  = TARGETS_CFG[tKey] || {};
+      var tBu  = String(cfg.bu || cfg.business_unit || cfg.bu_key || 'OTHER').toUpperCase();
+      if (tBu !== bu) return;
+      if (!_pvSettings[tKey]) _pvSettings[tKey] = {};
+      row.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+        cb.checked = val;
+        _pvSettings[tKey][cb.dataset.page] = val;
+      });
+    });
+    _pvDirty = true;
+    pvSetStatus('Unsaved changes — click Save All Changes', null);
+  }
+
+  /* Public load function (called by accordion + refresh button) */
+  window.pvLoad = function() {
+    var loading = document.getElementById('pv_tree_loading');
+    var tree    = document.getElementById('pv_bu_tree');
+    if (loading) { tree.innerHTML = ''; tree.appendChild(loading); loading.style.display = ''; }
+    pvFetchAll(function(allSettings) {
+      _pvSettings = allSettings;
+      if (loading) loading.style.display = 'none';
+      pvBuildTree(_pvSettings, '');
+      _pvDirty = false;
+      pvSetStatus('', null);
+    });
+  };
+
+  /* Save All */
+  var pvSaveAllBtn = document.getElementById('pv_save_all_btn');
+  if (pvSaveAllBtn) {
+    pvSaveAllBtn.addEventListener('click', function() {
+      pvSaveAllBtn.disabled = true;
+      pvSaveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+      var keys = Object.keys(_pvSettings);
+      var done = 0, ok = 0, fail = 0;
+      if (!keys.length) {
+        pvSaveAllBtn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+        pvSaveAllBtn.disabled = false;
+        pvSetStatus('Nothing to save.', null);
+        return;
+      }
+      keys.forEach(function(tKey) {
+        pvSaveTarget(tKey, _pvSettings[tKey], function(d) {
+          done++;
+          if (d && d.success) ok++; else fail++;
+          if (done === keys.length) {
+            pvSaveAllBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+            pvSaveAllBtn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            pvSetStatus('Saved '+ok+' target(s)'+(fail?' — '+fail+' failed':''), fail===0);
+            _pvDirty = false;
+            setTimeout(function(){
+              pvSaveAllBtn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+              pvSaveAllBtn.style.background = '';
+              pvSaveAllBtn.style.boxShadow  = '';
+              pvSaveAllBtn.disabled = false;
+            }, 2200);
+          }
+        });
+      });
+    });
+  }
+
+  /* Enable All / Disable All */
+  var pvEnableAll  = document.getElementById('pv_enable_all_btn');
+  var pvDisableAll = document.getElementById('pv_disable_all_btn');
+  function pvSetGlobalAll(val) {
+    document.querySelectorAll('#pv_bu_tree input[type=checkbox]').forEach(function(cb) {
+      cb.checked = val;
+      if (!_pvSettings[cb.dataset.target]) _pvSettings[cb.dataset.target] = {};
+      _pvSettings[cb.dataset.target][cb.dataset.page] = val;
+    });
+    _pvDirty = true;
+    pvSetStatus('Unsaved changes — click Save All Changes', null);
+  }
+  if (pvEnableAll)  pvEnableAll.addEventListener('click',  function(){ pvSetGlobalAll(true);  });
+  if (pvDisableAll) pvDisableAll.addEventListener('click', function(){ pvSetGlobalAll(false); });
+
+  /* Expand / Collapse All */
+  var pvExpandAll   = document.getElementById('pv_expand_all');
+  var pvCollapseAll = document.getElementById('pv_collapse_all');
+  if (pvExpandAll) pvExpandAll.addEventListener('click', function() {
+    document.querySelectorAll('.pv-bu-body').forEach(function(b) {
+      b.style.display = '';
+      var chev = b.previousSibling && b.previousSibling.querySelector && b.previousSibling.querySelector('.pv-bu-chevron');
+      if (chev) chev.style.transform = '';
+    });
+  });
+  if (pvCollapseAll) pvCollapseAll.addEventListener('click', function() {
+    document.querySelectorAll('.pv-bu-body').forEach(function(b) {
+      b.style.display = 'none';
+      var chev = b.previousSibling && b.previousSibling.querySelector && b.previousSibling.querySelector('.pv-bu-chevron');
+      if (chev) chev.style.transform = 'rotate(-90deg)';
+    });
+  });
+
+  /* Search */
+  var pvSearch = document.getElementById('pv_search');
+  if (pvSearch) pvSearch.addEventListener('input', function() {
+    pvBuildTree(_pvSettings, pvSearch.value.trim().toLowerCase());
+  });
+
+})();
+</script>
+
+{% endblock %}

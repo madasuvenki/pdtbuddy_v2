@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="min-height:calc(100vh - 120px);display:grid;place-items:center;padding:28px;">
+  <div style="width:min(620px,94vw);background:linear-gradient(180deg,#ffffff,#f8fbff);border:1px solid #dbeafe;border-radius:28px;box-shadow:0 24px 70px rgba(15,23,42,.16);padding:34px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:20px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(135deg,#4f46e5,#06b6d4);color:#fff;font-size:28px;box-shadow:0 16px 34px rgba(79,70,229,.28);">
+      <i class="fas fa-key"></i>
+    </div>
+    <h1 style="margin:0;font-size:28px;letter-spacing:-.03em;color:#0f172a;">QGenie API Key Required</h1>
+    <p style="margin:12px auto 0;max-width:500px;color:#64748b;font-size:14px;line-height:1.6;font-weight:600;">
+      You are part of {{ target_group }}. Please configure your QGenie API key before choosing Internal or External PDT access.
+    </p>
+    <div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:900;">
+      <i class="fas fa-shield-alt"></i>
+      One-time setup for this login session
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Live Status</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;min-height:100vh;}
+        .ls-page{width:100%;min-height:100vh;padding:32px 40px 60px;}
+    .ls-content{width:100%;max-width:1280px;}
+    @media (min-width:1500px){.ls-content{max-width:1440px;}}
+    /* Header */
+    .ls-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;flex-wrap:wrap;gap:12px;}
+    .ls-header-left{display:flex;align-items:center;gap:14px;}
+    .ls-icon{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;box-shadow:0 4px 14px rgba(99,102,241,.35);flex-shrink:0;}
+    .ls-title{font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.02em;}
+    .ls-subtitle{font-size:12px;color:#64748b;margin-top:2px;font-weight:600;}
+    .ls-hdr-btns{display:flex;gap:8px;align-items:center;}
+    .ls-btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:36px;border-radius:10px;font-size:13px;font-weight:800;text-decoration:none;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+        .ls-btn-ghost{background:#fff;border:1.5px solid #e2e8f0;color:#475569;box-shadow:0 1px 3px rgba(15,23,42,.06);}
+    .ls-btn-ghost:hover{background:#f8fafc;color:#1e293b;}
+    .ls-btn-admin{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.3);}
+    .ls-btn-admin:hover{filter:brightness(1.1);}
+    .ls-btn-home{background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;box-shadow:0 4px 12px rgba(15,23,42,.25);}
+    .ls-btn-home:hover{filter:brightness(1.15);}
+    /* Breadcrumb */
+    .ls-breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:12px;font-weight:700;color:#64748b;}
+    .ls-bc-link{color:#6366f1;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+    .ls-bc-link:hover{text-decoration:underline;}
+    .ls-bc-sep{color:#cbd5e1;}
+    .ls-bc-cur{color:#0f172a;font-weight:900;}
+        /* Row buttons */
+    .ls-section-label{font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;padding-left:2px;}
+    .ls-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;}
+    .ls-row{display:flex;align-items:center;gap:14px;padding:14px 20px;background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:all .18s;box-shadow:0 1px 4px rgba(15,23,42,.05);text-decoration:none;color:inherit;width:100%;text-align:left;}
+    .ls-row:hover{border-color:#a5b4fc;background:#fafbff;transform:translateY(-2px);box-shadow:0 4px 14px rgba(99,102,241,.10);}
+    .ls-row.is-target{border-left:4px solid #6366f1;}
+    .ls-row.is-target:hover{border-left-color:#4f46e5;background:#f5f3ff;}
+    .ls-row.active-target{border-left:4px solid #2563eb;background:#eff6ff;box-shadow:0 4px 18px rgba(37,99,235,.15);}
+    .ls-row-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);display:flex;align-items:center;justify-content:center;font-size:16px;color:#6366f1;flex-shrink:0;}
+    .ls-row.is-target .ls-row-icon{background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#16a34a;}
+    .ls-row-main{flex:1;min-width:0;}
+    .ls-row-name{font-size:15px;font-weight:900;color:#0f172a;}
+    .ls-row-sub{font-size:11px;color:#64748b;font-weight:600;margin-top:3px;display:flex;flex-wrap:wrap;gap:12px;}
+    .ls-row-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+    .ls-row-count{font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}
+    .ls-row-arrow{color:#94a3b8;font-size:13px;flex-shrink:0;transition:transform .15s;}
+    .ls-row:hover .ls-row-arrow{transform:translateX(3px);color:#6366f1;}
+    @media (max-width:900px){.ls-page{padding:22px 18px 44px;}.ls-nav{grid-template-columns:1fr;}.ls-content{max-width:none;}}
+        /* Full-page viewer overlay */
+    .ls-viewer{display:none;position:fixed;inset:0;z-index:1000;background:#fff;flex-direction:column;}
+    .ls-viewer.open{display:flex;}
+    .ls-viewer-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:linear-gradient(90deg,#0f172a,#1e3a8a);gap:10px;flex-wrap:wrap;flex-shrink:0;}
+    .ls-viewer-title{font-size:13px;font-weight:900;color:#fff;display:flex;align-items:center;gap:8px;}
+    .ls-viewer-actions{display:flex;gap:8px;align-items:center;}
+    .ls-viewer iframe{width:100%;border:none;display:block;flex:1;height:0;}
+    .ls-live-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;border:1px solid #86efac;}
+    .ls-live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.25);animation:pulse 2s infinite;flex-shrink:0;}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.25);}50%{box-shadow:0 0 0 5px rgba(34,197,94,.08);}}
+    .ls-ph{color:#cbd5e1;font-style:italic;}
+    /* Empty */
+    .ls-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
+    .ls-empty i{font-size:40px;margin-bottom:14px;display:block;opacity:.35;}
+    .ls-empty p{font-size:14px;font-weight:700;}
+    /* Admin panel */
+    .ls-admin-panel{margin-top:36px;background:#fff;border-radius:16px;border:1.5px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.05);overflow:hidden;}
+    .ls-admin-head{padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+    .ls-admin-head-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
+    .ls-admin-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .ls-admin-table th{padding:9px 14px;text-align:left;font-weight:800;color:#475569;background:#f8fafc;border-bottom:2px solid #e2e8f0;}
+    .ls-admin-table td{padding:9px 14px;border-bottom:1px solid #f8fafc;color:#334155;vertical-align:middle;}
+    .ls-admin-table tr:last-child td{border-bottom:none;}
+    .ls-admin-table tr:hover td{background:#fafbff;}
+    .ls-draft-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+    .ls-action-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:7px;font-size:11px;font-weight:800;text-decoration:none;border:none;cursor:pointer;}
+    .ls-action-edit{background:#eef2ff;color:#4338ca;}
+    .ls-action-view{background:#dcfce7;color:#15803d;}
+    .ls-action-del{background:#fee2e2;color:#dc2626;}
+    .ls-action-revoke{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;}
+    .ls-type-badge{font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;}
+    .ls-type-badge.eng{border-color:#fed7aa;background:#fff7ed;color:#c2410c;}
+        .ls-create-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:12px;font-weight:900;text-decoration:none;box-shadow:0 4px 12px rgba(99,102,241,.3);border:none;cursor:pointer;}
+
+    /* Add Job modal */
+    .aj-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:2000;}
+    .aj-backdrop.open{display:flex;}
+    .aj-modal{width:min(560px,94vw);max-height:86vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(15,23,42,.22);border:1px solid #e2e8f0;}
+    .aj-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8faff,#eef2ff);}
+    .aj-head-title{font-size:16px;font-weight:900;color:#1e293b;display:flex;align-items:center;gap:8px;}
+    .aj-close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;padding:4px;border-radius:6px;}
+    .aj-close:hover{color:#475569;background:#f1f5f9;}
+    .aj-body{padding:20px 22px;}
+    .aj-step-label{font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+    .aj-list{display:flex;flex-direction:column;gap:6px;}
+    .aj-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;transition:all .15s;text-align:left;width:100%;}
+    .aj-item:hover{border-color:#a5b4fc;background:#f5f3ff;transform:translateX(2px);}
+    .aj-item-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);display:flex;align-items:center;justify-content:center;font-size:13px;color:#6366f1;flex-shrink:0;}
+    .aj-item-name{font-size:13px;font-weight:800;color:#0f172a;}
+    .aj-item-sub{font-size:10px;color:#64748b;font-weight:600;margin-top:1px;}
+    .aj-item-arrow{margin-left:auto;color:#94a3b8;font-size:12px;}
+    .aj-back-btn{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:#6366f1;background:none;border:none;cursor:pointer;padding:0;margin-bottom:12px;}
+    .aj-back-btn:hover{text-decoration:underline;}
+  </style>
+</head>
+<body>
+<div class="ls-page">
+
+  <!-- Header -->
+  <div class="ls-header">
+    <div class="ls-header-left">
+      <div class="ls-icon"><i class="fas fa-satellite-dish"></i></div>
+      <div>
+        <div class="ls-title">Live Status</div>
+        <div class="ls-subtitle">Published target reports</div>
+      </div>
+    </div>
+            <div class="ls-hdr-btns">
+            {% if can_edit %}
+        <button class="ls-btn ls-btn-admin" id="adminToggleBtn" type="button">
+          <i class="fas fa-cog"></i> Manage Jobs
+        </button>
+                <button class="ls-btn" id="addJobBtn" type="button" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,.3);">
+          <i class="fas fa-plus"></i> Add Job
+        </button>
+        
+        <a href="{{ url_for('cr_overview_embed') }}" class="ls-btn ls-btn-home">
+          <i class="fas fa-house"></i> PDT Buddy
+        </a>
+      {% endif %}
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('logout') }}" class="ls-btn" style="background:#fff;border:1.5px solid #fecaca;color:#dc2626;box-shadow:0 1px 3px rgba(15,23,42,.06);">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+      <div class="ls-content">
+  <!-- Breadcrumb — hidden at BU level -->
+  <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
+    <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-arrow-left"></i> Business Units</span>
+    <span class="ls-bc-sep">/</span>
+    <span class="ls-bc-cur" id="lsBcCur"></span>
+  </div>
+
+  <!-- Navigation area -->
+  <div id="lsNav">
+
+    <!-- LEVEL 1: BU rows -->
+    <div id="lsLevel1">
+      {% if bu_list %}
+        <div class="ls-section-label">Business Units</div>
+        <div class="ls-nav">
+          {% for bu_key, bu_name in bu_list %}
+            {% set bu_targets = bu_targets_js.get(bu_key, []) %}
+            {% set pub_count = bu_targets|selectattr('status','equalto','published')|list|length %}
+            {% set draft_count = bu_targets|selectattr('status','equalto','draft')|list|length %}
+            <button class="ls-row" type="button" data-bu="{{ bu_key }}" data-bu-name="{{ bu_name }}" onclick="showTargets(this)">
+              <div class="ls-row-icon"><i class="fas fa-microchip"></i></div>
+              <div class="ls-row-main">
+                <div class="ls-row-name">{{ bu_name }}</div>
+                <div class="ls-row-sub">
+                  {% if pub_count %}{{ pub_count }} live{% endif %}
+                  {% if draft_count and can_edit %}&nbsp;&bull;&nbsp;{{ draft_count }} draft{% endif %}
+                </div>
+              </div>
+              <div class="ls-row-meta">
+                <span class="ls-row-count">{{ pub_count + (draft_count if can_edit else 0) }}</span>
+              </div>
+              <i class="fas fa-chevron-right ls-row-arrow"></i>
+            </button>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="ls-empty">
+          <i class="fas fa-satellite-dish"></i>
+          <p>No reports yet.{% if can_edit %} Click <strong>Add Job</strong> to create one.{% endif %}</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- LEVEL 2: Target rows (shown after BU click) -->
+    <div id="lsLevel2" style="display:none;">
+      <div class="ls-section-label" id="lsLevel2Label">Published Targets</div>
+      <div class="ls-nav" id="lsTargetList"></div>
+    </div>
+
+    </div>
+
+  <!-- Inline target viewer (iframe, stays on /pdt/live_status) -->
+  <div class="ls-viewer" id="lsViewer">
+    <div class="ls-viewer-bar">
+      <div class="ls-viewer-title"><i class="fas fa-satellite-dish" style="color:#6366f1"></i> <span id="lsViewerTitle">Target</span></div>
+                        <div class="ls-viewer-actions">
+        <button class="ls-btn" onclick="closeViewer()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;"><i class="fas fa-times"></i> Close</button>
+      </div>
+    </div>
+    <iframe id="lsViewerFrame" src="" title="Target Report"></iframe>
+  </div>
+
+  <!-- Admin panel -->
+  {% if can_edit %}
+  <div class="ls-admin-panel" id="adminPanel" style="display:none;">
+    <div class="ls-admin-head">
+      <div class="ls-admin-head-title"><i class="fas fa-layer-group" style="color:#6366f1;"></i> Manage Live Status Jobs</div>
+            <button type="button" class="ls-create-btn" onclick="document.getElementById('addJobBtn') && document.getElementById('addJobBtn').click()"><i class="fas fa-plus"></i> Create New Job</button>
+
+    </div>
+    {% if jobs %}
+    <div style="overflow-x:auto;">
+      <table class="ls-admin-table">
+        <thead><tr><th>Job Name</th><th>Status</th><th>Targets</th><th>Updated</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for job in jobs %}
+          <tr>
+            <td style="font-weight:800;color:#0f172a;">{{ job.name }}</td>
+            <td>{% if job.status == 'published' %}<span class="ls-live-badge"><span class="ls-live-dot"></span> LIVE</span>{% elif job.status == 'revoked' %}<span class="ls-draft-badge" style="background:#f1f5f9;color:#64748b;border-color:#cbd5e1;">REVOKED</span>{% else %}<span class="ls-draft-badge">DRAFT</span>{% endif %}<br><span class="ls-type-badge {{ 'eng' if (job.job_type or 'CRM')|upper == 'ENG' else '' }}">{{ (job.job_type or 'CRM')|upper }}</span></td>
+            <td>{{ job.targets_display or (job.targets|join(', ')) }}</td>
+            <td style="color:#64748b;">{{ job.updated_at or '-' }}</td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="ls-action-btn ls-action-edit" onclick="openJobInViewer('{{ job.id|e }}','{{ (job.targets[0] if job.targets else job.name)|e }}')"><i class="fas fa-pen"></i> Edit</button>
+                {% if job.status == 'published' and job.public_token %}
+                                <a href="{{ url_for('live_status_publish_bp.pdt_target_ext_status', target_name=(job.targets[0] if job.targets else job.name)) }}" target="_blank" class="ls-action-btn ls-action-view"><i class="fas fa-eye"></i> View</a>
+
+                <button type="button" class="ls-action-btn ls-action-revoke" data-revoke-job="{{ job.id }}" data-job-name="{{ job.name|e }}"><i class="fas fa-ban"></i> Revoke</button>
+                {% elif job.status != 'revoked' %}
+                <button type="button" class="ls-action-btn ls-action-del" data-delete-job="{{ job.id }}" data-job-name="{{ job.name|e }}"><i class="fas fa-trash"></i> Delete</button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="ls-empty" style="padding:40px 20px;"><i class="fas fa-inbox"></i><p>No jobs yet.</p></div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+    {% if can_edit %}
+  <!-- Add Job modal: Step 1 = BU, Step 2 = Target -->
+  <div class="aj-backdrop" id="ajBackdrop">
+    <div class="aj-modal">
+      <div class="aj-head">
+        <div class="aj-head-title"><i class="fas fa-plus-circle" style="color:#6366f1;"></i> Add Job</div>
+        <button class="aj-close" onclick="ajClose()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="aj-body">
+        <!-- Step 1: pick BU -->
+        <div id="ajStep1">
+          <div class="aj-step-label">Step 1 of 3 &mdash; Select Business Unit</div>
+          <div class="aj-list">
+            {% for row in target_options | groupby('bu_key') %}
+            <button class="aj-item" type="button"
+              data-bu-key="{{ row.grouper }}"
+              data-bu-name="{{ (row.list[0].bu_name) | e }}"
+              onclick="ajSelectBU(this)">
+              <div class="aj-item-icon"><i class="fas fa-microchip"></i></div>
+              <div>
+                <div class="aj-item-name">{{ row.list[0].bu_name }}</div>
+                <div class="aj-item-sub">{{ row.list | length }} target{{ 's' if row.list|length != 1 else '' }}</div>
+              </div>
+              <i class="fas fa-chevron-right aj-item-arrow"></i>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+            <!-- Step 2: pick Target -->
+    <div id="ajStep2" style="display:none;">
+      <button class="aj-back-btn" onclick="ajBackToBU()"><i class="fas fa-arrow-left"></i> Back to BUs</button>
+      <div class="aj-step-label" id="ajStep2Label">Step 2 of 3 &mdash; Select Target</div>
+      <div class="aj-list" id="ajTargetList"></div>
+    </div>
+    <!-- Step 3: set title -->
+    <div id="ajStep3" style="display:none;padding:8px 0;">
+      <button class="aj-back-btn" onclick="ajBackToTargets()"><i class="fas fa-arrow-left"></i> Back to Targets</button>
+      <div class="aj-step-label">Step 3 of 3 &mdash; Job title</div>
+      <input type="hidden" name="ajJobType" id="ajJobTypeHidden" value="CRM">
+      <div style="margin-top:12px;">
+        <label style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Job Title</label>
+        <input id="ajJobTitleInput" type="text" placeholder="e.g. Aldabra Live Status Q2" style="width:100%;margin-top:6px;padding:11px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;transition:border-color .15s;" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e2e8f0'" onkeydown="if(event.key==='Enter')ajSubmitJob()">
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">Leave blank to use the target name as the title.</div>
+      </div>
+      <button onclick="ajSubmitJob()" style="margin-top:18px;width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);border:none;color:#fff;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.35);transition:filter .15s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+        <i class="fas fa-rocket"></i> Create Job
+      </button>
+    </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>{# /ls-page #}
+
+<script>
+    function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+
+
+    var BU_TARGETS = {{ bu_targets_js | tojson }};
+
+  var level1      = document.getElementById('lsLevel1');
+  var level2      = document.getElementById('lsLevel2');
+  var level2Label = document.getElementById('lsLevel2Label');
+  var targetList  = document.getElementById('lsTargetList');
+  var breadcrumb  = document.getElementById('lsBreadcrumb');
+  var bcBack      = document.getElementById('lsBcBack');
+  var bcCur       = document.getElementById('lsBcCur');
+
+      var _currentTargetName = null, _currentJobId = null, _currentEditUrl = null;
+
+  function showTargets(btn) {
+    var buKey  = btn.getAttribute('data-bu');
+    var buName = btn.getAttribute('data-bu-name');
+    var targets = BU_TARGETS[buKey] || [];
+
+    targetList.innerHTML = '';
+    if (!targets.length) {
+      targetList.innerHTML = '<div class="ls-empty"><i class="fas fa-inbox"></i><p>No reports for this BU.</p></div>';
+    } else {
+      targets.forEach(function(t) {
+        var isPublished = t.status === 'published';
+        var pubDate = ((isPublished ? t.published_at : t.updated_at) || '').split('T')[0] || '\u2014';
+        var dateLabel = isPublished ? 'Published' : 'Updated';
+        var badge = isPublished
+          ? '<span class="ls-live-badge"><span class="ls-live-dot"></span> LIVE</span>'
+          : '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;"><i class="fas fa-pen" style="font-size:8px"></i> DRAFT</span>';
+
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'ls-row is-target';
+        if (!isPublished) { el.style.borderLeftColor = '#f59e0b'; el.style.opacity = '0.85'; }
+        el.setAttribute('data-target-name', t.name || '');
+        el.setAttribute('data-job-id', t.job_id || '');
+        el.setAttribute('data-status', t.status || '');
+        el.innerHTML =
+          '<div class="ls-row-icon"><i class="fas fa-' + (isPublished ? 'chart-line' : 'file-pen') + '"></i></div>' +
+          '<div class="ls-row-main">' +
+            '<div class="ls-row-name">' + esc(t.name || '').toUpperCase() + '</div>' +
+            '<div class="ls-row-sub">' +
+              '<span class="ls-type-badge ' + (t.job_type === 'ENG' ? 'eng' : '') + '">' + esc(t.job_type || 'CRM') + '</span>' +
+              '<span><i class="fas fa-cube" style="margin-right:4px;color:#94a3b8;"></i>Rows: <strong style="color:#334155;">' + (t.meta_count || 0) + '</strong></span>' +
+              '<span><i class="fas fa-calendar" style="margin-right:4px;color:#94a3b8;"></i>' + dateLabel + ': <strong style="color:#334155;">' + esc(pubDate) + '</strong>' + (isPublished ? ' by <strong style="color:#334155;">' + esc(t.published_by || '-') + '</strong>' : '') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ls-row-meta">' + badge + '</div>' +
+          '<i class="fas fa-chevron-right ls-row-arrow"></i>';
+
+        el.addEventListener('click', function() { openTargetViewer(t); });
+        targetList.appendChild(el);
+      });
+    }
+
+    level2Label.textContent = buName + ' \u2014 Targets';
+    bcCur.textContent = buName;
+    level1.style.display = 'none';
+    level2.style.display = '';
+    breadcrumb.style.display = 'flex';
+  }
+
+  function openTargetViewer(t) {
+    var viewer = document.getElementById('lsViewer');
+    var frame  = document.getElementById('lsViewerFrame');
+    var title  = document.getElementById('lsViewerTitle');
+    if (!viewer || !frame) return;
+
+    _currentTargetName = t.name || '';
+    _currentJobId      = t.job_id || '';
+
+    /* Always load the canonical per-target Live Status page. Editors get Current Report edit mode there. */
+    var viewUrl = t.target_url || ('/live_status_view/' + encodeURIComponent(t.bu_key || 'BU') + '/' + encodeURIComponent(t.name || ''));
+    _currentEditUrl = viewUrl;
+    frame.src = viewUrl;
+    try { history.pushState({liveStatusTarget:true}, '', viewUrl); } catch(_) {}
+    if (title) title.textContent = (t.name || '').toUpperCase();
+
+
+    /* Highlight active row */
+    document.querySelectorAll('.ls-row.active-target').forEach(function(r){ r.classList.remove('active-target'); });
+    event && event.currentTarget && event.currentTarget.classList && event.currentTarget.classList.add('active-target');
+
+    viewer.classList.add('open');
+    viewer.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function closeViewer() {
+    var viewer = document.getElementById('lsViewer');
+    var frame  = document.getElementById('lsViewerFrame');
+    if (viewer) viewer.classList.remove('open');
+    if (frame)  frame.src = '';
+    try { history.pushState(null, '', '/live_status_view'); } catch(_) {}
+    document.querySelectorAll('.ls-row.active-target').forEach(function(r){ r.classList.remove('active-target'); });
+    _currentTargetName = null; _currentJobId = null;
+  }
+
+
+  function showBUs() {
+    level2.style.display = 'none';
+    level1.style.display = '';
+    breadcrumb.style.display = 'none';
+  }
+
+  bcBack.addEventListener('click', showBUs);
+
+  // ── Add Job modal ──
+  var AJ_DATA = {}; // bu_key -> [{target, bu_name}]
+  {% if can_edit %}
+  {% for row in target_options %}
+  (function(){
+    var bk = {{ row.bu_key | tojson }};
+    var bn = {{ row.bu_name | tojson }};
+    var tg = {{ row.target | tojson }};
+    if(!AJ_DATA[bk]) AJ_DATA[bk] = [];
+    AJ_DATA[bk].push({target: tg, bu_name: bn});
+  })();
+  {% endfor %}
+  {% endif %}
+
+  var ajStep3     = document.getElementById('ajStep3');
+  var ajJobTitleInput = document.getElementById('ajJobTitleInput');
+  var _ajPendingTarget = null, _ajPendingBuName = null;
+  var ajBackdrop  = document.getElementById('ajBackdrop');
+  var ajStep1     = document.getElementById('ajStep1');
+  var ajStep2     = document.getElementById('ajStep2');
+  var ajStep2Lbl  = document.getElementById('ajStep2Label');
+  var ajTargetList= document.getElementById('ajTargetList');
+  var addJobBtn   = document.getElementById('addJobBtn');
+
+  if(addJobBtn){ addJobBtn.addEventListener('click', function(){ ajBackdrop && ajBackdrop.classList.add('open'); }); }
+  if(ajBackdrop){ ajBackdrop.addEventListener('click', function(e){ if(e.target===ajBackdrop) ajClose(); }); }
+
+    function ajClose(){
+    if(ajBackdrop) ajBackdrop.classList.remove('open');
+    _ajPendingTarget = null;
+    setTimeout(function(){ ajBackToBU(); if(ajStep3) ajStep3.style.display='none'; }, 200);
+  }
+  function ajSelectBU(btn){
+    var buKey  = btn.getAttribute('data-bu-key');
+    var buName = btn.getAttribute('data-bu-name');
+    var targets = AJ_DATA[buKey] || [];
+    ajTargetList.innerHTML = '';
+    targets.forEach(function(t){
+      var el = document.createElement('button');
+      el.className = 'aj-item';
+      el.type = 'button';
+      el.innerHTML =
+        '<div class="aj-item-icon"><i class="fas fa-chart-line"></i></div>'+
+        '<div><div class="aj-item-name">'+t.target.toUpperCase()+'</div>'+
+        '<div class="aj-item-sub">'+buName+' • choose CRM or ENG next</div></div>'+
+        '<i class="fas fa-arrow-right aj-item-arrow"></i>';
+      el.addEventListener('click', function(){ ajCreateJob(t.target, buName); });
+      ajTargetList.appendChild(el);
+    });
+    if(ajStep2Lbl) ajStep2Lbl.textContent = 'Step 2 of 3 — '+buName+' Targets';
+    ajStep1.style.display = 'none';
+    ajStep2.style.display = '';
+  }
+  function ajBackToBU(){
+    if(ajStep1) ajStep1.style.display = '';
+    if(ajStep2) ajStep2.style.display = 'none';
+  }
+    function ajBackToTargets(){
+    if(ajStep2) ajStep2.style.display = '';
+    if(ajStep3) ajStep3.style.display = 'none';
+  }
+  function ajCreateJob(targetKey, buName){
+    _ajPendingTarget = targetKey;
+    _ajPendingBuName = buName;
+    if(ajStep2) ajStep2.style.display = 'none';
+    if(ajStep3) ajStep3.style.display = '';
+    if(ajJobTitleInput){
+      ajJobTitleInput.value = targetKey + ' Live Status';
+      ajJobTitleInput.select();
+      setTimeout(function(){ ajJobTitleInput.focus(); }, 80);
+    }
+  }
+      async function ajSubmitJob(){
+    var targetKey = _ajPendingTarget;
+    if(!targetKey) return;
+    var title = (ajJobTitleInput ? ajJobTitleInput.value.trim() : '') || (targetKey + ' Live Status');
+        var typeEl = document.getElementById('ajJobTypeHidden');
+    var jobType = typeEl ? typeEl.value : 'CRM';
+    ajClose();
+
+    try{
+      var fd = new FormData();
+      fd.append('name', title);
+      fd.append('targets', targetKey);
+      fd.append('job_type', jobType);
+      var resp = await fetch('/live_status_view/new', {method:'POST', body:fd});
+      var data = await resp.json();
+      if(!data.ok){ alert('Failed to create job: ' + (data.error||'unknown error')); return; }
+
+      var editUrl = data.edit_url || ('/live_status_view/' + encodeURIComponent((_ajPendingBuName || 'TARGET').toUpperCase()) + '/' + encodeURIComponent(targetKey));
+      if(editUrl){
+        var viewer = document.getElementById('lsViewer');
+        var frame  = document.getElementById('lsViewerFrame');
+        var titleEl = document.getElementById('lsViewerTitle');
+        if(viewer && frame){
+          _currentEditUrl    = editUrl;
+          _currentTargetName = targetKey;
+          frame.src = editUrl;
+          try { history.pushState({liveStatusTarget:true}, '', editUrl); } catch(_) {}
+          if(titleEl) titleEl.textContent = targetKey.toUpperCase() + ' — Current Report';
+          viewer.classList.add('open');
+          viewer.scrollIntoView({behavior:'smooth', block:'start'});
+        } else {
+          window.location.href = editUrl;
+        }
+      }
+    }catch(e){
+      alert('Failed to create job: ' + e);
+    }
+  }
+      /* ── postMessage listener: iframe → landing page ── */
+  window.addEventListener('message', function(e){
+    if(!e.data || typeof e.data !== 'object') return;
+    var type = e.data.type;
+    var frame = document.getElementById('lsViewerFrame');
+    if(type === 'lsp_navigate' && e.data.url && frame){
+      frame.src = e.data.url;
+      var title = document.getElementById('lsViewerTitle');
+      if(title) title.textContent = (e.data.url.split('/').pop() || 'Report').toUpperCase();
+    }
+    if(type === 'lsp_close_viewer'){
+      closeViewer();
+    }
+  });
+
+    /* ── Auto-open viewer if redirected from direct edit/view URL ── */
+  (function(){
+    var params = new URLSearchParams(window.location.search);
+    var openJob    = params.get('open_job');
+    var openTarget = params.get('open_target');
+    if(openJob || openTarget){
+      var targetUrl = openTarget ? ('/live_status_view/target/' + encodeURIComponent(openTarget)) : ('/live_status_view/' + encodeURIComponent(openJob));
+      var viewer  = document.getElementById('lsViewer');
+      var frame   = document.getElementById('lsViewerFrame');
+      var titleEl = document.getElementById('lsViewerTitle');
+      if(viewer && frame){
+        frame.src = targetUrl;
+        if(titleEl) titleEl.textContent = (openTarget || openJob).toUpperCase() + ' — Current Report';
+        viewer.classList.add('open');
+        history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  })();
+
+  function openJobInViewer(jobId, targetName) {
+    var viewer = document.getElementById('lsViewer');
+    var frame  = document.getElementById('lsViewerFrame');
+    var title  = document.getElementById('lsViewerTitle');
+    if (!viewer || !frame) return;
+    _currentJobId      = jobId;
+    _currentTargetName = targetName;
+    _currentEditUrl    = '/live_status_view/target/' + encodeURIComponent(targetName || jobId);
+    frame.src = _currentEditUrl;
+    if (title) title.textContent = (targetName || '').toUpperCase() + ' — Current Report';
+    viewer.classList.add('open');
+    viewer.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  var adminBtn   = document.getElementById('adminToggleBtn');
+  var adminPanel = document.getElementById('adminPanel');
+  if (adminBtn && adminPanel) {
+    adminBtn.addEventListener('click', function() {
+      var open = adminPanel.style.display !== 'none';
+      adminPanel.style.display = open ? 'none' : 'block';
+      adminBtn.innerHTML = open
+        ? '<i class="fas fa-cog"></i> Manage Jobs'
+        : '<i class="fas fa-times"></i> Close';
+    });
+  }
+
+    function lsRevokeRowsFromJob(job) {
+    function calcMtbf(hours, crashes) {
+      var h = parseFloat(hours || 0), c = parseFloat(crashes || 0);
+      return h > 0 && c > 0 ? (Math.round((h / c) * 10) / 10).toFixed(1) : '';
+    }
+    return ((job && (job.published_rows || job.draft_rows)) || [])
+      .filter(function(r) { return String(r.run_status || '').toLowerCase() === 'running'; })
+      .map(function(r) {
+        var builds = Array.isArray(r.merged_builds) && r.merged_builds.length ? r.merged_builds : [r.build_full || r.display_build || r.meta_id || ''];
+        return {
+          meta_id: r.meta_id || '',
+          builds: builds.filter(Boolean).join('\n'),
+          week: r.week || r.first_submitted || '',
+          hours: r.display_hours || r.hours || '',
+          crashes: r.crashes || '',
+          mtbf: r.display_mtbf || r.mtbf || calcMtbf(r.hours, r.crashes),
+          reduction_percent: r.reduction_percent || ''
+        };
+      });
+  }
+  function lsOpenRevokeExcelPopup(jobId, rows) {
+    var modal = document.getElementById('lsRevExcelModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'lsRevExcelModal';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:5000;background:rgba(15,23,42,.55);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:24px;';
+      modal.innerHTML = '<div style="width:min(1040px,96vw);max-height:88vh;background:#fff;border-radius:18px;box-shadow:0 28px 90px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden;"><div style="padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;font-size:15px;font-weight:950;"><i class="fas fa-file-excel"></i> Save Report to MTBF Excel Before Revoke</div><div style="padding:12px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;font-weight:700;">Edit values if needed. Multiple builds are saved in one Excel cell using line breaks.</div><div style="overflow:auto;padding:14px 20px;flex:1;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;"><thead><tr style="background:#eef2ff;color:#3730a3;"><th>Meta-ID</th><th>Builds</th><th>Hours</th><th>Crashes</th><th>MTBF</th></tr></thead><tbody id="lsRevExcelRows"></tbody></table></div><div style="display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;"><span id="lsRevExcelStatus" style="margin-right:auto;font-size:12px;font-weight:800;color:#64748b;"></span><button id="lsRevExcelCancel" class="ls-btn ls-btn-ghost">Cancel Revoke</button><button id="lsRevExcelSkip" class="ls-btn ls-btn-ghost">Skip Excel Save</button><button id="lsRevExcelSave" class="ls-btn ls-btn-admin"><i class="fas fa-file-excel"></i> Save to Excel & Continue</button></div></div>';
+      document.body.appendChild(modal);
+      modal.querySelectorAll('th').forEach(function(th){ th.style.cssText='padding:9px 10px;text-align:left;font-size:10px;font-weight:950;text-transform:uppercase;border-bottom:1px solid #c7d2fe;'; });
+    }
+    var tb = document.getElementById('lsRevExcelRows');
+    tb.innerHTML = rows.length ? rows.map(function(r, i) {
+      return '<tr data-row="'+i+'" style="border-bottom:1px solid #f1f5f9;"><td style="padding:8px 10px;vertical-align:top;"><input data-field="meta_id" value="'+esc(r.meta_id)+'" style="width:150px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;font-weight:900;color:#1e3a8a;"></td><td style="padding:8px 10px;vertical-align:top;"><textarea data-field="builds" rows="'+Math.max(2, String(r.builds || '').split('\n').length)+'" style="width:100%;min-width:420px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;font-family:inherit;font-size:12px;line-height:1.35;resize:vertical;">'+esc(r.builds)+'</textarea></td><td style="padding:8px 10px;vertical-align:top;"><input data-field="hours" value="'+esc(r.hours)+'" style="width:100px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;text-align:right;font-weight:800;"></td><td style="padding:8px 10px;vertical-align:top;"><input data-field="crashes" value="'+esc(r.crashes)+'" style="width:100px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;text-align:right;font-weight:800;color:#dc2626;"></td><td style="padding:8px 10px;vertical-align:top;"><input data-field="mtbf" value="'+esc(r.mtbf)+'" style="width:100px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;text-align:right;font-weight:900;color:#6366f1;"></td></tr>';
+    }).join('') : '<tr><td colspan="5" style="padding:28px;text-align:center;color:#94a3b8;">No running rows available.</td></tr>';
+    modal.style.display = 'flex';
+    return new Promise(function(resolve) {
+      function close(v) { modal.style.display = 'none'; resolve(v); }
+      document.getElementById('lsRevExcelCancel').onclick = function(){ close(null); };
+      document.getElementById('lsRevExcelSkip').onclick = function(){ close(false); };
+      document.getElementById('lsRevExcelSave').onclick = function() {
+        var edited = [];
+        tb.querySelectorAll('tr[data-row]').forEach(function(tr) {
+          var base = rows[Number(tr.getAttribute('data-row'))] || {};
+          var row = {week: base.week || ''};
+          tr.querySelectorAll('[data-field]').forEach(function(el) { row[el.getAttribute('data-field')] = el.value; });
+          if (row.meta_id || row.builds) edited.push(row);
+        });
+        document.getElementById('lsRevExcelStatus').textContent = 'Saving to MTBF Excel...';
+        fetch('/api/live_status/jobs/' + encodeURIComponent(jobId) + '/mtbf_revoke_rows', {
+          method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rows: edited})
+        }).then(function(r) { return r.json(); }).then(function(d) {
+          if (d.ok) close(true);
+          else { alert('Excel save failed: ' + (d.error || 'unknown')); document.getElementById('lsRevExcelStatus').textContent = d.error || 'Excel save failed'; }
+        }).catch(function() { alert('Network error while saving Excel'); });
+      };
+    });
+  }
+
+  // Revoke / Delete
+  document.addEventListener('click', async function(e) {
+    var revokeBtn = e.target.closest('[data-revoke-job]');
+    if (revokeBtn) {
+      var rid = revokeBtn.getAttribute('data-revoke-job');
+      var rnm = revokeBtn.getAttribute('data-job-name') || rid;
+            var reason = prompt('Revoke published job "' + rnm + '"?\n\nReason:') || '';
+      if (confirm('Do you want to save this report to the MTBF Excel sheet before revoking?')) {
+        var jobData = await fetch('/api/live_status/jobs/' + encodeURIComponent(rid)).then(function(r) { return r.json(); }).catch(function() { return {}; });
+        var rows = lsRevokeRowsFromJob(jobData.job || {});
+        var savedChoice = await lsOpenRevokeExcelPopup(rid, rows);
+        if (savedChoice === null) return;
+      }
+      if (!confirm('This will close the published viewer and allow a new job for this target. Continue?')) return;
+      revokeBtn.disabled = true;
+      fetch('/api/live_status/jobs/' + encodeURIComponent(rid) + '/revoke', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({reason: reason})
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload(); else { alert('Revoke failed: ' + (d.error || 'unknown')); revokeBtn.disabled = false; }
+      }).catch(function() { alert('Network error'); revokeBtn.disabled = false; });
+      return;
+    }
+    var btn = e.target.closest('[data-delete-job]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-delete-job');
+    var nm = btn.getAttribute('data-job-name') || id;
+    if (!confirm('Delete job "' + nm + '"?\nThis cannot be undone.')) return;
+    btn.disabled = true;
+    fetch('/api/live_status/jobs/' + encodeURIComponent(id) + '/delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) { location.reload(); }
+      else { alert('Delete failed: ' + (d.error || 'unknown')); btn.disabled = false; }
+    })
+    .catch(function() { alert('Network error'); btn.disabled = false; });
+  });
+</script>
+</body>
+</html>

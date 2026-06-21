@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Target Delta Drilldown</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#f8fbff 0,#eef3ff 50%,#f8f7ff 100%);color:#0f172a;min-height:100vh;}
+
+    /* Header */
+    .drill-header{padding:20px 28px;background:linear-gradient(135deg,#08111f 0%,#102a68 44%,#5521a8 78%,#0f9fbc 120%);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+    .drill-header-left{display:flex;flex-direction:column;gap:4px;}
+    .drill-back{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;transition:.15s;}
+    .drill-back:hover{background:rgba(255,255,255,.25);}
+    .drill-title{font-size:22px;font-weight:900;letter-spacing:-.03em;}
+    .drill-sub{font-size:12px;opacity:.8;}
+    .drill-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+    /* Toolbar */
+    .drill-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 28px;background:#fff;border-bottom:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.05);}
+    .drill-search{height:36px;padding:0 14px;border-radius:10px;border:1px solid #d1d5db;font-size:12px;color:#374151;outline:none;min-width:260px;flex:1;max-width:400px;}
+    .drill-search:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+    .drill-select{height:36px;padding:0 12px;border-radius:10px;border:1px solid #d1d5db;font-size:12px;color:#374151;background:#fff;outline:none;cursor:pointer;}
+    .status-filter{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 8px;border:1px solid #d1d5db;border-radius:12px;background:#fff;min-height:36px;max-width:680px;}
+    .status-filter-title{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-right:2px;}
+    .status-check{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;border:1px solid #dbe3ef;background:linear-gradient(135deg,#f8fafc,#eef4ff);font-size:10px;font-weight:800;color:#334155;cursor:pointer;white-space:nowrap;}
+    .status-check input{width:13px;height:13px;margin:0;accent-color:#6366f1;}
+    .status-check:has(input:checked){background:#eef2ff;border-color:#a5b4fc;color:#4338ca;}
+    .status-filter-btn{height:26px;padding:0 9px;border-radius:999px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:900;cursor:pointer;}
+    .drill-count{font-size:12px;font-weight:700;color:#6366f1;background:#eef2ff;padding:4px 12px;border-radius:999px;border:1px solid #c7d2fe;white-space:nowrap;}
+
+    /* Copy btn */
+    .copy-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:10px;border:1px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s;}
+    .copy-btn:hover{background:linear-gradient(135deg,#e0e7ff,#c7d2fe);}
+
+    /* Table */
+    .drill-wrap{padding:20px 28px;}
+    .tbl-container{background:#fff;border-radius:18px;border:1px solid rgba(148,163,184,.3);box-shadow:0 12px 32px rgba(15,23,42,.09);overflow:hidden;}
+    .tbl-scroll{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    thead tr{background:linear-gradient(90deg,#1e3a5f,#2563eb);}
+    th{padding:10px 13px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#f0f9ff;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08);}
+    th:last-child{border-right:none;}
+    th.sortable{cursor:pointer;user-select:none;}
+    th.sortable:hover{background:rgba(255,255,255,.1);}
+    td{padding:9px 13px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#374151;}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:#f0f4ff;}
+    tr:nth-child(even) td{background:#fafbff;}
+    tr:nth-child(even):hover td{background:#eef2ff;}
+
+    /* Sticky cols */
+    .col-num{width:38px;min-width:38px;text-align:center;color:#94a3b8;font-size:11px;}
+    .col-cr{min-width:90px;white-space:nowrap;}
+    .col-title{min-width:220px;max-width:340px;white-space:normal;word-break:break-word;line-height:1.45;}
+    .col-area{min-width:80px;}
+    .col-sub{min-width:100px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .col-func{min-width:120px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .col-status{min-width:150px;}
+    .col-age{min-width:60px;text-align:center;}
+    .col-occ{min-width:50px;text-align:center;}
+    .col-jira{min-width:50px;text-align:center;}
+    .col-reg{min-width:90px;white-space:nowrap;}
+    .col-targets{min-width:150px;max-width:260px;white-space:normal;word-break:break-word;font-size:10px;color:#64748b;}
+    .col-type{min-width:80px;}
+
+    /* Badges */
+    .cr-link{font-weight:800;color:#4f46e5;font-size:12px;text-decoration:none;padding:2px 8px;border-radius:6px;background:#eef2ff;}
+    .cr-link:hover{background:#c7d2fe;}
+    .type-common{font-size:10px;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:800;}
+    .type-excl{font-size:10px;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;}
+
+    /* Empty */
+    .drill-empty{text-align:center;padding:60px;color:#94a3b8;font-size:13px;}
+
+    /* Pagination */
+    .drill-pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;flex-wrap:wrap;gap:8px;background:#fafbff;}
+    .page-btn{padding:6px 18px;border-radius:10px;border:1px solid #d1d5db;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#374151;}
+    .page-btn:hover{background:#eef2ff;border-color:#6366f1;color:#4f46e5;}
+    .page-btn:disabled{opacity:.35;cursor:default;}
+  </style>
+</head>
+<body>
+
+<div class="drill-header">
+  <div class="drill-header-left">
+    <a class="drill-back" onclick="window.close()" href="#">&#8592; Close</a>
+    <div class="drill-title" id="pageTitle">Target Delta Drilldown</div>
+    <div class="drill-sub" id="pageSub"></div>
+  </div>
+  <div class="drill-actions">
+    <button class="copy-btn" onclick="copyTable()">&#128203; Copy Table</button>
+  </div>
+</div>
+
+<div class="drill-toolbar">
+  <input class="drill-search" id="searchBox" placeholder="Search CR, title, area, subsystem..." oninput="applyFilter()">
+  <div class="status-filter" id="statusFilterBox">
+    <span class="status-filter-title">CR Status</span>
+    <span class="muted">Loading...</span>
+  </div>
+  <select class="drill-select" id="typeFilter" onchange="applyFilter()">
+    <option value="">Common + Exclusive</option>
+    <option value="Common">Common only</option>
+    <option value="Exclusive">Exclusive only</option>
+  </select>
+  <span class="drill-count" id="countBadge">0 CRs</span>
+</div>
+
+<div class="drill-wrap">
+  <div class="tbl-container">
+    <div class="tbl-scroll">
+      <table id="drillTable">
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            <th class="col-cr sortable" onclick="sortBy('cr')">CR <span id="si-cr"></span></th>
+            <th class="col-title">Title</th>
+            <th class="col-area sortable" onclick="sortBy('area')">Area <span id="si-area"></span></th>
+            <th class="col-sub">Subsystem</th>
+            <th class="col-func">Functionality</th>
+            <th class="col-status sortable" onclick="sortBy('status')">Status <span id="si-status"></span></th>
+            <th class="col-age sortable" onclick="sortBy('age')">Age <span id="si-age"></span></th>
+            <th class="col-occ sortable" onclick="sortBy('occurrence')">Occ <span id="si-occurrence">&#9660;</span></th>
+            <th class="col-jira sortable" onclick="sortBy('jiras')">JIRAs <span id="si-jiras"></span></th>
+            <th class="col-reg">Regression CR</th>
+            <th class="col-targets">Targets</th>
+            <th class="col-type">Type</th>
+          </tr>
+        </thead>
+        <tbody id="drillBody">
+          <tr><td colspan="13" class="drill-empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="drill-pagination">
+      <span id="pageInfo">-</span>
+      <div style="display:flex;gap:8px;">
+        <button class="page-btn" id="prevBtn" onclick="changePage(-1)" disabled>&#8592; Prev</button>
+        <button class="page-btn" id="nextBtn" onclick="changePage(1)">Next &#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PAGE_SIZE = 100;
+let allRows = [], filtered = [], currentPage = 1;
+let sortCol = 'occurrence', sortAsc = false;
+
+function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function num(v){ return Number(v||0).toLocaleString(); }
+
+const STATUS_COLORS = {
+  open:{bg:'#dbeafe',color:'#1d4ed8',border:'#93c5fd'},
+  analysis:{bg:'#ede9fe',color:'#6d28d9',border:'#c4b5fd'},
+  built:{bg:'#dcfce7',color:'#15803d',border:'#86efac'},
+  fix:{bg:'#d1fae5',color:'#065f46',border:'#6ee7b7'},
+  ready:{bg:'#ecfdf5',color:'#047857',border:'#a7f3d0'},
+  closed:{bg:'#f1f5f9',color:'#475569',border:'#cbd5e1'},
+  withdrawn:{bg:'#fef3c7',color:'#92400e',border:'#fcd34d'},
+  cannotduplicate:{bg:'#fef9c3',color:'#713f12',border:'#fde047'},
+  nosir:{bg:'#fff7ed',color:'#c2410c',border:'#fdba74'},
+  notapplicable:{bg:'#f8fafc',color:'#64748b',border:'#e2e8f0'},
+  obsolete:{bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},
+  postponed:{bg:'#fff1f2',color:'#be123c',border:'#fecdd3'},
+};
+
+function statusBadge(s){
+  if(!s) return '<span style="color:#94a3b8;">—</span>';
+  const parts = String(s).split(',').map(x=>x.trim()).filter(Boolean);
+  return parts.map(part=>{
+    const m = part.match(/^([^(]+)(?:\((\d+)\))?$/);
+    const label = m ? m[1].trim() : part;
+    const count = m && m[2] ? ` ${m[2]}` : '';
+    const key = label.toLowerCase().replace(/[^a-z]/g,'');
+    const c = STATUS_COLORS[key] || {bg:'#f1f5f9',color:'#334155',border:'#cbd5e1'};
+    return `<span style="display:inline-flex;margin:1px 2px;padding:2px 9px;border-radius:999px;background:${c.bg};color:${c.color};border:1px solid ${c.border};font-size:10px;font-weight:800;white-space:nowrap;">${esc(label)}${count}</span>`;
+  }).join('');
+}
+
+function ageBadge(age){
+  const a = Number(age||0);
+  if(!a) return '<span style="color:#94a3b8;">—</span>';
+  let bg='#dcfce7',color='#15803d',border='#86efac';
+  if(a>=40){bg='#fee2e2';color='#b91c1c';border='#fca5a5';}
+  else if(a>=20){bg='#fef3c7';color='#92400e';border='#fcd34d';}
+  else if(a>=5){bg='#fff7ed';color='#c2410c';border='#fdba74';}
+  return `<span style="display:inline-flex;padding:2px 8px;border-radius:999px;background:${bg};color:${color};border:1px solid ${border};font-size:10px;font-weight:800;">${a}d</span>`;
+}
+
+function sortBy(col){
+  if(sortCol===col){ sortAsc=!sortAsc; }
+  else { sortCol=col; sortAsc=(col!=='occurrence'&&col!=='age'&&col!=='jiras'); }
+  document.querySelectorAll('[id^="si-"]').forEach(el=>el.innerHTML='');
+  const si = document.getElementById('si-'+col);
+  if(si) si.innerHTML = sortAsc ? '&#9650;' : '&#9660;';
+  applySort(); currentPage=1; render();
+}
+
+function applySort(){
+  const numCols = ['age','occurrence','jiras'];
+  filtered.sort((a,b)=>{
+    let av=a[sortCol]||'', bv=b[sortCol]||'';
+    if(numCols.includes(sortCol)){ av=Number(av)||0; bv=Number(bv)||0; return sortAsc?av-bv:bv-av; }
+    av=String(av).toLowerCase(); bv=String(bv).toLowerCase();
+    return sortAsc?av.localeCompare(bv):bv.localeCompare(av);
+  });
+}
+
+function statusLabels(raw){
+  return String(raw||'').split(',').map(part=>{
+    const m = part.trim().match(/^([^(]+)(?:\((\d+)\))?$/);
+    return (m ? m[1] : part).trim();
+  }).filter(Boolean);
+}
+
+function selectedStatuses(){
+  return new Set(Array.from(document.querySelectorAll('.statusFilterCheck:checked')).map(cb=>cb.value));
+}
+
+function setAllStatusFilters(checked){
+  document.querySelectorAll('.statusFilterCheck').forEach(cb=>cb.checked=checked);
+  applyFilter();
+}
+
+function applyFilter(){
+  const q     = (document.getElementById('searchBox').value||'').toLowerCase();
+  const sts   = selectedStatuses();
+  const statusBoxes = document.querySelectorAll('.statusFilterCheck');
+  const tp    = document.getElementById('typeFilter').value;
+  filtered = allRows.filter(r=>{
+    if(statusBoxes.length && !sts.size) return false;
+    if(sts.size && !statusLabels(r.status).some(s=>sts.has(s))) return false;
+    if(tp && r.type !== tp)   return false;
+    if(q){
+      const text = [r.cr,r.title,r.area,r.subsystem,r.functionality,r.status,r.regression_cr,r.target_source].join(' ').toLowerCase();
+      if(!text.includes(q)) return false;
+    }
+    return true;
+  });
+  applySort(); currentPage=1; render();
+}
+
+function render(){
+  const tbody = document.getElementById('drillBody');
+  const total = filtered.length;
+  const pages = Math.ceil(total/PAGE_SIZE)||1;
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page  = filtered.slice(start, start+PAGE_SIZE);
+
+  document.getElementById('countBadge').textContent = total + ' CRs';
+  document.getElementById('pageInfo').textContent = total
+    ? `Showing ${start+1}–${Math.min(start+PAGE_SIZE,total)} of ${total} CRs  (page ${currentPage}/${pages})`
+    : '0 results';
+  document.getElementById('prevBtn').disabled = currentPage<=1;
+  document.getElementById('nextBtn').disabled = currentPage>=pages;
+
+  if(!page.length){
+    tbody.innerHTML = '<tr><td colspan="13" class="drill-empty">No CRs match the current filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = page.map((r,i)=>{
+    const crNum = String(r.cr||'').replace(/^CR/i,'');
+    const crLink = crNum ? `https://orbit/cr/${crNum}` : '#';
+    const regNum = String(r.regression_cr || '').replace(/^CR/i,'');
+    const regHtml = regNum ? '<a href="https://orbit/cr/' + esc(regNum) + '" class="cr-link" target="_blank">CR' + esc(regNum) + '</a>' : '<span style="color:#94a3b8;">&mdash;</span>';
+    return `<tr>
+      <td class="col-num">${start+i+1}</td>
+      <td class="col-cr"><a href="${crLink}" class="cr-link" target="_blank">CR${esc(crNum)}</a></td>
+      <td class="col-title" title="${esc(r.title)}">${esc(r.title)||'—'}</td>
+      <td class="col-area"><span style="display:inline-block;padding:2px 7px;border-radius:6px;background:#f0f4ff;color:#4f46e5;font-size:10px;font-weight:700;">${esc(r.area)||'—'}</span></td>
+      <td class="col-sub" title="${esc(r.subsystem)}">${esc(r.subsystem)||'—'}</td>
+      <td class="col-func" title="${esc(r.functionality)}">${esc(r.functionality)||'—'}</td>
+      <td class="col-status">${statusBadge(r.status)}</td>
+      <td class="col-age">${ageBadge(r.age)}</td>
+      <td class="col-occ" style="text-align:center;font-weight:700;">${num(r.occurrence)||'—'}</td>
+      <td class="col-jira" style="text-align:center;font-weight:700;">${num(r.jiras)||'—'}</td>
+      <td class="col-reg">${regHtml}</td>
+      <td class="col-targets">${esc(r.target_source || (r.targets||[]).join(', ')) || '—'}</td>
+      <td class="col-type"><span class="${r.type==='Common'?'type-common':'type-excl'}">${esc(r.type)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function changePage(dir){
+  const pages = Math.ceil(filtered.length/PAGE_SIZE)||1;
+  currentPage = Math.max(1, Math.min(pages, currentPage+dir));
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function copyTable(){
+  const btn = document.querySelector('.copy-btn');
+  const old = btn.innerHTML;
+  btn.innerHTML = 'Capturing...';
+  try {
+    if(typeof html2canvas === 'undefined'){
+      await new Promise((res,rej)=>{
+        const sc=document.createElement('script');
+        sc.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        sc.onload=res; sc.onerror=rej;
+        document.head.appendChild(sc);
+      });
+    }
+    const target = document.querySelector('.tbl-container');
+    const canvas = await html2canvas(target,{scale:3,useCORS:true,backgroundColor:'#ffffff',logging:false});
+    const dataUrl = canvas.toDataURL('image/png');
+    if(location.protocol==='https:' && navigator.clipboard && window.ClipboardItem){
+      canvas.toBlob(async blob=>{
+        try{
+          await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+          btn.innerHTML='&#10003; Copied!'; setTimeout(()=>btn.innerHTML=old,1400);
+        }catch(e){ execCopy(dataUrl,btn,old); }
+      },'image/png');
+    } else { execCopy(dataUrl,btn,old); }
+  }catch(e){ btn.innerHTML=old; }
+}
+
+function execCopy(dataUrl,btn,old){
+  const img=document.createElement('img'); img.src=dataUrl;
+  img.style.display='block'; img.style.maxWidth='none'; img.style.width='auto'; img.style.height='auto';
+  const div=document.createElement('div');
+  div.contentEditable='true';
+  div.style.cssText='position:fixed;top:-100000px;left:0;opacity:0.01;pointer-events:none;overflow:visible;background:#fff;';
+  div.appendChild(img); document.body.appendChild(div);
+  try{
+    const r=document.createRange(); r.selectNodeContents(div);
+    const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    document.execCommand('copy'); s.removeAllRanges();
+    btn.innerHTML='&#10003; Copied!'; setTimeout(()=>btn.innerHTML=old,1400);
+  }catch(e){ btn.innerHTML=old; }
+  finally{ document.body.removeChild(div); }
+}
+
+// Load data from storage
+(function init(){
+  let payload;
+  const params = new URLSearchParams(window.location.search);
+  const drilldownKey = params.get('key') || 'cr_drilldown';
+  if(window.opener && window.opener.__CR_DRILLDOWN_TRANSFER__ && window.opener.__CR_DRILLDOWN_TRANSFER__[drilldownKey]){
+    payload = window.opener.__CR_DRILLDOWN_TRANSFER__[drilldownKey];
+  }
+  if(!payload){ try { payload = JSON.parse(sessionStorage.getItem(drilldownKey)||localStorage.getItem(drilldownKey)||'null'); } catch(e){} }
+  if(!payload){
+    document.getElementById('drillBody').innerHTML='<tr><td colspan="13" class="drill-empty">No data. Please open this page from Target Delta Studio.</td></tr>';
+    return;
+  }
+
+  const { area, entityLabel, dimKey, regressionFilter, rows } = payload;
+  const regLabel = regressionFilter === 'yes' ? 'Regression = Yes' : regressionFilter === 'no' ? 'Regression = No' : 'Regression = All';
+  document.getElementById('pageTitle').textContent = `${entityLabel} — ${area}`;
+  document.getElementById('pageSub').textContent   = `${rows.length} CRs · ${dimKey.replace('_',' ')} drilldown · ${regLabel}`;
+  document.title = `${entityLabel} – ${area} | Target Delta Drilldown`;
+
+  allRows = rows;
+
+  // Populate CR status checkbox filters
+  const statuses = [...new Set(rows.flatMap(r=>statusLabels(r.status)))].filter(Boolean).sort();
+  const statusBox = document.getElementById('statusFilterBox');
+  statusBox.innerHTML = '<span class="status-filter-title">CR Status</span>'
+    + statuses.map(s=>`<label class="status-check"><input type="checkbox" class="statusFilterCheck" value="${esc(s)}" checked onchange="applyFilter()"> ${esc(s)}</label>`).join('')
+    + '<button type="button" class="status-filter-btn" onclick="setAllStatusFilters(true)">All</button>'
+    + '<button type="button" class="status-filter-btn" onclick="setAllStatusFilters(false)">None</button>';
+
+  filtered = allRows.slice();
+  applySort();
+  render();
+
+  try {
+    sessionStorage.removeItem(drilldownKey);
+    localStorage.removeItem(drilldownKey);
+    if(window.opener && window.opener.__CR_DRILLDOWN_TRANSFER__) delete window.opener.__CR_DRILLDOWN_TRANSFER__[drilldownKey];
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>

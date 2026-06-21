@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>📊 Admin Chatbot Analytics</h2>
+
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Total Queries</h6>
+                    <h3>{{ summary.total_queries or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Unique Users</h6>
+                    <h3>{{ summary.unique_users or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Success</h6>
+                    <h3>{{ summary.success_count or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Failure</h6>
+                    <h3>{{ summary.failure_count or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dailyQueriesChart" style="height: 400px; margin-top: 30px;"></div>
+    <div id="dailyUsersChart" style="height: 400px; margin-top: 30px;"></div>
+    <div id="weeklyChart" style="height: 400px; margin-top: 30px;"></div>
+    <div id="monthlyChart" style="height: 400px; margin-top: 30px;"></div>
+    <div id="topUsersChart" style="height: 400px; margin-top: 30px;"></div>
+    <div id="topTargetsChart" style="height: 400px; margin-top: 30px;"></div>
+
+    <hr class="my-4">
+
+    <h4>Recent Failures</h4>
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Target</th>
+                    <th>Error</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in recent_failures %}
+                <tr>
+                    <td>{{ row.user_id }}</td>
+                    <td>{{ row.target_name or '-' }}</td>
+                    <td>{{ row.error_message or '-' }}</td>
+                    <td>{{ row.created_at }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No failures found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script>
+Highcharts.chart('dailyQueriesChart', {
+    chart: { type: 'line' },
+    title: { text: 'Daily Chatbot Queries' },
+    xAxis: { categories: {{ daily_categories|tojson }} },
+    yAxis: { title: { text: 'Queries' } },
+    series: [
+        { name: 'Total', data: {{ daily_total|tojson }} },
+        { name: 'Success', data: {{ daily_success|tojson }} },
+        { name: 'Failure', data: {{ daily_failure|tojson }} }
+    ]
+});
+
+Highcharts.chart('dailyUsersChart', {
+    chart: { type: 'column' },
+    title: { text: 'Daily Unique Users' },
+    xAxis: { categories: {{ daily_categories|tojson }} },
+    yAxis: { title: { text: 'Users' } },
+    series: [
+        { name: 'Unique Users', data: {{ daily_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('weeklyChart', {
+    chart: { type: 'line' },
+    title: { text: 'Weekly Chatbot Usage' },
+    xAxis: { categories: {{ weekly_categories|tojson }} },
+    yAxis: { title: { text: 'Count' } },
+    series: [
+        { name: 'Queries', data: {{ weekly_total|tojson }} },
+        { name: 'Users', data: {{ weekly_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('monthlyChart', {
+    chart: { type: 'line' },
+    title: { text: 'Monthly Chatbot Usage' },
+    xAxis: { categories: {{ monthly_categories|tojson }} },
+    yAxis: { title: { text: 'Count' } },
+    series: [
+        { name: 'Queries', data: {{ monthly_total|tojson }} },
+        { name: 'Users', data: {{ monthly_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('topUsersChart', {
+    chart: { type: 'bar' },
+    title: { text: 'Top Chatbot Users' },
+    xAxis: { categories: {{ top_user_categories|tojson }} },
+    yAxis: { title: { text: 'Queries' } },
+    series: [
+        { name: 'Queries', data: {{ top_user_values|tojson }} }
+    ]
+});
+
+Highcharts.chart('topTargetsChart', {
+    chart: { type: 'bar' },
+    title: { text: 'Top Targets Used in Chatbot' },
+    xAxis: { categories: {{ top_target_categories|tojson }} },
+    yAxis: { title: { text: 'Queries' } },
+    series: [
+        { name: 'Queries', data: {{ top_target_values|tojson }} }
+    ]
+});
+</script>
+{% endblock %}

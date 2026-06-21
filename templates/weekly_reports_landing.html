@@ -1,0 +1,1030 @@
+﻿{% extends "bu_shell_layout.html" %}
+{% block title %}Weekly QIPL Report — PDT Buddy{% endblock %}
+
+{% block shell_inner_content %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   WEEKLY QIPL REPORT  —  layout & card styles
+═══════════════════════════════════════════════════════════════════ */
+.wqr-page { padding: 14px 16px 32px; max-width: 100%; }
+
+/* ── top bar ── */
+.wqr-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 12px 18px; margin-bottom: 14px;
+  box-shadow: 0 2px 10px rgba(15,23,42,.05);
+}
+.wqr-topbar-left  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wqr-topbar-title { font-size: 15px; font-weight: 900; color: #0f172a; }
+.wqr-topbar-sub   { font-size: 11px; color: #64748b; font-weight: 700; }
+
+/* week dropdown */
+.wqr-week-select {
+  height: 36px; padding: 0 12px; border-radius: 10px;
+  border: 1.5px solid #c7d2fe; background: #eef2ff;
+  font-size: 12px; font-weight: 800; color: #3730a3;
+  cursor: pointer; min-width: 220px;
+}
+.wqr-week-select:focus { outline: none; border-color: #6366f1; }
+
+/* upload toggle btn */
+.wqr-upload-btn {
+  height: 36px; padding: 0 16px; border-radius: 10px;
+  border: 1.5px solid #e2e8f0; background: #fff;
+  font-size: 12px; font-weight: 800; color: #475569;
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: background .12s, border-color .12s;
+}
+.wqr-upload-btn:hover { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+
+/* flash messages */
+.wqr-flash { padding: 10px 16px; border-radius: 10px; font-size: 12px;
+  font-weight: 700; margin-bottom: 12px; }
+.wqr-flash.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.wqr-flash.danger  { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.wqr-flash.error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.wqr-flash.warning { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
+
+/* ── upload panel ── */
+.wqr-upload-panel {
+  display: none; background: #f8fafc; border: 1.5px dashed #c7d2fe;
+  border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+}
+.wqr-upload-panel.open { display: block; }
+.wqr-upload-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.wqr-upload-field { display: flex; flex-direction: column; gap: 4px; }
+.wqr-upload-field label { font-size: 11px; font-weight: 800; color: #475569;
+  text-transform: uppercase; letter-spacing: .05em; }
+.wqr-upload-field select,
+.wqr-upload-field input[type=file] {
+  height: 34px; padding: 0 10px; border-radius: 9px;
+  border: 1.5px solid #e2e8f0; background: #fff;
+  font-size: 12px; font-weight: 700; color: #334155;
+  min-width: 240px;
+}
+.wqr-upload-field input[type=file] { padding: 4px 8px; }
+.wqr-upload-submit {
+  height: 34px; padding: 0 20px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg,#4f46e5,#6366f1);
+  color: #fff; font-size: 12px; font-weight: 800;
+  cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,.3);
+}
+.wqr-upload-submit:hover { opacity: .9; }
+.wqr-upload-divider {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; color: #94a3b8; margin: 10px 0;
+}
+.wqr-upload-divider::before,
+.wqr-upload-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e2e8f0;
+}
+
+/* ── 5-card grid ── */
+.wqr-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+@media (max-width: 1400px) { .wqr-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px)  { .wqr-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px)  { .wqr-cards { grid-template-columns: 1fr; } }
+
+.wqr-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+  padding: 16px; box-shadow: 0 3px 12px rgba(15,23,42,.06);
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: 260px;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s, border-color .15s;
+}
+.wqr-card:hover {
+  box-shadow: 0 8px 28px rgba(99,102,241,.18);
+  border-color: #c7d2fe;
+  transform: translateY(-2px);
+}
+.wqr-card:active { transform: translateY(0); }
+.wqr-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.wqr-card-title {
+  font-size: 11px; font-weight: 900; color: #0f172a;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.wqr-card-badge {
+  font-size: 10px; font-weight: 800; padding: 2px 8px;
+  border-radius: 999px; background: #eef2ff; color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+.wqr-card-week {
+  font-size: 10px; font-weight: 700; color: #94a3b8;
+  background: #f8fafc; border: 1px solid #f1f5f9;
+  border-radius: 6px; padding: 3px 8px;
+}
+
+/* Card 1 — CR Age bar chart */
+.wqr-age-bars { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.wqr-age-row  { display: flex; align-items: center; gap: 8px; }
+.wqr-age-lbl  { font-size: 10px; font-weight: 800; color: #475569;
+  width: 44px; text-align: right; flex-shrink: 0; }
+.wqr-age-track { flex: 1; height: 18px; background: #f1f5f9;
+  border-radius: 6px; overflow: hidden; }
+.wqr-age-fill  { height: 100%; border-radius: 6px;
+  transition: width .4s ease; min-width: 2px; }
+.wqr-age-val   { font-size: 10px; font-weight: 900; color: #334155;
+  width: 24px; text-align: left; flex-shrink: 0; }
+
+/* Card 2 — Pie chart */
+#wqrPieSvg { width: 100%; flex: 1; display: block; }
+
+/* Card 3 — Sharepoint */
+.wqr-sp-list { flex: 1; overflow-y: auto; max-height: 200px; }
+.wqr-sp-item {
+  padding: 6px 8px; border-radius: 8px; background: #f8fafc;
+  border: 1px solid #f1f5f9; margin-bottom: 5px;
+  font-size: 11px; color: #334155; font-weight: 600;
+}
+.wqr-sp-cr   { font-weight: 900; color: #4f46e5; }
+.wqr-sp-empty { font-size: 12px; color: #94a3b8; font-weight: 700;
+  text-align: center; padding: 24px 0; }
+
+/* Card 4 — Unique summary */
+.wqr-summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1;
+}
+.wqr-summary-tile {
+  background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px;
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
+  position: relative; overflow: hidden;
+}
+.wqr-summary-tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--tile-accent, #6366f1);
+}
+.wqr-summary-tile .k { font-size: 10px; font-weight: 800; color: var(--tile-label, #64748b);
+  text-transform: uppercase; letter-spacing: .05em; }
+.wqr-summary-tile .v {
+  font-size: 22px; font-weight: 900;
+  color: var(--tile-value, #4f46e5);
+}
+.wqr-summary-tile.total .v { font-size: 28px; }
+.wqr-summary-tile.total { --tile-accent:#4f46e5; --tile-label:#4338ca; --tile-value:#4f46e5; background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-color:#c7d2fe; }
+.wqr-summary-tile.qipl  { --tile-accent:#2563eb; --tile-label:#1d4ed8; --tile-value:#2563eb; background:linear-gradient(135deg,#eff6ff,#dbeafe); border-color:#bfdbfe; }
+.wqr-summary-tile.sd    { --tile-accent:#16a34a; --tile-label:#15803d; --tile-value:#16a34a; background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#bbf7d0; }
+.wqr-summary-tile.ch    { --tile-accent:#ea580c; --tile-label:#c2410c; --tile-value:#ea580c; background:linear-gradient(135deg,#fff7ed,#ffedd5); border-color:#fed7aa; }
+.wqr-summary-tile.source{ --tile-accent:#7c3aed; --tile-label:#6d28d9; --tile-value:#7c3aed; background:linear-gradient(135deg,#faf5ff,#ede9fe); border-color:#ddd6fe; }
+
+
+/* ── card active state ── */
+.wqr-card.active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.18), 0 8px 28px rgba(99,102,241,.18);
+  transform: translateY(-2px);
+}
+
+/* ── card footer hint ── */
+.wqr-card-footer {
+  font-size: 10px; color: #94a3b8; font-weight: 700;
+  text-align: center; margin-top: auto; padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ── tab detail panel ── */
+.wqr-detail-panel {
+  display: none;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+  box-shadow: 0 3px 12px rgba(15,23,42,.06); overflow: hidden;
+  margin-bottom: 16px;
+}
+.wqr-detail-panel.open { display: block; }
+.wqr-detail-head {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; padding: 12px 18px;
+  background: linear-gradient(135deg,#0f172a,#1d4ed8); color: #fff;
+}
+.wqr-detail-title { font-size: 14px; font-weight: 900; }
+.wqr-detail-meta  { font-size: 11px; font-weight: 700; opacity: .8; margin-top: 2px; }
+.wqr-detail-close {
+  height: 28px; padding: 0 12px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12);
+  color: #fff; font-size: 11px; font-weight: 900; cursor: pointer;
+}
+.wqr-detail-close:hover { background: rgba(239,68,68,.3); }
+.wqr-detail-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+}
+.wqr-detail-search {
+  height: 32px; padding: 0 12px; border-radius: 9px;
+  border: 1.5px solid #e2e8f0; font-size: 11px; font-weight: 700;
+  color: #374151; background: #fff; min-width: 260px; flex: 1;
+}
+.wqr-detail-search:focus { border-color: #6366f1; outline: none; }
+.wqr-detail-count { font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap; }
+.wqr-detail-copy {
+  height: 32px; padding: 0 14px; border-radius: 9px;
+  border: 1.5px solid #e2e8f0; background: #fff;
+  font-size: 11px; font-weight: 800; color: #475569; cursor: pointer;
+}
+.wqr-detail-copy:hover { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+.wqr-detail-body { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+
+/* ── modal ── */
+.wqr-modal-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 10000;
+  background: rgba(15,23,42,.55); padding: 24px;
+  align-items: center; justify-content: center;
+}
+.wqr-modal-backdrop.open { display: flex; }
+.wqr-modal {
+  width: min(1180px, 96vw); max-height: 90vh;
+  background: #fff; border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 24px 80px rgba(15,23,42,.35);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.wqr-modal-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 14px 18px;
+  background: linear-gradient(135deg,#0f172a,#1d4ed8);
+  color: #fff; flex-shrink: 0;
+}
+.wqr-modal-title { font-size: 14px; font-weight: 900; letter-spacing: .04em; }
+.wqr-modal-meta  { font-size: 11px; font-weight: 700; opacity: .8; margin-top: 2px; }
+.wqr-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.wqr-modal-actions button {
+  height: 30px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12);
+  color: #fff; font-size: 11px; font-weight: 900; cursor: pointer;
+}
+.wqr-modal-actions button:hover { background: rgba(255,255,255,.22); }
+.wqr-modal-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px; background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+}
+.wqr-modal-search {
+  height: 32px; padding: 0 12px; border-radius: 9px;
+  border: 1.5px solid #e2e8f0; font-size: 11px; font-weight: 700;
+  color: #374151; background: #fff; min-width: 260px; flex: 1;
+}
+.wqr-modal-search:focus { border-color: #6366f1; outline: none; }
+.wqr-modal-count { font-size: 11px; font-weight: 700; color: #64748b; white-space: nowrap; }
+.wqr-modal-body { overflow: auto; flex: 1; }
+
+/* shared table styles (used inside modal) */
+.wqr-tbl { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+.wqr-tbl th {
+  position: sticky; top: 0; z-index: 2;
+  background: linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1d4ed8 100%);
+  color: #f8fafc; font-size: 10px; font-weight: 900;
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 10px 12px; white-space: nowrap;
+  border-bottom: 2px solid #3b82f6;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+.wqr-tbl td {
+  font-size: 11px; color: #334155; padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9;
+  background: #fff; white-space: nowrap;
+}
+.wqr-tbl tr:nth-child(even) td { background: #f8fafc; }
+.wqr-tbl tr:hover td { background: #eef2ff; }
+.wqr-tbl td.cr-title-cell {
+  white-space: normal; word-break: break-word;
+  min-width: 260px; max-width: 400px;
+}
+.wqr-cr-link {
+  color: #4f46e5; font-weight: 800; text-decoration: none;
+  border-bottom: 1px solid rgba(79,70,229,.3);
+}
+.wqr-cr-link:hover { border-bottom-color: #4f46e5; }
+.wqr-empty { text-align: center; padding: 32px; color: #94a3b8;
+  font-size: 13px; font-weight: 700; }
+
+/* category badges */
+.wqr-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 800;
+}
+.wqr-badge.built      { background: #dcfce7; color: #166534; }
+.wqr-badge.undisposed { background: #fef9c3; color: #854d0e; }
+.wqr-badge.invalid    { background: #fee2e2; color: #991b1b; }
+.wqr-badge.dup        { background: #dbeafe; color: #1e40af; }
+.wqr-badge.default    { background: #f1f5f9; color: #475569; }
+
+/* loading spinner */
+.wqr-spinner {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(15,23,42,.35); align-items: center; justify-content: center;
+}
+.wqr-spinner.show { display: flex; }
+.wqr-spinner-box {
+  background: #fff; border-radius: 16px; padding: 28px 36px;
+  text-align: center; box-shadow: 0 16px 48px rgba(15,23,42,.25);
+}
+.wqr-spinner-ring {
+  width: 40px; height: 40px; border: 4px solid #e2e8f0;
+  border-top-color: #6366f1; border-radius: 50%;
+  animation: wqr-spin .7s linear infinite; margin: 0 auto 12px;
+}
+@keyframes wqr-spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- spinner -->
+<div class="wqr-spinner" id="wqrSpinner">
+  <div class="wqr-spinner-box">
+    <div class="wqr-spinner-ring"></div>
+    <div style="font-size:12px;font-weight:800;color:#475569;">Loading week data…</div>
+  </div>
+</div>
+
+<div class="wqr-page">
+
+  {# ── flash messages ── #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="wqr-flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {# ══════════════════════════════════════════════════════════════
+     TOP BAR  —  week dropdown + upload toggle
+  ══════════════════════════════════════════════════════════════ #}
+    <div id="qiplAutoImportBanner" class="wqr-flash warning" style="display:none;">Auto-importing Weekly QIPL source file for this week...</div>
+
+  <div class="wqr-topbar">
+
+    <div class="wqr-topbar-left">
+      <div>
+        <div class="wqr-topbar-title">📊 Weekly QIPL Report</div>
+        <div class="wqr-topbar-sub">pdt_stats_dashboard · weekly_qipl_data</div>
+      </div>
+
+      {# Week range dropdown — last Sunday → Monday #}
+      <select class="wqr-week-select" id="wqrWeekSelect" onchange="wqrChangeWeek(this.value)">
+        {% for ws, we, label in week_ranges %}
+          <option value="{{ ws }}|{{ we }}"
+            {{ 'selected' if ws == sel_start.isoformat() else '' }}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+        <div style="display:flex;gap:8px;align-items:center;">
+    <button type="button" class="wqr-upload-btn" id="wqrImportLatestBtn"
+            onclick="wqrImportLatest()"
+            title="Scan share and import latest unimported QIPL CSV">
+      <i class="fas fa-sync-alt"></i> Import Latest CSV
+    </button>
+    <button type="button" class="wqr-upload-btn" onclick="wqrToggleUpload()">
+      <i class="fas fa-file-upload"></i> Upload / Select File
+    </button>
+    </div>
+  </div>
+
+  {# ══════════════════════════════════════════════════════════════
+     UPLOAD PANEL
+  ══════════════════════════════════════════════════════════════ #}
+  <div class="wqr-upload-panel" id="wqrUploadPanel">
+    <form method="POST"
+          action="{{ url_for('weekly_summary_bp.weekly_report_upload') }}"
+          enctype="multipart/form-data">
+      <input type="hidden" name="week_start" id="uploadWeekStart"
+             value="{{ sel_start.isoformat() }}">
+      <input type="hidden" name="week_end"   id="uploadWeekEnd"
+             value="{{ sel_end.isoformat() }}">
+
+      {# ── Option A: pick from share ── #}
+      {% if excel_files %}
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:6px;
+                    text-transform:uppercase;letter-spacing:.05em;">
+          📂 Select from share: <span style="color:#94a3b8;font-weight:600;">{{ qipl_excel_dir }}</span>
+        </div>
+        <div class="wqr-upload-grid">
+          <div class="wqr-upload-field">
+            <label>File on share</label>
+            <select name="file_choice" id="wqrFileChoice">
+              <option value="">— choose file —</option>
+              {% for f in excel_files %}
+                <option value="{{ f }}"
+                  {{ 'selected' if sel_start.isoformat() in f or sel_end.isoformat() in f else '' }}>
+                  {{ f }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="wqr-upload-submit"
+                  onclick="document.getElementById('wqrFileUpload').value=''">
+            <i class="fas fa-database"></i> Append to Table
+          </button>
+        </div>
+      </div>
+
+      <div class="wqr-upload-divider">OR upload manually</div>
+      {% endif %}
+
+      {# ── Option B: manual upload ── #}
+      <div class="wqr-upload-grid">
+        <div class="wqr-upload-field">
+          <label>Upload Excel file</label>
+          <input type="file" name="excel_file" id="wqrFileUpload" accept=".xlsx,.xls,.csv">
+        </div>
+        <button type="submit" class="wqr-upload-submit"
+                onclick="document.getElementById('wqrFileChoice') && (document.getElementById('wqrFileChoice').value='')">
+          <i class="fas fa-upload"></i> Upload &amp; Append
+        </button>
+      </div>
+
+      <div style="margin-top:10px;font-size:11px;color:#64748b;font-weight:700;">
+        ⚡ All rows are <strong>appended</strong> to the table for week
+        <strong id="uploadWeekLabel">
+          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d, %Y') }}
+        </strong>
+      </div>
+    </form>
+  </div>
+
+  {# ══════════════════════════════════════════════════════════════
+     4 CARDS  —  all filtered by the selected week
+  ══════════════════════════════════════════════════════════════ #}
+  <div class="wqr-cards" id="wqrCards">
+
+                        {# ── Card 1: CR Age ── #}
+    <div class="wqr-card" id="card-cr_age" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='cr_age') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view CR Age detail">
+      <div class="wqr-card-head">
+        <span class="wqr-card-title">📅 CR Age</span>
+        <span class="wqr-card-week" id="ageCardWeek">
+          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+        </span>
+      </div>
+
+            {# ── hero numbers: total unique CRs, New, Old ── #}
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #c7d2fe;border-radius:12px;padding:10px 8px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#4f46e5;line-height:1;">{{ cr_mapped_count }}</div>
+          <div style="font-size:9px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;">Unique CRs</div>
+        </div>
+        <div style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:12px;padding:10px 8px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#16a34a;line-height:1;">{{ total_new_crs }}</div>
+          <div style="font-size:9px;font-weight:800;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;">New CRs</div>
+        </div>
+        <div style="flex:1;background:linear-gradient(135deg,#fff1f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:12px;padding:10px 8px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#dc2626;line-height:1;">{{ total_old_crs }}</div>
+          <div style="font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;">Old CRs</div>
+        </div>
+      </div>
+
+      {# ── age bars ── #}
+      <div class="wqr-age-bars" id="wqrAgeBars">
+        {%- set age_colors = ['#6366f1','#3b82f6','#f59e0b','#ef4444','#dc2626'] -%}
+        {%- set age_keys   = ['0-20','21-40','41-60','61-90','90+'] -%}
+        {%- set age_max    = [age_buckets.values() | list | max, 1] | max -%}
+        {% for key in age_keys %}
+          {%- set cnt = age_buckets.get(key, 0) -%}
+          {%- set pct = ((cnt / age_max) * 100) | round(1) -%}
+          {%- set color = age_colors[loop.index0] -%}
+          <div class="wqr-age-row">
+            <span class="wqr-age-lbl">{{ key }}</span>
+            <div class="wqr-age-track">
+              <div class="wqr-age-fill" style="width:{{ pct }}%;background:{{ color }};"></div>
+            </div>
+            <span class="wqr-age-val">{{ cnt }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="wqr-card-footer">Click to view detail →</div>
+    </div>
+
+                {# ── Card 2: CR Pie Chart ── #}
+    <div class="wqr-card" id="card-cr_pie" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='cr_pie') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view CR Pie detail">
+      <div class="wqr-card-head">
+        <span class="wqr-card-title">&#127987; CR Area Pie</span>
+        <span class="wqr-card-week" id="pieCardWeek">
+          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+        </span>
+      </div>
+      <svg id="wqrPieSvg" viewBox="0 0 300 200"
+           preserveAspectRatio="xMidYMid meet" style="flex:1;pointer-events:none;"></svg>
+      <div class="wqr-card-footer">Click to view detail →</div>
+    </div>
+
+    {# ── Card 3: Sharepoint Data ── #}
+    <div class="wqr-card" id="card-sharepoint" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='sharepoint') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view Sharepoint detail">
+      <div class="wqr-card-head">
+        <span class="wqr-card-title">🔗 Sharepoint Data</span>
+        <span class="wqr-card-badge" id="spBadge">{{ sp_rows | length }}</span>
+      </div>
+      <div class="wqr-sp-list" id="wqrSpList">
+        {% if sp_rows %}
+          {% for row in sp_rows[:6] %}
+            <div class="wqr-sp-item">
+              <span class="wqr-sp-cr">{{ row.cr_key }}</span>
+              {% if row.cr_title %}
+                — <span style="color:#64748b;">{{ row.cr_title[:40] }}{% if row.cr_title|length > 40 %}…{% endif %}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+          {% if sp_rows | length > 6 %}
+            <div style="font-size:10px;color:#6366f1;font-weight:800;text-align:center;padding:4px;">
+              + {{ sp_rows | length - 6 }} more
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="wqr-sp-empty">No sharepoint data for this week.</div>
+        {% endif %}
+      </div>
+      <div class="wqr-card-footer">Click to view detail →</div>
+    </div>
+
+                {# ── Card 4: Unique Weekly Report ── #}
+        <div class="wqr-card" id="card-unique_report" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='unique_report') }}?ucr_week_end={{ sel_end.isoformat() }}'" title="Click to view Unique Weekly Report detail">
+      <div class="wqr-card-head">
+        <span class="wqr-card-title">📋 Unique Weekly Report</span>
+        <span class="wqr-card-week" id="summaryCardWeek">
+          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+        </span>
+      </div>
+              <div class="wqr-summary-grid" id="wqrSummaryGrid">
+          <div class="wqr-summary-tile total">
+            <span class="k">Total CRs</span>
+            <span class="v" id="sumTotal">{{ ucr_landing_total }}</span>
+          </div>
+                    <div class="wqr-summary-tile qipl">
+            <span class="k">QIPL</span>
+            <span class="v">{{ ucr_landing_counts.get('QIPL', '') }}</span>
+          </div>
+          <div class="wqr-summary-tile sd">
+            <span class="k">SD</span>
+            <span class="v">{{ ucr_landing_counts.get('SD', '') }}</span>
+          </div>
+          <div class="wqr-summary-tile ch">
+            <span class="k">CH</span>
+            <span class="v">{{ ucr_landing_counts.get('CH', '') }}</span>
+          </div>
+          <div class="wqr-summary-tile source">
+            <span class="k">Source</span>
+
+                        <span style="font-size:10px;font-weight:700;color:#64748b;margin-top:2px;" title="{{ ucr_landing_excel_path or '' }}">
+              {{ 'WeeklyUniqueCRs Excel' if ucr_landing_has_excel else 'No Excel for week' }}
+            </span>
+          </div>
+        </div>
+      <div class="wqr-card-footer">Click to view detail →</div>
+    </div>
+
+        {# ── Card 5: Farm Testing ── #}
+    <div class="wqr-card" id="card-farm_testing" onclick="window.open('http://10.142.217.108:5100/','_blank','noopener')" title="Open Farm Testing dashboard" style="cursor:pointer;">
+      <div class="wqr-card-head">
+        <span class="wqr-card-title">🧪 Farm Testing</span>
+        <span class="wqr-card-week">
+          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+        </span>
+      </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;
+                  justify-content:center;gap:8px;">
+        <div style="font-size:36px;">🧪</div>
+        <div style="font-size:12px;font-weight:800;color:#4f46e5;text-align:center;">Farm Testing Dashboard</div>
+        <div style="font-size:10px;font-weight:600;color:#94a3b8;text-align:center;">10.142.217.108:5100</div>
+        <div style="font-size:10px;font-weight:700;color:#6366f1;margin-top:4px;">&#8599; Opens in new tab</div>
+      </div>
+      <div class="wqr-card-footer">Click to view detail →</div>
+    </div>
+
+    </div>{# /wqr-cards #}
+
+    {# ══════════════════════════════════════════════════════════════
+     DETAIL PANEL  —  removed, cards now navigate to dedicated pages
+  ══════════════════════════════════════════════════════════════ #}
+
+</div>{# /wqr-page #}
+
+{# modal removed — cards now navigate to dedicated pages #}
+
+<script>
+(function () {
+  /* week dropdown: full reload */
+  window.wqrChangeWeek = function (val) {
+    const [ws, we] = val.split('|');
+    if (!ws || !we) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('week_start', ws);
+    url.searchParams.set('week_end',   we);
+    window.location.href = url.toString();
+  };
+
+  /* upload panel toggle */
+  window.wqrToggleUpload = function () {
+    document.getElementById('wqrUploadPanel')?.classList.toggle('open');
+  };
+
+    const QIPL_AUTO_IMPORT_AVAILABLE = {{ (qipl_auto_import_available | default(false)) | tojson }};
+  const QIPL_WEEK_START = {{ sel_start.isoformat() | tojson }};
+  const QIPL_WEEK_END = {{ sel_end.isoformat() | tojson }};
+
+  function wqrAutoImportQiplIfNeeded(){
+    if(!QIPL_AUTO_IMPORT_AVAILABLE) return;
+    const key = 'qiplAutoImport:' + QIPL_WEEK_START + ':' + QIPL_WEEK_END;
+    if(sessionStorage.getItem(key) === '1') return;
+    sessionStorage.setItem(key, '1');
+    const banner = document.getElementById('qiplAutoImportBanner');
+    if(banner){ banner.style.display = ''; banner.textContent = 'Auto-importing Weekly QIPL source file for selected week...'; }
+    fetch('/api/weekly_qipl_auto_import', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({week_start: QIPL_WEEK_START, week_end: QIPL_WEEK_END})
+    }).then(function(r){
+      return r.json().then(function(d){ if(!r.ok || !d.success) throw new Error(d.message || d.reason || ('API ' + r.status)); return d; });
+    }).then(function(d){
+      if(banner){ banner.className = 'wqr-flash success'; banner.textContent = 'Weekly QIPL auto-import completed (' + (d.count || d.inserted || 0) + ' rows). Reloading...'; }
+      setTimeout(function(){ window.location.reload(); }, 700);
+    }).catch(function(e){
+      sessionStorage.removeItem(key);
+      if(banner){ banner.className = 'wqr-flash danger'; banner.textContent = 'Weekly QIPL auto-import failed: ' + (e.message || e); }
+    });
+  }
+
+  wqrAutoImportQiplIfNeeded();
+
+  /* Manual "Import Latest CSV" button */
+  window.wqrImportLatest = function() {
+    var btn    = document.getElementById('wqrImportLatestBtn');
+    var banner = document.getElementById('qiplAutoImportBanner');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...'; }
+    if (banner) { banner.style.display = ''; banner.className = 'wqr-flash warning'; banner.textContent = 'Scanning share for latest unimported CSV...'; }
+    fetch('/api/qipl_csv_import_now', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Import Latest CSV'; }
+      if (d.success) {
+        if (banner) {
+          banner.className = 'wqr-flash success';
+          banner.textContent = 'Imported ' + (d.count || 0) + ' rows'
+            + (d.week_end ? ' for week ending ' + d.week_end : '')
+            + (d.file ? ' (' + d.file + ')' : '') + '. Reloading...';
+        }
+        setTimeout(function(){ window.location.reload(); }, 900);
+      } else {
+        var msg = d.message || d.reason || 'Unknown error';
+        if (banner) { banner.className = 'wqr-flash danger'; banner.textContent = 'Import failed: ' + msg; }
+      }
+    })
+    .catch(function(e){
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Import Latest CSV'; }
+      if (banner) { banner.className = 'wqr-flash danger'; banner.textContent = 'Network error: ' + (e.message || e); }
+    });
+  };
+
+  /* pie chart preview on landing card */
+  const PIE_AREA_INIT = {{ pie_area_data | tojson }};
+
+  const PIE_COLORS = [
+    '#2563eb','#dc2626','#16a34a','#9333ea','#ea580c','#0891b2',
+    '#be123c','#65a30d','#7c3aed','#ca8a04','#0d9488','#db2777',
+  ];
+
+  window.wqrDrawPie = function () {
+    const svg = document.getElementById('wqrPieSvg');
+    if (!svg) return;
+    svg.innerHTML = '';
+    const data = (PIE_AREA_INIT || []).filter(d => d.y > 0);
+    if (!data.length) {
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x','150'); t.setAttribute('y','100');
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size','11'); t.setAttribute('fill','#94a3b8');
+      t.textContent = 'No data'; svg.appendChild(t); return;
+    }
+    const cx=100, cy=95, r=70, total=data.reduce((s,d)=>s+d.y,0);
+    let angle=-Math.PI/2;
+    data.forEach((d,i)=>{
+      const sweep=(d.y/total)*Math.PI*2;
+      const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+      angle+=sweep;
+      const x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${sweep>Math.PI?1:0} 1 ${x2} ${y2} Z`);
+      p.setAttribute('fill',PIE_COLORS[i%PIE_COLORS.length]);
+      p.setAttribute('stroke','#fff'); p.setAttribute('stroke-width','1.5');
+      svg.appendChild(p);
+    });
+    const lx=185,ly0=16,lh=14;
+    data.slice(0,11).forEach((d,i)=>{
+      const y=ly0+i*lh;
+      const r2=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r2.setAttribute('x',lx);r2.setAttribute('y',y-8);
+      r2.setAttribute('width','8');r2.setAttribute('height','8');r2.setAttribute('rx','2');
+      r2.setAttribute('fill',PIE_COLORS[i%PIE_COLORS.length]);svg.appendChild(r2);
+      const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t2.setAttribute('x',lx+11);t2.setAttribute('y',y);
+      t2.setAttribute('font-size','8');t2.setAttribute('fill','#334155');t2.setAttribute('font-weight','700');
+      t2.textContent=`${d.name.slice(0,13)} (${d.y})`;svg.appendChild(t2);
+    });
+  };
+
+  wqrDrawPie();
+})();
+</script>
+
+{% if hwpdt_msm_rows %}
+<div style="padding:24px 24px 32px 24px;">
+  <div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;">
+
+    <div style="background:linear-gradient(135deg,#0c4a6e,#0891b2);padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <i class="fas fa-microchip" style="color:#fff;font-size:16px;"></i>
+      <span style="font-size:14px;font-weight:900;color:#fff;letter-spacing:.04em;">Weekly HWPDT MSM Screening</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.7);">
+        {{ sel_start.strftime('%b %d') }} &ndash; {{ sel_end.strftime('%b %d, %Y') }}
+      </span>
+      <span id="msmSaveStatus" style="font-size:11px;color:rgba(255,255,255,.85);"></span>
+      <button onclick="msmCopyTable()" title="Copy table to clipboard (rich format for Word/Excel/email)"
+        style="margin-left:auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.4);color:#fff;
+               padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+               display:flex;align-items:center;gap:6px;transition:background .2s;"
+        onmouseover="this.style.background='rgba(255,255,255,.3)'"
+        onmouseout="this.style.background='rgba(255,255,255,.18)'"
+        id="msmCopyBtn">
+        <i class="fas fa-copy"></i> Copy Table
+      </button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="msmTable">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;">S.No</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;">Farm</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;">Target</th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;">Team</th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap;">IDPs in Farm</th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap;">IDPs Deployed</th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#0891b2;border-bottom:2px solid #e2e8f0;white-space:nowrap;background:#f0f9ff;">Parts Tested<br><span style="font-weight:600;font-size:9px;">(This Week)</span></th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#0891b2;border-bottom:2px solid #e2e8f0;white-space:nowrap;background:#f0f9ff;">Parts Planned<br><span style="font-weight:600;font-size:9px;">for Testing</span></th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap;">Parts Tested<br><span style="font-weight:600;font-size:9px;">since SoD</span></th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap;">Parts in supply<br><span style="font-weight:600;font-size:9px;">for next week</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in hwpdt_msm_rows %}
+          <tr style="border-bottom:1px solid #f1f5f9;{% if loop.index is odd %}background:#fff;{% else %}background:#fafafa;{% endif %}"
+              data-target="{{ row.target_name }}"
+              data-ws="{{ sel_start.isoformat() }}"
+              data-we="{{ sel_end.isoformat() }}">
+            <td style="padding:9px 12px;text-align:center;color:#94a3b8;font-weight:600;">{{ row.s_no }}</td>
+            <td style="padding:9px 12px;font-weight:700;color:#0c4a6e;">{{ row.farm }}</td>
+            <td style="padding:9px 12px;font-weight:700;color:#1e293b;">{{ row.target }}</td>
+            <td style="padding:9px 12px;text-align:center;">
+              <span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">HWPDT</span>
+            </td>
+            <td style="padding:9px 12px;text-align:center;">
+              <input type="number" min="0" class="msm-edit" data-field="idp_farm"
+                value="{{ row.idp_farm if row.idp_farm is not none else '' }}"
+                placeholder="-"
+                style="width:60px;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#0c4a6e;background:#f8fafc;">
+            </td>
+            <td style="padding:9px 12px;text-align:center;">
+              <input type="number" min="0" class="msm-edit" data-field="idp_deployed"
+                value="{{ row.idp_deployed if row.idp_deployed is not none else '' }}"
+                placeholder="-"
+                style="width:60px;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#0c4a6e;background:#f8fafc;">
+            </td>
+            <td style="padding:9px 12px;text-align:center;background:#f0f9ff;">
+              <span style="font-size:16px;font-weight:900;color:{% if row.parts_tested_week > 0 %}#0891b2{% else %}#94a3b8{% endif %};">{{ row.parts_tested_week }}</span>
+            </td>
+            <td style="padding:9px 12px;text-align:center;background:#f0f9ff;">
+              <input type="number" min="0" class="msm-edit" data-field="parts_planned"
+                value="{{ row.parts_planned_week if row.parts_planned_week is not none else '' }}"
+                placeholder="-"
+                style="width:60px;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#0891b2;background:#e0f2fe;">
+            </td>
+            <td style="padding:9px 12px;text-align:center;">
+              <span style="font-size:15px;font-weight:900;color:#0c4a6e;">{{ row.parts_tested_sod }}</span>
+            </td>
+            <td style="padding:9px 12px;">
+              <input type="text" class="msm-edit" data-field="supply_note"
+                value="{{ row.supply_note or '' }}"
+                placeholder="Remarks..."
+                style="width:180px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;color:#475569;background:#f8fafc;">
+            </td>
+          </tr>
+          {% endfor %}
+          <tr style="background:#f1f5f9;border-top:2px solid #e2e8f0;">
+            <td colspan="3" style="padding:10px 12px;font-size:12px;font-weight:900;color:#0c4a6e;">Total</td>
+            <td></td>
+            <td style="padding:10px 12px;text-align:center;font-weight:900;color:#0c4a6e;" id="msmTotalIdpFarm">-</td>
+            <td style="padding:10px 12px;text-align:center;font-weight:900;color:#0c4a6e;" id="msmTotalIdpDep">-</td>
+            <td style="padding:10px 12px;text-align:center;background:#e0f2fe;font-size:16px;font-weight:900;color:#0891b2;">{{ hwpdt_msm_rows | sum(attribute='parts_tested_week') }}</td>
+            <td style="padding:10px 12px;text-align:center;background:#e0f2fe;font-weight:900;color:#0891b2;" id="msmTotalPlanned">-</td>
+            <td style="padding:10px 12px;text-align:center;font-size:15px;font-weight:900;color:#0c4a6e;">{{ hwpdt_msm_rows | sum(attribute='parts_tested_sod') }}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SAVE_URL = "{{ url_for('weekly_summary_bp.hwpdt_msm_save') }}";
+  let _saveTimer = null;
+
+  /* ---- save ---- */
+  function msmRowData(input) {
+    const tr = input.closest('tr');
+    return {
+      week_start:    tr.dataset.ws,
+      week_end:      tr.dataset.we,
+      target_name:   tr.dataset.target,
+      idp_farm:      tr.querySelector('[data-field="idp_farm"]').value,
+      idp_deployed:  tr.querySelector('[data-field="idp_deployed"]').value,
+      parts_planned: tr.querySelector('[data-field="parts_planned"]').value,
+      supply_note:   tr.querySelector('[data-field="supply_note"]').value,
+    };
+  }
+
+  function msmSaveRow(input) {
+    const data   = msmRowData(input);
+    const status = document.getElementById('msmSaveStatus');
+    status.textContent = 'Saving...';
+    fetch(SAVE_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(d => {
+      status.textContent = d.success ? 'Saved \u2713' : ('Error: ' + (d.message||''));
+      setTimeout(() => { status.textContent = ''; }, 3000);
+      msmUpdateTotals();
+    })
+    .catch(() => { status.textContent = 'Save failed'; });
+  }
+
+  /* ---- live totals ---- */
+  function msmUpdateTotals() {
+    let farm=0, dep=0, planned=0, hF=false, hD=false, hP=false;
+    document.querySelectorAll('#msmTable tbody tr[data-target]').forEach(tr => {
+      const f = parseInt(tr.querySelector('[data-field="idp_farm"]').value);
+      const d = parseInt(tr.querySelector('[data-field="idp_deployed"]').value);
+      const p = parseInt(tr.querySelector('[data-field="parts_planned"]').value);
+      if (!isNaN(f)) { farm += f; hF = true; }
+      if (!isNaN(d)) { dep  += d; hD = true; }
+      if (!isNaN(p)) { planned += p; hP = true; }
+    });
+    document.getElementById('msmTotalIdpFarm').textContent = hF ? farm : '-';
+    document.getElementById('msmTotalIdpDep').textContent  = hD ? dep  : '-';
+    document.getElementById('msmTotalPlanned').textContent = hP ? planned : '-';
+  }
+
+  /* ---- copy table — rich HTML works on HTTP + HTTPS ---- */
+  window.msmCopyTable = function() {
+    const tbl    = document.getElementById('msmTable');
+    const btn    = document.getElementById('msmCopyBtn');
+    const status = document.getElementById('msmSaveStatus');
+
+    /* Collect headers (first thead row only) */
+    const headers = [];
+    tbl.querySelectorAll('thead tr:first-child th').forEach(th => {
+      headers.push(th.innerText.trim().replace(/\n/g,' '));
+    });
+
+    /* Collect data rows — read input values, not innerText */
+    const dataRows = [];
+    tbl.querySelectorAll('tbody tr').forEach(tr => {
+      const cells = [];
+      tr.querySelectorAll('td').forEach(td => {
+        const inp = td.querySelector('input');
+        cells.push(inp ? (inp.value.trim() || '-') : td.innerText.trim().replace(/\n/g,' '));
+      });
+      if (cells.length) dataRows.push(cells);
+    });
+
+    /* Build premium styled HTML table */
+    let html = [
+      '<meta charset="utf-8">',
+      '<table border="1" cellpadding="0" cellspacing="0"',
+      ' style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;min-width:700px;">',
+      '<thead>',
+      '<tr style="background:#0c4a6e;color:#ffffff;font-weight:bold;">',
+    ].join('');
+    headers.forEach(h => {
+      html += `<th style="padding:8px 12px;border:1px solid #0a3a5a;white-space:nowrap;text-align:center;">${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    dataRows.forEach((cells, i) => {
+      const isTotal = i === dataRows.length - 1;
+      const bg  = isTotal ? '#dbeafe' : (i % 2 === 0 ? '#ffffff' : '#f0f9ff');
+      const fw  = isTotal ? 'font-weight:bold;' : '';
+      const bc  = isTotal ? '#93c5fd' : '#e2e8f0';
+      html += `<tr style="background:${bg};${fw}">`;
+      cells.forEach((c, ci) => {
+        const align = (ci === 0 || ci >= 4) ? 'center' : 'left';
+        html += `<td style="padding:6px 12px;border:1px solid ${bc};text-align:${align};">${c}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    /* Tab-separated plain text */
+    const plain = [headers.join('\t'), ...dataRows.map(r => r.join('\t'))].join('\n');
+
+    /* 
+     * Rich copy strategy that works on HTTP (no secure context needed):
+     * 1. Try modern ClipboardItem API (HTTPS / localhost)
+     * 2. Fall back to contenteditable div + execCommand('copy') — preserves HTML on HTTP
+     */
+    function _done(rich) {
+      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+      status.textContent = rich ? 'Rich table copied \u2713' : 'Copied (plain text)';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-copy"></i> Copy Table';
+        status.textContent = '';
+      }, 2500);
+    }
+
+    /* Strategy 1: ClipboardItem (HTTPS / localhost) */
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        const item = new ClipboardItem({
+          'text/html':  new Blob([html],  {type:'text/html'}),
+          'text/plain': new Blob([plain], {type:'text/plain'}),
+        });
+        navigator.clipboard.write([item])
+          .then(() => _done(true))
+          .catch(() => _richExecCopy(html, plain, _done));
+        return;
+      } catch(e) { /* fall through */ }
+    }
+
+    /* Strategy 2: contenteditable div + execCommand — works on HTTP */
+    _richExecCopy(html, plain, _done);
+  };
+
+  function _richExecCopy(html, plain, cb) {
+    /* Render HTML into an off-screen contenteditable div, select all, copy */
+    const div = document.createElement('div');
+    div.contentEditable = 'true';
+    div.style.cssText   = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+    div.innerHTML       = html;
+    document.body.appendChild(div);
+
+    /* Select all content in the div */
+    const sel   = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(div);
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    let rich = false;
+    try {
+      rich = document.execCommand('copy');
+    } catch(e) { rich = false; }
+
+    sel.removeAllRanges();
+    document.body.removeChild(div);
+
+    if (rich) { cb(true); return; }
+
+    /* Last resort: plain textarea */
+    const ta = document.createElement('textarea');
+    ta.value = plain;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    cb(false);
+  }
+
+  /* ---- wire up inputs ---- */
+  document.querySelectorAll('.msm-edit').forEach(inp => {
+    inp.addEventListener('change', function() {
+      clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(() => msmSaveRow(this), 600);
+    });
+    inp.addEventListener('focus', function() {
+      this.style.borderColor = '#0891b2';
+      this.style.background  = '#fff';
+    });
+    inp.addEventListener('blur', function() {
+      this.style.borderColor = '#e2e8f0';
+      this.style.background  = this.dataset.field === 'parts_planned' ? '#e0f2fe' : '#f8fafc';
+    });
+  });
+
+  msmUpdateTotals();
+})();
+</script>
+{% endif %}
+
+{% endblock %}

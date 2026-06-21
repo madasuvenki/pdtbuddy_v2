@@ -1,0 +1,13 @@
+{# templates/dashboard_milestone_widget.html #}
+<div id="dashboardMilestoneWidget" style="margin-top:16px; padding:18px; border:2px dashed #22c55e; border-radius:18px; background:#f0fff4;">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+      <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#166534; font-weight:900;">Milestone Widget Test</div>
+      <div style="font-size:18px; font-weight:900; color:#14532d;">{{ target or 'TARGET' }} - {{ sp_name or 'SP not set' }}</div>
+    </div>
+    <div style="padding:10px 14px; border-radius:14px; background:#dcfce7; color:#166534; font-weight:900;">{{ dashboard_latest_update or target_update or 'N/A' }}</div>
+  </div>
+  <div style="margin-top:14px; font-size:14px; color:#14532d;">
+    ES: {{ milestones.get('ES', 'TBD') }} | FC: {{ milestones.get('FC', 'TBD') }} | CS: {{ milestones.get('CS', 'TBD') }} | CS1: {{ milestones.get('CS1', 'TBD') }}
+  </div>
+</div>

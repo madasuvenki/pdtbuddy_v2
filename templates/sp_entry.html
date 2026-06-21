@@ -1,0 +1,1234 @@
+{% extends "bu_shell_layout.html" %}
+{% block title %}SP Build Entry -- PDT Buddy{% endblock %}
+
+{% block shell_inner_content %}
+<style>
+.spe-page { padding: 14px 16px 40px; max-width: 100%; }
+.spe-topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:10px;
+  background:#fff; border:1px solid #e2e8f0; border-radius:14px;
+  padding:12px 18px; margin-bottom:16px;
+  box-shadow:0 2px 10px rgba(15,23,42,.05);
+}
+.spe-topbar-title { font-size:15px; font-weight:900; color:#0f172a; }
+.spe-topbar-sub   { font-size:11px; color:#64748b; font-weight:700; }
+.spe-filters {
+  display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;
+  padding:14px 16px; margin-bottom:16px;
+}
+.spe-field { display:flex; flex-direction:column; gap:4px; }
+.spe-label { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.06em; }
+.spe-select, .spe-input {
+  height:36px; padding:0 12px; border-radius:9px;
+  border:1.5px solid #cbd5e1; background:#fff;
+  font-size:12px; font-weight:700; color:#1e293b; min-width:220px;
+}
+.spe-select:focus, .spe-input:focus { outline:none; border-color:#6366f1; }
+.spe-target-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  height:36px; padding:0 14px; border-radius:9px;
+  background:#eff6ff; border:1.5px solid #bfdbfe;
+  font-size:12px; font-weight:800; color:#1d4ed8;
+}
+.spe-target-badge.not-in-db { background:#fef9c3; border-color:#fde68a; color:#92400e; }
+.spe-add-btn {
+  height:36px; padding:0 18px; border-radius:9px;
+  background:#6366f1; border:none; color:#fff;
+  font-size:12px; font-weight:800; cursor:pointer;
+  display:flex; align-items:center; gap:6px; transition:background .12s;
+}
+.spe-add-btn:hover { background:#4f46e5; }
+.spe-add-btn:disabled { background:#c7d2fe; cursor:not-allowed; }
+.spe-labels-area { display:flex; flex-direction:column; gap:12px; }
+.spe-empty {
+  text-align:center; padding:40px 20px;
+  color:#94a3b8; font-size:13px; font-weight:700;
+  background:#f8fafc; border:1.5px dashed #e2e8f0; border-radius:12px;
+}
+.spe-card {
+  background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+  padding:14px 16px; box-shadow:0 1px 6px rgba(15,23,42,.04); margin-bottom:6px;
+}
+.spe-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.spe-card-title  { font-size:13px; font-weight:900; color:#1e293b; }
+.spe-card-week   { font-size:10px; color:#64748b; font-weight:700; }
+.spe-card-del    { background:none; border:none; cursor:pointer; color:#ef4444; font-size:14px; padding:2px 6px; border-radius:6px; }
+.spe-card-del:hover { background:#fee2e2; }
+.spe-card-metrics { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+.spe-metric {
+  display:flex; flex-direction:column; gap:2px;
+  background:#f8fafc; border:1px solid #e2e8f0;
+  border-radius:8px; padding:6px 12px; min-width:80px;
+}
+.spe-metric-label { font-size:9px; font-weight:800; color:#64748b; text-transform:uppercase; }
+.spe-metric-value { font-size:14px; font-weight:900; color:#0f172a; }
+.spe-card-builds  { font-size:10px; color:#64748b; font-weight:600; }
+.spe-lt-header {
+  font-size:11px; font-weight:900; color:#6366f1; text-transform:uppercase;
+  letter-spacing:.08em; margin-bottom:6px; padding:4px 12px;
+  background:#eef2ff; border-radius:6px; display:inline-block;
+}
+/* modal */
+.spe-overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(15,23,42,.45); z-index:9000;
+  align-items:center; justify-content:center;
+}
+.spe-overlay.open { display:flex; }
+.spe-modal {
+  background:#fff; border-radius:16px;
+  width:680px; max-width:96vw; max-height:90vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 20px 60px rgba(15,23,42,.18); overflow:hidden;
+}
+.spe-modal-head {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px; border-bottom:1px solid #e2e8f0; background:#f8fafc;
+}
+.spe-modal-title { font-size:14px; font-weight:900; color:#0f172a; }
+.spe-modal-close { background:none; border:none; font-size:18px; cursor:pointer; color:#64748b; padding:2px 8px; border-radius:6px; }
+.spe-modal-close:hover { background:#f1f5f9; color:#0f172a; }
+.spe-modal-body  { padding:18px 20px; overflow-y:auto; flex:1; }
+.spe-modal-foot  { padding:14px 20px; border-top:1px solid #e2e8f0; display:flex; gap:10px; justify-content:flex-end; background:#f8fafc; }
+.spe-form-row    { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+.spe-form-field  { display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px; }
+.spe-form-label  { font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.06em; }
+.spe-form-input  {
+  height:34px; padding:0 10px; border-radius:8px;
+  border:1.5px solid #cbd5e1; background:#fff;
+  font-size:12px; font-weight:700; color:#1e293b; width:100%;
+}
+.spe-form-input:focus { outline:none; border-color:#6366f1; }
+.spe-form-input[readonly] { background:#f1f5f9; color:#64748b; }
+.spe-form-input.auto-set  { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.spe-builds-section { margin-bottom:14px; }
+.spe-builds-title {
+  font-size:11px; font-weight:800; color:#475569;
+  text-transform:uppercase; letter-spacing:.06em;
+  margin-bottom:8px; display:flex; align-items:center; gap:8px;
+}
+.spe-builds-count { background:#e0e7ff; color:#3730a3; border-radius:20px; padding:1px 8px; font-size:10px; font-weight:800; }
+.spe-builds-toolbar {
+  display:flex; align-items:center; gap:8px; margin-bottom:6px;
+}
+.spe-builds-search {
+  flex:1; height:30px; padding:0 10px 0 28px;
+  border:1.5px solid #cbd5e1; border-radius:8px;
+  font-size:11px; font-weight:600; color:#1e293b;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 8px center;
+  background-size:13px;
+}
+.spe-builds-search:focus { outline:none; border-color:#6366f1; }
+.spe-sel-all-btn, .spe-desel-all-btn {
+  height:30px; padding:0 10px; border-radius:8px;
+  font-size:10px; font-weight:800; cursor:pointer; white-space:nowrap;
+  border:1.5px solid #e2e8f0; transition:background .1s;
+}
+.spe-sel-all-btn   { background:#eff6ff; color:#3730a3; border-color:#c7d2fe; }
+.spe-sel-all-btn:hover   { background:#e0e7ff; }
+.spe-desel-all-btn { background:#f8fafc; color:#64748b; }
+.spe-desel-all-btn:hover { background:#f1f5f9; }
+.spe-builds-list  { max-height:200px; overflow-y:auto; border:1.5px solid #e2e8f0; border-radius:10px; background:#f8fafc; }
+.spe-build-item   { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background .1s; }
+.spe-build-item:last-child { border-bottom:none; }
+.spe-build-item:hover  { background:#eff6ff; }
+.spe-build-item.checked { background:#eff6ff; }
+.spe-build-cb    { width:15px; height:15px; cursor:pointer; accent-color:#6366f1; flex-shrink:0; }
+.spe-build-info  { flex:1; min-width:0; }
+.spe-build-name  { font-size:11px; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.spe-build-meta  { font-size:10px; color:#64748b; margin-top:1px; }
+.spe-build-crashes     { font-size:11px; font-weight:800; color:#dc2626; background:#fee2e2; border-radius:6px; padding:2px 7px; white-space:nowrap; flex-shrink:0; }
+.spe-build-crashes.zero { color:#64748b; background:#f1f5f9; }
+.spe-no-builds   { padding:20px; text-align:center; color:#94a3b8; font-size:12px; font-weight:700; }
+.spe-crash-src   { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:6px; }
+.spe-crash-src.db     { background:#dcfce7; color:#166534; }
+.spe-crash-src.manual { background:#fef9c3; color:#92400e; }
+.spe-crash-src.none   { background:#f1f5f9; color:#64748b; }
+.spe-save-btn   { height:36px; padding:0 22px; border-radius:9px; background:#6366f1; border:none; color:#fff; font-size:12px; font-weight:800; cursor:pointer; transition:background .12s; }
+.spe-save-btn:hover    { background:#4f46e5; }
+.spe-save-btn:disabled { background:#c7d2fe; cursor:not-allowed; }
+.spe-cancel-btn { height:36px; padding:0 18px; border-radius:9px; background:#fff; border:1.5px solid #e2e8f0; color:#475569; font-size:12px; font-weight:800; cursor:pointer; }
+.spe-cancel-btn:hover  { background:#f8fafc; }
+.spe-toast {
+  position:fixed; bottom:24px; right:24px; z-index:9999;
+  padding:12px 20px; border-radius:10px; font-size:12px; font-weight:800;
+  box-shadow:0 4px 20px rgba(15,23,42,.15); display:none;
+}
+.spe-toast.ok  { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+.spe-toast.err { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+/* tabs */
+.spe-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.spe-tab-btn {
+  height:34px; padding:0 16px; border-radius:999px;
+  border:1.5px solid #c7d2fe; background:#eef2ff;
+  color:#4338ca; font-size:11px; font-weight:800; cursor:pointer;
+  transition:background .12s;
+}
+.spe-tab-btn.active { background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; border-color:#4f46e5; box-shadow:0 4px 14px rgba(99,102,241,.25); }
+.spe-tab-btn:hover:not(.active) { background:#e0e7ff; }
+.spe-tab-pane { display:none; }
+.spe-tab-pane.active { display:block; }
+/* summary table */
+.spe-tbl { width:100%; border-collapse:collapse; font-size:11px; }
+.spe-tbl th { background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; padding:8px 10px; text-align:left; white-space:nowrap; }
+.spe-tbl td { padding:7px 10px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.spe-tbl tr:hover td { background:#f8fafc; }
+.spe-tbl tr:last-child td { border-bottom:none; }
+.spe-badge { display:inline-block; padding:1px 8px; border-radius:20px; font-size:10px; font-weight:800; }
+.spe-badge.crm { background:#ede9fe; color:#5b21b6; }
+.spe-badge.eng { background:#dcfce7; color:#166534; }
+.spe-badge.miss { background:#fee2e2; color:#991b1b; }
+.sp-status-badge { font-weight:900; padding:2px 8px; border-radius:6px; font-size:10px; display:inline-block; }
+.sp-status-prees  { background:#fef9c3; color:#854d0e; }
+.sp-status-postcs { background:#dcfce7; color:#166534; }
+.sp-status-prefc  { background:#dbeafe; color:#1e40af; }
+.sp-status-postfc { background:#f3e8ff; color:#6b21a8; }
+</style>
+
+<div class="spe-page">
+
+  <div class="spe-topbar">
+    <div>
+      <div class="spe-topbar-title">SP Build Entry</div>
+      <div class="spe-topbar-sub">Sharepoint Build Summary &middot; New Entry</div>
+    </div>
+  </div>
+
+  <div class="spe-filters">
+    <div class="spe-field">
+      <span class="spe-label">PL (Software Product)</span>
+      <select id="spePL" class="spe-select" onchange="speOnPLChange()">
+        <option value="">-- Select PL --</option>
+        {% for sp in software_products %}
+        <option value="{{ sp }}">{{ sp }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="spe-field">
+      <span class="spe-label">Week</span>
+      <select id="speWeek" class="spe-select" onchange="speOnWeekChange()">
+        {% for ws, we in weeks %}
+        <option value="{{ we }}" data-ws="{{ ws }}" {% if we == default_week_end %}selected{% endif %}>
+          {{ ws }} &rarr; {{ we }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="spe-field">
+      <span class="spe-label">Target (auto)</span>
+      <div id="speTargetBadge" class="spe-target-badge" style="display:none;"></div>
+      <div id="speTargetEmpty" style="font-size:11px;color:#94a3b8;font-weight:700;padding-top:8px;">Select a PL first</div>
+    </div>
+    <div class="spe-field" style="justify-content:flex-end;">
+      <button id="speAddBtn" class="spe-add-btn" onclick="speOpenModal()" disabled>+ Add Label</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="spe-tabs">
+    <button class="spe-tab-btn active" onclick="speTab('saved',this)">&#128190; Saved Labels</button>
+    <button class="spe-tab-btn" onclick="speTab('consolidated',this)">&#128202; Consolidated Report</button>
+    <button class="spe-tab-btn" onclick="speTab('missing',this)">&#9888;&#65039; Missing Targets</button>
+    <button class="spe-tab-btn" onclick="speTab('devutil',this)">&#128241; Device Utilization</button>
+    <button class="spe-tab-btn" onclick="speTab('stability',this)">&#128200; PDT Stability Health</button>
+  </div>
+
+  <!-- Tab: Saved Labels -->
+  <div id="speTabPane_saved" class="spe-tab-pane active">
+    <div id="speLabelsArea" class="spe-labels-area">
+      <div class="spe-empty" id="speEmptyMsg">Select a PL and week to view saved entries.</div>
+    </div>
+  </div>
+
+  <!-- Tab: Consolidated Report -->
+  <div id="speTabPane_consolidated" class="spe-tab-pane">
+    <div style="background:#fff;border:1px solid #e0e7ff;border-radius:12px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:13px;font-weight:900;color:#1e293b;">Consolidated Report</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px;">CRM builds only &mdash; mirrors weekly report consolidated columns</span>
+        </div>
+        <button onclick="speLoadConsolidated()" style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer;">&#8635; Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="spe-tbl" id="speConsolidatedTable">
+          <thead><tr>
+            <th>#</th><th>BU</th><th>PL-ID</th><th>Timelines</th><th>PDT Test Status</th>
+            <th>Devices</th><th>Builds</th><th>Hours</th>
+            <th>Crashes</th><th>Unique CRs</th><th>MTBF</th>
+          </tr></thead>
+          <tbody id="speConsolidatedBody">
+            <tr><td colspan="11" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">Select a week to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Device Utilization -->
+  <div id="speTabPane_devutil" class="spe-tab-pane">
+    <div style="background:#fff;border:1px solid #d1fae5;border-radius:12px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:13px;font-weight:900;color:#1e293b;">Device Utilization</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px;">Hours &amp; devices from sp_entry_label for selected week</span>
+        </div>
+        <button onclick="speLoadDevUtil()" style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #6ee7b7;background:#d1fae5;color:#065f46;font-size:11px;font-weight:800;cursor:pointer;">&#8635; Refresh</button>
+      </div>
+      <!-- Summary totals -->
+      <div id="speDevUtilTotals" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;"></div>
+      <!-- Per-target table -->
+      <div style="overflow-x:auto;">
+        <table class="spe-tbl" id="speDevUtilTable">
+          <thead><tr>
+            <th>#</th><th>Target</th><th>PL-ID</th>
+            <th>Labels</th><th>Hours</th><th>Devices</th><th>Crashes</th>
+          </tr></thead>
+          <tbody id="speDevUtilBody">
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">Select a week to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Trend chart (Highcharts) -->
+      <div style="margin-top:16px;">
+        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px;">8-WEEK TREND — Device Hours</div>
+        <div id="speDevUtilChart" style="width:100%;height:220px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: PDT Stability Health -->
+  <div id="speTabPane_stability" class="spe-tab-pane">
+    <div style="background:#fff;border:1px solid #e0e7ff;border-radius:12px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:13px;font-weight:900;color:#1e293b;">PDT Stability Health</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px;">MTBF &amp; Hours trend from sp_entry_label</span>
+        </div>
+        <button onclick="speLoadStability()" style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer;">&#8635; Refresh</button>
+      </div>
+      <div id="speStabilityTotals" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;"></div>
+      <div id="speStabilityChart" style="width:100%;height:320px;margin-bottom:14px;"></div>
+      <div style="overflow-x:auto;">
+        <table class="spe-tbl" id="speStabilityTable">
+          <thead><tr>
+            <th>#</th><th>Target</th><th>PL-ID</th>
+            <th>Hours</th><th>Devices</th><th>Crashes</th><th>MTBF (hrs/crash)</th>
+          </tr></thead>
+          <tbody id="speStabilityBody">
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">Select a week to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Missing Targets -->
+  <div id="speTabPane_missing" class="spe-tab-pane">
+    <div style="background:#fff;border:1px solid #fee2e2;border-radius:12px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:13px;font-weight:900;color:#1e293b;">Missing Targets</span>
+          <span style="font-size:11px;color:#64748b;margin-left:8px;">PLs with SWPDT builds this week but no saved label yet</span>
+        </div>
+        <button onclick="speLoadMissing()" style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #fecaca;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:800;cursor:pointer;">&#8635; Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="spe-tbl" id="speMissingTable">
+          <thead><tr>
+            <th>#</th><th>Target</th><th>PL-ID</th><th>Action</th>
+          </tr></thead>
+          <tbody id="speMissingBody">
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">Select a week to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="spe-overlay" id="speOverlay">
+  <div class="spe-modal">
+    <div class="spe-modal-head">
+      <span class="spe-modal-title">Add Build Label</span>
+      <button class="spe-modal-close" onclick="speCloseModal()">&#10005;</button>
+    </div>
+    <div class="spe-modal-body">
+
+      <!-- Label type + build count -->
+      <div class="spe-form-row">
+        <div class="spe-form-field" style="flex:1;">
+          <label class="spe-form-label">Label Type *</label>
+          <select id="speLabelType" class="spe-form-input" style="cursor:pointer;" onchange="spePreviewBuildCount()">
+            {% for lt in label_types %}
+            <option value="{{ lt }}">{{ lt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="spe-form-field" style="flex:1;">
+          <label class="spe-form-label">Build Count (auto)</label>
+          <input id="speBuildCount" class="spe-form-input" type="text" readonly
+                 placeholder="auto" style="background:#f1f5f9;color:#6366f1;font-weight:900;">
+        </div>
+        <div class="spe-form-field" style="flex:2;">
+          <label class="spe-form-label">PL</label>
+          <input id="speModalPL" class="spe-form-input" type="text" readonly>
+        </div>
+      </div>
+
+      <!-- Builds list -->
+      <div class="spe-builds-section">
+        <div class="spe-builds-title">
+          Builds from SWPDT
+          <span class="spe-builds-count" id="speBuildsCount">0</span>
+          <span id="speLoadingSpinner" style="display:none;font-size:11px;color:#6366f1;font-weight:700;">Loading...</span>
+        </div>
+        <!-- Search + Select All toolbar -->
+        <div class="spe-builds-toolbar" id="speBuildsToolbar" style="display:none;">
+          <input type="text" class="spe-builds-search" id="speBuildsSearch"
+                 placeholder="Search builds..." oninput="speFilterBuilds()">
+          <button class="spe-sel-all-btn"   onclick="speSelectAll()">&#10003; All</button>
+          <button class="spe-desel-all-btn" onclick="speDeselectAll()">&#10005; None</button>
+        </div>
+        <div class="spe-builds-list" id="speBuildsList">
+          <div class="spe-no-builds">No builds found for this PL.</div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="spe-form-row">
+        <div class="spe-form-field">
+          <label class="spe-form-label">
+            Crashes
+            <span id="speCrashSrcBadge" class="spe-crash-src none">--</span>
+          </label>
+          <input id="speCrashes" class="spe-form-input" type="number" min="0" value="0"
+                 oninput="speOnCrashManual()" placeholder="0">
+        </div>
+        <div class="spe-form-field">
+          <label class="spe-form-label">Hours *</label>
+          <input id="speHours" class="spe-form-input" type="number" min="0" step="0.5"
+                 oninput="speCalcMTBF()" placeholder="e.g. 168">
+        </div>
+        <div class="spe-form-field">
+          <label class="spe-form-label">Devices</label>
+          <input id="speDevices" class="spe-form-input" type="number" min="0" value="0"
+                 oninput="speDeviceManual()" placeholder="auto from builds">
+        </div>
+        <div class="spe-form-field">
+          <label class="spe-form-label">MTBF (hrs/crash)</label>
+          <input id="speMTBF" class="spe-form-input" type="text" readonly
+                 placeholder="auto" style="background:#f1f5f9;color:#64748b;">
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="spe-form-row">
+        <div class="spe-form-field" style="flex:1;">
+          <label class="spe-form-label">Notes (optional)</label>
+          <input id="speNotes" class="spe-form-input" type="text" placeholder="Any remarks...">
+        </div>
+      </div>
+
+    </div>
+    <div class="spe-modal-foot">
+      <button class="spe-cancel-btn" onclick="speCloseModal()">Cancel</button>
+      <button class="spe-save-btn" id="speSaveBtn" onclick="speSaveLabel()">Save Label</button>
+    </div>
+  </div>
+</div>
+
+<div class="spe-toast" id="speToast"></div>
+
+<!-- EDIT LABEL MODAL -->
+<div class="spe-overlay" id="speEditOverlay">
+  <div class="spe-modal" style="width:480px;">
+    <div class="spe-modal-head">
+      <span class="spe-modal-title" id="speEditTitle">Edit Label</span>
+      <button class="spe-modal-close" onclick="speCloseEditModal()">&#10005;</button>
+    </div>
+    <div class="spe-modal-body">
+      <input type="hidden" id="speEditId">
+      <div class="spe-form-row">
+        <div class="spe-form-field">
+          <label class="spe-form-label">Hours *</label>
+          <input id="speEditHours" class="spe-form-input" type="number" min="0" step="0.5" oninput="speCalcEditMTBF()" placeholder="e.g. 168">
+        </div>
+        <div class="spe-form-field">
+          <label class="spe-form-label">Devices</label>
+          <input id="speEditDevices" class="spe-form-input" type="number" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="spe-form-row">
+        <div class="spe-form-field">
+          <label class="spe-form-label">Crashes</label>
+          <input id="speEditCrashes" class="spe-form-input" type="number" min="0" oninput="speCalcEditMTBF()" placeholder="0">
+        </div>
+        <div class="spe-form-field">
+          <label class="spe-form-label">MTBF (auto)</label>
+          <input id="speEditMTBF" class="spe-form-input" type="text" readonly style="background:#f1f5f9;color:#64748b;">
+        </div>
+      </div>
+      <div class="spe-form-row">
+        <div class="spe-form-field" style="flex:1;">
+          <label class="spe-form-label">Notes</label>
+          <input id="speEditNotes" class="spe-form-input" type="text" placeholder="Any remarks...">
+        </div>
+      </div>
+    </div>
+    <div class="spe-modal-foot">
+      <button class="spe-cancel-btn" onclick="speCloseEditModal()">Cancel</button>
+      <button class="spe-save-btn" id="speEditSaveBtn" onclick="speSaveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _spBuilds      = [];
+var _spCrashMap    = {};
+var _spCrashSource = 'none';
+var _spDeviceAuto  = true;
+var _spCrashManual = false;
+var _spFilteredIdxs = [];
+
+function speOnPLChange() {
+  var pl     = document.getElementById('spePL').value;
+  var badge  = document.getElementById('speTargetBadge');
+  var empty  = document.getElementById('speTargetEmpty');
+  var addBtn = document.getElementById('speAddBtn');
+  if (!pl) {
+    badge.style.display = 'none'; empty.style.display = 'block';
+    addBtn.disabled = true;
+    speShowEmpty('Select a PL and week to view saved entries.');
+    return;
+  }
+  var weekSel   = document.getElementById('speWeek');
+  var weekEnd   = weekSel.value;
+  var weekStart = weekSel.options[weekSel.selectedIndex].dataset.ws;
+  var parts  = pl.split('.');
+  var target = parts.length >= 2 ? parts[0] + '.' + parts[1] : parts[0];
+  badge.textContent = target;
+  badge.className   = 'spe-target-badge';
+  badge.style.display = 'inline-flex';
+  empty.style.display = 'none';
+  addBtn.disabled = false;
+  fetch('/api/sp-entry/builds?software_product=' + encodeURIComponent(pl) + '&week_start=' + weekStart + '&week_end=' + weekEnd)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.in_db) {
+        badge.className   = 'spe-target-badge not-in-db';
+        badge.textContent = target + ' (not in DB this week)';
+      } else {
+        badge.className   = 'spe-target-badge';
+        badge.textContent = target + ' (confirmed)';
+      }
+    }).catch(function(){});
+  speLoadLabels();
+}
+
+function speOnWeekChange() {
+  if (document.getElementById('spePL').value) speOnPLChange();
+  // Reload whichever tab is active
+  var activeTab = document.querySelector('.spe-tab-btn.active');
+  if (activeTab) {
+    var txt = activeTab.textContent || '';
+    if (txt.indexOf('Consolidated') !== -1) speLoadConsolidated();
+    if (txt.indexOf('Missing')      !== -1) speLoadMissing();
+  }
+}
+
+function speLoadLabels() {
+  var pl      = document.getElementById('spePL').value;
+  var weekEnd = document.getElementById('speWeek').value;
+  if (!pl || !weekEnd) return;
+  fetch('/api/sp-entry/labels?software_product=' + encodeURIComponent(pl) + '&week_end=' + weekEnd)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ speRenderLabels(d.labels || []); })
+    .catch(function(){ speShowEmpty('Error loading saved entries.'); });
+}
+
+function speRenderLabels(labels) {
+  var area = document.getElementById('speLabelsArea');
+  if (!labels.length) {
+    speShowEmpty('No saved entries for this PL and week. Click "+ Add Label" to start.');
+    return;
+  }
+  // Group by label_type (CRM / ENG)
+  var groups = {};
+  labels.forEach(function(l){
+    var lt = l.label_type || 'CRM';
+    if (!groups[lt]) groups[lt] = [];
+    groups[lt].push(l);
+  });
+  var html = '';
+  Object.keys(groups).sort().forEach(function(lt){
+    html += '<div style="margin-bottom:14px;">';
+    html += '<div class="spe-lt-header">' + _esc(lt) + '</div>';
+    groups[lt].forEach(function(l){
+      var builds = l.build_names ? l.build_names.split('|||').filter(Boolean) : [];
+      var mtbf   = parseFloat(l.mtbf || 0);
+      html += '<div class="spe-card">'
+            + '<div class="spe-card-header">'
+            +   '<div>'
+            +     '<span class="spe-card-title">' + _esc(lt) + ' &mdash; Build ' + (l.build_count||'') + '</span>'
+            +     '<span class="spe-card-week" style="margin-left:10px;">' + _esc(l.week_start) + ' &rarr; ' + _esc(l.week_end) + '</span>'
+            +   '</div>'
+            +   '<div style="display:flex;gap:6px;align-items:center;">'
+            +     '<button onclick="speEditLabel(' + l.id + ',this)" style="height:26px;padding:0 10px;border-radius:6px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:800;cursor:pointer;">&#9998; Edit</button>'
+            +     '<button class="spe-card-del" onclick="speDeleteLabel(' + l.id + ')" title="Delete">&#128465;</button>'
+            +   '</div>'
+            + '</div>'
+            + '<div class="spe-card-metrics">'
+            +   '<div class="spe-metric"><span class="spe-metric-label">Hours</span><span class="spe-metric-value">' + parseFloat(l.hours||0).toFixed(1) + '</span></div>'
+            +   '<div class="spe-metric"><span class="spe-metric-label">Devices</span><span class="spe-metric-value">' + (l.devices||0) + '</span></div>'
+            +   '<div class="spe-metric"><span class="spe-metric-label">MTBF</span><span class="spe-metric-value">' + (mtbf > 0 ? mtbf.toFixed(2) : '&mdash;') + '</span></div>'
+            +   '<div class="spe-metric"><span class="spe-metric-label">Builds</span><span class="spe-metric-value">' + builds.length + '</span></div>'
+            + '</div>'
+            + '<div class="spe-card-builds">'
+            +   builds.slice(0,5).map(function(b){ return '<code style="font-size:10px;">' + _esc(b) + '</code>'; }).join(', ')
+            +   (builds.length > 5 ? ' <em>+' + (builds.length-5) + ' more</em>' : '')
+            + '</div>'
+            + (l.notes ? '<div style="font-size:11px;color:#64748b;margin-top:6px;">&#128221; ' + _esc(l.notes) + '</div>' : '')
+            + '</div>';
+    });
+    html += '</div>';
+  });
+  area.innerHTML = html;
+}
+
+function speShowEmpty(msg) {
+  document.getElementById('speLabelsArea').innerHTML = '<div class="spe-empty">' + msg + '</div>';
+}
+
+function speOpenModal() {
+  var pl = document.getElementById('spePL').value;
+  if (!pl) return;
+  _spBuilds = []; _spCrashMap = {}; _spCrashSource = 'none';
+  _spDeviceAuto = true; _spCrashManual = false; _spFilteredIdxs = [];
+  var searchEl = document.getElementById('speBuildsSearch');
+  if (searchEl) searchEl.value = '';
+  document.getElementById('speBuildsToolbar').style.display = 'none';
+  document.getElementById('speLabelType').value  = 'CRM';
+  document.getElementById('speBuildCount').value = '';
+  document.getElementById('speModalPL').value    = pl;
+  document.getElementById('speCrashes').value    = '0';
+  document.getElementById('speHours').value      = '';
+  document.getElementById('speDevices').value    = '0';
+  document.getElementById('speMTBF').value       = '';
+  document.getElementById('speNotes').value      = '';
+  document.getElementById('speSaveBtn').disabled = false;
+  speSetCrashBadge('none');
+  spePreviewBuildCount();
+  document.getElementById('speOverlay').classList.add('open');
+  speLoadBuilds(pl);
+}
+
+function spePreviewBuildCount() {
+  var pl      = document.getElementById('spePL').value;
+  var weekEnd = document.getElementById('speWeek').value;
+  var ltEl    = document.getElementById('speLabelType');
+  var ltype   = ltEl ? ltEl.value : 'CRM';
+  if (!pl || !weekEnd) return;
+  fetch('/api/sp-entry/labels?software_product=' + encodeURIComponent(pl) + '&week_end=' + weekEnd)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var cnt = (d.labels || []).filter(function(l){ return l.label_type === ltype; }).length + 1;
+      var el  = document.getElementById('speBuildCount');
+      if (el) el.value = ltype + ' Build ' + cnt;
+    }).catch(function(){});
+}
+
+function speCloseModal() {
+  document.getElementById('speOverlay').classList.remove('open');
+}
+document.getElementById('speOverlay').addEventListener('click', function(e){
+  if (e.target === this) speCloseModal();
+});
+document.getElementById('speEditOverlay').addEventListener('click', function(e){
+  if (e.target === this) speCloseEditModal();
+});
+
+function speLoadBuilds(pl) {
+  var weekSel   = document.getElementById('speWeek');
+  var weekEnd   = weekSel.value;
+  var weekStart = weekSel.options[weekSel.selectedIndex].dataset.ws;
+  var list = document.getElementById('speBuildsList');
+  var spin = document.getElementById('speLoadingSpinner');
+  var title = document.querySelector('.spe-builds-title');
+  list.innerHTML = '<div class="spe-no-builds">Loading builds...</div>';
+  spin.style.display = 'inline';
+  // Remove any previous warning
+  var oldWarn = document.getElementById('speBuildsRangeWarn');
+  if (oldWarn) oldWarn.remove();
+  fetch('/api/sp-entry/builds?software_product=' + encodeURIComponent(pl) + '&week_start=' + weekStart + '&week_end=' + weekEnd)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      spin.style.display = 'none';
+      _spBuilds = d.builds || [];
+      _spFilteredIdxs = _spBuilds.map(function(_,i){ return i; });
+      var searchEl = document.getElementById('speBuildsSearch');
+      if (searchEl) searchEl.value = '';
+      document.getElementById('speBuildsCount').textContent = _spBuilds.length;
+
+      // Remove any previous notices
+      var oldWarn = document.getElementById('speBuildsRangeWarn');
+      if (oldWarn) oldWarn.remove();
+
+      // Week older than 20 days — JSON has no data for this range
+      if (d.week_too_old) {
+        var warn = document.createElement('div');
+        warn.id = 'speBuildsRangeWarn';
+        warn.style.cssText = 'font-size:10px;font-weight:700;color:#7c3aed;background:#ede9fe;'
+          + 'border:1px solid #c4b5fd;border-radius:6px;padding:6px 10px;margin-bottom:6px;'
+          + 'display:flex;align-items:center;gap:6px;';
+        warn.innerHTML = '&#128197; <span>Selected week is older than 20 days — SWPDT JSON does not retain data beyond 20 days. '
+          + (d.source === 'db_saved' ? 'Showing builds previously saved in DB for this week.' : 'No build data available for this week.') + '</span>';
+        list.parentNode.insertBefore(warn, list);
+      }
+      // Fallback: builds loaded but not from the exact week range
+      else if (!d.date_filtered && _spBuilds.length > 0) {
+        var warn = document.createElement('div');
+        warn.id = 'speBuildsRangeWarn';
+        warn.style.cssText = 'font-size:10px;font-weight:700;color:#92400e;background:#fef9c3;'
+          + 'border:1px solid #fde68a;border-radius:6px;padding:4px 10px;margin-bottom:6px;';
+        warn.textContent = '\u26a0\ufe0f No builds found for ' + weekStart + ' \u2192 ' + weekEnd
+          + ' in SWPDT. Showing all available builds for this PL.';
+        list.parentNode.insertBefore(warn, list);
+      }
+      speRenderBuilds();
+    }).catch(function(){
+      spin.style.display = 'none';
+      list.innerHTML = '<div class="spe-no-builds">Error loading builds.</div>';
+    });
+}
+
+var _spFilteredIdxs = [];
+
+function speFilterBuilds() {
+  var q = (document.getElementById('speBuildsSearch').value || '').toLowerCase().trim();
+  _spFilteredIdxs = [];
+  _spBuilds.forEach(function(b, idx){
+    var name = (b.build_name || '').toLowerCase();
+    var bid  = (b.build_id  || '').toLowerCase();
+    if (!q || name.indexOf(q) !== -1 || bid.indexOf(q) !== -1) {
+      _spFilteredIdxs.push(idx);
+    }
+  });
+  speRenderBuilds();
+}
+
+function speSelectAll() {
+  _spFilteredIdxs.forEach(function(idx){
+    var cb   = document.getElementById('speCb_'   + idx);
+    var item = document.getElementById('speItem_' + idx);
+    if (cb && !cb.checked) { cb.checked = true; if (item) item.classList.add('checked'); }
+  });
+  speOnBuildSelectionChange();
+}
+
+function speDeselectAll() {
+  _spFilteredIdxs.forEach(function(idx){
+    var cb   = document.getElementById('speCb_'   + idx);
+    var item = document.getElementById('speItem_' + idx);
+    if (cb && cb.checked) { cb.checked = false; if (item) item.classList.remove('checked'); }
+  });
+  speOnBuildSelectionChange();
+}
+
+function speRenderBuilds() {
+  var list    = document.getElementById('speBuildsList');
+  var toolbar = document.getElementById('speBuildsToolbar');
+  if (!_spBuilds.length) {
+    list.innerHTML = '<div class="spe-no-builds">No builds found in SWPDT for this week.<br>'
+      + '<span style="font-size:10px;color:#94a3b8;">If this week is older than 20 days, SWPDT data is not retained.</span></div>';
+    toolbar.style.display = 'none';
+    return;
+  }
+  toolbar.style.display = 'flex';
+  if (!_spFilteredIdxs.length) {
+    _spFilteredIdxs = _spBuilds.map(function(_,i){ return i; });
+  }
+  var visible = _spFilteredIdxs;
+  if (!visible.length) {
+    list.innerHTML = '<div class="spe-no-builds">No builds match your search.</div>';
+    return;
+  }
+  var html = '';
+  visible.forEach(function(idx){
+    var b = _spBuilds[idx];
+    var crashes  = _spCrashMap[b.build_id] || 0;
+    var crashCls = crashes > 0 ? 'spe-build-crashes' : 'spe-build-crashes zero';
+    var crashTxt = crashes > 0 ? crashes + ' crash' + (crashes>1?'es':'') : '0 crashes';
+    html += '<div class="spe-build-item" id="speItem_' + idx + '" onclick="speToggleBuild(' + idx + ')">'
+          + '<input type="checkbox" class="spe-build-cb" id="speCb_' + idx + '" onclick="event.stopPropagation();speToggleBuild(' + idx + ')">'
+          + '<div class="spe-build-info">'
+          +   '<div class="spe-build-name" title="' + _esc(b.build_id) + '">' + _esc(b.build_name) + '</div>'
+          +   '<div class="spe-build-meta">'
+          +     (b.device_count > 0 ? b.device_count + ' device' + (b.device_count>1?'s':'') : 'no devices')
+          +     (b.submitted ? ' &middot; ' + b.submitted : '')
+          +   '</div>'
+          + '</div>'
+          + '<span class="' + crashCls + '" id="speCrashBadge_' + idx + '">' + crashTxt + '</span>'
+          + '</div>';
+  });
+  list.innerHTML = html;
+  // Restore checked state after re-render (e.g. after search filter)
+  _spBuilds.forEach(function(b, idx){
+    var cb   = document.getElementById('speCb_'   + idx);
+    var item = document.getElementById('speItem_' + idx);
+    if (cb && cb.checked && item) item.classList.add('checked');
+  });
+}
+
+function speToggleBuild(idx) {
+  var cb   = document.getElementById('speCb_' + idx);
+  var item = document.getElementById('speItem_' + idx);
+  cb.checked = !cb.checked;
+  item.classList.toggle('checked', cb.checked);
+  speOnBuildSelectionChange();
+}
+
+function speOnBuildSelectionChange() {
+  var selected = speGetSelectedBuilds();
+  if (_spDeviceAuto) {
+    var totalDev = selected.reduce(function(s,b){ return s + (b.device_count||0); }, 0);
+    var devEl = document.getElementById('speDevices');
+    devEl.value = totalDev;
+    devEl.classList.toggle('auto-set', totalDev > 0);
+  }
+  if (!selected.length) {
+    if (!_spCrashManual) { document.getElementById('speCrashes').value = '0'; speSetCrashBadge('none'); }
+    speCalcMTBF(); return;
+  }
+  if (_spCrashManual) { speCalcMTBF(); return; }
+  var pl      = document.getElementById('spePL').value;
+  var weekEnd = document.getElementById('speWeek').value;
+  var buildIds = selected.map(function(b){ return b.build_id; });
+  fetch('/api/sp-entry/crashes', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({software_product:pl, week_end:weekEnd, build_ids:buildIds})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    _spCrashMap    = d.per_build || {};
+    _spCrashSource = d.source || 'none';
+    _spBuilds.forEach(function(b, idx){
+      var badge = document.getElementById('speCrashBadge_' + idx);
+      if (!badge) return;
+      var c = _spCrashMap[b.build_id] || 0;
+      badge.textContent = c > 0 ? c + ' crash' + (c>1?'es':'') : '0 crashes';
+      badge.className   = c > 0 ? 'spe-build-crashes' : 'spe-build-crashes zero';
+    });
+    document.getElementById('speCrashes').value = d.crashes || 0;
+    document.getElementById('speCrashes').classList.toggle('auto-set', _spCrashSource === 'db');
+    speSetCrashBadge(_spCrashSource);
+    speCalcMTBF();
+  }).catch(function(){ speCalcMTBF(); });
+}
+
+function speGetSelectedBuilds() {
+  var sel = [];
+  _spBuilds.forEach(function(b, idx){
+    var cb = document.getElementById('speCb_' + idx);
+    if (cb && cb.checked) sel.push(b);
+  });
+  return sel;
+}
+
+function speCalcMTBF() {
+  var crashes = parseInt(document.getElementById('speCrashes').value || '0', 10) || 0;
+  var hours   = parseFloat(document.getElementById('speHours').value || '0') || 0;
+  var el      = document.getElementById('speMTBF');
+  if (crashes > 0 && hours > 0)      el.value = (hours / crashes).toFixed(2);
+  else if (hours > 0 && crashes === 0) el.value = 'No crashes';
+  else                                 el.value = '';
+}
+
+function speOnCrashManual() {
+  _spCrashManual = true;
+  document.getElementById('speCrashes').classList.remove('auto-set');
+  speSetCrashBadge('manual');
+  speCalcMTBF();
+}
+
+function speDeviceManual() {
+  _spDeviceAuto = false;
+  document.getElementById('speDevices').classList.remove('auto-set');
+}
+
+function speSetCrashBadge(src) {
+  var badge = document.getElementById('speCrashSrcBadge');
+  badge.className   = 'spe-crash-src ' + src;
+  badge.textContent = src === 'db' ? 'from DB' : src === 'manual' ? 'manual' : '--';
+}
+
+function speSaveLabel() {
+  var labelType = document.getElementById('speLabelType').value;
+  var pl        = document.getElementById('spePL').value;
+  var hours     = parseFloat(document.getElementById('speHours').value || '0') || 0;
+  var devices   = parseInt(document.getElementById('speDevices').value || '0', 10) || 0;
+  var crashes   = parseInt(document.getElementById('speCrashes').value || '0', 10) || 0;
+  var notes     = document.getElementById('speNotes').value.trim();
+  if (!labelType) { speToast('Label type is required.', 'err'); return; }
+  if (!pl)        { speToast('No PL selected.', 'err'); return; }
+  if (hours <= 0) { speToast('Hours must be > 0.', 'err'); return; }
+  var weekSel   = document.getElementById('speWeek');
+  var weekEnd   = weekSel.value;
+  var weekStart = weekSel.options[weekSel.selectedIndex].dataset.ws;
+  var selected  = speGetSelectedBuilds();
+  var buildPayload = selected.map(function(b){
+    return {
+      build_id:     b.build_id,
+      build_name:   b.build_name,
+      device_count: b.device_count,
+      submitted:    b.submitted,
+      crashes:      _spCrashMap[b.build_id] || 0,
+      crash_source: _spCrashManual ? 'manual' : (_spCrashSource === 'db' ? 'auto' : 'manual'),
+    };
+  });
+  var btn = document.getElementById('speSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  fetch('/api/sp-entry/save', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      week_start:       weekStart,
+      week_end:         weekEnd,
+      software_product: pl,
+      label_type:       labelType,
+      hours:            hours,
+      devices:          devices,
+      crashes:          crashes,
+      notes:            notes,
+      builds:           buildPayload,
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false; btn.textContent = 'Save Label';
+    if (d.ok) {
+      speToast(labelType + ' Build ' + (d.build_count || '') + ' saved!', 'ok');
+      speCloseModal();
+      speLoadLabels();
+    } else {
+      speToast('Error: ' + (d.error || 'unknown'), 'err');
+    }
+  }).catch(function(){
+    btn.disabled = false; btn.textContent = 'Save Label';
+    speToast('Network error.', 'err');
+  });
+}
+
+function speDeleteLabel(id) {
+  if (!confirm('Delete this label and its builds?')) return;
+  fetch('/api/sp-entry/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({label_id: id})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.ok) { speToast('Deleted.', 'ok'); speLoadLabels(); }
+    else speToast('Error: ' + (d.error||'unknown'), 'err');
+  });
+}
+
+function speToast(msg, type) {
+  var t = document.getElementById('speToast');
+  t.textContent = msg;
+  t.className   = 'spe-toast ' + (type||'ok');
+  t.style.display = 'block';
+  setTimeout(function(){ t.style.display = 'none'; }, 3000);
+}
+
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function speTab(name, btn) {
+  document.querySelectorAll('.spe-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.spe-tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('speTabPane_' + name).classList.add('active');
+  if (name === 'consolidated') speLoadConsolidated();
+  if (name === 'missing')      speLoadMissing();
+  if (name === 'devutil')      speLoadDevUtil();
+  if (name === 'stability')    speLoadStability();
+}
+
+// ── Consolidated Report ────────────────────────────────────────────────────
+function speLoadConsolidated() {
+  var weekEnd = document.getElementById('speWeek').value;
+  if (!weekEnd) return;
+  var tbody = document.getElementById('speConsolidatedBody');
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:#6366f1;font-weight:700;">Loading...</td></tr>';
+  fetch('/api/sp-entry/consolidated?week_end=' + encodeURIComponent(weekEnd))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok || !d.rows.length) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">No CRM data saved for this week yet.</td></tr>';
+        return;
+      }
+      var html = '';
+      d.rows.forEach(function(r, i){
+        var mtbf = r.mtbf != null ? parseFloat(r.mtbf).toFixed(2) : '&mdash;';
+        var ucr  = r.unique_crs != null ? r.unique_crs : '&mdash;';
+        var statusCls = r.pdt_test_status === 'Post-CS' ? 'sp-status-postcs'
+                      : r.pdt_test_status === 'Post-FC' ? 'sp-status-postfc'
+                      : r.pdt_test_status === 'Pre-FC'  ? 'sp-status-prefc'
+                      : r.pdt_test_status === 'Pre-ES'  ? 'sp-status-prees' : '';
+        html += '<tr>'
+          + '<td style="color:#94a3b8;font-weight:700;text-align:center;">' + (i+1) + '</td>'
+          + '<td style="font-weight:800;color:#166534;text-align:center;">' + _esc(r.bu||'') + '</td>'
+          + '<td style="font-weight:700;color:#1e293b;white-space:normal;word-break:break-word;min-width:180px;">'
+          +   '<div style="font-size:10px;color:#64748b;">' + _esc(r.target||'') + '</div>'
+          +   _esc(r.pl_id||'') + '</td>'
+          + '<td style="font-size:10px;color:#334155;white-space:normal;word-break:break-word;min-width:140px;">' + _esc(r.timelines||'') + '</td>'
+          + '<td style="text-align:center;"><span class="sp-status-badge ' + statusCls + '">' + _esc(r.pdt_test_status||'') + '</span></td>'
+          + '<td style="text-align:center;">' + r.total_devices + '</td>'
+          + '<td style="text-align:center;">' + r.num_builds + '</td>'
+          + '<td style="text-align:right;font-weight:800;">' + parseFloat(r.total_hours).toFixed(1) + '</td>'
+          + '<td style="text-align:center;color:' + (r.total_crashes>0?'#dc2626':'#16a34a') + ';font-weight:800;">' + r.total_crashes + '</td>'
+          + '<td style="text-align:center;color:#64748b;font-style:italic;">' + ucr + '</td>'
+          + '<td style="text-align:center;font-weight:900;color:#0f172a;">' + mtbf + '</td>'
+          + '</tr>';
+      });
+      // Totals footer
+      var totH=0,totD=0,totC=0,totB=0;
+      d.rows.forEach(function(r){ totH+=r.total_hours; totD+=r.total_devices; totC+=r.total_crashes; totB+=r.num_builds; });
+      html += '<tr style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);font-weight:900;font-size:12px;">'
+        + '<td colspan="5" style="padding:9px 10px;color:#166534;">TOTAL</td>'
+        + '<td style="text-align:center;color:#166534;">' + totD + '</td>'
+        + '<td style="text-align:center;color:#166534;">' + totB + '</td>'
+        + '<td style="text-align:right;color:#166534;">' + totH.toFixed(1) + '</td>'
+        + '<td style="text-align:center;color:#dc2626;">' + totC + '</td>'
+        + '<td style="text-align:center;color:#64748b;">-</td>'
+        + '<td style="text-align:center;color:#166534;">' + (totC>0?(totH/totC).toFixed(2):'&mdash;') + '</td>'
+        + '</tr>';
+      tbody.innerHTML = html;
+    })
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#dc2626;padding:18px;">Error loading data.</td></tr>'; });
+}
+
+// ── Missing Targets ────────────────────────────────────────────────────────
+function speLoadMissing() {
+  var weekSel   = document.getElementById('speWeek');
+  var weekEnd   = weekSel.value;
+  var weekStart = weekSel.options[weekSel.selectedIndex].dataset.ws;
+  if (!weekEnd) return;
+  var tbody = document.getElementById('speMissingBody');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#6366f1;font-weight:700;">Loading...</td></tr>';
+  fetch('/api/sp-entry/missing-targets?week_end=' + encodeURIComponent(weekEnd) + '&week_start=' + encodeURIComponent(weekStart))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok || !d.rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#16a34a;font-weight:700;">&#10003; All PLs with SWPDT builds this week have saved labels.</td></tr>';
+        return;
+      }
+      var html = '';
+      d.rows.forEach(function(r, i){
+        html += '<tr>'
+          + '<td style="color:#94a3b8;font-weight:700;">' + (i+1) + '</td>'
+          + '<td style="font-weight:800;color:#1e293b;">' + _esc(r.target) + '</td>'
+          + '<td style="color:#dc2626;font-weight:700;">' + _esc(r.pl_id) + '</td>'
+          + '<td><button onclick="speQuickSelect(' + JSON.stringify(_esc(r.pl_id)) + ')" '
+          +   'style="height:26px;padding:0 10px;border-radius:6px;border:1.5px solid #c7d2fe;'
+          +   'background:#eef2ff;color:#4338ca;font-size:10px;font-weight:800;cursor:pointer;">'
+          +   '+ Add Label</button></td>'
+          + '</tr>';
+      });
+      tbody.innerHTML = html;
+    })
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#dc2626;padding:18px;">Error loading data.</td></tr>'; });
+}
+
+function speQuickSelect(pl) {
+  var plSel = document.getElementById('spePL');
+  for (var i = 0; i < plSel.options.length; i++) {
+    if (plSel.options[i].value === pl) {
+      plSel.selectedIndex = i;
+      speOnPLChange();
+      document.querySelectorAll('.spe-tab-btn')[0].click();
+      setTimeout(function(){ speOpenModal(); }, 300);
+      return;
+    }
+  }
+  speToast('PL not found in dropdown: ' + pl, 'err');
+}
+
+// ── Device Utilization ─────────────────────────────────────────────────────
+var _speDevChart = null;
+function speLoadDevUtil() {
+  var weekEnd = document.getElementById('speWeek').value;
+  if (!weekEnd) return;
+  var tbody  = document.getElementById('speDevUtilBody');
+  var totals = document.getElementById('speDevUtilTotals');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#6366f1;font-weight:700;">Loading...</td></tr>';
+  totals.innerHTML = '';
+  fetch('/api/sp-entry/device-utilization?week_end=' + encodeURIComponent(weekEnd))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:18px;">Error: '+(d.error||'unknown')+'</td></tr>'; return; }
+      var th=0,td=0,tc=0;
+      (d.rows||[]).forEach(function(r){ th+=r.total_hours; td+=r.total_devices; tc+=r.total_crashes; });
+      totals.innerHTML = _speMetricPill('Total Hours',th.toFixed(1),'#0ea5e9')+_speMetricPill('Total Devices',td,'#10b981')+_speMetricPill('Total Crashes',tc,tc>0?'#ef4444':'#64748b')+_speMetricPill('PLs Entered',(d.rows||[]).length,'#6366f1');
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">No data for this week.</td></tr>'; }
+      else {
+        var html='';
+        d.rows.forEach(function(r,i){
+          html+='<tr><td style="color:#94a3b8;font-weight:700;">'+(i+1)+'</td>'
+            +'<td style="font-weight:800;color:#1e293b;">'+_esc(r.target)+'</td>'
+            +'<td style="color:#4338ca;font-weight:700;">'+_esc(r.pl_id)+'</td>'
+            +'<td style="text-align:center;">'+r.num_labels+'</td>'
+            +'<td style="text-align:right;font-weight:800;">'+r.total_hours.toFixed(1)+'</td>'
+            +'<td style="text-align:right;">'+r.total_devices+'</td>'
+            +'<td style="text-align:right;color:'+(r.total_crashes>0?'#dc2626':'#16a34a')+';font-weight:800;">'+r.total_crashes+'</td></tr>';
+        });
+        tbody.innerHTML = html;
+      }
+      _speDrawBar('speDevUtilChart', d.trend||[], 'total_hours', 'Hours', '#0ea5e9');
+    })
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:18px;">Error loading data.</td></tr>'; });
+}
+
+// ── PDT Stability Health ──────────────────────────────────────────────────
+var _speStabChart = null;
+function speLoadStability() {
+  var weekEnd = document.getElementById('speWeek').value;
+  if (!weekEnd) return;
+  var tbody  = document.getElementById('speStabilityBody');
+  var totals = document.getElementById('speStabilityTotals');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#6366f1;font-weight:700;">Loading...</td></tr>';
+  totals.innerHTML = '';
+  fetch('/api/sp-entry/stability-health?week_end=' + encodeURIComponent(weekEnd))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:18px;">Error: '+(d.error||'unknown')+'</td></tr>'; return; }
+      var th=0,tc=0,td=0;
+      (d.rows||[]).forEach(function(r){ th+=r.total_hours; tc+=r.total_crashes; td+=r.total_devices; });
+      var om = tc>0 ? (th/tc).toFixed(2) : '—';
+      totals.innerHTML = _speMetricPill('Total Hours',th.toFixed(1),'#0ea5e9')+_speMetricPill('Total Crashes',tc,tc>0?'#ef4444':'#64748b')+_speMetricPill('Overall MTBF',om,'#6366f1')+_speMetricPill('PLs Entered',(d.rows||[]).length,'#10b981');
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;font-weight:700;">No data for this week.</td></tr>'; }
+      else {
+        var html='';
+        d.rows.forEach(function(r,i){
+          var mtbf = r.mtbf!=null ? parseFloat(r.mtbf).toFixed(2) : '—';
+          var mc   = r.mtbf==null?'#64748b':r.mtbf>=100?'#16a34a':r.mtbf>=50?'#d97706':'#dc2626';
+          html+='<tr><td style="color:#94a3b8;font-weight:700;">'+(i+1)+'</td>'
+            +'<td style="font-weight:800;color:#1e293b;">'+_esc(r.target)+'</td>'
+            +'<td style="color:#4338ca;font-weight:700;">'+_esc(r.pl_id)+'</td>'
+            +'<td style="text-align:right;font-weight:800;">'+r.total_hours.toFixed(1)+'</td>'
+            +'<td style="text-align:right;">'+r.total_devices+'</td>'
+            +'<td style="text-align:right;color:'+(r.total_crashes>0?'#dc2626':'#16a34a')+';font-weight:800;">'+r.total_crashes+'</td>'
+            +'<td style="text-align:right;font-weight:900;color:'+mc+';">'+mtbf+'</td></tr>';
+        });
+        tbody.innerHTML = html;
+      }
+      _speDrawLine('speStabilityChart', d.trend||[]);
+    })
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:18px;">Error loading data.</td></tr>'; });
+}
+
+function _speMetricPill(label, value, color) {
+  return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 14px;min-width:90px;">'
+    +'<div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;">'+label+'</div>'
+    +'<div style="font-size:18px;font-weight:900;color:'+color+';">'+value+'</div></div>';
+}
+
+function _speDrawBar(divId, trend, field, label, color) {
+  var el = document.getElementById(divId);
+  if (!el || typeof Highcharts === 'undefined') return;
+  Highcharts.chart(divId, {
+    chart:{ type:'column', backgroundColor:'#fff', style:{fontFamily:'inherit'} },
+    title:{ text:null },
+    xAxis:{ categories: trend.map(function(t){ return (t.week_end||'').slice(5); }), crosshair:true },
+    yAxis:{ min:0, title:{ text:label }, gridLineColor:'#f1f5f9' },
+    legend:{ enabled:false },
+    tooltip:{ headerFormat:'<b>{point.key}</b><br>', pointFormat: label+': <b>{point.y:.1f}</b>' },
+    series:[{ name:label, data: trend.map(function(t){ return +(t[field]||0); }), color:color, borderRadius:3 }],
+    credits:{ enabled:false }
+  });
+}
+
+function _speDrawLine(divId, trend) {
+  var el = document.getElementById(divId);
+  if (!el || typeof Highcharts === 'undefined') return;
+  var labels  = trend.map(function(t){ return (t.week_end||'').slice(5); });
+  var mtbfs   = trend.map(function(t){ return t.mtbf != null ? +t.mtbf : null; });
+  var hours   = trend.map(function(t){ return +(t.total_hours||0); });
+  var crashes = trend.map(function(t){ return +(t.total_crashes||0); });
+  Highcharts.chart(divId, {
+    chart:{ backgroundColor:'#fff', style:{fontFamily:'inherit'} },
+    title:{ text:null },
+    xAxis:{ categories:labels, crosshair:true },
+    yAxis:[
+      { title:{ text:'MTBF (hrs/crash)', style:{color:'#6366f1'} }, min:0, gridLineColor:'#f1f5f9' },
+      { title:{ text:'Hours', style:{color:'#0ea5e9'} }, min:0, opposite:true, gridLineColor:'#f1f5f9' }
+    ],
+    tooltip:{ shared:true },
+    legend:{ enabled:true, align:'center', verticalAlign:'bottom', itemStyle:{fontSize:'10px'} },
+    series:[
+      { name:'MTBF (hrs/crash)', data:mtbfs,  type:'line',   color:'#6366f1', yAxis:0, marker:{radius:4}, connectNulls:false },
+      { name:'Hours',            data:hours,  type:'column', color:'#0ea5e966', yAxis:1, borderRadius:2 },
+      { name:'Crashes',          data:crashes,type:'line',   color:'#ef4444', yAxis:0, dashStyle:'ShortDash', marker:{radius:3} }
+    ],
+    credits:{ enabled:false }
+  });
+}
+
+// ── Edit Label ─────────────────────────────────────────────────────────────
+function speEditLabel(labelId, triggerBtn) {
+  // Fetch the label data fresh from the server
+  var pl      = document.getElementById('spePL').value;
+  var weekEnd = document.getElementById('speWeek').value;
+  fetch('/api/sp-entry/labels?software_product=' + encodeURIComponent(pl) + '&week_end=' + encodeURIComponent(weekEnd))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var l = (d.labels||[]).find(function(x){ return x.id == labelId; });
+      if (!l) { speToast('Label not found.','err'); return; }
+      document.getElementById('speEditId').value      = l.id;
+      document.getElementById('speEditHours').value   = l.hours || '';
+      document.getElementById('speEditDevices').value = l.devices || '';
+      document.getElementById('speEditCrashes').value = l.crashes || '';
+      document.getElementById('speEditNotes').value   = l.notes || '';
+      var mtbf = parseFloat(l.mtbf||0);
+      document.getElementById('speEditMTBF').value    = mtbf > 0 ? mtbf.toFixed(2) : '';
+      document.getElementById('speEditTitle').textContent =
+        (l.label_type||'CRM') + ' — Build ' + (l.build_count||'') + ' | ' + (l.software_product||'');
+      document.getElementById('speEditOverlay').classList.add('open');
+    }).catch(function(){ speToast('Error loading label.','err'); });
+}
+function speCloseEditModal() {
+  document.getElementById('speEditOverlay').classList.remove('open');
+}
+function speCalcEditMTBF() {
+  var c = parseInt(document.getElementById('speEditCrashes').value||'0',10)||0;
+  var h = parseFloat(document.getElementById('speEditHours').value||'0')||0;
+  document.getElementById('speEditMTBF').value = (c>0&&h>0) ? (h/c).toFixed(2) : (h>0?'No crashes':'');
+}
+function speSaveEdit() {
+  var id      = document.getElementById('speEditId').value;
+  var hours   = parseFloat(document.getElementById('speEditHours').value||'0')||0;
+  var devices = parseInt(document.getElementById('speEditDevices').value||'0',10)||0;
+  var crashes = parseInt(document.getElementById('speEditCrashes').value||'0',10)||0;
+  var notes   = document.getElementById('speEditNotes').value.trim();
+  if (!id)        { speToast('No label ID.','err'); return; }
+  if (hours <= 0) { speToast('Hours must be > 0.','err'); return; }
+  var btn = document.getElementById('speEditSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  fetch('/api/sp-entry/update', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ label_id:id, hours:hours, devices:devices, crashes:crashes, notes:notes })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false; btn.textContent = 'Save Changes';
+    if (d.ok) { speToast('Updated!','ok'); speCloseEditModal(); speLoadLabels(); }
+    else speToast('Error: '+(d.error||'unknown'),'err');
+  }).catch(function(){ btn.disabled=false; btn.textContent='Save Changes'; speToast('Network error.','err'); });
+}
+</script>
+{% endblock %}

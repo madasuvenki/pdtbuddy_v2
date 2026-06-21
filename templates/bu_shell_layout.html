@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+{% block title %}{{ shell_title|default('Business Unit Workspace') }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bu_selection.css') }}?v={{ cache_buster }}">
+<style>
+/* ── Shell layout ── */
+.bu-shell-page{min-height:100vh;}
+.bu-shell-page .app-bg-shell{padding:0!important;margin:0!important;background:transparent!important;}
+.bu-shell-page .app-bg-gradient{display:none!important;}
+.bu-shell-page .qcom-page-shell{padding:0!important;max-width:none!important;}
+.bu-shell-page .bu-simple-page--embedded{min-height:calc(100vh - 58px);}
+.bu-shell-page .bu-detail-panel--embedded{display:flex;flex-direction:column;min-width:0;}
+.bu-shell-page .bu-shell-inline-content{flex:1;min-width:0;overflow:visible;background:transparent;display:flex;flex-direction:column;}
+
+/* ── Remove underline from ALL sidebar nav links/buttons ── */
+.bu-nav-btn, .bu-nav-btn:hover, .bu-nav-btn:visited, .bu-nav-btn:focus,
+.bu-action-btn, .bu-action-btn:hover, .bu-action-btn:visited, .bu-action-btn:focus {
+  text-decoration: none !important;
+}
+
+/* ── BU content iframe ── */
+#buContentFrame {
+  width: 100%;
+  flex: 1 1 0;
+  border: none;
+  display: block;
+  min-height: calc(100vh - 58px);
+}
+
+/* ══════════════════════════════════════════════════════════
+   SHELL SIDEBAR — icon sizing & spacing overrides
+   Goal: icons are large, centred, fill the 58px strip,
+         auto-adjust when sidebar expands.
+══════════════════════════════════════════════════════════ */
+
+/* Widen the collapsed icon strip from 48px → 58px */
+.bu-simple-page--embedded .bu-simple-shell--embedded {
+  grid-template-columns: 58px 1fr !important;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed) {
+  grid-template-columns: 210px 1fr !important;
+}
+
+/* Nav button: collapsed = centred square that fills the strip */
+.bu-simple-page--embedded .bu-simple-shell--embedded.sidebar-collapsed
+  .bu-sidebar--embedded .bu-nav-btn {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+}
+
+/* Nav icon: bigger, centred, no fixed background box in collapsed mode */
+.bu-simple-page--embedded .bu-simple-shell--embedded.sidebar-collapsed
+  .bu-sidebar--embedded .bu-nav-icon {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 20px !important;
+  border-radius: 10px !important;
+}
+
+/* Nav icon in expanded mode */
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded .bu-nav-icon {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 17px !important;
+  border-radius: 9px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Action buttons: collapsed = centred square */
+.bu-simple-page--embedded .bu-simple-shell--embedded.sidebar-collapsed
+  .bu-sidebar--embedded .bu-action-btn {
+  width: 46px !important;
+  height: 40px !important;
+  min-width: 46px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded.sidebar-collapsed
+  .bu-sidebar--embedded .bu-action-btn i {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 18px !important;
+  border-radius: 0 !important;
+  background: none !important;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded.sidebar-collapsed
+  .bu-sidebar--embedded .bu-action-label {
+  display: none !important;
+}
+
+/* Action buttons: expanded = full-width with label */
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded .bu-action-btn {
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 8px !important;
+  justify-content: flex-start !important;
+  border-radius: 10px !important;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded .bu-action-btn i {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 15px !important;
+  border-radius: 8px !important;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded .bu-action-label {
+  display: block !important;
+}
+
+/* Sidebar itself: make sure it's wide enough for 46px buttons + padding */
+.bu-simple-page--embedded .bu-sidebar--embedded {
+  padding: 8px 6px 8px !important;
+  align-items: center;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded {
+  align-items: stretch;
+  padding: 8px 8px 8px !important;
+}
+
+/* Sidebar actions section */
+.bu-sidebar-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  padding: 6px 0 4px !important;
+  border-top: 1px solid rgba(148,163,184,.18) !important;
+  margin-top: 10px !important;
+  width: 100%;
+  align-items: center;
+}
+.bu-simple-page--embedded .bu-simple-shell--embedded:not(.sidebar-collapsed)
+  .bu-sidebar--embedded .bu-sidebar-actions {
+  align-items: stretch;
+}
+
+/* Force sidebar/nav hit area above any overlapping layers from shared CSS */
+#buShell,
+#buDetailPanel,
+#buSidebar,
+#buSidebarToggle,
+.bu-sidebar-list,
+.bu-sidebar-actions,
+.bu-nav-btn,
+.bu-action-btn {
+  position: relative;
+}
+#buShell { z-index: 1; }
+#buDetailPanel { z-index: 1; }
+#buSidebar { z-index: 30 !important; pointer-events: auto !important; }
+#buSidebarToggle { z-index: 35 !important; pointer-events: auto !important; }
+.bu-sidebar-list,
+.bu-sidebar-actions { z-index: 31 !important; pointer-events: auto !important; }
+.bu-nav-btn,
+.bu-action-btn { z-index: 32 !important; pointer-events: auto !important; }
+#buContentFrame { position: relative; z-index: 1; }
+
+</style>
+{% block shell_extra_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="bu-shell-page">
+  <div class="bu-simple-page bu-simple-page--embedded">
+    <div class="bu-simple-shell bu-simple-shell--embedded " id="buShell">
+      <aside class="bu-sidebar bu-sidebar--embedded" id="buSidebar" style="position:relative;">
+        <button type="button" class="bu-sidebar-toggle-pill" id="buSidebarToggle" aria-label="Collapse panel" title="Collapse panel">
+          <i class="fas fa-chevron-left" id="buToggleIcon"></i>
+        </button>
+        <div class="bu-sidebar-header">
+          <div class="bu-sidebar-header-top"></div>
+          <div class="bu-sidebar-kicker">PDT Buddy</div>
+          <h1 class="bu-sidebar-title">Business Units</h1>
+          <p class="bu-sidebar-subtitle">Simple navigation with lightweight buttons.</p>
+        </div>
+
+        <div class="bu-sidebar-list" role="tablist" aria-label="Business Units">
+
+          {# ── OVERALL BU → CR Overview ── #}
+                    <button type="button"
+             class="bu-nav-btn bu-nav-btn-overall {{ 'is-active' if active_bu_key == 'OVERALL_BU' else '' }}"
+
+             data-frame-url="{{ url_for('cr_overview_embed') }}"
+             title="OVERALL BU — CR Overview V2"
+             aria-label="OVERALL BU — CR Overview V2">
+            <span class="bu-nav-icon accent-overall"><i class="fas fa-chart-pie"></i></span>
+            <span class="bu-nav-copy">
+              <span class="bu-nav-title">OVERALL BU</span>
+              <span class="bu-nav-meta">CR Overview V2</span>
+            </span>
+          </button>
+
+          {# ── Per-BU buttons ── #}
+                    {% for bu in (shell_bu_list or bu_list or []) %}
+
+          {% set bu_key = bu.key %}
+          {% set bu_key_upper = bu_key|upper %}
+          {% if bu_key_upper == 'AUTO' or bu_key_upper == 'AUTOMOTIVE' %}
+            {% set bu_url = url_for('auto_select_gen') %}
+          {% elif bu_key_upper == 'WBC' %}
+            {% set bu_url = url_for('wbc_hierarchy') %}
+                    {% elif bu_key_upper == 'MDM_TELEMATICS' or bu_key_upper == 'AUTO_TELEMATICS' %}
+            {% set bu_url = url_for('mdm_hierarchy', bu_key=bu_key_upper) %}
+          {% elif bu_key_upper == 'WEEKLY_QIPL_REPORTS' %}
+            {% set bu_url = url_for('weekly_summary_bp.weekly_report_landing') %}
+          {% else %}
+            {% set bu_url = url_for('select_target_for_bu', bu_key=bu.key) %}
+          {% endif %}
+
+          <button type="button"
+             class="bu-nav-btn {{ 'is-active' if active_bu_key == bu_key_upper else '' }}"
+             data-frame-url="{{ bu_url }}"
+             title="{{ bu.display_name|upper }} — {% if bu_key_upper == 'WEEKLY_QIPL_REPORTS' %}Weekly Reports{% else %}{{ bu.targets_count }} targets{% endif %}"
+             aria-label="{{ bu.display_name|upper }}">
+            <span class="bu-nav-icon accent-{{ 'auto' if bu_key_upper in ['AUTO', 'AUTOMOTIVE'] else 'wbc' if bu_key_upper in ['WBC', 'MDM_TELEMATICS', 'AUTO_TELEMATICS'] else 'default' }}">
+              <i class="fas {{ BU_ICONS.get(bu_key_upper, 'fa-shield-alt') }}"></i>
+            </span>
+            <span class="bu-nav-copy">
+              <span class="bu-nav-title">{{ bu.display_name|upper }}</span>
+              <span class="bu-nav-meta">{% if bu_key_upper == 'WEEKLY_QIPL_REPORTS' %}Weekly Reports{% else %}{{ bu.targets_count }} targets{% endif %}</span>
+            </span>
+          </button>
+                    {% endfor %}
+
+
+                    {# ── HWPDT dedicated icon ── #}
+          <div class="bu-nav-divider" style="height:1px;background:linear-gradient(90deg,transparent,#e2e8f0,transparent);margin:6px 8px;"></div>
+          <button type="button"
+             class="bu-nav-btn {{ 'is-active' if active_bu_key == 'HWPDT' else '' }}"
+             data-frame-url="{{ url_for('hwpdt_overview') }}"
+             title="HWPDT — Hardware PDT Overview"
+             aria-label="HWPDT Overview">
+            <span class="bu-nav-icon" style="background:linear-gradient(135deg,rgba(8,145,178,.15),rgba(6,182,212,.15));color:#0891b2;">
+              <i class="fas fa-microchip"></i>
+            </span>
+            <span class="bu-nav-copy">
+              <span class="bu-nav-title">HWPDT</span>
+              <span class="bu-nav-meta">HW Overview</span>
+            </span>
+          </button>
+
+          {# ── Monthly BU Report ── #}
+          <button type="button"
+             class="bu-nav-btn {{ 'is-active' if active_bu_key == 'MONTHLY_REPORT' else '' }}"
+             data-frame-url="{{ url_for('weekly_summary_bp.monthly_report_landing') }}"
+             title="Monthly BU Report — Stability Trend · CR Analysis · Test Status"
+             aria-label="Monthly BU Report">
+            <span class="bu-nav-icon" style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.15));color:#6366f1;">
+              <i class="fas fa-chart-bar"></i>
+            </span>
+            <span class="bu-nav-copy">
+              <span class="bu-nav-title">Monthly</span>
+              <span class="bu-nav-meta">BU Report</span>
+            </span>
+          </button>
+
+        <div class="bu-sidebar-actions">
+
+          {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                    <button type="button" id="adminToggleBtn" class="bu-action-btn bu-action-btn--admin-modal" title="Admin Panel">
+
+            <i class="fas fa-user-shield"></i>
+            <span class="bu-action-label">Admin Panel</span>
+          </button>
+          <a href="{{ url_for('admin_usage') }}" class="bu-action-btn bu-action-btn--admin" title="Admin Stats">
+            <i class="fas fa-chart-line"></i>
+            <span class="bu-action-label">Admin Stats</span>
+          </a>
+          {% endif %}
+
+          {% if current_user.is_authenticated %}
+          <button type="button" id="topbarFeedbackBtn" class="bu-action-btn bu-action-btn--feedback" title="Rate this tool"
+                  onclick="if(window.openRatingPopup)window.openRatingPopup();">
+            <i class="fas fa-star"></i>
+            <span class="bu-action-label">Feedback</span>
+          </button>
+          {% endif %}
+
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('admin_raise_ticket') }}" class="bu-action-btn bu-action-btn--ticket" title="Raise Ticket">
+            <i class="fas fa-ticket-alt"></i>
+            <span class="bu-action-label">Raise Ticket</span>
+          </a>
+          {% endif %}
+
+                    <button type="button" id="themeToggleBtn" class="bu-action-btn bu-action-btn--theme" title="Toggle Dark / Light mode">
+            <i class="fas fa-moon" id="themeToggleIcon"></i>
+            <span class="bu-action-label" id="themeToggleLabel">Dark Mode</span>
+          </button>
+
+          <a href="/dashboard/help" target="_blank" class="bu-action-btn" title="Help &amp; User Guide" style="text-decoration:none;">
+            <i class="fas fa-question-circle" style="color:#6366f1;"></i>
+            <span class="bu-action-label">Help</span>
+          </a>
+
+          {% if current_user.is_authenticated %}
+          <a href="{{ url_for('logout') }}" class="bu-action-btn bu-action-btn--logout" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span class="bu-action-label">Logout</span>
+          </a>
+          {% endif %}
+        </div>
+      </aside>
+
+      <section class="bu-detail-panel bu-detail-panel--embedded" id="buDetailPanel">
+        <div class="bu-shell-inline-content">
+          {# Inline content block (used by cr_overview_shell.html for the default CR Overview view) #}
+          <div id="buInlineContent" style="display:flex;flex-direction:column;flex:1 1 0;min-height:0;">
+            {% block shell_inner_content %}{% endblock %}
+          </div>
+          {# iframe for BU pages loaded without full page redirect #}
+          <iframe id="buContentFrame" src="" style="display:none;" title="BU Content" allowfullscreen></iframe>
+          
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+{% if current_user.is_authenticated %}
+<div id="ratingPopup" style="display:none;position:fixed;top:68px;right:20px;z-index:9900;width:340px;background:linear-gradient(135deg,#1e293b,#312e81);border-radius:16px;box-shadow:0 8px 32px rgba(15,23,42,.35);padding:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:800;color:#f8fafc;">&#11088; Rate this tool</div>
+    <button type="button" id="ratingPopupClose" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:13px;">&#x2715;</button>
+  </div>
+  <div style="font-size:11px;color:#94a3b8;margin-bottom:14px;">How much work did this tool save you today?</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;" id="ratingStarsWrap">
+    <button type="button" class="rstar" data-v="1" style="background:none;border:none;font-size:28px;cursor:pointer;color:#475569;padding:0;line-height:1;">&#9733;</button>
+    <button type="button" class="rstar" data-v="2" style="background:none;border:none;font-size:28px;cursor:pointer;color:#475569;padding:0;line-height:1;">&#9733;</button>
+    <button type="button" class="rstar" data-v="3" style="background:none;border:none;font-size:28px;cursor:pointer;color:#475569;padding:0;line-height:1;">&#9733;</button>
+    <button type="button" class="rstar" data-v="4" style="background:none;border:none;font-size:28px;cursor:pointer;color:#475569;padding:0;line-height:1;">&#9733;</button>
+    <button type="button" class="rstar" data-v="5" style="background:none;border:none;font-size:28px;cursor:pointer;color:#475569;padding:0;line-height:1;">&#9733;</button>
+  </div>
+  <div style="font-size:11px;color:#64748b;margin-bottom:6px;">Hours of work saved:</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;" id="hoursWrap">
+    <button type="button" class="hbtn" data-h="0.5" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">0.5h</button>
+    <button type="button" class="hbtn" data-h="1" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">1h</button>
+    <button type="button" class="hbtn" data-h="2" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">2h</button>
+    <button type="button" class="hbtn" data-h="3" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">3h</button>
+    <button type="button" class="hbtn" data-h="4" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">4h</button>
+    <button type="button" class="hbtn" data-h="5" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">5h</button>
+    <button type="button" class="hbtn" data-h="8" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">8h</button>
+    <button type="button" class="hbtn" data-h="16" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">16h</button>
+  </div>
+  <div style="font-size:11px;color:#64748b;margin-bottom:6px;">Which area did you save work in?</div>
+  <select id="workAreaSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#f1f5f9;font-size:12px;font-weight:600;margin-bottom:16px;cursor:pointer;outline:none;">
+    <option value="" style="background:#1e293b;">-- Select area --</option>
+    <option value="CR Analysis" style="background:#1e293b;">CR Analysis</option>
+    <option value="MTBF Review" style="background:#1e293b;">MTBF Review</option>
+    <option value="Chatbot Query" style="background:#1e293b;">Chatbot Query</option>
+    <option value="Weekly Report" style="background:#1e293b;">Weekly Report</option>
+    <option value="Target Workspace" style="background:#1e293b;">Target Workspace</option>
+    <option value="CR Overview" style="background:#1e293b;">CR Overview</option>
+    <option value="Admin Dashboard" style="background:#1e293b;">Admin Dashboard</option>
+    <option value="Other" style="background:#1e293b;">Other</option>
+  </select>
+  <button type="button" id="ratingSubmitBtn" disabled style="width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:13px;font-weight:800;cursor:not-allowed;opacity:.5;">Submit Feedback</button>
+  <div id="ratingMsg" style="margin-top:10px;font-size:12px;color:#10b981;text-align:center;display:none;"></div>
+</div>
+<script>
+(function(){
+  var _ratingVal=0,_hoursVal=0,_areaVal='',_feedbackAllowed=null;
+  function $(id){ return document.getElementById(id); }
+  function updateStars(val){ document.querySelectorAll('.rstar').forEach(function(b){ b.style.color=parseInt(b.dataset.v,10)<=val?'#f59e0b':'#475569'; }); }
+  function updateHourBtns(val){ document.querySelectorAll('.hbtn').forEach(function(b){ var sel=parseFloat(b.dataset.h)===val; b.style.background=sel?'#6366f1':'transparent'; b.style.color=sel?'#fff':'#cbd5e1'; }); }
+  function checkRatingReady(){ var btn=$('ratingSubmitBtn'); if(btn){ var ok=_feedbackAllowed!==false && _ratingVal>0&&_hoursVal>0&&_areaVal!==''; btn.disabled=!ok; btn.style.opacity=ok?'1':'.5'; btn.style.cursor=ok?'pointer':'not-allowed'; } }
+  function inferPageArea(){
+    var p=(window.location.pathname||'').toLowerCase();
+    if(p.indexOf('/admin/usage')!==-1) return 'Admin Dashboard';
+    if(p.indexOf('/admin')!==-1) return 'Admin Dashboard';
+    if(p.indexOf('/weekly')!==-1) return 'Weekly Report';
+    if(p.indexOf('/dashboard/')!==-1 || p.indexOf('/device-summary/')!==-1) return 'Target Workspace';
+    return 'CR Overview';
+  }
+  function showMsg(msg, ok){ var el=$('ratingMsg'); if(!el) return; el.textContent=msg; el.style.display='block'; el.style.color=ok?'#10b981':'#fca5a5'; }
+  window.openRatingPopup = function(){ var p=$('ratingPopup'); if(p) p.style.display='block'; if(!$('workAreaSelect').value){ $('workAreaSelect').value=inferPageArea(); _areaVal=$('workAreaSelect').value; } checkRatingReady(); };
+  window.closeRatingPopup = function(){ var p=$('ratingPopup'); if(p) p.style.display='none'; _ratingVal=0; _hoursVal=0; _areaVal=''; updateStars(0); updateHourBtns(0); if($('workAreaSelect')) $('workAreaSelect').value=''; if($('ratingMsg')) $('ratingMsg').style.display='none'; checkRatingReady(); };
+  fetch('/api/feedback/check_access').then(function(r){ return r.json(); }).then(function(d){ _feedbackAllowed=!!d.allowed; if(!_feedbackAllowed){ showMsg('You do not have access to submit detailed feedback.', false); } checkRatingReady(); }).catch(function(){ _feedbackAllowed=true; checkRatingReady(); });
+  document.addEventListener('DOMContentLoaded', function(){
+    if($('ratingPopupClose')) $('ratingPopupClose').addEventListener('click', window.closeRatingPopup);
+    document.querySelectorAll('.rstar').forEach(function(btn){ btn.addEventListener('click', function(){ _ratingVal=parseInt(this.dataset.v,10); updateStars(_ratingVal); checkRatingReady(); }); });
+    document.querySelectorAll('.hbtn').forEach(function(btn){ btn.addEventListener('click', function(){ _hoursVal=parseFloat(this.dataset.h); updateHourBtns(_hoursVal); checkRatingReady(); }); });
+    if($('workAreaSelect')) $('workAreaSelect').addEventListener('change', function(){ _areaVal=this.value; checkRatingReady(); });
+    if($('ratingSubmitBtn')) $('ratingSubmitBtn').addEventListener('click', function(){
+      if(this.disabled) return;
+      this.disabled=true;
+      this.textContent='Submitting...';
+      fetch('/api/feedback/submit', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({rating:_ratingVal,hours_saved:_hoursVal,feedback_text:_areaVal,page:(window.location.pathname||'').slice(0,64)})
+      }).then(function(r){ return r.json().then(function(d){ return { ok:r.ok, status:r.status, data:d }; }); })
+      .then(function(res){
+        if(res.ok && res.data && res.data.ok){ showMsg(res.data.message || 'Thank you for your feedback!', true); setTimeout(window.closeRatingPopup, 1200); }
+        else { showMsg((res.data && (res.data.error || res.data.message)) || 'Failed to submit feedback.', false); }
+      }).catch(function(){ showMsg('Network error while submitting feedback.', false); })
+      .finally(function(){ var btn=$('ratingSubmitBtn'); if(btn){ btn.textContent='Submit Feedback'; checkRatingReady(); } });
+    });
+  });
+})();
+</script>
+{% endif %}
+
+<script>
+(function () {
+
+  // ── Sidebar collapse toggle ───────────────────────────────────────────────
+  const shell   = document.getElementById('buShell');
+  const sidebar = document.getElementById('buSidebar');
+  const toggle  = document.getElementById('buSidebarToggle');
+  const icon    = document.getElementById('buToggleIcon');
+  if (toggle && shell && sidebar) {
+    // Restore saved state — default is EXPANDED
+    const savedCollapsed = localStorage.getItem('buSidebarCollapsed') === 'true';
+    if (savedCollapsed) {
+      shell.classList.add('sidebar-collapsed');
+      sidebar.classList.add('is-icons-only');
+      if (icon) icon.className = 'fas fa-chevron-right';
+      toggle.title = 'Expand panel';
+      toggle.setAttribute('aria-label', 'Expand panel');
+    }
+    toggle.addEventListener('click', () => {
+      const isNowCollapsed = shell.classList.toggle('sidebar-collapsed');
+      sidebar.classList.toggle('is-icons-only', isNowCollapsed);
+      if (icon) icon.className = isNowCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+      toggle.title = isNowCollapsed ? 'Expand panel' : 'Collapse panel';
+      toggle.setAttribute('aria-label', isNowCollapsed ? 'Expand panel' : 'Collapse panel');
+      try { localStorage.setItem('buSidebarCollapsed', isNowCollapsed); } catch(e) {}
+    });
+  }
+
+  // ── BU nav buttons → load in iframe (no full page redirect) ──────────────
+  const inlineContent = document.getElementById('buInlineContent');
+  const frame         = document.getElementById('buContentFrame');
+  const navBtns       = document.querySelectorAll('.bu-nav-btn[data-frame-url]');
+
+    const params = new URLSearchParams(window.location.search || '');
+  if (params.has('frame')) {
+    try {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('frame');
+      window.history.replaceState({}, '', nextUrl.toString());
+    } catch (e) {}
+  }
+
+
+    navBtns.forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      const url = btn.dataset.frameUrl;
+      if (!url) return;
+      const isOverall = btn.classList.contains('bu-nav-btn-overall');
+      if (isOverall) {
+        window.top.location.href = {{ url_for('cr_overview_embed') | tojson }};
+        return;
+      }
+      window.top.location.href = url;
+    });
+  });
+
+
+    
+
+  // Intercept iframe navigation: if iframe loads a /dashboard/ URL, break out to full page
+
+  // This ensures all target dashboards always load with the full target_layout panel
+  if (frame) {
+    frame.addEventListener('load', function() {
+      try {
+        var iframeUrl = frame.contentWindow.location.href;
+        if (iframeUrl && (
+          iframeUrl.indexOf('/dashboard/') !== -1 ||
+          iframeUrl.indexOf('/pdt/planning/') !== -1 ||
+          iframeUrl.indexOf('/pdt/analysis/') !== -1 ||
+          iframeUrl.indexOf('/device-summary/') !== -1
+        )) {
+          window.top.location.href = iframeUrl;
+        }
+      } catch(e) {
+        // Cross-origin: ignore
+      }
+    });
+  }
+
+    // ── Admin panel / target-settings opener ─────────────────────────────────
+    const adminToggleBtn = document.getElementById('adminToggleBtn');
+  if (adminToggleBtn) {
+    adminToggleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If crv2TargetsOverlay exists on this page, the crv2TargetsBtn handles it.
+      // adminToggleBtn should only open the Milestone Admin modal here.
+      const crv2Overlay = document.getElementById('crv2TargetsOverlay');
+      if (crv2Overlay) {
+        // On CR Overview page — open Milestone Admin, not CR targets
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal) {
+          adminModal.style.display = 'flex';
+          adminModal.classList.add('visible');
+        }
+        return;
+      }
+
+      // On other pages — open targetSettingsOverlay if present
+      const targetSettingsOverlay = document.getElementById('targetSettingsOverlay');
+      if (targetSettingsOverlay) {
+        targetSettingsOverlay.style.display = 'block';
+        return;
+      }
+
+      // Fallback — open adminModal
+      const adminModal = document.getElementById('adminModal');
+      if (adminModal) {
+        adminModal.style.display = 'flex';
+        adminModal.classList.add('visible');
+      }
+    });
+  }
+
+  // ── Theme toggle ──────────────────────────────────────────────────────────
+  const themeBtn   = document.getElementById('themeToggleBtn');
+
+  const themeIcon  = document.getElementById('themeToggleIcon');
+  const themeLabel = document.getElementById('themeToggleLabel');
+  function _applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    try { localStorage.setItem('pdt_theme', dark ? 'dark' : 'light'); } catch(e){}
+    if (themeIcon)  themeIcon.className = dark ? 'fas fa-sun' : 'fas fa-moon';
+    if (themeLabel) themeLabel.textContent = dark ? 'Light Mode' : 'Dark Mode';
+    if (themeBtn)   themeBtn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+  if (themeBtn) {
+    let savedTheme = null;
+    try { savedTheme = localStorage.getItem('pdt_theme'); } catch(e) {}
+        const isDark = savedTheme === 'dark';
+    _applyTheme(isDark);
+    themeBtn.addEventListener('click', () => {
+      _applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+    });
+  }
+})();
+</script>
+{% endblock %}

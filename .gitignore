@@ -1,0 +1,69 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+config/*.secret.*
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Build / packaging
+build/
+dist/
+*.spec
+*.manifest
+*.exe
+*.dll
+*.pyd
+
+# Flask/runtime state
+flask_session/
+temp_reports/
+instance/
+*.log
+logs/
+
+# Local/generated data and large backups
+*_local.json
+*_local_backup.json
+*_backup*.json
+qipl_SWPDT_job_summary*.json
+SWPDT_job_summary*.json
+HWPDT_*_backup.json
+PDT-CR_TAT/
+data/
+
+# Temporary/debug files
+_continue/
+.continue/
+tmp_*.txt
+*.before_restore*
+*.bak
+*.backup
+_*.txt
+_find_*.py
+_fix_*.py
+_scan_*.py
+_head.py
+_diff.txt
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.mj-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 18px 20px 48px;
+}
+.mj-topbar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.mj-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 999px;
+  background: linear-gradient(135deg,#4f46e5,#6366f1);
+  color: #fff; font-size: 12px; font-weight: 700; text-decoration: none;
+  box-shadow: 0 4px 12px rgba(79,70,229,.3);
+  transition: transform .15s, box-shadow .15s;
+}
+.mj-back-btn:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(79,70,229,.4); color:#fff; text-decoration:none; }
+.mj-page-title { font-size: 18px; font-weight: 900; color: #1e1b4b; letter-spacing: -.01em; }
+.mj-page { padding: 0; }
+.mj-meta-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 16px; background: linear-gradient(135deg,#f8faff,#f3f0ff);
+  border: 1px solid #e0e7ff; border-radius: 14px;
+  margin-bottom: 20px; font-size: 12px; color: #374151;
+}
+.mj-meta-bar strong { color: #1e1b4b; }
+.mj-meta-pill { background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff; border-radius: 999px; padding: 3px 14px; font-size: 11px; font-weight: 700; }
+.mj-section { background: #fff; border-radius: 18px; border: 1px solid #e5e7eb; box-shadow: 0 8px 24px rgba(15,23,42,.07); overflow: hidden; margin-bottom: 24px; }
+.mj-section-head { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+.mj-section-title { font-size: 13px; font-weight: 800; color: #1e1b4b; }
+.mj-section-badge { border-radius: 999px; padding: 2px 12px; font-size: 10px; font-weight: 700; color: #fff; }
+.mj-section-badge--cr   { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.mj-section-badge--jira { background: linear-gradient(135deg,#0ea5e9,#06b6d4); }
+.mj-table-wrap { overflow-x: auto; }
+.mj-table { width: 100%; border-collapse: collapse; font-size: 11px; color: #111827; min-width: 700px; }
+.mj-table thead tr { background: linear-gradient(90deg,#1e1b4b,#4f46e5); color: #f9fafb; }
+.mj-table--cr thead tr { background: linear-gradient(90deg,#92400e,#d97706); }
+.mj-table th { padding: 7px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+.mj-table td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.mj-table tbody tr:nth-child(even) { background: #fafafa; }
+.mj-table tbody tr:hover { background: #eef2ff; }
+.mj-orbit-link { display: inline-flex; align-items: center; gap: 4px; color: #2563eb; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.mj-orbit-link:hover { text-decoration: underline; color: #1d4ed8; }
+.mj-jira-link { color: #0369a1; font-weight: 600; text-decoration: none; }
+.mj-jira-link:hover { text-decoration: underline; }
+.mj-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.mj-status--open     { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.mj-status--ready    { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.mj-status--analysis { background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc; }
+.mj-status--built    { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.mj-status--other    { background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb; }
+.mj-occ-link { display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 999px; padding: 2px 10px; font-size: 10px; font-weight: 700; text-decoration: none; transition: background .15s; }
+.mj-occ-link:hover { background: #fde68a; color: #78350f; text-decoration: none; }
+.mj-empty { text-align: center; padding: 28px; color: #9ca3af; font-size: 12px; }
+</style>
+
+<div class="mj-shell">
+
+  <div class="mj-topbar">
+    <a href="{{ url_for('dashboard_bp.dashboard', target_name=target_name, section='mtbf-table') }}" class="mj-back-btn">
+      <i class="fas fa-arrow-left"></i> Back
+    </a>
+    <span class="mj-page-title">
+      CRs &amp; JIRAs &mdash; {{ meta_id }}
+      <span style="font-size:13px;font-weight:600;color:#6b7280;margin-left:6px;">({{ target_name }})</span>
+    </span>
+  </div>
+
+  <div class="mj-meta-bar">
+    <span class="mj-meta-pill">{{ meta_id }}</span>
+    <span><strong>Target:</strong> {{ target_name }}</span>
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;background:#fef3c7;border:1px solid #fcd34d;font-weight:800;color:#92400e;">
+      <i class="fas fa-bug"></i> CRs: {{ cr_rows|length }}
+    </span>
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;background:#ede9fe;border:1px solid #c4b5fd;font-weight:800;color:#6d28d9;">
+      <i class="fas fa-ticket-alt"></i> Total JIRAs: {{ total_jiras_count|default(jiras|length + cr_rows|sum(attribute='jira_count')) }}
+    </span>
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;background:#e0f2fe;border:1px solid #7dd3fc;font-weight:800;color:#0369a1;">
+      <i class="fas fa-unlink"></i> Unmapped JIRAs: {{ jiras|length }}
+    </span>
+    <!-- {% if excluded_tickets|length > 0 %}
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;background:#fee2e2;border:1px solid #fca5a5;font-weight:800;color:#b91c1c;">
+      <i class="fas fa-ban"></i> Excluded: {{ excluded_tickets|length }}
+    </span>
+    {% endif %} -->
+  </div>
+
+  <!-- TABLE 1: CRs -->
+  <div class="mj-section">
+    <div class="mj-section-head">
+      <span style="font-size:16px;">&#128196;</span>
+      <span class="mj-section-title">CRs</span>
+      <span class="mj-section-badge mj-section-badge--cr">{{ cr_rows|length }} CR{{ 's' if cr_rows|length != 1 }}</span>
+      <div style="margin-left:auto;">
+        <input type="text" id="crSearch" placeholder="Search CR ID, title, area..."
+               style="padding:4px 10px; border-radius:999px; border:1px solid #d1d5db; font-size:11px; min-width:220px;">
+      </div>
+    </div>
+    <div class="mj-table-wrap">
+      <table class="mj-table mj-table--cr" id="crTable">
+        <thead>
+          <tr>
+            <th>#</th><th>CR-ID</th><th>Occurrence</th><th>CR Title</th>
+            <th>CR Area</th><th>CR SubSystem</th><th>CR Functionality</th>
+            <th>CR Date</th><th>CR SI</th><th>CR Status</th>
+          </tr>
+        </thead>
+        <tbody id="crBody">
+          {% if cr_rows %}
+            {% for cr in cr_rows %}
+            {% set cr_num = (cr.get('mapped_cr') or cr.get('cr') or '') | string | replace('CR','') | replace('cr','') | trim %}
+            {% set jira_count   = cr.get('jira_count')   or 0 %}
+            {% set jira_display = cr.get('jira_display') or [] %}
+            {% set tickets_str  = jira_display | join(',') %}
+            {% set cr_status_raw = (cr.get('cr_status') or '') | lower %}
+            {% if 'open' in cr_status_raw %}{% set status_cls = 'mj-status--open' %}
+            {% elif 'ready' in cr_status_raw %}{% set status_cls = 'mj-status--ready' %}
+            {% elif 'analysis' in cr_status_raw %}{% set status_cls = 'mj-status--analysis' %}
+            {% elif 'built' in cr_status_raw %}{% set status_cls = 'mj-status--built' %}
+            {% else %}{% set status_cls = 'mj-status--other' %}{% endif %}
+            <tr class="cr-row"
+                data-cr="{{ cr_num | lower }}"
+                data-title="{{ (cr.get('cr_title') or '') | lower }}"
+                data-area="{{ (cr.get('cr_area') or '') | lower }}">
+              <td>{{ loop.index }}</td>
+              <td>
+                {% if cr_num %}
+                <a class="mj-orbit-link" href="https:/orbit/cr/{{ cr_num }}" target="_blank" rel="noopener">
+                  CR{{ cr_num }} <i class="fas fa-external-link-alt" style="font-size:9px;"></i>
+                </a>
+                {% else %}&mdash;{% endif %}
+              </td>
+              <td>
+                {% if jira_count > 0 %}
+                <a class="mj-occ-link"
+                   href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str | urlencode }})%20ORDER%20BY%20created%20DESC"
+                   target="_blank" rel="noopener"
+                   title="Selected builds only, excluded tickets removed">
+                  {{ jira_count }} <i class="fas fa-external-link-alt" style="font-size:8px;"></i>
+                </a>
+                {% if jira_count > 45 %}<span style="font-size:9px;color:#9ca3af;margin-left:3px;">(showing 45)</span>{% endif %}
+                {% else %}
+                <span style="background:#f3f4f6;color:#9ca3af;border-radius:999px;padding:2px 8px;font-size:10px;">0</span>
+                {% endif %}
+              </td>
+              <td style="max-width:320px; white-space:normal;">{{ cr.get('cr_title') or '&mdash;' }}</td>
+              <td>{{ cr.get('cr_area') or '&mdash;' }}</td>
+              <td>{{ cr.get('cr_subsystem') or '&mdash;' }}</td>
+              <td>{{ cr.get('cr_functionality') or '&mdash;' }}</td>
+              <td style="white-space:nowrap;">{{ cr.get('cr_date') or cr.get('built_date') or cr.get('jira_date') or '&mdash;' }}</td>
+              <td style="white-space:nowrap;">{{ cr.get('cr_si') or cr.get('si') or '&mdash;' }}</td>
+              <td><span class="mj-status {{ status_cls }}">{{ cr.get('cr_status') or '&mdash;' }}</span></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="10" class="mj-empty">No CRs found for this META.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TABLE 2: JIRAs (active only - selected builds, excluded tickets removed) -->
+  <div class="mj-section">
+    <div class="mj-section-head">
+      <span style="font-size:16px;">&#128203;</span>
+      <span class="mj-section-title">Open JIRAs (unmapped to CR)</span>
+      <span class="mj-section-badge mj-section-badge--jira">{{ jiras|length }} JIRA{{ 's' if jiras|length != 1 }}</span>
+      <div style="margin-left:auto;">
+        <input type="text" id="jiraSearch" placeholder="Search ticket or title..."
+               style="padding:4px 10px; border-radius:999px; border:1px solid #d1d5db; font-size:11px; min-width:220px;">
+      </div>
+    </div>
+    <div class="mj-table-wrap">
+      <table class="mj-table" id="jiraTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Ticket</th><th>Date</th><th>Title</th><th>Device</th><th>Metabuild</th>
+          </tr>
+        </thead>
+        <tbody id="jiraBody">
+          {% if jiras %}
+            {% for j in jiras %}
+            <tr class="jira-row"
+                data-ticket="{{ (j.stability_ticket or '') | lower }}"
+                data-title="{{ (j.jira_title or '') | lower }}">
+              <td>{{ loop.index }}</td>
+              <td>
+                <a class="mj-jira-link"
+                   href="https://jira-dc2.qualcomm.com/jira/browse/{{ j.stability_ticket }}"
+                   target="_blank" rel="noopener">
+                  {{ j.stability_ticket }}
+                </a>
+              </td>
+              <td style="white-space:nowrap;">{{ j.jira_date or '&mdash;' }}</td>
+              <td style="max-width:380px; white-space:normal;">{{ j.jira_title or '&mdash;' }}</td>
+              <td>{{ j.serial_no or '&mdash;' }}</td>
+              <td style="max-width:200px; white-space:normal; word-break:break-all;">{{ j.metabuild or '&mdash;' }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" class="mj-empty">No JIRAs found for this META.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- end mj-shell -->
+
+<script>
+(function () {
+  var crSearch = document.getElementById('crSearch');
+  var crRows = Array.prototype.slice.call(document.querySelectorAll('#crBody .cr-row'));
+  function filterCRs() {
+    var q = (crSearch.value || '').toLowerCase().trim();
+    crRows.forEach(function (tr) {
+      if (!q) { tr.style.display = ''; return; }
+      var match = (tr.dataset.cr    || '').indexOf(q) !== -1
+               || (tr.dataset.title || '').indexOf(q) !== -1
+               || (tr.dataset.area  || '').indexOf(q) !== -1;
+      tr.style.display = match ? '' : 'none';
+    });
+  }
+  if (crSearch) crSearch.addEventListener('input', filterCRs);
+
+  var jiraSearch = document.getElementById('jiraSearch');
+  var jiraRows = Array.prototype.slice.call(document.querySelectorAll('#jiraBody .jira-row'));
+  function filterJIRAs() {
+    var q = (jiraSearch && jiraSearch.value || '').toLowerCase().trim();
+    jiraRows.forEach(function (tr) {
+      var match = !q
+               || (tr.dataset.ticket || '').indexOf(q) !== -1
+               || (tr.dataset.title  || '').indexOf(q) !== -1;
+      tr.style.display = match ? '' : 'none';
+    });
+  }
+  if (jiraSearch) jiraSearch.addEventListener('input', filterJIRAs);
+})();
+</script>
+
+{% endblock %}

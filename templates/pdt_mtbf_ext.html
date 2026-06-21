@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PDT MTBF External</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef6ff,#f8fafc 45%,#fff7ed);color:#0f172a;min-height:100vh}.page{max-width:1220px;margin:0 auto;padding:34px 24px 70px}.hero{background:rgba(255,255,255,.88);border:1px solid #dbeafe;border-radius:28px;padding:28px;box-shadow:0 24px 70px rgba(30,64,175,.12);display:flex;justify-content:space-between;gap:22px;align-items:center}.brand{display:flex;gap:16px;align-items:center}.logo{width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,#2563eb,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;box-shadow:0 14px 30px rgba(37,99,235,.28)}.eyebrow{font-size:11px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:#2563eb}.title{font-size:31px;font-weight:950;letter-spacing:-.04em;margin-top:3px}.subtitle{font-size:13px;color:#64748b;font-weight:700;margin-top:6px;line-height:1.55}.controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;justify-content:flex-end}.field label{display:block;font-size:10px;font-weight:950;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin:0 0 6px 2px}.select{height:42px;min-width:210px;border:1.5px solid #cbd5e1;border-radius:13px;background:#fff;padding:0 13px;font-weight:850;color:#0f172a;outline:none}.btn{height:42px;border:0;border-radius:13px;padding:0 16px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-size:13px;white-space:nowrap}.btn-primary{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 12px 24px rgba(37,99,235,.22)}.btn-green{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 12px 24px rgba(5,150,105,.18)}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}.metric{background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:18px;box-shadow:0 8px 28px rgba(15,23,42,.06)}.metric .n{font-size:27px;font-weight:950;color:#1d4ed8}.metric .l{font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-top:5px}.section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 0 13px;gap:10px}.section-title{font-size:15px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em}.hint{font-size:12px;color:#64748b;font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(315px,1fr));gap:16px}.card{display:flex;flex-direction:column;gap:14px;background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:18px;text-decoration:none;color:inherit;box-shadow:0 10px 34px rgba(15,23,42,.07);transition:.18s}.card:hover{transform:translateY(-3px);box-shadow:0 18px 44px rgba(37,99,235,.14);border-color:#bfdbfe}.card-top{display:flex;justify-content:space-between;gap:10px}.target{font-size:20px;font-weight:950;color:#0f172a;letter-spacing:-.02em;text-transform:uppercase}.name{font-size:12px;color:#64748b;font-weight:750;margin-top:4px}.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:10px;font-weight:950}.live{background:#dcfce7;color:#166534;border:1px solid #86efac}.type{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}.card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:10px}.stat b{font-size:17px;color:#1d4ed8}.stat span{display:block;font-size:10px;color:#64748b;font-weight:900;margin-top:3px;text-transform:uppercase}.open{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:13px;font-size:12px;font-weight:900;color:#2563eb}.empty{text-align:center;background:#fff;border:1px dashed #cbd5e1;border-radius:22px;padding:52px;color:#94a3b8;font-weight:850}.hidden{display:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.58);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:10;padding:20px}.modal.open{display:flex}.modal-card{width:min(560px,96vw);background:#fff;border-radius:24px;border:1px solid #e2e8f0;box-shadow:0 28px 90px rgba(15,23,42,.3);overflow:hidden}.modal-head{padding:18px 22px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;display:flex;justify-content:space-between;align-items:center}.modal-body{padding:20px 22px}.modal-title{font-weight:950}.x{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;height:34px;width:34px;cursor:pointer}.input{width:100%;height:42px;border:1.5px solid #cbd5e1;border-radius:12px;padding:0 12px;font-weight:800}.radio-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.radio{border:1.5px solid #e2e8f0;border-radius:14px;padding:12px;cursor:pointer;background:#f8fafc}.radio strong{color:#1e3a8a}@media(max-width:760px){.hero{align-items:flex-start;flex-direction:column}.controls{justify-content:flex-start}.summary{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.title{font-size:25px}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div class="brand">
+      <div class="logo"><i class="fas fa-chart-line"></i></div>
+      <div>
+        <div class="eyebrow">External published dashboard</div>
+        <div class="title">PDT MTBF Status</div>
+        <div class="subtitle">Published PDT live status reports for external sharing. Choose BU, then open a target report.</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field">
+        <label for="buSelect">Business Unit</label>
+        <select class="select" id="buSelect" onchange="renderJobs()">
+          {% for bu in bu_list %}<option value="{{ bu.key }}" {{ 'selected' if bu.key == selected_bu else '' }}>{{ bu.name }} ({{ bu.count }})</option>{% endfor %}
+        </select>
+      </div>
+      {% if can_edit %}<button class="btn btn-green" type="button" onclick="openAddModal()"><i class="fas fa-plus"></i> Add Target</button>{% endif %}
+    </div>
+  </header>
+
+  <div class="summary">
+    <div class="metric"><div class="n" id="totalReports">0</div><div class="l">Published Reports</div></div>
+    <div class="metric"><div class="n" id="runningBuilds">0</div><div class="l">Current Builds</div></div>
+    <div class="metric"><div class="n" id="totalRows">0</div><div class="l">Published Rows</div></div>
+  </div>
+
+  <div class="section-head">
+    <div><div class="section-title"><i class="fas fa-satellite-dish"></i> Published Jobs</div><div class="hint" id="sectionHint">Select a BU to view published jobs.</div></div>
+  </div>
+  <div class="grid" id="jobsGrid"></div>
+  <div class="empty hidden" id="emptyState"><i class="fas fa-inbox" style="font-size:34px;display:block;margin-bottom:12px"></i>No published reports for this BU.</div>
+</div>
+
+{% if can_edit %}
+<div class="modal" id="addModal">
+  <div class="modal-card">
+    <div class="modal-head"><div class="modal-title"><i class="fas fa-plus-circle"></i> Add Target Report</div><button class="x" onclick="closeAddModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <form method="POST" action="{{ url_for('live_status_publish_bp.create_job_view') }}">
+        <div class="field"><label>Target</label><select class="select" name="targets" id="targetSelect" style="width:100%;min-width:0">{% for row in target_options %}<option value="{{ row.target }}" data-bu="{{ row.bu_key|upper }}">{{ row.target|upper }} — {{ row.bu_name }}</option>{% endfor %}</select></div>
+        <div style="height:12px"></div>
+        <div class="field"><label>Job Name</label><input class="input" name="name" id="jobName" placeholder="Target Live Status"></div>
+        <div class="radio-row">
+          <label class="radio"><input type="radio" name="job_type" value="CRM" checked> <strong>CRM</strong><div class="hint">Full status report</div></label>
+          <label class="radio"><input type="radio" name="job_type" value="ENG"> <strong>ENG</strong><div class="hint">Engineering report</div></label>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" type="submit"><i class="fas fa-rocket"></i> Create / Open Target</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const JOBS={{ jobs|tojson }};
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmtDate(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v).slice(0,10):d.toLocaleDateString()}
+function reportUrl(t){return '/pdt/'+encodeURIComponent(String(t||'').trim())+'/ext-status'}
+function renderJobs(){
+  const bu=document.getElementById('buSelect')?.value||'';
+  const rows=JOBS.filter(j=>String(j._bu_key||'').toUpperCase()===bu);
+  const grid=document.getElementById('jobsGrid'), empty=document.getElementById('emptyState');
+  const totalRows=rows.reduce((s,j)=>s+Number(j._row_count||0),0), running=rows.reduce((s,j)=>s+Number(j._running_count||0),0);
+  document.getElementById('totalReports').textContent=rows.length;
+  document.getElementById('runningBuilds').textContent=running;
+  document.getElementById('totalRows').textContent=totalRows;
+  document.getElementById('sectionHint').textContent=rows.length?('Showing '+rows.length+' published report(s).'):'No reports are currently published for this BU.';
+  empty.classList.toggle('hidden', rows.length>0); grid.classList.toggle('hidden', rows.length===0);
+  grid.innerHTML=rows.map(j=>`<a class="card" href="${reportUrl(j._target)}">
+    <div class="card-top"><div><div class="target">${esc(j._target||j.name)}</div><div class="name">${esc(j.name||'Published Report')}</div></div><div><span class="badge live"><i class="fas fa-circle" style="font-size:7px"></i> LIVE</span></div></div>
+    <div><span class="badge type">${esc(j._job_type||'CRM')}</span> <span class="hint">Published ${esc(fmtDate(j.published_at))} by ${esc(j.published_by||'-')}</span></div>
+    <div class="card-stats"><div class="stat"><b>${Number(j._running_count||0)}</b><span>Current</span></div><div class="stat"><b>${Number(j._build_count||0)}</b><span>Builds</span></div><div class="stat"><b>${Number(j._row_count||0)}</b><span>Rows</span></div></div>
+    <div class="open"><span>Open published report</span><i class="fas fa-arrow-up-right-from-square"></i></div>
+  </a>`).join('');
+}
+function openAddModal(){const m=document.getElementById('addModal'); if(m)m.classList.add('open'); syncTargetFilter()}
+function closeAddModal(){const m=document.getElementById('addModal'); if(m)m.classList.remove('open')}
+function syncTargetFilter(){const bu=document.getElementById('buSelect')?.value||''; const sel=document.getElementById('targetSelect'); if(!sel)return; [...sel.options].forEach(o=>o.hidden=String(o.dataset.bu||'').toUpperCase()!==bu); const first=[...sel.options].find(o=>!o.hidden); if(first){sel.value=first.value; document.getElementById('jobName').value=first.value+' Live Status';}}
+document.getElementById('buSelect')?.addEventListener('change', syncTargetFilter);
+document.getElementById('targetSelect')?.addEventListener('change', function(){document.getElementById('jobName').value=this.value+' Live Status'});
+renderJobs(); syncTargetFilter();
+</script>
+</body>
+</html>

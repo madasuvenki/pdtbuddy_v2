@@ -1,0 +1,556 @@
+{% block shell_inner_content %}
+<style>
+.help-page{padding:8px 4px 40px;font-family:"Inter",system-ui,sans-serif;}
+.help-hero{max-width:1200px;margin:0 auto 28px;border-radius:22px;background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%);padding:28px 24px 32px;color:#e5e7eb;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.55);}
+.help-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 10% 20%,rgba(56,189,248,.18),transparent 50%),radial-gradient(circle at 90% 80%,rgba(168,85,247,.18),transparent 50%);pointer-events:none;}
+.help-hero-inner{position:relative;z-index:1;}
+.help-hero-title{text-align:center;font-size:22px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:0 0 4px;}
+.help-hero-sub{text-align:center;font-size:13px;color:#bfdbfe;margin:0 0 20px;}
+.help-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.help-nav-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:700;color:#e2e8f0;cursor:pointer;transition:all .15s;}
+.help-nav-pill:hover{background:rgba(255,255,255,.16);transform:translateY(-1px);}
+.help-nav-pill.active{background:#4f46e5;border-color:#6366f1;color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.45);}
+.help-nav-pill .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.help-detail-wrap{max-width:1100px;margin:0 auto;}
+.help-card{background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(15,23,42,.07);overflow:hidden;display:none;}
+.help-card.active{display:block;}
+.help-card-header{display:flex;align-items:center;gap:12px;padding:18px 22px 14px;border-bottom:1px solid #f1f5f9;}
+.help-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.help-card-title{font-size:17px;font-weight:900;color:#0f172a;}
+.help-card-desc{font-size:12px;color:#64748b;margin-top:2px;}
+.help-card-body{padding:18px 22px 22px;}
+.help-section{margin-bottom:20px;}
+.help-section:last-child{margin-bottom:0;}
+.help-section-title{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.help-steps{display:flex;flex-direction:column;gap:8px;}
+.help-step{display:flex;gap:10px;align-items:flex-start;}
+.help-step-num{width:22px;height:22px;border-radius:50%;background:#4f46e5;color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.help-step-text{font-size:12px;color:#334155;line-height:1.6;}
+.help-step-text strong{color:#0f172a;}
+.help-tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 13px;font-size:11px;color:#1e40af;display:flex;gap:8px;align-items:flex-start;margin-top:10px;}
+.help-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;}
+.help-badge.green{background:#dcfce7;color:#15803d;}
+.help-badge.blue{background:#dbeafe;color:#1e40af;}
+.help-badge.amber{background:#fef3c7;color:#92400e;}
+.help-badge.purple{background:#f3e8ff;color:#7e22ce;}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:640px){.help-grid{grid-template-columns:1fr;}}
+.help-feature-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;}
+.help-feature-box-title{font-size:12px;font-weight:800;color:#0f172a;margin-bottom:4px;}
+.help-feature-box-text{font-size:11px;color:#475569;line-height:1.6;}
+</style>
+
+<div class="help-page">
+  <div class="help-hero">
+    <div class="help-hero-inner">
+      <h2 class="help-hero-title">&#128218; PDT Buddy &mdash; User Guide</h2>
+      <p class="help-hero-sub">Click any topic below to learn how to use that feature.</p>
+            <div class="help-nav">
+        <div class="help-nav-pill active" data-section="overview"><span class="dot" style="background:#22c55e;"></span> Overview</div>
+        <div class="help-nav-pill" data-section="searchbox"><span class="dot" style="background:#38bdf8;"></span> Search Box</div>
+        <div class="help-nav-pill" data-section="weekly"><span class="dot" style="background:#fb7185;"></span> Weekly Report</div>
+        <div class="help-nav-pill" data-section="bu_weekly"><span class="dot" style="background:#8b5cf6;"></span> BU Weekly Reports</div>
+        <div class="help-nav-pill" data-section="sharepoint"><span class="dot" style="background:#0ea5e9;"></span> SharePoint CRs</div>
+        <div class="help-nav-pill" data-section="uniquecrs"><span class="dot" style="background:#f59e0b;"></span> Unique CRs</div>
+        <div class="help-nav-pill" data-section="hwpdt"><span class="dot" style="background:#a855f7;"></span> HWPDT Summary</div>
+        <div class="help-nav-pill" data-section="pdtcrs"><span class="dot" style="background:#f43f5e;"></span> PDT CRs</div>
+        <div class="help-nav-pill" data-section="openjiras"><span class="dot" style="background:#10b981;"></span> Open JIRAs</div>
+        <div class="help-nav-pill" data-section="weeklydata"><span class="dot" style="background:#f97316;"></span> Weekly Data</div>
+        <div class="help-nav-pill" data-section="opencr"><span class="dot" style="background:#6366f1;"></span> Open CR Analysis</div>
+        <div class="help-nav-pill" data-section="mtbf"><span class="dot" style="background:#38bdf8;"></span> MTBF Table</div>
+        <div class="help-nav-pill" data-section="live_status"><span class="dot" style="background:#f97316;"></span> Live Status</div>
+        <div class="help-nav-pill" data-section="crinfo"><span class="dot" style="background:#ec4899;"></span> CR / JIRA Info</div>
+        <div class="help-nav-pill" data-section="compare"><span class="dot" style="background:#0ea5e9;"></span> Target Compare</div>
+        <div class="help-nav-pill" data-section="device"><span class="dot" style="background:#34d399;"></span> Device Summary</div>
+        <div class="help-nav-pill" data-section="assistant"><span class="dot" style="background:#34d399;"></span> Buddy Assistant</div>
+        <div class="help-nav-pill" data-section="navigation"><span class="dot" style="background:#94a3b8;"></span> Navigation</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-detail-wrap">
+
+    <!-- OVERVIEW -->
+    <div class="help-card active" data-section="overview">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#dcfce7;">&#128202;</div>
+        <div><div class="help-card-title">Dashboard Overview</div><div class="help-card-desc">KPI tiles, milestones, MTBF snapshot and CR Age indicator for every target.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-th-large"></i> What you see</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">KPI Tiles</div><div class="help-feature-box-text">Total CRs, Open CRs, Mapped JIRAs, Closed JIRAs. Click any tile to open the full detail table for that category.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Milestones</div><div class="help-feature-box-text">ES / FC / CS / CS1 dates and MTBF goals. Green = on track, Amber = at risk. Admins can edit from the milestone button.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">MTBF Snapshot</div><div class="help-feature-box-text">Latest MTBF per META as a bar chart. Use the CRM / ENG toggle to switch between customer-reported and engineering build views.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">CR Age (Overview)</div><div class="help-feature-box-text">CR Age = days from CR creation date to today. Shown as a quick indicator of how long open CRs have been waiting. Calculated from the weekly CSV imported every Monday.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-lightbulb"></i> Use the <strong>CRM / ENG toggle</strong> (top right) to switch views across all charts and tables on the page.</div>
+      </div>
+    </div>
+
+    <!-- SEARCH BOX -->
+    <div class="help-card" data-section="searchbox">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#dbeafe;">&#128269;</div>
+        <div><div class="help-card-title">Search Box</div><div class="help-card-desc">Jump directly to any CR or JIRA ticket from anywhere in PDT Buddy.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-search"></i> What you can search</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge blue">CR Number</span></div><div class="help-feature-box-text">Type a CR number e.g. <code>CR4483004</code>. The box turns blue with a CR badge. Press Go or Enter to open the full CR Info page with all linked JIRAs, area, status, devices hit and more.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge purple">JIRA Ticket</span></div><div class="help-feature-box-text">Type a JIRA key e.g. <code>QSTABILITY-1234</code> or <code>CHIPMD-5678</code>. The box turns purple. Press Go to open the JIRA detail page showing linked CR, device serial, team, MCN and build info.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-info-circle"></i> What the CR Info page shows</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Quick Summary</div><div class="help-feature-box-text">Total linked JIRAs, occurrences, devices hit, latest META seen &mdash; all at a glance at the top.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Identity</div><div class="help-feature-box-text">CR number, mapped CR group, JIRA link, latest META, sibling CRs, test teams, MCN types, device IDs.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Classification</div><div class="help-feature-box-text">Status badge, area, functionality, subsystem, full title, CR creation date, build details.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">JIRAs Table</div><div class="help-feature-box-text">First 20 linked JIRAs with filters for serial, team, MCN. Each ticket links to the JIRA tracker.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-link"></i> Click any <strong>Linked CR pill</strong> on the CR Info page to jump to a sibling CR in the same mapped group.</div>
+      </div>
+    </div>
+
+    <!-- WEEKLY REPORT -->
+    <div class="help-card" data-section="weekly">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#fee2e2;">&#128196;</div>
+        <div><div class="help-card-title">Weekly Report (Target)</div><div class="help-card-desc">Per-target weekly CR and JIRA metrics with CR Age bar chart and CR Area pie chart.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-chart-bar"></i> CR Age Bar Chart</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Shows open CRs grouped into age buckets: <strong>0&ndash;20, 21&ndash;40, 41&ndash;60, 61&ndash;90, 90+ days</strong>. Each bar = count of CRs in that age range.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">CR Age = <strong>days from CR creation date to today</strong>. Creation date comes from the weekly CSV imported every Monday.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">A tall bar in the <strong>90+ bucket</strong> means many long-standing unresolved CRs &mdash; good candidates for escalation in reviews.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-chart-pie"></i> CR Area Pie Chart</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Shows <strong>distribution of CRs by Tech Area</strong> (Camera, Modem, Core, Display etc.) for the selected date range.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Use the <strong>CR Status / CR Area toggle</strong> to switch the pie between status breakdown and area breakdown.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text"><strong>Click a slice</strong> to highlight it. <strong>Click a legend item</strong> to show/hide that slice. <strong>Drag labels</strong> to reposition &mdash; positions are saved per mode.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Click <strong>Copy Table</strong> for an Outlook-friendly HTML snippet. Click <strong>Copy Chart</strong> to copy the pie as a PNG image.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-calendar-week"></i> Date Range &amp; Filters</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Pick a <strong>From / To date range</strong> &mdash; the summary table and charts update to show only CRs and JIRAs in that period.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Use <strong>Category filters</strong> (checkboxes) to include or exclude specific statuses or areas from the pie chart.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BU WEEKLY REPORTS -->
+    <div class="help-card" data-section="bu_weekly">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#ede9fe;">&#128200;</div>
+        <div><div class="help-card-title">BU Weekly Reports</div><div class="help-card-desc">Cross-target weekly summary &mdash; 5 cards each clickable for full detail.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-th-large"></i> The 5 Cards</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">&#128200; CR Age</div><div class="help-feature-box-text">Bar chart of open CRs by age bucket (0&ndash;20, 21&ndash;40, 41&ndash;60, 61&ndash;90, 90+ days) plus hero tiles: <strong>Total Unique CRs</strong>, <strong>New CRs</strong> (first seen this week), <strong>Old CRs</strong> (carried over). Click to see the full CR list sorted by age.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">&#127987; CR Area Pie</div><div class="help-feature-box-text">Pie chart of all CRs split by Tech Area across all BU targets for the selected week. Click to see the full area breakdown table.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">&#128279; SharePoint Data</div><div class="help-feature-box-text">CRs manually tracked in your team&rsquo;s SharePoint sheet for this week. Shows CR key and title. Click to see the full list with search and copy.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">&#128202; Unique Weekly Report</div><div class="help-feature-box-text">Tiles showing <strong>Total, QIPL, SD, CH</strong> unique CR counts for the week and the source Excel file used. Click to see the full unique CR table.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">&#127981; Farm Testing</div><div class="help-feature-box-text">Opens the Farm Testing dashboard in a new tab. Quick link to the internal farm status page.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-mouse-pointer"></i> How to use</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click <strong>Weekly Reports</strong> in the left sidebar to open the BU Weekly Reports page.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Use the <strong>week dropdown</strong> (top left) to select a different week. Data is grouped Monday&ndash;Sunday.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Click any card to open its <strong>full detail page</strong> with a searchable, copyable table.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Use <strong>Import Latest CSV</strong> to pull the latest QIPL weekly file from the shared folder, or <strong>Upload / Select File</strong> to manually upload an Excel or CSV.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHAREPOINT CRs -->
+    <div class="help-card" data-section="sharepoint">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#e0f2fe;">&#128279;</div>
+        <div><div class="help-card-title">SharePoint CRs</div><div class="help-card-desc">CRs manually tracked in your team&rsquo;s SharePoint sheet &mdash; shown in BU Weekly Reports.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-question-circle"></i> What is it?</div>
+          <p style="font-size:12px;color:#334155;line-height:1.7;margin:0 0 10px;">The <strong>SharePoint Data</strong> card in BU Weekly Reports shows CRs that your team has manually added to a SharePoint tracking sheet for the selected week. These are CRs your team is actively monitoring &mdash; separate from the automated JIRA ingest flow.</p>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-list"></i> What it shows</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Each row shows a <strong>CR key</strong> and title. The badge on the card shows the total count for the week.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Click the card to open the full detail page. Use <strong>Search</strong> to filter by CR ID or title.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Click <strong>Copy Table</strong> to copy the list for pasting into emails or weekly reports.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-info-circle"></i> If the card shows &ldquo;No sharepoint data for this week&rdquo;, no CRs were added to the SharePoint sheet for that week.</div>
+      </div>
+    </div>
+
+    <!-- UNIQUE CRs -->
+    <div class="help-card" data-section="uniquecrs">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#fef3c7;">&#128269;</div>
+        <div><div class="help-card-title">Unique CRs</div><div class="help-card-desc">All unique CRs observed on this target &mdash; Venn diagram, area breakdown and full CR table.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-question-circle"></i> What is a Unique CR?</div>
+          <p style="font-size:12px;color:#334155;line-height:1.7;margin:0 0 10px;">A <strong>Unique CR</strong> is a CR observed at least once on this target&rsquo;s PDT devices. The same CR is counted only once regardless of how many JIRAs or devices it appeared on. Data comes from all JIRA tickets linked to this target, de-duplicated by CR number. Refreshed nightly.</p>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-circle-notch"></i> Venn Diagram &mdash; CR Distribution</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge blue">PDT Unique</span></div><div class="help-feature-box-text">CRs that <strong>only your PDT team</strong> has hit. No other team has reported this CR. Highest priority to investigate and drive to resolution.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge green">Overlapping</span></div><div class="help-feature-box-text">CRs that both your PDT team <strong>and other teams</strong> have hit. Shared issues already tracked by multiple teams.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge amber">Other Teams</span></div><div class="help-feature-box-text">CRs reported by other teams but <strong>not yet seen</strong> on your PDT devices. Awareness only.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Click legend items</div><div class="help-feature-box-text">Click a Venn legend item to <strong>filter the breakdown chart</strong> below to only that category.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-chart-bar"></i> CR Breakdown Chart</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Use <strong>By Area / By Subsystem / By Functionality</strong> dropdown to change the grouping dimension.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Use <strong>Top 5 / Top 10 / All</strong> buttons to control how many bars are shown.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Click <strong>Copy</strong> to copy chart data as tab-separated text for pasting into Excel.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-table"></i> Unique CRs Tab (Full Table)</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click the <strong>Unique CRs tab</strong> in the target dashboard to open the full sortable table of all unique CRs.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Columns: CR ID, Title, Area, Subsystem, Status, CR Age (days), JIRA count, first seen META, last seen META.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Use <strong>Search</strong> to filter by CR ID or title. Use <strong>Area / Status</strong> dropdowns to narrow down. Click any CR ID to open its full CR Info page.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Click <strong>Copy Table</strong> to export the filtered list for reports or emails.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HWPDT SUMMARY -->
+    <div class="help-card" data-section="hwpdt">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#f3e8ff;">&#128187;</div>
+        <div><div class="help-card-title">HWPDT Summary</div><div class="help-card-desc">Hardware PDT build table &mdash; crashes per META with CHIPMD ticket links.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-question-circle"></i> What is HWPDT?</div>
+          <p style="font-size:12px;color:#334155;line-height:1.7;margin:0 0 10px;"><strong>HWPDT</strong> (Hardware PDT) tracks hardware-related crashes per META build. Unlike SW PDT which tracks software crashes via JIRA/QStability, HWPDT tracks hardware failures reported via CHIPMD tickets.</p>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-table"></i> What the table shows</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">META ID</div><div class="help-feature-box-text">The metabuild group. Expand a META row to see the individual builds that contributed crashes.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">HW Crashes</div><div class="help-feature-box-text">Total hardware crashes for that META. Only METAs with at least one crash are shown.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">CHIPMD Ticket</div><div class="help-feature-box-text">The linked CHIPMD JIRA ticket for the hardware failure. Click to open in the JIRA tracker.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Mode</div><div class="help-feature-box-text">CRM or ENG &mdash; matches the toggle mode selected on the dashboard.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-info-circle"></i> HWPDT tab only appears if hardware PDT data is available for this target.</div>
+      </div>
+    </div>
+
+    <!-- PDT CRs -->
+    <div class="help-card" data-section="pdtcrs">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#fee2e2;">&#128027;</div>
+        <div><div class="help-card-title">PDT CRs</div><div class="help-card-desc">Top offenders ranked by JIRA hit count &mdash; area and status breakdown.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-list-ol"></i> What it shows</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Top Offenders Table</div><div class="help-feature-box-text">CRs sorted by total JIRA hit count. The CRs hitting your devices most frequently appear at the top. Shows CR ID, title, area, status, and hit count.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Area Breakdown</div><div class="help-feature-box-text">Bar chart showing which Tech Areas (Camera, Modem, Core etc.) have the most PDT CRs for this target.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Status Breakdown</div><div class="help-feature-box-text">Split of Open vs Analysis vs Built CRs currently hitting PDT devices.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Filters</div><div class="help-feature-box-text">Filter by Area, Status, or search by CR ID / title. Count badge updates live as you filter.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-external-link-alt"></i> Click any CR ID to open the <strong>CR Info page</strong> with full context &mdash; linked JIRAs, devices hit, area, status and more.</div>
+      </div>
+    </div>
+
+    <!-- OPEN JIRAs -->
+    <div class="help-card" data-section="openjiras">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#d1fae5;">&#127981;</div>
+        <div><div class="help-card-title">Open JIRAs</div><div class="help-card-desc">All open JIRA tickets for this target grouped by area with date range filter.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-ticket-alt"></i> What it shows</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">All <strong>open JIRA tickets</strong> (QStability / CHIPMD / DroidBug) linked to this target&rsquo;s PDT devices that have not yet been closed.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Tickets are grouped by <strong>Tech Area</strong>. Each row shows JIRA key, linked CR, device serial, team, MCN, build, and date.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Use the <strong>date range filter</strong> to narrow down to JIRAs opened in a specific period.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Use <strong>Area / Team</strong> filters to focus on specific groups. Click any JIRA key to open it in the JIRA tracker.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-info-circle"></i> Open JIRAs is the raw ticket view. For a CR-level summary of what is open, use <strong>PDT CRs</strong> instead.</div>
+      </div>
+    </div>
+
+    <!-- WEEKLY DATA -->
+    <div class="help-card" data-section="weeklydata">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#fff7ed;">&#128197;</div>
+        <div><div class="help-card-title">Weekly Data</div><div class="help-card-desc">Per-target weekly JIRA and CR counts in a table view with copy-to-Outlook export.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-table"></i> What it shows</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">A <strong>week-by-week summary table</strong> showing new JIRAs opened, JIRAs closed, open CRs, built CRs, and total CRs for each week in the selected date range.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Select a <strong>From / To date range</strong> at the top to control which weeks appear in the table.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Click <strong>Copy Table</strong> to get an Outlook-friendly HTML table for pasting directly into weekly status emails.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-chart-pie"></i> The <strong>CR Area Pie</strong> and <strong>CR Status Pie</strong> on this page show the distribution for the selected date range. Toggle between them using the pie mode switch.</div>
+      </div>
+    </div>
+
+    <!-- OPEN CR ANALYSIS -->
+    <div class="help-card" data-section="opencr">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#ede9fe;">&#128300;</div>
+        <div><div class="help-card-title">Open CR Analysis</div><div class="help-card-desc">Track and annotate Open / Analysis CRs with reproduction scenarios and tech notes.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-question-circle"></i> What to keep here</div>
+          <p style="font-size:12px;color:#334155;line-height:1.7;margin:0 0 10px;">Open CR Analysis is your team&rsquo;s <strong>working notes board</strong> for CRs currently in Open or Analysis state. Use it to record reproduction scenarios, debug findings, and technical observations so the whole team has context in one place &mdash; no separate spreadsheet needed.</p>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-database"></i> What info it loads</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Auto-loaded CRs</div><div class="help-feature-box-text">On page open, all CRs that already have saved notes are loaded automatically. Your previous work is always visible without searching.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">CR Details</div><div class="help-feature-box-text">For each CR: CR ID (links to CR Info), title, area, subsystem, status badge, JIRA count, latest META seen, and CR Age in days.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Scenarios</div><div class="help-feature-box-text">Free-text field for reproduction steps &mdash; how to trigger the crash, which device, which build, what conditions.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Tech Notes</div><div class="help-feature-box-text">Free-text field for debug findings &mdash; log analysis, suspected root cause, workarounds, links to related tickets.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-pencil-alt"></i> How to use</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Use the <strong>Search box</strong> to find a CR by ID or title, then select it from the dropdown to add it to the table.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Click the <strong>Scenarios</strong> cell and type reproduction steps. Cell turns amber when there are unsaved changes.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Click the <strong>Tech Notes</strong> cell to add debug findings and observations.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Click <strong>Save All Notes</strong> (green button) to save everything at once. Notes persist across sessions for all team members.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-filter"></i> Use <strong>Area</strong> and <strong>Status</strong> filters to narrow down to specific CRs for focused reviews. Count badge updates live.</div>
+      </div>
+    </div>
+
+    <!-- MTBF TABLE -->
+    <div class="help-card" data-section="mtbf">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#dbeafe;">&#128203;</div>
+        <div><div class="help-card-title">MTBF Table</div><div class="help-card-desc">Edit builds, hours and crashes; manage JIRA exclusions per META.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-eye"></i> View Mode (default)</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">All fields are <strong>read-only</strong>. SWPDT Crashes shows as a blue link &mdash; click to open the JIRA list for that META.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Use <strong>Show last N metas</strong> or the <strong>Select metas</strong> panel to focus on specific META IDs.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-edit"></i> Edit Mode</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click <strong>Edit</strong> &mdash; checkboxes, hours, crashes, MTBF and MODE become editable.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text"><strong>Tick/untick builds</strong> &mdash; only ticked builds contribute crashes to the META total.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text"><strong>Exclude JIRAs</strong> &mdash; click the button on a META row to open a popup. Uncheck tickets to subtract their crashes from the total.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Click <strong>Save</strong> to persist all changes, or <strong>Cancel</strong> to discard. Use <strong>Reset to Auto</strong> to clear all manual overrides.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE STATUS -->
+    <div class="help-card" data-section="live_status">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#fff7ed;">&#128225;</div>
+        <div><div class="help-card-title">Live Status</div><div class="help-card-desc">Share real-time PDT execution crash status with external teams during an active Axiom run.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-question-circle"></i> What is Live Status?</div>
+          <p style="font-size:12px;color:#334155;line-height:1.7;margin:0 0 10px;">After submitting an <strong>Axiom job</strong> and waiting 10&ndash;15 minutes for it to start, you create a Live Status to share the real-time crash count with external stakeholders. Crashes update automatically every <strong>15 minutes</strong> from the running job. You choose whether to show Hours and MTBF or just the crash count.</p>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-code-branch"></i> CRM Build vs ENG Build</div>
+          <div class="help-grid">
+            <div class="help-feature-box" style="border-left:4px solid #2563eb;"><div class="help-feature-box-title"><span class="help-badge blue">CRM Build</span></div><div class="help-feature-box-text">You <strong>enter Hours</strong> as input. MTBF is calculated continuously as the job runs. Hours reduce automatically based on the reduction % you set. MTBF chart updates cumulatively.</div></div>
+            <div class="help-feature-box" style="border-left:4px solid #64748b;"><div class="help-feature-box-title"><span class="help-badge amber">ENG Build</span></div><div class="help-feature-box-text">You <strong>do not enter Hours</strong>. No MTBF is calculated or shown. Only crash count is tracked and shared. ENG builds do not require MTBF reporting.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-clock"></i> How Hours &amp; Reduction Work (CRM only)</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Enter your <strong>starting hours</strong> (e.g. 100). This is the total device-hours available for the run.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Select a <strong>Reduction % per minute per device</strong>. Example: <strong>20%</strong> means 12 seconds out of every 60 seconds per device are subtracted (20% &times; 60 sec = 12 sec).</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">PDT Buddy <strong>auto-calculates running hours</strong> based on your published time and the reduction %. No manual update needed as time passes.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">MTBF = <strong>Running Hours &divide; Crash Count</strong>. Updates every 15 minutes when crashes refresh.</div></div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:11px;color:#334155;line-height:1.8;margin-top:8px;">
+            <strong>Example:</strong> 20% reduction &rarr; 12 sec removed per 60 sec per device.<br>
+            10 devices &times; 1 hour = 10 hrs raw &rarr; after 20% reduction = <strong>8 hrs effective</strong> &rarr; MTBF = 8 &divide; crashes
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-save"></i> Saving &amp; Starting a New CRM Job</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">When the current job ends and you want to start a <strong>new CRM job</strong>, first <strong>Revoke</strong> the existing live status.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Before revoking, click <strong>Save MTBF &amp; Hours</strong>. You can <strong>edit the values</strong> at this point before saving.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">Saved Hours and Crashes are written to the <strong>Excel file</strong> for this target. The MTBF chart picks up these values.</div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">The <strong>MTBF chart is cumulative</strong> &mdash; it adds saved values from each completed job to show the overall MTBF trend across all runs.</div></div>
+            <div class="help-step"><div class="help-step-num">5</div><div class="help-step-text">After saving and revoking, create a new Live Status for the next Axiom job.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-eye"></i> Toggle <strong>Show Hours &amp; MTBF</strong> on/off to control what external viewers see. Turn off to share only crash count without MTBF.</div>
+      </div>
+    </div>
+
+    <!-- CR / JIRA INFO -->
+    <div class="help-card" data-section="crinfo">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#ffedd5;">&#128279;</div>
+        <div><div class="help-card-title">CR / JIRA Info</div><div class="help-card-desc">Full detail page for any CR or JIRA &mdash; opened via the Search Box.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-search"></i> How to open</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Use the <strong>Search bar</strong> at the top of any target dashboard page.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Type a CR number (e.g. <code>CR4483004</code>) or JIRA key (e.g. <code>QSTABILITY-1234</code>) and press Go.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-info-circle"></i> What you see</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Quick Summary</div><div class="help-feature-box-text">Total linked JIRAs, occurrences, devices hit, latest META seen &mdash; all at a glance.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Identity</div><div class="help-feature-box-text">CR number, mapped CR group, JIRA link, latest META, sibling CRs, test teams, MCN types, device IDs.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Classification</div><div class="help-feature-box-text">Status badge, area, functionality, subsystem, full title, CR creation date, build details.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">JIRAs Table</div><div class="help-feature-box-text">First 20 linked JIRAs with filters for serial, team, MCN. Each ticket links to the JIRA tracker.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-link"></i> Click any <strong>Linked CR pill</strong> to jump to a sibling CR in the same mapped group.</div>
+      </div>
+    </div>
+
+    <!-- TARGET COMPARE -->
+    <div class="help-card" data-section="compare">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#e0f2fe;">&#9878;&#65039;</div>
+        <div><div class="help-card-title">Target Compare Studio</div><div class="help-card-desc">Compare CR data side-by-side across multiple targets.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-play"></i> Getting started</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click <strong>Target Delta</strong> in the top bar. Type target names and select 2 or more to compare.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Optionally set <strong>CR Status filters</strong> and <strong>date range</strong>, then click <strong>Run Compare</strong>.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-table"></i> Result Tabs</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">CR by Tech Area</div><div class="help-feature-box-text">Bar chart + table of CR counts per area for each target. Select an area to drill into subsystem level.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Common CRs</div><div class="help-feature-box-text">CRs appearing in ALL selected targets &mdash; shared issues across platforms.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Exclusive CRs</div><div class="help-feature-box-text">CRs unique to only one target &mdash; platform-specific issues.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Regression CRs</div><div class="help-feature-box-text">CRs marked as regression across the compared targets.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-copy"></i> Use <strong>Copy Table</strong> and <strong>Copy Chart</strong> to paste results into PowerPoint or email.</div>
+      </div>
+    </div>
+
+    <!-- DEVICE SUMMARY -->
+    <div class="help-card" data-section="device">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#d1fae5;">&#128241;</div>
+        <div><div class="help-card-title">Device Summary</div><div class="help-card-desc">SW &amp; HW PDT device counts and deployment table &mdash; managed via Excel upload.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-file-excel"></i> Setup (Admin)</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click <strong>Upload Excel</strong> and select your <code>.xlsx</code> file. PDT Buddy stores a managed copy.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">PDT Buddy auto-detects the <strong>Devices</strong> sheet. Select the correct sheet if needed, then click <strong>Save Config</strong>.</div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">No template needed &mdash; click <strong>Create Managed Excel</strong> to generate a blank file with correct headers.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-table"></i> Excel Sheet Structure</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">SW PDT Summary Sheet</div><div class="help-feature-box-text">Deployment counts. Columns: <code>Form Factor | MCN | Storage</code> then per site (QIPL, CH, SD): <code>Delivered | Deployed</code> and a <code>Total</code> column.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Devices Sheet</div><div class="help-feature-box-text">Full device list. One row per device. Key columns: Serial, MCN, DDR Type, Memory bundle, Storage, Platform, Station, Location, Rework details, Comments.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-eye"></i> What you see</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Deployment Table</div><div class="help-feature-box-text">Rows by Form Factor / MCN / Storage. Columns per site showing Delivered and Deployed counts.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">MCN Chart</div><div class="help-feature-box-text">Bar chart of delivered device count per MCN variant.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Device List</div><div class="help-feature-box-text">Full table from the Devices sheet. Filter by Serial, MCN, Location. Click <strong>Export CSV</strong> to download.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Add Device</div><div class="help-feature-box-text">Click <strong>Add Device</strong> to add a row directly in PDT Buddy. Saved back to the managed Excel automatically.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUDDY ASSISTANT -->
+    <div class="help-card" data-section="assistant">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#d1fae5;">&#129302;</div>
+        <div><div class="help-card-title">Buddy Assistant</div><div class="help-card-desc">AI-powered right-side drawer &mdash; ask questions or run JIRA filter reports.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-comment-dots"></i> How to open</div>
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">Click the <strong>Buddy</strong> button (bottom-right of any page). First-time users enter a <strong>QGenie API key</strong> once &mdash; saved for the session.</div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Ask in plain English. Responses may include links, tables, or charts. Click <strong>Copy</strong> to copy output. Use <strong>Reset</strong> to start fresh.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-keyboard"></i> Example Questions</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">CR Queries</div><div class="help-feature-box-text">
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">show me open CRs for camera</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">how many built CRs do we have?</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">find crash CRs in modem</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">show details for CR4483004</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">what are the related CRs for CR123456?</code>
+            </div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">MTBF &amp; Analysis</div><div class="help-feature-box-text">
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">show MTBF trend for last 3 metas</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">top 5 open CRs for modem area</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">count of open vs built CRs</code>
+              <code style="display:block;margin:2px 0;font-size:11px;background:#f1f5f9;padding:3px 7px;border-radius:5px;">which meta had the most crashes?</code>
+            </div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-terminal"></i> JiraQuery Filter Report</div>
+          <div style="background:#0f172a;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+            <code style="color:#34d399;font-size:12px;line-height:1.8;display:block;word-break:break-all;">jiraquery=&quot;filter=115827&quot; $processCRinfo JiraQueryLimit=2000 $SkipHwPdtQStabilityCheck</code>
+          </div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title"><code>filter=115827</code></div><div class="help-feature-box-text">Replace with your own JIRA saved filter ID.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><code>$processCRinfo</code></div><div class="help-feature-box-text">Enriches each JIRA result with CR data from the PDT database.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><code>JiraQueryLimit=2000</code></div><div class="help-feature-box-text">Max rows to fetch. Default 1000. Increase for large filters.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><code>$SkipHwPdtQStabilityCheck</code></div><div class="help-feature-box-text">Skip HW PDT QStability validation. Use for non-HW PDT filters.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="help-card" data-section="navigation">
+      <div class="help-card-header"><div class="help-card-icon" style="background:#f1f5f9;">&#129517;</div>
+        <div><div class="help-card-title">Navigation &amp; User Roles</div><div class="help-card-desc">How to move around PDT Buddy and what each role can do.</div></div>
+      </div>
+      <div class="help-card-body">
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-sitemap"></i> Page Structure</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title">Left Sidebar &mdash; BU List</div><div class="help-feature-box-text">Click any Business Unit (Mobile, Compute, XR etc.) to see its targets.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Target Tabs</div><div class="help-feature-box-text">Inside a target: Dashboard, Unique CRs, PDT CRs, Open JIRAs, Weekly Data, Open CR Analysis, MTBF Table, HWPDT, Device Summary tabs.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Top Bar</div><div class="help-feature-box-text">BU / Target dropdowns for quick switching. Target Delta opens compare studio.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title">Customize Tabs</div><div class="help-feature-box-text">Click the settings icon on the tab bar to show/hide specific tabs. Hidden tabs also skip data loading for faster page loads.</div></div>
+          </div>
+        </div>
+        <div class="help-section"><div class="help-section-title"><i class="fas fa-user-circle"></i> User Roles</div>
+          <div class="help-grid">
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge green">Full Access</span></div><div class="help-feature-box-text">PDT group members. Can view all dashboards, edit MTBF tables, save notes, and use all features.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge blue">Viewer</span></div><div class="help-feature-box-text">Read-only. Can view all dashboards and charts but cannot edit, save, or access admin features.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge purple">Admin</span></div><div class="help-feature-box-text">Full access plus Admin Panel &mdash; add/update targets, manage milestones, set page visibility, manage user privileges.</div></div>
+            <div class="help-feature-box"><div class="help-feature-box-title"><span class="help-badge amber">Dark Mode</span></div><div class="help-feature-box-text">Toggle from the bottom of the left sidebar. Preference saved across sessions.</div></div>
+          </div>
+        </div>
+        <div class="help-tip"><i class="fas fa-question-circle"></i> If a section is missing (e.g. Unique CRs tab), it may be hidden by your admin via <strong>Page Visibility</strong> settings.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+  var pills=document.querySelectorAll(".help-nav-pill");
+  var cards=document.querySelectorAll(".help-card");
+  function show(s){
+    pills.forEach(function(p){p.classList.toggle("active",p.dataset.section===s);});
+    cards.forEach(function(c){c.classList.toggle("active",c.dataset.section===s);});
+    var a=document.querySelector(".help-card.active");
+    if(a)a.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+  pills.forEach(function(p){p.addEventListener("click",function(){show(p.dataset.section);});});
+  show((location.hash||"").replace("#","") || "overview");
+});
+</script>
+{% endblock %}

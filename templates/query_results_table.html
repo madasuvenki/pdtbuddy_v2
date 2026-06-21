@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="content-wrapper" style="max-width: 99%; margin: 10px auto;">
+    <!-- Header Actions -->
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="margin:0; display:flex; align-items:center; gap:12px;">
+            <i class="fas fa-table" style="color:var(--primary-color);"></i> 
+             
+        <span style="color: #666; font-size: 1rem; font-weight: normal; border-left: 2px solid #ddd; padding-left: 12px;">
+            SOURCE:
+            <b style="color:var(--accent-color);">
+                {{ target_name|upper }}
+                {% if table_name %}
+                     {% if table_name|lower == 'unique_crs' or 'unique_crs' in table_name|lower %}
+                        PDT CRs
+                    {% else %}
+                        {{ table_name|upper }}
+                    {% endif %}
+                {% endif %}
+            </b>
+        </span>
+
+        </h2>
+        <div style="display:flex; gap:10px;">
+             <button id="copyReportBtn" onclick="copyForHighLevelReport()" class="view-all-link" style="background:#27ae60; border:none; cursor:pointer; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-file-export"></i> <span id="copyStatusText">Copy for High-Level Report</span>
+        </button>
+            <button onclick="window.close()" class="view-all-link" style="background:var(--accent-color); border:none; cursor:pointer;">
+                <i class="fas fa-times"></i> Close Tab
+            </button>
+        </div>
+    </div>
+
+    <!-- Data Table Container -->
+    <div class="table-responsive" style="max-height: 82vh; overflow: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+        <table class="rich-table" id="dataTable" style="width: max-content; min-width: 100%; border-collapse: collapse;">
+            <thead>
+                {% if comp_targets %}
+                <!-- ROW 1: TARGET GROUP LABELS (Only for Common CR Comparison) -->
+                <tr class="target-group-header">
+                    <th colspan="2" style="background:#2c2c5e; z-index: 11;">CR INFO</th>
+                    {% for target in comp_targets %}
+                        <th colspan="7" style="text-align:center; background:#4A4A9B; border-left: 2px solid white; z-index: 11;">
+                            {{ target.upper() }}
+                        </th>
+                    {% endfor %}
+                </tr>
+                {% endif %}
+
+                <!-- ROW 2: COLUMN TITLES + FILTERS -->
+                <tr class="main-column-header">
+                    <th style="width: 60px;">S.No.</th>
+                    {% for col in columns %}
+                    <th style="min-width: 180px; {% if comp_targets and loop.index0 > 1 and (loop.index0 - 1) % 7 == 0 %}border-left: 2px solid #fff;{% endif %}">
+                        <div style="display:flex; flex-direction:column; gap:5px; padding: 5px 0;">
+                            <span class="col-title">{{ col.replace('_', ' ').upper() }}</span>
+                            
+                            <!-- Combined Search & Operator Box -->
+                            <input type="text" class="search-input" placeholder="Search or >5..." 
+                                   onkeyup="runCombinedFilters()"
+                                   style="width:95%; font-size:0.7rem; padding:3px; border-radius:3px; border:1px solid #ccc; font-weight: normal;">
+                            
+                            <!-- Dropdown List -->
+                            <select class="dropdown-filter" onchange="runCombinedFilters()" 
+                                    style="width:95%; font-size:0.7rem; padding:2px; border-radius:3px; border:1px solid #ccc; background:#fff; font-weight: normal;">
+                                <option value="">(All Values)</option>
+                            </select>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                <tr>
+                    <td style="text-align:center; font-weight:bold; background:#f8f9fa;">{{ loop.index }}</td>
+                    {% for col in columns %}
+                        <td class="{% if comp_targets and loop.index0 > 1 and (loop.index0 - 1) % 7 == 0 %}target-sep{% endif %}">
+                            {{ row[col] if row[col] is not none else '' }}
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    /* Sticky Header Logic */
+    .rich-table thead th { position: sticky; top: 0; z-index: 10; color: white; border: 1px solid #2c2c5e; }
+    .target-group-header th { top: 0; height: 40px; }
+    .main-column-header th { top: 40px; background: #3B3B7E; }
+    {% if not comp_targets %} .main-column-header th { top: 0; } {% endif %}
+
+    /* Body Styling */
+    .rich-table td { padding: 10px 12px; border: 1px solid #eee; font-size: 0.85rem; white-space: nowrap; }
+    .rich-table tr:nth-child(even) { background-color: #f9f9f9; }
+    .rich-table tr:hover { background-color: #f1f4ff; }
+    
+    /* Comparison Separator */
+    .target-sep { border-left: 2px solid #4A4A9B !important; }
+
+    .view-all-link { padding: 8px 15px; border-radius: 5px; color: white; text-decoration: none; font-weight: bold; font-size: 0.85rem; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const table = document.getElementById('dataTable');
+    const dropdowns = document.querySelectorAll('.dropdown-filter');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+    // -------------------------------------------------------
+    // Hide entirely-empty columns for JIRA tables
+    // -------------------------------------------------------
+    const tableName = "{{ table_name|lower }}";
+    const isJiraTable = tableName.includes('jira');
+
+    if (isJiraTable) {
+        const headerCells = Array.from(table.querySelectorAll('thead tr.main-column-header th'));
+        headerCells.forEach((th, colIdx) => {
+            if (colIdx === 0) return; // never hide S.No
+            const allEmpty = rows.every(row => {
+                const cell = row.cells[colIdx];
+                return !cell || (cell.textContent || '').trim() === '';
+            });
+            if (allEmpty) {
+                th.style.display = 'none';
+                rows.forEach(row => {
+                    if (row.cells[colIdx]) row.cells[colIdx].style.display = 'none';
+                });
+            }
+        });
+    }
+
+    // -------------------------------------------------------
+    // Populate dropdowns with unique values
+    // -------------------------------------------------------
+    dropdowns.forEach((select, index) => {
+        const colIndex = index + 1; // +1 to skip S.No
+        let uniqueValues = new Set();
+
+        rows.forEach(row => {
+            const cell = row.cells[colIndex];
+            if (cell && cell.style.display !== 'none') {
+                const val = cell.textContent.trim();
+                if (val) uniqueValues.add(val);
+            }
+        });
+
+        Array.from(uniqueValues).sort().forEach(val => {
+            const opt = document.createElement('option');
+            opt.value = val.toLowerCase();
+            opt.textContent = val;
+            select.appendChild(opt);
+        });
+    });
+});
+
+
+function runCombinedFilters() {
+    const table = document.getElementById('dataTable');
+    const rows = Array.from(table.querySelector('tbody').rows);
+    const headers = Array.from(table.querySelectorAll('.main-column-header th')).slice(1);
+
+    rows.forEach(row => {
+        let isMatch = true;
+
+        headers.forEach((th, i) => {
+            const searchVal = th.querySelector('.search-input').value.trim().toLowerCase();
+            const dropdownVal = th.querySelector('.dropdown-filter').value;
+            const cellText = row.cells[i + 1].textContent.trim();
+            const cellTextLower = cellText.toLowerCase();
+            const cellNum = parseFloat(cellText);
+
+            // 1. Dropdown Check
+            if (dropdownVal && cellTextLower !== dropdownVal) isMatch = false;
+
+            // 2. Search/Operator Check
+            if (searchVal && isMatch) {
+                if (searchVal.startsWith('>') || searchVal.startsWith('<') || searchVal.startsWith('=')) {
+                    const op = searchVal[0];
+                    const targetNum = parseFloat(searchVal.substring(1));
+                    if (!isNaN(cellNum) && !isNaN(targetNum)) {
+                        if (op === '>' && !(cellNum > targetNum)) isMatch = false;
+                        if (op === '<' && !(cellNum < targetNum)) isMatch = false;
+                        if (op === '=' && !(cellNum === targetNum)) isMatch = false;
+                    } else { isMatch = false; }
+                } else if (!cellTextLower.includes(searchVal)) {
+                    isMatch = false;
+                }
+            }
+        });
+        row.style.display = isMatch ? "" : "none";
+    });
+}
+
+function copyForHighLevelReport() {
+    const table = document.getElementById("dataTable");
+    const btn = document.getElementById("copyReportBtn");
+    const btnText = document.getElementById("copyStatusText");
+    
+    let reportRows = [];
+
+    // 1. Get Clean Headers
+    const headers = Array.from(table.querySelectorAll("thead tr.main-column-header th")).map(th => {
+        const titleSpan = th.querySelector('.col-title');
+        return titleSpan ? titleSpan.innerText.trim() : th.innerText.split('\n')[0].trim();
+    });
+    // If the table has Dual Headers (comp_targets), you might want to skip S.No
+    reportRows.push(headers.join("\t"));
+
+    // 2. Get Visible Data
+    const rows = table.querySelectorAll("tbody tr");
+    let count = 0;
+    rows.forEach(row => {
+        if (row.style.display !== "none") {
+            const cols = Array.from(row.querySelectorAll("td")).map(td => td.innerText.trim());
+            reportRows.push(cols.join("\t"));
+            count++;
+        }
+    });
+
+    if (count === 0) { alert("No data visible to copy!"); return; }
+
+    const finalString = reportRows.join("\n");
+
+    // 3. Robust Fallback Copy logic
+    const textArea = document.createElement("textarea");
+    textArea.value = finalString;
+    document.body.appendChild(textArea);
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        btn.style.background = "#2ecc71";
+        btnText.innerText = `Copied ${count} rows! Paste in Excel/Email.`;
+        
+        setTimeout(() => {
+            btn.style.background = "#27ae60";
+            btnText.innerText = "Copy for High-Level Report";
+        }, 4000);
+    } catch (err) {
+        alert("Copy failed. Please select the table and use Ctrl+C.");
+    }
+    document.body.removeChild(textArea);
+}
+
+</script>
+{% endblock %}

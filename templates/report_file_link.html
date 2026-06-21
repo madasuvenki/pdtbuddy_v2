@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container card" style="text-align: center; max-width: 600px; margin-top: 50px;">
+    <h1>Report Generated!</h1>
+    <p>Your report has been successfully generated.</p>
+    <p>Please click the link below to access the file:</p>
+    <p style="word-break: break-all; font-weight: bold; margin-top: 20px;">
+        <a href="{{ file_path }}" target="_blank" style="color: var(--primary-color);">
+            <i class="fas fa-file-excel"></i> {{ file_path }}
+        </a>
+    </p>
+    <p style="font-size: 0.9em; color: #777; margin-top: 30px;">
+        Note: Depending on your browser and operating system settings, you may need to manually copy and paste the path into your file explorer if the direct link does not open.
+    </p>
+    <a href="{{ url_for('dashboard', target_name='global') }}" class="btn" style="margin-top: 20px;">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+{% endblock %}

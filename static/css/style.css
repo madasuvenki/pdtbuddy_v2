@@ -1,0 +1,1136 @@
+/* Color Palette Variables */
+:root {
+    --primary-color: #4A4A9B; /* Deep Indigo - strong but refined */
+    --primary-dark-color: #3B3B7E;
+    --primary-light-color: #7986CB; /* Lighter shade of indigo */
+    --accent-color: #FF6F61; /* Coral Red - vibrant, eye-catching */
+    --secondary-accent-color: #2ECC71; /* Emerald Green - fresh, lively */
+
+    --text-dark: #34495E; /* Dark charcoal */
+    --text-medium: #7F8C8D; /* Muted grey */
+    --text-light: #ECF0F1; /* Off-white for dark backgrounds */
+
+    --bg-main: #F4F7F6; /* Light grey-blue for main background */
+    --bg-card: #FFFFFF; /* Pure white for cards */
+    --bg-element-light: #E0E6F0; /* Lighter grey-blue for subtle contrasts */
+    --bg-element-medium: #CED4DA; /* Muted silver for elements */
+    --border-color: #DDE1E6; /* Light border */
+    
+    --shadow-light: rgba(0, 0, 0, 0.05);
+    --shadow-medium: rgba(0, 0, 0, 0.15);
+    --shadow-deep: rgba(0, 0, 0, 0.25);
+
+    /* Chatbot specific colors */
+    --chat-user-bubble-bg: #E8F5E9; /* Light green for user messages */
+    --chat-bot-bubble-bg: var(--primary-color); /* Primary color for bot messages */
+    --chat-input-bg: #fff;
+    --modal-overlay: rgba(0, 0, 0, 0.7); /* Darker overlay for modals */
+}
+
+/* General Body and Container */
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+
+/*Home button */
+.qc-nav-row{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));  /* left | home | right */
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.qc-nav-left{ justify-self: start; }
+#qc-home-center{ justify-self: center; }
+.qc-nav-right{
+  justify-self: end;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.content-wrapper {
+    max-width: 95%;
+    width: 100%;
+    margin: 20px auto;
+    padding: 30px;
+    background-color: var(--bg-card);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px var(--shadow-medium);
+    flex-grow: 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-dark-color);
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+/* Navbar */
+.navbar {
+    background: linear-gradient(90deg, var(--primary-dark-color) 0%, var(--primary-color) 100%);
+    color: var(--text-light);
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px var(--shadow-medium);
+    z-index: 100;
+}
+
+.navbar-brand {
+    color: var(--text-light);
+    font-size: 28px;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 3px var(--shadow-deep);
+}
+
+.navbar-nav {
+    display: flex;
+    gap: 25px;
+}
+
+.navbar-nav a {
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 17px;
+    padding: 8px 15px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.navbar-nav a:hover,
+.dropbtn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Dropdown for Targets */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropbtn {
+    background-color: transparent;
+    color: var(--text-light);
+    padding: 8px 15px;
+    font-size: 17px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--bg-card);
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px var(--shadow-medium);
+    z-index: 100;
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    right: 0;
+    top: 100%;
+    border: 1px solid var(--border-color);
+}
+
+.dropdown-content a {
+    color: var(--text-dark);
+    padding: 12px 18px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    transition: background-color 0.2s ease;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--bg-element-light);
+    color: var(--primary-color);
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+/* Flash Messages */
+.flash-messages {
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+.alert i {
+    margin-right: 10px;
+}
+
+.alert-error {
+    background-color: #FFCDD2;
+    color: #C62828;
+    border: 1px solid #EF9A9A;
+}
+
+.alert-success {
+    background-color: #C8E6C9;
+    color: #2E7D32;
+    border: 1px solid #A5D6A7;
+}
+
+/* Business Unit Selection (main page) */
+.bu-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
+    margin-top: 30px;
+    max-width: 100%;
+}
+
+.bu-card {
+    background-color: var(--bg-card);
+    padding: 25px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--text-dark);
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, background-color 0.3s ease;
+    text-align: center;
+    box-shadow: 0 5px 15px var(--shadow-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    position: relative;
+    flex: 1 1 250px;
+    max-width: 350px;
+}
+
+.bu-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary-light-color), var(--secondary-accent-color));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.bu-card:hover::before {
+    opacity: 1;
+}
+
+.bu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px var(--shadow-medium);
+    background-color: var(--bg-element-light);
+}
+
+.bu-card i {
+    color: var(--primary-color);
+    margin-bottom: 12px;
+    font-size: 3em;
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.bu-card:hover i {
+    color: var(--accent-color);
+    transform: scale(1.05);
+}
+
+.bu-card h2 {
+    margin-top: 8px;
+    font-size: 1.6em;
+    color: var(--primary-dark-color);
+}
+
+.bu-card p {
+    font-size: 1em;
+    color: var(--text-medium);
+    line-height: 1.4;
+}
+
+/* Target List (on bu_target_selection.html) */
+.target-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 30px;
+    justify-content: center;
+}
+
+.target-item {
+    background-color: var(--secondary-accent-color);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 3px 10px var(--shadow-light);
+    flex: 0 1 auto;
+    min-width: 120px;
+    text-align: center;
+}
+
+.target-item:hover {
+    background-color: #27AE60;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px var(--shadow-medium);
+}
+
+/* Dashboard Layout */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    margin-top: 25px;
+}
+
+@media (min-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 2fr 1fr;
+    }
+    .section-card:nth-of-type(1) {
+        grid-column: 1 / 2;
+        grid-row: 1 / 2;
+    }
+    .section-card:nth-of-type(2) {
+        grid-column: 1 / 2;
+        grid-row: 2 / 3;
+    }
+}
+
+.glance-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.section-card {
+    background-color: var(--bg-card);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--shadow-light);
+    border: 1px solid var(--border-color);
+}
+
+
+  /* Compact Metric Cards */
+  .metric-card {
+    padding: 6px 14px !important; /* Reduced from 10px 20px */
+    border-radius: 30px !important; /* Sleeker pill shape */
+    background: #fff;
+    border: 1px solid #ddd;
+    border-left: 4px solid #4A4A9B !important;
+    display: flex;
+    align-items: center;
+    gap: 8px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-width: fit-content;
+  }
+
+  .metric-card h3 {
+    font-size: 0.65rem !important; /* Smaller label */
+    margin: 0;
+    color: #666;
+    text-transform: uppercase;
+  }
+
+  .metric-card p {
+    font-size: 1.1rem !important; /* Smaller value */
+    margin: 0;
+    font-weight: 800;
+    color: #333;
+  }
+
+  /* Combined Container for Metrics and Buttons */
+  .metrics-and-buttons-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px; /* Tight gap between everything */
+  }
+
+  /* Adjust Report Buttons to match Metric Card height */
+  .report-capsule {
+    padding: 6px 12px !important;
+    font-size: 0.85rem !important;
+    height: 34px; /* Matches the metric card height */
+    display: flex;
+    align-items: center;
+    border-radius: 20px;
+    background-color: #4A4A9B;
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+
+table.rich-table thead tr.inline-filter-row th{
+  background:#eef3fb;
+  border-bottom:1px solid var(--border);
+  padding:6px 8px;
+}
+table.rich-table thead tr.inline-filter-row input{
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Table Styling */
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+    min-width: 600px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th, td {
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.95em;
+    vertical-align: top;
+}
+
+th {
+    background-color: var(--bg-element-medium);
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+tbody tr:nth-child(even) {
+    background-color: var(--bg-element-light);
+}
+
+tbody tr:hover {
+    background-color: var(--bg-main);
+}
+
+.view-all-link, .back-link {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: var(--accent-color);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: 500;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.view-all-link:hover, .back-link:hover {
+    background-color: #E74C3C;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-medium);
+}
+
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+/* --- ADMIN TOGGLE BUTTON --- */
+.admin-toggle-btn {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 20px !important;
+    top: auto !important;
+    right: auto !important;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: var(--text-dark);
+    border: none;
+    font-size: 1.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.admin-toggle-btn:hover {
+    background-color: var(--primary-light-color);
+    color: var(--text-light);
+    transform: scale(1.05);
+}
+
+/* Keyframes for dancing animation */
+@keyframes dance {
+    0%, 100% { transform: rotate(0deg); }
+    10%, 30% { transform: rotate(-15deg); }
+    20%, 40% { transform: rotate(15deg); }
+    50% { transform: rotate(0deg); }
+}
+
+/* Apply dancing animation to the admin button */
+.dancing {
+    animation: dance 1s ease-in-out infinite;
+}
+
+/* Admin Modal Styles */
+.admin-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+}
+
+.admin-modal-overlay.visible {
+    display: flex;
+    opacity: 1;
+}
+
+.admin-modal-content {
+    background: var(--bg-card);
+    padding: 30px;
+    border-radius: 12px;
+    width: 450px;
+    max-width: 90%;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    position: relative;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.admin-modal-overlay.visible .admin-modal-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 2em;
+    font-weight: bold;
+    color: #aaa;
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    margin: 0;
+}
+
+.modal-close-btn:hover,
+.modal-close-btn:focus {
+    color: #333;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+/* --- CHATBOT TOGGLE BUTTON (#openChatBtn) --- */
+/* This is the round icon button that opens the chat window */
+#openChatBtn {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+#openChatBtn:hover {
+    background-color: transparent !important;
+}
+
+
+
+/* --- CHATBOT WINDOW --- */
+/* #chatWindow — defer entirely to .chat-window drawer styles in base.html */
+#chatWindow {
+    /* All layout handled by .chat-window in base.html — do not override */
+}
+
+#chatWindow.open {
+    /* All layout handled by .chat-window.open in base.html — do not override */
+}
+
+
+/* Chatbot Header */
+.chat-header {
+    /* Layout handled by base.html — do not override */
+}
+
+
+/* Chat Messages Container */
+#chatMessages {
+    /* All layout handled by .chat-messages in base.html — do not override */
+}
+
+/* Individual Message Bubbles */
+.message-bubble {
+    padding: 10px 14px;
+    border-radius: 18px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    max-width: 82%;
+    width: auto;
+    min-width: 0;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.08);
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+
+.message-user {
+    align-self: flex-end;
+    margin-left: auto;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.28);
+}
+
+.message-bot {
+    align-self: flex-start;
+    margin-right: auto;
+    background: #ffffff;
+    color: #1e293b;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.07);
+}
+/* Bot bubble with table: expand to near-full chat width */
+.message-bot:has(table) {
+    max-width: 96% !important;
+    width: 96%;
+}
+.message-bot table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    word-break: break-word !important;
+    overflow: hidden;
+}
+.message-bot table th,
+.message-bot table td {
+    padding: 5px 6px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 0 !important;
+}
+.message-bot table th:nth-child(1), .message-bot table td:nth-child(1) { width:8%  !important; }
+.message-bot table th:nth-child(2), .message-bot table td:nth-child(2) { width:34% !important; white-space:normal !important; }
+.message-bot table th:nth-child(3), .message-bot table td:nth-child(3) { width:16% !important; }
+.message-bot table th:nth-child(4), .message-bot table td:nth-child(4) { width:16% !important; }
+.message-bot table th:nth-child(5), .message-bot table td:nth-child(5) { width:26% !important; white-space:normal !important; }
+
+/* Text content within bubbles */
+.message-bubble .text {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 14px;
+    line-height: 1.6;
+}
+/* <br> inside bot bubbles — let browser handle naturally */
+
+
+/* Loading Indicator (typing animation) */
+#bot-loading {
+    align-self: flex-start;
+}
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 0 2px;
+}
+.typing-indicator span {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    background: #94a3b8;
+    border-radius: 50%;
+    opacity: 0.8;
+    animation: bounce 1.4s infinite ease-in-out;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-6px); }
+}
+
+
+/* Chat Input Area */
+.chat-input-area {
+    /* Layout handled by base.html — do not override */
+}
+
+#chatInput {
+    /* Layout handled by base.html — do not override */
+}
+
+#sendBtn {
+    /* Layout handled by base.html — do not override */
+}
+
+/* --- Bot response options (buttons) --- */
+/* This targets the 'cont' div created in renderMessage for holding option buttons and checkboxes */
+.message-bubble.message-bot > div:last-child { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 8px; /* Space between buttons/checkbox rows */
+    margin-top: 10px; 
+    justify-content: flex-start; /* Aligns buttons to the left */
+    align-items: flex-start; /* Align items to the top for checkboxes */
+    flex-direction: column; /* Stack checkbox rows vertically */
+}
+/* Override for buttons to remain horizontal */
+.message-bubble.message-bot > div:last-child > .chat-option-btn {
+    flex-direction: row; /* Allow buttons to be in a row */
+}
+
+
+.chat-option-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background .15s, color .15s, transform .15s, box-shadow .15s;
+    white-space: nowrap;
+}
+
+.chat-option-btn:hover {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99,102,241,0.28);
+}
+
+.chat-option-btn.selected {
+    background-color: var(--accent-color);
+    color: var(--text-light);
+    border: 1px solid var(--accent-color);
+    font-weight: bold;
+}
+.chat-option-btn.selected:hover {
+    background-color: var(--accent-color);
+}
+
+.chat-option-btn.primary-option-btn {
+    background-color: var(--secondary-accent-color);
+    color: white;
+    border: 1px solid var(--secondary-accent-color);
+}
+.chat-option-btn.primary-option-btn:hover {
+    background-color: #27AE60;
+}
+
+.chat-option-btn.primary-target-btn {
+    background-color: var(--bg-element-medium);
+    color: var(--text-dark);
+    border: 1px dashed var(--border-color);
+    cursor: default;
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+.chat-option-btn:disabled {
+    background-color: var(--bg-element-medium) !important;
+    color: var(--text-medium) !important;
+    border-color: var(--border-color) !important;
+    transform: none !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* --- Styles for chatbot checkboxes --- */
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+    font-size: 12px;
+    color: #1e293b;
+    width: 100%;
+}
+
+.checkbox-row input[type="checkbox"] {
+    margin-right: 8px;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--text-light); /* Light border */
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.checkbox-row input[type="checkbox"]:checked {
+    background-color: var(--secondary-accent-color);
+    border-color: var(--secondary-accent-color);
+}
+
+.checkbox-row input[type="checkbox"]:checked::before {
+    content: '\f00c'; /* Font Awesome checkmark icon */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 12px;
+    color: white;
+}
+
+.checkbox-row label {
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2; /* Adjust line height for label */
+}
+
+.checkbox-row input[type="checkbox"]:disabled + label {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+
+/* --- LOGOUT BUTTON/LINK STYLE --- */
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--text-dark);
+    font-size: 1em;
+    cursor: pointer;
+    padding: 8px 15px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.logout-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--accent-color);
+}
+
+/* --- Top Right Container for Logout --- */
+.top-right-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--bg-card);
+    padding: 8px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px var(--shadow-light);
+}
+
+/* Rich button */
+.top-center-home{
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+}
+.btn-home-rich{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 34px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 55%, #db2777 100%);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 14px 30px rgba(17,24,39,0.28), inset 0 1px 0 rgba(255,255,255,0.22);
+    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+.btn-home-rich:hover{
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 18px 40px rgba(17,24,39,0.35), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+
+/* Table specific overrides/enhancements */
+.rich-table tbody tr:nth-child(odd) { background-color: #ffffff; }
+.rich-table tbody tr:nth-child(even) { background-color: var(--bg-element-light); }
+.rich-table tbody tr:hover {
+    background-color: var(--bg-element-medium) !important;
+    transform: scale(1.002);
+    box-shadow: 0 2px 10px var(--shadow-light);
+    transition: all 0.2s ease;
+}
+.row-priority-high {
+    border-left: 4px solid var(--accent-color);
+    background-color: #fff0f0 !important;
+}
+.id-badge {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-element-light);
+    color: var(--primary-dark-color);
+    border: 1px solid var(--border-color);
+}
+
+/* Download Link Styling */
+.download-link {
+    display: block;
+    margin-top: 8px;
+    color: var(--secondary-accent-color);
+    text-decoration: none;
+    word-break: break-all;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+.download-link:hover {
+    color: #1a965d;
+    text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .content-wrapper {
+        margin: 10px;
+        padding: 15px;
+        max-width: 100%;
+    }
+    .navbar { padding: 10px 15px; }
+    .navbar-brand { font-size: 22px; }
+    .navbar-nav { gap: 15px; }
+    .navbar-nav a, .dropbtn { font-size: 15px; }
+    .dropdown-content { min-width: unset; width: 100%; left: 0; right: unset; }
+    .bu-grid, .target-list { gap: 15px; }
+    .bu-card { min-height: 140px; padding: 20px; }
+    .bu-card i { font-size: 2.5em; }
+    .bu-card h2 { font-size: 1.4em; }
+    .bu-card p { font-size: 0.9em; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .glance-metrics { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+    .metric-card p { font-size: 1.5em; }
+
+    /* Chatbot specific responsive adjustments */
+        #openChatBtn {
+        width: 84px;
+        height: 84px;
+        bottom: 15px;
+        right: 15px;
+        font-size: inherit;
+    }
+
+    #chatWindow {
+        width: 95vw;
+        right: 2.5vw;
+        bottom: 80px;
+        height: 70vh;
+    }
+    .chat-header .chat-title { font-size: 16px; }
+    .chat-header .chat-header-btn { font-size: 16px; margin-left: 5px; }
+    .message-bubble { padding: 10px 15px; font-size: 0.9em; }
+    #chatInput { padding: 8px 12px; font-size: 14px; }
+    #sendBtn { width: 40px; height: 40px; font-size: 16px; }
+}
+
+.column-hidden {
+    display: none !important;
+}
+
+
+.auto-gen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.auto-gen-graph-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.auto-gen-graph-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    text-align: center;
+}
+.auto-gen-graph-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.mermaid .node rect,
+.mermaid .node polygon {
+    stroke-width: 1.2px;
+}
+
+.mermaid .node text {
+    font-size: 15px;
+}
+
+/* ---- Glance tiles ---- */
+.glance-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4 across */
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+/* If you have 5 tiles, they will wrap nicely */
+@media (max-width: 1200px) {
+    .glance-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 768px) {
+    .glance-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.glance-card {
+    position: relative;
+    overflow: hidden;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: linear-gradient(135deg, #ffffff, #f9fafb);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.glance-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.06;
+    background: radial-gradient(circle at top left, #4f46e5, transparent 50%),
+                radial-gradient(circle at bottom right, #ec4899, transparent 50%);
+    pointer-events: none;
+}
+
+.glance-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.glance-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.glance-chip {
+    align-self: flex-start;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(15, 23, 42, 0.06);
+    color: #4b5563;
+}
+
+/* optional: different highlighting per tile */
+.glance-card--primary .glance-value {
+    color: #2563eb;
+}
+.glance-card--success .glance-value {
+    color: #16a34a;
+}
+.glance-card--warning .glance-value {
+    color: #f97316;
+}
+.glance-card--danger .glance-value {
+    color: #dc2626;
+}
+
+.cr-age-select {
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f9fafb;
+    color: #374151;
+}
+.cr-age-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px rgba(59,130,246,0.3);
+}

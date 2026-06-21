@@ -1643,7 +1643,7 @@ async function crRunReport(force){
   if(sp) sp.style.display = 'inline';
   if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
   try{
-    const res  = await fetch(`/api/live_status/jobs/${encodeURIComponent(_crJobId)}/current_report`, {
+    const res  = await fetch(`/api/live_status/targets/${encodeURIComponent(TARGET)}/current_report`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({force: force === true, custom_jql: jql})
@@ -1664,101 +1664,4 @@ async function crRunReport(force){
     const pills = document.getElementById('crSummaryPills');
     if(pills){
       const total   = newCount;
-      const withCr  = (report.hierarchical_report || []).filter(r => r.cr && r.cr !== 'NO_CR').reduce((s, r) => s + (r.cr_count || 0), 0);
-      const selCount = _crSelectedBuilds().length;
-      pills.innerHTML = `<span class="pill"><i class="fas fa-vial"></i> ${selCount} builds</span><span class="pill"><i class="fas fa-ticket-alt"></i> ${total} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${withCr} with CR</span><span class="pill warn"><i class="fas fa-circle-exclamation"></i> ${_crOpenJiraGroups.length} open JIRAs</span>`;
-    }
-    const msg = document.getElementById('crReportMsg');
-    const checkedAt = meta.last_fresh_check_at || meta.generated_at || '';
-    if(msg && checkedAt) msg.textContent = `Last check: ${new Date(checkedAt).toLocaleString()}`;
-  }catch(err){
-    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-exclamation-triangle" style="color:#b91c1c"></i> ${esc(String(err))}</td></tr>`;
-  }finally{
-    if(sp) sp.style.display = 'none';
-  }
-}
-
-function _crIsCycleMapped(j){
-  const mt = String(j.mapping_type || '').toLowerCase();
-  const fr = String(j.final_resolution || j.resolution || '').toLowerCase();
-  const fs = String(j.final_status || '').toLowerCase();
-  return mt.includes('cycl') || fr.includes('cycl') || fr.includes('cycle') || (fs === 'resolved' && (fr.includes('cycl') || mt.includes('cycl')));
-}
-
-function _crShouldShowOpen(j){
-  const st = String(j.final_status || j.status || '').toLowerCase();
-  const fr = String(j.final_resolution || j.resolution || '').toLowerCase();
-  if(st === 'rejected') return false;
-  if((st === 'closed' || st === 'resolved') && ['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn'].includes(fr)) return false;
-  if(st.includes('transfer')) return false;
-  if(_crIsCycleMapped(j)) return true;
-  return !(st.includes('closed') || st.includes('resolved'));
-}
-
-function _crAgeColor(d){ const n = parseInt(d || 0); return n > 30 ? '#b91c1c' : n > 14 ? '#d97706' : '#16a34a'; }
-
-function _crRenderCrTable(reportRows){
-  const crRows = (reportRows || []).filter(r => r.cr && r.cr !== 'NO_CR').map(r => ({
-    cr: r.cr, jiras: r.jiras || [], title: r.cr_title || '',
-    area: r.cr_area || r.area || '', sub: r.cr_subsystem || r.subsystem || '',
-    func: r.cr_function || r.cr_functionality || r.functionality || '',
-    date: r.cr_date || r.cr_built_date || '', age: r.cr_age || r.overall_age,
-    count: r.cr_count || ((r.jiras || []).length),
-    parent: r.cr_parent || r.parent_cr || r.mapped_cr || ''
-  })).sort((a, b) => (b.count || 0) - (a.count || 0));
-  _crAllRows = crRows;
-  const body = document.getElementById('crReportBody');
-  if(!crRows.length){
-    body.innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-check-circle" style="color:#16a34a"></i> No CRs found.</td></tr>`;
-    return;
-  }
-  body.innerHTML = crRows.map((g, i) => {
-    const crId     = String(g.cr || '').replace(/^CR/i, '');
-    const crLink   = crId ? `<a class="linkBtn" href="${ORBIT_CR_BASE}${esc(crId)}" target="_blank">${esc(g.cr)}</a>` : '--';
-    const parentId = String(g.parent || '').replace(/^CR/i, '');
-    const parentLink = parentId && parentId !== crId ? `<a class="linkBtn" href="${ORBIT_CR_BASE}${esc(parentId)}" target="_blank">${esc(g.parent)}</a>` : '--';
-    const age = g.age !== undefined && g.age !== null && g.age !== '' ? Number(g.age) : (g.date ? Math.floor((Date.now() - new Date(g.date).getTime()) / 86400000) : null);
-    const ageHtml = age != null ? `<span style="font-weight:900;color:${_crAgeColor(age)}">${age}d</span>` : '--';
-    return `<tr>
-      <td class="muted" style="font-weight:800">${i + 1}</td>
-      <td>${crLink}</td>
-      <td style="font-weight:650;max-width:300px">${esc(g.title || '--')}</td>
-      <td style="text-align:center;font-weight:950;color:#6366f1">${g.count || 0}</td>
-      <td>${esc(g.area || '--')}</td>
-      <td>${esc(g.sub || '--')}</td>
-      <td>${esc(g.func || '--')}</td>
-      <td>${parentLink}</td>
-      <td style="text-align:center">${ageHtml}</td>
-    </tr>`;
-  }).join('');
-}
-
-function _crRenderOpenJiras(reportRows){
-  const groups = {};
-  (reportRows || []).forEach(crRow => (crRow.jiras || []).forEach(j => {
-    if(crRow.cr && crRow.cr !== 'NO_CR' && !_crIsCycleMapped(j)) return;
-    const key = String(j.final_key || j.key || '').toUpperCase();
-    if(!key || _crExcludedJiras.includes(key) || !_crShouldShowOpen(j)) return;
-    if(!groups[key]) groups[key] = {key, grouping: j.mapping_type || 'Unmapped', occurrence: 0, title: j.final_summary || j.title || j.summary || '', status: j.final_status || j.status || '', items: []};
-    groups[key].occurrence++;
-    groups[key].items.push(j);
-  }));
-  _crOpenJiraGroups = Object.values(groups).sort((a, b) => b.occurrence - a.occurrence);
-  const sec = document.getElementById('crOpenJiraSection');
-  if(!_crOpenJiraGroups.length){ sec.style.display = 'none'; return; }
-  sec.style.display = 'block';
-  const badge = document.getElementById('crOpenJiraBadge');
-  if(badge) badge.textContent = _crOpenJiraGroups.length + ' open';
-  document.getElementById('crOpenJiraBody').innerHTML = _crOpenJiraGroups.map((g, i) => `<tr>
-    <td class="muted" style="font-weight:800">${i + 1}</td>
-    <td><a class="linkBtn" href="${JIRA_BASE}${esc(g.key)}" target="_blank">${esc(g.key)}</a></td>
-    <td>${_crIsCycleMapped(g.items[0] || {}) ? '<span class="pill warn" style="font-size:10px">Cycle-Mapped</span>' : esc(g.grouping)}</td>
-    <td style="text-align:center;font-weight:950;color:#6366f1">${g.occurrence}</td>
-    <td style="max-width:440px">${esc(g.title || '--')}</td>
-    <td>${esc(g.status || '--')}</td>
-  </tr>`).join('');
-}
-
-// ── rich HTML table copy helpers (works on HTTPS and HTTP) ───────────────────
-function _crPlainTextFromTable(headers, rows){
-  return [headers.join('\t')].concat(rows.map(r => r.map(v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim(
+      const w

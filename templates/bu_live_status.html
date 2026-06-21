@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Live Status Studio{% if selected_target %} - {{ selected_target }}{% endif %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#eef3fb;--panel:rgba(255,255,255,.9);--ink:#0f172a;--muted:#64748b;--line:#dbe3ef;--brand:#2563eb;--brand2:#7c3aed;--brand3:#06b6d4;--good:#16a34a;--warn:#d97706;--bad:#dc2626;--shadow:0 24px 70px rgba(15,23,42,.16);--lux1:#0f172a;--lux2:#1e293b;--lux3:#334155;--glass:rgba(255,255,255,.72)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 12% -8%,rgba(59,130,246,.34) 0,transparent 30%),radial-gradient(circle at 88% 0%,rgba(124,58,237,.30) 0,transparent 31%),radial-gradient(circle at 50% 105%,rgba(6,182,212,.20) 0,transparent 32%),linear-gradient(135deg,#f8fbff 0,#eef3ff 42%,#f8f7ff 100%);color:var(--ink);min-height:100vh}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),transparent 78%)}
+    header{position:relative;margin:12px 12px 0;width:calc(100% - 24px);padding:16px 22px 14px;background:linear-gradient(135deg,#ffffff 0%,#eff6ff 38%,#f5f3ff 72%,#ecfeff 100%);color:#1e2f55;border:1px solid #bfdbfe;box-shadow:0 18px 42px rgba(37,99,235,.12);border-radius:22px;overflow:hidden}
+    header:before{content:"";position:absolute;inset:1px;border-radius:29px;background:linear-gradient(135deg,rgba(37,99,235,.10),rgba(124,58,237,.05) 42%,transparent 70%);pointer-events:none}header:after{content:"";position:absolute;right:-70px;top:-95px;width:310px;height:310px;border-radius:999px;background:radial-gradient(circle,rgba(59,130,246,.18),rgba(124,58,237,.08) 54%,transparent 72%)}
+    .eyebrow{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid #bfdbfe;border-radius:999px;background:linear-gradient(135deg,#dbeafe,#ede9fe);font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:#1e3a8a}
+    h1{position:relative;margin:6px 0 0;font-size:28px;letter-spacing:-.05em;line-height:1;color:#1e3a8a}
+    .report-tabs-wrap{margin:10px 12px 0;padding:10px 12px;border:1px solid rgba(203,213,225,.78);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.90));box-shadow:0 10px 24px rgba(15,23,42,.08)}.report-tabs{display:flex;gap:10px;flex-wrap:wrap}.report-tab{border:1px solid #d1d5db;background:linear-gradient(180deg,#f3f4f6,#e5e7eb);color:#374151;border-radius:10px;padding:8px 18px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(15,23,42,.06)}.report-tab.active{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-color:#2563eb;box-shadow:0 8px 16px rgba(37,99,235,.22)}
+    main{position:relative;padding:12px 12px 18px;width:100%;max-width:none;margin:0}.panel{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.90));backdrop-filter:blur(20px);border:1px solid rgba(203,213,225,.78);border-radius:20px;box-shadow:0 14px 34px rgba(15,23,42,.10);margin-bottom:12px;overflow:hidden}.panel-h{padding:10px 14px;border-bottom:1px solid rgba(219,227,239,.82);display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(90deg,rgba(248,250,252,.98),rgba(239,246,255,.76),rgba(245,243,255,.55))}.panel-h h2{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:1000;letter-spacing:.01em;color:#4f46e5;margin:0}.panel-h h2:before{content:"";width:5px;height:16px;border-radius:999px;background:linear-gradient(180deg,#3b82f6,#7c3aed,#06b6d4);box-shadow:0 6px 14px rgba(79,70,229,.22)}.panel-b{padding:12px 14px}
+    .controls{display:grid;grid-template-columns:1.1fr 1.1fr 1fr .9fr;gap:10px;align-items:end}.field label{display:block;font-size:10px;font-weight:900;color:#243b63;margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}select,input,textarea{width:100%;border:1px solid #cbd8ec;border-radius:12px;padding:9px 11px;background:linear-gradient(180deg,#fff,#f8fbff);color:var(--ink);outline:none;box-shadow:inset 0 1px 0 #fff,0 5px 12px rgba(15,23,42,.03);transition:.18s box-shadow,.18s border,.18s transform;font-family:inherit;font-size:12px}select:hover,input:hover,textarea:hover{border-color:#a8c2f5}select:focus,input:focus,textarea:focus{border-color:#7aa7ff;box-shadow:0 0 0 4px rgba(37,99,235,.10),0 8px 18px rgba(37,99,235,.08);transform:translateY(-1px)}
+    button{border:0;border-radius:12px;padding:9px 14px;font-weight:950;cursor:pointer;letter-spacing:.01em;transition:.18s transform,.18s box-shadow,.18s filter,.18s background;position:relative;overflow:hidden;font-size:12px}button:hover{transform:translateY(-1px);filter:saturate(1.08)}.primary{background:linear-gradient(135deg,#3b82f6,#7c3aed 58%,#06b6d4)!important;color:#ffffff!important;border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 10px 18px rgba(59,130,246,.20)!important}.ghost{background:linear-gradient(135deg,#f8fbff,#e8eef8);color:#18315b;border:1px solid #cddaf0;box-shadow:0 6px 12px rgba(15,23,42,.05)}.danger{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;border:1px solid #fecaca}.small{padding:6px 9px;border-radius:10px;font-size:11px}
+    .workspace-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}.workspace-title{font-size:20px;font-weight:1000;color:#1e3a8a;letter-spacing:-.03em}.workspace-sub{font-size:11px;color:#64748b}.metric-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:linear-gradient(135deg,#eef4ff,#f5f3ff 55%,#ecfeff);border:1px solid #c7d7ff;padding:5px 9px;font-size:11px;box-shadow:0 6px 14px rgba(37,99,235,.08);font-weight:800;color:#1e2f55}.pill.warn{background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fed7aa;color:#9a3412}.pill.good{background:linear-gradient(135deg,#ecfdf5,#dcfce7);border-color:#bbf7d0;color:#166534}.but-strip{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.but-item{display:inline-flex;align-items:center;gap:8px}.but-item-check{width:16px;height:16px;accent-color:#2563eb}.but-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #dbe3ef;background:#fff;box-shadow:0 6px 14px rgba(15,23,42,.05);font-size:11px;font-weight:900;color:#1e2f55}.but-chip.running{border-color:#6ee7b7;background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#166534;box-shadow:0 8px 16px rgba(16,185,129,.12)}.but-chip.stopped{border-color:#cbd5e1;background:linear-gradient(135deg,#e5e7eb,#cbd5e1);color:#334155;box-shadow:0 8px 16px rgba(100,116,139,.10)}.but-chip-build{font-weight:900}.but-chip-meta{font-size:10px;opacity:.8}.but-chip-actions{display:inline-flex;align-items:center;gap:6px}.but-mini{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900;cursor:pointer}.but-mini.running{background:#10b981;color:#fff;border-color:#10b981}.but-mini.stopped{background:#94a3b8;color:#fff;border-color:#94a3b8}
+    .tbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}.tbar .left,.tbar .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.filter{min-width:220px;max-width:360px;width:100%}.muted{color:var(--muted);font-size:11px}
+    .section-card{margin-bottom:12px;border:1px solid rgba(203,213,225,.78);border-radius:16px;background:linear-gradient(180deg,#fff,#f8fbff);box-shadow:0 8px 20px rgba(15,23,42,.06);overflow:hidden}.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(219,227,239,.82);background:linear-gradient(90deg,#f8fbff,#eef4ff)}.section-title{font-size:12px;font-weight:1000;color:#334155;display:flex;align-items:center;gap:8px}.section-body{padding:10px 12px}.section-body.collapsed{display:none}.collapse-btn{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:900;cursor:pointer}.table-wrap{max-height:74vh;overflow:auto;border:1px solid rgba(203,213,225,.85);border-radius:14px;box-shadow:0 8px 18px rgba(15,23,42,.06);background:#fff}table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}th{position:sticky;top:0;background:linear-gradient(180deg,#eef4ff,#f8fafc);z-index:1;font-size:10px;color:#1e2f55;font-weight:950;text-transform:uppercase;letter-spacing:.025em;cursor:pointer;user-select:none}tbody tr:nth-child(even){background:#fbfdff}tbody tr:hover{background:linear-gradient(90deg,#eff6ff,#f8fbff)}tbody tr.row-editing{background:linear-gradient(90deg,#eff6ff,#f5f3ff)!important}tfoot td{background:linear-gradient(180deg,#f8fbff,#eef4ff);font-weight:900;color:#1e2f55;position:sticky;bottom:0}.badge.pending{background:#fff7ed;color:#c2410c;border:1px solid #fdba74;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800}.badge.err{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.empty{padding:28px 14px;text-align:center;color:#94a3b8}.cell-edit{width:100%;min-width:72px;padding:6px 8px;border-radius:8px;border:1px solid #bfd0ea;background:#fff;font-size:11px}.cell-edit.area{min-height:54px;resize:vertical}.dirty-dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:#f59e0b;margin-left:6px;vertical-align:middle}.status-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.status-segment{display:inline-flex;align-items:center;padding:4px;background:linear-gradient(135deg,#eef4ff,#f8fbff);border:1px solid #dbe3ef;border-radius:999px;box-shadow:inset 0 1px 0 #fff,0 6px 14px rgba(15,23,42,.05)}.status-seg-btn{border:0;background:transparent;color:#64748b;padding:6px 12px;border-radius:999px;font-size:10px;font-weight:900;display:inline-flex;align-items:center;gap:6px;cursor:pointer}.status-seg-btn.active.running{background:linear-gradient(135deg,#10b981,#34d399);color:#fff;box-shadow:0 8px 14px rgba(16,185,129,.22)}.status-seg-btn.active.stopped{background:linear-gradient(135deg,#64748b,#94a3b8);color:#fff;box-shadow:0 8px 14px rgba(100,116,139,.22)}.jira-mini-btn{border:1px solid #cbd5e1;background:linear-gradient(135deg,#ffffff,#f8fbff);color:#334155;border-radius:999px;padding:6px 12px;font-size:10px;font-weight:900;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 6px 14px rgba(15,23,42,.05)}.jira-mini-btn:hover{transform:translateY(-1px)}.jira-mini-btn.loading{opacity:.75;pointer-events:none}.crash-mini-btn{border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1d4ed8;border-radius:999px;padding:6px 12px;font-size:10px;font-weight:900;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 6px 14px rgba(37,99,235,.10)}.crash-mini-btn:hover{transform:translateY(-1px)}.refresh-btn{border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1d4ed8;border-radius:10px;padding:7px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 6px 14px rgba(37,99,235,.10)}.query-box{border:1px solid #dbe3ef;background:linear-gradient(180deg,#fff,#f8fbff);border-radius:12px;padding:10px 12px;font-size:11px;color:#334155;white-space:normal;word-break:break-word}.query-label{font-size:10px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}.inline-collapse-btn{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:4px 10px;font-size:10px;font-weight:900;cursor:pointer}.inline-table-wrap{max-height:62vh;overflow:auto}.mx-card{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,250,255,.95));border:1px solid rgba(191,219,254,.75);border-radius:24px;box-shadow:0 30px 90px rgba(15,23,42,.16), inset 0 1px 0 rgba(255,255,255,.78);overflow:hidden;margin-bottom:14px}.mx-card:before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at top left,rgba(59,130,246,.16),transparent 28%),radial-gradient(circle at top right,rgba(124,58,237,.12),transparent 28%),linear-gradient(180deg,rgba(255,255,255,.35),transparent 22%)}.mx-chart-hdr{position:relative;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:18px 22px 16px;border-bottom:1px solid rgba(59,130,246,.18);background:linear-gradient(135deg,#0f172a,#1e293b 44%,#334155 100%)}.mx-chart-title{font-size:16px;font-weight:1000;color:#fff;display:flex;align-items:center;gap:10px;letter-spacing:-.02em}.mx-chart-sub{font-size:11px;color:rgba(255,255,255,.76);margin-top:3px}.mx-top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mx-gtype-bar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 20px;background:linear-gradient(135deg,rgba(248,250,252,.92),rgba(238,242,255,.92));border-bottom:1px solid rgba(224,231,255,.9)}.mx-gtype-label{font-size:10px;font-weight:1000;color:#4f46e5;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}.mx-mini-checks{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mx-mini-check{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;color:#475569;cursor:pointer;padding:5px 11px;border:1px solid #dbe5f4;border-radius:999px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);user-select:none;transition:all .18s;white-space:nowrap;box-shadow:0 6px 14px rgba(15,23,42,.05)}.mx-mini-check:hover{border-color:var(--ck);color:#1e293b;transform:translateY(-1px)}.mx-mini-check:has(input:checked){background:linear-gradient(135deg,var(--ck),color-mix(in srgb, var(--ck) 72%, white));color:#fff;border-color:transparent;box-shadow:0 10px 22px color-mix(in srgb, var(--ck) 25%, transparent)}.mx-mini-check input{display:none}.mx-mini-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.6)}.mx-mini-check:has(input:checked) .mx-mini-dot{background:#fff!important;border-color:rgba(255,255,255,0.86)}.mx-summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:14px 20px;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(248,250,255,.92));border-bottom:1px solid rgba(226,232,240,.9)}.mx-stat{position:relative;overflow:hidden;padding:14px 16px;border-radius:18px;border:1px solid rgba(226,232,240,.95);background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(248,250,255,.84));box-shadow:0 10px 26px rgba(15,23,42,.07)}.mx-stat:before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--acc1),var(--acc2))}.mx-stat-label{font-size:10px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.11em;margin-bottom:6px}.mx-stat-value{font-size:22px;font-weight:1000;color:#0f172a;letter-spacing:-.03em}.mx-stat-sub{font-size:11px;color:#64748b;font-weight:700;margin-top:3px}.mx-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 20px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-bottom:1px solid #e2e8f0}.mx-filter-label{font-size:10px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.09em;white-space:nowrap}.mx-filter-btns{display:flex;gap:6px;flex-wrap:wrap}.mx-flt-btn{border:1px solid #dbe4f0;background:rgba(255,255,255,.92);color:#475569;border-radius:10px;padding:7px 13px;font-size:11px;font-weight:900;cursor:pointer;transition:all .18s;box-shadow:0 4px 12px rgba(15,23,42,.04)}.mx-flt-btn:hover{border-color:#94a3b8;color:#334155;background:#fff;transform:translateY(-1px)}.mx-flt-btn.active{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;border-color:transparent;box-shadow:0 10px 20px rgba(51,65,85,.22)}.mx-zoom-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 20px;background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(248,251,255,.94));border-bottom:1px solid #e2e8f0}.mx-zoom-shell{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.82);border:1px solid rgba(219,234,254,.95);box-shadow:0 12px 28px rgba(15,23,42,.08);backdrop-filter:blur(12px)}.mx-zoom-title{font-size:10px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}.mx-zoom-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mx-zoom-btn{border:1px solid #d7deea;background:linear-gradient(135deg,#ffffff,#f8fbff);color:#334155;border-radius:12px;padding:7px 11px;font-size:11px;font-weight:1000;cursor:pointer;box-shadow:0 6px 16px rgba(15,23,42,.06)}.mx-zoom-btn:hover{background:linear-gradient(135deg,#eef2ff,#ffffff);border-color:#a5b4fc}.mx-zoom-value{min-width:58px;text-align:center;font-size:11px;font-weight:1000;color:#1e3a8a;background:linear-gradient(135deg,#eef2ff,#ffffff);border:1px solid #c7d2fe;border-radius:999px;padding:6px 11px;box-shadow:inset 0 1px 0 #fff}.mx-zoom-slider{width:220px;accent-color:#4f46e5}.mx-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:0 20px 20px;scrollbar-width:thin;scrollbar-color:#94a3b8 transparent}.mx-chart-scroll::-webkit-scrollbar{height:10px}.mx-chart-scroll::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#94a3b8,#cbd5e1);border-radius:999px}.mx-chart-inner{position:relative;min-width:100%;padding-top:8px}#mtbfChartCanvas{display:block;width:100%!important;transition:transform .2s ease}.mx-copy-btn{border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:7px 12px;font-size:11px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .18s;white-space:nowrap;backdrop-filter:blur(10px)}.mx-copy-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.46);transform:translateY(-1px)}.mx-copy-btn.copied{background:linear-gradient(135deg,#059669,#10b981);color:#fff;border-color:transparent}.mx-lux-note{font-size:10px;color:#64748b;font-weight:800;letter-spacing:.03em}
+    .modalBackdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:100}.modalBackdrop.open{display:flex}.modal{width:min(860px,96vw);max-height:92vh;overflow:auto;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,251,255,.96));border:1px solid rgba(203,213,225,.82);border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.22)}.modalHead{padding:18px 22px;border-bottom:1px solid rgba(219,227,239,.82);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(248,250,252,.98),rgba(239,246,255,.76),rgba(245,243,255,.55))}.modalBody{padding:18px 22px}.drawer{position:fixed;top:0;right:-920px;width:min(920px,98vw);height:100vh;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,251,255,.96));border-left:1px solid rgba(203,213,225,.82);box-shadow:-24px 0 70px rgba(15,23,42,.20);z-index:120;transition:right .28s ease;display:flex;flex-direction:column}.drawer.open{right:0}.drawerHead{padding:18px 22px;border-bottom:1px solid rgba(219,227,239,.82);background:linear-gradient(90deg,rgba(248,250,252,.98),rgba(239,246,255,.76),rgba(245,243,255,.55));display:flex;align-items:center;justify-content:space-between}.drawerBody{padding:18px 22px;overflow:auto}
+    .grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:1000px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:700px){header{padding:12px 14px}h1{font-size:22px}.sub{font-size:10px}.controls{grid-template-columns:1fr}.panel-h{padding:9px 12px}.panel-b{padding:10px 12px}}
+  </style>
+</head>
+<body>
+<!-- 🚧 DEV BANNER -->
+<div style="width:100%;background:linear-gradient(90deg,#dc2626,#b91c1c);color:#fff;text-align:center;padding:14px 20px;font-size:22px;font-weight:900;letter-spacing:.04em;z-index:9999;position:relative;box-shadow:0 4px 18px rgba(185,28,28,.45);">
+  🚧 &nbsp; DEVELOPMENT IN PROGRESS &nbsp; 🚧
+  <span style="display:block;font-size:12px;font-weight:600;opacity:.85;margin-top:3px;letter-spacing:.02em;">This page is under active development — features may be incomplete or change at any time. Banner will be removed once ready.</span>
+</div>
+<header>
+  <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Premium Live Status Workspace</div>
+  <h1>Live Status Studio{% if selected_target %} - {{ selected_target | upper }}{% endif %}</h1>
+</header>
+<div class="report-tabs-wrap">
+  <div class="report-tabs">
+    <button type="button" id="tabCurrentBuilds" class="report-tab active" onclick="activateReportTab('current-builds')">Current Builds</button>
+    <button type="button" id="tabMtbf" class="report-tab" onclick="activateReportTab('mtbf')">MTBF Trend</button>
+  </div>
+</div>
+<main>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 1 — BUILD WORKSPACE
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div id="currentBuildsSection">
+
+    <!-- ── Search / Paste bar ─────────────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px">
+      <div style="position:relative;flex:1;min-width:260px;max-width:520px">
+        <i class="fas fa-search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#a78bfa;font-size:12px;pointer-events:none"></i>
+        <input id="metaSearchBox" type="text"
+          placeholder="Search or paste META-ID / Build string…"
+          autocomplete="off"
+          style="width:100%;padding:10px 14px 10px 36px;border:2px solid #c4b5fd;border-radius:14px;font-size:12px;background:#fff;outline:none;box-shadow:0 4px 14px rgba(124,58,237,.10);transition:.18s border"
+          oninput="onMetaSearch(this.value)" onkeydown="onMetaSearchKey(event)">
+        <div id="metaDropdown"
+          style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:60;
+                 background:#fff;border:1.5px solid #c4b5fd;border-radius:14px;
+                 box-shadow:0 12px 32px rgba(15,23,42,.16);max-height:260px;overflow-y:auto"></div>
+      </div>
+      <button class="ghost small" onclick="exportCSV()" style="border-radius:999px;white-space:nowrap">
+        <i class="fas fa-download"></i> Export CSV
+      </button>
+    </div>
+
+    <!-- ── Selected-build pills ───────────────────────────────────────────── -->
+    <div id="selectedBuildPills"
+      style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;padding:8px 12px;
+             border:1.5px dashed #c4b5fd;border-radius:12px;background:#faf5ff;
+             align-items:center;margin-bottom:12px">
+      <span id="pillsPlaceholder" style="color:#a78bfa;font-size:11px;font-style:italic">
+        Search or paste a build above to add it here…
+      </span>
+    </div>
+
+    <!-- ── Builds table ───────────────────────────────────────────────────── -->
+    <div style="border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.07);margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:linear-gradient(90deg,#f8faff,#ede9fe);border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px">
+        <span style="font-size:12px;font-weight:900;color:#4c1d95"><i class="fas fa-vial"></i> Builds Under Test &nbsp;<span id="recentCount" style="background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 9px;font-size:10px;font-weight:700"></span></span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="tableSpinner" style="display:none;color:#6d28d9;font-size:11px"><i class="fas fa-circle-notch spin"></i></span>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="buildsTable" style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">
+          <thead>
+            <tr style="background:linear-gradient(90deg,#f1f5f9,#f8faff)">
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap">Software Product</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">Software Product Build</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap">Device Count</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">Hours</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">Crashes</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">MTBF</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">Comments</th>
+              <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb">Action</th>
+            </tr>
+          </thead>
+          <tbody id="recentBody">
+            <tr><td colspan="8" style="text-align:center;padding:32px;color:#94a3b8;font-size:12px">
+              <i class="fas fa-search" style="font-size:20px;display:block;margin-bottom:8px;color:#c4b5fd"></i>
+              Search or paste a build above to populate this table.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SECTION 2 — JQL QUERY + CONSOLIDATED REPORT
+    ═══════════════════════════════════════════════════════════════════════════ -->
+    <div style="border:1px solid #e0e7ff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(79,70,229,.08);margin-bottom:16px">
+
+      <!-- JQL header bar -->
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(90deg,#ede9fe,#e0e7ff);border-bottom:1px solid #e0e7ff;flex-wrap:wrap">
+        <i class="fas fa-code" style="color:#7c3aed;font-size:12px"></i>
+        <span style="font-size:12px;font-weight:900;color:#4c1d95">JIRA Query (JQL)</span>
+        <span id="jqlFromCacheTag" style="display:none;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:999px;padding:1px 8px;font-size:9px;font-weight:700">cached</span>
+        <span id="jqlCustomTag" style="display:none;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:1px 8px;font-size:9px;font-weight:700">custom</span>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span id="consolidatedSpinner" style="display:none;color:#6d28d9;font-size:11px"><i class="fas fa-circle-notch spin"></i> Running…</span>
+          <!-- view-mode buttons -->
+          <a id="jqlOpenInJiraBtn" href="#" target="_blank" rel="noopener"
+            style="display:none;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;background:#fff;color:#0369a1;border:1px solid #bae6fd;text-decoration:none;align-items:center;gap:5px">
+            <i class="fas fa-external-link-alt"></i> Open in JIRA
+          </a>
+          <button type="button" id="jqlEditBtn" onclick="toggleJqlEdit()"
+            style="padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#6d28d9;border:1px solid #c4b5fd">
+            <i class="fas fa-pencil-alt"></i> Edit
+          </button>
+          <button type="button" id="jqlFetchBtn" onclick="fetchConsolidatedReport(true)"
+            style="padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#6d28d9,#4f46e5);color:#fff;border:none;box-shadow:0 4px 12px rgba(109,40,217,.25)">
+            <i class="fas fa-play"></i> Run Report
+          </button>
+          <button type="button" id="jqlSaveBtn" onclick="saveReportToStatic()"
+            style="display:none;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#0369a1;border:1px solid #bae6fd">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <!-- edit-mode buttons -->
+          <button type="button" id="jqlRunBtn" onclick="runWithCustomJql()"
+            style="display:none;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#6d28d9;color:#fff;border:none">
+            <i class="fas fa-play"></i> Run
+          </button>
+          <button type="button" id="jqlCancelBtn" onclick="cancelJqlEdit()"
+            style="display:none;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fff;color:#64748b;border:1px solid #cbd5e1">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- JQL read-only display -->
+      <div id="jqlDisplay"
+        style="padding:10px 16px;font-family:monospace;font-size:11px;color:#1e1b4b;line-height:1.7;word-break:break-all;min-height:38px;background:#f8faff;border-bottom:1px solid #e0e7ff">
+        <span style="color:#a78bfa;font-style:italic">Add builds above — the JQL will appear here automatically.</span>
+      </div>
+
+      <!-- JQL edit textarea (hidden) -->
+      <div id="jqlEditArea" style="display:none;padding:10px 16px;background:#f8faff;border-bottom:1px solid #e0e7ff">
+        <textarea id="jqlTextarea"
+          style="width:100%;min-height:72px;font-family:monospace;font-size:11px;color:#1e1b4b;
+                 border:1.5px solid #c4b5fd;border-radius:10px;padding:8px 10px;resize:vertical;
+                 outline:none;background:#fff;box-sizing:border-box"
+          placeholder="Paste or type a custom JQL query…"></textarea>
+        <div style="font-size:9px;color:#94a3b8;margin-top:4px">
+          Edit the JQL then click <b>Run</b> — results will be fetched using exactly this query.
+        </div>
+      </div>
+
+      <!-- Consolidated report output -->
+      <div style="padding:12px 16px">
+        <div id="consolidatedSummaryBar" style="display:none;margin-bottom:10px"></div>
+        <div id="consolidatedHierarchy">
+          <div style="text-align:center;padding:32px;color:#94a3b8;font-size:12px">
+            <i class="fas fa-layer-group" style="font-size:22px;display:block;margin-bottom:8px;color:#c4b5fd"></i>
+            Add builds and click <b>Run Report</b> to see the consolidated JIRA analysis.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end currentBuildsSection -->
+
+  <!-- MTBF Trend tab (hidden by default) -->
+  <div id="mtbfSection" style="display:none">
+
+        <div class="mx-card">
+          <div class="mx-chart-hdr">
+            <div>
+              <div class="mx-chart-title"><i class="fas fa-chart-line"></i> MTBF Trend</div>
+              <div class="mx-chart-sub">Luxury stability canvas for selected builds &bull; <span id="mxChartCount">0</span> builds shown &bull; click legend to show or hide metrics</div>
+            </div>
+            <div class="mx-top-actions">
+              <button class="mx-copy-btn" id="mxCopyChartBtn" onclick="mxCopyChart()"><i class="fas fa-image"></i> Copy Chart</button>
+              <button class="mx-copy-btn" id="mxDlChartBtn" onclick="mxDownloadChart()"><i class="fas fa-download"></i> Download</button>
+            </div>
+          </div>
+          <div class="mx-gtype-bar">
+            <span class="mx-gtype-label"><i class="fas fa-chart-bar"></i> Show</span>
+            <div class="mx-mini-checks" id="mxMetricChecks">
+              {% if is_compute_bu %}
+              <label class="mx-mini-check" style="--ck:#059669"><input type="checkbox" data-metric="product_mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#059669"></span> Product MTBF</label>
+              <label class="mx-mini-check" style="--ck:#f59e0b"><input type="checkbox" data-metric="qc_mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#f59e0b"></span> QC MTBF</label>
+              {% else %}
+              <label class="mx-mini-check" style="--ck:#10b981"><input type="checkbox" data-metric="mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#10b981"></span> MTBF</label>
+              {% endif %}
+              <label class="mx-mini-check" style="--ck:#6366f1"><input type="checkbox" data-metric="hours" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#6366f1"></span> Hours</label>
+              <label class="mx-mini-check" style="--ck:#f97316"><input type="checkbox" data-metric="crashes" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#f97316"></span> Crashes</label>
+            </div>
+          </div>
+          <div class="mx-filter-bar">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="mx-filter-label"><i class="fas fa-filter"></i> Show</span>
+              <div class="mx-filter-btns">
+                <button class="mx-flt-btn" data-n="5" onclick="mxFilter('n',5)">Last 5</button>
+                <button class="mx-flt-btn active" data-n="10" onclick="mxFilter('n',10)">Last 10</button>
+                <button class="mx-flt-btn" data-n="20" onclick="mxFilter('n',20)">Last 20</button>
+                <button class="mx-flt-btn" data-n="0" onclick="mxFilter('n',0)">All</button>
+              </div>
+            </div>
+            <div class="mx-lux-note"><i class="fas fa-sparkles"></i> Hover to inspect &bull; richer spacing with zoom</div>
+          </div>
+          <div class="mx-zoom-bar">
+            <div class="mx-zoom-shell">
+              <span class="mx-zoom-title"><i class="fas fa-magnifying-glass-chart"></i> Premium Zoom</span>
+              <div class="mx-zoom-controls">
+                <button type="button" class="mx-zoom-btn" onclick="mxAdjustZoom(-10)">-</button>
+                <span id="mxZoomValue" class="mx-zoom-value">100%</span>
+                <input type="range" id="mxZoomSlider" class="mx-zoom-slider" min="70" max="180" step="5" value="100" oninput="mxSetZoom(this.value)">
+                <button type="button" class="mx-zoom-btn" onclick="mxAdjustZoom(10)">+</button>
+                <button type="button" class="mx-zoom-btn" onclick="mxSetZoom(100)">Reset</button>
+              </div>
+            </div>
+          </div>
+          <div class="mx-chart-wrap" style="padding:12px 0 0 0">
+            <div class="mx-chart-scroll" id="mxChartScroll">
+              <div class="mx-chart-inner" id="mxChartInner">
+                <canvas id="mtbfChartCanvas" style="display:block"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  </div><!-- end mtbfSection -->
+
+</main>
+
+
+<div id="buildModalBackdrop" class="modalBackdrop">
+  <div class="modal">
+    <div class="modalHead">
+      <div style="font-size:18px;font-weight:1000;color:#4f46e5" id="buildModalTitle">Add Build</div>
+      <button class="ghost small" onclick="closeBuildModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modalBody">
+      <div class="grid g3">
+        <div><label>Target</label><input id="mTarget" type="text" readonly></div>
+        <div><label>Product Line(s)</label><input id="mProductLine" type="text" placeholder="e.g. Aldabra"></div>
+        <div><label>META-ID <span style="color:#dc2626">*</span></label><input id="mMetaId" type="text" placeholder="e.g. META-00720"></div>
+        <div><label>Hours</label><input id="mHours" type="number" min="0" step="1"></div>
+        <div><label>Crashes</label><input id="mCrashes" type="number" min="0" step="1"></div>
+        <div><label>MTBF</label><input id="mMtbf" type="number" min="0" step="0.1"></div>
+        <div><label>Week</label><input id="mWeek" type="date"></div>
+        <div><label>Build Status</label><select id="mRunStatus"><option value="running">Running</option><option value="stopped">Stopped</option></select></div>
+        <div style="grid-column:span 1"><label>Build(s)</label><input id="mBuildFull" type="text" placeholder="e.g. Aldabra.LA.1.0-STD..."></div>
+      </div>
+      <div class="grid g2" style="margin-top:14px;">
+        <div style="grid-column:1 / -1"><label>Comments</label><textarea id="mComments" rows="3" placeholder="Notes / comments..."></textarea></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px;">
+        <button class="ghost" onclick="closeBuildModal()">Cancel</button>
+        <button class="primary" onclick="saveBuild()"><i class="fas fa-save"></i> Save Build</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="jiraDrawer" class="drawer">
+  <div class="drawerHead">
+    <div style="font-size:18px;font-weight:1000;color:#4f46e5" id="drawerTitle">JIRA Details</div>
+    <button class="ghost small" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="drawerBody">
+    <div id="drawerPills" class="metric-row"></div>
+    <div class="table-wrap" style="max-height:none;height:calc(100vh - 170px)">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortDrawer('key')">Key</th>
+            <th onclick="sortDrawer('project')">Project</th>
+            <th onclick="sortDrawer('created')">Date</th>
+            <th onclick="sortDrawer('summary')">Summary</th>
+            <th onclick="sortDrawer('status')">Status</th>
+            <th onclick="sortDrawer('resolution')">Resolution</th>
+            <th onclick="sortDrawer('reporter')">Reporter</th>
+            <th onclick="sortDrawer('component')">Component</th>
+            <th onclick="sortDrawer('cr_mapped')">CR Mapped</th>
+          </tr>
+        </thead>
+        <tbody id="drawerBodyRows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/jira_build_lookup';
+const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
+const CURRENT_BU = {{ selected_bu_key|tojson }};
+const CURRENT_TARGET = {{ selected_target|tojson }};
+const TARGETS = {{ bu_targets|tojson }};
+const ALL_BUS = {{ (BUSINESS_UNITS or {}) | tojson }};
+const ALL_CONFIG = {{ (TARGETS_CONFIG or {}) | tojson }};
+const COLUMNS = [
+  {key:'target',label:'Target',sortable:true},
+  {key:'product_line',label:'Product Line(s)',sortable:true},
+  {key:'meta_id',label:'META-ID',sortable:true},
+  {key:'hours',label:'Hours',sortable:true},
+  {key:'crashes',label:'Crashes',sortable:true},
+  {key:'mtbf',label:'MTBF',sortable:true},
+  {key:'week',label:'Week',sortable:true},
+  {key:'build_full',label:'Build(s)',sortable:true},
+  {key:'comments',label:'Comments',sortable:false},
+  {key:'actions',label:'Actions',sortable:false}
+];
+const IS_AUTO_MODE = String(CURRENT_BU || '').toUpperCase() === 'AUTO';
+const IS_COMPUTE_BU = {{ 'true' if is_compute_bu else 'false' }};
+let currentBu = CURRENT_BU;
+let currentTarget = CURRENT_TARGET || (TARGETS.length ? TARGETS[0].key : '');
+let rows = [];
+let filteredRows = [];
+let selectedBuildIndices = [];
+let editIndex = null;
+let inlineEditIndex = null;
+let sortCol = 'week';
+let sortAsc = false;
+let drawerRows = [];
+let drawerSortCol = 'created';
+let drawerSortAsc = false;
+let excelHeaders = [];
+let excelSheetName = '';
+let excelHeaderMap = {};
+let dirtyRows = new Set();
+let newlyAddedRows = [];
+let overallEditMode = false;
+let mtbfChart = null;
+let curMetrics = { mtbf: true, product_mtbf: true, qc_mtbf: true, hours: true, crashes: true };
+let curData = [];
+let mxZoomLevel = 100;
+const pluginChartBg = { id:'chartBg', beforeDraw(chart){ const {ctx, chartArea, width, height} = chart; if(!chartArea) return; ctx.save(); const grad = ctx.createLinearGradient(0, 0, 0, height); grad.addColorStop(0, '#f0f4ff'); grad.addColorStop(1, '#ffffff'); ctx.fillStyle = grad; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.fillRect(chartArea.left, chartArea.top, chartArea.right-chartArea.left, chartArea.bottom-chartArea.top); ctx.restore(); } };
+const pluginLineLabels = { id:'lineLabels', afterDatasetsDraw(chart){ const ctx = chart.ctx; const lineDatasets = chart.data.datasets.map((ds,di) => ({ds,di})).filter(({ds}) => ds.type === 'line'); lineDatasets.forEach(({ds, di}, lineIdx) => { const meta = chart.getDatasetMeta(di); const baseOffset = 8 + lineIdx * 18; meta.data.forEach((pt, i) => { const v = ds.data[i]; if(v === undefined || v === null || v === 0) return; ctx.save(); ctx.font = '600 8px Inter,system-ui,sans-serif'; ctx.fillStyle = '#475569'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(String(v), pt.x, pt.y - baseOffset); ctx.restore(); }); }); } };
+const pluginBarLabels = { id:'barLabels', afterDatasetsDraw(chart){ const ctx = chart.ctx; chart.data.datasets.forEach((ds, di) => { const meta = chart.getDatasetMeta(di); if(meta.type !== 'bar') return; meta.data.forEach((bar, i) => { const v = ds.data[i]; if(v === undefined || v === null || v === 0) return; ctx.save(); ctx.font = '600 8px Inter,system-ui,sans-serif'; ctx.fillStyle = '#475569'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(String(v), bar.x, bar.y - 2); ctx.restore(); }); }); } };
+
+  // ── Build search / pill / table ──────────────────────────────────────────
+  function onMetaSearch(val){
+    const dd = document.getElementById('metaDropdown');
+    if(!dd) return;
+    const q = val.trim().toLowerCase();
+    if(!q){ dd.style.display='none'; return; }
+    // match against existing rows AND allow free-text paste
+    const matches = rows.map((r,i)=>({r,i}))
+      .filter(x=>{
+        const lbl = String(x.r.meta_id||x.r.build_full||'').trim().toLowerCase();
+        const prod = String(x.r.product_line||x.r.target||'').trim().toLowerCase();
+        return lbl && (lbl.includes(q)||prod.includes(q)) && !selectedBuildIndices.includes(x.i);
+      }).slice(0,14);
+    let html = '';
+    if(matches.length){
+      html += matches.map(x=>{
+        const lbl  = String(x.r.meta_id||x.r.build_full||'').trim();
+        const prod = String(x.r.product_line||x.r.target||'').trim();
+        const st   = String(x.r.run_status||'').toLowerCase();
+        const dot  = st==='running'
+          ? '<span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;flex-shrink:0"></span>'
+          : '<span style="width:7px;height:7px;border-radius:50%;background:#94a3b8;display:inline-block;flex-shrink:0"></span>';
+        return `<div onclick="addBuildPill(${x.i})"
+          style="padding:8px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px"
+          onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">
+          ${dot}<span style="font-weight:800">${esc(lbl)}</span>
+          ${prod?`<span style="color:#94a3b8;font-size:10px">${esc(prod)}</span>`:''}
+        </div>`;
+      }).join('');
+    }
+    // always offer "add as new" if typed text not already selected
+    const exactMatch = rows.some(r=>String(r.meta_id||r.build_full||'').trim().toLowerCase()===q);
+    if(!exactMatch){
+      html += `<div onclick="addNewBuildFromSearch()"
+        style="padding:8px 14px;cursor:pointer;font-size:11px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;color:#6d28d9"
+        onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#fff'">
+        <i class="fas fa-plus-circle"></i> Add "${esc(val.trim())}" as new build
+      </div>`;
+    }
+    if(!html){ dd.style.display='none'; return; }
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+  }
+
+  function onMetaSearchKey(e){
+    if(e.key==='Escape'){
+      document.getElementById('metaDropdown').style.display='none';
+      document.getElementById('metaSearchBox').value='';
+    }
+    if(e.key==='Enter'){
+      const val = document.getElementById('metaSearchBox').value.trim();
+      if(val) addNewBuildFromSearch();
+    }
+  }
+
+  document.addEventListener('click', e=>{
+    const box=document.getElementById('metaSearchBox');
+    const dd=document.getElementById('metaDropdown');
+    if(dd&&box&&!box.contains(e.target)&&!dd.contains(e.target)) dd.style.display='none';
+  });
+
+  function addBuildPill(idx){
+    if(!selectedBuildIndices.includes(idx)) selectedBuildIndices.push(idx);
+    document.getElementById('metaDropdown').style.display='none';
+    document.getElementById('metaSearchBox').value='';
+    renderBuildPills();
+    renderRecentBuilds();
+    refreshJqlFromSelection();
+  }
+
+  function addNewBuildFromSearch(){
+    const box = document.getElementById('metaSearchBox');
+    const val = (box?.value||'').trim();
+    if(!val) return;
+    // check if it matches an existing row
+    const existing = rows.findIndex(r=>String(r.meta_id||r.build_full||'').trim().toLowerCase()===val.toLowerCase());
+    if(existing>=0){ addBuildPill(existing); return; }
+    // create a minimal new row
+    const newRow = {
+      meta_id: val, build_full: val, product_line: '', target: currentTarget||'',
+      hours:'', crashes:'', mtbf:'', week:'', run_status:'running',
+      comments:'', device_count:'', include_stopped:true, jiras:[], _isNew:true
+    };
+    rows.push(newRow);
+    const idx = rows.length-1;
+    selectedBuildIndices.push(idx);
+    document.getElementById('metaDropdown').style.display='none';
+    box.value='';
+    renderBuildPills();
+    renderRecentBuilds();
+    refreshJqlFromSelection();
+  }
+
+  function removeBuildPill(idx){
+    selectedBuildIndices = selectedBuildIndices.filter(i=>i!==idx);
+    renderBuildPills();
+    renderRecentBuilds();
+    refreshJqlFromSelection();
+    // if report was for this build, clear it
+    if(_consolidatedReport){
+      const builds = getSelectedBuildStrings();
+      if(!reportCoversBuilds(_consolidatedReport, builds)){
+        _consolidatedReport=null; _consolidatedBuilds=[];
+        const container=document.getElementById('consolidatedHierarchy');
+        if(container) container.innerHTML='<div style="text-align:center;padding:32px;color:#94a3b8;font-size:12px"><i class="fas fa-layer-group" style="font-size:22px;display:block;margin-bottom:8px;color:#c4b5fd"></i>Click <b>Run Report</b> to refresh.</div>';
+        const saveBtn=document.getElementById('jqlSaveBtn'); if(saveBtn) saveBtn.style.display='none';
+      } else {
+        renderHierarchicalReport(_consolidatedReport);
+      }
+    }
+  }
+
+  function renderBuildPills(){
+    const wrap = document.getElementById('selectedBuildPills');
+    const ph   = document.getElementById('pillsPlaceholder');
+    if(!wrap) return;
+    if(!selectedBuildIndices.length){
+      if(ph) ph.style.display='inline';
+      // remove all pill spans
+      Array.from(wrap.children).forEach(c=>{ if(c.id!=='pillsPlaceholder') c.remove(); });
+      return;
+    }
+    if(ph) ph.style.display='none';
+    // rebuild pills
+    Array.from(wrap.children).forEach(c=>{ if(c.id!=='pillsPlaceholder') c.remove(); });
+    selectedBuildIndices.forEach(idx=>{
+      const r = rows[idx]; if(!r) return;
+      const lbl = String(r.meta_id||r.build_full||'').trim();
+      const st  = String(r.run_status||'').toLowerCase();
+      const isRun = st==='running';
+      const pill = document.createElement('span');
+      pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+        border-radius:999px;background:${isRun?'#dcfce7':'#f1f5f9'};
+        border:1px solid ${isRun?'#bbf7d0':'#cbd5e1'};
+        font-size:11px;font-weight:800;color:${isRun?'#166534':'#475569'}`;
+      pill.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${isRun?'#16a34a':'#94a3b8'};display:inline-block;flex-shrink:0"></span>
+        ${esc(lbl)}
+        <button type="button" onclick="removeBuildPill(${idx})" title="Remove"
+          style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:15px;line-height:1;padding:0 0 0 3px">&times;</button>`;
+      wrap.appendChild(pill);
+    });
+  }
+
+  function refreshJqlFromSelection(){
+    const builds = getSelectedBuildStrings();
+    if(!builds.length){ updateJqlPanel(''); return; }
+    // only update if no custom JQL is active
+    const isCustom = !!(_consolidatedReport && (_consolidatedReport.meta||{}).custom_jql);
+    if(!isCustom) updateJqlPanel(buildAutoJql(builds));
+  }
+
+  function saveSelectedBuilds(){
+    rows.forEach((r,i)=>{ r.include_stopped = selectedBuildIndices.includes(i); });
+    _consolidatedReport=null; _consolidatedBuilds=[];
+    renderBuildPills(); renderRecentBuilds(); autoLoadConsolidatedReport();
+  }
+
+  function renderRecentBuilds(){
+    const recent = selectedBuildIndices.map(i=>rows[i]).filter(r=>r&&String(r.meta_id||r.build_full||'').trim());
+    const body   = document.getElementById('recentBody');
+    const count  = document.getElementById('recentCount');
+    if(count) count.textContent = recent.length ? recent.length+' build'+(recent.length!==1?'s':'') : '';
+    if(!body) return;
+    if(!recent.length){
+      body.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:#94a3b8;font-size:12px">'
+        +'<i class="fas fa-search" style="font-size:20px;display:block;margin-bottom:8px;color:#c4b5fd"></i>'
+        +'Search or paste a build above to populate this table.</td></tr>';
+      return;
+    }
+    const runIcon  = '<span title="Running" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;background:#dcfce7;color:#16a34a;font-size:9px;flex-shrink:0"><i class="fas fa-play"></i></span>';
+    const stopIcon = '<span title="Stopped" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;background:#e5e7eb;color:#64748b;font-size:9px;flex-shrink:0"><i class="fas fa-stop"></i></span>';
+    body.innerHTML = recent.map(r=>{
+      const idx   = rows.indexOf(r);
+      const st    = String(r.run_status||'').toLowerCase()==='stopped'?'stopped':'running';
+      const si    = st==='running'?runIcon:stopIcon;
+      const prod  = r.product_line||r.target||'—';
+      const builds= String(r.build_full||r.meta_id||'—').split('\n')
+        .map(v=>v.replace(/\r/g,'').trim()).filter(Boolean)
+        .map(v=>`<div style="display:flex;align-items:center;gap:5px">${si}<span>${esc(v)}</span></div>`).join('');
+      const dc    = r.device_count||'—';
+      const hr    = r.hours||'—';
+      const cr    = r.crashes==='ERR'?'Error':(r.crashes||'—');
+      const mt    = calcMtbf(r)||'—';
+      const cm    = r.comments||'—';
+      const isNew = r._isNew;
+      const rowBg = isNew ? 'background:#faf5ff' : (rows.indexOf(r)%2===1?'background:#fafafa':'');
+      return `<tr style="${rowBg}">
+        <td style="padding:8px 12px;font-weight:800;color:${st==='running'?'#166534':'#475569'};border-bottom:1px solid #f3f4f6">${esc(prod)}</td>
+        <td style="padding:8px 12px;white-space:normal;line-height:1.4;border-bottom:1px solid #f3f4f6"><div style="display:flex;flex-direction:column;gap:3px">${builds}</div></td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${esc(dc)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${esc(hr)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${esc(cr)}</td>
+        <td style="padding:8px 12px;font-weight:800;border-bottom:1px solid #f3f4f6">${esc(mt)}</td>
+        <td style="padding:8px 12px;white-space:normal;line-height:1.35;border-bottom:1px solid #f3f4f6;max-width:220px">${esc(cm)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;white-space:nowrap">
+          <button class="ghost small" type="button" onclick="openBuildModal(${idx})" style="border-radius:999px"><i class="fas fa-pen"></i> Edit</button>
+          <button class="danger small" type="button" onclick="removeBuildPill(${idx})" style="border-radius:999px;margin-left:4px" title="Remove"><i class="fas fa-times"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function initSelectedBuilds(){
+    const valid = rows.map((r,i)=>({r,i})).filter(x=>String(x.r.meta_id||x.r.build_full||'').trim());
+    selectedBuildIndices = valid.slice(-3).map(x=>x.i);
+    renderBuildPills();
+    renderRecentBuilds();
+    refreshJqlFromSelection();
+  }
+  function storeKey(){ return 'bu_live_status_tracker_' + currentBu + '_' + currentTarget; }
+  function saveStore(){ if(IS_AUTO_MODE) localStorage.setItem(storeKey(), JSON.stringify(rows)); }
+  function loadStore(){ rows = JSON.parse(localStorage.getItem(storeKey()) || '[]'); }
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function n(v){ return Number(v || 0); }
+  function calcMtbf(r){ const h = Number(r.hours || 0), c = Number(r.crashes || 0); if(Number(r.mtbf || 0) > 0) return Number(r.mtbf); return c > 0 ? Math.round((h / c) * 10) / 10 : ''; }
+function findHeaderIndex(headers, candidates){ const norm = (headers || []).map(h => String(h || '').trim().toLowerCase()); for(const cand of candidates){ const c = String(cand || '').toLowerCase(); const idx = norm.findIndex(h => h === c || h.includes(c)); if(idx >= 0) return idx; } return -1; }
+function buildExcelHeaderMap(headers){ return { target: findHeaderIndex(headers, ['Target(s)', 'Target']), product: findHeaderIndex(headers, ['Product Line(s)', 'Product Line', 'Product']), devices: findHeaderIndex(headers, ['Device(s)', 'Devices']), device_count: findHeaderIndex(headers, ['Device Count']), week: findHeaderIndex(headers, ['Week', 'Date']), meta: findHeaderIndex(headers, ['Meta-ID', 'META-ID', 'Meta ID', 'Build', 'META']), build_full: findHeaderIndex(headers, ['Build(s) Full ID', 'Build(s)', 'Full Build', 'Build']), hours: findHeaderIndex(headers, ['Tested Hours', 'Hours', 'Total Hours']), crashes: findHeaderIndex(headers, ['Total Crashes', 'Crashes', 'Crash Count']), mtbf: findHeaderIndex(headers, ['MTBF', 'MTBF (hrs)', 'MTBF Hrs']), product_mtbf: findHeaderIndex(headers, ['Product MTBF', 'Product-MTBF', 'Prod MTBF', 'ProductMTBF']), qc_mtbf: findHeaderIndex(headers, ['QC MTBF', 'QC-MTBF', 'QCMTBF', 'QC Mtbf']), run_status: findHeaderIndex(headers, ['Build Status', 'Run Status', 'Status']), comments: findHeaderIndex(headers, ['Notes', 'MTBF Details', 'Comments']) }; }
+function mapExcelRowToLive(rowInfo){ const vals = rowInfo.values || []; const get = idx => idx >= 0 ? (vals[idx] ?? '') : ''; const comments = get(excelHeaderMap.comments); const sheetStatusRaw = String(get(excelHeaderMap.run_status) || '').trim().toLowerCase(); const derivedStatus = sheetStatusRaw === 'running' || sheetStatusRaw === 'stopped' ? sheetStatusRaw : 'stopped'; return { excel_row: rowInfo.excel_row, target: get(excelHeaderMap.target) || currentTarget, product_line: get(excelHeaderMap.product), meta_id: get(excelHeaderMap.meta), hours: get(excelHeaderMap.hours), crashes: get(excelHeaderMap.crashes), mtbf: get(excelHeaderMap.mtbf), product_mtbf: get(excelHeaderMap.product_mtbf), qc_mtbf: get(excelHeaderMap.qc_mtbf), week: get(excelHeaderMap.week), build_full: get(excelHeaderMap.build_full), comments, devices: get(excelHeaderMap.devices), device_count: get(excelHeaderMap.device_count), run_status: derivedStatus, include_stopped: derivedStatus === 'running', jiras: [], has_run: false, running: false }; }
+async function loadExcelRows(){ const res = await fetch(`/api/dashboard/${encodeURIComponent(currentTarget)}/excel/full_table`); const data = await res.json().catch(() => ({})); if(!res.ok || data.success === false) throw new Error(data.message || 'Failed to load MTBF Excel table'); excelHeaders = data.headers || []; excelSheetName = data.sheet_name || ''; excelHeaderMap = buildExcelHeaderMap(excelHeaders); rows = (data.rows || []).map(mapExcelRowToLive); dirtyRows = new Set(); newlyAddedRows = []; updateSaveButton(); }
+function buildExcelUpdateValues(){ const out = {}; const set = (idx, val) => { if(idx >= 0 && excelHeaders[idx]) out[excelHeaders[idx]] = val ?? ''; }; return { out, set }; }
+function markDirty(row){ if(IS_AUTO_MODE) return; if(row && row.excel_row) dirtyRows.add(row.excel_row); updateSaveButton(); }
+function markNew(row){ if(IS_AUTO_MODE) return; if(row) newlyAddedRows.push(row); updateSaveButton(); }
+function hasPendingChanges(){ return !IS_AUTO_MODE && (dirtyRows.size > 0 || newlyAddedRows.length > 0); }
+function updateSaveButton(){ const btn = document.getElementById('saveAllBtn'); if(!btn) return; btn.style.display = IS_AUTO_MODE ? 'none' : 'inline-flex'; btn.innerHTML = hasPendingChanges() ? `<i class="fas fa-save"></i> Save (${dirtyRows.size + newlyAddedRows.length})` : `<i class="fas fa-save"></i> Save`; btn.disabled = !hasPendingChanges(); }
+  async function saveAllChanges(){
+    if(IS_AUTO_MODE || !hasPendingChanges()) return;
+    const btn = document.getElementById('saveAllBtn');
+    const original = btn ? btn.innerHTML : '';
+    if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...'; }
+    try {
+      for(const row of newlyAddedRows){
+        const resp = await fetch(`/api/dashboard/${encodeURIComponent(currentTarget)}/excel/add_build`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ target: currentTarget, product: row.product_line, build: row.meta_id,
+            build_full: row.build_full || row.meta_id, hours: row.hours || '', crashes: row.crashes || '',
+            mtbf: row.mtbf || '', week: row.week || '', mtbf_details: row.comments || '',
+            run_status: row.run_status || 'stopped', build_status: row.run_status || 'stopped' }) });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok || data.success === false) throw new Error(data.message || 'Failed to add build to MTBF Excel');
+      }
+      for(const row of rows.filter(r => r.excel_row && dirtyRows.has(r.excel_row))){
+        const pack = buildExcelUpdateValues();
+        pack.set(excelHeaderMap.target, row.target);
+        pack.set(excelHeaderMap.product, row.product_line);
+        pack.set(excelHeaderMap.meta, row.meta_id);
+        pack.set(excelHeaderMap.build_full, row.build_full);
+        pack.set(excelHeaderMap.hours, row.hours);
+        pack.set(excelHeaderMap.crashes, row.crashes === 'ERR' ? '' : row.crashes);
+        pack.set(excelHeaderMap.mtbf, row.mtbf || '');
+        pack.set(excelHeaderMap.week, row.week);
+        pack.set(excelHeaderMap.run_status, row.run_status || 'stopped');
+        pack.set(excelHeaderMap.comments, row.comments);
+        const resp = await fetch(`/api/dashboard/${encodeURIComponent(currentTarget)}/excel/update_row`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ row_number: row.excel_row, values: pack.out }) });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok || data.success === false) throw new Error(data.message || 'Failed to update MTBF Excel row');
+      }
+      // reload Excel rows but preserve current selection
+      const savedSelection = [...selectedBuildIndices];
+      await loadExcelRows();
+      // restore selection by matching meta_id / build_full
+      selectedBuildIndices = savedSelection.filter(i => rows[i]);
+      renderBuildPills();
+      renderRecentBuilds();
+    } catch(err){
+      alert(err.message || 'Save failed');
+    } finally {
+      if(btn){ btn.innerHTML = original; }
+      updateSaveButton();
+    }
+  }
+function getTargetsForBu(bu){ return Object.keys(ALL_CONFIG || {}).filter(k => String((ALL_CONFIG[k]||{}).bu || (ALL_CONFIG[k]||{}).business_unit || (ALL_CONFIG[k]||{}).bu_key || '').toUpperCase() === String(bu || '').toUpperCase()).map(k => ({ key:k, display_name:(ALL_CONFIG[k]||{}).display_name || k, is_active:(ALL_CONFIG[k]||{}).is_active !== false })).sort((a,b)=>a.display_name.localeCompare(b.display_name)); }
+function fillBuSelector(){ const sel = document.getElementById('buSel'); const entries = Object.keys(ALL_BUS || {}).map(k => ({key:k, name:(ALL_BUS[k]||{}).display_name || k})).sort((a,b)=>a.name.localeCompare(b.name)); sel.innerHTML = entries.map(b => `<option value="${esc(b.key)}">${esc(String(b.name).toUpperCase())}</option>`).join(''); sel.value = currentBu; }
+function fillTargetSelector(searchText=''){ const sel = document.getElementById('targetSel'); const q = String(searchText || '').toLowerCase(); const list = getTargetsForBu(currentBu).filter(t => !q || t.key.toLowerCase().includes(q) || String(t.display_name || '').toLowerCase().includes(q)); sel.innerHTML = list.map(t => `<option value="${esc(t.key)}">${esc(String(t.display_name).toUpperCase())}</option>`).join(''); if(list.some(t => t.key === currentTarget)) sel.value = currentTarget; else if(list.length) { currentTarget = list[0].key; sel.value = currentTarget; } }
+function goSelection(){ const bu = document.getElementById('buSel').value; const target = document.getElementById('targetSel').value; if(!bu || !target){ alert('Please select BU and Target.'); return; } const url = `/bu_live_status?bu_key=${encodeURIComponent(bu)}&target=${encodeURIComponent(target)}`; const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); a.remove(); }
+function syncHeader(){ const found = getTargetsForBu(currentBu).find(t => t.key === currentTarget); const title = found ? found.display_name : currentTarget; const titleEl = document.getElementById('selectedTargetTitle'); if(titleEl) titleEl.textContent = title; document.title = `Live Status Studio - ${title}`; }
+  function render(){ syncHeader(); renderRecentBuilds(); renderConsolidatedReport(); renderMtbfChart(); }
+function toggleOverallBuild(){ const body = document.getElementById('overallBuildBody'); const icon = document.getElementById('overallCollapseIcon'); if(!body || !icon) return; const collapsed = body.classList.toggle('collapsed'); icon.className = collapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up'; }
+function toggleOverallEdit(){ overallEditMode = !overallEditMode; render(); }
+function updateOverallEditButton(){ const btn = document.getElementById('overallEditBtn'); if(!btn) return; btn.innerHTML = overallEditMode ? '<i class="fas fa-lock"></i> Stop Edit' : '<i class="fas fa-pen"></i> Edit Table'; }
+function getMtbfBaseRows(){ return rows.filter(r => String(r.meta_id || r.build_full || '').trim()).map(r => ({ label: String(r.meta_id || '').trim(), build: String(r.meta_id || '').trim(), full_build: String(r.build_full || r.meta_id || '').trim(), hours: Number(r.hours || 0), crashes: Number(r.crashes === 'ERR' ? 0 : (r.crashes || 0)), mtbf: Number(r.mtbf || 0), product_mtbf: Number(r.product_mtbf || 0), qc_mtbf: Number(r.qc_mtbf || 0), week: String(r.week || '').trim(), run_status: String(r.run_status || 'stopped').trim().toLowerCase() })); }
+function getLabel(d){ return String(d.label || d.build || d.full_build || '').trim(); }
+function wrapAxisLabel(value){ const text = String(value || '').trim(); if(!text) return ''; const parts = text.split(/(?<=[._\-])|(?=[._\-])/).map(p => p.trim()).filter(Boolean); const lines = []; let line = ''; parts.forEach(part => { const next = line ? line + part : part; if(next.length > 20 && line){ lines.push(line.trim()); line = part; } else { line = next; } }); if(line) lines.push(line.trim()); return lines.slice(0, 2); }
+function compactNumber(value){ const num = Number(value || 0); if(!Number.isFinite(num)) return '0'; const abs = Math.abs(num); if(abs >= 1000000) return (num / 1000000).toFixed(abs >= 10000000 ? 0 : 1).replace(/\.0$/,'') + 'M'; if(abs >= 1000) return (num / 1000).toFixed(abs >= 10000 ? 0 : 1).replace(/\.0$/,'') + 'k'; return String(Math.round(num * 10) / 10).replace(/\.0$/,''); }
+function updateMtbfLuxStats(data){ const totalHours = data.reduce((s,d) => s + Number(d.hours || 0), 0); const totalCrashes = data.reduce((s,d) => s + Number(d.crashes || 0), 0); const avgHours = data.length ? totalHours / data.length : 0; const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; }; setText('mxAvgHours', compactNumber(avgHours)); setText('mxTotalCrashes', compactNumber(totalCrashes)); }
+function renderMtbfChart(dataOverride){
+  const canvas = document.getElementById('mtbfChartCanvas');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const data = Array.isArray(dataOverride) ? dataOverride : curData;
+  curData = data;
+  updateMtbfLuxStats(data);
+  const inner  = document.getElementById('mxChartInner');
+  const scroll = document.getElementById('mxChartScroll');
+  const n = data.length;
+  const portalW   = Math.max(980, scroll?.clientWidth || 980);
+  const zoomFactor = mxZoomLevel / 100;
+  const perPoint  = (n <= 10 ? 132 : n <= 20 ? 104 : 78) * zoomFactor;
+  const minW      = Math.max(n * perPoint + 140, portalW);
+  if(inner){ inner.style.minWidth = minW + 'px'; }
+  const dpr  = Math.min(4, Math.max(2, window.devicePixelRatio || 1));
+  const cssH = Math.max(460, Math.min(760, 500 + (zoomFactor * 70)));
+  const cssW = minW;
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = Math.round(cssW);
+  canvas.height = Math.round(cssH);
+  if(mtbfChart){ mtbfChart.destroy(); mtbfChart = null; }
+  const cc = document.getElementById('mxChartCount');
+  if(cc) cc.textContent = data.length;
+  const cc2 = document.getElementById('mxZoomValue');
+  if(cc2) cc2.textContent = `${mxZoomLevel}%`;
+
+  const labels       = data.map(getLabel);
+  const hours        = data.map(d => d.hours        || 0);
+  const crashes      = data.map(d => d.crashes      || 0);
+  const mtbf         = data.map(d => d.mtbf         || 0);
+  const product_mtbf = data.map(d => d.product_mtbf || 0);
+  const qc_mtbf      = data.map(d => d.qc_mtbf      || 0);
+
+  const maxH = Math.max(...hours, 1);
+  const maxM = IS_COMPUTE_BU
+    ? Math.max(...product_mtbf, ...qc_mtbf, 1)
+    : Math.max(...mtbf, 1);
+  const maxC = Math.max(...crashes, 1);
+
+  const barThick = Math.max(8, Math.min(24, (n <= 6 ? 18 : n <= 10 ? 14 : n <= 20 ? 11 : 8) * zoomFactor));
+  const xFontSz  = Math.max(9, Math.min(14, (n <= 10 ? 11 : n <= 20 ? 10 : 9) * zoomFactor));
+
+  function makeBarGradient(ctx, chart, colorTop, colorBot){
+    const area = chart.chartArea;
+    if(!area) return colorTop;
+    const grad = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+    grad.addColorStop(0, colorTop); grad.addColorStop(1, colorBot);
+    return grad;
+  }
+
+  function makeMtbfLineDataset(label, values, lineColor, fillColor0, fillColor1, hidden){
+    return {
+      type:'line', label, data:values, hidden:!!hidden,
+      borderColor: lineColor,
+      backgroundColor: function(ctx){
+        const {ctx:c, chartArea} = ctx.chart;
+        if(!chartArea) return 'transparent';
+        const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        grad.addColorStop(0, fillColor0); grad.addColorStop(1, fillColor1);
+        return grad;
+      },
+      borderWidth:2.8, pointBackgroundColor:lineColor,
+      pointBorderColor:'#ffffff', pointBorderWidth:1.8,
+      pointRadius:5, pointHoverRadius:8, pointHoverBorderWidth:2.2,
+      fill:true, tension:0.38, yAxisID:'yMtbf'
+    };
+  }
+
+  const datasets = [];
+  if(IS_COMPUTE_BU){
+    datasets.push(makeMtbfLineDataset('Product MTBF', product_mtbf, '#059669',
+      'rgba(5,150,105,0.28)', 'rgba(5,150,105,0.03)', !curMetrics.product_mtbf));
+    datasets.push(makeMtbfLineDataset('QC MTBF', qc_mtbf, '#f59e0b',
+      'rgba(245,158,11,0.22)', 'rgba(245,158,11,0.03)', !curMetrics.qc_mtbf));
+  } else {
+    datasets.push(makeMtbfLineDataset('MTBF', mtbf, '#10b981',
+      'rgba(16,185,129,0.30)', 'rgba(16,185,129,0.03)', !curMetrics.mtbf));
+  }
+  datasets.push({ type:'bar', label:'Tested Hours', data:hours,
+    hidden:!curMetrics.hours,
+    backgroundColor:function(ctx){ return makeBarGradient(ctx.chart.ctx, ctx.chart, 'rgba(147,197,253,0.98)', 'rgba(56,189,248,0.44)'); },
+    borderColor:'rgba(224,242,254,0.96)', borderWidth:1, borderRadius:6, borderSkipped:false,
+    yAxisID:'yL', maxBarThickness:barThick, barThickness:barThick, barPercentage:0.82, categoryPercentage:0.9 });
+  datasets.push({ type:'bar', label:'Total Crashes', data:crashes,
+    hidden:!curMetrics.crashes,
+    backgroundColor:function(ctx){ return makeBarGradient(ctx.chart.ctx, ctx.chart, 'rgba(253,224,71,0.94)', 'rgba(245,158,11,0.42)'); },
+    borderColor:'rgba(254,240,138,0.92)', borderWidth:1, borderRadius:6, borderSkipped:false,
+    yAxisID:'yCrash', maxBarThickness:barThick, barThickness:barThick, barPercentage:0.82, categoryPercentage:0.9 });
+
+  const premiumGlow = { id:'premiumGlow', afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    const meta = chart.getDatasetMeta(0);
+    const pts = meta && meta.data ? meta.data : [];
+    if(!pts || pts.length < 2) return;
+    ctx.save(); ctx.beginPath();
+    const glowColor = IS_COMPUTE_BU ? 'rgba(5,150,105,0.22)' : 'rgba(16,185,129,0.28)';
+    ctx.shadowBlur = 18; ctx.shadowColor = glowColor;
+    ctx.strokeStyle = glowColor; ctx.lineWidth = 8;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    pts.forEach((pt, idx) => {
+      const props = pt && typeof pt.getProps === 'function' ? pt.getProps(['x','y'], true) : pt;
+      if(!props) return;
+      if(idx === 0) ctx.moveTo(props.x, props.y); else ctx.lineTo(props.x, props.y);
+    });
+    ctx.stroke(); ctx.restore();
+  }};
+
+  const legendKeyMap = {
+    'MTBF':          'mtbf',
+    'Product MTBF':  'product_mtbf',
+    'QC MTBF':       'qc_mtbf',
+    'Tested Hours':  'hours',
+    'Total Crashes': 'crashes'
+  };
+
+  mtbfChart = new Chart(canvas, {
+    type:'bar',
+    data:{ labels, datasets },
+    options:{
+      responsive:false, maintainAspectRatio:false, devicePixelRatio:dpr,
+      animation:{ duration:900, easing:'easeOutQuart' },
+      plugins:{
+        legend:{
+          display:true, position:'bottom',
+          onClick:function(e, legendItem, legend){
+            const ds = legend.chart.data.datasets[legendItem.datasetIndex];
+            if(!ds) return;
+            const key = legendKeyMap[ds.label];
+            if(key){
+              curMetrics[key] = !curMetrics[key];
+              const cb = document.querySelector(`input[data-metric="${key}"]`);
+              if(cb) cb.checked = curMetrics[key];
+              renderMtbfChart(curData);
+            }
+          },
+          labels:{ font:{ size:12, weight:'900', family:'Inter,system-ui,sans-serif' }, color:'#334155', boxWidth:16, boxHeight:10, padding:16, usePointStyle:false }
+        },
+        tooltip:{
+          backgroundColor:'rgba(15,23,42,0.96)',
+          titleFont:{ size:14, weight:'bold', family:'Inter,system-ui,sans-serif' },
+          bodyFont:{ size:13, family:'Inter,system-ui,sans-serif' },
+          padding:14, cornerRadius:12,
+          borderColor:'rgba(99,102,241,0.45)', borderWidth:1, displayColors:true,
+          callbacks:{
+            title: ctx => { const d = data[ctx[0].dataIndex]; return getLabel(d) || d.full_build || d.build || ''; },
+            label: ctx => {
+              const d = data[ctx.dataIndex], l = ctx.dataset.label;
+              if(l === 'MTBF')          return '  MTBF         : ' + compactNumber(d.mtbf) + ' hrs';
+              if(l === 'Product MTBF')  return '  Product MTBF : ' + compactNumber(d.product_mtbf) + ' hrs';
+              if(l === 'QC MTBF')       return '  QC MTBF      : ' + compactNumber(d.qc_mtbf) + ' hrs';
+              if(l === 'Tested Hours')  return '  Hours        : ' + compactNumber(d.hours);
+              if(l === 'Total Crashes') return '  Crashes      : ' + compactNumber(d.crashes);
+              return '  ' + l + ': ' + compactNumber(ctx.parsed.y);
+            },
+            footer: ctx => { const d = data[ctx[0].dataIndex]; return d.week ? '  Week : ' + d.week : ''; }
+          }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{ font:{ size:xFontSz, weight:'800' }, color:'#334155',
+            maxRotation: IS_COMPUTE_BU ? 90 : 60,
+            minRotation: IS_COMPUTE_BU ? 90 : 60,
+            padding:10, autoSkip:false,
+            callback:function(value){ return wrapAxisLabel(this.getLabelForValue(value)); } },
+          title:{ display:true, text:'Build', color:'#475569', font:{ size:12, weight:'900' }, padding:{ top:14 } },
+          grid:{ display:false },
+          border:{ color:'rgba(148,163,184,0.22)', width:1.3 }
+        },
+        yL:{
+          type:'linear', position:'left', beginAtZero:true,
+          suggestedMax:(curMetrics.hours ? maxH : maxM) * 1.18,
+          ticks:{ font:{ size:11, weight:'900' }, color:'#64748b', maxTicksLimit:6, callback:value => compactNumber(value) },
+          title:{ display:true, text:'Tested Hours', color:'#3b82f6', font:{ size:12, weight:'900' } },
+          grid:{ color:'rgba(226,232,240,0.58)', lineWidth:1 },
+          border:{ color:'rgba(148,163,184,0.18)', dash:[4,4] }
+        },
+        yCrash:{
+          type:'linear', position:'right', beginAtZero:true, suggestedMax:maxC * 1.3,
+          ticks:{ font:{ size:11, weight:'900' }, color:'#64748b', maxTicksLimit:5, callback:value => compactNumber(value) },
+          title:{ display:true, text:'Total Crashes', color:'#f59e0b', font:{ size:12, weight:'900' } },
+          grid:{ drawOnChartArea:false },
+          border:{ color:'rgba(148,163,184,0.12)' }
+        },
+        yMtbf:{
+          type:'linear', position:'right', beginAtZero:true, suggestedMax:maxM * 1.22,
+          ticks:{ font:{ size:11, weight:'900' }, color:'#64748b', maxTicksLimit:6, callback:value => compactNumber(value) },
+          title:{ display:true, text:'MTBF (hrs)', color: IS_COMPUTE_BU ? '#059669' : '#10b981', font:{ size:12, weight:'900' } },
+          grid:{ drawOnChartArea:false },
+          border:{ color:'rgba(148,163,184,0.12)' },
+          offset:true
+        }
+      },
+      interaction:{ mode:'index', intersect:false },
+      layout:{ padding:{ top:18, bottom:26, left:18, right:18 } }
+    },
+    plugins:[pluginChartBg, pluginLineLabels, pluginBarLabels, premiumGlow]
+  });
+  if(scroll && scroll.scrollWidth > scroll.clientWidth){
+    scroll.scrollLeft = scroll.scrollWidth - scroll.clientWidth;
+  }
+}
+function mxMiniMetric(el){
+  const key = el.dataset.metric;
+  if(!key) return;
+  curMetrics[key] = el.checked;
+  // Guard: for compute BU, ensure at least one MTBF line stays visible
+  if(IS_COMPUTE_BU && !curMetrics.product_mtbf && !curMetrics.qc_mtbf){
+    curMetrics[key] = true;
+    el.checked = true;
+  }
+  // Guard: for non-compute BU, ensure MTBF line stays visible
+  if(!IS_COMPUTE_BU && !curMetrics.mtbf && key === 'mtbf'){
+    curMetrics.mtbf = true;
+    el.checked = true;
+  }
+  renderMtbfChart(curData);
+}
+function mxFilter(type, n){ document.querySelectorAll('.mx-flt-btn').forEach(b => b.classList.remove('active')); const all = getMtbfBaseRows(); let filtered = all.slice(); if(type === 'n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n > 0) filtered = all.slice(-n); } else if(type === 'reset'){ document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderMtbfChart(filtered); }
+function mxSetZoom(value){ mxZoomLevel = Math.max(70, Math.min(180, Number(value || 100))); const slider = document.getElementById('mxZoomSlider'); if(slider && Number(slider.value) !== mxZoomLevel) slider.value = mxZoomLevel; const label = document.getElementById('mxZoomValue'); if(label) label.textContent = `${mxZoomLevel}%`; renderMtbfChart(curData && curData.length ? curData : getMtbfBaseRows().slice(-10)); }
+function mxAdjustZoom(delta){ mxSetZoom(mxZoomLevel + delta); }
+function mxCopyViaImg(dataUrl, btn, origHtml){ const tmp = document.createElement('div'); tmp.contentEditable = 'true'; tmp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;'; tmp.innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;">'; document.body.appendChild(tmp); tmp.focus(); const range = document.createRange(); range.selectNodeContents(tmp); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); let ok = false; try { ok = document.execCommand('copy'); } catch(e) { ok = false; } sel.removeAllRanges(); tmp.remove(); if(btn){ btn.classList.add('copied'); btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied!' : '<i class="fas fa-times"></i> Failed'; setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = origHtml; }, 2500); } }
+function mxCopyChart(){ const btn = document.getElementById('mxCopyChartBtn'); const origHtml = btn ? btn.innerHTML : ''; const canvas = document.getElementById('mtbfChartCanvas'); if(!canvas) return; mxCopyViaImg(canvas.toDataURL('image/png'), btn, origHtml); }
+function mxDownloadChart(){ const btn = document.getElementById('mxDlChartBtn'); const canvas = document.getElementById('mtbfChartCanvas'); if(!canvas) return; const a = document.createElement('a'); a.download = `BU_${currentTarget || 'MTBF'}_Stability_Trend.png`; a.href = canvas.toDataURL('image/png'); a.click(); if(btn){ btn.classList.add('copied'); btn.innerHTML = '<i class="fas fa-check"></i> Downloaded!'; setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '<i class="fas fa-download"></i> Download'; }, 2500); } }
+async function initializeWorkspace(){ try { if(IS_AUTO_MODE) loadStore(); else await loadExcelRows(); } catch(e){ rows = []; console.error(e); } render(); setTimeout(() => { try { renderMtbfChart(getMtbfBaseRows().slice(-10)); } catch(e) { console.error(e); } }, 80); autoLoadConsolidatedReport(); }
+function renderPills(){}
+function applyFilter(){ const q = (document.getElementById('rowFilter').value || '').toLowerCase(); filteredRows = q ? rows.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(q))) : [...rows]; renderTable(filteredRows); document.getElementById('rowCount').textContent = `${filteredRows.length} row${filteredRows.length!==1?'s':''}`; }
+
+
+
+
+
+
+
+
+
+function setRecentStatus(idx, value){ const row = rows[idx]; if(!row) return; row.run_status = value; if(value === 'running') row.include_stopped = true; if(IS_AUTO_MODE) saveStore(); else if(row.excel_row) markDirty(row); else markNew(row); renderRecentBuilds(); }
+function toggleStoppedInclude(idx, checked){ const row = rows[idx]; if(!row) return; row.include_stopped = !!checked; if(IS_AUTO_MODE) saveStore(); else if(row.excel_row) markDirty(row); else markNew(row); autoLoadConsolidatedReport(); }
+function getSelectedBuildRows(){
+  return selectedBuildIndices
+    .map(function(i){return rows[i];})
+    .filter(function(r){return r&&String(r.meta_id||r.build_full||"").trim();});
+}
+function getConsolidatedJiras(){ const map = new Map(); getSelectedBuildRows().forEach(r => { (r.jiras || []).forEach(j => { const key = String(j.key || '').trim() || JSON.stringify(j); if(!map.has(key)) map.set(key, { ...j, _build: r.build_full || r.meta_id || '', _final: null, _finalLoading: false }); }); }); return Array.from(map.values()); }
+function buildSelectedSummaryJql(){ const selectedBuilds = getSelectedBuildRows().map(r => String(r.build_full || r.meta_id || '').trim()).filter(Boolean); if(!selectedBuilds.length) return ''; return `(${selectedBuilds.map(build => `summary ~ "${build.replace(/"/g, '\\"')}"`).join(' OR ')})`; }
+
+// ── Consolidated hierarchical report ─────────────────────────────────────────
+let _consolidatedReport = null;
+let _consolidatedBuilds  = [];   // builds currently shown in report
+let _jqlBeforeEdit = '';
+
+function getSelectedBuildStrings(){
+  return getSelectedBuildRows().map(r => String(r.build_full || r.meta_id || '').trim()).filter(Boolean);
+}
+
+function getCurrentReportJql(){
+  return String(((_consolidatedReport || {}).meta || {}).jql || document.getElementById('generatedJql')?.textContent || buildSelectedSummaryJql() || '').trim();
+}
+
+function buildAutoJql(builds){
+  if(!builds || !builds.length) return '';
+  const parts = builds.map(b => `summary ~ "${String(b).replace(/"/g,'\\"')}"`).join(' OR ');
+  return `(${parts}) AND filter = 76997 AND project = "Target Stability" ORDER BY created ASC`;
+}
+
+function jqlToJiraUrl(jql){
+  if(!jql) return '#';
+  return 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + encodeURIComponent(jql);
+}
+
+function updateJqlPanel(jql, opts){
+  const display  = document.getElementById('jqlDisplay');
+  const hidden   = document.getElementById('generatedJql');
+  const cacheTag = document.getElementById('jqlFromCacheTag');
+  const customTag= document.getElementById('jqlCustomTag');
+  const openBtn  = document.getElementById('jqlOpenInJiraBtn');
+  const text = String(jql || '').trim();
+  if(display){
+    if(text){
+      display.textContent = text;
+      display.style.color = '#1e1b4b';
+    } else {
+      display.innerHTML = '<span style="color:#94a3b8;font-style:italic">Select builds above then click Run Report, or click Edit to write a custom JQL.</span>';
+    }
+  }
+  if(hidden) hidden.textContent = text;
+  if(cacheTag) cacheTag.style.display = opts && opts.fromCache ? 'inline-flex' : 'none';
+  if(customTag) customTag.style.display = opts && opts.custom ? 'inline-flex' : 'none';
+  if(openBtn){
+    openBtn.href = text ? jqlToJiraUrl(text) : '#';
+    openBtn.style.display = text ? 'inline-flex' : 'none';
+  }
+}
+
+function setJqlEditing(editing){
+  const display = document.getElementById('jqlDisplay');
+  const area = document.getElementById('jqlEditArea');
+  const editBtn = document.getElementById('jqlEditBtn');
+  const runBtn = document.getElementById('jqlRunBtn');
+  const cancelBtn = document.getElementById('jqlCancelBtn');
+  if(display) display.style.display = editing ? 'none' : 'block';
+  if(area) area.style.display = editing ? 'block' : 'none';
+  if(editBtn) editBtn.style.display = editing ? 'none' : 'inline-flex';
+  if(runBtn) runBtn.style.display = editing ? 'inline-flex' : 'none';
+  if(cancelBtn) cancelBtn.style.display = editing ? 'inline-flex' : 'none';
+}
+
+function toggleJqlEdit(){
+  const ta = document.getElementById('jqlTextarea');
+  _jqlBeforeEdit = getCurrentReportJql();
+  if(ta){ ta.value = _jqlBeforeEdit; setTimeout(() => ta.focus(), 0); }
+  setJqlEditing(true);
+}
+
+function cancelJqlEdit(){
+  const ta = document.getElementById('jqlTextarea');
+  if(ta) ta.value = _jqlBeforeEdit || getCurrentReportJql();
+  setJqlEditing(false);
+}
+
+function runWithCustomJql(){
+  const customJql = String(document.getElementById('jqlTextarea')?.value || '').trim();
+  if(!customJql){ alert('Enter a JQL query first.'); return; }
+  fetchConsolidatedReport(true, customJql);
+}
+
+async function saveReportToStatic(){
+  if(!_consolidatedReport){ return; } // button is hidden when no report
+  const btn = document.getElementById('jqlSaveBtn');
+  const orig = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...'; }
+  try{
+    const meta = (_consolidatedReport.meta = _consolidatedReport.meta || {});
+    const customJql = meta.custom_jql || '';
+    const resp = await fetch('/api/consolidated_report/save', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ report:_consolidatedReport, builds:getSelectedBuildStrings(), target:currentTarget || '', custom_jql:customJql })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if(!resp.ok || !data.ok) throw new Error(data.error || 'Save failed');
+    meta.saved_at = data.saved_at;
+    updateJqlPanel(meta.jql || customJql, { fromCache:true, custom:!!customJql });
+    if(btn){ btn.innerHTML = '<i class="fas fa-check"></i> Saved'; setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 1200); }
+  }catch(e){
+    alert(e.message || String(e));
+    if(btn){ btn.innerHTML = orig; btn.disabled = false; }
+  }
+}
+// Called whenever checkbox changes or page loads — try static cache first
+async function autoLoadConsolidatedReport(){
+  const builds = getSelectedBuildStrings();
+  const jqlEl  = document.getElementById('generatedJql');
+  const countEl= document.getElementById('consolidatedCount');
+  const container = document.getElementById('consolidatedHierarchy');
+  const summaryBar= document.getElementById('consolidatedSummaryBar');
+
+    if(!builds.length){
+    updateJqlPanel('No builds selected.');
+    if(countEl) countEl.textContent = '';
+    if(summaryBar) summaryBar.style.display='none';
+    if(container) container.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><p>Select builds above to view the report.</p></div>`;
+    _consolidatedReport = null;
+    _consolidatedBuilds  = [];
+    const saveBtn = document.getElementById('jqlSaveBtn');
+    if(saveBtn) saveBtn.style.display = 'none';
+    return;
+  }
+
+  // If the loaded report is for the same builds or a superset of the selected
+  // builds, do not rerun/reload. Re-render a filtered view instead. This lets
+  // users select/unselect one build from a two-build report instantly.
+  if(_consolidatedReport && reportCoversBuilds(_consolidatedReport, builds)){
+    renderHierarchicalReport(_consolidatedReport);
+    return;
+  }
+
+      // try static cache — show auto JQL while loading
+    if(container) container.innerHTML = `<div class="empty"><i class="fas fa-circle-notch spin" style="color:#6d28d9"></i><p>Loading cached report...</p></div>`;
+  
+    try{
+    const resp = await fetch('/api/consolidated_report/load', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ builds, target: currentTarget || '' })
+    });
+    const data = await resp.json();
+    if(data.found && data.report){
+      _consolidatedReport = data.report;
+      _consolidatedBuilds  = builds;
+      renderHierarchicalReport(data.report);
+      // show cached badge
+      const fetchBtn = document.getElementById('consolidatedFetchBtn');
+      if(fetchBtn) fetchBtn.innerHTML = `<i class="fas fa-layer-group"></i> Refresh Report <span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 7px;font-size:9px;font-weight:900;margin-left:4px">cached ${esc(data.saved_at||'')}</span>`;
+      return;
+    }
+  } catch(e){ /* fall through */ }
+
+  // no cache — show prompt
+  if(container) container.innerHTML = `<div class="empty"><i class="fas fa-layer-group" style="font-size:22px;color:#6d28d9"></i><p style="margin-top:8px">No cached report for these builds.<br><button type="button" class="refresh-btn" style="margin-top:8px" onclick="fetchConsolidatedReport()"><i class="fas fa-layer-group"></i> Fetch Full Report</button></p></div>`;
+  const fetchBtn = document.getElementById('consolidatedFetchBtn');
+  if(fetchBtn) fetchBtn.innerHTML = `<i class="fas fa-layer-group"></i> Fetch Full Report`;
+}
+
+function crStatusBadge(status){
+  const s = (status||'').toLowerCase();
+  if(s==='built')           return `<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes('ready')||s.includes('fix')||s.includes('release')) return `<span style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes('open')||s.includes('progress')||s.includes('analysis')) return `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes('closed')||s.includes('withdrawn')||s.includes('duplicate')) return `<span style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||'—')}</span>`;
+}
+
+function jiraStatusBadge(status){
+  const s = (status||"").toLowerCase();
+  if(s.includes("transfer"))  return `<span style="background:#faf5ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">&#8594; ${esc(status)}</span>`;
+  if(s.includes("closed")||s.includes("resolved")) return `<span style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes("open"))      return `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes("progress")||s.includes("active")) return `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  if(s.includes("reopen"))    return `<span style="background:#fffbeb;color:#b45309;border:1px solid #fcd34d;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
+  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||"—")}</span>`;
+}
+
+function scrollToReport(){
+  const el = document.getElementById('consolidatedHierarchy') || document.querySelector('.section-card');
+  if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function renderConsolidatedReport(){
+  // legacy compat — delegates to hierarchy
+  if(_consolidatedReport) renderHierarchicalReport(_consolidatedReport);
+  else autoLoadConsolidatedReport();
+}
+
+function renderSummaryBar(summary, totalCRs, validJiraCount){
+  const el = document.getElementById('consolidatedSummaryBar');
+  if(!el || !summary) return;
+  const byBuild = Object.entries(summary.by_build || {}).map(([build, count]) => `<span class="pill">${esc(build)}: <b>${esc(count)}</b></span>`).join('');
+  el.style.display='flex';
+  el.style.flexWrap='wrap';
+  el.style.gap='8px';
+  el.style.marginBottom='12px';
+  el.innerHTML = `
+    <span class="pill"><i class="fas fa-ticket-alt"></i> Total JIRAs: <b>${esc(validJiraCount !== undefined ? validJiraCount : (summary.total_jiras || 0))}</b></span>
+    <span class="pill good"><i class="fas fa-bug"></i> Total CRs: <b>${esc(totalCRs || 0)}</b></span>
+    ${byBuild}
+  `;
+}
+
+function getSelectedBuildIds(){
+  return getSelectedBuildRows().map(r => String(r.build_full || r.meta_id || '').trim()).filter(Boolean);
+}
+
+function normalizeBuildId(v){
+  return String(v || '').trim().toUpperCase();
+}
+
+function reportCoversBuilds(report, selectedBuilds){
+  const selected = (selectedBuilds || []).map(normalizeBuildId).filter(Boolean);
+  if(!selected.length) return false;
+  const reportBuilds = (((report || {}).meta || {}).build_ids || []).map(normalizeBuildId).filter(Boolean);
+  return selected.every(b => reportBuilds.includes(b));
+}
+
+function getIssueMatchedBuild(issue, selectedBuilds){
+  const selected = selectedBuilds || [];
+  const existing = String(issue?.matched_build || '').trim();
+  if(existing && selected.some(b => normalizeBuildId(b) === normalizeBuildId(existing))) return existing;
+  const haystack = `${issue?.summary || ''} ${issue?.title || ''} ${issue?.meta_build || ''}`.toUpperCase();
+  return selected.find(b => haystack.includes(normalizeBuildId(b))) || '';
+}
+
+function jiraLevelRow(issue, sno, matchedBuild){
+  const linked = [
+    ...((issue.inward_links || []).filter(k => k !== issue.key)),
+    ...((issue.outward_links || []).filter(k => k !== issue.key)),
+    ...(((issue.traversal || {}).chain || []).filter(k => k !== issue.key)),
+  ].filter((v, i, a) => v && a.indexOf(v) === i);
+  return {
+    sno,
+    key: issue.key || '',
+    project: issue.project || '',
+    title: issue.summary || issue.title || '',
+    status: issue.status || '',
+    resolution: issue.resolution || '',
+    created: issue.created || '',
+    reporter: issue.reporter || '',
+    matched_build: matchedBuild || issue.matched_build || '',
+    serial_no: issue.serial_no || issue.serial_alt || '',
+            mcn_no: issue.mcn_no || '',
+    location: issue.location || '',
+    final_key: (issue.traversal || {}).final_key || issue.final_key || '',
+    final_status: (issue.traversal || {}).final_status || issue.final_status || '',
+    final_resolution: (issue.traversal || {}).final_resolution || issue.final_resolution || '',
+    final_summary: (issue.traversal || {}).final_summary || issue.final_summary || '',
+    hop_count: (issue.traversal || {}).hop_count || issue.hop_count || 0,
+    chain: (issue.traversal || {}).chain || issue.chain || [],
+    transferred_chain: (issue.traversal || {}).transferred_chain || issue.transferred_chain || [],
+    mapped_jiras_count: linked.length,
+    mapped_jiras: linked.map((key, idx) => ({ sno: idx + 1, key, title: '', status: '', project: key.includes('-') ? key.split('-')[0] : '' })),
+  };
+}
+
+function buildVisibleReport(report){
+  const selectedBuilds = getSelectedBuildIds();
+  if(!report || !selectedBuilds.length || !reportCoversBuilds(report, selectedBuilds)) return report;
+
+  const crIndex = report.cr_index || {};
+  const selectedIssues = (report.jiras || [])
+    .map(issue => ({ issue, matchedBuild: getIssueMatchedBuild(issue, selectedBuilds) }))
+    .filter(x => x.matchedBuild);
+
+  const groups = new Map();
+  selectedIssues.forEach(({issue, matchedBuild}) => {
+    const cr = ((issue.traversal || {}).final_cr || issue.cr_mapped || 'NO_CR');
+    if(!groups.has(cr)) groups.set(cr, []);
+    groups.get(cr).push({ issue, matchedBuild });
+  });
+
+  const sortedCrs = Array.from(groups.keys()).sort((a, b) => {
+    if(a === 'NO_CR') return 1;
+    if(b === 'NO_CR') return -1;
+    return groups.get(b).length - groups.get(a).length;
+  });
+
+  const hierarchical = sortedCrs.map((cr, idx) => {
+    const crData = crIndex[cr] || {};
+    const jiras = groups.get(cr).map((x, jIdx) => jiraLevelRow(x.issue, jIdx + 1, x.matchedBuild));
+    return {
+      sno: idx + 1,
+      cr,
+      cr_count: jiras.length,
+      cr_title: crData.cr_title || '',
+      cr_status: crData.cr_status || '',
+      cr_image: crData.cr_si || '',
+      cr_image_matched: !!crData.image_matched,
+      cr_source: crData.source || 'orbit',
+      cr_area: crData.cr_area || '',
+      cr_subsystem: crData.cr_subsystem || '',
+      cr_function: crData.cr_function || '',
+      cr_built_date: crData.cr_built_date || '',
+      cr_date: crData.cr_date || '',
+      jiras,
+    };
+  });
+
+  const byBuild = Object.fromEntries(selectedBuilds.map(b => [b, 0]));
+  const byProject = {};
+  let withCr = 0, transferred = 0, openNoCr = 0;
+  selectedIssues.forEach(({issue, matchedBuild}) => {
+    byBuild[matchedBuild] = (byBuild[matchedBuild] || 0) + 1;
+    const proj = issue.project || (issue.key && issue.key.includes('-') ? issue.key.split('-')[0] : '');
+    if(proj) byProject[proj] = (byProject[proj] || 0) + 1;
+    const finalCr = (issue.traversal || {}).final_cr || issue.cr_mapped || '';
+    if(finalCr) withCr += 1;
+    if(((issue.traversal || {}).transferred_chain || []).length) transferred += 1;
+    if(String(issue.status || '').toLowerCase().includes('open') && !finalCr) openNoCr += 1;
+  });
+
+  return {
+    ...report,
+    meta: { ...(report.meta || {}), build_ids: selectedBuilds, filtered_from_build_ids: (report.meta || {}).build_ids || [], jql: (report.meta || {}).custom_jql ? ((report.meta || {}).jql || (report.meta || {}).custom_jql) : `(${selectedBuilds.map(b => `summary ~ "${String(b).replace(/"/g, '\\"')}"`).join(' OR ')}) AND filter = 76997 AND project = "Target Stability" ORDER BY created ASC` },
+    summary: { total_jiras: selectedIssues.length, by_build: byBuild, by_project: byProject, with_cr: withCr, transferred_count: transferred, open_without_cr: openNoCr },
+    hierarchical_report: hierarchical,
+  };
+}
+
+function renderHierarchicalReport(report){
+  report = buildVisibleReport(report);
+  const container = document.getElementById('consolidatedHierarchy');
+  const countEl   = document.getElementById('consolidatedCount');
+  const jqlEl     = document.getElementById('generatedJql');
+  if(!container) return;
+
+  const rows    = report.hierarchical_report || [];
+  const meta    = report.meta    || {};
+  const summary = report.summary || {};
+  const builds  = meta.build_ids || [];
+
+  // Show the JQL: prefer custom_jql if set, else meta.jql, else auto-build from selected builds
+  const displayJql = meta.custom_jql || meta.jql || buildAutoJql(builds);
+  updateJqlPanel(displayJql, { fromCache:!!meta.from_cache, custom:!!meta.custom_jql });
+
+  // ── CR rows (have a CR) vs open JIRAs (no CR mapped) ──────────────────────
+  const crRows   = rows.filter(r => r.cr && r.cr !== 'NO_CR');
+  const noCrRows = rows.filter(r => !r.cr || r.cr === 'NO_CR');
+        // flatten open JIRAs from all NO_CR groups
+  // Exclude junk tickets — matches PDT_StatsConstants.py ISSUE_CLOSED + resolution IDs
+  const EXCLUDE_RESOLUTIONS = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+  const CLOSED_STATUSES     = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
+  const openJiras = noCrRows.flatMap(r => r.jiras || [])
+    .filter(j => {
+      const st   = (j.status           || '').trim().toLowerCase();
+      const res  = (j.resolution       || '').trim().toLowerCase();
+      const fres = (j.final_resolution || '').trim().toLowerCase();
+            // Always exclude Rejected and transferred tickets from the Open JIRAs section.
+      if(st === 'rejected') return false;
+      if(st.includes('transfer')) return false;
+      // Exclude closed tickets with junk resolutions
+      if(CLOSED_STATUSES.has(st) && (EXCLUDE_RESOLUTIONS.has(res) || EXCLUDE_RESOLUTIONS.has(fres))) return false;
+      return true;
+
+    });
+
+    // validJiraCount = CR-mapped JIRAs + valid open JIRAs (invalid/rejected already filtered out)
+  const validJiraCount = crRows.reduce((s, r) => s + (r.jiras ? r.jiras.length : 0), 0) + openJiras.length;
+  const totalCRs    = crRows.length;
+  const unmappedCnt = openJiras.length;
+
+  if(countEl) countEl.textContent = ``;
+  renderSummaryBar(summary, totalCRs, validJiraCount);
+
+  let html = ``;
+
+
+  // ── TABLE 1: CRs ──────────────────────────────────────────────────────────
+  html += `
+  <div style="background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 8px 24px rgba(15,23,42,.07);overflow:hidden;margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">
+      <span style="font-size:16px">&#128196;</span>
+      <span style="font-size:13px;font-weight:800;color:#1e1b4b">CRs</span>
+      <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-radius:999px;padding:2px 12px;font-size:10px;font-weight:700">${totalCRs} CR${totalCRs!==1?'s':''}</span>
+      <button type="button" class="inline-collapse-btn" onclick="toggleInlineSection('crTableWrap','crTableCollapseIcon')"><i class="fas fa-chevron-up" id="crTableCollapseIcon"></i> Collapse</button>
+      <div style="margin-left:auto">
+        <input type="text" id="crSearchInline" placeholder="Search CR ID, title, area..."
+          oninput="filterInlineTable('crSearchInline','crBodyInline',['data-cr','data-title','data-area'])"
+          style="padding:4px 10px;border-radius:999px;border:1px solid #d1d5db;font-size:11px;min-width:220px">
+      </div>
+    </div>
+    <div id="crTableWrap" class="inline-table-wrap" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;color:#111827;min-width:1420px;table-layout:fixed">
+      <colgroup>
+        <col style="width:44px">
+        <col style="width:116px">
+        <col style="width:96px">
+        <col style="width:430px">
+        <col style="width:120px">
+        <col style="width:130px">
+        <col style="width:150px">
+        <col style="width:126px">
+        <col style="width:145px">
+        <col style="width:105px">
+      </colgroup>
+      <thead>
+        <tr style="background:linear-gradient(90deg,#92400e,#d97706);color:#f9fafb">
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">#</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR-ID</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">Occurrence</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR Title</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR Area</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR SubSystem</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR Functionality</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR Date</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR SI</th>
+          <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">CR Status</th>
+        </tr>
+      </thead>
+      <tbody id="crBodyInline">`;
+
+  if(!crRows.length){
+    html += `<tr><td colspan="10" style="text-align:center;padding:28px;color:#9ca3af;font-size:12px">No CRs found.</td></tr>`;
+  } else {
+    crRows.forEach((row, idx) => {
+      const cr    = row.cr || '';
+      const crNum = (cr.match(/(\d{6,7})/) || [])[1] || '';
+      const crLink = crNum
+        ? `<a style="display:inline-flex;align-items:center;gap:4px;color:#2563eb;font-weight:700;text-decoration:none" href="https://orbit/cr/${crNum}" target="_blank">CR${crNum} <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>`
+        : `<span style="color:#94a3b8">${esc(cr)}</span>`;
+
+      const hasJiras  = (row.jiras||[]).length > 0;
+      const bodyId    = `crb_${row.sno}`;
+      const ticketKeys = (row.jiras||[]).map(j=>j.key).filter(Boolean);
+      const jqlLink   = ticketKeys.length
+        ? `https://jira-dc2.qualcomm.com/jira/issues/?jql=${encodeURIComponent(`key in (${ticketKeys.join(',')}) ORDER BY created DESC`)}`
+        : '';
+      const occHtml = hasJiras
+        ? `<a ${jqlLink?`href="${jqlLink}" target="_blank" rel="noopener"`:''}
+             title="Open ${row.cr_count} mapped JIRAs in Jira"
+             style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:999px;padding:2px 10px;font-size:10px;font-weight:700;cursor:pointer;text-decoration:none">
+             ${row.cr_count} <i class="fas fa-external-link-alt" style="font-size:8px"></i>
+           </a>`
+        : `<span style="background:#f3f4f6;color:#9ca3af;border-radius:999px;padding:2px 8px;font-size:10px">0</span>`;
+
+      const statusCls = _crStatusCls(row.cr_status);
+      const evenBg    = idx%2===1 ? 'background:#fafafa' : '';
+
+      html += `<tr class="cr-row-inline" style="${evenBg}" data-cr="${esc((cr).toLowerCase())}" data-title="${esc((row.cr_title||'').toLowerCase())}" data-area="${esc((row.cr_area||'').toLowerCase())}">
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${idx+1}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${crLink}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${occHtml}</td>
+        <td title="${esc(row.cr_title||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.32">${esc(row.cr_title||'—')}</td>
+        <td title="${esc(row.cr_area||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_area||'—')}</td>
+        <td title="${esc(row.cr_subsystem||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_subsystem||'—')}</td>
+        <td title="${esc(row.cr_function||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_function||'—')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">${esc(row.cr_built_date||row.cr_date||'—')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">
+          ${esc(row.cr_image||'—')}
+          ${row.cr_image_matched?'<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:3px">✓</span>':''}
+        </td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;${statusCls}">${esc(row.cr_status||'—')}</span></td>
+      </tr>`;
+
+
+    });
+  }
+  html += `</tbody></table></div></div>`;
+
+  html += `
+  <div style="background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 8px 24px rgba(15,23,42,.07);overflow:hidden;margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">
+      <span style="font-size:16px">📌</span>
+      <span style="font-size:13px;font-weight:800;color:#1e1b4b">Open JIRAs</span>
+      <span data-jira-count-badge style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:2px 12px;font-size:10px;font-weight:700">${openJiras.length} JIRA${openJiras.length!==1?'s':''}</span>
+      <button type="button" class="inline-collapse-btn" onclick="toggleInlineSection('jiraTableWrap','jiraTableCollapseIcon')"><i class="fas fa-chevron-up" id="jiraTableCollapseIcon"></i> Collapse</button>
+      <div style="margin-left:auto"><input type="text" id="jiraSearchInline" placeholder="Search JIRA title, ticket..." oninput="applyJiraFilters()" style="padding:4px 10px;border-radius:999px;border:1px solid #d1d5db;font-size:11px;min-width:220px"></div>
+    </div>
+    <div id="jiraFilterBar" style="padding:8px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span id="jiraFilterClearBtn" onclick="clearJiraFilters()" style="display:none;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">× Clear</span>
+    </div>
+    <div id="jiraTableWrap" class="inline-table-wrap" style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;color:#111827;min-width:1000px">
+        <thead><tr style="background:linear-gradient(90deg,#1e1b4b,#4f46e5);color:#f9fafb">
+          <th style="padding:7px 10px;width:36px">#</th><th style="padding:7px 10px;width:130px">Ticket</th><th style="padding:7px 10px;width:88px">Date</th><th style="padding:7px 10px">Title / Summary</th><th style="padding:7px 10px;width:105px">Status</th><th style="padding:7px 10px;width:90px">Project</th><th style="padding:7px 10px;width:100px">Device</th><th style="padding:7px 10px;width:190px">Metabuild</th>
+        </tr></thead><tbody id="jiraBodyInline">`;
+  if(!openJiras.length){
+    html += `<tr><td colspan="8" style="text-align:center;padding:28px;color:#9ca3af;font-size:12px">No unmapped open JIRAs.</td></tr>`;
+  } else {
+    openJiras.forEach((j, ji) => {
+      const st=(j.status||'').trim(), pr=(j.project||'').trim();
+      html += `<tr class="jira-row-inline" data-ticket="${esc((j.key||'').toLowerCase())}" data-title="${esc((j.title||j.summary||'').toLowerCase())}" data-status="${esc(st.toLowerCase())}" data-project="${esc(pr.toLowerCase())}">
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${ji+1}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6"><a style="color:#0369a1;font-weight:700;text-decoration:none" href="${JIRA_BASE}${encodeURIComponent(j.key||'')}" target="_blank">${esc(j.key||'-')}</a></td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">${esc((j.created||'').split('T')[0]||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere">${esc(j.title||j.summary||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${jiraStatusBadge(st)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;font-weight:700">${esc(pr||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${esc(j.serial_no||'-')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;word-break:break-all">${esc(j.matched_build||'-')}</td>
+      </tr>`;
+    });
+  }
+  html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
+  window._openJirasData = openJiras;
+  window._jiraActiveFilters = {};
+  // Show Save button now that a report is rendered
+  const saveBtn = document.getElementById('jqlSaveBtn');
+  if(saveBtn) saveBtn.style.display = 'inline-flex';
+}
+
+function toggleJiraFilter(type, val){}
+function clearJiraFilters(){ window._jiraActiveFilters = {}; const s=document.getElementById('jiraSearchInline'); if(s) s.value=''; applyJiraFilters(); }
+function applyJiraFilters(){
+  const q=(document.getElementById('jiraSearchInline')?.value||'').trim().toLowerCase();
+  let visible=0;
+  document.querySelectorAll('#jiraBodyInline .jira-row-inline').forEach(row=>{
+    const show=!q || (row.dataset.ticket||'').includes(q) || (row.dataset.title||'').includes(q) || (row.dataset.status||'').includes(q) || (row.dataset.project||'').includes(q);
+    row.style.display=show?'':'none'; if(show) visible++;
+  });
+  const badge=document.querySelector('[data-jira-count-badge]'); if(badge) badge.textContent=visible+' JIRA'+(visible!==1?'s':'');
+}
+function _crStatusCls(status){ const s=(status||'').toLowerCase(); if(s.includes('open')) return 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d'; if(s.includes('ready')||s.includes('built')) return 'background:#dcfce7;color:#166534;border:1px solid #86efac'; if(s.includes('analysis')) return 'background:#e0e7ff;color:#3730a3;border:1px solid #a5b4fc'; return 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb'; }
+function filterInlineTable(inputId, tbodyId, dataAttrs){ const q=(document.getElementById(inputId)?.value||'').toLowerCase().trim(); document.querySelectorAll(`#${tbodyId} tr`).forEach(tr=>{ if(!q){tr.style.display=''; return;} tr.style.display=dataAttrs.some(a=>(tr.getAttribute(a)||'').includes(q))?'':'none'; }); }
+function toggleInlineSection(bodyId, iconId){ const body=document.getElementById(bodyId), icon=document.getElementById(iconId); if(!body) return; const collapsed=body.style.display==='none'; body.style.display=collapsed?'':'none'; if(icon) icon.className=collapsed?'fas fa-chevron-up':'fas fa-chevron-down'; }
+
+async function fetchConsolidatedReport(force, customJql){
+  const builds=getSelectedBuildStrings();
+  if(!builds.length){ alert('Select at least one build first.'); return; }
+  const fetchBtn=document.getElementById('jqlFetchBtn');
+  const spinner=document.getElementById('consolidatedSpinner');
+  const container=document.getElementById('consolidatedHierarchy');
+  // Use explicitly passed customJql, or what's in the textarea if in edit mode, else nothing
+  const editAreaVisible = document.getElementById('jqlEditArea')?.style.display !== 'none';
+  const requestJql = String(
+    customJql ||
+    (editAreaVisible ? (document.getElementById('jqlTextarea')?.value || '') : '')
+  ).trim();
+  if(fetchBtn){fetchBtn.disabled=true; fetchBtn.innerHTML='<i class="fas fa-circle-notch spin"></i> Running...';}
+  if(spinner) spinner.style.display='inline-flex';
+  const displayJql = requestJql || buildAutoJql(builds);
+  updateJqlPanel(displayJql, { custom:!!requestJql });
+  if(container) container.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="color:#6d28d9"></i><p>Running pipeline...</p></div>';
+  try{
+    const resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({builds,traverse:true,orbit:true,target:currentTarget||'',force:force===true,
+        custom_jql:requestJql||undefined})});
+    const kickoff=await resp.json(); if(kickoff.error) throw new Error(kickoff.error);
+    let data=kickoff;
+    if(kickoff.job_id){
+      const jobId=kickoff.job_id;
+      await new Promise(resolve=>{
+        const es=new EventSource(`/api/consolidated_report/progress/${jobId}`);
+        es.onmessage=e=>{ try{const snap=JSON.parse(e.data); if(snap.stage==='done'||snap.stage==='error'){es.close(); resolve();}}catch(_){} };
+        es.onerror=()=>{es.close(); resolve();};
+      });
+      data=null;
+      for(let i=0;i<30;i++){
+        const r2=await fetch(`/api/consolidated_report/result/${jobId}`);
+        if(r2.status===202){ await new Promise(r=>setTimeout(r,1000)); continue; }
+        data=await r2.json(); break;
+      }
+    }
+    if(!data || data.error) throw new Error((data||{}).error || 'No result');
+    if(data.meta && requestJql) data.meta.custom_jql=requestJql;
+    _consolidatedReport=data; _consolidatedBuilds=builds;
+    setJqlEditing(false); // close edit mode after successful run
+    renderHierarchicalReport(data);
+    if(fetchBtn) fetchBtn.innerHTML='<i class="fas fa-layer-group"></i> Run Report';
+  }catch(e){
+    if(container) container.innerHTML=`<div class="empty"><i class="fas fa-triangle-exclamation" style="color:#dc2626"></i><p style="color:#dc2626">${esc(e.message||String(e))}</p></div>`;
+  }
+  finally{ if(fetchBtn) fetchBtn.disabled=false; if(spinner) spinner.style.display='none'; }
+}
+
+function openBuildModal(idx=null){
+  editIndex=idx; const r=idx==null?{}:(rows[idx]||{});
+  document.getElementById('buildModalTitle').textContent=idx==null?'Add Build':'Edit Build';
+  document.getElementById('mTarget').value=r.target||currentTarget||'';
+  document.getElementById('mProductLine').value=r.product_line||'';
+  document.getElementById('mMetaId').value=r.meta_id||'';
+  document.getElementById('mHours').value=r.hours||'';
+  document.getElementById('mCrashes').value=r.crashes==='ERR'?'':(r.crashes||'');
+  document.getElementById('mMtbf').value=r.mtbf||'';
+  document.getElementById('mWeek').value=r.week||'';
+  document.getElementById('mRunStatus').value=r.run_status||'running';
+  document.getElementById('mBuildFull').value=r.build_full||'';
+  document.getElementById('mComments').value=r.comments||'';
+  document.getElementById('buildModalBackdrop').classList.add('open');
+}
+function closeBuildModal(){ document.getElementById('buildModalBackdrop').classList.remove('open'); editIndex=null; }
+function buildPayloadFromModal(){ return { target:document.getElementById('mTarget').value||currentTarget, product_line:document.getElementById('mProductLine').value||'', meta_id:document.getElementById('mMetaId').value.trim(), hours:document.getElementById('mHours').value, crashes:document.getElementById('mCrashes').value, mtbf:document.getElementById('mMtbf').value, week:document.getElementById('mWeek').value, run_status:document.getElementById('mRunStatus').value||'running', build_full:document.getElementById('mBuildFull').value.trim()||document.getElementById('mMetaId').value.trim(), comments:document.getElementById('mComments').value||'', include_stopped:true, jiras:[] }; }
+async function saveBuild(){
+  const payload = buildPayloadFromModal();
+  if(!payload.meta_id && !payload.build_full){ alert('META-ID / Build is required.'); return; }
+  const savedIndex = editIndex;
+  const isNew = savedIndex == null;
+
+  // Update in-memory rows immediately so UI reflects change right away
+  if(isNew){
+    payload._isNew = true;
+    rows.push(payload);
+    selectedBuildIndices.push(rows.length - 1);
+  } else {
+    // Merge payload into existing row, preserve excel_row and other server fields
+    rows[savedIndex] = { ...(rows[savedIndex] || {}), ...payload, _isNew: false };
+    if(!selectedBuildIndices.includes(savedIndex)) selectedBuildIndices.push(savedIndex);
+  }
+
+  // Immediately update UI
+  renderBuildPills();
+  renderRecentBuilds();
+  refreshJqlFromSelection();
+  renderMtbfChart(getMtbfBaseRows().slice(-10));
+  closeBuildModal();
+
+  // Persist to Excel in background
+  try{
+    if(IS_AUTO_MODE){
+      saveStore();
+    } else if(isNew){
+      // New build — POST to add_build
+      const resp = await fetch(`/api/dashboard/${encodeURIComponent(currentTarget)}/excel/add_build`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          target: currentTarget, product: payload.product_line,
+          build: payload.meta_id, build_full: payload.build_full,
+          hours: payload.hours, crashes: payload.crashes, mtbf: payload.mtbf,
+          week: payload.week, mtbf_details: payload.comments,
+          run_status: payload.run_status, build_status: payload.run_status
+        })
+      });
+      const data = await resp.json().catch(()=>({}));
+      if(!resp.ok || data.success === false) throw new Error(data.message || 'Failed to add build to Excel');
+      // Reload Excel rows and remap selection by meta_id
+      const savedMetas = selectedBuildIndices.map(i => String((rows[i]||{}).meta_id||(rows[i]||{}).build_full||'').trim()).filter(Boolean);
+      await loadExcelRows();
+      selectedBuildIndices = savedMetas
+        .map(m => rows.findIndex(r => String(r.meta_id||r.build_full||'').trim() === m))
+        .filter(i => i >= 0);
+      renderBuildPills();
+      renderRecentBuilds();
+    } else {
+      // Existing row — mark dirty and update
+      const row = rows[savedIndex];
+      if(row && row.excel_row){
+        markDirty(row);
+        await saveAllChanges();
+      }
+      // If no excel_row (manually added row), nothing to persist yet
+    }
+  } catch(e){
+    alert('Build shown in table, but Excel save failed: ' + (e.message || e));
+  }
+}
+
+function exportCSV(){ const header=['Product','Build','Device Count','Hours','Crashes','MTBF','Comments']; const data=getSelectedBuildRows().map(r=>[r.product_line||r.target||'',r.build_full||r.meta_id||'',r.device_count||'',r.hours||'',r.crashes||'',calcMtbf(r)||'',r.comments||'']); const csv=[header,...data].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`${currentTarget||'builds'}_live_status.csv`; a.click(); }
+function activateReportTab(tab){
+  document.getElementById('tabCurrentBuilds')?.classList.toggle('active',tab==='current-builds');
+  document.getElementById('tabMtbf')?.classList.toggle('active',tab==='mtbf');
+  document.getElementById('currentBuildsSection').style.display=tab==='mtbf'?'none':'block';
+  document.getElementById('mtbfSection').style.display=tab==='mtbf'?'block':'none';
+  if(tab==='mtbf') renderMtbfChart(getMtbfBaseRows().slice(-10));
+}
+function refreshSelectedBuilds(){ renderRecentBuilds(); autoLoadConsolidatedReport(); }
+
+document.addEventListener('DOMContentLoaded',()=>{
+  activateReportTab('current-builds');
+  initializeWorkspace().then(()=>{ initSelectedBuilds(); }).catch(()=>{});
+});
+
+</script>
+</body>
+</html>

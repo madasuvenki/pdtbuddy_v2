@@ -1,0 +1,502 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HWPDT Parts — {{ target_name|upper }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html, body { height:100%; overflow:hidden; }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:#f0f9ff; color:#0f172a; display:flex; flex-direction:column; }
+
+    /* HEADER */
+    .hdr { display:flex;align-items:center;gap:18px;padding:12px 24px;background:linear-gradient(135deg,#0c4a6e 0%,#0891b2 100%);box-shadow:0 3px 14px rgba(8,145,178,.4);flex-shrink:0;z-index:10; }
+    .hdr-icon { width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .hdr-icon i { color:#fff;font-size:18px; }
+    .hdr-text { flex:1; }
+    .hdr-text h1 { font-size:16px;font-weight:900;color:#fff; }
+    .hdr-text p  { font-size:11px;color:rgba(255,255,255,.7);margin-top:2px; }
+    .hdr-kpis { display:flex;gap:0;align-items:stretch; }
+    .kpi-card { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 18px;border-left:1px solid rgba(255,255,255,.18); }
+    .kpi-val { font-size:22px;font-weight:900;color:#fff;line-height:1; }
+    .kpi-lbl { font-size:9px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.08em;margin-top:2px; }
+    .kpi-prog { padding:6px 18px;border-left:1px solid rgba(255,255,255,.18);display:flex;flex-direction:column;justify-content:center;min-width:160px; }
+    .kpi-prog-top { display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.8);margin-bottom:4px; }
+    .kpi-prog-bar { height:8px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden; }
+    .kpi-prog-fill { height:100%;border-radius:999px;transition:width .6s ease; }
+
+    /* BODY */
+    .body-wrap { display:flex;flex:1;overflow:hidden; }
+
+    /* SIDEBAR */
+    .sidebar { width:256px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow-y:auto;padding:16px 12px;gap:18px; }
+    .sb-section {}
+    .sb-title { font-size:10px;font-weight:800;color:#0891b2;text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px;display:flex;align-items:center;gap:5px; }
+    .sb-title i { font-size:10px; }
+    .view-tabs { display:flex;flex-direction:column;gap:4px; }
+    .view-tab { display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:700;color:#475569;cursor:pointer;transition:all .15s; }
+    .view-tab i { width:14px;text-align:center;font-size:12px; }
+    .view-tab:hover { background:#e0f2fe;border-color:#bae6fd;color:#0369a1; }
+    .view-tab.active { background:#0891b2;border-color:#0891b2;color:#fff; }
+    .view-tab .tab-count { margin-left:auto;font-size:10px;background:rgba(0,0,0,.1);padding:1px 6px;border-radius:999px; }
+    .view-tab.active .tab-count { background:rgba(255,255,255,.25); }
+    .sb-search { width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;outline:none;transition:border .15s; }
+    .sb-search:focus { border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.1); }
+    .pl-checks { display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto; }
+    .pl-check-label { display:flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:7px;font-size:11px;color:#334155;cursor:pointer;transition:background .1s; }
+    .pl-check-label:hover { background:#e0f2fe; }
+    .pl-check-label input { accent-color:#0891b2;flex-shrink:0; }
+    .pl-check-label .pl-cnt { margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700; }
+    .legend { display:flex;flex-direction:column;gap:6px; }
+    .legend-row { display:flex;align-items:center;gap:8px;font-size:11px;color:#475569; }
+    .legend-dot { width:12px;height:12px;border-radius:3px;flex-shrink:0; }
+
+    /* MAIN */
+    .main { flex:1;display:flex;flex-direction:column;overflow:hidden; }
+    .toolbar { display:flex;align-items:center;gap:12px;padding:8px 18px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0; }
+    .toolbar-count { font-size:12px;color:#64748b;font-weight:600; }
+    .toolbar-right { margin-left:auto;display:flex;gap:8px; }
+    .btn-sm { padding:5px 12px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s; }
+    .btn-sm:hover { background:#e0f2fe;border-color:#bae6fd;color:#0369a1; }
+    .table-outer { flex:1;overflow:auto; }
+
+    /* TABLE */
+    table { width:100%;border-collapse:collapse;font-size:13px; }
+    thead tr { background:linear-gradient(90deg,#0891b2,#0e7490);position:sticky;top:0;z-index:2; }
+    thead th { padding:10px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#fff;white-space:nowrap; }
+    tbody tr { border-bottom:1px solid #f1f5f9;transition:background .1s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:#f0f9ff; }
+    tbody td { padding:9px 14px;color:#1e293b;vertical-align:middle; }
+    .td-sno { color:#94a3b8;font-size:11px;font-weight:600;width:46px;white-space:nowrap; }
+    .td-chip { font-family:'Courier New',monospace;font-weight:700;font-size:13px;color:#0c4a6e;letter-spacing:.04em;white-space:nowrap;width:170px; }
+    .td-jobs { min-width:260px; }
+    .td-pl   { min-width:180px; }
+    .td-date { white-space:nowrap;width:100px;font-size:12px;color:#475569; }
+    tr.row-multi { background:#fffbeb !important; }
+    tr.row-multi:hover { background:#fef3c7 !important; }
+    tr.row-multi .td-chip { color:#b45309; }
+    tr.grp-hdr { background:#f1f5f9;cursor:pointer; }
+    tr.grp-hdr:hover { background:#e2e8f0; }
+    td.grp-hdr-cell { padding:10px 14px;font-size:12px;font-weight:800;color:#0c4a6e;border-bottom:2px solid #bae6fd; }
+    td.grp-hdr-cell i.toggle-icon { margin-right:8px;transition:transform .2s;font-size:11px; }
+    td.grp-hdr-cell.open i.toggle-icon { transform:rotate(90deg); }
+    .grp-badge { display:inline-block;padding:2px 8px;border-radius:999px;background:#0891b2;color:#fff;font-size:10px;font-weight:800;margin-left:8px; }
+    .grp-multi-badge { display:inline-block;padding:2px 8px;border-radius:999px;background:#fde68a;color:#92400e;font-size:10px;font-weight:800;margin-left:6px;border:1px solid #fbbf24; }
+    .badge { display:inline-block;padding:3px 9px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:11px;font-weight:700;margin:2px 3px 2px 0; }
+    .multi-badge { display:inline-block;padding:2px 6px;border-radius:999px;background:#fde68a;color:#92400e;font-size:10px;font-weight:800;margin-left:5px;border:1px solid #fbbf24; }
+    .job-link { display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;background:#f0f9ff;color:#0369a1;font-size:12px;font-weight:700;text-decoration:none;border:1px solid #bae6fd;margin:2px 4px 2px 0;transition:background .15s,color .15s;white-space:nowrap; }
+    .job-link:hover { background:#0891b2;color:#fff;border-color:#0891b2; }
+    .job-link i { font-size:9px; }
+    .job-date { font-size:10px;color:#94a3b8;margin-left:1px; }
+        .muted { color:#cbd5e1;font-size:12px; }
+    .hp-state { text-align:center;padding:72px 24px;color:#94a3b8; }
+    .hp-state i { font-size:40px;margin-bottom:16px;display:block; }
+    .hp-state p { font-size:14px; }
+    /* ALIAS CHEVRON STRIP */
+    .alias-strip{display:flex;flex-wrap:wrap;gap:0;margin-bottom:8px;}
+    .alias-chev{
+      position:relative;display:inline-flex;align-items:center;justify-content:center;
+      min-width:64px;height:32px;padding:0 18px 0 12px;
+      font-size:10px;font-weight:800;color:#fff;
+      clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%);
+      margin-right:-1px;cursor:default;
+    }
+    .alias-chev:first-child{clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%);padding-left:10px;}
+    .alias-chev--green{background:#22c55e;}
+    .alias-chev--red  {background:#ef4444;}
+    .alias-chev--amber{background:#f59e0b;}
+    .alias-chev--grey {background:#94a3b8;}
+    .alias-badge{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:800;margin:1px 2px;}
+    .alias-badge--green{background:#dcfce7;color:#166534;}
+    .alias-badge--red  {background:#fee2e2;color:#dc2626;}
+    .alias-badge--amber{background:#fef3c7;color:#92400e;}
+    .alias-badge--grey {background:#f1f5f9;color:#64748b;}
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-icon"><i class="fas fa-microchip"></i></div>
+  <div class="hdr-text">
+    <h1>HWPDT Parts &mdash; {{ target_name|upper }}</h1>
+    <p>SP: {{ sp_name or 'N/A' }} &bull; Certicom / MSM IDs &bull; Jobs &bull; Playlists</p>
+  </div>
+  <div class="hdr-kpis" id="hdrKpis"></div>
+</div>
+
+<div class="body-wrap">
+  <div class="sidebar">
+    <div class="sb-section">
+      <div class="sb-title"><i class="fas fa-layer-group"></i> View</div>
+      <div class="view-tabs">
+        <div class="view-tab active" data-view="certicom"><i class="fas fa-microchip"></i> Certicom<span class="tab-count" id="cntCerticom">—</span></div>
+        <div class="view-tab" data-view="date"><i class="fas fa-calendar-alt"></i> By Date<span class="tab-count" id="cntDate">—</span></div>
+        <div class="view-tab" data-view="playlist"><i class="fas fa-list"></i> By Playlist<span class="tab-count" id="cntPlaylist">—</span></div>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-title"><i class="fas fa-search"></i> Search</div>
+      <input id="sbSearch" class="sb-search" type="text" placeholder="Certicom, job ID, playlist...">
+    </div>
+        <div class="sb-section">
+      <div class="sb-title"><i class="fas fa-tags"></i> Alias Status</div>
+      <div id="aliasStripWrap"><span class="muted" style="font-size:11px;">Loading...</span></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-title"><i class="fas fa-filter"></i> Playlist Filter</div>
+      <div id="plChecks" class="pl-checks"><span class="muted" style="font-size:11px;">Loading...</span></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-title"><i class="fas fa-circle-info"></i> Legend</div>
+      <div class="legend">
+        <div class="legend-row"><div class="legend-dot" style="background:#dbeafe;border:1px solid #bae6fd;"></div> Single run</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#fde68a;border:1px solid #fbbf24;"></div> Multi-run (&gt;1 job)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="toolbar">
+      <span class="toolbar-count" id="toolbarCount"></span>
+      <div class="toolbar-right">
+        <button class="btn-sm" id="btnExpandAll" style="display:none;"><i class="fas fa-expand-alt"></i> Expand All</button>
+        <button class="btn-sm" id="btnCollapseAll" style="display:none;"><i class="fas fa-compress-alt"></i> Collapse All</button>
+      </div>
+    </div>
+    <div class="table-outer">
+      <div id="tableWrap">
+        <div class="hp-state"><i class="fas fa-spinner fa-spin"></i><p>Fetching parts...</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const TARGET    = {{ target_name | tojson }};
+  const AXIOM_URL = 'https://axiom.qualcomm.com/#/reports/job/';
+  const LS_ALIASES_KEY = 'hwpdt_playlist_aliases_v2';
+  let chipRows    = [];
+  let activeView  = 'certicom';
+  let collapsed   = new Set();
+
+  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  // ─ Alias helpers ────────────────────────────────────────────────────────────
+  function loadAliases(){
+    // Return local cache (instant); server refresh happens on page load
+    try{ return JSON.parse(localStorage.getItem(LS_ALIASES_KEY)||'[]'); }catch(e){ return []; }
+  }
+
+  async function loadAliasesFromServer(){
+    try{
+      const r = await fetch('/api/hwpdt/aliases',{cache:'no-store'});
+      const d = await r.json();
+      if(d.ok && Array.isArray(d.aliases)){
+        try{ localStorage.setItem(LS_ALIASES_KEY, JSON.stringify(d.aliases)); }catch(e){}
+        return d.aliases;
+      }
+    }catch(e){ console.warn('[HWPDT ALIASES] server fetch failed:',e); }
+    return loadAliases();
+  }
+
+  // Compute alias status given a set of playlists that ran
+  function aliasStatus(alias, ranSet){
+    if(!alias.playlists||!alias.playlists.length) return 'grey';
+    const ran     = alias.playlists.filter(p=>ranSet.has(p));
+    const missing = alias.playlists.filter(p=>!ranSet.has(p));
+    if(missing.length===0) return 'green';
+    if(ran.length===0)     return 'red';
+    return 'amber';
+  }
+
+  // Build alias chevron strip for sidebar (all chips combined)
+  function buildAliasStrip(filters){
+    const aliases = loadAliases();
+    const wrap = document.getElementById('aliasStripWrap');
+    if(!aliases.length){
+      wrap.innerHTML='<span class="muted" style="font-size:11px;">No aliases defined. <a href="/hwpdt_overview" style="color:#0891b2;">Create on Overview page</a>.</span>';
+      return;
+    }
+    // All playlists that ran on any chip
+    const ranSet = new Set(chipRows.flatMap(r=>r.playlists||[]));
+    const colorMap={green:'alias-chev--green',red:'alias-chev--red',amber:'alias-chev--amber',grey:'alias-chev--grey'};
+    const chevrons = aliases.map((a,i)=>{
+      const st  = aliasStatus(a, ranSet);
+      const cls = colorMap[st];
+      const ran     = (a.playlists||[]).filter(p=>ranSet.has(p));
+      const missing = (a.playlists||[]).filter(p=>!ranSet.has(p));
+      const tip = st==='green'?'All ran: '+ran.join(', ')
+                : st==='red'  ?'None ran. Missing: '+missing.join(', ')
+                : st==='amber'?'Partial — ran: '+ran.join(',')+' | missing: '+missing.join(',')
+                : 'No playlists assigned';
+      return `<div class="alias-chev ${cls}${i===0?' alias-chev-first':''}" title="${esc(tip)}">${esc(a.name)}</div>`;
+    }).join('');
+    wrap.innerHTML=`<div class="alias-strip">${chevrons}</div>`;
+  }
+
+  // Per-chip alias badges for table
+  function chipAliasBadges(chipRow){
+    const aliases = loadAliases();
+    if(!aliases.length) return '';
+    const chipPls = new Set(chipRow.playlists||[]);
+    return aliases.map(a=>{
+      if(!a.playlists||!a.playlists.length) return '';
+      const st  = aliasStatus(a, chipPls);
+      const cls = {green:'alias-badge--green',red:'alias-badge--red',amber:'alias-badge--amber',grey:'alias-badge--grey'}[st];
+      const icon= st==='green'?'&#10003;':st==='red'?'&#10007;':'&#9888;';
+      const ran     = a.playlists.filter(p=>chipPls.has(p));
+      const missing = a.playlists.filter(p=>!chipPls.has(p));
+      const tip = st==='green'?'All ran':st==='red'?'Not ran: '+a.playlists.join(','):'Partial: missing '+missing.join(',');
+      return `<span class="alias-badge ${cls}" title="${esc(tip)}">${icon} ${esc(a.name)}</span>`;
+    }).join('');
+  }
+
+  function jobLink(jid, date){
+    const d = date ? `<span class="job-date">(${esc(date)})</span>` : '';
+    return `<a class="job-link" href="${AXIOM_URL}${esc(jid)}" target="_blank"><i class="fas fa-external-link-alt"></i>${esc(jid)}</a>${d}`;
+  }
+
+  function selPlaylists(){ return [...document.querySelectorAll('.pl-cb:checked')].map(x=>x.value); }
+
+  function buildKpis(data){
+    const tested = data.tested_parts||0;
+    const proj   = (data.projected_parts>0)?data.projected_parts:null;
+    const multi  = (data.chip_rows||[]).filter(r=>r.multi_job).length;
+    const pct    = proj?Math.min(100,Math.round(tested/proj*100)):null;
+    const col    = pct===null?'#fff':(pct>=100?'#6ee7b7':pct>=60?'#fff':'#fde68a');
+    let h='';
+    if(proj){
+      h+=`<div class="kpi-prog">
+        <div class="kpi-prog-top"><span>${tested} tested</span><span>${proj} projected</span></div>
+        <div class="kpi-prog-bar"><div class="kpi-prog-fill" style="width:${pct}%;background:${col};"></div></div>
+      </div>`;
+    }
+    h+=`<div class="kpi-card"><div class="kpi-val">${tested}</div><div class="kpi-lbl">Tested</div></div>`;
+    if(proj) h+=`<div class="kpi-card"><div class="kpi-val" style="color:${col};">${pct}%</div><div class="kpi-lbl">Progress</div></div>`;
+    if(multi) h+=`<div class="kpi-card"><div class="kpi-val" style="color:#fde68a;">${multi}</div><div class="kpi-lbl">Multi-run</div></div>`;
+    document.getElementById('hdrKpis').innerHTML=h;
+  }
+
+    function buildPlChecks(filters){
+    const el=document.getElementById('plChecks');
+    if(!filters.length){el.innerHTML='<span class="muted" style="font-size:11px;">No playlist data yet.</span>';return;}
+    const cnt={};
+    chipRows.forEach(r=>(r.playlists||[]).forEach(p=>{cnt[p]=(cnt[p]||0)+1;}));
+    // Group by alias
+    const aliases = loadAliases();
+    const aliasMap = {}; // playlist -> aliasName
+    aliases.forEach(a=>(a.playlists||[]).forEach(p=>{ aliasMap[p]=a.name; }));
+    el.innerHTML=filters.map(p=>{
+      const aliasLabel = aliasMap[p]?`<span style="font-size:9px;color:#0891b2;margin-left:auto;font-weight:800;">${esc(aliasMap[p])}</span>`:'';
+      return `<label class="pl-check-label">
+        <input type="checkbox" class="pl-cb" value="${esc(p)}" checked>
+        <span>${esc(p)}</span>
+        ${aliasLabel}
+        <span class="pl-cnt">${cnt[p]||0}</span>
+      </label>`;
+    }).join('');
+    el.querySelectorAll('.pl-cb').forEach(cb=>cb.addEventListener('change',render));
+    // Build alias strip
+    buildAliasStrip(filters);
+  }
+
+  function filteredRows(){
+    const q=( document.getElementById('sbSearch').value||'').trim().toLowerCase();
+    const sel=selPlaylists();
+    return chipRows.filter(r=>{
+      const pls=r.playlists||[];
+      const plOk=!sel.length||pls.some(p=>sel.includes(p));
+      const txt=[r.chip_id,...(r.job_ids||[]),...pls].join(' ').toLowerCase();
+      return plOk&&(!q||txt.includes(q));
+    });
+  }
+
+    /* -- CERTICOM VIEW -- */
+  function renderCerticom(rows){
+    if(!rows.length) return '<div class="hp-state"><i class="fas fa-info-circle"></i><p>No matching parts.</p></div>';
+    const aliases = loadAliases();
+    const hasAliases = aliases.length > 0;
+    return `<table>
+      <thead><tr><th>S.No</th><th>Certicom ID</th><th>Jobs</th>${hasAliases?'<th>Alias Status</th>':''}<th>Playlist</th></tr></thead>
+      <tbody>${rows.map((r,i)=>{
+        const det=r.job_details&&r.job_details.length?r.job_details:(r.job_ids||[]).map(j=>({job_id:j,date:'',playlist:''}));
+        const pls=[...new Set(r.playlists||[])];
+        const cls=r.multi_job?' row-multi':'';
+        const mb=r.multi_job?`<span class="multi-badge"><i class="fas fa-history" style="font-size:9px;"></i> Multi-run</span>`:'';
+        const aliasBadges = hasAliases ? `<td>${chipAliasBadges(r)}</td>` : '';
+        return `<tr class="${cls}">
+          <td class="td-sno">${i+1}</td>
+          <td class="td-chip">${esc(r.chip_id)}${mb}</td>
+          <td class="td-jobs">${det.length?det.map(d=>jobLink(d.job_id,d.date)).join(''):'<span class="muted">&#8212;</span>'}</td>
+          ${aliasBadges}
+          <td class="td-pl">${pls.length?pls.map(p=>`<span class="badge">${esc(p)}</span>`).join(''):'<span class="muted">&#8212;</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  /* ── DATE VIEW ── */
+  function renderDate(rows){
+    if(!rows.length) return '<div class="hp-state"><i class="fas fa-info-circle"></i><p>No matching parts.</p></div>';
+    const grps={};
+    rows.forEach(r=>{
+      const det=r.job_details&&r.job_details.length?r.job_details:(r.job_ids||[]).map(j=>({job_id:j,date:'',playlist:''}));
+      const dates=[...new Set(det.map(d=>d.date||'Unknown'))];
+      dates.forEach(dt=>{
+        if(!grps[dt]) grps[dt]={date:dt,chips:[]};
+        grps[dt].chips.push({...r,_det:det.filter(d=>(d.date||'Unknown')===dt)});
+      });
+    });
+    const sorted=Object.values(grps).sort((a,b)=>b.date.localeCompare(a.date));
+    let sno=0;
+    const body=sorted.map(grp=>{
+      const key='date_'+grp.date;
+      const open=!collapsed.has(key);
+      const multi=grp.chips.filter(c=>c.multi_job).length;
+      const mb=multi?`<span class="grp-multi-badge"><i class="fas fa-history" style="font-size:9px;"></i> ${multi} multi-run</span>`:'';
+      let html=`<tr class="grp-hdr" data-grp="${esc(key)}">
+        <td class="grp-hdr-cell ${open?'open':''}" colspan="4">
+          <i class="fas fa-chevron-right toggle-icon"></i>
+          <i class="fas fa-calendar-day" style="margin-right:6px;color:#0891b2;font-size:12px;"></i>
+          <b>${esc(grp.date)}</b>
+          <span class="grp-badge">${grp.chips.length} chips</span>${mb}
+        </td>
+      </tr>`;
+      if(open){
+        grp.chips.forEach(r=>{
+          sno++;
+          const pls=[...new Set(r.playlists||[])];
+          const cls=r.multi_job?' row-multi':'';
+          html+=`<tr class="${cls}" data-grp-child="${esc(key)}">
+            <td class="td-sno">${sno}</td>
+            <td class="td-chip">${esc(r.chip_id)}</td>
+            <td class="td-jobs">${r._det.length?r._det.map(d=>jobLink(d.job_id,d.date)).join(''):'<span class="muted">—</span>'}</td>
+            <td class="td-pl">${pls.length?pls.map(p=>`<span class="badge">${esc(p)}</span>`).join(''):'<span class="muted">—</span>'}</td>
+          </tr>`;
+        });
+      }
+      return html;
+    }).join('');
+            return `<table><thead><tr><th>S.No</th><th>Certicom ID</th><th>Jobs</th><th>Playlist</th></tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  /* ── PLAYLIST VIEW ── */
+  function renderPlaylist(rows){
+    if(!rows.length) return '<div class="hp-state"><i class="fas fa-info-circle"></i><p>No matching parts.</p></div>';
+    const grps={};
+    rows.forEach(r=>{
+      const pls=(r.playlists||[]).length?r.playlists:['No Playlist'];
+      const det=r.job_details&&r.job_details.length?r.job_details:(r.job_ids||[]).map(j=>({job_id:j,date:'',playlist:''}));
+      pls.forEach(p=>{
+        if(!grps[p]) grps[p]={playlist:p,chips:[]};
+        grps[p].chips.push({...r,_det:det});
+      });
+    });
+    const sorted=Object.values(grps).sort((a,b)=>a.playlist.localeCompare(b.playlist));
+    let sno=0;
+    const body=sorted.map(grp=>{
+      const key='pl_'+grp.playlist;
+      const open=!collapsed.has(key);
+      const multi=grp.chips.filter(c=>c.multi_job).length;
+      const mb=multi?`<span class="grp-multi-badge"><i class="fas fa-history" style="font-size:9px;"></i> ${multi} multi-run</span>`:'';
+      let html=`<tr class="grp-hdr" data-grp="${esc(key)}">
+        <td class="grp-hdr-cell ${open?'open':''}" colspan="4">
+          <i class="fas fa-chevron-right toggle-icon"></i>
+          <i class="fas fa-list" style="margin-right:6px;color:#0891b2;font-size:12px;"></i>
+          <b>${esc(grp.playlist)}</b>
+          <span class="grp-badge">${grp.chips.length} chips</span>${mb}
+        </td>
+      </tr>`;
+      if(open){
+        grp.chips.forEach(r=>{
+          sno++;
+          const dates=[...new Set((r._det||[]).map(d=>d.date).filter(Boolean))];
+          const cls=r.multi_job?' row-multi':'';
+          html+=`<tr class="${cls}" data-grp-child="${esc(key)}">
+            <td class="td-sno">${sno}</td>
+            <td class="td-chip">${esc(r.chip_id)}</td>
+            <td class="td-jobs">${r._det&&r._det.length?r._det.map(d=>jobLink(d.job_id,d.date)).join(''):'<span class="muted">—</span>'}</td>
+            <td class="td-date">${dates.length?dates.map(d=>`<span class="badge">${esc(d)}</span>`).join(''):'<span class="muted">—</span>'}</td>
+          </tr>`;
+        });
+      }
+      return html;
+    }).join('');
+    return `<table><thead><tr><th>S.No</th><th>Certicom ID</th><th>Jobs</th><th>Date</th></tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  /* ── RENDER ── */
+  function render(){
+    const rows=filteredRows();
+    const wrap=document.getElementById('tableWrap');
+    const dateCnt=new Set(rows.flatMap(r=>(r.job_details||[]).map(d=>d.date||'Unknown'))).size;
+    const plCnt=new Set(rows.flatMap(r=>r.playlists||[])).size;
+    document.getElementById('cntCerticom').textContent=rows.length;
+    document.getElementById('cntDate').textContent=dateCnt;
+    document.getElementById('cntPlaylist').textContent=plCnt;
+    document.getElementById('toolbarCount').textContent=`${rows.length} chip${rows.length!==1?'s':''} shown`;
+    const hasGrps=activeView!=='certicom';
+    document.getElementById('btnExpandAll').style.display=hasGrps?'':'none';
+    document.getElementById('btnCollapseAll').style.display=hasGrps?'':'none';
+    if(activeView==='date')          wrap.innerHTML=renderDate(rows);
+    else if(activeView==='playlist') wrap.innerHTML=renderPlaylist(rows);
+    else                             wrap.innerHTML=renderCerticom(rows);
+    wrap.querySelectorAll('tr.grp-hdr').forEach(tr=>{
+      tr.addEventListener('click',()=>{
+        const k=tr.dataset.grp;
+        if(collapsed.has(k)) collapsed.delete(k); else collapsed.add(k);
+        render();
+      });
+    });
+  }
+
+  /* ── EVENTS ── */
+  document.querySelectorAll('.view-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      activeView=tab.dataset.view;
+      collapsed.clear();
+      render();
+    });
+  });
+  document.getElementById('sbSearch').addEventListener('input',render);
+  document.getElementById('btnExpandAll').addEventListener('click',()=>{collapsed.clear();render();});
+  document.getElementById('btnCollapseAll').addEventListener('click',()=>{
+    const rows=filteredRows();
+    if(activeView==='date'){
+      new Set(rows.flatMap(r=>(r.job_details||[]).map(d=>'date_'+(d.date||'Unknown')))).forEach(k=>collapsed.add(k));
+    } else {
+      new Set(rows.flatMap(r=>(r.playlists||[]).map(p=>'pl_'+p))).forEach(k=>collapsed.add(k));
+    }
+    render();
+  });
+
+  /* 哪 FETCH 哪 */
+  // Load aliases from server and chip parts in parallel for consistent alias display
+  Promise.all([
+    loadAliasesFromServer(),
+    fetch('/api/hwpdt_chip_parts/'+encodeURIComponent(TARGET),{cache:'no-store'}).then(r=>r.json()),
+  ]).then(([_aliases, data])=>{
+    buildKpis(data);
+    if(!data.success||!data.chip_ids||!data.chip_ids.length){
+      document.getElementById('tableWrap').innerHTML='<div class="hp-state"><i class="fas fa-info-circle"></i><p>No parts found for this target.</p></div>';
+      document.getElementById('plChecks').innerHTML='<span class="muted" style="font-size:11px;">No data.</span>';
+      return;
+    }
+    chipRows=(data.chip_rows&&data.chip_rows.length)
+      ?data.chip_rows
+      :(data.chip_ids||[]).map((id,i)=>({s_no:i+1,chip_id:id,job_ids:[],job_details:[],playlists:[],multi_job:false}));
+    buildPlChecks(data.playlist_filters||[]);
+    render();
+  }).catch(()=>{
+    document.getElementById('hdrKpis').innerHTML='<span style="color:#fde68a;font-size:12px;padding:0 12px;"><i class="fas fa-exclamation-circle"></i> Error loading data</span>';
+    document.getElementById('tableWrap').innerHTML='<div class="hp-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load parts.</p></div>';
+  });
+})();
+</script>
+</body>
+</html>

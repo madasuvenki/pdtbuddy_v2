@@ -1,0 +1,1092 @@
+{# templates/target_layout.html #}
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bu_selection.css') }}?v={{ cache_buster|default('1') }}">
+<style>
+.app-bg-shell{padding:0!important;margin:0!important;background:transparent!important}
+.app-bg-gradient,.app-bg-grid,.app-bg-glow{display:none!important}
+.qcom-page-shell{padding:0!important;max-width:none!important}
+#chatPageShell{min-height:100vh!important;gap:0!important}
+#openChatBtn,.chat-toggle-btn{display:flex!important}
+html,body{height:100%;margin:0;padding:0;overflow:hidden}
+</style>
+{% endblock %}
+
+{% block content %}
+{% if active_section == 'unique-crs' %}<script>document.body.classList.add('page-unique-crs');</script>{% endif %}
+{% set t = target|default(target_name)|default('target') %}
+{% set s = active_section|default('dashboard') %}
+{% set m = toggle_mode|default('CRM') %}
+{% set p = pdt_type|default('SWPDT') %}
+{% set _last_excel_sync = dashboard_latest_update or target_update or 'N/A' %}
+{% set _last_ucr_sync = unique_cr_last_update or target_update or _last_excel_sync %}
+
+{% if milestone_phase %}
+  {% set mp = milestone_phase %}
+{% elif milestones is defined and milestones %}
+  {# Compute status and progress from dates vs today #}
+  {% set today_str = now().strftime('%Y-%m-%d') if now is defined else '' %}
+  {% set es_date = milestones.get('ES', 'TBD') %}
+  {% set fc_date = milestones.get('FC', 'TBD') %}
+  {% set cs_date = milestones.get('CS', 'TBD') %}
+  {% set mp = {
+    'phase_label': 'Release Milestones',
+    'phase_name': t|upper ~ ' Timeline',
+    'progress_pct': 50,
+    'milestones': [
+      {'label': 'ES', 'date': es_date, 'status': 'pending'},
+      {'label': 'FC', 'date': fc_date, 'status': 'pending'},
+      {'label': 'CS', 'date': cs_date, 'status': 'pending'}
+    ]
+  } %}
+{% else %}
+  {% set mp = None %}
+{% endif %}
+
+<style>
+.on-shell{display:flex;flex-direction:column;height:calc(100vh - 58px);font-family:'Inter',system-ui,sans-serif;color:#0f172a;background:#f8fafc;overflow:hidden}
+.on-topbar{display:flex;align-items:center;gap:10px;padding:4px 12px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;min-height:42px}
+
+.on-target-chip{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border-radius:10px;padding:5px 12px;font-size:13px;font-weight:900;white-space:nowrap;flex-shrink:0}
+.on-target-chip i{font-size:12px;opacity:.85}
+.on-topbar-spacer{flex:1;min-width:0}
+.on-search-wrap{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0}
+.on-topbar-collapse-btn{width:32px;height:32px;min-width:32px;border:none;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 16px rgba(79,70,229,.22);transition:transform .15s,box-shadow .15s,opacity .15s}
+.on-topbar-collapse-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(79,70,229,.28)}
+.on-topbar-collapse-btn[aria-pressed="true"]{opacity:.92}
+.on-search{display:flex!important;align-items:center!important;gap:10px!important;padding:8px 12px!important;border-radius:14px!important;border:2px solid #22c55e!important;background:linear-gradient(135deg,#ffffff,#f8fff9)!important;box-shadow:0 0 0 2px rgba(34,197,94,.14),0 6px 18px rgba(34,197,94,.14), inset 0 1px 0 rgba(255,255,255,.9)!important;width:min(760px,100%)!important;flex-shrink:0!important;transition:border-color .2s,box-shadow .2s,background .2s!important}
+.on-search:focus-within{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(34,197,94,.18),0 8px 22px rgba(34,197,94,.18)!important}
+
+.on-search[data-state="cr"]{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,.12)!important}
+.on-search[data-state="cr"] i,.on-search[data-state="cr"] .on-search-icon{color:#2563eb}
+.on-search[data-state="cr"] .on-search-btn{background:linear-gradient(135deg,#1d4ed8,#2563eb)}
+.on-search[data-state="jira"]{border-color:#7c3aed!important;box-shadow:0 0 0 3px rgba(124,58,237,.12)!important}
+.on-search[data-state="jira"] i,.on-search[data-state="jira"] .on-search-icon{color:#7c3aed}
+.on-search[data-state="jira"] .on-search-btn{background:linear-gradient(135deg,#6d28d9,#7c3aed)}
+.on-search[data-state="ready"]{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.12)!important}
+.on-search[data-state="ready"] i,.on-search[data-state="ready"] .on-search-icon{color:#16a34a}
+.on-search[data-state="ready"] .on-search-btn{background:linear-gradient(135deg,#15803d,#16a34a)}
+.on-search[data-state="invalid"]{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.10)!important}
+.on-search[data-state="invalid"] i{color:#dc2626}
+.on-search i{font-size:18px;color:#475569;flex-shrink:0;transition:color .2s}
+.on-search input{flex:1;border:none!important;outline:none!important;background:transparent!important;font-size:14px;font-weight:600;color:#111827;min-width:0;box-shadow:none!important;padding:0!important}
+.on-search input::placeholder{color:#6b7280;font-weight:600}
+.on-search-hint{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;display:none}
+
+.on-search[data-state="cr"] .on-search-hint{display:inline;background:#dbeafe;color:#1d4ed8}
+.on-search[data-state="jira"] .on-search-hint{display:inline;background:#ede9fe;color:#6d28d9}
+.on-search[data-state="ready"] .on-search-hint{display:inline;background:#dcfce7;color:#15803d}
+.on-search-btn{padding:9px 16px;border-radius:12px;border:none;font-weight:900;font-size:13px;color:#fff;background:linear-gradient(135deg,#4f46e5,#6366f1);cursor:pointer;transition:background .2s,transform .15s,box-shadow .15s;flex-shrink:0;box-shadow:0 8px 18px rgba(79,70,229,.26)}
+.on-search-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(79,70,229,.32)}
+.on-search-wrap.search-left-collapsed #onSearch,.on-search-wrap.search-right-collapsed #onSearch{display:none!important}
+.on-project-wrap{position:relative;flex-shrink:0}
+.on-project-btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:12px;padding:8px 12px;background:linear-gradient(135deg,#ecfeff,#eef2ff 55%,#f5f3ff);color:#1e3a8a;font-size:11px;font-weight:900;cursor:pointer;border:1px solid #bfdbfe;box-shadow:0 6px 16px rgba(37,99,235,.10);white-space:nowrap;transition:transform .15s,box-shadow .15s}
+.on-project-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(37,99,235,.16)}
+.on-project-menu{position:fixed;top:72px;left:50%;transform:translateX(-50%);width:min(1040px,calc(100vw - 72px));max-height:calc(100vh - 110px);background:#fff;border:1px solid #dbeafe;border-radius:22px;box-shadow:0 30px 90px rgba(15,23,42,.28);z-index:5000;display:none;overflow:hidden}
+.on-project-menu.show{display:flex;flex-direction:column}
+.on-project-head{padding:12px 16px;background:linear-gradient(135deg,#172554,#312e81);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.on-project-title{font-size:13px;font-weight:950;display:flex;align-items:center;gap:8px}.on-project-sub{font-size:10px;color:#c7d2fe;margin-top:2px}.on-project-close{border:none;background:rgba(255,255,255,.14);color:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer}
+.on-project-body{padding:16px;display:grid;grid-template-columns:1.35fr .9fr;gap:16px;background:#f8fbff;overflow:auto;flex:1;min-height:0}.on-project-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;min-width:0;min-height:360px;display:flex;flex-direction:column}.on-project-card h4{margin:0 0 12px;font-size:14px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:8px}.on-project-view{font-size:13px;color:#334155;line-height:1.55;max-height:none;overflow:auto;flex:1;min-height:260px}.on-project-view ul{margin:0;padding-left:20px}.on-project-view li{margin:6px 0}.on-project-edit{display:none;flex:1;min-height:0}.on-project-textarea,.on-project-input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:12px;padding:10px 11px;font-size:13px;font-weight:650;color:#0f172a;background:#fff;outline:none}.on-project-textarea{height:320px;resize:vertical;line-height:1.5}.on-project-input{margin-bottom:9px}.on-project-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}.on-mini-btn{border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.on-mini-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff}.on-mini-ghost{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}.on-mini-green{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.on-project-pill{display:inline-flex;align-items:center;gap:5px;margin:3px 4px 3px 0;padding:5px 9px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:12px;font-weight:800;text-decoration:none}
+@media(max-width:980px){.on-project-menu{top:56px;width:calc(100vw - 24px);max-height:calc(100vh - 80px)}.on-project-body{grid-template-columns:1fr}.on-project-btn span{display:none}}
+
+.on-sync{display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:9px;border:1px solid rgba(34,197,94,.28);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(16,185,129,.06));flex-shrink:0}
+.on-sync-ico{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
+.on-top-help{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:10px;border:1px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;text-decoration:none;font-size:11px;font-weight:900;white-space:nowrap;flex-shrink:0;box-shadow:0 4px 12px rgba(79,70,229,.10);transition:transform .15s,box-shadow .15s}
+.on-top-help:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(79,70,229,.18);color:#312e81}
+.on-top-help i{font-size:11px}
+.on-bu-sidebar-wrap{flex-shrink:0;display:flex;flex-direction:column;height:100%;position:relative;background:#0f172a}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded{display:flex;height:100%}
+.on-bu-sidebar-wrap .bu-sidebar--embedded{height:100%;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding:8px 6px 8px!important;align-items:center;background:#0f172a}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded:not(.sidebar-collapsed) .bu-sidebar--embedded{align-items:stretch;padding:8px 8px 8px!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded.sidebar-collapsed .bu-nav-btn{width:46px!important;height:46px!important;min-width:46px!important;padding:0!important;justify-content:center!important;border-radius:12px!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded.sidebar-collapsed .bu-nav-icon{width:36px!important;height:36px!important;font-size:20px!important;border-radius:10px!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded.sidebar-collapsed .bu-action-btn{width:42px!important;height:32px!important;min-width:42px!important;padding:0!important;justify-content:center!important;border-radius:10px!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded.sidebar-collapsed .bu-action-btn i{width:20px!important;height:20px!important;font-size:16px!important;border-radius:0!important;background:none!important}
+
+.on-bu-sidebar-wrap .bu-simple-shell--embedded.sidebar-collapsed .bu-action-label{display:none!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded:not(.sidebar-collapsed) .bu-action-btn{width:100%!important;height:32px!important;padding:0 8px!important;justify-content:flex-start!important;border-radius:9px!important}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded:not(.sidebar-collapsed) .bu-action-btn i{width:24px!important;height:24px!important;font-size:14px!important;border-radius:8px!important}
+
+.on-bu-sidebar-wrap .bu-simple-shell--embedded:not(.sidebar-collapsed) .bu-action-label{display:block!important}
+.on-bu-sidebar-wrap .bu-sidebar-actions{display:flex!important;flex-direction:column!important;gap:2px!important;padding:3px 0 4px!important;border-top:1px solid rgba(148,163,184,.18)!important;margin-top:3px!important;width:100%;align-items:center}
+.on-bu-sidebar-wrap .bu-simple-shell--embedded:not(.sidebar-collapsed) .bu-sidebar-actions{align-items:stretch}
+
+.on-bu-sidebar-wrap .bu-nav-btn,.on-bu-sidebar-wrap .bu-action-btn{text-decoration:none!important}
+.on-bu-sidebar-wrap .bu-nav-icon{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:36px!important;height:36px!important;border-radius:10px!important;font-size:18px!important;flex-shrink:0!important}
+.on-bu-sidebar-wrap .bu-nav-btn{display:flex!important;align-items:center!important;gap:8px!important;padding:0!important;width:46px!important;height:46px!important;border-radius:12px!important;border:none!important;background:transparent!important;cursor:pointer!important;justify-content:center!important;text-decoration:none!important;color:inherit!important}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-nav-btn{width:100%!important;height:auto!important;padding:7px 8px!important;justify-content:flex-start!important;border-radius:10px!important}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-nav-icon{width:32px!important;height:32px!important;font-size:16px!important;border-radius:9px!important}
+.on-bu-sidebar-wrap .bu-nav-copy{display:none!important}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-nav-copy{display:flex!important;flex-direction:column!important;min-width:0!important}
+.on-bu-sidebar-wrap .bu-nav-title{font-size:12px!important;font-weight:800!important}
+.on-bu-sidebar-wrap .bu-nav-meta{font-size:10px!important;opacity:.7!important}
+.on-bu-sidebar-wrap .bu-sidebar-header{display:none!important}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-sidebar-header{display:block!important}
+.on-bu-sidebar-wrap .bu-sidebar-toggle-pill{position:fixed!important;top:50vh!important;transform:translateY(-50%)!important;bottom:auto!important;z-index:300!important;width:18px!important;height:36px!important;border:none!important;border-radius:0 8px 8px 0!important;background:linear-gradient(180deg,#4f46e5,#6366f1)!important;color:#fff!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:9px!important;box-shadow:2px 0 10px rgba(79,70,229,.4)!important;transition:background .15s!important}
+
+.on-bu-sidebar-wrap #onBuShell{display:flex!important;height:100%!important}
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed{width:58px!important}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed){width:210px!important}
+.on-body{display:flex;flex:1;min-height:0;overflow:hidden;position:relative}
+.on-panel{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 8px rgba(15,23,42,.06);display:flex;flex-direction:column;overflow:hidden;transition:width .22s ease;position:relative;z-index:10}
+.on-panel.collapsed{width:48px}
+.on-panel-pill{position:absolute;top:calc(50% + 6px);right:-11px;transform:translateY(-50%);z-index:20;width:20px;height:40px;border:none;border-radius:0 8px 8px 0;background:linear-gradient(180deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:3px 0 12px rgba(79,70,229,.45);font-size:9px;transition:background .15s}
+
+.on-ms-wrap{margin:10px 8px 6px;flex-shrink:0;perspective:1200px}
+.on-panel.collapsed .on-ms-wrap{opacity:0;pointer-events:none;height:0;margin:0;overflow:hidden}
+.on-ms-flip{position:relative;transform-style:preserve-3d;transition:transform .55s ease}
+.on-ms-flip.flipped{transform:rotateY(180deg)}
+.on-ms-front{backface-visibility:hidden;-webkit-backface-visibility:hidden;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#eef2ff,#e0f2fe);border:1px solid rgba(148,163,184,.6);box-shadow:0 6px 14px rgba(15,23,42,.10);font-size:11px;cursor:pointer}
+.on-ms-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.10em;color:#64748b;font-weight:600}
+.on-ms-label{font-size:10px;color:#94a3b8}
+.on-ms-phase-txt{margin-top:4px;font-size:16px;font-weight:800;color:#0f172a}
+.on-ms-bar-wrap{height:6px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin:8px 0 0}
+.on-ms-bar{height:100%;background:linear-gradient(90deg,#4f46e5,#22c55e);box-shadow:0 0 6px rgba(34,197,94,.7);border-radius:999px}
+.on-ms-hint{font-size:8px;color:#94a3b8;text-align:center;margin-top:6px}
+.on-ms-back{position:absolute;top:0;left:0;right:0;bottom:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#ffffff,#f8fbff);border:1px solid rgba(148,163,184,.6);box-shadow:0 6px 14px rgba(15,23,42,.10);display:flex;flex-direction:column;gap:4px;font-size:11px;overflow-y:auto}
+.on-ms-back-title{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:2px}
+.on-ms-back-title span{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.10em}
+.on-ms-back-close{border:none;background:#eef2ff;color:#334155;border-radius:999px;width:28px;height:28px;font-weight:900;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.on-panel-inner{display:flex;flex-direction:column;padding:4px 6px 10px;gap:2px;overflow-y:auto;overflow-x:hidden;flex:1}
+.on-panel-label{font-size:8px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.14em;padding:8px 10px 3px;white-space:nowrap;overflow:hidden;transition:opacity .22s}
+.on-panel.collapsed .on-panel-label{opacity:0;height:0;padding:0;margin:0}
+.on-panel-btn{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:10px;text-decoration:none;color:#475569;font-size:11.5px;font-weight:700;border:1px solid transparent;white-space:nowrap;overflow:hidden;transition:background .14s,color .14s,border-color .14s;cursor:pointer;position:relative}
+.on-panel-btn i{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.on-panel-btn.c-indigo i{background:rgba(99,102,241,.12);color:#4f46e5}
+.on-panel-btn.c-cyan i{background:rgba(6,182,212,.12);color:#0891b2}
+.on-panel-btn.c-green i{background:rgba(16,185,129,.12);color:#059669}
+.on-panel-btn.c-amber i{background:rgba(245,158,11,.12);color:#d97706}
+.on-panel-btn:hover{background:#f0f4ff;color:#3730a3;border-color:rgba(99,102,241,.15)}
+.on-panel-btn.active{background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#3730a3;border-color:#c7d2fe;font-weight:800;border-left:3px solid #4f46e5}
+.on-panel-btn.active i{background:rgba(79,70,229,.18)!important;color:#4f46e5!important}
+.on-panel.collapsed .on-panel-btn{justify-content:center;padding:8px 0}
+.on-panel.collapsed .on-panel-btn-text{display:none}
+.on-panel-divider{height:1px;background:#f1f5f9;margin:4px 8px}
+.on-content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;background:#f8fafc}
+body.page-unique-crs .on-shell{overflow:visible!important;height:auto!important;min-height:calc(100vh - 58px)}
+body.page-unique-crs .on-body{overflow:visible!important}
+body.page-unique-crs .on-content{overflow:visible!important}
+body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 110px)!important;}
+.on-tabs{display:flex;align-items:center;gap:3px;padding:5px 10px 0;background:#f8fafc;border-bottom:2px solid #e2e8f0;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.on-tabs::-webkit-scrollbar{display:none}
+.on-tab{display:inline-flex;align-items:center;gap:5px;padding:5px 11px 6px;text-decoration:none;font-weight:700;font-size:11px;border-radius:7px 7px 0 0;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .14s;border:1px solid transparent;border-bottom-width:3px}
+.on-tab i{font-size:10px}
+.on-tab-sep{width:1px;height:16px;background:#e2e8f0;margin:0 2px;align-self:center;flex-shrink:0}
+.on-tab.t-indigo{background:#eef2ff;color:#4338ca;border-color:#e0e7ff;border-bottom-color:#e0e7ff}
+.on-tab.t-indigo.active{background:#fff;color:#3730a3;border-color:#c7d2fe;border-bottom-color:#6366f1;font-weight:800;box-shadow:0 -2px 0 #6366f1 inset}
+.on-tab.t-sky{background:#f0f9ff;color:#0369a1;border-color:#e0f2fe;border-bottom-color:#e0f2fe}
+.on-tab.t-sky.active{background:#fff;color:#075985;border-color:#bae6fd;border-bottom-color:#0ea5e9;font-weight:800;box-shadow:0 -2px 0 #0ea5e9 inset}
+.on-tab.t-violet{background:#f5f3ff;color:#6d28d9;border-color:#ede9fe;border-bottom-color:#ede9fe}
+.on-tab.t-violet.active{background:#fff;color:#5b21b6;border-color:#ddd6fe;border-bottom-color:#8b5cf6;font-weight:800;box-shadow:0 -2px 0 #8b5cf6 inset}
+.on-tab.t-teal{background:#f0fdfa;color:#0f766e;border-color:#ccfbf1;border-bottom-color:#ccfbf1}
+.on-tab.t-teal.active{background:#fff;color:#134e4a;border-color:#99f6e4;border-bottom-color:#14b8a6;font-weight:800;box-shadow:0 -2px 0 #14b8a6 inset}
+.on-tab.t-rose{background:#fff1f2;color:#be123c;border-color:#ffe4e6;border-bottom-color:#ffe4e6}
+.on-tab.t-rose.active{background:#fff;color:#9f1239;border-color:#fecdd3;border-bottom-color:#f43f5e;font-weight:800;box-shadow:0 -2px 0 #f43f5e inset}
+.on-tab.t-orange{background:#fff7ed;color:#c2410c;border-color:#ffedd5;border-bottom-color:#ffedd5}
+.on-tab.t-orange.active{background:#fff;color:#9a3412;border-color:#fed7aa;border-bottom-color:#f97316;font-weight:800;box-shadow:0 -2px 0 #f97316 inset}
+.on-tab.t-amber{background:#fffbeb;color:#b45309;border-color:#fef3c7;border-bottom-color:#fef3c7}
+.on-tab.t-amber.active{background:#fff;color:#92400e;border-color:#fde68a;border-bottom-color:#f59e0b;font-weight:800;box-shadow:0 -2px 0 #f59e0b inset}
+.on-tab.t-green{background:#f0fdf4;color:#047857;border-color:#dcfce7;border-bottom-color:#dcfce7}
+.on-tab.t-green.active{background:#fff;color:#065f46;border-color:#bbf7d0;border-bottom-color:#10b981;font-weight:800;box-shadow:0 -2px 0 #10b981 inset}
+.on-tab.t-cyan{background:#ecfeff;color:#0e7490;border-color:#cffafe;border-bottom-color:#cffafe}
+.on-tab.t-cyan.active{background:#fff;color:#155e75;border-color:#a5f3fc;border-bottom-color:#06b6d4;font-weight:800;box-shadow:0 -2px 0 #06b6d4 inset}
+.on-tab.t-slate{background:#f8fafc;color:#334155;border-color:#f1f5f9;border-bottom-color:#f1f5f9}
+.on-page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 20px;min-height:0}
+.td-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:1000}
+.td-modal-backdrop.show{display:flex}
+.td-modal{background:#fff;width:min(860px,92vw);border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.35);padding:16px}
+.td-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.td-modal-title{font-weight:900;font-size:18px}
+.td-modal-body{font-size:13px;color:#334155;line-height:1.6;max-height:70vh;overflow:auto}
+.td-modal-close{border:0;background:#f1f5f9;padding:6px 10px;border-radius:8px;cursor:pointer}
+
+/* Dark theme overrides for the target workspace shell */
+[data-theme="dark"] .on-shell{background:#0f172a;color:#e2e8f0}
+[data-theme="dark"] .on-topbar{background:#111827;border-bottom-color:#334155;box-shadow:0 1px 0 rgba(255,255,255,.03)}
+[data-theme="dark"] .on-content,[data-theme="dark"] .on-tabs{background:#0f172a;border-color:#334155}
+[data-theme="dark"] .on-page{background:#0f172a;color:#e2e8f0}
+[data-theme="dark"] .on-panel{background:#111827;border-right-color:#334155;box-shadow:2px 0 10px rgba(0,0,0,.28)}
+[data-theme="dark"] .on-panel-label{color:#94a3b8}
+[data-theme="dark"] .on-panel-divider{background:#263244}
+[data-theme="dark"] .on-panel-btn{color:#cbd5e1}
+[data-theme="dark"] .on-panel-btn:hover{background:#1e293b;color:#c4b5fd;border-color:#475569}
+[data-theme="dark"] .on-panel-btn.active{background:linear-gradient(135deg,rgba(79,70,229,.28),rgba(30,41,59,.96));color:#e0e7ff;border-color:#6366f1;border-left-color:#818cf8}
+[data-theme="dark"] .on-panel-btn.active i{background:rgba(129,140,248,.20)!important;color:#c7d2fe!important}
+[data-theme="dark"] .on-ms-front,[data-theme="dark"] .on-ms-back{background:linear-gradient(135deg,#1e293b,#111827);border-color:#475569;color:#e2e8f0;box-shadow:0 8px 18px rgba(0,0,0,.35)}
+[data-theme="dark"] .on-ms-phase-txt{color:#f8fafc}
+[data-theme="dark"] .on-ms-kicker,[data-theme="dark"] .on-ms-back-title span{color:#94a3b8}
+[data-theme="dark"] .on-ms-label,[data-theme="dark"] .on-ms-hint{color:#64748b}
+[data-theme="dark"] .on-ms-back-close,[data-theme="dark"] .td-modal-close{background:#263244;color:#e2e8f0}
+[data-theme="dark"] .on-search{background:linear-gradient(135deg,#111827,#162033)!important;border-color:#22c55e!important;box-shadow:0 0 0 2px rgba(34,197,94,.10),0 8px 22px rgba(0,0,0,.22)!important}
+[data-theme="dark"] .on-search input{color:#f8fafc!important}
+[data-theme="dark"] .on-search input::placeholder{color:#94a3b8}
+[data-theme="dark"] .on-project-btn,[data-theme="dark"] .on-top-help{background:linear-gradient(135deg,#1e293b,#263244);border-color:#475569;color:#c7d2fe}
+[data-theme="dark"] .on-project-menu,[data-theme="dark"] .on-project-card,[data-theme="dark"] .td-modal{background:#111827;border-color:#334155;color:#e2e8f0}
+[data-theme="dark"] .on-project-body{background:#0f172a}
+[data-theme="dark"] .on-project-card h4,[data-theme="dark"] .td-modal-title{color:#f8fafc}
+[data-theme="dark"] .on-project-view,[data-theme="dark"] .td-modal-body{color:#cbd5e1}
+[data-theme="dark"] .on-project-textarea,[data-theme="dark"] .on-project-input{background:#0f172a;color:#f8fafc;border-color:#475569}
+[data-theme="dark"] .on-sync{background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(16,185,129,.08));border-color:rgba(34,197,94,.35)}
+[data-theme="dark"] .on-sync div[style*="color:#0f172a"]{color:#e2e8f0!important}
+[data-theme="dark"] .on-tab{background:#111827!important;color:#cbd5e1!important;border-color:#334155!important;border-bottom-color:#334155!important}
+[data-theme="dark"] .on-tab.active{background:#1e293b!important;color:#f8fafc!important;box-shadow:none!important}
+[data-theme="dark"] .on-tab-sep{background:#334155}
+[data-theme="dark"] .on-bu-sidebar-wrap,[data-theme="dark"] .on-bu-sidebar-wrap .bu-sidebar--embedded{background:#020617!important;border-color:#1e293b!important;border-right-color:#334155!important;box-shadow:2px 0 14px rgba(0,0,0,.35)!important;color:#e2e8f0!important}
+[data-theme="dark"] .on-bu-sidebar-wrap .bu-nav-btn,[data-theme="dark"] .on-bu-sidebar-wrap .bu-action-btn{background:transparent!important;border-color:transparent!important;color:#cbd5e1!important}
+[data-theme="dark"] .on-bu-sidebar-wrap .bu-nav-btn:hover,[data-theme="dark"] .on-bu-sidebar-wrap .bu-action-btn:hover{background:rgba(99,102,241,.16)!important;color:#c7d2fe!important;border-color:rgba(99,102,241,.30)!important}
+[data-theme="dark"] .on-bu-sidebar-wrap .bu-nav-btn.is-active{background:linear-gradient(135deg,rgba(79,70,229,.34),rgba(37,99,235,.20))!important;color:#e0e7ff!important;border-color:rgba(129,140,248,.55)!important;box-shadow:0 6px 18px rgba(79,70,229,.18)!important}
+[data-theme="dark"] .on-bu-sidebar-wrap .bu-nav-title{color:#f8fafc!important}
+[data-theme="dark"] .on-bu-sidebar-wrap .bu-nav-meta{color:#94a3b8!important}
+[data-theme="dark"] #onCustomizeModal>div,[data-theme="dark"] #tdMilestoneModal>div{background:#111827!important;color:#e2e8f0!important;border-color:#334155!important}
+[data-theme="dark"] #onCustomizeList label{background:#1e293b!important;border-color:#334155!important;color:#e2e8f0!important}
+[data-theme="dark"] #tdMilestoneModal input{background:#0f172a!important;color:#f8fafc!important;border-color:#475569!important}
+
+/* Final dashboard BU rail fix: keep BU list and bottom actions from overlapping/clipping */
+.on-bu-sidebar-wrap,
+.on-bu-sidebar-wrap #onBuShell,
+.on-bu-sidebar-wrap #onBuSidebar{
+  height:100%!important;
+  min-height:0!important;
+}
+.on-bu-sidebar-wrap #onBuSidebar{
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+}
+.on-bu-sidebar-wrap .bu-sidebar-list{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:visible!important;
+  width:100%!important;
+  padding-bottom:6px!important;
+  scrollbar-width:thin!important;
+}
+.on-bu-sidebar-wrap .bu-sidebar-actions{
+  margin-top:auto!important;
+  flex:0 0 auto!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:6px 0 0!important;
+  border-top:1px solid rgba(199,210,254,.55)!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:3px!important;
+  background:transparent!important;
+}
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-sidebar-actions{
+  align-items:center!important;
+}
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-action-btn{
+  width:42px!important;
+  height:34px!important;
+  min-width:42px!important;
+  padding:0!important;
+  justify-content:center!important;
+  align-items:center!important;
+  overflow:visible!important;
+}
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-action-label,
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-nav-copy,
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-sidebar-header{
+  display:none!important;
+}
+.on-bu-sidebar-wrap #onBuShell.sidebar-collapsed .bu-action-btn i{
+  margin:0!important;
+  width:22px!important;
+  height:22px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-action-btn{
+  width:100%!important;
+  min-width:0!important;
+  height:34px!important;
+  padding:0 8px!important;
+  justify-content:flex-start!important;
+  overflow:hidden!important;
+}
+.on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed) .bu-action-label{
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+</style>
+
+<div class="on-shell">
+  <div class="on-topbar">
+    <div class="on-target-chip">
+      <i class="fas fa-crosshairs"></i>
+      {% set cfg = TARGETS_CONFIG.get(t, {}) or {} %}
+      {% set display_name = (cfg.display_name or t)|upper %}
+      {{ display_name }}
+    </div>
+    <div class="on-topbar-spacer"></div>
+    <div class="on-project-wrap" id="onProjectWrap">
+      <button type="button" class="on-project-btn" id="onProjectBtn" title="Project highlights, PDT POC and mailing list">
+        <i class="fas fa-layer-group"></i><span>Key Highlights</span><i class="fas fa-chevron-down" style="font-size:9px"></i>
+      </button>
+      <div class="on-project-menu" id="onProjectMenu">
+        <div class="on-project-head">
+          <div><div class="on-project-title"><i class="fas fa-star"></i> Key Highlights</div><div class="on-project-sub">QGenie internal subsystem summary + PDT POC & mailing list</div></div>
+          <button type="button" class="on-project-close" id="onProjectClose"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="on-project-body">
+          <div class="on-project-card">
+            <h4><i class="fas fa-microchip" style="color:#4f46e5"></i> Target / SP Subsystem Highlights</h4>
+            <div class="on-project-view" id="onProjHighlightsView">Loading...</div>
+            <div class="on-project-edit" id="onProjHighlightsEdit"><textarea class="on-project-textarea" id="onProjHighlightsText" placeholder="One item per line. Example: CPU: Kryo cores / GPU: Adreno / DDR: LPDDR5..."></textarea></div>
+            <div class="on-project-actions">
+              <button type="button" class="on-mini-btn on-mini-green" id="onProjQgenie"><i class="fas fa-magic"></i> QGenie Fill</button>
+              <button type="button" class="on-mini-btn on-mini-ghost" id="onProjHighlightsEditBtn"><i class="fas fa-edit"></i> Edit</button>
+              <button type="button" class="on-mini-btn on-mini-primary" id="onProjHighlightsSave" style="display:none"><i class="fas fa-save"></i> Save</button>
+            </div>
+          </div>
+          <div class="on-project-card">
+            <h4><i class="fas fa-user-tie" style="color:#7c3aed"></i> PDT POC & Mailing List</h4>
+            <div class="on-project-view" id="onProjPocView">Loading...</div>
+            <div class="on-project-edit" id="onProjPocEdit">
+              <input class="on-project-input" id="onProjPocInput" placeholder="PDT POC name / email">
+              <textarea class="on-project-textarea" id="onProjMailInput" placeholder="Mailing lists, comma or newline separated"></textarea>
+            </div>
+            <div class="on-project-actions">
+              <button type="button" class="on-mini-btn on-mini-ghost" id="onProjPocEditBtn"><i class="fas fa-edit"></i> Edit</button>
+              <button type="button" class="on-mini-btn on-mini-primary" id="onProjPocSave" style="display:none"><i class="fas fa-save"></i> Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="on-search-wrap" id="onSearchWrap">
+      <button type="button" class="on-topbar-collapse-btn" id="onSearchCollapseLeft" title="Collapse search from left" aria-label="Collapse search from left" aria-pressed="false">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <div class="on-search" id="onSearch">
+        <i class="fas fa-search" id="onSearchIcon"></i>
+        <input id="tdJiraInput" placeholder="Search CR/JIRA (e.g., CR4442995 or QSTABILITY-1234)" oninput="onSearchType(this)" onkeydown="if(event.key==='Enter'){ openTdJiraSearch(); }">
+        <span class="on-search-hint" id="onSearchHint"></span>
+        <button class="on-search-btn" onclick="openTdJiraSearch()">Search</button>
+      </div>
+      <button type="button" class="on-topbar-collapse-btn" id="onSearchCollapseRight" title="Collapse search from right" aria-label="Collapse search from right" aria-pressed="false">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+    <div class="on-topbar-spacer"></div>
+
+        <div class="on-sync">
+      <div class="on-sync-ico"><i class="fas fa-file-excel"></i></div>
+      <div>
+        {% if page_heading is defined and "Unique CRs" in page_heading %}
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#166534;font-weight:900;">Last UCR Upd</div>
+          <div style="font-size:11px;font-weight:900;color:#0f172a;white-space:nowrap;">{{ _last_ucr_sync }}</div>
+        {% else %}
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#166534;font-weight:900;">Last Excel Upd</div>
+          <div style="font-size:11px;font-weight:900;color:#0f172a;white-space:nowrap;">{{ _last_excel_sync }}</div>
+        {% endif %}
+      </div>
+    </div>
+        <a href="{{ url_for('dashboard_help') }}" class="on-top-help" data-tab-key="help" target="_blank" rel="noopener" title="Help">
+      <i class="fas fa-question-circle"></i> Help
+    </a>
+    {% block header_actions %}{% endblock %}
+  </div>
+
+    <div class="on-body">
+            <div class="on-bu-sidebar-wrap" style="position:relative;">
+          <button type="button" class="bu-sidebar-toggle-pill" id="onBuSidebarToggle" aria-label="Collapse panel" title="Collapse panel">
+            <i class="fas fa-chevron-left" id="onBuToggleIcon"></i>
+          </button>
+            <div class="bu-simple-shell bu-simple-shell--embedded" id="onBuShell">
+        <aside class="bu-sidebar bu-sidebar--embedded" id="onBuSidebar" style="position:relative;">
+          <div class="bu-sidebar-header">
+            <div class="bu-sidebar-header-top"></div>
+            <div class="bu-sidebar-kicker"></div>
+            <h1 class="bu-sidebar-title">Business Units</h1>
+            <p class="bu-sidebar-subtitle">Simple navigation with lightweight buttons.</p>
+
+          </div>
+          <div class="bu-sidebar-list" role="tablist" aria-label="Business Units">
+            <a href="{{ url_for('cr_overview_embed') }}" class="bu-nav-btn {{ 'is-active' if not active_bu_key else '' }}" title="OVERALL BU — CR Overview">
+              <span class="bu-nav-icon accent-overall"><i class="fas fa-chart-pie"></i></span>
+              <span class="bu-nav-copy">
+                <span class="bu-nav-title">OVERALL BU</span>
+                <span class="bu-nav-meta">CR Overview</span>
+              </span>
+            </a>
+                                                {% for bu in (bu_list or []) %}
+              {% set _bku = bu.key|upper %}
+              {% if _bku == 'AUTO' or _bku == 'AUTOMOTIVE' %}
+                {% set _bu_nav_url = url_for('auto_select_gen') %}
+              {% elif _bku == 'WBC' %}
+                {% set _bu_nav_url = url_for('wbc_hierarchy') %}
+              {% elif _bku == 'MDM_TELEMATICS' or _bku == 'AUTO_TELEMATICS' %}
+                {% set _bu_nav_url = url_for('mdm_hierarchy', bu_key=_bku) %}
+              {% elif _bku == 'WEEKLY_QIPL_REPORTS' %}
+                {% set _bu_nav_url = url_for('weekly_summary_bp.weekly_report_landing') %}
+              {% else %}
+                {% set _bu_nav_url = url_for('select_target_for_bu', bu_key=bu.key) %}
+              {% endif %}
+
+              <a href="{{ _bu_nav_url }}" class="bu-nav-btn {{ 'is-active' if active_bu_key == _bku else '' }}" title="{{ (bu.display_name or bu.key)|upper }} — {% if _bku == 'WEEKLY_QIPL_REPORTS' %}Weekly Reports{% else %}{{ bu.targets_count }} targets{% endif %}">
+                <span class="bu-nav-icon accent-{{ 'auto' if _bku in ['AUTO','AUTOMOTIVE'] else 'wbc' if _bku in ['WBC','MDM_TELEMATICS','AUTO_TELEMATICS'] else 'default' }}">
+                  <i class="fas {{ BU_ICONS.get(_bku, 'fa-shield-alt') }}"></i>
+                </span>
+                <span class="bu-nav-copy">
+                  <span class="bu-nav-title">{{ (bu.display_name or bu.key)|upper }}</span>
+                  <span class="bu-nav-meta">{% if _bku == 'WEEKLY_QIPL_REPORTS' %}Weekly Reports{% else %}{{ bu.targets_count }} targets{% endif %}</span>
+                </span>
+              </a>
+                        {% endfor %}
+
+            <div class="bu-nav-divider" style="height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);margin:6px 8px;"></div>
+
+            <a href="{{ url_for('hwpdt_overview') }}" class="bu-nav-btn {{ 'is-active' if active_bu_key == 'HWPDT' else '' }}" title="HWPDT — Hardware PDT Overview">
+              <span class="bu-nav-icon" style="background:linear-gradient(135deg,rgba(8,145,178,.18),rgba(6,182,212,.18));color:#0891b2;">
+                <i class="fas fa-microchip"></i>
+              </span>
+              <span class="bu-nav-copy">
+                <span class="bu-nav-title">HWPDT</span>
+                <span class="bu-nav-meta">HW Overview</span>
+              </span>
+            </a>
+          </div>
+                    <div class="bu-sidebar-actions">
+            {% if current_user.is_authenticated and current_user.role == 'admin' %}
+            <button type="button" id="adminToggleBtn" class="bu-action-btn bu-action-btn--admin-modal" title="Admin Panel">
+              <i class="fas fa-user-shield"></i>
+              <span class="bu-action-label">Admin Panel</span>
+            </button>
+            <a href="{{ url_for('admin_usage') }}" class="bu-action-btn bu-action-btn--admin" title="Admin Stats">
+              <i class="fas fa-chart-line"></i>
+              <span class="bu-action-label">Admin Stats</span>
+            </a>
+            {% endif %}
+            {% if current_user.is_authenticated %}
+            <button type="button" class="bu-action-btn bu-action-btn--feedback" title="Feedback" onclick="if(window.openRatingPopup)window.openRatingPopup();">
+              <i class="fas fa-star"></i>
+              <span class="bu-action-label">Feedback</span>
+            </button>
+            <a href="{{ url_for('admin_raise_ticket') }}" class="bu-action-btn bu-action-btn--ticket" title="Raise Ticket" target="_top">
+              <i class="fas fa-ticket-alt"></i>
+              <span class="bu-action-label">Raise Ticket</span>
+            </a>
+            {% endif %}
+            <button type="button" id="onBuThemeBtn" class="bu-action-btn bu-action-btn--theme" title="Toggle Dark / Light mode">
+              <i class="fas fa-moon" id="onBuThemeIcon"></i>
+              <span class="bu-action-label" id="onBuThemeLabel">Dark Mode</span>
+            </button>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('logout') }}" class="bu-action-btn bu-action-btn--logout" title="Logout">
+              <i class="fas fa-sign-out-alt"></i>
+              <span class="bu-action-label">Logout</span>
+            </a>
+            {% endif %}
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="on-panel" id="onPanel">
+      <button class="on-panel-pill" id="onPanelPill" title="Toggle panel">
+        <i class="fas fa-chevron-left" id="onPanelIcon"></i>
+      </button>
+
+      {% if mp %}
+      <div class="on-ms-wrap" id="onMsWrap">
+        <div class="on-ms-flip" id="onMsFlip">
+          <div class="on-ms-front" id="onMsFront" onclick="onMsFlipCard(true)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span class="on-ms-kicker">Current Phase</span>
+              <span class="on-ms-label">{{ mp.phase_label }}</span>
+            </div>
+            <div class="on-ms-phase-txt" id="tdMsPhaseLabel">{{ mp.phase_name }}</div>
+            <div style="margin:8px 0 4px;position:relative;">
+              <div style="height:6px;border-radius:999px;background:#e5e7eb;position:relative;">
+                <div id="tdMsBar" style="height:100%;border-radius:999px;background:linear-gradient(90deg,#4f46e5,#22c55e);width:{{ mp.progress_pct }}%;transition:width .6s ease;"></div>
+                <div title="ES" style="position:absolute;top:-3px;left:33%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[0].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+                <div title="FC" style="position:absolute;top:-3px;left:66%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[1].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+                <div title="CS" style="position:absolute;top:-3px;left:calc(100% - 6px);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[2].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:9px;font-weight:800;color:#94a3b8;padding:0 2px;">
+                <span style="margin-left:27%;">ES</span><span>FC</span><span>CS</span>
+              </div>
+            </div>
+            <div class="on-ms-dates-row" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+              {% for ms in mp.milestones %}
+              {% set ms_done = ms.status == "done" %}
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:10px;color:#475569;">
+                <span><strong>{{ ms.label }}</strong> - {{ ms.date }}</span>
+                <span style="color:{% if ms_done %}#16a34a{% else %}#94a3b8{% endif %};font-weight:800;white-space:nowrap;">{% if ms_done %}<i class="fas fa-check-circle"></i> Done{% elif ms.date != 'TBD' %}Upcoming{% else %}TBD{% endif %}</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="on-ms-hint"><i class="fas fa-pencil-alt" style="font-size:7px"></i> Click to edit milestones / MTBF goals</div>
+          </div>
+          <div class="on-ms-back" id="onMsBack">
+            <div class="on-ms-back-title">
+              <span>Edit Milestones</span>
+              <button class="on-ms-back-close" onclick="onMsFlipCard(false)" title="Back">&larr;</button>
+            </div>
+            <div style="margin-top:8px;">
+              <button type="button" id="tdMilestoneOpen" style="border:none;border-radius:12px;padding:10px 12px;width:100%;background:linear-gradient(135deg,#4e44d9,#6d63ff);color:#fff;font-weight:900;font-size:13px;cursor:pointer;">
+                <i class="fas fa-edit"></i> Open to Edit
+              </button>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#64748b;">Click the card to flip back.</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="on-panel-inner">
+        <div class="on-panel-label">Planning</div>
+        <a href="{{ url_for('dashboard_bp.pdt_planning_empty', target_name=t) }}" class="on-panel-btn c-indigo {{ 'active' if s == 'pdt-planning' else '' }}" data-tip="PDT Planning" data-tab-key="pdt-planning">
+          <i class="fas fa-clipboard-list"></i>
+          <span class="on-panel-btn-text">PDT Planning</span>
+        </a>
+        <div class="on-panel-divider"></div>
+        <div class="on-panel-label">Execution</div>
+                <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='dashboard', toggle_mode=m, pdt_type=p) }}" class="on-panel-btn c-cyan {{ 'active' if s not in ('pdt-planning','pdt-analysis','workspace') else '' }}" data-tip="PDT Execution" data-tab-key="pdt-execution">
+          <i class="fas fa-play-circle"></i>
+          <span class="on-panel-btn-text">PDT Execution</span>
+        </a>
+                {% if unique_cr_path and unique_cr_path|string|trim %}
+        <div class="on-panel-divider"></div>
+        <div class="on-panel-label">Unique CRs</div>
+        <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='unique-crs', toggle_mode=m, pdt_type=p) }}" class="on-panel-btn c-amber {{ 'active' if s == 'unique-crs' else '' }}" data-tip="Unique CRs" data-tab-key="unique-crs">
+          <i class="fas fa-file-alt"></i>
+          <span class="on-panel-btn-text">Unique CRs</span>
+        </a>
+        {% endif %}
+        <div class="on-panel-divider"></div>
+        <div class="on-panel-label">Analysis</div>
+                <a href="{{ url_for('dashboard_bp.pdt_analysis_empty', target_name=t) }}" class="on-panel-btn c-green {{ 'active' if s == 'pdt-analysis' else '' }}" data-tip="PDT Analysis" data-tab-key="pdt-analysis">
+          <i class="fas fa-chart-bar"></i>
+          <span class="on-panel-btn-text">PDT Analysis</span>
+        </a>
+          
+          
+        <div class="on-panel-divider"></div>
+        <button type="button" class="on-panel-btn" id="onCustomizeBtn" onclick="onOpenCustomize()" style="width:100%;background:none;border:1.5px dashed #c7d2fe;color:#4f46e5;margin-top:2px;cursor:pointer">
+          <i class="fas fa-sliders-h" style="background:rgba(99,102,241,.12);color:#4f46e5;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"></i>
+          <span class="on-panel-btn-text">Customize</span>
+        </button>
+      </div>
+    </div>
+
+        <div class="on-content">
+            {% if s == 'unique-crs' %}
+      <div class="on-tabs">
+        <span class="on-tab t-amber active"><i class="fas fa-file-alt"></i> Unique CRs</span>
+      </div>
+      <div class="on-page" style="padding:12px 16px 20px;overflow-y:auto;flex:1;min-height:0;">
+        {% include 'overall_crs_embed.html' %}
+      </div>
+      {% elif s == 'pdt-planning' %}
+      <div class="on-tabs">
+        <span class="on-tab t-violet" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-file-alt"></i> FR Analysis</span>
+        <span class="on-tab t-teal" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-microchip"></i> HW Impact Sheet</span>
+        <span class="on-tab t-rose" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-ruler-combined"></i> ARB Specifications</span>
+      </div>
+      {% elif s == 'pdt-analysis' %}
+      <div class="on-tabs">
+        <span class="on-tab t-cyan" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-chart-line"></i> CR Trend Analysis</span>
+        <span class="on-tab t-violet" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-layer-group"></i> Area Breakdown</span>
+        <span class="on-tab t-rose" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-microscope"></i> RCA Insights</span>
+        <span class="on-tab t-amber" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-book-open"></i> Lessons Learnt</span>
+      </div>
+      {% elif s == 'workspace' %}
+      <div class="on-tabs">
+        <span class="on-tab t-amber" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-exclamation-triangle"></i> Escalations</span>
+        <span class="on-tab t-sky" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-comments"></i> Field Feedback</span>
+        <span class="on-tab t-green" style="opacity:.45;cursor:not-allowed" title="Coming Soon"><i class="fas fa-chart-line"></i> Issue Trends</span>
+      </div>
+            {% else %}
+      <div class="on-tabs">
+                <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='dashboard', toggle_mode=m, pdt_type=p) }}" class="on-tab t-indigo {{ 'active' if s == 'dashboard' else '' }}" data-tab-key="dashboard"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="{{ url_for('dashboard_bp.device_summary_page', target_name=t) }}" class="on-tab t-sky {{ 'active' if s == 'device-summary' else '' }}" data-tab-key="device-summary"><i class="fas fa-clipboard-list"></i> Device Summary</a>
+        <a href="{{ url_for('dashboard_bp.target_mtbf_excel_page', target_name=t) }}" class="on-tab t-violet {{ 'active' if s == 'mtbf-excel' else '' }}" data-tab-key="mtbf-excel"><i class="fas fa-file-excel"></i> MTBF</a>
+        <div class="on-tab-sep"></div>
+        <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='mtbf-table', toggle_mode=m, pdt_type='SWPDT') }}" class="on-tab t-violet {{ 'active' if s == 'mtbf-table' else '' }}" data-tab-key="mtbf-table"><i class="fas fa-table"></i> SWPDT</a>
+        {% if hwpdt_available %}<a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='hwpdt', toggle_mode=m, pdt_type='HWPDT') }}" class="on-tab t-cyan {{ 'active' if s == 'hwpdt' else '' }}" data-tab-key="hwpdt"><i class="fas fa-microchip"></i> HWPDT</a>{% endif %}
+        <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='weekly-report', toggle_mode=m, pdt_type=p) }}" class="on-tab t-teal {{ 'active' if s == 'weekly-report' else '' }}" data-tab-key="weekly-report"><i class="fas fa-file-alt"></i> Weekly Report</a>
+        <div class="on-tab-sep"></div>
+                <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='open-cr-analysis', toggle_mode=m, pdt_type=p) }}" class="on-tab t-rose {{ 'active' if s == 'open-cr-analysis' else '' }}" data-tab-key="open-cr-analysis"><i class="fas fa-microscope"></i> Open_Analysis CR</a>
+        <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='pdt-crs', toggle_mode=m, pdt_type=p) }}" class="on-tab t-amber {{ 'active' if s == 'pdt-crs' else '' }}" data-tab-key="pdt-crs"><i class="fas fa-bug"></i> PDT CRs</a>
+
+                <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='open-jiras', toggle_mode=m, pdt_type=p) }}" class="on-tab t-green {{ 'active' if s == 'open-jiras' else '' }}" data-tab-key="open-jiras"><i class="fas fa-ticket-alt"></i> Open JIRAs</a>
+      </div>
+            {% endif %}
+      {% if s != 'unique-crs' %}
+      <div class="on-page">
+        {% block page_content %}{% endblock %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Customize Tabs Modal -->
+<div id="onCustomizeModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.32);width:min(460px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#4f46e5,#6366f1);padding:15px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="color:#fff;font-size:15px;font-weight:900;display:flex;align-items:center;gap:9px"><i class="fas fa-sliders-h"></i> Customize Dashboard Tabs</div>
+      <button onclick="onCloseCustomize()" style="background:rgba(255,255,255,.2);border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:9px 20px 7px;background:#eef2ff;border-bottom:1px solid #e0e7ff;font-size:11px;color:#4338ca;font-weight:700">
+      <i class="fas fa-info-circle"></i> Checked tabs appear on the dashboard. Unchecked tabs are hidden and their data is skipped.
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:10px 20px" id="onCustomizeList"></div>
+    <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button onclick="onCustomizeSelectAll(true)" style="border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer"><i class="fas fa-check-double"></i> All</button>
+      <button onclick="onCustomizeSelectAll(false)" style="border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer"><i class="fas fa-times"></i> None</button>
+      <button onclick="onCloseCustomize()" style="border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>
+      <button onclick="onSaveCustomize()" style="background:linear-gradient(135deg,#4f46e5,#6366f1);border:none;color:#fff;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,.3)"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="tdMilestoneModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); z-index:9999; padding:16px;">
+  <div style="width:min(860px,96vw); background:#fff; border-radius:18px; box-shadow:0 20px 60px rgba(15,23,42,.35); overflow:hidden;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div style="font-weight:900; font-size:16px; color:#111827;">Edit Milestones</div>
+      <button type="button" id="tdMilestoneModalClose" style="border:none; background:#eef2ff; color:#334155; border-radius:999px; width:32px; height:32px; font-weight:900; cursor:pointer;">×</button>
+    </div>
+    <div style="padding:16px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;">
+      <div style="grid-column:1 / -1;">
+        <div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">SP Name</div>
+        <input id="tdMsSpName" type="text" placeholder="Enter SP name" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;">
+      </div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">ES</div><input id="tdMsEs" type="date" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">FC</div><input id="tdMsFc" type="date" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">CS</div><input id="tdMsCs" type="date" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">CS1</div><input id="tdMsCs1" type="date" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">FC MTBF Goal</div><input id="tdMsFcGoal" type="text" placeholder="50" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+      <div><div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">CS MTBF Goal</div><input id="tdMsCsGoal" type="text" placeholder="200" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700;"></div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; padding:14px 16px 16px; border-top:1px solid #e5e7eb;">
+      <button type="button" id="tdMilestoneModalCancel" style="border:none; border-radius:14px; padding:10px 14px; background:#eef2ff; color:#30457b; font-weight:900; cursor:pointer;">Cancel</button>
+      <button type="button" id="tdMilestoneModalSave" style="border:none; border-radius:14px; padding:10px 14px; background:linear-gradient(135deg,#4e44d9,#6d63ff); color:#fff; font-weight:900; cursor:pointer;">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+        var shell=document.getElementById('onBuShell');
+  var sidebar=document.getElementById('onBuSidebar');
+  var toggle=document.getElementById('onBuSidebarToggle');
+  var icon=document.getElementById('onBuToggleIcon');
+
+  /* Pin toggle pill to right edge of sidebar wrap using fixed positioning */
+  function positionTogglePill(){
+    if(!toggle) return;
+    var wrap = document.querySelector('.on-bu-sidebar-wrap');
+    if(!wrap) return;
+    var r = wrap.getBoundingClientRect();
+    toggle.style.setProperty('left', (r.right - 9) + 'px', 'important');
+  }
+  window.addEventListener('load', positionTogglePill);
+  window.addEventListener('resize', positionTogglePill);
+  setTimeout(positionTogglePill, 50);
+  setTimeout(positionTogglePill, 300);
+  function setBuCollapsed(collapsed){
+    if(!shell||!sidebar)return;
+    shell.classList.toggle('sidebar-collapsed',collapsed);
+    sidebar.classList.toggle('is-icons-only',collapsed);
+    if(icon)icon.className=collapsed?'fas fa-chevron-right':'fas fa-chevron-left';
+    if(toggle){toggle.title=collapsed?'Expand panel':'Collapse panel';toggle.setAttribute('aria-label',collapsed?'Expand panel':'Collapse panel');}
+  }
+  if(toggle&&shell&&sidebar){
+    var savedCollapsed=false;
+    try{savedCollapsed=localStorage.getItem('buSidebarCollapsed')==='true';}catch(e){}
+    setBuCollapsed(savedCollapsed);
+    toggle.addEventListener('click',function(){var collapsed=!shell.classList.contains('sidebar-collapsed');setBuCollapsed(collapsed);try{localStorage.setItem('buSidebarCollapsed',collapsed?'true':'false');}catch(e){}setTimeout(positionTogglePill,250);});
+  }
+  var themeBtn=document.getElementById('onBuThemeBtn');
+
+  var themeIcon=document.getElementById('onBuThemeIcon');
+  var themeLabel=document.getElementById('onBuThemeLabel');
+  function applyTheme(dark){document.documentElement.setAttribute('data-theme',dark?'dark':'light');try{localStorage.setItem('pdt_theme',dark?'dark':'light');}catch(e){} if(themeIcon)themeIcon.className=dark?'fas fa-sun':'fas fa-moon'; if(themeLabel)themeLabel.textContent=dark?'Light Mode':'Dark Mode';}
+  var saved=''; try{saved=localStorage.getItem('pdt_theme')||'';}catch(e){} applyTheme(saved==='dark'); if(themeBtn)themeBtn.addEventListener('click',function(){applyTheme(document.documentElement.getAttribute('data-theme')!=='dark');});
+})();
+
+/* Project Highlights dropdown */
+(function(){
+  const TARGET={{ target_name|tojson }};
+  const btn=document.getElementById('onProjectBtn');
+  const menu=document.getElementById('onProjectMenu');
+  const closeBtn=document.getElementById('onProjectClose');
+  if(!btn||!menu)return;
+  let ws={};
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function normalMail(v){return String(v||'').split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);}
+  function hlToText(items){return (items||[]).map(h=>((h.label||'')?h.label+': ':'')+(h.text||'')).join('\n');}
+  function textToHl(txt){return String(txt||'').split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{let i=line.indexOf(':');return i>0?{label:line.slice(0,i).trim(),text:line.slice(i+1).trim()}:{label:'Highlight',text:line};});}
+  function render(){
+    const h=ws.highlights||[];
+    const hView=document.getElementById('onProjHighlightsView');
+    if(hView){hView.innerHTML=h.length?'<ul>'+h.map(x=>'<li><b>'+esc(x.label||'Highlight')+':</b> '+esc(x.text||'')+'</li>').join('')+'</ul>':'<span style="color:#94a3b8">No highlights saved. Use QGenie Fill or Edit.</span>';}
+    const poc=ws.pdt_poc||{{ (pdt_poc or '')|tojson }}||'';
+    const mails=(ws.mailing_lists&&ws.mailing_lists.length)?ws.mailing_lists:normalMail({{ (mailing_list or '')|tojson }});
+    const pView=document.getElementById('onProjPocView');
+    if(pView){pView.innerHTML='<div style="margin-bottom:7px"><b>POC:</b> '+esc(poc||'Not configured')+'</div><div><b>Mail:</b><br>'+(mails.length?mails.map(m=>'<a class="on-project-pill" href="mailto:'+esc(typeof m==='string'?m:(m.email||m.label||''))+'"><i class="fas fa-envelope"></i>'+esc(typeof m==='string'?m:(m.email||m.label||''))+'</a>').join(''):'<span style="color:#94a3b8">Not configured</span>')+'</div>';}
+    const ht=document.getElementById('onProjHighlightsText'); if(ht)ht.value=hlToText(h);
+    const pi=document.getElementById('onProjPocInput'); if(pi)pi.value=poc;
+    const mi=document.getElementById('onProjMailInput'); if(mi)mi.value=mails.map(m=>typeof m==='string'?m:(m.email||m.label||'')).join(', ');
+  }
+  async function load(){try{ws=await fetch('/api/workspace/'+encodeURIComponent(TARGET),{cache:'no-store'}).then(r=>r.json());render();}catch(e){render();}}
+  async function save(patch){ws=Object.assign({},ws,patch);return fetch('/api/workspace/'+encodeURIComponent(TARGET),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ws)}).then(r=>r.json());}
+  function toggleEdit(prefix,on){document.getElementById(prefix+'View').style.display=on?'none':'block';document.getElementById(prefix+'Edit').style.display=on?'block':'none';document.getElementById(prefix+'Save').style.display=on?'inline-flex':'none';document.getElementById(prefix+'EditBtn').style.display=on?'none':'inline-flex';}
+  btn.addEventListener('click',function(e){e.stopPropagation();menu.classList.toggle('show');if(menu.classList.contains('show'))load();});
+  closeBtn&&closeBtn.addEventListener('click',function(){menu.classList.remove('show');});
+  document.addEventListener('click',function(e){if(!menu.contains(e.target)&&!btn.contains(e.target))menu.classList.remove('show');});
+  document.getElementById('onProjHighlightsEditBtn')?.addEventListener('click',()=>toggleEdit('onProjHighlights',true));
+  document.getElementById('onProjPocEditBtn')?.addEventListener('click',()=>toggleEdit('onProjPoc',true));
+  document.getElementById('onProjHighlightsSave')?.addEventListener('click',async function(){this.disabled=true;this.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving';await save({highlights:textToHl(document.getElementById('onProjHighlightsText').value)});this.disabled=false;this.innerHTML='<i class="fas fa-save"></i> Save';toggleEdit('onProjHighlights',false);render();});
+  document.getElementById('onProjPocSave')?.addEventListener('click',async function(){this.disabled=true;this.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving';await save({pdt_poc:document.getElementById('onProjPocInput').value.trim(),mailing_lists:normalMail(document.getElementById('onProjMailInput').value)});this.disabled=false;this.innerHTML='<i class="fas fa-save"></i> Save';toggleEdit('onProjPoc',false);render();});
+  document.getElementById('onProjQgenie')?.addEventListener('click',async function(){
+    this.disabled=true;this.innerHTML='<i class="fas fa-spinner fa-spin"></i> QGenie';
+    try{
+      let resp=await fetch('/api/workspace/'+encodeURIComponent(TARGET)+'/highlights_qgenie',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+      let d=await resp.json().catch(()=>({}));
+      if(d&&d.requires_config){
+        if(window.openQGenieConfigPanel) window.openQGenieConfigPanel();
+        else alert('QGenie API key is not configured. Please configure QGenie first.');
+        return;
+      }
+            if(!resp.ok||d.success===false){alert((d&&d.message)||'QGenie highlight refresh failed.');return;}
+      if(d&&d.workspace)ws=d.workspace;
+      render();
+    }catch(e){alert((e&&e.message)||'QGenie highlight refresh failed.');}
+    finally{this.disabled=false;this.innerHTML='<i class="fas fa-magic"></i> QGenie Fill';}
+  });
+  load();
+})();
+
+function onSearchType(input){
+  const wrap=document.getElementById('onSearch');
+  const hint=document.getElementById('onSearchHint');
+  if(!wrap)return;
+  const v=(input.value||'').trim();
+  if(!v){wrap.removeAttribute('data-state'); if(hint)hint.textContent=''; return;}
+  const isCR=/^(?:CR)?\d{4,}$/i.test(v);
+  const isJIRA=/^[A-Z][A-Z0-9]+-\d+$/i.test(v);
+  const isTypingCR=/^(?:CR)?\d+$/i.test(v);
+  const isTypingJIRA=/^[A-Z][A-Z0-9]*(-\d*)?$/i.test(v)&&!isTypingCR;
+  if(isCR){wrap.dataset.state='ready'; if(hint)hint.textContent='CR #'+v.replace(/\D/g,'');}
+  else if(isJIRA){wrap.dataset.state='ready'; if(hint)hint.textContent='JIRA Key';}
+  else if(isTypingCR){wrap.dataset.state='cr'; if(hint)hint.textContent='CR Number';}
+  else if(isTypingJIRA){wrap.dataset.state='jira'; if(hint)hint.textContent='JIRA Key';}
+  else {wrap.dataset.state='invalid'; if(hint)hint.textContent='';}
+}
+
+window.openTdJiraSearch=function(){
+  const input=document.getElementById('tdJiraInput');
+  if(!input)return;
+  const q=input.value.trim();
+  if(!q)return;
+  const crMatch=q.match(/^\s*(?:CR)?(\d+)\s*$/i);
+  if(crMatch){window.location.href=`/dashboard/${encodeURIComponent({{ t|tojson }})}/cr-info?cr=${encodeURIComponent(crMatch[1])}`;return;}
+  window.location.href=`/dashboard/${encodeURIComponent({{ t|tojson }})}/cr-info?cr=${encodeURIComponent(q)}`;
+};
+
+(function(){
+  const panel=document.getElementById('onPanel');
+  const pill=document.getElementById('onPanelPill');
+  const icon=document.getElementById('onPanelIcon');
+  if(panel&&pill){let collapsed=false; pill.addEventListener('click',function(){collapsed=!collapsed; panel.classList.toggle('collapsed',collapsed); icon.className=collapsed?'fas fa-chevron-right':'fas fa-chevron-left';});}
+})();
+
+(function(){
+  const searchWrap=document.getElementById('onSearchWrap');
+  const leftBtn=document.getElementById('onSearchCollapseLeft');
+  const rightBtn=document.getElementById('onSearchCollapseRight');
+  if(!searchWrap||!leftBtn||!rightBtn)return;
+  function setCollapsed(side){
+    const left=side==='left';
+    const right=side==='right';
+    searchWrap.classList.toggle('search-left-collapsed',left);
+    searchWrap.classList.toggle('search-right-collapsed',right);
+    leftBtn.setAttribute('aria-pressed',left?'true':'false');
+    rightBtn.setAttribute('aria-pressed',right?'true':'false');
+  }
+  leftBtn.addEventListener('click',function(){ setCollapsed(searchWrap.classList.contains('search-left-collapsed') ? '' : 'left'); });
+  rightBtn.addEventListener('click',function(){ setCollapsed(searchWrap.classList.contains('search-right-collapsed') ? '' : 'right'); });
+})();
+
+
+function onMsFlipCard(flip){const el=document.getElementById('onMsFlip'); if(el)el.classList.toggle('flipped',flip);}
+(function(){const front=document.getElementById('onMsFront'); const flip=document.getElementById('onMsFlip'); if(!front||!flip)return; function syncH(){const h=front.offsetHeight; if(h>0)flip.style.height=h+'px';} syncH(); window.addEventListener('resize',syncH);})();
+
+(function(){
+  function parseDate(v){if(!v||v==='TBD')return null; const d=new Date(v); return isNaN(d.getTime())?null:d;}
+  function fmtStatus(){
+    const today=new Date(); today.setHours(0,0,0,0);
+    const es=parseDate(document.getElementById('tdMsEsText')?.textContent?.trim());
+    const fc=parseDate(document.getElementById('tdMsFcText')?.textContent?.trim());
+    const cs=parseDate(document.getElementById('tdMsCsText')?.textContent?.trim());
+    const fcGoal=document.getElementById('tdMsFcGoalText')?.textContent?.trim()||'50';
+    const csGoal=document.getElementById('tdMsCsGoalText')?.textContent?.trim()||'200';
+    const esStatus=document.getElementById('tdMsEsStatus');
+    const fcStatus=document.getElementById('tdMsFcStatus');
+    const csStatus=document.getElementById('tdMsCsStatus');
+    if(esStatus) esStatus.textContent = es && today >= es ? 'Done' : 'Pending';
+    if(fcStatus) fcStatus.textContent = `MTBF Goal - ${fcGoal} ${fc && today >= fc ? 'Done' : 'Pending'}`;
+    if(csStatus) csStatus.textContent = `MTBF Goal - ${csGoal} ${cs && today >= cs ? 'Done' : 'Pending'}`;
+  }
+  try{
+    const mtbf=JSON.parse(localStorage.getItem('target_milestone_mtbf_' + {{ target_name|tojson }}) || '{}');
+    const fcGoal=mtbf.fc_goal || '50';
+    const csGoal=mtbf.cs_goal || '200';
+    const fcGoalText=document.getElementById('tdMsFcGoalText');
+    const csGoalText=document.getElementById('tdMsCsGoalText');
+    const fcGoalInput=document.getElementById('tdMsFcGoal');
+    const csGoalInput=document.getElementById('tdMsCsGoal');
+    if(fcGoalText)fcGoalText.textContent=fcGoal;
+    if(csGoalText)csGoalText.textContent=csGoal;
+    if(fcGoalInput)fcGoalInput.value=fcGoal;
+    if(csGoalInput)csGoalInput.value=csGoal;
+  }catch(e){}
+  fmtStatus();
+
+  const modal=document.getElementById('tdMilestoneModal');
+  const openBtn=document.getElementById('tdMilestoneOpen');
+  const modalClose=document.getElementById('tdMilestoneModalClose');
+  const modalCancel=document.getElementById('tdMilestoneModalCancel');
+  const modalSave=document.getElementById('tdMilestoneModalSave');
+  if(!modal)return;
+  function openMilestoneModal(){modal.style.display='flex';}
+  function closeMilestoneModal(){modal.style.display='none';}
+  openBtn&&openBtn.addEventListener('click',function(e){e.stopPropagation(); openMilestoneModal();});
+  modalClose&&modalClose.addEventListener('click',closeMilestoneModal);
+  modalCancel&&modalCancel.addEventListener('click',closeMilestoneModal);
+  modal.addEventListener('click',e=>{if(e.target===modal)closeMilestoneModal();});
+  if(modalSave){modalSave.addEventListener('click',async function(){
+    const payload={target_name:{{ target_name|tojson }},sp_name:(document.getElementById('tdMsSpName')?.value||'').trim(),milestones:{ES:document.getElementById('tdMsEs')?.value||'',FC:document.getElementById('tdMsFc')?.value||'',CS:document.getElementById('tdMsCs')?.value||'',CS1:document.getElementById('tdMsCs1')?.value||''}};
+    try{localStorage.setItem('target_milestone_mtbf_' + {{ target_name|tojson }}, JSON.stringify({fc_goal:document.getElementById('tdMsFcGoal')?.value||'50', cs_goal:document.getElementById('tdMsCsGoal')?.value||'200'}));}catch(e){}
+    const resp=await fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await resp.json().catch(function(){ return {}; });
+    if(!resp.ok||data.success===false){alert(data.message||'Save failed'); return;}
+    closeMilestoneModal();
+    location.reload();
+  });}
+})();
+/* ══ Customize Tabs ══ */
+(function(){
+    const TARGET = {{ target_name|tojson }};
+  const STORAGE_KEY = 'pdt_hidden_tabs_' + TARGET;
+  // Server-side admin settings injected by Flask. Admin config uses underscore keys;
+  // dashboard tabs use hyphen keys, so always normalize before applying.
+  window.PV_HIDDEN_TABS = {{ (pv_hidden_tabs or [])|tojson }};
+
+      const ADMIN_TO_UI_KEY = {
+    dashboard: 'dashboard',
+    device_summary: 'device-summary',
+    mtbf: 'mtbf-excel',
+    swpdt: 'mtbf-table',
+    hwpdt: 'hwpdt',
+    weekly_report: 'weekly-report',
+    open_cr_analysis: 'open-cr-analysis',
+    pdt_crs: 'pdt-crs',
+
+    open_jiras: 'open-jiras',
+    pdt_planning: 'pdt-planning',
+    pdt_execution: 'pdt-execution',
+    pdt_analysis: 'pdt-analysis',
+    customer_issues: 'customer-issues',
+    help: 'help'
+  };
+
+  const UI_TO_ADMIN_KEY = Object.fromEntries(Object.entries(ADMIN_TO_UI_KEY).map(([adminKey, uiKey]) => [uiKey, adminKey]));
+
+  function normalizeHiddenToUi(hidden){
+    return [...new Set((hidden || []).map(k => ADMIN_TO_UI_KEY[k] || k).filter(Boolean))];
+  }
+
+  function hiddenUiToAdminSettings(hiddenUi){
+    const hidden = new Set(hiddenUi || []);
+    const settings = {};
+    Object.entries(ADMIN_TO_UI_KEY).forEach(([adminKey, uiKey]) => {
+      settings[adminKey] = !hidden.has(uiKey);
+    });
+    return settings;
+  }
+
+
+  // All tabs definition: key, label, icon, color, section (which tab group they belong to)
+  const ALL_TABS = [
+    {key:'dashboard',      label:'Dashboard',        icon:'fa-th-large',       color:'#4f46e5', group:'execution'},
+    {key:'device-summary', label:'Device Summary',   icon:'fa-clipboard-list', color:'#0891b2', group:'execution'},
+    {key:'mtbf-excel',     label:'MTBF',             icon:'fa-file-excel',     color:'#7c3aed', group:'execution'},
+    {key:'mtbf-table',     label:'SWPDT',            icon:'fa-table',          color:'#7c3aed', group:'execution'},
+        {key:'hwpdt',          label:'HWPDT',            icon:'fa-microchip',      color:'#0891b2', group:'execution'},
+    {key:'weekly-report',  label:'Weekly Report',    icon:'fa-file-alt',       color:'#0f766e', group:'execution'},
+            {key:'open-cr-analysis',label:'Open Analysis CR',icon:'fa-microscope',     color:'#be123c', group:'execution'},
+
+    {key:'pdt-crs',        label:'PDT CRs',          icon:'fa-bug',            color:'#b45309', group:'execution'},
+
+    {key:'open-jiras',     label:'Open JIRAs',       icon:'fa-ticket-alt',     color:'#047857', group:'execution'},
+    {key:'pdt-planning',   label:'PDT Planning',     icon:'fa-clipboard-list', color:'#4f46e5', group:'left panel'},
+    {key:'pdt-execution',  label:'PDT Execution',    icon:'fa-play-circle',    color:'#0891b2', group:'left panel'},
+    {key:'pdt-analysis',   label:'PDT Analysis',     icon:'fa-chart-bar',      color:'#059669', group:'left panel'},
+    {key:'customer-issues',label:'Customer Issues',  icon:'fa-users',          color:'#d97706', group:'left panel'},
+    {key:'help',           label:'Help',             icon:'fa-question-circle',color:'#4338ca', group:'top header'},
+  ];
+
+      function getHidden(){
+    // Server config is the source of truth. localStorage is only a same-browser cache.
+    const serverHidden = normalizeHiddenToUi(window.PV_HIDDEN_TABS || []);
+    try{
+      const cached = normalizeHiddenToUi(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'));
+      return serverHidden.length ? serverHidden : cached;
+    }catch(e){ return serverHidden; }
+  }
+  function setHidden(arr){
+    const normalized = normalizeHiddenToUi(arr || []);
+    window.PV_HIDDEN_TABS = normalized;
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized)); }catch(e){}
+  }
+
+  function syncHiddenFromServer(cb){
+    fetch('/admin/get_page_visibility?target=' + encodeURIComponent(TARGET), {cache:'no-store'})
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.success) {
+          const settings = d.settings || {};
+          const hiddenAdmin = Object.keys(settings).filter(k => settings[k] === false);
+          setHidden(normalizeHiddenToUi(hiddenAdmin));
+          applyHiddenTabs();
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (cb) cb(); });
+  }
+
+  function saveHiddenToServer(hiddenUi, cb){
+    fetch('/admin/save_page_visibility', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target: TARGET, settings: hiddenUiToAdminSettings(hiddenUi)})
+    })
+    .then(r => r.json())
+    .then(d => { if (cb) cb(d); })
+    .catch(() => { if (cb) cb({success:false, message:'Failed to save tab visibility'}); });
+  }
+
+
+  // Apply hidden tabs on page load — hide matching .on-tab elements
+  function applyHiddenTabs(){
+    const hidden = getHidden();
+        document.querySelectorAll('[data-tab-key]').forEach(el=>{
+      const key = el.dataset.tabKey;
+      if(!key || el.tagName === 'INPUT') return;
+      el.style.display = hidden.includes(key) ? 'none' : '';
+    });
+  }
+
+  // Build the modal list
+  function buildCustomizeList(){
+    const hidden = getHidden();
+    const list = document.getElementById('onCustomizeList');
+    if(!list) return;
+    const groups = {};
+    ALL_TABS.forEach(t=>{ (groups[t.group]||(groups[t.group]=[])).push(t); });
+    let html = '';
+    Object.entries(groups).forEach(([grp, tabs])=>{
+      html += `<div style="font-size:9px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.12em;padding:8px 0 4px">${grp}</div>`;
+      tabs.forEach(tab=>{
+        const checked = !hidden.includes(tab.key);
+        html += `
+        <label style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;cursor:pointer;border:1.5px solid ${checked?'#c7d2fe':'#e2e8f0'};background:${checked?'#eef2ff':'#f8fafc'};margin-bottom:6px;transition:all .15s" id="cz_lbl_${tab.key}">
+          <input type="checkbox" data-tab-key="${tab.key}" ${checked?'checked':''} onchange="onCustomizeToggle('${tab.key}',this)" style="width:16px;height:16px;accent-color:#4f46e5;cursor:pointer;flex-shrink:0">
+          <span style="width:28px;height:28px;border-radius:8px;background:${checked?'rgba(79,70,229,.12)':'#f1f5f9'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fas ${tab.icon}" style="font-size:13px;color:${checked?tab.color:'#94a3b8'}"></i>
+          </span>
+          <span style="flex:1;font-size:13px;font-weight:700;color:${checked?'#1e1b4b':'#64748b'}">${tab.label}</span>
+          <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:${checked?'#dcfce7':'#fee2e2'};color:${checked?'#166534':'#b91c1c'}">${checked?'Visible':'Hidden'}</span>
+        </label>`;
+      });
+    });
+    list.innerHTML = html;
+  }
+
+  window.onCustomizeToggle = function(key, cb){
+    const lbl = document.getElementById('cz_lbl_'+key);
+    const tab = ALL_TABS.find(t=>t.key===key);
+    if(!lbl||!tab) return;
+    const checked = cb.checked;
+    lbl.style.border = '1.5px solid '+(checked?'#c7d2fe':'#e2e8f0');
+    lbl.style.background = checked?'#eef2ff':'#f8fafc';
+    lbl.querySelector('span:nth-child(2)').style.background = checked?'rgba(79,70,229,.12)':'#f1f5f9';
+    lbl.querySelector('i').style.color = checked?tab.color:'#94a3b8';
+    lbl.querySelectorAll('span')[2].style.color = checked?'#1e1b4b':'#64748b';
+    const badge = lbl.querySelectorAll('span')[3];
+    badge.style.background = checked?'#dcfce7':'#fee2e2';
+    badge.style.color = checked?'#166534':'#b91c1c';
+    badge.textContent = checked?'Visible':'Hidden';
+  };
+
+  window.onCustomizeSelectAll = function(val){
+    document.querySelectorAll('#onCustomizeList input[type=checkbox]').forEach(cb=>{
+      cb.checked = val;
+      onCustomizeToggle(cb.dataset.tabKey, cb);
+    });
+  };
+
+    window.onOpenCustomize = function(){
+    syncHiddenFromServer(function(){
+      buildCustomizeList();
+      document.getElementById('onCustomizeModal').style.display='flex';
+    });
+  };
+
+  window.onCloseCustomize = function(){
+    document.getElementById('onCustomizeModal').style.display='none';
+  };
+    window.onSaveCustomize = function(){
+    const hidden = [];
+    document.querySelectorAll('#onCustomizeList input[type=checkbox]').forEach(cb=>{
+      if(!cb.checked) hidden.push(cb.dataset.tabKey);
+    });
+    setHidden(hidden);
+    applyHiddenTabs();
+
+    const saveBtn = document.querySelector('#onCustomizeModal button[onclick="onSaveCustomize()"]');
+    const originalHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving'; }
+
+    saveHiddenToServer(hidden, function(d){
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalHtml; }
+      if (d && d.success) {
+        onCloseCustomize();
+        const t=document.createElement('div');
+        t.style.cssText='position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:800;z-index:99999;box-shadow:0 8px 24px rgba(79,70,229,.35);display:flex;align-items:center;gap:8px';
+        t.innerHTML='<i class="fas fa-check-circle"></i> Tab visibility saved and synced';
+        document.body.appendChild(t);
+        setTimeout(()=>t.remove(),2200);
+      } else {
+        alert((d && d.message) || 'Failed to save tab visibility.');
+      }
+    });
+  };
+
+
+  document.getElementById('onCustomizeModal')?.addEventListener('click',e=>{ if(e.target===document.getElementById('onCustomizeModal')) onCloseCustomize(); });
+
+    // Apply on load, then refresh from server so admin-page changes are reflected.
+  document.addEventListener('DOMContentLoaded', function(){
+    applyHiddenTabs();
+    syncHiddenFromServer();
+  });
+  applyHiddenTabs();
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+{% block title %}CR Compare — Side-by-Side Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Page shell ── */
+.crc-shell{min-height:calc(100vh - 58px);background:linear-gradient(135deg,#f8faff 0%,#f0f4ff 50%,#f8faff 100%);padding:28px 32px 60px;box-sizing:border-box;}
+
+/* ── Header ── */
+.crc-header{margin-bottom:24px;}
+.crc-breadcrumb{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;}
+.crc-breadcrumb a{color:#5b5bd6;text-decoration:none;}
+.crc-breadcrumb a:hover{color:#4338ca;}
+.crc-breadcrumb-sep{color:#cbd5e1;}
+.crc-title{font-size:26px;font-weight:900;color:#1e293b;margin:0 0 4px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+.crc-title i{color:#6366f1;}
+.crc-subtitle{font-size:13px;color:#64748b;}
+
+/* ── Picker card ── */
+.crc-picker{background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:24px;box-shadow:0 4px 16px rgba(32,48,100,.06);margin-bottom:24px;}
+.crc-picker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.crc-picker-title{font-size:14px;font-weight:800;color:#1e293b;}
+.crc-picker-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
+
+/* ── Mode tabs ── */
+.crc-mode-tabs{display:flex;gap:6px;background:#f1f5f9;border-radius:10px;padding:4px;}
+.crc-mode-tab{padding:6px 16px;border-radius:8px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+.crc-mode-tab.active{background:#fff;color:#4338ca;box-shadow:0 1px 4px rgba(0,0,0,.1);}
+
+/* ── Date range / compare dimension ── */
+.crc-date-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.crc-date-label{font-size:11px;font-weight:700;color:#64748b;}
+.crc-date-preset{padding:5px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;}
+.crc-date-preset.active{background:#eef1ff;border-color:#6366f1;color:#4338ca;}
+.crc-date-input,.crc-dim-select{padding:5px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;color:#1e293b;outline:none;background:#fff;}
+.crc-date-input:focus,.crc-dim-select:focus{border-color:#6366f1;}
+.crc-dim-select{font-weight:700;min-width:170px;cursor:pointer;}
+
+/* ── Selection area ── */
+.crc-sel-area{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+.crc-sel-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;}
+.crc-sel-panel-title{font-size:11px;font-weight:800;color:#374151;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.crc-search{width:100%;box-sizing:border-box;padding:7px 10px 7px 30px;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;outline:none;color:#1e293b;background:#fff;margin-bottom:8px;}
+.crc-search-wrap{position:relative;margin-bottom:8px;}
+.crc-search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:10px;}
+.crc-list{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:#c7d2fe #f1f5f9;}
+.crc-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:all .12s;user-select:none;}
+.crc-item:hover{background:#eef1ff;border-color:#c7d2fe;}
+.crc-item.selected{background:#eef1ff;border-color:#6366f1;}
+.crc-item.disabled{opacity:.35;pointer-events:none;}
+.crc-item input[type=checkbox]{accent-color:#6366f1;width:13px;height:13px;cursor:pointer;flex-shrink:0;}
+.crc-item-name{font-size:11px;font-weight:700;color:#1e293b;flex:1;}
+.crc-item-sub{font-size:9px;color:#94a3b8;white-space:nowrap;}
+
+/* ── Selected chips ── */
+.crc-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;align-items:center;}
+.crc-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;cursor:default;}
+.crc-chip-x{background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:12px;padding:0;line-height:1;}
+.crc-chip-x:hover{color:#fff;}
+.crc-chips-empty{font-size:11px;color:#94a3b8;font-style:italic;}
+
+/* ── Run button ── */
+.crc-run-btn{display:flex;align-items:center;gap:8px;padding:11px 28px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(99,102,241,.35);}
+.crc-run-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.45);}
+.crc-run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+.crc-run-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.crc-sel-count{font-size:12px;font-weight:700;color:#64748b;}
+.crc-sel-count b{color:#6366f1;}
+
+/* ── Loading ── */
+.crc-loading{display:none;text-align:center;padding:48px;color:#64748b;}
+.crc-spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:crcSpin .7s linear infinite;margin:0 auto 12px;}
+@keyframes crcSpin{to{transform:rotate(360deg);}}
+
+/* ── Results ── */
+.crc-results{display:none;}
+.crc-results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.crc-results-title{font-size:15px;font-weight:800;color:#1e293b;}
+.crc-results-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
+.crc-rerun-btn{padding:7px 14px;border-radius:8px;border:1px solid #c7d2fe;background:#eef1ff;color:#4338ca;font-size:11px;font-weight:700;cursor:pointer;}
+
+/* ── Stat cards ── */
+.crc-stat-cards{display:grid;gap:12px;margin-bottom:20px;}
+.crc-stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px 18px;box-shadow:0 2px 10px rgba(32,48,100,.06);position:relative;overflow:hidden;}
+.crc-stat-card-accent{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0;}
+.crc-stat-card-name{font-size:13px;font-weight:900;margin-bottom:12px;}
+.crc-stat-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+.crc-kpi{text-align:center;padding:8px 4px;background:#f8fafc;border-radius:10px;}
+.crc-kpi-val{font-size:18px;font-weight:900;color:#1e293b;line-height:1;}
+.crc-kpi-lbl{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+
+/* ── Chart panels ── */
+.crc-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.crc-chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(32,48,100,.06);}
+.crc-chart-card--full{grid-column:1/-1;}
+.crc-chart-title{font-size:12px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.crc-chart-title i{font-size:13px;}
+
+/* ── Area breakdown table ── */
+.crc-area-table{width:100%;border-collapse:collapse;font-size:11px;}
+.crc-area-table th{padding:8px 10px;text-align:left;font-weight:800;color:#374151;background:#f8fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap;}
+.crc-area-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#475569;}
+.crc-area-table tr:hover td{background:#f8faff;}
+.crc-area-table .num{text-align:center;font-weight:700;color:#1e293b;}
+.crc-area-table .num-0{color:#cbd5e1;font-weight:400;}
+
+/* ── Empty state ── */
+.crc-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
+.crc-empty i{font-size:36px;margin-bottom:12px;display:block;color:#e2e8f0;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="crc-shell">
+
+  <!-- Breadcrumb + Title -->
+  <div class="crc-header">
+    <div class="crc-breadcrumb">
+      <a href="{{ url_for('home') }}"><i class="fas fa-chart-bar"></i> CR Overview</a>
+      <span class="crc-breadcrumb-sep">/</span>
+      <span>Compare</span>
+    </div>
+    <h1 class="crc-title"><i class="fas fa-columns"></i> Side-by-Side Comparison</h1>
+    <p class="crc-subtitle">Select 2–4 BUs or Targets and compare CR Area, Subsystem, and Functionality breakdowns</p>
+  </div>
+
+  <!-- ── Picker Card ── -->
+  <div class="crc-picker">
+    <div class="crc-picker-header">
+      <div>
+        <div class="crc-picker-title">Configure Comparison</div>
+        <div class="crc-picker-sub">Choose mode, date range, then pick items to compare</div>
+      </div>
+      <!-- Mode tabs -->
+      <div class="crc-mode-tabs">
+        <button class="crc-mode-tab active" id="tabBU"     onclick="setMode('bu')"><i class="fas fa-layer-group"></i> By BU</button>
+        <button class="crc-mode-tab"        id="tabTarget" onclick="setMode('target')"><i class="fas fa-crosshairs"></i> By Target</button>
+      </div>
+    </div>
+
+    <!-- Date range -->
+    <div class="crc-date-row">
+      <span class="crc-date-label"><i class="fas fa-calendar" style="margin-right:4px;"></i>Date Range:</span>
+      <button class="crc-date-preset active" data-preset="all"  onclick="setPreset(this,'','')">All Time</button>
+      <button class="crc-date-preset"        data-preset="3m"   onclick="setPreset(this,'3m','')">3 Months</button>
+      <button class="crc-date-preset"        data-preset="6m"   onclick="setPreset(this,'6m','')">6 Months</button>
+      <button class="crc-date-preset"        data-preset="9m"   onclick="setPreset(this,'9m','')">9 Months</button>
+      <span style="font-size:11px;color:#94a3b8;">or custom:</span>
+      <input type="date" id="dateFrom" class="crc-date-input" placeholder="From">
+      <input type="date" id="dateTo"   class="crc-date-input" placeholder="To">
+      <span class="crc-date-label" style="margin-left:10px;"><i class="fas fa-sitemap" style="margin-right:4px;"></i>Compare By:</span>
+      <select id="compareDimension" class="crc-dim-select" title="Switch comparison dimension">
+        <option value="cr_area">CR Area</option>
+        <option value="cr_subsystem">CR Subsystem</option>
+        <option value="cr_functionality">CR Functionality</option>
+      </select>
+    </div>
+
+    <!-- Selection area -->
+    <div class="crc-sel-area">
+      <!-- Left: list to pick from -->
+      <div class="crc-sel-panel">
+        <div class="crc-sel-panel-title"><i class="fas fa-list" style="color:#6366f1;"></i> <span id="listTitle">Available BUs</span></div>
+        <div class="crc-search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="crcSearch" class="crc-search" placeholder="Search...">
+        </div>
+        <div class="crc-list" id="crcList"></div>
+      </div>
+      <!-- Right: selected chips -->
+      <div class="crc-sel-panel">
+        <div class="crc-sel-panel-title"><i class="fas fa-check-circle" style="color:#10b981;"></i> Selected <span id="selCountBadge" style="background:#eef1ff;color:#4338ca;border-radius:999px;padding:1px 8px;font-size:10px;margin-left:4px;">0</span></div>
+        <div class="crc-chips" id="crcChips"><span class="crc-chips-empty">Nothing selected yet</span></div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:6px;"><i class="fas fa-info-circle" style="margin-right:3px;"></i>Select 2–4 items to compare. Click × to remove.</div>
+      </div>
+    </div>
+
+    <!-- Run row -->
+    <div class="crc-run-row">
+      <span class="crc-sel-count"><b id="selCount">0</b> / 4 selected &nbsp;·&nbsp; minimum 2 required</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="clearAll()" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;">
+          <i class="fas fa-times"></i> Clear
+        </button>
+        <button class="crc-run-btn" id="runBtn" onclick="runCompare()" disabled>
+          <i class="fas fa-chart-bar"></i> Run Comparison
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Loading ── -->
+  <div class="crc-loading" id="crcLoading">
+    <div class="crc-spinner"></div>
+    <div style="font-size:13px;font-weight:700;">Loading comparison data<span id="loadDots">...</span></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;" id="loadSub">Fetching data for each item in parallel</div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="crc-results" id="crcResults">
+    <div class="crc-results-header">
+      <div>
+        <div class="crc-results-title" id="resultsTitle">Comparison Results</div>
+        <div class="crc-results-sub"  id="resultsSub"></div>
+      </div>
+      <button class="crc-rerun-btn" onclick="scrollToPicker()"><i class="fas fa-edit"></i> Edit Selection</button>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="crc-stat-cards" id="crcStatCards"></div>
+
+    <!-- Charts row 1: Count + Age -->
+    <div class="crc-charts-grid">
+      <div class="crc-chart-card">
+        <div class="crc-chart-title"><i class="fas fa-chart-bar" style="color:#6366f1;"></i> CR Count Breakdown</div>
+        <div id="chartCount" style="height:300px;"></div>
+      </div>
+      <div class="crc-chart-card">
+        <div class="crc-chart-title"><i class="fas fa-hourglass-half" style="color:#f59e0b;"></i> Average CR Age</div>
+        <div id="chartAge" style="height:300px;"></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2: Status breakdown full width -->
+    <div class="crc-charts-grid" style="margin-bottom:16px;">
+      <div class="crc-chart-card crc-chart-card--full">
+        <div class="crc-chart-title"><i class="fas fa-chart-pie" style="color:#8b5cf6;"></i> Status Breakdown per Item</div>
+        <div id="chartStatus" style="height:300px;"></div>
+      </div>
+    </div>
+
+    <!-- Charts row 3: CR Area heatmap table -->
+    <div class="crc-chart-card" style="margin-bottom:16px;">
+              <div class="crc-chart-title"><i class="fas fa-chart-column" style="color:#0ea5e9;"></i> <span id="dimensionChartTitle">Top CR Areas — Count per Item</span></div>
+        <div id="chartDimension" style="height:340px;margin-bottom:12px;"></div>
+        <div class="crc-chart-title" style="margin-top:4px;"><i class="fas fa-table" style="color:#0ea5e9;"></i> <span id="dimensionTableTitle">Top CR Areas — Count per Item</span></div>
+      <div style="overflow-x:auto;">
+        <table class="crc-area-table" id="areaTable">
+          <thead id="areaTableHead"></thead>
+          <tbody id="areaTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Charts row 4: Trend line (age over time placeholder) -->
+    <div class="crc-charts-grid">
+      <div class="crc-chart-card">
+        <div class="crc-chart-title"><i class="fas fa-chart-line" style="color:#10b981;"></i> Built vs Undisposed</div>
+        <div id="chartBuiltUnd" style="height:280px;"></div>
+      </div>
+      <div class="crc-chart-card">
+        <div class="crc-chart-title"><i class="fas fa-map-marker-alt" style="color:#0ea5e9;"></i> Site Distribution</div>
+        <div id="chartSite" style="height:280px;"></div>
+      </div>
+    </div>
+
+  </div><!-- /crc-results -->
+
+</div><!-- /crc-shell -->
+
+<!-- Inject BU→targets map -->
+<script>
+window._CRC_BU_TARGETS = (function () {
+    var items = window.GLOBAL_COMBINED_TARGETS || [];
+    var map = {};
+
+    if (!items.length) {
+      var cfg = window.TARGETS_CONFIG_DATA || {};
+      Object.keys(cfg).forEach(function (key) {
+        var info = cfg[key] || {};
+        items.push({
+          name: key,
+          label: (info.display_name || key).toUpperCase(),
+          bu: String(info.bu || info.business_unit || info.bu_key || 'OTHER').toUpperCase(),
+          is_active: info.is_active !== false,
+          product_family: String(info.product_family || info.mobile_family || info.sub_bu || '').toUpperCase(),
+          display_name: info.display_name || key
+        });
+      });
+    }
+
+    items.forEach(function (item) {
+      var bu = String(item.bu || 'OTHER').toUpperCase().trim() || 'OTHER';
+      if (!map[bu]) map[bu] = [];
+      map[bu].push({
+        name: item.name || item.key || item.db_name || '',
+        label: item.label || item.display_name || item.name || item.key || '',
+        active: item.is_active !== false,
+        display_name: item.display_name || item.label || item.name || item.key || ''
+      });
+    });
+
+    return map;
+  })();
+
+</script>
+
+<script>
+(function(){
+  /* ── State ── */
+  var _mode     = 'bu';          // 'bu' | 'target'
+  var _selected = [];            // [{key, label, bu}]
+  var _dateFrom = '';
+  var _dateTo   = '';
+  var _charts   = {};
+  var _lastResults = null;
+  var _lastLabels  = [];
+  var DIM_LABELS = {cr_area:'CR Area', cr_subsystem:'CR Subsystem', cr_functionality:'CR Functionality'};
+  var COLORS    = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#0ea5e9'];
+  var STATUS_COLORS = {Open:'#6366f1',Analysis:'#8b5cf6',Built:'#10b981',Fix:'#f59e0b',
+    Withdrawn:'#ef4444',CannotDuplicate:'#f97316',Closed:'#94a3b8',NoSIR:'#64748b',
+    NotApplicable:'#cbd5e1',Obsolete:'#a78bfa',Postponed:'#fbbf24',Ready:'#34d399'};
+
+  /* ── Helpers ── */
+  function fmtInt(v){ return parseInt(v||0).toLocaleString(); }
+  function fmtD(v){ v=parseFloat(v||0); return v===0?'0d':v.toFixed(1)+'d'; }
+  function fmtW(v){ v=parseFloat(v||0); return v===0?'0w':v.toFixed(1)+'w'; }
+  function esc(s){ var d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+  function $(id){ return document.getElementById(id); }
+
+  /* ── Mode ── */
+  window.setMode = function(m){
+    _mode = m;
+    _selected = [];
+    $('tabBU').classList.toggle('active', m==='bu');
+    $('tabTarget').classList.toggle('active', m==='target');
+    $('listTitle').textContent = m==='bu' ? 'Available BUs' : 'Available Targets';
+    buildList();
+    renderChips();
+    updateRunBtn();
+  };
+
+  /* ── Date presets ── */
+  window.setPreset = function(btn, preset){
+    document.querySelectorAll('.crc-date-preset').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    var now = new Date();
+    if(preset==='3m'){ var d=new Date(now); d.setMonth(d.getMonth()-3); _dateFrom=d.toISOString().slice(0,10); _dateTo=''; }
+    else if(preset==='6m'){ var d=new Date(now); d.setMonth(d.getMonth()-6); _dateFrom=d.toISOString().slice(0,10); _dateTo=''; }
+    else if(preset==='9m'){ var d=new Date(now); d.setMonth(d.getMonth()-9); _dateFrom=d.toISOString().slice(0,10); _dateTo=''; }
+    else { _dateFrom=''; _dateTo=''; }
+    $('dateFrom').value = _dateFrom;
+    $('dateTo').value   = _dateTo;
+  };
+  $('dateFrom').addEventListener('change', function(){
+    _dateFrom = this.value;
+    document.querySelectorAll('.crc-date-preset').forEach(function(b){ b.classList.remove('active'); });
+  });
+  $('dateTo').addEventListener('change', function(){
+    _dateTo = this.value;
+    document.querySelectorAll('.crc-date-preset').forEach(function(b){ b.classList.remove('active'); });
+  });
+
+  /* ── Build list ── */
+  function buildList(){
+    var search = ($('crcSearch').value||'').toLowerCase();
+    var items = [];
+    if(_mode==='bu'){
+      Object.keys(window._CRC_BU_TARGETS||{}).forEach(function(k){
+        var arr = window._CRC_BU_TARGETS[k] || [];
+        items.push({key:k, label:k, sub:arr.length+' targets'});
+      });
+    } else {
+      Object.keys(window._CRC_BU_TARGETS||{}).forEach(function(bu){
+        (window._CRC_BU_TARGETS[bu]||[]).forEach(function(t){
+          items.push({key:t.name, label:t.name, sub:bu + (t.active ? '' : ' • inactive'), bu:bu, inactive:!t.active});
+        });
+      });
+    }
+    if(search) items = items.filter(function(i){
+      return i.label.toLowerCase().indexOf(search)>=0 || (i.sub||'').toLowerCase().indexOf(search)>=0;
+    });
+    var html = '';
+    items.forEach(function(item){
+      var sel = _selected.some(function(s){ return s.key===item.key; });
+      var dis = !sel && _selected.length >= 4;
+      html += '<div class="crc-item'+(sel?' selected':'')+(dis?' disabled':'')+'" onclick="toggleItem(\''+item.key+'\',\''+esc(item.label)+'\',\''+(item.bu||'')+'\')">'+
+              '<input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();">'+
+              '<span class="crc-item-name">'+esc(item.label)+'</span>'+
+              '<span class="crc-item-sub">'+esc(item.sub||'')+(item.inactive?' <span style="color:#ef4444;font-weight:800;">inactive</span>':'')+'</span>'+
+              '</div>';
+    });
+    $('crcList').innerHTML = html || '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:11px;">No items found</div>';
+  }
+
+  window.toggleItem = function(key, label, bu){
+    var idx = _selected.findIndex(function(s){ return s.key===key; });
+    if(idx>=0){ _selected.splice(idx,1); }
+    else if(_selected.length<4){ _selected.push({key:key, label:label, bu:bu}); }
+    buildList();
+    renderChips();
+    updateRunBtn();
+  };
+
+  $('crcSearch').addEventListener('input', buildList);
+
+  /* ── Chips ── */
+  function renderChips(){
+    if(!_selected.length){
+      $('crcChips').innerHTML = '<span class="crc-chips-empty">Nothing selected yet</span>';
+    } else {
+      $('crcChips').innerHTML = _selected.map(function(s,i){
+        return '<span class="crc-chip" style="background:'+COLORS[i]+';">'+
+               esc(s.label)+
+               '<button class="crc-chip-x" onclick="removeItem(\''+s.key+'\')">&#x2715;</button>'+
+               '</span>';
+      }).join('');
+    }
+    $('selCount').textContent = _selected.length;
+    $('selCountBadge').textContent = _selected.length;
+  }
+
+  window.removeItem = function(key){
+    _selected = _selected.filter(function(s){ return s.key!==key; });
+    buildList();
+    renderChips();
+    updateRunBtn();
+  };
+
+  window.clearAll = function(){
+    _selected = [];
+    buildList();
+    renderChips();
+    updateRunBtn();
+  };
+
+  function updateRunBtn(){
+    var ok = _selected.length >= 2;
+    $('runBtn').disabled = !ok;
+  }
+
+  function scrollToPicker(){
+    document.querySelector('.crc-picker').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  window.scrollToPicker = scrollToPicker;
+
+  /* ── Run comparison ── */
+  window.runCompare = function(){
+    if(_selected.length < 2) return;
+    $('crcLoading').style.display = 'block';
+    $('crcResults').style.display = 'none';
+    $('crcLoading').scrollIntoView({behavior:'smooth',block:'start'});
+
+    // Animate dots
+    var dotCount = 0;
+    var dotTimer = setInterval(function(){
+      dotCount = (dotCount+1)%4;
+      $('loadDots').textContent = '.'.repeat(dotCount+1);
+    }, 400);
+    $('loadSub').textContent = 'Fetching data for '+_selected.length+' items\u2026';
+
+    var dim = ($('compareDimension') && $('compareDimension').value) || 'cr_area';
+    var promises = _selected.map(function(item){
+      var url = '/api/cr_overview?dim='+encodeURIComponent(dim)+'&status_filter=all'
+        + (_mode==='bu' ? '&bu='+encodeURIComponent(item.key)+'&target=ALL'
+                        : '&bu=ALL&target='+encodeURIComponent(item.key))
+        + '&date_from='+encodeURIComponent(_dateFrom)
+        + '&date_to='+encodeURIComponent(_dateTo);
+      return fetch(url)
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return {item:item, data:d}; });
+    });
+
+    Promise.all(promises).then(function(results){
+      clearInterval(dotTimer);
+      $('crcLoading').style.display = 'none';
+      renderResults(results);
+    }).catch(function(e){
+      clearInterval(dotTimer);
+      $('crcLoading').style.display = 'none';
+      alert('Error loading data: '+e.message);
+    });
+  };
+
+  /* ── Render results ── */
+  function renderResults(results){
+    $('crcResults').style.display = 'block';
+    $('crcResults').scrollIntoView({behavior:'smooth',block:'start'});
+
+    var labels = results.map(function(r){ return r.item.label; });
+    _lastResults = results;
+    _lastLabels = labels;
+    var modeLabel = _mode==='bu' ? 'Business Units' : 'Targets';
+    $('resultsTitle').textContent = 'Comparing '+results.length+' '+modeLabel;
+    $('resultsSub').textContent   = labels.join(' \u00b7 ');
+
+    // ── Stat cards ──
+    var cols = Math.min(results.length, 5);
+    $('crcStatCards').style.gridTemplateColumns = 'repeat('+cols+',1fr)';
+    $('crcStatCards').innerHTML = results.map(function(r,i){
+      var d = r.data;
+      var c = COLORS[i];
+      return '<div class="crc-stat-card">'+
+        '<div class="crc-stat-card-accent" style="background:'+c+';"></div>'+
+        '<div class="crc-stat-card-name" style="color:'+c+';">'+esc(r.item.label)+'</div>'+
+        '<div class="crc-stat-kpis">'+
+          kpi(fmtInt(d.total_crs||0),     'Total',      '#1e293b')+
+          kpi(fmtInt(d.built_crs||0),     'Built',      '#10b981')+
+          kpi(fmtInt(d.open_analysis||0), 'Undisposed', '#ef4444')+
+          kpi(fmtInt(d.nosir_count||0),   'NoSIR',      '#f59e0b')+
+          kpi(fmtD(d.avg_age_days||0),    'Avg Age',    c)+
+          kpi(fmtInt(d.total_jiras||0),   'JIRAs',      '#8b5cf6')+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    // ── Chart 1: CR Count grouped column ──
+    destroyChart('chartCount');
+    _charts.count = Highcharts.chart('chartCount',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:labels,labels:{style:{fontSize:'11px',fontWeight:'700',color:'#374151'}}},
+      yAxis:{title:{text:'CR Count'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{itemStyle:{fontSize:'10px',fontWeight:'700',color:'#374151'}},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0},
+      plotOptions:{column:{borderRadius:4,borderWidth:0,
+        dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},
+          formatter:function(){return this.y>0?fmtInt(this.y):'';} }}},
+      series:[
+        {name:'Total',     color:'#6366f1', data:results.map(function(r){return r.data.total_crs||0;})},
+        {name:'Built',     color:'#10b981', data:results.map(function(r){return r.data.built_crs||0;})},
+        {name:'Undisposed',color:'#ef4444', data:results.map(function(r){return r.data.open_analysis||0;})},
+        {name:'NoSIR',     color:'#f59e0b', data:results.map(function(r){return r.data.nosir_count||0;})}
+      ],
+      credits:{enabled:false}
+    });
+
+    // ── Chart 2: Avg Age column ──
+    destroyChart('chartAge');
+    _charts.age = Highcharts.chart('chartAge',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:labels,labels:{style:{fontSize:'11px',fontWeight:'700',color:'#374151'}}},
+      yAxis:{title:{text:'Avg Age (days)'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{enabled:false},
+      tooltip:{backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0,
+        formatter:function(){return '<b>'+this.x+'</b><br/>Avg Age: <b>'+fmtD(this.y)+'</b>';}},
+      plotOptions:{column:{borderRadius:4,borderWidth:0,colorByPoint:true,colors:COLORS,
+        dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},
+          formatter:function(){return fmtD(this.y);}}}},
+      series:[{name:'Avg Age',data:results.map(function(r){return parseFloat(r.data.avg_age_days||0);})}],
+      credits:{enabled:false}
+    });
+
+    // ── Chart 3: Status breakdown stacked bar ──
+    var allStatuses = [];
+    results.forEach(function(r){
+      (r.data.dimension_breakdown||[]).forEach(function(row){
+        Object.keys(row.statuses||{}).forEach(function(s){ if(allStatuses.indexOf(s)<0) allStatuses.push(s); });
+      });
+    });
+    // aggregate per item
+    var statusData = {};
+    allStatuses.forEach(function(s){ statusData[s] = []; });
+    results.forEach(function(r){
+      var totals = {};
+      (r.data.dimension_breakdown||[]).forEach(function(row){
+        Object.keys(row.statuses||{}).forEach(function(s){ totals[s]=(totals[s]||0)+(row.statuses[s]||0); });
+      });
+      allStatuses.forEach(function(s){ statusData[s].push(totals[s]||0); });
+    });
+    var statusSeries = allStatuses
+      .filter(function(s){ return statusData[s].some(function(v){return v>0;}); })
+      .map(function(s){ return {name:s, color:STATUS_COLORS[s]||null, data:statusData[s]}; });
+
+    destroyChart('chartStatus');
+    _charts.status = Highcharts.chart('chartStatus',{
+      chart:{type:'bar',backgroundColor:'transparent',style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:labels,labels:{style:{fontSize:'11px',fontWeight:'700',color:'#374151'}}},
+      yAxis:{title:{text:'CR Count'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{itemStyle:{fontSize:'10px',fontWeight:'700',color:'#374151'},maxHeight:60},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0},
+      plotOptions:{bar:{stacking:'normal',borderWidth:0,
+        dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',color:'#fff',textOutline:'none'},
+          formatter:function(){return this.y>0?fmtInt(this.y):'';} }}},
+      series:statusSeries,
+      credits:{enabled:false}
+    });
+
+    // ── Chart 4: Built vs Undisposed grouped ──
+    destroyChart('chartBuiltUnd');
+    _charts.builtUnd = Highcharts.chart('chartBuiltUnd',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:labels,labels:{style:{fontSize:'11px',fontWeight:'700',color:'#374151'}}},
+      yAxis:{title:{text:'CR Count'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{itemStyle:{fontSize:'10px',fontWeight:'700',color:'#374151'}},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0},
+      plotOptions:{column:{borderRadius:4,borderWidth:0,groupPadding:0.1,
+        dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},
+          formatter:function(){return this.y>0?fmtInt(this.y):'';} }}},
+      series:[
+        {name:'Built',     color:'#10b981', data:results.map(function(r){return r.data.built_crs||0;})},
+        {name:'Undisposed',color:'#ef4444', data:results.map(function(r){return r.data.open_analysis||0;})}
+      ],
+      credits:{enabled:false}
+    });
+
+    // ── Chart 5: Site distribution ──
+    var siteKeys = ['PDT_QIPL','PDT_SD','PDT_CH'];
+    var siteSeries = siteKeys.map(function(sk,si){
+      return {
+        name: sk.replace('PDT_',''),
+        color: ['#6366f1','#10b981','#f59e0b'][si],
+        data: results.map(function(r){
+          var sc = r.data.site_counts||{};
+          return sc[sk]||0;
+        })
+      };
+    });
+    destroyChart('chartSite');
+    _charts.site = Highcharts.chart('chartSite',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:labels,labels:{style:{fontSize:'11px',fontWeight:'700',color:'#374151'}}},
+      yAxis:{title:{text:'CR Count'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{itemStyle:{fontSize:'10px',fontWeight:'700',color:'#374151'}},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0},
+      plotOptions:{column:{borderRadius:4,borderWidth:0,
+        dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},
+          formatter:function(){return this.y>0?fmtInt(this.y):'';} }}},
+      series:siteSeries,
+      credits:{enabled:false}
+    });
+
+    // ── Selected dimension comparison chart/table ──
+    buildDimensionComparison(results, labels);
+  }
+
+  function kpi(val, lbl, color){
+    return '<div class="crc-kpi">'+
+      '<div class="crc-kpi-val" style="color:'+color+';">'+val+'</div>'+
+      '<div class="crc-kpi-lbl">'+lbl+'</div>'+
+      '</div>';
+  }
+
+  function buildDimensionComparison(results, labels){
+    var dim = ($('compareDimension') && $('compareDimension').value) || 'cr_area';
+    var dimLabel = DIM_LABELS[dim] || 'Dimension';
+    if($('dimensionChartTitle')) $('dimensionChartTitle').textContent = 'Top '+dimLabel+' — Count per Item';
+    if($('dimensionTableTitle')) $('dimensionTableTitle').textContent = 'Top '+dimLabel+' — Count per Item';
+
+    // Collect selected-dimension values. Keep site_counts/statuses in row refs for future site-wise drilldown.
+    var dimMap = {};
+    results.forEach(function(r){
+      (r.data.dimension_breakdown||[]).forEach(function(row){
+        var label = row.label||'Unknown';
+        if(!dimMap[label]) dimMap[label] = {total:0, vals:{}, rowRefs:{}};
+        dimMap[label].vals[r.item.key] = row.total_count || row.total || row.count || 0;
+        dimMap[label].rowRefs[r.item.key] = row; // handy later: row.site_counts, row.statuses, row.site_ages
+        dimMap[label].total += dimMap[label].vals[r.item.key] || 0;
+      });
+    });
+    var dims = Object.keys(dimMap).sort(function(a,b){ return dimMap[b].total - dimMap[a].total; }).slice(0,20);
+
+    destroyChart('chartDimension');
+    _charts.chartDimension = Highcharts.chart('chartDimension',{
+      chart:{type:'column',backgroundColor:'transparent',style:{fontFamily:'inherit'},zoomType:'x'},
+      title:{text:null},
+      xAxis:{categories:dims,labels:{style:{fontSize:'10px',fontWeight:'700',color:'#374151'},rotation:dims.length>8?-35:0},lineColor:'#e2e8f0'},
+      yAxis:{title:{text:'CR Count'},gridLineColor:'#f1f5f9',labels:{style:{color:'#64748b',fontSize:'10px'}}},
+      legend:{itemStyle:{fontSize:'10px',fontWeight:'700',color:'#374151'}},
+      tooltip:{shared:true,backgroundColor:'#1e293b',style:{color:'#f8fafc',fontSize:'11px'},borderRadius:8,borderWidth:0},
+      plotOptions:{column:{borderRadius:4,borderWidth:0,dataLabels:{enabled:true,style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},formatter:function(){return this.y>0?fmtInt(this.y):'';}}}},
+      series:results.map(function(r,i){
+        return {name:r.item.label,color:COLORS[i%COLORS.length],data:dims.map(function(d){return dimMap[d].vals[r.item.key]||0;})};
+      }),
+      credits:{enabled:false}
+    });
+
+    var headHtml = '<tr><th>'+esc(dimLabel)+'</th>';
+    results.forEach(function(r,i){ headHtml += '<th style="color:'+COLORS[i%COLORS.length]+';">'+esc(r.item.label)+'</th>'; });
+    headHtml += '<th>Total</th></tr>';
+    $('areaTableHead').innerHTML = headHtml;
+
+    var bodyHtml = '';
+    dims.forEach(function(label){
+      bodyHtml += '<tr><td style="font-weight:700;color:#1e293b;">'+esc(label)+'</td>';
+      results.forEach(function(r){
+        var v = dimMap[label].vals[r.item.key]||0;
+        bodyHtml += '<td class="num'+(v===0?' num-0':'')+'">'+(v>0?fmtInt(v):'—')+'</td>';
+      });
+      bodyHtml += '<td class="num" style="background:#f8fafc;font-weight:800;">'+fmtInt(dimMap[label].total)+'</td></tr>';
+    });
+    $('areaTableBody').innerHTML = bodyHtml || '<tr><td colspan="'+(results.length+2)+'" style="text-align:center;color:#94a3b8;padding:18px;">No '+esc(dimLabel)+' data found</td></tr>';
+  }
+
+  function destroyChart(id){
+    if(_charts[id]){ try{_charts[id].destroy();}catch(e){} _charts[id]=null; }
+  }
+
+  if($('compareDimension')){
+    $('compareDimension').addEventListener('change', function(){
+      // Existing API result is dimension-specific, so refetch for the selected dimension.
+      if(_lastResults && _selected.length >= 2){ runCompare(); }
+    });
+  }
+
+  /* ── Init ── */
+  buildList();
+  renderChips();
+
+})();
+</script>
+{% endblock %}
