@@ -193,7 +193,7 @@
                 <i class="fas fa-display"></i> IVI
       </label>
       {% endif %}<span id="runCount" class="pill"></span></div></div>
-      <!-- ═══ Current Running Build DB Table ═══ -->
+      <!-- === Current Running Build DB Table === -->
       <div id="rbDbPanel" style="padding:12px 20px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
           <span style="font-size:13px;font-weight:950;color:#1e3a8a"><i class="fas fa-satellite-dish" style="color:#2563eb"></i> Current Running Builds (DB)</span>
@@ -210,7 +210,7 @@
           </table>
         </div>
       </div>
-      <!-- ═══ end Current Running Build DB Table ═══ -->
+      <!-- === end Current Running Build DB Table === -->
 
       <div class="card">
       <div class="card-head"><h2><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Current Report</h2><div class="mini-toolbar"><span id="crFreshStatus" class="muted" style="font-size:12px"></span><span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span><button class="btn btn-primary" onclick="runCrReport(true)"><i class="fas fa-rotate"></i> Refresh</button></div></div>
@@ -437,7 +437,7 @@
     <div id="brAddBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:16px;width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3);">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#6366f1);">
-          <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build — <span id="brModalDomainLabel">ADAS</span></h3>
+          <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build -- <span id="brModalDomainLabel">ADAS</span></h3>
           <button onclick="brCloseAddBuildModal()" style="background:rgba(255,255,255,.18);border:none;font-size:22px;cursor:pointer;color:#fff;border-radius:8px;width:30px;height:30px;line-height:1;">&times;</button>
         </div>
         <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -469,7 +469,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-// Safety stub — bsOpen is defined fully later in this script.
+// Safety stub -- bsOpen is defined fully later in this script.
 // This early definition prevents ReferenceError from any cached page version.
 window.bsOpen=window.bsOpen||function(){};
 window.bsClose=window.bsClose||function(){};
@@ -491,9 +491,9 @@ window.LSP_DATA = {
   landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
 
-// ═══════════════════════════════════════════════════════════════════════
-// Current Running Build DB table — Add Build, detail modal, publish, 15-min JQL
-// ═══════════════════════════════════════════════════════════════════════
+// =======================================================================
+// Current Running Build DB table -- Add Build, detail modal, publish, 15-min JQL
+// =======================================================================
 (function(){
   /* ---- state ---- */
   var _rbRows       = [];   // DB rows (from axiom_job_summary)
@@ -566,7 +566,7 @@ window.LSP_DATA = {
       var domCol={'ADAS':'#2563eb','FLEX':'#7c3aed','IVI':'#059669'}[r.domain]||'#475569';
       var effH=_effectiveHours(r);
       var effM=_effectiveMtbf(r);
-      var hCell=r.hours?('<b>'+_esc(r.hours)+'h</b>'+(r.reduction?'<span style="color:#7c3aed"> → '+_esc(r.reduction)+'%</span>':'')+' <span style="color:#059669">='+_fmtH(effH)+'</span>'):'<span style="color:#94a3b8">--</span>';
+      var hCell=r.hours?('<b>'+_esc(r.hours)+'h</b>'+(r.reduction?'<span style="color:#7c3aed"> -> '+_esc(r.reduction)+'%</span>':'')+' <span style="color:#059669">='+_fmtH(effH)+'</span>'):'<span style="color:#94a3b8">--</span>';
       var mCell=effM?('<span style="color:#6366f1;font-weight:950">'+effM+'h</span>'):'<span style="color:#94a3b8">--</span>';
       var crashes=r.crashes!=null?('<b style="color:#dc2626">'+_esc(r.crashes)+'</b>'):'<span style="color:#94a3b8">--</span>';
       var pubBtn=r.published
@@ -622,7 +622,7 @@ window.LSP_DATA = {
       ?'(JQL next: '+m+'m '+String(s).padStart(2,'0')+'s)':'';
   }
 
-    /* ---- load DB rows — returns a Promise (same pattern as loadCoreDeckJiraBuilds) ---- */
+    /* ---- load DB rows -- returns a Promise (same pattern as loadCoreDeckJiraBuilds) ---- */
   window.loadRunningBuildsDb=function(){
     var st=document.getElementById('rbDbStatus');
     if(st) st.textContent='Loading DB...';
@@ -637,7 +637,7 @@ window.LSP_DATA = {
           _syncDomainRadio();
           if(typeof window.lspSetCurrentDomain==='function') window.lspSetCurrentDomain(_rbDomain);
         }
-        if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' — '+(_rbRows.length||0)+' row(s)';
+        if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' -- '+(_rbRows.length||0)+' row(s)';
         _render();
       })
       .catch(function(e){if(st) st.textContent='DB error: '+e.message;});
@@ -653,18 +653,18 @@ window.LSP_DATA = {
 
 
       /* ================================================================
-     STEP 1 MODAL — dedicated "Add Running Build" picker
+     STEP 1 MODAL -- dedicated "Add Running Build" picker
      Own DOM (id=rbPickModal), own title, own domain buttons,
      own search + Select Visible + count badge.
      Reads _cdJiraBuilds data (same Axiom source) but NEVER touches
      Core Slide state (_cdMetas, _cdModalSelected, applyCoreDeckBuildModalSelection).
-     "Next → Set Details" goes straight to rbOpenDetailModal().
+     "Next -> Set Details" goes straight to rbOpenDetailModal().
   ================================================================ */
 
   var _rbPickSel = new Set();   // keys of selected build options
   var _rbPickDomain = 'ADAS';   // active domain in picker
 
-  /* ── build a key identical to Core Slide's _cdOptKey ── */
+  /* -- build a key identical to Core Slide's _cdOptKey -- */
   function _rbOptKey(o){
     if(typeof o==='string') return o;
     return [o.build_id||'',o.product_flavor||'',o.software_product||''].join('||');
@@ -681,12 +681,12 @@ window.LSP_DATA = {
         /* ----------------------------------------------------------------
    Build-to-domain lookup from Core Slide saved state.
    /api/core_deck/public_state returns selected_metas[].deck_type
-   which is the AUTHORITATIVE domain set by the user in Config —
+   which is the AUTHORITATIVE domain set by the user in Config --
    not a keyword guess from the build string.
    ---------------------------------------------------------------- */
-  var _rbBuildDeckMap = {};   // build_id (uppercase tail) → 'IVI'|'FLEX'|'ADAS'
+  var _rbBuildDeckMap = {};   // build_id (uppercase tail) -> 'IVI'|'FLEX'|'ADAS'
   var _rbDeckMapLoaded = false;
-  var _rbCoreDeckMetas = [];  // full selected_metas from public_state — used as picker source
+  var _rbCoreDeckMetas = [];  // full selected_metas from public_state -- used as picker source
 
   async function _rbLoadDeckMap(){
     if(_rbDeckMapLoaded) return;
@@ -704,7 +704,7 @@ window.LSP_DATA = {
       });
       return;
     }
-    // 2. Fetch public_state directly — same endpoint as loadCoreDeckSavedConfig()
+    // 2. Fetch public_state directly -- same endpoint as loadCoreDeckSavedConfig()
     try{
       var resp = await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET));
       var data = await resp.json().catch(function(){return {};});
@@ -750,7 +750,7 @@ window.LSP_DATA = {
     return _rbGuessDeck(o) === String(deck||'IVI').toUpperCase();
   }
 
-  /* ── ensure modal DOM (built once, never re-created) ── */
+  /* -- ensure modal DOM (built once, never re-created) -- */
   function _ensurePickModal(){
     if(document.getElementById('rbPickModal')) return;
     var m=document.createElement('div');
@@ -761,7 +761,7 @@ window.LSP_DATA = {
       +'<div class="wk-modal-head">'
         +'<div>'
           +'<div style="font-size:14px;font-weight:950;text-transform:uppercase;letter-spacing:.04em">'
-            +'<i class="fas fa-satellite-dish"></i> Add Running Build — Current Report'
+            +'<i class="fas fa-satellite-dish"></i> Add Running Build -- Current Report'
           +'</div>'
           +'<div style="font-size:11px;color:#bfdbfe;margin-top:3px">'
             +'Build/flavor rows loaded from Axiom. Select one build then click Next to set hours, devices, JQL and generate CR report.'
@@ -787,20 +787,20 @@ window.LSP_DATA = {
         +'<span class="muted" style="font-size:12px;font-weight:800">Step 1 of 2: select a build row. Step 2 sets hours, devices, JQL and generates CR / JIRA report.</span>'
         +'<span>'
           +'<button class="btn" onclick="rbClosePickModal()">Cancel</button>'
-          +' <button class="btn btn-primary" id="rbPickNextBtn" onclick="rbPickNext()"><i class="fas fa-arrow-right"></i> Next — Set Details</button>'
+          +' <button class="btn btn-primary" id="rbPickNextBtn" onclick="rbPickNext()"><i class="fas fa-arrow-right"></i> Next -- Set Details</button>'
         +'</span>'
       +'</div>'
       +'</div>';
     document.body.appendChild(m);
   }
 
-    /* ── render the build list ── */
+    /* -- render the build list -- */
   function rbPickRender(){
     var list=document.getElementById('rbPickList'); if(!list) return;
     var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
         var src=[];
     var sourceLabel='';
-    // PRIMARY: Core Slide saved config (authoritative — same deck_type the user set in Config)
+    // PRIMARY: Core Slide saved config (authoritative -- same deck_type the user set in Config)
     if(_rbCoreDeckMetas && _rbCoreDeckMetas.length){
       sourceLabel='Core Slide config';
       _rbCoreDeckMetas.forEach(function(m){
@@ -823,7 +823,7 @@ window.LSP_DATA = {
             });
           });
         } else {
-          // No flavor_builds — one row per build_id
+          // No flavor_builds -- one row per build_id
           (m.build_ids||[]).forEach(function(b){
             src.push({
               build_id:     b,
@@ -840,7 +840,7 @@ window.LSP_DATA = {
         }
       });
     }
-    // FALLBACK 1: Axiom build options (_cdJiraBuilds) — only if Core Slide config is empty
+    // FALLBACK 1: Axiom build options (_cdJiraBuilds) -- only if Core Slide config is empty
     if(!src.length && window._cdJiraBuilds && window._cdJiraBuilds.length){
       sourceLabel='Axiom (no Core Slide config)';
       src=window._cdJiraBuilds.filter(function(o){ return _rbDeckMatch(o,_rbPickDomain); });
@@ -863,7 +863,7 @@ window.LSP_DATA = {
     }
     var cnt=document.getElementById('rbPickCount');
     var selCount=_rbPickSel.size;
-    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')':'');
+    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' . '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')':'');
     if(!src.length){
       // Show which domains have data to help user switch
       var allDomains={};
@@ -963,7 +963,7 @@ window.LSP_DATA = {
     rbPickRender();
   };
 
-            /* ── open the picker ── */
+            /* -- open the picker -- */
   window.rbOpenAddModal = async function(){
     _ensurePickModal();
     _rbPickSel.clear();
@@ -984,7 +984,7 @@ window.LSP_DATA = {
     var m=document.getElementById('rbPickModal'); if(m) m.style.display='none';
   };
 
-  /* ── Next button: resolve selected build → open detail modal ── */
+  /* -- Next button: resolve selected build -> open detail modal -- */
   window.rbPickNext=function(){
     var sel=Array.from(_rbPickSel);
     if(!sel.length){ alert('Please select a build first.'); return; }
@@ -1017,7 +1017,7 @@ window.LSP_DATA = {
   window.rbCloseAddModal=window.rbClosePickModal;
 
     /* ================================================================
-     STEP 2 MODAL — Axiom jobs, unique devices, cumulative hours,
+     STEP 2 MODAL -- Axiom jobs, unique devices, cumulative hours,
      reduction %, editable JQL, crash breakdown, CR + Open JIRA tables
      Same premium wk-modal pattern as Core Slide flavor alias modal
   ================================================================ */
@@ -1033,13 +1033,13 @@ window.LSP_DATA = {
      +'<div class="wk-modal-head">'
        +'<div>'
          +'<div style="font-size:14px;font-weight:950;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-sliders"></i> <span id="rbDtTitle">Build Details</span></div>'
-         +'<div id="rbDtSub" style="font-size:11px;color:#bfdbfe;margin-top:3px">Axiom jobs · unique devices · cumulative hours · reduction · JQL · crashes</div>'
+         +'<div id="rbDtSub" style="font-size:11px;color:#bfdbfe;margin-top:3px">Axiom jobs . unique devices . cumulative hours . reduction . JQL . crashes</div>'
        +'</div>'
        +'<button class="btn" onclick="rbCloseDetailModal()"><i class="fas fa-times"></i></button>'
      +'</div>'
-     /* ── KPI bar ── */
+     /* -- KPI bar -- */
      +'<div id="rbDtKpi" style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0"></div>'
-     /* ── scrollable body ── */
+     /* -- scrollable body -- */
      +'<div style="overflow:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:16px">'
        /* Axiom jobs table */
        +'<div>'
@@ -1066,24 +1066,24 @@ window.LSP_DATA = {
            +'<input id="rbDtDeviceName" class="compact-input" style="height:36px" placeholder="e.g. SAFE IVI, FLEX PVM...">'
          +'</label>'
          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
-           +'Cumulative Hours <span style="font-weight:700;color:#94a3b8">(auto-filled from Axiom · editable)</span>'
+           +'Cumulative Hours <span style="font-weight:700;color:#94a3b8">(auto-filled from Axiom . editable)</span>'
            +'<input id="rbDtHours" class="compact-input" type="number" min="0" step="0.5" style="height:36px" placeholder="e.g. 120" oninput="rbDtPreview()">'
          +'</label>'
          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
-           +'Reduction % <span style="font-weight:700;color:#7c3aed">(earlier method — same as Core Slide)</span>'
+           +'Reduction % <span style="font-weight:700;color:#7c3aed">(earlier method -- same as Core Slide)</span>'
            +'<div style="display:flex;align-items:center;gap:8px">'
              +'<input id="rbDtRedSlider" type="range" min="0" max="90" step="10" value="0" style="flex:1;accent-color:#7c3aed" oninput="rbDtSyncSlider(this)">'
              +'<input id="rbDtRedText" class="compact-input" type="number" min="0" max="99" style="width:70px;height:36px" placeholder="%" oninput="rbDtSyncText(this)">'
            +'</div>'
          +'</label>'
          +'<label style="font-size:11px;font-weight:900;color:#64748b;display:flex;flex-direction:column;gap:4px">'
-           +'Unique Devices <span style="font-weight:700;color:#94a3b8">(auto-filled · editable)</span>'
+           +'Unique Devices <span style="font-weight:700;color:#94a3b8">(auto-filled . editable)</span>'
            +'<input id="rbDtDevices" class="compact-input" type="number" min="0" style="height:36px" placeholder="auto" oninput="rbDtPreview()">'
          +'</label>'
        +'</div>'
        /* JQL row */
        +'<div>'
-         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-code"></i> JQL Query <span style="font-weight:700;color:#94a3b8;text-transform:none">(editable · runs on Generate)</span></div>'
+         +'<div style="font-size:11px;font-weight:950;color:#4338ca;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><i class="fas fa-code"></i> JQL Query <span style="font-weight:700;color:#94a3b8;text-transform:none">(editable . runs on Generate)</span></div>'
          +'<div style="display:flex;gap:8px;align-items:flex-start">'
            +'<textarea id="rbDtJql" rows="2" style="flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 10px;font-family:monospace;font-size:11px;resize:vertical"></textarea>'
            +'<button onclick="rbDtGenerate()" style="border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap"><i class="fas fa-bolt"></i> Generate</button>'
@@ -1145,7 +1145,7 @@ window.LSP_DATA = {
     document.body.appendChild(m);
   }
 
-  /* ── helpers ── */
+  /* -- helpers -- */
   function _rbDtKpiCard(icon,label,val,color,bg){
     return '<div style="background:'+(bg||'#f8fafc')+';border:1px solid '+(color||'#e2e8f0')+'33;border-radius:12px;padding:10px 14px;min-width:100px">'
       +'<div style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px"><i class="fas fa-'+icon+'"></i> '+label+'</div>'
@@ -1186,11 +1186,11 @@ window.LSP_DATA = {
     _rbDtUpdateKpi();
   };
 
-  /* ── load Axiom jobs for the selected build ── */
+  /* -- load Axiom jobs for the selected build -- */
   function _rbDtLoadJobs(row){
     var tbody=document.getElementById('rbDtJobsTbody'); if(!tbody) return;
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
-    // Use the same running_builds_db API — it already has axiom_jobs per row
+    // Use the same running_builds_db API -- it already has axiom_jobs per row
     // But we need per-build detail: call current_report_data which has axiom_jobs array
     fetch('/api/live_status_view/'+encodeURIComponent(TARGET)+'/current_report_data')
       .then(function(r){return r.json();})
@@ -1254,14 +1254,14 @@ window.LSP_DATA = {
       });
   }
 
-  /* ── build default JQL from build_id (same pattern as rbRunJql) ── */
+  /* -- build default JQL from build_id (same pattern as rbRunJql) -- */
   function _rbDtDefaultJql(row){
     var buildId=String(row.build_id||'').trim();
     var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
     return 'filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"';
   }
 
-  /* ── Generate: run JQL, populate crash breakdown + CR + JIRA tables ── */
+  /* -- Generate: run JQL, populate crash breakdown + CR + JIRA tables -- */
   window.rbDtGenerate=function(){
     var jql=(document.getElementById('rbDtJql')||{}).value||'';
     var st=document.getElementById('rbDtGenStatus');
@@ -1293,7 +1293,7 @@ window.LSP_DATA = {
     .catch(function(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+e.message;}});
   };
 
-  /* ── crash type toggle (same as brToggleCrashType) ── */
+  /* -- crash type toggle (same as brToggleCrashType) -- */
   _rbD.crashFilters={system:true,ssr:true,process:true};
   _rbD.crashData=null;
   window.rbDtToggleCrash=function(type){
@@ -1322,7 +1322,7 @@ window.LSP_DATA = {
     var summary=data.summary||{};
     var crRows=data.cr_rows||[];
     var openJiras=data.open_jiras||[];
-    // Crash breakdown — same fields as Core Slide: system_crashes, ssr_crashes, process_crashes
+    // Crash breakdown -- same fields as Core Slide: system_crashes, ssr_crashes, process_crashes
     _rbD.crashData={
       system: parseInt(summary.system_crashes||0)||0,
       ssr:    parseInt(summary.ssr_crashes||0)||0,
@@ -1351,7 +1351,7 @@ window.LSP_DATA = {
     if(js) js.style.display=openJiras.length?'block':'none';
     var jb=document.getElementById('rbDtJiraBadge');
     if(jb) jb.textContent=openJiras.length+' JIRAs';
-    if(st){st.style.color='#059669';st.textContent='Done — '+crRows.length+' CRs, '+openJiras.length+' open JIRAs, '+(_rbD.crashes||0)+' crashes.';}
+    if(st){st.style.color='#059669';st.textContent='Done -- '+crRows.length+' CRs, '+openJiras.length+' open JIRAs, '+(_rbD.crashes||0)+' crashes.';}
   }
 
   function _rbDtRenderCrTable(q){
@@ -1423,9 +1423,9 @@ window.LSP_DATA = {
     _rbD.crashFilters={system:true,ssr:true,process:true};
     // Reset UI
     var title=document.getElementById('rbDtTitle');
-    if(title) title.textContent=(dbRow.meta_id||dbRow.build_id)+' — '+_esc(dbRow.domain||'');
+    if(title) title.textContent=(dbRow.meta_id||dbRow.build_id)+' -- '+_esc(dbRow.domain||'');
     var sub=document.getElementById('rbDtSub');
-    if(sub) sub.textContent=_esc(dbRow.build_id||'')+(dbRow.product_flavor?' · '+dbRow.product_flavor:'');
+    if(sub) sub.textContent=_esc(dbRow.build_id||'')+(dbRow.product_flavor?' . '+dbRow.product_flavor:'');
     // Pre-fill from existing saved entry if editing
     var existing=editIdx!=null?_rbSaved[editIdx]:null;
     document.getElementById('rbDtDeviceName').value=(existing&&existing.deviceName)||dbRow.product_flavor||dbRow.build_id||'';
@@ -1453,7 +1453,7 @@ window.LSP_DATA = {
     var m=document.getElementById('rbDetailModal'); if(m) m.style.display='none';
   };
 
-  /* ── Save ── */
+  /* -- Save -- */
   window.rbDtSave=function(){
     var r=_rbD.row;
     if(!r){alert('No build selected.');return;}
