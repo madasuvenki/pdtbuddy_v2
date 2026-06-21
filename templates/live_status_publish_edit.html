@@ -863,7 +863,7 @@ window.LSP_DATA = {
     }
     var cnt=document.getElementById('rbPickCount');
     var selCount=_rbPickSel.size;
-    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')');
+    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')':'');
     if(!src.length){
       // Show which domains have data to help user switch
       var allDomains={};
