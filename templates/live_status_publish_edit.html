@@ -678,7 +678,7 @@ window.LSP_DATA = {
     if(m) return 'Meta-'+String(parseInt(m[1],10)).padStart(3,'0');
     return b.split(/[\s_\-.]+/).slice(0,2).join('-')||b;
   }
-      /* ----------------------------------------------------------------
+        /* ----------------------------------------------------------------
    Build-to-domain lookup from Core Slide saved state.
    /api/core_deck/public_state returns selected_metas[].deck_type
    which is the AUTHORITATIVE domain set by the user in Config —
@@ -686,14 +686,21 @@ window.LSP_DATA = {
    ---------------------------------------------------------------- */
   var _rbBuildDeckMap = {};   // build_id (uppercase tail) → 'IVI'|'FLEX'|'ADAS'
   var _rbDeckMapLoaded = false;
+  var _rbCoreDeckMetas = [];  // full selected_metas from public_state — used as picker source
 
   async function _rbLoadDeckMap(){
     if(_rbDeckMapLoaded) return;
     _rbDeckMapLoaded = true;
-    // 1. Use _cdBuildTypes if already populated by live_status_published_safe.js
-    if(window._cdBuildTypes && Object.keys(window._cdBuildTypes).length){
-      Object.keys(window._cdBuildTypes).forEach(function(b){
-        _rbBuildDeckMap[String(b).toUpperCase()] = String(window._cdBuildTypes[b]||'IVI').toUpperCase();
+    // 1. Use _cdMetas if already populated by live_status_published_safe.js (editor mode)
+    if(window._cdMetas && window._cdMetas.length){
+      _rbCoreDeckMetas = window._cdMetas;
+      window._cdMetas.forEach(function(m){
+        var deck = String(m.deck_type||'IVI').toUpperCase();
+        (m.build_ids||[]).forEach(function(b){
+          _rbBuildDeckMap[String(b).toUpperCase()] = deck;
+          var tail = String(b).split(/[\\/]/).filter(Boolean).pop()||String(b);
+          _rbBuildDeckMap[tail.toUpperCase()] = deck;
+        });
       });
       return;
     }
@@ -702,6 +709,7 @@ window.LSP_DATA = {
       var resp = await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET));
       var data = await resp.json().catch(function(){return {};});
       var metas = (data.state && data.state.selected_metas) || [];
+      _rbCoreDeckMetas = metas;
       metas.forEach(function(m){
         var deck = String(m.deck_type||'IVI').toUpperCase();
         (m.build_ids||[]).forEach(function(b){
@@ -790,14 +798,56 @@ window.LSP_DATA = {
   function rbPickRender(){
     var list=document.getElementById('rbPickList'); if(!list) return;
     var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
-    var src=[];
-    var usingAxiom=false;
-    if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
-      // Primary: Axiom build options (same data as Core Slide modal)
-      usingAxiom=true;
+        var src=[];
+    var sourceLabel='';
+    // PRIMARY: Core Slide saved config (authoritative — same deck_type the user set in Config)
+    if(_rbCoreDeckMetas && _rbCoreDeckMetas.length){
+      sourceLabel='Core Slide config';
+      _rbCoreDeckMetas.forEach(function(m){
+        var deck=String(m.deck_type||'IVI').toUpperCase();
+        if(deck!==_rbPickDomain) return;
+        // Expand flavor_builds if present (individual flavor rows)
+        var fbs=Array.isArray(m.flavor_builds)?m.flavor_builds.filter(function(f){return f&&f.build_id;}):[];
+        if(fbs.length){
+          fbs.forEach(function(fb){
+            src.push({
+              build_id:     fb.build_id,
+              meta_id:      m.meta_id||_rbOptMeta({build_id:fb.build_id}),
+              product_flavor: fb.product_flavor||'',
+              software_product: fb.software_product||'',
+              device_count: fb.device_count||m.device_count||'',
+              deck_type:    deck,
+              domain:       deck,
+              submitted:    fb.latest_submitted||'',
+              job_count:    fb.job_count||0
+            });
+          });
+        } else {
+          // No flavor_builds — one row per build_id
+          (m.build_ids||[]).forEach(function(b){
+            src.push({
+              build_id:     b,
+              meta_id:      m.meta_id||_rbOptMeta({build_id:b}),
+              product_flavor: (m.product_flavors||[]).join(' + '),
+              software_product: '',
+              device_count: m.device_count||'',
+              deck_type:    deck,
+              domain:       deck,
+              submitted:    '',
+              job_count:    0
+            });
+          });
+        }
+      });
+    }
+    // FALLBACK 1: Axiom build options (_cdJiraBuilds) — only if Core Slide config is empty
+    if(!src.length && window._cdJiraBuilds && window._cdJiraBuilds.length){
+      sourceLabel='Axiom (no Core Slide config)';
       src=window._cdJiraBuilds.filter(function(o){ return _rbDeckMatch(o,_rbPickDomain); });
-    } else if(_rbRows.length){
-      // Fallback: running_builds_db rows — use domain field directly
+    }
+    // FALLBACK 2: running_builds_db rows
+    if(!src.length && _rbRows.length){
+      sourceLabel='DB running builds';
       src=_rbRows.filter(function(r){ return String(r.domain||'').toUpperCase()===_rbPickDomain; })
         .map(function(r){
           return {build_id:r.build_id,meta_id:r.meta_id,product_flavor:r.product_flavor||'',
@@ -813,14 +863,20 @@ window.LSP_DATA = {
     }
     var cnt=document.getElementById('rbPickCount');
     var selCount=_rbPickSel.size;
-    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(usingAxiom?' (Axiom)':' (DB fallback)');
+    if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' · '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')');
     if(!src.length){
       // Show which domains have data to help user switch
       var allDomains={};
-      (usingAxiom?(window._cdJiraBuilds||[]):_rbRows).forEach(function(o){
-        var d=usingAxiom?_rbGuessDeck(o):String(o.domain||'').toUpperCase();
-        allDomains[d]=(allDomains[d]||0)+1;
+      (_rbCoreDeckMetas||[]).forEach(function(m){
+        var d=String(m.deck_type||'IVI').toUpperCase();
+        allDomains[d]=(allDomains[d]||0)+((m.build_ids||[]).length||1);
       });
+      if(!Object.keys(allDomains).length){
+        (_rbRows||[]).forEach(function(r){
+          var d=String(r.domain||'').toUpperCase();
+          allDomains[d]=(allDomains[d]||0)+1;
+        });
+      }
       var hint=Object.keys(allDomains).length
         ? ' Available: '+Object.keys(allDomains).sort().map(function(k){return k+' ('+allDomains[k]+')';}).join(', ')+'. Try switching domain.'
         : ' No builds loaded. Check DB connection or try Refresh on the main table.';
@@ -876,10 +932,25 @@ window.LSP_DATA = {
     rbPickRender();
   };
 
-  window.rbPickSelectVisible=function(on){
+    window.rbPickSelectVisible=function(on){
     var q=((document.getElementById('rbPickSearch')||{}).value||'').toLowerCase();
     var src=[];
-    if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
+    // Use same source priority as rbPickRender
+    if(_rbCoreDeckMetas && _rbCoreDeckMetas.length){
+      _rbCoreDeckMetas.forEach(function(m){
+        if(String(m.deck_type||'IVI').toUpperCase()!==_rbPickDomain) return;
+        var fbs=Array.isArray(m.flavor_builds)?m.flavor_builds.filter(function(f){return f&&f.build_id;}):[];
+        if(fbs.length){
+          fbs.forEach(function(fb){
+            src.push({build_id:fb.build_id,meta_id:m.meta_id,product_flavor:fb.product_flavor||'',deck_type:_rbPickDomain});
+          });
+        } else {
+          (m.build_ids||[]).forEach(function(b){
+            src.push({build_id:b,meta_id:m.meta_id,product_flavor:(m.product_flavors||[]).join(' + '),deck_type:_rbPickDomain});
+          });
+        }
+      });
+    } else if(window._cdJiraBuilds&&window._cdJiraBuilds.length){
       src=window._cdJiraBuilds.filter(function(o){ return _rbDeckMatch(o,_rbPickDomain); });
     } else {
       src=_rbRows.filter(function(r){ return String(r.domain||'').toUpperCase()===_rbPickDomain; })
@@ -892,7 +963,7 @@ window.LSP_DATA = {
     rbPickRender();
   };
 
-      /* ── open the picker ── */
+            /* ── open the picker ── */
   window.rbOpenAddModal = async function(){
     _ensurePickModal();
     _rbPickSel.clear();
@@ -901,18 +972,11 @@ window.LSP_DATA = {
     document.getElementById('rbPickModal').style.display='flex';
     rbPickSetDomain(_rbPickDomain);
     var list=document.getElementById('rbPickList');
-    if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Axiom + Core Slide config...</div>';
-    // Load deck map from saved Core Slide state (authoritative domain mapping)
+    if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Core Slide config...</div>';
+    // Load deck map + Core Slide metas from saved state (authoritative domain mapping)
     await _rbLoadDeckMap();
-    // Load Axiom build options (same as Core Slide openCoreDeckBuildModal)
-    try{
-      if(typeof loadCoreDeckJiraBuilds==='function') await loadCoreDeckJiraBuilds();
-    }catch(e){
-      if(!_rbRows.length) await window.loadRunningBuildsDb();
-    }
-    if((!window._cdJiraBuilds||!window._cdJiraBuilds.length) && !_rbRows.length){
-      await window.loadRunningBuildsDb();
-    }
+    // Ensure DB rows are loaded as fallback
+    if(!_rbRows.length) await window.loadRunningBuildsDb();
     rbPickRender();
   };
 
