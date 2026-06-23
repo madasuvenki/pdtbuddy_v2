@@ -1,0 +1,1573 @@
+﻿{% extends "bu_shell_layout.html" %}
+{% block title %}Smart Build Report{% endblock %}
+{% block shell_extra_css %}{% endblock %}
+{% block shell_inner_content %}
+<style>
+:root{
+  --sp2-blue:#2563eb;--sp2-indigo:#6366f1;--sp2-green:#059669;
+  --sp2-red:#dc2626;--sp2-amber:#d97706;--sp2-slate:#334155;
+  --sp2-muted:#64748b;--sp2-border:#e2e8f0;
+  --sp2-bg:#f0f4ff;       /* page background — soft blue-tinted white */
+  --sp2-surface:#ffffff;  /* card / panel surface */
+}
+*{box-sizing:border-box}
+
+/* ── Page shell ── */
+.sp2-page{
+  min-height:100vh;
+  background:linear-gradient(160deg,#eef2ff 0%,#f0f9ff 40%,#f5f3ff 100%);
+  padding:0;
+}
+.sp2-wrap{
+  width:100%;max-width:none;
+  padding:20px 24px 32px;
+}
+
+/* ── Header banner ── */
+.sp2-header{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(135deg,#1e3a8a 0%,#312e81 100%);
+  border-radius:16px;padding:16px 22px;margin-bottom:18px;
+  box-shadow:0 4px 20px rgba(30,58,138,.18);
+}
+.sp2-header h1{font-size:20px;font-weight:950;color:#fff;margin:0;display:flex;align-items:center;gap:10px}
+.sp2-header .muted{font-size:11px;color:#a5b4fc;font-weight:700;margin-top:3px}
+
+/* ── Week bar ── */
+.sp2-week-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--sp2-border);
+  border-radius:12px;padding:10px 16px;margin-bottom:16px;
+  box-shadow:0 1px 6px rgba(99,102,241,.07);
+}
+.sp2-week-bar label{font-size:11px;font-weight:950;color:var(--sp2-muted);text-transform:uppercase;letter-spacing:.05em}
+.sp2-week-bar select,.sp2-week-bar input[type=date]{
+  height:34px;border:1.5px solid var(--sp2-border);border-radius:8px;
+  padding:0 10px;font-size:12px;font-weight:800;font-family:inherit;
+  color:var(--sp2-slate);background:#fff;
+}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1.5px solid var(--sp2-border);background:#fff;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;color:var(--sp2-slate);transition:all .15s}
+.btn:hover{background:#f1f5f9;transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,var(--sp2-blue),var(--sp2-indigo));color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(99,102,241,.3)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* ── Tabs ── */
+.sp2-tabs{
+  display:flex;gap:4px;flex-wrap:wrap;
+  border-bottom:2px solid var(--sp2-border);margin-bottom:18px;
+}
+.sp2-tab{
+  padding:9px 20px;font-size:12px;font-weight:900;border:none;
+  background:none;cursor:pointer;color:var(--sp2-muted);
+  border-bottom:3px solid transparent;margin-bottom:-2px;
+  border-radius:8px 8px 0 0;transition:all .15s;font-family:inherit;
+}
+.sp2-tab:hover{background:#f1f5f9;color:var(--sp2-slate)}
+.sp2-tab.active{color:var(--sp2-blue);border-bottom-color:var(--sp2-blue);background:#eff6ff}
+.sp2-pane{display:none}.sp2-pane.active{display:block}
+
+/* ── KPI grid ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{
+  background:#fff;border:1px solid var(--sp2-border);
+  border-radius:14px;padding:16px 14px;text-align:center;
+  box-shadow:0 2px 8px rgba(99,102,241,.07);
+  transition:transform .15s,box-shadow .15s;
+}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(99,102,241,.13)}
+.kpi-card:nth-child(1){border-top:3px solid #6366f1}
+.kpi-card:nth-child(2){border-top:3px solid #2563eb}
+.kpi-card:nth-child(3){border-top:3px solid #059669}
+.kpi-card:nth-child(4){border-top:3px solid #d97706}
+.kpi-card:nth-child(5){border-top:3px solid #dc2626}
+.kpi-card:nth-child(6){border-top:3px solid #7c3aed}
+.kpi-val{font-size:30px;font-weight:950;color:#0f172a;line-height:1}
+.kpi-lbl{font-size:10px;font-weight:900;color:var(--sp2-muted);text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+
+/* ── Cards ── */
+.card{
+  background:#fff;border:1px solid var(--sp2-border);
+  border-radius:14px;margin-bottom:16px;overflow:hidden;
+  box-shadow:0 2px 10px rgba(15,23,42,.06);
+}
+.card-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-bottom:1px solid var(--sp2-border);
+  flex-wrap:wrap;gap:8px;
+  background:linear-gradient(90deg,#f8fafc,#f0f4ff);
+}
+.card-head h2{font-size:14px;font-weight:950;color:#0f172a;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+
+/* ── Filter bar ── */
+.sp2-filter-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 16px;
+  background:linear-gradient(90deg,#f8fafc,#eef2ff);
+  border-bottom:1px solid var(--sp2-border);
+}
+.sp2-filter-bar label{font-size:11px;font-weight:950;color:var(--sp2-muted);text-transform:uppercase;letter-spacing:.05em}
+.sp2-filter-bar select,.sp2-filter-bar input{
+  height:32px;border:1.5px solid var(--sp2-border);border-radius:8px;
+  padding:0 10px;font-size:12px;font-weight:800;font-family:inherit;
+  color:var(--sp2-slate);background:#fff;
+}
+
+/* ── Target sections ── */
+.target-section{
+  border:1px solid var(--sp2-border);border-radius:12px;
+  margin-bottom:10px;overflow:hidden;
+  box-shadow:0 1px 4px rgba(99,102,241,.06);
+  background:#fff;
+}
+.target-section-head{
+  display:flex;align-items:center;
+  padding:11px 16px;
+  background:linear-gradient(135deg,#eff6ff 0%,#f5f3ff 100%);
+  cursor:pointer;flex-wrap:wrap;gap:10px;
+  border-bottom:1px solid #e0e7ff;
+}
+.target-section-head:hover{background:linear-gradient(135deg,#dbeafe,#ede9fe)}
+.target-section-head h3{font-size:13px;font-weight:950;color:#1e3a8a;margin:0;display:flex;align-items:center;gap:8px;min-width:140px;flex-shrink:0}
+
+/* ── Misc ── */
+.mini-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:900}
+.badge-blue{background:#dbeafe;color:#1d4ed8}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-purple{background:#ede9fe;color:#5b21b6}
+.tbl-wrap{overflow-x:auto}
+table.sp2-tbl{width:100%;border-collapse:collapse;font-size:12px}
+table.sp2-tbl th{
+  background:linear-gradient(90deg,#f1f5f9,#eef2ff);
+  font-weight:950;color:var(--sp2-muted);text-transform:uppercase;
+  font-size:10px;letter-spacing:.05em;padding:9px 12px;
+  border-bottom:2px solid var(--sp2-border);white-space:nowrap;
+  position:sticky;top:0;z-index:1;
+}
+table.sp2-tbl td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:var(--sp2-slate)}
+table.sp2-tbl tr:hover td{background:#f8fafc}
+table.sp2-tbl tr:last-child td{border-bottom:none}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#f1f5f9;color:var(--sp2-slate)}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:#dbeafe;color:#1d4ed8}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.purple{background:#ede9fe;color:#5b21b6}
+.empty{text-align:center;color:var(--sp2-muted);padding:40px;font-size:13px;font-weight:800}
+.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.build-status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.build-status-dot.running{background:#16a34a;box-shadow:0 0 0 3px #bbf7d0}
+.build-status-dot.completed{background:#2563eb}
+.hours-bar{height:6px;background:#e0e7ff;border-radius:99px;overflow:hidden;min-width:60px}
+.hours-bar-fill{height:6px;background:linear-gradient(90deg,#6366f1,#2563eb);border-radius:99px;transition:width .4s}
+.device-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:900;background:#f1f5f9;color:var(--sp2-slate);border:1px solid var(--sp2-border);margin:2px}
+.section-divider{
+  font-size:10px;font-weight:950;color:var(--sp2-muted);text-transform:uppercase;
+  letter-spacing:.08em;padding:7px 16px;
+  background:linear-gradient(90deg,#f8fafc,#eef2ff);
+  border-top:1px solid var(--sp2-border);border-bottom:1px solid var(--sp2-border);
+}
+input.editable-num{border:1px solid #c7d2fe;border-radius:6px;padding:3px 5px;font-size:12px;font-weight:900;color:#1e3a8a;background:#eff6ff;text-align:right}
+input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;text-align:center}
+.sp2-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9998;display:none;align-items:center;justify-content:center;padding:18px}
+.sp2-modal-backdrop.open{display:flex}
+.sp2-modal{width:min(520px,96vw);background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(15,23,42,.35);overflow:hidden;border:1px solid #c7d2fe}
+.sp2-modal-head{padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sp2-modal-head h3{margin:0;font-size:14px;font-weight:950}
+.sp2-modal-body{padding:18px;display:grid;gap:12px}
+.sp2-modal-field label{display:block;font-size:10px;font-weight:950;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.sp2-modal-field input{width:100%;height:36px;border:1.5px solid #c7d2fe;border-radius:8px;padding:0 10px;font-size:13px;font-weight:800;color:#0f172a}
+.sp2-modal-foot{padding:12px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px}
+</style>
+
+<div class="sp2-page">
+<div class="sp2-wrap">
+  <div class="sp2-header">
+    <div>
+      <h1><i class="fas fa-chart-bar"></i> Smart Build Report</h1>
+      <div class="muted"><i class="fas fa-database" style="font-size:10px"></i> Axiom DB &mdash; /PDT/QIPL &mdash; Crashes from weekly CSV</div>
+    </div>
+    <div class="mini-toolbar" style="margin-left:auto">
+      <span id="sp2Spinner" style="display:none;color:#a5b4fc"><i class="fas fa-circle-notch spin"></i> Loading...</span>
+      <button class="btn btn-primary" onclick="sp2Load(true)"><i class="fas fa-rotate"></i> Refresh</button>
+    </div>
+  </div>
+
+  <div class="sp2-week-bar">
+    <label>Week</label>
+    <select id="sp2WeekSel" onchange="sp2OnWeekChange()">
+      {% for ws, we, lbl in week_ranges %}
+      <option value="{{ ws }}|{{ we }}" {% if ws == sel_start.isoformat() and we == sel_end.isoformat() %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+    <span class="muted" style="font-size:11px">or custom:</span>
+    <label>From</label>
+    <input type="date" id="sp2From" value="{{ sel_start.isoformat() }}" onchange="sp2OnCustomDate()">
+    <label>To</label>
+    <input type="date" id="sp2To" value="{{ sel_end.isoformat() }}" onchange="sp2OnCustomDate()">
+    <span id="sp2WeekLabel" class="pill blue" style="font-size:11px"></span>
+  </div>
+
+    <div class="sp2-tabs">
+    <button class="sp2-tab active" onclick="sp2Tab('builds',this)"><i class="fas fa-vial"></i> Builds</button>
+    <button class="sp2-tab" onclick="sp2Tab('consolidate',this)"><i class="fas fa-table"></i> Consolidate Report</button>
+    <button class="sp2-tab" onclick="sp2Tab('devices',this)"><i class="fas fa-mobile-alt"></i> Device Utilization</button>
+    <button class="sp2-tab" onclick="sp2Tab('unique_devices',this)"><i class="fas fa-list-ul"></i> Unique Devices</button>
+    <button class="sp2-tab" onclick="sp2Tab('stability',this)"><i class="fas fa-chart-bar" style="color:#16a34a"></i> PDT Stability</button>
+  </div>
+
+  <!-- TAB 1: BUILDS -->
+  <div id="sp2Pane_builds" class="sp2-pane active">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val" id="kpiTargets">-</div><div class="kpi-lbl">Targets</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kpiBuilds">-</div><div class="kpi-lbl">Total Builds</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kpiHours">-</div><div class="kpi-lbl">Total Hours</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kpiDevices">-</div><div class="kpi-lbl">Unique Devices</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kpiCrashes">-</div><div class="kpi-lbl">Total Crashes</div></div>
+      <div class="kpi-card"><div class="kpi-val" id="kpiMtbf">-</div><div class="kpi-lbl">Avg MTBF (hrs)</div></div>
+    </div>
+    <div class="sp2-filter-bar" style="border-radius:12px 12px 0 0;border:1px solid var(--sp2-border);border-bottom:none">
+            <label>Target</label>
+      <select id="sp2TargetFilter" onchange="sp2OnTargetChange()"><option value="">All Targets</option></select>
+      <label>PL-ID</label>
+      <select id="sp2PlFilter" onchange="sp2FilterBuilds()"><option value="">All PL-IDs</option></select>
+      <label>Status</label>
+      <select id="sp2StatusFilter" onchange="sp2FilterBuilds()">
+        <option value="">All</option><option value="running">Running</option><option value="completed">Completed</option>
+      </select>
+      <input id="sp2BuildSearch" placeholder="Search build / target / PL..." oninput="sp2FilterBuilds()"
+             style="min-width:220px;height:32px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 10px;font-size:12px;font-weight:800;font-family:inherit">
+      <span id="sp2BuildCount" class="pill" style="margin-left:auto"></span>
+    </div>
+    <div id="sp2BuildsBody" style="border:1px solid var(--sp2-border);border-radius:0 0 14px 14px;overflow:hidden;background:#fff">
+      <div class="empty"><i class="fas fa-circle-notch spin"></i> Loading builds...</div>
+    </div>
+  </div>
+
+      <!-- TAB 2: CONSOLIDATE REPORT -->
+  <div id="sp2Pane_consolidate" class="sp2-pane">
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-table" style="color:var(--sp2-indigo)"></i> Consolidate Report <span id="sp2ConsBadge" class="badge badge-blue"></span></h2>
+        <div class="mini-toolbar">
+          <button class="btn btn-sm btn-primary" onclick="sp2LoadConsolidate(true)"><i class="fas fa-rotate"></i> Refresh &amp; Save</button>
+          <button class="btn btn-sm" id="sp2FetchMilestonesBtn" onclick="sp2FetchAllMissingMilestones()"
+            style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-color:#0f766e;"
+            title="Fetch ES/FC/CS from OneView for all rows with missing timelines">
+            <i class="fas fa-cloud-download-alt"></i> Fetch Missing Milestones
+          </button>
+          <button class="btn btn-sm" onclick="sp2CopyConsolidate()"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="max-height:72vh;overflow:auto">
+        <table class="sp2-tbl" id="sp2ConsTable">
+          <colgroup>
+            <col style="width:36px">
+            <col style="width:80px">  <!-- BU -->
+            <col style="width:200px"> <!-- PL-ID -->
+            <col style="width:160px"> <!-- Timelines -->
+            <col style="width:90px">  <!-- PDT Status -->
+            <col style="width:52px">  <!-- Devices -->
+            <col style="width:52px">  <!-- Builds -->
+            <col style="width:72px">  <!-- Hours -->
+            <col style="width:60px">  <!-- Crashes -->
+            <col style="width:60px">  <!-- Unique CRs -->
+            <col style="width:60px">  <!-- MTBF -->
+          </colgroup>
+          <thead><tr>
+            <th>#</th>
+            <th>BU</th>
+            <th>PL-ID</th>
+            <th>Timelines</th>
+            <th>PDT Status</th>
+            <th style="text-align:center">Devices</th>
+            <th style="text-align:center" title="Count of unique meta-IDs (e.g. Aldabra-296.1 + .2 = 1)">Builds<br><span style="font-size:9px;font-weight:700;color:#6366f1;text-transform:none;letter-spacing:0">(meta-IDs)</span></th>
+            <th style="text-align:center">Hours</th>
+            <th style="text-align:center">Crashes</th>
+            <th style="text-align:center">Unique CRs</th>
+            <th style="text-align:center">MTBF</th>
+          </tr></thead>
+          <tbody id="sp2ConsTbody">
+            <tr><td colspan="11" class="empty">Select a week and click Refresh &amp; Save.</td></tr>
+          </tbody>
+          <tfoot id="sp2ConsTfoot" style="display:none">
+            <tr style="background:#f1f5f9;font-weight:900">
+              <td colspan="3" style="padding:8px 12px">TOTAL</td>
+              <td></td><td></td>
+              <td id="sp2CTotal_dev"   style="text-align:center;padding:8px 12px">-</td>
+              <td id="sp2CTotal_bld"   style="text-align:center;padding:8px 12px">-</td>
+              <td id="sp2CTotal_hrs"   style="text-align:center;padding:8px 12px">-</td>
+              <td id="sp2CTotal_crash" style="text-align:center;padding:8px 12px">-</td>
+              <td id="sp2CTotal_ucr"   style="text-align:center;padding:8px 12px">-</td>
+              <td style="text-align:center;padding:8px 12px">-</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+            <!-- Consolidate Stability Health Graph removed - now on PDT Stability tab -->
+  </div>
+
+    <!-- TAB 3: DEVICE UTILIZATION -->
+  <div id="sp2Pane_devices" class="sp2-pane">
+
+        <!-- KPI strip -->
+    <div id="sp2DevUtilKpis" class="kpi-grid" style="margin-bottom:16px"></div>
+
+    <!-- Device table + trend charts -->
+    <div style="display:grid;grid-template-columns:minmax(520px, 0.95fr) minmax(420px, 1.05fr);gap:14px;margin-bottom:14px;align-items:start;">
+
+      <!-- LEFT: table -->
+      <div class="card" style="margin-bottom:0;min-width:0">
+        <div class="card-head">
+          <h2><i class="fas fa-mobile-alt" style="color:var(--sp2-green)"></i> Device Utilization</h2>
+          <button class="btn btn-sm" onclick="sp2LoadDevUtil()"><i class="fas fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="tbl-wrap" style="max-height:none;overflow:visible">
+                    <table class="sp2-tbl" id="sp2DevUtilTable" style="border:2px solid #1f2937;width:100%;table-layout:fixed">
+            <thead id="sp2DevUtilThead"><tr><th>Target</th><th>Week</th></tr></thead>
+            <tbody id="sp2DevUtilTbody"><tr><td colspan="2" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+                        <!-- RIGHT: charts stacked one-by-one so table and charts are both visible -->
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;min-width:0">
+
+        <div class="card" style="margin-bottom:0;flex:1">
+          <div class="card-head" style="padding:10px 14px">
+            <h2 style="font-size:12px"><i class="fas fa-clock" style="color:var(--sp2-indigo)"></i> Device Utilization (Hrs/Device)</h2>
+            <button onclick="sp2CopyChart('sp2MiniChart1',this)" class="btn btn-sm"><i class="fas fa-copy"></i></button>
+          </div>
+          <div id="sp2MiniChart1" style="height:230px;padding:4px 8px"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:0;flex:1">
+          <div class="card-head" style="padding:10px 14px">
+            <h2 style="font-size:12px"><i class="fas fa-bug" style="color:var(--sp2-red)"></i> Average number of crashes per MTP/Week</h2>
+            <button onclick="sp2CopyChart('sp2MiniChart2',this)" class="btn btn-sm"><i class="fas fa-copy"></i></button>
+          </div>
+          <div id="sp2MiniChart2" style="height:230px;padding:4px 8px"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:0;flex:1">
+          <div class="card-head" style="padding:10px 14px">
+            <h2 style="font-size:12px"><i class="fas fa-stopwatch" style="color:var(--sp2-amber)"></i> Average Time/Crash</h2>
+            <button onclick="sp2CopyChart('sp2MiniChart3',this)" class="btn btn-sm"><i class="fas fa-copy"></i></button>
+          </div>
+          <div id="sp2MiniChart3" style="height:230px;padding:4px 8px"></div>
+        </div>
+
+      </div><!-- /right charts -->
+    </div><!-- /grid -->
+
+    <!-- Week-over-Week full-width table -->
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-table" style="color:var(--sp2-blue)"></i> Week-over-Week Comparison</h2>
+      </div>
+      <div class="card-body"><div id="sp2WowBody"><div class="empty">Loading...</div></div></div>
+    </div>
+
+  </div><!-- /TAB 3 -->
+
+  <!-- TAB 5: PDT STABILITY HEALTH -->
+<div id="sp2Pane_stability" class="sp2-pane">
+  <div class="card">
+    <div class="card-head" style="padding:10px 16px">
+      <h2 style="font-size:13px"><i class="fas fa-chart-bar" style="color:#16a34a"></i> PDT Stability Health Graph
+        <span style="font-size:10px;font-weight:600;color:#64748b;margin-left:6px">(weekly trend)</span>
+      </h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="sp2ConsCopyStability(this)" class="btn btn-sm"><i class="fas fa-copy"></i> Copy</button>
+        <button onclick="_sp2LoadStabilityChart()" class="btn btn-sm btn-primary"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+    </div>
+    <div id="sp2StabilityChart" style="height:520px;padding:8px 16px"></div>
+  </div>
+</div>
+  <div id="sp2Pane_unique_devices" class="sp2-pane">
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-list-ul" style="color:var(--sp2-indigo)"></i> Unique Devices per Target <span id="sp2UdBadge" class="badge badge-purple"></span></h2>
+        <div class="mini-toolbar">
+          <select id="sp2UdTargetFilter" onchange="sp2FilterUniqueDevices()"
+                  style="height:32px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 10px;font-size:12px;font-weight:800;font-family:inherit">
+            <option value="">All Targets</option>
+          </select>
+          <input id="sp2UdSearch" placeholder="Search device / chip..."
+                 oninput="sp2FilterUniqueDevices()"
+                 style="height:32px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 10px;font-size:12px;font-weight:800;font-family:inherit;min-width:200px">
+          <button class="btn btn-sm" onclick="sp2LoadUniqueDevices()"><i class="fas fa-rotate"></i> Refresh</button>
+        </div>
+      </div>
+      <div id="sp2UdBody"><div class="empty">Loading unique devices...</div></div>
+    </div>
+  </div>
+</div><!-- /sp2-wrap -->
+</div><!-- /sp2-page -->
+
+<div id="sp2TimelineModal" class="sp2-modal-backdrop" onclick="if(event.target===this)sp2CloseTimelineModal()">
+  <div class="sp2-modal">
+    <div class="sp2-modal-head">
+      <h3><i class="fas fa-calendar-alt"></i> Edit Timelines</h3>
+      <button class="btn btn-sm" onclick="sp2CloseTimelineModal()" style="background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.35)"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="sp2-modal-body">
+      <div style="font-size:12px;color:#475569;font-weight:800"><span id="sp2TlTargetLbl"></span> &middot; <span id="sp2TlPlLbl"></span></div>
+      <input type="hidden" id="sp2TlTarget"><input type="hidden" id="sp2TlPl"><input type="hidden" id="sp2TlRowIdx">
+      <div class="sp2-modal-field"><label>ES Date</label><input type="date" id="sp2TlEs"></div>
+      <div class="sp2-modal-field"><label>FC Date</label><input type="date" id="sp2TlFc"></div>
+      <div class="sp2-modal-field"><label>CS Date</label><input type="date" id="sp2TlCs"></div>
+    </div>
+    <div class="sp2-modal-foot">
+      <button class="btn" onclick="sp2CloseTimelineModal()">Cancel</button>
+      <button class="btn btn-primary" id="sp2TlSaveBtn" onclick="sp2SaveTimelineModal()"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var WEEK_START='{{ sel_start.isoformat() }}', WEEK_END='{{ sel_end.isoformat() }}';
+var _allBuilds=[], _allConsolidate=[], _allDevUtil=[], _allUniqueDevices=[];
+var _consLoaded=false, _devLoaded=false, _udLoaded=false;
+var _sp2BuList=[];
+
+function g(id){return document.getElementById(id)}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})}
+function js(v){return JSON.stringify(String(v==null?'':v));}
+function num(v){var n=parseFloat(String(v==null?'':v).replace(/,/g,''));return isFinite(n)?n:0}
+function fmt(v,d){return num(v).toLocaleString(undefined,{maximumFractionDigits:d||0})}
+function fmtH(v){var h=num(v);return h>=1000?fmt(h,0)+'h':fmt(h,1)+'h'}
+function spinner(on){var s=g('sp2Spinner');if(s)s.style.display=on?'inline-flex':'none'}
+
+function getWeek(){
+  var sel=g('sp2WeekSel');
+  if(sel&&sel.value&&sel.value.indexOf('|')>=0){var p=sel.value.split('|');return{ws:p[0],we:p[1]};}
+  return{ws:(g('sp2From')&&g('sp2From').value)||WEEK_START,we:(g('sp2To')&&g('sp2To').value)||WEEK_END};
+}
+function _currentWeek(){return getWeek();}  /* alias used by sp2SaveBU / sp2SavePlRows */
+window.sp2OnWeekChange=function(){
+  var w=getWeek();WEEK_START=w.ws;WEEK_END=w.we;
+  if(g('sp2From'))g('sp2From').value=w.ws;
+  if(g('sp2To'))g('sp2To').value=w.we;
+  _consLoaded=false;_devLoaded=false;_udLoaded=false;
+  sp2Load(false);
+};
+window.sp2OnCustomDate=function(){
+  var ws=g('sp2From')&&g('sp2From').value,we=g('sp2To')&&g('sp2To').value;
+  if(!ws||!we)return;
+  WEEK_START=ws;WEEK_END=we;
+  var sel=g('sp2WeekSel');if(sel)sel.value='';
+  _consLoaded=false;_devLoaded=false;_udLoaded=false;
+  sp2Load(false);
+};
+
+window.sp2Tab=function(name,btn){
+  document.querySelectorAll('.sp2-tab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.sp2-pane').forEach(function(p){p.classList.remove('active');});
+  if(btn)btn.classList.add('active');
+  var pane=g('sp2Pane_'+name);if(pane)pane.classList.add('active');
+    if(name==='consolidate'&&!_consLoaded)sp2LoadConsolidate(true);
+  if(name==='devices'&&!_devLoaded)sp2LoadDevUtil();
+  if(name==='unique_devices'&&!_udLoaded)sp2LoadUniqueDevices();
+  if(name==='stability')_sp2LoadStabilityChart();
+};
+
+/* TAB 1 - BUILDS
+   Crashes sourced from weekly_qipl_data (same CSV import as CR Pie / CR Age).
+   Hours are week-bounded: running builds capped at week_end Sunday 23:59:59. */
+window.sp2Load=function(force){
+  spinner(true);
+  var w=getWeek();
+  var url='/api/sp2/builds?week_start='+encodeURIComponent(w.ws)+'&week_end='+encodeURIComponent(w.we)+(force?'&force=1':'');
+  fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    _allBuilds=d.builds||[];
+    _sp2BuList=d.bu_list||[];
+    _renderBuildKpis(d);
+    _populateBuildFilters();
+    sp2FilterBuilds();
+    var lbl=g('sp2WeekLabel');
+    if(lbl)lbl.textContent=w.ws.slice(5).replace('-','/')+' to '+w.we.slice(5).replace('-','/');
+  }).catch(function(e){
+    var b=g('sp2BuildsBody');
+    if(b)b.innerHTML='<div class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</div>';
+  }).finally(function(){spinner(false);});
+};
+
+function _renderBuildKpis(d){
+  var builds=d.builds||[];
+  var targets=new Set(builds.map(function(b){return b.target;}));
+  var totalHrs=builds.reduce(function(s,b){return s+num(b.hours);},0);
+  var totalCrashes=builds.reduce(function(s,b){return s+num(b.crashes);},0);
+  var allChips=new Set();
+  builds.forEach(function(b){(b.chip_ids||[]).forEach(function(c){allChips.add(c);});});
+  var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
+  function set(id,v){var el=g(id);if(el)el.textContent=v;}
+  set('kpiTargets',targets.size);
+  set('kpiBuilds',builds.length);
+  set('kpiHours',fmtH(totalHrs));
+  set('kpiDevices',allChips.size||d.total_devices||'-');
+  set('kpiCrashes',fmt(totalCrashes));
+  set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
+}
+
+  function _populateBuildFilters(){
+    var targets=[].concat(Array.from(new Set(_allBuilds.map(function(b){return b.target||'';})))).filter(Boolean).sort();
+    var tSel=g('sp2TargetFilter');
+    var curT=tSel?tSel.value:'';
+    if(tSel)tSel.innerHTML='<option value="">All Targets</option>'+targets.map(function(t){return'<option value="'+esc(t)+'"'+(t===curT?' selected':'')+'>'+esc(t)+'</option>';}).join('');
+    _populatePlFilter(curT);
+    var udSel=g('sp2UdTargetFilter');
+    if(udSel)udSel.innerHTML='<option value="">All Targets</option>'+targets.map(function(t){return'<option value="'+esc(t)+'">'+ esc(t)+'</option>';}).join('');
+  }
+
+  function _populatePlFilter(selectedTarget){
+    var srcBuilds=selectedTarget
+      ?_allBuilds.filter(function(b){return b.target===selectedTarget;})
+      :_allBuilds;
+    var pls=[].concat(Array.from(new Set(srcBuilds.map(function(b){return b.pl_id||'';})))).filter(Boolean).sort();
+    var pSel=g('sp2PlFilter');
+    if(pSel)pSel.innerHTML='<option value="">All PL-IDs</option>'+pls.map(function(p){return'<option value="'+esc(p)+'">'+ esc(p)+'</option>';}).join('');
+  }
+
+  window.sp2OnTargetChange=function(){
+    var tgt=(g('sp2TargetFilter')&&g('sp2TargetFilter').value)||'';
+    _populatePlFilter(tgt);
+    sp2FilterBuilds();
+  };
+
+window.sp2FilterBuilds=function(){
+  var tgt=(g('sp2TargetFilter')&&g('sp2TargetFilter').value)||'';
+  var pl=(g('sp2PlFilter')&&g('sp2PlFilter').value)||'';
+  var st=(g('sp2StatusFilter')&&g('sp2StatusFilter').value)||'';
+  var q=((g('sp2BuildSearch')&&g('sp2BuildSearch').value)||'').toLowerCase();
+  var rows=_allBuilds.filter(function(b){
+    if(tgt&&b.target!==tgt)return false;
+    if(pl&&b.pl_id!==pl)return false;
+    if(st&&b.status!==st)return false;
+    if(q&&[b.target,b.pl_id,b.build_id,b.build_name].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  var cnt=g('sp2BuildCount');if(cnt)cnt.textContent=rows.length+' builds';
+  _renderBuildGroups(rows);
+};
+
+function _renderBuildGroups(rows){
+  var body=g('sp2BuildsBody');if(!body)return;
+  if(!rows.length){body.innerHTML='<div class="empty">No builds found.</div>';return;}
+  var byTarget={};var targetOrder=[];
+  rows.forEach(function(b){
+    if(!byTarget[b.target]){byTarget[b.target]=[];targetOrder.push(b.target);}
+    byTarget[b.target].push(b);
+  });
+  var maxHrs=0;
+  rows.forEach(function(b){if(num(b.hours)>maxHrs)maxHrs=num(b.hours);});
+  var html='';
+  targetOrder.forEach(function(tgt){
+    var tRows=byTarget[tgt];
+    var tHrs=tRows.reduce(function(s,b){return s+num(b.hours);},0);
+    var tCrashes=tRows.reduce(function(s,b){return s+num(b.crashes);},0);
+    var tChips=new Set();
+    tRows.forEach(function(b){(b.chip_ids||[]).forEach(function(c){tChips.add(c);});});
+    var tMtbf=tCrashes>0?(tHrs/tCrashes):0;
+        html+='<div class="target-section">';
+    html+='<div class="target-section-head" onclick="sp2ToggleTarget(\''+esc(tgt)+'\')">';
+        var tgtBu = (tRows[0]&&tRows[0].bu)||'';
+    var buOpts2='<option value="">BU?</option>';
+    (_sp2BuList||[]).forEach(function(bv){
+      buOpts2+='<option value="'+esc(bv)+'"'+(String(bv)===String(tgtBu)?' selected':'')+'>'+esc(bv)+'</option>';
+    });
+    var buStyle=tgtBu
+      ?'height:22px;border:1.5px solid #86efac;border-radius:6px;padding:0 6px;font-size:10px;font-weight:900;font-family:inherit;background:#dcfce7;color:#166534;cursor:pointer;'
+      :'height:22px;border:1.5px solid #f59e0b;border-radius:6px;padding:0 6px;font-size:10px;font-weight:800;font-family:inherit;background:#fef3c7;color:#92400e;cursor:pointer;';
+    var buBadge='<select class="sp2-bu-sel" data-target="'+esc(tgt)+'" data-pl=""'
+      +' onchange="sp2SaveBU(this)"'
+      +' style="'+buStyle+'"'
+      +' onclick="event.stopPropagation()">'+buOpts2+'</select>'; 
+    html+='<h3><i class="fas fa-chevron-down" id="sp2TgtIcon_'+esc(tgt)+'" style="font-size:10px;transition:transform .2s;transform:rotate(-90deg)"></i> '+esc(tgt)+'</h3>';
+    html+=buBadge;
+    /* meta-id deduplicated count for the target header badge */
+    var tMetaIds=new Set(tRows.map(function(b){return(b.meta_id||b.build_name||'').toUpperCase();}));
+    var metaBadge=tMetaIds.size<tRows.length
+      ?'<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:900;" title="Unique meta-IDs (e.g. Aldabra-296.1 + .2 = 1 meta-ID)">'+tMetaIds.size+' meta-IDs</span>'
+      :'';
+    html+='<span class="badge badge-blue">'+tRows.length+' builds</span>'+metaBadge;
+    html+='<span class="badge badge-green">'+fmtH(tHrs)+'</span>';
+    html+='<span class="badge badge-red">'+fmt(tCrashes)+' crashes</span>';
+    if(tMtbf>0)html+='<span class="badge badge-purple">MTBF '+fmt(tMtbf,1)+'h</span>';
+    html+='<span class="badge badge-amber">'+tChips.size+' devices</span>';
+    html+='</div>';  /* close target-section-head */
+    html+='<div id="sp2TgtBody_'+esc(tgt)+'" style="display:none">';
+    var byPl={};var plOrder=[];
+    tRows.forEach(function(b){
+      var k=b.pl_id||'-';
+      if(!byPl[k]){byPl[k]=[];plOrder.push(k);}
+      byPl[k].push(b);
+    });
+    plOrder.forEach(function(pl){
+      var pRows=byPl[pl];
+      var pHrs=pRows.reduce(function(s,b){return s+num(b.hours);},0);
+      var pCrashes=pRows.reduce(function(s,b){return s+num(b.crashes);},0);
+      var pMtbf=pCrashes>0?(pHrs/pCrashes):0;
+      var plSafeId='sp2pl_'+tgt.replace(/[^a-z0-9]/gi,'_')+'__'+pl.replace(/[^a-z0-9]/gi,'_');
+      html+='<div class="section-divider" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">'
+           +'<span>'
+           +'<i class="fas fa-tag" style="color:var(--sp2-indigo)"></i> <strong>'+esc(pl)+'</strong>'
+           +' &nbsp;&middot;&nbsp; '+pRows.length+' builds'
+           +' &nbsp;&middot;&nbsp; '+fmtH(pHrs)
+           +' &nbsp;&middot;&nbsp; '+fmt(pCrashes)+' crashes'
+           +(pMtbf>0?' &nbsp;&middot;&nbsp; MTBF '+fmt(pMtbf,1)+'h':'')
+           +'</span>'
+           +'<button class="btn btn-sm" id="'+plSafeId+'_savebtn"'
+           +' style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-color:#0f766e;height:26px;padding:0 12px;"'
+           +' onclick="sp2SavePlRows(\''+tgt+'\',\''+pl+'\',this)">'
+           +'<i class="fas fa-save"></i> Save</button>'
+           +'</div>';
+      html+='<div class="tbl-wrap"><table class="sp2-tbl"><thead><tr>';
+      html+='<th>#</th><th>Status</th><th>Build / Meta</th><th style="text-align:center">Build Type</th>';
+      html+='<th>Submitted</th><th>Completed</th><th>Hours</th><th>Devices</th><th>Crashes</th><th>MTBF</th>';
+      html+='</tr></thead><tbody>';
+      pRows.forEach(function(b,i){
+        var isRunning=b.status==='running';
+        var dot='<span class="build-status-dot '+(isRunning?'running':'completed')+'"></span>';
+        var lbl=isRunning?'<span class="pill green" style="font-size:10px">Running</span>':'<span class="pill blue" style="font-size:10px">Done</span>';
+        var hrs=num(b.hours);
+        var mtbfVal=num(b.crashes)>0?(hrs/num(b.crashes)):0;
+        var rowId='sp2row_'+(b.job_id||i);
+        html+='<tr id="'+esc(rowId)+'" data-job="'+esc(b.job_id||'')+'" data-build="'+esc(b.build_name)+'" data-pl="'+esc(pl)+'" data-target="'+esc(tgt)+'" data-hours="'+hrs+'" data-crashes="'+num(b.crashes)+'">';
+        html+='<td class="muted">'+(i+1)+'</td>';
+        html+='<td>'+dot+' '+lbl+'</td>';
+                        var metaLine='';
+        if(b.meta_id&&b.meta_id!==b.build_name){
+          metaLine='<br><span style="font-size:10px;color:#6366f1;font-weight:800;" title="Meta-ID (build family)"><i class="fas fa-layer-group" style="font-size:9px"></i> '+esc(b.meta_id)+'</span>';
+        }
+        var runLine='';
+        if(b.run_count&&b.run_count>1){
+          runLine='<br><span style="font-size:10px;color:#64748b;font-weight:700;" title="'+b.run_count+' Axiom job runs merged into this build row"><i class="fas fa-redo" style="font-size:9px"></i> '+b.run_count+' runs</span>';
+        }
+        html+='<td style="max-width:280px;word-break:break-all"><strong style="color:#1e3a8a">'+esc(b.build_name||b.build_id||'-')+'</strong>'
+             +metaLine
+             +runLine
+             +(b.variant_count>1?'<br><span class="badge badge-blue" style="font-size:9px;cursor:pointer" title="'+esc((b.variants||[]).join('\n'))+'">'+b.variant_count+' variants</span>':'')
+             +(b.pl_id_exact&&b.pl_id_exact!==b.pl_id?'<br><span class="muted" style="font-size:10px">'+esc(b.pl_id_exact)+'</span>':'')+'</td>';
+        var btCRM=b.build_type==='CRM';
+        var btSel='<select class="sp2-bt-sel" data-build="'+esc(b.build_name)+'" data-pl="'+esc(b.pl_id)+'"'
+                 +' onchange="sp2SaveBuildType(this)"'
+                 +' style="height:26px;border:1.5px solid '+(btCRM?'#6366f1':'#d97706')+';border-radius:6px;padding:0 6px;font-size:11px;font-weight:900;font-family:inherit;background:'+(btCRM?'#ede9fe':'#fef3c7')+';color:'+(btCRM?'#5b21b6':'#92400e')+';cursor:pointer">'
+                 +'<option value="CRM"'+(btCRM?' selected':'')+'>CRM</option>'
+                 +'<option value="Eng"'+(!btCRM?' selected':'')+'>Eng</option>'
+                 +'</select>';
+        html+='<td style="text-align:center">'+btSel+'</td>';
+        html+='<td style="white-space:nowrap">'+esc((b.submitted||'').slice(0,10)||'-')+'</td>';
+        html+='<td style="white-space:nowrap">'+esc((b.completed_at||'').slice(0,10)||'-')+'</td>';
+        html+='<td><input type="number" min="0" step="0.1" value="'+hrs.toFixed(1)+'" class="sp2-hrs-inp"'
+             +' style="width:72px;border:1px solid #c7d2fe;border-radius:6px;padding:3px 5px;font-size:12px;font-weight:900;color:#1e3a8a;background:#eff6ff;text-align:right"'
+             +' oninput="sp2RowRecalc(this)" title="Edit hours" /></td>';
+        html+='<td style="text-align:center"><span class="badge badge-amber">'+((b.chip_ids||[]).length||b.device_count||'-')+'</span></td>';
+        html+='<td><input type="number" min="0" step="1" value="'+num(b.crashes)+'" class="sp2-crash-inp"'
+             +' style="width:52px;border:1px solid #fca5a5;border-radius:6px;padding:3px 5px;font-size:12px;font-weight:900;color:#991b1b;background:#fff1f2;text-align:center"'
+             +' oninput="sp2RowRecalc(this)" title="Edit crashes" /></td>';
+        html+='<td style="text-align:center" class="sp2-mtbf-cell">'+(mtbfVal>0?'<span class="badge badge-purple">'+fmt(mtbfVal,1)+'h</span>':'-')+'</td>';
+        html+='</tr>';
+      });
+            html+='</tbody></table></div>';
+    });
+    html+='</div></div>';
+  });
+  body.innerHTML=html;
+}
+
+window.sp2ToggleTarget=function(tgt){
+  var body=g('sp2TgtBody_'+tgt),icon=g('sp2TgtIcon_'+tgt);
+  if(!body)return;
+    var hidden=body.style.display==='none';
+  body.style.display=hidden?'':'none';
+  if(icon)icon.style.transform=hidden?'rotate(0deg)':'rotate(-90deg)';
+};
+
+window.sp2RowRecalc=function(inp){
+  var tr=inp.closest('tr');if(!tr)return;
+  var inputs=tr.querySelectorAll('input[type=number]');
+  if(inputs.length<2)return;
+  var hrs=parseFloat(inputs[0].value)||0;
+  var crashes=parseFloat(inputs[1].value)||0;
+  var mtbf=crashes>0?(hrs/crashes):0;
+  var cell=tr.querySelector('.sp2-mtbf-cell');
+  if(cell)cell.innerHTML=mtbf>0?'<span class="badge badge-purple">'+fmt(mtbf,1)+'h</span>':'-';
+  tr.dataset.hours=hrs;tr.dataset.crashes=crashes;
+  _sp2RecalcKpis();
+};
+function _sp2RecalcKpis(){
+  var rows=document.querySelectorAll('#sp2BuildsBody tr[data-job]');
+  var totalHrs=0,totalCrashes=0;
+  rows.forEach(function(tr){
+    totalHrs+=parseFloat(tr.dataset.hours||0);
+    totalCrashes+=parseFloat(tr.dataset.crashes||0);
+  });
+  var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
+  function set(id,v){var el=g(id);if(el)el.textContent=v;}
+  set('kpiHours',fmtH(totalHrs));
+  set('kpiCrashes',fmt(totalCrashes));
+  set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
+}
+
+/* Build Type toggle: CRM counts in consolidate, Eng saved but hidden in UI.
+   After saving, consolidate _consLoaded flag is reset so next tab switch rebuilds. */
+window.sp2SaveBuildType=function(sel){
+  var buildName=sel.dataset.build, pl=sel.dataset.pl, bt=sel.value;
+  var w=getWeek();
+  var isCRM=bt==='CRM';
+  sel.style.borderColor=isCRM?'#6366f1':'#d97706';
+  sel.style.background=isCRM?'#ede9fe':'#fef3c7';
+  sel.style.color=isCRM?'#5b21b6':'#92400e';
+  var tr=sel.closest('tr');
+  if(tr)tr.style.opacity=isCRM?'1':'0.45';
+  _sp2RecalcKpisFiltered();
+  fetch('/api/sp2/save_build_type',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,build_name:buildName,pl_id:pl,build_type:bt})
+  }).then(function(){
+    // Reset consolidate so next tab switch triggers a full CRM-only rebuild
+    _consLoaded=false;
+  }).catch(function(e){console.warn('[SP2 BUILD TYPE] save failed:',e);});
+};
+
+/* Refetch ES/FC/CS timelines from OneView for a single consolidate row */
+window.sp2RefetchTimelines=function(target,plId,cellId){
+  var cell=g(cellId);
+  if(cell){cell.innerHTML='<i class="fas fa-circle-notch spin" style="color:#6366f1"></i> Fetching...';
+  }
+  var w=getWeek();
+  fetch('/api/sp2/refetch_timelines',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:target,pl_id:plId})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    if(!cell)return;
+    if(d.success){
+      var tlHtml=String(d.timelines||'').replace(/,\s*/g,'<br>');
+      cell.innerHTML=tlHtml;
+      // Update PDT status cell in same row
+      var tr=cell.closest('tr');
+      if(tr&&d.pdt_status){
+        var STATUS_BG={'Pre-ES':'#dbeafe','Post-CS':'#dcfce7','Pre-FC':'#fef9c3','Post-FC':'#ede9fe'};
+        var bg=STATUS_BG[d.pdt_status]||'#f1f5f9';
+        var pdtCell=tr.querySelector('.sp2-pdt-cell');
+        if(pdtCell)pdtCell.innerHTML='<span style="background:'+bg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(d.pdt_status)+'</span>';
+      }
+      // Update in-memory
+      _allConsolidate.forEach(function(r){
+        if(r.pl_id===plId&&r.target===target){
+          r.timelines=d.timelines;
+          r.pdt_test_status=d.pdt_status||r.pdt_test_status;
+        }
+      });
+    } else {
+      cell.innerHTML='<span style="color:#f59e0b;font-style:italic;font-size:10px;font-weight:800;"><i class="fas fa-exclamation-circle" style="font-size:9px"></i> No timelines</span>';
+    }
+  }).catch(function(e){
+    if(cell)cell.innerHTML='<span style="color:#f59e0b;font-style:italic;font-size:10px;font-weight:800;"><i class="fas fa-exclamation-circle" style="font-size:9px"></i> No timelines</span>';
+  });
+};
+
+window.sp2SaveBU=function(sel){
+  var target=sel.dataset.target, pl=sel.dataset.pl, bu=sel.value;
+  if(!bu)return;
+  var w=_currentWeek();
+  sel.disabled=true;
+  fetch('/api/sp2/save_bu',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:target,pl_id:pl,bu:bu})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    sel.disabled=false;
+        if(d.success){
+      document.querySelectorAll('.sp2-bu-sel[data-target="'+target+'"]').forEach(function(s){
+        s.value=bu;
+        s.style.borderColor='#86efac';
+        s.style.background='#dcfce7';
+        s.style.color='#166534';
+        s.title='Saved';
+      });
+      _allBuilds.forEach(function(b){ if(b.target===target) b.bu=bu; });
+      if(!_sp2BuList.includes(bu)){_sp2BuList.push(bu);_sp2BuList.sort();}
+      _consLoaded=false;
+    } else { alert('Save BU failed: '+(d.error||'unknown')); }
+  }).catch(function(e){sel.disabled=false;alert('Error: '+e);});
+};
+
+window.sp2SavePlRows=function(tgt,pl,btn){
+  /* Collect all edited rows for this target+PL */
+  var rows=[];
+  document.querySelectorAll('#sp2BuildsBody tr[data-target][data-pl]').forEach(function(tr){
+    if(tr.dataset.target!==tgt||tr.dataset.pl!==pl)return;
+    var hrsInp=tr.querySelector('.sp2-hrs-inp');
+    var crashInp=tr.querySelector('.sp2-crash-inp');
+    var btSel=tr.querySelector('.sp2-bt-sel');
+    rows.push({
+      build_name: tr.dataset.build||'',
+      pl_id:      pl,
+      hours:      hrsInp?parseFloat(hrsInp.value)||0:parseFloat(tr.dataset.hours)||0,
+      crashes:    crashInp?parseInt(crashInp.value)||0:parseInt(tr.dataset.crashes)||0,
+      build_type: btSel?btSel.value:'CRM'
+    });
+  });
+  if(!rows.length){alert('No rows found for this PL.');return;}
+  var w=_currentWeek();
+  btn.disabled=true;
+  btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...';
+  fetch('/api/sp2/save_pl_rows',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:tgt,pl_id:pl,rows:rows})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    btn.disabled=false;
+    if(d.success){
+      btn.innerHTML='<i class="fas fa-check"></i> Saved';
+      btn.style.background='linear-gradient(135deg,#166534,#16a34a)';
+      setTimeout(function(){
+        btn.innerHTML='<i class="fas fa-save"></i> Save';
+        btn.style.background='';
+      },2500);
+    } else {
+      btn.innerHTML='<i class="fas fa-save"></i> Save';
+      alert('Save failed: '+(d.error||'unknown'));
+    }
+  }).catch(function(e){
+    btn.disabled=false;
+    btn.innerHTML='<i class="fas fa-save"></i> Save';
+    alert('Error: '+e);
+  });
+};
+
+function _sp2RecalcKpisFiltered(){
+  var rows=document.querySelectorAll('#sp2BuildsBody tr[data-job]');
+  var totalHrs=0,totalCrashes=0;
+  rows.forEach(function(tr){
+    var sel=tr.querySelector('.sp2-bt-sel');
+    if(sel&&sel.value==='Eng')return;
+    totalHrs+=parseFloat(tr.dataset.hours||0);
+    totalCrashes+=parseFloat(tr.dataset.crashes||0);
+  });
+  var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
+  function set(id,v){var el=g(id);if(el)el.textContent=v;}
+  set('kpiHours',fmtH(totalHrs));
+  set('kpiCrashes',fmt(totalCrashes));
+  set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
+}
+
+/* TAB 2 - CONSOLIDATE REPORT
+   Static JSON snapshot per week. Refresh & Save rebuilds and freezes the data.
+   Crashes from weekly_qipl_data (same CSV source as CR Pie / CR Age cards). */
+window.sp2LoadConsolidate=function(force){
+  _consLoaded=true;
+  var tb=g('sp2ConsTbody');
+  if(tb)tb.innerHTML='<tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
+  var w=getWeek();
+  var url='/api/sp2/consolidate?week_start='+encodeURIComponent(w.ws)+'&week_end='+encodeURIComponent(w.we)+(force?'&refresh=1':'');
+  fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    _allConsolidate=d.rows||[];
+    var badge=g('sp2ConsBadge');if(badge)badge.textContent=_allConsolidate.length+' rows';
+            _renderConsolidate(_allConsolidate);
+  }).catch(function(e){
+    if(tb)tb.innerHTML='<tr><td colspan="11" class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</td></tr>';
+  });
+};
+
+/* Consolidate tab: load charts after table renders */
+var _sp2StabilityChart = null;
+
+function _sp2LoadStabilityChart(){
+  var we = getWeek().we;
+  var el = g('sp2StabilityChart');
+  if(el) el.innerHTML = '<div class="empty" style="padding:40px"><i class="fas fa-circle-notch spin"></i> Loading...</div>';
+  fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(we), {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){ _sp2RenderStabilityChart(d.weeks||[]); })
+    .catch(function(e){
+      var el=g('sp2StabilityChart');
+      if(el) el.innerHTML='<div class="empty" style="color:#dc2626;padding:40px">Error: '+esc(String(e))+'</div>';
+    });
+}
+
+function _sp2RenderStabilityChart(weeks){
+  var el = g('sp2StabilityChart');
+  if(!el) return;
+  if(!weeks.length || typeof Highcharts === 'undefined'){
+    el.innerHTML = '<div class="empty" style="padding:40px">No weekly data yet. Click Refresh &amp; Save first.</div>';
+    return;
+  }
+  if(_sp2StabilityChart){ try{_sp2StabilityChart.destroy();}catch(e){} _sp2StabilityChart=null; }
+
+  var cats  = weeks.map(function(w){ return w.label||w.week_end; });
+  var usage = weeks.map(function(w){ return +(w.device_usage_per_week||0); });
+  var tpc   = weeks.map(function(w){ return +(w.time_per_crash||0); });
+  var cmtp  = weeks.map(function(w){ return +(w.crash_per_mtp_week||0); });
+  var GOAL  = 140;
+
+    _sp2StabilityChart = Highcharts.chart('sp2StabilityChart', {
+    chart:{ backgroundColor:'#fff', style:{fontFamily:'inherit'}, margin:[45,140,95,62], height:500 },
+    title:{ text:null },
+    xAxis:{ categories:cats, labels:{style:{fontSize:'10px',fontWeight:'700'}, rotation:-55, y:22}, tickInterval:1 },
+    yAxis:[{
+      title:{text:'Hrs / Device / Week', style:{fontSize:'10px'}},
+      labels:{style:{fontSize:'10px'}},
+      min:0,
+      plotLines:[{value:GOAL, color:'#ed7d31', width:2, dashStyle:'Dash',
+        label:{text:'Goal '+GOAL, style:{color:'#ed7d31',fontWeight:'900',fontSize:'10px'}, align:'right', x:-4}}]
+    },{
+      title:{text:'Crashes / Time', style:{fontSize:'10px'}},
+      labels:{style:{fontSize:'10px'}},
+      opposite:true, min:0
+    }],
+    legend:{ enabled:true, itemStyle:{fontSize:'10px',fontWeight:'700'} },
+    tooltip:{ shared:true, valueDecimals:2 },
+    plotOptions:{
+      column:{ dataLabels:{
+        enabled:true, crop:false, overflow:'allow',
+        style:{fontSize:'9px',fontWeight:'700',textOutline:'none',color:'#0f172a'},
+        formatter:function(){ return this.y>0?this.y.toFixed(2):''; }
+      }},
+      line:{ dataLabels:{
+        enabled:true, crop:false, overflow:'allow',
+        style:{fontSize:'9px',fontWeight:'700',textOutline:'none'},
+        formatter:function(){ return this.y>0?this.y.toFixed(2):''; }
+      }, marker:{radius:3} }
+    },
+    series:[{
+      name:'Device Usage/Week', type:'column', yAxis:0, data:usage,
+      color:'#16a34a',
+      tooltip:{valueSuffix:' Hrs'}
+    },{
+      name:'Time/Crash', type:'line', yAxis:1, data:tpc,
+      color:'#dc2626', lineWidth:2,
+      tooltip:{valueSuffix:' Hrs'}
+    },{
+      name:'Crash/MTP/Week', type:'line', yAxis:1, data:cmtp,
+      color:'#ca8a04', lineWidth:2,
+      tooltip:{valueSuffix:''}
+    }],
+    credits:{enabled:false}
+  });
+}
+
+window.sp2ConsCopyStability = function(btn){
+  if(!_sp2StabilityChart){ alert('Chart not loaded yet.'); return; }
+  function flash(ok){
+    if(!btn) return;
+    var orig=btn.innerHTML;
+    btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied' : '<i class="fas fa-times"></i> Failed';
+    btn.style.background = ok ? '#16a34a' : '#dc2626'; btn.style.color='#fff';
+    setTimeout(function(){ btn.innerHTML=orig; btn.style.background=''; btn.style.color=''; }, 2000);
+  }
+  try{
+    var svg = _sp2StabilityChart.getSVG({width:960, height:360});
+    var blob = new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var img  = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas'); canvas.width=960; canvas.height=360;
+      var ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,960,360); ctx.drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(pngBlob){
+        if(pngBlob && typeof ClipboardItem!=='undefined' && navigator.clipboard && navigator.clipboard.write){
+          navigator.clipboard.write([new ClipboardItem({'image/png':pngBlob})]).then(function(){flash(true);}).catch(function(){flash(false);});
+        } else { flash(false); }
+      },'image/png');
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); flash(false); };
+    img.src = url;
+  } catch(e){ flash(false); }
+};
+
+var STATUS_COLORS={'Pre-ES':'#dbeafe','Post-CS':'#dcfce7','Pre-FC':'#fef9c3','Post-FC':'#ede9fe'};
+var BU_PALETTE=['#e0f2fe','#dcfce7','#fef9c3','#ede9fe','#ffe4e6','#ffedd5','#f0fdf4','#f0f9ff'];
+
+/* Fetch ES/FC/CS from OneView for ALL rows with missing timelines in one shot */
+window.sp2FetchAllMissingMilestones=function(){
+  var btn=g('sp2FetchMilestonesBtn');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Fetching...';
+  }
+  var w=getWeek();
+  fetch('/api/sp2/fetch_all_missing_milestones',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    if(btn){
+      btn.disabled=false;
+      if(d.success){
+        btn.innerHTML='<i class="fas fa-check"></i> Done ('+d.updated+' updated)';
+        btn.style.background='linear-gradient(135deg,#166534,#16a34a)';
+        setTimeout(function(){
+          btn.innerHTML='<i class="fas fa-cloud-download-alt"></i> Fetch Missing Milestones';
+          btn.style.background='';
+        },4000);
+        // Update cells inline for successful rows — no full reload needed
+        var STATUS_BG={'Pre-ES':'#dbeafe','Post-CS':'#dcfce7','Pre-FC':'#fef9c3','Post-FC':'#ede9fe'};
+        (d.results||[]).forEach(function(res){
+          if(res.status!=='updated')return;
+          // Update in-memory data
+          _allConsolidate.forEach(function(r){
+            if(r.pl_id===res.pl_id&&r.target===res.target){
+              r.timelines=res.timelines;
+              r.pdt_test_status=res.pdt_status||r.pdt_test_status;
+            }
+          });
+          // Update DOM cells by finding the row with matching pl_id text
+          document.querySelectorAll('#sp2ConsTbody tr').forEach(function(tr){
+            var cells=tr.querySelectorAll('td');
+            // pl_id is in 3rd td (index 2, after # and BU)
+            var plCell=cells[2];
+            if(!plCell||plCell.textContent.trim()!==res.pl_id)return;
+            // timelines cell = index 3
+            var tlCell=cells[3];
+            if(tlCell&&res.timelines)tlCell.innerHTML=res.timelines.replace(/,\s*/g,'<br>');
+            // PDT status cell
+            var pdtCell=tr.querySelector('.sp2-pdt-cell');
+            if(pdtCell&&res.pdt_status){
+              var bg=STATUS_BG[res.pdt_status]||'#f1f5f9';
+              pdtCell.innerHTML='<span style="background:'+bg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(res.pdt_status)+'</span>';
+            }
+          });
+        });
+        var failed=d.results.filter(function(r){return r.status==='failed';});
+        if(failed.length){
+          console.warn('[SP2 MILESTONES] Failed PLs:',failed.map(function(r){return r.pl_id+': '+(r.error||'failed');}));
+        }
+      } else {
+        btn.innerHTML='<i class="fas fa-exclamation-triangle"></i> Error';
+        btn.style.background='#dc2626';
+        setTimeout(function(){
+          btn.innerHTML='<i class="fas fa-cloud-download-alt"></i> Fetch Missing Milestones';
+          btn.style.background='';
+        },3000);
+        alert('Fetch failed: '+(d.error||'unknown'));
+      }
+    }
+  }).catch(function(e){
+    if(btn){
+      btn.disabled=false;
+      btn.innerHTML='<i class="fas fa-cloud-download-alt"></i> Fetch Missing Milestones';
+      btn.style.background='';
+    }
+    alert('Error: '+e);
+  });
+};
+
+function _renderConsolidate(rows){
+  var tb=g('sp2ConsTbody'),tf=g('sp2ConsTfoot');if(!tb)return;
+  if(!rows.length){
+    tb.innerHTML='<tr><td colspan="11" class="empty">No consolidate data. Click Refresh &amp; Save.</td></tr>';
+    if(tf)tf.style.display='none';return;
+  }
+
+  /* sort: BU → target → pl_id */
+  rows.sort(function(a,b){
+    return String(a.bu||'').localeCompare(String(b.bu||''))||
+           String(a.target||'').localeCompare(String(b.target||''))||
+           String(a.pl_id||'').localeCompare(String(b.pl_id||''));
+  });
+
+  /* BU colour map */
+  var buColorMap={},buIdx=0;
+  rows.forEach(function(r){var b=r.bu||'';if(!(b in buColorMap))buColorMap[b]=BU_PALETTE[buIdx++%BU_PALETTE.length];});
+
+  /* BU rowspan counts */
+  var buCount={};
+  rows.forEach(function(r){var b=r.bu||'';buCount[b]=(buCount[b]||0)+1;});
+
+  var html='',lastBu=null,buDone={},sno=0;
+  var tDev=0,tBld=0,tHrs=0,tCrash=0,tUcr=0;
+
+  rows.forEach(function(r){
+    sno++;
+    var bu=r.bu||'';
+    var bg=buColorMap[bu]||'#fff';
+    var borderTop=(bu!==lastBu)?'border-top:2px solid #334155;':'';
+    lastBu=bu;
+    var td='background:'+bg+';'+borderTop+'padding:6px 10px;';
+
+    /* BU cell with rowspan */
+    var buCell='';
+    if(!buDone[bu]){
+      buDone[bu]=true;
+      buCell='<td rowspan="'+buCount[bu]+'" style="'+td+'font-weight:900;color:#0f172a;text-align:center;vertical-align:middle;border-right:2px solid #94a3b8;">'+esc(bu||'-')+'</td>';
+    }
+
+                /* Timelines cell:
+       - Missing timelines -> "No timelines" placeholder (top button fetches all)
+       - Has timelines     -> show dates only, no per-row button */
+        var tlText=String(r.timelines||'').trim();
+    var tlRowId='sp2tl_'+sno;
+    var tlDisplay;
+    if(!tlText){
+      tlDisplay='<span style="color:#f59e0b;font-style:italic;font-size:10px;font-weight:800;"><i class="fas fa-exclamation-circle" style="font-size:9px"></i> No timelines</span>';
+    } else {
+      tlDisplay=tlText.replace(/,\s*/g,'<br>');
+    }
+        var tlCell='<div class="sp2-tl-display">'+tlDisplay+'</div>'
+      +'<button class="btn btn-sm sp2-tl-edit-btn" style="margin-top:5px;height:22px;padding:0 8px;font-size:10px;background:#eef2ff;color:#3730a3;border-color:#c7d2fe"'
+      +' data-target="'+esc(r.target||'')+'" data-pl="'+esc(r.pl_id||'')+'" data-row="'+sno+'" data-tl="'+esc(tlText)+'"'
+      +' onclick="sp2OpenTimelineModalFromBtn(this)">'
+      +'<i class="fas fa-pen"></i> Edit</button>'; 
+
+    /* PDT Status badge */
+    var stBg=STATUS_COLORS[r.pdt_test_status]||'#f1f5f9';
+    var stBadge=r.pdt_test_status
+      ?'<span style="background:'+stBg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(r.pdt_test_status)+'</span>'
+      :'-';
+
+    var dev=parseInt(r.device_count||0)||0;
+    var bld=parseInt(r.number_of_builds||0)||0;
+    var hrs=parseFloat(r.total_hours||0)||0;
+    var crash=parseInt(r.total_crashes||0)||0;
+    var ucr=(r.unique_crs!=null&&r.unique_crs!=='')?r.unique_crs:'-';
+    var mtbf=crash>0?'<span class="badge badge-purple">'+fmt(hrs/crash,1)+'h</span>':'-';
+
+    tDev+=dev;tBld+=bld;tHrs+=hrs;tCrash+=crash;
+    if(ucr!=='-')tUcr+=parseInt(ucr)||0;
+
+    html+='<tr>'
+      +'<td style="'+td+'text-align:center;color:#94a3b8;">'+sno+'</td>'
+      +buCell
+      +'<td style="'+td+'font-size:11px;word-break:break-word;">'+esc(r.pl_id||'-')+'</td>'
+      +'<td id="'+tlRowId+'" style="'+td+'font-size:10px;white-space:normal;word-break:break-word;line-height:1.6;">'+tlCell+'</td>'
+      +'<td class="sp2-pdt-cell" style="'+td+'text-align:center;">'+stBadge+'</td>'
+      +'<td style="'+td+'text-align:center;"><span class="badge badge-amber">'+dev+'</span></td>'
+      +'<td style="'+td+'text-align:center;"><span class="badge badge-blue">'+bld+'</span></td>'
+      +'<td style="'+td+'text-align:center;font-weight:900;">'+fmtH(hrs)+'</td>'
+      +'<td style="'+td+'text-align:center;"><span class="badge badge-red">'+crash+'</span></td>'
+      +'<td style="'+td+'text-align:center;font-weight:900;color:#7c3aed;">'+ucr+'</td>'
+      +'<td style="'+td+'text-align:center;">'+mtbf+'</td>'
+      +'</tr>';
+  });
+
+    tb.innerHTML=html;
+  if(tf){
+    g('sp2CTotal_dev').textContent=tDev||'-';
+    g('sp2CTotal_bld').textContent=tBld||'-';
+    g('sp2CTotal_hrs').textContent=tHrs?tHrs.toFixed(1)+'h':'-';
+    g('sp2CTotal_crash').textContent=tCrash||'-';
+    g('sp2CTotal_ucr').textContent=tUcr||'-';
+    tf.style.display='';
+  }
+  // Update Fetch Missing Milestones button with count of missing rows
+  var missingCount=rows.filter(function(r){return !String(r.timelines||'').trim();}).length;
+  var fetchBtn=g('sp2FetchMilestonesBtn');
+  if(fetchBtn){
+    if(missingCount>0){
+      fetchBtn.style.display='';
+      fetchBtn.innerHTML='<i class="fas fa-cloud-download-alt"></i> Fetch Missing Milestones <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:1px 7px;font-size:10px;">'+missingCount+'</span>';
+    } else {
+      fetchBtn.innerHTML='<i class="fas fa-check-circle"></i> All Milestones Fetched';
+      fetchBtn.style.background='linear-gradient(135deg,#166534,#16a34a)';
+    }
+  }
+}
+
+function _sp2TimelineDateToInput(mmddyyyy){
+  var m=String(mmddyyyy||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m)return '';
+  return m[3]+'-'+String(m[1]).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0');
+}
+function _sp2ExtractTimelineDates(tl){
+  var dates=String(tl||'').match(/\d{1,2}\/\d{1,2}\/\d{4}/g)||[];
+  return {es:_sp2TimelineDateToInput(dates[0]||''),fc:_sp2TimelineDateToInput(dates[1]||''),cs:_sp2TimelineDateToInput(dates[2]||'')};
+}
+window.sp2OpenTimelineModalFromBtn=function(btn){
+  if(!btn)return;
+  sp2OpenTimelineModal(btn.getAttribute('data-target')||'', btn.getAttribute('data-pl')||'', btn.getAttribute('data-row')||'', btn.getAttribute('data-tl')||'');
+};
+window.sp2OpenTimelineModal=function(target,plId,rowIdx,timelines){
+  var d=_sp2ExtractTimelineDates(timelines||'');
+  g('sp2TlTarget').value=target||'';
+  g('sp2TlPl').value=plId||'';
+  g('sp2TlRowIdx').value=rowIdx||'';
+  g('sp2TlTargetLbl').textContent=target||'-';
+  g('sp2TlPlLbl').textContent=plId||'-';
+  g('sp2TlEs').value=d.es||'';
+  g('sp2TlFc').value=d.fc||'';
+  g('sp2TlCs').value=d.cs||'';
+  var m=g('sp2TimelineModal');if(m)m.classList.add('open');
+};
+window.sp2CloseTimelineModal=function(){
+  var m=g('sp2TimelineModal');if(m)m.classList.remove('open');
+};
+window.sp2SaveTimelineModal=function(){
+  var btn=g('sp2TlSaveBtn');
+  var target=g('sp2TlTarget').value, plId=g('sp2TlPl').value, rowIdx=g('sp2TlRowIdx').value;
+  var es=g('sp2TlEs').value, fc=g('sp2TlFc').value, cs=g('sp2TlCs').value;
+  if(!es&&!fc&&!cs){alert('Select at least one ES / FC / CS date.');return;}
+  var w=getWeek();
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...';}
+  fetch('/api/sp2/save_timelines',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:target,pl_id:plId,es:es,fc:fc,cs:cs})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    if(!d.success){alert('Save timelines failed: '+(d.error||'unknown'));return;}
+    var cell=g('sp2tl_'+rowIdx);
+    if(cell){
+      var display=String(d.timelines||'').replace(/,\s*/g,'<br>');
+            var disp=cell.querySelector('.sp2-tl-display');
+      if(disp)disp.innerHTML=display;
+      var editBtn=cell.querySelector('.sp2-tl-edit-btn');
+      if(editBtn)editBtn.setAttribute('data-tl', d.timelines||'');
+      var tr=cell.closest('tr');
+      var pdtCell=tr&&tr.querySelector('.sp2-pdt-cell');
+      if(pdtCell){
+        var bg=STATUS_COLORS[d.pdt_status]||'#f1f5f9';
+        pdtCell.innerHTML=d.pdt_status?'<span style="background:'+bg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(d.pdt_status)+'</span>':'-';
+      }
+    }
+    _allConsolidate.forEach(function(r){
+      if(String(r.target||'')===String(target)&&String(r.pl_id||'')===String(plId)){
+        r.timelines=d.timelines;r.pdt_test_status=d.pdt_status;
+      }
+    });
+    sp2CloseTimelineModal();
+  }).catch(function(e){alert('Error: '+e);})
+  .finally(function(){if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-save"></i> Save';}});
+};
+
+window.sp2CopyConsolidate=function(){
+  var table=g('sp2ConsTable');
+  if(!table){alert('Table not found');return;}
+  var html='<html><head><meta charset="utf-8"></head><body>'+table.outerHTML+'</body></html>';
+  var plain=table.innerText||'';
+  var btn=document.querySelector('[onclick="sp2CopyConsolidate()"]');
+  if(window.isSecureContext&&typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html':new Blob([html],{type:'text/html'}),
+      'text/plain':new Blob([plain],{type:'text/plain'})
+    })]).then(function(){if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied';setTimeout(function(){btn.innerHTML='<i class="fas fa-copy"></i> Copy';},2000);}});
+    return;
+  }
+  /* fallback */
+  var div=document.createElement('div');div.contentEditable='true';
+  div.style.cssText='position:fixed;left:-9999px;top:0;opacity:0;';
+  div.innerHTML=html;document.body.appendChild(div);
+  var r=document.createRange();r.selectNodeContents(div);
+  var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  try{document.execCommand('copy');}catch(e){}
+  s.removeAllRanges();document.body.removeChild(div);
+  if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied';setTimeout(function(){btn.innerHTML='<i class="fas fa-copy"></i> Copy';},2000);}
+};
+
+/* TAB 3 - DEVICE UTILIZATION */
+var _sp2DevMini = [null, null, null];
+/* Chart 1 & 2: goal line shown; Chart 3: auto-scale only */
+var SP2_GOAL_HRS   = 140;
+var SP2_GOAL_CRASH = 12;
+
+window.sp2LoadDevUtil=function(){
+  _devLoaded=true;
+  var tb=g('sp2DevUtilTbody');
+  if(tb)tb.innerHTML='<tr><td colspan="2" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
+  var w=getWeek();
+
+  // Table must come from the Smart Build consolidate rows for the selected week.
+  fetch('/api/sp2/consolidate?week_start='+encodeURIComponent(w.ws)+'&week_end='+encodeURIComponent(w.we),{cache:'no-store'})
+    .then(function(r){return r.json();}).then(function(d){
+      _allDevUtil=d.rows||[];
+      _renderDevUtil(_allDevUtil);
+    }).catch(function(e){
+      if(tb)tb.innerHTML='<tr><td colspan="2" class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</td></tr>';
+    });
+
+  // Charts use weekly totals. The backend falls back to weekly_sharepoint_consolidate_summary
+  // for older weeks when Smart Build consolidate is not present.
+  fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(w.we),{cache:'no-store'})
+    .then(function(r){return r.json();}).then(function(d){
+      var weeks=(d.weeks||[]).slice(-3);
+      _renderWow(weeks);
+      _renderSp2DevCharts(weeks);
+    }).catch(function(){
+      _renderWow([]);
+      _renderSp2DevCharts([]);
+    });
+};
+
+function _renderSp2DevCharts(weeks){
+    var weekCats = weeks.map(function(w){return w.label||w.week_end;});
+  var usage = weeks.map(function(w){return +(w.device_usage_per_week||0);});
+  var cmtp  = weeks.map(function(w){return +(w.crash_per_mtp_week||0);});
+  var tpc   = weeks.map(function(w){return +(w.time_per_crash||0);});
+
+    function mkChart(idx, containerId, barData, goalVal, yUnit, color){
+    var el=g(containerId);
+    if(!el)return;
+    if(typeof Highcharts==='undefined'){
+      el.innerHTML='<div class="empty" style="padding:20px">Highcharts not loaded</div>';
+      return;
+    }
+    if(_sp2DevMini[idx]){try{_sp2DevMini[idx].destroy();}catch(e){}}
+
+        var hasGoal = (goalVal!=null);
+    var pts=[];
+    if(hasGoal){
+      pts.push({y:goalVal,color:'#5b9bd5',
+        dataLabels:{format:goalVal+(yUnit||''),y:-4,crop:false,overflow:'allow',
+          style:{color:'#0f172a',fontWeight:'900',textAlign:'center',textOutline:'none'}}});
+    }
+    barData.forEach(function(v){
+      pts.push({y:+v.toFixed(2),color:color||'#5b9bd5',
+        dataLabels:{style:{color:'#0f172a',fontWeight:'800'}}});
+    });
+
+        var allVals=pts.map(function(p){return +p.y||0;});
+    var yMax=allVals.length?Math.ceil(Math.max.apply(null,allVals)*1.18):undefined;
+    var cats = hasGoal ? ['Goal'].concat(weekCats) : weekCats;
+    _sp2DevMini[idx]=Highcharts.chart(containerId,{
+      chart:{type:'column',backgroundColor:'transparent',
+             margin:[34,12,58,44],style:{fontFamily:'inherit'}},
+      title:{text:null},
+      xAxis:{categories:cats,labels:{style:{fontSize:'9px',fontWeight:'700'},rotation:-30},gridLineWidth:0},
+      yAxis:{title:{text:null},labels:{style:{fontSize:'9px'}},min:0,max:yMax,tickAmount:6,gridLineColor:'#d9d9d9'},
+      legend:{enabled:false},
+      tooltip:{valueDecimals:2,pointFormat:'<b>{point.y:.2f}</b>'+(yUnit||'')},
+      plotOptions:{column:{pointWidth:28,borderWidth:0,dataLabels:{
+        enabled:true,crop:false,overflow:'allow',
+        style:{fontSize:'9px',fontWeight:'800',textOutline:'none',color:'#0f172a'},
+        formatter:function(){return this.y>0?this.y.toFixed(2)+(yUnit||''):'';}}}},
+      series:[{name:yUnit?'Hrs':'Value',data:pts,colorByPoint:true}],
+      credits:{enabled:false}
+    });
+  }
+
+  if(!weeks.length){
+    ['sp2MiniChart1','sp2MiniChart2','sp2MiniChart3'].forEach(function(id,i){
+      if(_sp2DevMini[i]){try{_sp2DevMini[i].destroy();}catch(e){}_sp2DevMini[i]=null;}
+      var el=g(id);
+      if(el)el.innerHTML='<div class="empty" style="padding:20px">No week data available.</div>';
+    });
+    return;
+  }
+
+        mkChart(0,'sp2MiniChart1',usage,SP2_GOAL_HRS,  ' Hrs','#5b9bd5');
+  mkChart(1,'sp2MiniChart2',cmtp, SP2_GOAL_CRASH,'',    '#5b9bd5');
+  mkChart(2,'sp2MiniChart3',tpc,  null,          ' Hrs','#5b9bd5');  /* no goal */
+}
+
+window.sp2CopyChart=function(containerId, btn){
+  var idx=containerId==='sp2MiniChart1'?0:containerId==='sp2MiniChart2'?1:2;
+  var chart=_sp2DevMini[idx];
+  if(!chart){alert('Chart not loaded yet.');return;}
+
+  /* Flash helper */
+  function _flash(ok){
+    if(!btn)btn=document.querySelector('[onclick*="sp2CopyChart(\''+containerId);
+    if(!btn)return;
+    var orig=btn.innerHTML;
+    btn.innerHTML=ok?'<i class="fas fa-check"></i>':'<i class="fas fa-times"></i>';
+    btn.style.background=ok?'#16a34a':'#dc2626';
+    btn.style.color='#fff';
+    setTimeout(function(){btn.innerHTML=orig;btn.style.background='';btn.style.color='';},2000);
+  }
+
+  /* Strategy 1: render SVG onto canvas → copy PNG via ClipboardItem (HTTP + HTTPS) */
+  function _trySvgToClipboard(){
+    try{
+      var svg=chart.getSVG({width:600,height:300});
+      var img=new Image();
+      var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+      var url=URL.createObjectURL(svgBlob);
+      img.onload=function(){
+        try{
+          var canvas=document.createElement('canvas');
+          canvas.width=600;canvas.height=300;
+          var ctx=canvas.getContext('2d');
+          ctx.fillStyle='#ffffff';
+          ctx.fillRect(0,0,600,300);
+          ctx.drawImage(img,0,0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(pngBlob){
+            if(!pngBlob){_fallbackSvgTab(svg);return;}
+            /* ClipboardItem works on HTTP too in modern Chrome/Edge */
+            if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+              navigator.clipboard.write([new ClipboardItem({'image/png':pngBlob})])
+                .then(function(){_flash(true);})
+                .catch(function(){_fallbackSvgTab(svg);});
+            } else {
+              _fallbackSvgTab(svg);
+            }
+          },'image/png');
+        }catch(e){URL.revokeObjectURL(url);_fallbackSvgTab(svg);}
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);_fallbackSvgTab(svg);};
+      img.src=url;
+    }catch(e){_fallbackSvgTab(null);}
+  }
+
+  /* Strategy 2: open SVG in new tab so user can right-click → Copy Image (no download) */
+  function _fallbackSvgTab(svg){
+    try{
+      if(!svg)svg=chart.getSVG();
+      var w=window.open('','_blank');
+      if(!w){_flash(false);return;}
+      w.document.write(
+        '<!DOCTYPE html><html><head><title>Chart</title>'
+        +'<style>body{margin:0;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}'
+        +'p{font-family:sans-serif;font-size:13px;color:#475569;text-align:center;margin-top:12px;}'
+        +'</style></head><body>'
+        +'<div><img src="data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg)))
+        +'" style="max-width:100%;border:1px solid #e2e8f0;border-radius:8px;">'
+        +'<p>Right-click the image &rarr; <strong>Copy Image</strong></p></div>'
+        +'</body></html>'
+      );
+      w.document.close();
+      _flash(true);
+    }catch(e){_flash(false);}
+  }
+
+  _trySvgToClipboard();
+};
+
+function _renderDevUtil(rows){
+  var tb=g('sp2DevUtilTbody'), th=g('sp2DevUtilThead');if(!tb)return;
+  if(!rows.length){tb.innerHTML='<tr><td colspan="2" class="empty">No device utilization data.</td></tr>';return;}
+
+  function weekShort(d){
+    var dt=new Date((d||'')+'T00:00:00');
+    if(isNaN(dt.getTime()))return d||'Week';
+    return dt.toLocaleDateString(undefined,{day:'2-digit',month:'short'}).replace(' ','-');
+  }
+  var weekLabel=weekShort(getWeek().we);
+      if(th)th.innerHTML='<tr><th style="width:62%;background:#93b5df;color:#111827;border:1px solid #1f2937;text-align:center;font-size:12px;text-transform:uppercase">TARGET</th>'
+    +'<th style="width:38%;background:#93b5df;color:#111827;border:1px solid #1f2937;text-align:center;font-size:12px;text-transform:uppercase">'+esc(weekLabel)+'</th></tr>';
+
+  var byTarget={};
+  rows.forEach(function(r){
+    var tgt=String(r.target||'-').trim()||'-';
+    if(!byTarget[tgt])byTarget[tgt]={target:tgt,devices:0,hours:0,crashes:0,pls:0};
+    byTarget[tgt].devices+=num(r.device_count||r.number_of_devices||r.devices_count);
+    byTarget[tgt].hours+=num(r.total_hours);
+    byTarget[tgt].crashes+=num(r.total_crashes);
+    byTarget[tgt].pls+=1;
+  });
+  var tgtRows=Object.keys(byTarget).sort().map(function(k){return byTarget[k];});
+  var totalDev=tgtRows.reduce(function(s,r){return s+r.devices;},0);
+  var totalHrs=tgtRows.reduce(function(s,r){return s+r.hours;},0);
+  var totalCrashes=tgtRows.reduce(function(s,r){return s+r.crashes;},0);
+  var kpis=g('sp2DevUtilKpis');
+  if(kpis)kpis.innerHTML=[
+    ['Targets',tgtRows.length],['Total Devices',fmt(totalDev)],['Total Hours',fmtH(totalHrs)],
+    ['Total Crashes',fmt(totalCrashes)],
+    ['Avg MTBF',totalCrashes>0?fmt(totalHrs/totalCrashes,1)+'h':'-'],
+    ['Hrs/Device',totalDev>0?fmt(totalHrs/totalDev,1):'-']
+  ].map(function(k){return'<div class="kpi-card"><div class="kpi-val">'+k[1]+'</div><div class="kpi-lbl">'+k[0]+'</div></div>';}).join('');
+  tb.innerHTML=tgtRows.map(function(r){
+    return '<tr>'
+      +'<td style="border:1px solid #1f2937;text-align:center;font-weight:950;color:#111827;padding:4px 8px">'+esc(r.target)+'</td>'
+      +'<td style="border:1px solid #1f2937;text-align:center;font-weight:950;color:#111827;padding:4px 8px">'+fmt(r.devices)+'</td>'
+      +'</tr>';
+  }).join('')+'<tr style="background:#e8b9bb"><td style="border:1px solid #1f2937;text-align:center;font-weight:950;color:#111827;padding:5px 8px">TOTAL</td>'
+      +'<td style="border:1px solid #1f2937;text-align:center;font-weight:950;color:#111827;padding:5px 8px">'+fmt(totalDev)+'</td></tr>';
+}
+
+function _renderWow(weeks){
+  var body=g('sp2WowBody');if(!body)return;
+  if(!weeks||!weeks.length){body.innerHTML='<div class="empty">No week-over-week data.</div>';return;}
+  var cols=['Week','Devices','Hours','Crashes','MTBF','Hrs/Dev','Crashes/Dev'];
+  var html='<div class="tbl-wrap"><table class="sp2-tbl"><thead><tr>'
+    +cols.map(function(c){return'<th>'+esc(c)+'</th>';}).join('')+'</tr></thead><tbody>';
+  weeks.forEach(function(w){
+    var mtbf=num(w.total_crashes)>0?(num(w.total_hours)/num(w.total_crashes)):0;
+    var dev=num(w.total_devices);
+    html+='<tr><td><strong>'+esc(w.label||w.week_end)+'</strong></td>'
+      +'<td style="text-align:center"><span class="badge badge-amber">'+fmt(dev)+'</span></td>'
+      +'<td style="text-align:center;font-weight:900">'+fmtH(w.total_hours)+'</td>'
+      +'<td style="text-align:center"><span class="badge badge-red">'+fmt(w.total_crashes)+'</span></td>'
+      +'<td style="text-align:center">'+(mtbf>0?'<span class="badge badge-purple">'+fmt(mtbf,1)+'h</span>':'-')+'</td>'
+      +'<td style="text-align:center">'+(dev>0?fmt(num(w.total_hours)/dev,1):'-')+'</td>'
+      +'<td style="text-align:center">'+(dev>0?fmt(num(w.total_crashes)/dev,2):'-')+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  body.innerHTML=html;
+}
+
+/* TAB 4 - UNIQUE DEVICES */
+window.sp2LoadUniqueDevices=function(){
+  _udLoaded=true;
+  var body=g('sp2UdBody');
+  if(body)body.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</div>';
+  var url='/api/sp2/unique_devices?week_start='+encodeURIComponent(WEEK_START)+'&week_end='+encodeURIComponent(WEEK_END);
+  fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    _allUniqueDevices=d.by_target||[];
+    var badge=g('sp2UdBadge');if(badge)badge.textContent=(d.total_devices||0)+' unique devices';
+    sp2FilterUniqueDevices();
+  }).catch(function(e){
+    var body=g('sp2UdBody');
+    if(body)body.innerHTML='<div class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</div>';
+  });
+};
+
+window.sp2FilterUniqueDevices=function(){
+  var tgt=(g('sp2UdTargetFilter')&&g('sp2UdTargetFilter').value)||'';
+  var q=((g('sp2UdSearch')&&g('sp2UdSearch').value)||'').toLowerCase();
+  var filtered=_allUniqueDevices.filter(function(t){return !tgt||t.target===tgt;});
+  var body=g('sp2UdBody');if(!body)return;
+  if(!filtered.length){body.innerHTML='<div class="empty">No unique device data found.</div>';return;}
+  var html='';
+  filtered.forEach(function(t){
+    var devices=(t.devices||[]).filter(function(d){
+      if(!q)return true;
+      return [d.chip_id,d.pl_id].join(' ').toLowerCase().indexOf(q)>=0;
+    });
+    if(!devices.length)return;
+    var byPl={};var plOrder=[];
+    devices.forEach(function(d){
+      var k=d.pl_id||'Unknown PL';
+      if(!byPl[k]){byPl[k]=[];plOrder.push(k);}
+      byPl[k].push(d);
+    });
+    html+='<div class="target-section"><div class="target-section-head">';
+    html+='<h3><i class="fas fa-microchip" style="color:var(--sp2-indigo)"></i> '+esc(t.target)+'</h3>';
+    html+='<div class="mini-toolbar">'
+         +'<span class="badge badge-purple">'+devices.length+' unique devices</span>'
+         +'<span class="badge badge-blue">'+plOrder.length+' PLs</span>'
+         +'</div></div><div>';
+    plOrder.forEach(function(pl){
+      var pDevices=byPl[pl];
+      var pHrs=pDevices.reduce(function(s,d){return s+num(d.hours);},0);
+      html+='<div class="section-divider"><i class="fas fa-tag" style="color:var(--sp2-indigo)"></i> '
+           +esc(pl)+' &nbsp;&middot;&nbsp; '+pDevices.length+' devices &nbsp;&middot;&nbsp; '+fmtH(pHrs)+' total hours</div>';
+      html+='<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">';
+      pDevices.forEach(function(d){
+        var hrs=num(d.hours);
+        html+='<div class="device-chip" title="'+esc(d.chip_id)+' | Hours: '+fmtH(hrs)+'">'
+             +'<i class="fas fa-microchip" style="font-size:9px;color:var(--sp2-indigo)"></i>'
+             +' <strong>'+esc(d.chip_id||'-')+'</strong>'
+             +' <span style="font-size:9px;color:var(--sp2-muted)">'+fmtH(hrs)+'</span>'
+             +'</div>';
+      });
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  body.innerHTML=html||'<div class="empty">No devices match the current filter.</div>';
+};
+
+document.addEventListener('DOMContentLoaded',function(){
+  sp2Load(false);
+});
+})();
+</script>
+{% endblock %}
