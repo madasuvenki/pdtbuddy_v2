@@ -852,33 +852,24 @@ def save_job_meta(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, An
 
 
 def save_job_rows(job_id: str, rows: List[Dict[str, Any]], username: str = '') -> Optional[Dict[str, Any]]:
-    """Save rows and make them the live viewer snapshot immediately.
+    """Save draft rows only.
 
-    Live Status no longer has a separate Publish step for the Current Report
-    editor.  A Save should be enough for target-group users to update the page
-    that all viewers see, so draft_rows and published_rows are kept in sync and
-    draft jobs are promoted to published on their first successful row save.
+    Viewers should see data only after the editor explicitly publishes.  Save
+    updates draft_rows for editing, while publish_job copies draft_rows to the
+    live published_rows snapshot.
     """
     job = _read_job_file(job_id)
     if job is None:
         return None
-    now = _utc_now()
     clean_rows = [
         r for r in (rows or [])
         if str((r or {}).get('source') or '').strip().lower() not in ('excel', 'excel+json')
     ]
-    was_published = job.get('status') == 'published'
     job['draft_rows'] = clean_rows
-    job['published_rows'] = list(clean_rows)
-    job['status'] = 'published'
-    if not job.get('published_at'):
-        job['published_at'] = now
-    if not job.get('published_by'):
-        job['published_by'] = username or job.get('created_by') or 'unknown'
-    job['published_comments_snapshot'] = job.get('published_comments_draft', '')
-    job['updated_at'] = now
-    _write_job_file(job, refresh_index=not was_published)
+    job['updated_at'] = _utc_now()
+    _write_job_file(job, refresh_index=False)
     return job
+
 
 
 # â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1195,18 +1186,16 @@ def publish_job(job_id: str, username: str) -> Optional[Dict[str, Any]]:
     job = _read_job_file(job_id)
     if job is None:
         return None
-    if job.get('status') == 'published':
-        # Publish is a one-time action. Keep original published_at/by.
-        return job
     now = _utc_now()
     job['status']                      = 'published'
     job['published_at']                = now
-    job['published_by']                = username
+    job['published_by']                = username or job.get('created_by') or 'unknown'
     job['updated_at']                  = now
     job['published_comments_snapshot'] = job.get('published_comments_draft', '')
     job['published_rows']              = list(job.get('draft_rows') or [])
     _write_job_file(job, refresh_index=True)
     return job
+
 
 
 def revoke_job(job_id: str, username: str, reason: str = '') -> Optional[Dict[str, Any]]:

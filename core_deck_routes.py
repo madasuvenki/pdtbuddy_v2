@@ -2681,6 +2681,32 @@ def core_deck_refresh_crashes():
     return jsonify({'ok': True, 'state': saved})
 
 
+@core_deck_bp.route('/api/core_deck/public_history')
+def core_deck_public_history():
+    """Public/read-only list of saved Core Deck history for published viewers."""
+    target = _safe_str(request.args.get('target'))
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+    return jsonify({'ok': True, 'target': target, 'history': _list_history_states(target)})
+
+
+@core_deck_bp.route('/api/core_deck/public_history/load')
+def core_deck_public_history_load():
+    """Public/read-only load of one saved Core Deck history state."""
+    target = _safe_str(request.args.get('target'))
+    history_id = _safe_str(request.args.get('history_id'))
+    if not target or not history_id:
+        return jsonify({'ok': False, 'error': 'target and history_id are required'}), 400
+    try:
+        path = _history_path_from_id(target, history_id)
+        state = _read_json_file(path, {})
+        if not isinstance(state, dict) or not state:
+            return jsonify({'ok': False, 'error': 'Saved deck not found'}), 404
+        return jsonify({'ok': True, 'target': target, 'history_id': history_id, 'state': state})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
 @core_deck_bp.route('/api/core_deck/history')
 @login_required
 def core_deck_history():

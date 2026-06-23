@@ -64,7 +64,23 @@
     .ls-empty{text-align:center;padding:60px 20px;color:#94a3b8;}
     .ls-empty i{font-size:40px;margin-bottom:14px;display:block;opacity:.35;}
     .ls-empty p{font-size:14px;font-weight:700;}
+    .ls-access-card{max-width:980px;margin:18px auto 0;text-align:left;background:#fff;border:1.5px solid #dbeafe;border-radius:18px;box-shadow:0 8px 28px rgba(37,99,235,.08);overflow:hidden;}
+    .ls-access-head{padding:18px 22px;background:linear-gradient(90deg,#eff6ff,#eef2ff);border-bottom:1px solid #dbeafe;}
+    .ls-access-title{font-size:15px;font-weight:950;color:#1e3a8a;display:flex;gap:8px;align-items:center;}
+    .ls-access-desc{font-size:12px;color:#475569;font-weight:700;margin-top:5px;line-height:1.5;}
+    .ls-access-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:16px;}
+    .ls-access-group{border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#fafcff;}
+    .ls-access-group-name{font-size:12px;font-weight:950;color:#0f172a;word-break:break-word;}
+        .ls-access-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+    .ls-access-tag{font-size:10px;font-weight:900;border-radius:999px;padding:3px 8px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;text-decoration:none;}
+    .ls-access-link{display:inline-flex;align-items:center;gap:6px;margin-top:12px;height:30px;padding:0 12px;border-radius:9px;background:#2563eb;color:#fff;font-size:11px;font-weight:900;text-decoration:none;}
+    .ls-access-panel{display:none;margin-top:20px;}
+    .ls-access-panel.open{display:block;}
+    .ls-btn-access{background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;box-shadow:0 1px 3px rgba(15,23,42,.06);}
+    .ls-btn-access:hover{background:#eef2ff;color:#312e81;}
+
     /* Admin panel */
+
     .ls-admin-panel{margin-top:36px;background:#fff;border-radius:16px;border:1.5px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.05);overflow:hidden;}
     .ls-admin-head{padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
     .ls-admin-head-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
@@ -129,21 +145,28 @@
           <i class="fas fa-house"></i> PDT Buddy
         </a>
       {% endif %}
+            {% if access_groups %}
+        <button class="ls-btn ls-btn-access" id="accessGroupsToggleBtn" type="button">
+          <i class="fas fa-users"></i> View / Join Groups
+        </button>
+      {% endif %}
       {% if current_user.is_authenticated %}
         <a href="{{ url_for('logout') }}" class="ls-btn" style="background:#fff;border:1.5px solid #fecaca;color:#dc2626;box-shadow:0 1px 3px rgba(15,23,42,.06);">
           <i class="fas fa-sign-out-alt"></i> Logout
         </a>
       {% endif %}
+
     </div>
   </div>
 
       <div class="ls-content">
   <!-- Breadcrumb — hidden at BU level -->
-  <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
-    <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-arrow-left"></i> Business Units</span>
+    <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
+    <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-house"></i> Home</span>
     <span class="ls-bc-sep">/</span>
     <span class="ls-bc-cur" id="lsBcCur"></span>
   </div>
+
 
   <!-- Navigation area -->
   <div id="lsNav">
@@ -173,10 +196,36 @@
             </button>
           {% endfor %}
         </div>
-      {% else %}
+            {% else %}
         <div class="ls-empty">
           <i class="fas fa-satellite-dish"></i>
-          <p>No reports yet.{% if can_edit %} Click <strong>Add Job</strong> to create one.{% endif %}</p>
+          {% if access_groups %}
+            <div class="ls-access-card">
+              <div class="ls-access-head">
+                <div class="ls-access-title"><i class="fas fa-user-lock"></i> Request Live Status viewer access</div>
+                <div class="ls-access-desc">Join the matching LDAP group below. After membership is approved, return to this page and the BU / target rows will appear automatically.</div>
+              </div>
+              <div class="ls-access-body">
+                {% for group in access_groups %}
+                  <div class="ls-access-group">
+                                        <div class="ls-access-group-name"><i class="fas fa-layer-group" style="color:#6366f1;margin-right:6px;"></i>{{ group.label or group.group }}</div>
+                    <div style="font-size:10px;color:#64748b;font-weight:800;margin-top:4px;word-break:break-word;">LDAP: {{ group.group }}</div>
+                    <div class="ls-access-tags">
+
+                      {% for bu in group.bus %}
+                        <span class="ls-access-tag">{{ bu.name }}</span>
+                      {% endfor %}
+                      
+
+                    </div>
+                    <a class="ls-access-link" href="{{ group.join_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Request / Join Group</a>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <p>No reports yet.{% if can_edit %} Click <strong>Add Job</strong> to create one.{% else %} Ask your admin to add your Live Status viewer group.{% endif %}</p>
+          {% endif %}
         </div>
       {% endif %}
     </div>
@@ -189,7 +238,33 @@
 
     </div>
 
+  {% if access_groups and bu_list %}
+  <div class="ls-access-panel" id="accessGroupsPanel">
+    <div class="ls-access-card" style="margin:0;">
+      <div class="ls-access-head">
+        <div class="ls-access-title"><i class="fas fa-user-lock"></i> Request additional Live Status viewer access</div>
+        <div class="ls-access-desc">You can join more LDAP groups below to unlock additional BUs. After membership is approved, return to this page and the new BU / target rows will appear automatically.</div>
+      </div>
+      <div class="ls-access-body">
+        {% for group in access_groups %}
+          <div class="ls-access-group">
+            <div class="ls-access-group-name"><i class="fas fa-layer-group" style="color:#6366f1;margin-right:6px;"></i>{{ group.label or group.group }}</div>
+            <div style="font-size:10px;color:#64748b;font-weight:800;margin-top:4px;word-break:break-word;">LDAP: {{ group.group }}</div>
+            <div class="ls-access-tags">
+              {% for bu in group.bus %}
+                <span class="ls-access-tag">{{ bu.name }}</span>
+              {% endfor %}
+            </div>
+            <a class="ls-access-link" href="{{ group.join_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Request / Join Group</a>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Inline target viewer (iframe, stays on /pdt/live_status) -->
+
   <div class="ls-viewer" id="lsViewer">
     <div class="ls-viewer-bar">
       <div class="ls-viewer-title"><i class="fas fa-satellite-dish" style="color:#6366f1"></i> <span id="lsViewerTitle">Target</span></div>
@@ -223,7 +298,7 @@
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button type="button" class="ls-action-btn ls-action-edit" onclick="openJobInViewer('{{ job.id|e }}','{{ (job.targets[0] if job.targets else job.name)|e }}')"><i class="fas fa-pen"></i> Edit</button>
                 {% if job.status == 'published' and job.public_token %}
-                                <a href="{{ url_for('live_status_publish_bp.pdt_target_ext_status', target_name=(job.targets[0] if job.targets else job.name)) }}" target="_blank" class="ls-action-btn ls-action-view"><i class="fas fa-eye"></i> View</a>
+                                <a href="{{ url_for('live_status_publish_bp.live_status_target_by_bu', bu_key=job._bu_key, target_name=(job.targets[0] if job.targets else job.name)) }}" target="_blank" class="ls-action-btn ls-action-view"><i class="fas fa-eye"></i> View</a>
 
                 <button type="button" class="ls-action-btn ls-action-revoke" data-revoke-job="{{ job.id }}" data-job-name="{{ job.name|e }}"><i class="fas fa-ban"></i> Revoke</button>
                 {% elif job.status != 'revoked' %}
@@ -303,8 +378,10 @@
 
 
     var BU_TARGETS = {{ bu_targets_js | tojson }};
+  var AUTO_OPEN_BU = {{ auto_open_bu | default('', true) | tojson }};
 
   var level1      = document.getElementById('lsLevel1');
+
   var level2      = document.getElementById('lsLevel2');
   var level2Label = document.getElementById('lsLevel2Label');
   var targetList  = document.getElementById('lsTargetList');
@@ -399,15 +476,40 @@
   }
 
 
-  function showBUs() {
+    function goHome() {
+    if (AUTO_OPEN_BU) {
+      var homeBtn = document.querySelector('[data-bu="' + CSS.escape(AUTO_OPEN_BU) + '"]');
+      if (homeBtn) showTargets(homeBtn);
+      return;
+    }
     level2.style.display = 'none';
     level1.style.display = '';
     breadcrumb.style.display = 'none';
   }
 
-  bcBack.addEventListener('click', showBUs);
+  bcBack.addEventListener('click', goHome);
+
+
+    if (AUTO_OPEN_BU) {
+    var autoBtn = document.querySelector('[data-bu="' + CSS.escape(AUTO_OPEN_BU) + '"]');
+    if (autoBtn) showTargets(autoBtn);
+  }
+
+  var accessGroupsBtn = document.getElementById('accessGroupsToggleBtn');
+  var accessGroupsPanel = document.getElementById('accessGroupsPanel');
+  if (accessGroupsBtn && accessGroupsPanel) {
+    accessGroupsBtn.addEventListener('click', function() {
+      var isOpen = accessGroupsPanel.classList.toggle('open');
+      accessGroupsBtn.innerHTML = isOpen
+        ? '<i class="fas fa-times"></i> Hide Groups'
+        : '<i class="fas fa-users"></i> View / Join Groups';
+      if (isOpen) accessGroupsPanel.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  }
 
   // ── Add Job modal ──
+
+
   var AJ_DATA = {}; // bu_key -> [{target, bu_name}]
   {% if can_edit %}
   {% for row in target_options %}

@@ -5,17 +5,32 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# ── Locate .env next to the exe (frozen) or next to config.py (dev) ──────────
+# ── Locate .env — search order (frozen EXE) ─────────────────────────────────
+# 1. Next to the .exe on disk  → lets users/admins override credentials easily
+# 2. Inside the PyInstaller bundle (sys._MEIPASS) → the .env baked in at build
+# 3. Next to config.py (dev / source run)
 def _find_dotenv_path() -> str:
     if getattr(sys, 'frozen', False):
-        # Running as .exe — .env must be next to BuddyApp.exe
-        return os.path.join(os.path.dirname(sys.executable), '.env')
+        # Priority 1 — user-supplied .env sitting beside the .exe
+        exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
+        if os.path.exists(exe_dir_env):
+            return exe_dir_env
+        # Priority 2 — .env bundled inside the PyInstaller archive (_MEIPASS)
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            bundled_env = os.path.join(meipass, '.env')
+            if os.path.exists(bundled_env):
+                return bundled_env
+        # Fallback — return exe-dir path so the logger shows a useful message
+        return exe_dir_env
     else:
-        # Running from source — .env is in the project root
+        # Running from source — .env is in the project root (next to config.py)
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 
 _env_path = _find_dotenv_path()
-load_dotenv(_env_path, override=False)   # override=False: real env vars win
+# Load local application configuration from .env. Use override=True so values
+# saved in .env are actually used even if the shell has empty/stale variables.
+load_dotenv(_env_path, override=True)
 logger.info(f"[CONFIG] Loading .env from: {_env_path}  (exists={os.path.exists(_env_path)})")
 
 ADMIN_USERS = {
@@ -49,8 +64,66 @@ VIEWER_OVERRIDE_USERS = {
 # --- CONFIGURATION ---
 TARGET_GROUP = "qipl.target.pdt"
 
+# ---------------------------------------------------------------------------
+# LIVE_STATUS_VIEWER_GROUP_ACCESS — scoped read-only access for non-editor
+# Live Status viewers. This does NOT change TARGET_GROUP editor access.
+#
+# Configure LDAP group names with the BUs and/or individual targets that the
+# group's members are allowed to view on /live_status_view.
+# Example:
+# LIVE_STATUS_VIEWER_GROUP_ACCESS = {
+#     "qipl.live_status.auto.viewers": {"bus": ["AUTO"], "targets": ["Nord_HQX"]},
+#     "qipl.live_status.iot.viewers": {"bus": ["IOT"]},
+# }
+#
+# Optional .env override (JSON):
+# LIVE_STATUS_VIEWER_GROUP_ACCESS_JSON={"group.name":{"bus":["AUTO"],"targets":["Nord_HQX"]}}
+# ---------------------------------------------------------------------------
+import json as _json
+LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS = {
+    "PdtBuddy.IoT": {
+        "label": "IOT",
+        "bus": ["IOT"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.IoT",
+    },
+    "PdtBuddy.Nord": {
+        "label": "Nord",
+        "targets": ["Nord"],
+        "target_patterns": ["NORD"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Nord",
+    },
+    "PdtBuddy.IVIGen4.5": {
+        "label": "Gen4.5",
+        "bus": ["AUTO"],
+        "target_patterns": ["GEN4.5", "GEN4_5", "IVI_4_5", "IVI.4.5", "_4_5_", "4.5"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.IVIGen4.5",
+    },
+}
+
+try:
+    _live_status_env_access = _json.loads(os.getenv("LIVE_STATUS_VIEWER_GROUP_ACCESS_JSON", "{}") or "{}")
+    if not isinstance(_live_status_env_access, dict):
+        _live_status_env_access = {}
+except Exception:
+    _live_status_env_access = {}
+
+LIVE_STATUS_VIEWER_GROUP_ACCESS = {
+    **LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS,
+    **_live_status_env_access,
+}
+
+# ---------------------------------------------------------------------------
+# LIVE_STATUS_TEST_USER_GROUPS — temporary UI testing override only.
+# This does not modify LDAP. Remove/empty this after validating multi-group UX.
+# ---------------------------------------------------------------------------
+LIVE_STATUS_TEST_USER_GROUPS = {
+    "akacham": ["PdtBuddy.Nord", "PdtBuddy.IoT"],
+}
+
+
 
 # Paths for files within the 'config' subdirectory
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -60,9 +133,9 @@ CONFIG_DIR = os.path.join(BASE_DIR, "config")
 USERS_DB_PATH = "config/users.json" # <--- UPDATED: Path to users.json, assuming it's in the config subdirectory
 # --- MySQL Connection Details (Flattened) ---
 
-MYSQL_HOST     = os.getenv('MYSQL_HOST',     '127.0.0.1')
-MYSQL_PORT     = int(os.getenv('MYSQL_PORT',  '3306'))
-MYSQL_USER     = os.getenv('MYSQL_USER',     'root')
+MYSQL_HOST     = os.getenv('MYSQL_HOST', '127.0.0.1')
+MYSQL_PORT     = int(os.getenv('MYSQL_PORT', '3306'))
+MYSQL_USER     = os.getenv('MYSQL_USER', 'root')
 MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
 MAIN_DATABASE_NAME = os.getenv('MYSQL_DATABASE', 'pdt_stats_mobile')
 
@@ -73,6 +146,14 @@ DB_CONFIG = {
     "password": MYSQL_PASSWORD,
     "database": MAIN_DATABASE_NAME
 }
+logger.info(
+    "[CONFIG] MySQL config loaded from env/.env: host=%s port=%s user=%s database=%s password_set=%s",
+    MYSQL_HOST,
+    MYSQL_PORT,
+    MYSQL_USER,
+    MAIN_DATABASE_NAME,
+    bool(MYSQL_PASSWORD),
+)
 
 SECRET_KEY = (
     os.environ.get('FLASK_SECRET_KEY')
@@ -197,11 +278,11 @@ QGENIE_HIGHLIGHTS_MODEL_OPTIONS = [
 ]
 
 # --- JIRA API ---
-# Credentials — priority order:
-#   1. JIRA_USER / JIRA_PASSWORD in .env  (override)
-#   2. Falls back to shared PDT Stats service account (PAuth.py)
+# Credentials come from .env / environment only.
+# Required keys: JIRA_USER and JIRA_PASSWORD.
+# Optional fallback aliases: LDAP_USER and LDAP_PASSWORD.
 JIRA_SERVER_ENDPOINT  = os.getenv("JIRA_SERVER_ENDPOINT", "https://jira-dc2-tools.qualcomm.com/jira")
-JIRA_USER             = os.getenv("JIRA_USER",     "") or os.getenv("LDAP_USER",     "indus")
+JIRA_USER             = os.getenv("JIRA_USER",     "") or os.getenv("LDAP_USER",     "")
 JIRA_PASSWORD         = os.getenv("JIRA_PASSWORD", "") or os.getenv("LDAP_PASSWORD", "")
 JIRA_PDT_FILTER_ID    = os.getenv("JIRA_PDT_FILTER_ID", "76997")  # PDT overall filter
 

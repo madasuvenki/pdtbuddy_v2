@@ -1060,7 +1060,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if(redraw !== false) chart.redraw();
   }
 
-  function renderCrAgeChart() {
+      function renderCrAgeChart() {
 
 
     var el = document.getElementById("crAgeChart");
@@ -1078,8 +1078,8 @@ document.addEventListener('DOMContentLoaded', function () {
             var _ctEl2=document.getElementById("crAgeCardTitle");
       var crAgeBucketsTitle = 'CR Age Buckets by ' + (_crAgeGroup==='subsystem'?'Subsystem':_crAgeGroup==='func'?'Functionality':'Area');
       if(_ctEl2) _ctEl2.innerHTML='CR Age Buckets <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">Open / Analysis</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by '+(_crAgeGroup==='subsystem'?'Subsystem':_crAgeGroup==='func'?'Functionality':'Area')+'</span>';
-        Highcharts.chart("crAgeChart", {
-                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 72, marginBottom: 170, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
+                Highcharts.chart("crAgeChart", {
+                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 90, marginBottom: 170, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
 
         title: { text: crAgeBucketsTitle, style:{fontSize:"18px",fontWeight:"900",color:"#0f172a"} },
         xAxis: {
@@ -1090,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
 
         yAxis: { min:0, title:{text:'Open / Analysis CRs'}, gridLineColor:'#e5e7eb', stackLabels:{ enabled:true, style:{fontWeight:'800',fontSize:'10px',color:'#1e293b',textOutline:'none'} } },
-        legend: { enabled:true, align:'center', verticalAlign:'top', y: 28, itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:'11px',fontWeight:'700',color:'#374151'} },
+        legend: { enabled:true, align:'center', verticalAlign:'top', layout:'horizontal', itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:'11px',fontWeight:'700',color:'#374151'}, itemDistance: 14 },
         tooltip: { shared:true, headerFormat:'<b>{point.key}</b><br/>', pointFormat:'<span style="color:{point.color}">â—</span> {series.name}: <b>{point.y}</b><br/>' },
         plotOptions: { column:{ stacking:'normal', borderRadius:2, pointPadding:0.1, groupPadding:0.12, dataLabels:{ enabled:true, crop:false, overflow:'allow', style:{fontSize:'9px',fontWeight:'800',textOutline:'2px #0003',color:'#fff'}, formatter:function(){ return this.y > 0 ? this.y : null; } } } },
         credits: { enabled:false },
@@ -1138,9 +1138,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var maxIdx = Math.min(data.categories.length-1, 11);
     var avgAgePoints = (data.avgAge || []).slice(0, maxIdx + 1).map(function(y, i){ return [i, y]; });
-        var crAgeChart = Highcharts.chart("crAgeChart", {
+            var crAgeChart = Highcharts.chart("crAgeChart", {
 
-                                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 72, marginBottom: 178, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
+                                                chart: { type:"column", height: 580, backgroundColor:"transparent", spacingRight: 8, marginTop: 90, marginBottom: 178, spacingBottom: 34, style:{fontFamily:"Inter,system-ui,sans-serif"} },
 
 
 
@@ -1169,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { min:0, title:{text:"CR Count"}, gridLineColor:"#e5e7eb", labels:{style:{fontSize:"11px",color:"#6b7280"}} },
         { visible: showAverageTat, title:{text: showAverageTat ? _ageLabel() : null, style:{fontSize:"11px",color:"#6b7280"}}, opposite:true, gridLineWidth:0, minPadding:0, maxPadding:0, endOnTick:false, startOnTick:false, labels:{enabled:showAverageTat, style:{fontSize:"11px",color:"#6b7280"}} }
       ],
-      legend: { enabled:true, align:"center", verticalAlign:"top", y: 28, itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:"11px",fontWeight:"700",color:"#374151"} },
+            legend: { enabled:true, align:"center", verticalAlign:"top", layout:"horizontal", itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:"11px",fontWeight:"700",color:"#374151"}, itemDistance: 14 },
       tooltip: { shared:true, headerFormat:"<span style='font-size:11px'>{point.key}</span><br/>" },
             plotOptions: {
         series: {
@@ -2069,62 +2069,45 @@ buildHeader(); buildFilters(); applyFilters();
       setTimeout(function(){ btn.innerHTML = orig; }, 2200);
     }
 
-    // Copy behavior:
-    // - Average TAT enabled: copy it normally with the right-side y-axis.
-    // - Average TAT disabled: remove it from the copied image completely so
-    //   Outlook does not receive a struck-through legend item.
+        // Copy behavior:
+    // If CR Average Age is disabled on the page, Highcharts shows it as a
+    // strike-through legend item. For Outlook copy, remove that disabled legend
+    // item from the copied image only, then restore the page chart back to the
+    // same disabled/strike-through state.
     var avgSeries = null;
     (chart.series || []).forEach(function(s){
       if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
     });
     var restoreAvg = null;
     var avgHiddenForCopy = !!(avgSeries && avgSeries.visible === false);
-    if(avgSeries) {
+    if(avgHiddenForCopy && avgSeries) {
       restoreAvg = {
         visible: avgSeries.visible !== false,
         showInLegend: avgSeries.options.showInLegend !== false,
         enableMouseTracking: avgSeries.options.enableMouseTracking !== false
       };
-    }
-
-    if(avgHiddenForCopy) {
       try {
-        avgSeries.update({ visible:false, showInLegend:false, enableMouseTracking:false }, false);
-        if(chart.yAxis && chart.yAxis[1]) {
-          chart.yAxis[1].update({ visible:false, title:{text:null}, labels:{enabled:false} }, false);
-        }
-        chart.update({ chart:{ spacingRight:0 } }, false);
-        chart.redraw();
-      } catch(e) {}
-    } else {
-      try { _syncAverageTatAxis(chart, true); } catch(e) {}
-    }
-
-    var svgEl = _liveChartSvg(chart);
-    if(!svgEl) {
-      if(avgHiddenForCopy && avgSeries && restoreAvg) {
-        try {
-          avgSeries.update(restoreAvg, false);
-          _syncAverageTatAxis(chart, false);
-          chart.redraw();
-        } catch(e) {}
-      }
-      _fail();
-      return;
-    }
-
-    var exportPromise = _svgElementToPngBlob(svgEl, chart);
-
-    if(avgHiddenForCopy && avgSeries && restoreAvg) {
-      try {
-        avgSeries.update(restoreAvg, false);
+        avgSeries.update({visible:false, showInLegend:false, enableMouseTracking:false}, false);
         _syncAverageTatAxis(chart, false);
         chart.redraw();
       } catch(e) {}
     }
 
-    exportPromise
+    var svgEl = _liveChartSvg(chart);
+    if(!svgEl) {
+      if(avgHiddenForCopy && avgSeries && restoreAvg) {
+        try { avgSeries.update(restoreAvg, false); _syncAverageTatAxis(chart, false); chart.redraw(); } catch(e) {}
+      }
+      _fail();
+      return;
+    }
+    var exportPromise = _svgElementToPngBlob(svgEl, chart);
 
+    if(avgHiddenForCopy && avgSeries && restoreAvg) {
+      try { avgSeries.update(restoreAvg, false); _syncAverageTatAxis(chart, false); chart.redraw(); } catch(e) {}
+    }
+
+    exportPromise
       .then(function(blob){ _copyPngBlob(blob, _ok, _fail); })
       .catch(_fail);
   }
@@ -2142,7 +2125,7 @@ buildHeader(); buildFilters(); applyFilters();
     _crAgeChartRef = Highcharts.charts.filter(function(c){ return c && c.renderTo && c.renderTo.id === 'crAgeChart'; }).pop() || null;
   };
 
-    // Patch renderUndispStatusPie to save reference. Function name is kept for compatibility,
+        // Patch renderUndispStatusPie to save reference. Function name is kept for compatibility,
   // but the right-side CR Area visualization now renders as a bar chart.
   var _origRenderUndispStatusPie = renderUndispStatusPie;
   renderUndispStatusPie = function() {
@@ -2237,7 +2220,7 @@ buildHeader(); buildFilters(); applyFilters();
     try{
       const r = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_title_exclude');
       const d = await r.json();
-      // Set state first, then sync DOM, then re-render — never re-read DOM after this.
+      // Set state first, then sync DOM, then re-render - never re-read DOM after this.
       window._dovExcludeEnabled  = !!d.enabled;
       window._dovExcludeKeywords = (d.keywords||[]).map(k=>k.toLowerCase());
       const cb = document.getElementById('dovExcludeEnabled');

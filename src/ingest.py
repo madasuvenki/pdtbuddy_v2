@@ -988,7 +988,10 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
         unique_only_mode = not excel_file_path
         actual_excel_file = None if unique_only_mode else _resolve_actual_excel_file(excel_file_path)
 
-        actual_unique_cr_file = actual_excel_file
+                # OverallCrs / Unique CR ingest must only run from dashboard_status.unique_cr_path.
+        # Do NOT fall back to the normal *_Overall_PDT_Stats workbook; many dashboard
+        # workbooks do not contain the OverallCrs sheet and that produced noisy false warnings.
+        actual_unique_cr_file = None
         if unique_cr_path:
             try:
                 actual_unique_cr_file = _resolve_latest_unique_cr_workbook(unique_cr_path)
@@ -996,7 +999,6 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
                 logger.warning(f"WARN_INGEST_EXCEL: Unique CR workbook not found for '{target_name}': {nf}")
                 if unique_only_mode:
                     raise
-                actual_unique_cr_file = actual_excel_file
 
         # Drop stale map-only tables from previous runs
         try:
@@ -1007,16 +1009,18 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
             pass
 
                 
-                # OverallCrs: pandas ingest from unique_cr workbook
-        # Always run when actual_unique_cr_file is available — even if it is the
-        # same file as excel_file_path (the OverallCrs sheet lives in both).
+                                # OverallCrs: pandas ingest from unique_cr workbook only.
+        # It is attempted only when dashboard_status.unique_cr_path is populated
+        # and resolves to a real Unique CR workbook.
         if actual_unique_cr_file:
-            logger.info(f"INFO_INGEST_EXCEL: Ingesting OverallCrs via pandas from '{actual_unique_cr_file}'")
+            logger.info(f"INFO_INGEST_EXCEL: Ingesting OverallCrs via pandas from unique_cr_path file '{actual_unique_cr_file}'")
             _ok = _ingest_overallcrs_pandas(actual_unique_cr_file, target_db_prefix, conn, target_name)
             if not _ok:
                 logger.warning(f"INGEST_EXCEL: OverallCrs ingest failed for '{target_name}'")
                 if unique_only_mode:
                     overall_success = False
+        else:
+            logger.info(f"INFO_INGEST_EXCEL: Skipping OverallCrs ingest for '{target_name}' because unique_cr_path is empty/not resolved.")
 
         if unique_only_mode:
             if overall_success and actual_unique_cr_file:
@@ -1029,14 +1033,17 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
                 conn.commit()
             return overall_success
 
-                        # Get mtimes safely
+                                                # Get mtimes safely
         try:
-            excel_last_updated     = datetime.datetime.fromtimestamp(os.path.getmtime(actual_excel_file))
-            unique_cr_last_updated = datetime.datetime.fromtimestamp(os.path.getmtime(actual_unique_cr_file))
+            excel_last_updated = datetime.datetime.fromtimestamp(os.path.getmtime(actual_excel_file))
+            unique_cr_last_updated = (
+                datetime.datetime.fromtimestamp(os.path.getmtime(actual_unique_cr_file))
+                if actual_unique_cr_file else None
+            )
         except OSError as e:
             logger.error(f"INGEST_EXCEL: Cannot stat file (network/disk issue) for '{target_name}': {e}")
             return False
-        dashboard_latest_update = max(excel_last_updated, unique_cr_last_updated)
+        dashboard_latest_update = max([d for d in [excel_last_updated, unique_cr_last_updated] if d is not None])
 
         # Read excel file into memory (avoids Windows SMB temp-space issues)
         try:

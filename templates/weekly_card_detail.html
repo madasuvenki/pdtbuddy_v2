@@ -534,10 +534,10 @@
           <span style="font-size:10px;color:#64748b;font-weight:700;background:#f1f5f9;border-radius:6px;padding:3px 8px;">{{ ucr_file_name }}</span>
           {% endif %}
           {# source badge #}
-                    {% if ucr_source == 'excel' %}
-          <span style="font-size:10px;font-weight:800;background:#d1fae5;color:#065f46;border-radius:6px;padding:3px 8px;">&#9989; Excel</span>
+          {% if ucr_source == 'excel' %}
+          <span style="font-size:10px;font-weight:800;background:#d1fae5;color:#065f46;border-radius:6px;padding:3px 8px;">&#9989; Results loaded</span>
           {% else %}
-          <span style="font-size:10px;font-weight:800;background:#fee2e2;color:#991b1b;border-radius:6px;padding:3px 8px;">No Excel workbook found</span>
+          <span style="font-size:10px;font-weight:800;background:#fee2e2;color:#991b1b;border-radius:6px;padding:3px 8px;">No generated results yet</span>
           {% endif %}
                     {% if ucr_file_options %}
           <select id="ucrFileSelect" onchange="ucrChangeFile(this.value)"
@@ -547,7 +547,11 @@
             {% endfor %}
           </select>
           {% endif %}
-          {% if ucr_auto_publish_info and ucr_auto_publish_info.attempted %}
+                                                                                <button type="button" id="ucrRefreshBtn" onclick="ucrRefreshSelectedWeek(this)"
+            style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #93c5fd;background:linear-gradient(135deg,#2563eb,#4f46e5);font-size:11px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 6px 14px rgba(37,99,235,.18);">
+            Refresh from CSV
+          </button>
+                    {% if ucr_source != 'excel' and ucr_auto_publish_info and ucr_auto_publish_info.message %}
           <span style="font-size:10px;font-weight:800;border-radius:6px;padding:3px 8px;{{ 'background:#d1fae5;color:#065f46;' if ucr_auto_publish_info.success else 'background:#fee2e2;color:#991b1b;' }}">{{ ucr_auto_publish_info.message }}</span>
           {% endif %}
         </div>
@@ -3116,33 +3120,31 @@ window.spCloseNoCrashModal = window.spCloseNoCrashModal || function(){
     }
   }
 
-      function autoGenerateSelectedWeek(){
-    if(hasUcrExcel || !selectedHasRawCsv || !selectedWeekEnd) return;
-    var key = 'ucrAutoGen:' + selectedWeekEnd;
-    if(sessionStorage.getItem(key) === '1') return;
-    sessionStorage.setItem(key, '1');
-    setTableMessage('Excel not found. Auto-generating from selected RawData CSV...');
+            window.ucrRefreshSelectedWeek = function(btn){
+        if(!selectedWeekEnd) return;
+        if(btn){ btn.disabled = true; btn.textContent = 'Refreshing...'; }
+    setTableMessage('Rechecking the matching UNIQUECRSREPORT CSV and updating results...');
     fetch('/api/ucr/generate_excel', {
       method:'POST',
       headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body: JSON.stringify({week_end:selectedWeekEnd})
+      body: JSON.stringify({week_end:selectedWeekEnd, refresh:true, force:true})
     }).then(function(r){
       return r.json().then(function(d){ if(!r.ok || !d.success) throw new Error(d.message || ('API ' + r.status)); return d; });
     }).then(function(){
       var url = new URL(window.location.href);
       url.searchParams.set('ucr_week_end', selectedWeekEnd);
       window.location.href = url.toString();
-    }).catch(function(e){
-      sessionStorage.removeItem(key);
-      setTableMessage('Auto-generate failed: ' + (e.message || e));
+        }).catch(function(e){
+            if(btn){ btn.disabled = false; btn.textContent = 'Refresh from CSV'; }
+      setTableMessage('Refresh failed: ' + (e.message || e));
     });
   }
 
   function loadSite(site){
     activeSite = site;
 
-    if(!hasUcrExcel){
-      setTableMessage('No Excel workbook yet. Upload a Unique CR CSV and click Generate Excel.');
+        if(!hasUcrExcel){
+      setTableMessage('No generated results yet. Please click Refresh from CSV to scan for the latest UNIQUECRSREPORT source file.');
       return;
     }
     if(loadedSiteRows[site]){
@@ -3471,9 +3473,8 @@ window.spCloseNoCrashModal = window.spCloseNoCrashModal || function(){
 
         renderSiteAreaChart();
   if(activeSite && hasUcrExcel){ loadSite(activeSite); }
-  else if(!hasUcrExcel){
-    setTableMessage(selectedHasRawCsv ? 'Excel not found. Auto-generating from selected RawData CSV...' : 'No Excel workbook yet. Upload a Unique CR CSV and click Generate Excel.');
-    autoGenerateSelectedWeek();
+    else if(!hasUcrExcel){
+          setTableMessage('No generated results yet. Please click Refresh from CSV to scan for the latest UNIQUECRSREPORT source file.');
   }
 
 

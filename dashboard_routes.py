@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 logger = logging.getLogger(__name__)
 import traceback
 import uuid
@@ -753,7 +753,7 @@ def _build_device_summary_table(path_value, sheet_name):
     max_col = ws.max_column
     max_row = ws.max_row
 
-    # ── build merge map: every cell -> its effective value ──
+    # -- build merge map: every cell -> its effective value --
     merge_map = {}
     for mr in list(ws.merged_cells.ranges):
         val = ws.cell(mr.min_row, mr.min_col).value
@@ -769,12 +769,12 @@ def _build_device_summary_table(path_value, sheet_name):
     def safe_int(v):
         try:
             s = str(v).strip()
-            if s in ('', '-', '—', 'None', 'nan', 'none'): return 0
+            if s in ('', '-', '�', 'None', 'nan', 'none'): return 0
             return int(float(s))
         except Exception:
             return 0
 
-    # ── Row 1: detect column roles ──
+    # -- Row 1: detect column roles --
     row1 = [cv(1, c) for c in range(1, max_col + 1)]   # 0-based list
     row2 = [cv(2, c) for c in range(1, max_col + 1)]
 
@@ -789,7 +789,7 @@ def _build_device_summary_table(path_value, sheet_name):
         elif 'MCN' in vu and mcn_col is None:                  mcn_col = i
         elif 'STOR' in vu and sto_col is None:                 sto_col = i
 
-    # ── Detect site columns dynamically ──
+    # -- Detect site columns dynamically --
     # A site column in row1 is any non-empty value that is NOT a skip/total word.
     # Its DEL col = first col in row2 (same or next) with 'DELIV', DEP = 'DEPLO'.
     site_cols = {}   # ordered dict: site_name -> {'del': 0-based-idx, 'dep': 0-based-idx}
@@ -918,13 +918,13 @@ def _jira_sort_key(row):
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CR OVERVIEW  —  direct read from unique_crs + jiras with 5-min in-memory cache
+# -----------------------------------------------------------------------------
+# CR OVERVIEW  �  direct read from unique_crs + jiras with 5-min in-memory cache
 # Powered by src/cr_overview_service.py
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 from src.cr_overview_service import (
     fetch_cr_overview_data,
@@ -937,7 +937,7 @@ from src.cr_overview_service import (
     SITE_LABELS                as _CR_SITE_LABELS,
 )
 
-# ── excluded-targets JSON path (kept for the excluded_targets UI) ────────────
+# -- excluded-targets JSON path (kept for the excluded_targets UI) ------------
 _EXCLUDED_TARGETS_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     'static', 'cr_overview_excluded_targets.json'
@@ -958,10 +958,10 @@ def _save_excluded_targets(excluded: list):
         json.dump({'excluded': sorted(set(excluded))}, f, indent=2)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/cr_overview  — summary payload (hero KPIs, BU cards, charts, pivot)
+# -----------------------------------------------------------------------------
+# /api/cr_overview  � summary payload (hero KPIs, BU cards, charts, pivot)
 # Source: direct read from unique_crs + jiras via cr_overview_service
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview')
 @login_required
 def api_cr_overview():
@@ -1053,10 +1053,10 @@ def api_cr_overview():
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/cr_overview/cr_rows  — paginated detail rows
+# -----------------------------------------------------------------------------
+# /api/cr_overview/cr_rows  � paginated detail rows
 # Source: direct read from unique_crs + jiras via cr_overview_service
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview/cr_rows')
 @login_required
 def api_cr_overview_cr_rows():
@@ -1089,7 +1089,7 @@ def api_cr_overview_cr_rows():
     dimension     = (request.args.get('dim')      or 'cr_area').strip().lower()
     dim_val       = (request.args.get('dim_val')  or '').strip()
 
-    # map legacy 'open_analysis' → 'undisposed' so old frontend calls still work
+    # map legacy 'open_analysis' ? 'undisposed' so old frontend calls still work
     _cat_raw      = (request.args.get('category') or 'undisposed').strip().lower()
     category      = 'undisposed' if _cat_raw == 'open_analysis' else _cat_raw
 
@@ -1101,7 +1101,7 @@ def api_cr_overview_cr_rows():
     _sfl_raw = (request.args.get('status_filter_list') or '').strip()
     status_filter_list = [s.strip() for s in _sfl_raw.split(',') if s.strip()] if _sfl_raw else []
 
-    # map legacy 'occ_desc' → 'jira_desc'
+    # map legacy 'occ_desc' ? 'jira_desc'
     if sort_by == 'occ_desc':
         sort_by = 'jira_desc'
 
@@ -1153,18 +1153,18 @@ def api_cr_overview_cr_rows():
         logger.info(f'[CR ROWS API] {e}')
         return jsonify({'error': str(e)}), 500
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/cr_overview/area_targets  — per-target breakdown for a dimension value
+# -----------------------------------------------------------------------------
+# /api/cr_overview/area_targets  � per-target breakdown for a dimension value
 # e.g. ?area=Multimedia&dim=cr_area&bu=MOBILE
 # Returns: targets[], all_areas[], site_keys[], site_labels{}
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview/area_targets')
 @login_required
 def api_cr_overview_area_targets():
     """
     For a given dimension value (area/subsystem/functionality),
     return per-target CR count + avg age breakdown.
-    Used by the Area→Target drill-down panel on the CR Overview page.
+    Used by the Area?Target drill-down panel on the CR Overview page.
     """
     area_value    = (request.args.get('area')          or '').strip()
     dimension     = (request.args.get('dim')           or 'cr_area').strip().lower()
@@ -1220,9 +1220,9 @@ def api_cr_overview_area_targets():
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/cr_overview/targets  — active targets for a given BU
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# /api/cr_overview/targets  � active targets for a given BU
+# -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview/targets')
 @login_required
 def api_cr_overview_targets():
@@ -1248,9 +1248,9 @@ def api_cr_overview_targets():
     return jsonify({'targets': targets, 'bu': bu_filter})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # /api/cr_overview/excluded_targets  GET / POST
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 @dashboard_bp.route('/api/cr_overview/excluded_targets', methods=['GET'])
@@ -1303,10 +1303,10 @@ def api_save_excluded_targets():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /admin/cr_overview/clear_cache  — manual cache bust (admin only)
-# /admin/cr_overview/cache_stats  — inspect live cache entries (admin only)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# /admin/cr_overview/clear_cache  � manual cache bust (admin only)
+# /admin/cr_overview/cache_stats  � inspect live cache entries (admin only)
+# -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/hwpdt/excluded_targets', methods=['GET'])
 @login_required
 def api_get_hwpdt_excluded_targets():
@@ -1406,7 +1406,7 @@ def api_save_hwpdt_excluded_targets():
 
 
 
-# ── HWPDT Playlist Aliases  GET / POST ──────────────────────────────────────
+# -- HWPDT Playlist Aliases  GET / POST --------------------------------------
 # Aliases are stored server-side in hwpdt_playlist_aliases.json on the network
 # share so they are shared across all users and machines (not localStorage).
 _HWPDT_ALIASES_NET   = r'\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\hwpdt_playlist_aliases.json'
@@ -1523,10 +1523,10 @@ def admin_cr_overview_cache_stats():
     return jsonify({'ok': True, 'entries': _svc_cr_cache_info()})
 
 
-# ─────────────────────────────────────────────────────────────────────────────────
-# TOOL FEEDBACK / RATING  —  pdt_stats_dashboard.tool_feedback
+# ---------------------------------------------------------------------------------
+# TOOL FEEDBACK / RATING  �  pdt_stats_dashboard.tool_feedback
 # Access restricted to TARGET_GROUP = "qipl.target.pdt"
-# ─────────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------------
 _FEEDBACK_DB  = 'pdt_stats_dashboard'
 _FEEDBACK_TBL = 'pdt_stats_dashboard.tool_feedback'
 
@@ -2063,7 +2063,7 @@ def api_mtbf_jiras(target_name, meta_id):
         meta_builds_table_name = ensure_meta_builds_table(cursor, schema_name, target_name)
         meta_builds_table = f"`{schema_name}`.`{meta_builds_table_name}`"
 
-        # â”€ load excluded tickets from meta_notes â”€
+        # ─ load excluded tickets from meta_notes ─
         cursor.execute(
             f"""
             SELECT meta_notes
@@ -2084,7 +2084,7 @@ def api_mtbf_jiras(target_name, meta_id):
             except Exception:
                 pass
 
-        # â”€ builds: from ?builds= param (real-time DOM) OR saved DB selection â”€
+        # ─ builds: from ?builds= param (real-time DOM) OR saved DB selection ─
         builds_param = request.args.get('builds', '').strip()
         if builds_param:
             selected_builds = [b.strip() for b in builds_param.split(',') if b.strip()]
@@ -2146,7 +2146,7 @@ def api_mtbf_jiras(target_name, meta_id):
                 )
         all_rows = cursor.fetchall() or []
 
-        # â”€ exclude saved excluded tickets â”€
+        # ─ exclude saved excluded tickets ─
         rows = []
         for r in all_rows:
             ticket = (r.get("stability_ticket") or "").strip()
@@ -2231,7 +2231,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                                 "notice": "Open JIRAs table not available for this target."})
         metabuild_like = "%" + meta_id + "%"
 
-        # â”€ Load SELECTED build IDs for this meta from meta_builds_table â”€
+        # ─ Load SELECTED build IDs for this meta from meta_builds_table ─
         cursor.execute(
             f"""
             SELECT build_id
@@ -2314,7 +2314,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
             cursor.execute(sql, jira_params)
         rows = cursor.fetchall() or []
 
-        # â”€ Split into active (non-excluded) and excluded â”€
+        # ─ Split into active (non-excluded) and excluded ─
         # The JIRA table shows only active rows.
         # CR occurrence count + JQL link use only active rows.
         # Excluded tickets are stored in meta_notes and should not
@@ -2333,14 +2333,14 @@ def mtbf_meta_jiras_view(target_name, meta_id):
         # jiras passed to template = active only (excluded ones not shown)
         rows = active_rows
 
-        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ──────────────────────────────────────────────────────────────────
         # CR FETCH
         # Source of truth for ticket count = active_rows (JIRA table)
         # Step 1: build ticket -> CR map from jiras table (has cr column)
         # Step 2: group active_rows tickets by CR  -> cr_to_tickets
         # Step 3: fetch CR details from unique_crs
         # Step 4: merge jira_count + jira_display onto each CR row
-        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ──────────────────────────────────────────────────────────────────
         cr_rows = []
         try:
             u_table = fq_table_for_target(target_name, "unique_crs")
@@ -2453,7 +2453,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                 cr_list = list(cr_to_tickets.keys())
                 ph = ",".join(["%s"] * len(cr_list))
                 # Fetch ALL rows for these mapped_crs (including Dup rows)
-                # We deduplicate ourselves below — do NOT filter cr_occurrence here
+                # We deduplicate ourselves below � do NOT filter cr_occurrence here
                 cursor.execute(
                     f"SELECT {select_sql} "
                     f"FROM {u_table} "
@@ -2502,7 +2502,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                 # sort by jira_count descending
                 cr_rows = sorted(raw_cr_rows, key=lambda x: x.get('jira_count', 0), reverse=True)
 
-            # â”€ remove CR-mapped tickets from the JIRA table â”€
+            # ─ remove CR-mapped tickets from the JIRA table ─
             # tickets already shown in CR table should not appear in Open JIRAs
             cr_mapped_tickets = {
                 t
@@ -2856,7 +2856,7 @@ def api_hwpdt_chip_parts(target_name):
     if not sp_name:
         return jsonify({"success": False, "message": "sp_name not configured for this target."}), 200
 
-    # 2. Load audit JSON — single source of truth (certicom file no longer needed)
+    # 2. Load audit JSON � single source of truth (certicom file no longer needed)
     audit_data  = _load_hwpdt_job_audit_data() or {}
     chip_lookup = audit_data.get("chip_lookup") or {}
     chip_data   = audit_data   # for generated_at reference below
@@ -2916,7 +2916,7 @@ def api_hwpdt_chip_parts(target_name):
             "message": f"No softwareProduct matched for sp_name='{sp_name}'",
         }), 200
 
-        # ── Build chip list from audit chip_lookup (already loaded above) ──────────
+        # -- Build chip list from audit chip_lookup (already loaded above) ----------
     # chip_lookup: { chip_id: [{job_id, software_product, ...}] }
     all_chips = set()
     for chip_id, job_entries in chip_lookup.items():
@@ -2928,7 +2928,7 @@ def api_hwpdt_chip_parts(target_name):
     chip_ids = sorted(all_chips)
     tested_parts = len(chip_ids)
 
-    # ── enrich with job audit data (audit_data + chip_lookup already loaded above) ──
+    # -- enrich with job audit data (audit_data + chip_lookup already loaded above) --
     chip_rows        = []
     seen_pl          = set()
     playlist_filters = []
@@ -2940,7 +2940,7 @@ def api_hwpdt_chip_parts(target_name):
              if str(je.get("software_product") or "").strip() in matched_products]
             or job_entries
         )
-        # deduplicate by job_id — keep only unique jobs
+        # deduplicate by job_id � keep only unique jobs
         seen_jids      = set()
         job_ids        = []
         job_details    = []   # [{job_id, start_date, playlist_name}]
@@ -2951,7 +2951,7 @@ def api_hwpdt_chip_parts(target_name):
                 continue
             jid_str = str(jid)
             if jid_str in seen_jids:
-                continue          # same job_id already added — skip duplicate
+                continue          # same job_id already added � skip duplicate
             seen_jids.add(jid_str)
             job_ids.append(jid_str)
             # extract date from start_time
@@ -2964,7 +2964,7 @@ def api_hwpdt_chip_parts(target_name):
             if pl and pl not in seen_pl:
                 seen_pl.add(pl)
                 playlist_filters.append(pl)
-        # multi_job = chip tested in more than one unique job → highlight
+        # multi_job = chip tested in more than one unique job ? highlight
         multi_job = len(job_ids) > 1
         chip_rows.append({
             "s_no":              idx,
@@ -3004,30 +3004,52 @@ def api_hwpdt_cr_venn(target_name):
         conn = get_mysql_connection_db()
         cursor = conn.cursor(dictionary=True)
 
-        j_table = fq_table_for_target(target_name, "jiras")
-        # Try fq_table_for_target first; fall back to direct DB search
-        o_table = None
-        try:
-            o_table = fq_table_for_target(target_name, "openjiras")
-        except Exception as _fq_err:
-            pass
+        # ── helper: resolve table via dashboard_status first, then
+        #    fall back to information_schema search by name pattern.
+        #    This handles Axiom-only targets not yet in dashboard_status.
+        def _resolve_table(suffix):
+            """Return fully-qualified `schema`.`table` or None."""
+            # 1. Try the managed target lookup (dashboard_status)
+            try:
+                return fq_table_for_target(target_name, suffix)
+            except Exception:
+                pass
+            # 2. Fallback: search information_schema by <target>_<suffix>
+            #    Try both the raw name and a dot-stripped variant
+            candidates = [
+                target_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_') + '_' + suffix,
+                target_name.lower().replace('-', '_').replace(' ', '_') + '_' + suffix,
+            ]
+            for pat in dict.fromkeys(candidates):   # deduplicate, preserve order
+                cursor.execute(
+                    "SELECT TABLE_SCHEMA, TABLE_NAME "
+                    "FROM information_schema.TABLES "
+                    "WHERE TABLE_NAME = %s LIMIT 1",
+                    (pat,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    _s = row.get('TABLE_SCHEMA') or row.get('table_schema', '')
+                    _n = row.get('TABLE_NAME')   or row.get('table_name', '')
+                    return f"`{_s}`.`{_n}`"
+            return None
 
+        # ── resolve all three tables ──────────────────────────────────────
+        j_table = _resolve_table("jiras")
+        if not j_table:
+            return jsonify({"success": True, "rows": [], "area_summary": [],
+                            "hero_cards": {"total_hwpdt_jiras": 0},
+                            "summary": {"hwpdt_only": 0, "swpdt_only": 0, "both": 0},
+                            "notice": "JIRAs table not available for this target."})
+
+        o_table = _resolve_table("openjiras")
         if not o_table:
-            tbl_pattern = target_name.lower().replace('-', '_').replace(' ', '_') + '_openjiras'
-            cursor.execute(
-                "SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES "
-                "WHERE TABLE_NAME = %s LIMIT 1",
-                (tbl_pattern,)
-            )
-            _row = cursor.fetchone()
-            if _row:
-                _s = _row.get('TABLE_SCHEMA') or _row.get('table_schema', '')
-                _n = _row.get('TABLE_NAME')   or _row.get('table_name', '')
-                o_table = f"`{_s}`.`{_n}`"
-            else:
-                return jsonify({"success": True, "rows": [], "area_summary": [],
-                                "notice": "Open JIRAs table not available for this target."})
-        u_table = fq_table_for_target(target_name, "unique_crs")
+            return jsonify({"success": True, "rows": [], "area_summary": [],
+                            "hero_cards": {"total_hwpdt_jiras": 0},
+                            "summary": {"hwpdt_only": 0, "swpdt_only": 0, "both": 0},
+                            "notice": "Open JIRAs table not available for this target."})
+
+        u_table = _resolve_table("unique_crs")
 
         cursor.execute(f"SHOW COLUMNS FROM {j_table}")
         j_cols = {c['Field'] for c in (cursor.fetchall() or [])}
@@ -3379,12 +3401,12 @@ def build_milestone_phase_context(target_name):
             phase, pct = "Pre-ES", 0
         elif fc_dt and today < fc_dt:
             seg = max(0.0, min(1.0, (today - es_dt).days / max(1, (fc_dt - es_dt).days)))
-            phase, pct = "ES → FC", round(33 + seg * 33)
+            phase, pct = "ES ? FC", round(33 + seg * 33)
         elif cs_dt and today < cs_dt:
             seg = max(0.0, min(1.0, (today - fc_dt).days / max(1, (cs_dt - fc_dt).days)))
-            phase, pct = "FC → CS", round(66 + seg * 34)
+            phase, pct = "FC ? CS", round(66 + seg * 34)
         else:
-            phase, pct = "CS Done ✓", 100
+            phase, pct = "CS Done ?", 100
 
         return {
             "phase_label":        "Release Milestones",
@@ -3681,7 +3703,7 @@ def get_unified_device_summary(target_name, pdt_type, refresh=False):
         except Exception:
             pass
 
-    # No cache — return sentinel so the page renders the syncing banner immediately.
+    # No cache � return sentinel so the page renders the syncing banner immediately.
     # Live fetch is handled by /api/device_summary_data (triggered by the banner button).
     if not refresh:
         return [], "NO_CACHE"
@@ -3784,7 +3806,7 @@ def _build_swpdt_deployment_table(devices):
             return m2.group(1)
         return ""
 
-    # Exclude /PDT/QIPL/HW — those belong to HWPDT only
+    # Exclude /PDT/QIPL/HW � those belong to HWPDT only
     sw_only_devices = [
         d for d in (devices or [])
         if not _get_taxonomy(d).startswith("/PDT/QIPL/HW")
@@ -3806,7 +3828,7 @@ def _build_swpdt_deployment_table(devices):
         table[ff][mcn][sto][site_abbr]["dep"] += 1
         site_counts[site_abbr] += 1
 
-    # Only include sites that actually have devices — skip UNKNOWN and empty sites
+    # Only include sites that actually have devices � skip UNKNOWN and empty sites
     SITE_ORDER = ["QIPL", "CH", "SD"]
     active_sites = [s for s in SITE_ORDER if site_counts.get(s, 0) > 0]
 
@@ -3899,7 +3921,7 @@ def _build_hwpdt_screening_summary(hw_devices):
 
 def device_summary(target_name, base_context, cursor, conn):
     """
-    Device Summary section — only for non-AUTO BUs.
+    Device Summary section � only for non-AUTO BUs.
     SW DEL comes from saved override if present, else Axiom default.
     SW DEP always stays from Axiom.
     HW summary is read-only by default and becomes editable only after Edit is clicked.
@@ -4473,8 +4495,8 @@ def api_save_excel_page_config(target_name, page_key):
 
 
 
-# ── pending build rows waiting for Excel unlock ──
-_pending_builds = {}   # key: target_name → list of row dicts
+# -- pending build rows waiting for Excel unlock --
+_pending_builds = {}   # key: target_name ? list of row dicts
 
 def _get_excel_lock_info(path):
     """Return (is_locked, locked_by) for an Excel file."""
@@ -4529,7 +4551,7 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
     wb   = openpyxl.load_workbook(path)
     ws   = wb[sheet_name]
 
-    # ── 1. Read header row (row 1) ──
+    # -- 1. Read header row (row 1) --
     max_col = ws.max_column
     headers = [str(ws.cell(1, c).value or '').strip() for c in range(1, max_col + 1)]
     # Ensure legacy configured MTBF sheets can persist the new Hours Reduction value.
@@ -4538,14 +4560,14 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
         ws.cell(1, max_col, 'Reduction %')
         headers.append('Reduction %')
 
-    # ── 2. Read all existing data rows (skip fully-blank rows) ──
+    # -- 2. Read all existing data rows (skip fully-blank rows) --
     existing_rows = []
     for r in range(2, ws.max_row + 1):
         row_vals = [ws.cell(r, c).value for c in range(1, max_col + 1)]
         if any(v not in (None, '', 0) for v in row_vals):
             existing_rows.append(row_vals)
 
-    # ── 3. Map new row_data to header columns ──
+    # -- 3. Map new row_data to header columns --
     def _map_val(header, row_data):
         hl = header.lower().strip()
         # Target(s)
@@ -4561,10 +4583,10 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
             return row_data.get('device_count', '')
         if 'device' in hl:
             return row_data.get('devices', '')
-        # Build(s).1 — full build string (second build column)
+        # Build(s).1 � full build string (second build column)
         if hl in ('build(s).1', 'build.1', 'full build', 'build id') or ('build' in hl and 'full' in hl):
             return row_data.get('build_full', row_data.get('build', ''))
-        # Build(s) — short META id (first build column)
+        # Build(s) � short META id (first build column)
         if 'meta' in hl:
             return row_data.get('build', '')
         if 'build' in hl:
@@ -4594,7 +4616,7 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
 
     new_row = [_map_val(h, row_data) for h in headers]
 
-    # ── 4. Save header row styles ──
+    # -- 4. Save header row styles --
     hdr_styles = []
     for c in range(1, max_col + 1):
         cell = ws.cell(1, c)
@@ -4605,7 +4627,7 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
             'border':    copy(cell.border),
         })
 
-        # ── 5. Clear sheet and rewrite ──
+        # -- 5. Clear sheet and rewrite --
     ws.delete_rows(1, ws.max_row)
 
     # Write header
@@ -4741,7 +4763,7 @@ def api_excel_add_build(target_name):
             _pending_builds.setdefault(target_name, []).append({'row_data': row_data})
             return jsonify({'success': False, 'locked': True, 'locked_by': locked_by,
                             'message': f'Excel locked by {locked_by}. Saved locally.'})
-                # write to Excel — full table replace
+                # write to Excel � full table replace
         _append_build_to_excel(excel_path, sheet_name, row_data, [])
         return jsonify({'success': True, 'message': 'Build added to Excel.'})
     except Exception as exc:
@@ -4782,7 +4804,7 @@ def api_excel_update_row(target_name):
         return jsonify({'success': False, 'message': str(exc)}), 500
 
 
-# ── Full table read (flat, no merge info) for the edit page ──────────────────
+# -- Full table read (flat, no merge info) for the edit page ------------------
 @dashboard_bp.route("/api/dashboard/<string:target_name>/excel/full_table", methods=['GET'])
 @login_required
 def api_excel_full_table(target_name):
@@ -4862,7 +4884,7 @@ def api_excel_full_table(target_name):
         return jsonify({'success': False, 'message': str(exc)}), 500
 
 
-# ── Save entire table back to Excel ──────────────────────────────────────────
+# -- Save entire table back to Excel ------------------------------------------
 @dashboard_bp.route("/api/dashboard/<string:target_name>/excel/save_table", methods=['POST'])
 @login_required
 def api_excel_save_table(target_name):
@@ -4962,7 +4984,7 @@ def api_excel_save_table(target_name):
     except Exception as exc:
         return jsonify({'success': False, 'message': str(exc)}), 500
 
-# ── Full-table edit page ──────────────────────────────────────────────────────
+# -- Full-table edit page ------------------------------------------------------
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-excel/edit")
 @login_required
 def target_mtbf_excel_edit_page(target_name):
@@ -5018,7 +5040,7 @@ def api_browse_files():
         payload = request.get_json(force=True) or {}
         path    = str(payload.get('path') or '').strip().strip('"').strip("'")
 
-        # ── Special root: list all drives + quick-access ──
+        # -- Special root: list all drives + quick-access --
         if not path or path in ('/', 'root', 'ROOT'):
             items = []
             # Windows drives
@@ -5041,14 +5063,14 @@ def api_browse_files():
                 ('Downloads', os.path.expanduser('~\\Downloads')),
             ]:
                 if os.path.exists(p):
-                    items.append({'name': f'📌 {name}', 'path': p, 'type': 'quick'})
+                    items.append({'name': f'?? {name}', 'path': p, 'type': 'quick'})
             return jsonify({'success': True, 'path': 'This PC', 'items': items, 'is_root': True})
 
-        # ── Network path: list shares or UNC path ──
+        # -- Network path: list shares or UNC path --
         if path.startswith('\\\\'):
             path = os.path.normpath(path)
 
-        # ── Normal path ──
+        # -- Normal path --
         path = os.path.normpath(path)
 
         # If path is a file, go to its parent
@@ -5071,11 +5093,11 @@ def api_browse_files():
         # Parent navigation
         parent = os.path.dirname(path)
         if parent and parent != path:
-            # Check if parent is a drive root → go to 'This PC'
+            # Check if parent is a drive root ? go to 'This PC'
             if os.path.splitdrive(path)[1] in ('\\', '/'):
-                items.append({'name': '⬆ This PC', 'path': 'root', 'type': 'up'})
+                items.append({'name': '? This PC', 'path': 'root', 'type': 'up'})
             else:
-                items.append({'name': f'⬆ {os.path.basename(parent) or parent}', 'path': parent, 'type': 'up'})
+                items.append({'name': f'? {os.path.basename(parent) or parent}', 'path': parent, 'type': 'up'})
 
         for e in entries:
             try:
@@ -5245,7 +5267,7 @@ def dashboard(target_name, section="dashboard"):
         }
         perf_marks.append(("dashboard_meta", _perf_elapsed_ms(perf_total_start)))
 
-        # 2) CR Age analysis – separate Built / Undisposed charts
+        # 2) CR Age analysis � separate Built / Undisposed charts
 
         # Check which optional columns exist before querying
         cursor.execute(f"SHOW COLUMNS FROM {tables['u']}")
@@ -5373,7 +5395,7 @@ def dashboard(target_name, section="dashboard"):
         schema_name = get_schema_for_target(target_name) or "pdt_stats_mobile"
         is_compute_bu = (schema_name == "pdt_stats_compute")
 
-        # ── CR Title Exclude (Compute only) ──────────────────────────────
+        # -- CR Title Exclude (Compute only) ------------------------------
         if is_compute_bu:
             _excl = _get_cr_title_exclude(target_name)
             if _excl['enabled'] and _excl['keywords']:
@@ -5632,7 +5654,7 @@ def dashboard(target_name, section="dashboard"):
             # Hide unique_crs tab if no path or SP target
             if not str(base_context.get("unique_cr_path") or "").strip() or is_sp_target:
                 hidden.add("unique_crs")
-            # Always hide overall_crs from dashboard — it is a standalone page now
+            # Always hide overall_crs from dashboard � it is a standalone page now
             hidden.add("overall_crs")
             base_context["pv_hidden_tabs"] = sorted(hidden)
         except Exception:
@@ -6123,7 +6145,7 @@ def target_workspace(target_name):
         "coming_soon_template.html",
         target_name=target_name,
         page_heading="Customer Issues",
-        page_subtitle="Coming soon — this section is under development.",
+        page_subtitle="Coming soon � this section is under development.",
         **ctx,
     )
 
@@ -6410,11 +6432,173 @@ def _consolidated_report_path(target, builds, custom_jql=None):
     return os.path.join(_CONSOLIDATED_REPORT_DIR, fname), key
 
 
-# job_id → final report dict (populated by background thread)
+# job_id ? final report dict (populated by background thread)
 _JOB_RESULTS: dict = {}
 
 
-# ── SSE progress endpoint ─────────────────────────────────────────────────────
+# -- SSE progress endpoint -----------------------------------------------------
+
+def _br_tail(value):
+    text = str(value or '').strip().replace('/', '\\')
+    parts = [p for p in text.split('\\') if p]
+    return parts[-1] if parts else text
+
+
+def _br_norm_name(value):
+    import re as _re
+    return _re.sub(r'[^a-z0-9]+', '', str(value or '').lower())
+
+
+def _br_first_col(cols, names):
+    by_norm = {_br_norm_name(c): c for c in (cols or [])}
+    for name in names:
+        hit = by_norm.get(_br_norm_name(name))
+        if hit:
+            return hit
+    return None
+
+
+def _br_table_exists(cur, schema, table):
+    cur.execute('SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1', (schema, table))
+    return cur.fetchone() is not None
+
+
+def _br_cols(cur, schema, table):
+    try:
+        cur.execute(f'SHOW COLUMNS FROM `{schema}`.`{table}`')
+        return {r.get('Field') for r in (cur.fetchall() or []) if r.get('Field')}
+    except Exception:
+        return set()
+
+
+def _br_is_real_cr(value):
+    import re as _re
+    text = str(value or '').strip().upper()
+    return bool(text and text not in ('NO_CR', '--', 'NONE', 'NULL', 'N/A', 'NA') and (_re.match(r'^(CR)?\d{3,}$', text) or _re.match(r'^CR[-_A-Z0-9]+$', text)))
+
+
+def _br_build_like_values(builds):
+    import re as _re
+    vals = []
+    for build in builds or []:
+        tail = _br_tail(build)
+        if not tail:
+            continue
+        vals.append(f'%{tail}%')
+        m = _re.search(r'-(\d{3,6})(?:\.\d+)?-(?:STD|PERF|SAFE|USER|ENG)', tail, _re.I)
+        if m:
+            n = str(int(m.group(1))); p = n.zfill(3)
+            vals.extend([f'%-{p}-%', f'%-{n}-%', f'%Meta-{p}%', f'%Meta-{n}%'])
+    return list(dict.fromkeys(vals))
+
+
+def _br_domain_sources(target, domain):
+    try:
+        from core_deck_routes import _load_state, _db_source_tables_for_targets
+        state = _load_state(target) or {}
+        preview = state.get('saved_preview') if isinstance(state.get('saved_preview'), dict) else {}
+        cfg = state.get('deck_config') or preview.get('deck_config') or {}
+        entries = cfg.get(domain) or cfg.get(str(domain).lower()) or []
+        if isinstance(entries, str):
+            import re as _re
+            entries = [v.strip() for v in _re.split(r'[,;\n]+', entries) if v.strip()]
+        return _db_source_tables_for_targets(entries), cfg
+    except Exception:
+        logger.debug('[build_report] Core Deck Config source load failed', exc_info=True)
+        return [], {}
+
+
+def _build_domain_table_report(target, domain, builds):
+    """Fetch Build Report rows from Core Deck Config domain JIRA/OpenJIRA tables."""
+    domain = str(domain or '').strip().upper()
+    builds = [str(b or '').strip() for b in (builds or []) if str(b or '').strip()]
+    sources, cfg = _br_domain_sources(target, domain)
+    like_vals = _br_build_like_values(builds)
+    if not sources:
+        raise ValueError(f'No Core Slide Config table details found for {domain}. Save Config in Core Slide page first.')
+    if not like_vals:
+        raise ValueError('Select at least one valid build.')
+    crs, open_jiras, total = {}, [], 0
+    for src in sources:
+        schema = (src.get('schema') or '').strip('`')
+        if not schema:
+            continue
+        conn = get_mysql_connection_db(bu_key=schema)
+        if not conn:
+            continue
+        cur = conn.cursor(dictionary=True)
+        try:
+            for exists_key, table_key, kind in (('jiras', 'jiras_table_name', 'jira'), ('openjiras', 'openjiras_table_name', 'open_jira')):
+                table = src.get(table_key) or ''
+                if not table or not (src.get('exists') or {}).get(exists_key) or not _br_table_exists(cur, schema, table):
+                    continue
+                cols = _br_cols(cur, schema, table)
+                mb_col = _br_first_col(cols, ['metabuild', 'meta_build', 'build_id', 'build', 'MetaBuild', 'Meta Build'])
+                if not mb_col:
+                    continue
+                cr_col = _br_first_col(cols, ['mapped_cr', 'mapped_crs', 'Mapped CRs', 'Mapped CR', 'cr', 'cr_number'])
+                ticket_col = _br_first_col(cols, ['stability_ticket', 'jira_id', 'ticket', 'key'])
+                title_col = _br_first_col(cols, ['jira_title', 'summary', 'title'])
+                status_col = _br_first_col(cols, ['cr_status', 'status', 'final_status'])
+                area_col = _br_first_col(cols, ['cr_area', 'area'])
+                sub_col = _br_first_col(cols, ['cr_subsystem', 'subsystem'])
+                func_col = _br_first_col(cols, ['cr_functionality', 'functionality', 'cr_function'])
+                age_col = _br_first_col(cols, ['cr_age', 'age', 'overall_age'])
+                select_cols = [
+                    f'`{mb_col}` AS metabuild',
+                    f'`{cr_col}` AS cr' if cr_col else "'' AS cr",
+                    f'`{ticket_col}` AS stability_ticket' if ticket_col else "'' AS stability_ticket",
+                    f'`{title_col}` AS jira_title' if title_col else "'' AS jira_title",
+                    f'`{status_col}` AS status' if status_col else "'' AS status",
+                    f'`{area_col}` AS area' if area_col else "'' AS area",
+                    f'`{sub_col}` AS subsystem' if sub_col else "'' AS subsystem",
+                    f'`{func_col}` AS functionality' if func_col else "'' AS functionality",
+                    f'`{age_col}` AS age' if age_col else "'' AS age",
+                ]
+                where_like = ' OR '.join([f'`{mb_col}` LIKE %s' for _ in like_vals])
+                cur.execute(f"SELECT {', '.join(select_cols)} FROM `{schema}`.`{table}` WHERE ({where_like})", tuple(like_vals))
+                rows = [dict(r) for r in (cur.fetchall() or [])]
+                total += len(rows)
+                for r in rows:
+                    cr = str(r.get('cr') or '').strip()
+                    if _br_is_real_cr(cr):
+                        cr_key = cr if cr.upper().startswith('CR') else 'CR' + cr
+                        row = crs.setdefault(cr_key, {
+                            'cr': cr_key, 'mapped_cr': cr_key,
+                            'cr_title': str(r.get('jira_title') or '').strip(),
+                            'cr_area': str(r.get('area') or '').strip(),
+                            'cr_subsystem': str(r.get('subsystem') or '').strip(),
+                            'cr_functionality': str(r.get('functionality') or '').strip(),
+                            'cr_age': str(r.get('age') or '').strip(),
+                            'cr_status': str(r.get('status') or '').strip(),
+                            'jira_count': 0, 'domain': domain,
+                            'source_table': f'{schema}.{table}',
+                        })
+                        row['jira_count'] += 1
+                    if kind == 'open_jira':
+                        open_jiras.append({
+                            'key': str(r.get('stability_ticket') or '').strip(),
+                            'stability_ticket': str(r.get('stability_ticket') or '').strip(),
+                            'summary': str(r.get('jira_title') or '').strip(),
+                            'jira_title': str(r.get('jira_title') or '').strip(),
+                            'status': str(r.get('status') or 'Open').strip(),
+                            'metabuild': str(r.get('metabuild') or '').strip(),
+                            'domain': domain, 'source_table': f'{schema}.{table}',
+                        })
+        finally:
+            try:
+                cur.close(); conn.close()
+            except Exception:
+                pass
+    cr_rows = sorted(crs.values(), key=lambda r: int(r.get('jira_count') or 0), reverse=True)
+    return {
+        'meta': {'target_name': target, 'domain': domain, 'build_ids': builds, 'source': 'core_slide_config_domain_tables', 'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S')},
+        'summary': {'total_jiras': total, 'with_cr': sum(int(r.get('jira_count') or 0) for r in cr_rows), 'open_jiras': len(open_jiras)},
+        'cr_rows': cr_rows,
+        'open_jiras': open_jiras,
+        'db_sources': sources,
+        'deck_config': cfg,
+    }
 @dashboard_bp.route("/api/consolidated_report/progress/<job_id>")
 @login_required
 def api_consolidated_report_progress(job_id):
@@ -6537,7 +6721,7 @@ def api_consolidated_report_save():
 @login_required
 def api_consolidated_report():
     """
-    Single endpoint — pass one or more build IDs, get back one complete JSON.
+    Single endpoint � pass one or more build IDs, get back one complete JSON.
     Saves result to disk so subsequent loads are instant.
 
     POST body (JSON):
@@ -6549,7 +6733,7 @@ def api_consolidated_report():
     """
     import time as _time
 
-    # ── parse params ──────────────────────────────────────────────────────────
+    # -- parse params ----------------------------------------------------------
     if request.method == "POST":
         body      = request.get_json(force=True, silent=True) or {}
         raw       = body.get("builds", [])
@@ -6558,6 +6742,8 @@ def api_consolidated_report():
         target    = (body.get("target") or "").strip()
         force      = bool(body.get("force",    False))
         custom_jql = (body.get("custom_jql") or "").strip()
+        domain = (body.get("domain") or "").strip().upper()
+        use_domain_tables = bool(body.get("use_domain_tables") or body.get("domain_tables") or body.get("core_deck_domain_tables"))
     else:
         raw_str   = (request.args.get("builds") or "").strip()
         raw       = [b.strip() for b in raw_str.split(",") if b.strip()]
@@ -6566,11 +6752,23 @@ def api_consolidated_report():
         target    = (request.args.get("target") or "").strip()
         force      = request.args.get("force",    "0") != "0"
         custom_jql = (request.args.get("custom_jql") or "").strip()
+        domain = (request.args.get("domain") or "").strip().upper()
+        use_domain_tables = request.args.get("use_domain_tables", "0") != "0"
 
-        if not raw and not custom_jql:
-            return jsonify({"error": "'builds' or 'custom_jql' param required"}), 400
+    if isinstance(raw, str):
+        raw = [b.strip() for b in raw.split(",") if b.strip()]
+    if not raw and not custom_jql:
+        return jsonify({"error": "'builds' or 'custom_jql' param required"}), 400
 
-    # ── check static cache unless force=true ─────────────────────────────────
+    if use_domain_tables:
+        try:
+            return jsonify(_build_domain_table_report(target, domain, raw))
+        except Exception as e:
+            logger.error(f"[consolidated_report] domain table report failed: {e}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    # -- check static cache unless force=true ---------------------------------
+
     cache_path, _ = _consolidated_report_path(target, raw, custom_jql or None)
     if not force and os.path.exists(cache_path):
         try:
@@ -6582,7 +6780,7 @@ def api_consolidated_report():
         except Exception:
             pass
 
-    # ── start background job, return job_id for SSE polling ─────────────────
+    # -- start background job, return job_id for SSE polling -----------------
     job_id = _uuid.uuid4().hex[:16]
 
     def _run_job():
@@ -6806,7 +7004,7 @@ def _fetch_grouped_cr_jira_context(cursor, target_name, search_value):
 
 
 # ---------------------------------------------------------------------
-# CR Title Exclude Keywords — save/load per Compute target
+# CR Title Exclude Keywords � save/load per Compute target
 # ---------------------------------------------------------------------
 def _get_cr_title_exclude(target_name):
     cfg = (_get_target_excel_config(target_name) or {}).get('cr_title_exclude', {})
@@ -7020,7 +7218,7 @@ def api_pdt_crs(target_name):
             return s
 
 
-        # ── CR Title Exclude (Compute only) ──────────────────────────────
+        # -- CR Title Exclude (Compute only) ------------------------------
         if is_compute_target:
             _excl_cfg = _get_cr_title_exclude(target_name)
             if _excl_cfg['enabled'] and _excl_cfg['keywords']:
@@ -7075,7 +7273,7 @@ def api_pdt_crs(target_name):
         if conn:   conn.close()
 
 
-# ── Open JIRAs API ──────────────────────────────────────────────────────────
+# -- Open JIRAs API ----------------------------------------------------------
 @dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras")
 @login_required
 def api_open_jiras(target_name):
@@ -7156,8 +7354,8 @@ def api_open_jiras(target_name):
                 return f"{v.day} {MONTHS[v.month-1]} {v.year}"
             return str(v)[:10]
 
-        # ── Area bucketing logic ──────────────────────────────────────────
-        # Priority: cr_area field → title keyword match → jira_category → 'Other'
+        # -- Area bucketing logic ------------------------------------------
+        # Priority: cr_area field ? title keyword match ? jira_category ? 'Other'
         # Area bucketing logic
         # Step 1: cr_current_ticket prefix
         # Step 2: cr_area field from DB
@@ -7469,7 +7667,7 @@ def api_pdt_tags_get(target_name):
     """
     Return existing PDT tags on the given CRs.
     GET  ?crs=1234,5678   (small lists)
-    POST {crs: [1234, 5678]}  (large lists — avoids URL length limit)
+    POST {crs: [1234, 5678]}  (large lists � avoids URL length limit)
     Response: { tags: ["PDT_P1", ...] }
     """
     from orbit_client import bulk_get_cr_tags

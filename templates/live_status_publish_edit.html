@@ -62,14 +62,17 @@
     {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
     {% endif %}
         {% if not mtbf_only and 'current' in visible_tabs %}
-    <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build</button>
+        <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build (WIP)</button>
+
     {% endif %}
     {% if 'mtbf' in visible_tabs %}<button class="tab {{ 'active' if mtbf_only or initial_tab == 'mtbf' else '' }}" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>{% endif %}
     {% if not is_eng_job %}
-                {% if not mtbf_only and 'weekly' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'weekly' else '' }}" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>{% endif %}
+                                {% if not mtbf_only and 'weekly' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'weekly' else '' }}" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>{% endif %}
     {% endif %}
+    {% if not is_eng_job and 'opencrs' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'opencrs' else '' }}" id="tab-btn-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope" style="color:#be123c"></i> Open CRs</button>{% endif %}
     {% if not is_eng_job and 'openjiras' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'openjiras' else '' }}" id="tab-btn-openjiras" onclick="switchTab('openjiras')"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</button>{% endif %}
-    {% if 'buildreport' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'buildreport' else '' }}" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report</button>{% endif %}
+        {% if 'buildreport' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'buildreport' else '' }}" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report (old Builds) - WIP</button>{% endif %}
+
   </div>
   {% endif %}
 
@@ -180,7 +183,8 @@
   {% if 'current' in visible_tabs %}
   <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'current' else '' }}">
     <div class="card">
-      <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build</h2><div class="mini-toolbar">
+            <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build (WIP)</h2><div class="mini-toolbar">
+
             {% if is_auto_bu %}<!-- Domain Radio Buttons -->
       <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
       <label class="pub-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;">
@@ -268,12 +272,13 @@
   {% if 'weekly' in visible_tabs %}
   <section id="tab-weekly" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'weekly' else '' }}">
     <div class="card">
-      <div class="card-head"><h2><i class="fas fa-calendar-week" style="color:#6366f1"></i> Weekly Report</h2><div class="mini-toolbar"><span id="weeklyDateLabel" class="muted"></span><span id="weeklySpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span></div></div>
+            <div class="card-head"><h2><i class="fas fa-calendar-week" style="color:#6366f1"></i> Weekly Report</h2><div class="mini-toolbar"><span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Week</span><input type="date" id="wkFromDate" class="compact-input" onchange="wkApplyDateRange()"><span class="muted" style="font-size:11px;font-weight:800">to</span><input type="date" id="wkToDate" class="compact-input" onchange="wkApplyDateRange()"><button class="btn btn-primary" onclick="wkApplyDateRange()"><i class="fas fa-calendar-check"></i> Apply</button><span id="weeklyDateLabel" class="muted"></span><span id="weeklySpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span></div></div>
       <div class="card-body">
         <div class="wk-load-panel">
-          <div><div style="font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-vial"></i> Weekly Build Filter</div><div class="muted" style="font-size:12px;margin-top:4px">Select builds from the popup. Selected builds are shown here and weekly data loads below.</div></div>
+          <div><div style="font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-vial"></i> Weekly Build Filter</div><div class="muted" style="font-size:12px;margin-top:4px">Default range is last completed Monday-Sunday. Select a domain, then check/uncheck builds; all tables and charts update from the checked builds.</div></div>
           <div class="mini-toolbar"><button class="btn" onclick="refreshWeeklyPageBuilds()"><i class="fas fa-rotate"></i> Refresh Builds</button><button class="btn btn-primary" onclick="openWeeklyBuildModal()"><i class="fas fa-list-check"></i> Select Builds</button></div>
         </div>
+        <div id="wkAutoFilterBar" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:10px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;"></div>
         <div id="wkSelectedBuildPanel" class="wk-selected-panel" style="margin-top:12px">
           <div class="wk-selected-head"><strong style="font-size:11px;color:#4338ca;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-check-circle"></i> Selected Builds</strong><div class="mini-toolbar"><span id="wkSelectedBuildCount" class="pill"></span><button class="btn btn-primary" onclick="refreshWeeklySelectedData()"><i class="fas fa-rotate"></i> Refresh Data</button></div></div>
           <div id="wkSelectedBuildList" class="wk-selected-list"></div>
@@ -298,12 +303,12 @@
     <div class="card" id="wkOpenJiraSection" style="display:none"><div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Weekly Open JIRAs <span id="wkOpenJiraBadge" class="badge badge-warn"></span></h2></div><div class="tbl-wrap wk-jira-scroll"><table class="tbl sticky-table"><thead><tr><th>#</th><th>Ticket</th><th>Summary</th><th>Date</th><th>Meta Build</th></tr></thead><tbody id="wkOpenJiraTbody"></tbody></table></div></div>
 
     <div class="card" id="wkAreaChartSection" style="display:none">
-      <div class="card-head"><h2><i class="fas fa-chart-column" style="color:#6366f1"></i> Build Performance Analysis - CR Distribution by Area</h2><div class="mini-toolbar"><span id="wkAreaChartBadge" class="badge badge-info"></span><button class="btn" onclick="wkCopyAreaChart()"><i class="fas fa-copy"></i> Copy Chart</button></div></div>
+      <div class="card-head"><h2><i class="fas fa-chart-column" style="color:#6366f1"></i> <span id="wkAreaChartTitle">Build Performance Analysis - CR Distribution by Area</span></h2><div class="mini-toolbar"><span id="wkAreaChartBadge" class="badge badge-info"></span><button class="btn" onclick="wkCopyAreaChart()"><i class="fas fa-copy"></i> Copy Chart</button></div></div>
       <div class="chart-wrap" style="height:760px"><canvas id="wkAreaStackedCanvas" style="display:block;height:720px"></canvas></div>
     </div>
 
     <div class="card" id="wkHeatmapSection" style="display:none">
-      <div class="card-head"><h2><i class="fas fa-table-cells" style="color:#ef4444"></i> Build x Area Heatmap (for CR)</h2><span id="wkHeatmapFooter" class="mini-toolbar"></span></div>
+      <div class="card-head"><h2><i class="fas fa-table-cells" style="color:#ef4444"></i> <span id="wkHeatmapTitle">Build x Area Heatmap (for CR)</span></h2><span id="wkHeatmapFooter" class="mini-toolbar"></span></div>
       <div class="tbl-wrap"><table class="tbl sticky-table" id="wkHeatmapTable"></table></div>
     </div>
 
@@ -322,6 +327,35 @@
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Area</th><th>CR Count</th><th>CR %</th><th>Open JIRA Count</th><th>Open JIRA %</th><th>Distribution</th></tr></thead><tbody id="wkAreaDistTbody"></tbody></table></div>
     </div>
         </section>
+  {% endif %}
+
+    {% if 'opencrs' in visible_tabs %}
+  <section id="tab-opencrs" class="tab-section {{ 'active' if initial_tab == 'opencrs' else '' }}">
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-microscope" style="color:#be123c"></i> Open / Analysis CRs <span id="ocBadge" class="badge badge-warn"></span></h2>
+        <div class="mini-toolbar">
+          {% if is_auto_bu %}
+          <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+          <button id="ocDom_ADAS" class="btn" onclick="ocSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
+          <button id="ocDom_FLEX" class="btn" onclick="ocSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
+          <button id="ocDom_IVI" class="btn" onclick="ocSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          {% endif %}
+          <input id="ocSearch" class="compact-input" placeholder="Search CR / area / subsystem / notes..." oninput="ocFilter()" style="min-width:260px">
+          <select id="ocStatusSel" class="compact-input" onchange="ocFilter()"><option value="">All Status</option></select>
+          <button class="btn btn-primary" onclick="ocLoad(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          <span id="ocSpinner" style="display:none;color:#be123c"><i class="fas fa-circle-notch spin"></i></span>
+        </div>
+      </div>
+      <div id="ocKpi" class="card-body" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div class="tbl-wrap" style="max-height:calc(100vh - 260px);overflow:auto;">
+        <table class="tbl sticky-table" id="ocTable">
+          <thead><tr><th>#</th><th>CR</th><th>Status</th><th>First Instance</th><th>Last Instance</th><th>JIRA Dates</th><th>Age</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Latest CR Notes</th><th>Title</th></tr></thead>
+          <tbody id="ocTbody"><tr><td colspan="12" class="empty">Open the tab to load open / analysis CRs.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
   {% endif %}
 
   {% if 'openjiras' in visible_tabs %}
@@ -369,8 +403,10 @@
     <!-- Top toolbar: domain selector + Add Build + All/Clear + crash type filters -->
     <div id="brTopPanel" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
 
-      <!-- Domain pills -->
+            <!-- Domain pills: Auto BU only -->
+      {% if is_auto_bu %}
       <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+
       <label id="brDomainBtn_ADAS" class="lsp-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;background:var(--dcs);border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
         <input type="radio" name="brDomain" value="ADAS" style="display:none" onchange="brSetDomain('ADAS')">
         <i class="fas fa-car"></i> ADAS
@@ -385,22 +421,28 @@
       </label>
 
       <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
+      {% endif %}
 
       <!-- Add Build button -->
+
       <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="brOpenAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>
       <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(true)">All</button>
       <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(false)">Clear</button>
 
+            {% if is_auto_bu %}
       <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
 
-      <!-- Crash type filters -->
+      <!-- Crash type filters: Auto BU only -->
       <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Crash type</span>
+
       <button id="brCrashBtn_system" class="btn" style="font-size:11px;padding:4px 10px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;" onclick="brToggleCrashType('system')"><i class="fas fa-circle-xmark"></i> System</button>
       <button id="brCrashBtn_ssr" class="btn" style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;" onclick="brToggleCrashType('ssr')"><i class="fas fa-triangle-exclamation"></i> SSR</button>
       <button id="brCrashBtn_process" class="btn" style="font-size:11px;padding:4px 10px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;" onclick="brToggleCrashType('process')"><i class="fas fa-gear"></i> Process</button>
       <button id="brCrashBtn_open_jira" class="btn" style="font-size:11px;padding:4px 10px;background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd;" onclick="brToggleCrashType('open_jira')"><i class="fas fa-ticket-alt"></i> Open JIRA</button>
+      {% endif %}
 
       <span style="flex:1"></span>
+
       <span id="brBuildCount" class="pill" style="font-size:11px;">0 builds</span>
     </div>
 
@@ -415,7 +457,8 @@
     <!-- CR Table -->
     <div class="card">
       <div class="card-head">
-        <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CRs in Selected Builds <span id="brCrBadge" class="badge badge-warn"></span></h2>
+                <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CRs List <span id="brCrBadge" class="badge badge-warn"></span></h2>
+
         <div class="mini-toolbar">
           <input id="brCrSearch" class="compact-input" oninput="brFilterCrTable()" placeholder="Search CRs...">
           <select id="brCrSort" onchange="brFilterCrTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit;">
@@ -442,22 +485,24 @@
     <div id="brAddBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:16px;width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3);">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#6366f1);">
-          <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build -- <span id="brModalDomainLabel">ADAS</span></h3>
+                  <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build Search <span id="brModalDomainLabel">ADAS</span></h3>
+
           <button onclick="brCloseAddBuildModal()" style="background:rgba(255,255,255,.18);border:none;font-size:22px;cursor:pointer;color:#fff;border-radius:8px;width:30px;height:30px;line-height:1;">&times;</button>
         </div>
         <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:11px;font-weight:950;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Domain</span>
+                    {% if is_auto_bu %}<span style="font-size:11px;font-weight:950;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Domain</span>
           <button id="brModalDomainBtn_ADAS" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('ADAS');return false;"><i class="fas fa-car"></i> ADAS</button>
           <button id="brModalDomainBtn_FLEX" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('FLEX');return false;"><i class="fas fa-microchip"></i> FLEX</button>
           <button id="brModalDomainBtn_IVI" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('IVI');return false;"><i class="fas fa-display"></i> IVI</button>
-          <span style="width:1px;height:24px;background:#e2e8f0;"></span>
-          <input id="brBuildSearchModal" class="compact-input" style="flex:1;min-width:220px;" placeholder="Search builds..." oninput="brRenderModalList()">
-          <button class="btn" onclick="brModalSelectAll(true)">All</button>
-          <button class="btn" onclick="brModalSelectAll(false)">None</button>
+          <span style="width:1px;height:24px;background:#e2e8f0;"></span>{% endif %}
+
+                    <input id="brBuildSearchModal" class="compact-input" style="flex:1;min-width:220px;" placeholder="Type meta / full build to search..." oninput="brRenderModalList()">
+          <button class="btn" onclick="brModalSelectAll(true)">Select Matches</button>
+          <button class="btn" onclick="brModalSelectAll(false)">Clear Matches</button>
           <span id="brModalCount" class="muted" style="font-size:12px;font-weight:800;"></span>
         </div>
-        <div id="brModalBuildList" style="flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px;min-height:200px;max-height:400px;">
-          <div class="empty">Loading builds...</div>
+                <div id="brModalBuildList" style="flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px;min-height:200px;max-height:400px;">
+          <div class="empty">Type in search to find meta builds. No default build list is shown.</div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #f1f5f9;background:#f8fafc;">
           <button class="btn" onclick="brCloseAddBuildModal()">Cancel</button>
@@ -482,6 +527,8 @@ window.LSP_DATA = {
   updated_at: {{ (job.updated_at or '')|tojson }},
   cache_checked_at: {{ ((job.current_report_cache or {}).get('last_fresh_check_at') or '')|tojson }},
   running_rows: {{ running_rows|tojson }},
+  all_rows: {{ all_rows|tojson }},
+
   can_edit: {{ can_edit|tojson }},
   is_auto_bu: {{ is_auto_bu|default(false)|tojson }},
   is_eng_job: {{ is_eng_job|default(false)|tojson }},
@@ -686,15 +733,18 @@ window.LSP_DATA = {
    which is the AUTHORITATIVE domain set by the user in Config --
    not a keyword guess from the build string.
    ---------------------------------------------------------------- */
-  var _rbBuildDeckMap = {};   // build_id (uppercase tail) -> 'IVI'|'FLEX'|'ADAS'
+    var _rbBuildDeckMap = {};   // build_id (uppercase tail) -> 'IVI'|'FLEX'|'ADAS'
   var _rbDeckMapLoaded = false;
   var _rbCoreDeckMetas = [];  // full selected_metas from public_state -- used as picker source
+  var _rbPickRowsByKey = {};  // latest picker source rows, including Core Slide config rows
 
-  async function _rbLoadDeckMap(){
-    if(_rbDeckMapLoaded) return;
+  async function _rbLoadDeckMap(force){
+    if(_rbDeckMapLoaded && !force) return;
     _rbDeckMapLoaded = true;
+    _rbBuildDeckMap = {};
+    _rbCoreDeckMetas = [];
     // 1. Use _cdMetas if already populated by live_status_published_safe.js (editor mode)
-    if(window._cdMetas && window._cdMetas.length){
+    if(window._cdMetas && window._cdMetas.length && !force){
       _rbCoreDeckMetas = window._cdMetas;
       window._cdMetas.forEach(function(m){
         var deck = String(m.deck_type||'IVI').toUpperCase();
@@ -708,7 +758,7 @@ window.LSP_DATA = {
     }
     // 2. Fetch public_state directly -- same endpoint as loadCoreDeckSavedConfig()
     try{
-      var resp = await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET));
+            var resp = await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET)+'&_='+Date.now(), {cache:'no-store'});
       var data = await resp.json().catch(function(){return {};});
       var metas = (data.state && data.state.selected_metas) || [];
       _rbCoreDeckMetas = metas;
@@ -857,12 +907,14 @@ window.LSP_DATA = {
             submitted:r.started_at,job_count:1,software_product:''};
         });
     }
-    if(q){
+        if(q){
       src=src.filter(function(o){
         var hay=[_rbOptMeta(o),_rbOptBuild(o),_rbOptFlavor(o),o.software_product||''].join(' ').toLowerCase();
         return hay.includes(q);
       });
     }
+    _rbPickRowsByKey = {};
+    src.forEach(function(o){ _rbPickRowsByKey[_rbOptKey(o)] = o; });
     var cnt=document.getElementById('rbPickCount');
     var selCount=_rbPickSel.size;
     if(cnt) cnt.textContent=src.length+' row'+(src.length===1?'':'s')+(selCount?' . '+selCount+' selected':'')+(sourceLabel?' ('+sourceLabel+')':'');
@@ -975,8 +1027,9 @@ window.LSP_DATA = {
     rbPickSetDomain(_rbPickDomain);
     var list=document.getElementById('rbPickList');
     if(list) list.innerHTML='<div class="empty"><i class="fas fa-circle-notch spin" style="font-size:24px;display:block;margin-bottom:8px"></i>Loading builds from Core Slide config...</div>';
-    // Load deck map + Core Slide metas from saved state (authoritative domain mapping)
-    await _rbLoadDeckMap();
+        // Load deck map + Core Slide metas from saved state (authoritative domain mapping).
+    // Force-refresh so a just-saved Core Slide config is immediately available.
+    await _rbLoadDeckMap(true);
     // Ensure DB rows are loaded as fallback
     if(!_rbRows.length) await window.loadRunningBuildsDb();
     rbPickRender();
@@ -991,9 +1044,10 @@ window.LSP_DATA = {
     var sel=Array.from(_rbPickSel);
     if(!sel.length){ alert('Please select a build first.'); return; }
     // Resolve first selected key back to a build option object
-    var key=sel[0];
+        var key=sel[0];
+    var picked=_rbPickRowsByKey[key] || null;
     var src=window._cdJiraBuilds||[];
-    var picked=src.find(function(o){ return _rbOptKey(o)===key; });
+    if(!picked) picked=src.find(function(o){ return _rbOptKey(o)===key; });
     if(!picked){
       // fallback: try _rbRows
       picked=_rbRows.find(function(r){ return _rbOptKey(r)===key||r.build_id===key; });
@@ -1651,10 +1705,150 @@ window.LSP_DATA = {
   });
 }());
 </script>
-<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260622_ascii_fix"></script>
-<script src="{{ url_for('static', filename='js/live_status_weekly_report.js') }}?v=20260622_weekly_report"></script>
+<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260622_switchtab_global"></script>
+<script>
+/* Build Report (old Builds) - WIP override.
+   - All BUs: search/add multiple builds, Apply, Generate consolidated CR/JIRA report.
+   - Auto BU only: ADAS/FLEX/IVI domain and crash-type filters. */
+(function(){
+  var D=window.LSP_DATA||{}, TARGET=D.primary_target||'', IS_AUTO=!!D.is_auto_bu;
+  var _domain='ADAS', _allBuilds=[], _selected=new Set(), _modalBuilds=[], _crRows=[], _jiraRows=[];
+  var _crashFilters={system:true,ssr:true,process:true,open_jira:true};
+  function g(id){return document.getElementById(id)}
+    function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function jsArg(v){return esc(JSON.stringify(String(v==null?'':v)));}
+  function tail(v){var p=String(v||'').replace(/\//g,'\\').split('\\').filter(Boolean);return p.length?p[p.length-1]:String(v||'');}
+
+  function metaFromBuild(v){var m=String(v||'').match(/-0*(\d{3,6})(?:\.\d+)?[-_]/);return m?'META-'+String(m[1]).padStart(5,'0'):'';}
+  function guessDomain(row){
+    var text=[row.domain,row.deck_type,row.software_product,row.product_flavor,row.flavor,row.build,row.build_id,row.meta].join(' ').toUpperCase();
+    if(/ADAS|ADP|RIDE|VISION|CAMERA/.test(text))return 'ADAS';
+    if(/FLEX|\bFLE\b/.test(text))return 'FLEX';
+    if(/IVI|SAFEIVI|NONSAFE/.test(text))return 'IVI';
+    return 'IVI';
+  }
+  function addBuild(list, seen, build, meta, domain, source){
+    build=String(build||'').trim(); if(!build)return;
+    var key=build.toUpperCase(); if(seen[key])return; seen[key]=true;
+    list.push({build:build, meta:meta||metaFromBuild(build)||tail(build), domain:domain||'', source:source||''});
+  }
+  async function fetchAutoBuilds(){
+    var out=[], seen={};
+    function addMetaRows(rows){(rows||[]).forEach(function(m){var dom=String(m.deck_type||m.domain||'').toUpperCase()||guessDomain(m); if(dom!==_domain)return; var meta=m.meta_id||m.alias||''; (m.build_ids||m.builds||[]).forEach(function(b){addBuild(out,seen,b,meta,dom,'Core Deck');}); (m.flavor_builds||[]).forEach(function(f){addBuild(out,seen,f&&f.build_id,meta,dom,'Core Deck');});});}
+    try{var r=await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET),{cache:'no-store'});var d=await r.json().catch(function(){return {};});addMetaRows((d.state&&d.state.selected_metas)||((d.state&&d.state.saved_preview&&d.state.saved_preview.selected_metas)||[]));}catch(e){}
+    try{var r2=await fetch('/api/core_deck/metas?target='+encodeURIComponent(TARGET)+'&limit=500',{cache:'no-store'});var d2=await r2.json().catch(function(){return {};});if(d2.ok)addMetaRows(d2.metas||[]);}catch(e){}
+    return out;
+  }
+  async function buildAvailableBuilds(){
+    var out=[], seen={};
+    if(IS_AUTO){out=(await fetchAutoBuilds()); seen={}; out.forEach(function(x){seen[String(x.build).toUpperCase()]=true;});}
+    var rows=[].concat(D.all_rows||[],D.running_rows||[]);
+    rows.forEach(function(r){
+      var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;
+      var meta=r.meta_id||r.display_build||'';
+      var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];
+      builds.forEach(function(b){addBuild(out,seen,b,meta,IS_AUTO?dom:'',r.run_status||r.source||'Live Status');});
+    });
+    out.sort(function(a,b){return String(a.meta||a.build).localeCompare(String(b.meta||b.build),undefined,{numeric:true})||String(a.build).localeCompare(String(b.build),undefined,{numeric:true});});
+    return out;
+  }
+    function styleDomain(){if(!IS_AUTO)return;['ADAS','FLEX','IVI'].forEach(function(d){var el=g('brDomainBtn_'+d); if(!el)return; var on=d===_domain; el.style.background=on?'var(--dc)':'#fff'; el.style.color=on?'#fff':'var(--dc)'; var inp=el.querySelector('input'); if(inp)inp.checked=on; var mb=g('brModalDomainBtn_'+d); if(mb){mb.style.background=on?'linear-gradient(135deg,#2563eb,#7c3aed)':'#fff';mb.style.color=on?'#fff':'#334155';}}); var lbl=g('brModalDomainLabel'); if(lbl)lbl.textContent=IS_AUTO?'-- '+_domain:'';}
+  function domainColor(d){return ({ADAS:'#2563eb',FLEX:'#059669',IVI:'#7c3aed'})[String(d||'').toUpperCase()]||'#64748b';}
+  function selectedBuilds(){return Array.from(_selected);}
+  function renderChips(){var row=g('brBuildChipsRow'), cnt=g('brBuildCount'); if(cnt)cnt.textContent=_selected.size+' selected'+(_allBuilds.length?' / '+_allBuilds.length+' searchable':''); if(row){var arr=selectedBuilds(); if(!arr.length){row.innerHTML='<span class="muted" style="font-size:12px;">No builds selected. Click Add Build, type meta/full build, then select matching builds.</span>';} else {row.innerHTML=arr.map(function(b){return '<span title="'+esc(b)+'" style="display:inline-flex;align-items:center;gap:5px;max-width:300px;background:linear-gradient(135deg,#eff6ff,#fff);border:1px solid #93c5fd;color:#1e3a8a;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:800"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px">'+esc(tail(b))+'</span><button onclick="brRemoveBuild('+jsArg(b)+')" style="background:none;border:none;cursor:pointer;color:#6366f1;font-size:13px;padding:0;line-height:1">&times;</button></span>';}).join('');}} renderBuildTable();}
+  function renderBuildTable(){
+    var tb=g('brBuildTableTbody'), badge=g('brBuildTableBadge'); if(!tb)return;
+    var q=String((g('brBuildTableSearch')||{}).value||'').toLowerCase();
+    var rows=_allBuilds.filter(function(x){return !q||[x.meta,x.build,x.domain,x.source].join(' ').toLowerCase().indexOf(q)>=0;});
+    if(badge)badge.textContent=rows.length+' shown / '+_allBuilds.length+' available'+(IS_AUTO?' - '+_domain:'');
+    if(!_allBuilds.length){tb.innerHTML='<tr><td colspan="6" class="empty">No builds found for this '+(IS_AUTO?esc(_domain):'target')+'. Click Refresh Builds or choose another domain.</td></tr>';return;}
+    if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="empty">No builds match the current search.</td></tr>';return;}
+    tb.innerHTML=rows.map(function(x,i){var checked=_selected.has(x.build), dc=domainColor(x.domain);return '<tr style="'+(checked?'background:#eff6ff':'')+'">'
+      +'<td class="muted">'+(i+1)+'</td>'
+      +'<td><input type="checkbox" '+(checked?'checked':'')+' onchange="brToggleBuildFromTable('+jsArg(x.build)+',this.checked)" style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer"></td>'
+      +'<td><strong style="color:#1e3a8a">'+esc(x.meta||tail(x.build)||'--')+'</strong></td>'
+      +'<td><span style="display:inline-flex;border-radius:999px;padding:2px 8px;background:'+dc+'18;color:'+dc+';font-size:10px;font-weight:950">'+esc(x.domain||'--')+'</span></td>'
+      +'<td style="font-size:11px;word-break:break-all;min-width:420px">'+esc(x.build||'--')+'</td>'
+      +'<td style="font-size:11px;color:#64748b">'+esc(x.source||'--')+'</td>'
+      +'</tr>';}).join('');
+  }
+  window.brRenderBuildTable=renderBuildTable;
+  window.brToggleBuildFromTable=function(b,on){if(on)_selected.add(b);else _selected.delete(b);renderChips();};
+  window.brSetDomain=async function(d){if(!IS_AUTO)return; _domain=String(d||'ADAS').toUpperCase(); styleDomain(); _selected.clear(); await window.brRefreshBuilds();};
+  window.brRefreshBuilds=async function(){var cnt=g('brBuildCount'), row=g('brBuildChipsRow'), tb=g('brBuildTableTbody'); if(cnt)cnt.textContent='Loading...'; if(row)row.innerHTML='<span class="muted" style="font-size:12px"><i class="fas fa-circle-notch spin"></i> Loading searchable builds...</span>'; if(tb)tb.innerHTML='<tr><td colspan="6" class="empty"><i class="fas fa-circle-notch spin"></i> Loading '+(IS_AUTO?esc(_domain):'')+' meta builds...</td></tr>'; _allBuilds=await buildAvailableBuilds(); _modalBuilds=_allBuilds.slice(); _selected=new Set(Array.from(_selected).filter(function(b){return _allBuilds.some(function(x){return x.build===b;});})); renderChips(); if(!_allBuilds.length&&row)row.innerHTML='<span class="muted" style="font-size:12px">No builds found for this '+(IS_AUTO?_domain:'target')+'.</span>';};
+  window.brInit=function(){styleDomain(); if(!_allBuilds.length)window.brRefreshBuilds();};
+  window.brOpenAddBuildModal=async function(){var m=g('brAddBuildModal'), q=g('brBuildSearchModal'); if(q)q.value=''; styleDomain(); if(m)m.style.display='flex'; if(!_allBuilds.length)await window.brRefreshBuilds(); window.brRenderModalList();};
+  window.brCloseAddBuildModal=function(){var m=g('brAddBuildModal'); if(m)m.style.display='none';};
+  window.brModalSetDomain=async function(d){await window.brSetDomain(d); window.brRenderModalList();};
+  window.brRenderModalList=function(){var list=g('brModalBuildList'), cnt=g('brModalCount'), q=String((g('brBuildSearchModal')||{}).value||'').trim().toLowerCase(); if(!list)return; if(!q){if(cnt)cnt.textContent=(_modalBuilds.length?_modalBuilds.length+' searchable':''); list.innerHTML='<div class="empty"><i class="fas fa-search" style="font-size:22px;display:block;margin-bottom:8px;color:#94a3b8"></i>Type meta ID or full build name to search. Default meta list is hidden.</div>';return;} var items=_modalBuilds.filter(function(x){return [x.build,x.meta,x.domain,x.source].join(' ').toLowerCase().indexOf(q)>=0;}); if(cnt)cnt.textContent=items.length+' match'+(items.length===1?'':'es'); if(!items.length){list.innerHTML='<div class="empty">No builds found for "'+esc(q)+'". Try another search.</div>';return;} list.innerHTML=items.map(function(x){var checked=_selected.has(x.build); return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid '+(checked?'#93c5fd':'#e2e8f0')+';border-radius:8px;background:'+(checked?'#eff6ff':'#fff')+';cursor:pointer"><input type="checkbox" '+(checked?'checked':'')+' onchange="brModalToggle('+jsArg(x.build)+',this.checked)" style="accent-color:#6366f1;width:15px;height:15px"><span style="flex:1;min-width:0"><span style="font-size:10px;font-weight:900;color:#1e3a8a;display:block">'+esc(x.meta||x.source||'Build')+(IS_AUTO?' - '+esc(x.domain):'')+'</span><span style="font-size:11px;color:#334155;word-break:break-all">'+esc(x.build)+'</span></span></label>';}).join('');};
+  window.brModalToggle=function(b,on){if(on)_selected.add(b);else _selected.delete(b); window.brRenderModalList();};
+  window.brModalSelectAll=function(on){var q=String((g('brBuildSearchModal')||{}).value||'').trim().toLowerCase(); if(!q){alert('Type a search first. Default meta list is hidden.');return;} _modalBuilds.forEach(function(x){if([x.build,x.meta,x.domain,x.source].join(' ').toLowerCase().indexOf(q)<0)return; on?_selected.add(x.build):_selected.delete(x.build);}); window.brRenderModalList();};
+  window.brApplyModalSelection=function(){window.brCloseAddBuildModal(); renderChips();};
+  window.brSelectAll=function(on){if(on)_allBuilds.forEach(function(x){_selected.add(x.build);});else _selected.clear(); renderChips();};
+  window.brRemoveBuild=function(b){_selected.delete(b); renderChips();};
+  window.brToggleCrashType=function(k){_crashFilters[k]=!_crashFilters[k]; var b=g('brCrashBtn_'+k); if(b){b.style.opacity=_crashFilters[k]?'1':'0.4'; b.style.textDecoration=_crashFilters[k]?'':'line-through';} window.brFilterCrTable();};
+  function waitForResult(jobId){return new Promise(function(resolve,reject){var tries=0,t=setInterval(function(){tries++; fetch('/api/consolidated_report/result/'+jobId,{cache:'no-store'}).then(function(r){return r.status===202?null:r.json();}).then(function(d){if(!d){if(tries>120){clearInterval(t);reject(new Error('Timed out waiting for report'));}return;} clearInterval(t); resolve(d);}).catch(function(e){clearInterval(t);reject(e);});},1500);});}
+  function crashType(row){var t=[row.crash_type,row.type,row.cr_title,row.title,row.cr_area,row.cr_subsystem].join(' ').toLowerCase(); if(t.indexOf('system')>=0)return 'system'; if(/\bssr\b|subsystem restart/.test(t))return 'ssr'; return 'process';}
+  function normalizeReport(rep){_crRows=[]; _jiraRows=[]; var seenJ={}; (rep.hierarchical_report||[]).forEach(function(r){var jiras=r.jiras||[]; if(r.cr&&r.cr!=='NO_CR'){var ct=crashType(r); _crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',count:jiras.length||r.cr_count||r.jira_count||1,type:ct});} jiras.forEach(function(j){var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; var st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; if(!r.cr||r.cr==='NO_CR'||st){seenJ[key]=1; _jiraRows.push({key:key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',count:1});}}); }); if(rep.cr_rows&&rep.cr_rows.length&&!_crRows.length){(rep.cr_rows||[]).forEach(function(r){_crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||'',status:r.cr_status||'',count:r.jira_count||1,type:crashType(r)});});} if(rep.open_jiras&&rep.open_jiras.length&&!_jiraRows.length){(rep.open_jiras||[]).forEach(function(j){_jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',count:1});});}}
+  function renderKpis(){var el=g('brKpiCards'); if(!el)return; if(!IS_AUTO){el.innerHTML='<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#1d4ed8;font-size:11px;text-transform:uppercase">Selected Builds</div><div style="font-size:28px">'+_selected.size+'</div></div><div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#c2410c;font-size:11px;text-transform:uppercase">CRs</div><div style="font-size:28px">'+_crRows.length+'</div></div><div style="border:1px solid #c4b5fd;background:#f5f3ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#7c3aed;font-size:11px;text-transform:uppercase">Open JIRAs</div><div style="font-size:28px">'+_jiraRows.length+'</div></div>';return;} var counts={system:0,ssr:0,process:0,open_jira:_jiraRows.length}; _crRows.forEach(function(r){counts[r.type]=(counts[r.type]||0)+(Number(r.count)||1);}); var defs=[['system','System','#dc2626','#fee2e2','#fca5a5'],['ssr','SSR','#d97706','#fef3c7','#fcd34d'],['process','Process','#2563eb','#dbeafe','#93c5fd'],['open_jira','Open JIRA','#7c3aed','#ede9fe','#c4b5fd']]; el.innerHTML=defs.map(function(d){return '<div style="border:1px solid '+d[4]+';background:linear-gradient(135deg,'+d[3]+',#fff);border-radius:10px;text-align:center;padding:10px;font-size:12px;font-weight:950"><div style="color:'+d[2]+';font-size:11px;text-transform:uppercase">'+d[1]+'</div><div style="font-size:28px;color:#111827;margin-top:4px">'+(counts[d[0]]||0)+'</div></div>';}).join('');}
+  function renderJiras(){var sec=g('brJiraSection'), tb=g('brJiraTbody'), badge=g('brJiraBadge'); if(!sec||!tb)return; if(!_jiraRows.length){sec.style.display='none';return;} sec.style.display='block'; if(badge)badge.textContent=_jiraRows.length+' open'; tb.innerHTML=_jiraRows.map(function(r,i){return '<tr><td class="muted">'+(i+1)+'</td><td><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="max-width:460px">'+esc(r.title||'--')+'</td><td>'+esc(r.status||'--')+'</td><td style="text-align:center;font-weight:900;color:#6366f1">'+(r.count||1)+'</td></tr>';}).join('');}
+  window.brFilterCrTable=function(){var q=String((g('brCrSearch')||{}).value||'').toLowerCase(), sort=(g('brCrSort')||{}).value||'occ_desc'; var rows=_crRows.filter(function(r){if(IS_AUTO&&!_crashFilters[String(r.type||'process').toLowerCase()])return false; return !q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0;}); rows.sort(function(a,b){if(sort==='occ_asc')return (a.count||0)-(b.count||0); if(sort==='age_desc')return (parseInt(b.age)||0)-(parseInt(a.age)||0); if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr)); return (b.count||0)-(a.count||0);}); var tb=g('brCrTbody'), badge=g('brCrBadge'); if(badge)badge.textContent=rows.length+' CRs'; if(!tb)return; if(!rows.length){tb.innerHTML='<tr><td colspan="9" class="empty">No CRs match current filters.</td></tr>';return;} tb.innerHTML=rows.map(function(r,i){var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||''; var link=id?'<a class="linkBtn" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--'); return '<tr><td class="muted">'+(i+1)+'</td><td>'+link+'</td><td style="max-width:300px">'+esc(r.title||'--')+'</td><td style="text-align:center;font-weight:950;color:#6366f1">'+(r.count||0)+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td><td style="text-align:center">'+esc(r.age||'--')+'</td><td>'+esc(r.status||'--')+'</td></tr>';}).join('');};
+  window.brGenerateReport=async function(){var builds=selectedBuilds(), sp=g('brGenSpinner'), st=g('brGenStatus'), tb=g('brCrTbody'); if(!builds.length){alert('Select at least one build.');return;} if(sp)sp.style.display='inline'; if(st){st.style.color='#6366f1';st.textContent='Running report for '+builds.length+' build(s)...';} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report...</td></tr>'; try{var resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({builds:builds,traverse:true,orbit:true,target:TARGET,force:true,domain:IS_AUTO?_domain:'',use_domain_tables:IS_AUTO})}); var data=await resp.json(); if(data.job_id)data=await waitForResult(data.job_id); if(data.error)throw new Error(data.error); normalizeReport(data||{}); renderKpis(); renderJiras(); window.brFilterCrTable(); if(st){st.style.color='#059669';st.textContent='Done - '+builds.length+' build(s), '+_crRows.length+' CRs, '+_jiraRows.length+' open JIRAs';}}catch(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+(e.message||e);} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>';} finally{if(sp)sp.style.display='none';}};
+  var oldSwitch=window.switchTab; window.switchTab=function(name){if(typeof oldSwitch==='function')oldSwitch(name); if(name==='buildreport')window.brInit();};
+  document.addEventListener('DOMContentLoaded',function(){if(g('tab-buildreport')&&g('tab-buildreport').classList.contains('active'))window.brInit();});
+})();
+</script>
+<script src="{{ url_for('static', filename='js/live_status_weekly_report.js') }}?v=20260622_weekly_domain_dates"></script>
+
 
 <script>
+/* Open CRs tab */
+(function(){
+    var _all=[],_fil=[],_loaded=false,_domain=(window.LSP_DATA&&window.LSP_DATA.is_auto_bu)?'ADAS':'',_area='',_lastData=null;
+  var CRB='https://orbit/CR/';
+  function _g(id){return document.getElementById(id)}
+  function _e(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function _id(v){return (String(v||'').match(/(\d{5,9})/)||[])[1]||'';}
+  function _cr(v){var s=String(v||'').trim();return s?(/^CR/i.test(s)?s:'CR'+s):'';}
+    function _date(v){return String(v||'').slice(0,10);}
+  function _js(v){return _e(JSON.stringify(String(v==null?'':v)));}
+  function _styleDomains(){['ADAS','FLEX','IVI'].forEach(function(d){var b=_g('ocDom_'+d);if(!b)return;var on=_domain===d;b.style.background=on?'linear-gradient(135deg,#be123c,#7c3aed)':'#fff';b.style.color=on?'#fff':'#334155';b.style.borderColor=on?'transparent':'#e2e8f0';});}
+  window.ocSetDomain=function(d){_domain=d;_area='';_styleDomains();ocLoad(true);};
+  window.ocClearKpiFilters=function(){_area='';var s=_g('ocStatusSel');if(s)s.value='';var q=_g('ocSearch');if(q)q.value='';ocFilter();};
+  window.ocSetStatusFilter=function(s){var sel=_g('ocStatusSel');if(sel){sel.value=(sel.value===s?'':s);}ocFilter();};
+  window.ocSetAreaFilter=function(a){_area=(_area===a?'':a);ocFilter();};
+  window.ocLoad=function(force){
+    if(_loaded&&!force){ocFilter();return;}
+    var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();if(!tgt)return;
+    var sp=_g('ocSpinner');if(sp)sp.style.display='inline';
+    var tb=_g('ocTbody');if(tb)tb.innerHTML='<tr><td colspan="12" class="empty"><i class="fas fa-circle-notch spin"></i> Loading open CRs...</td></tr>';
+    var qs=[];if(_domain)qs.push('domain='+encodeURIComponent(_domain));
+    fetch('/api/live_status/targets/'+encodeURIComponent(tgt)+'/open_crs_full'+(qs.length?'?'+qs.join('&'):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(!d.success)throw new Error(d.message||'Failed to load open CRs');
+      _all=d.rows||[];_loaded=true;_lastData=d;_area='';_buildFilters();_kpi();ocFilter();
+    }).catch(function(e){if(tb)tb.innerHTML='<tr><td colspan="12" class="empty" style="color:#dc2626">'+_e(e.message||e)+'</td></tr>';}).finally(function(){if(sp)sp.style.display='none';});
+  };
+  function _buildFilters(){var sel=_g('ocStatusSel');if(!sel)return;var cur=sel.value;var vals=[...new Set(_all.map(function(r){return r.cr_status||'Unknown';}))].filter(Boolean).sort();sel.innerHTML='<option value="">All Status</option>'+vals.map(function(v){return '<option value="'+_e(v)+'">'+_e(v)+'</option>';}).join('');sel.value=vals.includes(cur)?cur:'';}
+    function _kpi(){
+    var el=_g('ocKpi');if(!el)return;
+    var data=_lastData||{}, sc=data.status_counts||{}, ac=data.area_counts||{}, dc=data.domain_counts||{};
+    var activeStatus=(_g('ocStatusSel')&&_g('ocStatusSel').value)||'';
+    function pill(cls,label,count,onclick,on){
+      return '<button type="button" class="pill '+cls+'" onclick="'+onclick+'" title="Click to filter table" style="cursor:pointer;'+(on?'box-shadow:0 0 0 2px rgba(190,18,60,.22);transform:translateY(-1px);':'')+'">'+label+' <b>'+count+'</b></button>';
+    }
+    var h='<button type="button" class="pill warn" onclick="ocClearKpiFilters()" title="Clear KPI filters" style="cursor:pointer"><i class="fas fa-bug"></i> '+(_all.length||0)+' unique open/analysis CRs</button>';
+    Object.keys(dc).sort().forEach(function(k){h+=pill('', '<b>'+_e(k)+'</b>', dc[k], 'ocSetDomain('+_js(k)+')', _domain===k);});
+    Object.entries(sc).sort(function(a,b){return b[1]-a[1];}).slice(0,6).forEach(function(kv){h+=pill('', _e(kv[0]), kv[1], 'ocSetStatusFilter('+_js(kv[0])+')', activeStatus===kv[0]);});
+    Object.entries(ac).sort(function(a,b){return b[1]-a[1];}).slice(0,6).forEach(function(kv){h+=pill('good', _e(kv[0]), kv[1], 'ocSetAreaFilter('+_js(kv[0])+')', _area===kv[0]);});
+    el.innerHTML=h;
+  }
+  window.ocFilter=function(){var q=(_g('ocSearch')&&_g('ocSearch').value||'').toLowerCase();var st=(_g('ocStatusSel')&&_g('ocStatusSel').value||'');_fil=_all.filter(function(r){if(st&&(r.cr_status||'Unknown')!==st)return false;if(_area&&(r.cr_area||'Unknown')!==_area)return false;if(q&&!JSON.stringify(r).toLowerCase().includes(q))return false;return true;});_kpi();_render();};
+  function _render(){var tb=_g('ocTbody');if(!tb)return;if(!_fil.length){tb.innerHTML='<tr><td colspan="12" class="empty">No open / analysis CRs match the current filters.</td></tr>';return;}tb.innerHTML=_fil.map(function(r,i){var cr=_cr(r.cr_display||r.cr||r.raw_cr), id=_id(cr);var link=id?'<a class="linkBtn" href="'+CRB+encodeURIComponent(id)+'" target="_blank" rel="noopener">'+_e(cr)+'</a>':_e(cr||'--');var status=String(r.cr_status||'--');var cls=/built|ready/i.test(status)?'cr-ready':(/close/i.test(status)?'cr-closed':'cr-open');var dates=[_date(r.first_instance),_date(r.last_instance)].filter(Boolean).join(' → ');return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td><span class="'+cls+'">'+_e(status)+'</span></td><td>'+_e(_date(r.first_instance)||'--')+'</td><td>'+_e(_date(r.last_instance)||'--')+'</td><td>'+_e(dates||'--')+'</td><td>'+_e(r.cr_age||'--')+'</td><td>'+_e(r.cr_area||'--')+'</td><td>'+_e(r.cr_subsystem||'--')+'</td><td>'+_e(r.cr_functionality||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.latest_cr_notes||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.cr_title||'--')+'</td></tr>';}).join('');var b=_g('ocBadge');if(b)b.textContent=_fil.length+' / '+_all.length+' CRs';}
+  var _orig=window.switchTab;
+  window.switchTab=function(name){if(typeof _orig==='function')_orig(name);if(name==='opencrs'){_styleDomains();if(!_loaded)ocLoad(false);}};
+  document.addEventListener('DOMContentLoaded',function(){_styleDomains();var sec=_g('tab-opencrs');if(sec&&sec.classList.contains('active'))ocLoad(false);});
+})();
+
 /* Open JIRAs tab */
 (function(){
   var PG=100,_all=[],_fil=[],_pg=1,_isAuto=false;

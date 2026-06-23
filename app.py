@@ -130,7 +130,7 @@ from live_status_view_api import live_status_view_api_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
-APP_VERSION = "v2.3"
+APP_VERSION = "v2.4"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -1100,6 +1100,15 @@ def is_user_in_group(username, group_name):
 
 
     try:
+        try:
+            from config import LIVE_STATUS_TEST_USER_GROUPS
+            _test_groups = LIVE_STATUS_TEST_USER_GROUPS or {}
+            if username in _test_groups and group_name in set(_test_groups.get(username) or []):
+                print(f"[LDAP TEST OVERRIDE] {username} treated as member of {group_name}", flush=True)
+                return True
+        except Exception:
+            pass
+
         server = Server(
             host=LDAP_SERVER,
             port=LDAP_PORT,
@@ -1107,6 +1116,7 @@ def is_user_in_group(username, group_name):
             get_info=None,
             connect_timeout=5
         )
+
 
         # Anonymous/simple bind depending on LDAP policy
         conn = Connection(server, auto_bind=True, receive_timeout=5)
@@ -2274,15 +2284,23 @@ def login():
             # Load dynamic privileges (viewers, extra groups, dynamic admins)
             try:
                 from src.admin_milestone_routes import _load_user_privileges
+                from config import LIVE_STATUS_VIEWER_GROUP_ACCESS
                 _priv = _load_user_privileges()
                 _dyn_admins  = set(_priv.get('admins', []))
                 _viewers     = set(_priv.get('viewers', []))
-                _extra_groups= _priv.get('extra_groups', [])
-                print(f"[LOGIN] Dynamic privileges loaded for {username}: admins={username.lower() in _dyn_admins}, viewer={username.lower() in _viewers}, extra_groups={len(_extra_groups)}", flush=True)
+                _dynamic_extra_groups = _priv.get('extra_groups', [])
+                _live_status_extra_groups = list((LIVE_STATUS_VIEWER_GROUP_ACCESS or {}).keys()) if isinstance(LIVE_STATUS_VIEWER_GROUP_ACCESS, dict) else []
+                _extra_groups = list(dict.fromkeys(
+                    str(g or '').strip()
+                    for g in list(_dynamic_extra_groups or []) + _live_status_extra_groups
+                    if str(g or '').strip()
+                ))
+                print(f"[LOGIN] Dynamic privileges loaded for {username}: admins={username.lower() in _dyn_admins}, viewer={username.lower() in _viewers}, extra_groups={len(_extra_groups)} groups={_extra_groups}", flush=True)
             except Exception as _priv_err:
                 print(f"[LOGIN] Dynamic privileges load failed for {username}: {_priv_err}", flush=True)
 
                 _dyn_admins = _viewers = set(); _extra_groups = []
+
 
             try:
                 _in_target_group = is_user_in_group(username, TARGET_GROUP)
@@ -8376,7 +8394,7 @@ if __name__ == '__main__':
 
     # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
     # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.1.0.0')
+    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
     PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.

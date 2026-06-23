@@ -6,6 +6,9 @@ from mysql.connector import Error
 
 from config import DB_CONFIG, MAIN_DATABASE_NAME, BU_DATABASE_MAPPING
 
+_DB_CONFIG_WARNING_EMITTED = False
+_DB_CONNECT_ERROR_KEYS = set()
+
 
 def get_mysql_connection_db(bu_key=None, database_name=None):
     """
@@ -30,17 +33,36 @@ def get_mysql_connection_db(bu_key=None, database_name=None):
                 f"Connecting to default '{MAIN_DATABASE_NAME}'."
             )
 
+    global _DB_CONFIG_WARNING_EMITTED
+    password = DB_CONFIG.get("password") or ""
+    user = DB_CONFIG.get("user") or ""
+
+    if not password:
+        if not _DB_CONFIG_WARNING_EMITTED:
+            logger.error(
+                "DB: MYSQL_PASSWORD is not configured or was not loaded from .env. "
+                "Expected .env next to config.py with MYSQL_PASSWORD=<password>. "
+                "Current attempted user='%s', database='%s'. Connection skipped to avoid repeated access-denied spam.",
+                user,
+                target_db_name,
+            )
+            _DB_CONFIG_WARNING_EMITTED = True
+        return None
+
     try:
         conn = mysql.connector.connect(
             host=DB_CONFIG["host"],
             port=DB_CONFIG["port"],
             database=target_db_name,
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
+            user=user,
+            password=password,
         )
         return conn
     except Error as e:
-        logger.error(f"DB: Error connecting to MySQL database '{target_db_name}': {e}")
+        key = (target_db_name, getattr(e, 'errno', None), str(e))
+        if key not in _DB_CONNECT_ERROR_KEYS:
+            _DB_CONNECT_ERROR_KEYS.add(key)
+            logger.error(f"DB: Error connecting to MySQL database '{target_db_name}': {e}")
         return None
 
 

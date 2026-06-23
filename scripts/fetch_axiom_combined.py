@@ -1,4 +1,4 @@
-﻿"""
+"""
 fetch_axiom_combined.py
 -----------------------
 Unified Axiom fetch for both HWPDT and SWPDT.
@@ -200,6 +200,7 @@ def _ensure_axiom_job_table(cursor) -> None:
             axiom_hours         VARCHAR(64)  NULL,
             hours               DECIMAL(10,3) NULL,
             playlist_name       VARCHAR(512) NULL,
+            certicom_playlist   JSON         NULL,
             is_closed           TINYINT(1)   NOT NULL DEFAULT 0,
             fetched_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -224,6 +225,8 @@ def _ensure_axiom_job_table(cursor) -> None:
                            'DECIMAL(10,3) NULL AFTER axiom_hours')
     _add_column_if_missing(cursor, 'axiom_job_summary', 'playlist_name',
                            'VARCHAR(512) NULL AFTER hours')
+    _add_column_if_missing(cursor, 'axiom_job_summary', 'certicom_playlist',
+                           'JSON NULL AFTER playlist_name')
 
 
 def _add_column_if_missing(cursor, table: str, column: str, definition: str) -> None:
@@ -415,15 +418,15 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
             axiom_hrs, hours_val = _calc_hours(state, dev_count, s_at, e_at)
 
             cur.execute("""
-                INSERT INTO `pdt_stats_dashboard`.`axiom_job_summary`
+                                INSERT INTO `pdt_stats_dashboard`.`axiom_job_summary`
                     (job_id, team, taxonomy_path, build_id, build_name, site,
                      software_product, product_flavor, submitter,
                      state, device_count, chip_ids,
                      submitted_at, started_at, ended_at,
                      executed_playlists, axiom_hours, hours,
-                     playlist_name, is_closed)
+                     playlist_name, certicom_playlist, is_closed)
                 VALUES
-                    (%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s)
+                    (%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s)
                 ON DUPLICATE KEY UPDATE
                     team               = VALUES(team),
                     taxonomy_path      = VALUES(taxonomy_path),
@@ -439,6 +442,7 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                     axiom_hours        = VALUES(axiom_hours),
                     hours              = VALUES(hours),
                     playlist_name      = COALESCE(VALUES(playlist_name), playlist_name),
+                    certicom_playlist  = COALESCE(VALUES(certicom_playlist), certicom_playlist),
                     is_closed          = VALUES(is_closed),
                     updated_at         = CURRENT_TIMESTAMP
             """, (
@@ -453,6 +457,7 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                 s_at, e_at,
                 ex_pl, axiom_hrs, hours_val,
                 str(b.get('playlist_name') or '').strip() or None,
+                json.dumps(b['certicom_playlist']) if b.get('certicom_playlist') else None,
                 is_closed,
             ))
             upserted += 1
@@ -649,17 +654,25 @@ def _fetch_jobs(host: str, token: str, app_name: str,
     since_utc  = (
         datetime.now(timezone.utc) - timedelta(days=since_days)
     ).strftime("%Y-%m-%dT00:00:00Z")
-    # submittedBefore = now minus 10-min buffer to avoid Axiom 400
+         # submittedBefore = now minus 4-hour buffer to avoid Axiom 400:
     # "Submitted To date must not be ahead of the current time".
-    # Some Axiom nodes have clock skew of several hours, so we use a
-    # conservative 10-minute buffer AND cap at end-of-yesterday (23:59:59 UTC)
-    # to guarantee we never send a future timestamp regardless of skew.
-    _now_utc      = datetime.now(timezone.utc)
-    _buffer_utc   = _now_utc - timedelta(minutes=10)
-    _yesterday_end = (_now_utc.replace(hour=23, minute=59, second=59, microsecond=0)
-                      - timedelta(days=1))
-    _safe_before  = min(_buffer_utc, _yesterday_end)
-    before_utc    = _safe_before.strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Axiom server clocks can be several hours ahead of the client;
+    # 4-hour buffer is conservative enough to never send a future timestamp.
+    # If the computed since_utc is already in the future (e.g. a future week
+    # was requested), skip the fetch entirely — there is nothing to retrieve.
+    _now_utc     = datetime.now(timezone.utc)
+    _safe_before = _now_utc - timedelta(hours=4)
+    before_utc   = _safe_before.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Guard: if the entire requested window is in the future, bail out early.
+    # This prevents HTTP 400 when the scheduler is triggered for a future week.
+    _since_dt = datetime.strptime(since_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    if _since_dt >= _safe_before:
+        logger.warning(
+            "[FETCH] taxonomy=%s since=%s is in the future (now-4h=%s) — skipping fetch",
+            taxonomy, since_utc[:16], before_utc[:16],
+        )
+        return []
 
     page_size = 100          # Axiom max page size
     all_raw   = []
@@ -739,7 +752,10 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
         return builds
 
     def _fetch_playlist(job_id):
-        """Fetch playlist names for one job. Returns (job_id, names, ids) or (job_id, None, None)."""
+        """Fetch playlist names + certicom IDs for one HWPDT job.
+        Returns (job_id, names, ids, certicom_map) or (job_id, None, None, None).
+        certicom_map = [{playlist_id, playlist_name, certicom_ids:[...]}]
+        """
         path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
         try:
             conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
@@ -756,16 +772,23 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
             conn.close()
             if resp.status == 200:
                 items = json.loads(body).get("data") or []
-                names, ids = [], []
+                names, ids, certicom_map = [], [], []
                 for it in items:
                     n = str(it.get("name") or "").strip()
                     p = it.get("id")
                     if n and n not in names: names.append(n)
                     if p and str(p) not in ids: ids.append(str(p))
-                return job_id, names, ids
+                    certicom_ids = []
+                    for _f in ("certicomIds","certicom_ids","deviceSerialNumbers","chipIdSerialNumbers","serialNumbers"):
+                        _raw = it.get(_f)
+                        if _raw and isinstance(_raw, list):
+                            certicom_ids = [str(c).strip() for c in _raw if str(c).strip()]
+                            break
+                    certicom_map.append({"playlist_id": str(p or ""), "playlist_name": n, "certicom_ids": certicom_ids})
+                return job_id, names, ids, certicom_map
         except Exception as exc:
             logger.debug("[ENRICH PLAYLIST] job %s failed: %s", job_id, exc)
-        return job_id, None, None
+        return job_id, None, None, None
 
     enriched = 0
     failed   = 0
@@ -776,11 +799,12 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
         futures = {pool.submit(_fetch_playlist, jid): jid for jid in to_enrich}
         done = 0
         for future in as_completed(futures):
-            job_id, names, ids = future.result()
+            job_id, names, ids, certicom_map = future.result()
             done += 1
             if names is not None:
-                builds[job_id]["playlist_name"] = ", ".join(names) if names else None
-                builds[job_id]["playlist"]      = ", ".join(ids)   if ids   else None
+                builds[job_id]["playlist_name"]    = ", ".join(names) if names else None
+                builds[job_id]["playlist"]         = ", ".join(ids)   if ids   else None
+                builds[job_id]["certicom_playlist"] = certicom_map or []
                 enriched += 1
             else:
                 failed += 1

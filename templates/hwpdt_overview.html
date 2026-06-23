@@ -1,4 +1,4 @@
-﻿{% extends "bu_shell_layout.html" %}
+{% extends "bu_shell_layout.html" %}
 {% block title %}HWPDT Overview{% endblock %}
 
 {% block shell_extra_css %}
@@ -515,6 +515,7 @@ function buildTable(rows){
       <th>BU</th>
       <th>Parts (Tested / Projected)</th>
       <th>Playlist Alias Status</th>
+      <th style="text-align:center;">Devices / Playlist</th>
       <th style="text-align:center;">HWPDT CRs</th>
       <th style="text-align:center;">JIRAs</th>
       <th style="text-align:center;">Actions</th>
@@ -547,31 +548,47 @@ function buildTable(rows){
     // Alias chevron strip
     const chevrons = buildChevronStrip(r.target, aliases);
 
-    const isAxiom = (m.source === 'axiom');
-    const axiomBadge = isAxiom
-      ? `<span style="display:inline-block;margin-left:5px;padding:1px 6px;border-radius:5px;
-                      background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;
-                      border:1px solid #fde68a;vertical-align:middle;"
-              title="Discovered from Axiom — not yet linked to a managed target">
-           <i class="fas fa-satellite-dish" style="font-size:8px;"></i>&nbsp;AXIOM
-         </span>`
-      : '';
-    const hwpdtLink = isAxiom
-      ? `<span class="hwo-btn" style="background:#e2e8f0;color:#94a3b8;cursor:default;margin-left:4px;"
-              title="No managed dashboard — target discovered from Axiom only">
-           <i class="fas fa-microchip"></i> HWPDT
-         </span>`
-      : `<a href="/dashboard/${encodeURIComponent(r.target)}/hwpdt?toggle_mode=CRM&pdt_type=HWPDT"
-            class="hwo-btn hwo-btn--cyan">
-           <i class="fas fa-microchip"></i> HWPDT
-         </a>`;
+    // Devices / Playlist cell — from certicom_playlist in chip_rows (DB-backed)
+    let devPlCell = '<div style="color:#cbd5e1;font-size:11px;">&#8212;</div>';
+    if(r.chipRows && r.chipRows.length){
+      const plMap = {};
+      (r.chipRows||[]).forEach(function(cr){
+        // certicom_playlist: [{playlist_name, certicom_ids:[...]}]
+        (cr.certicom_playlist||[]).forEach(function(pe){
+          const pl = pe.playlist_name || 'Unknown';
+          if(!plMap[pl]) plMap[pl]=new Set();
+          (pe.certicom_ids||[]).forEach(function(c){ plMap[pl].add(c); });
+        });
+        // fallback: use playlists array if certicom_playlist not present
+        if(!(cr.certicom_playlist||[]).length){
+          (cr.playlists||[]).forEach(function(pl){
+            if(!plMap[pl]) plMap[pl]=new Set();
+          });
+        }
+      });
+      const plKeys = Object.keys(plMap);
+      if(plKeys.length){
+        devPlCell = '<div style="font-size:10px;line-height:1.6">'
+          + plKeys.slice(0,3).map(function(pl){
+              const cnt = plMap[pl].size;
+              const lbl = pl.length>28?pl.slice(0,28)+'…':pl;
+              return `<div><span style="color:#6366f1;font-weight:800">${lbl}</span>`
+                   + (cnt?` <span style="color:#0891b2;font-weight:900">${cnt}</span> devices`:``) + `</div>`;
+            }).join('')
+          + (plKeys.length>3?`<div style="color:#94a3b8">+${plKeys.length-3} more</div>`:'')
+          + '</div>';
+      }
+    }
+
+    const hwpdtLink = `<a href="/dashboard/${encodeURIComponent(r.target)}/hwpdt?toggle_mode=CRM&pdt_type=HWPDT" class="hwo-btn hwo-btn--cyan"><i class="fas fa-microchip"></i> HWPDT</a>`;
+
     html+=`<tr style="background:${bg};">
       <td style="text-align:center;color:#94a3b8;font-size:11px;">${i+1}</td>
-      <td><b style="color:#0c4a6e;">${disp}</b>${axiomBadge}<br><span style="font-size:10px;color:#64748b;">${spName}</span></td>
-      <td><span style="display:inline-block;padding:2px 8px;border-radius:6px;
-                       background:#f0f9ff;color:#0369a1;font-size:10px;font-weight:700;">${buKey}</span></td>
+      <td><b style="color:#0c4a6e;">${disp}</b><br><span style="font-size:10px;color:#64748b;">${spName}</span></td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#f0f9ff;color:#0369a1;font-size:10px;font-weight:700;">${buKey}</span></td>
       <td>${partsCell}</td>
       <td><div class="pal-strip" style="gap:0;">${chevrons}</div></td>
+      <td style="text-align:center;">${devPlCell}</td>
       <td style="text-align:center;"><b>${r.crs}</b></td>
       <td style="text-align:center;"><b>${r.jiras}</b></td>
       <td style="text-align:center;white-space:nowrap;">
@@ -744,7 +761,6 @@ async function deleteAlias(idx){
   renderAliasList();
   renderPlPicker();
   init();
-}
 }
 
 document.getElementById('aliasModal').addEventListener('click',function(e){ if(e.target===this) closeAliasModal(); });

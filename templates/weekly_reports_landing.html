@@ -1,43 +1,51 @@
-﻿{% extends "bu_shell_layout.html" %}
-{% block title %}Weekly QIPL Report — PDT Buddy{% endblock %}
+{% extends "bu_shell_layout.html" %}
+{% block title %}Weekly QIPL Report - PDT Buddy{% endblock %}
 
 {% block shell_inner_content %}
 <style>
-/* ═══════════════════════════════════════════════════════════════════
+/* -------------------------------------------------------------------
    WEEKLY QIPL REPORT  —  layout & card styles
-═══════════════════════════════════════════════════════════════════ */
-.wqr-page { padding: 14px 16px 32px; max-width: 100%; }
+------------------------------------------------------------------- */
+.wqr-page {
+  padding: 16px 20px 36px;
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(160deg,#eef2ff 0%,#f0f9ff 45%,#f5f3ff 100%);
+}
 
-/* ── top bar ── */
+/* -- top bar -- */
 .wqr-topbar {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 10px;
-  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
-  padding: 12px 18px; margin-bottom: 14px;
-  box-shadow: 0 2px 10px rgba(15,23,42,.05);
+  background: linear-gradient(135deg,#1e3a8a 0%,#312e81 100%);
+  border-radius: 14px;
+  padding: 13px 20px; margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(30,58,138,.18);
 }
 .wqr-topbar-left  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.wqr-topbar-title { font-size: 15px; font-weight: 900; color: #0f172a; }
-.wqr-topbar-sub   { font-size: 11px; color: #64748b; font-weight: 700; }
+.wqr-topbar-title { font-size: 15px; font-weight: 900; color: #fff; }
+.wqr-topbar-sub   { font-size: 11px; color: #a5b4fc; font-weight: 700; }
 
 /* week dropdown */
 .wqr-week-select {
   height: 36px; padding: 0 12px; border-radius: 10px;
-  border: 1.5px solid #c7d2fe; background: #eef2ff;
-  font-size: 12px; font-weight: 800; color: #3730a3;
+  border: 1.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12);
+  font-size: 12px; font-weight: 800; color: #fff;
   cursor: pointer; min-width: 220px;
 }
-.wqr-week-select:focus { outline: none; border-color: #6366f1; }
+.wqr-week-select:focus { outline: none; border-color: rgba(255,255,255,.6); }
+.wqr-week-select option { background: #1e3a8a; color: #fff; }
 
 /* upload toggle btn */
 .wqr-upload-btn {
   height: 36px; padding: 0 16px; border-radius: 10px;
-  border: 1.5px solid #e2e8f0; background: #fff;
-  font-size: 12px; font-weight: 800; color: #475569;
+  border: 1.5px solid rgba(255,255,255,.25); background: rgba(255,255,255,.12);
+  font-size: 12px; font-weight: 800; color: #e0e7ff;
   cursor: pointer; display: flex; align-items: center; gap: 6px;
   transition: background .12s, border-color .12s;
+  text-decoration: none;
 }
-.wqr-upload-btn:hover { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+.wqr-upload-btn:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.5); color: #fff; }
 
 /* flash messages */
 .wqr-flash { padding: 10px 16px; border-radius: 10px; font-size: 12px;
@@ -47,7 +55,7 @@
 .wqr-flash.error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 .wqr-flash.warning { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
 
-/* ── upload panel ── */
+/* -- upload panel -- */
 .wqr-upload-panel {
   display: none; background: #f8fafc; border: 1.5px dashed #c7d2fe;
   border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
@@ -81,12 +89,13 @@
   content: ''; flex: 1; height: 1px; background: #e2e8f0;
 }
 
-/* ── 5-card grid ── */
+/* -- 5-card grid -- */
 .wqr-cards {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  width: 100%;
 }
 @media (max-width: 1400px) { .wqr-cards { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 900px)  { .wqr-cards { grid-template-columns: repeat(2, 1fr); } }
@@ -94,7 +103,7 @@
 
 .wqr-card {
   background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-  padding: 16px; box-shadow: 0 3px 12px rgba(15,23,42,.06);
+  padding: 16px; box-shadow: 0 3px 14px rgba(15,23,42,.07);
   display: flex; flex-direction: column; gap: 10px;
   min-height: 260px;
   cursor: pointer;
@@ -105,6 +114,12 @@
   border-color: #c7d2fe;
   transform: translateY(-2px);
 }
+/* coloured top accent per card */
+#card-cr_age      { border-top: 3px solid #6366f1; }
+#card-cr_pie      { border-top: 3px solid #2563eb; }
+#card-smart_build { border-top: 3px solid #059669; }
+#card-unique_report { border-top: 3px solid #d97706; }
+#card-farm_testing  { border-top: 3px solid #7c3aed; }
 .wqr-card:active { transform: translateY(0); }
 .wqr-card-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -125,7 +140,7 @@
   border-radius: 6px; padding: 3px 8px;
 }
 
-/* Card 1 — CR Age bar chart */
+/* Card 1 � CR Age bar chart */
 .wqr-age-bars { display: flex; flex-direction: column; gap: 7px; flex: 1; }
 .wqr-age-row  { display: flex; align-items: center; gap: 8px; }
 .wqr-age-lbl  { font-size: 10px; font-weight: 800; color: #475569;
@@ -137,10 +152,10 @@
 .wqr-age-val   { font-size: 10px; font-weight: 900; color: #334155;
   width: 24px; text-align: left; flex-shrink: 0; }
 
-/* Card 2 — Pie chart */
+/* Card 2 � Pie chart */
 #wqrPieSvg { width: 100%; flex: 1; display: block; }
 
-/* Card 3 — Sharepoint */
+/* Card 3 � Sharepoint */
 .wqr-sp-list { flex: 1; overflow-y: auto; max-height: 200px; }
 .wqr-sp-item {
   padding: 6px 8px; border-radius: 8px; background: #f8fafc;
@@ -151,7 +166,7 @@
 .wqr-sp-empty { font-size: 12px; color: #94a3b8; font-weight: 700;
   text-align: center; padding: 24px 0; }
 
-/* Card 4 — Unique summary */
+/* Card 4 � Unique summary */
 .wqr-summary-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1;
 }
@@ -178,21 +193,21 @@
 .wqr-summary-tile.source{ --tile-accent:#7c3aed; --tile-label:#6d28d9; --tile-value:#7c3aed; background:linear-gradient(135deg,#faf5ff,#ede9fe); border-color:#ddd6fe; }
 
 
-/* ── card active state ── */
+/* -- card active state -- */
 .wqr-card.active {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99,102,241,.18), 0 8px 28px rgba(99,102,241,.18);
   transform: translateY(-2px);
 }
 
-/* ── card footer hint ── */
+/* -- card footer hint -- */
 .wqr-card-footer {
   font-size: 10px; color: #94a3b8; font-weight: 700;
   text-align: center; margin-top: auto; padding-top: 6px;
   border-top: 1px solid #f1f5f9;
 }
 
-/* ── tab detail panel ── */
+/* -- tab detail panel -- */
 .wqr-detail-panel {
   display: none;
   background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
@@ -232,7 +247,7 @@
 .wqr-detail-copy:hover { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
 .wqr-detail-body { overflow-x: auto; max-height: 520px; overflow-y: auto; }
 
-/* ── modal ── */
+/* -- modal -- */
 .wqr-modal-backdrop {
   display: none; position: fixed; inset: 0; z-index: 10000;
   background: rgba(15,23,42,.55); padding: 24px;
@@ -338,33 +353,33 @@
 <div class="wqr-spinner" id="wqrSpinner">
   <div class="wqr-spinner-box">
     <div class="wqr-spinner-ring"></div>
-    <div style="font-size:12px;font-weight:800;color:#475569;">Loading week data…</div>
+    <div style="font-size:12px;font-weight:800;color:#475569;">Loading week data&hellip;</div>
   </div>
 </div>
 
 <div class="wqr-page">
 
-  {# ── flash messages ── #}
+  {# -- flash messages -- #}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}
       <div class="wqr-flash {{ cat }}">{{ msg }}</div>
     {% endfor %}
   {% endwith %}
 
-  {# ══════════════════════════════════════════════════════════════
-     TOP BAR  —  week dropdown + upload toggle
-  ══════════════════════════════════════════════════════════════ #}
+  {# --------------------------------------------------------------
+     TOP BAR  �  week dropdown + upload toggle
+  -------------------------------------------------------------- #}
     <div id="qiplAutoImportBanner" class="wqr-flash warning" style="display:none;">Auto-importing Weekly QIPL source file for this week...</div>
 
   <div class="wqr-topbar">
 
     <div class="wqr-topbar-left">
       <div>
-        <div class="wqr-topbar-title">📊 Weekly QIPL Report</div>
-        <div class="wqr-topbar-sub">pdt_stats_dashboard · weekly_qipl_data</div>
+                <div class="wqr-topbar-title">&#x1F4CA; Weekly QIPL Report</div>
+        <div class="wqr-topbar-sub">weekly_qipl_data</div>
       </div>
 
-      {# Week range dropdown — last Sunday → Monday #}
+      {# Week range dropdown #}
       <select class="wqr-week-select" id="wqrWeekSelect" onchange="wqrChangeWeek(this.value)">
         {% for ws, we, label in week_ranges %}
           <option value="{{ ws }}|{{ we }}"
@@ -372,24 +387,22 @@
             {{ label }}
           </option>
         {% endfor %}
-      </select>
+            </select>
     </div>
 
-        <div style="display:flex;gap:8px;align-items:center;">
-    <button type="button" class="wqr-upload-btn" id="wqrImportLatestBtn"
-            onclick="wqrImportLatest()"
-            title="Scan share and import latest unimported QIPL CSV">
-      <i class="fas fa-sync-alt"></i> Import Latest CSV
-    </button>
-    <button type="button" class="wqr-upload-btn" onclick="wqrToggleUpload()">
-      <i class="fas fa-file-upload"></i> Upload / Select File
-    </button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{{ url_for('weekly_summary_bp.sharepoint2_page') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}"
+         class="wqr-upload-btn"
+         style="background:rgba(99,102,241,.25);border-color:rgba(165,180,252,.5);color:#fff;font-weight:900;"
+         title="Smart Build Report — auto-populated from Axiom DB">
+        <i class="fas fa-chart-bar"></i> Smart Build Report
+      </a>
     </div>
   </div>
 
-  {# ══════════════════════════════════════════════════════════════
+  {# --------------------------------------------------------------
      UPLOAD PANEL
-  ══════════════════════════════════════════════════════════════ #}
+  -------------------------------------------------------------- #}
   <div class="wqr-upload-panel" id="wqrUploadPanel">
     <form method="POST"
           action="{{ url_for('weekly_summary_bp.weekly_report_upload') }}"
@@ -399,18 +412,18 @@
       <input type="hidden" name="week_end"   id="uploadWeekEnd"
              value="{{ sel_end.isoformat() }}">
 
-      {# ── Option A: pick from share ── #}
+      {# -- Option A: pick from share -- #}
       {% if excel_files %}
       <div style="margin-bottom:10px;">
         <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:6px;
                     text-transform:uppercase;letter-spacing:.05em;">
-          📂 Select from share: <span style="color:#94a3b8;font-weight:600;">{{ qipl_excel_dir }}</span>
+          &#x1F4C2; Select from share: <span style="color:#94a3b8;font-weight:600;">{{ qipl_excel_dir }}</span>
         </div>
         <div class="wqr-upload-grid">
           <div class="wqr-upload-field">
             <label>File on share</label>
             <select name="file_choice" id="wqrFileChoice">
-              <option value="">— choose file —</option>
+              <option value="">� choose file �</option>
               {% for f in excel_files %}
                 <option value="{{ f }}"
                   {{ 'selected' if sel_start.isoformat() in f or sel_end.isoformat() in f else '' }}>
@@ -429,7 +442,7 @@
       <div class="wqr-upload-divider">OR upload manually</div>
       {% endif %}
 
-      {# ── Option B: manual upload ── #}
+      {# -- Option B: manual upload -- #}
       <div class="wqr-upload-grid">
         <div class="wqr-upload-field">
           <label>Upload Excel file</label>
@@ -442,29 +455,29 @@
       </div>
 
       <div style="margin-top:10px;font-size:11px;color:#64748b;font-weight:700;">
-        ⚡ All rows are <strong>appended</strong> to the table for week
+        ? All rows are <strong>appended</strong> to the table for week
         <strong id="uploadWeekLabel">
-          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d, %Y') }}
+          {{ sel_start.strftime('%b %d') }} � {{ sel_end.strftime('%b %d, %Y') }}
         </strong>
       </div>
     </form>
   </div>
 
-  {# ══════════════════════════════════════════════════════════════
-     4 CARDS  —  all filtered by the selected week
-  ══════════════════════════════════════════════════════════════ #}
+  {# --------------------------------------------------------------
+     4 CARDS  �  all filtered by the selected week
+  -------------------------------------------------------------- #}
   <div class="wqr-cards" id="wqrCards">
 
-                        {# ── Card 1: CR Age ── #}
+                        {# -- Card 1: CR Age -- #}
     <div class="wqr-card" id="card-cr_age" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='cr_age') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view CR Age detail">
       <div class="wqr-card-head">
-        <span class="wqr-card-title">📅 CR Age</span>
+        <span class="wqr-card-title">&#x1F4C5; CR Age</span>
         <span class="wqr-card-week" id="ageCardWeek">
-          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+          {{ sel_start.strftime('%b %d') }} � {{ sel_end.strftime('%b %d') }}
         </span>
       </div>
 
-            {# ── hero numbers: total unique CRs, New, Old ── #}
+            {# -- hero numbers: total unique CRs, New, Old -- #}
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <div style="flex:1;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #c7d2fe;border-radius:12px;padding:10px 8px;text-align:center;">
           <div style="font-size:28px;font-weight:900;color:#4f46e5;line-height:1;">{{ cr_mapped_count }}</div>
@@ -480,7 +493,7 @@
         </div>
       </div>
 
-      {# ── age bars ── #}
+      {# -- age bars -- #}
       <div class="wqr-age-bars" id="wqrAgeBars">
         {%- set age_colors = ['#6366f1','#3b82f6','#f59e0b','#ef4444','#dc2626'] -%}
         {%- set age_keys   = ['0-20','21-40','41-60','61-90','90+'] -%}
@@ -498,56 +511,63 @@
           </div>
         {% endfor %}
       </div>
-      <div class="wqr-card-footer">Click to view detail →</div>
+            <div class="wqr-card-footer">Click to view detail &#x2192;</div>
     </div>
 
-                {# ── Card 2: CR Pie Chart ── #}
+                {# -- Card 2: CR Pie Chart -- #}
     <div class="wqr-card" id="card-cr_pie" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='cr_pie') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view CR Pie detail">
       <div class="wqr-card-head">
         <span class="wqr-card-title">&#127987; CR Area Pie</span>
         <span class="wqr-card-week" id="pieCardWeek">
-          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+          {{ sel_start.strftime('%b %d') }} � {{ sel_end.strftime('%b %d') }}
         </span>
       </div>
       <svg id="wqrPieSvg" viewBox="0 0 300 200"
            preserveAspectRatio="xMidYMid meet" style="flex:1;pointer-events:none;"></svg>
-      <div class="wqr-card-footer">Click to view detail →</div>
+            <div class="wqr-card-footer">Click to view detail &#x2192;</div>
     </div>
 
-    {# ── Card 3: Sharepoint Data ── #}
-    <div class="wqr-card" id="card-sharepoint" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='sharepoint') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'" title="Click to view Sharepoint detail">
+    {# -- Card 3: Smart Build Report -- #}
+    <div class="wqr-card" id="card-smart_build"
+         onclick="location.href='{{ url_for('weekly_summary_bp.sharepoint2_page') }}?week_start={{ sel_start.isoformat() }}&week_end={{ sel_end.isoformat() }}'"
+         title="Smart Build Report — auto-populated from Axiom DB">
       <div class="wqr-card-head">
-        <span class="wqr-card-title">🔗 Sharepoint Data</span>
-        <span class="wqr-card-badge" id="spBadge">{{ sp_rows | length }}</span>
+        <span class="wqr-card-title">&#x1F4CA; Smart Build Report</span>
+        <span class="wqr-card-badge" style="background:#6366f1">Axiom</span>
       </div>
-      <div class="wqr-sp-list" id="wqrSpList">
-        {% if sp_rows %}
-          {% for row in sp_rows[:6] %}
-            <div class="wqr-sp-item">
-              <span class="wqr-sp-cr">{{ row.cr_key }}</span>
-              {% if row.cr_title %}
-                — <span style="color:#64748b;">{{ row.cr_title[:40] }}{% if row.cr_title|length > 40 %}…{% endif %}</span>
-              {% endif %}
-            </div>
-          {% endfor %}
-          {% if sp_rows | length > 6 %}
-            <div style="font-size:10px;color:#6366f1;font-weight:800;text-align:center;padding:4px;">
-              + {{ sp_rows | length - 6 }} more
-            </div>
-          {% endif %}
-        {% else %}
-          <div class="wqr-sp-empty">No sharepoint data for this week.</div>
-        {% endif %}
+            {# -- 3 KPI tiles: Builds / Devices / Crashes -- #}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;flex:1;">
+        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #bfdbfe;border-radius:11px;padding:10px 6px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#1d4ed8;line-height:1;">{{ sp2_build_count or 0 }}</div>
+          <div style="font-size:9px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;"><i class="fas fa-vial"></i> Builds</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:11px;padding:10px 6px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#15803d;line-height:1;">{{ sp2_device_count or 0 }}</div>
+          <div style="font-size:9px;font-weight:800;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;"><i class="fas fa-mobile-alt"></i> Devices</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fff1f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:11px;padding:10px 6px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#dc2626;line-height:1;">{{ sp2_crash_count or 0 }}</div>
+          <div style="font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;"><i class="fas fa-bug"></i> Crashes</div>
+        </div>
       </div>
-      <div class="wqr-card-footer">Click to view detail →</div>
+      {# -- Hours row -- #}
+      <div style="background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1.5px solid #ddd6fe;border-radius:11px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;font-weight:800;color:#6d28d9;"><i class="fas fa-clock"></i> Total Hours</span>
+        <span style="font-size:18px;font-weight:900;color:#7c3aed;">
+          {% if sp2_total_hours %}
+            {% if sp2_total_hours >= 1000 %}{{ "{:,.0f}".format(sp2_total_hours) }}h{% else %}{{ "{:,.1f}".format(sp2_total_hours) }}h{% endif %}
+          {% else %}0h{% endif %}
+        </span>
+      </div>
+      <div class="wqr-card-footer">Click to open Smart Build Report &#x2192;</div>
     </div>
 
-                {# ── Card 4: Unique Weekly Report ── #}
+                {# -- Card 4: Unique Weekly Report -- #}
         <div class="wqr-card" id="card-unique_report" onclick="location.href='{{ url_for('weekly_summary_bp.weekly_report_card', card_key='unique_report') }}?ucr_week_end={{ sel_end.isoformat() }}'" title="Click to view Unique Weekly Report detail">
       <div class="wqr-card-head">
-        <span class="wqr-card-title">📋 Unique Weekly Report</span>
+        <span class="wqr-card-title">&#x1F4CB; Unique Weekly Report</span>
         <span class="wqr-card-week" id="summaryCardWeek">
-          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+          {{ sel_start.strftime('%b %d') }} � {{ sel_end.strftime('%b %d') }}
         </span>
       </div>
               <div class="wqr-summary-grid" id="wqrSummaryGrid">
@@ -570,41 +590,41 @@
           <div class="wqr-summary-tile source">
             <span class="k">Source</span>
 
-                        <span style="font-size:10px;font-weight:700;color:#64748b;margin-top:2px;" title="{{ ucr_landing_excel_path or '' }}">
-              {{ 'WeeklyUniqueCRs Excel' if ucr_landing_has_excel else 'No Excel for week' }}
+                                                <span style="font-size:10px;font-weight:700;color:#64748b;margin-top:2px;" title="{{ ucr_landing_source_path or ucr_landing_excel_path or '' }}">
+              {{ 'Latest CSV loaded' if ucr_landing_source_path else ('WeeklyUniqueCRs Excel' if ucr_landing_has_excel else 'Click detail to refresh CSV') }}
             </span>
           </div>
         </div>
-      <div class="wqr-card-footer">Click to view detail →</div>
+            <div class="wqr-card-footer">Click to view detail &#x2192;</div>
     </div>
 
-        {# ── Card 5: Farm Testing ── #}
+        {# -- Card 5: Farm Testing -- #}
     <div class="wqr-card" id="card-farm_testing" onclick="window.open('http://10.142.217.108:5100/','_blank','noopener')" title="Open Farm Testing dashboard" style="cursor:pointer;">
       <div class="wqr-card-head">
-        <span class="wqr-card-title">🧪 Farm Testing</span>
+        <span class="wqr-card-title">&#x1F9EA; Farm Testing</span>
         <span class="wqr-card-week">
-          {{ sel_start.strftime('%b %d') }} – {{ sel_end.strftime('%b %d') }}
+          {{ sel_start.strftime('%b %d') }} � {{ sel_end.strftime('%b %d') }}
         </span>
       </div>
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;
                   justify-content:center;gap:8px;">
-        <div style="font-size:36px;">🧪</div>
+        <div style="font-size:36px;">&#x1F9EA;</div>
         <div style="font-size:12px;font-weight:800;color:#4f46e5;text-align:center;">Farm Testing Dashboard</div>
         <div style="font-size:10px;font-weight:600;color:#94a3b8;text-align:center;">10.142.217.108:5100</div>
         <div style="font-size:10px;font-weight:700;color:#6366f1;margin-top:4px;">&#8599; Opens in new tab</div>
       </div>
-      <div class="wqr-card-footer">Click to view detail →</div>
+            <div class="wqr-card-footer">Click to view detail &#x2192;</div>
     </div>
 
     </div>{# /wqr-cards #}
 
-    {# ══════════════════════════════════════════════════════════════
-     DETAIL PANEL  —  removed, cards now navigate to dedicated pages
-  ══════════════════════════════════════════════════════════════ #}
+    {# --------------------------------------------------------------
+     DETAIL PANEL  �  removed, cards now navigate to dedicated pages
+  -------------------------------------------------------------- #}
 
 </div>{# /wqr-page #}
 
-{# modal removed — cards now navigate to dedicated pages #}
+{# modal removed � cards now navigate to dedicated pages #}
 
 <script>
 (function () {
@@ -616,11 +636,6 @@
     url.searchParams.set('week_start', ws);
     url.searchParams.set('week_end',   we);
     window.location.href = url.toString();
-  };
-
-  /* upload panel toggle */
-  window.wqrToggleUpload = function () {
-    document.getElementById('wqrUploadPanel')?.classList.toggle('open');
   };
 
     const QIPL_AUTO_IMPORT_AVAILABLE = {{ (qipl_auto_import_available | default(false)) | tojson }};
@@ -651,38 +666,7 @@
 
   wqrAutoImportQiplIfNeeded();
 
-  /* Manual "Import Latest CSV" button */
-  window.wqrImportLatest = function() {
-    var btn    = document.getElementById('wqrImportLatestBtn');
-    var banner = document.getElementById('qiplAutoImportBanner');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...'; }
-    if (banner) { banner.style.display = ''; banner.className = 'wqr-flash warning'; banner.textContent = 'Scanning share for latest unimported CSV...'; }
-    fetch('/api/qipl_csv_import_now', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: JSON.stringify({})
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Import Latest CSV'; }
-      if (d.success) {
-        if (banner) {
-          banner.className = 'wqr-flash success';
-          banner.textContent = 'Imported ' + (d.count || 0) + ' rows'
-            + (d.week_end ? ' for week ending ' + d.week_end : '')
-            + (d.file ? ' (' + d.file + ')' : '') + '. Reloading...';
-        }
-        setTimeout(function(){ window.location.reload(); }, 900);
-      } else {
-        var msg = d.message || d.reason || 'Unknown error';
-        if (banner) { banner.className = 'wqr-flash danger'; banner.textContent = 'Import failed: ' + msg; }
-      }
-    })
-    .catch(function(e){
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Import Latest CSV'; }
-      if (banner) { banner.className = 'wqr-flash danger'; banner.textContent = 'Network error: ' + (e.message || e); }
-    });
-  };
+  
 
   /* pie chart preview on landing card */
   const PIE_AREA_INIT = {{ pie_area_data | tojson }};
@@ -736,7 +720,7 @@
 </script>
 
 {% if hwpdt_msm_rows %}
-<div style="padding:24px 24px 32px 24px;">
+<div style="padding:0 0 32px 0;">
   <div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;">
 
     <div style="background:linear-gradient(135deg,#0c4a6e,#0891b2);padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -774,13 +758,33 @@
           </tr>
         </thead>
         <tbody>
+          {# Group rows by farm (BU) and use rowspan to merge identical farm cells #}
+          {% set ns = namespace(prev_farm='', farm_count=0, row_idx=0) %}
+          {% set farm_counts = {} %}
           {% for row in hwpdt_msm_rows %}
+            {% if row.farm not in farm_counts %}
+              {% set _ = farm_counts.update({row.farm: 0}) %}
+            {% endif %}
+            {% set _ = farm_counts.update({row.farm: farm_counts[row.farm] + 1}) %}
+          {% endfor %}
+          {% set ns2 = namespace(seen_farms=[]) %}
+          {% for row in hwpdt_msm_rows %}
+          {% set is_first_in_farm = row.farm not in ns2.seen_farms %}
+          {% if is_first_in_farm %}{% set _ = ns2.seen_farms.append(row.farm) %}{% endif %}
           <tr style="border-bottom:1px solid #f1f5f9;{% if loop.index is odd %}background:#fff;{% else %}background:#fafafa;{% endif %}"
               data-target="{{ row.target_name }}"
               data-ws="{{ sel_start.isoformat() }}"
               data-we="{{ sel_end.isoformat() }}">
             <td style="padding:9px 12px;text-align:center;color:#94a3b8;font-weight:600;">{{ row.s_no }}</td>
-            <td style="padding:9px 12px;font-weight:700;color:#0c4a6e;">{{ row.farm }}</td>
+            {% if is_first_in_farm %}
+            <td style="padding:9px 12px;font-weight:900;color:#0c4a6e;vertical-align:middle;background:#f0f9ff;border-left:3px solid #0891b2;"
+                rowspan="{{ farm_counts[row.farm] }}">
+              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+                <span style="font-size:13px;">{{ row.farm }}</span>
+                <span style="font-size:9px;font-weight:700;color:#0891b2;background:#e0f2fe;padding:1px 6px;border-radius:999px;">{{ farm_counts[row.farm] }} target{{ 's' if farm_counts[row.farm] > 1 else '' }}</span>
+              </div>
+            </td>
+            {% endif %}
             <td style="padding:9px 12px;font-weight:700;color:#1e293b;">{{ row.target }}</td>
             <td style="padding:9px 12px;text-align:center;">
               <span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">HWPDT</span>
@@ -886,7 +890,7 @@
     document.getElementById('msmTotalPlanned').textContent = hP ? planned : '-';
   }
 
-  /* ---- copy table — rich HTML works on HTTP + HTTPS ---- */
+  /* ---- copy table � rich HTML works on HTTP + HTTPS ---- */
   window.msmCopyTable = function() {
     const tbl    = document.getElementById('msmTable');
     const btn    = document.getElementById('msmCopyBtn');
@@ -898,7 +902,7 @@
       headers.push(th.innerText.trim().replace(/\n/g,' '));
     });
 
-    /* Collect data rows — read input values, not innerText */
+    /* Collect data rows � read input values, not innerText */
     const dataRows = [];
     tbl.querySelectorAll('tbody tr').forEach(tr => {
       const cells = [];
@@ -941,7 +945,7 @@
     /* 
      * Rich copy strategy that works on HTTP (no secure context needed):
      * 1. Try modern ClipboardItem API (HTTPS / localhost)
-     * 2. Fall back to contenteditable div + execCommand('copy') — preserves HTML on HTTP
+     * 2. Fall back to contenteditable div + execCommand('copy') � preserves HTML on HTTP
      */
     function _done(rich) {
       btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
@@ -966,7 +970,7 @@
       } catch(e) { /* fall through */ }
     }
 
-    /* Strategy 2: contenteditable div + execCommand — works on HTTP */
+    /* Strategy 2: contenteditable div + execCommand � works on HTTP */
     _richExecCopy(html, plain, _done);
   };
 

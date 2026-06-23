@@ -3,7 +3,13 @@ import re
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 
-from config import ADMIN_USERS, TARGET_GROUP, JIRA_PDT_FILTER_ID, VIEWER_OVERRIDE_USERS
+from config import (
+    ADMIN_USERS,
+    TARGET_GROUP,
+    JIRA_PDT_FILTER_ID,
+    VIEWER_OVERRIDE_USERS,
+    LIVE_STATUS_VIEWER_GROUP_ACCESS,
+)
 from dashboard_common import get_business_units, get_targets_for_bu, get_bu_for_target
 logger = logging.getLogger(__name__)
 
@@ -15,8 +21,11 @@ from live_status_publish_service import (
     save_job_rows,
     publish_job,
     revoke_job,
+
+
     update_viewer_heartbeat,
-        delete_job,
+    delete_job,
+
     load_job_workspace_data,
     get_report_sidecar,
     _build_key,
@@ -64,6 +73,7 @@ live_status_publish_bp = Blueprint('live_status_publish_bp', __name__)
 
 
 def _target_group_access() -> bool:
+    """Editor access remains controlled by qipl.target.pdt / admins only."""
     uid = getattr(current_user, 'id', '') or ''
     # Force viewer mode for override users (testing)
     if uid in VIEWER_OVERRIDE_USERS:
@@ -75,6 +85,198 @@ def _target_group_access() -> bool:
         return _app.is_user_in_group(uid, TARGET_GROUP)
     except Exception:
         return False
+
+
+def _norm_access_list(values):
+    if values is None:
+        return set()
+    if isinstance(values, str):
+        values = [values]
+    try:
+        return {str(v or '').strip().upper() for v in values if str(v or '').strip()}
+    except Exception:
+        return set()
+
+
+def _scope_target_patterns(scope):
+    if not isinstance(scope, dict):
+        return set()
+    return _norm_access_list(scope.get('target_patterns') or scope.get('target_pattern') or scope.get('patterns'))
+
+
+def _target_matches_access_scope(target_name, scope, bu_key=None) -> bool:
+    if not scope:
+        return False
+    if scope.get('all'):
+        return True
+    target_upper = str(target_name or '').strip().upper()
+    bu_upper = str(bu_key or get_bu_for_target(target_name) or '').strip().upper()
+    if target_upper and target_upper in (scope.get('targets') or set()):
+        return True
+    if bu_upper and bu_upper in (scope.get('bus') or set()):
+        return True
+    for pattern in scope.get('target_patterns') or set():
+        if pattern and target_upper and pattern in target_upper:
+            return True
+    return False
+
+
+def _current_live_status_viewer_scope():
+    """Return read-only Live Status scope for non-editor viewers.
+
+    Config source: config.LIVE_STATUS_VIEWER_GROUP_ACCESS, keyed by LDAP group.
+    Each value can include bus/bu, targets, and target_patterns. Matching groups
+    are unioned. This does not grant edit/save/publish permissions.
+    """
+    if _target_group_access():
+        return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': []}
+    if not current_user.is_authenticated:
+        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+
+    uid = getattr(current_user, 'id', '') or ''
+    cfg = LIVE_STATUS_VIEWER_GROUP_ACCESS or {}
+    if not isinstance(cfg, dict) or not cfg:
+        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+
+    bus_scope = set()
+    target_scope = set()
+    pattern_scope = set()
+    matched_groups = []
+    try:
+        import app as _app
+        for group_name, scope in cfg.items():
+            group_name = str(group_name or '').strip()
+            if not group_name:
+                continue
+            try:
+                if not _app.is_user_in_group(uid, group_name):
+                    continue
+            except Exception as exc:
+                logger.warning('[LIVE STATUS ACCESS] group check failed for %s in %s: %s', uid, group_name, exc)
+                continue
+            matched_groups.append(group_name)
+            scope = scope or {}
+            if isinstance(scope, (list, tuple, set, str)):
+                # Shorthand: {"group": ["AUTO", "IOT"]} means BU scope.
+                bus_scope |= _norm_access_list(scope)
+                continue
+            if not isinstance(scope, dict):
+                continue
+            if bool(scope.get('all')):
+                return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
+            bus_scope |= _norm_access_list(scope.get('bus') or scope.get('bu') or scope.get('business_units'))
+            target_scope |= _norm_access_list(scope.get('targets') or scope.get('target'))
+            pattern_scope |= _scope_target_patterns(scope)
+    except Exception as exc:
+        logger.warning('[LIVE STATUS ACCESS] scope resolution failed for %s: %s', uid, exc)
+        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+
+    if '*' in bus_scope or 'ALL' in bus_scope or '*' in target_scope or 'ALL' in target_scope or '*' in pattern_scope or 'ALL' in pattern_scope:
+        return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
+    return {'all': False, 'bus': bus_scope, 'targets': target_scope, 'target_patterns': pattern_scope, 'matched_groups': matched_groups}
+
+
+
+def _can_view_live_status_target(target_name, bu_key=None) -> bool:
+    """True if current user may view this target in read-only Live Status."""
+    if _target_group_access():
+        return True
+    return _target_matches_access_scope(target_name, _current_live_status_viewer_scope(), bu_key)
+
+
+
+def _filter_live_status_jobs_for_current_user(jobs, *, can_edit=False):
+    if can_edit:
+        return list(jobs or [])
+    out = []
+    for job in jobs or []:
+        first_target = (job.get('targets') or [''])[0]
+        if first_target and _can_view_live_status_target(first_target, job.get('_bu_key')):
+            out.append(job)
+    return out
+
+
+def _live_status_group_join_url(group_name, scope):
+    if isinstance(scope, dict):
+        explicit = scope.get('join_url') or scope.get('request_url') or scope.get('access_url')
+        if explicit:
+            return str(explicit)
+    return 'https://groups.qualcomm.com/groups/' + str(group_name or '').strip()
+
+
+def _live_status_access_groups_catalog(all_target_opts=None):
+    """Public landing-page catalog of viewer groups and what they unlock."""
+    cfg = LIVE_STATUS_VIEWER_GROUP_ACCESS or {}
+    if not isinstance(cfg, dict) or not cfg:
+        return []
+    all_target_opts = all_target_opts or _all_targets_for_ui()
+    by_target_upper = {str(r.get('target') or '').upper(): r for r in all_target_opts}
+    business_units = get_business_units() or {}
+    out = []
+    for group_name, scope in sorted(cfg.items(), key=lambda item: str(item[0]).lower()):
+        group_name = str(group_name or '').strip()
+        if not group_name:
+            continue
+        if isinstance(scope, (list, tuple, set, str)):
+            label = group_name
+            bus_scope = _norm_access_list(scope)
+            target_scope = set()
+            pattern_scope = set()
+            all_scope = False
+        elif isinstance(scope, dict):
+            label = str(scope.get('label') or scope.get('display_name') or group_name).strip()
+            all_scope = bool(scope.get('all'))
+            bus_scope = _norm_access_list(scope.get('bus') or scope.get('bu') or scope.get('business_units'))
+            target_scope = _norm_access_list(scope.get('targets') or scope.get('target'))
+            pattern_scope = _scope_target_patterns(scope)
+        else:
+            continue
+        if all_scope or '*' in bus_scope or 'ALL' in bus_scope or '*' in target_scope or 'ALL' in target_scope or '*' in pattern_scope or 'ALL' in pattern_scope:
+            bus_scope = {str(k).upper() for k in business_units.keys() if str(k).upper() != 'WEEKLY_QIPL_REPORTS'}
+            target_scope = {str(r.get('target') or '').upper() for r in all_target_opts if r.get('target')}
+            pattern_scope = set()
+
+        bus_rows = []
+        for bu_key in sorted(bus_scope):
+            if bu_key == 'WEEKLY_QIPL_REPORTS':
+                continue
+            bu_info = business_units.get(bu_key) or business_units.get(bu_key.upper()) or {}
+            bus_rows.append({
+                'key': bu_key,
+                'name': (bu_info or {}).get('display_name') or bu_key,
+                'url': url_for('live_status_publish_bp.landing', bu_key=bu_key),
+            })
+
+        matched_target_uppers = set(target_scope)
+        for row in all_target_opts:
+            target = str(row.get('target') or '')
+            target_upper = target.upper()
+            if any(pattern and pattern in target_upper for pattern in pattern_scope):
+                matched_target_uppers.add(target_upper)
+
+        target_rows = []
+        for target_upper in sorted(matched_target_uppers):
+            row = by_target_upper.get(target_upper)
+            target = (row or {}).get('target') or target_upper
+            bu_key = str((row or {}).get('bu_key') or get_bu_for_target(target) or 'TARGET').upper()
+            target_rows.append({
+                'name': target,
+                'bu_key': bu_key,
+                'bu_name': (row or {}).get('bu_name') or bu_key,
+                'url': url_for('live_status_publish_bp.live_status_target_by_bu', bu_key=bu_key, target_name=target),
+            })
+        out.append({
+            'label': label,
+            'group': group_name,
+            'join_url': _live_status_group_join_url(group_name, scope),
+            'bus': bus_rows,
+            'targets': target_rows[:12],
+            'target_count': len(target_rows),
+            'patterns': sorted(pattern_scope),
+        })
+
+    return out
+
 
 
 def _all_targets_for_ui():
@@ -479,12 +681,8 @@ def meta_jiras_json(target_name, meta_id):
             conn.close()
 
 
-@live_status_publish_bp.route('/pdt/<target_name>/ext_status')
-@live_status_publish_bp.route('/pdt/<target_name>/ext-status')
-def pdt_target_ext_status(target_name):
-    """Single target page — uses live_status_publish_edit.html.
-    Works for both published and draft jobs.
-    """
+def _render_target_status_page(target_name, initial_tab=None):
+    """Render the canonical per-target Live Status page after access is checked."""
     job = _find_published_job_for_target(target_name)
 
     if not job:
@@ -502,15 +700,19 @@ def pdt_target_ext_status(target_name):
         except Exception:
             pass
 
-    # Reuse the exact same render logic as the full published page.
-    # If an older job contains multiple targets, force this page/API context to
-    # the URL target so /pdt/<target>/ext-status is still target-specific.
     targets = [str(t or '').strip() for t in (job.get('targets') or []) if str(t or '').strip()]
     canonical_target = next((t for t in targets if t.lower() == str(target_name or '').strip().lower()), target_name)
     if canonical_target and canonical_target in targets and (not targets or targets[0] != canonical_target):
         job = dict(job)
         job['targets'] = [canonical_target] + [t for t in targets if t != canonical_target]
-    return _render_published_full_page(job, request.args.get('tab') or 'current')
+    return _render_published_full_page(job, initial_tab or request.args.get('tab') or 'current')
+
+
+@live_status_publish_bp.route('/pdt/<target_name>/ext_status')
+@live_status_publish_bp.route('/pdt/<target_name>/ext-status')
+def pdt_target_ext_status(target_name):
+    """Legacy URL. Use /live_status_view/<BU>/<target> instead."""
+    return redirect(_canonical_target_edit_url(target_name))
 
 
 @live_status_publish_bp.route('/pdt/live_status')
@@ -522,12 +724,14 @@ def landing():
     TARGET_GROUP users get editor controls (Add Job / Manage Jobs). Other
     authenticated users see the same BU -> target published-report navigation,
     without editor controls.
-    """
+        """
     requested_target = (request.args.get('target') or request.args.get('target_name') or '').strip()
     if requested_target:
         if _target_group_access():
             return redirect(_canonical_target_edit_url(requested_target))
-        return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=requested_target))
+        if not _can_view_live_status_target(requested_target):
+            return redirect(url_for('live_status_publish_bp.landing'))
+        return redirect(_canonical_target_edit_url(requested_target))
     can_edit = _target_group_access()
 
     # All published jobs — both editor and viewer see the same BU→target navigation.
@@ -538,7 +742,7 @@ def landing():
 
     hidden_bus = {'WEEKLY_QIPL_REPORTS', 'HWPDT'}
 
-    # Annotate every job with BU info (needed for admin table and bu_list)
+        # Annotate every job with BU info (needed for admin table and bu_list)
     for job in all_jobs:
         first_target = (job.get('targets') or [''])[0]
         info = target_to_bu.get(first_target, {})
@@ -546,9 +750,11 @@ def landing():
         job['_bu_name'] = info.get('bu_name') or job['_bu_key']
         job['_job_type'] = _job_type(job)
 
-    # BU list: editors see published + draft, viewers see only published
+    visible_jobs = _filter_live_status_jobs_for_current_user(all_jobs, can_edit=can_edit)
+
+    # BU list: editors see published + draft, scoped viewers see only their published jobs
     seen_bus = {}
-    for job in all_jobs:
+    for job in visible_jobs:
         if job.get('status') not in ('published', 'draft') if can_edit else job.get('status') != 'published':
             continue
         bk = job['_bu_key']
@@ -559,7 +765,7 @@ def landing():
     # Build per-BU target data for JS (published + draft for editors)
     visible_statuses = ('published', 'draft') if can_edit else ('published',)
     bu_targets_js = {}
-    for job in all_jobs:
+    for job in visible_jobs:
         if job.get('status') not in visible_statuses:
             continue
         bk = job['_bu_key']
@@ -585,16 +791,25 @@ def landing():
         }
         bu_targets_js.setdefault(bk, []).append(entry)
 
+        viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
+    auto_open_bu = ''
+    if not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
+        auto_open_bu = bu_list[0][0]
+
     return render_template(
         'live_status_publish_landing.html',
-        jobs=all_jobs,
+        jobs=visible_jobs,
         bu_list=bu_list,
         bu_targets_js=bu_targets_js,
         target_options=all_target_opts,
         preselected_target=requested_target,
         preselected_bu=(request.args.get('bu_key') or '').strip(),
         can_edit=can_edit,
+        access_groups=[] if can_edit else _live_status_access_groups_catalog(all_target_opts),
+        auto_open_bu=auto_open_bu,
+
     )
+
 
 
 
@@ -628,11 +843,10 @@ def create_job_view():
 @live_status_publish_bp.route('/live_status_view/target/<target_name>')
 @login_required
 def open_target_workspace(target_name):
-    # Backward-compatible target shortcut. Editors land on the canonical Current Report
-    # workspace; viewers land on the published read-only report.
+    """Backward-compatible target shortcut to the canonical BU/target page."""
     if _target_group_access():
         return redirect(_canonical_target_editor_url(target_name))
-    return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name))
+    return redirect(_canonical_target_edit_url(target_name))
 
 
 @live_status_publish_bp.route('/live_status_view/<job_id>/edit')
@@ -649,6 +863,7 @@ def edit_job(job_id):
     return _render_current_report_editor(job)
 
 
+@live_status_publish_bp.route('/live_status/<bu_key>/<target_name>')
 @live_status_publish_bp.route('/live_status_view/<bu_key>/<target_name>')
 @login_required
 def live_status_target_by_bu(bu_key, target_name):
@@ -661,22 +876,55 @@ def live_status_target_by_bu(bu_key, target_name):
         job = _find_existing_single_target_job(target_name, 'CRM') or _find_published_job_for_target(target_name)
         if job:
             return _render_current_report_editor(job)
-    return pdt_target_ext_status(target_name)
+    if not _can_view_live_status_target(target_name, bu_key):
+        return render_template(
+            'coming_soon_template.html',
+            title='Live Status',
+            message='You do not have access to this target. Request the listed Live Status viewer group from the landing page.'
+        ), 403
+    return _render_target_status_page(target_name)
 
 
 @live_status_publish_bp.route('/live_status_view/<job_id>')
 @login_required
 def view_job(job_id):
-    """Legacy job-id route. Editors redirect to the canonical target workspace."""
-    job = get_job(job_id)
+    """Legacy one-segment route.
+
+    Prefer target/BU navigation. Only treat the segment as a legacy job id if a
+    matching job exists; otherwise avoid exposing any job-id wording in the UI.
+    """
+    segment = str(job_id or '').strip()
+    bu_key = segment.upper()
+    business_units = get_business_units() or {}
+    if bu_key in {str(k).upper() for k in business_units.keys()}:
+        return redirect(url_for('live_status_publish_bp.landing', bu_key=bu_key))
+
+    # If the segment is actually a target name, send users to the canonical
+    # /live_status_view/<BU>/<target> URL.
+    target_opt = _find_target_option(segment)
+    if target_opt:
+        return redirect(url_for(
+            'live_status_publish_bp.live_status_target_by_bu',
+            bu_key=str(target_opt.get('bu_key') or get_bu_for_target(segment) or 'TARGET').upper(),
+            target_name=target_opt.get('target') or segment,
+        ))
+
+    job = get_job(segment)
     if not job:
-        return render_template('coming_soon_template.html', title='Live Status', message='Job not found.'), 404
+        return redirect(url_for('live_status_publish_bp.landing'))
     target_name = (job.get('targets') or [''])[0]
+
     if target_name and _target_group_access():
         return redirect(_canonical_target_editor_url(target_name))
+    if target_name and not _can_view_live_status_target(target_name):
+        return render_template(
+            'coming_soon_template.html',
+            title='Live Status',
+            message='You do not have access to this target.'
+        ), 403
     if job.get('status') == 'published' and job.get('public_token'):
         if target_name:
-            return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name))
+            return redirect(_canonical_target_edit_url(target_name))
         return redirect(url_for('live_status_publish_bp.published_view', public_token=job['public_token']))
     return render_template('coming_soon_template.html', title='Live Status', message='This live status view is not yet published.'), 404
 
@@ -691,7 +939,11 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     if _is_core_deck_target(primary_target) and str(initial_tab or '').lower() == 'current' and _job_type(job) != 'ENG':
         initial_tab = 'core'
     embedded_core_deck = str(request.args.get('embed') or '').lower() in ('1', 'true', 'yes') and str(initial_tab or '').lower() == 'core'
-    published_rows = job.get('published_rows') or job.get('draft_rows') or []
+    can_edit = current_user.is_authenticated and _target_group_access()
+
+    # Editors work from draft_rows. Viewers see only the last explicitly
+    # published snapshot; never fall back to draft rows on a published page.
+    published_rows = (job.get('draft_rows') if can_edit else job.get('published_rows')) or []
     running_rows = _published_display_rows(
         [r for r in published_rows if str(r.get('run_status','')).lower() == 'running'],
         job.get('published_at')
@@ -699,13 +951,14 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     all_rows = _published_display_rows(published_rows, job.get('published_at'))
     is_compute_mtbf = (get_bu_for_target(primary_target) or '').upper() == 'COMPUTE'
     is_auto_bu = _is_core_deck_target(primary_target)
-    can_edit = current_user.is_authenticated and _target_group_access()
+
+    visible_tabs = ['core'] if is_auto_bu else []
     if _job_type(job) == 'ENG':
         initial_tab = 'current'
-    visible_tabs = ['core'] if is_auto_bu else []
     visible_tabs += ['current', 'mtbf']
     if not _job_type(job) == 'ENG':
-        visible_tabs += ['weekly', 'openjiras']
+        visible_tabs += ['weekly', 'opencrs', 'openjiras', 'buildreport']
+
     return render_template(
         'live_status_publish_edit.html',
         job=job,
@@ -718,8 +971,8 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         is_compute_mtbf=is_compute_mtbf,
         is_auto_bu=is_auto_bu,
         is_eng_job=_job_type(job) == 'ENG',
-        can_edit=can_edit,
-        initial_tab=initial_tab if initial_tab in ('core', 'current', 'mtbf', 'weekly') else 'current',
+                can_edit=can_edit,
+        initial_tab=initial_tab if initial_tab in ('core', 'current', 'mtbf', 'weekly', 'opencrs', 'openjiras', 'buildreport') else 'current',
         mtbf_only=(initial_tab == 'mtbf' and _job_type(job) != 'ENG'),
         embedded_core_deck=embedded_core_deck,
         suppress_top_redirect=suppress_top_redirect,
@@ -738,7 +991,7 @@ def published_view(public_token):
         return render_template('coming_soon_template.html', title='Published Live Status', message='This report is not yet published.'), 404
     target_name = (job.get('targets') or [''])[0]
     if target_name:
-        return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name))
+        return redirect(_canonical_target_edit_url(target_name))
     return _render_published_full_page(job, request.args.get('tab') or 'current')
 
 
@@ -749,7 +1002,7 @@ def published_view_current_tab(public_token):
         return render_template('coming_soon_template.html', title='Published Live Status', message='Published view not found.'), 404
     primary_target = (job.get('targets') or [''])[0]
     if primary_target:
-        return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=primary_target))
+        return redirect(_canonical_target_edit_url(primary_target))
     return _render_published_full_page(job, 'current')
 
 
@@ -760,7 +1013,7 @@ def published_view_mtbf_tab(public_token):
         return render_template('coming_soon_template.html', title='Published Live Status', message='Published view not found.'), 404
     target_name = (job.get('targets') or [''])[0]
     if target_name:
-        return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name))
+        return redirect(_canonical_target_edit_url(target_name))
     return _render_published_full_page(job, 'current' if _job_type(job) == 'ENG' else 'mtbf')
 
 
@@ -771,13 +1024,12 @@ def published_view_weekly_tab(public_token):
         return render_template('coming_soon_template.html', title='Published Live Status', message='Published view not found.'), 404
     target_name = (job.get('targets') or [''])[0]
     if target_name:
-        return redirect(url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name))
+        return redirect(_canonical_target_edit_url(target_name))
     return _render_published_full_page(job, 'current' if _job_type(job) == 'ENG' else 'weekly')
 
 
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/mtbf_dashboard', methods=['GET'])
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/mtbf_dashboard', methods=['GET'])
 def api_published_mtbf_dashboard(job_id=None, target_name=None):
     """Public API: return DB-backed MTBF trend/table for a target."""
     if target_name is not None:
@@ -854,8 +1106,9 @@ def api_published_mtbf_dashboard(job_id=None, target_name=None):
             })
         return series, details
 
-    saved_rows = job.get('published_rows') or job.get('draft_rows') or []
+        saved_rows = (job.get('draft_rows') if current_user.is_authenticated and _target_group_access() else job.get('published_rows')) or []
     saved_series, saved_details = _saved_mtbf_rows_from_job(saved_rows)
+
     if saved_series or saved_details:
         return jsonify({
             'success': True,
@@ -1034,7 +1287,6 @@ def api_target_auto_mtbf(target_name):
 
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/excel_rows', methods=['GET'])
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/excel_rows', methods=['GET'])
 def api_published_excel_rows(job_id=None, target_name=None):
     """Public API: return MTBF Excel rows for a target."""
     if target_name is not None:
@@ -1054,7 +1306,6 @@ def api_published_excel_rows(job_id=None, target_name=None):
 
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/weekly_full', methods=['GET'])
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/weekly_full', methods=['GET'])
 def api_published_weekly_full(job_id=None, target_name=None):
     """Public API: full weekly raw data for a target.
     Returns:
@@ -1096,11 +1347,13 @@ def api_published_weekly_full(job_id=None, target_name=None):
 
         if from_arg and to_arg:
             from_dt = _datetime.strptime(from_arg[:10], '%Y-%m-%d').date()
-            to_dt   = _datetime.strptime(to_arg[:10],   '%Y-%m-%d').date()
+            to_dt = _datetime.strptime(to_arg[:10], '%Y-%m-%d').date()
         else:
-            today   = _date.today()
-            to_dt   = today
-            from_dt = today - _td(days=6)
+            today = _date.today()
+            # Default published weekly report is the last completed Monday-Sunday window.
+            offset = 7 if today.weekday() == 6 else today.weekday() + 1
+            to_dt = today - _td(days=offset)
+            from_dt = to_dt - _td(days=6)
 
         from_s = norm_ymd(from_dt)
         to_s   = norm_ymd(to_dt)
@@ -1111,7 +1364,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             if (cached_builds == selected_builds
                     and str(cached_payload.get('from_date') or '') == from_s
                     and str(cached_payload.get('to_date') or '') == to_s
-                    and int(cached_payload.get('area_source_version') or 0) >= 3):
+                    and int(cached_payload.get('area_source_version') or 0) >= 6):
                 return jsonify(cached_payload)
 
         schema = get_schema_for_target(target)
@@ -1146,7 +1399,165 @@ def api_published_weekly_full(job_id=None, target_name=None):
                 return set()
 
         def _norm_id(v):
-            return str(v or '').strip().upper().replace(' ', '')
+            raw = str(v or '').strip().upper()
+            if raw.endswith('.0'):
+                raw = raw[:-2]
+            return re.sub(r'[\s\-_,.]', '', raw)
+
+        def _cr_digits(v):
+            m = re.search(r'(\d{5,9})', str(v or ''))
+            return m.group(1) if m else ''
+
+        def _cr_lookup_keys(v):
+            raw = _norm_id(v)
+            if not raw:
+                return set()
+            keys = {raw}
+            digits = _cr_digits(v) or _cr_digits(raw)
+            if digits:
+                keys.add(digits)
+                keys.add(f'CR{digits}')
+            if raw.startswith('CR') and raw[2:]:
+                keys.add(raw[2:])
+            return {k for k in keys if k}
+
+        def _fetch_unique_cr_rows_by_ids(cr_ids):
+            """Fetch and enrich authoritative CR details from *_unique_crs.
+
+            Build-selected reports can reference CRs outside the current week,
+            so this lookup ignores the date window. If the matching row is a
+            duplicate (for example cr_occurrence = DUP), refill its CR details
+            from the related mapped_cr row in unique_crs.
+            """
+            keys = set()
+            for cr_id in cr_ids or []:
+                keys.update(_cr_lookup_keys(cr_id))
+            if not keys:
+                return []
+            ucols = _table_cols(unique_tbl)
+            key_cols = [c for c in ('mapped_cr', 'cr', 'cr_number') if c in ucols]
+            if not key_cols:
+                return []
+
+            def _col(name, alias=None):
+                alias = alias or name
+                return f'`{name}` AS `{alias}`' if name in ucols else f'NULL AS `{alias}`'
+
+            def _sql_norm_expr(col):
+                expr = f"UPPER(TRIM(`{col}`))"
+                for old in (' ', '-', '_', ',', '.0', '.'):
+                    expr = f"REPLACE({expr}, '{old}', '')"
+                return expr
+
+            last_inst_col = 'jira_date__last_instance' if 'jira_date__last_instance' in ucols else ('last_instance' if 'last_instance' in ucols else ('jira_date' if 'jira_date' in ucols else ''))
+            current_month_col = next((c for c in ('cr_____current_month', 'current_month_occurrence', 'current_month_occurrence#', 'current_month_count', 'current_occurrence', 'current_month') if c in ucols), '')
+            previous_month_col = next((c for c in ('cr_____previous_month', 'previous_month_occurrence', 'previous_month_occurrence#', 'previous_month_count', 'previous_occurrence', 'previous_month') if c in ucols), '')
+            total_builds_col = next((c for c in ('cr_reported_build_count', 'total_builds_cr_reported', 'total_no_of_builds_cr_reported', 'CR_Reported_Build_count', 'total_build_count') if c in ucols), '')
+            cr_candidates = [c for c in ('mapped_cr', 'cr', 'cr_number') if c in ucols]
+            cr_expr = "COALESCE(" + ', '.join([f"NULLIF(TRIM(`{c}`), '')" for c in cr_candidates]) + ") AS `cr`" if cr_candidates else "NULL AS `cr`"
+            select_parts = [
+                cr_expr,
+                _col('mapped_cr'),
+                _col('cr_number'),
+                _col('cr_occurrence', 'overall_cr_occurrence'),
+                _col('cr_age', 'overall_age'),
+                _col('cr_title'),
+                _col('cr_area'),
+                _col('cr_subsystem'),
+                _col('cr_functionality'),
+                _col('built_date', 'cr_date'),
+                _col('cr_status'),
+                _col('cr_category'),
+                _col('jira_date'),
+                f'`{last_inst_col}` AS `last_instance`' if last_inst_col else 'NULL AS `last_instance`',
+                f'`{current_month_col}` AS `current_month_occurrence`' if current_month_col else 'NULL AS `current_month_occurrence`',
+                f'`{previous_month_col}` AS `previous_month_occurrence`' if previous_month_col else 'NULL AS `previous_month_occurrence`',
+                f'`{total_builds_col}` AS `total_builds_cr_reported`' if total_builds_col else 'NULL AS `total_builds_cr_reported`',
+            ]
+            order_col = last_inst_col or key_cols[0]
+
+            def _query_unique_rows(wanted_keys):
+                wanted_keys = sorted({k for k in wanted_keys if k})
+                if not wanted_keys:
+                    return []
+                placeholders = ','.join(['%s'] * len(wanted_keys))
+                where_parts = [f"{_sql_norm_expr(col)} IN ({placeholders})" for col in key_cols]
+                flat_params = tuple(x for _ in where_parts for x in wanted_keys)
+                cur.execute(
+                    f"SELECT {', '.join(select_parts)} FROM {unique_tbl} "
+                    f"WHERE {' OR '.join(where_parts)} "
+                    f"ORDER BY `{order_col}` DESC",
+                    flat_params,
+                )
+                return _ser_rows(cur.fetchall() or [])
+
+            def _row_keys(row):
+                row_keys = set()
+                for ck in ('cr', 'mapped_cr', 'cr_number'):
+                    row_keys.update(_cr_lookup_keys((row or {}).get(ck)))
+                return row_keys
+
+            def _is_dup_row(row):
+                hay = ' '.join(str((row or {}).get(k) or '') for k in (
+                    'overall_cr_occurrence', 'cr_occurrence', 'cr_category', 'cr_status'
+                )).strip().upper()
+                return bool(re.search(r'\bDUP(?:LICATE)?\b', hay))
+
+            rows = _query_unique_rows(keys)
+
+            # If the selected CR row is a duplicate, unique_crs normally stores
+            # the authoritative details on the related mapped_cr. Fetch that row
+            # too, then copy its area/subsystem/functionality/status/title/etc.
+            related_keys = set()
+            for row in rows:
+                if not _is_dup_row(row):
+                    continue
+                self_keys = _cr_lookup_keys(row.get('cr') or row.get('cr_number'))
+                mapped_keys = _cr_lookup_keys(row.get('mapped_cr'))
+                if mapped_keys and mapped_keys != self_keys:
+                    related_keys.update(mapped_keys)
+            if related_keys:
+                existing_keys = set()
+                for row in rows:
+                    existing_keys.update(_row_keys(row))
+                rows.extend(_query_unique_rows(related_keys - existing_keys))
+
+            by_key = {}
+            for row in rows:
+                for key in _row_keys(row):
+                    by_key.setdefault(key, row)
+
+            fill_fields = (
+                'cr_area', 'cr_subsystem', 'cr_functionality', 'cr_status',
+                'cr_category', 'cr_title', 'overall_age', 'cr_date', 'jira_date',
+                'last_instance', 'current_month_occurrence',
+                'previous_month_occurrence', 'total_builds_cr_reported',
+            )
+            for row in rows:
+                if not _is_dup_row(row):
+                    continue
+                related = None
+                for key in _cr_lookup_keys(row.get('mapped_cr')):
+                    candidate = by_key.get(key)
+                    if candidate is not row:
+                        related = candidate
+                        break
+                if not related:
+                    continue
+                for field in fill_fields:
+                    if str(related.get(field) or '').strip():
+                        row[field] = related.get(field)
+                row['duplicate_source_cr'] = row.get('cr') or row.get('cr_number') or ''
+                row['duplicate_mapped_cr'] = related.get('cr') or row.get('mapped_cr') or ''
+                row['duplicate_details_refilled'] = True
+
+            seen = {}
+            for row in rows:
+                matched_keys = _row_keys(row) & keys
+                matched = next(iter(sorted(matched_keys)), '') or _norm_id(row.get('cr') or row.get('mapped_cr') or row.get('cr_number'))
+                if matched and matched not in seen:
+                    seen[matched] = row
+            return list(seen.values())
 
         def _row_build(row):
             return str((row or {}).get('metabuild') or '').strip()
@@ -1203,7 +1614,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             'mapped_cr', 'cr', 'cr_number',
             'cr_area', 'area', 'ChangeRequestParticipant.Area',
             'cr_subsystem', 'subsystem', 'ChangeRequestParticipant.Subsystem',
-                        'cr_function', 'cr_functionality', 'functionality', 'ChangeRequestParticipant.Functionality',
+            'cr_function', 'cr_functionality', 'functionality', 'ChangeRequestParticipant.Functionality',
         ]
 
         def _build_where_for_selected(mb_col):
@@ -1263,7 +1674,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             except Exception as e:
                 logger.warning('[WEEKLY_FULL] openjiras table error: %s', e)
 
-                # distinct build IDs seen in jira rows before applying the saved selection
+        # distinct build IDs seen in jira rows before applying the saved selection
         all_jira_rows_all = jira_rows + open_jira_rows
         seen_builds = {}
         for r in all_jira_rows_all:
@@ -1298,45 +1709,62 @@ def api_published_weekly_full(job_id=None, target_name=None):
                     cv = _norm_id(jr.get(ck))
                     if cv:
                         selected_cr_ids.add(cv)
-        # ── 2. CR rows from unique_crs (date-filtered) ──────────────────────
+
+        # ── 2. CR rows from unique_crs ──────────────────────────────────────
+        # Start with date-window rows, then for selected builds enrich every
+        # mapped CR directly from the full unique_crs table by CR id. The second
+        # lookup is required because build-selected JIRAs can map to older CRs
+        # outside this week's unique_crs date window; the weekly CR table must
+        # still show the authoritative CR Area/Subsystem/Functionality.
         cr_rows = fetch_weekly_crs(conn, schema, target, from_dt, to_dt)
         if selected_cr_ids:
-            cr_rows = [r for r in cr_rows if _norm_id(r.get('cr') or r.get('mapped_cr') or r.get('cr_number')) in selected_cr_ids]
+            wanted_keys = set()
+            for cr_id in selected_cr_ids:
+                wanted_keys.update(_cr_lookup_keys(cr_id))
+            detail_rows = _fetch_unique_cr_rows_by_ids(selected_cr_ids)
+            by_cr = {}
+            for r in detail_rows + cr_rows:
+                row_keys = set()
+                for ck in ('cr', 'mapped_cr', 'cr_number'):
+                    row_keys.update(_cr_lookup_keys(r.get(ck)))
+                matching = row_keys & wanted_keys
+                if matching:
+                    key = sorted(matching)[0]
+                    by_cr.setdefault(key, r)
+            cr_rows = list(by_cr.values())
         elif selected_builds:
             # Some JIRA tables do not carry a CR id. In that case, keep the
             # selected build's JIRA/open-JIRA rows exact and leave CR rows
-            # unfiltered rather than showing an empty CR report.
+            # date-filtered rather than fabricating CR details.
             logger.info('[WEEKLY_FULL] selected builds have no CR mapping columns; CR rows left date-filtered')
 
         # ── 3. Pie aggregations ──────────────────────────────────────────────
-        status_ctr = Counter((r.get('cr_status') or 'Unknown').strip() for r in cr_rows)
-        area_ctr   = Counter((r.get('cr_area')   or 'Unknown').strip() for r in cr_rows)
+        status_ctr = Counter(str(r.get('cr_status') or '').strip() for r in cr_rows if str(r.get('cr_status') or '').strip())
+        area_ctr   = Counter(str(r.get('cr_area')   or '').strip() for r in cr_rows if str(r.get('cr_area') or '').strip())
         pie_status = [{'name': k, 'y': v} for k, v in sorted(status_ctr.items(), key=lambda x: x[0].lower())]
         pie_area   = [{'name': k, 'y': v} for k, v in sorted(area_ctr.items(),   key=lambda x: x[0].lower())]
 
         # ── 4. Per-build CR/JIRA area matrix ────────────────────────────────
         # Area source rule:
-        #   - Open/unmapped JIRAs: title-based bucket.
+        #   - Open/unmapped JIRAs: title-based bucket when available.
         #   - CRs / mapped JIRAs: Orbit CR area from unique_crs.cr_area.
-        #   - No signal: Unknown.
+        #   - No signal: blank (do not fabricate Unknown).
         cr_lookup = {}
         for r in cr_rows:
             for ck in ('cr', 'mapped_cr', 'cr_number'):
-                key = _norm_id(r.get(ck))
-                if key:
+                for key in _cr_lookup_keys(r.get(ck)):
                     cr_lookup[key] = r
 
         def _area_for_jira(row):
             # If this JIRA is mapped to a CR, use Orbit's CR Area from unique_crs.
             for ck in ('mapped_cr', 'cr', 'cr_number'):
-                cr_row = cr_lookup.get(_norm_id(row.get(ck)))
-                if cr_row:
-                    cr_area = str(cr_row.get('cr_area') or '').strip()
-                    return cr_area or 'Unknown'
+                for lookup_key in _cr_lookup_keys(row.get(ck)):
+                    cr_row = cr_lookup.get(lookup_key)
+                    if cr_row:
+                        return str(cr_row.get('cr_area') or '').strip()
 
-            # Open/unmapped JIRAs are bucketed from title only.
-            title_area = _area_from_open_jira_title(row.get('jira_title'))
-            return title_area or 'Unknown'
+            # Open/unmapped JIRAs are bucketed from title only when a bucket is clear.
+            return _area_from_open_jira_title(row.get('jira_title'))
 
         build_area_matrix = {}
         area_totals = Counter()
@@ -1345,13 +1773,16 @@ def api_published_weekly_full(job_id=None, target_name=None):
             if not mb:
                 continue
             area = _area_for_jira(r)
+            if not area:
+                continue
             build_area_matrix.setdefault(mb, {})[area] = build_area_matrix.setdefault(mb, {}).get(area, 0) + 1
             area_totals[area] += 1
 
         if not area_totals:
             for r in cr_rows:
-                area = (r.get('cr_area') or 'Unknown').strip() or 'Unknown'
-                area_totals[area] += 1
+                area = str(r.get('cr_area') or '').strip()
+                if area:
+                    area_totals[area] += 1
 
         areas = [a for a, _ in area_totals.most_common()]
         for mb in build_ids:
@@ -1389,7 +1820,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             'selection_updated_at': weekly_selection.get('updated_at'),
             'build_area_matrix': build_area_matrix,
             'areas':          areas,
-            'area_source_version': 3,
+            'area_source_version': 6,
             'pie_status':     pie_status,
             'pie_area':       pie_area,
             'counts': {
@@ -1419,33 +1850,156 @@ def api_published_weekly_full(job_id=None, target_name=None):
         return jsonify({'success': False, 'message': str(exc)}), 500
 
 
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/weekly_selection', methods=['GET', 'POST'])
-@login_required
-def api_published_weekly_selection(job_id):
-    """Persist/retrieve the weekly build selection used by the published view."""
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    if request.method == 'GET':
-        return jsonify({'ok': True, 'selection': job.get('weekly_report_selection') or {}})
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    selected_builds = [str(b or '').strip() for b in (data.get('selected_builds') or []) if str(b or '').strip()]
-    cache = data.get('cache') if isinstance(data.get('cache'), dict) else {}
-    updated = set_weekly_report_selection(job_id, {
-        'selected_builds': selected_builds,
-        'from_date': data.get('from_date') or cache.get('from_date') or '',
-        'to_date': data.get('to_date') or cache.get('to_date') or '',
-        'updated_at': _utc_now(),
-        'updated_by': getattr(current_user, 'id', 'unknown'),
-        'cache': cache,
-    })
-    return jsonify({'ok': True, 'selection': (updated or {}).get('weekly_report_selection') or {}})
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/open_crs_full', methods=['GET'])
+def api_published_open_crs_full(job_id=None, target_name=None):
+    """Public API: unique open/analysis CR table for the published Live Status page."""
+    if target_name is not None:
+        job, err = _get_target_report_job_for_api(target_name)
+    else:
+        job, err = _get_published_job_for_api(job_id)
+    if err:
+        return jsonify(err[0]), err[1]
+    target = (job.get('targets') or [''])[0]
+    domain_filter = str(request.args.get('domain') or '').strip().upper()
+    if domain_filter not in {'ADAS', 'FLEX', 'IVI'}:
+        domain_filter = ''
+    try:
+        from datetime import date as _date, datetime as _datetime
+        from dashboard_common import get_mysql_connection_db, get_schema_for_target, get_target_info
 
+        schema = (get_schema_for_target(target) or '').strip('`')
+        info = get_target_info(target) or {}
+        prefix = str(info.get('db_prefix') or target or '').strip('`').lower()
+        if not schema or not prefix:
+            return jsonify({'success': False, 'message': 'Target schema/prefix not found', 'rows': []}), 404
+        conn = get_mysql_connection_db(bu_key=schema)
+        if not conn:
+            return jsonify({'success': False, 'message': 'DB connection error', 'rows': []}), 500
+        cur = conn.cursor(dictionary=True)
 
+        def _tbl_exists(table_name):
+            cur.execute('SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1', (schema, table_name))
+            return cur.fetchone() is not None
+
+        table_name = f'{prefix}_unique_crs'
+        if not _tbl_exists(table_name):
+            return jsonify({'success': True, 'target': target, 'rows': [], 'message': f'Table not found: {schema}.{table_name}'})
+        tbl = f'`{schema}`.`{table_name}`'
+        cur.execute(f'SHOW COLUMNS FROM {tbl}')
+        cols = {r.get('Field') for r in (cur.fetchall() or []) if r.get('Field')}
+
+        def _norm_col(value):
+            return re.sub(r'[^a-z0-9]+', '', str(value or '').lower())
+
+        by_norm = {_norm_col(c): c for c in cols}
+
+        def _first(candidates):
+            for cand in candidates:
+                hit = by_norm.get(_norm_col(cand))
+                if hit:
+                    return hit
+            return ''
+
+        def _sel(candidates, alias):
+            col = _first(candidates)
+            return (f'`{col}` AS `{alias}`' if col else f'NULL AS `{alias}`'), col
+
+        cr_expr, cr_col = _sel(['mapped_cr', 'mapped_crs', 'Mapped CRs', 'Mapped CR', 'cr', 'cr_number', 'stability_ticket'], 'cr')
+        raw_expr, raw_col = _sel(['cr', 'cr_number', 'stability_ticket'], 'raw_cr')
+        title_expr, title_col = _sel(['cr_title', 'jira_title', 'title', 'summary'], 'cr_title')
+        area_expr, area_col = _sel(['cr_area', 'area', 'ChangeRequestParticipant.Area'], 'cr_area')
+        sub_expr, sub_col = _sel(['cr_subsystem', 'subsystem', 'ChangeRequestParticipant.Subsystem'], 'cr_subsystem')
+        func_expr, func_col = _sel(['cr_functionality', 'cr_function', 'functionality', 'ChangeRequestParticipant.Functionality'], 'cr_functionality')
+        status_expr, status_col = _sel(['cr_status', 'status', 'final_status'], 'cr_status')
+        cat_expr_sel, cat_col = _sel(['cr_category', 'category', 'CR Category'], 'cr_category')
+        age_expr, age_col = _sel(['cr_age', 'overall_age', 'age'], 'cr_age')
+        first_expr, first_col = _sel(['first_seen_date', 'first_seen', 'jira_date__first_instance', 'jira_date', 'created_date', 'cr_date', 'built_date'], 'first_instance')
+        last_expr, last_col = _sel(['last_seen_date', 'last_seen', 'jira_date__last_instance', 'last_instance', 'updated_date', 'jira_date'], 'last_instance')
+        notes_expr, notes_col = _sel(['latest_cr_notes', 'latest_notes', 'latest_comment', 'latest_comments', 'analysis', 'debug_notes', 'cr_notes', 'notes', 'comment'], 'latest_cr_notes')
+        occ_expr, occ_col = _sel(['cr_occurrence', 'overall_cr_occurrence', 'jira_count', 'cr_____current_month', 'current_month_occurrence'], 'occurrence')
+        priority_expr, priority_col = _sel(['cr_priority', 'priority', 'severity', 'Severity'], 'priority')
+        if not cr_col:
+            return jsonify({'success': True, 'target': target, 'rows': [], 'message': 'No CR column found'})
+
+        def _sql_norm(col):
+            return f"LOWER(REPLACE(REPLACE(REPLACE(TRIM(`{col}`), ' ', ''), '_', ''), '-', ''))"
+
+        where = [f"NULLIF(TRIM(`{cr_col}`), '') IS NOT NULL"]
+        # Open CRs tab must be driven strictly by CR Status. Do not include
+        # category-based rows (undisposed/no-SIR/image) or other statuses like
+        # new/in-progress; the user requested only Open / Analysis CR statuses.
+        if not status_col:
+            return jsonify({'success': True, 'target': target, 'rows': [], 'message': 'No CR status column found'})
+        where.append(f"{_sql_norm(status_col)} IN ('open','analysis','inanalysis')")
+        select_sql = ', '.join([cr_expr, raw_expr, title_expr, area_expr, sub_expr, func_expr, status_expr, cat_expr_sel, age_expr, first_expr, last_expr, notes_expr, occ_expr, priority_expr])
+        order_col = last_col or first_col or cr_col
+        cur.execute(f"SELECT {select_sql} FROM {tbl} WHERE {' AND '.join(where)} ORDER BY `{order_col}` DESC LIMIT 5000")
+        raw_rows = cur.fetchall() or []
+
+        def _ser(v):
+            if isinstance(v, (_datetime, _date)):
+                return v.strftime('%Y-%m-%d %H:%M:%S') if isinstance(v, _datetime) else v.isoformat()
+            return '' if v is None else str(v)
+
+        def _cr_key(v):
+            m = re.search(r'(\d{5,9})', str(v or ''))
+            return m.group(1) if m else re.sub(r'[^A-Z0-9]+', '', str(v or '').upper())
+
+        def _domain_for(row):
+            text = ' '.join(str(row.get(k) or '') for k in ('cr_area', 'cr_subsystem', 'cr_functionality', 'cr_title', 'latest_cr_notes')).upper()
+            if any(x in text for x in ('ADAS', 'ADP', 'RIDE', 'VISION', 'CAMERA')):
+                return 'ADAS'
+            if 'FLEX' in text or re.search(r'\bFLE\b', text):
+                return 'FLEX'
+            return 'IVI' if _is_core_deck_target(target) else ''
+
+        seen = {}
+        allowed_statuses = {'open', 'analysis', 'inanalysis'}
+        for r in raw_rows:
+            row = {k: _ser(v) for k, v in dict(r).items()}
+            if re.sub(r'[^a-z0-9]+', '', str(row.get('cr_status') or '').lower()) not in allowed_statuses:
+                continue
+            key = _cr_key(row.get('cr') or row.get('raw_cr'))
+            if not key:
+                continue
+            row['domain'] = _domain_for(row)
+            if domain_filter and row['domain'] != domain_filter:
+                continue
+            row['cr_display'] = str(row.get('cr') or row.get('raw_cr') or '').strip()
+            old = seen.get(key)
+            if not old or str(row.get('last_instance') or row.get('first_instance') or '') >= str(old.get('last_instance') or old.get('first_instance') or ''):
+                seen[key] = row
+        rows = list(seen.values())
+        rows.sort(key=lambda r: (str(r.get('last_instance') or r.get('first_instance') or ''), str(r.get('cr_display') or '')), reverse=True)
+        status_counts = {}
+        area_counts = {}
+        domain_counts = {}
+        for r in rows:
+            status_counts[r.get('cr_status') or 'Unknown'] = status_counts.get(r.get('cr_status') or 'Unknown', 0) + 1
+            area_counts[r.get('cr_area') or 'Unknown'] = area_counts.get(r.get('cr_area') or 'Unknown', 0) + 1
+            if r.get('domain'):
+                domain_counts[r.get('domain')] = domain_counts.get(r.get('domain'), 0) + 1
+        return jsonify({
+            'success': True,
+            'target': target,
+            'is_auto_bu': _is_core_deck_target(target),
+            'domain': domain_filter,
+            'rows': rows,
+            'count': len(rows),
+            'status_counts': status_counts,
+            'area_counts': area_counts,
+            'domain_counts': domain_counts,
+            'source_table': f'{schema}.{table_name}',
+        })
+    except Exception as exc:
+        logger.exception('[OPEN_CRS_FULL] %s', exc)
+        return jsonify({'success': False, 'message': str(exc), 'rows': []}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/weekly_summary', methods=['GET'])
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/weekly_summary', methods=['GET'])
 def api_published_weekly_summary(job_id=None, target_name=None):
     """Public API: return weekly CR summary for a target."""
     if target_name is not None:
@@ -1600,104 +2154,9 @@ def _append_live_status_mtbf_rows(job, rows, sheet_name_override=None):
     return {'success': True, 'saved_count': appended, 'excel_path': excel_path, 'sheet_name': actual_sheet, 'header_row': best_header_row}
 
 
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/mtbf_revoke_rows', methods=['POST'])
-@login_required
-def api_save_mtbf_revoke_rows(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    data = request.get_json(force=True, silent=True) or {}
-    try:
-        result = _append_live_status_mtbf_rows(job, data.get('rows') or [], data.get('sheet_name') or None)
-        return jsonify({'ok': True, **result})
-    except Exception as exc:
-        logger.exception('[MTBF_REVOKE_SAVE] %s', exc)
-        return jsonify({'ok': False, 'error': str(exc)}), 500
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/revoke', methods=['POST'])
-@login_required
-def api_revoke_job(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    job = revoke_job(job_id, getattr(current_user, 'id', 'unknown'), data.get('reason') or '')
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    return jsonify({'ok': True, 'job': job})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/delete', methods=['POST'])
-@login_required
-def api_delete_job(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    if job.get('status') == 'published':
-        return jsonify({'ok': False, 'error': 'Published jobs cannot be deleted. Use Revoke instead.'}), 400
-    _del_tgt = (job.get('targets') or [''])[0]
-    deleted = delete_job(job_id)
-    if not deleted:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    if _del_tgt:
-        try:
-            _delete_sidecars(_del_tgt)
-        except Exception as _exc:
-            logger.warning('[DELETE JOB] Sidecar cleanup failed for %s: %s', _del_tgt, _exc)
-    return jsonify({'ok': True})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs', methods=['GET'])
-@login_required
-def api_jobs():
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    return jsonify({'ok': True, 'jobs': list_jobs()})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>', methods=['GET'])
-@login_required
-def api_job(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    return jsonify({'ok': True, 'job': job})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/save', methods=['POST'])
-@login_required
-def api_save_job(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    job = save_job_meta(job_id, data)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    return jsonify({'ok': True, 'job': job})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/rows', methods=['POST'])
-@login_required
-def api_save_job_rows(job_id):
-    """Save JSON live-layer rows (draft_rows) for a job."""
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    rows = data.get('rows') or []
-    job = save_job_rows(job_id, rows, getattr(current_user, 'id', 'unknown'))
-
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    return jsonify({'ok': True, 'job': job})
-
 
 @live_status_publish_bp.route('/api/live_status/swpdt_status', methods=['GET'])
+
 @login_required
 def api_swpdt_status():
     """Return SWPDT JSON file age, last generated_at, total jobs, and thread health."""
@@ -1817,426 +2276,4 @@ def _all_swpdt_build_rows():
     import os as _os
     from live_status_publish_service import _get_swpdt_json_path
 
-    path = _get_swpdt_json_path()
-    if not _os.path.exists(path):
-        return []
-    with open(path, 'r', encoding='utf-8') as fh:
-        payload = _json.load(fh) or {}
-    raw = payload.get('builds') if isinstance(payload, dict) else None
-    if isinstance(raw, dict):
-        return [b for b in raw.values() if isinstance(b, dict)]
-    jobs = payload.get('jobs') if isinstance(payload, dict) else None
-    if isinstance(jobs, list):
-        return [j for j in jobs if isinstance(j, dict)]
-    return []
-
-
-def _swpdt_rows_for_job(job, q='', domain='ALL', limit=300):
-    targets = job.get('targets') or []
-    primary = targets[0] if targets else ''
-    q_lower = str(q or '').strip().lower()
-    domain = str(domain or 'ALL').strip().upper()
-    is_auto = _is_core_deck_target(primary)
-
-    rows = []
-    if is_auto:
-        for item in _all_swpdt_build_rows():
-            build_id = item.get('build_id') or item.get('build') or item.get('build_name') or ''
-            build_name = _swpdt_build_tail(build_id)
-
-            if not build_name:
-                continue
-            if not _swpdt_matches_target(item, primary):
-                continue
-            row_domain = _swpdt_domain_for_build(item)
-            if row_domain not in {'ADAS', 'FLEX', 'IVI'}:
-                continue
-            if domain in {'ADAS', 'FLEX', 'IVI'} and row_domain != domain:
-                continue
-            meta_id = _swpdt_meta_from_build(build_name)
-            software_product = str(item.get('software_product') or '').strip()
-            state = str(item.get('state') or item.get('status') or item.get('run_status') or '').strip().lower()
-            run_status = 'running' if state in ('running', 'submitted', 'dispatched') else 'completed'
-            hay = ' '.join([build_name, meta_id, software_product, row_domain]).lower()
-
-            if q_lower and not (q_lower in hay or q_lower in meta_id.lower().replace('meta-', '').lstrip('0')):
-                continue
-            rows.append({
-                'meta_id': meta_id,
-                'build_name': build_name,
-                'build_full': build_name,
-                'software_product': software_product,
-                'domain': row_domain,
-                'run_status': run_status,
-                'job_count': int(item.get('job_count') or 1),
-                'device_count': int(item.get('device_count') or 0),
-                'first_submitted': str(item.get('submitted') or item.get('first_submitted') or '')[:10],
-                '_submitted_sort': str(item.get('submitted') or item.get('first_submitted') or ''),
-            })
-    else:
-        from live_status_publish_service import load_swpdt_running_builds
-        for item in load_swpdt_running_builds(primary.capitalize()):
-            build_name = _swpdt_build_tail(item.get('build_name') or item.get('build_full') or '')
-            meta_id = item.get('meta_id') or _swpdt_meta_from_build(build_name)
-            hay = ' '.join([build_name, meta_id, str(item.get('software_product') or '')]).lower()
-            if q_lower and not (q_lower in hay or q_lower in meta_id.lower().replace('meta-', '').lstrip('0')):
-                continue
-            rows.append({**item, 'meta_id': meta_id, 'build_name': build_name, 'build_full': build_name, 'domain': _swpdt_domain_for_build(item), '_submitted_sort': str(item.get('first_submitted') or '')})
-
-    dedup = {}
-    for row in rows:
-        key = str(row.get('build_name') or row.get('build_full') or '').strip().upper()
-        if not key:
-            continue
-        existing = dedup.get(key)
-        if not existing:
-            dedup[key] = row
-            continue
-        existing['job_count'] = int(existing.get('job_count') or 0) + int(row.get('job_count') or 1)
-        existing['device_count'] = int(existing.get('device_count') or 0) + int(row.get('device_count') or 0)
-        if row.get('run_status') == 'running':
-            existing['run_status'] = 'running'
-        if str(row.get('_submitted_sort') or '') > str(existing.get('_submitted_sort') or ''):
-            existing['first_submitted'] = row.get('first_submitted') or existing.get('first_submitted')
-            existing['_submitted_sort'] = row.get('_submitted_sort') or existing.get('_submitted_sort')
-
-    out = list(dedup.values())
-    out.sort(key=lambda r: (str(r.get('_submitted_sort') or r.get('first_submitted') or ''), str(r.get('build_name') or '')), reverse=True)
-    for row in out:
-        row.pop('_submitted_sort', None)
-    return out[:max(1, min(int(limit or 300), 1000))]
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/swpdt_search', methods=['GET'])
-@login_required
-def api_swpdt_search(job_id):
-    """Search/recent SWPDT builds. Automotive targets return ADAS/FLEX/IVI builds domain-wise."""
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    q = (request.args.get('q') or '').strip()
-    domain = (request.args.get('domain') or 'ALL').strip().upper()
-    limit = request.args.get('limit') or (120 if q else 300)
-    if q and len(q) < 2:
-        return jsonify({'ok': False, 'error': 'Query too short'}), 400
-    try:
-        matched = _swpdt_rows_for_job(job, q=q, domain=domain, limit=limit)
-        domain_counts = {}
-        for row in _swpdt_rows_for_job(job, q=q, domain='ALL', limit=1000):
-            d = row.get('domain') or 'OTHER'
-            domain_counts[d] = domain_counts.get(d, 0) + 1
-        return jsonify({'ok': True, 'builds': matched, 'count': len(matched), 'domain': domain, 'domain_counts': domain_counts})
-    except Exception as exc:
-        logger.exception('[SWPDT SEARCH] %s', exc)
-        return jsonify({'ok': False, 'error': str(exc), 'builds': []}), 500
-
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/swpdt', methods=['GET'])
-@login_required
-def api_swpdt_running(job_id):
-    """Return live running builds from SWPDT for this job's primary target."""
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    targets = job.get('targets') or []
-    primary = targets[0] if targets else ''
-    from live_status_publish_service import load_swpdt_running_builds
-    running = load_swpdt_running_builds(primary.capitalize())
-    return jsonify({'ok': True, 'running': running, 'count': len(running)})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/workspace', methods=['GET'])
-@login_required
-def api_job_workspace(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    return jsonify({'ok': True, 'workspace': load_job_workspace_data(job)})
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/publish', methods=['POST'])
-@login_required
-def api_publish_job(job_id):
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job = publish_job(job_id, getattr(current_user, 'id', 'unknown'))
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    target_name = (job.get('targets') or [''])[0]
-    published_url = url_for('live_status_publish_bp.pdt_target_ext_status', target_name=target_name) if target_name else url_for('live_status_publish_bp.published_view', public_token=job['public_token'])
-    return jsonify({'ok': True, 'job': job, 'published_url': published_url})
-
-
-
-def _published_report_builds(job):
-
-    """Return only real build IDs (last path segment) for JIRA JQL search.
-    build_full may be a UNC path like \\\\server\\share\\Skyros.LA.1.0.r1-00340-PERF.INT-1
-    We only need the last segment: Skyros.LA.1.0.r1-00340-PERF.INT-1
-    """
-    def _extract_build_id(raw):
-        """Strip UNC/share path prefix, return only the build ID segment."""
-        b = str(raw or '').strip()
-        if not b:
-            return ''
-        # Normalise slashes and split; take the last non-empty part
-        parts = [p.strip() for p in b.replace('/', '\\').split('\\') if p.strip()]
-        return parts[-1] if parts else b
-
-    rows = [r for r in (job.get('draft_rows') or []) if str(r.get('run_status', '')).lower() == 'running']
-    builds = []
-    for row in rows:
-        if row.get('isMerged') and row.get('merged_builds'):
-            builds.extend([_extract_build_id(b) for b in (row.get('merged_builds') or [])])
-        else:
-            bf = _extract_build_id(row.get('build_full') or '')
-            if bf:
-                builds.append(bf)
-    cleaned = []
-    seen = set()
-    for b in builds:
-        if b and b.upper() not in seen and not b.upper().startswith('META-'):
-            seen.add(b.upper())
-            cleaned.append(b)
-    return cleaned
-
-
-def _build_published_current_jql(builds):
-    def _q(value):
-        return str(value or '').replace('"', '\\"')
-    parts = [f'summary ~ "{_q(b)}"' for b in (builds or []) if str(b or '').strip()]
-    if not parts:
-        return ''
-    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND (project = \"Target Stability\" OR project = CHIPMD) AND summary !~ \"tombstone\" ORDER BY created ASC"
-
-
-def _count_jira_for_jql(jql):
-    import os as _os, sys as _sys
-    _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
-    if _scripts_dir not in _sys.path:
-        _sys.path.insert(0, _scripts_dir)
-    from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
-    from fetch_consolidated_report import connect_jira
-    jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
-    result = jira_obj.search_issues(jql, startAt=0, maxResults=0, fields='summary')
-    return int(getattr(result, 'total', 0) or 0)
-
-
-def _run_published_current_report(job, force=False, custom_jql=''):
-    import os as _os, sys as _sys
-    _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
-    if _scripts_dir not in _sys.path:
-        _sys.path.insert(0, _scripts_dir)
-    from fetch_consolidated_report import run_consolidated_report
-
-
-    target = (job.get('targets') or [''])[0]
-    builds = _published_report_builds(job)
-    domain    = (request.args.get('domain') or '').strip().upper() or None
-    build_key = _build_key(builds) if builds else _build_key(request.args.get('build_key') or '')
-    sc = get_report_sidecar(target, build_key, domain)
-
-    import logging as _logging
-    _rlog = _logging.getLogger(__name__)
-    _rlog.info(f"[CURRENT_REPORT] job_id={job.get('id')}, target={target!r}, builds={builds}, force={force}")
-    # Only use the persisted JQL — never auto-generate from builds.
-    # The editor is responsible for saving the JQL before publish.
-    persisted_jql = (sc.get('jql') or '').strip()
-    jql = (custom_jql or '').strip() or persisted_jql
-    if not jql:
-        return {'ok': False, 'error': 'No JQL saved for this report. Go to the editor, run the JIRA query, then publish again.'}, 400
-
-    checked_at = _utc_now()
-    cache = dict(sc.get('report_cache') or {})
-    cached_report = cache.get('report') if isinstance(cache.get('report'), dict) else None
-    old_count = cache.get('jira_count')
-    new_count = _count_jira_for_jql(jql)
-
-    # Check if cached report has CRs with missing enrichment (area/subsystem empty)
-    def _cache_has_missing_cr_details(report):
-        if not report:
-            return False
-        rows = report.get('hierarchical_report') or []
-        cr_rows = [r for r in rows if r.get('cr') and r.get('cr') != 'NO_CR']
-        if not cr_rows:
-            return False
-        missing = sum(1 for r in cr_rows if not (r.get('cr_area') or r.get('cr_subsystem') or r.get('cr_title')))
-        # If more than half the CR rows are missing details, force re-enrich
-        return missing > len(cr_rows) / 2
-
-    cache_stale = _cache_has_missing_cr_details(cached_report)
-
-    if cached_report and not force and not cache_stale and old_count == new_count and (cache.get('jql') or '') == jql:
-        cache['last_fresh_check_at'] = checked_at
-        set_sidecar_report_cache(target, build_key, domain, dict(cache, last_fresh_check_at=checked_at))
-        cached_report.setdefault('meta', {})['cache_status'] = 'fresh_count_unchanged'
-        cached_report['meta']['last_fresh_check_at'] = checked_at
-        cached_report['meta']['jira_count'] = new_count
-        cached_report['meta']['active_jql'] = jql
-        cached_report['excluded_jiras'] = sc.get('excluded_jiras') or []
-        return {'ok': True, 'report': cached_report, 'from_cache': True, 'active_jql': jql}, 200
-
-    report = run_consolidated_report(
-        build_ids=builds,
-        filter_id=JIRA_PDT_FILTER_ID,
-        traverse=True,
-        enrich_orbit=True,
-        target_name=target,
-        custom_jql=jql,
-    )
-    report.setdefault('meta', {})['jira_count'] = new_count
-    report['meta']['last_fresh_check_at'] = checked_at
-    report['meta']['cache_status'] = 'rerun_stale_cr_details' if cache_stale else ('rerun_count_changed' if cached_report else 'initial_full_run')
-    report['meta']['active_jql'] = jql
-    report['excluded_jiras'] = sc.get('excluded_jiras') or []
-    set_sidecar_report_cache(target, build_key, domain, {
-        'jql': jql,
-        'jira_count': new_count,
-        'last_full_run_at': checked_at,
-        'last_fresh_check_at': checked_at,
-        'report': report,
-    })
-    return {'ok': True, 'report': report, 'from_cache': False, 'active_jql': jql}, 200
-
-
-@live_status_publish_bp.route('/api/live_status/targets/<target_name>/current_report', methods=['GET', 'POST'])
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/current_report', methods=['GET', 'POST'])
-def api_published_current_report(job_id=None, target_name=None):
-    if target_name is not None:
-        job, err = _get_target_report_job_for_api(target_name)
-        if err:
-            return jsonify(err[0]), err[1]
-    else:
-        job = get_job(job_id)
-        if not job:
-            return jsonify({'ok': False, 'error': 'Job not found'}), 404
-        # Published reports are publicly readable; write ops still need TARGET_GROUP
-        if job.get('status') != 'published' and not (current_user.is_authenticated and _target_group_access()):
-            return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    force = str(request.args.get('force') or '').lower() in ('1', 'true', 'yes') or bool(data.get('force'))
-    custom_jql = data.get('custom_jql') or request.args.get('jql') or ''
-    try:
-        payload, status = _run_published_current_report(job, force=force, custom_jql=custom_jql)
-        return jsonify(payload), status
-    except Exception as exc:
-        logger.exception('[PUBLISHED CURRENT REPORT] Failed: %s', exc)
-        return jsonify({'ok': False, 'error': str(exc)}), 500
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/current_report/jql', methods=['GET', 'POST'])
-@login_required
-def api_published_current_report_jql(job_id):
-    """GET: return persisted JQL. POST {jql}: persist it to the job (works for draft and published)."""
-    job = get_job(job_id)
-    if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'}), 404
-    if request.method == 'GET':
-        _jql_bk = _build_key(request.args.get('build_key') or '')
-        _sc_jql = get_report_sidecar((job.get('targets') or [''])[0], _jql_bk, (request.args.get('domain') or '').strip().upper() or None)
-        return jsonify({'ok': True, 'jql': _sc_jql.get('jql') or ''})
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    data = request.get_json(force=True, silent=True) or {}
-    jql = (data.get('jql') or '').strip()
-    _jql_tgt = (job.get('targets') or [''])[0]
-    _jql_dom = ((request.get_json(force=True,silent=True) or {}).get('domain') or request.args.get('domain') or '').strip().upper() or None
-    _jql_bk2 = _build_key((request.get_json(force=True,silent=True) or {}).get('build_key') or request.args.get('build_key') or '')
-    _sc_jql2 = set_sidecar_jql(_jql_tgt, _jql_bk2, _jql_dom, jql)
-    return jsonify({'ok': True, 'jql': _sc_jql2.get('jql') or ''})
-
-
-
-
-@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/current_report/exclusions', methods=['GET', 'POST'])
-@login_required
-def api_published_current_report_exclusions(job_id):
-    job = get_job(job_id)
-    if not job or job.get('status') != 'published':
-        return jsonify({'ok': False, 'error': 'Published job not found'}), 404
-    if request.method == 'GET':
-        _ex_bk = _build_key(request.args.get('build_key') or '')
-        _sc_ex = get_report_sidecar((job.get('targets') or [''])[0], _ex_bk, (request.args.get('domain') or '').strip().upper() or None)
-        return jsonify({'ok': True, 'excluded': _sc_ex.get('excluded_jiras') or []})
-    data = request.get_json(force=True, silent=True) or {}
-    excluded = data.get('excluded') or []
-    _ex_tgt = (job.get('targets') or [''])[0]
-    _ex_dom = ((request.get_json(force=True,silent=True) or {}).get('domain') or request.args.get('domain') or '').strip().upper() or None
-    _ex_bk2 = _build_key((request.get_json(force=True,silent=True) or {}).get('build_key') or request.args.get('build_key') or '')
-    _sc_ex2 = set_sidecar_exclusions(_ex_tgt, _ex_bk2, _ex_dom, excluded)
-    return jsonify({'ok': True, 'excluded': _sc_ex2.get('excluded_jiras') or []})
-
-
-@live_status_publish_bp.route('/api/live_status/swpdt_force_refresh', methods=['POST'])
-@login_required
-def api_swpdt_force_refresh():
-    """
-    Trigger a one-shot Axiom fetch right now and update SWPDT_job_summary.json.
-    Returns the new file stats so the UI can show the result.
-    """
-    if not _target_group_access():
-        return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    if AXIOM_FETCH_DISABLED:
-        logger.info('[SWPDT FORCE REFRESH] Axiom fetch disabled; skipping one-shot fetch.')
-        return jsonify({'ok': False, 'disabled': True, 'error': 'Axiom fetch is temporarily disabled'}), 503
-    import os, json, threading
-    from datetime import datetime, timezone
-
-    client_id     = os.environ.get('AXIOM_CLIENT_ID', '').strip()
-    client_secret = os.environ.get('AXIOM_CLIENT_SECRET', '').strip()
-
-    if not client_id or not client_secret:
-        return jsonify({'ok': False, 'error': 'AXIOM_CLIENT_ID / AXIOM_CLIENT_SECRET not configured in .env'}), 400
-
-    try:
-        from scripts.fetch_axiom_jobs import (
-            _get_token, fetch_swpdt_jobs, merge_and_prune, _save,
-            DEFAULT_API_HOST, DEFAULT_APP_NAME, DEFAULT_PAGE_SIZE,
-            DEFAULT_OUTPUT_DIR, OUTPUT_FILENAME, RETENTION_DAYS,
-        )
-        output_path = _SWPDT_JSON  # use the same path the service reads from
-
-        logger.info('[SWPDT FORCE REFRESH] Starting one-shot fetch...')
-        token     = _get_token(DEFAULT_API_HOST, client_id, client_secret)
-        new_jobs  = fetch_swpdt_jobs(DEFAULT_API_HOST, token, DEFAULT_PAGE_SIZE, DEFAULT_APP_NAME)
-
-        if not new_jobs:
-            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom — API may be down or no Running jobs today'}), 502
-
-        final_jobs = merge_and_prune(output_path, new_jobs, RETENTION_DAYS)
-        from datetime import datetime as _dt, timezone as _tz
-        payload = {
-            'generated_at':   _dt.now(_tz.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'taxonomy':       '/PDT',
-            'hwpdt_excluded': '/PDT/QIPL/HW',
-            'retention_days': RETENTION_DAYS,
-            'total_jobs':     len(final_jobs),
-            'total_devices':  sum(j.get('device_count', 0) for j in final_jobs),
-            'state_counts':   {},
-            'jobs':           final_jobs,
-        }
-        for j in final_jobs:
-            s = j.get('state', 'Unknown')
-            payload['state_counts'][s] = payload['state_counts'].get(s, 0) + 1
-
-        _save(output_path, payload)
-        logger.info('[SWPDT FORCE REFRESH] Done — %d jobs saved to %s', len(final_jobs), output_path)
-
-        return jsonify({
-            'ok':           True,
-            'total_jobs':   len(final_jobs),
-            'new_fetched':  len(new_jobs),
-            'state_counts': payload['state_counts'],
-            'generated_at': payload['generated_at'],
-            'saved_to':     output_path,
-        })
-    except Exception as exc:
-        logger.exception('[SWPDT FORCE REFRESH] Failed: %s', exc)
-        return jsonify({'ok': False, 'error': str(exc)}), 500
+    path = _get_swpdt_js

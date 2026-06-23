@@ -46,15 +46,34 @@ def ingest_logic(
     row = None
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute(
-            """
-            SELECT bu, db_name, excel_path, unique_cr_path
-            FROM pdt_stats_dashboard.dashboard_status
-            WHERE target_name = %s AND is_active = 1
-            ORDER BY id ASC LIMIT 1
-            """,
-            (target_key,),
-        )
+        try:
+            cur.execute(
+                """
+                SELECT bu, db_name, excel_path, unique_cr_path
+                FROM pdt_stats_dashboard.dashboard_status
+                WHERE target_name = %s AND is_active = 1
+                ORDER BY id ASC LIMIT 1
+                """,
+                (target_key,),
+            )
+        except Exception as ex:
+            # Older dashboard_status schemas may not have unique_cr_path yet.
+            # In that case, ingest normal dashboard Excel only and skip OverallCrs.
+            if "unique_cr_path" not in str(ex).lower():
+                raise
+            logger.info(
+                "INGEST_LOGIC: dashboard_status.unique_cr_path column not available; "
+                "skipping Unique CR / OverallCrs path resolution."
+            )
+            cur.execute(
+                """
+                SELECT bu, db_name, excel_path
+                FROM pdt_stats_dashboard.dashboard_status
+                WHERE target_name = %s AND is_active = 1
+                ORDER BY id ASC LIMIT 1
+                """,
+                (target_key,),
+            )
         row = cur.fetchone()
         cur.close()
     finally:

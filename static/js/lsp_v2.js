@@ -1607,16 +1607,10 @@ function lspNavigateParent(url){
 }
 
 async function publishJob(){
-  setStatus('Publishing...');
-  try{
-    await saveDraft();
-    const d=await postJson(`/api/live_status/jobs/${encodeURIComponent(jobId)}/publish`,{});
-    if(!d.ok){setStatus(d.error||'Publish failed',true);return;}
-    setStatus('Published');
-    if(d.published_url) setTimeout(()=>lspNavigateParent(d.published_url),700);
-    else setTimeout(()=>window.location.reload(),700);
-  }catch(e){setStatus('Publish failed: '+e,true);}
+  setStatus('Saving...');
+  await saveDraft();
 }
+
 
 async function revokeJob(){
   const reason=prompt('Revoke this live report?\n\nReason:')||'';
@@ -1643,7 +1637,8 @@ window.lspRefreshRows=async function(){
 };
 
 const sb=$('saveDraftBtn'); if(sb) sb.addEventListener('click',saveDraft);
-document.querySelectorAll('#publishBtnHero,#publishBtn').forEach(b=>b.addEventListener('click',publishJob));
+document.querySelectorAll('#publishBtnHero,#publishBtn').forEach(b=>b.addEventListener('click',saveDraft));
+
 const rb=$('revokeJobBtn'); if(rb) rb.addEventListener('click',revokeJob);
 
 async function init(){
