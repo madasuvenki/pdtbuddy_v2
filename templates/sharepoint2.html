@@ -329,9 +329,12 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
 
       <!-- LEFT: table -->
       <div class="card" style="margin-bottom:0;min-width:0">
-        <div class="card-head">
+                <div class="card-head">
           <h2><i class="fas fa-mobile-alt" style="color:var(--sp2-green)"></i> Device Utilization</h2>
-          <button class="btn btn-sm" onclick="sp2LoadDevUtil()"><i class="fas fa-rotate"></i> Refresh</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm" onclick="sp2LoadDevUtil()"><i class="fas fa-rotate"></i> Refresh</button>
+            <button class="btn btn-sm" id="sp2DevUtilCopyBtn" onclick="sp2CopyDevUtilTable(this)" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-color:#0f766e"><i class="fas fa-copy"></i> Copy Table</button>
+          </div>
         </div>
         <div class="tbl-wrap" style="max-height:none;overflow:visible">
                     <table class="sp2-tbl" id="sp2DevUtilTable" style="border:2px solid #1f2937;width:100%;table-layout:fixed">
@@ -585,7 +588,7 @@ function _renderBuildGroups(rows){
     var tMtbf=tCrashes>0?(tHrs/tCrashes):0;
         html+='<div class="target-section">';
     html+='<div class="target-section-head" onclick="sp2ToggleTarget(\''+esc(tgt)+'\')">';
-        var tgtBu = (tRows[0]&&tRows[0].bu)||'';
+        var tgtBu = '';for(var _bi=0;_bi<tRows.length;_bi++){if(tRows[_bi].bu){tgtBu=tRows[_bi].bu;break;}}
     var buOpts2='<option value="">BU?</option>';
     (_sp2BuList||[]).forEach(function(bv){
       buOpts2+='<option value="'+esc(bv)+'"'+(String(bv)===String(tgtBu)?' selected':'')+'>'+esc(bv)+'</option>';
@@ -594,11 +597,18 @@ function _renderBuildGroups(rows){
       ?'height:22px;border:1.5px solid #86efac;border-radius:6px;padding:0 6px;font-size:10px;font-weight:900;font-family:inherit;background:#dcfce7;color:#166534;cursor:pointer;'
       :'height:22px;border:1.5px solid #f59e0b;border-radius:6px;padding:0 6px;font-size:10px;font-weight:800;font-family:inherit;background:#fef3c7;color:#92400e;cursor:pointer;';
     var buBadge='<select class="sp2-bu-sel" data-target="'+esc(tgt)+'" data-pl=""'
-      +' onchange="sp2SaveBU(this)"'
+      +' onchange="sp2MarkTargetDirty(this.dataset.target,this)"'
       +' style="'+buStyle+'"'
       +' onclick="event.stopPropagation()">'+buOpts2+'</select>'; 
+    var saveTgtBtn='<button class="sp2-save-tgt-btn" id="sp2SaveTgt_'+esc(tgt)+'"'
+      +' onclick="event.stopPropagation();sp2SaveTarget(\''+tgt+'\',this)"'
+      +' style="height:26px;padding:0 14px;border-radius:8px;border:1.5px solid #0f766e;'
+      +'background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;font-size:11px;'
+      +'font-weight:800;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;">'
+      +'<i class="fas fa-save"></i> Save Target</button>';
     html+='<h3><i class="fas fa-chevron-down" id="sp2TgtIcon_'+esc(tgt)+'" style="font-size:10px;transition:transform .2s;transform:rotate(-90deg)"></i> '+esc(tgt)+'</h3>';
     html+=buBadge;
+    html+=saveTgtBtn;
     /* meta-id deduplicated count for the target header badge */
     var tMetaIds=new Set(tRows.map(function(b){return(b.meta_id||b.build_name||'').toUpperCase();}));
     var metaBadge=tMetaIds.size<tRows.length
@@ -631,10 +641,6 @@ function _renderBuildGroups(rows){
            +' &nbsp;&middot;&nbsp; '+fmt(pCrashes)+' crashes'
            +(pMtbf>0?' &nbsp;&middot;&nbsp; MTBF '+fmt(pMtbf,1)+'h':'')
            +'</span>'
-           +'<button class="btn btn-sm" id="'+plSafeId+'_savebtn"'
-           +' style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-color:#0f766e;height:26px;padding:0 12px;"'
-           +' onclick="sp2SavePlRows(\''+tgt+'\',\''+pl+'\',this)">'
-           +'<i class="fas fa-save"></i> Save</button>'
            +'</div>';
       html+='<div class="tbl-wrap"><table class="sp2-tbl"><thead><tr>';
       html+='<th>#</th><th>Status</th><th>Build / Meta</th><th style="text-align:center">Build Type</th>';
@@ -709,6 +715,8 @@ window.sp2RowRecalc=function(inp){
   if(cell)cell.innerHTML=mtbf>0?'<span class="badge badge-purple">'+fmt(mtbf,1)+'h</span>':'-';
   tr.dataset.hours=hrs;tr.dataset.crashes=crashes;
   _sp2RecalcKpis();
+  /* Mark target dirty so user knows to click Save Target */
+  if(tr.dataset.target) sp2MarkTargetDirty(tr.dataset.target, null);
 };
 function _sp2RecalcKpis(){
   var rows=document.querySelectorAll('#sp2BuildsBody tr[data-job]');
@@ -785,75 +793,83 @@ window.sp2RefetchTimelines=function(target,plId,cellId){
   });
 };
 
-window.sp2SaveBU=function(sel){
-  var target=sel.dataset.target, pl=sel.dataset.pl, bu=sel.value;
-  if(!bu)return;
-  var w=_currentWeek();
-  sel.disabled=true;
-  fetch('/api/sp2/save_bu',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:target,pl_id:pl,bu:bu})
-  }).then(function(r){return r.json();})
-  .then(function(d){
-    sel.disabled=false;
-        if(d.success){
-      document.querySelectorAll('.sp2-bu-sel[data-target="'+target+'"]').forEach(function(s){
-        s.value=bu;
-        s.style.borderColor='#86efac';
-        s.style.background='#dcfce7';
-        s.style.color='#166534';
-        s.title='Saved';
-      });
-      _allBuilds.forEach(function(b){ if(b.target===target) b.bu=bu; });
-      if(!_sp2BuList.includes(bu)){_sp2BuList.push(bu);_sp2BuList.sort();}
-      _consLoaded=false;
-    } else { alert('Save BU failed: '+(d.error||'unknown')); }
-  }).catch(function(e){sel.disabled=false;alert('Error: '+e);});
+/* Mark target dirty when BU changes - actual save happens via Save Target button */
+window.sp2MarkTargetDirty=function(target, sel){
+  var btn=document.getElementById('sp2SaveTgt_'+target);
+  if(btn){
+    btn.style.background='linear-gradient(135deg,#b45309,#f59e0b)';
+    btn.style.borderColor='#b45309';
+    btn.innerHTML='<i class="fas fa-exclamation-circle"></i> Save Target';
+  }
+  if(sel){
+    sel.style.borderColor='#f59e0b';
+    sel.style.background='#fef3c7';
+    sel.style.color='#92400e';
+  }
 };
 
-window.sp2SavePlRows=function(tgt,pl,btn){
-  /* Collect all edited rows for this target+PL */
+/* Save everything for a target: BU + all build rows across all PLs */
+window.sp2SaveTarget=function(tgt, btn){
+  var w=_currentWeek();
+  /* Collect BU from the target's BU dropdown */
+  var buSel=document.querySelector('.sp2-bu-sel[data-target="'+tgt+'"]');
+  var bu=buSel?buSel.value:'';
+  /* Collect all build rows for this target */
   var rows=[];
-  document.querySelectorAll('#sp2BuildsBody tr[data-target][data-pl]').forEach(function(tr){
-    if(tr.dataset.target!==tgt||tr.dataset.pl!==pl)return;
+  document.querySelectorAll('#sp2BuildsBody tr[data-target]').forEach(function(tr){
+    if(tr.dataset.target!==tgt)return;
     var hrsInp=tr.querySelector('.sp2-hrs-inp');
     var crashInp=tr.querySelector('.sp2-crash-inp');
     var btSel=tr.querySelector('.sp2-bt-sel');
+    if(!tr.dataset.build)return;
     rows.push({
       build_name: tr.dataset.build||'',
-      pl_id:      pl,
+      pl_id:      tr.dataset.pl||'',
       hours:      hrsInp?parseFloat(hrsInp.value)||0:parseFloat(tr.dataset.hours)||0,
       crashes:    crashInp?parseInt(crashInp.value)||0:parseInt(tr.dataset.crashes)||0,
       build_type: btSel?btSel.value:'CRM'
     });
   });
-  if(!rows.length){alert('No rows found for this PL.');return;}
-  var w=_currentWeek();
   btn.disabled=true;
   btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...';
-  fetch('/api/sp2/save_pl_rows',{
+  fetch('/api/sp2/save_target',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:tgt,pl_id:pl,rows:rows})
+    body:JSON.stringify({week_start:w.ws,week_end:w.we,target:tgt,bu:bu,rows:rows})
   }).then(function(r){return r.json();})
   .then(function(d){
     btn.disabled=false;
     if(d.success){
       btn.innerHTML='<i class="fas fa-check"></i> Saved';
       btn.style.background='linear-gradient(135deg,#166534,#16a34a)';
+      btn.style.borderColor='#166534';
+      /* Update BU dropdown style to saved state */
+      if(buSel&&bu){
+        buSel.style.borderColor='#86efac';
+        buSel.style.background='#dcfce7';
+        buSel.style.color='#166534';
+        _allBuilds.forEach(function(b){if(b.target===tgt)b.bu=bu;});
+        if(!_sp2BuList.includes(bu)){_sp2BuList.push(bu);_sp2BuList.sort();}
+      }
+      _consLoaded=false;
       setTimeout(function(){
-        btn.innerHTML='<i class="fas fa-save"></i> Save';
-        btn.style.background='';
+        btn.innerHTML='<i class="fas fa-save"></i> Save Target';
+        btn.style.background='linear-gradient(135deg,#0f766e,#14b8a6)';
+        btn.style.borderColor='#0f766e';
       },2500);
     } else {
-      btn.innerHTML='<i class="fas fa-save"></i> Save';
+      btn.innerHTML='<i class="fas fa-save"></i> Save Target';
+      btn.style.background='linear-gradient(135deg,#0f766e,#14b8a6)';
       alert('Save failed: '+(d.error||'unknown'));
     }
   }).catch(function(e){
     btn.disabled=false;
-    btn.innerHTML='<i class="fas fa-save"></i> Save';
+    btn.innerHTML='<i class="fas fa-save"></i> Save Target';
+    btn.style.background='linear-gradient(135deg,#0f766e,#14b8a6)';
     alert('Error: '+e);
   });
 };
+
+/* sp2SavePlRows removed - use sp2SaveTarget instead */
 
 function _sp2RecalcKpisFiltered(){
   var rows=document.querySelectorAll('#sp2BuildsBody tr[data-job]');
@@ -892,7 +908,7 @@ window.sp2LoadConsolidate=function(force){
 /* Consolidate tab: load charts after table renders */
 var _sp2StabilityChart = null;
 
-function _sp2LoadStabilityChart(){
+window._sp2LoadStabilityChart = function _sp2LoadStabilityChart(){
   var we = getWeek().we;
   var el = g('sp2StabilityChart');
   if(el) el.innerHTML = '<div class="empty" style="padding:40px"><i class="fas fa-circle-notch spin"></i> Loading...</div>';
@@ -975,14 +991,17 @@ window.sp2ConsCopyStability = function(btn){
     btn.style.background = ok ? '#16a34a' : '#dc2626'; btn.style.color='#fff';
     setTimeout(function(){ btn.innerHTML=orig; btn.style.background=''; btn.style.color=''; }, 2000);
   }
-  try{
-    var svg = _sp2StabilityChart.getSVG({width:960, height:360});
+    try{
+    var svg = _sp2StabilityChart.getSVG({
+      chart:{ width:1000, height:500, margin:[45,140,110,62] },
+      xAxis:{ labels:{ style:{fontSize:'10px',fontWeight:'700'}, rotation:-55, y:22 } }
+    });
     var blob = new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
     var url  = URL.createObjectURL(blob);
     var img  = new Image();
     img.onload = function(){
-      var canvas = document.createElement('canvas'); canvas.width=960; canvas.height=360;
-      var ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,960,360); ctx.drawImage(img,0,0);
+      var canvas = document.createElement('canvas'); canvas.width=1000; canvas.height=500;
+      var ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,1000,500); ctx.drawImage(img,0,0);
       URL.revokeObjectURL(url);
       canvas.toBlob(function(pngBlob){
         if(pngBlob && typeof ClipboardItem!=='undefined' && navigator.clipboard && navigator.clipboard.write){
@@ -1482,9 +1501,92 @@ function _renderDevUtil(rows){
       +'<td style="border:1px solid #1f2937;text-align:center;font-weight:950;color:#111827;padding:5px 8px">'+fmt(totalDev)+'</td></tr>';
 }
 
+window.sp2CopyDevUtilTable = function(btn){
+  /* Build Outlook-safe HTML table from current _allDevUtil data */
+  var byTarget={};
+  (_allDevUtil||[]).forEach(function(r){
+    var tgt=String(r.target||'-').trim()||'-';
+    if(!byTarget[tgt])byTarget[tgt]={target:tgt,devices:0};
+    byTarget[tgt].devices+=num(r.device_count||r.number_of_devices||r.devices_count);
+  });
+  var tgtRows=Object.keys(byTarget).sort().map(function(k){return byTarget[k];});
+  if(!tgtRows.length){alert('No data to copy.');return;}
+  var totalDev=tgtRows.reduce(function(s,r){return s+r.devices;},0);
+
+  /* Week label for header */
+  function weekShort(d){
+    var dt=new Date((d||'')+'T00:00:00');
+    if(isNaN(dt.getTime()))return d||'Week';
+    return dt.toLocaleDateString(undefined,{day:'2-digit',month:'short'}).replace(' ','-');
+  }
+  var weekLabel=weekShort(getWeek().we);
+
+  /* Inline-styled table — works in Outlook (http + https) */
+  var S={
+    tbl: 'border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px;min-width:280px',
+    hdr: 'background:#93b5df;color:#111827;border:1px solid #1f2937;text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;padding:6px 14px',
+    cel: 'border:1px solid #1f2937;text-align:center;font-weight:700;color:#111827;padding:4px 14px',
+    tot: 'border:1px solid #1f2937;text-align:center;font-weight:700;color:#111827;padding:5px 14px;background:#e8b9bb'
+  };
+  var html='<table style="'+S.tbl+'">';
+  html+='<thead><tr>';
+  html+='<th style="'+S.hdr+'">TARGET</th>';
+  html+='<th style="'+S.hdr+'">'+weekLabel+'</th>';
+  html+='</tr></thead><tbody>';
+  tgtRows.forEach(function(r){
+    html+='<tr>';
+    html+='<td style="'+S.cel+'">'+r.target+'</td>';
+    html+='<td style="'+S.cel+'">'+fmt(r.devices)+'</td>';
+    html+='</tr>';
+  });
+  html+='<tr>';
+  html+='<td style="'+S.tot+'">TOTAL</td>';
+  html+='<td style="'+S.tot+'">'+fmt(totalDev)+'</td>';
+  html+='</tr>';
+  html+='</tbody></table>';
+
+  /* Copy as both text/html and text/plain for max compatibility */
+  var plain=tgtRows.map(function(r){return r.target+'\t'+fmt(r.devices);}).join('\n')+'\nTOTAL\t'+fmt(totalDev);
+
+  function flash(ok){
+    if(!btn)return;
+    var orig=btn.innerHTML;
+    btn.innerHTML=ok?'<i class="fas fa-check"></i> Copied':'<i class="fas fa-times"></i> Failed';
+    btn.style.background=ok?'#166534':'#dc2626';
+    setTimeout(function(){btn.innerHTML=orig;btn.style.background='linear-gradient(135deg,#0f766e,#14b8a6)';},2200);
+  }
+
+  try{
+    if(typeof ClipboardItem!=='undefined' && navigator.clipboard && navigator.clipboard.write){
+      var item=new ClipboardItem({
+        'text/html': new Blob([html],{type:'text/html'}),
+        'text/plain': new Blob([plain],{type:'text/plain'})
+      });
+      navigator.clipboard.write([item]).then(function(){flash(true);}).catch(function(){
+        /* fallback: execCommand */
+        var d=document.createElement('div');
+        d.style.position='fixed';d.style.left='-9999px';
+        d.innerHTML=html;document.body.appendChild(d);
+        var sel=window.getSelection();var range=document.createRange();
+        range.selectNodeContents(d);sel.removeAllRanges();sel.addRange(range);
+        var ok2=document.execCommand('copy');sel.removeAllRanges();
+        document.body.removeChild(d);flash(ok2);
+      });
+    } else {
+      /* execCommand fallback for http */
+      var d=document.createElement('div');
+      d.style.position='fixed';d.style.left='-9999px';
+      d.innerHTML=html;document.body.appendChild(d);
+      var sel=window.getSelection();var range=document.createRange();
+      range.selectNodeContents(d);sel.removeAllRanges();sel.addRange(range);
+      var ok2=document.execCommand('copy');sel.removeAllRanges();
+      document.body.removeChild(d);flash(ok2);
+    }
+  }catch(e){flash(false);}
+};
+
 function _renderWow(weeks){
   var body=g('sp2WowBody');if(!body)return;
-  if(!weeks||!weeks.length){body.innerHTML='<div class="empty">No week-over-week data.</div>';return;}
   var cols=['Week','Devices','Hours','Crashes','MTBF','Hrs/Dev','Crashes/Dev'];
   var html='<div class="tbl-wrap"><table class="sp2-tbl"><thead><tr>'
     +cols.map(function(c){return'<th>'+esc(c)+'</th>';}).join('')+'</tr></thead><tbody>';

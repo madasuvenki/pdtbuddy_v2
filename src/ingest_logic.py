@@ -585,7 +585,7 @@ def _run_hwpdt_fetch_direct() -> None:
         try:
             from dotenv import load_dotenv as _lde
             _env = os.path.join(real_root, ".env")
-            _lde(_env, override=False)
+            _lde(_env, override=True)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "")
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "")
             logger.info(f"INGEST_LOGIC: loaded .env from {_env} — id set: {bool(client_id)}")
@@ -714,7 +714,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
                 _env = os.path.join(real_root, ".env")
             else:
                 _env = os.path.join(real_root, ".env")
-            _lde(_env, override=False)
+            _lde(_env, override=True)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "")
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "")
             logger.info(f"INGEST_LOGIC: loaded .env from {_env} — id set: {bool(client_id)}")

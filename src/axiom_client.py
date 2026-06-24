@@ -75,7 +75,7 @@ if getattr(_sys, 'frozen', False):
 else:
     # Running from source — .env is in the project root (parent of src/)
     _env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-load_dotenv(_env_file, override=False)
+load_dotenv(_env_file, override=True)
 logger.info(f'[axiom_client] .env path: {_env_file}  exists={os.path.exists(_env_file)}')
 logger.info(f'[axiom_client] AXIOM_CLIENT_ID set: {bool(os.getenv("AXIOM_CLIENT_ID",""))}')
 
@@ -283,7 +283,7 @@ def axiom_get(
 
     headers: Dict[str, str] = {
         "X-QCOM-TracingID": tracing,
-        "X-QCOM-AppName": "PDTDashboard",
+        "X-QCOM-AppName": os.getenv("AXIOM_APP_NAME", "PDTDashboard"),
         "X-QCOM-TokenType": "OAuth",
         "X-QCOM-ClientType": "Python",
         "Authorization": f"Bearer {token}",

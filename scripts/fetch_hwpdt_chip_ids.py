@@ -53,14 +53,14 @@ logger = logging.getLogger("fetch_hwpdt_chip_ids")
 try:
     from dotenv import load_dotenv as _load_dotenv
     _env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-    _load_dotenv(_env_file, override=False)
+    _load_dotenv(_env_file, override=True)
     logger.info(f"[fetch_hwpdt] .env loaded from: {_env_file}")
 except Exception as _e:
     logger.debug(f"[fetch_hwpdt] dotenv not loaded: {_e}")
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 DEFAULT_API_HOST     = "api-int.qualcomm.com"
-DEFAULT_APP_NAME     = "PDTBuddyAxiomVerifier"
+DEFAULT_APP_NAME     = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 TAXONOMY_PATH        = "/PDT/QIPL/HW"
 PAGE_SIZE            = 100
 MAX_RETRIES          = 3

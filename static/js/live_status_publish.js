@@ -510,6 +510,11 @@ async function saveDraft(){
     if(!d.ok){setStatus(d.error||'Save failed',true);return;}
     await postJson(`/api/live_status/jobs/${encodeURIComponent(jobId)}/rows`,{rows:draftRows});
     setStatus('Saved ✓');
+    // After save: show Edit + Publish, keep Save visible too
+    const editBtn=$('lspEditBtn'), saveBtn=$('lspSaveBtn'), pubBtn=$('lspPublishBtn');
+    if(editBtn) editBtn.style.display='none';
+    if(saveBtn) saveBtn.style.display='';
+    if(pubBtn)  pubBtn.style.display='';
   }catch(e){setStatus('Save failed: '+e,true);}
 }
 
@@ -549,6 +554,8 @@ window.lspRefreshRows=async function(){
 /* ── wire buttons ── */
 const sb=$('saveDraftBtn'); if(sb) sb.addEventListener('click',saveDraft);
 document.querySelectorAll('#publishBtnHero,#publishBtn').forEach(b=>b.addEventListener('click',publishJob));
+window.lspSaveDraft = saveDraft;
+window.lspPublishJob = publishJob;
 
 /* ── init ── */
 async function init(){

@@ -6,22 +6,23 @@ import sys
 from dotenv import load_dotenv
 
 # ── Locate .env — search order (frozen EXE) ─────────────────────────────────
-# 1. Next to the .exe on disk  → lets users/admins override credentials easily
-# 2. Inside the PyInstaller bundle (sys._MEIPASS) → the .env baked in at build
+# 1. Inside the PyInstaller bundle (sys._MEIPASS) → the .env baked in at build
+#    This makes the EXE fully self-contained and work anywhere without any
+#    external files. Credentials are compiled in at build time.
+# 2. Next to the .exe on disk → admin/emergency override only.
+#    Place a .env beside the .exe ONLY if you need to override bundled creds
+#    without rebuilding. Not required for normal operation.
 # 3. Next to config.py (dev / source run)
 def _find_dotenv_path() -> str:
     if getattr(sys, 'frozen', False):
-        # Priority 1 — user-supplied .env sitting beside the .exe
-        exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
-        if os.path.exists(exe_dir_env):
-            return exe_dir_env
-        # Priority 2 — .env bundled inside the PyInstaller archive (_MEIPASS)
+        # Priority 1 — .env bundled inside the PyInstaller archive (_MEIPASS)
         meipass = getattr(sys, '_MEIPASS', None)
         if meipass:
             bundled_env = os.path.join(meipass, '.env')
             if os.path.exists(bundled_env):
                 return bundled_env
-        # Fallback — return exe-dir path so the logger shows a useful message
+        # Priority 2 — fallback: .env sitting beside the .exe (admin override)
+        exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
         return exe_dir_env
     else:
         # Running from source — .env is in the project root (next to config.py)
@@ -116,9 +117,7 @@ LIVE_STATUS_VIEWER_GROUP_ACCESS = {
 # LIVE_STATUS_TEST_USER_GROUPS — temporary UI testing override only.
 # This does not modify LDAP. Remove/empty this after validating multi-group UX.
 # ---------------------------------------------------------------------------
-LIVE_STATUS_TEST_USER_GROUPS = {
-    "akacham": ["PdtBuddy.Nord", "PdtBuddy.IoT"],
-}
+LIVE_STATUS_TEST_USER_GROUPS = {}
 
 
 

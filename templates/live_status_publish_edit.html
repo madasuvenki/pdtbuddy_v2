@@ -11,25 +11,23 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#f0f4ff,#fff7ed);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#fff,#eef6ff 45%,#fff7ed);border:1px solid #bfdbfe;box-shadow:0 8px 30px rgba(37,99,235,.10);margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}.tab-section{display:none}.tab-section.active{display:block}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 4px 22px rgba(15,23,42,.08);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#f0f4ff,#faf5ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
-    /* Domain radio buttons */
+        /* Domain radio buttons */
     .pub-domain-radio{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:2px solid var(--dc);background:#fff;color:var(--dc);font-size:12px;font-weight:900;cursor:pointer;transition:all .18s;user-select:none;letter-spacing:.02em;}
     .pub-domain-radio input{display:none;}
     .pub-domain-radio:has(input:checked){background:var(--dc);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:translateY(-1px);}
-    .pub-domain-radio:hover:not(:has(input:checked)){background:var(--dcs);}.meta-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:850;cursor:pointer}.meta-chip.active{background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.meta-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.metric-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(15,23,42,.05)}.metric-title{font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:7px}.bar-row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar-label{min-width:115px;font-weight:800;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-track{height:13px;flex:1;background:#f1f5f9;border-radius:999px;overflow:hidden}.bar-fill{height:100%;border-radius:999px}.bar-value{min-width:46px;text-align:right;font-weight:950;color:#0f172a}.section-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;color:#94a3b8}.sticky-table th{position:sticky;top:0;z-index:2}.compact-input{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit}.subtle-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px}.wk-cr-scroll{max-height:560px;overflow:auto}.wk-jira-scroll{max-height:460px;overflow:auto}.wk-load-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:16px;padding:16px}.wk-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.58);align-items:center;justify-content:center;padding:24px}.wk-modal-card{width:min(760px,96vw);max-height:88vh;background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 24px 90px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden}.wk-modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}.wk-build-list{flex:1;overflow:auto;padding:12px 18px;display:flex;flex-direction:column;gap:7px}.wk-build-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #f1f5f9;border-radius:10px;background:#fff;cursor:pointer}.wk-build-row.selected{border-color:#c7d2fe;background:#f5f3ff}.wk-build-row input{width:16px;height:16px;accent-color:#6366f1}.wk-build-name{font-size:12px;font-weight:750;color:#1e293b;word-break:break-all;flex:1}.wk-selected-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:none}.wk-selected-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.wk-selected-list{display:flex;gap:6px;flex-wrap:wrap;max-height:92px;overflow:auto}.wk-hidden{display:none!important}
+    .pub-domain-radio:hover:not(:has(input:checked)){background:var(--dcs);}
+    /* Editor-only controls: hidden until lsp-edit-mode is active */
+    .lsp-editor-only { display: none !important; }
+    body.lsp-edit-mode .lsp-editor-only { display: inline-flex !important; }
+    body.lsp-edit-mode .lsp-editor-only-block { display: block !important; }.meta-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:850;cursor:pointer}.meta-chip.active{background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.meta-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.metric-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(15,23,42,.05)}.metric-title{font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:7px}.bar-row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar-label{min-width:115px;font-weight:800;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-track{height:13px;flex:1;background:#f1f5f9;border-radius:999px;overflow:hidden}.bar-fill{height:100%;border-radius:999px}.bar-value{min-width:46px;text-align:right;font-weight:950;color:#0f172a}.section-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;color:#94a3b8}.sticky-table th{position:sticky;top:0;z-index:2}.compact-input{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit}.subtle-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px}.wk-cr-scroll{max-height:560px;overflow:auto}.wk-jira-scroll{max-height:460px;overflow:auto}.wk-load-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:16px;padding:16px}.wk-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.58);align-items:center;justify-content:center;padding:24px}.wk-modal-card{width:min(760px,96vw);max-height:88vh;background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 24px 90px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden}.wk-modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}.wk-build-list{flex:1;overflow:auto;padding:12px 18px;display:flex;flex-direction:column;gap:7px}.wk-build-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #f1f5f9;border-radius:10px;background:#fff;cursor:pointer}.wk-build-row.selected{border-color:#c7d2fe;background:#f5f3ff}.wk-build-row input{width:16px;height:16px;accent-color:#6366f1}.wk-build-name{font-size:12px;font-weight:750;color:#1e293b;word-break:break-all;flex:1}.wk-selected-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:none}.wk-selected-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.wk-selected-list{display:flex;gap:6px;flex-wrap:wrap;max-height:92px;overflow:auto}.wk-hidden{display:none!important}
   </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
 <div class="shell" {% if embedded_core_deck %}style="padding:0;background:#fff;"{% endif %}>
-  {% if not embedded_core_deck and job.status != 'published' and can_edit %}
-  <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <i class="fas fa-triangle-exclamation" style="color:#d97706;font-size:16px;"></i>
-      <div>
-        <div style="font-size:13px;font-weight:900;color:#92400e;">DRAFT -- not yet published. Viewers cannot see this page.</div>
-        <div style="font-size:11px;color:#b45309;margin-top:1px;">Use <strong>Edit &amp; Publish</strong> to go live.</div>
-      </div>
-    </div>
-    <a class="btn" href="{{ url_for('live_status_publish_bp.edit_job', job_id=job.id) }}" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;" onclick="lspOpenEdit(this.href);return false;"><i class="fas fa-rocket"></i> Edit &amp; Publish</a>
+      {% if not embedded_core_deck and job.status != 'published' and can_edit %}
+  <div id="lspDraftBanner" style="display:none;background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;padding:10px 16px;margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap;">
+    <i class="fas fa-triangle-exclamation" style="color:#d97706;font-size:16px;"></i>
+    <div style="font-size:13px;font-weight:900;color:#92400e;">DRAFT &mdash; not yet published. Use <strong>Publish</strong> to make it visible to viewers.</div>
   </div>
   {% endif %}
   {% if not embedded_core_deck %}
@@ -45,12 +43,17 @@
         <span class="badge badge-info">Published <span id="pubTimeDisplay">--</span></span>
         <span id="lastRefreshBadge" class="badge badge-warn" style="display:none"><i id="lastRefreshIcon" class="fas fa-rotate"></i> Last refresh <span id="lastRefreshDisplay">never</span></span>
       {% else %}
-        <span class="badge badge-warn"><i class="fas fa-pen" style="font-size:9px"></i> DRAFT -- not published</span>
+        <span class="badge badge-warn"><i class="fas fa-circle" style="font-size:7px"></i> DRAFT</span>
       {% endif %}
       {% if can_edit %}
-        <a class="btn" href="{{ url_for('live_status_publish_bp.edit_job', job_id=job.id) }}" onclick="lspOpenEdit(this.href);return false;"><i class="fas fa-pen"></i> {% if job.status == 'published' %}Edit{% else %}Edit &amp; Publish{% endif %}</a>
+        <!-- View mode: only Edit button visible -->
+        <button class="btn" id="lspEditBtn" onclick="lspEnterEditMode()"><i class="fas fa-pen"></i> Edit</button>
+        <!-- Edit mode: Save + Publish visible, Edit hidden -->
+        <button class="btn" id="lspSaveBtn" style="display:none" onclick="lspSaveDraft()"><i class="fas fa-save"></i> Save</button>
+        <button class="btn btn-primary" id="lspPublishBtn" style="display:none" onclick="lspPublishJob()"><i class="fas fa-rocket"></i> Publish</button>
       {% endif %}
-              <a class="btn btn-primary" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+            <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+      <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
   {% endif %}
@@ -117,8 +120,8 @@
           <h2><i class="fas fa-layer-group" style="color:#ef1747"></i> Core Slides Builder</h2>
         <div class="mini-toolbar">
           <button class="btn btn-primary" onclick="loadCoreDeckBuilds(true)"><i class="fas fa-plus"></i> Add / Load Builds</button>
-          {% if can_edit %}
-          <button class="btn" onclick="saveCoreDeckFromTab()"><i class="fas fa-save"></i> Save</button>
+                    {% if can_edit %}
+          <button class="btn lsp-editor-only" onclick="saveCoreDeckFromTab()"><i class="fas fa-save"></i> Save</button>
           <button class="btn" onclick="refreshCoreDeckCrashesFromTab()"><i class="fas fa-sync"></i> Refresh Crashes Only</button>
           {% endif %}
         </div>
@@ -206,7 +209,7 @@
           <span style="font-size:13px;font-weight:950;color:#1e3a8a"><i class="fas fa-satellite-dish" style="color:#2563eb"></i> Current Running Builds (DB)</span>
           <span id="rbDbCount" class="pill" style="background:#dbeafe;color:#1e40af"></span>
           <span id="rbDbStatus" style="font-size:11px;font-weight:700;color:#64748b"></span>
-          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px" onclick="rbOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+                    <button class="btn btn-primary lsp-editor-only" style="font-size:11px;padding:5px 13px" onclick="rbOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
           <button class="btn" style="font-size:11px;padding:3px 10px" onclick="loadRunningBuildsDb(true)"><i class="fas fa-sync"></i> Refresh</button>
           <span style="font-size:11px;color:#94a3b8;margin-left:auto">Auto-refreshes every 15 min after publish &nbsp;<span id="rbCrashTimerDb" style="font-weight:700;color:#6366f1"></span></span>
         </div>
@@ -520,6 +523,8 @@
 // This early definition prevents ReferenceError from any cached page version.
 window.bsOpen=window.bsOpen||function(){};
 window.bsClose=window.bsClose||function(){};
+
+/* lspEnterEditMode is defined in live_status_published_safe.js */
 window.LSP_DATA = {
   job_id: {{ job.id|tojson }},
   primary_target: {{ primary_target|tojson }},
@@ -1241,8 +1246,7 @@ window.LSP_DATA = {
     document.getElementById('rbDtRedSlider').value=Math.min(90,Math.round(v/10)*10);
     _rbDtUpdateKpi();
   };
-
-  /* -- load Axiom jobs for the selected build -- */
+/* -- load Axiom jobs for the selected build -- */
   function _rbDtLoadJobs(row){
     var tbody=document.getElementById('rbDtJobsTbody'); if(!tbody) return;
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
@@ -1705,7 +1709,8 @@ window.LSP_DATA = {
   });
 }());
 </script>
-<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260622_switchtab_global"></script>
+
+<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260623_editmode6"></script>
 <script>
 /* Build Report (old Builds) - WIP override.
    - All BUs: search/add multiple builds, Apply, Generate consolidated CR/JIRA report.

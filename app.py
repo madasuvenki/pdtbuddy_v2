@@ -130,7 +130,7 @@ from live_status_view_api import live_status_view_api_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
-APP_VERSION = "v2.4"
+APP_VERSION = "v2.5"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -8392,10 +8392,10 @@ if __name__ == '__main__':
     logger.debug("app.py started executing")
     os.makedirs('temp_reports', exist_ok=True)
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

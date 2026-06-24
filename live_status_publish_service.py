@@ -524,6 +524,30 @@ def _job_file_for_job(job: Dict[str, Any]) -> str:
     return os.path.join(target_live_status_dir(_job_primary_target(job)), 'jobs', f'{job["id"]}.json')
 
 
+def get_job_for_target(target_name: str) -> Optional[Dict[str, Any]]:
+    """Directly load the job for a target by scanning its jobs/ folder.
+    No list_jobs() scan — goes straight to the target directory.
+    """
+    jobs_dir = os.path.join(target_live_status_dir(target_name), 'jobs')
+    if not os.path.isdir(jobs_dir):
+        return None
+    best = None
+    for fname in os.listdir(jobs_dir):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(jobs_dir, fname)
+        try:
+            with open(fpath, 'r', encoding='utf-8') as fh:
+                job = json.load(fh)
+            if not isinstance(job, dict) or not job.get('id'):
+                continue
+            if best is None or str(job.get('updated_at') or '') > str(best.get('updated_at') or ''):
+                best = job
+        except Exception:
+            continue
+    return best
+
+
 def _read_job_file(job_id: str) -> Optional[Dict[str, Any]]:
     for path in _candidate_job_files(job_id):
         try:
@@ -779,7 +803,7 @@ def list_jobs() -> List[Dict[str, Any]]:
     jobs = []
     for jid in ordered_ids:
         job = _read_job_file(jid)
-        if job and job.get('id'):
+        if job and isinstance(job, dict) and job.get('id'):
             jobs.append(job)
     return jobs
 

@@ -40,7 +40,7 @@ from urllib.parse import quote
 try:
     from dotenv import load_dotenv as _load_dotenv
     _env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-    _load_dotenv(_env_file, override=False)
+    _load_dotenv(_env_file, override=True)
 except Exception:
     pass
 
@@ -57,7 +57,7 @@ logger = logging.getLogger("fetch_axiom_jobs")
 # Defaults
 # ---------------------------------------------------------------------------
 DEFAULT_API_HOST   = "api-int.qualcomm.com"
-DEFAULT_APP_NAME   = "PDTDashboard"
+DEFAULT_APP_NAME   = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 SWPDT_TAXONOMY        = "/PDT"           # single call — covers all SWPDT sub-taxonomies
 HWPDT_TAXONOMY        = "/PDT/QIPL/HW"   # excluded — handled by fetch_hwpdt_chip_ids.py
 DEFAULT_PAGE_SIZE     = 100

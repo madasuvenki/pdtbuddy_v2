@@ -244,8 +244,6 @@ def _file_changed(t: dict) -> tuple[bool, str]:
 
       excel_path      resolved via _resolve_excel_file      vs  excel_last_ingest
       unique_cr_path  resolved via _resolve_unique_cr_file  vs  unique_cr_last_ingest
-                      (falls back to excel_last_ingest for UCR_ONLY targets
-                       that were ingested before unique_cr_last_update column existed)
 
     Returns (changed: bool, reason: str).
     NOTE: timestamps are truncated to the second before comparison to avoid
@@ -277,15 +275,12 @@ def _file_changed(t: dict) -> tuple[bool, str]:
                     " > last " + last.strftime("%Y-%m-%d %H:%M:%S") + ")"
                 )
 
-    # --- unique_cr_path vs unique_cr_last_update ---
-    # For targets ingested before the unique_cr_last_update column existed,
-    # uclu will be None. Fall back to dlu (excel_last_ingest) so we don't
-    # falsely trigger a re-ingest on every run.
+        # --- unique_cr_path vs unique_cr_last_update ---
     if t["unique_cr_path"]:
         last_ucr = _trunc(t["unique_cr_last_ingest"])
-        if last_ucr is None:
-            # fallback: use dlu if uclu not yet populated
-            last_ucr = _trunc(t["excel_last_ingest"])
+        # NOTE: do NOT fall back to excel_last_ingest for ucr_only targets —
+        # that causes false "never ingested" on every run after a successful ingest.
+        # If unique_cr_last_ingest is None it genuinely has never been ingested.
 
         if last_ucr is None:
             reasons.append("unique_cr_path never ingested")

@@ -73,18 +73,25 @@ live_status_publish_bp = Blueprint('live_status_publish_bp', __name__)
 
 
 def _target_group_access() -> bool:
-    """Editor access remains controlled by qipl.target.pdt / admins only."""
+    """Editor access remains controlled by qipl.target.pdt / admins only.
+    Result is cached on Flask g for the duration of the request."""
+    from flask import g
+    cached = getattr(g, '_target_group_access_result', None)
+    if cached is not None:
+        return cached
     uid = getattr(current_user, 'id', '') or ''
-    # Force viewer mode for override users (testing)
     if uid in VIEWER_OVERRIDE_USERS:
-        return False
-    if uid in ADMIN_USERS:
-        return True
-    try:
-        import app as _app
-        return _app.is_user_in_group(uid, TARGET_GROUP)
-    except Exception:
-        return False
+        result = False
+    elif uid in ADMIN_USERS:
+        result = True
+    else:
+        try:
+            import app as _app
+            result = _app.is_user_in_group(uid, TARGET_GROUP)
+        except Exception:
+            result = False
+    g._target_group_access_result = result
+    return result
 
 
 def _norm_access_list(values):
@@ -354,7 +361,7 @@ def _canonical_target_edit_url(target_name):
 
 
 def _canonical_target_editor_url(target_name):
-    return _canonical_target_edit_url(target_name) + '?editor=1'
+    return _canonical_target_edit_url(target_name)
 
 
 def _render_current_report_editor(job):
@@ -565,8 +572,11 @@ def _published_jobs_by_bu_context():
         if job.get('status') != 'published' or not job.get('public_token'):
             continue
         first_target = (job.get('targets') or [''])[0]
-        continue
-        rows = job.get('published_rows') or job.get('draft_rows') or []
+        info = target_to_bu.get(first_target, {})
+        bu_key = (info.get('bu_key') or 'OTHER').upper()
+        if bu_key in hidden_bus:
+            continue
+        rows = job.get('published_rows') or []
         running_rows = [r for r in rows if str((r or {}).get('run_status', '')).lower() == 'running']
         build_rows = [
             r for r in rows
@@ -787,11 +797,11 @@ def landing():
             'meta_count': len(job.get('published_rows') or job.get('draft_rows') or []),
             'job_name': job.get('name') or '',
             'status': job.get('status') or 'draft',
-            'job_id': job.get('id') or '',
+                        'job_id': job.get('id') or '',
         }
         bu_targets_js.setdefault(bk, []).append(entry)
 
-        viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
+    viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
     auto_open_bu = ''
     if not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
         auto_open_bu = bu_list[0][0]
@@ -873,15 +883,28 @@ def live_status_target_by_bu(bu_key, target_name):
     Viewers use the same URL for the published read-only report.
     """
     if current_user.is_authenticated and _target_group_access():
+        # Editors always get the edit workspace — draft or published.
         job = _find_existing_single_target_job(target_name, 'CRM') or _find_published_job_for_target(target_name)
         if job:
             return _render_current_report_editor(job)
+        # No job exists yet — send editor back to landing to create one.
+        return redirect(url_for('live_status_publish_bp.landing'))
+
+    # Viewers: check access first.
     if not _can_view_live_status_target(target_name, bu_key):
         return render_template(
             'coming_soon_template.html',
             title='Live Status',
             message='You do not have access to this target. Request the listed Live Status viewer group from the landing page.'
         ), 403
+
+    # Viewers only see a published job — never a draft.
+    if not _find_published_job_for_target(target_name):
+        return render_template(
+            'coming_soon_template.html',
+            title='Live Status',
+            message='No published report is available for this target yet.'
+        ), 404
     return _render_target_status_page(target_name)
 
 
@@ -952,15 +975,15 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     is_compute_mtbf = (get_bu_for_target(primary_target) or '').upper() == 'COMPUTE'
     is_auto_bu = _is_core_deck_target(primary_target)
 
-    visible_tabs = ['core'] if is_auto_bu else []
+    visible_tabs = ['core']  # core slide shown for all BUs
     if _job_type(job) == 'ENG':
         initial_tab = 'current'
     visible_tabs += ['current', 'mtbf']
     if not _job_type(job) == 'ENG':
         visible_tabs += ['weekly', 'opencrs', 'openjiras', 'buildreport']
 
-    return render_template(
-        'live_status_publish_edit.html',
+        return render_template(
+        'live_status_publish_edit.html' if is_auto_bu else 'live_status_publish_edit_nonau.html',
         job=job,
         workspace_data=None,
         primary_target=primary_target,
@@ -1104,9 +1127,9 @@ def api_published_mtbf_dashboard(job_id=None, target_name=None):
                 'mtbf_details': r.get('test_eng_comment') or r.get('comments') or '',
                 'week': r.get('week') or r.get('first_submitted') or '',
             })
-        return series, details
+            return series, details
 
-        saved_rows = (job.get('draft_rows') if current_user.is_authenticated and _target_group_access() else job.get('published_rows')) or []
+    saved_rows = (job.get('draft_rows') if current_user.is_authenticated and _target_group_access() else job.get('published_rows')) or []
     saved_series, saved_details = _saved_mtbf_rows_from_job(saved_rows)
 
     if saved_series or saved_details:
@@ -2265,15 +2288,396 @@ def _swpdt_matches_target(build, target_name):
     return any(token in hay for token in tokens)
 
 
-
-
-
-
-
-
 def _all_swpdt_build_rows():
     import json as _json
     import os as _os
     from live_status_publish_service import _get_swpdt_json_path
 
-    path = _get_swpdt_js
+    path = _get_swpdt_json_path()
+    if not _os.path.exists(path):
+        return []
+    with open(path, 'r', encoding='utf-8') as fh:
+        payload = _json.load(fh) or {}
+    raw = payload.get('builds') if isinstance(payload, dict) else None
+    if isinstance(raw, dict):
+        return [b for b in raw.values() if isinstance(b, dict)]
+    jobs = payload.get('jobs') if isinstance(payload, dict) else None
+    if isinstance(jobs, list):
+        return [j for j in jobs if isinstance(j, dict)]
+    return []
+
+
+def _swpdt_rows_for_job(job, q='', domain='ALL', limit=300):
+    targets = job.get('targets') or []
+    primary = targets[0] if targets else ''
+    q_lower = str(q or '').strip().lower()
+    domain = str(domain or 'ALL').strip().upper()
+    is_auto = _is_core_deck_target(primary)
+
+    rows = []
+    if is_auto:
+        for item in _all_swpdt_build_rows():
+            build_id = item.get('build_id') or item.get('build') or item.get('build_name') or ''
+            build_name = _swpdt_build_tail(build_id)
+
+            if not build_name:
+                continue
+            if not _swpdt_matches_target(item, primary):
+                continue
+            row_domain = _swpdt_domain_for_build(item)
+            if row_domain not in {'ADAS', 'FLEX', 'IVI'}:
+                continue
+            if domain in {'ADAS', 'FLEX', 'IVI'} and row_domain != domain:
+                continue
+            meta_id = _swpdt_meta_from_build(build_name)
+            software_product = str(item.get('software_product') or '').strip()
+            state = str(item.get('state') or item.get('status') or item.get('run_status') or '').strip().lower()
+            run_status = 'running' if state in ('running', 'submitted', 'dispatched') else 'completed'
+            hay = ' '.join([build_name, meta_id, software_product, row_domain]).lower()
+
+            if q_lower and not (q_lower in hay or q_lower in meta_id.lower().replace('meta-', '').lstrip('0')):
+                continue
+            rows.append({
+                'meta_id': meta_id,
+                'build_name': build_name,
+                'build_full': build_name,
+                'software_product': software_product,
+                'domain': row_domain,
+                'run_status': run_status,
+                'job_count': int(item.get('job_count') or 1),
+                'device_count': int(item.get('device_count') or 0),
+                'first_submitted': str(item.get('submitted') or item.get('first_submitted') or '')[:10],
+                '_submitted_sort': str(item.get('submitted') or item.get('first_submitted') or ''),
+            })
+    else:
+        from live_status_publish_service import load_swpdt_running_builds
+        for item in load_swpdt_running_builds(primary.capitalize()):
+            build_name = _swpdt_build_tail(item.get('build_name') or item.get('build_full') or '')
+            meta_id = item.get('meta_id') or _swpdt_meta_from_build(build_name)
+            hay = ' '.join([build_name, meta_id, str(item.get('software_product') or '')]).lower()
+            if q_lower and not (q_lower in hay or q_lower in meta_id.lower().replace('meta-', '').lstrip('0')):
+                continue
+            rows.append({**item, 'meta_id': meta_id, 'build_name': build_name, 'build_full': build_name, 'domain': _swpdt_domain_for_build(item), '_submitted_sort': str(item.get('first_submitted') or '')})
+
+    dedup = {}
+    for row in rows:
+        key = str(row.get('build_name') or row.get('build_full') or '').strip().upper()
+        if not key:
+            continue
+        existing = dedup.get(key)
+        if not existing:
+            dedup[key] = row
+            continue
+        existing['job_count'] = int(existing.get('job_count') or 0) + int(row.get('job_count') or 1)
+        existing['device_count'] = int(existing.get('device_count') or 0) + int(row.get('device_count') or 0)
+        if row.get('run_status') == 'running':
+            existing['run_status'] = 'running'
+        if str(row.get('_submitted_sort') or '') > str(existing.get('_submitted_sort') or ''):
+            existing['first_submitted'] = row.get('first_submitted') or existing.get('first_submitted')
+            existing['_submitted_sort'] = row.get('_submitted_sort') or existing.get('_submitted_sort')
+
+    out = list(dedup.values())
+    out.sort(key=lambda r: (str(r.get('_submitted_sort') or r.get('first_submitted') or ''), str(r.get('build_name') or '')), reverse=True)
+    for row in out:
+        row.pop('_submitted_sort', None)
+    return out[:max(1, min(int(limit or 300), 1000))]
+
+
+def _published_report_builds(job):
+
+    """Return only real build IDs (last path segment) for JIRA JQL search.
+    build_full may be a UNC path like \\\\server\\share\\Skyros.LA.1.0.r1-00340-PERF.INT-1
+    We only need the last segment: Skyros.LA.1.0.r1-00340-PERF.INT-1
+    """
+    def _extract_build_id(raw):
+        """Strip UNC/share path prefix, return only the build ID segment."""
+        b = str(raw or '').strip()
+        if not b:
+            return ''
+        # Normalise slashes and split; take the last non-empty part
+        parts = [p.strip() for p in b.replace('/', '\\').split('\\') if p.strip()]
+        return parts[-1] if parts else b
+
+    rows = [r for r in (job.get('draft_rows') or []) if str(r.get('run_status', '')).lower() == 'running']
+    builds = []
+    for row in rows:
+        if row.get('isMerged') and row.get('merged_builds'):
+            builds.extend([_extract_build_id(b) for b in (row.get('merged_builds') or [])])
+        else:
+            bf = _extract_build_id(row.get('build_full') or '')
+            if bf:
+                builds.append(bf)
+    cleaned = []
+    seen = set()
+    for b in builds:
+        if b and b.upper() not in seen and not b.upper().startswith('META-'):
+            seen.add(b.upper())
+            cleaned.append(b)
+    return cleaned
+
+
+def _build_published_current_jql(builds):
+    def _q(value):
+        return str(value or '').replace('"', '\\"')
+    parts = [f'summary ~ "{_q(b)}"' for b in (builds or []) if str(b or '').strip()]
+    if not parts:
+        return ''
+    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND (project = \"Target Stability\" OR project = CHIPMD) AND summary !~ \"tombstone\" ORDER BY created ASC"
+
+
+def _count_jira_for_jql(jql):
+    import os as _os, sys as _sys
+    _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
+    from fetch_consolidated_report import connect_jira
+    jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+    result = jira_obj.search_issues(jql, startAt=0, maxResults=0, fields='summary')
+    return int(getattr(result, 'total', 0) or 0)
+
+
+def _run_published_current_report(job, force=False, custom_jql=''):
+    import os as _os, sys as _sys
+    _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    from fetch_consolidated_report import run_consolidated_report
+
+
+    target = (job.get('targets') or [''])[0]
+    builds = _published_report_builds(job)
+    domain    = (request.args.get('domain') or '').strip().upper() or None
+    build_key = _build_key(builds) if builds else _build_key(request.args.get('build_key') or '')
+    sc = get_report_sidecar(target, build_key, domain)
+
+    import logging as _logging
+    _rlog = _logging.getLogger(__name__)
+    _rlog.info(f"[CURRENT_REPORT] job_id={job.get('id')}, target={target!r}, builds={builds}, force={force}")
+    # Only use the persisted JQL — never auto-generate from builds.
+    # The editor is responsible for saving the JQL before publish.
+    persisted_jql = (sc.get('jql') or '').strip()
+    jql = (custom_jql or '').strip() or persisted_jql
+    if not jql:
+        return {'ok': False, 'error': 'No JQL saved for this report. Go to the editor, run the JIRA query, then publish again.'}, 400
+
+    checked_at = _utc_now()
+    cache = dict(sc.get('report_cache') or {})
+    cached_report = cache.get('report') if isinstance(cache.get('report'), dict) else None
+    old_count = cache.get('jira_count')
+    new_count = _count_jira_for_jql(jql)
+
+    # Check if cached report has CRs with missing enrichment (area/subsystem empty)
+    def _cache_has_missing_cr_details(report):
+        if not report:
+            return False
+        rows = report.get('hierarchical_report') or []
+        cr_rows = [r for r in rows if r.get('cr') and r.get('cr') != 'NO_CR']
+        if not cr_rows:
+            return False
+        missing = sum(1 for r in cr_rows if not (r.get('cr_area') or r.get('cr_subsystem') or r.get('cr_title')))
+        # If more than half the CR rows are missing details, force re-enrich
+        return missing > len(cr_rows) / 2
+
+    cache_stale = _cache_has_missing_cr_details(cached_report)
+
+    if cached_report and not force and not cache_stale and old_count == new_count and (cache.get('jql') or '') == jql:
+        cache['last_fresh_check_at'] = checked_at
+        set_sidecar_report_cache(target, build_key, domain, dict(cache, last_fresh_check_at=checked_at))
+        cached_report.setdefault('meta', {})['cache_status'] = 'fresh_count_unchanged'
+        cached_report['meta']['last_fresh_check_at'] = checked_at
+        cached_report['meta']['jira_count'] = new_count
+        cached_report['meta']['active_jql'] = jql
+        cached_report['excluded_jiras'] = sc.get('excluded_jiras') or []
+        return {'ok': True, 'report': cached_report, 'from_cache': True, 'active_jql': jql}, 200
+
+    report = run_consolidated_report(
+        build_ids=builds,
+        filter_id=JIRA_PDT_FILTER_ID,
+        traverse=True,
+        enrich_orbit=True,
+        target_name=target,
+        custom_jql=jql,
+    )
+    report.setdefault('meta', {})['jira_count'] = new_count
+    report['meta']['last_fresh_check_at'] = checked_at
+    report['meta']['cache_status'] = 'rerun_stale_cr_details' if cache_stale else ('rerun_count_changed' if cached_report else 'initial_full_run')
+    report['meta']['active_jql'] = jql
+    report['excluded_jiras'] = sc.get('excluded_jiras') or []
+    set_sidecar_report_cache(target, build_key, domain, {
+        'jql': jql,
+        'jira_count': new_count,
+        'last_full_run_at': checked_at,
+        'last_fresh_check_at': checked_at,
+        'report': report,
+    })
+    return {'ok': True, 'report': report, 'from_cache': False, 'active_jql': jql}, 200
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/current_report', methods=['GET', 'POST'])
+@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/current_report', methods=['GET', 'POST'])
+def api_published_current_report(job_id=None, target_name=None):
+    if target_name is not None:
+        job, err = _get_target_report_job_for_api(target_name)
+        if err:
+            return jsonify(err[0]), err[1]
+    else:
+        job = get_job(job_id)
+        if not job:
+            return jsonify({'ok': False, 'error': 'Job not found'}), 404
+        # Published reports are publicly readable; write ops still need TARGET_GROUP
+        if job.get('status') != 'published' and not (current_user.is_authenticated and _target_group_access()):
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    data = request.get_json(force=True, silent=True) or {}
+    force = str(request.args.get('force') or '').lower() in ('1', 'true', 'yes') or bool(data.get('force'))
+    custom_jql = data.get('custom_jql') or request.args.get('jql') or ''
+    try:
+        payload, status = _run_published_current_report(job, force=force, custom_jql=custom_jql)
+        return jsonify(payload), status
+    except Exception as exc:
+        logger.exception('[PUBLISHED CURRENT REPORT] Failed: %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@live_status_publish_bp.route('/api/live_status/swpdt_force_refresh', methods=['POST'])
+@login_required
+def api_swpdt_force_refresh():
+    """
+    Trigger a one-shot Axiom fetch right now and update SWPDT_job_summary.json.
+    Returns the new file stats so the UI can show the result.
+    """
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    if AXIOM_FETCH_DISABLED:
+        logger.info('[SWPDT FORCE REFRESH] Axiom fetch disabled; skipping one-shot fetch.')
+        return jsonify({'ok': False, 'disabled': True, 'error': 'Axiom fetch is temporarily disabled'}), 503
+    import os, json, threading
+    from datetime import datetime, timezone
+
+    client_id     = os.environ.get('AXIOM_CLIENT_ID', '').strip()
+    client_secret = os.environ.get('AXIOM_CLIENT_SECRET', '').strip()
+
+    if not client_id or not client_secret:
+        return jsonify({'ok': False, 'error': 'AXIOM_CLIENT_ID / AXIOM_CLIENT_SECRET not configured in .env'}), 400
+
+    try:
+        from scripts.fetch_axiom_jobs import (
+            _get_token, fetch_swpdt_jobs, merge_and_prune, _save,
+            DEFAULT_API_HOST, DEFAULT_APP_NAME, DEFAULT_PAGE_SIZE,
+            DEFAULT_OUTPUT_DIR, OUTPUT_FILENAME, RETENTION_DAYS,
+        )
+        output_path = _SWPDT_JSON  # use the same path the service reads from
+
+        logger.info('[SWPDT FORCE REFRESH] Starting one-shot fetch...')
+        token     = _get_token(DEFAULT_API_HOST, client_id, client_secret)
+        new_jobs  = fetch_swpdt_jobs(DEFAULT_API_HOST, token, DEFAULT_PAGE_SIZE, DEFAULT_APP_NAME)
+
+        if not new_jobs:
+            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom — API may be down or no Running jobs today'}), 502
+
+        final_jobs = merge_and_prune(output_path, new_jobs, RETENTION_DAYS)
+        from datetime import datetime as _dt, timezone as _tz
+        payload = {
+            'generated_at':   _dt.now(_tz.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'taxonomy':       '/PDT',
+            'hwpdt_excluded': '/PDT/QIPL/HW',
+            'retention_days': RETENTION_DAYS,
+            'total_jobs':     len(final_jobs),
+            'total_devices':  sum(j.get('device_count', 0) for j in final_jobs),
+            'state_counts':   {},
+            'jobs':           final_jobs,
+        }
+        for j in final_jobs:
+            s = j.get('state', 'Unknown')
+            payload['state_counts'][s] = payload['state_counts'].get(s, 0) + 1
+
+        _save(output_path, payload)
+        logger.info('[SWPDT FORCE REFRESH] Done — %d jobs saved to %s', len(final_jobs), output_path)
+
+        return jsonify({
+            'ok':           True,
+            'total_jobs':   len(final_jobs),
+            'new_fetched':  len(new_jobs),
+            'state_counts': payload['state_counts'],
+            'generated_at': payload['generated_at'],
+            'saved_to':     output_path,
+        })
+    except Exception as exc:
+        logger.exception('[SWPDT FORCE REFRESH] Failed: %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Save / Publish APIs (used by the editor hero buttons)
+# Target-scoped: reads/writes the job JSON directly from the target folder
+# Same pattern as Core Slides /api/core_deck/save
+# ---------------------------------------------------------------------------
+
+def _get_job_file_for_target(target_name: str):
+    """Return (job_dict, job_file_path) by scanning target's jobs/ folder directly."""
+    from live_status_publish_service import target_live_status_dir
+    import json, os
+    jobs_dir = os.path.join(target_live_status_dir(target_name), 'jobs')
+    if not os.path.isdir(jobs_dir):
+        return None, None
+    best_job, best_path, best_ts = None, None, ''
+    for fname in os.listdir(jobs_dir):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(jobs_dir, fname)
+        try:
+            with open(fpath, 'r', encoding='utf-8') as fh:
+                job = json.load(fh)
+            if not isinstance(job, dict) or not job.get('id'):
+                continue
+            ts = str(job.get('updated_at') or job.get('created_at') or '')
+            if best_job is None or ts > best_ts:
+                best_job, best_path, best_ts = job, fpath, ts
+        except Exception:
+            continue
+    return best_job, best_path
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/save', methods=['POST'])
+@login_required
+def api_save_job(target_name):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    job, job_path = _get_job_file_for_target(target_name)
+    if not job or not job_path:
+        return jsonify({'ok': False, 'error': 'No job found for target'}), 404
+    import json
+    from datetime import datetime, timezone
+    job['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    try:
+        with open(job_path, 'w', encoding='utf-8') as fh:
+            json.dump(job, fh, indent=2)
+        return jsonify({'ok': True, 'updated_at': job['updated_at']})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/publish', methods=['POST'])
+@login_required
+def api_publish_job(target_name):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    job, job_path = _get_job_file_for_target(target_name)
+    if not job or not job_path:
+        return jsonify({'ok': False, 'error': 'No job found for target'}), 404
+    import json
+    from datetime import datetime, timezone
+    username = getattr(current_user, 'username', None) or getattr(current_user, 'id', 'unknown')
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    job['status']                      = 'published'
+    job['published_at']                = now
+    job['published_by']                = username
+    job['updated_at']                  = now
+    job['published_comments_snapshot'] = job.get('published_comments_draft', '')
+    job['published_rows']              = list(job.get('draft_rows') or [])
+    try:
+        with open(job_path, 'w', encoding='utf-8') as fh:
+            json.dump(job, fh, indent=2)
+        return jsonify({'ok': True, 'published_at': now, 'published_by': username, 'status': 'published'})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500

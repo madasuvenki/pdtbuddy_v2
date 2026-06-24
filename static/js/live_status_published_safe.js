@@ -14,6 +14,64 @@ function _num(v){const n=parseFloat(String(v??'').replace(/,/g,''));return Numbe
 function _cdJiraTableKpis(c){c=c||{};const jira=_num(c.total_jiras??c.jira_table_count??c.jiras_count??c.jira_count);const open=_num(c.open_jiras??c.openjira_table_count??c.open_jira_count??c.open_count);const total=jira+open;const pct=total>0?(jira/total)*100:null;return {jira,open,total:total||jira,closedPct:pct==null?(c.closed_jiras_pct||'TBD'):`${pct.toFixed(pct>=10?0:1)}%`}}
 window.lspGoHome=function(){const u=D.landing_url||'/';if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'lsp_close_viewer'},'*');return;}catch(_){}}window.location.href=u;};
 window.lspOpenEdit=function(url){if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'lsp_navigate',url:url},'*');return;}catch(_){}}window.location.href=url;};
+window.lspEnterEditMode=function(){
+  var editBtn=document.getElementById('lspEditBtn');
+  var saveBtn=document.getElementById('lspSaveBtn');
+  var pubBtn=document.getElementById('lspPublishBtn');
+  var banner=document.getElementById('lspDraftBanner');
+  if(editBtn) editBtn.style.display='none';
+  if(saveBtn) saveBtn.style.display='';
+  if(pubBtn)  pubBtn.style.display='';
+  if(banner)  banner.style.display='flex';
+  document.body.classList.add('lsp-edit-mode');
+  // Show all editor-only controls (Core Slides toolbar + card buttons)
+  if(window.LSP_DATA && window.LSP_DATA.can_edit){
+    document.querySelectorAll('.cd-editor-only,.lsp-editor-only').forEach(function(el){
+      el.style.display='';
+    });
+  }
+};
+window.lspSaveDraft=async function(){
+  var target=(window.LSP_DATA||{}).primary_target||'';
+  if(!target){alert('No target found.');return;}
+  var statusEl=document.getElementById('jobStatusMessage');
+  function setStatus(msg,err){
+    console.log('[lspSaveDraft]',msg);
+    if(statusEl){statusEl.textContent=msg;statusEl.style.color=err?'#b91c1c':'#16a34a';if(!err)setTimeout(function(){statusEl.textContent='';},3000);}
+    else if(err){alert(msg);}
+  }
+  setStatus('Saving...');
+  try{
+    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    var d=await r.json();
+    if(!d.ok){setStatus(d.error||'Save failed',true);return;}
+    setStatus('Saved \u2713');
+    var eb=document.getElementById('lspEditBtn'),sb=document.getElementById('lspSaveBtn'),pb=document.getElementById('lspPublishBtn');
+    if(eb)eb.style.display='none';
+    if(sb)sb.style.display='';
+    if(pb)pb.style.display='';
+  }catch(e){setStatus('Save failed: '+e,true);}
+};
+window.lspPublishJob=async function(){
+  var target=(window.LSP_DATA||{}).primary_target||'';
+  if(!target){alert('No target found.');return;}
+  var statusEl=document.getElementById('jobStatusMessage');
+  function setStatus(msg,err){
+    console.log('[lspPublishJob]',msg);
+    if(statusEl){statusEl.textContent=msg;statusEl.style.color=err?'#b91c1c':'#16a34a';if(!err)setTimeout(function(){statusEl.textContent='';},3000);}
+    else if(err){alert(msg);}
+  }
+  if(!confirm('Publish this report? Viewers will see it immediately.'))return;
+  setStatus('Publishing...');
+  try{
+    await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    var d=await r.json();
+    if(!d.ok){setStatus(d.error||'Publish failed',true);return;}
+    setStatus('Published \u2713');
+    setTimeout(function(){window.location.reload();},800);
+  }catch(e){setStatus('Publish failed: '+e,true);}
+};
 let _coreDeckLoaded=false,_cdMetas=[],_cdSavedState=null,_cdLoaded=false,_cdJiraBuilds=[],_cdModalSelected=new Set(),_cdPendingFlavorRows=[],_cdFlavorMergeKeys=new Set(),_cdFlavorMergeGroups={},_cdBuildTypes={},_cdActiveDeck='IVI',_cdCrPivotMeta='',_cdSlideEditMode=false,_cdOpenFilters={NOSIR:true,IMAGE:true},_cdDeckConfig={IVI:[],FLEX:[],ADAS:[]},_cdTargetOptions=[],_cdOverallCrsTables=[],_cdOverallCrsTable='',_cdOverallCrsTarget='',_cdHistoryRows=[],_cdLoadedHistoryId='',_cdWeeklyDetails=null,_cdCorePreview=null,_cdSlideDraftOverrides={},_cdTableDraftOverrides={},_cdAiSummaryCache={},_cdAiSummaryDirty=false,_cdExecSummaryDefaults={},_cdExecSummaryTopRows={},_cdExecSummaryAllRows={};
 let _crRows=[],_openJiraGroups=[],_lastJiraCount=null;
 let _mtbfLoaded=false,_mtbfChart=null,_mtbfSeriesRows=[],_mtbfBuildRows=[],_mtbfRawAutoRows=[],_mtbfAutoDeck='ADAS',_mtbfCrashFilters={system:true,ssr:true,process:true};
@@ -22,7 +80,7 @@ let _cdPivotBuildSelection={},_cdCrashTypeFilters={system:true,ssr:true,process:
 function switchTab(name){if(!IS_AUTO_BU&&name==='core')name=MTBF_ONLY?'mtbf':'current';document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));const _stEl=document.getElementById('tab-'+name);if(_stEl)_stEl.classList.add('active');const btn=[...document.querySelectorAll('.tab')].find(t=>String(t.getAttribute('onclick')||'').includes("'"+name+"'"));if(btn)btn.classList.add('active');if(name==='core'&&!_coreDeckLoaded)initCoreDeck();if(name==='mtbf'&&!_mtbfLoaded)loadMtbfData(false);if(name==='weekly')initWeeklyDates();if(name==='buildreport'&&typeof brInit==='function')brInit();}
 window.switchTab=switchTab;
 function _cdEscAttr(v){return esc(v).replace(/`/g,'&#96;')}
-function ensureCoreDeckTopAddButton(){const core=$('tab-core');if(!core||$('cdTopAddPanel'))return;const panel=document.createElement('div');panel.id='cdTopAddPanel';panel.style.cssText='display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:0 0 10px 0;flex-wrap:wrap;background:#fff;border:0;';panel.innerHTML='<button class="btn btn-primary cd-editor-only" onclick="openCoreDeckBuildModal();return false;"><i class="fas fa-plus"></i> Add Build</button><button class="btn cd-editor-only" onclick="openCoreDeckConfigModal();return false;"><i class="fas fa-cog"></i> Config</button><button class="btn cd-editor-only" onclick="refreshCoreDeckConfiguredTables();return false;"><i class="fas fa-sync"></i> Refresh Tables</button><button id="cdTopSaveBtn" class="btn cd-editor-only" style="display:none" onclick="saveCoreDeckCurrentSelection();return false;"><i class="fas fa-save"></i> Save</button><button id="cdSlideEditBtn" class="btn cd-editor-only" style="display:none" onclick="toggleCoreDeckSlideEdit();return false;"><i class="fas fa-pen"></i> Edit Slides</button><label style="font-size:12px;font-weight:950;color:#334155">Show Slide</label><select id="cdActiveDeckSelect" class="compact-input" style="width:115px;height:32px;font-weight:950" onchange="setCoreDeckActiveSlide(this.value)"><option value="IVI">IVI</option><option value="FLEX">FLEX</option><option value="ADAS">ADAS</option></select><label style="font-size:12px;font-weight:950;color:#334155">Saved Meta</label><select id="cdCrPivotMetaSelect" class="compact-input" style="width:180px;height:32px;font-weight:950" onchange="setCoreDeckCrPivotMeta(this.value)"><option value="">Auto Meta</option></select><button class="btn" title="Refresh/reload saved meta" onclick="refreshCoreDeckSavedMetaPicker();return false;"><i class="fas fa-sync"></i></button><span id="cdTopSaveStatus" class="muted" style="font-size:12px;font-weight:800;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><button class=\"btn\" id=\"cdPresentBtn\" title=\"Presentation Mode \u2014 view slides fullscreen like PowerPoint\" onclick=\"openCoreDeckPresentation();return false;\" style=\"background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:0;gap:7px\"><i class=\"fas fa-person-chalkboard\" style=\"font-size:14px\"></i> Present</button>'; core.insertBefore(panel,core.firstElementChild);const slides=document.createElement('div');slides.id='cdSlideDeckHost';slides.style.cssText='margin-top:10px;display:flex;flex-direction:column;gap:18px;';core.insertBefore(slides,panel.nextSibling);if(!CAN_EDIT)panel.querySelectorAll('.cd-editor-only').forEach(el=>el.style.display='none');document.querySelectorAll('button').forEach(b=>{const txt=(b.textContent||'').trim();const on=String(b.getAttribute('onclick')||'');if(txt.includes('Add / Load Builds')||on.includes('saveCoreDeckFromTab')){b.style.display='none';if(txt.includes('Add / Load Builds'))b.setAttribute('onclick','openCoreDeckBuildModal();return false;')}})}
+function ensureCoreDeckTopAddButton(){const core=$('tab-core');if(!core||$('cdTopAddPanel'))return;const panel=document.createElement('div');panel.id='cdTopAddPanel';panel.style.cssText='display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:0 0 10px 0;flex-wrap:wrap;background:#fff;border:0;';panel.innerHTML='<button class="btn btn-primary cd-editor-only" onclick="openCoreDeckBuildModal();return false;"><i class="fas fa-plus"></i> Add Build</button><button class="btn cd-editor-only" onclick="openCoreDeckConfigModal();return false;"><i class="fas fa-cog"></i> Config</button><button class="btn cd-editor-only" onclick="refreshCoreDeckConfiguredTables();return false;"><i class="fas fa-sync"></i> Refresh Tables</button><button id="cdTopSaveBtn" class="btn cd-editor-only" style="display:none" onclick="saveCoreDeckCurrentSelection();return false;"><i class="fas fa-save"></i> Save</button><button id="cdSlideEditBtn" class="btn cd-editor-only" style="display:none" onclick="toggleCoreDeckSlideEdit();return false;"><i class="fas fa-pen"></i> Edit Slides</button><label style="font-size:12px;font-weight:950;color:#334155">Show Slide</label><select id="cdActiveDeckSelect" class="compact-input" style="width:115px;height:32px;font-weight:950" onchange="setCoreDeckActiveSlide(this.value)"><option value="IVI">IVI</option><option value="FLEX">FLEX</option><option value="ADAS">ADAS</option></select><label style="font-size:12px;font-weight:950;color:#334155">Saved Meta</label><select id="cdCrPivotMetaSelect" class="compact-input" style="width:180px;height:32px;font-weight:950" onchange="setCoreDeckCrPivotMeta(this.value)"><option value="">Auto Meta</option></select><button class="btn" title="Refresh/reload saved meta" onclick="refreshCoreDeckSavedMetaPicker();return false;"><i class="fas fa-sync"></i></button><span id="cdTopSaveStatus" class="muted" style="font-size:12px;font-weight:800;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><button class=\"btn\" id=\"cdPresentBtn\" title=\"Presentation Mode \u2014 view slides fullscreen like PowerPoint\" onclick=\"openCoreDeckPresentation();return false;\" style=\"background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:0;gap:7px\"><i class=\"fas fa-person-chalkboard\" style=\"font-size:14px\"></i> Present</button>'; core.insertBefore(panel,core.firstElementChild);const slides=document.createElement('div');slides.id='cdSlideDeckHost';slides.style.cssText='margin-top:10px;display:flex;flex-direction:column;gap:18px;';core.insertBefore(slides,panel.nextSibling);if(!CAN_EDIT)panel.querySelectorAll('.cd-editor-only').forEach(el=>el.style.display='none');else panel.querySelectorAll('.cd-editor-only').forEach(el=>el.style.display='none');document.querySelectorAll('button').forEach(b=>{const txt=(b.textContent||'').trim();const on=String(b.getAttribute('onclick')||'');if(txt.includes('Add / Load Builds')||on.includes('saveCoreDeckFromTab')){b.style.display='none';if(txt.includes('Add / Load Builds'))b.setAttribute('onclick','openCoreDeckBuildModal();return false;')}})}
 async function loadCoreDeckTargetOptions(){if(_cdTargetOptions.length)return _cdTargetOptions;try{const resp=await fetch('/api/core_deck/options');const data=await resp.json().catch(()=>({}));_cdTargetOptions=(data.target_options||[]).map(r=>({name:r.name||r.target||r.target_name||'',label:r.display_name||r.target_display||r.name||r.target||''})).filter(r=>r.name);return _cdTargetOptions;}catch(_){return []}}
 async function loadCoreDeckOverallCrsTables(force){const target=PRIMARY_TARGET||'';const fallback=['pdt_stats_auto.nord_hqx_overallcrs','pdt_stats_auto.nord_hgy_overallcrs'];if(!force&&_cdOverallCrsTables.length&&_cdOverallCrsTarget===target)return _cdOverallCrsTables;try{const qs=target?'?'+new URLSearchParams({target}).toString():'';let r=await fetch('/api/core_deck/overallcrs_tables'+qs);let d=await r.json().catch(()=>({}));let tables=d.tables||[];if(target&&!tables.length){r=await fetch('/api/core_deck/overallcrs_tables');d=await r.json().catch(()=>({}));tables=d.tables||[];}const seen=new Set((tables||[]).map(t=>String(t.fq||'').toLowerCase()));fallback.forEach(fq=>{if(!seen.has(fq.toLowerCase()))tables.push({fq,label:fq,schema:fq.split('.')[0],table:fq.split('.')[1],fallback:true});});_cdOverallCrsTables=tables;_cdOverallCrsTarget=target;return _cdOverallCrsTables;}catch(_){_cdOverallCrsTables=fallback.map(fq=>({fq,label:fq,schema:fq.split('.')[0],table:fq.split('.')[1],fallback:true}));_cdOverallCrsTarget=target;return _cdOverallCrsTables}}
 function _cdSetConfigFromState(state){const cfg=(state&&state.deck_config)||((state&&state.saved_preview&&state.saved_preview.deck_config)||{});_cdDeckConfig={IVI:[...((cfg.IVI||cfg.ivi||[])||[])],FLEX:[...((cfg.FLEX||cfg.flex||[])||[])],ADAS:[...((cfg.ADAS||cfg.adas||[])||[])]};const savedOv=(state&&state.overallcrs_table)||(state&&state.saved_preview&&state.saved_preview.overallcrs_table)||'';if(savedOv)_cdOverallCrsTable=savedOv;if(!_cdOverallCrsTable){for(const dk of ['IVI','FLEX','ADAS']){const e=(_cdDeckConfig[dk]||[]).find(x=>x&&typeof x==='object'&&(x.overallcrs_table||x.overall_crs_table));if(e){_cdOverallCrsTable=e.overallcrs_table||e.overall_crs_table;break;}}}}

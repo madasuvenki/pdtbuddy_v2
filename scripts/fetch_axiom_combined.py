@@ -62,7 +62,7 @@ from urllib.parse import quote
 # ---------------------------------------------------------------------------
 try:
     from dotenv import load_dotenv as _ld
-    _ld(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'), override=False)
+    _ld(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'), override=True)
 except Exception:
     pass
 
@@ -79,7 +79,7 @@ logger = logging.getLogger("fetch_axiom_combined")
 # Config
 # ---------------------------------------------------------------------------
 DEFAULT_API_HOST    = "api-int.qualcomm.com"
-DEFAULT_APP_NAME    = "PDTDashboard"
+DEFAULT_APP_NAME    = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 
 # ---------------------------------------------------------------------------
 # Taxonomy paths — confirmed valid in Axiom (404 tested 2026-06-17)

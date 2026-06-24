@@ -59,7 +59,7 @@ from typing import Dict, List, Optional
 try:
     from dotenv import load_dotenv as _ld
     _env = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-    _ld(_env, override=False)
+    _ld(_env, override=True)
 except Exception:
     pass
 
@@ -87,7 +87,7 @@ HWPDT_LOCAL     = os.path.join(_PROJECT_ROOT, "HWPDT_job_audit_local_backup.json
 # Axiom config
 # ---------------------------------------------------------------------------
 API_HOST        = "api-int.qualcomm.com"
-APP_NAME        = "PDTDashboard"
+APP_NAME        = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 TAXONOMY_SWPDT  = "/PDT"
 TAXONOMY_HWPDT  = "/PDT/QIPL/HW"
 RETENTION_DAYS  = 20

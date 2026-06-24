@@ -935,17 +935,18 @@ def _ingest_overallcrs_pandas(
         return False
 
 
-def upsert_dashboard_status(cursor, target_name, dashboard_latest_update, unique_cr_last_update=None):
+def upsert_dashboard_status(cursor, target_name, dashboard_latest_update=None, unique_cr_last_update=None):
     """
     Updates dashboard_latest_update (and optionally unique_cr_last_update)
     for an existing target row in pdt_stats_dashboard.dashboard_status.
 
     Assumes the row was already created by add_target_to_dashboard_status.
     If no row is found, it logs a warning and returns without inserting.
+    Pass dashboard_latest_update=None to update only unique_cr_last_update.
     """
     # No CREATE TABLE here; table is managed by dashboard_common
     # and has many more columns (bu, platform, etc.)
-    if unique_cr_last_update is not None:
+    if dashboard_latest_update is not None and unique_cr_last_update is not None:
         update_sql = """
             UPDATE pdt_stats_dashboard.dashboard_status
             SET dashboard_latest_update = %s,
@@ -953,13 +954,24 @@ def upsert_dashboard_status(cursor, target_name, dashboard_latest_update, unique
             WHERE target_name = %s AND is_active = 1
         """
         cursor.execute(update_sql, (dashboard_latest_update, unique_cr_last_update, target_name))
-    else:
+    elif unique_cr_last_update is not None:
+        # unique_cr_only mode — only stamp unique_cr_last_update
+        update_sql = """
+            UPDATE pdt_stats_dashboard.dashboard_status
+            SET unique_cr_last_update = %s
+            WHERE target_name = %s AND is_active = 1
+        """
+        cursor.execute(update_sql, (unique_cr_last_update, target_name))
+    elif dashboard_latest_update is not None:
         update_sql = """
             UPDATE pdt_stats_dashboard.dashboard_status
             SET dashboard_latest_update = %s
             WHERE target_name = %s AND is_active = 1
         """
         cursor.execute(update_sql, (dashboard_latest_update, target_name))
+    else:
+        logger.warning(f"upsert_dashboard_status: nothing to update for '{target_name}' (both timestamps None)")
+        return
     if cursor.rowcount == 0:
         logger.info(
             f"WARN_INGEST_EXCEL: upsert_dashboard_status - "
@@ -998,7 +1010,8 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
             except FileNotFoundError as nf:
                 logger.warning(f"WARN_INGEST_EXCEL: Unique CR workbook not found for '{target_name}': {nf}")
                 if unique_only_mode:
-                    raise
+                    # Don't raise — return False cleanly so other targets keep running
+                    return False
 
         # Drop stale map-only tables from previous runs
         try:
@@ -1025,9 +1038,10 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
         if unique_only_mode:
             if overall_success and actual_unique_cr_file:
                 unique_cr_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(actual_unique_cr_file))
+                # Only update unique_cr_last_update — do NOT touch dashboard_latest_update
+                # (that belongs to the excel_path ingest timestamp)
                 upsert_dashboard_status(
                     cursor, target_name,
-                    dashboard_latest_update=unique_cr_mtime,
                     unique_cr_last_update=unique_cr_mtime,
                 )
                 conn.commit()
@@ -1043,7 +1057,9 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
         except OSError as e:
             logger.error(f"INGEST_EXCEL: Cannot stat file (network/disk issue) for '{target_name}': {e}")
             return False
-        dashboard_latest_update = max([d for d in [excel_last_updated, unique_cr_last_updated] if d is not None])
+        # dashboard_latest_update tracks excel_path only
+        # unique_cr_last_update tracks unique_cr_path independently
+        dashboard_latest_update = excel_last_updated
 
         # Read excel file into memory (avoids Windows SMB temp-space issues)
         try:

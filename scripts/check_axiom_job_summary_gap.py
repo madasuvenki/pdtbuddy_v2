@@ -26,7 +26,7 @@ if _PROJECT_ROOT not in sys.path:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(_PROJECT_ROOT, ".env"), override=False)
+    load_dotenv(os.path.join(_PROJECT_ROOT, ".env"), override=True)
 except Exception:
     pass
 
