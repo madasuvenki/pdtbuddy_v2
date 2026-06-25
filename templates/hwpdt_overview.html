@@ -178,7 +178,7 @@
       <div class="hwo-card-value" id="hwoTotalParts">&#8230;</div>
       <div class="hwo-card-sub">Certicom IDs across all</div>
     </div>
-    <div class="hwo-card hwo-card--purple">
+        <div class="hwo-card hwo-card--purple">
       <i class="fas fa-bug hwo-card-icon"></i>
       <div class="hwo-card-label">HWPDT Only CRs</div>
       <div class="hwo-card-value" id="hwoTotalCRs">&#8230;</div>
@@ -186,9 +186,21 @@
     </div>
     <div class="hwo-card hwo-card--green">
       <i class="fas fa-ticket-alt hwo-card-icon"></i>
-      <div class="hwo-card-label">Total JIRAs</div>
+      <div class="hwo-card-label">HWPDT JIRAs</div>
       <div class="hwo-card-value" id="hwoTotalJiras">&#8230;</div>
-      <div class="hwo-card-sub">Stability tickets combined</div>
+      <div class="hwo-card-sub">JIRA + open + closed tables</div>
+    </div>
+    <div class="hwo-card hwo-card--orange">
+      <i class="fas fa-folder-open hwo-card-icon"></i>
+      <div class="hwo-card-label">Open JIRAs</div>
+      <div class="hwo-card-value" id="hwoOpenJiras">&#8230;</div>
+      <div class="hwo-card-sub">HWPDT Team</div>
+    </div>
+    <div class="hwo-card hwo-card--cyan">
+      <i class="fas fa-check-circle hwo-card-icon"></i>
+      <div class="hwo-card-label">Closed JIRAs</div>
+      <div class="hwo-card-value" id="hwoClosedJiras">&#8230;</div>
+      <div class="hwo-card-sub">HWPDT Team</div>
     </div>
   </div>
 
@@ -420,7 +432,7 @@ async function fetchTarget(t){
     fetch(`/api/hwpdt_chip_parts/${encodeURIComponent(t)}`,{cache:'no-store'}),
     fetch(`/api/hwpdt_cr_venn/${encodeURIComponent(t)}`,  {cache:'no-store'}),
   ]);
-  let tested=0,projected=null,chipIds=[],chipRows=[],playlistFilters=[],crs='&#8230;',jiras='&#8230;',inJson=false;
+  let tested=0,projected=null,chipIds=[],chipRows=[],playlistFilters=[],crs='&#8230;',jiras='&#8230;',openJiras='&#8230;',closedJiras='&#8230;',inJson=false;
   if(partsRes.status==='fulfilled'){
     const d=await partsRes.value.json().catch(()=>({}));
     if(d.success){
@@ -434,15 +446,17 @@ async function fetchTarget(t){
   }
   if(vennRes.status==='fulfilled'){
     const d=await vennRes.value.json().catch(()=>({}));
-    if(d.success&&d.hero_cards){
+        if(d.success&&d.hero_cards){
       crs  =d.summary?.hwpdt_only??'&#8230;';
       jiras=d.hero_cards.total_hwpdt_jiras??'&#8230;';
+      openJiras=d.hero_cards.open_hwpdt_jiras??'&#8230;';
+      closedJiras=d.hero_cards.closed_hwpdt_jiras??'&#8230;';
     }
   }
   // Collect playlists globally
   playlistFilters.forEach(pl=>{ if(pl&&!_allPlaylistsGlobal.includes(pl)) _allPlaylistsGlobal.push(pl); });
   _targetChipData[t]={chip_rows:chipRows,playlist_filters:playlistFilters};
-  return {target:t,tested,projected,chipIds,chipRows,playlistFilters,crs,jiras,inJson};
+  return {target:t,tested,projected,chipIds,chipRows,playlistFilters,crs,jiras,openJiras,closedJiras,inJson};
 }
 
 // ── Alias status for a target ─────────────────────────────────────────────
@@ -617,16 +631,20 @@ async function init(){
   const [serverAliases, results] = await Promise.all([
     loadAliasesFromServer(),
     Promise.all(HWPDT_TARGETS.map(fetchTarget)),
-  ]);
-  let tp=0,tc=0,tj=0;
+    ]);
+  let tp=0,tc=0,tj=0,toj=0,tcj=0;
   results.forEach(r=>{
     tp+=r.tested;
     if(typeof r.crs==='number') tc+=r.crs;
     if(typeof r.jiras==='number') tj+=r.jiras;
+    if(typeof r.openJiras==='number') toj+=r.openJiras;
+    if(typeof r.closedJiras==='number') tcj+=r.closedJiras;
   });
   document.getElementById('hwoTotalParts').textContent=tp;
   document.getElementById('hwoTotalCRs').textContent=tc||'&#8212;';
   document.getElementById('hwoTotalJiras').textContent=tj||'&#8212;';
+  document.getElementById('hwoOpenJiras').textContent=toj||'&#8212;';
+  document.getElementById('hwoClosedJiras').textContent=tcj||'&#8212;';
   buildTable(results);
 }
 init();

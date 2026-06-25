@@ -338,6 +338,26 @@ def live_hours_sql(
     )
 
 
+def _hwpdt_track_result(state, build_loading_status, exception) -> tuple:
+    """Return (result_status, passed) for one HWPDT playlist/device track.
+
+    PASS requires the track to be completed, build loading successful, and no
+    exception. Everything else completed with error/exception is FAIL. Running
+    states remain RUNNING so they can be refreshed later.
+    """
+    st = str(state or '').strip().lower()
+    bl = str(build_loading_status or '').strip().lower()
+    ex = str(exception or '').strip().lower()
+
+    if st in ('running', 'inprogress', 'in_progress', 'queued', 'scheduled'):
+        return 'RUNNING', None
+    if st == 'completed' and bl == 'completedsuccessfully' and ex in ('', 'noexception', 'none', 'null'):
+        return 'PASS', True
+    if st or bl or ex:
+        return 'FAIL', False
+    return 'UNKNOWN', None
+
+
 def _parse_dt(val) -> Optional[str]:
     """Return MySQL-compatible datetime string (YYYY-MM-DD HH:MM:SS) or None.
     Axiom returns ISO strings like '2026-06-17T16:14:19.1836775Z' which have
@@ -745,19 +765,30 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
     import uuid as _uuid
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    # Only enrich jobs that are missing playlist_name
-    to_enrich = {jid: b for jid, b in builds.items() if not b.get("playlist_name")}
+            # Enrich jobs that are missing playlist_name OR missing certicom_playlist.
+    # Older DB/JSON rows may already have playlist_name, but may be missing
+    # detailed certicom_results. Those rows still need /data/playlists enrichment.
+    def _needs_playlist_enrichment(row):
+        if not row.get("playlist_name"):
+            return True
+        cp = row.get("certicom_playlist")
+        if not isinstance(cp, list) or not cp:
+            return True
+        return not any(isinstance(x, dict) and x.get("certicom_results") for x in cp)
+
+    to_enrich = {jid: b for jid, b in builds.items() if _needs_playlist_enrichment(b)}
     already   = len(builds) - len(to_enrich)
-    logger.info("[ENRICH PLAYLIST] need_enrichment=%d  already_have=%d  total=%d",
+    logger.info("[ENRICH PLAYLIST] need_enrichment=%d  already_have_playlist_and_certicom=%d  total=%d",
                 len(to_enrich), already, len(builds))
 
     if not to_enrich:
         return builds
 
     def _fetch_playlist(job_id):
-        """Fetch playlist names + certicom IDs for one HWPDT job.
-        Returns (job_id, names, ids, certicom_map) or (job_id, None, None, None).
-        certicom_map = [{playlist_id, playlist_name, certicom_ids:[...]}]
+        """Fetch playlist names + Certicom/device result details for one HWPDT job.
+
+        Stored into axiom_job_summary.certicom_playlist JSON as:
+        [{playlist_id, playlist_name, certicom_ids, certicom_results, summary}]
         """
         path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
         try:
@@ -779,15 +810,74 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
                 for it in items:
                     n = str(it.get("name") or "").strip()
                     p = it.get("id")
-                    if n and n not in names: names.append(n)
-                    if p and str(p) not in ids: ids.append(str(p))
+                    if n and n not in names:
+                        names.append(n)
+                    if p and str(p) not in ids:
+                        ids.append(str(p))
+
                     certicom_ids = []
-                    for _f in ("certicomIds","certicom_ids","deviceSerialNumbers","chipIdSerialNumbers","serialNumbers"):
-                        _raw = it.get(_f)
-                        if _raw and isinstance(_raw, list):
-                            certicom_ids = [str(c).strip() for c in _raw if str(c).strip()]
-                            break
-                    certicom_map.append({"playlist_id": str(p or ""), "playlist_name": n, "certicom_ids": certicom_ids})
+                    certicom_results = []
+                    summary = {"total": 0, "pass": 0, "fail": 0, "running": 0, "unknown": 0}
+
+                    tracks = it.get("playlistStatusOfEachTrack") or []
+                    if isinstance(tracks, list):
+                        for tr in tracks:
+                            if not isinstance(tr, dict):
+                                continue
+                            resource = tr.get("testResource") or {}
+                            if not isinstance(resource, dict):
+                                resource = {}
+                            certicom_id = str(resource.get("name") or "").strip().upper()
+                            if certicom_id and certicom_id not in certicom_ids:
+                                certicom_ids.append(certicom_id)
+
+                            result_status, passed = _hwpdt_track_result(
+                                tr.get("state"), tr.get("buildLoadingStatus"), tr.get("exception")
+                            )
+                            summary["total"] += 1
+                            if result_status == "PASS":
+                                summary["pass"] += 1
+                            elif result_status == "FAIL":
+                                summary["fail"] += 1
+                            elif result_status == "RUNNING":
+                                summary["running"] += 1
+                            else:
+                                summary["unknown"] += 1
+
+                            certicom_results.append({
+                                "certicom_id": certicom_id,
+                                "track": tr.get("track"),
+                                "playlist_iteration": tr.get("playlistIteration"),
+                                "state": tr.get("state"),
+                                "build_loading_status": tr.get("buildLoadingStatus"),
+                                "exception": tr.get("exception"),
+                                "result_status": result_status,
+                                "passed": passed,
+                                "started": tr.get("started"),
+                                "ended": tr.get("ended"),
+                                "run_time": tr.get("runTime"),
+                                "host_name": tr.get("hostName"),
+                                "chipset": resource.get("chipset"),
+                                "resource_id": resource.get("resourceId"),
+                                "resource_type": resource.get("type"),
+                            })
+
+                    # Fallback for older/sparser Axiom payloads.
+                    if not certicom_ids:
+                        for _f in ("certicomIds", "certicom_ids", "deviceSerialNumbers", "chipIdSerialNumbers", "serialNumbers"):
+                            _raw = it.get(_f)
+                            if _raw and isinstance(_raw, list):
+                                certicom_ids = [str(c).strip().upper() for c in _raw if str(c).strip()]
+                                break
+
+                    certicom_map.append({
+                        "playlist_id": str(p or ""),
+                        "playlist_name": n,
+                        "revision": it.get("revision"),
+                        "certicom_ids": certicom_ids,
+                        "certicom_results": certicom_results,
+                        "summary": summary,
+                    })
                 return job_id, names, ids, certicom_map
         except Exception as exc:
             logger.debug("[ENRICH PLAYLIST] job %s failed: %s", job_id, exc)
@@ -1038,10 +1128,11 @@ def _normalise_to_builds(raw_jobs: List[dict]) -> Dict[str, dict]:
             'chip_ids':         chips,
             'submitted':        submitted,
             'started_at':       started_at,
-            'completed_at':     ended_at,
-            'status':           status,
-            'playlist_name':    j.get('playlist_name'),
-            'playlist':         j.get('playlist'),
+                        'completed_at':       ended_at,
+            'status':             status,
+            'playlist_name':      j.get('playlist_name'),
+            'playlist':           j.get('playlist'),
+            'certicom_playlist':  j.get('certicom_playlist'),
         }
 
     return builds
@@ -1082,10 +1173,12 @@ def _merge_builds_hwpdt(existing_builds: Dict[str, dict],
     for job_id, new in new_builds.items():
         existing = existing_builds.get(job_id)
         if existing:
-            # Carry forward playlist data if new entry doesn't have it
+            # Carry forward playlist/certicom data if new entry doesn't have it.
             if not new.get("playlist_name") and existing.get("playlist_name"):
                 new["playlist_name"] = existing["playlist_name"]
                 new["playlist"]      = existing.get("playlist")
+            if not new.get("certicom_playlist") and existing.get("certicom_playlist"):
+                new["certicom_playlist"] = existing.get("certicom_playlist")
         existing_builds[job_id] = new
     return existing_builds
 
@@ -1510,6 +1603,12 @@ def run_cycle(host: str, token: str, app_name: str,
     for jid, b in hwpdt_norm.items():
         b['team']          = 'HWPDT'
         b['taxonomy_path'] = HWPDT_TAXONOMY
+        enriched_hw = hwpdt_builds.get(jid) or {}
+        if enriched_hw.get('playlist_name'):
+            b['playlist_name'] = enriched_hw.get('playlist_name')
+            b['playlist'] = enriched_hw.get('playlist')
+        if enriched_hw.get('certicom_playlist'):
+            b['certicom_playlist'] = enriched_hw.get('certicom_playlist')
         all_normalised[jid] = b
 
     # HWPDT audit file — also upsert historical jobs list (chip_ids already populated)

@@ -431,8 +431,19 @@ body.hwpdt-edit-mode .hw-edit-only{ display:table-cell; }
     <div class="hw-hero-sub">HW-only + overlap</div>
   </div>
   <div class="hw-hero-card">
-    <div class="hw-hero-label">Total HWPDT JIRAs</div>
+    <div class="hw-hero-label">HWPDT JIRAs</div>
     <div class="hw-hero-value" id="hwHeroHwJiras">0</div>
+    <div class="hw-hero-sub">JIRA table, HWPDT team</div>
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Open JIRAs</div>
+    <div class="hw-hero-value" id="hwHeroOpenJiras">0</div>
+    <div class="hw-hero-sub">openJiras table, HWPDT team</div>
+  </div>
+  <div class="hw-hero-card">
+    <div class="hw-hero-label">Closed JIRAs</div>
+    <div class="hw-hero-value" id="hwHeroClosedJiras">0</div>
+    <div class="hw-hero-sub">Closed_JIRAs table, HWPDT team</div>
   </div>
   <div class="hw-hero-card">
     <div class="hw-hero-label">Invalid JIRAs</div>
@@ -719,6 +730,8 @@ document.getElementById('hw-save-btn').addEventListener('click', () => submitHwp
   const heroHwCrsEl = document.getElementById('hwHeroHwCrs');
   const heroHwJirasEl = document.getElementById('hwHeroHwJiras');
   const heroInvalidJirasEl = document.getElementById('hwHeroInvalidJiras');
+  const heroOpenJirasEl = document.getElementById('hwHeroOpenJiras');
+  const heroClosedJirasEl = document.getElementById('hwHeroClosedJiras');
   const heroTestedPartsEl = document.getElementById('hwHeroTestedParts');
   const circles = Array.from(document.querySelectorAll('.hw-cr-circle'));
 
@@ -790,8 +803,9 @@ document.getElementById('hw-save-btn').addEventListener('click', () => submitHwp
         totalCountEl.textContent = String(summary.all || allRows.length || 0);
         if (heroTotalCrsEl) heroTotalCrsEl.textContent = String(hero.total_crs || 0);
         if (heroSwCrsEl) heroSwCrsEl.textContent = String(hero.swpdt_crs || 0);
-        if (heroHwCrsEl) heroHwCrsEl.textContent = String(hero.hwpdt_crs || 0);
-        if (heroHwJirasEl) heroHwJirasEl.textContent = String(hero.total_hwpdt_jiras || 0);
+                if (heroHwCrsEl) heroHwCrsEl.textContent = String(hero.hwpdt_crs || 0);
+        if (heroHwJirasEl) heroHwJirasEl.textContent = String(hero.jira_table_hwpdt_jiras || 0);
+        if (heroOpenJirasEl) heroOpenJirasEl.textContent = String(hero.open_hwpdt_jiras || 0);
         if (heroInvalidJirasEl) heroInvalidJirasEl.textContent = String(hero.invalid_jiras || 0);
         if (heroTestedPartsEl) heroTestedPartsEl.textContent = String(hero.total_tested_parts || 0);
 

@@ -1,8 +1,10 @@
 import os
 import sys
+from functools import wraps
+from hmac import compare_digest
 
 from flask import Blueprint, jsonify, request
-from flask_login import login_required
+from flask_login import current_user
 
 from config import JIRA_PDT_FILTER_ID
 
@@ -54,8 +56,60 @@ def _as_bool(value, default=True):
     return str(value).strip().lower() in ("1", "true", "yes", "y", "on")
 
 
+def _configured_api_tokens():
+    """Server-side tokens that allow external tools to call this endpoint.
+
+    Configure one of these in .env/environment:
+      PDTBUDDY_API_TOKEN=<long random token>
+      JIRAQUERY_API_TOKEN=<long random token>
+
+    Multiple tokens can be separated by comma/semicolon/newline.
+    """
+    raw = "\n".join([
+        os.getenv("PDTBUDDY_API_TOKEN", ""),
+        os.getenv("JIRAQUERY_API_TOKEN", ""),
+    ])
+    return [t.strip() for t in raw.replace(";", ",").replace("\n", ",").split(",") if t.strip()]
+
+
+def _request_api_token():
+    auth = str(request.headers.get("Authorization") or "").strip()
+    if auth.lower().startswith("bearer "):
+        return auth.split(None, 1)[1].strip()
+    return str(
+        request.headers.get("X-PDTBuddy-API-Token")
+        or request.headers.get("X-JiraQuery-API-Token")
+        or request.args.get("api_token")
+        or ""
+    ).strip()
+
+
+def _jiraquery_authenticated():
+    if getattr(current_user, "is_authenticated", False):
+        return True
+    provided = _request_api_token()
+    if not provided:
+        return False
+    return any(compare_digest(provided, expected) for expected in _configured_api_tokens())
+
+
+def jiraquery_login_or_token_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if _jiraquery_authenticated():
+            return fn(*args, **kwargs)
+        return jsonify({
+            "success": False,
+            "ok": False,
+            "login_required": True,
+            "token_allowed": bool(_configured_api_tokens()),
+            "error": "Login session or API token required. Use browser login cookie, or send X-PDTBuddy-API-Token / Authorization: Bearer token.",
+        }), 401
+    return wrapper
+
+
 @jiraquery_api_bp.route("/api/jiraquery/raw", methods=["GET", "POST"])
-@login_required
+@jiraquery_login_or_token_required
 def api_jiraquery_raw():
     """
     Return raw JiraQuery/consolidated-report data for comma-separated builds.

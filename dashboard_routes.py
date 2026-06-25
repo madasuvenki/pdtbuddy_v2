@@ -2610,16 +2610,22 @@ def _load_hwpdt_job_audit_data():
         _conn = get_mysql_connection_db(bu_key=None)
         if _conn:
             _cur = _conn.cursor(dictionary=True)
+            try:
+                # Best effort only: increase this session's sort/work memory, not global MySQL.
+                # The query below avoids MySQL ORDER BY on large JSON rows; Python sorts after fetch.
+                _cur.execute("SET SESSION sort_buffer_size = 268435456")
+            except Exception:
+                pass
             _cur.execute("""
                 SELECT job_id, build_id, software_product, chip_ids,
-                       playlist_name, state, device_count,
+                       playlist_name, certicom_playlist, state, device_count,
                        submitted_at, started_at, updated_at
                 FROM pdt_stats_dashboard.axiom_job_summary
                 WHERE team = 'HWPDT'
                   AND state IN ('Completed', 'Aborted', 'Running', 'JobSetup')
-                ORDER BY submitted_at DESC
             """)
             db_rows = _cur.fetchall() or []
+            db_rows.sort(key=lambda r: str(r.get("submitted_at") or ""), reverse=True)
             _cur.close()
             _conn.close()
 
@@ -2643,6 +2649,15 @@ def _load_hwpdt_job_audit_data():
                     except Exception:
                         chip_ids = []
 
+                    try:
+                        certicom_playlist = row.get("certicom_playlist") or []
+                        if isinstance(certicom_playlist, str):
+                            certicom_playlist = _json.loads(certicom_playlist or "[]")
+                        if not isinstance(certicom_playlist, list):
+                            certicom_playlist = []
+                    except Exception:
+                        certicom_playlist = []
+
                     if updated_at and updated_at > latest_ts:
                         latest_ts = updated_at
 
@@ -2650,19 +2665,21 @@ def _load_hwpdt_job_audit_data():
                         "job_id":           job_id,
                         "software_product": software_product,
                         "chip_ids":         chip_ids,
-                        "start_time":       start_time,
-                        "playlist_name":    playlist_name,
-                        "playlist":         "",
-                        "build_id":         build_id,
-                        "status":           status,
+                                                "start_time":         start_time,
+                        "playlist_name":      playlist_name,
+                        "playlist":           "",
+                        "certicom_playlist":  certicom_playlist,
+                        "build_id":           build_id,
+                        "status":             status,
                     })
 
                     entry = {
-                        "job_id":           job_id,
-                        "software_product": software_product,
-                        "start_time":       start_time,
-                        "playlist_name":    playlist_name,
-                        "playlist":         "",
+                        "job_id":             job_id,
+                        "software_product":   software_product,
+                        "start_time":         start_time,
+                        "playlist_name":      playlist_name,
+                        "playlist":           "",
+                        "certicom_playlist":  certicom_playlist,
                     }
                     for chip_id in chip_ids:
                         chip_lookup.setdefault(chip_id, []).append(entry)
@@ -2729,6 +2746,9 @@ def _load_hwpdt_job_audit_data():
         start_time       = str(job.get("submitted") or job.get("start_time") or "").strip()
         playlist_name    = str(job.get("playlist_name") or "").strip()
         playlist         = str(job.get("playlist") or "").strip()
+        certicom_playlist = job.get("certicom_playlist") or []
+        if not isinstance(certicom_playlist, list):
+            certicom_playlist = []
         build_id         = str(job.get("build_id") or "").strip()
         chip_ids         = [str(c).strip().upper() for c in (job.get("chip_ids") or []) if str(c).strip()]
 
@@ -2736,19 +2756,21 @@ def _load_hwpdt_job_audit_data():
             "job_id":           job_id,
             "software_product": software_product,
             "chip_ids":         chip_ids,
-            "start_time":       start_time,
-            "playlist_name":    playlist_name,
-            "playlist":         playlist,
-            "build_id":         build_id,
-            "status":           str(job.get("status") or "").strip(),
+                        "start_time":         start_time,
+            "playlist_name":      playlist_name,
+            "playlist":           playlist,
+            "certicom_playlist":  certicom_playlist,
+            "build_id":           build_id,
+            "status":             str(job.get("status") or "").strip(),
         })
 
         entry = {
-            "job_id":           job_id,
-            "software_product": software_product,
-            "start_time":       start_time,
-            "playlist_name":    playlist_name,
-            "playlist":         playlist,
+            "job_id":             job_id,
+            "software_product":   software_product,
+            "start_time":         start_time,
+            "playlist_name":      playlist_name,
+            "playlist":           playlist,
+            "certicom_playlist":  certicom_playlist,
         }
         for chip_id in chip_ids:
             chip_lookup_fb.setdefault(chip_id, []).append(entry)
@@ -2989,6 +3011,8 @@ def api_hwpdt_chip_parts(target_name):
         job_ids        = []
         job_details    = []   # [{job_id, start_date, playlist_name}]
         playlist_names = []
+        certicom_entries = []
+        seen_certicom_entries = set()
         for je in filtered:
             jid = je.get("job_id")
             if jid in (None, ""):
@@ -3008,6 +3032,24 @@ def api_hwpdt_chip_parts(target_name):
             if pl and pl not in seen_pl:
                 seen_pl.add(pl)
                 playlist_filters.append(pl)
+            for pe in (je.get("certicom_playlist") or []):
+                if not isinstance(pe, dict):
+                    continue
+                pe_name = str(pe.get("playlist_name") or pe.get("name") or pl or "Unknown").strip() or "Unknown"
+                pe_id = str(pe.get("playlist_id") or pe.get("id") or pe_name).strip()
+                pe_ids_raw = pe.get("certicom_ids") or pe.get("chip_ids") or pe.get("deviceSerialNumbers") or []
+                pe_ids = [str(c).strip().upper() for c in pe_ids_raw if str(c).strip()] if isinstance(pe_ids_raw, list) else []
+                if not pe_ids:
+                    pe_ids = [chip_id]
+                pe_key = (pe_id, pe_name, ",".join(pe_ids))
+                if pe_key in seen_certicom_entries:
+                    continue
+                seen_certicom_entries.add(pe_key)
+                certicom_entries.append({
+                    "playlist_id": pe_id,
+                    "playlist_name": pe_name,
+                    "certicom_ids": pe_ids,
+                })
         # multi_job = chip tested in more than one unique job ? highlight
         multi_job = len(job_ids) > 1
         chip_rows.append({
@@ -3018,6 +3060,7 @@ def api_hwpdt_chip_parts(target_name):
             "job_ids_display":   ", ".join(job_ids),
             "playlists":         playlist_names,
             "playlists_display": ", ".join(playlist_names),
+            "certicom_playlist": certicom_entries,
             "multi_job":         multi_job,
         })
 
@@ -3222,17 +3265,37 @@ def api_hwpdt_cr_venn(target_name):
                         if v: cr_values.add(v)
             total_crs_from_jira_cr = len(cr_values)
 
-        # total HWPDT jiras
-        total_hwpdt_jiras = sum(
-            1 for row in jira_rows
-            if str(row.get('stability_ticket') or '').strip()
-            and str(row.get('test_team') or '').strip().upper() == 'PDT_QIPL_HWPDT'
-        )
+        def _count_hwpdt_team_jiras(fq_name):
+            """Count distinct JIRA tickets where test_team is HWPDT for a resolved table."""
+            if not fq_name or not _hwpdt_tbl_ok(fq_name):
+                return 0
+            cursor.execute(f"SHOW COLUMNS FROM {fq_name}")
+            cols = {c['Field'] for c in (cursor.fetchall() or [])}
+            ticket = 'stability_ticket' if 'stability_ticket' in cols else ('jira_id' if 'jira_id' in cols else None)
+            team = 'test_team' if 'test_team' in cols else None
+            if not ticket or not team:
+                return 0
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT TRIM(COALESCE(`{ticket}`, ''))) AS cnt
+                FROM {fq_name}
+                WHERE TRIM(COALESCE(`{ticket}`, '')) <> ''
+                  AND UPPER(TRIM(COALESCE(`{team}`, ''))) = 'PDT_QIPL_HWPDT'
+                """
+            )
+            row = cursor.fetchone() or {}
+            return int(row.get('cnt') or 0)
+
+        # HWPDT JIRA widgets: count the HWPDT test-team tickets from each table.
+        jira_table_hwpdt_jiras = _count_hwpdt_team_jiras(j_table)
+        open_hwpdt_jiras       = _count_hwpdt_team_jiras(o_table)
+        c_table                = _resolve_table("closed_jiras")
+        closed_hwpdt_jiras     = _count_hwpdt_team_jiras(c_table)
+        total_hwpdt_jiras      = jira_table_hwpdt_jiras + open_hwpdt_jiras + closed_hwpdt_jiras
 
         # invalid jiras from closed_jiras
         invalid_jiras = 0
-        c_table = fq_table_for_target(target_name, "closed_jiras")
-        if _hwpdt_tbl_ok(c_table):
+        if c_table and _hwpdt_tbl_ok(c_table):
             cursor.execute(f"SHOW COLUMNS FROM {c_table}")
             c_cols = {c['Field'] for c in (cursor.fetchall() or [])}
             c_ticket_col = 'stability_ticket' if 'stability_ticket' in c_cols else ('jira_id' if 'jira_id' in c_cols else None)
@@ -3278,10 +3341,13 @@ def api_hwpdt_cr_venn(target_name):
             'hero_cards': {
                 'total_crs':          total_crs_from_jira_cr or len(details),
                 'swpdt_crs':          sw_only + overlap,
-                'hwpdt_crs':          hw_only + overlap,
-                'total_hwpdt_jiras':  total_hwpdt_jiras,
-                'invalid_jiras':      invalid_jiras,
-                'total_tested_parts': 0,
+                                'hwpdt_crs':          hw_only + overlap,
+                'total_hwpdt_jiras':       total_hwpdt_jiras,
+                'jira_table_hwpdt_jiras':  jira_table_hwpdt_jiras,
+                'open_hwpdt_jiras':        open_hwpdt_jiras,
+                'closed_hwpdt_jiras':      closed_hwpdt_jiras,
+                'invalid_jiras':           invalid_jiras,
+                'total_tested_parts':      0,
             },
             'summary': {
                 'all':        len(details),
