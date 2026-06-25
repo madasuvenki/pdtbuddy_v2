@@ -1,6 +1,7 @@
 import logging
 import re
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
+
 from flask_login import login_required, current_user
 
 from config import (
@@ -10,7 +11,7 @@ from config import (
     VIEWER_OVERRIDE_USERS,
     LIVE_STATUS_VIEWER_GROUP_ACCESS,
 )
-from dashboard_common import get_business_units, get_targets_for_bu, get_bu_for_target
+from dashboard_common import get_business_units, get_targets_for_bu, get_bu_for_target, get_display_name_for_target
 logger = logging.getLogger(__name__)
 
 from live_status_publish_service import (
@@ -111,6 +112,30 @@ def _scope_target_patterns(scope):
     return _norm_access_list(scope.get('target_patterns') or scope.get('target_pattern') or scope.get('patterns'))
 
 
+def _live_status_user_in_group(uid, group_name) -> bool:
+    """Cached LDAP/test group membership check for this Flask request."""
+    from flask import g
+    uid = str(uid or '').strip().lower()
+    group_name = str(group_name or '').strip()
+    if not uid or not group_name:
+        return False
+    cache = getattr(g, '_live_status_group_membership_cache', None)
+    if cache is None:
+        cache = {}
+        g._live_status_group_membership_cache = cache
+    key = (uid, group_name)
+    if key in cache:
+        return cache[key]
+    try:
+        import app as _app
+        result = bool(_app.is_user_in_group(uid, group_name))
+    except Exception as exc:
+        logger.warning('[LIVE STATUS ACCESS] group check failed for %s in %s: %s', uid, group_name, exc)
+        result = False
+    cache[key] = result
+    return result
+
+
 def _target_matches_access_scope(target_name, scope, bu_key=None) -> bool:
     if not scope:
         return False
@@ -135,31 +160,36 @@ def _current_live_status_viewer_scope():
     Each value can include bus/bu, targets, and target_patterns. Matching groups
     are unioned. This does not grant edit/save/publish permissions.
     """
+    from flask import g
+    cached = getattr(g, '_live_status_viewer_scope_cache', None)
+    if cached is not None:
+        return cached
     if _target_group_access():
-        return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': []}
+        result = {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': []}
+        g._live_status_viewer_scope_cache = result
+        return result
     if not current_user.is_authenticated:
-        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        result = {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        g._live_status_viewer_scope_cache = result
+        return result
 
     uid = getattr(current_user, 'id', '') or ''
     cfg = LIVE_STATUS_VIEWER_GROUP_ACCESS or {}
     if not isinstance(cfg, dict) or not cfg:
-        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        result = {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        g._live_status_viewer_scope_cache = result
+        return result
 
     bus_scope = set()
     target_scope = set()
     pattern_scope = set()
     matched_groups = []
     try:
-        import app as _app
         for group_name, scope in cfg.items():
             group_name = str(group_name or '').strip()
             if not group_name:
                 continue
-            try:
-                if not _app.is_user_in_group(uid, group_name):
-                    continue
-            except Exception as exc:
-                logger.warning('[LIVE STATUS ACCESS] group check failed for %s in %s: %s', uid, group_name, exc)
+            if not _live_status_user_in_group(uid, group_name):
                 continue
             matched_groups.append(group_name)
             scope = scope or {}
@@ -170,17 +200,25 @@ def _current_live_status_viewer_scope():
             if not isinstance(scope, dict):
                 continue
             if bool(scope.get('all')):
-                return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
+                result = {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
+                g._live_status_viewer_scope_cache = result
+                return result
             bus_scope |= _norm_access_list(scope.get('bus') or scope.get('bu') or scope.get('business_units'))
             target_scope |= _norm_access_list(scope.get('targets') or scope.get('target'))
             pattern_scope |= _scope_target_patterns(scope)
     except Exception as exc:
         logger.warning('[LIVE STATUS ACCESS] scope resolution failed for %s: %s', uid, exc)
-        return {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        result = {'all': False, 'bus': set(), 'targets': set(), 'target_patterns': set(), 'matched_groups': []}
+        g._live_status_viewer_scope_cache = result
+        return result
 
     if '*' in bus_scope or 'ALL' in bus_scope or '*' in target_scope or 'ALL' in target_scope or '*' in pattern_scope or 'ALL' in pattern_scope:
-        return {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
-    return {'all': False, 'bus': bus_scope, 'targets': target_scope, 'target_patterns': pattern_scope, 'matched_groups': matched_groups}
+        result = {'all': True, 'bus': {'*'}, 'targets': {'*'}, 'target_patterns': {'*'}, 'matched_groups': matched_groups}
+    else:
+        result = {'all': False, 'bus': bus_scope, 'targets': target_scope, 'target_patterns': pattern_scope, 'matched_groups': matched_groups}
+    g._live_status_viewer_scope_cache = result
+    return result
+
 
 
 
@@ -293,10 +331,15 @@ def _all_targets_for_ui():
         if str(bu_key).upper() == 'WEEKLY_QIPL_REPORTS':
             continue
         for target in (get_targets_for_bu(str(bu_key).upper()) or []):
+            try:
+                display_name = get_display_name_for_target(target) or target
+            except Exception:
+                display_name = target
             rows.append({
                 'bu_key': bu_key,
                 'bu_name': (bu_info or {}).get('display_name', bu_key),
                 'target': target,
+                'display_name': display_name,
             })
     return rows
 
@@ -725,7 +768,115 @@ def pdt_target_ext_status(target_name):
     return redirect(_canonical_target_edit_url(target_name))
 
 
-@live_status_publish_bp.route('/pdt/live_status')
+@live_status_publish_bp.route('/build-report')
+@live_status_publish_bp.route('/build_report')
+@login_required
+def build_report_standalone():
+    """Standalone Build Report page for generated-build JQL or direct JQL runs."""
+    return render_template(
+        'build_report_standalone.html',
+        target_options=_all_targets_for_ui(),
+        jira_pdt_filter_id=JIRA_PDT_FILTER_ID,
+    )
+
+
+@live_status_publish_bp.route('/api/build_report/running_builds', methods=['GET'])
+@login_required
+def api_build_report_running_builds():
+    """List running/job-setup builds from pdt_stats_dashboard.axiom_job_summary.
+
+    Used by the standalone Build Report page as an optional picker. The query is
+    intentionally read-only and bounded so the page can load quickly.
+    """
+    from datetime import date as _date, datetime as _datetime
+    from dashboard_common import get_mysql_connection_db
+
+    def _ser(value):
+        if isinstance(value, (_datetime, _date)):
+            return value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(value, _datetime) else value.isoformat()
+        return '' if value is None else str(value)
+
+    def _tail(raw):
+        text = str(raw or '').strip()
+        if not text:
+            return ''
+        parts = [p.strip() for p in text.replace('/', '\\').split('\\') if p.strip()]
+        return parts[-1] if parts else text
+
+    q = str(request.args.get('q') or '').strip().lower()
+    target = str(request.args.get('target') or '').strip().upper()
+    limit_raw = request.args.get('limit') or '250'
+    try:
+        limit = max(1, min(int(limit_raw), 500))
+    except Exception:
+        limit = 250
+
+    conn = None
+    cur = None
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify({'ok': False, 'error': 'DB connection failed', 'builds': []}), 500
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT job_id, build_id, build_name, software_product,
+                   taxonomy_path, team, state, device_count,
+                   submitted_at, started_at, ended_at,
+                   product_flavor, submitter, site
+            FROM `pdt_stats_dashboard`.`axiom_job_summary`
+            WHERE state IN ('Running','JobSetup','Submitted','Dispatched')
+            ORDER BY COALESCE(started_at, submitted_at) DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall() or []
+        out = []
+        seen = set()
+        for r in rows:
+            build_full = str(r.get('build_name') or r.get('build_id') or '').strip()
+            build = _tail(build_full)
+            if not build:
+                continue
+            hay = ' '.join(str(r.get(k) or '') for k in (
+                'build_id', 'build_name', 'software_product', 'taxonomy_path',
+                'team', 'state', 'product_flavor', 'submitter', 'site'
+            )).lower()
+            if q and q not in hay and q not in build.lower():
+                continue
+            if target:
+                tokens = [t for t in re.split(r'[^A-Z0-9]+', target) if len(t) >= 3]
+                if tokens and not any(t.lower() in hay for t in tokens):
+                    continue
+            key = build.upper()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({
+                'job_id': _ser(r.get('job_id')),
+                'build': build,
+                'build_full': build_full,
+                'software_product': _ser(r.get('software_product')),
+                'taxonomy_path': _ser(r.get('taxonomy_path')),
+                'team': _ser(r.get('team')),
+                'state': _ser(r.get('state')),
+                'device_count': int(r.get('device_count') or 0),
+                'submitted_at': _ser(r.get('submitted_at')),
+                'started_at': _ser(r.get('started_at')),
+                'product_flavor': _ser(r.get('product_flavor')),
+                'submitter': _ser(r.get('submitter')),
+                'site': _ser(r.get('site')),
+            })
+        return jsonify({'ok': True, 'builds': out, 'count': len(out), 'source': 'pdt_stats_dashboard.axiom_job_summary'})
+    except Exception as exc:
+        logger.exception('[BUILD REPORT RUNNING BUILDS] %s', exc)
+        return jsonify({'ok': False, 'error': str(exc), 'builds': []}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+
 @live_status_publish_bp.route('/live_status_view')
 @login_required
 def landing():
@@ -801,12 +952,34 @@ def landing():
         }
         bu_targets_js.setdefault(bk, []).append(entry)
 
+    viewer_bu_sections = []
+    if not can_edit:
+        for bu_key, bu_name in bu_list:
+            targets = [t for t in (bu_targets_js.get(bu_key) or []) if t.get('status') == 'published']
+            if targets:
+                viewer_bu_sections.append({
+                    'bu_key': bu_key,
+                    'bu_name': bu_name,
+                    'targets': targets,
+                })
+
+    total_viewer_targets = sum(len(section.get('targets') or []) for section in viewer_bu_sections)
+    if not can_edit and total_viewer_targets == 1:
+        only_target = next((section['targets'][0] for section in viewer_bu_sections if section.get('targets')), None)
+        if only_target:
+            return redirect(only_target['target_url'])
+
     viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
-    auto_open_bu = ''
-    if not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
+
+    requested_bu = (request.args.get('bu_key') or '').strip().upper()
+    visible_bu_keys = {str(row[0]).upper() for row in bu_list}
+    auto_open_bu = requested_bu if requested_bu in visible_bu_keys else ''
+    if not auto_open_bu and not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
         auto_open_bu = bu_list[0][0]
 
-    return render_template(
+
+        
+    response = make_response(render_template(
         'live_status_publish_landing.html',
         jobs=visible_jobs,
         bu_list=bu_list,
@@ -817,8 +990,16 @@ def landing():
         can_edit=can_edit,
         access_groups=[] if can_edit else _live_status_access_groups_catalog(all_target_opts),
         auto_open_bu=auto_open_bu,
+        viewer_groups=[],
+        viewer_bu_sections=viewer_bu_sections,
 
-    )
+    ))
+
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 
 
 
@@ -871,6 +1052,23 @@ def edit_job(job_id):
     if primary_target:
         return redirect(_canonical_target_editor_url(primary_target))
     return _render_current_report_editor(job)
+
+
+@live_status_publish_bp.route('/live_status/<bu_key>/')
+@live_status_publish_bp.route('/live_status_view/<bu_key>/')
+@login_required
+def live_status_bu_incomplete_url(bu_key):
+    """Handle incomplete BU-only Live Status URLs gracefully.
+
+    Example: /live_status_view/IOT/ should show the Live Status landing with
+    IOT targets instead of Flask's default 404 page.
+    """
+    bu_key = str(bu_key or '').strip().upper()
+    business_units = get_business_units() or {}
+    known_bus = {str(k).upper() for k in business_units.keys()}
+    if bu_key in known_bus:
+        return redirect(url_for('live_status_publish_bp.landing', bu_key=bu_key))
+    return redirect(url_for('live_status_publish_bp.landing'))
 
 
 @live_status_publish_bp.route('/live_status/<bu_key>/<target_name>')
@@ -2422,7 +2620,7 @@ def _build_published_current_jql(builds):
     parts = [f'summary ~ "{_q(b)}"' for b in (builds or []) if str(b or '').strip()]
     if not parts:
         return ''
-    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND (project = \"Target Stability\" OR project = CHIPMD) AND summary !~ \"tombstone\" ORDER BY created ASC"
+    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG) AND summary !~ \"tombstone\" ORDER BY created ASC"
 
 
 def _count_jira_for_jql(jql):

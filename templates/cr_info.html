@@ -258,11 +258,12 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
       {% endif %}
     {% endfor %}
     {% if jira_tickets_all %}
-      {% set tickets_str_all = jira_tickets_all | join(',') %}
-      <div class="cri-stat" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff5f5,#fee2e2);cursor:pointer;padding:14px 16px;" onclick="window.open('https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_all | urlencode }})%20ORDER%20BY%20created%20DESC','_blank','noopener')" title="Open all {{ jira_tickets_all|length }} related JIRAs">
+      {% set jira_tickets_open = jira_tickets_all[:50] %}
+      {% set tickets_str_all = jira_tickets_open | join(',') %}
+      <div class="cri-stat" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff5f5,#fee2e2);cursor:pointer;padding:14px 16px;" onclick="window.open('https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_all | urlencode }})%20ORDER%20BY%20created%20DESC','_blank','noopener')" title="Open {{ jira_tickets_open|length }} of {{ jira_tickets_all|length }} related JIRAs">
         <div class="cri-stat-val" style="color:#dc2626;">{{ cr_quick_summary.occurrences or 0 }}</div>
         <div class="cri-stat-lbl">Occurrences</div>
-        <div style="font-size:10px;color:#b91c1c;margin-top:8px;font-weight:900;line-height:1.3;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.55);display:inline-block;">Open in JIRAs (limited 48)</div>
+        <div style="font-size:10px;color:#b91c1c;margin-top:8px;font-weight:900;line-height:1.3;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.55);display:inline-block;">Open {{ jira_tickets_open|length }} in JIRA</div>
       </div>
     {% else %}
       <div class="cri-stat" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff5f5,#fee2e2);">
@@ -550,7 +551,22 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
       <span style="font-size:11px;font-weight:700;color:#1d4ed8;background:#eff6ff;padding:2px 10px;border-radius:999px;border:1px solid #bfdbfe;">{{ cr_jiras|length }} row{{ 's' if cr_jiras|length != 1 else '' }}</span>
     </div>
   </div>
-  <div class="cri-card-sub">Complete JIRA list linked to this CR / mapped CR group.</div>
+  {% set jira_tickets_open_all = [] %}
+  {% for r in cr_jiras %}
+    {% if r.stability_ticket and r.stability_ticket not in jira_tickets_open_all %}
+      {% set _ = jira_tickets_open_all.append(r.stability_ticket) %}
+    {% endif %}
+  {% endfor %}
+  {% set jira_tickets_open_50 = jira_tickets_open_all[:50] %}
+  {% if jira_tickets_open_50 %}
+    {% set tickets_str_open_50 = jira_tickets_open_50 | join(',') %}
+    <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_open_50 | urlencode }})%20ORDER%20BY%20created%20DESC"
+       target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:6px 16px;border-radius:999px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;font-size:11px;font-weight:800;text-decoration:none;box-shadow:0 3px 10px rgba(29,78,216,0.28);">
+      <i class="fas fa-external-link-alt"></i> Open {{ jira_tickets_open_50|length }} in JIRA
+    </a>
+  {% endif %}
+  <div class="cri-card-sub">Complete JIRA list linked to this CR / mapped CR group. JIRA bulk-open supports up to 50 tickets.</div>
 
   <div class="cri-table-wrap" style="max-height:520px;box-shadow:0 4px 14px rgba(99,102,241,.18);">
     <table id="crInfoAllJiraTable">
@@ -603,19 +619,19 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
   <div class="cri-card-title" style="justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleJiraCard()">
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">&#127915;</span>
-      JIRAs (Latest 45)
-      <span id="jiraCountPill" style="font-size:11px;font-weight:700;color:#7c3aed;background:#ede9fe;padding:2px 10px;border-radius:999px;border:1px solid #c4b5fd;">{{ cr_jiras[:45]|length }} rows</span>
+      JIRAs (Latest 50)
+      <span id="jiraCountPill" style="font-size:11px;font-weight:700;color:#7c3aed;background:#ede9fe;padding:2px 10px;border-radius:999px;border:1px solid #c4b5fd;">{{ cr_jiras[:50]|length }} rows</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      {# ── Bulk open in JIRA — up to 45 tickets — #}
-      {% set jira_tickets_45 = [] %}
-      {% for r in cr_jiras[:45] %}
+      {# ── Bulk open in JIRA — up to 50 tickets — #}
+      {% set jira_tickets_50 = [] %}
+      {% for r in cr_jiras[:50] %}
         {% if r.stability_ticket %}
-          {% set _ = jira_tickets_45.append(r.stability_ticket) %}
+          {% set _ = jira_tickets_50.append(r.stability_ticket) %}
         {% endif %}
       {% endfor %}
-      {% if jira_tickets_45 %}
-      {% set tickets_str = jira_tickets_45 | join(',') %}
+      {% if jira_tickets_50 %}
+      {% set tickets_str = jira_tickets_50 | join(',') %}
       <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str | urlencode }})%20ORDER%20BY%20created%20DESC"
          target="_blank" rel="noopener"
          onclick="event.stopPropagation();"
@@ -627,7 +643,7 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 14px rgba(29,78,216,0.45)';"
          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(29,78,216,0.35)';">
         <i class="fas fa-external-link-alt"></i>
-        Open {{ jira_tickets_45|length }} in JIRA
+        Open {{ jira_tickets_50|length }} in JIRA
       </a>
       {% endif %}
       <button id="jiraToggleBtn" style="border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">
@@ -685,7 +701,7 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
           </tr>
         </thead>
         <tbody>
-        {% for r in cr_jiras[:45] %}
+        {% for r in cr_jiras[:50] %}
           {% set row_date   = r.jira_date or r.test_date or r.date or r.created or '' %}
           {% set row_serial = r.serial_no or '' %}
           {% set row_mcn    = r.mcn or '' %}
@@ -727,17 +743,17 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
     </div>
 
     {# ── Footer: bulk JIRA link — shown below table too — #}
-    {% set jira_tickets_45b = [] %}
-    {% for r in cr_jiras[:45] %}
+    {% set jira_tickets_50_footer = [] %}
+    {% for r in cr_jiras[:50] %}
       {% if r.stability_ticket %}
-        {% set _ = jira_tickets_45b.append(r.stability_ticket) %}
+        {% set _ = jira_tickets_50_footer.append(r.stability_ticket) %}
       {% endif %}
     {% endfor %}
-    {% if jira_tickets_45b %}
-    {% set tickets_str_b = jira_tickets_45b | join(',') %}
+    {% if jira_tickets_50_footer %}
+    {% set tickets_str_b = jira_tickets_50_footer | join(',') %}
     <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span style="font-size:11px;color:#64748b;">
-        Showing <b>{{ jira_tickets_45b|length }}</b> of {{ cr_jiras|length }} total JIRA(s)
+        Showing <b>{{ jira_tickets_50_footer|length }}</b> of {{ cr_jiras|length }} total JIRA(s)
       </span>
       <a href="https://jira-dc2.qualcomm.com/jira/issues/?jql=key%20in%20({{ tickets_str_b | urlencode }})%20ORDER%20BY%20created%20DESC"
          target="_blank" rel="noopener"
@@ -749,7 +765,7 @@ button.cri-build-pill:hover { transform:translateY(-1px); box-shadow:0 5px 14px 
          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 14px rgba(124,58,237,0.45)';"
          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(124,58,237,0.35)';">
         <i class="fas fa-external-link-alt"></i>
-        Open all {{ jira_tickets_45b|length }} tickets in JIRA
+        Open all {{ jira_tickets_50_footer|length }} tickets in JIRA
       </a>
     </div>
     {% endif %}

@@ -246,9 +246,24 @@
               <span class="bu-nav-title">HWPDT</span>
               <span class="bu-nav-meta">HW Overview</span>
             </span>
+                    </button>
+
+          {# ── Build Report / JQL runner ── #}
+          <button type="button"
+             class="bu-nav-btn"
+             data-build-report-url="{{ url_for('live_status_publish_bp.build_report_standalone') }}"
+             title="Build Report — Generate or run direct JQL"
+             aria-label="Build Report">
+            <span class="bu-nav-icon" style="background:linear-gradient(135deg,rgba(14,165,233,.16),rgba(37,99,235,.16));color:#2563eb;">
+              <i class="fas fa-file-alt"></i>
+            </span>
+            <span class="bu-nav-copy">
+              <span class="bu-nav-title">Build Report</span>
+              <span class="bu-nav-meta">JQL Runner</span>
+            </span>
           </button>
 
-          {# ── Monthly BU Report ── #}
+                    {# ── Monthly BU Report ── #}
           <button type="button"
              class="bu-nav-btn {{ 'is-active' if active_bu_key == 'MONTHLY_REPORT' else '' }}"
              data-frame-url="{{ url_for('weekly_summary_bp.monthly_report_landing') }}"
@@ -438,10 +453,11 @@
     });
   }
 
-  // ── BU nav buttons → load in iframe (no full page redirect) ──────────────
+    // ── BU nav buttons → load in iframe (no full page redirect) ──────────────
   const inlineContent = document.getElementById('buInlineContent');
   const frame         = document.getElementById('buContentFrame');
   const navBtns       = document.querySelectorAll('.bu-nav-btn[data-frame-url]');
+  const buildReportBtns = document.querySelectorAll('.bu-nav-btn[data-build-report-url]');
 
     const params = new URLSearchParams(window.location.search || '');
   if (params.has('frame')) {
@@ -453,7 +469,7 @@
   }
 
 
-    navBtns.forEach(function(btn) {
+        navBtns.forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       const url = btn.dataset.frameUrl;
       if (!url) return;
@@ -466,10 +482,25 @@
     });
   });
 
+  buildReportBtns.forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const url = btn.dataset.buildReportUrl;
+      if (!url || !frame || !inlineContent) return;
+      document.querySelectorAll('.bu-nav-btn.is-active').forEach(function(x){ x.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      inlineContent.style.display = 'none';
+      frame.style.display = 'block';
+      frame.src = url;
+      try { window.history.pushState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
+    });
+  });
+
 
     
 
   // Intercept iframe navigation: if iframe loads a /dashboard/ URL, break out to full page
+
 
   // This ensures all target dashboards always load with the full target_layout panel
   if (frame) {
