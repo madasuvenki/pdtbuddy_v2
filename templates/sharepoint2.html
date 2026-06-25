@@ -155,6 +155,22 @@ table.sp2-tbl th{
 table.sp2-tbl td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:var(--sp2-slate)}
 table.sp2-tbl tr:hover td{background:#f8fafc}
 table.sp2-tbl tr:last-child td{border-bottom:none}
+/* Clean Excel-like Consolidate Report table */
+#sp2ConsWrap{max-height:72vh;overflow:auto;background:#fff}
+#sp2ConsTable.sp2-cons-clean{table-layout:fixed;border-collapse:collapse;border:1px solid #1f2937;font-family:Calibri,Arial,sans-serif;font-size:9px;line-height:1.15;color:#111827}
+#sp2ConsTable.sp2-cons-clean th{position:sticky;top:0;z-index:2;background:#93b5df;color:#111827;border:1px solid #1f2937;padding:3px 4px;text-align:center;vertical-align:middle;text-transform:none;letter-spacing:0;font-size:9px;font-weight:700;white-space:normal}
+#sp2ConsTable.sp2-cons-clean td{border:1px solid #1f2937;padding:2px 4px;text-align:center;vertical-align:middle;color:#111827;background:#fff;font-size:9px;line-height:1.15}
+#sp2ConsTable.sp2-cons-clean tr:hover td{background:#fff}
+#sp2ConsTable.sp2-cons-clean .cons-bu{font-weight:700;background:#fff!important}
+#sp2ConsTable.sp2-cons-clean .cons-target{text-align:left;font-weight:400;word-break:break-word}
+#sp2ConsTable.sp2-cons-clean .cons-timeline{font-size:8.5px;line-height:1.25;white-space:normal;word-break:break-word}
+#sp2ConsTable.sp2-cons-clean .cons-status{font-weight:400;white-space:nowrap}
+#sp2ConsTable.sp2-cons-clean .cons-dev{background:#92d050!important;font-weight:400}
+#sp2ConsTable.sp2-cons-clean .cons-num{font-weight:400;white-space:nowrap}
+#sp2ConsTable.sp2-cons-clean .cons-total td{background:#e8b9bb!important;font-weight:700}
+#sp2ConsTable.sp2-cons-clean .cons-edit-btn{margin-left:4px;border:0;background:transparent;color:#1d4ed8;cursor:pointer;font-size:8px;padding:0;vertical-align:middle}
+#sp2ConsTable.sp2-cons-clean .cons-edit-btn:hover{text-decoration:underline}
+#sp2ConsTable.sp2-cons-clean .empty{font-size:11px;padding:28px}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#f1f5f9;color:var(--sp2-slate)}
 .pill.green{background:#d1fae5;color:#065f46}
 .pill.red{background:#fee2e2;color:#991b1b}
@@ -268,47 +284,44 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
           <button class="btn btn-sm" onclick="sp2CopyConsolidate()"><i class="fas fa-copy"></i> Copy</button>
         </div>
       </div>
-      <div class="tbl-wrap" style="max-height:72vh;overflow:auto">
-        <table class="sp2-tbl" id="sp2ConsTable">
+            <div class="tbl-wrap" id="sp2ConsWrap">
+        <table class="sp2-tbl sp2-cons-clean" id="sp2ConsTable">
           <colgroup>
-            <col style="width:36px">
-            <col style="width:80px">  <!-- BU -->
-            <col style="width:200px"> <!-- PL-ID -->
-            <col style="width:160px"> <!-- Timelines -->
-            <col style="width:90px">  <!-- PDT Status -->
-            <col style="width:52px">  <!-- Devices -->
-            <col style="width:52px">  <!-- Builds -->
-            <col style="width:72px">  <!-- Hours -->
-            <col style="width:60px">  <!-- Crashes -->
-            <col style="width:60px">  <!-- Unique CRs -->
-            <col style="width:60px">  <!-- MTBF -->
+            <col style="width:70px">  <!-- BU -->
+            <col style="width:150px"> <!-- Target -->
+            <col style="width:230px"> <!-- Timelines -->
+            <col style="width:105px"> <!-- PDT Test Status -->
+            <col style="width:92px">  <!-- Number of Devices -->
+            <col style="width:88px">  <!-- Number of Builds -->
+            <col style="width:72px">  <!-- Total Hours -->
+            <col style="width:82px">  <!-- Total Crashes -->
+            <col style="width:78px">  <!-- Unique Crashes -->
+            <col style="width:64px">  <!-- MTBF -->
           </colgroup>
           <thead><tr>
-            <th>#</th>
             <th>BU</th>
-            <th>PL-ID</th>
+            <th>Target</th>
             <th>Timelines</th>
-            <th>PDT Status</th>
-            <th style="text-align:center">Devices</th>
-            <th style="text-align:center" title="Count of unique meta-IDs (e.g. Aldabra-296.1 + .2 = 1)">Builds<br><span style="font-size:9px;font-weight:700;color:#6366f1;text-transform:none;letter-spacing:0">(meta-IDs)</span></th>
-            <th style="text-align:center">Hours</th>
-            <th style="text-align:center">Crashes</th>
-            <th style="text-align:center">Unique CRs</th>
-            <th style="text-align:center">MTBF</th>
+            <th>PDT Test Status</th>
+            <th>Number of Devices</th>
+            <th>Number of Builds</th>
+            <th>Total Hours</th>
+            <th>Total Crashes</th>
+            <th>Unique Crashes</th>
+            <th>MTBF</th>
           </tr></thead>
           <tbody id="sp2ConsTbody">
-            <tr><td colspan="11" class="empty">Select a week and click Refresh &amp; Save.</td></tr>
+            <tr><td colspan="10" class="empty">Select a week and click Refresh &amp; Save.</td></tr>
           </tbody>
           <tfoot id="sp2ConsTfoot" style="display:none">
-            <tr style="background:#f1f5f9;font-weight:900">
-              <td colspan="3" style="padding:8px 12px">TOTAL</td>
-              <td></td><td></td>
-              <td id="sp2CTotal_dev"   style="text-align:center;padding:8px 12px">-</td>
-              <td id="sp2CTotal_bld"   style="text-align:center;padding:8px 12px">-</td>
-              <td id="sp2CTotal_hrs"   style="text-align:center;padding:8px 12px">-</td>
-              <td id="sp2CTotal_crash" style="text-align:center;padding:8px 12px">-</td>
-              <td id="sp2CTotal_ucr"   style="text-align:center;padding:8px 12px">-</td>
-              <td style="text-align:center;padding:8px 12px">-</td>
+            <tr class="cons-total">
+              <td colspan="4">TOTAL</td>
+              <td id="sp2CTotal_dev">-</td>
+              <td id="sp2CTotal_bld">-</td>
+              <td id="sp2CTotal_hrs">-</td>
+              <td id="sp2CTotal_crash">-</td>
+              <td id="sp2CTotal_ucr">-</td>
+              <td>-</td>
             </tr>
           </tfoot>
         </table>
@@ -374,15 +387,7 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
       </div><!-- /right charts -->
     </div><!-- /grid -->
 
-    <!-- Week-over-Week full-width table -->
-    <div class="card">
-      <div class="card-head">
-        <h2><i class="fas fa-table" style="color:var(--sp2-blue)"></i> Week-over-Week Comparison</h2>
-      </div>
-      <div class="card-body"><div id="sp2WowBody"><div class="empty">Loading...</div></div></div>
-    </div>
-
-  </div><!-- /TAB 3 -->
+      </div><!-- /TAB 3 -->
 
   <!-- TAB 5: PDT STABILITY HEALTH -->
 <div id="sp2Pane_stability" class="sp2-pane">
@@ -391,12 +396,44 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
       <h2 style="font-size:13px"><i class="fas fa-chart-bar" style="color:#16a34a"></i> PDT Stability Health Graph
         <span style="font-size:10px;font-weight:600;color:#64748b;margin-left:6px">(weekly trend)</span>
       </h2>
-      <div style="display:flex;gap:8px;align-items:center">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label for="sp2StabilityWindow" style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase">Show</label>
+        <select id="sp2StabilityWindow" onchange="_sp2LoadStabilityChart()"
+                style="height:28px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 8px;font-size:11px;font-weight:800;font-family:inherit;background:#fff;color:var(--sp2-slate)">
+          <option value="20" selected>Last 20</option>
+          <option value="40">Last 40</option>
+          <option value="60">Last 60</option>
+        </select>
         <button onclick="sp2ConsCopyStability(this)" class="btn btn-sm"><i class="fas fa-copy"></i> Copy</button>
         <button onclick="_sp2LoadStabilityChart()" class="btn btn-sm btn-primary"><i class="fas fa-rotate"></i> Refresh</button>
       </div>
     </div>
-    <div id="sp2StabilityChart" style="height:520px;padding:8px 16px"></div>
+        <div id="sp2StabilityChart" style="height:520px;padding:8px 16px"></div>
+  </div>
+
+    <!-- Week-over-Week full-width table -->
+  <div class="card">
+    <div class="card-head">
+      <h2><i class="fas fa-table" style="color:var(--sp2-blue)"></i> Week-over-Week Comparison</h2>
+    </div>
+    <div class="card-body"><div id="sp2WowBody"><div class="empty">Loading...</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2><i class="fas fa-chart-bar" style="color:#7c3aed"></i> JIRA / CR Trend by Week
+        <span style="font-size:10px;font-weight:600;color:#64748b;margin-left:6px">(week-ending date includes year)</span>
+      </h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="sp2JiraCrFrom" type="date" onchange="_sp2RenderJiraCrTrend(_sp2LastStabilityWeeks||[])"
+               style="height:28px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 8px;font-size:11px;font-weight:800;font-family:inherit;color:var(--sp2-slate)">
+        <span style="font-size:10px;font-weight:900;color:#94a3b8">to</span>
+        <input id="sp2JiraCrTo" type="date" onchange="_sp2RenderJiraCrTrend(_sp2LastStabilityWeeks||[])"
+               style="height:28px;border:1.5px solid var(--sp2-border);border-radius:8px;padding:0 8px;font-size:11px;font-weight:800;font-family:inherit;color:var(--sp2-slate)">
+        <button onclick="_sp2ClearJiraCrRange()" class="btn btn-sm"><i class="fas fa-filter-circle-xmark"></i> Clear</button>
+      </div>
+    </div>
+    <div id="sp2JiraCrTrendChart" style="height:360px;padding:8px 16px"></div>
   </div>
 </div>
   <div id="sp2Pane_unique_devices" class="sp2-pane">
@@ -893,7 +930,7 @@ function _sp2RecalcKpisFiltered(){
 window.sp2LoadConsolidate=function(force){
   _consLoaded=true;
   var tb=g('sp2ConsTbody');
-  if(tb)tb.innerHTML='<tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
+  if(tb)tb.innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>';
   var w=getWeek();
   var url='/api/sp2/consolidate?week_start='+encodeURIComponent(w.ws)+'&week_end='+encodeURIComponent(w.we)+(force?'&refresh=1':'');
   fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
@@ -901,24 +938,45 @@ window.sp2LoadConsolidate=function(force){
     var badge=g('sp2ConsBadge');if(badge)badge.textContent=_allConsolidate.length+' rows';
             _renderConsolidate(_allConsolidate);
   }).catch(function(e){
-    if(tb)tb.innerHTML='<tr><td colspan="11" class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</td></tr>';
+    if(tb)tb.innerHTML='<tr><td colspan="10" class="empty" style="color:#dc2626">Error: '+esc(String(e))+'</td></tr>';
   });
 };
 
 /* Consolidate tab: load charts after table renders */
 var _sp2StabilityChart = null;
+var _sp2JiraCrTrendChart = null;
+var _sp2LastStabilityWeeks = [];
 
 window._sp2LoadStabilityChart = function _sp2LoadStabilityChart(){
   var we = getWeek().we;
+  var countEl = g('sp2StabilityWindow');
+  var count = parseInt(countEl&&countEl.value,10)||20;
   var el = g('sp2StabilityChart');
   if(el) el.innerHTML = '<div class="empty" style="padding:40px"><i class="fas fa-circle-notch spin"></i> Loading...</div>';
-  fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(we), {cache:'no-store'})
+    fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(we)+'&count='+encodeURIComponent(count), {cache:'no-store'})
     .then(function(r){return r.json();})
-    .then(function(d){ _sp2RenderStabilityChart(d.weeks||[]); })
+    .then(function(d){
+            var weeks=_sp2FilterStabilityWeeks(d.weeks||[]);
+      _sp2LastStabilityWeeks = weeks;
+      _sp2RenderStabilityChart(weeks);
+      _renderWow(weeks.slice(-3));
+      _sp2RenderJiraCrTrend(weeks);
+    })
     .catch(function(e){
       var el=g('sp2StabilityChart');
       if(el) el.innerHTML='<div class="empty" style="color:#dc2626;padding:40px">Error: '+esc(String(e))+'</div>';
+      _renderWow([]);
     });
+}
+
+function _sp2FilterStabilityWeeks(weeks){
+  var MIN_WEEK_END='2026-06-14';
+  return (weeks||[]).filter(function(w){
+    var weekEnd=String(w.week_end||'');
+    if(weekEnd && weekEnd<MIN_WEEK_END)return false;
+    return (num(w.total_hours)>0 || num(w.total_crashes)>0 || num(w.total_devices)>0 ||
+            num(w.device_usage_per_week)>0 || num(w.time_per_crash)>0 || num(w.crash_per_mtp_week)>0);
+  });
 }
 
 function _sp2RenderStabilityChart(weeks){
@@ -965,17 +1023,17 @@ function _sp2RenderStabilityChart(weeks){
         formatter:function(){ return this.y>0?this.y.toFixed(2):''; }
       }, marker:{radius:3} }
     },
-    series:[{
+        series:[{
       name:'Device Usage/Week', type:'column', yAxis:0, data:usage,
       color:'#16a34a',
       tooltip:{valueSuffix:' Hrs'}
     },{
       name:'Time/Crash', type:'line', yAxis:1, data:tpc,
-      color:'#dc2626', lineWidth:2,
+      color:'#dc2626', lineWidth:2, marker:{enabled:true,radius:3},
       tooltip:{valueSuffix:' Hrs'}
     },{
       name:'Crash/MTP/Week', type:'line', yAxis:1, data:cmtp,
-      color:'#ca8a04', lineWidth:2,
+      color:'#ca8a04', lineWidth:2, marker:{enabled:true,radius:3},
       tooltip:{valueSuffix:''}
     }],
     credits:{enabled:false}
@@ -1049,21 +1107,18 @@ window.sp2FetchAllMissingMilestones=function(){
               r.pdt_test_status=res.pdt_status||r.pdt_test_status;
             }
           });
-          // Update DOM cells by finding the row with matching pl_id text
+                    // Update DOM cells by row data attributes (rowspan makes cell indexes unreliable)
           document.querySelectorAll('#sp2ConsTbody tr').forEach(function(tr){
-            var cells=tr.querySelectorAll('td');
-            // pl_id is in 3rd td (index 2, after # and BU)
-            var plCell=cells[2];
-            if(!plCell||plCell.textContent.trim()!==res.pl_id)return;
-            // timelines cell = index 3
-            var tlCell=cells[3];
-            if(tlCell&&res.timelines)tlCell.innerHTML=res.timelines.replace(/,\s*/g,'<br>');
-            // PDT status cell
-            var pdtCell=tr.querySelector('.sp2-pdt-cell');
-            if(pdtCell&&res.pdt_status){
-              var bg=STATUS_BG[res.pdt_status]||'#f1f5f9';
-              pdtCell.innerHTML='<span style="background:'+bg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(res.pdt_status)+'</span>';
+            if(String(tr.getAttribute('data-cons-target')||'')!==String(res.target||''))return;
+            if(String(tr.getAttribute('data-cons-pl')||'')!==String(res.pl_id||''))return;
+            var tlCell=tr.querySelector('.cons-timeline');
+            if(tlCell&&res.timelines){
+              var editBtn=tlCell.querySelector('.sp2-tl-edit-btn');
+              tlCell.innerHTML='<span class="sp2-tl-display">'+String(res.timelines||'').replace(/,\s*/g,'<br>')+'</span>';
+              if(editBtn){editBtn.setAttribute('data-tl',res.timelines||'');tlCell.appendChild(editBtn);}
             }
+            var pdtCell=tr.querySelector('.sp2-pdt-cell');
+            if(pdtCell&&res.pdt_status)pdtCell.textContent=res.pdt_status;
           });
         });
         var failed=d.results.filter(function(r){return r.status==='failed';});
@@ -1093,7 +1148,7 @@ window.sp2FetchAllMissingMilestones=function(){
 function _renderConsolidate(rows){
   var tb=g('sp2ConsTbody'),tf=g('sp2ConsTfoot');if(!tb)return;
   if(!rows.length){
-    tb.innerHTML='<tr><td colspan="11" class="empty">No consolidate data. Click Refresh &amp; Save.</td></tr>';
+    tb.innerHTML='<tr><td colspan="10" class="empty">No consolidate data. Click Refresh &amp; Save.</td></tr>';
     if(tf)tf.style.display='none';return;
   }
 
@@ -1103,10 +1158,6 @@ function _renderConsolidate(rows){
            String(a.target||'').localeCompare(String(b.target||''))||
            String(a.pl_id||'').localeCompare(String(b.pl_id||''));
   });
-
-  /* BU colour map */
-  var buColorMap={},buIdx=0;
-  rows.forEach(function(r){var b=r.bu||'';if(!(b in buColorMap))buColorMap[b]=BU_PALETTE[buIdx++%BU_PALETTE.length];});
 
   /* BU rowspan counts */
   var buCount={};
@@ -1118,71 +1169,54 @@ function _renderConsolidate(rows){
   rows.forEach(function(r){
     sno++;
     var bu=r.bu||'';
-    var bg=buColorMap[bu]||'#fff';
-    var borderTop=(bu!==lastBu)?'border-top:2px solid #334155;':'';
+    var borderTop=(bu!==lastBu)?'border-top:1.5px solid #1f2937;':'';
     lastBu=bu;
-    var td='background:'+bg+';'+borderTop+'padding:6px 10px;';
 
     /* BU cell with rowspan */
     var buCell='';
     if(!buDone[bu]){
       buDone[bu]=true;
-      buCell='<td rowspan="'+buCount[bu]+'" style="'+td+'font-weight:900;color:#0f172a;text-align:center;vertical-align:middle;border-right:2px solid #94a3b8;">'+esc(bu||'-')+'</td>';
+      buCell='<td class="cons-bu" rowspan="'+buCount[bu]+'" style="'+borderTop+'">'+esc(bu||'-')+'</td>';
     }
 
-                /* Timelines cell:
-       - Missing timelines -> "No timelines" placeholder (top button fetches all)
-       - Has timelines     -> show dates only, no per-row button */
-        var tlText=String(r.timelines||'').trim();
+    var targetText=String(r.pl_id||r.target||'-').trim()||'-';
+    var tlText=String(r.timelines||'').trim();
     var tlRowId='sp2tl_'+sno;
-    var tlDisplay;
-    if(!tlText){
-      tlDisplay='<span style="color:#f59e0b;font-style:italic;font-size:10px;font-weight:800;"><i class="fas fa-exclamation-circle" style="font-size:9px"></i> No timelines</span>';
-    } else {
-      tlDisplay=tlText.replace(/,\s*/g,'<br>');
-    }
-        var tlCell='<div class="sp2-tl-display">'+tlDisplay+'</div>'
-      +'<button class="btn btn-sm sp2-tl-edit-btn" style="margin-top:5px;height:22px;padding:0 8px;font-size:10px;background:#eef2ff;color:#3730a3;border-color:#c7d2fe"'
+    var tlDisplay=tlText ? tlText.replace(/,\s*/g,'<br>') : '<span style="color:#92400e;font-style:italic;">No timelines</span>';
+    var tlCell='<span class="sp2-tl-display">'+tlDisplay+'</span>'
+      +'<button class="cons-edit-btn sp2-tl-edit-btn" title="Edit timelines"'
       +' data-target="'+esc(r.target||'')+'" data-pl="'+esc(r.pl_id||'')+'" data-row="'+sno+'" data-tl="'+esc(tlText)+'"'
-      +' onclick="sp2OpenTimelineModalFromBtn(this)">'
-      +'<i class="fas fa-pen"></i> Edit</button>'; 
-
-    /* PDT Status badge */
-    var stBg=STATUS_COLORS[r.pdt_test_status]||'#f1f5f9';
-    var stBadge=r.pdt_test_status
-      ?'<span style="background:'+stBg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(r.pdt_test_status)+'</span>'
-      :'-';
+      +' onclick="sp2OpenTimelineModalFromBtn(this)"><i class="fas fa-pen"></i></button>';
 
     var dev=parseInt(r.device_count||0)||0;
     var bld=parseInt(r.number_of_builds||0)||0;
     var hrs=parseFloat(r.total_hours||0)||0;
     var crash=parseInt(r.total_crashes||0)||0;
     var ucr=(r.unique_crs!=null&&r.unique_crs!=='')?r.unique_crs:'-';
-    var mtbf=crash>0?'<span class="badge badge-purple">'+fmt(hrs/crash,1)+'h</span>':'-';
+    var mtbf=crash>0?fmt(hrs/crash,2):'-';
 
     tDev+=dev;tBld+=bld;tHrs+=hrs;tCrash+=crash;
     if(ucr!=='-')tUcr+=parseInt(ucr)||0;
 
-    html+='<tr>'
-      +'<td style="'+td+'text-align:center;color:#94a3b8;">'+sno+'</td>'
+    html+='<tr data-cons-target="'+esc(r.target||'')+'" data-cons-pl="'+esc(r.pl_id||'')+'">'
       +buCell
-      +'<td style="'+td+'font-size:11px;word-break:break-word;">'+esc(r.pl_id||'-')+'</td>'
-      +'<td id="'+tlRowId+'" style="'+td+'font-size:10px;white-space:normal;word-break:break-word;line-height:1.6;">'+tlCell+'</td>'
-      +'<td class="sp2-pdt-cell" style="'+td+'text-align:center;">'+stBadge+'</td>'
-      +'<td style="'+td+'text-align:center;"><span class="badge badge-amber">'+dev+'</span></td>'
-      +'<td style="'+td+'text-align:center;"><span class="badge badge-blue">'+bld+'</span></td>'
-      +'<td style="'+td+'text-align:center;font-weight:900;">'+fmtH(hrs)+'</td>'
-      +'<td style="'+td+'text-align:center;"><span class="badge badge-red">'+crash+'</span></td>'
-      +'<td style="'+td+'text-align:center;font-weight:900;color:#7c3aed;">'+ucr+'</td>'
-      +'<td style="'+td+'text-align:center;">'+mtbf+'</td>'
+      +'<td class="cons-target" style="'+borderTop+'" title="'+esc((r.target||'')+(r.pl_id?' | '+r.pl_id:''))+'">'+esc(targetText)+'</td>'
+      +'<td id="'+tlRowId+'" class="cons-timeline" style="'+borderTop+'">'+tlCell+'</td>'
+      +'<td class="sp2-pdt-cell cons-status" style="'+borderTop+'">'+esc(r.pdt_test_status||'-')+'</td>'
+      +'<td class="cons-dev" style="'+borderTop+'">'+fmt(dev)+'</td>'
+      +'<td class="cons-num" style="'+borderTop+'">'+fmt(bld)+'</td>'
+      +'<td class="cons-num" style="'+borderTop+'">'+fmt(hrs,0)+'</td>'
+      +'<td class="cons-num" style="'+borderTop+'">'+fmt(crash)+'</td>'
+      +'<td class="cons-num" style="'+borderTop+'">'+esc(ucr)+'</td>'
+      +'<td class="cons-num" style="'+borderTop+'">'+mtbf+'</td>'
       +'</tr>';
   });
 
-    tb.innerHTML=html;
+  tb.innerHTML=html;
   if(tf){
     g('sp2CTotal_dev').textContent=tDev||'-';
     g('sp2CTotal_bld').textContent=tBld||'-';
-    g('sp2CTotal_hrs').textContent=tHrs?tHrs.toFixed(1)+'h':'-';
+    g('sp2CTotal_hrs').textContent=tHrs?fmt(tHrs,0):'-';
     g('sp2CTotal_crash').textContent=tCrash||'-';
     g('sp2CTotal_ucr').textContent=tUcr||'-';
     tf.style.display='';
@@ -1251,9 +1285,8 @@ window.sp2SaveTimelineModal=function(){
       if(editBtn)editBtn.setAttribute('data-tl', d.timelines||'');
       var tr=cell.closest('tr');
       var pdtCell=tr&&tr.querySelector('.sp2-pdt-cell');
-      if(pdtCell){
-        var bg=STATUS_COLORS[d.pdt_status]||'#f1f5f9';
-        pdtCell.innerHTML=d.pdt_status?'<span style="background:'+bg+';padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;">'+esc(d.pdt_status)+'</span>':'-';
+            if(pdtCell){
+        pdtCell.textContent=d.pdt_status||'-';
       }
     }
     _allConsolidate.forEach(function(r){
@@ -1269,8 +1302,17 @@ window.sp2SaveTimelineModal=function(){
 window.sp2CopyConsolidate=function(){
   var table=g('sp2ConsTable');
   if(!table){alert('Table not found');return;}
-  var html='<html><head><meta charset="utf-8"></head><body>'+table.outerHTML+'</body></html>';
-  var plain=table.innerText||'';
+  var copy=table.cloneNode(true);
+  copy.querySelectorAll('.cons-edit-btn').forEach(function(b){b.remove();});
+  copy.setAttribute('style','border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:9px;line-height:1.15;color:#111827;table-layout:fixed;border:1px solid #1f2937');
+  copy.querySelectorAll('th').forEach(function(th){th.setAttribute('style','background:#93b5df;color:#111827;border:1px solid #1f2937;padding:3px 4px;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;white-space:normal');});
+  copy.querySelectorAll('td').forEach(function(td){
+    var bg=td.classList.contains('cons-dev')?'background:#92d050;':(td.parentElement&&td.parentElement.classList.contains('cons-total')?'background:#e8b9bb;':'background:#fff;');
+    var align=td.classList.contains('cons-target')?'text-align:left;':'text-align:center;';
+    td.setAttribute('style',bg+'color:#111827;border:1px solid #1f2937;padding:2px 4px;'+align+'vertical-align:middle;font-size:9px;line-height:1.15');
+  });
+  var html='<html><head><meta charset="utf-8"></head><body>'+copy.outerHTML+'</body></html>';
+  var plain=copy.innerText||'';
   var btn=document.querySelector('[onclick="sp2CopyConsolidate()"]');
   if(window.isSecureContext&&typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
     navigator.clipboard.write([new ClipboardItem({
@@ -1313,13 +1355,11 @@ window.sp2LoadDevUtil=function(){
 
   // Charts use weekly totals. The backend falls back to weekly_sharepoint_consolidate_summary
   // for older weeks when Smart Build consolidate is not present.
-  fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(w.we),{cache:'no-store'})
+    fetch('/api/sp2/stability_health?week_end='+encodeURIComponent(w.we)+'&count=20',{cache:'no-store'})
     .then(function(r){return r.json();}).then(function(d){
-      var weeks=(d.weeks||[]).slice(-3);
-      _renderWow(weeks);
-      _renderSp2DevCharts(weeks);
+      var weeks=_sp2FilterStabilityWeeks(d.weeks||[]).slice(-3);
+            _renderSp2DevCharts(weeks);
     }).catch(function(){
-      _renderWow([]);
       _renderSp2DevCharts([]);
     });
 };
@@ -1586,23 +1626,95 @@ window.sp2CopyDevUtilTable = function(btn){
 };
 
 function _renderWow(weeks){
-  var body=g('sp2WowBody');if(!body)return;
-  var cols=['Week','Devices','Hours','Crashes','MTBF','Hrs/Dev','Crashes/Dev'];
+    var body=g('sp2WowBody');if(!body)return;
+  if(!weeks||!weeks.length){body.innerHTML='<div class="empty">No week-over-week data available.</div>';return;}
+  var cols=['Week Ending','Devices','Hours','JIRAs','CRs','MTBF','Hrs/Dev','JIRAs/Dev'];
   var html='<div class="tbl-wrap"><table class="sp2-tbl"><thead><tr>'
     +cols.map(function(c){return'<th>'+esc(c)+'</th>';}).join('')+'</tr></thead><tbody>';
   weeks.forEach(function(w){
     var mtbf=num(w.total_crashes)>0?(num(w.total_hours)/num(w.total_crashes)):0;
     var dev=num(w.total_devices);
-    html+='<tr><td><strong>'+esc(w.label||w.week_end)+'</strong></td>'
+    var jiras=num(w.total_jiras!=null?w.total_jiras:w.total_crashes);
+    var crs=num(w.total_unique_crs!=null?w.total_unique_crs:w.unique_crs);
+    html+='<tr><td><strong>'+esc(w.label_year||w.week_end||w.label)+'</strong></td>'
       +'<td style="text-align:center"><span class="badge badge-amber">'+fmt(dev)+'</span></td>'
       +'<td style="text-align:center;font-weight:900">'+fmtH(w.total_hours)+'</td>'
-      +'<td style="text-align:center"><span class="badge badge-red">'+fmt(w.total_crashes)+'</span></td>'
+      +'<td style="text-align:center"><span class="badge badge-red">'+fmt(jiras)+'</span></td>'
+      +'<td style="text-align:center"><span class="badge badge-purple">'+fmt(crs)+'</span></td>'
       +'<td style="text-align:center">'+(mtbf>0?'<span class="badge badge-purple">'+fmt(mtbf,1)+'h</span>':'-')+'</td>'
       +'<td style="text-align:center">'+(dev>0?fmt(num(w.total_hours)/dev,1):'-')+'</td>'
-      +'<td style="text-align:center">'+(dev>0?fmt(num(w.total_crashes)/dev,2):'-')+'</td></tr>';
+      +'<td style="text-align:center">'+(dev>0?fmt(jiras/dev,2):'-')+'</td></tr>';
   });
   html+='</tbody></table></div>';
   body.innerHTML=html;
+}
+
+function _sp2ClearJiraCrRange(){
+  var f=g('sp2JiraCrFrom'),t=g('sp2JiraCrTo');
+  if(f)f.value=''; if(t)t.value='';
+  _sp2RenderJiraCrTrend(_sp2LastStabilityWeeks||[]);
+}
+
+function _sp2JiraCrRangeWeeks(weeks){
+  var from=(g('sp2JiraCrFrom')&&g('sp2JiraCrFrom').value)||'';
+  var to=(g('sp2JiraCrTo')&&g('sp2JiraCrTo').value)||'';
+  return (weeks||[]).filter(function(w){
+    var d=String(w.week_end||'');
+    if(from&&d<from)return false;
+    if(to&&d>to)return false;
+    return true;
+  });
+}
+
+function _sp2RenderJiraCrTrend(weeks){
+  var el=g('sp2JiraCrTrendChart');
+  if(!el)return;
+  var rows=_sp2JiraCrRangeWeeks(weeks||[]);
+  if(!rows.length){
+    el.innerHTML='<div class="empty" style="padding:40px">No JIRA / CR trend data available for the selected range.</div>';
+    return;
+  }
+  var cats=rows.map(function(w){return w.label_year||w.week_end||w.label||'';});
+  var jiras=rows.map(function(w){return num(w.total_jiras!=null?w.total_jiras:w.total_crashes);});
+  var crs=rows.map(function(w){return num(w.total_unique_crs!=null?w.total_unique_crs:w.unique_crs);});
+  if(_sp2JiraCrTrendChart&&_sp2JiraCrTrendChart.destroy)_sp2JiraCrTrendChart.destroy();
+    _sp2JiraCrTrendChart=Highcharts.chart('sp2JiraCrTrendChart',{
+    chart:{type:'column',backgroundColor:'#fff'},
+    title:{text:null},
+    xAxis:{categories:cats,labels:{rotation:-35,style:{fontSize:'10px',fontWeight:'700'}}},
+        yAxis:[{
+      min:0,
+            title:{text:'Number of JIRAs',style:{color:'#3b82f6',fontWeight:'800'}},
+      labels:{style:{color:'#3b82f6',fontWeight:'700'}},
+      allowDecimals:false,
+      gridLineColor:'#eef2f7'
+    },{
+      min:0,
+            title:{text:'Number of CRs',style:{color:'#10b981',fontWeight:'800'}},
+      labels:{style:{color:'#10b981',fontWeight:'700'}},
+      allowDecimals:false,
+      opposite:true,
+      gridLineWidth:0
+    }],
+    legend:{enabled:true},
+    tooltip:{shared:true,headerFormat:'<b>Week Ending: {point.key}</b><br/>',pointFormat:'<span style="color:{series.color}">●</span> {series.name}: <b>{point.y:,.0f}</b><br/>'},
+    plotOptions:{
+      column:{
+        grouping:true,
+        pointPadding:0.08,
+        groupPadding:0.16,
+        borderWidth:0,
+        borderRadius:3,
+        dataLabels:{enabled:true,crop:false,overflow:'allow',style:{fontSize:'10px',fontWeight:'800',textOutline:'2px contrast'}}
+      }
+    },
+        series:[{
+            name:'Number of JIRAs',type:'column',yAxis:0,data:jiras,color:'#93c5fd',borderColor:'#3b82f6'
+    },{
+      name:'Number of CRs',type:'column',yAxis:1,data:crs,color:'#86efac',borderColor:'#10b981'
+    }],
+    credits:{enabled:false}
+  });
 }
 
 /* TAB 4 - UNIQUE DEVICES */

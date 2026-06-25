@@ -619,9 +619,12 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
             if resp.status in (200, 201, 206):
                 return json.loads(raw.decode())
             if resp.status == 401:
-                # Token expired — no point retrying with same token
-                logger.warning("[GET] HTTP 401 — token expired, signalling refresh")
+                # Token expired — no point retrying with same token. Log at INFO to avoid noisy WARNING spam.
+                logger.info("[GET] HTTP 401 — token expired, signalling refresh")
                 raise _TokenExpired()
+            if resp.status == 400 and b"must not be ahead of the current time" in raw:
+                logger.info("[GET] HTTP 400 from Axiom time-window guard; stopping this request: %r", raw[:200])
+                return {}
             logger.warning("[GET] HTTP %s attempt %d/%d: %r", resp.status, attempt, MAX_RETRIES, raw[:200])
         except _TokenExpired:
             raise   # propagate immediately
@@ -654,22 +657,22 @@ def _fetch_jobs(host: str, token: str, app_name: str,
     since_utc  = (
         datetime.now(timezone.utc) - timedelta(days=since_days)
     ).strftime("%Y-%m-%dT00:00:00Z")
-         # submittedBefore = now minus 4-hour buffer to avoid Axiom 400:
+    # submittedBefore = now minus 24-hour buffer to avoid Axiom 400:
     # "Submitted To date must not be ahead of the current time".
-    # Axiom server clocks can be several hours ahead of the client;
-    # 4-hour buffer is conservative enough to never send a future timestamp.
+    # Some deployments can have a large clock/date skew; using a conservative
+    # completed-day window prevents noisy future-time warnings in the poller.
     # If the computed since_utc is already in the future (e.g. a future week
     # was requested), skip the fetch entirely — there is nothing to retrieve.
     _now_utc     = datetime.now(timezone.utc)
-    _safe_before = _now_utc - timedelta(hours=4)
+    _safe_before = _now_utc - timedelta(hours=24)
     before_utc   = _safe_before.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Guard: if the entire requested window is in the future, bail out early.
     # This prevents HTTP 400 when the scheduler is triggered for a future week.
     _since_dt = datetime.strptime(since_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     if _since_dt >= _safe_before:
-        logger.warning(
-            "[FETCH] taxonomy=%s since=%s is in the future (now-4h=%s) — skipping fetch",
+        logger.info(
+            "[FETCH] taxonomy=%s since=%s is in the future (now-24h=%s) — skipping fetch",
             taxonomy, since_utc[:16], before_utc[:16],
         )
         return []
@@ -931,7 +934,7 @@ def _enrich_jobs_by_rules(host: str, token: str, app_name: str, jobs: List[dict]
                 cfg = _get(host, token, f"/axiom/v1/public/jobs/{quote(str(job_id), safe='')}/{config_path}", app_name)
             except _TokenExpired:
                 token_failures += 1
-                logger.warning('[ENRICH] 401 on job_id=%s rule=%s — token expired; aborting cycle so poller refreshes token and retries', job_id, name)
+                logger.info('[ENRICH] 401 on job_id=%s rule=%s — token expired; aborting cycle so poller refreshes token and retries', job_id, name)
                 raise
             value = _extract_value_by_rule(cfg, rule)
             if value:
@@ -968,7 +971,7 @@ def _backfill_missing_fields_by_rules(host: str, token: str, app_name: str, buil
                 cfg = _get(host, token, f"/axiom/v1/public/jobs/{quote(str(job_id), safe='')}/{config_path}", app_name)
             except _TokenExpired:
                 token_failures += 1
-                logger.warning('[BACKFILL] 401 on job_id=%s — token expired; aborting cycle so poller refreshes token and retries', job_id)
+                logger.info('[BACKFILL] 401 on job_id=%s — token expired; aborting cycle so poller refreshes token and retries', job_id)
                 raise
             value = _extract_value_by_rule(cfg, rule)
             if value:
@@ -1318,7 +1321,7 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
                 try:
                     result = future.result()
                 except _TokenExpired:
-                    logger.warning("[REFRESH RUNNING] 401 - aborting, poller will refresh token")
+                    logger.info("[REFRESH RUNNING] 401 - aborting, poller will refresh token")
                     raise
                 if result:
                     refreshed_builds[result["job_id"]] = result
@@ -1629,8 +1632,8 @@ def run_combined_poller(
                         raise RuntimeError(
                             f"token kept expiring after {auth_failures} refresh attempts in cycle {cycle}"
                         )
-                    logger.warning(
-                        "[COMBINED POLLER] 401 mid-cycle ? refreshing token, retry %d/%d (cycle %d)",
+                    logger.info(
+                        "[COMBINED POLLER] 401 mid-cycle — refreshing token, retry %d/%d (cycle %d)",
                         auth_failures, AUTH_RETRY_LIMIT, cycle,
                     )
                     token          = _get_token(api_host, client_id, client_secret)
@@ -1642,8 +1645,8 @@ def run_combined_poller(
             consecutive_errors += 1
             is_auth_error = isinstance(exc, RuntimeError) and 'token kept expiring' in str(exc).lower()
             if is_auth_error:
-                logger.warning(
-                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s ? token cleared, will retry next cycle.",
+                logger.info(
+                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s — token cleared, will retry next cycle.",
                     cycle, consecutive_errors, exc,
                 )
             else:

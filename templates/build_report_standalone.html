@@ -24,6 +24,9 @@
       <div class="muted">Generate JQL from builds or paste direct JQL, then run the consolidated JIRA/CR report.</div>
     </div>
     <div class="toolbar">
+      <button class="btn" type="button" onclick="brGoBack()" title="Back"><i class="fas fa-arrow-left"></i> Back</button>
+      <button class="btn" type="button" onclick="brGoHome()" title="Home"><i class="fas fa-house"></i> Home</button>
+      <button class="btn" type="button" onclick="brCloseReport()" title="Close Build Report"><i class="fas fa-times"></i> Close</button>
       <span class="pill"><i class="fas fa-code"></i> JQL Runner</span>
       <span class="pill good"><i class="fas fa-layer-group"></i> Consolidated Report</span>
     </div>
@@ -127,6 +130,9 @@ const JIRA_ISSUES_BASE = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 let brLastCrRows=[];
 function g(id){return document.getElementById(id)}
 function esc(v){return BuildReportCommon.escapeHtml(v)}
+function brGoHome(){try{window.top.location.href='/cr_overview/embed';}catch(e){window.location.href='/cr_overview/embed';}}
+function brGoBack(){if(window.history.length>1)window.history.back();else brGoHome();}
+function brCloseReport(){brGoHome();}
 function buildList(){return BuildReportCommon.asList(g('brBuilds').value)}
 function jiraUrl(jql){return BuildReportCommon.jiraIssuesUrl(jql)}
 function jiraKeysUrl(keys){

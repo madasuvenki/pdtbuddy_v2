@@ -1,5 +1,7 @@
 <!doctype html>
+<!-- live_status_publish_landing ui-version: target-info-panels-v4 -->
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -77,7 +79,61 @@
     .ls-access-panel{display:none;margin-top:20px;}
     .ls-access-panel.open{display:block;}
     .ls-btn-access{background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;box-shadow:0 1px 3px rgba(15,23,42,.06);}
-    .ls-btn-access:hover{background:#eef2ff;color:#312e81;}
+        .ls-btn-access:hover{background:#eef2ff;color:#312e81;}
+
+    /* Viewer direct target landing */
+    .ls-viewer-home{display:flex;flex-direction:column;gap:22px;}
+                                        .ls-group-section{--acc:#6366f1;--acc2:#4f46e5;--acc-bg:#eef2ff;--acc-bg2:#f8faff;--acc-shadow:rgba(99,102,241,.16);background:#fff;border:1.5px solid var(--acc-bg);border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.07);overflow:hidden;}
+
+
+    .ls-group-section.acc-auto{--acc:#2563eb;--acc2:#0ea5e9;--acc-bg:#dbeafe;--acc-bg2:#eff6ff;--acc-shadow:rgba(37,99,235,.18);}
+    .ls-group-section.acc-nord{--acc:#0f766e;--acc2:#14b8a6;--acc-bg:#ccfbf1;--acc-bg2:#f0fdfa;--acc-shadow:rgba(20,184,166,.18);}
+    .ls-group-section.acc-iot{--acc:#059669;--acc2:#84cc16;--acc-bg:#d1fae5;--acc-bg2:#f7fee7;--acc-shadow:rgba(5,150,105,.16);}
+    .ls-group-section.acc-mobile{--acc:#7c3aed;--acc2:#ec4899;--acc-bg:#f5d0fe;--acc-bg2:#fdf4ff;--acc-shadow:rgba(124,58,237,.17);}
+    .ls-group-section.acc-compute{--acc:#0891b2;--acc2:#2563eb;--acc-bg:#cffafe;--acc-bg2:#ecfeff;--acc-shadow:rgba(8,145,178,.17);}
+    .ls-group-section.acc-wbc{--acc:#ea580c;--acc2:#f59e0b;--acc-bg:#ffedd5;--acc-bg2:#fff7ed;--acc-shadow:rgba(234,88,12,.16);}
+    .ls-group-section.acc-weekly{--acc:#d97706;--acc2:#eab308;--acc-bg:#fef3c7;--acc-bg2:#fffbeb;--acc-shadow:rgba(217,119,6,.16);}
+    .ls-group-section.acc-hw{--acc:#be123c;--acc2:#f43f5e;--acc-bg:#ffe4e6;--acc-bg2:#fff1f2;--acc-shadow:rgba(190,18,60,.15);}
+    .ls-group-section.acc-ai{--acc:#4338ca;--acc2:#7c3aed;--acc-bg:#e0e7ff;--acc-bg2:#eef2ff;--acc-shadow:rgba(67,56,202,.16);}
+    .ls-group-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px;background:linear-gradient(135deg,var(--acc-bg2),#fff);color:#0f172a;border-bottom:1px solid var(--acc-bg);}
+    .ls-group-title{display:flex;align-items:center;gap:12px;min-width:0;}
+    .ls-group-icon{width:42px;height:42px;border-radius:14px;background:var(--acc-bg);color:var(--acc);display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.75);}
+    .ls-group-name{font-size:18px;font-weight:950;letter-spacing:-.02em;}
+    .ls-group-sub{font-size:11px;font-weight:750;color:#64748b;margin-top:2px;word-break:break-word;}
+    .ls-group-preview{font-size:11px;font-weight:800;color:#334155;margin-top:5px;line-height:1.35;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .ls-group-preview-label{color:#94a3b8;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.05em;}
+    .ls-group-preview-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:#fff;border:1px solid var(--acc-bg);color:var(--acc);font-size:10px;font-weight:950;}
+    .ls-group-count{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:#fff;border:1px solid var(--acc-bg);font-size:11px;font-weight:950;white-space:nowrap;color:var(--acc);}
+        .ls-target-grid{display:grid;grid-template-columns:1fr;gap:12px;padding:16px;}
+        .ls-target-card{position:relative;overflow:hidden;text-align:left;border:1.5px solid #e2e8f0;border-radius:18px;background:linear-gradient(180deg,#fff,var(--acc-bg2));padding:16px 18px;box-shadow:0 6px 18px rgba(15,23,42,.06);cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s;display:grid;grid-template-columns:minmax(220px,1.1fr) minmax(360px,2fr) auto;align-items:center;gap:16px;}
+    .ls-target-card:hover{transform:translateY(-2px);border-color:var(--acc);box-shadow:0 16px 36px var(--acc-shadow);}
+    .ls-target-card:before{content:'';position:absolute;inset:0 auto 0 0;width:5px;background:linear-gradient(180deg,var(--acc),var(--acc2));}
+    .ls-target-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0;min-width:0;}
+    .ls-target-name{font-size:17px;font-weight:950;color:#0f172a;letter-spacing:-.02em;line-height:1.1;word-break:break-word;}
+    .ls-target-bu{font-size:10px;font-weight:900;color:var(--acc);margin-top:6px;text-transform:uppercase;letter-spacing:.06em;}
+        .ls-target-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;}
+    .ls-stat{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:9px 10px;}
+    .ls-stat-k{font-size:9px;font-weight:950;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;}
+    .ls-stat-v{font-size:13px;font-weight:950;color:#1e293b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ls-open-btn{display:flex;align-items:center;justify-content:center;gap:7px;min-width:118px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:12px;font-weight:950;box-shadow:0 8px 18px var(--acc-shadow);white-space:nowrap;}
+    .ls-no-targets{padding:22px;color:#64748b;font-size:12px;font-weight:800;background:#fff;}
+    .ls-viewer-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1.5px solid #dbeafe;border-radius:18px;padding:13px 15px;box-shadow:0 8px 24px rgba(37,99,235,.08);position:sticky;top:10px;z-index:50;}
+    .ls-viewer-search-wrap{position:relative;flex:1;min-width:220px;}
+    .ls-viewer-search-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;}
+    .ls-viewer-search{width:100%;height:40px;border:1.7px solid #e2e8f0;border-radius:13px;padding:0 14px 0 38px;font-size:13px;font-weight:750;color:#0f172a;outline:none;background:#f8fafc;transition:border-color .15s,box-shadow .15s,background .15s;}
+    .ls-viewer-search:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 4px rgba(99,102,241,.10);}
+    .ls-viewer-count{font-size:11px;font-weight:950;color:#475569;white-space:nowrap;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:7px 10px;}
+    .ls-group-head{cursor:pointer;}
+    .ls-group-toggle{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;background:#fff;border:1px solid var(--acc-bg);font-size:11px;font-weight:950;white-space:nowrap;color:var(--acc);}
+    .ls-group-toggle i{transition:transform .16s;}
+    .ls-group-section.open .ls-group-toggle i{transform:rotate(180deg);}
+                        .ls-group-body{display:none;background:#fff;cursor:default;}
+
+    .ls-group-section.open .ls-group-body{display:block;}
+    .ls-viewer-home.searching .ls-group-body{display:block;}
+    .ls-group-section.no-matches{display:none;}
+    @media (max-width:900px){.ls-target-card{grid-template-columns:1fr;align-items:stretch;}.ls-target-stats{grid-template-columns:1fr 1fr;}.ls-open-btn{width:100%;}.ls-live-badge{width:max-content;}}
+    @media (max-width:700px){.ls-viewer-tools{position:static;flex-direction:column;align-items:stretch;}.ls-viewer-count{text-align:center;}.ls-group-head{align-items:flex-start;flex-direction:column;}.ls-target-stats{grid-template-columns:1fr;}}
 
     /* Admin panel */
 
@@ -160,16 +216,86 @@
   </div>
 
       <div class="ls-content">
+
+    {% if (not can_edit) and viewer_bu_sections %}
+  <div class="ls-viewer-home" id="lsViewerHome">
+    <div class="ls-viewer-tools">
+      <div class="ls-viewer-search-wrap">
+        <i class="fas fa-search"></i>
+        <input id="lsViewerSearch" class="ls-viewer-search" type="search" placeholder="Search published targets..." autocomplete="off">
+      </div>
+      <div class="ls-viewer-count" id="lsViewerSearchCount">Published targets</div>
+    </div>
+        {% for section in viewer_bu_sections %}
+            {% set bku = section.bu_key|upper %}
+      {% set bname = section.bu_name|upper %}
+      {% set bu_display = (section.bu_name or section.bu_key)|replace('_', ' ')|upper %}
+
+            {% set bu_icon = 'fa-car' if ('AUTO' in bku or 'AUTO' in bname) else ('fa-route' if ('NORD' in bku or 'NORD' in bname) else ('fa-wifi' if ('IOT' in bku or 'IOT' in bname) else ('fa-mobile-alt' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('fa-server' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('fa-calendar-week' if ('WEEKLY' in bku or 'QIPL' in bku) else ('fa-microchip' if ('WBC' in bku or 'TELEMATICS' in bku) else ('fa-memory' if ('HW' in bku or 'HWPDT' in bku) else ('fa-wand-magic-sparkles' if ('AI' in bku or 'GENIE' in bku) else 'fa-shield-alt')))))))) %}
+      {% set bu_accent = 'acc-auto' if ('AUTO' in bku or 'AUTO' in bname) else ('acc-nord' if ('NORD' in bku or 'NORD' in bname) else ('acc-iot' if ('IOT' in bku or 'IOT' in bname) else ('acc-mobile' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('acc-compute' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('acc-weekly' if ('WEEKLY' in bku or 'QIPL' in bku) else ('acc-wbc' if ('WBC' in bku or 'TELEMATICS' in bku) else ('acc-hw' if ('HW' in bku or 'HWPDT' in bku) else ('acc-ai' if ('AI' in bku or 'GENIE' in bku) else '')))))))) %}
+      <section class="ls-group-section {{ bu_accent }}{% if bku == (auto_open_bu|default('', true)|upper) %} open{% endif %}" data-bu-section data-bu-name="{{ section.bu_name|e }}" data-bu-key="{{ section.bu_key|e }}">
+        <div class="ls-group-head" data-bu-toggle>
+          <div class="ls-group-title">
+            <div class="ls-group-icon"><i class="fas {{ bu_icon }}"></i></div>
+            <div>
+                            <div class="ls-group-name">{{ bu_display }}</div>
+              <div class="ls-group-sub">{{ section.targets|length }} published target{{ 's' if section.targets|length != 1 else '' }} available</div>
+              <div class="ls-group-preview">
+                <span class="ls-group-preview-label">Targets</span>
+                {% for pt in section.targets[:4] %}
+                  <span class="ls-group-preview-chip">{{ pt.name|replace('_', ' ')|upper }}</span>
+                {% endfor %}
+                {% if section.targets|length > 4 %}
+                  <span class="ls-group-preview-chip">+{{ section.targets|length - 4 }} more</span>
+                {% endif %}
+              </div>
+
+            </div>
+          </div>
+                    <div class="ls-group-toggle"><i class="fas fa-chevron-down"></i> {{ section.targets|length }} PANEL{{ 'S' if section.targets|length != 1 else '' }}</div>
+
+        </div>
+        <div class="ls-group-body">
+          <div class="ls-target-grid">
+            {% for t in section.targets %}
+              <button class="ls-target-card" type="button" data-target-card data-search="{{ (t.name ~ ' ' ~ t.bu_name ~ ' ' ~ t.bu_key ~ ' ' ~ (t.published_by or '') ~ ' ' ~ (t.published_at or '') ~ ' ' ~ (t.updated_at or ''))|lower|e }}" onclick='openTargetViewer({{ t|tojson }})'>
+                <div class="ls-target-top">
+                  <div>
+                                        <div class="ls-target-name">{{ t.name|replace('_', ' ')|upper }}</div>
+
+                                                            <div class="ls-target-bu"><i class="fas {{ bu_icon }}"></i> {{ (t.bu_name or t.bu_key)|replace('_', ' ')|upper }}</div>
+
+                  </div>
+                  <span class="ls-live-badge"><span class="ls-live-dot"></span> LIVE</span>
+                </div>
+                <div class="ls-target-stats">
+                  <div class="ls-stat"><div class="ls-stat-k">Published Time</div><div class="ls-stat-v">{{ t.published_at or '-' }}</div></div>
+                  <div class="ls-stat"><div class="ls-stat-k">Last Modified</div><div class="ls-stat-v">{{ t.updated_at or t.published_at or '-' }}</div></div>
+                  <div class="ls-stat"><div class="ls-stat-k">Published By</div><div class="ls-stat-v">{{ t.published_by or '-' }}</div></div>
+                </div>
+                <div class="ls-open-btn">Open <i class="fas fa-arrow-right"></i></div>
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+    {% if can_edit or not viewer_bu_sections %}
   <!-- Breadcrumb — hidden at BU level -->
     <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
     <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-house"></i> Home</span>
     <span class="ls-bc-sep">/</span>
     <span class="ls-bc-cur" id="lsBcCur"></span>
   </div>
+  {% endif %}
 
 
   <!-- Navigation area -->
-  <div id="lsNav">
+  <div id="lsNav" {% if (not can_edit) and viewer_bu_sections %}style="display:none;"{% endif %}>
+
 
     <!-- LEVEL 1: BU rows -->
     <div id="lsLevel1">
@@ -377,8 +503,63 @@
 
 
 
-    var BU_TARGETS = {{ bu_targets_js | tojson }};
+  var BU_TARGETS = {{ bu_targets_js | tojson }};
   var AUTO_OPEN_BU = {{ auto_open_bu | default('', true) | tojson }};
+
+  (function initViewerBuAccordions(){
+    var home = document.getElementById('lsViewerHome');
+    if (!home) return;
+    var search = document.getElementById('lsViewerSearch');
+    var countEl = document.getElementById('lsViewerSearchCount');
+    var sections = Array.prototype.slice.call(home.querySelectorAll('[data-bu-section]'));
+
+            sections.forEach(function(section){
+      var head = section.querySelector('[data-bu-toggle]');
+      var toggle = section.querySelector('.ls-group-toggle');
+      function syncToggle(){
+        if (!toggle) return;
+        var count = section.querySelectorAll('[data-target-card]').length;
+        toggle.innerHTML = section.classList.contains('open')
+          ? '<i class="fas fa-chevron-down"></i> CLOSE'
+          : '<i class="fas fa-chevron-down"></i> ' + count + ' PANEL' + (count === 1 ? '' : 'S');
+      }
+      syncToggle();
+      if (head) {
+        head.addEventListener('click', function(){
+          if (home.classList.contains('searching')) return;
+          section.classList.toggle('open');
+          syncToggle();
+        });
+      }
+    });
+
+    function applySearch(){
+      var q = search ? (search.value || '').trim().toLowerCase() : '';
+      home.classList.toggle('searching', !!q);
+      var matchCount = 0;
+      var visibleBuCount = 0;
+      sections.forEach(function(section){
+        var cards = Array.prototype.slice.call(section.querySelectorAll('[data-target-card]'));
+        var groupMatches = 0;
+        cards.forEach(function(card){
+          var hay = (card.getAttribute('data-search') || '').toLowerCase();
+          var ok = !q || hay.indexOf(q) !== -1;
+          card.style.display = ok ? '' : 'none';
+          if (ok) groupMatches += 1;
+        });
+        section.classList.toggle('no-matches', !!q && groupMatches === 0);
+        if (!q || groupMatches > 0) visibleBuCount += 1;
+        matchCount += groupMatches;
+      });
+      if (countEl) {
+        countEl.textContent = q
+          ? (matchCount + ' matching target' + (matchCount === 1 ? '' : 's'))
+          : (visibleBuCount + ' BU section' + (visibleBuCount === 1 ? '' : 's'));
+      }
+    }
+    if (search) search.addEventListener('input', applySearch);
+    applySearch();
+  })();
 
   var level1      = document.getElementById('lsLevel1');
 
@@ -457,15 +638,16 @@
     if (title) title.textContent = (t.name || '').toUpperCase();
 
 
-    /* Highlight active row */
+        /* Highlight active row/card when opened from the legacy BU list */
     document.querySelectorAll('.ls-row.active-target').forEach(function(r){ r.classList.remove('active-target'); });
-    event && event.currentTarget && event.currentTarget.classList && event.currentTarget.classList.add('active-target');
+    var ev = window.event || null;
+    ev && ev.currentTarget && ev.currentTarget.classList && ev.currentTarget.classList.add('active-target');
 
     viewer.classList.add('open');
     viewer.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  function closeViewer() {
+    function closeViewer() {
     var viewer = document.getElementById('lsViewer');
     var frame  = document.getElementById('lsViewerFrame');
     if (viewer) viewer.classList.remove('open');
@@ -474,6 +656,10 @@
     document.querySelectorAll('.ls-row.active-target').forEach(function(r){ r.classList.remove('active-target'); });
     _currentTargetName = null; _currentJobId = null;
   }
+
+  
+
+
 
 
     function goHome() {
@@ -487,7 +673,8 @@
     breadcrumb.style.display = 'none';
   }
 
-  bcBack.addEventListener('click', goHome);
+    if (bcBack) bcBack.addEventListener('click', goHome);
+
 
 
     if (AUTO_OPEN_BU) {

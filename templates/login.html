@@ -62,7 +62,7 @@
         </div>
         {% endif %}
 
-        <form method="POST" class="login-form" id="loginForm" onsubmit="return onLoginSubmit()">
+        <form method="POST" class="login-form" id="loginForm" autocomplete="on" onsubmit="return onLoginSubmit()">
 
           <!-- Username -->
           <div class="form-group">
@@ -237,19 +237,54 @@ function onLoginSubmit() {
   var txt     = document.getElementById('loginBtnText');
   var spinner = document.getElementById('loginBtnSpinner');
   var arrow   = document.getElementById('loginArrow');
+
+  // Ask Chrome/Edge password manager to save/update the credential.
+  // The app does NOT store the password; this only uses the browser's password vault.
+  try {
+    var form = document.getElementById('loginForm');
+    var cb = document.getElementById('rememberMe');
+    if (cb && cb.checked && window.PasswordCredential && navigator.credentials && form) {
+      navigator.credentials.store(new PasswordCredential(form)).catch(function(){});
+    }
+  } catch(e) {}
+
   btn.disabled = true;
   txt.style.display     = 'none';
   spinner.style.display = 'inline-flex';
   arrow.style.display   = 'none';
   return true;
 }
-// Remember me - auto-fill username and restore checkbox
+// Remember me + browser password vault autofill.
   (function(){
+    var userEl = document.getElementById('username');
+    var passEl = document.getElementById('password');
+    var cb = document.getElementById('rememberMe');
+
+    // First try the browser's saved credential. This can fill BOTH username and password.
+    try {
+      if (navigator.credentials && window.PasswordCredential) {
+        navigator.credentials.get({password: true, mediation: 'optional'}).then(function(cred){
+          if (cred && cred.type === 'password') {
+            if (userEl && cred.id) userEl.value = cred.id;
+            if (passEl && cred.password) passEl.value = cred.password;
+            if (cb) cb.checked = true;
+            try {
+              userEl && userEl.dispatchEvent(new Event('input', { bubbles: true }));
+              passEl && passEl.dispatchEvent(new Event('input', { bubbles: true }));
+            } catch(e) {}
+          }
+        }).catch(function(){});
+      }
+    } catch(e) {}
+
+    // Fallback: restore only username from localStorage. Password is never stored by the app.
     var saved = localStorage.getItem('pdt_remember_user');
-    if(saved){
-      var el = document.getElementById('username');
-      if(el) el.value = saved;
-      var cb = document.getElementById('rememberMe');
+    if(saved && userEl && !userEl.value){
+      userEl.value = saved;
+      try {
+        userEl.dispatchEvent(new Event('input', { bubbles: true }));
+        userEl.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch(e) {}
       if(cb) cb.checked = true;
     }
   })();

@@ -65,7 +65,9 @@
 .pcr-col-status   {min-width:100px;}
 .pcr-col-si       {min-width:54px;text-align:center;}
 .pcr-col-date     {min-width:88px;white-space:nowrap;}
+.pcr-col-ready    {min-width:92px;white-space:nowrap;text-align:center;}
 .pcr-col-lastjira {min-width:110px;white-space:nowrap;}
+
 .pcr-cr-id{font-weight:800;color:#4f46e5;font-size:12px;text-decoration:none;white-space:nowrap;padding:2px 8px;border-radius:6px;background:#eef2ff;transition:background .15s;}
 .pcr-cr-id:hover{background:#c7d2fe;}
 .pcr-hits{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;}
@@ -183,7 +185,24 @@
     </div>
   </div>
 
+  <div id="pcrReadyProgressModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.45);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.22);width:min(520px,92vw);padding:22px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <i id="pcrReadyProgressIcon" class="fas fa-sync-alt fa-spin" style="color:#0891b2;font-size:18px;"></i>
+        <div>
+          <div style="font-weight:900;color:#0f172a;font-size:15px;">Fetching Ready Date from Orbit</div>
+          <div id="pcrReadyProgressText" style="font-size:12px;color:#64748b;margin-top:2px;">Starting...</div>
+        </div>
+      </div>
+      <div style="height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+        <div id="pcrReadyProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#06b6d4,#0891b2);transition:width .25s;"></div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:10px;line-height:1.45;">Ready Date is read from Orbit Software Images. If Orbit has no ReadyDate for that SI, the table shows NA.</div>
+    </div>
+  </div>
+
   <!-- KPI Strip -->
+
   <div class="pcr-kpi-row">
 
     <!-- Total — click to reset filter -->
@@ -471,17 +490,19 @@
             <th class="pcr-col-hits sortable" onclick="pcrSort('cr_occurrence')">Hits <span class="sort-icon" id="sort-cr_occurrence">&#9660;</span></th>
             <th class="pcr-col-age sortable" onclick="pcrSort('cr_age')">Age <span class="sort-icon" id="sort-cr_age"></span></th>
             <th class="pcr-col-status sortable" onclick="pcrSort('cr_status')">Status <span class="sort-icon" id="sort-cr_status"></span></th>
-                        <th class="pcr-col-si">SI</th>
-            {% if is_compute_target %}<th class="pcr-col-crtag sortable" onclick="pcrSort('cr_tag')">CR TAG <span class="sort-icon" id="sort-cr_tag"></span></th>{% endif %}
-                        <th class="pcr-col-pdttag">PDT Tag</th>
+                                    <th class="pcr-col-si">SI</th>
+            <th class="pcr-col-ready sortable" onclick="pcrSort('si_ready_date')">Ready Date <span class="sort-icon" id="sort-si_ready_date"></span></th>
+           
             <th class="pcr-col-date sortable" onclick="pcrSort('built_date')">Built Date <span class="sort-icon" id="sort-built_date"></span></th>
+ {% if is_compute_target %}<th class="pcr-col-crtag sortable" onclick="pcrSort('cr_tag')">CR TAG <span class="sort-icon" id="sort-cr_tag"></span></th>{% endif %}
+                        <th class="pcr-col-pdttag">PDT Tag</th>
 
             <th class="pcr-col-lastjira sortable" onclick="pcrSort('last_reported_date')">Last Reported Date <span class="sort-icon" id="sort-last_reported_date"></span></th>
             <th class="pcr-col-lastjira sortable" onclick="pcrSort('last_reported_jira')">Last Reported JIRA <span class="sort-icon" id="sort-last_reported_jira"></span></th>
           </tr>
         </thead>
         <tbody id="pcrTableBody">
-          <tr><td colspan="{{ 15 if is_compute_target else 14 }}" class="pcr-empty">
+          <tr><td colspan="{{ 16 if is_compute_target else 15 }}" class="pcr-empty">
             <i class="fas fa-spinner fa-spin" style="font-size:22px;color:#6366f1;"></i>
             <div style="margin-top:12px;font-weight:600;">Loading CRs&hellip;</div>
           </td></tr>
@@ -981,7 +1002,7 @@
   };
   function applySort(){
     const numCols=['cr_occurrence','cr_age'];
-    const dateCols=['built_date','last_reported_date'];
+    const dateCols=['built_date','last_reported_date','si_ready_date'];
     filtered.sort((a,b)=>{
       let av=a[sortCol]||'', bv=b[sortCol]||'';
       if(numCols.includes(sortCol)){ av=numVal(av); bv=numVal(bv); return sortAsc?av-bv:bv-av; }
@@ -1067,7 +1088,7 @@
     document.getElementById('pcrNextBtn').disabled = currentPage>=pages;
 
     if(!page.length){
-      tbody.innerHTML='<tr><td colspan="{{ 15 if is_compute_target else 14 }}" class="pcr-empty">No CRs match the current filters.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="{{ 16 if is_compute_target else 15 }}" class="pcr-empty">No CRs match the current filters.</td></tr>';
       return;
     }
 
@@ -1081,8 +1102,11 @@
       const lastD = dateOnly(r.last_reported_date || r.jira_date_last);
       const lastJira = (r.last_reported_jira||'').trim();
       const lastJiraUrl = lastJira ? 'https://jira.qualcomm.com/jira/browse/'+encodeURIComponent(lastJira) : '#';
-      const siRaw = (r.cr_si||'').trim();
+            const siRaw = (r.cr_si||'').trim();
+      const readyDate = r.si_ready_date || 'NA';
+      const readyTitle = r.si_ready_title || (readyDate === 'NA' ? 'No ReadyDate in Orbit for this SI image' : 'Ready Date from Orbit Software Images');
       let siCell;
+
       if(siRaw&&(siRaw.startsWith('http')||siRaw.startsWith('/')||/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(siRaw))){
         siCell='<img src="'+esc(siRaw)+'" class="pcr-si-img" alt="SI" onerror="this.style.display=&quot;none&quot;">';
       } else {
@@ -1106,20 +1130,91 @@
         +'<td class="pcr-col-hits"><span class="pcr-hits '+hitsClass(hits)+'">'+(hits||'0')+'</span></td>'
         +'<td class="pcr-col-age">'+(age>0?'<span class="pcr-age '+ageClass(age)+'">'+age+'d</span>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-status"><span class="pcr-badge '+badgeClass(r.cr_status)+'">'+(esc(r.cr_status)||'&mdash;')+'</span></td>'
-                +'<td class="pcr-col-si">'+siCell+'</td>'
+                                +'<td class="pcr-col-si">'+siCell+'</td>'
+        +'<td class="pcr-col-ready" id="pcr-ready-'+crNum+'" title="'+esc(readyTitle)+'" style="font-size:11px;color:'+(readyDate==='NA'?'#94a3b8':'#047857')+';font-weight:800;">'+esc(readyDate)+'</td>'
         +(IS_COMPUTE_TARGET?'<td class="pcr-col-crtag" style="text-align:center;">'+crTagCell+'</td>':'')
+
         +'<td class="pcr-col-pdttag" style="text-align:center;">'+pdtTagCell+'</td>'
 
         +'<td class="pcr-col-date" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:600;">'+(builtD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-lastjira" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:700;">'+(lastD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-lastjira">'+(lastJira?'<a href="'+lastJiraUrl+'" target="_blank" class="pcr-cr-id" style="color:#0ea5e9;background:#ecfeff;">'+esc(lastJira)+'</a>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'</tr>';
-    }).join('');
+        }).join('');
+    pcrLoadReadyDatesForPage(page);
   }
+
+    function pcrShowReadyProgress(show, text, pct, done){
+    const modal=document.getElementById('pcrReadyProgressModal');
+    if(!modal) return;
+    modal.style.display = show ? 'flex' : 'none';
+    const txt=document.getElementById('pcrReadyProgressText'), bar=document.getElementById('pcrReadyProgressBar'), icon=document.getElementById('pcrReadyProgressIcon');
+    if(txt && text) txt.textContent = text;
+    if(bar) bar.style.width = Math.max(0, Math.min(100, pct||0)) + '%';
+    if(icon){
+      icon.className = done ? 'fas fa-check-circle' : 'fas fa-sync-alt fa-spin';
+      icon.style.color = done ? '#16a34a' : '#0891b2';
+    }
+  }
+
+  async function pcrLoadReadyDatesForPage(page){
+    const items = [];
+
+    page.forEach(r=>{
+      const cr = String(r.cr_id||'').replace(/^CR/i,'').replace(/\D/g,'');
+      if(!cr || r._siReadyLoaded || r._siReadyLoading) return;
+      r._siReadyLoading = true;
+      items.push({cr:cr, si:r.cr_si||''});
+    });
+        if(!items.length) return;
+            pcrShowReadyProgress(true, 'Bulk querying Orbit Ready Date for '+items.length+' visible CR/SI row(s)...', 15, false);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 60000);
+
+    try{
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_si_ready_dates', {
+
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({items:items}), signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+            pcrShowReadyProgress(true, 'Reading Orbit Software Image ReadyDate response...', 65, false);
+      const data = await resp.json();
+      if(!data.success) throw new Error(data.message||'Ready Date lookup failed');
+      const rows = data.rows || {};
+
+      page.forEach(r=>{
+        const cr = String(r.cr_id||'').replace(/^CR/i,'').replace(/\D/g,'');
+        const key = cr+'|'+String(r.cr_si||'').trim();
+        const info = rows[key] || {};
+        r.si_ready_date = info.ready_date || 'NA';
+        r.si_ready_title = (info.all_ready_dates||[]).map(x => (x.software_image||'--')+': '+(x.ready_date||'NA')).join('\n') || 'No Software Image ReadyDate found in Orbit';
+        r._siReadyLoaded = true;
+        r._siReadyLoading = false;
+        const cell = document.getElementById('pcr-ready-'+cr);
+        if(cell){
+          cell.textContent = r.si_ready_date;
+          cell.title = r.si_ready_title;
+                    cell.style.color = r.si_ready_date === 'NA' ? '#94a3b8' : '#047857';
+        }
+      });
+      pcrShowReadyProgress(true, 'Ready Date lookup completed. NA means Orbit ReadyDate is empty.', 100, true);
+      setTimeout(()=>pcrShowReadyProgress(false), 650);
+        }catch(e){
+      clearTimeout(timeoutId);
+      page.forEach(r=>{r.si_ready_date='NA';r._siReadyLoaded=true;r._siReadyLoading=false;});
+      const msg = (e && e.name === 'AbortError') ? 'Ready Date lookup timed out. Showing NA.' : 'Ready Date lookup failed. Showing NA.';
+      pcrShowReadyProgress(true, msg, 100, true);
+
+      setTimeout(()=>pcrShowReadyProgress(false), 1400);
+    }
+  }
+
 
       
 
   // -- Pagination --
+
   window.pcrPage = function(dir){
     const pages=Math.ceil(filtered.length/PAGE_SIZE)||1;
     currentPage=Math.max(1,Math.min(pages,currentPage+dir));
@@ -1219,7 +1314,7 @@
 
 
       document.getElementById('pcrTableBody').innerHTML=
-                '<tr><td colspan="'+(IS_COMPUTE_TARGET?15:14)+'" class="pcr-empty" style="color:#dc2626;">'
+                '<tr><td colspan="'+(IS_COMPUTE_TARGET?16:15)+'" class="pcr-empty" style="color:#dc2626;">'
 
         +'<i class="fas fa-exclamation-triangle" style="font-size:24px;"></i>'
         +'<div style="margin-top:10px;font-weight:700;">'+e.message+'</div></td></tr>';
@@ -1611,9 +1706,10 @@
     if(!rows.length){ alert('No data to export.'); return; }
     const btn = document.getElementById('pcrExportExcelBtn');
     const origLabel = btn ? btn.innerHTML : '';
-    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI']
+        const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date']
       .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
       .concat(['PDT Tag','Built Date','Last Reported Date','Last Reported JIRA']);
+
     function cellVal(r, col){
       switch(col){
         case '#':                  return '';
@@ -1625,8 +1721,10 @@
         case 'JIRA Hits':          return String(numVal(r.cr_occurrence)||0);
         case 'Age (days)':         return numVal(r.cr_age)>0 ? String(numVal(r.cr_age)) : '';
         case 'Status':             return r.cr_status || '';
-        case 'SI':                 return r.cr_si || '';
+                case 'SI':                 return r.cr_si || '';
+        case 'Ready Date':         return r.si_ready_date || 'NA';
         case 'CR TAG':             return r.cr_tag || '';
+
         case 'CR TAG Alias':       return r.cr_tag_alias || '';
         case 'PDT Tag':            return numVal(r.cr_occurrence)>10 ? 'PDT_P1' : '';
         case 'Built Date':         return dateOnly(r.built_date)||'';
@@ -1653,6 +1751,7 @@
         if(col==='JIRA Hits')  extra=hitsStyle(hits)+'text-align:center;';
         if(col==='Age (days)') extra=(age>0?ageStyle(age):'color:#94a3b8;')+'text-align:center;';
         if(col==='Status')     extra=statusStyle(r.cr_status);
+        if(col==='Ready Date') extra=(val && val !== 'NA' ? 'background:#ecfdf5;color:#047857;font-weight:800;text-align:center;' : 'color:#94a3b8;text-align:center;');
         if(col==='CR TAG')     extra='background:#ecfeff;color:#0e7490;font-weight:900;text-align:center;';
         if(col==='PDT Tag'&&val==='PDT_P1') extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;';
         if(col==='#')          extra='color:#94a3b8;font-size:11px;text-align:center;';
@@ -1673,13 +1772,13 @@
     if(btn){ btn.innerHTML='<i class="fas fa-check"></i> Downloaded!'; btn.style.background='linear-gradient(135deg,#bbf7d0,#86efac)'; setTimeout(()=>{ btn.innerHTML=origLabel; btn.style.background=''; },2000); }
   };
 
-    window.pcrCopyOutlook = async function(){
+  window.pcrCopyOutlook = async function(){
     const btn = document.getElementById('pcrCopyBtn');
     const origLabel = btn ? btn.innerHTML : '';
     const rows = filtered.length ? filtered : allRows;
     if(!rows.length){ alert('No data to copy.'); return; }
 
-    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI']
+    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date']
       .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
       .concat(['PDT Tag','Built Date','Last Reported Date','Last Reported JIRA']);
 
@@ -1699,6 +1798,7 @@
         case 'Age (days)': return numVal(r.cr_age)>0 ? String(numVal(r.cr_age)) : '';
         case 'Status': return r.cr_status || '';
         case 'SI': return r.cr_si || '';
+        case 'Ready Date': return r.si_ready_date || 'NA';
         case 'CR TAG': return r.cr_tag || '';
         case 'CR TAG Alias': return r.cr_tag_alias || '';
         case 'PDT Tag': return numVal(r.cr_occurrence)>10 ? 'PDT_P1' : '';
@@ -1733,6 +1833,7 @@
         if(col==='JIRA Hits') { extra=hitsColor(hits)+'text-align:center;'; }
         if(col==='Age (days)') { extra=(age>0?ageColor(age):'color:#94a3b8;')+'text-align:center;'; }
         if(col==='Status') { extra=statusColor(r.cr_status); }
+        if(col==='Ready Date') { extra=(val && val !== 'NA' ? 'background:#ecfdf5;color:#047857;font-weight:800;text-align:center;' : 'color:#94a3b8;text-align:center;'); }
         if(col==='CR TAG') { extra='background:#ecfeff;color:#0e7490;font-weight:900;text-align:center;'; }
         if(col==='CR TAG Alias') { extra='color:#0e7490;font-weight:700;'; }
         if(col==='PDT Tag' && val==='PDT_P1') { extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;'; }

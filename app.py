@@ -193,7 +193,12 @@ app.config.update(
     # _check_session_idle() handles the 2-h idle logout; this is just the
     # absolute maximum a cookie can live (8 hours).
     PERMANENT_SESSION_LIFETIME=28800, # 8 hours in seconds
+    REMEMBER_COOKIE_DURATION=timedelta(days=30),
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST=True,
+    REMEMBER_COOKIE_SECURE=False,      # set True only when serving over HTTPS
+    REMEMBER_COOKIE_SAMESITE="Lax",
 )
+
 
 Session(app)
 
@@ -229,6 +234,8 @@ def _unauthorized():
 # Skipped if a report task is actively running for this user.
 # ---------------------------------------------------------------------------
 SESSION_IDLE_TIMEOUT = 2 * 60 * 60   # 2 hours in seconds
+REMEMBERED_SESSION_IDLE_TIMEOUT = 30 * 24 * 60 * 60  # 30 days when "Keep me signed in" is used
+
 
 @app.before_request
 def _check_session_idle():
@@ -248,7 +255,11 @@ def _check_session_idle():
 
     if last_active is not None:
         idle_secs = now_ts - float(last_active)
-        if idle_secs > SESSION_IDLE_TIMEOUT:
+        remember_cookie_name = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
+        has_remember_cookie = bool(request.cookies.get(remember_cookie_name)) or session.get('_remember') == 'set'
+        idle_timeout = REMEMBERED_SESSION_IDLE_TIMEOUT if has_remember_cookie else SESSION_IDLE_TIMEOUT
+        if idle_secs > idle_timeout:
+
             # Check if any report task is still running for this user
             uid = getattr(current_user, 'id', None)
             has_running_task = False
@@ -282,9 +293,10 @@ def _check_session_idle():
                     result_status="SUCCESS",
                     error_message=f"Idle {idle_mins} min | Session {_dur_str}"
                 )
-                logout_user()
                 session.clear()
-                flash("You were logged out due to 2 hours of inactivity.", "warning")
+                logout_user()
+                flash("You were logged out due to inactivity.", "warning")
+
                 return redirect(url_for('login'))
 
     # Update last_active timestamp on every request
@@ -1104,8 +1116,14 @@ def is_user_in_group(username, group_name):
             from config import LIVE_STATUS_TEST_USER_GROUPS
             _test_groups = LIVE_STATUS_TEST_USER_GROUPS or {}
             if username in _test_groups and group_name in set(_test_groups.get(username) or []):
-                print(f"[LDAP TEST OVERRIDE] {username} treated as member of {group_name}", flush=True)
+                _logged = getattr(is_user_in_group, '_live_status_test_override_logged', set())
+                _log_key = (username, group_name)
+                if _log_key not in _logged:
+                    print(f"[LDAP TEST OVERRIDE] {username} treated as member of {group_name}", flush=True)
+                    _logged.add(_log_key)
+                    is_user_in_group._live_status_test_override_logged = _logged
                 return True
+
         except Exception:
             pass
 
@@ -2184,7 +2202,17 @@ def validate_target_availability(target_name):
 # / is handled by the home() view below
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET' and current_user.is_authenticated:
+        if session.get('viewer_mode'):
+            return redirect(url_for('live_status_publish_bp.landing'))
+        if session.get('needs_qgenie_before_team_selection'):
+            return redirect(url_for('post_login_qgenie_gate'))
+        if session.get('needs_team_selection'):
+            return redirect(url_for('team_selection'))
+        return redirect(url_for('cr_overview_embed'))
+
     if request.method == 'POST':
+
         username = (request.form.get('username') or '').strip().lower()
         # Accept Qualcomm email format at login, but authenticate/group-check using user id only.
         # Example: anagoe@qti.qualcomm.com -> anagoe
@@ -2449,8 +2477,8 @@ def logout():
         result_status="SUCCESS",
         error_message=f"Session duration: {_dur_str}"
     )
-    logout_user()
     session.clear()
+    logout_user()
     flash('You have been logged out.', 'info')
     logger.debug("DEBUG: User logged out.")
     return redirect(url_for('login'))

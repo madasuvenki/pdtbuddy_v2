@@ -297,17 +297,29 @@ def _is_compute_cr_tag_enabled_target(target_name):
 
 
 _MTBF_JSON_VIEW_NAMES = ["Glymur", "Mahua"]
-_MTBF_JSON_HEADERS = ["Build", "Date", "Hours", "Total Crashes", "QC Crashes", "Product MTBF", "QC MTBF", "Comments"]
+_MTBF_JSON_HEADERS = ["Meta ID", "Build(s)", "Date", "Hours", "Total Crashes", "QC Crashes", "Product MTBF", "QC MTBF", "Comments"]
+_MTBFSIMPLE_JSON_HEADERS = ["Meta ID", "Build(s)", "Date", "Hours", "Total Crashes", "MTBF", "Comments"]
+
+
+def _mtbf_json_headers(is_compute=False):
+    return list(_MTBF_JSON_HEADERS if is_compute else _MTBFSIMPLE_JSON_HEADERS)
 
 
 def _mtbf_json_dir(target_name, view_name=None):
-    # Compute MTBF JSON lives beside the existing managed Excel data, not under static/.
-    # Both Compute views share the current GLYMUR managed folder:
-    #   \\sphere\pdtqipl_internal\PDTBuddy\managed_excel\COMPUTE\GLYMUR\mtbf_glymur.json
-    #   \\sphere\pdtqipl_internal\PDTBuddy\managed_excel\COMPUTE\GLYMUR\mtbf_mahua.json
-    path = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', 'COMPUTE', 'GLYMUR')
+    # MTBF is JSON-backed. Compute keeps the historical shared GLYMUR folder for
+    # Glymur/Mahua compatibility; all other targets get target-specific JSON.
+    try:
+        from dashboard_common import get_bu_for_target
+        bu_key = (get_bu_for_target(target_name) or '').upper()
+    except Exception:
+        bu_key = ''
+    if bu_key == 'COMPUTE':
+        path = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', 'COMPUTE', 'GLYMUR')
+    else:
+        path = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', _safe_target_slug(bu_key or 'GENERAL'), _safe_target_slug(target_name))
     os.makedirs(path, exist_ok=True)
     return path
+
 
 
 
@@ -324,10 +336,13 @@ def _legacy_mtbf_json_path(target_name, view_name):
 def _mtbf_json_view_name(view_name):
 
     raw = str(view_name or '').strip()
+    if raw.lower() == 'mtbf':
+        return 'MTBF'
     for name in _MTBF_JSON_VIEW_NAMES:
         if raw.lower() == name.lower():
             return name
     return _MTBF_JSON_VIEW_NAMES[0]
+
 
 
 def _mtbf_json_path(target_name, view_name):
@@ -361,7 +376,13 @@ def _load_mtbf_json_payload(target_name, view_name):
                 return data
         except Exception:
             logger.debug('[MTBF JSON] load failed: %s', read_path, exc_info=True)
-    return {'target': target_name, 'view': view, 'headers': list(_MTBF_JSON_HEADERS), 'rows': []}
+    try:
+        from dashboard_common import get_bu_for_target
+        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+    except Exception:
+        is_compute = False
+    return {'target': target_name, 'view': view, 'headers': _mtbf_json_headers(is_compute), 'rows': []}
+
 
 
 
@@ -370,7 +391,13 @@ def _save_mtbf_json_payload(target_name, view_name, payload):
     data = payload if isinstance(payload, dict) else {}
     data['target'] = target_name
     data['view'] = view
-    data['headers'] = list(_MTBF_JSON_HEADERS)
+    try:
+        from dashboard_common import get_bu_for_target
+        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+    except Exception:
+        is_compute = False
+    data['headers'] = _mtbf_json_headers(is_compute)
+
     data['updated_at'] = _dt.utcnow().isoformat() + 'Z'
     data['rows'] = data.get('rows') if isinstance(data.get('rows'), list) else []
     path = _mtbf_json_path(target_name, view)
@@ -393,34 +420,46 @@ def _num_or_blank(v, integer=False):
 
 def _mtbf_json_row_from_payload(payload):
     build = str(payload.get('build') or payload.get('meta_id') or payload.get('build_full') or '').strip()
+    build_full = str(payload.get('build_full') or payload.get('full_build') or build).strip()
     return {
         'id': str(payload.get('id') or '').strip() or (_dt.utcnow().strftime('%Y%m%d%H%M%S%f')),
         'build': build,
+        'build_full': build_full,
         'date': str(payload.get('date') or payload.get('week') or '').strip(),
         'total_crashes': _num_or_blank(payload.get('total_crashes', payload.get('crashes')), integer=True),
         'qc_crashes': _num_or_blank(payload.get('qc_crashes'), integer=True),
         'product_mtbf': _num_or_blank(payload.get('product_mtbf')),
-        'qc_mtbf': _num_or_blank(payload.get('qc_mtbf', payload.get('mtbf'))),
+        'qc_mtbf': _num_or_blank(payload.get('qc_mtbf')),
+        'mtbf': _num_or_blank(payload.get('mtbf', payload.get('qc_mtbf'))),
         'hours': _num_or_blank(payload.get('hours')),
+
         'comments': str(payload.get('comments') or payload.get('mtbf_details') or '').strip(),
     }
 
 
-def _mtbf_json_to_preview_rows(rows):
+def _mtbf_json_to_preview_rows(rows, is_compute=False):
     out = []
     for i, r in enumerate(rows or [], start=1):
-        out.append([
+        common = [
             {'v': str(i), 'rs': 1, 'cs': 1, 'skip': False},
             {'v': str(r.get('build') or ''), 'rs': 1, 'cs': 1, 'skip': False},
+            {'v': str(r.get('build_full') or r.get('full_build') or r.get('build') or ''), 'rs': 1, 'cs': 1, 'skip': False},
             {'v': str(r.get('date') or ''), 'rs': 1, 'cs': 1, 'skip': False},
             {'v': str(r.get('hours') or ''), 'rs': 1, 'cs': 1, 'skip': False},
             {'v': str(r.get('total_crashes') or ''), 'rs': 1, 'cs': 1, 'skip': False},
-            {'v': str(r.get('qc_crashes') or ''), 'rs': 1, 'cs': 1, 'skip': False},
-            {'v': str(r.get('product_mtbf') or ''), 'rs': 1, 'cs': 1, 'skip': False},
-            {'v': str(r.get('qc_mtbf') or ''), 'rs': 1, 'cs': 1, 'skip': False},
-            {'v': str(r.get('comments') or ''), 'rs': 1, 'cs': 1, 'skip': False},
-        ])
+        ]
+        if is_compute:
+            common.extend([
+                {'v': str(r.get('qc_crashes') or ''), 'rs': 1, 'cs': 1, 'skip': False},
+                {'v': str(r.get('product_mtbf') or ''), 'rs': 1, 'cs': 1, 'skip': False},
+                {'v': str(r.get('qc_mtbf') or ''), 'rs': 1, 'cs': 1, 'skip': False},
+            ])
+        else:
+            common.append({'v': str(r.get('mtbf') or r.get('qc_mtbf') or ''), 'rs': 1, 'cs': 1, 'skip': False})
+        common.append({'v': str(r.get('comments') or ''), 'rs': 1, 'cs': 1, 'skip': False})
+        out.append(common)
     return out
+
 
 
 
@@ -542,7 +581,8 @@ def _migrate_compute_mtbf_excel_to_json_if_needed(target_name, excel_path):
 
     return migrated
 
-def _mtbf_json_to_chart_data(rows):
+def _mtbf_json_to_chart_data(rows, is_compute=False):
+
     data = []
     for r in rows or []:
         build = str(r.get('build') or '').strip()
@@ -552,11 +592,14 @@ def _mtbf_json_to_chart_data(rows):
         qc_crashes = _num_or_blank(r.get('qc_crashes'), integer=True) or 0
         product_mtbf = _num_or_blank(r.get('product_mtbf')) or 0
         qc_mtbf = _num_or_blank(r.get('qc_mtbf')) or 0
+        mtbf = _num_or_blank(r.get('mtbf')) or qc_mtbf or product_mtbf or 0
+
         hours_raw = r.get('hours')
         hours = float(hours_raw) if hours_raw not in (None, '', 0, '0') else 0
+        full_build = str(r.get('build_full') or r.get('full_build') or build).strip()
         data.append({
             'build': build,
-            'full_build': build,
+            'full_build': full_build,
             'label': build,
             'product_line': '',
             'week': str(r.get('date') or ''),
@@ -565,7 +608,8 @@ def _mtbf_json_to_chart_data(rows):
             'qc_crashes': qc_crashes,
             'product_mtbf': product_mtbf,
             'qc_mtbf': qc_mtbf,
-            'mtbf': qc_mtbf,
+                        'mtbf': mtbf,
+
             'comments': str(r.get('comments') or ''),
         })
     return data
@@ -4047,9 +4091,11 @@ def device_summary(target_name, base_context, cursor, conn):
 # ---------------------------------------------------------------------
 # MAIN DASHBOARD VIEW
 # ---------------------------------------------------------------------
+@dashboard_bp.route("/dashboard/<string:target_name>/mtbf-json")
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-excel")
 @login_required
 def target_mtbf_excel_page(target_name):
+
     cfg            = (_get_target_excel_config(target_name) or {}).get('mtbf', {})
     excel_path     = cfg.get('excel_path', '')
     selected_sheet = (request.args.get('sheet') or '').strip()
@@ -4061,41 +4107,41 @@ def target_mtbf_excel_page(target_name):
     error           = ''
     from dashboard_common import get_bu_for_target
     is_compute_mtbf = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+
+    # MTBF is JSON-only for all targets. Keep Compute's historical Glymur/Mahua
+    # view switch; non-compute targets use a single MTBF JSON table.
+    selected_sheet = _mtbf_json_view_name(selected_sheet or cfg.get('sheet_name') or ('Glymur' if is_compute_mtbf else 'MTBF')) if is_compute_mtbf else 'MTBF'
+    sheet_names = list(_MTBF_JSON_VIEW_NAMES) if is_compute_mtbf else ['MTBF']
     if is_compute_mtbf:
-        selected_sheet = _mtbf_json_view_name(selected_sheet or cfg.get('sheet_name') or 'Glymur')
-        sheet_names = list(_MTBF_JSON_VIEW_NAMES)
-                # One-time migration: if old Excel is configured and JSON is empty,
-        # copy Glymur/Mahua sheet data into their JSON files. Existing JSON rows
-        # are never overwritten, so later Add Build saves remain JSON-only.
         try:
             _migrate_compute_mtbf_excel_to_json_if_needed(target_name, excel_path)
         except Exception:
             logger.debug('[MTBF JSON] Excel-to-JSON migration failed for %s', target_name, exc_info=True)
-        json_payload = _load_mtbf_json_payload(target_name, selected_sheet)
+    json_payload = _load_mtbf_json_payload(target_name, selected_sheet)
+    json_rows = json_payload.get('rows') or []
+    preview_columns = ['S.No'] + _mtbf_json_headers(is_compute_mtbf)
+    preview_rows = _mtbf_json_to_preview_rows(json_rows, is_compute=is_compute_mtbf)
+    total_rows = len(json_rows)
+    chart_data = _mtbf_json_to_chart_data(json_rows, is_compute=is_compute_mtbf)
+    ctx = _build_sidebar_context(target_name, active_section='mtbf-excel')
+    ctx['target_display_name'] = get_display_name_for_target(target_name).upper()
+    return render_template(
+        'target_mtbf_excel.html',
+        excel_path='',
+        managed_upload=False,
+        original_filename=f'{selected_sheet}.json',
+        selected_sheet=selected_sheet,
+        sheet_names=sheet_names,
+        preview_columns=preview_columns,
+        preview_rows=preview_rows,
+        total_rows=total_rows,
+        chart_data=chart_data,
+        page_error='',
+        is_compute_mtbf=is_compute_mtbf,
+        mtbf_storage_mode='json',
+        **ctx,
+    )
 
-        json_rows = json_payload.get('rows') or []
-        preview_columns = ['S.No'] + list(_MTBF_JSON_HEADERS)
-        preview_rows = _mtbf_json_to_preview_rows(json_rows)
-        total_rows = len(json_rows)
-        chart_data = _mtbf_json_to_chart_data(json_rows)
-        ctx = _build_sidebar_context(target_name, active_section='mtbf-excel')
-        ctx['target_display_name'] = get_display_name_for_target(target_name).upper()
-        return render_template(
-            'target_mtbf_excel.html',
-            excel_path='',
-            managed_upload=False,
-            original_filename=f'{selected_sheet}.json',
-            selected_sheet=selected_sheet,
-            sheet_names=sheet_names,
-            preview_columns=preview_columns,
-            preview_rows=preview_rows,
-            total_rows=total_rows,
-            chart_data=chart_data,
-            page_error='',
-            is_compute_mtbf=True,
-            mtbf_storage_mode='json',
-            **ctx,
-        )
     if not selected_sheet and not is_compute_mtbf:
         selected_sheet = cfg.get('sheet_name', '')
 
@@ -4708,19 +4754,20 @@ def api_excel_add_build(target_name):
     try:
         payload    = request.get_json(force=True) or {}
         from dashboard_common import get_bu_for_target
-        if (get_bu_for_target(target_name) or '').upper() == 'COMPUTE':
-            view_name = _mtbf_json_view_name(payload.get('view') or payload.get('sheet_name') or request.args.get('sheet') or 'Glymur')
-            row = _mtbf_json_row_from_payload(payload)
-            if not row.get('build'):
-                return jsonify({'success': False, 'message': 'Build is required.'}), 400
-            data = _load_mtbf_json_payload(target_name, view_name)
-            rows = data.get('rows') or []
-            rows.append(row)
-            data['rows'] = rows
-            _save_mtbf_json_payload(target_name, view_name, data)
-            return jsonify({'success': True, 'message': f'Build saved to {view_name} JSON.', 'storage': 'json', 'view': view_name})
+        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+        view_name = _mtbf_json_view_name(payload.get('view') or payload.get('sheet_name') or request.args.get('sheet') or ('Glymur' if is_compute else 'MTBF')) if is_compute else 'MTBF'
+        row = _mtbf_json_row_from_payload(payload)
+        if not row.get('build'):
+            return jsonify({'success': False, 'message': 'Build is required.'}), 400
+        data = _load_mtbf_json_payload(target_name, view_name)
+        rows = data.get('rows') or []
+        rows.append(row)
+        data['rows'] = rows
+        _save_mtbf_json_payload(target_name, view_name, data)
+        return jsonify({'success': True, 'message': f'Build saved to {view_name} JSON.', 'storage': 'json', 'view': view_name})
 
         build      = str(payload.get('build') or '').strip()
+
         if not build:
             return jsonify({'success': False, 'message': 'Build ID is required.'}), 400
         target     = str(payload.get('target') or '').strip()
@@ -4811,13 +4858,15 @@ def api_excel_full_table(target_name):
     """Return every data row as a flat list of string values for the edit page."""
     try:
         from dashboard_common import get_bu_for_target
-        if (get_bu_for_target(target_name) or '').upper() == 'COMPUTE':
-            sheet_name = _mtbf_json_view_name(request.args.get('sheet') or 'Glymur')
-            data = _load_mtbf_json_payload(target_name, sheet_name)
-            rows = []
-            for idx, r in enumerate(data.get('rows') or [], start=1):
-                                rows.append({'excel_row': idx + 1, 'values': [
+        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+        sheet_name = _mtbf_json_view_name(request.args.get('sheet') or ('Glymur' if is_compute else 'MTBF')) if is_compute else 'MTBF'
+        data = _load_mtbf_json_payload(target_name, sheet_name)
+        rows = []
+        for idx, r in enumerate(data.get('rows') or [], start=1):
+            if is_compute:
+                values = [
                     str(r.get('build') or ''),
+                    str(r.get('build_full') or r.get('full_build') or r.get('build') or ''),
                     str(r.get('date') or ''),
                     str(r.get('hours') or ''),
                     str(r.get('total_crashes') or ''),
@@ -4825,10 +4874,22 @@ def api_excel_full_table(target_name):
                     str(r.get('product_mtbf') or ''),
                     str(r.get('qc_mtbf') or ''),
                     str(r.get('comments') or ''),
-                ]})
-            return jsonify({'success': True, 'headers': list(_MTBF_JSON_HEADERS), 'rows': rows, 'sheet_name': sheet_name, 'storage': 'json'})
+                ]
+            else:
+                values = [
+                    str(r.get('build') or ''),
+                    str(r.get('build_full') or r.get('full_build') or r.get('build') or ''),
+                    str(r.get('date') or ''),
+                    str(r.get('hours') or ''),
+                    str(r.get('total_crashes') or ''),
+                    str(r.get('mtbf')  or ''),
+                    str(r.get('comments') or ''),
+                ]
+            rows.append({'excel_row': idx + 1, 'values': values})
+        return jsonify({'success': True, 'headers': _mtbf_json_headers(is_compute), 'rows': rows, 'sheet_name': sheet_name, 'storage': 'json'})
 
         cfg        = (_get_target_excel_config(target_name) or {}).get('mtbf', {})
+
         excel_path = cfg.get('excel_path', '')
         sheet_name = (request.args.get('sheet') or cfg.get('sheet_name', '')).strip()
         if not excel_path:
@@ -4896,31 +4957,46 @@ def api_excel_save_table(target_name):
         sheet_name = str(payload.get('sheet_name') or '').strip()
         rows_data  = payload.get('rows') or []
         from dashboard_common import get_bu_for_target
-        if (get_bu_for_target(target_name) or '').upper() == 'COMPUTE':
-            view_name = _mtbf_json_view_name(sheet_name or 'Glymur')
-            parsed_rows = []
-            for item in rows_data:
-                vals = list(item.get('values') or []) if isinstance(item, dict) else []
-                parsed_rows.append({
+        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+        view_name = _mtbf_json_view_name(sheet_name or ('Glymur' if is_compute else 'MTBF')) if is_compute else 'MTBF'
+        parsed_rows = []
+        for item in rows_data:
+            vals = list(item.get('values') or []) if isinstance(item, dict) else []
+            if is_compute:
+                parsed = {
                     'id': str(item.get('id') or '').strip() if isinstance(item, dict) else '',
                     'build':         str(vals[0] if len(vals) > 0 else '').strip(),
-                    'date':          str(vals[1] if len(vals) > 1 else '').strip(),
-                    'hours':         _num_or_blank(vals[2] if len(vals) > 2 else ''),
-                    'total_crashes': _num_or_blank(vals[3] if len(vals) > 3 else '', integer=True),
-                    'qc_crashes':    _num_or_blank(vals[4] if len(vals) > 4 else '', integer=True),
-                    'product_mtbf':  _num_or_blank(vals[5] if len(vals) > 5 else ''),
-                    'qc_mtbf':       _num_or_blank(vals[6] if len(vals) > 6 else ''),
-                    'comments':      str(vals[7] if len(vals) > 7 else '').strip(),
-                })
-            parsed_rows = [r for r in parsed_rows if any(str(v).strip() for v in r.values())]
-            existing_payload = _load_mtbf_json_payload(target_name, view_name)
-            existing_payload['rows'] = parsed_rows
-            existing_payload['migrated_from_excel'] = True
-            _save_mtbf_json_payload(target_name, view_name, existing_payload)
-            return jsonify({'success': True, 'message': f'Saved {len(parsed_rows)} row(s) to {view_name} JSON.', 'updated': len(parsed_rows), 'storage': 'json'})
+                    'build_full':    str(vals[1] if len(vals) > 1 else (vals[0] if len(vals) > 0 else '')).strip(),
+                    'date':          str(vals[2] if len(vals) > 2 else '').strip(),
+                    'hours':         _num_or_blank(vals[3] if len(vals) > 3 else ''),
+                    'total_crashes': _num_or_blank(vals[4] if len(vals) > 4 else '', integer=True),
+                    'qc_crashes':    _num_or_blank(vals[5] if len(vals) > 5 else '', integer=True),
+                    'product_mtbf':  _num_or_blank(vals[6] if len(vals) > 6 else ''),
+                    'qc_mtbf':       _num_or_blank(vals[7] if len(vals) > 7 else ''),
+                    'comments':      str(vals[8] if len(vals) > 8 else '').strip(),
+                }
+            else:
+                parsed = {
+                    'id': str(item.get('id') or '').strip() if isinstance(item, dict) else '',
+                    'build':         str(vals[0] if len(vals) > 0 else '').strip(),
+                    'build_full':    str(vals[1] if len(vals) > 1 else (vals[0] if len(vals) > 0 else '')).strip(),
+                    'date':          str(vals[2] if len(vals) > 2 else '').strip(),
+                    'hours':         _num_or_blank(vals[3] if len(vals) > 3 else ''),
+                    'total_crashes': _num_or_blank(vals[4] if len(vals) > 4 else '', integer=True),
+                    'mtbf':          _num_or_blank(vals[5] if len(vals) > 5 else ''),
+                    'comments':      str(vals[6] if len(vals) > 6 else '').strip(),
+                }
+            parsed_rows.append(parsed)
+        parsed_rows = [r for r in parsed_rows if any(str(v).strip() for v in r.values())]
+        existing_payload = _load_mtbf_json_payload(target_name, view_name)
+        existing_payload['rows'] = parsed_rows
+        existing_payload['migrated_from_excel'] = True
+        _save_mtbf_json_payload(target_name, view_name, existing_payload)
+        return jsonify({'success': True, 'message': f'Saved {len(parsed_rows)} row(s) to {view_name} JSON.', 'updated': len(parsed_rows), 'storage': 'json'})
 
 
         cfg        = (_get_target_excel_config(target_name) or {}).get('mtbf', {})
+
         excel_path = cfg.get('excel_path', '')
         if not excel_path:
             return jsonify({'success': False, 'message': 'Excel not configured.'}), 400
@@ -4988,8 +5064,10 @@ def api_excel_save_table(target_name):
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-excel/edit")
 @login_required
 def target_mtbf_excel_edit_page(target_name):
-    """Dedicated page to edit the entire Excel build table inline."""
+    """Dedicated page to edit the entire JSON MTBF build table inline."""
+
     cfg        = (_get_target_excel_config(target_name) or {}).get('mtbf', {})
+
     excel_path = cfg.get('excel_path', '')
     sheet_name = (request.args.get('sheet') or cfg.get('sheet_name', '')).strip()
     ctx = _build_sidebar_context(target_name, active_section='mtbf-excel')
@@ -6717,6 +6795,25 @@ def api_consolidated_report_save():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@dashboard_bp.route("/api/consolidated_report/status")
+@login_required
+def api_consolidated_report_status():
+    """Preflight status for the JIRA-backed consolidated-report runner."""
+    try:
+        from config import JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT
+        configured = bool(str(JIRA_USER or '').strip() and str(JIRA_PASSWORD or '').strip())
+        return jsonify({
+            'ok': True,
+            'configured': configured,
+            'jira_user_set': bool(str(JIRA_USER or '').strip()),
+            'jira_password_set': bool(str(JIRA_PASSWORD or '').strip()),
+            'jira_server': JIRA_SERVER_ENDPOINT,
+            'message': 'JIRA credentials configured.' if configured else 'JIRA credentials missing. Set JIRA_USER and JIRA_PASSWORD in .env, or LDAP_USER and LDAP_PASSWORD aliases.',
+        })
+    except Exception as exc:
+        return jsonify({'ok': False, 'configured': False, 'error': str(exc)}), 500
+
+
 @dashboard_bp.route("/api/consolidated_report", methods=["GET", "POST"])
 @login_required
 def api_consolidated_report():
@@ -6767,7 +6864,18 @@ def api_consolidated_report():
             logger.error(f"[consolidated_report] domain table report failed: {e}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
+    try:
+        from config import JIRA_USER, JIRA_PASSWORD
+        if not (str(JIRA_USER or '').strip() and str(JIRA_PASSWORD or '').strip()):
+            return jsonify({
+                'error': 'JIRA credentials missing. Set JIRA_USER and JIRA_PASSWORD in .env, or LDAP_USER and LDAP_PASSWORD aliases.',
+                'missing_credentials': True,
+            }), 500
+    except Exception as e:
+        return jsonify({'error': f'Unable to read JIRA config: {e}', 'missing_credentials': True}), 500
+
     # -- check static cache unless force=true ---------------------------------
+
 
     cache_path, _ = _consolidated_report_path(target, raw, custom_jql or None)
     if not force and os.path.exists(cache_path):
@@ -7273,8 +7381,107 @@ def api_pdt_crs(target_name):
         if conn:   conn.close()
 
 
+
+
+# -- PDT CR Software Image Ready Date API -----------------------------------
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_si_ready_dates", methods=["POST"])
+@login_required
+def api_pdt_cr_si_ready_dates(target_name):
+    """Return Orbit Software Image ReadyDate values for CR/SI pairs.
+
+    Request body: {items:[{cr:"4574261", si:"LPAICP.FW.1.0"}, ...]}
+    Response: {success:true, rows:{"4574261|LPAICP.FW.1.0":{ready_date:"19 Jun 2026", ...}}}
+    Missing/empty ReadyDate is returned as "NA".
+    """
+    import re as _re
+    from datetime import datetime as _dt
+
+    def _norm_cr(v):
+        return _re.sub(r"\D", "", str(v or ""))
+
+    def _norm_si(v):
+        return _re.sub(r"[^A-Z0-9]+", "", str(v or "").upper())
+
+    def _fmt_ready(v):
+        if not v:
+            return "NA"
+        s = str(v).strip()
+        if not s:
+            return "NA"
+        for fmt in ("%m/%d/%Y %I:%M:%S %p", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                d = _dt.strptime(s.split('.')[0], fmt)
+                return d.strftime("%d %b %Y")
+            except Exception:
+                pass
+        return s
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        items = payload.get("items") or []
+        if not isinstance(items, list):
+            items = []
+        cleaned = []
+        for item in items[:100]:
+            if not isinstance(item, dict):
+                continue
+            cr = _norm_cr(item.get("cr") or item.get("cr_id"))
+            si = str(item.get("si") or item.get("cr_si") or "").strip()
+            if cr:
+                cleaned.append({"cr": cr, "si": si})
+        if not cleaned:
+            return jsonify({"success": True, "rows": {}})
+
+        unique_crs = sorted({item["cr"] for item in cleaned})
+        try:
+            from orbit_client import bulk_query_cr_software_images
+            cache = bulk_query_cr_software_images(unique_crs, batch_size=100) if unique_crs else {}
+        except Exception:
+            logger.warning("[PDT CR SI ReadyDate] bulk Orbit SIR query failed; falling back to empty ReadyDate", exc_info=True)
+            cache = {cr: [] for cr in unique_crs}
+
+        out = {}
+
+        for item in cleaned:
+            cr, si = item["cr"], item["si"]
+            key = f"{cr}|{si}"
+            sirs = [x for x in cache.get(cr, []) if isinstance(x, dict)]
+
+            wanted = _norm_si(si)
+            matched = None
+            if wanted:
+                for sir in sirs:
+                    name = str(sir.get("SoftwareImageName") or sir.get("Name") or sir.get("SoftwareImage") or "").strip()
+                    if _norm_si(name) == wanted:
+                        matched = sir
+                        break
+            if matched is None and not wanted and len(sirs) == 1:
+                matched = sirs[0]
+            all_ready = []
+            for sir in sirs:
+                name = str(sir.get("SoftwareImageName") or sir.get("Name") or sir.get("SoftwareImage") or "").strip()
+                all_ready.append({
+                    "software_image": name,
+                    "ready_date": _fmt_ready(sir.get("ReadyDate")),
+                    "raw_ready_date": sir.get("ReadyDate"),
+                })
+            out[key] = {
+                "cr": cr,
+                "si": si,
+                "ready_date": _fmt_ready(matched.get("ReadyDate") if matched else None),
+                "raw_ready_date": matched.get("ReadyDate") if matched else None,
+                "matched_si": str((matched or {}).get("SoftwareImageName") or (matched or {}).get("Name") or ""),
+                "all_ready_dates": all_ready,
+            }
+        return jsonify({"success": True, "rows": out})
+    except Exception as e:
+        logger.warning("[PDT CR SI ReadyDate] failed for target=%s", target_name, exc_info=True)
+        return jsonify({"success": False, "message": str(e), "rows": {}}), 500
+
+
 # -- Open JIRAs API ----------------------------------------------------------
 @dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras")
+
 @login_required
 def api_open_jiras(target_name):
     """Return open jiras with area bucketing and date range filter."""

@@ -8523,12 +8523,21 @@ def api_sp2_stability_health():
     still show the previous 2-3 weeks.
     """
     we = _safe_date(request.args.get('week_end')) or date.today()
+    try:
+        count = int(request.args.get('count') or 20)
+    except Exception:
+        count = 20
+    count = max(1, min(count, 60))
+    min_week_end = date(2026, 6, 14)
     weeks = []
-    for i in range(11, -1, -1):
+    for i in range(count - 1, -1, -1):
         week_end = we - timedelta(weeks=i)
+        if week_end < min_week_end:
+            continue
         week_start = week_end - timedelta(days=6)
-
         rows = []
+        old_rows = None
+        weekly_cr_mapped_distinct = 0
         source = 'sp2'
         conn = get_mysql_connection_db(bu_key=None)
         if conn:
@@ -8539,8 +8548,20 @@ def api_sp2_stability_health():
                       FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
                       WHERE week_start=%s AND week_end=%s
                         AND build_name LIKE '__consolidated__%'""",
-                    (week_end.isoformat(), week_start.isoformat()))
+                    (week_start.isoformat(), week_end.isoformat()))
                 rows = cur.fetchall() or []
+
+                # Number of CRs for the JIRA/CR chart comes directly from
+                # pdt_stats_dashboard.weekly_qipl_data for the same week:
+                # distinct CR Current Ticket where jira_category = 'CR Mapped'.
+                cur.execute(
+                    f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
+                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
+                      WHERE week_start=%s AND week_end=%s
+                        AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
+                    (week_start.isoformat(), week_end.isoformat()))
+                cr_row = cur.fetchone() or {}
+                weekly_cr_mapped_distinct = int(cr_row.get('cr_count') or 0)
             finally:
                 cur.close(); conn.close()
 
@@ -8548,28 +8569,35 @@ def api_sp2_stability_health():
         crashes = sum(float(r.get('total_crashes') or 0) for r in rows)
         dev     = sum(float(r.get('device_count')  or 0) for r in rows)
 
+        # Distinct CR count is sourced from weekly_qipl_data, not from the
+        # SharePoint consolidate unique_crs column.
+        old_rows = _fetch_consolidate_summary(week_end)
+        unique_crs = weekly_cr_mapped_distinct
+
         if not (hrs > 0 or crashes > 0 or dev > 0):
-            old_rows = _fetch_consolidate_summary(week_end)
             source = 'weekly_sharepoint_consolidate_summary'
             hrs     = sum(float(r.get('total_hours')       or 0) for r in old_rows)
             crashes = sum(float(r.get('total_crashes')     or 0) for r in old_rows)
-            dev     = sum(float(r.get('number_of_devices') or r.get('devices_count') or 0) for r in old_rows)
+            dev     = sum(float(r.get('number_of_devices') or 0) for r in old_rows)
 
-        if not (hrs > 0 or crashes > 0 or dev > 0):
+        if not (hrs > 0 or crashes > 0 or dev > 0 or unique_crs > 0):
             continue
         weeks.append({
             'week_end':              week_end.isoformat(),
             'week_start':            week_start.isoformat(),
             'label':                 week_end.strftime('%d-%b'),
+            'label_year':            week_end.strftime('%d-%b-%Y'),
             'source':                source,
             'total_hours':           round(hrs, 1),
             'total_crashes':         int(crashes),
+            'total_jiras':           int(crashes),
+            'total_unique_crs':      int(unique_crs),
             'total_devices':         int(dev),
             'device_usage_per_week': round(hrs / dev,     2) if dev     else 0,
             'time_per_crash':        round(hrs / crashes, 2) if crashes else 0,
             'crash_per_mtp_week':    round(crashes / dev, 2) if dev     else 0,
         })
-    return jsonify(success=True, weeks=weeks[-16:])
+    return jsonify(success=True, weeks=weeks[-count:])
 
 
 @weekly_summary_bp.route('/api/sp2/fetch_all_missing_milestones', methods=['POST'])

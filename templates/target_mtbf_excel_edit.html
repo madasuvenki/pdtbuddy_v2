@@ -64,7 +64,8 @@
 <div class="ed-hero">
   <div>
     <div class="ed-hero-title"><i class="fas fa-table" style="color:#67e8f9"></i> {{ target_display_name }} — Edit Build Table</div>
-    <div class="ed-hero-sub">Click any cell to edit &bull; changes highlighted in yellow &bull; save all at once</div>
+        <div class="ed-hero-sub">JSON-backed MTBF table &bull; click any cell to edit &bull; changes highlighted in yellow &bull; save all at once</div>
+
   </div>
   <a href="/dashboard/{{ target_name }}/mtbf-excel{% if selected_sheet %}?sheet={{ selected_sheet | urlencode }}{% endif %}"
      class="ed-btn ed-btn-ghost" style="font-size:12px;color:#fff;text-decoration:none">
@@ -85,11 +86,12 @@
   <!-- Status message -->
   <div id="edMsg" class="ed-msg info" style="display:none"></div>
 
-  <!-- Lock warning -->
+    <!-- Legacy lock warning placeholder; JSON saves do not lock files. -->
   <div class="ed-lock-box" id="edLockBox">
     <i class="fas fa-lock" style="font-size:16px;color:#d97706"></i>
-    <div><strong>Excel file is locked</strong><br><span id="edLockUser"></span></div>
+    <div><strong>JSON save warning</strong><br><span id="edLockUser"></span></div>
   </div>
+
 
   <!-- Table -->
   <div class="ed-tbl-wrap" id="edTblWrap">
@@ -203,7 +205,6 @@
         // Data cells
     row.values.forEach((val, ci) => {
       const td = document.createElement('td');
-      const isLastCol = ci === _headers.length - 1; // Comments — read-only
       const inp = document.createElement('input');
       inp.type = 'text';
       inp.className = 'ed-cell';
@@ -211,19 +212,12 @@
       inp.disabled = row._deleted;
       inp.dataset.ri = ri;
       inp.dataset.ci = ci;
-      if(isLastCol){
-        inp.readOnly = true;
-        inp.style.background = '#f8fafc';
-        inp.style.color = '#94a3b8';
-        inp.style.cursor = 'not-allowed';
-        inp.title = 'Comments — edit via Add Build';
-      } else {
-        inp.addEventListener('input', () => onCellChange(inp, ri, ci));
-        inp.addEventListener('change', () => onCellChange(inp, ri, ci));
-      }
+      inp.addEventListener('input', () => onCellChange(inp, ri, ci));
+      inp.addEventListener('change', () => onCellChange(inp, ri, ci));
       td.appendChild(inp);
       tr.appendChild(td);
     });
+
 
     // Replace existing row if re-rendering, else append
     const existing = tbodyEl.querySelector(`tr[data-ri="${ri}"]`);
@@ -295,7 +289,8 @@
 
   window.edReloadTable = function(){
     if(_dirtySet.size > 0){
-      if(!confirm('Discard all unsaved changes and reload from Excel?')) return;
+            if(!confirm('Discard all unsaved changes and reload from JSON?')) return;
+
     }
     loadTable();
   };
@@ -336,7 +331,8 @@
       if(d.locked){
         if(lockUser) lockUser.textContent = d.locked_by ? `Locked by ${d.locked_by}` : 'Locked by another user';
         if(lockBox) lockBox.classList.add('show');
-        setMsg(d.message || 'Excel file is locked.', 'warn');
+                setMsg(d.message || 'JSON save warning.', 'warn');
+
         return;
       }
       if(!resp.ok || d.success===false) throw new Error(d.message || 'Save failed');
@@ -348,7 +344,8 @@
       setMsg(d.message || `Saved ${d.updated} row(s) successfully.`, 'ok');
       if(saveStatus) saveStatus.textContent = '✓ Saved ' + new Date().toLocaleTimeString();
       buildTable();
-      // Reload from Excel so deletions/edits are reflected immediately in the table view
+            // Reload from JSON so deletions/edits are reflected immediately in the table view
+
       setTimeout(() => loadTable(), 250);
     }catch(e){
       setMsg(e.message || 'Save failed', 'err');

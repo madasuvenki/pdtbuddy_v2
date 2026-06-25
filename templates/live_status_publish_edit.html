@@ -518,6 +518,7 @@
   {% endif %}
 </div>
 
+<script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260625_qwinbug"></script>
 <script>
 // Safety stub -- bsOpen is defined fully later in this script.
 // This early definition prevents ReferenceError from any cached page version.
@@ -541,6 +542,7 @@ window.LSP_DATA = {
   initial_tab: {{ initial_tab|default('current')|tojson }},
   visible_tabs: {{ (visible_tabs or [])|tojson }},
   persisted_jql: {{ (job.current_report_jql or '')|tojson }},
+  jira_filter_id: {{ jira_pdt_filter_id|tojson }},
   saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
   landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
@@ -1318,7 +1320,8 @@ window.LSP_DATA = {
   function _rbDtDefaultJql(row){
     var buildId=String(row.build_id||'').trim();
     var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
-    return 'filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"';
+    if(window.BuildReportCommon) return BuildReportCommon.generateJql({builds:[buildId],filterId:filterId});
+    return '(summary ~ "'+buildId.replace(/"/g,'\\"')+'") AND filter = '+filterId+' AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG ) AND summary !~ "tombstone" ORDER BY created ASC';
   }
 
   /* -- Generate: run JQL, populate crash breakdown + CR + JIRA tables -- */
@@ -1609,9 +1612,9 @@ window.LSP_DATA = {
     var s=_rbSaved[idx]; if(!s) return;
     var buildId=s.build_id||'';
     if(!buildId) return;
-    // Use saved JQL if available, else build default
+        // Use saved JQL if available, else shared Build Report default JQL
     var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
-    var jql=s.jql||('filter = '+filterId+' AND project = "Target Stability" AND summary ~ "'+buildId+'" AND summary !~ "tombstone"');
+    var jql=s.jql||(window.BuildReportCommon?BuildReportCommon.generateJql({builds:[buildId],filterId:filterId}):('(summary ~ "'+String(buildId).replace(/"/g,'\\"')+'") AND filter = '+filterId+' AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG OR project = QWINBUG) AND summary !~ "tombstone" ORDER BY created ASC'));
     s.jql=jql;
     fetch('/api/consolidated_report',{
       method:'POST',
@@ -1798,7 +1801,7 @@ window.LSP_DATA = {
   function renderKpis(){var el=g('brKpiCards'); if(!el)return; if(!IS_AUTO){el.innerHTML='<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#1d4ed8;font-size:11px;text-transform:uppercase">Selected Builds</div><div style="font-size:28px">'+_selected.size+'</div></div><div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#c2410c;font-size:11px;text-transform:uppercase">CRs</div><div style="font-size:28px">'+_crRows.length+'</div></div><div style="border:1px solid #c4b5fd;background:#f5f3ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#7c3aed;font-size:11px;text-transform:uppercase">Open JIRAs</div><div style="font-size:28px">'+_jiraRows.length+'</div></div>';return;} var counts={system:0,ssr:0,process:0,open_jira:_jiraRows.length}; _crRows.forEach(function(r){counts[r.type]=(counts[r.type]||0)+(Number(r.count)||1);}); var defs=[['system','System','#dc2626','#fee2e2','#fca5a5'],['ssr','SSR','#d97706','#fef3c7','#fcd34d'],['process','Process','#2563eb','#dbeafe','#93c5fd'],['open_jira','Open JIRA','#7c3aed','#ede9fe','#c4b5fd']]; el.innerHTML=defs.map(function(d){return '<div style="border:1px solid '+d[4]+';background:linear-gradient(135deg,'+d[3]+',#fff);border-radius:10px;text-align:center;padding:10px;font-size:12px;font-weight:950"><div style="color:'+d[2]+';font-size:11px;text-transform:uppercase">'+d[1]+'</div><div style="font-size:28px;color:#111827;margin-top:4px">'+(counts[d[0]]||0)+'</div></div>';}).join('');}
   function renderJiras(){var sec=g('brJiraSection'), tb=g('brJiraTbody'), badge=g('brJiraBadge'); if(!sec||!tb)return; if(!_jiraRows.length){sec.style.display='none';return;} sec.style.display='block'; if(badge)badge.textContent=_jiraRows.length+' open'; tb.innerHTML=_jiraRows.map(function(r,i){return '<tr><td class="muted">'+(i+1)+'</td><td><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="max-width:460px">'+esc(r.title||'--')+'</td><td>'+esc(r.status||'--')+'</td><td style="text-align:center;font-weight:900;color:#6366f1">'+(r.count||1)+'</td></tr>';}).join('');}
   window.brFilterCrTable=function(){var q=String((g('brCrSearch')||{}).value||'').toLowerCase(), sort=(g('brCrSort')||{}).value||'occ_desc'; var rows=_crRows.filter(function(r){if(IS_AUTO&&!_crashFilters[String(r.type||'process').toLowerCase()])return false; return !q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0;}); rows.sort(function(a,b){if(sort==='occ_asc')return (a.count||0)-(b.count||0); if(sort==='age_desc')return (parseInt(b.age)||0)-(parseInt(a.age)||0); if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr)); return (b.count||0)-(a.count||0);}); var tb=g('brCrTbody'), badge=g('brCrBadge'); if(badge)badge.textContent=rows.length+' CRs'; if(!tb)return; if(!rows.length){tb.innerHTML='<tr><td colspan="9" class="empty">No CRs match current filters.</td></tr>';return;} tb.innerHTML=rows.map(function(r,i){var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||''; var link=id?'<a class="linkBtn" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--'); return '<tr><td class="muted">'+(i+1)+'</td><td>'+link+'</td><td style="max-width:300px">'+esc(r.title||'--')+'</td><td style="text-align:center;font-weight:950;color:#6366f1">'+(r.count||0)+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td><td style="text-align:center">'+esc(r.age||'--')+'</td><td>'+esc(r.status||'--')+'</td></tr>';}).join('');};
-  window.brGenerateReport=async function(){var builds=selectedBuilds(), sp=g('brGenSpinner'), st=g('brGenStatus'), tb=g('brCrTbody'); if(!builds.length){alert('Select at least one build.');return;} if(sp)sp.style.display='inline'; if(st){st.style.color='#6366f1';st.textContent='Running report for '+builds.length+' build(s)...';} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report...</td></tr>'; try{var resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({builds:builds,traverse:true,orbit:true,target:TARGET,force:true,domain:IS_AUTO?_domain:'',use_domain_tables:IS_AUTO})}); var data=await resp.json(); if(data.job_id)data=await waitForResult(data.job_id); if(data.error)throw new Error(data.error); normalizeReport(data||{}); renderKpis(); renderJiras(); window.brFilterCrTable(); if(st){st.style.color='#059669';st.textContent='Done - '+builds.length+' build(s), '+_crRows.length+' CRs, '+_jiraRows.length+' open JIRAs';}}catch(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+(e.message||e);} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>';} finally{if(sp)sp.style.display='none';}};
+  window.brGenerateReport=async function(){var builds=selectedBuilds(), sp=g('brGenSpinner'), st=g('brGenStatus'), tb=g('brCrTbody'); if(!builds.length){alert('Select at least one build.');return;} if(sp)sp.style.display='inline'; if(st){st.style.color='#6366f1';st.textContent='Running report for '+builds.length+' build(s)...';} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report...</td></tr>'; try{var resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({builds:builds,traverse:true,orbit:true,target:TARGET,force:true,domain:IS_AUTO?_domain:'',use_domain_tables:IS_AUTO,custom_jql:(window.BuildReportCommon?BuildReportCommon.generateJql({builds:builds,filterId:(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997'}):undefined)})}); var data=await resp.json(); if(data.job_id)data=await waitForResult(data.job_id); if(data.error)throw new Error(data.error); normalizeReport(data||{}); renderKpis(); renderJiras(); window.brFilterCrTable(); if(st){st.style.color='#059669';st.textContent='Done - '+builds.length+' build(s), '+_crRows.length+' CRs, '+_jiraRows.length+' open JIRAs';}}catch(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+(e.message||e);} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>';} finally{if(sp)sp.style.display='none';}};
   var oldSwitch=window.switchTab; window.switchTab=function(name){if(typeof oldSwitch==='function')oldSwitch(name); if(name==='buildreport')window.brInit();};
   document.addEventListener('DOMContentLoaded',function(){if(g('tab-buildreport')&&g('tab-buildreport').classList.contains('active'))window.brInit();});
 })();

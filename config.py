@@ -58,7 +58,9 @@ BYPASS_USERS = {
 # ---------------------------------------------------------------------------
 VIEWER_OVERRIDE_USERS = {
     #'vmadasu',   # uncomment to force viewer mode
+    'akacham',    # TEMP TEST: force viewer mode for Live Status group-card validation
 }
+
 
 
 
@@ -117,7 +119,12 @@ LIVE_STATUS_VIEWER_GROUP_ACCESS = {
 # LIVE_STATUS_TEST_USER_GROUPS — temporary UI testing override only.
 # This does not modify LDAP. Remove/empty this after validating multi-group UX.
 # ---------------------------------------------------------------------------
-LIVE_STATUS_TEST_USER_GROUPS = {}
+LIVE_STATUS_TEST_USER_GROUPS = {
+    # TEMP TEST: treat akacham as member of these LDAP groups without changing LDAP.
+    # Remove after validating /live_status_view grouped target cards.
+    #'akacham': ['PdtBuddy.Nord'],
+}
+
 
 
 
@@ -281,9 +288,19 @@ QGENIE_HIGHLIGHTS_MODEL_OPTIONS = [
 # Required keys: JIRA_USER and JIRA_PASSWORD.
 # Optional fallback aliases: LDAP_USER and LDAP_PASSWORD.
 JIRA_SERVER_ENDPOINT  = os.getenv("JIRA_SERVER_ENDPOINT", "https://jira-dc2-tools.qualcomm.com/jira")
-JIRA_USER             = os.getenv("JIRA_USER",     "") or os.getenv("LDAP_USER",     "")
-JIRA_PASSWORD         = os.getenv("JIRA_PASSWORD", "") or os.getenv("LDAP_PASSWORD", "")
+JIRA_USER             = os.getenv("JIRA_USER", "") or os.getenv("jira_user", "") or os.getenv("LDAP_USER", "")
+JIRA_PASSWORD         = os.getenv("JIRA_PASSWORD", "") or os.getenv("jira_password", "") or os.getenv("LDAP_PASSWORD", "")
 JIRA_PDT_FILTER_ID    = os.getenv("JIRA_PDT_FILTER_ID", "76997")  # PDT overall filter
+logger.info(
+    "[CONFIG] JIRA config loaded from env/.env: server=%s user_set=%s password_set=%s filter_id=%s",
+    JIRA_SERVER_ENDPOINT,
+    bool(JIRA_USER),
+    bool(JIRA_PASSWORD),
+    JIRA_PDT_FILTER_ID,
+)
+
+
+
 
 # --- Axiom API (Qualcomm device / taxonomy service) ---
 # Credentials MUST be set in .env or the shell — never hardcode them here.

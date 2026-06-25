@@ -519,9 +519,38 @@ def _fetch_linked_via_mcp(cr_number: str) -> list:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def fetch_cr_software_images(cr_number) -> list:
+    """Fetch Software Image integrations for a CR directly from Orbit.
+
+    Returns a list of Software Image Release dicts. Each item may include
+    SoftwareImageName and ReadyDate. Empty/missing ReadyDate should be treated
+    by callers as NA.
+    """
+    cr = _normalize_cr(cr_number)
+    try:
+        headers = _make_orbit_headers()
+        headers['Accept'] = 'application/json'
+        url = f"{ORBIT_API_BASE}/{cr}/integrations"
+        resp = requests.get(url, headers=headers, timeout=8, verify=False)
+
+        if resp.status_code != 200:
+            logger.info(f"[orbit_direct] CR{cr}: integrations returned {resp.status_code}")
+            return []
+        raw = resp.json()
+        if isinstance(raw, dict) and 'IsSuccess' in raw:
+            return raw.get('Content') or []
+        if isinstance(raw, list):
+            return raw
+        return []
+    except Exception as e:
+        logger.warning(f"[orbit_direct] CR{cr}: integrations fetch failed: {e}")
+        return []
+
+
 def fetch_cr(cr_number, use_cache: bool = True) -> dict:
     """
     Fetch CR details from Orbit.
+
     Uses ORBIT_CR_SOURCE to decide method.
 
     Args:
@@ -827,6 +856,78 @@ def _parse_orbit_tags(raw_tags) -> list:
     return [t for t in dict.fromkeys(tags) if t]
 
 
+def bulk_query_cr_software_images(cr_numbers: list, batch_size: int = 100, progress_callback=None) -> dict:
+    """Fetch CR Software Image integration rows through Orbit query/run in bulk.
+
+    This mirrors the fast Compute CR TAG path: one query/run call per up-to-100 CRs,
+    instead of GET /changerequest/{cr}/integrations once per CR.
+
+    Returns {digits_only_cr_number: [{SoftwareImageName, ReadyDate, BuiltDate, Status}, ...]}.
+    """
+    cr_list = []
+    seen = set()
+    for cr in cr_numbers or []:
+        norm = _normalize_cr(cr)
+        if norm and norm.isdigit() and norm not in seen:
+            cr_list.append(norm)
+            seen.add(norm)
+    results = {cr: [] for cr in cr_list}
+    if not cr_list:
+        return results
+
+    fields = [
+        {"Name": "ChangeRequestNumber"},
+        {"Name": "ChangeRequestIntegration.SoftwareImageName"},
+        {"Name": "ChangeRequestIntegration.Status"},
+        {"Name": "ChangeRequestIntegration.BuiltDate"},
+        {"Name": "ChangeRequestIntegration.ReadyDate"},
+    ]
+    step = max(1, int(batch_size or 100))
+    for idx in range(0, len(cr_list), step):
+        batch = cr_list[idx:idx + step]
+        payload = {
+            "Query": {
+                "Projection": fields,
+                "Predicate": {
+                    "Operands": [{
+                        "Field": {"Name": "ChangeRequestNumber"},
+                        "FieldValue": batch,
+                    }]
+                },
+            },
+            "Page": 1,
+            "PageSize": 5000,
+        }
+        headers = _make_orbit_headers(ORBIT_QUERY_SERVER)
+        headers['Accept'] = 'application/json'
+        headers['Content-Type'] = 'application/json'
+        url = f"{ORBIT_QUERY_API_BASE}/query/run"
+        resp = requests.post(url, headers=headers, json=payload, timeout=45, verify=False)
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, dict) and 'IsSuccess' in data:
+            if not data.get('IsSuccess'):
+                raise RuntimeError(f"Orbit query/run SIR failed: {data.get('Errors')}")
+            data = data.get('Content') or {}
+        for row in (data.get('Results') if isinstance(data, dict) else []) or []:
+            cr = _normalize_cr(row.get('ChangeRequestNumber'))
+            if not cr:
+                continue
+            results.setdefault(cr, []).append({
+                'SoftwareImageName': row.get('ChangeRequestIntegration.SoftwareImageName') or '',
+                'Status': row.get('ChangeRequestIntegration.Status') or '',
+                'BuiltDate': row.get('ChangeRequestIntegration.BuiltDate') or '',
+                'ReadyDate': row.get('ChangeRequestIntegration.ReadyDate') or '',
+            })
+        if progress_callback:
+            try:
+                progress_callback(min(idx + len(batch), len(cr_list)), len(cr_list), idx // step + 1)
+            except Exception:
+                logger.debug('[orbit_client] SIR progress callback failed', exc_info=True)
+    logger.info(f"[orbit_client] bulk_query_cr_software_images: fetched SIR rows for {len(cr_list)} CRs")
+    return results
+
+
 def bulk_query_cr_tags(cr_numbers: list, batch_size: int = 100, progress_callback=None) -> dict:
 
     """
@@ -838,6 +939,7 @@ def bulk_query_cr_tags(cr_numbers: list, batch_size: int = 100, progress_callbac
 
     Returns {digits_only_cr_number: [tag, ...], ...}. Raises if the query API fails.
     """
+
     cr_list = []
     seen = set()
     for cr in cr_numbers or []:

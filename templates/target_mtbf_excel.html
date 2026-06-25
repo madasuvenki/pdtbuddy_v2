@@ -170,7 +170,7 @@
 /* chart scroll wrapper */
 .mx-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:0 18px}
 .mx-chart-inner{position:relative;min-width:100%}
-#mtbfChartCanvas{display:block;width:100%!important}
+#mtbfChartCanvas{display:block;max-width:none}
 .mx-expand-center-btn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;border:0;border-radius:999px;padding:10px 20px;background:linear-gradient(135deg,#111827,#334155);color:#fff;font-size:13px;font-weight:900;box-shadow:0 10px 28px rgba(15,23,42,.28);cursor:pointer;display:none;align-items:center;gap:8px;opacity:.92}
 .mx-expand-center-btn:hover{opacity:1;transform:translate(-50%,-50%) scale(1.03)}
 .mx-chart-inner.big-chart .mx-expand-center-btn{display:none}
@@ -199,11 +199,13 @@
 {% set mtbf_title_name = selected_sheet if is_compute_mtbf and selected_sheet else target_display_name %}
 <div class="mx-wrap">
 
-<!-- hero -->
-<div class="mx-hero">
+<!-- duplicate hero hidden; chart card below is the page header -->
+<div class="mx-hero" style="display:none">
+
   <div>
     <div class="mx-hero-title">{{ mtbf_title_name }} &mdash; Stability Trend</div>
-        <div class="mx-hero-sub">{% if mtbf_storage_mode == 'json' %}JSON-driven MTBF trend chart &amp; build table &bull; no Excel locking{% else %}Excel-driven MTBF trend chart &amp; build table &bull; filter by last N builds or date range{% endif %}</div>
+                  <div class="mx-hero-sub">JSON-driven MTBF trend chart &amp; build table &bull; Add Build to start plotting &bull; filter by last N builds or date range</div>
+
 
   </div>
   <div class="mx-hero-pills">
@@ -212,11 +214,13 @@
   </div>
 </div>
 
-<!-- collapsible setup -->
-<div class="mx-card">
+<!-- JSON setup is hidden; users use Add Build/Edit from the table toolbar. -->
+<div class="mx-card" style="display:none">
+
   <div class="mx-setup-hdr" onclick="mxToggleSetup()">
     <div class="mx-setup-hdr-title">
-            <i class="fas fa-{% if mtbf_storage_mode == 'json' %}database{% else %}file-excel{% endif %}" style="color:#059669"></i> {% if mtbf_storage_mode == 'json' %}JSON Storage{% else %}Excel Setup{% endif %}
+                          <i class="fas fa-database" style="color:#059669"></i> MTBF JSON Setup
+
 
       {% if selected_sheet %}<span class="mx-chip mx-chip-green" style="font-size:10px;padding:2px 8px">{{ selected_sheet }}</span>{% endif %}
       {% if page_error %}<span class="mx-chip mx-chip-err" style="font-size:10px;padding:2px 8px"><i class="fas fa-exclamation-triangle"></i> Error</span>{% endif %}
@@ -225,29 +229,15 @@
   </div>
   <div class="mx-setup-body {% if not chart_data %}open{% endif %}" id="mxSetupBody">
         <input id="mxExcelPath" type="hidden" value="{{ excel_path or '' }}">
-        {% if mtbf_storage_mode == 'json' %}
-    <div class="mx-managed-note"><i class="fas fa-database"></i> Compute MTBF is stored in JSON files. Select Glymur or Mahua, add builds, and save without locking Excel or blocking other users.</div>
-    {% else %}
-    <div class="mx-upload-panel">
-      <div class="mx-field">
-        <label class="mx-label"><i class="fas fa-upload"></i> Upload MTBF Excel</label>
-        <input id="mxUploadFile" class="mx-file-inp" type="file" accept=".xlsx,.xlsm">
-        <div class="mx-upload-help">Upload from any location. Buddy stores a managed copy &mdash; path is hidden. Extra columns are allowed if Build and MTBF columns exist.</div>
-      </div>
-      <div class="mx-actions">
-        <button class="mx-btn mx-btn-green" id="mxUploadBtn" type="button"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
-        <button class="mx-btn mx-btn-blue" id="mxCreateBlankBtn" type="button"><i class="fas fa-folder-plus"></i> Create Blank</button>
-      </div>
-      <div class="mx-actions">
-        <a class="mx-btn mx-btn-ghost" href="/dashboard/{{ target_name }}/mtbf-excel/sample" style="text-decoration:none"><i class="fas fa-download"></i> Sample Excel</a>
-      </div>
+            <div class="mx-managed-note"><i class="fas fa-database"></i> MTBF is stored in JSON for this target. No Excel upload/path/lock is needed. Use <b>Add Build</b> below to create the template and start plotting data.</div>
+    <div class="mx-actions" style="margin-top:10px">
+      <button class="mx-btn mx-btn-blue" type="button" onclick="mxOpenAddBuild()"><i class="fas fa-folder-plus"></i> Create Template / Add First Build</button>
     </div>
+
+    {% if original_filename %}
+        <div class="mx-managed-note"><i class="fas fa-database"></i> JSON file: {{ original_filename }}</div>
     {% endif %}
 
-    {% if managed_upload or excel_path %}
-        <div class="mx-managed-note"><i class="fas fa-database"></i> Using saved Buddy {% if mtbf_storage_mode == 'json' %}JSON{% else %}Excel{% endif %}{% if original_filename %}: {{ original_filename }}{% endif %}. Internal storage path is hidden.</div>
-
-    {% endif %}
     {% if is_compute_mtbf and sheet_names %}
     <div class="mx-setup-grid" style="margin-top:10px;grid-template-columns:1fr auto">
       <div class="mx-field">
@@ -273,8 +263,8 @@
   </div>
 </div>
 
-{% if chart_data or excel_path %}
 <!-- MTBF Trend Chart -->
+
 
 <div class="mx-card">
       <div class="mx-chart-hdr">
@@ -312,10 +302,12 @@
         <label class="mx-mini-check" style="--ck:#059669"><input type="checkbox" data-metric="product_mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#059669"></span> Product MTBF</label>
         <label class="mx-mini-check" style="--ck:#f59e0b"><input type="checkbox" data-metric="qc_mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#f59e0b"></span> QC MTBF</label>
       {% else %}
-        <label class="mx-mini-check" style="--ck:#10b981"><input type="checkbox" data-metric="mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#10b981"></span> MTBF</label>
+        <label class="mx-mini-check" style="--ck:#16a34a"><input type="checkbox" data-metric="mtbf" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#16a34a"></span> MTBF</label>
       {% endif %}
-      <label class="mx-mini-check" style="--ck:#6366f1"><input type="checkbox" data-metric="hours" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#6366f1"></span> Hours</label>
-      <label class="mx-mini-check" style="--ck:#f97316"><input type="checkbox" data-metric="crashes" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#f97316"></span> Crashes</label>
+                        <label class="mx-mini-check" style="--ck:#1f4e79"><input type="checkbox" data-metric="hours" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#1f4e79"></span> Hours</label>
+      <label class="mx-mini-check" style="--ck:#c55a11"><input type="checkbox" data-metric="crashes" checked onchange="mxMiniMetric(this)"><span class="mx-mini-dot" style="background:#c55a11"></span> Crashes</label>
+
+
     </div>
     <div class="mx-sep"></div>
     <span class="mx-gtype-label"><i class="fas fa-tags"></i> X Axis</span>
@@ -372,9 +364,10 @@
     <span class="mx-utbl-title"><i class="fas fa-table"></i> Build Table{% if total_rows %}<span style="background:rgba(14,116,144,.15);color:#0e7490;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:900;margin-left:6px">{{ total_rows }} rows</span>{% endif %}</span>
     <input type="text" id="mxUSearch" class="mx-utbl-search" placeholder="Search builds, MTBF...">
     <span id="mxUShown" style="font-size:10px;font-weight:800;color:#0e7490;white-space:nowrap"></span>
-    <button class="mx-btn mx-btn-teal" style="padding:5px 12px;font-size:11px" onclick="mxOpenAddBuild()"><i class="fas fa-plus"></i> Add Build</button>
-    <a href="/dashboard/{{ target_name }}/mtbf-excel/edit{% if selected_sheet %}?sheet={{ selected_sheet | urlencode }}{% endif %}" class="mx-btn mx-btn-ghost" style="padding:5px 12px;font-size:11px;text-decoration:none"><i class="fas fa-table"></i> Edit Table</a>
-    <button class="mx-copy-btn" id="mxCopyBtn" onclick="mxCopyTable()"><i class="fas fa-copy"></i> Copy</button>
+        <button class="mx-btn mx-btn-teal" style="padding:5px 12px;font-size:11px" onclick="mxOpenAddBuild()"><i class="fas fa-plus"></i> Add Build</button>
+    <a href="/dashboard/{{ target_name }}/mtbf-excel/edit{% if selected_sheet %}?sheet={{ selected_sheet | urlencode }}{% endif %}" class="mx-btn mx-btn-ghost" style="padding:5px 12px;font-size:11px;text-decoration:none"><i class="fas fa-edit"></i> Edit</a>
+        <button class="mx-copy-btn" id="mxCopyBtn" onclick="mxCopyTable()"><i class="fas fa-copy"></i> Copy</button>
+
         <button class="mx-collapse-btn" id="mxCollapseBtn" onclick="mxToggleUtbl()">
       <i class="fas fa-chevron-up" id="mxCollapseIcon"></i> <span id="mxCollapseLabel">Hide</span>
     </button>
@@ -422,7 +415,7 @@
   </div>
 
 </div><!-- /chart card -->
-{% endif %}
+
 
 
 <!-- expand modal -->
@@ -560,7 +553,8 @@
     <div class="mx-modal-footer">
       <span class="mx-modal-msg" id="mxAbMsg"></span>
       <button class="mx-btn mx-btn-ghost" onclick="mxCloseAddBuild()">Cancel</button>
-            <button class="mx-btn mx-btn-teal" id="mxAbSaveBtn" onclick="mxSaveAddBuild()"><i class="fas fa-save"></i> Save to {% if mtbf_storage_mode == 'json' %}JSON{% else %}Excel{% endif %}</button>
+                        <button class="mx-btn mx-btn-teal" id="mxAbSaveBtn" onclick="mxSaveAddBuild()"><i class="fas fa-save"></i> Save to JSON</button>
+
 
     </div>
   </div>
@@ -804,7 +798,8 @@
     }catch(e){
       setAbMsg(e.message || 'Save failed', 'err');
     }finally{
-            if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save to ' + (MTBF_STORAGE_MODE === 'json' ? 'JSON' : 'Excel'); }
+                        if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save to JSON'; }
+
 
     }
   };
@@ -1123,11 +1118,14 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
 
   const SHEET_NAMES = {{ sheet_names|tojson }};
   let chartInst = null;
-  let curMetrics = {mtbf: true, product_mtbf: true, qc_mtbf: true, hours: true, crashes: true};
+        let curMetrics = IS_COMPUTE_MTBF ? {mtbf: false, product_mtbf: true, qc_mtbf: true, hours: true, crashes: true} : {mtbf: true, product_mtbf: false, qc_mtbf: false, hours: true, crashes: true};
+
+
   let curLmode = 'meta';
   let curDataTable = false;
   let curData = ALL_DATA.slice(-10);
-  if(!chartCanvas || !ALL_DATA || !ALL_DATA.length) return;
+    const MX_HAS_CHART = !!(chartCanvas && ALL_DATA && ALL_DATA.length);
+
       window.mxSwitchViewSheet = async function(sel){
     sel = sel || document.getElementById('mxViewSheetSelect') || document.getElementById('mxSetupSheetSelect');
     if(!sel || !sel.value) return;
@@ -1214,9 +1212,9 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
             const v = ds.data[i];
             if(v === undefined || v === null || v === 0) return;
             ctx.save();
-                                                const txt = String(v);
-            ctx.font = '600 8px Inter,system-ui,sans-serif';
-                        ctx.fillStyle = '#475569';
+            const txt = String(v);
+            ctx.font = '700 9px Inter,system-ui,sans-serif';
+            ctx.fillStyle = txtColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.fillText(txt, pt.x, pt.y - baseOffset);
@@ -1237,8 +1235,8 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
                         const v = ds.data[i];
             if(v === undefined || v === null || v === 0) return;
                         ctx.save();
-                                    ctx.font = '600 8px Inter,system-ui,sans-serif';
-            ctx.fillStyle = '#475569';
+            ctx.font = '700 9px Inter,system-ui,sans-serif';
+            ctx.fillStyle = '#1f4e79';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.fillText(v, bar.x, bar.y - 2);
@@ -1309,20 +1307,23 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
     if(cs) tscroll.scrollLeft = cs.scrollLeft;
   }
 
-    function renderChart(data){
+        function renderChart(data){
+    if(!chartCanvas) return;
     curData = data;
+
     const inner = document.getElementById('mxChartInner');
     const n = data.length;
     const portalW = Math.max(900, document.getElementById('mxChartScroll')?.clientWidth || 900);
     const perPoint = n <= 10 ? 72 : n <= 20 ? 48 : 34;
     const minW = n <= 20 ? Math.min(portalW, Math.max(n * perPoint, 600)) : Math.max(n * perPoint, portalW);
-    const isBigChart = data.length > 20;
+    const isBigChart = IS_COMPUTE_MTBF && data.length > 20;
     if(inner){ inner.style.minWidth = isBigChart ? '100%' : (minW + 'px'); inner.classList.toggle('big-chart', isBigChart); }
     const tscroll2 = document.getElementById('mxTableScroll');
     if(tscroll2) tscroll2.style.minWidth = isBigChart ? '100%' : (minW + 'px');
     const canvas = chartCanvas;
     const dpr = Math.min(4, Math.max(2, window.devicePixelRatio || 1));
-        const cssH = Math.max(400, Math.min(500, 360 + data.length * 1));
+                const cssH = IS_COMPUTE_MTBF ? Math.max(400, Math.min(500, 360 + data.length * 1)) : 430;
+
     const cssW = isBigChart ? portalW : minW;
     canvas.style.width  = cssW + 'px';
     canvas.style.height = cssH + 'px';
@@ -1341,6 +1342,144 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
     const maxH = Math.max(...hours,   1);
     const maxM = Math.max(...mtbf, ...product_mtbf, ...qc_mtbf, 1);
     const maxC = Math.max(...crashes, 1);
+
+    // Normal target MTBF uses the same chart UI/view as Live Status ADAS MTBF.
+    if(!IS_COMPUTE_MTBF){
+      const visibleW = document.getElementById('mxChartScroll')?.clientWidth || portalW;
+      const liveW = Math.max(620, Math.min(visibleW, labels.length <= 1 ? 720 : labels.length * 64));
+      canvas.style.width = liveW + 'px';
+      canvas.style.height = '360px';
+      canvas.width = Math.round(liveW);
+      canvas.height = 360;
+      if(inner){ inner.style.minWidth = liveW + 'px'; inner.classList.remove('big-chart'); }
+      if(tscroll2) tscroll2.style.minWidth = liveW + 'px';
+
+            const datalabelsPlugin = {
+        id: 'liveStatusDatalabels',
+        afterDatasetsDraw(chart){
+          const ctx = chart.ctx;
+          const ca = chart.chartArea || {top:0,bottom:chart.height};
+          const byIndex = new Map();
+          chart.data.datasets.forEach((ds, di) => {
+            const meta = chart.getDatasetMeta(di);
+            if(meta.hidden) return;
+            meta.data.forEach((el, i) => {
+              const val = ds.data[i];
+              if(val == null || val === 0) return;
+              const isBar = ds.type === 'bar';
+              const y = isBar ? el.y - 5 : el.y - 10;
+              if(!byIndex.has(i)) byIndex.set(i, []);
+              byIndex.get(i).push({
+                x: el.x,
+                y,
+                text: String(val),
+                color: isBar ? '#1e3a8a' : ds.borderColor,
+                isBar,
+                di
+              });
+            });
+          });
+
+          ctx.save();
+          ctx.font = 'bold 10px Inter,Arial,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          byIndex.forEach(items => {
+            items.sort((a,b) => a.y - b.y || a.di - b.di);
+            const minGap = 14;
+            let prevY = -Infinity;
+            items.forEach(item => {
+              let y = Math.max(ca.top + 10, Math.min(ca.bottom - 8, item.y));
+              if(y - prevY < minGap) y = Math.min(ca.bottom - 8, prevY + minGap);
+              item.drawY = y;
+              prevY = y;
+            });
+            for(let j = items.length - 2; j >= 0; j--){
+              if(items[j + 1].drawY - items[j].drawY < minGap){
+                items[j].drawY = Math.max(ca.top + 10, items[j + 1].drawY - minGap);
+              }
+            }
+            items.forEach(item => {
+              ctx.lineWidth = 3;
+              ctx.strokeStyle = 'rgba(255,255,255,.92)';
+              ctx.strokeText(item.text, item.x, item.drawY);
+              ctx.fillStyle = item.color;
+              ctx.fillText(item.text, item.x, item.drawY);
+            });
+          });
+          ctx.restore();
+        }
+      };
+
+      chartInst = new Chart(canvas, {
+        type: 'bar',
+        plugins: [datalabelsPlugin],
+        data: {
+          labels,
+          datasets: [
+            { type:'bar',  label:'Hours',   data:hours,   hidden:!curMetrics.hours,   backgroundColor:'#1f4e79', borderColor:'#1f4e79', borderWidth:0, borderRadius:2, maxBarThickness:40, yAxisID:'yHours', order:2 },
+            { type:'line', label:'Crashes', data:crashes, hidden:!curMetrics.crashes, borderColor:'#c55a11', backgroundColor:'rgba(197,90,17,.15)', borderWidth:2, pointRadius:5, pointBackgroundColor:'#c55a11', pointBorderColor:'#fff', pointBorderWidth:1.5, tension:0, yAxisID:'yCrashes', order:1 },
+            { type:'line', label:'MTBF',    data:mtbf,    hidden:!curMetrics.mtbf,    borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:2, pointRadius:5, pointBackgroundColor:'#16a34a', pointBorderColor:'#fff', pointBorderWidth:1.5, tension:0, yAxisID:'yMtbf', order:0 },
+          ],
+        },
+        options: {
+          responsive:false,
+          maintainAspectRatio:false,
+          animation:{ duration:600, onComplete:()=>drawTable() },
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            title:{ display:true, text:`${String(CHART_TITLE_NAME||'').toUpperCase().replace(/_/g,' ')} MTBF`, font:{size:14,weight:'700'}, color:'#1e293b', padding:{bottom:10} },
+            legend:{
+              display:true,
+              position:'bottom',
+              onClick: function(e, legendItem, legend){
+                const ds = legend.chart.data.datasets[legendItem.datasetIndex];
+                const keyMap = { 'Hours':'hours', 'Crashes':'crashes', 'MTBF':'mtbf' };
+                const key = ds && keyMap[ds.label];
+                if(key){
+                  curMetrics[key] = !curMetrics[key];
+                  const cb = document.querySelector(`input[data-metric="${key}"]`);
+                  if(cb) cb.checked = curMetrics[key];
+                  renderChart(curData);
+                }
+              },
+              labels:{ usePointStyle:true, font:{size:12,weight:'700'}, padding:18,
+                generateLabels(chart){ return chart.data.datasets.map((ds,i)=>({ text:ds.label, fillStyle:ds.type==='bar'?ds.backgroundColor:ds.borderColor, strokeStyle:ds.borderColor, pointStyle:ds.type==='bar'?'rect':'circle', hidden:chart.getDatasetMeta(i).hidden, datasetIndex:i })); }
+              }
+            },
+            tooltip:{ backgroundColor:'rgba(15,23,42,.92)', titleFont:{size:13,weight:'bold'}, bodyFont:{size:12}, padding:12, cornerRadius:10,
+              callbacks:{
+                title: ctx => { const d=data[ctx[0].dataIndex]; return getLabel(d)||d.full_build||d.build||''; },
+                label: ctx => { const v=ctx.parsed.y; if(ctx.dataset.label==='Hours') return `  Hours: ${v}`; if(ctx.dataset.label==='Crashes') return `  Crashes: ${v}`; return `  MTBF: ${v}`; }
+              }
+            }
+          },
+          scales:{
+            x:{ grid:{display:false}, ticks:{font:{size:11,weight:'700'},color:'#334155',maxRotation:0,autoSkip:false} },
+            yHours:{
+              type:'linear', position:'left', beginAtZero:true,
+              title:{display:true,text:'Hours',color:'#1f4e79',font:{size:12,weight:'900'},padding:{bottom:6}},
+              ticks:{color:'#1f4e79',font:{size:11,weight:'700'}},
+              grid:{color:'rgba(226,232,240,.7)'}
+            },
+            yCrashes:{
+              type:'linear', position:'left', beginAtZero:true, offset:true,
+              title:{display:true,text:'Crashes',color:'#c55a11',font:{size:12,weight:'900'},padding:{bottom:6}},
+              ticks:{color:'#c55a11',font:{size:11,weight:'700'}},
+              grid:{drawOnChartArea:false}
+            },
+            yMtbf:{
+              type:'linear', position:'right', beginAtZero:true,
+              title:{display:true,text:'MTBF',color:'#16a34a',font:{size:12,weight:'900'},padding:{bottom:6}},
+              ticks:{color:'#16a34a',font:{size:11,weight:'700'}},
+              grid:{drawOnChartArea:false}
+            },
+          },
+          layout:{ padding:{top:24,bottom:8,left:18,right:18} },
+        },
+      });
+      return;
+    }
 
                                                 const barThick = n <= 6 ? 16 : n <= 10 ? 12 : n <= 20 ? 9 : 7;
     const xFontSz  = n <= 10 ? 9 : n <= 20 ? 8 : 7;
@@ -1403,14 +1542,16 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
           return grad;
         },
                                                 borderWidth:1.8, pointBackgroundColor:lineColor, pointBorderColor:'rgba(255,255,255,0.92)',
-        pointBorderWidth:1, pointRadius:3, pointHoverRadius:5,
-                fill:true, tension:0.32, yAxisID:yID
+                pointBorderWidth:1.4, pointRadius:(IS_COMPUTE_MTBF?3:4), pointHoverRadius:(IS_COMPUTE_MTBF?5:7),
+                fill:IS_COMPUTE_MTBF, tension:(IS_COMPUTE_MTBF?0.32:0.38), cubicInterpolationMode:'monotone', yAxisID:yID
+
 
 
 
       };
     }
-    const _mtbfYID = 'yMtbf';
+        const _mtbfYID = (curMetrics.hours || curMetrics.crashes) ? 'yMtbf' : 'yL';
+
     if(IS_COMPUTE_MTBF){
             datasets.push(_mtbfLineDataset('Product MTBF', product_mtbf, '#059669', 'rgba(5,150,105,0.20)', 'rgba(5,150,105,0.01)', _mtbfYID, !curMetrics.product_mtbf));
       datasets.push(_mtbfLineDataset('QC MTBF',      qc_mtbf,      '#f59e0b', 'rgba(245,158,11,0.18)', 'rgba(245,158,11,0.01)', _mtbfYID, !curMetrics.qc_mtbf));
@@ -1422,37 +1563,51 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
                                                                                                                                                 backgroundColor: function(ctx){ return makeBarGradient(ctx.chart.ctx, ctx.chart, 'rgba(125,211,252,0.92)', 'rgba(56,189,248,0.40)'); },
       borderColor:'rgba(224,242,254,0.82)', borderWidth:1, borderRadius:2, borderSkipped:false,
       yAxisID:'yL', maxBarThickness:barThick, barThickness:barThick, barPercentage:0.84, categoryPercentage:0.92 });
-    datasets.push({ type:'bar', label:'Total Crashes', data:crashes,
-      hidden: !curMetrics.crashes,
-                                                                                                                                                                                                                                                                                                                                                backgroundColor: function(ctx){ return makeBarGradient(ctx.chart.ctx, ctx.chart, 'rgba(251,191,36,0.88)', 'rgba(245,158,11,0.34)'); },
-      borderColor:'rgba(254,240,138,0.84)', borderWidth:1, borderRadius:2, borderSkipped:false,
-      yAxisID:'yCrash', maxBarThickness:barThick, barThickness:barThick, barPercentage:0.84, categoryPercentage:0.92 });
+        if(IS_COMPUTE_MTBF){
+      datasets.push({ type:'bar', label:'Total Crashes', data:crashes,
+        hidden: !curMetrics.crashes,
+        backgroundColor: function(ctx){ return makeBarGradient(ctx.chart.ctx, ctx.chart, 'rgba(251,191,36,0.88)', 'rgba(245,158,11,0.34)'); },
+        borderColor:'rgba(254,240,138,0.84)', borderWidth:1, borderRadius:2, borderSkipped:false,
+        yAxisID:'yCrash', maxBarThickness:barThick, barThickness:barThick, barPercentage:0.84, categoryPercentage:0.92 });
+    } else {
+      datasets.push({ type:'line', label:'Total Crashes', data:crashes,
+        hidden: !curMetrics.crashes,
+                borderColor:'#ef4444', backgroundColor:'transparent', borderWidth:2.2,
+
+        pointBackgroundColor:'#ef4444', pointBorderColor:'#fff', pointBorderWidth:1.2,
+        pointRadius:4, pointHoverRadius:7, fill:false, tension:0.42, cubicInterpolationMode:'monotone', yAxisID:'yCrash' });
+    }
+
         const leftMax = Math.max(curMetrics.hours ? maxH : 0, (!curMetrics.hours && !curMetrics.crashes && !curMetrics.mtbf) ? maxM : 0, 1);
-    scales.yL = { type:'linear', position:'left', beginAtZero:true, suggestedMax: (curMetrics.hours ? maxH : maxM) * 1.18,
-                                                ticks:{ font:{ size:10, weight:'700' }, color:'#64748b', maxTicksLimit:6 },
+        scales.yL = { type:'linear', position:'left', beginAtZero:true, suggestedMax: (curMetrics.hours ? maxH : maxM) * 1.18,
+                                                ticks:{ font:{ size:10, weight:'700' }, color: curMetrics.hours ? '#1f4e79' : '#64748b', maxTicksLimit:6 },
+
       grid:{ color:'rgba(226,232,240,0.55)', lineWidth:1 },
       border:{ color:'rgba(148,163,184,0.16)', dash:[3,3] },
       title:{ display:false, text: curMetrics.hours ? 'Tested Hours' : 'MTBF (hrs)', font:{ size:10, weight:'600' }, color:'#94a3b8' }
     };
-    if(curMetrics.crashes){
-      scales.yCrash = { type:'linear', position:'right', beginAtZero:true, suggestedMax:maxC*1.3,
-                                                                ticks:{ font:{ size:10, weight:'700' }, color:'#64748b', maxTicksLimit:5 },
+        if(curMetrics.crashes){
+              scales.yCrash = { type:'linear', position:'right', display:IS_COMPUTE_MTBF, beginAtZero:true, suggestedMax:Math.max(maxC*1.35, 5),
+        ticks:{ font:{ size:10, weight:'700' }, color: IS_COMPUTE_MTBF ? '#64748b' : '#ef4444', maxTicksLimit:5 },
         grid:{ drawOnChartArea:false },
-        border:{ color:'rgba(148,163,184,0.12)' },
-        title:{ display:false, text:'Crashes', font:{ size:10, weight:'600' }, color:'#94a3b8' }
+        border:{ color: IS_COMPUTE_MTBF ? 'rgba(148,163,184,0.12)' : 'rgba(239,68,68,0.35)' },
+        title:{ display:false, text:'Crashes', font:{ size:10, weight:'600' }, color: IS_COMPUTE_MTBF ? '#94a3b8' : '#ef4444' }
       };
+
     }
+
                 const _hasAnyMtbf = IS_COMPUTE_MTBF ? (curMetrics.product_mtbf || curMetrics.qc_mtbf) : curMetrics.mtbf;
     if(_hasAnyMtbf && (curMetrics.hours || curMetrics.crashes)){
 
 
-      scales.yMtbf = { type:'linear', position:'right', beginAtZero:true, suggestedMax:maxM*1.22,
+              scales.yMtbf = { type:'linear', position:'right', beginAtZero:true, suggestedMax:Math.max(maxM*1.22, 1),
 
-                ticks:{ font:{ size:10, weight:'700' }, color:'#64748b', maxTicksLimit:6 },
+                ticks:{ font:{ size:10, weight:'700' }, color:'#10b981', maxTicksLimit:6 },
                 grid:{ drawOnChartArea: false },
-        border:{ color:'rgba(148,163,184,0.12)' },
-        title:{ display:false, text:'MTBF (hrs)', font:{ size:10, weight:'600' }, color:'#94a3b8' }
+        border:{ color:'rgba(16,185,129,0.28)' },
+        title:{ display:false, text:'MTBF (hrs)', font:{ size:10, weight:'600' }, color:'#10b981' }
       };
+
     }
 
     const chartTitle = CHART_TITLE_NAME + ' \u2014 Stability Trend';
@@ -1503,13 +1658,13 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
           }
         },
         scales, interaction:{ mode:'index', intersect:false },
-              layout:{ padding:{ top:6, bottom:10, left:10, right:10 } }
+              layout:{ padding:{ top:18, bottom:14, left:12, right:12 } }
       },
       plugins:[ pluginChartBg, pluginLineLabels, pluginBarLabels ]
     });
   }
 
-    renderChart(curData);
+        if(MX_HAS_CHART) renderChart(curData);
         window.mxSetMetric = function(){
     curMetrics = {
       mtbf:         !!document.querySelector('input[data-metric="mtbf"]')?.checked,
@@ -1539,7 +1694,8 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
   window.mxFilter = function(type,n){ document.querySelectorAll('.mx-flt-btn').forEach(b=>b.classList.remove('active')); let filtered = ALL_DATA.slice(); if(type==='n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n>0) filtered = ALL_DATA.slice(-n); } else if(type==='date'){ const from=document.getElementById('mxDateFrom').value,to=document.getElementById('mxDateTo').value; if(!from&&!to){ filtered=ALL_DATA.slice(); } else { filtered=ALL_DATA.filter(d=>{ if(!d.week) return true; const w=d.week.substring(0,10); if(from&&w<from) return false; if(to&&w>to) return false; return true; }); } } else { document.getElementById('mxDateFrom').value=''; document.getElementById('mxDateTo').value=''; document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderChart(filtered); };
   window.addEventListener('resize',()=>{ if(curData && curData.length) renderChart(curData); });
   // Redraw at correct physical size on container resize (handles 4K / zoom changes)
-  if(typeof ResizeObserver !== 'undefined' && chartCanvas.parentElement){
+    if(typeof ResizeObserver !== 'undefined' && chartCanvas && chartCanvas.parentElement){
+
     let _roTimer = null;
     new ResizeObserver(() => {
       clearTimeout(_roTimer);
@@ -1548,32 +1704,7 @@ document.getElementById('copyBtn').onclick=function(){const btn=this;const tmp=d
   }
 })();
 
-(function(){
-  let _fbTarget = null;
-  let _fbSelected = null;
-  let _fbHistory = [];
-  const ICONS = { drive:'<i class="fas fa-hdd" style="color:#6366f1"></i>', network:'<i class="fas fa-network-wired" style="color:#8b5cf6"></i>', quick:'<i class="fas fa-star" style="color:#f59e0b"></i>', up:'<i class="fas fa-level-up-alt" style="color:#64748b"></i>', dir:'<i class="fas fa-folder" style="color:#f59e0b"></i>', file:'<i class="fas fa-file-excel" style="color:#16a34a"></i>' };
-  window.fbOpen = function(inputId, startPath){ _fbTarget = inputId; _fbSelected = null; _fbHistory = []; document.getElementById('fbSelectBtn').disabled = true; document.getElementById('fbSelectedLabel').textContent = 'None'; document.getElementById('fbOverlay').classList.add('open'); const cur = document.getElementById(inputId)?.value?.trim(); fbNavigate(startPath || cur || 'root'); };
-  window.fbClose = function(){ document.getElementById('fbOverlay').classList.remove('open'); };
-  window.fbGoUp = function(){ if(_fbHistory.length > 1){ _fbHistory.pop(); fbNavigate(_fbHistory.pop() || 'root', true); } else { fbNavigate('root', true); } };
-  function buildBreadcrumb(path, isRoot){ const bc = document.getElementById('fbBreadcrumb'); if(!bc) return; bc.innerHTML=''; const mkCrumb=(label,p)=>{ const s=document.createElement('span'); s.style.cssText='cursor:pointer;color:#0e7490;font-weight:700;padding:2px 5px;border-radius:4px;font-size:11px'; s.innerHTML=label; s.onmouseover=()=>s.style.background='#cffafe'; s.onmouseout=()=>s.style.background=''; s.onclick=()=>fbNavigate(p); return s; }; bc.appendChild(mkCrumb('<i class="fas fa-desktop"></i> This PC', 'root')); if(isRoot || !path) return; const sep=()=>{ const s=document.createElement('span'); s.textContent=' › '; s.style.color='#94a3b8'; return s; }; const parts=path.replace(/\\/g,'/').split('/').filter(Boolean); let built=''; parts.forEach((p,i)=>{ built = i===0 ? p+'\\' : built+p+'\\'; const cleanPath = built.replace(/\\$/,'') || built; bc.appendChild(sep()); bc.appendChild(mkCrumb(p, cleanPath)); }); }
-  window.fbNavigate = async function(path, isBack){ const list = document.getElementById('fbList'); if(!list) return; list.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8"><i class="fas fa-spinner fa-spin fa-lg"></i><br><span style="font-size:11px;margin-top:8px;display:block">Loading...</span></div>'; try{ const r = await fetch('/api/browse_files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path||'root'})}); const d = await r.json(); if(!d.success){ list.innerHTML = `<div style="padding:16px;color:#dc2626;font-size:12px;display:flex;align-items:center;gap:8px"><i class="fas fa-exclamation-circle"></i> ${d.message}</div>`; return; } if(!isBack) _fbHistory.push(path||'root'); const addr = document.getElementById('fbAddrBar'); if(addr) addr.value = d.is_root ? '' : d.path; buildBreadcrumb(d.is_root ? '' : d.path, d.is_root); const upBtn = document.getElementById('fbUpBtn'); if(upBtn) upBtn.disabled = !!d.is_root; list.innerHTML=''; if(!d.items.length){ list.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:12px"><i class="fas fa-folder-open fa-2x" style="display:block;margin-bottom:8px"></i>Empty folder</div>'; return; } d.items.forEach(item => { const el = document.createElement('div'); el.className = 'fb-item'; const icon = ICONS[item.type] || ICONS.dir; const sizeSpan = item.size ? `<span class="fb-item-size">${item.size}</span>` : ''; const typeSpan = item.type === 'file' ? '<span class="fb-item-type">Excel</span>' : item.type === 'drive' ? '<span class="fb-item-type">Drive</span>' : ''; el.innerHTML = `<span class="fb-item-icon">${icon}</span><span class="fb-item-name">${item.name}</span>${sizeSpan}${typeSpan}`; if(item.type === 'file'){ el.onclick = () => { document.querySelectorAll('#fbList .fb-item').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); _fbSelected = item.path; const btn = document.getElementById('fbSelectBtn'); if(btn) btn.disabled = false; const lbl = document.getElementById('fbSelectedLabel'); if(lbl) lbl.textContent = item.name; if(addr) addr.value = item.path; };
-        } else {
-          el.ondblclick = () => fbNavigate(item.path);
-          el.onclick = () => fbNavigate(item.path);
-        }
-        list.appendChild(el);
-      });
-    } catch(e) {
-      list.innerHTML = `<div style="padding:16px;color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> ${e.message || e}</div>`;
-    }
-  };
-  window.fbSelect = function(){
-    if(!_fbTarget || !_fbSelected) return;
-    const inp = document.getElementById(_fbTarget);
-    if(inp) inp.value = _fbSelected;
-    fbClose();
-  };
-})();
+
 </script>
 {% endblock %}
+
