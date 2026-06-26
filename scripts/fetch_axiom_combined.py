@@ -133,8 +133,13 @@ TIMEOUT_SEC         = 300
 TOKEN_TTL_SEC       = 25 * 60   # refresh every 25 min — Axiom tokens expire ~30 min
 AUTH_RETRY_LIMIT    = 3         # token refresh attempts per cycle before giving up
 AUTH_BACKOFF_SEC    = 120       # backoff (seconds) after auth failure before next cycle
+# Axiom rejects submittedBefore values that are even slightly in the future on
+# skewed nodes. Keep a small configurable lag, but do not hide the last 24 hours
+# of jobs from the poller.
+AXIOM_SUBMITTED_BEFORE_LAG_MINUTES = max(1, int(os.environ.get("AXIOM_SUBMITTED_BEFORE_LAG_MINUTES", "10")))
 JSON_LOCK_TIMEOUT_SEC = 180      # wait up to 3 min for SWPDT JSON writer lock
 JSON_LOCK_STALE_SEC   = 1800     # remove stale SWPDT JSON lock files older than 30 min
+
 
 _SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
@@ -677,14 +682,13 @@ def _fetch_jobs(host: str, token: str, app_name: str,
     since_utc  = (
         datetime.now(timezone.utc) - timedelta(days=since_days)
     ).strftime("%Y-%m-%dT00:00:00Z")
-    # submittedBefore = now minus 24-hour buffer to avoid Axiom 400:
-    # "Submitted To date must not be ahead of the current time".
-    # Some deployments can have a large clock/date skew; using a conservative
-    # completed-day window prevents noisy future-time warnings in the poller.
-    # If the computed since_utc is already in the future (e.g. a future week
-    # was requested), skip the fetch entirely — there is nothing to retrieve.
+        # submittedBefore = now minus a small configurable buffer to avoid Axiom
+    # 400: "Submitted To date must not be ahead of the current time". This was
+    # previously 24 hours, which caused the DB poller to miss all jobs submitted
+    # today until the following day. Default to 10 minutes like the standalone
+    # updater, while allowing override for skewed environments.
     _now_utc     = datetime.now(timezone.utc)
-    _safe_before = _now_utc - timedelta(hours=24)
+    _safe_before = _now_utc - timedelta(minutes=AXIOM_SUBMITTED_BEFORE_LAG_MINUTES)
     before_utc   = _safe_before.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Guard: if the entire requested window is in the future, bail out early.
@@ -692,10 +696,11 @@ def _fetch_jobs(host: str, token: str, app_name: str,
     _since_dt = datetime.strptime(since_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     if _since_dt >= _safe_before:
         logger.info(
-            "[FETCH] taxonomy=%s since=%s is in the future (now-24h=%s) — skipping fetch",
-            taxonomy, since_utc[:16], before_utc[:16],
+            "[FETCH] taxonomy=%s since=%s is in the future (now-%dm=%s) — skipping fetch",
+            taxonomy, since_utc[:16], AXIOM_SUBMITTED_BEFORE_LAG_MINUTES, before_utc[:16],
         )
         return []
+
 
     page_size = 100          # Axiom max page size
     all_raw   = []

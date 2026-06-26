@@ -11,7 +11,8 @@ from config import (
     VIEWER_OVERRIDE_USERS,
     LIVE_STATUS_VIEWER_GROUP_ACCESS,
 )
-from dashboard_common import get_business_units, get_targets_for_bu, get_bu_for_target, get_display_name_for_target
+from dashboard_common import get_business_units, get_targets_for_bu, get_bu_for_target, get_display_name_for_target, load_metadata_config, get_auto_target_keys
+
 logger = logging.getLogger(__name__)
 
 from live_status_publish_service import (
@@ -325,23 +326,60 @@ def _live_status_access_groups_catalog(all_target_opts=None):
 
 
 def _all_targets_for_ui():
-    business_units = get_business_units() or {}
+    """Return active target options for UI dropdowns.
+
+    Build Report should not use the process-wide BUSINESS_UNITS cache because
+    that cache can include inactive/stale dashboard_status rows. A stale row can
+    make one target appear under another display/product name (for example Maili
+    showing Hawi). Build this list from active DB metadata each request.
+    """
+    try:
+        metadata = load_metadata_config(active_only=True) or {}
+        business_units = metadata.get('BUSINESS_UNITS', {}) or {}
+        targets_config = metadata.get('TARGETS_CONFIG', {}) or {}
+    except Exception:
+        logger.warning('[TARGET OPTIONS] active metadata load failed; falling back to cached metadata', exc_info=True)
+        business_units = get_business_units() or {}
+        targets_config = {}
+
     rows = []
+    seen = set()
     for bu_key, bu_info in sorted(business_units.items()):
-        if str(bu_key).upper() == 'WEEKLY_QIPL_REPORTS':
+        bu_key_upper = str(bu_key).upper()
+        if bu_key_upper == 'WEEKLY_QIPL_REPORTS':
             continue
-        for target in (get_targets_for_bu(str(bu_key).upper()) or []):
-            try:
-                display_name = get_display_name_for_target(target) or target
-            except Exception:
-                display_name = target
+        if bu_key_upper == 'AUTO':
+            targets = get_auto_target_keys({'BUSINESS_UNITS': business_units, 'TARGETS_CONFIG': targets_config})
+        else:
+            targets = list((bu_info or {}).get('targets') or [])
+            if not targets:
+                targets = get_targets_for_bu(bu_key_upper) or []
+        for target in targets:
+            target = str(target or '').strip()
+            if not target:
+                continue
+            key = (bu_key_upper, target.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            info = targets_config.get(target) or next(
+                (cfg for tk, cfg in targets_config.items() if str(tk).lower() == target.lower()),
+                {},
+            )
+            display_name = str((info or {}).get('display_name') or '').strip()
+            if not display_name:
+                try:
+                    display_name = get_display_name_for_target(target) or target
+                except Exception:
+                    display_name = target
             rows.append({
-                'bu_key': bu_key,
+                'bu_key': bu_key_upper,
                 'bu_name': (bu_info or {}).get('display_name', bu_key),
                 'target': target,
                 'display_name': display_name,
             })
     return rows
+
 
 
 def _find_target_option(target_name):
@@ -783,18 +821,47 @@ def build_report_standalone():
 @live_status_publish_bp.route('/api/build_report/running_builds', methods=['GET'])
 @login_required
 def api_build_report_running_builds():
-    """List running/job-setup builds from pdt_stats_dashboard.axiom_job_summary.
+    """List active builds from the local Axiom cache table.
 
-    Used by the standalone Build Report page as an optional picker. The query is
-    intentionally read-only and bounded so the page can load quickly.
+    The Build Report page does not call Axiom directly. It reads
+    pdt_stats_dashboard.axiom_job_summary, then filters by the selected target.
     """
     from datetime import date as _date, datetime as _datetime
-    from dashboard_common import get_mysql_connection_db
+    from dashboard_common import get_mysql_connection_db, get_target_info, update_global_targets_config, fq_table_for_target, get_schema_for_bu
+
+
 
     def _ser(value):
         if isinstance(value, (_datetime, _date)):
             return value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(value, _datetime) else value.isoformat()
         return '' if value is None else str(value)
+
+    def _chip_ids(value):
+        import json as _json
+        if value in (None, ''):
+            return []
+        if isinstance(value, (list, tuple, set)):
+            raw = list(value)
+        else:
+            text = str(value or '').strip()
+            if not text:
+                return []
+            try:
+                parsed = _json.loads(text)
+                raw = parsed if isinstance(parsed, list) else [parsed]
+            except Exception:
+                raw = re.split(r'[,;\s]+', text)
+        out = []
+        seen = set()
+        for chip in raw:
+            chip = str(chip or '').strip().strip('"\'')
+            key = chip.upper()
+            if chip and key not in seen:
+                seen.add(key)
+                out.append(chip)
+        return out
+
+
 
     def _tail(raw):
         text = str(raw or '').strip()
@@ -803,34 +870,442 @@ def api_build_report_running_builds():
         parts = [p.strip() for p in text.replace('/', '\\').split('\\') if p.strip()]
         return parts[-1] if parts else text
 
+    def _product_norm(value):
+        """Normalize product/build text so Sinka_QC_1_0 and Sinka.QC.1.0 compare."""
+        text = re.sub(r'[^A-Z0-9]+', '.', str(value or '').upper()).strip('.')
+        text = re.sub(r'\.+', '.', text)
+        return text
+
+    def _family_prefix(value):
+        """Return product-family prefix before numeric version.
+
+        Example: Sinka.QC.1.0, Sinka.QC.1.0.r1, Sinka_QC_2_0 -> SINKA.QC.
+        This lets a selected sp/display name with 1.0 match active builds on
+        1.0.r1, 2.0, etc. under the same product family.
+        """
+        norm = _product_norm(value)
+        match = re.search(r'(?:^|\.)(\d+)\.(\d+)(?:\.|$)', norm)
+        if not match:
+            return ''
+        prefix = norm[:match.start()].strip('.')
+        if not prefix:
+            return ''
+        return prefix + '.'
+
+    def _terms_from_aliases(aliases):
+        seen, alias_out = set(), []
+        for alias in aliases or []:
+            alias = str(alias or '').strip()
+            key = alias.upper()
+            if key and key not in seen:
+                seen.add(key)
+                alias_out.append(alias)
+
+        stop = {'PDT', 'QIPL', 'CRM', 'ENG', 'LIVE', 'STATUS', 'TARGET', 'GENERIC', 'INT', 'STD', 'PERF'}
+        tokens = []
+        families = []
+        for alias in alias_out:
+            fam = _family_prefix(alias)
+            if fam and fam not in families:
+                families.append(fam)
+            for tok in re.split(r'[^A-Z0-9]+', alias.upper()):
+                if len(tok) >= 3 and tok not in stop and tok not in tokens:
+                    tokens.append(tok)
+        return alias_out, tokens, families
+
+    def _target_match_terms(target_name):
+        target_name = str(target_name or '').strip()
+        if not target_name:
+            return [], [], []
+        try:
+            update_global_targets_config()
+        except Exception:
+            pass
+        info = get_target_info(target_name) or {}
+        aliases = [target_name]
+        for key in ('target_name', 'display_name', 'db_name', 'db_prefix', 'sp_name', 'program'):
+            val = str(info.get(key) or '').strip()
+            if val:
+                aliases.append(val)
+        for alias in (info.get('aliases') or []):
+            alias = str(alias or '').strip()
+            if alias:
+                aliases.append(alias)
+        return _terms_from_aliases(aliases)
+
+
+    def _target_pl_terms(cursor, target_name):
+        """Read distinct Product Line / PL values from the target's Jira tables."""
+        target_name = str(target_name or '').strip()
+        if not target_name:
+            return []
+
+        def _table_exists(fq_table):
+            raw = str(fq_table or '').replace('`', '')
+            try:
+                schema, table = raw.split('.', 1)
+            except ValueError:
+                return True
+            cursor.execute(
+                'SELECT 1 FROM information_schema.tables '
+                'WHERE table_schema=%s AND table_name=%s LIMIT 1',
+                (schema, table),
+            )
+            return cursor.fetchone() is not None
+
+        def _table_columns(fq_table):
+            try:
+                cursor.execute(f'SHOW COLUMNS FROM {fq_table}')
+                return [str(r.get('Field') or '').strip() for r in (cursor.fetchall() or []) if r.get('Field')]
+            except Exception:
+                return []
+
+        def _norm_col(value):
+            return re.sub(r'[^a-z0-9]+', '', str(value or '').lower())
+
+        pl_values = []
+        seen = set()
+        for suffix in ('jiras', 'openjiras'):
+            try:
+                table = fq_table_for_target(target_name, suffix)
+                if not _table_exists(table):
+                    continue
+                columns = _table_columns(table)
+                by_norm = {_norm_col(c): c for c in columns}
+                pl_col = next((by_norm.get(_norm_col(c)) for c in (
+                    'PL', 'Product Line', 'Product_Line', 'product_line',
+                    'productline', 'Program Line', 'program_line', 'chipset',
+                ) if by_norm.get(_norm_col(c))), '')
+                if not pl_col:
+                    continue
+                cursor.execute(
+                    f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
+                    f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                    f'ORDER BY `{pl_col}` LIMIT 100',
+                    ('',),
+                )
+                for row in cursor.fetchall() or []:
+                    val = str(row.get('pl') or '').strip()
+                    key = val.upper()
+                    if val and key not in seen:
+                        seen.add(key)
+                        pl_values.append(val)
+            except Exception as exc:
+                logger.warning('[BUILD REPORT RUNNING BUILDS] PL lookup failed for %s %s: %s', target_name, suffix, exc)
+        return pl_values
+
+    def _norm_col(value):
+        return re.sub(r'[^a-z0-9]+', '', str(value or '').lower())
+
+    def _table_exists(cursor, fq_table):
+        raw = str(fq_table or '').replace('`', '')
+        try:
+            schema, table = raw.split('.', 1)
+        except ValueError:
+            return True
+        cursor.execute(
+            'SELECT 1 FROM information_schema.tables '
+            'WHERE table_schema=%s AND table_name=%s LIMIT 1',
+            (schema, table),
+        )
+        return cursor.fetchone() is not None
+
+    def _table_columns(cursor, fq_table):
+        try:
+            cursor.execute(f'SHOW COLUMNS FROM {fq_table}')
+            return [str(r.get('Field') or '').strip() for r in (cursor.fetchall() or []) if r.get('Field')]
+        except Exception:
+            return []
+
+    def _first_col(columns, candidates):
+        by_norm = {_norm_col(c): c for c in (columns or [])}
+        for cand in candidates:
+            hit = by_norm.get(_norm_col(cand))
+            if hit:
+                return hit
+        return ''
+
+    def _dashboard_status_target(cursor, selected_target, selected_bu=''):
+        """Resolve selected dropdown target/display to dashboard_status row."""
+        selected_target = str(selected_target or '').strip()
+        selected_bu = str(selected_bu or '').strip().upper()
+        if not selected_target:
+            return None
+        params = [selected_target, selected_target, selected_target]
+        bu_sql = ''
+        if selected_bu:
+            bu_sql = ' AND UPPER(bu) = %s'
+            params.append(selected_bu)
+        cursor.execute(f"""
+            SELECT *
+            FROM pdt_stats_dashboard.dashboard_status
+            WHERE is_active = 1
+              AND (
+                    LOWER(target_name) = LOWER(%s)
+                 OR LOWER(target_display) = LOWER(%s)
+                 OR LOWER(db_name) = LOWER(%s)
+              )
+              {bu_sql}
+            ORDER BY id DESC
+            LIMIT 1
+        """, tuple(params))
+        return cursor.fetchone() or None
+
+    def _fq_from_dashboard(row, suffix):
+        if not row:
+            return ''
+        schema = get_schema_for_bu(str(row.get('bu') or '').strip().upper())
+        prefix = str(row.get('db_name') or row.get('target_name') or '').strip('`.').lower()
+        if not schema or not prefix:
+            return ''
+        return f'`{schema}`.`{prefix}_{suffix}`'
+
+    def _target_pl_terms_from_dashboard(cursor, dashboard_row):
+        """Read PL/Product Line values using dashboard_status -> actual target tables."""
+        pl_values = []
+        seen = set()
+        for suffix in ('jiras', 'openjiras'):
+            table = _fq_from_dashboard(dashboard_row, suffix)
+            if not table:
+                continue
+            try:
+                if not _table_exists(cursor, table):
+                    continue
+                columns = _table_columns(cursor, table)
+                pl_col = _first_col(columns, (
+                    'PL', 'PL ID', 'PL_ID', 'Product Line', 'Product_Line',
+                    'product_line', 'productline', 'Program Line', 'program_line',
+                    'chipset', 'software_product', 'software product',
+                ))
+                if not pl_col:
+                    continue
+                cursor.execute(
+                    f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
+                    f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                    f'ORDER BY `{pl_col}` LIMIT 200',
+                    ('',),
+                )
+                for row in cursor.fetchall() or []:
+                    val = str(row.get('pl') or '').strip()
+                    key = val.upper()
+                    if val and key not in seen:
+                        seen.add(key)
+                        pl_values.append(val)
+            except Exception as exc:
+                logger.warning('[BUILD REPORT RUNNING BUILDS] dashboard PL lookup failed for %s: %s', table, exc)
+        return pl_values
+
+    def _cr_lookup_keys(value):
+        raw = re.sub(r'[^A-Z0-9]+', '', str(value or '').upper())
+        if not raw:
+            return set()
+        keys = {raw}
+        digits = ''.join(re.findall(r'\d+', raw))
+        if 5 <= len(digits) <= 10:
+            keys.add(digits)
+            keys.add(f'CR{digits}')
+        if raw.startswith('CR') and raw[2:]:
+            keys.add(raw[2:])
+        return {k for k in keys if k}
+
+    def _build_cr_details_by_build(cursor, dashboard_row, build_names, pl_terms=None):
+        """For each running build, find mapped CRs in jiras/openjiras and enrich from unique_crs."""
+        if not dashboard_row or not build_names:
+            return {}
+        build_names = [str(b or '').strip() for b in build_names if str(b or '').strip()]
+        if not build_names:
+            return {}
+
+        build_to_crs = {b: [] for b in build_names}
+        all_cr_ids = []
+        for suffix in ('jiras', 'openjiras'):
+            table = _fq_from_dashboard(dashboard_row, suffix)
+            if not table:
+                continue
+            try:
+                if not _table_exists(cursor, table):
+                    continue
+                columns = _table_columns(cursor, table)
+                mb_col = _first_col(columns, ('metabuild', 'MetaBuild', 'meta_build', 'build', 'build_id', 'builds'))
+                cr_col = _first_col(columns, ('mapped_cr', 'Mapped CR', 'mapped cr', 'cr', 'cr_number', 'CR', 'Change Request'))
+                ticket_col = _first_col(columns, ('stability_ticket', 'jira_key', 'JIRA', 'key'))
+                pl_col = _first_col(columns, ('PL', 'PL ID', 'PL_ID', 'Product Line', 'Product_Line', 'product_line', 'productline', 'software_product'))
+                if not mb_col or not cr_col:
+                    continue
+                select_parts = [f'`{mb_col}` AS metabuild', f'`{cr_col}` AS cr']
+                select_parts.append(f'`{ticket_col}` AS jira_key' if ticket_col else 'NULL AS jira_key')
+                select_parts.append(f'`{pl_col}` AS pl' if pl_col else 'NULL AS pl')
+                pl_norms = {_product_norm(pl) for pl in (pl_terms or []) if str(pl or '').strip()}
+                for build in build_names:
+                    cursor.execute(
+                        f"SELECT {', '.join(select_parts)} FROM {table} "
+                        f"WHERE `{mb_col}` LIKE %s AND `{cr_col}` IS NOT NULL AND TRIM(`{cr_col}`) <> %s "
+                        f"ORDER BY `{mb_col}` DESC LIMIT 100",
+                        (f'%{build}%', ''),
+                    )
+                    for jr in cursor.fetchall() or []:
+                        if pl_norms and pl_col:
+                            row_pl_norm = _product_norm(jr.get('pl'))
+                            if row_pl_norm and row_pl_norm not in pl_norms:
+                                continue
+                        cr = str(jr.get('cr') or '').strip()
+                        if not cr:
+                            continue
+                        build_to_crs.setdefault(build, []).append({'cr': cr, 'jira_key': _ser(jr.get('jira_key')), 'pl': _ser(jr.get('pl'))})
+                        all_cr_ids.append(cr)
+            except Exception as exc:
+                logger.warning('[BUILD REPORT RUNNING BUILDS] CR lookup failed for %s: %s', table, exc)
+
+        if not all_cr_ids:
+            return {}
+
+        unique_table = _fq_from_dashboard(dashboard_row, 'unique_crs')
+        unique_by_key = {}
+        try:
+            if unique_table and _table_exists(cursor, unique_table):
+                columns = _table_columns(cursor, unique_table)
+                key_cols = [c for c in (
+                    _first_col(columns, ('mapped_cr', 'Mapped CR', 'mapped cr')),
+                    _first_col(columns, ('cr', 'CR')),
+                    _first_col(columns, ('cr_number', 'CR Number', 'stability_ticket')),
+                ) if c]
+                if key_cols:
+                    status_col = _first_col(columns, ('cr_status', 'CR Status', 'status', 'final_status'))
+                    image_col = _first_col(columns, ('si_image', 'SI Image', 'simage', 'image', 'build_image', 'cr_si_image'))
+                    age_col = _first_col(columns, ('cr_age', 'CR Age', 'overall_age', 'age'))
+                    title_col = _first_col(columns, ('cr_title', 'CR Title', 'title', 'jira_title', 'summary'))
+                    wanted = sorted(set().union(*[_cr_lookup_keys(x) for x in all_cr_ids]))
+                    placeholders = ','.join(['%s'] * len(wanted))
+
+                    def _sql_norm(col):
+                        expr = f"UPPER(TRIM(`{col}`))"
+                        for old in (' ', '-', '_', ',', '.0', '.'):
+                            expr = f"REPLACE({expr}, '{old}', '')"
+                        return expr
+
+                    where = ' OR '.join([f'{_sql_norm(c)} IN ({placeholders})' for c in key_cols])
+                    params = tuple(x for _ in key_cols for x in wanted)
+                    key_expr = 'COALESCE(' + ', '.join([f"NULLIF(TRIM(`{c}`), '')" for c in key_cols]) + ') AS cr'
+                    select_parts = [key_expr]
+                    select_parts.append(f'`{status_col}` AS cr_status' if status_col else 'NULL AS cr_status')
+                    select_parts.append(f'`{image_col}` AS si_image' if image_col else 'NULL AS si_image')
+                    select_parts.append(f'`{age_col}` AS cr_age' if age_col else 'NULL AS cr_age')
+                    select_parts.append(f'`{title_col}` AS cr_title' if title_col else 'NULL AS cr_title')
+                    cursor.execute(f"SELECT {', '.join(select_parts)} FROM {unique_table} WHERE {where} LIMIT 1000", params)
+                    for row in cursor.fetchall() or []:
+                        detail = {k: _ser(v) for k, v in row.items()}
+                        for key in _cr_lookup_keys(detail.get('cr')):
+                            unique_by_key.setdefault(key, detail)
+        except Exception as exc:
+            logger.warning('[BUILD REPORT RUNNING BUILDS] unique_cr enrichment failed for %s: %s', unique_table, exc)
+
+        enriched = {}
+        for build, refs in build_to_crs.items():
+            rows = []
+            seen_crs = set()
+            for ref in refs:
+                cr = ref.get('cr') or ''
+                lookup = None
+                for key in _cr_lookup_keys(cr):
+                    lookup = unique_by_key.get(key)
+                    if lookup:
+                        break
+                item = dict(ref)
+                if lookup:
+                    item.update({k: lookup.get(k) for k in ('cr_status', 'si_image', 'cr_age', 'cr_title')})
+                dedup_key = re.sub(r'[^A-Z0-9]+', '', cr.upper())
+                if dedup_key and dedup_key not in seen_crs:
+                    seen_crs.add(dedup_key)
+                    rows.append(item)
+            enriched[build] = rows
+        return enriched
+
+
     q = str(request.args.get('q') or '').strip().lower()
-    target = str(request.args.get('target') or '').strip().upper()
+
+
+    bu_raw = str(request.args.get('bu') or request.args.get('bu_key') or '').strip().upper()
+    target_raw = str(request.args.get('target') or '').strip()
+    target_config_bu = str(get_bu_for_target(target_raw) or '').strip().upper() if target_raw else ''
     limit_raw = request.args.get('limit') or '250'
+
     try:
         limit = max(1, min(int(limit_raw), 500))
+
     except Exception:
         limit = 250
+    target_aliases, target_tokens, target_families = _target_match_terms(target_raw)
+    target_pl_terms = []
 
     conn = None
+
+
     cur = None
     try:
         conn = get_mysql_connection_db(bu_key=None)
         if not conn:
-            return jsonify({'ok': False, 'error': 'DB connection failed', 'builds': []}), 500
+            return jsonify({'ok': False, 'error': 'DB connection failed', 'builds': []}), 500      
         cur = conn.cursor(dictionary=True)
+
+        dashboard_target = _dashboard_status_target(cur, target_raw, bu_raw)
+        if dashboard_target:
+            target_config_bu = str(dashboard_target.get('bu') or target_config_bu or '').strip().upper()
+            dashboard_aliases = [
+                target_raw,
+                dashboard_target.get('target_name'), dashboard_target.get('target_display'),
+                dashboard_target.get('db_name'), dashboard_target.get('sp_name'),
+                dashboard_target.get('program'), dashboard_target.get('cpl'),
+            ]
+            # Prefer the active dashboard_status row over the in-memory metadata
+            # cache. The cache can contain inactive/stale rows, which previously
+            # allowed Maili to inherit Hawi aliases and therefore Hawi builds.
+            target_aliases, target_tokens, target_families = _terms_from_aliases(dashboard_aliases)
+
+        target_pl_terms = _target_pl_terms_from_dashboard(cur, dashboard_target) if dashboard_target else _target_pl_terms(cur, target_raw)
+        for pl in target_pl_terms:
+
+            if pl not in target_aliases:
+                target_aliases.append(pl)
+            fam = _family_prefix(pl)
+            if fam and fam not in target_families:
+                target_families.append(fam)
+            for tok in re.split(r'[^A-Z0-9]+', str(pl or '').upper()):
+                if len(tok) >= 3 and tok not in target_tokens:
+                    target_tokens.append(tok)
+
         cur.execute("""
-            SELECT job_id, build_id, build_name, software_product,
-                   taxonomy_path, team, state, device_count,
+
+            SELECT MAX(updated_at) AS axiom_last_updated_at,
+                   MAX(fetched_at) AS axiom_last_fetched_at,
+                   MAX(submitted_at) AS latest_submitted_at,
+                   MAX(started_at) AS latest_started_at,
+                   COUNT(*) AS active_total
+                        FROM `pdt_stats_dashboard`.`axiom_job_summary`
+            WHERE state = 'Running'
+        """)
+
+        meta = cur.fetchone() or {}
+
+        # Important: do not SQL-limit to 300 before target filtering. Across all
+        # programs there can be >1000 active rows, so a target can be missed.
+        candidate_limit = limit if not target_raw else 10000
+        cur.execute("""
+                                                SELECT job_id, build_id, build_name, software_product,
+                   taxonomy_path, team, state, device_count, chip_ids,
                    submitted_at, started_at, ended_at,
-                   product_flavor, submitter, site
+                   product_flavor, submitter, site, updated_at, fetched_at
+
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
-            WHERE state IN ('Running','JobSetup','Submitted','Dispatched')
+            WHERE state = 'Running'
             ORDER BY COALESCE(started_at, submitted_at) DESC
             LIMIT %s
-        """, (limit,))
+        """, (candidate_limit,))
+
         rows = cur.fetchall() or []
         out = []
-        seen = set()
+        by_build = {}
+        matched_before_limit = 0
+
         for r in rows:
             build_full = str(r.get('build_name') or r.get('build_id') or '').strip()
             build = _tail(build_full)
@@ -839,33 +1314,133 @@ def api_build_report_running_builds():
             hay = ' '.join(str(r.get(k) or '') for k in (
                 'build_id', 'build_name', 'software_product', 'taxonomy_path',
                 'team', 'state', 'product_flavor', 'submitter', 'site'
-            )).lower()
-            if q and q not in hay and q not in build.lower():
+                        ))
+            hay_lower = hay.lower()
+
+            if q and q not in hay_lower and q not in build.lower():
                 continue
-            if target:
-                tokens = [t for t in re.split(r'[^A-Z0-9]+', target) if len(t) >= 3]
-                if tokens and not any(t.lower() in hay for t in tokens):
+
+            if target_raw:
+                hay_upper = (hay + ' ' + build).upper()
+                hay_norm = _product_norm(hay + ' ' + build)
+                alias_hit = any(str(alias or '').upper() in hay_upper for alias in target_aliases if str(alias or '').strip())
+
+                family_hit = any(fam and fam in hay_norm for fam in target_families)
+                token_hit = any(tok in hay_upper for tok in target_tokens)
+                # When the selected dashboard target has PL/Product Line values,
+                # filter Axiom rows strictly by axiom_job_summary.software_product.
+                # Do not let broad HGY/Nord/family/build-name matches pull in
+                # sibling products such as SA8797P.HGY or SA8797P_FLEX.HGY for
+                # an ADAS target whose PL is SA8797P_ADAS.HGY...
+                sp_norm = _product_norm(r.get('software_product'))
+                pl_hit = any(
+                    pl_norm and (sp_norm == pl_norm or sp_norm.startswith(pl_norm + '.'))
+                    for pl_norm in (_product_norm(pl) for pl in target_pl_terms)
+                )
+                if target_pl_terms:
+                    if not pl_hit:
+                        continue
+                elif not alias_hit and not family_hit and not token_hit:
                     continue
+
+
+
+
+            matched_before_limit += 1
+
             key = build.upper()
-            if key in seen:
+            chip_ids = _chip_ids(r.get('chip_ids'))
+            device_count = len(chip_ids) if chip_ids else int(r.get('device_count') or 0)
+            existing = by_build.get(key)
+            if existing:
+                existing['job_count'] = int(existing.get('job_count') or 1) + 1
+                if _ser(r.get('job_id')):
+                    existing.setdefault('job_ids', []).append(_ser(r.get('job_id')))
+                existing_chips = existing.setdefault('chip_ids', [])
+                existing_chip_keys = {str(c or '').upper() for c in existing_chips}
+                for chip in chip_ids:
+                    if chip.upper() not in existing_chip_keys:
+                        existing_chips.append(chip)
+                        existing_chip_keys.add(chip.upper())
+                if existing_chips:
+                    existing['device_count'] = len(existing_chips)
+                else:
+                    existing['device_count'] = int(existing.get('device_count') or 0) + device_count
                 continue
-            seen.add(key)
-            out.append({
+
+            if len(out) >= limit:
+                continue
+            item = {
                 'job_id': _ser(r.get('job_id')),
+                'job_ids': [_ser(r.get('job_id'))] if _ser(r.get('job_id')) else [],
+                                'job_count': 1,
+                'chip_ids': chip_ids,
                 'build': build,
+
                 'build_full': build_full,
                 'software_product': _ser(r.get('software_product')),
                 'taxonomy_path': _ser(r.get('taxonomy_path')),
                 'team': _ser(r.get('team')),
                 'state': _ser(r.get('state')),
-                'device_count': int(r.get('device_count') or 0),
+                'device_count': device_count,
                 'submitted_at': _ser(r.get('submitted_at')),
                 'started_at': _ser(r.get('started_at')),
                 'product_flavor': _ser(r.get('product_flavor')),
                 'submitter': _ser(r.get('submitter')),
                 'site': _ser(r.get('site')),
-            })
-        return jsonify({'ok': True, 'builds': out, 'count': len(out), 'source': 'pdt_stats_dashboard.axiom_job_summary'})
+                'updated_at': _ser(r.get('updated_at')),
+                'fetched_at': _ser(r.get('fetched_at')),
+            }
+            by_build[key] = item
+            out.append(item)
+
+        cr_by_build = _build_cr_details_by_build(cur, dashboard_target, [row.get('build') for row in out], target_pl_terms)
+        for row in out:
+            cr_rows = cr_by_build.get(row.get('build')) or []
+            row['crs'] = cr_rows
+            row['cr_count'] = len(cr_rows)
+            row['cr_statuses'] = ', '.join(sorted({str(c.get('cr_status') or '').strip() for c in cr_rows if str(c.get('cr_status') or '').strip()}))
+            row['si_images'] = ', '.join(sorted({str(c.get('si_image') or '').strip() for c in cr_rows if str(c.get('si_image') or '').strip()}))
+            row['cr_ages'] = ', '.join(sorted({str(c.get('cr_age') or '').strip() for c in cr_rows if str(c.get('cr_age') or '').strip()}))
+        return jsonify({
+
+            'ok': True,
+            'builds': out,
+            'count': len(out),
+            'matched_before_limit': matched_before_limit,
+            'candidate_count': len(rows),
+                        'limit': limit,
+            'bu': bu_raw,
+                        'target': target_raw,
+            'target_bu': target_config_bu,
+            'dashboard_target': {
+                'bu': (dashboard_target or {}).get('bu') or '',
+                'target_name': (dashboard_target or {}).get('target_name') or '',
+                'db_name': (dashboard_target or {}).get('db_name') or '',
+                'target_display': (dashboard_target or {}).get('target_display') or '',
+                'sp_name': (dashboard_target or {}).get('sp_name') or '',
+            },
+            'target_tables': {
+                'jiras': _fq_from_dashboard(dashboard_target, 'jiras') if dashboard_target else '',
+                'openjiras': _fq_from_dashboard(dashboard_target, 'openjiras') if dashboard_target else '',
+                'unique_crs': _fq_from_dashboard(dashboard_target, 'unique_crs') if dashboard_target else '',
+            },
+            'target_aliases': target_aliases,
+
+
+            'target_tokens': target_tokens,
+
+            'target_families': target_families,
+            'target_pl_terms': target_pl_terms,
+            'source': 'pdt_stats_dashboard.axiom_job_summary',
+
+            'axiom_last_updated_at': _ser(meta.get('axiom_last_updated_at')),
+
+            'axiom_last_fetched_at': _ser(meta.get('axiom_last_fetched_at')),
+            'latest_submitted_at': _ser(meta.get('latest_submitted_at')),
+            'latest_started_at': _ser(meta.get('latest_started_at')),
+            'active_total': int(meta.get('active_total') or 0),
+        })
     except Exception as exc:
         logger.exception('[BUILD REPORT RUNNING BUILDS] %s', exc)
         return jsonify({'ok': False, 'error': str(exc), 'builds': []}), 500
@@ -874,6 +1449,9 @@ def api_build_report_running_builds():
             cur.close()
         if conn:
             conn.close()
+
+
+
 
 
 

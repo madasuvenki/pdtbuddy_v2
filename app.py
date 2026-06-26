@@ -8420,10 +8420,10 @@ if __name__ == '__main__':
     logger.debug("app.py started executing")
     os.makedirs('temp_reports', exist_ok=True)
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

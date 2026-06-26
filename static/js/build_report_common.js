@@ -79,8 +79,10 @@
       orbit: options.orbit !== false,
       target: options.target || '',
       force: options.force !== false,
-      custom_jql: jql
+      custom_jql: jql,
+      include_axiom_metrics: options.include_axiom_metrics !== false
     };
+    if(options.axiom_taxonomy_path) payload.axiom_taxonomy_path = options.axiom_taxonomy_path;
     if(options.domain) payload.domain = options.domain;
     if(options.use_domain_tables) payload.use_domain_tables = true;
     var resp = await fetch('/api/consolidated_report', {

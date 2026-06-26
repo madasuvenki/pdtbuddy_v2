@@ -493,7 +493,7 @@
                                     <th class="pcr-col-si">SI</th>
             <th class="pcr-col-ready sortable" onclick="pcrSort('si_ready_date')">Ready Date <span class="sort-icon" id="sort-si_ready_date"></span></th>
            
-            <th class="pcr-col-date sortable" onclick="pcrSort('built_date')">Built Date <span class="sort-icon" id="sort-built_date"></span></th>
+                        <th class="pcr-col-date sortable" onclick="pcrSort('built_date')">Build Date <span class="sort-icon" id="sort-built_date"></span></th>
  {% if is_compute_target %}<th class="pcr-col-crtag sortable" onclick="pcrSort('cr_tag')">CR TAG <span class="sort-icon" id="sort-cr_tag"></span></th>{% endif %}
                         <th class="pcr-col-pdttag">PDT Tag</th>
 
@@ -1116,9 +1116,12 @@
         ? String(r.cr_tag).split(',').map(x=>x.trim()).filter(Boolean).map(g => '<span class="pcr-crtag-pill" title="'+esc(r.cr_tag_alias||'')+'"><i class="fas fa-tags" style="font-size:9px;"></i>'+esc(g)+'</span>').join(' ')
         : '<span style="color:#cbd5e1;">&mdash;</span>';
 
-      const pdtTagCell = hits > 10
-        ? '<span class="pcr-p1-tag"><i class="fas fa-fire" style="font-size:9px;"></i>PDT_P1</span>'
-        : '<span style="color:#cbd5e1;">&mdash;</span>';
+            const pdtPriorityTag = String(r.pdt_priority_tag||'').trim();
+      const pdtTagCell = pdtPriorityTag && pdtPriorityTag.toLowerCase() !== 'none' && pdtPriorityTag.toLowerCase() !== 'na'
+        ? '<span class="pcr-p1-tag"><i class="fas fa-fire" style="font-size:9px;"></i>'+esc(pdtPriorityTag)+'</span>'
+        : (hits > 10
+          ? '<span class="pcr-p1-tag"><i class="fas fa-fire" style="font-size:9px;"></i>PDT_P1</span>'
+          : '<span style="color:#cbd5e1;">&mdash;</span>');
             return '<tr>'
 
         +'<td class="pcr-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;background:inherit;">'+(start+i+1)+'</td>'
@@ -1131,12 +1134,11 @@
         +'<td class="pcr-col-age">'+(age>0?'<span class="pcr-age '+ageClass(age)+'">'+age+'d</span>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-status"><span class="pcr-badge '+badgeClass(r.cr_status)+'">'+(esc(r.cr_status)||'&mdash;')+'</span></td>'
                                 +'<td class="pcr-col-si">'+siCell+'</td>'
-        +'<td class="pcr-col-ready" id="pcr-ready-'+crNum+'" title="'+esc(readyTitle)+'" style="font-size:11px;color:'+(readyDate==='NA'?'#94a3b8':'#047857')+';font-weight:800;">'+esc(readyDate)+'</td>'
+                +'<td class="pcr-col-ready" id="pcr-ready-'+crNum+'" title="'+esc(readyTitle)+'" style="font-size:11px;color:'+(readyDate==='NA'?'#94a3b8':'#047857')+';font-weight:800;">'+esc(readyDate)+'</td>'
+        +'<td class="pcr-col-date" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:600;">'+(builtD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +(IS_COMPUTE_TARGET?'<td class="pcr-col-crtag" style="text-align:center;">'+crTagCell+'</td>':'')
 
         +'<td class="pcr-col-pdttag" style="text-align:center;">'+pdtTagCell+'</td>'
-
-        +'<td class="pcr-col-date" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:600;">'+(builtD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-lastjira" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:700;">'+(lastD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'<td class="pcr-col-lastjira">'+(lastJira?'<a href="'+lastJiraUrl+'" target="_blank" class="pcr-cr-id" style="color:#0ea5e9;background:#ecfeff;">'+esc(lastJira)+'</a>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
         +'</tr>';
@@ -1659,7 +1661,7 @@
         return;
       }
     }
-    if(!_pcrPickedCrs.size){
+        if(!_pcrPickedCrs.size){
       validMsg.textContent = 'No CRs selected in Section A.';
       return;
     }
@@ -1699,16 +1701,20 @@
     })();
   };
 
-  /* ── Copy Table for Outlook ── */
-  /* ── Export to Excel ── */
+  function pcrDisplayPdtTag(r){
+    const tag = String((r||{}).pdt_priority_tag||'').trim();
+    if(tag && tag.toLowerCase() !== 'none' && tag.toLowerCase() !== 'na') return tag;
+    return numVal((r||{}).cr_occurrence)>10 ? 'PDT_P1' : '';
+  }
+
   window.pcrExportExcel = function(){
     const rows = filtered.length ? filtered : allRows;
     if(!rows.length){ alert('No data to export.'); return; }
     const btn = document.getElementById('pcrExportExcelBtn');
     const origLabel = btn ? btn.innerHTML : '';
-        const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date']
+    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date','Build Date']
       .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
-      .concat(['PDT Tag','Built Date','Last Reported Date','Last Reported JIRA']);
+      .concat(['PDT Tag','Last Reported Date','Last Reported JIRA']);
 
     function cellVal(r, col){
       switch(col){
@@ -1721,13 +1727,12 @@
         case 'JIRA Hits':          return String(numVal(r.cr_occurrence)||0);
         case 'Age (days)':         return numVal(r.cr_age)>0 ? String(numVal(r.cr_age)) : '';
         case 'Status':             return r.cr_status || '';
-                case 'SI':                 return r.cr_si || '';
+        case 'SI':                 return r.cr_si || '';
         case 'Ready Date':         return r.si_ready_date || 'NA';
+        case 'Build Date':         return dateOnly(r.built_date)||'';
         case 'CR TAG':             return r.cr_tag || '';
-
         case 'CR TAG Alias':       return r.cr_tag_alias || '';
-        case 'PDT Tag':            return numVal(r.cr_occurrence)>10 ? 'PDT_P1' : '';
-        case 'Built Date':         return dateOnly(r.built_date)||'';
+        case 'PDT Tag':            return pcrDisplayPdtTag(r);
         case 'Last Reported Date': return dateOnly(r.last_reported_date||r.jira_date_last)||'';
         case 'Last Reported JIRA': return r.last_reported_jira||'';
         default: return '';
@@ -1753,7 +1758,7 @@
         if(col==='Status')     extra=statusStyle(r.cr_status);
         if(col==='Ready Date') extra=(val && val !== 'NA' ? 'background:#ecfdf5;color:#047857;font-weight:800;text-align:center;' : 'color:#94a3b8;text-align:center;');
         if(col==='CR TAG')     extra='background:#ecfeff;color:#0e7490;font-weight:900;text-align:center;';
-        if(col==='PDT Tag'&&val==='PDT_P1') extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;';
+        if(col==='PDT Tag'&&val) extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;';
         if(col==='#')          extra='color:#94a3b8;font-size:11px;text-align:center;';
         tbody += '<td style="'+tdBase+extra+'">'+esc(val)+'</td>';
       });
@@ -1778,9 +1783,9 @@
     const rows = filtered.length ? filtered : allRows;
     if(!rows.length){ alert('No data to copy.'); return; }
 
-    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date']
+    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date','Build Date']
       .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
-      .concat(['PDT Tag','Built Date','Last Reported Date','Last Reported JIRA']);
+      .concat(['PDT Tag','Last Reported Date','Last Reported JIRA']);
 
     const thStyle = 'padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;border:1px solid #1e3a5f;background:#1e3a5f;color:#f0f9ff;';
     const tdBase  = 'padding:7px 11px;font-size:12px;border:1px solid #e2e8f0;vertical-align:middle;';
@@ -1799,10 +1804,10 @@
         case 'Status': return r.cr_status || '';
         case 'SI': return r.cr_si || '';
         case 'Ready Date': return r.si_ready_date || 'NA';
+        case 'Build Date': return dateOnly(r.built_date)||'';
         case 'CR TAG': return r.cr_tag || '';
         case 'CR TAG Alias': return r.cr_tag_alias || '';
-        case 'PDT Tag': return numVal(r.cr_occurrence)>10 ? 'PDT_P1' : '';
-        case 'Built Date': return dateOnly(r.built_date)||'';
+        case 'PDT Tag': return pcrDisplayPdtTag(r);
         case 'Last Reported Date': return dateOnly(r.last_reported_date||r.jira_date_last)||'';
         case 'Last Reported JIRA': return r.last_reported_jira||'';
         default: return '';
@@ -1836,7 +1841,7 @@
         if(col==='Ready Date') { extra=(val && val !== 'NA' ? 'background:#ecfdf5;color:#047857;font-weight:800;text-align:center;' : 'color:#94a3b8;text-align:center;'); }
         if(col==='CR TAG') { extra='background:#ecfeff;color:#0e7490;font-weight:900;text-align:center;'; }
         if(col==='CR TAG Alias') { extra='color:#0e7490;font-weight:700;'; }
-        if(col==='PDT Tag' && val==='PDT_P1') { extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;'; }
+        if(col==='PDT Tag' && val) { extra='background:#fee2e2;color:#b91c1c;font-weight:900;text-align:center;'; }
 
         if(col==='CR ID'){
           const oid = String(r.cr_id||'').replace(/^CR/i,'');
@@ -1907,4 +1912,5 @@
 })();
 </script>
 {% endblock %}
+
 

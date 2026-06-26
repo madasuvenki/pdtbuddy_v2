@@ -6880,6 +6880,235 @@ def api_consolidated_report_status():
         return jsonify({'ok': False, 'configured': False, 'error': str(exc)}), 500
 
 
+def _extract_axiom_meta_ids_from_jql(jql: str):
+    """Extract likely meta/build IDs from direct JQL summary clauses.
+
+    Handles examples like:
+      summary ~ "Glymur.WP.1.0.r0-05125.13-MAH.INT-1"
+      summary ~ Maili.LA.1.0-00129-STD.INT-1
+    """
+    import re as _re
+    text = str(jql or "")
+    out, seen = [], set()
+
+    def _add(value):
+        v = str(value or "").strip().strip('"').strip("'")
+        if not v or v.lower() in ("tombstone", "target stability"):
+            return
+        # Meta/build IDs normally contain both dots and dashes and at least one digit.
+        if not ("." in v and "-" in v and _re.search(r"\d", v)):
+            return
+        key = v.upper()
+        if key not in seen:
+            seen.add(key); out.append(v)
+
+    for m in _re.finditer(r"summary\s*~\s*(['\"])(.*?)\1", text, flags=_re.I):
+        _add(m.group(2))
+    for m in _re.finditer(r"summary\s*~\s*([^\s\)]+)", text, flags=_re.I):
+        _add(m.group(1))
+
+    # Fallback: scan all tokens for typical build/meta shape.
+    token_re = r"\b[A-Za-z0-9][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+(?:-[A-Za-z0-9_.]+)+\b"
+    for m in _re.finditer(token_re, text):
+        _add(m.group(0))
+    return out
+
+
+def _fetch_axiom_stability_metrics_for_meta_ids(meta_ids, taxonomy_path=None, max_workers=8, start_date=None):
+    """Create an Axiom stability report instance and fetch metrics for meta IDs.
+
+    Correct Axiom sequence:
+      POST /stabilityreport -> reportId
+      POST /stabilityreport/{reportId}/instances -> instanceId
+      poll GET /stabilityreport/{reportId}/instances until Completed
+      GET /stabilityreport/{reportId}/instances/{instanceId}/metrics
+    """
+    import base64 as _base64, http.client as _http_client, json as _json
+    import os as _os, re as _re, ssl as _ssl, time as _time
+    import urllib.parse as _urlparse, uuid as _uuid
+    from datetime import datetime as _datetime, timezone as _timezone, timedelta as _timedelta
+
+    unique = []
+    seen = set()
+    for m in (meta_ids or []):
+        s = str(m or "").strip()
+        if s and s.upper() not in seen:
+            seen.add(s.upper())
+            unique.append(s)
+    if not unique:
+        return {}
+
+    host = (_os.getenv("AXIOM_API_HOST") or "api-int.qualcomm.com").replace("https://", "").replace("http://", "").strip("/")
+    if not host or "qualcomm" not in host.lower():
+        host = "api-int.qualcomm.com"
+    app_name = _os.getenv("AXIOM_APP_NAME", "Axiom_public-pdt-pcie").strip() or "Axiom_public-pdt-pcie"
+    client_id = _os.getenv("AXIOM_CLIENT_ID", "").strip()
+    client_secret = _os.getenv("AXIOM_CLIENT_SECRET", "").strip()
+    taxonomy = str(taxonomy_path or _os.getenv("AXIOM_STABILITY_TAXONOMY_PATH") or _os.getenv("AXIOM_TAXONOMY_PATH_SW") or "/PDT").strip() or "/PDT"
+
+    if not client_id or not client_secret:
+        return {m: {"ok": False, "matched": False, "taxonomyPath": taxonomy, "error": "AXIOM_CLIENT_ID / AXIOM_CLIENT_SECRET missing"} for m in unique}
+
+    def _default_start_date():
+        configured = str(start_date or _os.getenv("AXIOM_STABILITY_START_DATE") or "").strip()
+        if configured:
+            return configured
+        now = _datetime.now(_timezone.utc)
+        if now.day >= 24:
+            return now.replace(day=24, hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        return (now - _timedelta(days=27)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    def _runtime_hours_label(value):
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return "--"
+        days = hours = minutes = 0.0
+        m = _re.search(r"(\d+(?:\.\d+)?)\s*day", raw)
+        if m: days = float(m.group(1))
+        m = _re.search(r"(\d+(?:\.\d+)?)\s*hr", raw)
+        if m: hours = float(m.group(1))
+        m = _re.search(r"(\d+(?:\.\d+)?)\s*min", raw)
+        if m: minutes = float(m.group(1))
+        total = days * 24.0 + hours + minutes / 60.0
+        if total <= 0:
+            return raw
+        return f"{total:.1f} hr" if abs(total - round(total)) >= 0.05 else f"{int(round(total))} hr"
+
+    ctx = _ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl.CERT_NONE
+
+    def _request(method, path, token=None, json_body=None):
+        if token:
+            headers = {
+                "Authorization": f"Bearer {token}", "Accept": "application/json",
+                "X-QCOM-AppName": app_name, "X-QCOM-TokenType": "OAuth",
+                "X-QCOM-ClientType": "Python", "X-QCOM-TracingID": _uuid.uuid4().hex,
+            }
+            body = ""
+            if json_body is not None:
+                headers["Content-Type"] = "application/json"
+                body = _json.dumps(json_body).encode("utf-8")
+        else:
+            headers = {"Authorization": "Basic " + _base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()}
+            body = ""
+        conn = _http_client.HTTPSConnection(host, timeout=180, context=ctx)
+        try:
+            conn.request(method, path, body=body, headers=headers)
+            resp = conn.getresponse()
+            text = resp.read().decode("utf-8", errors="ignore")
+            return resp.status, text
+        finally:
+            conn.close()
+
+    def _data_list(payload):
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if isinstance(data, list): return data
+        if isinstance(data, dict): return [data]
+        return []
+
+    def _fail_all(error, **extra):
+        return {m: {"ok": False, "matched": False, "metaId": m, "taxonomyPath": taxonomy, "metrics": [], "error": error, **extra} for m in unique}
+
+    st, body = _request("POST", "/ent/oauth/v1/accesstoken?grant_type=client_credentials")
+    if st != 200:
+        return _fail_all(f"Axiom token HTTP {st}: {body[:250]}")
+    try:
+        token = (_json.loads(body) or {}).get("access_token")
+    except Exception:
+        token = None
+    if not token:
+        return _fail_all("Axiom token response missing access_token")
+
+    report_body = {
+        "reportType": "ByBuilds",
+        "buildInfo": {"buildType": "MetaId", "metaIdBuilds": unique},
+        "taxonomy": taxonomy,
+        "startDate": _default_start_date(),
+        "published": "All",
+        "typesOfCrash": "All",
+        "buildComposition": "All",
+        "softwareImages": [],
+    }
+    st, body = _request("POST", "/axiom/v1/public/stabilityreport", token, report_body)
+    if st not in (200, 201, 202):
+        return _fail_all(f"stabilityreport POST HTTP {st}: {body[:300]}", requestBody=report_body)
+    try:
+        payload = _json.loads(body) or {}
+        report_id = payload.get("reportId") or ((payload.get("data") or {}).get("reportId") if isinstance(payload.get("data"), dict) else None)
+    except Exception:
+        report_id = None
+    if not report_id:
+        return _fail_all("stabilityreport POST did not return reportId", requestBody=report_body, response=body[:300])
+
+    st, body = _request("POST", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances", token, None)
+    if st not in (200, 201, 202):
+        return _fail_all(f"instances POST HTTP {st}: {body[:300]}", reportId=str(report_id), requestBody=report_body)
+    try:
+        payload = _json.loads(body) or {}
+        instance_id = payload.get("instanceId") or ((payload.get("data") or {}).get("instanceId") if isinstance(payload.get("data"), dict) else None)
+    except Exception:
+        instance_id = None
+    if not instance_id:
+        return _fail_all("instances POST did not return instanceId", reportId=str(report_id), response=body[:300])
+
+    poll_seconds = int(_os.getenv("AXIOM_STABILITY_POLL_SECONDS", "120") or "120")
+    interval = max(2, int(_os.getenv("AXIOM_STABILITY_POLL_INTERVAL", "5") or "5"))
+    deadline = _time.time() + max(interval, poll_seconds)
+    instance_status = "InProgress"
+    while _time.time() < deadline:
+        st, body = _request("GET", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances?pageNumber=0&pageSize=50", token)
+        if st == 200:
+            try:
+                instances = _data_list(_json.loads(body))
+            except Exception:
+                instances = []
+            for inst in instances:
+                iid = inst.get("instanceId") or inst.get("id") or inst.get("instance_id")
+                if str(iid) == str(instance_id):
+                    instance_status = str(inst.get("status") or instance_status)
+                    break
+            if instance_status.lower() == "completed":
+                break
+            if instance_status.lower() in ("failed", "error"):
+                return _fail_all(f"Axiom instance status: {instance_status}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
+        _time.sleep(interval)
+
+    if instance_status.lower() != "completed":
+        return _fail_all(f"Axiom instance not completed yet: {instance_status}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
+
+    q = _urlparse.urlencode({"pageNumber": 0, "pageSize": 500})
+    st, body = _request("GET", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances/{_urlparse.quote(str(instance_id), safe='')}/metrics?{q}", token)
+    if st != 200:
+        return _fail_all(f"metrics HTTP {st}: {body[:300]}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
+    try:
+        metrics = _data_list(_json.loads(body))
+    except Exception as exc:
+        return _fail_all(f"Unable to parse metrics response: {exc}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
+
+    by_meta = {}
+    for metric in metrics:
+        key = str(metric.get("meta") or "").strip().upper()
+        if not key:
+            continue
+        enriched = dict(metric)
+        enriched["runtimeHours"] = _runtime_hours_label(metric.get("runtime"))
+        enriched["deviceCount"] = metric.get("uniqueDevices")
+        by_meta.setdefault(key, []).append(enriched)
+
+    results = {}
+    for meta_id in unique:
+        matches = by_meta.get(meta_id.upper(), [])
+        results[meta_id] = {
+            "ok": bool(matches), "matched": bool(matches), "metaId": meta_id,
+            "taxonomyPath": taxonomy, "reportId": str(report_id), "instanceId": str(instance_id),
+            "instanceStatus": instance_status, "requestBody": report_body, "metrics": matches,
+        }
+        if not matches:
+            results[meta_id]["error"] = "No Axiom metric row matched requested metaId"
+    return results
+
+
 @dashboard_bp.route("/api/consolidated_report", methods=["GET", "POST"])
 @login_required
 def api_consolidated_report():
@@ -6904,7 +7133,9 @@ def api_consolidated_report():
         do_orbit  = bool(body.get("orbit",    True))
         target    = (body.get("target") or "").strip()
         force      = bool(body.get("force",    False))
-        custom_jql = (body.get("custom_jql") or "").strip()
+        custom_jql = (body.get("custom_jql") or body.get("jql") or "").strip()
+        axiom_taxonomy_path = (body.get("axiom_taxonomy_path") or body.get("taxonomyPath") or body.get("taxonomy_path") or "").strip()
+        include_axiom_metrics = body.get("include_axiom_metrics", True)
         domain = (body.get("domain") or "").strip().upper()
         use_domain_tables = bool(body.get("use_domain_tables") or body.get("domain_tables") or body.get("core_deck_domain_tables"))
     else:
@@ -6914,12 +7145,19 @@ def api_consolidated_report():
         do_orbit  = request.args.get("orbit",    "1") != "0"
         target    = (request.args.get("target") or "").strip()
         force      = request.args.get("force",    "0") != "0"
-        custom_jql = (request.args.get("custom_jql") or "").strip()
+        custom_jql = (request.args.get("custom_jql") or request.args.get("jql") or "").strip()
+        axiom_taxonomy_path = (request.args.get("axiom_taxonomy_path") or request.args.get("taxonomyPath") or request.args.get("taxonomy_path") or "").strip()
+        include_axiom_metrics = request.args.get("include_axiom_metrics", "1") != "0"
         domain = (request.args.get("domain") or "").strip().upper()
         use_domain_tables = request.args.get("use_domain_tables", "0") != "0"
 
     if isinstance(raw, str):
-        raw = [b.strip() for b in raw.split(",") if b.strip()]
+        raw = [b.strip() for b in raw.replace("\n", ",").split(",") if b.strip()]
+    # If user pasted direct JQL only, extract build/meta IDs from summary clauses
+    # so Axiom stability metrics can be fetched for those builds.
+    extracted_from_jql = _extract_axiom_meta_ids_from_jql(custom_jql) if custom_jql else []
+    if not raw and extracted_from_jql:
+        raw = extracted_from_jql[:]
     if not raw and not custom_jql:
         return jsonify({"error": "'builds' or 'custom_jql' param required"}), 400
 
@@ -6978,6 +7216,19 @@ def api_consolidated_report():
                 progress     = pt,
                 custom_jql   = custom_jql or None,
             )
+            report_meta = report.setdefault('meta', {})
+            report_meta['build_ids'] = raw
+            if extracted_from_jql:
+                report_meta['build_ids_extracted_from_jql'] = extracted_from_jql
+            if include_axiom_metrics:
+                try:
+                    metrics = _fetch_axiom_stability_metrics_for_meta_ids(raw, taxonomy_path=axiom_taxonomy_path or None)
+                    report['axiom_metrics'] = metrics
+                    report.setdefault('summary', {})['axiom_metrics_found'] = sum(1 for v in metrics.values() if isinstance(v, dict) and v.get('matched'))
+                    report.setdefault('summary', {})['axiom_metrics_requested'] = len(metrics)
+                except Exception as me:
+                    logger.warning(f"[consolidated_report] Axiom metrics enrichment failed: {me}")
+                    report['axiom_metrics_error'] = str(me)
             # save to disk
             try:
                 with open(cache_path, 'w', encoding='utf-8') as fh:
@@ -7226,6 +7477,15 @@ def api_pdt_crs(target_name):
             a = alias or name
             return f"`{name}` AS `{a}`" if name in cols else f"NULL AS `{a}`"
 
+        def _coalesce_col(names, alias):
+            available = [n for n in names if n in cols]
+            if not available:
+                return f"NULL AS `{alias}`"
+            if len(available) == 1:
+                return f"`{available[0]}` AS `{alias}`"
+            return "COALESCE(" + ", ".join(f"`{n}`" for n in available) + f") AS `{alias}`"
+
+
 
         last_jira_col = next(
             (c for c in ("jira_date__last_instance", "qstability__last_instance", "jira_date_last_instance", "jira_date_last") if c in cols),
@@ -7243,7 +7503,8 @@ def api_pdt_crs(target_name):
             _col("cr_age"),
             _col("cr_status"),
             _col("image", "cr_si"),
-            _col("built_date"),
+            _coalesce_col(("built_date", "build_date", "cr_built_date", "cr_date", "date_added__created"), "built_date"),
+            _coalesce_col(("pdt_priority_tag", "pdt_tag", "pdt_priority"), "pdt_priority_tag"),
             last_jira_sel,
             _col("cr_category"),
         ])
