@@ -6,13 +6,14 @@
   <title>Build Report</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}th{position:sticky;top:0;background:#f1f5ff;color:#4338ca;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:230px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}th{position:sticky;top:0;background:#f1f5ff;color:#4338ca;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:360px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
   </style>
   <style>
     :root{--br-ink:#172033;--br-navy:#172554;--br-indigo:#4f46e5;--br-violet:#7c3aed;--br-fuchsia:#c026d3;--br-cyan:#0891b2;--br-emerald:#059669;--br-amber:#d97706;--br-gold:#b45309;--br-line:rgba(99,102,241,.18);--br-shadow:0 18px 55px rgba(23,37,84,.13)}
     body{background:radial-gradient(circle at 8% -4%,rgba(124,58,237,.18),transparent 30%),radial-gradient(circle at 96% 0%,rgba(8,145,178,.16),transparent 28%),linear-gradient(135deg,#f8fafc 0%,#f1f5ff 45%,#faf5ff 100%);color:var(--br-ink)}
     .wrap{padding:18px;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0))}.hero{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(238,242,255,.9) 48%,rgba(250,245,255,.96));box-shadow:var(--br-shadow)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(79,70,229,.12),transparent 42%,rgba(217,119,6,.10));pointer-events:none}.hero:after{content:"";position:absolute;right:-70px;top:-80px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(192,38,211,.18),transparent 68%)}.eyebrow{color:var(--br-violet)}.hero h1{color:var(--br-navy);text-shadow:0 1px 0 #fff}.card{border:1px solid rgba(199,210,254,.68);background:rgba(255,255,255,.92);box-shadow:var(--br-shadow);backdrop-filter:blur(10px)}.card-h{background:linear-gradient(90deg,#eef2ff,#faf5ff 58%,#fff7ed);border-bottom:1px solid rgba(199,210,254,.55)}.card-h h2{color:var(--br-navy)}.card-h h2 i,.cri-card-title i{color:var(--br-violet)}select,input,textarea{border-color:#d8def8;background:linear-gradient(180deg,#fff,#fbfdff)}select:focus,input:focus,textarea:focus{border-color:var(--br-violet);box-shadow:0 0 0 4px rgba(124,58,237,.12)}.btn{border-color:#d8def8;background:linear-gradient(135deg,#fff,#f8fafc);color:#334155;box-shadow:0 5px 14px rgba(23,37,84,.05)}.btn-primary{background:linear-gradient(135deg,var(--br-indigo),var(--br-violet) 55%,var(--br-fuchsia));box-shadow:0 12px 24px rgba(124,58,237,.26)}.btn-good{background:linear-gradient(135deg,var(--br-emerald),#14b8a6);box-shadow:0 12px 22px rgba(5,150,105,.18)}.pill{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-color:#c7d2fe;color:#4338ca;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.pill.good{background:linear-gradient(135deg,#ecfdf5,#ccfbf1);border-color:#99f6e4;color:#047857}.pill.warn{background:linear-gradient(135deg,#fff7ed,#fef3c7);border-color:#fed7aa;color:#b45309}.check-pill{border-color:#c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);color:#3730a3}.build-picker{border-color:#d8def8;background:linear-gradient(135deg,#fbfdff,#f8f7ff);box-shadow:inset 0 1px 0 #fff}.build-picker-h{background:linear-gradient(90deg,#eef2ff,#ecfeff);border-bottom-color:#dbeafe}.tbl-wrap{border-color:rgba(199,210,254,.78);box-shadow:0 10px 28px rgba(23,37,84,.07)}th{background:linear-gradient(135deg,var(--br-navy),var(--br-indigo) 58%,var(--br-violet));color:#fff;border-bottom:0}td{border-bottom-color:#eef2ff}tr:hover td{background:#fbfaff}.link{color:#4338ca}.metric-card{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,#fff,#eef2ff);box-shadow:0 14px 32px rgba(79,70,229,.10)}.metric-card:after{content:"";position:absolute;right:-35px;top:-45px;width:110px;height:110px;border-radius:50%;background:rgba(79,70,229,.12)}.metric-card b{color:var(--br-navy)}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5 70%,#ccfbf1);border-color:#a7f3d0}.metric-card.good b{color:#047857}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff 70%,#ede9fe);border-color:#ddd6fe}.metric-card.purple b{color:#6d28d9}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed 70%,#fef3c7);border-color:#fed7aa}.metric-card.warn b{color:#b45309}.status-ok{color:#047857}.status-bad{color:#be123c}
     .br-count-link{display:inline-flex;align-items:center;gap:4px;border:1px solid #c4b5fd;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4f46e5;border-radius:999px;font-size:12px;font-weight:950;text-decoration:none;cursor:pointer;padding:3px 10px;font-family:inherit;box-shadow:0 6px 14px rgba(79,70,229,.10)}.br-count-link:hover{color:#fff;background:linear-gradient(135deg,var(--br-indigo),var(--br-violet));border-color:transparent}.br-jira-modal{max-width:920px;width:min(920px,96vw);max-height:88vh;display:flex;flex-direction:column}.br-jira-modal .modal-b{overflow:auto}.br-jira-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin-bottom:12px}.br-jira-stat{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:9px 10px}.br-jira-stat b{display:block;color:#1e3a8a;font-size:18px}.br-jira-stat span{display:block;color:#64748b;font-size:10px;font-weight:900;text-transform:uppercase}.br-jira-modal table{font-size:12px}.br-jira-modal th{position:sticky;top:0;z-index:1}.br-modal-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.br-modal-search{height:30px;max-width:260px;border-radius:9px;padding:5px 9px}
+    .br-progress-window{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 36px));z-index:120;display:none;border:1px solid rgba(196,181,253,.9);border-radius:18px;background:linear-gradient(135deg,#ffffff,#eef2ff 70%,#faf5ff);box-shadow:0 24px 70px rgba(30,41,59,.28);overflow:hidden}.br-progress-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid #ddd6fe;background:linear-gradient(90deg,#eef2ff,#f5f3ff)}.br-progress-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:950;color:#312e81;text-transform:uppercase;letter-spacing:.04em}.br-progress-b{padding:13px 14px}.br-progress-msg{font-size:12px;font-weight:850;color:#1e293b;line-height:1.35;min-height:34px}.br-progress-meta{display:flex;justify-content:space-between;gap:10px;margin:9px 0 7px;color:#64748b;font-size:11px;font-weight:900}.br-progress-track{height:10px;background:#e0e7ff;border-radius:999px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(15,23,42,.12)}.br-progress-fill{height:100%;width:6%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#7c3aed,#c026d3);transition:width .25s ease}.br-progress-log{margin-top:9px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.72);border:1px solid #e0e7ff;color:#475569;font-size:10px;line-height:1.35;max-height:72px;overflow:auto;white-space:pre-wrap}.br-progress-window.done .br-progress-fill{background:linear-gradient(90deg,#059669,#10b981)}.br-progress-window.err .br-progress-fill{background:linear-gradient(90deg,#dc2626,#f97316)}
   </style>
 </head>
 <body>
@@ -75,8 +76,11 @@
           <div class="build-picker" style="margin-top:0;margin-bottom:10px">
             <div class="build-picker-h">
               <b style="font-size:11px;color:#1e3a8a"><i class="fas fa-server"></i> Running Builds</b>
+              <span id="brAxiomMeta" class="muted" style="font-size:10px;font-weight:900"></span>
               <div class="toolbar">
                 <input id="brBuildSearch" class="mini-input" placeholder="filter builds..." oninput="brQueueRunningBuildsLoad()">
+                <button class="btn" type="button" onclick="brSelectAllRunningBuilds(true)"><i class="fas fa-check-double"></i> Select All</button>
+                <button class="btn" type="button" onclick="brSelectAllRunningBuilds(false)"><i class="fas fa-times"></i> Clear</button>
                 <button class="btn btn-good" type="button" onclick="brAddSelectedBuilds()"><i class="fas fa-plus"></i> Add Selected</button>
               </div>
             </div>
@@ -104,7 +108,11 @@
     <div class="card-h">
       <h2><i class="fas fa-chart-bar"></i> Report Output</h2>
       <div class="toolbar">
-        <button id="brCopyReportBtn" class="btn btn-good" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Table</button>
+        <button id="brCopyCrBtn" class="btn btn-good" type="button" onclick="brCopyCrTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy CR Table</button>
+        <button id="brCsvCrBtn" class="btn" type="button" onclick="brDownloadCrCsv()" style="display:none"><i class="fas fa-file-csv"></i> CR CSV</button>
+        <button id="brCopyJiraBtn" class="btn btn-good" type="button" onclick="brCopyJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy Open JIRAs</button>
+        <button id="brCsvJiraBtn" class="btn" type="button" onclick="brDownloadJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> JIRA CSV</button>
+        <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Full Report</button>
         <div id="brCounts" class="toolbar"></div>
       </div>
     </div>
@@ -112,10 +120,10 @@
       <div id="brSummary" class="summary"></div>
       <div id="brMetricCards" class="metric-grid" style="display:none"></div>
       <h3 style="font-size:13px;color:#1e3a8a;margin:0 0 8px"><i class="fas fa-bug"></i> CR Summary</h3>
-      <div class="tbl-wrap" style="margin-bottom:14px"><table><thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Function</th><th>Status</th></tr></thead><tbody id="brCrRows"><tr><td colspan="8" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+      <div class="tbl-wrap" style="margin-bottom:14px"><table><thead><tr><th>#</th><th>CR</th><th>JIRA Title</th><th>JIRA Count</th><th>Crash Type</th><th>Final Resolution / CR Status</th><th>CR Age</th><th>Area</th><th>Subsystem</th><th>Function</th></tr></thead><tbody id="brCrRows"><tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
       <div id="brJiraSection" style="display:none;margin-bottom:14px">
         <h3 style="font-size:13px;color:#1e3a8a;margin:0 0 8px"><i class="fas fa-ticket-alt"></i> Open / Unmapped JIRAs</h3>
-        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Status</th><th>Count</th></tr></thead><tbody id="brJiraRows"></tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Final Resolution</th><th>Count</th></tr></thead><tbody id="brJiraRows"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -128,6 +136,7 @@ const BR_TARGET_OPTIONS = {{ target_options|tojson }};
 const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
 const JIRA_ISSUES_BASE = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 let brLastCrRows=[];
+let brLastJiraRows=[];
 function g(id){return document.getElementById(id)}
 function esc(v){return BuildReportCommon.escapeHtml(v)}
 function brGoHome(){try{window.top.location.href='/cr_overview/embed';}catch(e){window.location.href='/cr_overview/embed';}}
@@ -159,7 +168,15 @@ function brGenerateJql(){
 }
 let brBuildLoadTimer=null;
 function brHasBuildContext(){return Boolean(String(g('brBu').value||'').trim()&&String(g('brTarget').value||'').trim());}
-function brShowBuildContextMessage(){const box=g('brRunningBuilds');if(box)box.innerHTML='<div class="empty" style="padding:16px">Select Business Unit and Target Display Name to show running builds.</div>';}
+function brShowBuildContextMessage(){const box=g('brRunningBuilds');if(box)box.innerHTML='<div class="empty" style="padding:16px">Select Business Unit and Target Display Name to show running builds.</div>';const meta=g('brAxiomMeta');if(meta)meta.textContent='';}
+function brAxiomSummary(d){
+  const ts=d.axiom_last_updated_at||d.axiom_last_fetched_at||d.latest_started_at||'';
+  const parts=[];
+  if(ts)parts.push('Axiom DB: '+formatStandardTime(ts));
+  if(d.active_total!=null)parts.push((d.active_total||0)+' active');
+  if(d.matched_before_limit!=null)parts.push((d.matched_before_limit||0)+' target matches');
+  return parts.join(' • ');
+}
 function brQueueRunningBuildsLoad(){
   clearTimeout(brBuildLoadTimer);
   if(!brHasBuildContext()){brShowBuildContextMessage();return;}
@@ -173,12 +190,29 @@ async function brLoadRunningBuilds(){
   const target=String(g('brTarget').value||'').trim();
   box.innerHTML='<div class="empty" style="padding:16px"><i class="fas fa-circle-notch spin"></i> Loading running builds...</div>';
   try{
-    const url='/api/build_report/running_builds?limit=300&q='+encodeURIComponent(qtxt)+'&target='+encodeURIComponent(target);
+    const bu=String(g('brBu').value||'').trim();
+    const url='/api/build_report/running_builds?limit=300&q='+encodeURIComponent(qtxt)+'&bu='+encodeURIComponent(bu)+'&target='+encodeURIComponent(target);
     const d=await fetch(url,{cache:'no-store'}).then(r=>r.json());
     if(!d.ok) throw new Error(d.error||'Failed to load running builds');
-    if(!d.builds||!d.builds.length){box.innerHTML='<div class="empty" style="padding:16px">No running builds found.</div>';return;}
-    box.innerHTML=d.builds.map((b,i)=>'<label class="build-item"><input type="checkbox" value="'+esc(b.build)+'"><div><div class="build-name">'+esc(b.build)+'</div><div class="build-meta">'+esc([b.software_product,b.state,b.team,b.site,b.started_at].filter(Boolean).join(' • '))+'</div></div><span class="pill">'+esc(b.device_count||0)+' dev</span></label>').join('');
+    const meta=g('brAxiomMeta');if(meta){meta.textContent=brAxiomSummary(d);meta.setAttribute('data-base',meta.textContent);}
+    if(!d.builds||!d.builds.length){box.innerHTML='<div class="empty" style="padding:16px">No running builds found for this target in the Axiom DB table.</div>';return;}
+    box.innerHTML='<div class="mode-help" style="padding:6px 8px;color:#4338ca;font-weight:900">Showing '+esc(d.builds.length)+' builds. Use Select All to select every loaded/search-filtered build, including items below the scroll.</div>'+d.builds.map((b,i)=>'<label class="build-item"><input type="checkbox" value="'+esc(b.build)+'" onchange="brUpdateRunningSelectionCount()"><div><div class="build-name">'+esc(b.build)+'</div><div class="build-meta">'+esc([b.software_product,b.state,b.team,b.site,b.started_at].filter(Boolean).join(' • '))+'</div></div><span class="pill">'+esc(b.device_count||0)+' Devices</span></label>').join('');
+    brUpdateRunningSelectionCount();
   }catch(e){box.innerHTML='<div class="empty" style="padding:16px;color:#dc2626">'+esc(e.message||e)+'</div>'}
+}
+function brUpdateRunningSelectionCount(){
+  const total=document.querySelectorAll('#brRunningBuilds input[type="checkbox"]').length;
+  const checked=document.querySelectorAll('#brRunningBuilds input[type="checkbox"]:checked').length;
+  const meta=g('brAxiomMeta');
+  if(meta){
+    const base=meta.getAttribute('data-base')||meta.textContent.split(' • Selected:')[0]||'';
+    if(!meta.getAttribute('data-base'))meta.setAttribute('data-base',base);
+    meta.textContent=base+(total?(' • Selected: '+checked+'/'+total):'');
+  }
+}
+function brSelectAllRunningBuilds(checked){
+  document.querySelectorAll('#brRunningBuilds input[type="checkbox"]').forEach(x=>{x.checked=!!checked;});
+  brUpdateRunningSelectionCount();
 }
 function brAddSelectedBuilds(){
   const selected=Array.from(document.querySelectorAll('#brRunningBuilds input:checked')).map(x=>x.value).filter(Boolean);
@@ -190,10 +224,103 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];const copyBtn=g('brCopyReportBtn');if(copyBtn)copyBtn.style.display='none';g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';g('brCrRows').innerHTML='<tr><td colspan="8" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
+let brProgressSource=null, brProgressStartedAt=0;
+function brProgressElapsed(){
+  if(!brProgressStartedAt)return '0s';
+  const s=Math.max(0,Math.floor((Date.now()-brProgressStartedAt)/1000));
+  return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';
+}
+function brShowProgress(title,msg){
+  const box=g('brProgressBox'); if(!box)return;
+  brProgressStartedAt=Date.now();
+  box.className='br-progress-window';
+  box.style.display='block';
+  g('brProgressTitle').innerHTML='<i class="fas fa-circle-notch spin"></i> '+esc(title||'Running Report');
+  g('brProgressMsg').textContent=msg||'Starting consolidated report...';
+  g('brProgressCount').textContent='0 / 0 done';
+  g('brProgressPct').textContent='0%';
+  g('brProgressFill').style.width='6%';
+  g('brProgressLog').textContent='Waiting for backend job...';
+}
+function brUpdateProgress(snap){
+  snap=snap||{};
+  const total=Number(snap.total||0), done=Number(snap.done||0);
+  let pct=Number(snap.pct||0);
+  if(!pct&&total>0)pct=Math.round((done/total)*100);
+  pct=Math.max(0,Math.min(100,Math.round(pct||0)));
+  const stage=String(snap.stage||'running');
+  const box=g('brProgressBox'); if(!box)return;
+  box.className='br-progress-window'+(stage==='done'?' done':(stage==='error'?' err':''));
+  g('brProgressTitle').innerHTML=(stage==='done'?'<i class="fas fa-check-circle"></i> Done':(stage==='error'?'<i class="fas fa-triangle-exclamation"></i> Error':'<i class="fas fa-circle-notch spin"></i> Running Report'));
+  g('brProgressMsg').textContent=String(snap.message||stage||'Processing...');
+  g('brProgressCount').textContent=total>0?(done+' / '+total+' done'):('elapsed '+brProgressElapsed());
+  g('brProgressPct').textContent=pct+'%';
+  g('brProgressFill').style.width=Math.max(6,pct)+'%';
+  const log=Array.isArray(snap.log)?snap.log.join('\n'):(snap.log||'');
+  g('brProgressLog').textContent=log||('Stage: '+stage+' • elapsed '+brProgressElapsed());
+}
+function brHideProgress(delay){
+  if(brProgressSource){try{brProgressSource.close();}catch(e){} brProgressSource=null;}
+  setTimeout(()=>{const box=g('brProgressBox'); if(box)box.style.display='none';}, delay==null?0:delay);
+}
+function brWatchProgress(jobId){
+  if(!window.EventSource||!jobId)return;
+  if(brProgressSource){try{brProgressSource.close();}catch(e){}}
+  brProgressSource=new EventSource('/api/consolidated_report/progress/'+encodeURIComponent(jobId));
+  brProgressSource.onmessage=function(ev){try{brUpdateProgress(JSON.parse(ev.data||'{}'));}catch(e){}};
+  brProgressSource.onerror=function(){
+    const log=g('brProgressLog'); if(log)log.textContent='Progress stream reconnecting... report is still running.';
+  };
+}
+async function brRunConsolidatedWithProgress(opts){
+  const payload={
+    builds:opts.builds||[], traverse:true, orbit:true, target:opts.target||'', force:true,
+    custom_jql:opts.jql||'', include_axiom_metrics:true, axiom_taxonomy_path:'/PDT'
+  };
+  brShowProgress('Running Report','Submitting report job...');
+  const resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  let data=await resp.json();
+  if(data.error)throw new Error(data.error);
+  if(data.job_id){
+    g('brProgressLog').textContent='Job ID: '+data.job_id+'\nConnecting progress stream...';
+    brWatchProgress(data.job_id);
+    data=await waitForResult(data.job_id);
+  }
+  if(data.error)throw new Error(data.error);
+  brUpdateProgress({stage:'done',done:1,total:1,pct:100,message:'Report complete. Rendering results...'});
+  return data;
+}
 async function brCheckJiraReady(){return BuildReportCommon.checkJiraReady()}
-function crashType(row){const t=[row.crash_type,row.type,row.cr_title,row.title,row.cr_area,row.cr_subsystem].join(' ').toLowerCase();if(t.indexOf('system')>=0)return 'system';if(/\bssr\b|subsystem restart/.test(t))return 'ssr';return 'process';}
+function brIsAutomotiveBu(){
+  const row=brSelectedTargetRow();
+  const bu=String((row&&row.bu_key)||g('brBu').value||'').toUpperCase();
+  return bu==='AUTO'||bu==='AUTOMOTIVE';
+}
+function crashTypeFromTitle(title){
+  const t=String(title||'').toLowerCase();
+  if(/process\s*dump|processdump|process\s*crash|processcrash|\bqnx\b|undetermined/.test(t))return 'Process';
+  if(/\bssr\b|subsystem\s*restart|\bsleep\b/.test(t))return 'SSR';
+  return 'System';
+}
+function crashType(row){
+  const title=[row&&row.jira_title,row&&row.final_summary,row&&row.summary,row&&row.cr_title,row&&row.title].filter(Boolean).join(' ');
+  if(brIsAutomotiveBu())return crashTypeFromTitle(title);
+  const t=[row&&row.crash_type,row&&row.type,title,row&&row.cr_area,row&&row.cr_subsystem].join(' ').toLowerCase();
+  if(t.indexOf('system')>=0)return 'System';
+  if(/\bssr\b|subsystem restart/.test(t))return 'SSR';
+  return 'Process';
+}
+function crashTypeSummary(items, fallbackRow){
+  const counts={System:0,SSR:0,Process:0};
+  (items||[]).forEach(j=>{const ct=crashType(j);counts[ct]=(counts[ct]||0)+1;});
+  if(!Object.values(counts).some(Boolean) && fallbackRow)counts[crashType(fallbackRow)]=1;
+  return Object.keys(counts).filter(k=>counts[k]>0).map(k=>k+': '+counts[k]).join(', ') || '--';
+}
+function finalResolution(row){
+  return String((row&&row.final_resolution)||(row&&row.resolution)||(row&&row.cr_resolution)||(row&&row.final_status)||(row&&row.cr_status)||(row&&row.status)||'').trim();
+}
 function jiraKeyFromIssue(j){return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();}
 function jiraLinksHtml(items){
   const seen=new Set();
@@ -210,12 +337,12 @@ function normalize(rep){
     if(r.cr&&r.cr!=='NO_CR'){
       const mappedCount=jiras.length||r.cr_count||r.jira_count||1;
       convertedToCrs+=Number(mappedCount)||0;
-      crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',count:mappedCount,jiras:jiras,type:crashType(r)});
+      crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',resolution:finalResolution(r),count:mappedCount,jiras:jiras,type:crashTypeSummary(jiras,r)});
     }
-    jiras.forEach(j=>{const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; const st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; seenJ[key]=1; jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',count:1});});
+    jiras.forEach(j=>{const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; const st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; seenJ[key]=1; jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',resolution:finalResolution(j)||j.final_status||j.status||'Open',type:crashType(j),count:1});});
   });
-  if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){(rep.cr_rows||[]).forEach(r=>{const c=Number(r.jira_count||1)||1;convertedToCrs+=c;crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||'',status:r.cr_status||'',count:c,jiras:r.jiras||r.mapped_jiras||r.jira_keys||[],type:crashType(r)});});}
-  if(rep.open_jiras&&rep.open_jiras.length&&!jiraRows.length){(rep.open_jiras||[]).forEach(j=>jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',count:1}));}
+  if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){(rep.cr_rows||[]).forEach(r=>{const c=Number(r.jira_count||1)||1;const linked=r.jiras||r.mapped_jiras||r.jira_keys||[];convertedToCrs+=c;crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||'',resolution:finalResolution(r),count:c,jiras:linked,type:crashTypeSummary(linked,r)});});}
+  if(rep.open_jiras&&rep.open_jiras.length&&!jiraRows.length){(rep.open_jiras||[]).forEach(j=>jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',resolution:finalResolution(j)||j.status||'Open',type:crashType(j),count:1}));}
   const summary=rep.summary||{};
   totalJiras=Number(summary.total_jiras||summary.total||totalJiras||convertedToCrs+jiraRows.length)||0;
   convertedToCrs=Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
@@ -231,22 +358,76 @@ function formatStandardTime(value){
   }
   return raw.replace('T',' ').replace(/Z$/,'');
 }
+function renderAxiomMetricsHtml(rep){
+  const metrics=rep&&rep.axiom_metrics?rep.axiom_metrics:{};
+  const keys=Object.keys(metrics||{});
+  if(!keys.length) return '';
+  const found=keys.filter(k=>metrics[k]&&metrics[k].matched).length;
+
+  function num(v){
+    const m=String(v==null?'':v).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+    return m?Number(m[0]):0;
+  }
+  function hours(v){
+    const text=String(v==null?'':v).toLowerCase().replace(/,/g,' ').trim();
+    if(!text)return 0;
+    let total=0, matched=false, m;
+    const hr=/(-?\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/g;
+    const min=/(-?\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/g;
+    while((m=hr.exec(text))){total+=Number(m[1]);matched=true;}
+    while((m=min.exec(text))){total+=Number(m[1])/60;matched=true;}
+    return matched?total:num(text);
+  }
+  function fmtHours(h){
+    h=Number(h||0);
+    if(!h)return '0 hr';
+    if(h<1)return Math.round(h*60)+' min';
+    return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr';
+  }
+
+  let totalHours=0,totalCrashes=0,totalDevices=0;
+  keys.forEach(k=>{
+    const r=metrics[k]||{};
+    const m=(r.metrics&&r.metrics[0])||{};
+    if(r.matched){
+      totalHours+=hours(m.runtimeHours||m.hours||m.totalHours);
+      totalCrashes+=num(m.crashes);
+      totalDevices+=num(m.deviceCount!=null?m.deviceCount:m.uniqueDevices);
+    }
+  });
+  const overallMtbf=totalCrashes>0?(totalHours/totalCrashes):0;
+  return '<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-chart-line"></i> Axiom Stability Metrics</div>'+
+    '<div class="metric-card warn"><b>'+esc(fmtHours(totalHours))+'</b><span>Total Hours</span></div>'+
+    '<div class="metric-card purple"><b>'+esc(Math.round(totalDevices))+'</b><span>Devices</span></div>'+
+    '<div class="metric-card good"><b>'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>';
+}
 function renderReport(rep){
   const rows=normalize(rep||{}), crRows=rows.crRows, jiraRows=rows.jiraRows;
   g('brCounts').innerHTML='';
-  const copyBtn=g('brCopyReportBtn');if(copyBtn)copyBtn.style.display='inline-flex';
+  ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
   const metricBox=g('brMetricCards');
   metricBox.style.display='grid';
-  metricBox.innerHTML='<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Converted to CRs</span></div><div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div><div class="metric-card warn"><b>'+esc(jiraRows.length)+'</b><span>Open JIRAs</span></div>';
+  let crashSegHtml='';
+  if(brIsAutomotiveBu()){
+    const ct={System:0,SSR:0,Process:0};
+    crRows.forEach(r=>{const linked=brJiraItemsForCr(r);if(linked.length){linked.forEach(j=>{ct[crashType(j)]++;});}else{ct[crashType(r)]++;}});
+    jiraRows.forEach(j=>{ct[crashType(j)]++;});
+    crashSegHtml='<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-car"></i> Automotive Crash Type Segregation</div>'+
+      '<div class="metric-card warn"><b>'+esc(ct.System)+'</b><span>System Crashes</span></div>'+
+      '<div class="metric-card"><b>'+esc(ct.SSR)+'</b><span>SSR Crashes</span></div>'+
+      '<div class="metric-card purple"><b>'+esc(ct.Process)+'</b><span>Process Crashes</span></div>';
+  }
+  metricBox.innerHTML='<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Converted to CRs</span></div><div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div><div class="metric-card warn"><b>'+esc(jiraRows.length)+'</b><span>Open JIRAs</span></div>'+crashSegHtml+renderAxiomMetricsHtml(rep||{});
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
   const jr=g('brJiraRows');
-  if(jiraRows.length){g('brJiraSection').style.display='block';jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
-  else g('brJiraSection').style.display='none';
+  brLastJiraRows=jiraRows;
+  if(jiraRows.length){g('brJiraSection').style.display='block';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution||r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
+  else {g('brJiraSection').style.display='none';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});}
   const cr=g('brCrRows');
-  if(!crRows.length){cr.innerHTML='<tr><td colspan="8" class="empty">No CR rows found for this query.</td></tr>';return;}
+  if(!crRows.length){cr.innerHTML='<tr><td colspan="10" class="empty">No CR rows found for this query.</td></tr>';return;}
   crRows.sort((a,b)=>(b.count||0)-(a.count||0));
   brLastCrRows=crRows;
-  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td style="max-width:440px">'+esc(r.title||'--')+'</td><td style="text-align:center">'+cntHtml+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td><td>'+esc(r.status||'--')+'</td></tr>';}).join('');
+  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td style="max-width:440px">'+esc(r.title||'--')+'</td><td style="text-align:center">'+cntHtml+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution||r.status||'--')+'</td><td style="text-align:center;font-weight:900">'+esc(r.age||'--')+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td></tr>';}).join('');
 }
 function brJiraItemsForCr(row){
   const out=[], seen=new Set();
@@ -285,11 +466,71 @@ function brFilterJiraModal(){
   const q=String((g('brJiraModalSearch')||{}).value||'').toLowerCase();
   document.querySelectorAll('#brJiraModalTable tbody tr').forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?'':'none';});
 }
+function brFlashButton(btn, ok, label){
+  if(!btn)return;
+  const old=btn.innerHTML;
+  btn.innerHTML=ok?'<i class="fas fa-check"></i> '+(label||'Copied'):'<i class="fas fa-times"></i> Failed';
+  btn.style.background=ok?'#16a34a':'#dc2626';btn.style.color='#fff';
+  setTimeout(()=>{btn.innerHTML=old;btn.style.background='';btn.style.color='';},2200);
+}
+function brCopyHtmlTable(table, btn){
+  if(!table){brFlashButton(btn,false);return;}
+  const clone=table.cloneNode(true);
+  const S={
+    wrap:'font-family:Inter,Segoe UI,Arial,sans-serif;color:#172033;background:#ffffff;padding:10px;',
+    table:'border-collapse:collapse;width:100%;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:12px;background:#ffffff;border:1px solid #c7d2fe;table-layout:auto;',
+    th:'background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#ffffff;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #c7d2fe;font-weight:900;white-space:nowrap;',
+    td:'padding:9px 10px;border:1px solid #e2e8f0;vertical-align:top;color:#172033;background:#ffffff;',
+    link:'color:#4338ca;font-weight:900;text-decoration:underline;',
+    chip:'display:inline-block;border:1px solid #c4b5fd;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:900;text-decoration:none;'
+  };
+  clone.setAttribute('style',S.table);
+  clone.setAttribute('border','1');clone.setAttribute('cellspacing','0');clone.setAttribute('cellpadding','0');
+  clone.querySelectorAll('th').forEach(el=>el.setAttribute('style',S.th));
+  clone.querySelectorAll('td').forEach(el=>el.setAttribute('style',S.td));
+  clone.querySelectorAll('a').forEach(a=>{
+    const href=a.getAttribute('href')||'';
+    if(href&&/^https?:\/\//i.test(href))a.setAttribute('href',href);
+    a.setAttribute('style',a.classList.contains('br-count-link')?S.chip:S.link);
+  });
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div style="'+S.wrap+'">'+clone.outerHTML+'</div></body></html>';
+  const plain=(clone.innerText||clone.textContent||'').trim();
+  function fallback(){
+    try{const d=document.createElement('div');d.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;';d.innerHTML=html;document.body.appendChild(d);const r=document.createRange();r.selectNodeContents(d);const s=window.getSelection();s.removeAllRanges();s.addRange(r);const ok=document.execCommand('copy');s.removeAllRanges();document.body.removeChild(d);brFlashButton(btn,ok);}catch(e){brFlashButton(btn,false);}
+  }
+  try{
+    if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+      navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]).then(()=>brFlashButton(btn,true)).catch(fallback);
+    }else fallback();
+  }catch(e){fallback();}
+}
+function brCopyCrTable(btn){brCopyHtmlTable(document.querySelector('#brCrRows')&&document.querySelector('#brCrRows').closest('table'),btn);}
+function brCopyJiraTable(btn){brCopyHtmlTable(document.querySelector('#brJiraRows')&&document.querySelector('#brJiraRows').closest('table'),btn);}
+function brCsvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+function brDownloadCsv(filename, headers, rows){
+  const csv=[headers.map(brCsvCell).join(',')].concat((rows||[]).map(r=>headers.map(h=>brCsvCell(r[h])).join(','))).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
+}
+function brDownloadCrCsv(){
+  const headers=['#','CR','CR URL','JIRA Title','JIRA Count','Mapped JIRAs URL','Crash Type','Final Resolution / CR Status','CR Age','Area','Subsystem','Function'];
+  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const keys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':r.type||'','Final Resolution / CR Status':r.resolution||r.status||'','CR Age':r.age||'','Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
+  brDownloadCsv('build_report_cr_summary.csv',headers,rows);
+}
+function brDownloadJiraCsv(){
+  const headers=['#','JIRA','JIRA URL','Title','Crash Type','Final Resolution','Count'];
+  const rows=(brLastJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Crash Type':r.type||'','Final Resolution':r.resolution||r.status||'','Count':r.count||1}));
+  brDownloadCsv('build_report_open_jiras.csv',headers,rows);
+}
 function brCopyReportOutput(btn){
   const src=g('brReportOutputBody');
   if(!src){alert('Report output not found.');return;}
   const clone=src.cloneNode(true);
   clone.querySelectorAll('.empty').forEach(el=>{if(String(el.textContent||'').toLowerCase().indexOf('enter builds')>=0)el.remove();});
+  // Remove FontAwesome icon nodes from copied HTML. External paste targets
+  // often do not have the icon font loaded and render them as broken/oversized
+  // symbols, which makes the copied full report look corrupted.
+  clone.querySelectorAll('i').forEach(el=>el.remove());
   if(!clone.textContent.trim()){alert('Run the report first.');return;}
   const copyHero=document.createElement('div');
   copyHero.className='br-copy-hero';
@@ -318,7 +559,9 @@ function brCopyReportOutput(btn){
   clone.querySelectorAll('.metric-grid').forEach(grid=>{
     const cards=Array.from(grid.querySelectorAll('.metric-card')).map(card=>({cls:card.className||'',num:(card.querySelector('b')||{}).textContent||'',lbl:(card.querySelector('span')||{}).textContent||''}));
     if(cards.length){
-      grid.innerHTML='<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:8px;margin:0 0 10px 0;"><tr>'+cards.map(c=>{const st=c.cls.indexOf('good')>=0?S.metricGood:(c.cls.indexOf('purple')>=0?S.metricPurple:(c.cls.indexOf('warn')>=0?S.metricWarn:S.metric));return '<td width="25%" style="'+st.replace(/'/g,'&#39;')+'"><div style="'+S.metricNum+'">'+esc(c.num)+'</div><div style="'+S.metricLbl+'">'+esc(c.lbl)+'</div></td>';}).join('')+'</tr></table>';
+      const chunks=[];
+      for(let i=0;i<cards.length;i+=4)chunks.push(cards.slice(i,i+4));
+      grid.innerHTML='<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:8px;margin:0 0 10px 0;">'+chunks.map(row=>'<tr>'+row.map(c=>{const st=c.cls.indexOf('good')>=0?S.metricGood:(c.cls.indexOf('purple')>=0?S.metricPurple:(c.cls.indexOf('warn')>=0?S.metricWarn:S.metric));return '<td width="25%" style="'+st.replace(/'/g,'&#39;')+'"><div style="'+S.metricNum+'">'+esc(c.num)+'</div><div style="'+S.metricLbl+'">'+esc(c.lbl)+'</div></td>';}).join('')+'</tr>').join('')+'</table>';
     }
     grid.setAttribute('style','display:block;margin:0 0 10px 0;');
   });
@@ -364,18 +607,31 @@ async function brRun(){
   if(!jql) brGenerateJql();
   const activeJql=String(g('brJql').value||'').trim();
   if(g('brOpenJira')){g('brOpenJira').href=jiraUrl(activeJql);g('brOpenJira').style.display=activeJql?'inline-flex':'none'}
-  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
+  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
   try{
     await brCheckJiraReady();
-    g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-circle-notch spin"></i> Running report...</td></tr>';
-    const data=await BuildReportCommon.runConsolidatedReport({builds:builds,jql:activeJql,projects:selectedProjects(),filterId:JIRA_FILTER_ID,target:g('brTarget').value||'',force:true,preflight:false});
+    g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
+    const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||''});
     renderReport(data);
     g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
-  }catch(e){g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="8" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
+    brHideProgress(1800);
+  }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="10" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
   finally{g('brSpinner').style.display='none'}
 }
 document.addEventListener('DOMContentLoaded',()=>{brPopulateBus();brShowBuildContextMessage();});
 </script>
+<div id="brProgressBox" class="br-progress-window">
+  <div class="br-progress-h">
+    <div id="brProgressTitle" class="br-progress-title"><i class="fas fa-circle-notch spin"></i> Running Report</div>
+    <button class="btn" type="button" onclick="brHideProgress(0)" title="Hide progress"><i class="fas fa-minus"></i></button>
+  </div>
+  <div class="br-progress-b">
+    <div id="brProgressMsg" class="br-progress-msg">Starting...</div>
+    <div class="br-progress-meta"><span id="brProgressCount">0 / 0 done</span><span id="brProgressPct">0%</span></div>
+    <div class="br-progress-track"><div id="brProgressFill" class="br-progress-fill"></div></div>
+    <div id="brProgressLog" class="br-progress-log">Waiting for backend job...</div>
+  </div>
+</div>
 <div id="brDetailModal" class="modal-backdrop" onclick="if(event.target===this)brHideTargetDetails()">
   <div class="modal">
     <div class="modal-h"><h3><i class="fas fa-info-circle"></i> Target Details</h3><button class="btn" onclick="brHideTargetDetails()">Close</button></div>

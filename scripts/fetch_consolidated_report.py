@@ -27,6 +27,8 @@ import re
 import sys
 import time
 import threading
+from datetime import datetime, date
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -161,6 +163,38 @@ def _safe(value, default=""):
         return str(value).strip()
     except Exception:
         return default
+
+
+def _parse_date(value):
+    """Best-effort date parser for DB/Orbit/JIRA date strings."""
+    s = _safe(value)
+    if not s:
+        return None
+    s = s[:19].replace('T', ' ')
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%m/%d/%Y', '%d-%b-%Y', '%b %d, %Y'):
+        try:
+            return datetime.strptime(s[:len(fmt)], fmt).date()
+        except Exception:
+            pass
+    try:
+        return datetime.fromisoformat(s).date()
+    except Exception:
+        return None
+
+
+def _compute_cr_age(cr_date, end_date=None):
+    """Return CR age in days, using built/end date when available, otherwise today."""
+    start = _parse_date(cr_date)
+    if not start:
+        return ''
+    end = _parse_date(end_date) or date.today()
+    try:
+        return max((end - start).days, 0)
+    except Exception:
+        return ''
+
+
+
 
 
 def _cf(fields, cf_name):
@@ -1019,8 +1053,10 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_subsystem' : sub,
                 'cr_function'  : func,
                 'cr_built_date': best_built,
+                'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built),
                 'image_matched': image_matched,
                 'source'       : 'orbit',
+
             }
         except Exception as e:
             return cr_num, None
@@ -1133,9 +1169,11 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
             'cr_area'        : cr_data.get('cr_area',   ''),
             'cr_subsystem'   : cr_data.get('cr_subsystem', ''),
             'cr_function'    : cr_data.get('cr_function', ''),
-            'cr_built_date'  : cr_data.get('cr_built_date', ''),
+                        'cr_built_date'  : cr_data.get('cr_built_date', ''),
             'cr_date'        : cr_data.get('cr_date', ''),
+            'cr_age'         : cr_data.get('cr_age', '') or _compute_cr_age(cr_data.get('cr_date', ''), cr_data.get('cr_built_date', '')),
             'jiras'          : [],
+
         }
 
         # ── Level 2 rows — keep every matching JIRA, including occurrence=1
@@ -1329,11 +1367,13 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
         func_col   = _pick('cr_functionality', 'cr_function', 'functionality', 'function')
         built_col  = _pick('built_date', 'cr_built_date', 'build_date')
         date_col   = _pick('cr_date', 'created_date', 'created_on', 'jira_date')
+        age_col    = _pick('cr_age', 'age', 'overall_age')
 
 
         # build SELECT
         select_cols = list(lookup_cols)
-        for c in [title_col, status_col, image_col, area_col, sub_col, func_col, built_col, date_col]:
+        for c in [title_col, status_col, image_col, area_col, sub_col, func_col, built_col, date_col, age_col]:
+
             if c and c not in select_cols:
                 select_cols.append(c)
 
@@ -1419,9 +1459,11 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
                 'cr_area'      : str(row.get(area_col,   '') or '') if area_col   else '',
                 'cr_subsystem' : str(row.get(sub_col,    '') or '') if sub_col    else '',
                 'cr_function'  : str(row.get(func_col,   '') or '') if func_col   else '',
-                'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
+                                'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
                 'cr_date'      : str(row.get(date_col,   '') or '') if date_col   else '',
+                'cr_age'       : str(row.get(age_col,    '') or '') if age_col else _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else ''),
                 'image_matched': image_matched,   # True = image found in JIRA's pl_id_raw
+
                 'source'       : 'unique_crs',
             }
 
