@@ -14,7 +14,11 @@
     return 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + encodeURIComponent(jql || '');
   }
 
-  var DEFAULT_PROJECTS = ['QSTABILITY', 'CHIPMD', 'DROIDBUG', 'QWINBUG'];
+  // QWINBUG is intentionally excluded from the primary JQL query.
+  // QSTABILITY/CHIPMD tickets that are moved to QWINBUG are fetched
+  // separately during CR traversal to get final resolution — adding
+  // QWINBUG here would cause duplicate crash counts.
+  var DEFAULT_PROJECTS = ['QSTABILITY', 'CHIPMD', 'DROIDBUG'];
 
   function generateJql(options){
     options = options || {};

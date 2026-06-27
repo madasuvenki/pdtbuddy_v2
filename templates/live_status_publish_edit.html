@@ -7,10 +7,68 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>{{ (job.name or "Live Status")|upper }} -- Published</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#f0f4ff,#fff7ed);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#fff,#eef6ff 45%,#fff7ed);border:1px solid #bfdbfe;box-shadow:0 8px 30px rgba(37,99,235,.10);margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}.tab-section{display:none}.tab-section.active{display:block}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 4px 22px rgba(15,23,42,.08);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#f0f4ff,#faf5ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
+    *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px;border-left:5px solid #6366f1}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}    .tab-section{display:none}.tab-section.active{display:block}#tab-current.active{display:flex;flex-direction:column}    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
+    /* ── Current Running Build – light left nav panel ── */
+    .lsp-current-layout{display:grid;grid-template-columns:280px minmax(0,1fr);height:calc(100vh - 220px);min-height:520px;border-radius:0 0 18px 18px;overflow:hidden}
+    .lsp-nav{background:linear-gradient(180deg,#ecfdf5,#f0fdf4 60%,#f8fafc);border-right:2px solid #6ee7b7;display:flex;flex-direction:column;overflow:hidden;height:100%}
+    .lsp-nav-header{padding:12px 12px 8px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#ecfdf5,#f0fdf4)}
+    .lsp-nav-brand{font-size:10px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+    .lsp-nav-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:#4f46e5;color:#fff;font-size:9px;font-weight:900;padding:0 5px}
+    .lsp-nav-cfg{margin-left:auto;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:7px;padding:3px 8px;font-size:10px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+    .lsp-nav-cfg:hover{background:#e0e7ff;border-color:#a5b4fc}
+    .lsp-nav-search{width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;padding:6px 10px;color:#1e293b;font-size:11px;font-family:inherit;outline:none}
+    .lsp-nav-search::placeholder{color:#94a3b8}
+    .lsp-nav-search:focus{background:#fff;border-color:#a5b4fc}
+    .lsp-nav-dombar{display:flex;gap:4px;padding:6px 10px 5px;border-bottom:1px solid #e2e8f0;background:#fff}
+    .lsp-nav-dombtn{flex:1;padding:5px 3px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;font-weight:900;cursor:pointer;text-align:center;transition:all .15s;letter-spacing:.03em}
+    .lsp-nav-dombtn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
+    .lsp-nav-dombtn.dom-ADAS{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;box-shadow:0 2px 6px rgba(59,130,246,.2)}
+    .lsp-nav-dombtn.dom-FLEX{background:#ede9fe;color:#6d28d9;border-color:#c4b5fd;box-shadow:0 2px 6px rgba(109,40,217,.2)}
+    .lsp-nav-dombtn.dom-IVI{background:#d1fae5;color:#065f46;border-color:#6ee7b7;box-shadow:0 2px 6px rgba(16,185,129,.2)}
+    .lsp-nav-list{flex:1;overflow-y:auto;padding:5px 8px 10px;background:#f8fafc}
+    .lsp-nav-list::-webkit-scrollbar{width:4px}.lsp-nav-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+    .lsp-nav-item{display:flex;align-items:stretch;border-radius:10px;margin-bottom:4px;cursor:pointer;transition:all .18s;border:1.5px solid #e2e8f0;background:#fff;overflow:hidden}
+    .lsp-nav-item:hover{border-color:#a5b4fc;background:#f5f3ff;box-shadow:0 2px 8px rgba(99,102,241,.08)}
+    .lsp-nav-item.lsp-nav-active{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7;box-shadow:0 2px 8px rgba(16,185,129,.15)}
+    .lsp-nav-item.lsp-nav-selected{background:#fff;border-color:#e2e8f0}
+    .lsp-nav-accent{width:4px;flex-shrink:0;border-radius:3px 0 0 3px}
+    .lsp-nav-body{flex:1;padding:8px 9px 8px 7px;min-width:0}
+    .lsp-nav-meta{font-size:11px;font-weight:900;color:#1e3a8a;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+    .lsp-nav-build{font-size:9px;color:#64748b;margin-top:2px;line-height:1.35;word-break:break-all}
+    .lsp-nav-stats{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
+    .lsp-nav-stat{font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:#f1f5f9;color:#475569;white-space:nowrap;border:1px solid #e2e8f0}
+    .lsp-nav-stat.red{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}
+    .lsp-nav-stat.green{background:#dcfce7;color:#166534;border-color:#86efac}
+    .lsp-nav-footer{padding:8px 12px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;line-height:1.4;background:linear-gradient(135deg,#f0fdf4,#ecfdf5)}
+    .lsp-proj-bar{display:flex;gap:5px;padding:5px 10px 5px;border-bottom:1px solid #e2e8f0;background:#fafafa;flex-wrap:wrap;align-items:center}
+    .lsp-proj-pill{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #e2e8f0;background:#fff;color:#475569;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;transition:all .15s;user-select:none}
+    .lsp-proj-pill input{display:none}
+    .lsp-proj-pill.checked{border-color:#6366f1;background:#eef2ff;color:#4338ca}
+    .lsp-proj-pill.checked .lsp-proj-dot{background:#6366f1}
+    .lsp-proj-dot{width:7px;height:7px;border-radius:50%;background:#cbd5e1;transition:background .15s}
+    .lsp-cfg-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);align-items:center;justify-content:center}
+    .lsp-cfg-card{background:#fff;border-radius:16px;width:min(480px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.25);overflow:hidden}
+    .lsp-cfg-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff}
+    .lsp-cfg-body{padding:18px}
+    .lsp-cfg-row{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+    .lsp-cfg-lbl{font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em}
+    .lsp-cfg-inp{height:34px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;width:100%;outline:none}
+    .lsp-cfg-inp:focus{border-color:#a5b4fc;background:#f5f3ff}
+    /* RIGHT MAIN */
+    .lsp-main{min-width:0;display:flex;flex-direction:column;height:100%;overflow:hidden}
+    .lsp-main-topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff);border-bottom:2px solid #a5b4fc}
+    .lsp-scope-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,#dcfce7,#d1fae5);border:1px solid #6ee7b7;font-size:11px;font-weight:900;color:#065f46;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lsp-scope-tag.scoped{background:linear-gradient(135deg,#dbeafe,#ede9fe);border-color:#a5b4fc;color:#3730a3}
+    .lsp-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 16px;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff);border-bottom:2px solid #c7d2fe}
+    .lsp-kpi{background:#fff;border:2px solid #c7d2fe;border-radius:12px;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(99,102,241,.08)}
+    .lsp-kpi .kn{font-size:22px;font-weight:1000;color:#1e3a8a;line-height:1}
+    .lsp-kpi .kl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:900;margin-top:3px}
+    .lsp-results{flex:1;padding:12px 16px 16px;overflow-y:auto;overflow-x:hidden;min-height:0}
+    @media(max-width:1000px){.lsp-current-layout{grid-template-columns:1fr}.lsp-kpi-row{grid-template-columns:repeat(2,1fr)}}
+
         /* Domain radio buttons */
     .pub-domain-radio{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:2px solid var(--dc);background:#fff;color:var(--dc);font-size:12px;font-weight:900;cursor:pointer;transition:all .18s;user-select:none;letter-spacing:.02em;}
     .pub-domain-radio input{display:none;}
@@ -20,6 +78,24 @@
     .lsp-editor-only { display: none !important; }
     body.lsp-edit-mode .lsp-editor-only { display: inline-flex !important; }
     body.lsp-edit-mode .lsp-editor-only-block { display: block !important; }.meta-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:850;cursor:pointer}.meta-chip.active{background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.meta-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.metric-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(15,23,42,.05)}.metric-title{font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:7px}.bar-row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar-label{min-width:115px;font-weight:800;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-track{height:13px;flex:1;background:#f1f5f9;border-radius:999px;overflow:hidden}.bar-fill{height:100%;border-radius:999px}.bar-value{min-width:46px;text-align:right;font-weight:950;color:#0f172a}.section-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;color:#94a3b8}.sticky-table th{position:sticky;top:0;z-index:2}.compact-input{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit}.subtle-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px}.wk-cr-scroll{max-height:560px;overflow:auto}.wk-jira-scroll{max-height:460px;overflow:auto}.wk-load-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:16px;padding:16px}.wk-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.58);align-items:center;justify-content:center;padding:24px}.wk-modal-card{width:min(760px,96vw);max-height:88vh;background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 24px 90px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden}.wk-modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}.wk-build-list{flex:1;overflow:auto;padding:12px 18px;display:flex;flex-direction:column;gap:7px}.wk-build-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #f1f5f9;border-radius:10px;background:#fff;cursor:pointer}.wk-build-row.selected{border-color:#c7d2fe;background:#f5f3ff}.wk-build-row input{width:16px;height:16px;accent-color:#6366f1}.wk-build-name{font-size:12px;font-weight:750;color:#1e293b;word-break:break-all;flex:1}.wk-selected-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:none}.wk-selected-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.wk-selected-list{display:flex;gap:6px;flex-wrap:wrap;max-height:92px;overflow:auto}.wk-hidden{display:none!important}
+  
+  /* Flavor-wise table */
+  .lsp-flavor-tbl { width:100%; border-collapse:collapse; font-size:12px; font-weight:800; margin-bottom:4px; }
+  .lsp-flavor-tbl th { background:#1e293b; color:#e2e8f0; padding:6px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .lsp-flavor-tbl td { padding:5px 10px; border-bottom:1px solid #e2e8f0; color:#1e293b; }
+  .lsp-flavor-tbl tr:hover td { background:#f1f5f9; }
+  .lsp-flavor-total td { background:#f8fafc; font-weight:950; border-top:2px solid #94a3b8; }
+  .ct-sys  { background:#dbeafe; color:#1e40af; border-radius:4px; padding:1px 5px; font-size:11px; font-weight:900; }
+  .ct-ssr  { background:#fef3c7; color:#92400e; border-radius:4px; padding:1px 5px; font-size:11px; font-weight:900; }
+  .ct-proc { background:#fee2e2; color:#991b1b; border-radius:4px; padding:1px 5px; font-size:11px; font-weight:900; }
+  .ct-open { background:#dcfce7; color:#166534; border-radius:4px; padding:1px 5px; font-size:11px; font-weight:900; }
+  /* ADAS domain + filter buttons */
+  .adas-dom-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-size:11px;font-weight:900;cursor:pointer;transition:all .15s;font-family:inherit}
+  .adas-dom-btn:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
+  .adas-dom-btn.active{background:#4f46e5;color:#fff;border-color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,.25)}
+  .adas-flt-btn{padding:4px 11px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;font-size:11px;font-weight:900;cursor:pointer;transition:all .15s;font-family:inherit}
+  .adas-flt-btn:hover{border-color:#6366f1;color:#4f46e5}
+  .adas-flt-btn.active{background:#eef2ff;color:#4f46e5;border-color:#6366f1}
   </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
@@ -60,7 +136,7 @@
 
     {% if not embedded_core_deck %}
     <div class="tabs">
-        {% if is_auto_bu and 'core' in visible_tabs %}
+            {% if 'core' in visible_tabs %}
     <button class="tab {{ 'active' if initial_tab == 'core' else '' }}" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
     {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
     {% endif %}
@@ -184,88 +260,253 @@
   {% endif %}
 
   {% if 'current' in visible_tabs %}
-  <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'current' else '' }}">
-    <div class="card">
-            <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build (WIP)</h2><div class="mini-toolbar">
+        <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'current' else '' }}" style="height:calc(100vh - 140px);min-height:560px;flex-direction:column">
+    <div class="card" style="overflow:hidden;flex:1;display:flex;flex-direction:column;margin-bottom:0;height:100%">
 
-            {% if is_auto_bu %}<!-- Domain Radio Buttons -->
-      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
-      <label class="pub-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;">
-        <input type="radio" name="pubDomain" value="ADAS" checked onchange="applyCurrentDomainFilter('ADAS')">
-        <i class="fas fa-car"></i> ADAS
-      </label>
-      <label class="pub-domain-radio" data-domain="FLEX" style="--dc:#7c3aed;--dcs:#ede9fe;">
-        <input type="radio" name="pubDomain" value="FLEX" onchange="applyCurrentDomainFilter('FLEX')">
-        <i class="fas fa-microchip"></i> FLEX
-      </label>
-      <label class="pub-domain-radio" data-domain="IVI" style="--dc:#059669;--dcs:#d1fae5;">
-        <input type="radio" name="pubDomain" value="IVI" onchange="applyCurrentDomainFilter('IVI')">
-                <i class="fas fa-display"></i> IVI
-      </label>
-      {% endif %}<span id="runCount" class="pill"></span></div></div>
-      <!-- === Current Running Build DB Table === -->
-      <div id="rbDbPanel" style="padding:12px 20px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-          <span style="font-size:13px;font-weight:950;color:#1e3a8a"><i class="fas fa-satellite-dish" style="color:#2563eb"></i> Current Running Builds (DB)</span>
-          <span id="rbDbCount" class="pill" style="background:#dbeafe;color:#1e40af"></span>
+      <!-- Card header -->
+      <div class="card-head">
+        <h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build (WIP)</h2>
+        <div class="mini-toolbar">
+          <span id="runCount" class="pill"></span>
           <span id="rbDbStatus" style="font-size:11px;font-weight:700;color:#64748b"></span>
-                    <button class="btn btn-primary lsp-editor-only" style="font-size:11px;padding:5px 13px" onclick="rbOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+          <span id="rbCrashTimerDb" style="font-size:11px;font-weight:700;color:#6366f1"></span>
+          <button class="btn btn-primary lsp-editor-only" style="font-size:11px;padding:5px 13px" onclick="rbOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
           <button class="btn" style="font-size:11px;padding:3px 10px" onclick="loadRunningBuildsDb(true)"><i class="fas fa-sync"></i> Refresh</button>
-          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Auto-refreshes every 15 min after publish &nbsp;<span id="rbCrashTimerDb" style="font-weight:700;color:#6366f1"></span></span>
-        </div>
-        <div class="tbl-wrap" style="max-height:320px">
-          <table class="tbl" id="rbDbTable">
-            <thead><tr><th>S.No</th><th>Build ID</th><th>Meta ID</th><th>Domain</th><th>Device Name</th><th>Hours</th><th>Reduction %</th><th>Crashes</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="rbDbTbody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr></tbody>
-          </table>
         </div>
       </div>
-      <!-- === end Current Running Build DB Table === -->
 
-      <div class="card">
-      <div class="card-head"><h2><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Current Report</h2><div class="mini-toolbar"><span id="crFreshStatus" class="muted" style="font-size:12px"></span><span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span><button class="btn btn-primary" onclick="runCrReport(true)"><i class="fas fa-rotate"></i> Refresh</button></div></div>
-      <div id="crSummaryPills" class="card-body" style="display:none;gap:8px;flex-wrap:wrap"></div>
-      <div class="search-row"><i class="fas fa-search muted"></i><input id="crSearchInput" oninput="filterCrTable()" placeholder="Search CRs..."></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead><tbody id="crTbody"><tr><td colspan="9" class="empty">Loading current report...</td></tr></tbody></table></div>
-    </div>
+      <!-- Two-column layout -->
+      <div class="lsp-current-layout">
 
-    <div class="card" id="jiraSection" style="display:none">
-      <div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs <span id="jiraBadge" class="badge badge-warn"></span></h2></div>
-      <div class="search-row"><i class="fas fa-search muted"></i><input id="jiraSearchInput" oninput="filterJiraTable()" placeholder="Search JIRAs..."></div>
-      <div class="tbl-wrap"><table class="tbl" id="jiraTable"><thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead><tbody id="jiraTbody"></tbody></table></div>
-    </div>
-    </section>
+        <!-- ══ LEFT NAV ══ -->
+        <nav class="lsp-nav">
+          <div class="lsp-nav-header">
+                        <div class="lsp-nav-brand">
+              <i class="fas fa-layer-group" style="color:#4f46e5"></i> Builds
+              <span id="lspNavCount" class="lsp-nav-count">0</span>
+              <button class="lsp-nav-cfg" onclick="lspNavRefresh()" title="Reload builds from Axiom DB"><i class="fas fa-rotate"></i> Refresh</button>
+              <button class="lsp-nav-cfg" onclick="lspOpenCfg()" title="Customize JQL settings" style="margin-left:2px"><i class="fas fa-sliders"></i> Customize</button>
+            </div>
+            <input id="lspNavSearch" class="lsp-nav-search" placeholder="Search meta / build..." oninput="lspNavRender()">
+          </div>
+
+          <!-- Domain tabs -->
+          {% if is_auto_bu %}
+          <div class="lsp-nav-dombar">
+            <button class="lsp-nav-dombtn dom-ADAS" id="lspNavDom_ADAS" onclick="lspNavSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
+            <button class="lsp-nav-dombtn" id="lspNavDom_FLEX" onclick="lspNavSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
+            <button class="lsp-nav-dombtn" id="lspNavDom_IVI"  onclick="lspNavSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          </div>
+                    {% endif %}
+
+          <!-- Project filter checkboxes -->
+          <div class="lsp-proj-bar" id="lspProjBar">
+            <span style="font-size:9px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Projects:</span>
+            <label class="lsp-proj-pill checked" id="lspProjPill_QSTABILITY" onclick="lspToggleProject('QSTABILITY',this)">
+              <span class="lsp-proj-dot"></span>QSTABILITY
+            </label>
+            <label class="lsp-proj-pill" id="lspProjPill_CHIPMD" onclick="lspToggleProject('CHIPMD',this)">
+              <span class="lsp-proj-dot"></span>CHIPMD
+            </label>
+            <label class="lsp-proj-pill" id="lspProjPill_DROIDBUG" onclick="lspToggleProject('DROIDBUG',this)">
+              <span class="lsp-proj-dot"></span>DROIDBUG
+            </label>
+          </div>
+
+          <!-- Build list -->
+          <div id="lspNavList" class="lsp-nav-list">
+            <div style="padding:28px 10px;text-align:center;color:#475569">
+              <i class="fas fa-circle-notch spin" style="font-size:20px;display:block;margin-bottom:8px;color:#c7d2fe"></i>
+              <p style="font-size:10px;color:#94a3b8">Loading builds...</p>
+            </div>
+          </div>
+
+          <div class="lsp-nav-footer">
+            <span id="lspNavFooter" style="color:#334155;font-weight:700"></span><br>
+            <span style="color:#94a3b8">Click a build to scope the CR report.</span>
+          </div>
+        </nav>
+
+
+
+        <!-- ══ RIGHT MAIN ══ -->
+        <div class="lsp-main">
+
+          <!-- Scope topbar -->
+          <div class="lsp-main-topbar">
+            <span style="font-size:12px;font-weight:900;color:#1e3a8a"><i class="fas fa-bolt" style="color:#f59e0b"></i> Scoped to:</span>
+            <span id="lspScopeTag" class="lsp-scope-tag"><i class="fas fa-layer-group"></i> All builds</span>
+                        <span id="rbDbCount" class="pill" style="background:#dbeafe;color:#1e40af;font-size:10px"></span>
+          </div>
+
+          <!-- KPI row -->
+          <div class="lsp-kpi-row">
+            <div class="lsp-kpi"><div class="kn" id="lspKpiBuilds">&mdash;</div><div class="kl">Builds</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiJiras">&mdash;</div><div class="kl">JIRAs</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiCrs">&mdash;</div><div class="kl">CRs</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiOpen">&mdash;</div><div class="kl">Open JIRAs</div></div>
+          </div>
+
+          <div class="lsp-results">
+                        <!-- Flavor-wise device/crash table (shown when a meta is clicked) -->
+            <div id="lspFlavorTableWrap" style="margin-bottom:10px"></div>
+
+            <!-- JQL Showcase Panel -->
+            <div id="lspJqlPanel" style="display:none;margin-bottom:14px;border:1.5px solid #c7d2fe;border-radius:12px;overflow:hidden;background:#fff">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#eef2ff,#f5f3ff);border-bottom:1px solid #e0e7ff">
+                <span style="font-size:11px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-code"></i> JQL Query</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button class="lsp-jql-copy-btn" onclick="lspCopyJql()" style="border:1px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:7px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy</button>
+                  <a id="lspJqlJiraLink" href="#" target="_blank" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:7px;padding:3px 10px;font-size:10px;font-weight:900;text-decoration:none"><i class="fas fa-external-link-alt"></i> Open JQL in JIRA</a>
+                  <button onclick="document.getElementById('lspJqlPanel').style.display='none'" style="border:none;background:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0 4px">&times;</button>
+                </div>
+              </div>
+              <div style="padding:10px 12px">
+                <code id="lspJqlText" style="display:block;font-family:Consolas,monospace;font-size:11px;color:#1e293b;word-break:break-all;white-space:pre-wrap;line-height:1.6"></code>
+              </div>
+            </div>
+
+                        <!-- CR / JIRA Report -->
+            <!-- KPI cards injected here by _lspRenderReport -->
+            <div id="lspReportKpis" style="display:none;margin-bottom:10px"></div>
+                          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+              <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</span>
+               <span id="crFreshStatus" class="muted" style="font-size:11px"></span>
+               <span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+               <div id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+               <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
+                 <button id="lspCopyCrBtn" onclick="lspCopyTable('crTbody',this)" style="display:none;border:1px solid #bbf7d0;background:#ecfdf5;color:#047857;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy CR Table</button>
+                 <div class="search-row" style="padding:0;border:0;background:transparent">
+                   <i class="fas fa-search muted"></i>
+                   <input id="crSearchInput" oninput="filterCrTable()" placeholder="Search CRs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
+                 </div>
+               </div>
+             </div>
+            <div class="tbl-wrap" style="max-height:380px;margin-bottom:14px">
+              <table class="tbl">
+                <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
+                <tbody id="crTbody"><tr><td colspan="9" class="empty">Loading current report...</td></tr></tbody>
+              </table>
+            </div>
+
+            <!-- Open JIRAs -->
+            <div id="jiraSection" style="display:none">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs</span>
+                <span id="jiraBadge" class="badge badge-warn"></span>
+                <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
+                  <button id="lspCopyJiraBtn" onclick="lspCopyTable('jiraTbody',this)" style="border:1px solid #fed7aa;background:#fff7ed;color:#b45309;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy JIRA Table</button>
+                  <div class="search-row" style="padding:0;border:0;background:transparent">
+                    <i class="fas fa-search muted"></i>
+                    <input id="jiraSearchInput" oninput="filterJiraTable()" placeholder="Search JIRAs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
+                  </div>
+                </div>
+              </div>
+              <div class="tbl-wrap" style="max-height:300px">
+                <table class="tbl" id="jiraTable">
+                                     <thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Resolution / Status</th></tr></thead>
+                  <tbody id="jiraTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- hidden legacy compat elements -->
+            <div id="lspHiddenChecks" style="display:none"></div>
+            <div id="rbDbPanel" style="display:none">
+              <table class="tbl" id="rbDbTable" style="display:none">
+                <tbody id="rbDbTbody"></tbody>
+              </table>
+            </div>
+            <!-- legacy domain radios kept for JS compat -->
+            <div style="display:none">
+              <input type="radio" name="pubDomain" value="ADAS" checked>
+              <input type="radio" name="pubDomain" value="FLEX">
+              <input type="radio" name="pubDomain" value="IVI">
+            </div>
+
+          </div><!-- /lsp-results -->
+        </div><!-- /lsp-main -->
+      </div><!-- /lsp-current-layout -->
+    </div><!-- /card -->
+  </section>
   {% endif %}
 
   {% if 'mtbf' in visible_tabs %}
-    <section id="tab-mtbf" class="tab-section {{ 'active' if not embedded_core_deck and (mtbf_only or initial_tab == 'mtbf') else '' }}">
+        <section id="tab-mtbf" class="tab-section {{ 'active' if not embedded_core_deck and (mtbf_only or initial_tab == 'mtbf') else '' }}">
     <div class="card">
-      <div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="mini-toolbar"><select id="mtbfShowN" onchange="renderMtbfTrend()"><option value="5">Last 5</option><option value="10" selected>Last 10</option><option value="20">Last 20</option><option value="0">All</option></select><span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span><button class="btn" onclick="loadMtbfData(true)"><i class="fas fa-rotate"></i> Refresh</button></div></div>
-            <div id="mtbfLivePills" class="card-body" style="display:none"></div>
+      <div class="card-head">
+        <h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2>
+                <div class="mini-toolbar">
+          {% if is_auto_bu %}
+          <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">Domain</span>
+          <button id="adasDomBtn_ADAS" class="adas-dom-btn active" onclick="adasSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
+          <button id="adasDomBtn_FLEX" class="adas-dom-btn" onclick="adasSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
+          <button id="adasDomBtn_IVI"  class="adas-dom-btn" onclick="adasSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          <span style="width:1px;height:20px;background:#e2e8f0"></span>
+          <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
+          <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
+          <button class="adas-flt-btn" data-n="0" onclick="adasSetFilter(0,this)">All</button>
+          {% else %}
+          <select id="mtbfShowN" onchange="renderMtbfTrend()"><option value="5">Last 5</option><option value="10" selected>Last 10</option><option value="20">Last 20</option><option value="0">All</option></select>
+          {% endif %}
+          <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+          <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+          {% if can_edit %}
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px;font-weight:900" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+          {% endif %}
+          <button class="btn" onclick="adasLoadData(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          <button class="btn" onclick="copyMtbfChart()" title="Copy chart as image"><i class="fas fa-image"></i> Copy Chart</button>
+        </div>
+      </div>
+      {% if is_auto_bu %}
+      <!-- Crash-type checkboxes -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-bottom:1px solid #e0e7ff">
+        <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-bug"></i> Include in Total Crashes</span>
+        <label id="ck_system" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#dc2626;cursor:pointer;border:1.5px solid #fca5a5;border-radius:8px;padding:4px 10px;background:#fff">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> System
+        </label>
+        <label id="ck_ssr" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#d97706;cursor:pointer;border:1.5px solid #fcd34d;border-radius:8px;padding:4px 10px;background:#fff">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> SSR
+        </label>
+        <label id="ck_process" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#7c3aed;cursor:pointer;border:1.5px solid #c4b5fd;border-radius:8px;padding:4px 10px;background:#fff">
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> Process
+        </label>
+        <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly in chart &amp; table &mdash; does not modify saved data</span>
+      </div>
+      {% endif %}
+      <div id="mtbfLivePills" class="card-body" style="display:none"></div>
       <div id="mtbfColumnPanel" class="card-body" style="display:none"></div>
       <div id="mtbfSummaryPills" class="card-body" style="display:none"></div>
-      <div id="mtbfChartWrap" class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfCanvas" style="display:block;height:320px"></canvas><div id="mtbfEmpty" class="empty" style="display:none">No MTBF Excel data available.</div></div>
+      <div id="mtbfChartWrap" class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfCanvas" style="display:block;height:320px"></canvas><div id="mtbfEmpty" class="empty" style="display:none">No MTBF data available.</div></div>
     </div>
 
-    <!-- MTBF Build Table -- full-width, full-height, SWPDT-style -->
+    <!-- MTBF Build Table -->
     <div class="card" style="margin-top:16px;">
       <div class="card-head">
         <h2><i class="fas fa-table" style="color:#059669"></i> <span id="mtbfTableTitle">MTBF Build Table</span></h2>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input id="mtbfTableSearch" placeholder="Search meta / build..." oninput="renderMtbfTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;min-width:200px;">
-          <label style="font-size:11px;font-weight:800;color:#64748b;display:flex;align-items:center;gap:5px;cursor:pointer;">
-            <input type="checkbox" id="mtbfMay1Filter" checked onchange="renderMtbfTable()" style="accent-color:#6366f1;"> May 1st+
-          </label>
+          <input id="mtbfTableSearch" placeholder="Search meta / build..." oninput="adasFilterTable();renderMtbfTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;min-width:200px;">
           <span id="mtbfTableCount" class="pill" style="font-size:11px;"></span>
-          {% if can_edit %}
-          
-          {% endif %}
+          <button class="btn" onclick="adasCopyTable()" style="font-size:11px"><i class="fas fa-copy"></i> Copy</button>
         </div>
       </div>
       <div id="mtbfTableWrap" style="overflow:auto;width:100%;max-height:calc(100vh - 220px);">
-        <table id="mtbfBuildTable" style="width:100%;min-width:1100px;border-collapse:collapse;font-size:12px;table-layout:fixed;">
-          <thead id="mtbfTableHead" style="position:sticky;top:0;z-index:4;"></thead>
-          <tbody id="mtbfTableBody"></tbody>
+        <table id="mtbfBuildTable" style="width:100%;min-width:900px;border-collapse:collapse;font-size:12px;">
+          <thead id="mtbfTableHead" style="position:sticky;top:0;z-index:4;">
+            <tr>
+              <th style="text-align:center">S.No.</th>
+              <th>Date</th><th>Meta-ID</th><th style="text-align:right">Hours</th>
+              <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5">System</th>
+              <th style="text-align:center;color:#d97706;background:#fffbeb">SSR</th>
+              <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5">Process</th>
+              <th style="text-align:center">Total Crashes</th>
+              <th style="text-align:center">MTBF</th>
+              {% if can_edit %}<th style="text-align:center">Actions</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody id="mtbfTableBody" id="adasTableBody">
+            <tr><td colspan="10" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
@@ -518,7 +759,7 @@
   {% endif %}
 </div>
 
-<script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260625_qwinbug"></script>
+<script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260627_no_qwinbug"></script>
 <script>
 // Safety stub -- bsOpen is defined fully later in this script.
 // This early definition prevents ReferenceError from any cached page version.
@@ -552,8 +793,8 @@ window.LSP_DATA = {
 // =======================================================================
 (function(){
   /* ---- state ---- */
-  var _rbRows       = [];   // DB rows (from axiom_job_summary)
-  var _rbSaved      = [];   // user-saved build entries [{...meta, hours, reduction, deviceName, published, crashes, jql}]
+  var _rbRows       = window._rbRows  = [];   // DB rows (from axiom_job_summary)
+  var _rbSaved      = window._rbSaved = [];   // user-saved build entries
   var _rbInterval   = null;
   var _rbJqlTimers  = {};   // rowKey -> setInterval id
   var _rbNextMs     = 0;
@@ -606,7 +847,8 @@ window.LSP_DATA = {
     var dbVisible=_rbRows.filter(function(r){return !_rbDomain||String(r.domain||'').toUpperCase()===_rbDomain;});
     var dbOnly=dbVisible.filter(function(r){return !savedVisible.some(function(x){return _sameBuild(x.row,r);});});
     var total=savedVisible.length+dbOnly.length;
-    if(countEl) countEl.textContent=total+' build'+(total===1?'':'s')+(dbOnly.length?' (DB '+dbOnly.length+')':'');
+    var uniqueDbBuilds = dbOnly.reduce(function(acc,r){ var b=String(r.build_id||'').trim(); if(b&&acc.indexOf(b)<0) acc.push(b); return acc; },[]);
+    if(countEl) countEl.textContent=total+' build'+(total===1?'':'s')+(dbOnly.length?' (DB '+uniqueDbBuilds.length+')':'');
     if(!total){
       var domainCounts={};
       _rbRows.forEach(function(r){var d=String(r.domain||'UNKNOWN').toUpperCase();domainCounts[d]=(domainCounts[d]||0)+1;});
@@ -686,7 +928,8 @@ window.LSP_DATA = {
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed');
-        _rbRows=d.rows||[];
+        _rbRows=window._rbRows=d.rows||[];
+        console.log('[RunningBuildsDB] rows=',_rbRows.length,'sample domain=',(_rbRows[0]||{}).domain);
         _rbNextMs=Date.now()+INTERVAL_MS;
         if(_rbRows.length && !_rbRows.some(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;})){
           _rbDomain=String((_rbRows[0]||{}).domain||_rbDomain).toUpperCase();
@@ -1614,7 +1857,7 @@ window.LSP_DATA = {
     if(!buildId) return;
         // Use saved JQL if available, else shared Build Report default JQL
     var filterId=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
-    var jql=s.jql||(window.BuildReportCommon?BuildReportCommon.generateJql({builds:[buildId],filterId:filterId}):('(summary ~ "'+String(buildId).replace(/"/g,'\\"')+'") AND filter = '+filterId+' AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG OR project = QWINBUG) AND summary !~ "tombstone" ORDER BY created ASC'));
+    var jql=s.jql||(window.BuildReportCommon?BuildReportCommon.generateJql({builds:[buildId],filterId:filterId}):('(summary ~ "'+String(buildId).replace(/"/g,'\\"')+'") AND filter = '+filterId+' AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG) ORDER BY created ASC'));
     s.jql=jql;
     fetch('/api/consolidated_report',{
       method:'POST',
@@ -1670,15 +1913,9 @@ window.LSP_DATA = {
 
     /* ---- tab switch hook ---- */
   window.rbEnsureDbRunning=function(){
+    // Poller disabled: parallel script handles DB updates. One-shot load only.
     if(!_rbRows.length) window.loadRunningBuildsDb();
-    if(!_rbInterval){
-      _rbNextMs=Date.now()+INTERVAL_MS;
-      _rbInterval=setInterval(function(){
-        window.loadRunningBuildsDb();
-        _rbNextMs=Date.now()+INTERVAL_MS;
-      },INTERVAL_MS);
-      setInterval(_updateTimer,1000);
-    }
+    // No setInterval - avoids conflict with the production axiom poller.
   };
   var _origSwitch=window.switchTab;
   window.switchTab=function(name){
@@ -1686,9 +1923,8 @@ window.LSP_DATA = {
     if(name==='current') window.rbEnsureDbRunning();
   };
 
-
   /* ---- init ---- */
-  _rbSaved=_load();
+  _rbSaved=window._rbSaved=_load();
   _rbDomain=(function(){
     var t=String(TARGET||'').toUpperCase();
     if(t.includes('FLEX')) return 'FLEX';
@@ -1696,24 +1932,38 @@ window.LSP_DATA = {
     return 'ADAS';
   })();
 
-  document.addEventListener('DOMContentLoaded',function(){
-    var cur=document.getElementById('tab-current');
-    if(cur&&cur.classList.contains('active')){
-      window.loadRunningBuildsDb();
-      _rbNextMs=Date.now()+INTERVAL_MS;
-      _rbInterval=setInterval(function(){
-        window.loadRunningBuildsDb();
-        _rbNextMs=Date.now()+INTERVAL_MS;
-      },INTERVAL_MS);
-      setInterval(_updateTimer,1000);
-    }
+
+    document.addEventListener('DOMContentLoaded',function(){
     _rbRestorePublished();
     _render();
+    // Always load DB builds on page load so nav panel is populated
+    window.loadRunningBuildsDb();
+    if(typeof window.lspNavRender === 'function') window.lspNavRender();
   });
+
+
+
+
 }());
 </script>
 
 <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260623_editmode6"></script>
+<script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
+<script>
+// Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
+if(!window.ocSetDomain) window.ocSetDomain = function(domain){
+  ['ADAS','FLEX','IVI'].forEach(function(d){
+    var btn = document.getElementById('ocDom_'+d);
+    if(btn) btn.classList.toggle('active', d===domain);
+  });
+  if(typeof window.ocLoad === 'function') window.ocLoad(false);
+};
+if(!window.ocLoad)   window.ocLoad   = function(){};
+if(!window.ocFilter) window.ocFilter = function(){};
+if(!window.ojLoad)   window.ojLoad   = function(){};
+if(!window.ojFilter) window.ojFilter = function(){};
+if(!window.ojClear)  window.ojClear  = function(){};
+</script>
 <script>
 /* Build Report (old Builds) - WIP override.
    - All BUs: search/add multiple builds, Apply, Generate consolidated CR/JIRA report.
@@ -2086,6 +2336,1502 @@ window.LSP_DATA = {
   };
     document.addEventListener('keydown',function(e){if(e.key==='Escape')bsClose();});
 })();
+
+// =======================================================================
+// LSP NAV – dark left panel for Current Running Build tab
+// =======================================================================
+(function(){
+  var _lspNavDomain = 'ADAS';
+  var _lspSoloMeta  = null;
+
+  function _esc(v){var d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;}
+
+  /* ---- Build groups from LIVE_RUNNING_ROWS + _rbRows + _rbSaved ---- */
+  function _buildGroups(){
+    var map = {};
+    var domain = _lspNavDomain;
+    function addRow(r){
+      var dom = String(r.domain||r.deck_type||'ADAS').toUpperCase();
+      if(dom !== domain) return;
+      var meta = String(r.meta_id||r.build_id||'Unknown');
+      if(!map[meta]) map[meta] = {meta_id:meta, domain:dom, builds:[], crashes:0, devices:0, rowIdxs:[]};
+      var g = map[meta];
+      var bid = String(r.build_full||r.display_build||r.build_id||'');
+      if(bid && !g.builds.includes(bid)) g.builds.push(bid);
+      g.crashes += parseFloat(r.crashes||0)||0;
+      g.devices += parseInt(r.device_count||r.devices||0)||0;
+    }
+    function addRowWithIdx(r, idx){
+      addRow(r);
+      var meta = String(r.meta_id||r.build_id||'Unknown');
+      if(map[meta] && !map[meta].rowIdxs.includes(idx)) map[meta].rowIdxs.push(idx);
+    }
+    // Primary: LIVE_RUNNING_ROWS (server-side, has correct domain)
+    (window.LIVE_RUNNING_ROWS||[]).forEach(function(r,i){ addRowWithIdx(r,i); });
+    // Supplement with DB rows
+    (window._rbRows||[]).forEach(function(r){ addRow(r); });
+    (window._rbSaved||[]).forEach(function(r){ addRow(r); });
+    return Object.values(map).sort(function(a,b){
+      return a.meta_id.localeCompare(b.meta_id, undefined, {numeric:true});
+    });
+  }
+
+  /* ---- Render hidden checkboxes for LIVE_RUNNING_ROWS ---- */
+  function _ensureCheckboxes(){
+    var host = document.getElementById('lspHiddenChecks');
+    if(!host) return;
+    var rows = window.LIVE_RUNNING_ROWS||[];
+    if(host.children.length === rows.length) return; // already rendered
+    host.innerHTML = rows.map(function(r,i){
+      return '<input type="checkbox" class="run-build-check" data-row-idx="'+i+'" checked style="display:none">';
+    }).join('');
+  }
+
+  /* ---- Check/uncheck boxes for a given set of row indexes ---- */
+  function _setChecked(idxSet){
+    document.querySelectorAll('.run-build-check').forEach(function(ch){
+      var idx = Number(ch.getAttribute('data-row-idx'));
+      ch.checked = idxSet === null || idxSet.has(idx);
+    });
+  }
+
+  /* ---- Render the nav list ---- */
+  window.lspNavRender = function(){
+    _ensureCheckboxes();
+    var host = document.getElementById('lspNavList');
+    var cnt  = document.getElementById('lspNavCount');
+    if(!host) return;
+    var q = String((document.getElementById('lspNavSearch')||{}).value||'').toLowerCase();
+    var groups = _buildGroups().filter(function(g){
+      return !q || (g.meta_id+' '+g.builds.join(' ')).toLowerCase().includes(q);
+    });
+    if(cnt) cnt.textContent = groups.length;
+    var footer = document.getElementById('lspNavFooter');
+    if(footer) footer.textContent = groups.length + ' group' + (groups.length===1?'':'s');
+    if(!groups.length){
+      host.innerHTML = '<div style="padding:24px 10px;text-align:center;color:#475569;font-size:10px">'
+        +'<i class="fas fa-inbox" style="font-size:18px;display:block;margin-bottom:6px;opacity:.4"></i>'
+        +'No builds for '+_esc(_lspNavDomain)+'</div>';
+      // Update KPI
+      var kpiB = document.getElementById('lspKpiBuilds');
+      if(kpiB) kpiB.textContent = '0';
+      return;
+    }
+    var domAccent = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+    host.innerHTML = groups.map(function(g){
+      var isActive = _lspSoloMeta === g.meta_id;
+      var accent   = domAccent[g.domain]||'#2563eb';
+      var cls      = isActive ? 'lsp-nav-item lsp-nav-active' : 'lsp-nav-item lsp-nav-selected';
+      var builds   = g.builds.slice(0,2).join(' · ') + (g.builds.length>2?' +'+(g.builds.length-2)+' more':'');
+
+      return '<div class="'+cls+'" data-meta="'+_esc(g.meta_id)+'" onclick="lspNavClick(this.dataset.meta)">'
+        +'<div class="lsp-nav-accent" style="background:'+accent+'"></div>'
+        +'<div class="lsp-nav-body">'
+          +'<div class="lsp-nav-meta">'+_esc(g.meta_id)
+            +'<span style="font-size:9px;background:rgba(255,255,255,.1);color:#94a3b8;padding:1px 5px;border-radius:3px">'
+              +g.builds.length+' build'+(g.builds.length===1?'':'s')
+            +'</span>'
+          +'</div>'
+          +'<div class="lsp-nav-build">'+_esc(builds)+'</div>'
+          +'<div class="lsp-nav-stats">'
+            +(g.devices?'<span class="lsp-nav-stat green">'+g.devices+' dev</span>':'')
+            +(g.crashes?'<span class="lsp-nav-stat red"><i class="fas fa-bug" style="font-size:8px"></i> '+g.crashes+'</span>'
+                       :'<span class="lsp-nav-stat green"><i class="fas fa-check" style="font-size:8px"></i> 0</span>')
+          +'</div>'
+        +'</div>'
+        +(isActive?'<div style="display:flex;align-items:center;padding:0 6px"><span style="font-size:9px;font-weight:900;color:#6ee7b7"><i class="fas fa-bolt"></i></span></div>':'')
+        +'</div>';
+    }).join('');
+    // KPI: builds count
+    var totalBuilds = groups.reduce(function(s,g){return s+g.builds.length;},0);
+    var kpiB = document.getElementById('lspKpiBuilds');
+    if(kpiB) kpiB.textContent = totalBuilds||'—';
+  };
+
+  /* ---- Click a nav item: solo-select or restore all ---- */
+  /* ---- Render flavor-wise device/crash table for a meta ---- */
+
+        // -- Project filter state (QSTABILITY checked by default) -----------------
+  window._lspSelectedProjects = window._lspSelectedProjects || ['QSTABILITY'];
+  window.lspToggleProject = function(proj, pill){
+    var _lspSelectedProjects = window._lspSelectedProjects;
+    var idx = _lspSelectedProjects.indexOf(proj);
+    if(idx >= 0){
+      if(_lspSelectedProjects.length === 1) return; // keep at least one
+      _lspSelectedProjects.splice(idx, 1);
+      pill.classList.remove('checked');
+    } else {
+      _lspSelectedProjects.push(proj);
+      pill.classList.add('checked');
+    }
+  };
+
+  // -- JQL builder (reads _lspSelectedProjects) ------------------------------
+  function _lspBuildJql(buildIds){
+    if(!buildIds || !buildIds.length) return '';
+    var projects = (window._lspSelectedProjects||[]).length ? window._lspSelectedProjects : ['QSTABILITY'];
+    if(window.BuildReportCommon) return BuildReportCommon.generateJql({
+      builds: buildIds,
+      projects: projects,
+      filterId: (window.LSP_DATA && window.LSP_DATA.jira_filter_id) || '76997'
+    });
+    // Fallback
+    var fid = (window.LSP_DATA && window.LSP_DATA.jira_filter_id) || '76997';
+    var buildPart = buildIds.map(function(b){ return 'summary ~ ' + JSON.stringify(String(b)); }).join(' OR ');
+    var projPart  = '(' + projects.map(function(p){ return 'project = '+p; }).join(' OR ') + ')';
+    return '(' + buildPart + ') AND filter = ' + fid
+      + ' AND ' + projPart
+      + ' AND summary !~ "tombstone" ORDER BY created ASC';
+  }
+  // ── JQL showcase panel ───────────────────────────────────────────────────────
+  function _lspShowJqlPanel(jql){
+    var panel    = document.getElementById('lspJqlPanel');
+    var jqlText  = document.getElementById('lspJqlText');
+    var jiraLink = document.getElementById('lspJqlJiraLink');
+    if(!panel || !jqlText) return;
+    jqlText.textContent = jql || '';
+    var jiraUrl = (window.BuildReportCommon && BuildReportCommon.jiraIssuesUrl)
+      ? BuildReportCommon.jiraIssuesUrl(jql||'')
+      : 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + encodeURIComponent(jql||'');
+    if(jiraLink) jiraLink.href = jiraUrl;
+    panel.style.display = 'block';
+  }
+  window.lspCopyJql = function(){
+    var jqlText = document.getElementById('lspJqlText');
+    if(!jqlText) return;
+    var txt = jqlText.textContent || '';
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){
+        var btn = document.querySelector('#lspJqlPanel .lsp-jql-copy-btn');
+        if(btn){ var orig=btn.innerHTML; btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){ btn.innerHTML=orig; },1800); }
+      });
+    } else {
+      var ta=document.createElement('textarea'); ta.value=txt;
+      ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(e){}
+      document.body.removeChild(ta);
+    }
+  };
+
+
+  // -- Tab-switch guard: warn if JQL report is in progress ------------------
+  var _lspReportRunning = false;
+  (function(){
+    var _origSwitchTab = window.switchTab;
+    window.switchTab = function(name){
+      if(_lspReportRunning){
+        var leave = confirm('A JQL report is still running.\nLeave this tab? The report will stop.\n\nOK = Leave   Cancel = Stay');
+        if(!leave) return;
+        if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} _lspProgressSource=null; }
+        _lspReportRunning = false;
+        _lspHideProgress(0);
+      }
+      if(typeof _origSwitchTab==='function') _origSwitchTab(name);
+    };
+  })();
+
+  // -- Copy table as rich HTML (CR or JIRA) -- works for viewers too --------
+  window.lspCopyTable = function(tbodyId, btn){
+    var tbody = document.getElementById(tbodyId);
+    if(!tbody){ _lspFlashBtn(btn,false,'Not found'); return; }
+    var table = tbody.closest('table');
+    if(!table){ _lspFlashBtn(btn,false,'Not found'); return; }
+    var clone = table.cloneNode(true);
+    var S = {
+      table:'border-collapse:collapse;width:100%;font-family:Segoe UI,Arial,sans-serif;font-size:12px;background:#ffffff;border:1px solid #c7d2fe;',
+      th:   'background:#172554;color:#ffffff;text-align:left;padding:9px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #4f46e5;font-weight:900;white-space:nowrap;',
+      td:   'padding:8px 10px;border:1px solid #e2e8f0;vertical-align:top;color:#172033;background:#ffffff;',
+      link: 'color:#4338ca;font-weight:900;text-decoration:none;',
+      chip: 'display:inline-block;border:1px solid #c4b5fd;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;text-decoration:none;'
+    };
+    clone.setAttribute('style',S.table);
+    clone.setAttribute('border','1'); clone.setAttribute('cellspacing','0'); clone.setAttribute('cellpadding','0');
+    clone.querySelectorAll('th').forEach(function(el){ el.setAttribute('style',S.th); });
+    clone.querySelectorAll('td').forEach(function(el){ el.setAttribute('style',S.td); });
+    clone.querySelectorAll('a').forEach(function(a){
+      var href=a.getAttribute('href')||'';
+      if(/^https?:\/\//i.test(href)) a.setAttribute('href',href);
+      a.setAttribute('style', a.style.borderRadius ? S.chip : S.link);
+    });
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body></html>';
+    var plain=(clone.innerText||clone.textContent||'').trim();
+    function fallback(){
+      try{
+        var d=document.createElement('div'); d.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;';
+        d.innerHTML=html; document.body.appendChild(d);
+        var r=document.createRange(); r.selectNodeContents(d);
+        var s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        var ok=document.execCommand('copy'); s.removeAllRanges(); document.body.removeChild(d);
+        _lspFlashBtn(btn,ok);
+      }catch(e){ _lspFlashBtn(btn,false); }
+    }
+    try{
+      if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+        navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html],{type:'text/html'}),
+          'text/plain':new Blob([plain],{type:'text/plain'})
+        })]).then(function(){ _lspFlashBtn(btn,true); }).catch(fallback);
+      } else { fallback(); }
+    }catch(e){ fallback(); }
+  };
+  function _lspFlashBtn(btn,ok,label){
+    if(!btn) return;
+    var orig=btn.innerHTML;
+    btn.innerHTML=ok?'<i class="fas fa-check"></i> Copied!':'<i class="fas fa-times"></i> '+(label||'Failed');
+    btn.style.background=ok?'#16a34a':'#dc2626'; btn.style.color='#fff';
+    setTimeout(function(){ btn.innerHTML=orig; btn.style.background=''; btn.style.color=''; },2000);
+  }
+  // ── Progress window helpers (mirrors build_report_standalone) ────────────────
+  var _lspProgressSource = null, _lspProgressStartedAt = 0;
+  function _lspProgressElapsed(){
+    if(!_lspProgressStartedAt) return '0s';
+    var s = Math.max(0, Math.floor((Date.now()-_lspProgressStartedAt)/1000));
+    return s < 60 ? s+'s' : Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';
+  }
+  function _lspShowProgress(title, msg){
+    var box = document.getElementById('lspProgressBox'); if(!box) return;
+    _lspProgressStartedAt = Date.now();
+    box.className = 'lsp-progress-window';
+    box.style.display = 'block';
+    document.getElementById('lspProgressTitle').innerHTML = '<i class="fas fa-circle-notch spin"></i> ' + _esc(title||'Running Report');
+    document.getElementById('lspProgressMsg').textContent  = msg||'Starting consolidated report...';
+    document.getElementById('lspProgressCount').textContent = '0 / 0 done';
+    document.getElementById('lspProgressPct').textContent   = '0%';
+    document.getElementById('lspProgressFill').style.width  = '6%';
+    document.getElementById('lspProgressLog').textContent   = 'Waiting for backend job...';
+  }
+  function _lspUpdateProgress(snap){
+    snap = snap||{};
+    var total = Number(snap.total||0), done = Number(snap.done||0);
+    var pct   = Number(snap.pct||0);
+    if(!pct && total>0) pct = Math.round((done/total)*100);
+    pct = Math.max(0, Math.min(100, Math.round(pct||0)));
+    var stage = String(snap.stage||'running');
+    var box = document.getElementById('lspProgressBox'); if(!box) return;
+    box.className = 'lsp-progress-window' + (stage==='done'?' done':(stage==='error'?' err':''));
+    document.getElementById('lspProgressTitle').innerHTML =
+      stage==='done' ? '<i class="fas fa-check-circle"></i> Done' :
+      stage==='error'? '<i class="fas fa-triangle-exclamation"></i> Error' :
+                       '<i class="fas fa-circle-notch spin"></i> Running Report';
+    document.getElementById('lspProgressMsg').textContent   = String(snap.message||stage||'Processing...');
+    document.getElementById('lspProgressCount').textContent = total>0 ? (done+' / '+total+' done') : ('elapsed '+_lspProgressElapsed());
+    document.getElementById('lspProgressPct').textContent   = pct+'%';
+    document.getElementById('lspProgressFill').style.width  = Math.max(6,pct)+'%';
+    var log = Array.isArray(snap.log) ? snap.log.join('\n') : (snap.log||'');
+    document.getElementById('lspProgressLog').textContent   = log || ('Stage: '+stage+' • elapsed '+_lspProgressElapsed());
+  }
+  function _lspHideProgress(delay){
+    if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} _lspProgressSource=null; }
+    setTimeout(function(){ var box=document.getElementById('lspProgressBox'); if(box) box.style.display='none'; }, delay==null?0:delay);
+  }
+  function _lspWatchProgress(jobId){
+    if(!window.EventSource || !jobId) return;
+    if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} }
+    _lspProgressSource = new EventSource('/api/consolidated_report/progress/'+encodeURIComponent(jobId));
+    _lspProgressSource.onmessage = function(ev){
+      try{ _lspUpdateProgress(JSON.parse(ev.data||'{}')); }catch(e){}
+    };
+    _lspProgressSource.onerror = function(){
+      var log=document.getElementById('lspProgressLog');
+      if(log) log.textContent='Progress stream reconnecting... report is still running.';
+    };
+  }
+
+  // ── Normalize + render report (same logic as build_report_standalone) ────────
+  var _lspCrRows=[], _lspJiraRows=[];
+  var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
+  var JIRA_ISSUES_LSP = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
+
+  function _lspFinalResolution(row){
+    return String((row&&row.final_resolution)||(row&&row.resolution)||(row&&row.cr_resolution)||(row&&row.final_status)||(row&&row.cr_status)||(row&&row.status)||'').trim();
+  }
+  function _lspJiraKeyFromIssue(j){
+    return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();
+  }
+  function _lspCrashType(row){
+    var t = [row&&row.crash_type, row&&row.type, row&&row.cr_title, row&&row.title, row&&row.cr_area, row&&row.cr_subsystem].join(' ').toLowerCase();
+    if(t.indexOf('system')>=0) return 'System';
+    if(/\bssr\b|subsystem restart/.test(t)) return 'SSR';
+    return 'Process';
+  }
+  function _lspCrashTypeSummary(jiras, fallbackRow){
+    var counts={System:0,SSR:0,Process:0};
+    (jiras||[]).forEach(function(j){ var ct=_lspCrashType(j); counts[ct]=(counts[ct]||0)+1; });
+    if(!Object.values(counts).some(Boolean) && fallbackRow) counts[_lspCrashType(fallbackRow)]=1;
+    return Object.keys(counts).filter(function(k){return counts[k]>0;}).map(function(k){return k+': '+counts[k];}).join(', ')||'--';
+  }
+  function _lspJiraItemsForCr(row){
+    var out=[], seen=new Set();
+    (row&&row.jiras||[]).forEach(function(j){
+      var key = typeof j==='string' ? String(j).toUpperCase() : _lspJiraKeyFromIssue(j);
+      if(!key||seen.has(key)) return; seen.add(key);
+      out.push({key:key, title:typeof j==='string'?'':(j.summary||j.jira_title||j.final_summary||''), status:typeof j==='string'?'':(j.status||j.final_status||'')});
+    });
+    return out;
+  }
+  function _lspJiraKeysUrl(keys){
+    var uniq=[], seen=new Set();
+    (keys||[]).forEach(function(k){ k=String(k||'').trim().toUpperCase(); if(k&&!seen.has(k)){seen.add(k);uniq.push(k);} });
+    return JIRA_ISSUES_LSP + encodeURIComponent('key in ('+uniq.slice(0,50).join(',')+') ORDER BY created DESC');
+  }
+  function _lspNormalizeReport(rep){
+    _lspCrRows=[]; _lspJiraRows=[];
+    var seenJ={}, totalJiras=0, convertedToCrs=0;
+    (rep.hierarchical_report||[]).forEach(function(r){
+      var jiras = r.jiras||[];
+      totalJiras += jiras.length||0;
+      if(r.cr && r.cr!=='NO_CR'){
+        var cnt = jiras.length||r.cr_count||r.jira_count||1;
+        convertedToCrs += Number(cnt)||0;
+        _lspCrRows.push({cr:r.cr, title:r.cr_title||r.title||'', area:r.cr_area||r.area||'',
+          sub:r.cr_subsystem||r.subsystem||'', func:r.cr_functionality||r.cr_function||r.functionality||'',
+          age:r.cr_age||r.overall_age||'', status:r.cr_status||r.status||'',
+          resolution:_lspFinalResolution(r), count:cnt, jiras:jiras, type:_lspCrashTypeSummary(jiras,r)});
+      }
+      jiras.forEach(function(j){
+        var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
+        if(!key||seenJ[key]) return;
+        var st=String(j.final_status||j.status||'').toLowerCase();
+        if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0) return;
+        seenJ[key]=1;
+        _lspJiraRows.push({key:key, title:j.final_summary||j.summary||j.jira_title||'',
+          status:j.final_status||j.status||'Open', resolution:_lspFinalResolution(j)||j.final_status||j.status||'Open',
+          type:_lspCrashType(j), count:1});
+      });
+    });
+    // fallback: cr_rows / open_jiras
+    if(rep.cr_rows&&rep.cr_rows.length&&!_lspCrRows.length){
+      (rep.cr_rows||[]).forEach(function(r){
+        var c=Number(r.jira_count||1)||1; convertedToCrs+=c;
+        _lspCrRows.push({cr:r.mapped_cr||r.cr, title:r.cr_title||'', area:r.cr_area||'',
+          sub:r.cr_subsystem||'', func:r.cr_functionality||'', age:r.cr_age||r.overall_age||'',
+          status:r.cr_status||'', resolution:_lspFinalResolution(r), count:c, jiras:r.jiras||[], type:_lspCrashTypeSummary(r.jiras||[],r)});
+      });
+    }
+    if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length){
+      (rep.open_jiras||[]).forEach(function(j){
+        _lspJiraRows.push({key:j.stability_ticket||j.key, title:j.jira_title||j.summary,
+          status:j.status||'Open', resolution:_lspFinalResolution(j)||j.status||'Open', type:_lspCrashType(j), count:1});
+      });
+    }
+    var summary = rep.summary||{};
+    totalJiras = Number(summary.total_jiras||summary.total||totalJiras||convertedToCrs+_lspJiraRows.length)||0;
+    convertedToCrs = Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
+    return {totalJiras:totalJiras, convertedToCrs:convertedToCrs};
+  }
+
+  var _lspActiveCrashFilter = null; // null=all, 'System'/'SSR'/'Process'=filtered
+
+  function _lspRenderReport(rep){
+    var counts = _lspNormalizeReport(rep||{});
+    _lspActiveCrashFilter = null;
+
+    // -- Compute total JIRAs from real normalized data -----------------------
+    var mappedTotal = _lspCrRows.reduce(function(s,r){ return s+(Number(r.count)||0); },0);
+    var totalJirasDisplay = (counts.totalJiras > 0)
+      ? counts.totalJiras
+      : (mappedTotal + _lspJiraRows.length) || 0;
+
+    // -- Update the 4 big KPI boxes at the top (always) ---------------------
+    var kpiJ = document.getElementById('lspKpiJiras');
+    var kpiC = document.getElementById('lspKpiCrs');
+    var kpiO = document.getElementById('lspKpiOpen');
+    if(kpiJ) kpiJ.textContent = totalJirasDisplay || '0';
+    if(kpiC) kpiC.textContent = _lspCrRows.length  || '0';
+    if(kpiO) kpiO.textContent = _lspJiraRows.length || '0';
+
+    // -- Crash-type counts for filter pills ---------------------------------
+    var ct = {System:0, SSR:0, Process:0};
+    _lspCrRows.forEach(function(r){
+      var t = String(r.type||'');
+      ['System','SSR','Process'].forEach(function(k){
+        var m = t.match(new RegExp(k+':\\s*(\\d+)'));
+        if(m) ct[k] += parseInt(m[1])||0;
+        else if(t===k) ct[k]++;
+      });
+    });
+    _lspJiraRows.forEach(function(j){ ct[_lspCrashType(j)]++; });
+
+    // -- Inline KPI bar with filter pills (below the big KPI row) ----------
+    var kpiWrap = document.getElementById('lspReportKpis');
+    if(kpiWrap){
+      var isAuto = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+      var pill = function(k, color, bg, border){
+        return '<button onclick="lspFilterCrashType(\''+k+'\')" id="lspCrashPill_'+k+'"'
+          +' style="background:'+bg+';color:'+color+';border:1.5px solid '+border
+          +';border-radius:999px;padding:3px 12px;font-size:11px;font-weight:900;cursor:pointer;transition:all .15s"'
+          +' title="Filter by '+k+' crashes">'+k+': '+ct[k]+'</button>';
+      };
+      var crashSeg = isAuto
+        ? '<div style="display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center">'
+          +'<span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Filter:</span>'
+          + pill('System',  '#dc2626','#fee2e2','#fca5a5')
+          + pill('SSR',     '#d97706','#fef3c7','#fcd34d')
+          + pill('Process', '#2563eb','#dbeafe','#93c5fd')
+          +'<button onclick="lspFilterCrashType(null)" id="lspCrashPill_All"'
+          +' style="background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;border-radius:999px;'
+          +'padding:3px 12px;font-size:11px;font-weight:900;cursor:pointer">All</button>'
+          +'</div>'
+        : '';
+      kpiWrap.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+        +'<span style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#1e3a8a"><b>'+totalJirasDisplay+'</b> JIRAs</span>'
+        +'<span style="border:1px solid #bbf7d0;background:#ecfdf5;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#047857"><b>'+counts.convertedToCrs+'</b> &#8594; CRs</span>'
+        +'<span style="border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#6d28d9"><b>'+_lspCrRows.length+'</b> CRs</span>'
+        +'<span style="border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#b45309"><b>'+_lspJiraRows.length+'</b> Open JIRAs</span>'
+        + crashSeg
+        +'</div>';
+      kpiWrap.style.display = 'block';
+    }
+
+    _lspCrRows.sort(function(a,b){ return (b.count||0)-(a.count||0); });
+    _lspRenderCrRows();
+    _lspRenderJiraRows();
+  }
+
+  // -- Crash-type pill click: toggle filter + re-render ----------------------
+  window.lspFilterCrashType = function(type){
+    _lspActiveCrashFilter = type || null;
+    var pillDefs = {
+      System:  {color:'#dc2626', bg:'#fee2e2', border:'#fca5a5'},
+      SSR:     {color:'#d97706', bg:'#fef3c7', border:'#fcd34d'},
+      Process: {color:'#2563eb', bg:'#dbeafe', border:'#93c5fd'},
+      All:     {color:'#475569', bg:'#f1f5f9', border:'#cbd5e1'}
+    };
+    ['System','SSR','Process','All'].forEach(function(k){
+      var btn = document.getElementById('lspCrashPill_'+k);
+      if(!btn) return;
+      var active = (k==='All') ? !_lspActiveCrashFilter : (k===_lspActiveCrashFilter);
+      var s = pillDefs[k]||pillDefs.All;
+      if(active){
+        btn.style.background  = s.color;
+        btn.style.color       = '#fff';
+        btn.style.border      = '1.5px solid '+s.color;
+        btn.style.boxShadow   = '0 4px 12px rgba(0,0,0,.2)';
+        btn.style.transform   = 'scale(1.05)';
+      } else {
+        btn.style.background  = s.bg;
+        btn.style.color       = s.color;
+        btn.style.border      = '1.5px solid '+s.border;
+        btn.style.boxShadow   = '';
+        btn.style.transform   = '';
+      }
+    });
+    _lspRenderCrRows();
+    _lspRenderJiraRows();
+  };
+
+  // -- Render CR rows (respects _lspActiveCrashFilter) -----------------------
+  function _lspRenderCrRows(){
+    var crTb = document.getElementById('crTbody');
+    if(!crTb) return;
+    var rows = _lspActiveCrashFilter
+      ? _lspCrRows.filter(function(r){ return String(r.type||'').indexOf(_lspActiveCrashFilter)>=0; })
+      : _lspCrRows;
+    if(!rows.length){
+      crTb.innerHTML = '<tr><td colspan="9" class="empty">No CRs match the "'
+        +_esc(_lspActiveCrashFilter||'selected')+'" filter.</td></tr>';
+      return;
+    }
+    crTb.innerHTML = rows.map(function(r,i){
+      var id = (String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+      var crLink = id
+        ? '<a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="https://orbit/CR/'+_esc(id)+'" target="_blank">'+_esc(r.cr)+'</a>'
+        : _esc(r.cr||'--');
+      var jiraItems = _lspJiraItemsForCr(r);
+      var jiraKeys  = jiraItems.map(function(x){return x.key;}).filter(Boolean);
+      var cnt = Number(r.count||jiraKeys.length||0);
+      var cntHtml = jiraKeys.length
+        ? '<a style="display:inline-flex;align-items:center;gap:4px;border:1px solid #c4b5fd;background:#eef2ff;color:#4f46e5;border-radius:999px;font-size:11px;font-weight:950;padding:2px 8px;text-decoration:none" href="'+_lspJiraKeysUrl(jiraKeys)+'" target="_blank">'+cnt+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>'
+        : '<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>';
+      return '<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td>'+crLink+'</td>'
+        +'<td style="max-width:340px">'+_esc(r.title||'--')+'</td>'
+        +'<td style="text-align:center">'+cntHtml+'</td>'
+        +'<td>'+_esc(r.area||'--')+'</td>'
+        +'<td>'+_esc(r.sub||'--')+'</td>'
+        +'<td>'+_esc(r.func||'--')+'</td>'
+        +'<td style="text-align:center">'+_esc(r.age||'--')+'</td>'
+        +'<td>'+_esc(r.resolution||r.status||'--')+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  // -- Render JIRA rows (respects _lspActiveCrashFilter) ---------------------
+  function _lspRenderJiraRows(){
+    var jiraSec = document.getElementById('jiraSection');
+    var jiraTb  = document.getElementById('jiraTbody');
+    if(!jiraSec) return;
+    var rows = _lspActiveCrashFilter
+      ? _lspJiraRows.filter(function(j){ return _lspCrashType(j)===_lspActiveCrashFilter; })
+      : _lspJiraRows;
+    if(!rows.length){ jiraSec.style.display='none'; return; }
+    jiraSec.style.display = 'block';
+    if(jiraTb) jiraTb.innerHTML = rows.map(function(r,i){
+      return '<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td><a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.key)+'" target="_blank">'+_esc(r.key)+'</a></td>'
+        +'<td>'+_esc(r.title||'--')+'</td>'
+        +'<td>'+_esc(r.type||'--')+'</td>'
+        +'<td>'+_esc(r.resolution||r.status||'--')+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  // ── Core runner: /api/consolidated_report with job_id + SSE progress ─────────
+  function _lspRunReport(jql, labelForStatus){
+    var crTb   = document.getElementById('crTbody');
+    var target = (window.LSP_DATA||{}).primary_target||'';
+    var builds = [];
+    // Extract build tokens from JQL summary clauses for Axiom metrics
+    var m, re = /summary\s*~\s*"([^"]+)"/gi;
+    while((m=re.exec(jql))!==null) builds.push(m[1]);
+
+    // Show JQL panel
+    _lspShowJqlPanel(jql);
+
+        // Show progress window
+    _lspReportRunning = true;
+    _lspShowProgress('Running Report', 'Submitting report for '+(labelForStatus||'selected builds')+'...');
+    if(crTb) crTb.innerHTML = '<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report... see progress window.</td></tr>';
+    // Hide copy buttons while running
+    var copyCrBtn = document.getElementById('lspCopyCrBtn');
+    if(copyCrBtn) copyCrBtn.style.display='none';
+
+    var kpiWrap = document.getElementById('lspReportKpis');
+    if(kpiWrap) kpiWrap.style.display='none';
+
+    var payload = {
+      builds: builds,
+      traverse: true,
+      orbit: true,
+      target: target,
+      force: true,
+      custom_jql: jql,
+      include_axiom_metrics: true
+    };
+
+    fetch('/api/consolidated_report', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Accept':'application/json'},
+      body: JSON.stringify(payload)
+    })
+    .then(function(r){
+      var ct = r.headers.get('content-type')||'';
+      if(!ct.includes('application/json')){
+        if(r.status===401||r.status===403) throw new Error('Session expired (HTTP '+r.status+'). Please refresh and log in again.');
+        throw new Error('Server error (HTTP '+r.status+'). Check server logs.');
+      }
+      return r.json();
+    })
+    .then(function(data){
+      if(data && data.login_required) throw new Error('Session expired. Please refresh and log in again.');
+      if(data.error) throw new Error(data.error);
+      if(data.job_id){
+        // Async job — watch SSE progress then poll for result
+        document.getElementById('lspProgressLog').textContent = 'Job ID: '+data.job_id+'\nConnecting progress stream...';
+        _lspWatchProgress(data.job_id);
+        return BuildReportCommon.waitForResult(data.job_id).then(function(result){
+          if(result.error) throw new Error(result.error);
+          return result;
+        });
+      }
+      return data;
+    })
+        .then(function(data){
+      _lspReportRunning = false;
+      _lspUpdateProgress({stage:'done', done:1, total:1, pct:100, message:'Report complete. Rendering results...'});
+      _lspRenderReport(data||{});
+      // Show copy buttons now that data is ready
+      var copyCrBtn = document.getElementById('lspCopyCrBtn');
+      if(copyCrBtn) copyCrBtn.style.display='inline-flex';
+      _lspHideProgress(1800);
+    })
+    .catch(function(e){
+      _lspReportRunning = false;
+      _lspUpdateProgress({stage:'error', pct:100, message:String(e.message||e), log:String(e.message||e)});
+      if(crTb) crTb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626;font-weight:800">'
+        +'<i class="fas fa-triangle-exclamation"></i> '+_esc(String(e.message||e))+'</td></tr>';
+    });
+  }
+
+  // -- Render flavor/build table: S.No | Meta | Build | Build Flavour | Devices | Crashes | Run ----
+  function _lspRenderFlavorTable(metaId){
+    var host = document.getElementById('lspFlavorTableWrap');
+    if(!host) return;
+
+    // Collect rows for this domain, scoped to metaId if provided
+    var allRows = (window._rbRows||[]).filter(function(r){
+      var domainMatch = !_lspNavDomain ||
+        String(r.domain||r.deck_type||'').toUpperCase() === String(_lspNavDomain).toUpperCase();
+      if(!domainMatch) return false;
+      if(metaId) return String(r.meta_id||'').toUpperCase() === String(metaId||'').toUpperCase();
+      return true;
+    });
+    if(!allRows.length){ host.innerHTML=''; return; }
+
+    // Group: meta -> build -> flavors
+    var metaMap = {};
+    allRows.forEach(function(r){
+      var meta = String(r.meta_id||'Unknown');
+      // build_id is the canonical field in _rbRows
+      var bid  = String(r.build_id||r.build_full||r.build||'').trim();
+      if(!bid) return;
+      if(!metaMap[meta]) metaMap[meta] = {};
+      if(!metaMap[meta][bid]) metaMap[meta][bid] = {build:bid, flavors:{}, dev:0, crashes:null};
+      var entry = metaMap[meta][bid];
+      var raw = String(r.product_flavor||'').trim();
+      if(raw) raw.split(',').forEach(function(f){ f=f.trim(); if(f) entry.flavors[f.toLowerCase()]=f; });
+      entry.dev = Math.max(entry.dev, parseInt(r.device_count||0)||0);
+      if(r.crashes != null) entry.crashes = (entry.crashes||0) + parseInt(r.crashes||0);
+    });
+
+    // Flatten to display rows
+    var displayRows = [];
+    Object.keys(metaMap).sort(function(a,b){ return a.localeCompare(b,undefined,{numeric:true}); }).forEach(function(meta){
+      Object.keys(metaMap[meta]).sort().forEach(function(bid){
+        var e = metaMap[meta][bid];
+        displayRows.push({ meta:meta, build:e.build, flavors:Object.values(e.flavors), dev:e.dev, crashes:e.crashes });
+      });
+    });
+
+    // Build table HTML
+    var html = '<table class="lsp-flavor-tbl" style="width:100%">'
+      + '<thead><tr>'
+      + '<th style="width:36px">#</th>'
+      + '<th style="width:90px">Meta</th>'
+      + '<th>Build</th>'
+      + '<th>Build Flavour</th>'
+      + '<th style="text-align:center;width:80px">Devices</th>'
+      + '<th style="text-align:center;width:70px">Crashes</th>'
+      + '<th style="text-align:center;width:70px">JQL</th>'
+      + '</tr></thead><tbody>';
+
+    var totalDev=0, totalCrash=0;
+    displayRows.forEach(function(row, idx){
+      totalDev += row.dev||0;
+      if(row.crashes!=null) totalCrash += row.crashes;
+      var buildShort = row.build.replace(/\\/g,'/').split('/').filter(Boolean).pop() || row.build;
+      var flavorHtml = row.flavors.length
+        ? row.flavors.map(function(f){ return '<div style="white-space:nowrap;font-size:10px">'+_esc(f)+'</div>'; }).join('')
+        : '<span style="color:#94a3b8">--</span>';
+            var runBtn = '<button onclick="lspRunFlavorJql('+JSON.stringify(row.build)+')"'
+        + ' style="border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;'
+        + 'border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;white-space:nowrap">'
+        + '<i class="fas fa-play" style="font-size:9px"></i> Run</button>';
+      html += '<tr>'
+        + '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>'
+        + '<td style="font-weight:900;color:#1e3a8a;font-size:11px;white-space:nowrap">'+_esc(row.meta)+'</td>'
+        + '<td style="font-size:10px;color:#334155;word-break:break-all;max-width:220px" title="'+_esc(row.build)+'">'+_esc(buildShort)+'</td>'
+        + '<td>'+flavorHtml+'</td>'
+        + '<td style="text-align:center;font-weight:800">'+(row.dev||0)+'</td>'
+        + '<td style="text-align:center">'+(row.crashes!=null?row.crashes:'--')+'</td>'
+        + '<td style="text-align:center">'+runBtn+'</td>'
+        + '</tr>';
+    });
+    html += '<tr class="lsp-flavor-total">'
+      + '<td colspan="4"><b>Total</b></td>'
+      + '<td style="text-align:center"><b>'+totalDev+'</b></td>'
+      + '<td style="text-align:center"><b>'+(totalCrash||'--')+'</b></td>'
+      + '<td></td></tr>';
+    html += '</tbody></table>';
+    host.innerHTML = html;
+  }
+
+  // ── Run JQL for a single build (▶ Run button) ─────────────────────────────
+    window.lspRunFlavorJql = function(build){
+    var jql = _lspBuildJql([build]);
+    if(!jql) return;
+    var label = build.replace(/\\/g,'/').split('/').pop();
+    _lspConfirmAndRun(jql, label);
+  };
+
+  // -- Confirm dialog before running JQL ------------------------------------
+  function _lspConfirmAndRun(jql, label){
+    var modal = document.getElementById('lspRunConfirmModal');
+    var msgEl = document.getElementById('lspRunConfirmMsg');
+    if(msgEl) msgEl.textContent = 'Run JQL report for: ' + (label||'selected builds') + '?';
+    // Store pending jql on modal for the Yes button
+    if(modal){ modal._pendingJql = jql; modal._pendingLabel = label; modal.style.display='flex'; }
+  }
+  window.lspConfirmRunYes = function(){
+    var modal = document.getElementById('lspRunConfirmModal');
+    if(!modal) return;
+    var jql   = modal._pendingJql;
+    var label = modal._pendingLabel;
+    modal.style.display = 'none';
+    modal._pendingJql = null;
+    if(jql) _lspRunReport(jql, label);
+  };
+  window.lspConfirmRunNo = function(){
+    var modal = document.getElementById('lspRunConfirmModal');
+    if(modal){ modal.style.display='none'; modal._pendingJql=null; }
+    // Do nothing — stay idle
+  };
+
+  // ── Auto-run JQL when meta is clicked in nav ──────────────────────────────
+    function _lspAutoJql(metaId){
+    var rows = (window._rbRows||[]).filter(function(r){
+      var domainMatch = !_lspNavDomain ||
+        String(r.domain||r.deck_type||'').toUpperCase() === String(_lspNavDomain).toUpperCase();
+      return domainMatch && String(r.meta_id||'').toUpperCase() === String(metaId||'').toUpperCase();
+    });
+    if(!rows.length) return;
+    var buildIds = [];
+    rows.forEach(function(r){
+      // build_id is the canonical field in _rbRows
+      var b = String(r.build_id||r.build_full||r.build||'').trim();
+      if(b && buildIds.indexOf(b)<0) buildIds.push(b);
+    });
+    if(!buildIds.length) return;
+    var jql = _lspBuildJql(buildIds);
+    if(!jql) return;
+    _lspConfirmAndRun(jql, metaId);
+  }
+  window.lspNavClick = function(metaId){
+    var groups = _buildGroups();
+    if(_lspSoloMeta === metaId){
+      // Second click: deselect
+      _lspSoloMeta = null;
+      _setChecked(null);
+      var tag = document.getElementById('lspScopeTag');
+      if(tag){ tag.className='lsp-scope-tag'; tag.innerHTML='<i class="fas fa-layer-group"></i> All '+_esc(_lspNavDomain)+' builds'; }
+      var fw = document.getElementById('lspFlavorTableWrap'); if(fw) fw.innerHTML='';
+    } else {
+      _lspSoloMeta = metaId;
+      var g = groups.find(function(x){ return x.meta_id===metaId; });
+      var idxSet = g ? new Set(g.rowIdxs) : new Set();
+      _setChecked(idxSet);
+      var tag = document.getElementById('lspScopeTag');
+      if(tag){ tag.className='lsp-scope-tag scoped'; tag.innerHTML='<i class="fas fa-code-branch"></i> '+_esc(metaId); }
+      // Render flavor table + auto JQL
+      _lspRenderFlavorTable(metaId);
+      _lspAutoJql(metaId);
+    }
+    lspNavRender();
+    if(typeof window.onRunningBuildSelectionChanged==='function') window.onRunningBuildSelectionChanged();
+  };
+
+  /* ---- Set domain from nav tab buttons ---- */
+  window.lspNavSetDomain = function(domain){
+    _lspNavDomain = domain;
+    _lspSoloMeta  = null;
+    ['ADAS','FLEX','IVI'].forEach(function(d){
+      var btn = document.getElementById('lspNavDom_'+d);
+      if(!btn) return;
+      btn.className = 'lsp-nav-dombtn' + (d===domain?' dom-'+d:'');
+    });
+    // Sync legacy applyCurrentDomainFilter
+    if(typeof window.applyCurrentDomainFilter === 'function') window.applyCurrentDomainFilter(domain);
+    // Reset scope tag
+    var tag = document.getElementById('lspScopeTag');
+    if(tag){ tag.className='lsp-scope-tag'; tag.innerHTML='<i class="fas fa-layer-group"></i> All '+_esc(domain)+' builds'; }
+    // Re-check all boxes for new domain
+    _setChecked(null);
+    lspNavRender();
+    if(typeof window.onRunningBuildSelectionChanged === 'function') window.onRunningBuildSelectionChanged();
+  };
+
+  /* ---- Called back by applyCurrentDomainFilter ---- */
+  window.lspSetCurrentDomain = function(domain){
+    _lspNavDomain = domain;
+    ['ADAS','FLEX','IVI'].forEach(function(d){
+      var btn = document.getElementById('lspNavDom_'+d);
+      if(!btn) return;
+      btn.className = 'lsp-nav-dombtn' + (d===domain?' dom-'+d:'');
+    });
+    lspNavRender();
+  };
+
+  /* ---- Update KPI boxes from rendered table rows ---- */
+  function _lspUpdateKpi(){
+    var crRows  = document.querySelectorAll('#crTbody tr:not([style*="display:none"])').length;
+    var jiraRows= document.querySelectorAll('#jiraTbody tr').length;
+    var kpiC = document.getElementById('lspKpiCrs');   if(kpiC && crRows)   kpiC.textContent = crRows;
+    var kpiO = document.getElementById('lspKpiOpen');  if(kpiO && jiraRows) kpiO.textContent = jiraRows;
+    // JIRAs from summary pills text
+    var pills = document.getElementById('crSummaryPills');
+    if(pills){
+      var m = (pills.textContent||'').match(/(\d+)\s*JIRA/i);
+      var kpiJ = document.getElementById('lspKpiJiras');
+      if(kpiJ && m) kpiJ.textContent = m[1];
+    }
+  }
+
+  /* ---- Refresh: reload builds from API (PL-filtered server-side) ---- */
+  window.lspNavRefresh = function(){
+    if(typeof window.loadRunningBuildsDb === 'function'){
+      var host = document.getElementById('lspNavList');
+      if(host) host.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:10px">'
+        +'<i class="fas fa-circle-notch spin" style="font-size:16px;display:block;margin-bottom:6px;color:#c7d2fe"></i>Refreshing...</div>';
+      window.loadRunningBuildsDb();
+    }
+  };
+
+  /* ---- Init on DOMContentLoaded ---- */
+  document.addEventListener('DOMContentLoaded', function(){
+    _ensureCheckboxes();
+    lspNavRender();
+    // Re-render after DB fetch (which fires ~1s after load)
+    setTimeout(function(){ lspNavRender(); }, 1500);
+    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); }, 3500);
+    // Periodic KPI refresh
+    setInterval(_lspUpdateKpi, 2500);
+  });
+
+  /* ---- Re-render nav after loadRunningBuildsDb completes ---- */
+  var _lspLoadPatch = setInterval(function(){
+    if(typeof window.loadRunningBuildsDb !== 'function') return;
+    clearInterval(_lspLoadPatch);
+    var _orig = window.loadRunningBuildsDb;
+    window.loadRunningBuildsDb = function(){
+      var p = _orig.apply(this, arguments);
+      if(p && typeof p.then === 'function'){
+        p.then(function(){ _ensureCheckboxes(); lspNavRender(); });
+      } else {
+        setTimeout(function(){ _ensureCheckboxes(); lspNavRender(); }, 600);
+      }
+      return p;
+    };
+  }, 100);
+
+})();
+
 </script>
-</body>
+
+<!-- LSP Consolidated Report Progress Window -->
+<div id="lspProgressBox" class="lsp-progress-window" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 36px));z-index:9999;display:none;border:1px solid rgba(196,181,253,.9);border-radius:18px;background:linear-gradient(135deg,#ffffff,#eef2ff 70%,#faf5ff);box-shadow:0 24px 70px rgba(30,41,59,.28);overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid #ddd6fe;background:linear-gradient(90deg,#eef2ff,#f5f3ff)">
+    <div id="lspProgressTitle" style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:950;color:#312e81;text-transform:uppercase;letter-spacing:.04em"><i class="fas fa-circle-notch spin"></i> Running Report</div>
+    <button class="btn" type="button" onclick="_lspHideProgress(0)" style="font-size:11px;padding:4px 10px"><i class="fas fa-minus"></i></button>
+  </div>
+  <div style="padding:13px 14px">
+    <div id="lspProgressMsg" style="font-size:12px;font-weight:850;color:#1e293b;line-height:1.35;min-height:34px">Starting...</div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin:9px 0 7px;color:#64748b;font-size:11px;font-weight:900">
+      <span id="lspProgressCount">0 / 0 done</span><span id="lspProgressPct">0%</span>
+    </div>
+    <div style="height:10px;background:#e0e7ff;border-radius:999px;overflow:hidden">
+      <div id="lspProgressFill" style="height:100%;width:6%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#7c3aed,#c026d3);transition:width .25s ease"></div>
+    </div>
+    <div id="lspProgressLog" style="margin-top:9px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.72);border:1px solid #e0e7ff;color:#475569;font-size:10px;line-height:1.35;max-height:72px;overflow:auto;white-space:pre-wrap">Waiting for backend job...</div>
+  </div>
+</div>
+
+<!-- LSP Run Confirm Modal -->
+<div id="lspRunConfirmModal" onclick="if(event.target===this)lspConfirmRunNo()"
+  style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:10000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.28);border:1px solid #c7d2fe;width:min(420px,96vw);overflow:hidden">
+    <div style="padding:14px 16px;background:linear-gradient(90deg,#eef2ff,#f5f3ff);border-bottom:1px solid #e0e7ff;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">&#9889;</span>
+      <span style="font-size:13px;font-weight:950;color:#312e81">Run JQL Report?</span>
+    </div>
+    <div style="padding:18px 16px">
+      <p id="lspRunConfirmMsg" style="margin:0 0 18px;font-size:13px;color:#1e293b;font-weight:600;line-height:1.5">Run JQL report for selected builds?</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="lspConfirmRunNo()"
+          style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 22px;font-size:13px;font-weight:900;cursor:pointer">
+          No
+        </button>
+        <button onclick="lspConfirmRunYes()"
+          style="border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:10px;padding:8px 22px;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 8px 20px rgba(79,70,229,.3)">
+          Yes, Run
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- LSP Customize Modal -->
+<div id="lspCfgModal" class="lsp-cfg-modal" onclick="if(event.target===this)lspCloseCfg()">
+  <div class="lsp-cfg-card">
+    <div class="lsp-cfg-head">
+      <span style="font-size:13px;font-weight:950"><i class="fas fa-sliders"></i> Customize JQL Settings</span>
+      <button onclick="lspCloseCfg()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="lsp-cfg-body">
+      <div class="lsp-cfg-row">
+        <label class="lsp-cfg-lbl">Filter ID</label>
+        <input id="lspCfgFilterId" class="lsp-cfg-inp" placeholder="e.g. 76997" value="76997">
+      </div>
+      <div class="lsp-cfg-row">
+        <label class="lsp-cfg-lbl">Projects</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="checkbox" id="lspCfgProjQ" checked style="accent-color:#6366f1"> QSTABILITY</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="checkbox" id="lspCfgProjC" style="accent-color:#6366f1"> CHIPMD</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="checkbox" id="lspCfgProjD" style="accent-color:#6366f1"> DROIDBUG</label>
+        </div>
+      </div>
+      <div class="lsp-cfg-row">
+        <label class="lsp-cfg-lbl">Exclude</label>
+        <input id="lspCfgExclude" class="lsp-cfg-inp" placeholder="e.g. tombstone" value="tombstone">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button onclick="lspCloseCfg()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
+        <button onclick="lspSaveCfg()" style="border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,.3)"><i class="fas fa-check"></i> Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+    window.lspOpenCfg = function(){
+    var _lsp = window._lspSelectedProjects || ['QSTABILITY'];
+    var q=document.getElementById('lspCfgProjQ'),c=document.getElementById('lspCfgProjC'),d=document.getElementById('lspCfgProjD');
+    if(q) q.checked=_lsp.indexOf('QSTABILITY')>=0;
+    if(c) c.checked=_lsp.indexOf('CHIPMD')>=0;
+    if(d) d.checked=_lsp.indexOf('DROIDBUG')>=0;
+    var fi=document.getElementById('lspCfgFilterId');
+    if(fi) fi.value=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
+    var modal=document.getElementById('lspCfgModal');
+    if(modal) modal.style.display='flex';
+  };
+  window.lspCloseCfg = function(){
+    var modal=document.getElementById('lspCfgModal');
+    if(modal) modal.style.display='none';
+  };
+  window.lspSaveCfg = function(){
+    var q=document.getElementById('lspCfgProjQ'),c=document.getElementById('lspCfgProjC'),d=document.getElementById('lspCfgProjD');
+    var projs=[];
+    if(q&&q.checked) projs.push('QSTABILITY');
+    if(c&&c.checked) projs.push('CHIPMD');
+    if(d&&d.checked) projs.push('DROIDBUG');
+    if(!projs.length) projs=['QSTABILITY'];
+    window._lspSelectedProjects = projs;
+    ['QSTABILITY','CHIPMD','DROIDBUG'].forEach(function(k){
+      var pill=document.getElementById('lspProjPill_'+k);
+      if(!pill) return;
+      if(projs.indexOf(k)>=0) pill.classList.add('checked');
+      else pill.classList.remove('checked');
+    });
+    var fi=document.getElementById('lspCfgFilterId');
+    if(fi&&fi.value.trim()&&window.LSP_DATA) window.LSP_DATA.jira_filter_id=fi.value.trim();
+    lspCloseCfg();
+  };
+</script>
+
+
+<!-- ===== MTBF Add / Edit Modal (from backup live_status_view) ===== -->
+<div id="adasModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;width:520px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px">
+        <i class="fas fa-chart-line"></i> <span id="adasModalTitle">Add MTBF Build</span>
+      </div>
+      <button onclick="adasCloseModal()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;color:#fff;width:28px;height:28px;cursor:pointer;font-size:14px"><i class="fas fa-times"></i></button>
+    </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="adasModalRowId">
+      <!-- Domain selector -->
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Domain</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="adasModalDomBtn_ADAS" onclick="adasModalSetDomain('ADAS')" style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-car"></i> ADAS</button>
+          <button type="button" id="adasModalDomBtn_FLEX" onclick="adasModalSetDomain('FLEX')" style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-microchip"></i> FLEX</button>
+          <button type="button" id="adasModalDomBtn_IVI"  onclick="adasModalSetDomain('IVI')"  style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-display"></i> IVI</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Meta-ID <span style="color:#dc2626">*</span></label>
+          <input type="text" id="adasModalMetaId" placeholder="e.g. SA8797P_FLEX_HQX.5.7.7.0.r1-00051" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Date</label>
+          <input type="date" id="adasModalDate" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Hours</label>
+        <input type="number" id="adasModalHours" min="0" step="0.1" placeholder="e.g. 745" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Crashes</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:10px;font-weight:800;color:#dc2626;display:block;margin-bottom:3px">System</label>
+            <input type="number" id="adasModalSystem" min="0" placeholder="0" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:800;color:#d97706;display:block;margin-bottom:3px">SSR</label>
+            <input type="number" id="adasModalSsr" min="0" placeholder="0" style="width:100%;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:800;color:#7c3aed;display:block;margin-bottom:3px">Process</label>
+            <input type="number" id="adasModalProcess" min="0" placeholder="0" style="width:100%;border:1.5px solid #c4b5fd;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
+          <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc;box-sizing:border-box" oninput="adasAutoMtbf()">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">MTBF <span style="font-size:9px;color:#94a3b8">(auto-calc)</span></label>
+          <input type="number" id="adasModalMtbf" min="0" step="0.01" placeholder="auto" style="width:100%;border:1.5px solid #a7f3d0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#059669;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div id="adasModalMsg" style="font-size:11px;font-weight:700;min-height:16px"></div>
+    </div>
+    <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;justify-content:flex-end">
+      <button onclick="adasCloseModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
+      <button id="adasModalSaveBtn" onclick="adasSaveModal()" style="border:0;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ─── state ─────────────────────────────────────────────────── */
+  var ADAS_API_BASE = '/api/live_status_view/' + encodeURIComponent((window.LSP_DATA&&window.LSP_DATA.primary_target)||'') + '/adas_mtbf';
+  var _adasRows      = [];        // full rows for current view
+  var _adasView      = 'ADAS';    // active domain
+  var _adasNFilter   = 10;        // Last N filter
+  var _adasCrashTypes = ['system','ssr','process'];
+  var _adasTableRows = [];        // rows currently shown in table (after search)
+
+  /* ─── helpers ───────────────────────────────────────────────── */
+  function _esc(v){ var d=document.createElement('div'); d.textContent=String(v==null?'':v); return d.innerHTML; }
+
+  function _adasGetCrashTypes(){
+    var types = [];
+    if(document.querySelector('#ck_system input')  && document.querySelector('#ck_system input').checked)  types.push('system');
+    if(document.querySelector('#ck_ssr input')     && document.querySelector('#ck_ssr input').checked)     types.push('ssr');
+    if(document.querySelector('#ck_process input') && document.querySelector('#ck_process input').checked) types.push('process');
+    return types.length ? types : ['system','ssr','process'];
+  }
+
+  function _adasEffective(r, crashTypes){
+    var sys  = Number(r.system_crashes  || 0);
+    var ssr  = Number(r.ssr_crashes     || 0);
+    var proc = Number(r.process_crashes || 0);
+    var total = 0;
+    if(crashTypes.indexOf('system')  >= 0) total += sys;
+    if(crashTypes.indexOf('ssr')     >= 0) total += ssr;
+    if(crashTypes.indexOf('process') >= 0) total += proc;
+    if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
+    var hours = Number(r.hours || 0);
+    var storedMtbf = Number(r.mtbf || 0);
+    var allChecked = crashTypes.indexOf('system')>=0 && crashTypes.indexOf('ssr')>=0 && crashTypes.indexOf('process')>=0;
+    var mtbf = allChecked && storedMtbf > 0 ? storedMtbf : (total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : storedMtbf);
+    return { total: total, mtbf: mtbf };
+  }
+
+  /* ─── domain button styling ─────────────────────────────────── */
+  var _domColors = { ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669' };
+  var _domBg     = { ADAS:'#eff6ff', FLEX:'#f5f3ff', IVI:'#f0fdf4' };
+
+  function _styleToolbarDomBtns(){
+    ['ADAS','FLEX','IVI'].forEach(function(d){
+      var btn = document.getElementById('adasDomBtn_'+d);
+      if(!btn) return;
+      var on = d === _adasView;
+      btn.style.background    = on ? _domColors[d] : '#fff';
+      btn.style.color         = on ? '#fff'         : '#64748b';
+      btn.style.borderColor   = on ? _domColors[d] : '#e2e8f0';
+      btn.style.boxShadow     = on ? '0 2px 8px rgba(0,0,0,.15)' : 'none';
+    });
+  }
+
+  function _styleModalDomBtns(active){
+    ['ADAS','FLEX','IVI'].forEach(function(d){
+      var btn = document.getElementById('adasModalDomBtn_'+d);
+      if(!btn) return;
+      var on = d === active;
+      btn.style.background  = on ? _domColors[d] : '#fff';
+      btn.style.color       = on ? '#fff'         : '#64748b';
+      btn.style.borderColor = on ? _domColors[d] : '#e2e8f0';
+      btn.style.fontWeight  = '900';
+    });
+  }
+
+  /* ─── domain switch (toolbar buttons) ──────────────────────── */
+    window.adasSetDomain = function(domain){
+    _adasView = domain;
+    _styleToolbarDomBtns();
+    // Sync internal _mtbfAutoDeck (via window property setter) so titles update
+    window._mtbfAutoDeck = domain;
+    // Update titles immediately before async load
+    var ttl = document.getElementById('mtbfTableTitle');
+    if(ttl) ttl.textContent = domain + ' MTBF Builds Table';
+    // adasLoadData feeds BOTH table (_adasRows) AND chart (_mtbfSeriesRows/_mtbfBuildRows)
+    window.adasLoadData(true);
+  };
+
+  /* ─── modal domain switch ───────────────────────────────────── */
+  window.adasModalSetDomain = function(domain){
+    _styleModalDomBtns(domain);
+    // store on hidden field so save knows which domain
+    var hid = document.getElementById('adasModalRowId');
+    if(hid) hid.dataset.domain = domain;
+  };
+
+  /* ─── render ────────────────────────────────────────────────── */
+  function _adasRenderAll(){
+    _adasCrashTypes = _adasGetCrashTypes();
+    _adasRenderTable(_adasRows, _adasCrashTypes);
+    if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
+  }
+
+  function _adasRenderTable(rows, crashTypes){
+    var body = document.getElementById('mtbfTableBody');
+    if(!body) return;
+    var q = ((document.getElementById('mtbfTableSearch')||{}).value||'').toLowerCase();
+    var filtered = q ? rows.filter(function(r){ return JSON.stringify(r).toLowerCase().indexOf(q)>=0; }) : rows.slice();
+    _adasTableRows = filtered;
+    var countEl = document.getElementById('mtbfTableCount');
+    if(countEl) countEl.textContent = filtered.length + ' rows';
+    var canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
+    if(!filtered.length){
+      body.innerHTML = '<tr><td colspan="'+(canEdit?10:9)+'" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:22px;display:block;margin-bottom:8px;opacity:.4"></i>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</td></tr>';
+      return;
+    }
+    body.innerHTML = filtered.map(function(r, i){
+      var eff = _adasEffective(r, crashTypes);
+      var mtbfBadge = eff.mtbf > 0
+        ? '<span style="font-weight:900;color:#fff;background:#059669;border-radius:5px;padding:2px 9px;font-size:11px">'+eff.mtbf+'</span>'
+        : '<span style="color:#94a3b8">-</span>';
+      var sys  = r.system_crashes  != null && r.system_crashes  !== '' ? r.system_crashes  : '-';
+      var ssr  = r.ssr_crashes     != null && r.ssr_crashes     !== '' ? r.ssr_crashes     : '-';
+      var proc = r.process_crashes != null && r.process_crashes !== '' ? r.process_crashes : '-';
+      var sysDim  = crashTypes.indexOf('system')  < 0 ? 'opacity:.35;' : '';
+      var ssrDim  = crashTypes.indexOf('ssr')     < 0 ? 'opacity:.35;' : '';
+      var procDim = crashTypes.indexOf('process') < 0 ? 'opacity:.35;' : '';
+      var actionCell = canEdit
+        ? '<td style="text-align:center;white-space:nowrap">'
+            +'<button onclick="adasOpenEditModal('+i+')" title="Edit" style="border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-pen"></i></button>'
+            +'<button onclick="adasDeleteRow('+i+',\''+_esc(r.meta_id||'')+'\')" title="Delete" style="margin-left:4px;border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-trash"></i></button>'
+          +'</td>'
+        : '';
+      return '<tr>'
+        +'<td style="text-align:center;color:#94a3b8;font-weight:700">'+_esc(r.s_no||i+1)+'</td>'
+        +'<td style="white-space:nowrap;font-size:12px;color:#64748b">'+_esc(r.date||'')+'</td>'
+        +'<td><b style="color:#1e3a8a">'+_esc(r.meta_id||'')+'</b></td>'
+        +'<td style="text-align:right;font-weight:700">'+_esc(r.hours||'')+'</td>'
+        +'<td style="text-align:center;color:#dc2626;font-weight:800;border-left:2px solid #fca5a5;'+sysDim+'">'+_esc(sys)+'</td>'
+        +'<td style="text-align:center;color:#d97706;font-weight:800;'+ssrDim+'">'+_esc(ssr)+'</td>'
+        +'<td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;'+procDim+'">'+_esc(proc)+'</td>'
+        +'<td style="text-align:center;font-weight:900">'+(eff.total>0?eff.total:'-')+'</td>'
+        +'<td style="text-align:center">'+mtbfBadge+'</td>'
+        +actionCell
+        +'</tr>';
+    }).join('');
+  }
+
+  /* ─── crash-type checkbox change ───────────────────────────── */
+  window.adasCrashTypeChanged = function(){
+    _adasCrashTypes = _adasGetCrashTypes();
+    // Sync _mtbfCrashFilters (used by renderMtbfTrend + renderMtbfTable in published_safe.js)
+    if(typeof window._mtbfCrashFilters !== 'undefined'){
+      window._mtbfCrashFilters.system  = _adasCrashTypes.indexOf('system')  >= 0;
+      window._mtbfCrashFilters.ssr     = _adasCrashTypes.indexOf('ssr')     >= 0;
+      window._mtbfCrashFilters.process = _adasCrashTypes.indexOf('process') >= 0;
+    }
+    _adasRenderAll();
+    // Re-render chart (uses _mtbfCrashFilters for effective crash calc)
+    if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+    // Re-render safe.js table (uses _mtbfCrashFilters for dim/opacity)
+    if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
+  };
+
+  /* ─── filter / copy ─────────────────────────────────────────── */
+  window.adasFilterTable = function(){ _adasRenderTable(_adasRows, _adasCrashTypes); };
+
+  window.adasSetFilter = function(n, btn){
+    _adasNFilter = n;
+    window._adasNFilter = n;  // expose for renderMtbfTrend
+    document.querySelectorAll('.adas-flt-btn').forEach(function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+    _adasRenderAll();
+    if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+  };
+
+  window.adasCopyTable = function(){
+    var rows = _adasTableRows.length ? _adasTableRows : _adasRows;
+    if(!rows.length){ alert('No rows to copy.'); return; }
+    var headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+    var lines = [headers.join('\t')];
+    rows.forEach(function(r){
+      lines.push([r.s_no,r.date,r.meta_id,r.hours,r.system_crashes,r.ssr_crashes,r.process_crashes,r.total_crashes,r.mtbf]
+        .map(function(v){ return v==null||v===''?'':String(v); }).join('\t'));
+    });
+    navigator.clipboard.writeText(lines.join('\n'))
+      .then(function(){ var m=document.getElementById('adasMsg'); if(m){m.textContent='Copied!';m.style.color='#059669';setTimeout(function(){m.textContent='';},2000);} })
+      .catch(function(){ alert('Copy failed.'); });
+  };
+
+  /* ─── modal helpers ─────────────────────────────────────────── */
+  function _adasModalClear(){
+    ['adasModalRowId','adasModalMetaId','adasModalHours',
+     'adasModalSystem','adasModalSsr','adasModalProcess',
+     'adasModalTotal','adasModalMtbf'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el){ el.value=''; delete el.dataset.manualEdit; delete el.dataset.domain; }
+    });
+    var msg = document.getElementById('adasModalMsg');
+    if(msg) msg.textContent = '';
+  }
+
+  /* ─── open Add modal ────────────────────────────────────────── */
+  window.adasOpenAddModal = function(){
+    _adasModalClear();
+    document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add MTBF Build';
+    document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
+    _styleModalDomBtns(_adasView);   // pre-select current domain
+    var hid = document.getElementById('adasModalRowId');
+    if(hid) hid.dataset.domain = _adasView;
+    document.getElementById('adasModal').style.display = 'flex';
+    document.getElementById('adasModalMetaId').focus();
+  };
+
+  /* ─── open Edit modal ───────────────────────────────────────── */
+  window.adasOpenEditModal = function(tableIdx){
+    // tableIdx is index into _adasTableRows (filtered), not _adasRows
+    var row = _adasTableRows[tableIdx];
+    if(!row){
+      // fallback: try _adasRows directly
+      row = _adasRows[tableIdx];
+    }
+    if(!row){ alert('Row not found. Please refresh and try again.'); return; }
+    _adasModalClear();
+    document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit MTBF Build';
+    var rowDomain = row.mode || row.domain || _adasView;
+    _styleModalDomBtns(rowDomain);
+    var hid = document.getElementById('adasModalRowId');
+    if(hid){ hid.value = row.id || ''; hid.dataset.domain = rowDomain; hid.dataset.tableIdx = tableIdx; }
+    var set = function(id, val){ var el=document.getElementById(id); if(el) el.value = (val!=null&&val!=='')?val:''; };
+    set('adasModalDate',    row.date);
+    set('adasModalMetaId',  row.meta_id);
+    set('adasModalHours',   row.hours);
+    set('adasModalSystem',  row.system_crashes);
+    set('adasModalSsr',     row.ssr_crashes);
+    set('adasModalProcess', row.process_crashes);
+    set('adasModalTotal',   row.total_crashes);
+    set('adasModalMtbf',    row.mtbf);
+    document.getElementById('adasModal').style.display = 'flex';
+  };
+
+  window.adasCloseModal = function(){
+    document.getElementById('adasModal').style.display = 'none';
+  };
+
+  /* ─── auto-calc MTBF in modal ───────────────────────────────── */
+  window.adasAutoMtbf = function(){
+    var sys  = Number(document.getElementById('adasModalSystem').value  || 0);
+    var ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
+    var proc = Number(document.getElementById('adasModalProcess').value || 0);
+    var autoTotal = sys + ssr + proc;
+    var totalEl = document.getElementById('adasModalTotal');
+    if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
+    var hours = Number(document.getElementById('adasModalHours').value || 0);
+    var totalCrashes = Number((totalEl&&totalEl.value) || autoTotal);
+    var mtbfEl = document.getElementById('adasModalMtbf');
+    if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && totalCrashes > 0)
+      mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
+  };
+
+  /* ─── save modal ────────────────────────────────────────────── */
+  window.adasSaveModal = async function(){
+    var hidEl  = document.getElementById('adasModalRowId');
+    var rowId  = hidEl ? hidEl.value.trim() : '';
+    var domain = (hidEl && hidEl.dataset.domain) ? hidEl.dataset.domain : _adasView;
+    var metaId = (document.getElementById('adasModalMetaId')||{}).value||'';
+    metaId = metaId.trim();
+    var msg = document.getElementById('adasModalMsg');
+    if(!metaId){ if(msg){msg.textContent='Meta-ID is required.';msg.style.color='#dc2626';} return; }
+    var payload = {
+      id:              rowId || undefined,
+      view:            domain,
+      meta_id:         metaId,
+      date:            (document.getElementById('adasModalDate')||{}).value    || '',
+      hours:           (document.getElementById('adasModalHours')||{}).value   || '',
+      system_crashes:  (document.getElementById('adasModalSystem')||{}).value  || '',
+      ssr_crashes:     (document.getElementById('adasModalSsr')||{}).value     || '',
+      process_crashes: (document.getElementById('adasModalProcess')||{}).value || '',
+      total_crashes:   (document.getElementById('adasModalTotal')||{}).value   || '',
+      mtbf:            (document.getElementById('adasModalMtbf')||{}).value    || '',
+    };
+    var btn = document.getElementById('adasModalSaveBtn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...'; }
+    try{
+      var endpoint = rowId ? (ADAS_API_BASE+'/edit') : (ADAS_API_BASE+'/add');
+      var res  = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      var data = await res.json();
+      if(!data.ok) throw new Error(data.error||'Save failed');
+      // If domain changed, switch view to show the saved row
+      if(domain !== _adasView){ _adasView = domain; _styleToolbarDomBtns(); }
+      _adasRows = data.rows || [];
+      _adasCrashTypes = _adasGetCrashTypes();
+      _adasRenderAll();
+      adasCloseModal();
+      var adasMsg = document.getElementById('adasMsg');
+      if(adasMsg){ adasMsg.textContent=(data.message||'Saved!'); adasMsg.style.color='#059669'; setTimeout(function(){adasMsg.textContent='';},3000); }
+    }catch(err){
+      if(msg){ msg.textContent=err.message||'Save failed.'; msg.style.color='#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save'; }
+    }
+  };
+
+  /* ─── delete row ────────────────────────────────────────────── */
+  // Delete by table index (from template table - _adasTableRows)
+  window.adasDeleteRow = async function(tableIdx, metaId){
+    var row = _adasTableRows[tableIdx] || _adasRows[tableIdx];
+    if(!row){ alert('Row not found. Please refresh.'); return; }
+    if(!confirm('Delete MTBF row for "' + (row.meta_id||metaId||tableIdx) + '"?')) return;
+    var realId = row.id || row.s_no || tableIdx;
+    await _adasDoDelete(realId, row.meta_id||metaId);
+  };
+
+  // Delete by id/s_no (from published_safe.js renderMtbfTable - _mtbfBuildRows)
+  window.adasDeleteRowById = async function(rowId, metaId){
+    if(!confirm('Delete MTBF row for "' + (metaId||rowId) + '"?')) return;
+    // Find in _adasRows by id or s_no
+    var row = _adasRows.filter(function(r){
+      return String(r.id||'') === String(rowId) || String(r.s_no||'') === String(rowId);
+    })[0];
+    var realId = (row && row.id) ? row.id : rowId;
+    await _adasDoDelete(realId, metaId);
+  };
+
+  async function _adasDoDelete(realId, metaId){
+    try{
+      var res  = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:realId, view:_adasView})});
+      var data = await res.json();
+      if(!data.ok) throw new Error(data.error||'Delete failed');
+      _adasRows = data.rows || [];
+      // Sync both pipelines
+      if(typeof window._applyAutoMtbfRawRows === 'function') window._applyAutoMtbfRawRows(_adasRows);
+      else { window._mtbfSeriesRows = _adasRows.map(function(r){ return {meta_id:r.meta_id||'',week:r.date||'',total_hours:Number(r.hours||0),crashes:Number(r.total_crashes||0),mtbf:Number(r.mtbf||0)}; }); window._mtbfBuildRows = _adasRows; }
+      _adasRenderAll();
+      if(typeof window.renderMtbfTrend  === 'function') window.renderMtbfTrend();
+      if(typeof window.renderMtbfTable  === 'function') window.renderMtbfTable();
+      var adasMsg = document.getElementById('adasMsg');
+      if(adasMsg){ adasMsg.textContent='Row deleted.'; adasMsg.style.color='#059669'; setTimeout(function(){adasMsg.textContent='';},2000); }
+    }catch(err){ alert(err.message||'Delete failed.'); }
+  }
+
+  /* ─── switch domain (legacy adasSwitchView compat) ─────────── */
+  window.adasSwitchView = function(){
+    var sel = document.getElementById('adasViewSelect');
+    if(sel) _adasView = sel.value || _adasView;
+    _styleToolbarDomBtns();
+    window.adasLoadData(true);
+  };
+
+  /* ─── load data from API ────────────────────────────────────── */
+  window.adasLoadData = async function(force){
+    var sp  = document.getElementById('mtbfSpinner');
+    var msg = document.getElementById('adasMsg');
+    if(sp)  sp.style.display = 'inline';
+    if(msg) msg.textContent  = '';
+    try{
+      var res  = await fetch(ADAS_API_BASE + '?view=' + encodeURIComponent(_adasView));
+      var data = await res.json();
+      if(!data.ok) throw new Error(data.error||'Failed to load MTBF data');
+      _adasRows = data.rows || [];
+      _adasCrashTypes = _adasGetCrashTypes();
+
+      // Feed rows into chart pipeline so renderMtbfTrend picks up correct domain
+      if(typeof window._applyAutoMtbfRawRows === 'function'){
+        window._applyAutoMtbfRawRows(_adasRows);
+      } else {
+        window._mtbfSeriesRows = _adasRows.map(function(r){
+          return { meta_id: r.meta_id||'', week: r.date||'',
+                   total_hours: Number(r.hours||0),
+                   crashes: Number(r.total_crashes||r.crashes||0),
+                   mtbf: Number(r.mtbf||0) };
+        });
+        window._mtbfBuildRows = _adasRows;
+      }
+
+      _adasRenderAll();
+      if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+
+      if(msg && data.updated_at){
+        msg.textContent = _adasView + ' updated ' + new Date(data.updated_at).toLocaleTimeString();
+        msg.style.color = '#059669';
+        setTimeout(function(){ if(msg) msg.textContent=''; }, 4000);
+      }
+    }catch(err){
+      if(msg){ msg.textContent='Error: '+err.message; msg.style.color='#dc2626'; }
+    }finally{
+      if(sp) sp.style.display = 'none';
+    }
+  };
+
+  /* ─── copy chart as image ──────────────────────────────────── */
+  window.copyMtbfChart = function(){
+    var canvas = document.getElementById('mtbfCanvas');
+    var msg    = document.getElementById('adasMsg');
+    var showMsg = function(txt, color){
+      if(msg){ msg.textContent=txt; msg.style.color=color||'#059669';
+               setTimeout(function(){msg.textContent='';},3000); }
+    };
+    if(!canvas){ showMsg('No chart to copy.','#dc2626'); return; }
+
+    // Method 1: Modern Clipboard API (HTTPS + localhost)
+    if(navigator.clipboard && typeof ClipboardItem !== 'undefined'){
+      canvas.toBlob(function(blob){
+        if(!blob){ showMsg('Chart not ready.','#dc2626'); return; }
+        try{
+          navigator.clipboard.write([new ClipboardItem({'image/png': blob})])
+            .then(function(){ showMsg('\u2713 Chart copied to clipboard!'); })
+            .catch(function(){ _mtbfOpenInTab(canvas, showMsg); });
+        }catch(e){ _mtbfOpenInTab(canvas, showMsg); }
+      }, 'image/png');
+      return;
+    }
+    // Method 2: HTTP - open in new tab so user can right-click copy
+    _mtbfOpenInTab(canvas, showMsg);
+  };
+
+  function _mtbfOpenInTab(canvas, showMsg){
+    try{
+      var dataUrl = canvas.toDataURL('image/png');
+      var win = window.open('', '_blank');
+      if(win){
+        win.document.write(
+          '<html><head><title>MTBF Chart</title>'
+          +'<style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}'
+          +'.tip{color:#94a3b8;font-family:sans-serif;font-size:13px;background:rgba(255,255,255,.07);padding:8px 18px;border-radius:8px}'
+          +'</style></head><body>'
+          +'<p class="tip">\u2139\ufe0f Right-click image \u2192 <b>Copy Image</b></p>'
+          +'<img src="'+dataUrl+'" style="max-width:98vw;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
+          +'</body></html>'
+        );
+        win.document.close();
+        showMsg('\u2139 Opened in new tab \u2014 right-click \u2192 Copy Image');
+      } else {
+        showMsg('Popup blocked \u2014 allow popups and retry.','#dc2626');
+      }
+    }catch(e){ showMsg('Failed: '+e.message,'#dc2626'); }
+  }
+
+  /* ─── DOMContentLoaded wiring ───────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', function(){
+    _styleToolbarDomBtns();
+    // Auto-calc wiring
+    var totalEl = document.getElementById('adasModalTotal');
+    var mtbfEl  = document.getElementById('adasModalMtbf');
+    var hoursEl = document.getElementById('adasModalHours');
+    if(totalEl) totalEl.addEventListener('input', function(){
+      this.dataset.manualEdit = '1';
+      var hours = Number((hoursEl&&hoursEl.value)||0);
+      var total = Number(this.value||0);
+      if(mtbfEl && !mtbfEl.dataset.manualEdit && hours>0 && total>0)
+        mtbfEl.value = Math.round((hours/total)*10)/10;
+    });
+    if(mtbfEl)  mtbfEl.addEventListener('input', function(){ this.dataset.manualEdit='1'; });
+    if(hoursEl) hoursEl.addEventListener('input', window.adasAutoMtbf);
+    // Close modal on backdrop click
+    var modal = document.getElementById('adasModal');
+    if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) adasCloseModal(); });
+    // Load initial data
+    window.adasLoadData(false);
+  });
+})();
+</script>
 </html>
+

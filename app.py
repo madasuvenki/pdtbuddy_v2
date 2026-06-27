@@ -297,10 +297,28 @@ def _check_session_idle():
                 logout_user()
                 flash("You were logged out due to inactivity.", "warning")
 
+                # Return JSON 401 for API/fetch requests so the browser
+                # doesn't receive an HTML redirect that breaks fetch().json()
+                from flask import jsonify as _jfy
+                if (request.path.startswith('/api/') or
+                        request.headers.get('Accept', '').startswith('application/json') or
+                        request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+                    return _jfy(ok=False, error='Session expired. Please refresh and log in again.', login_required=True), 401
                 return redirect(url_for('login'))
 
-    # Update last_active timestamp on every request
+        # Update last_active timestamp on every request
     session['last_active'] = now_ts
+
+
+@app.after_request
+def _set_no_cache_html(response):
+    """Prevent browsers from caching HTML pages so template changes are always picked up."""
+    ct = response.content_type or ''
+    if 'text/html' in ct:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 
 
@@ -8422,7 +8440,7 @@ if __name__ == '__main__':
 
     # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
     # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
+    HOST = os.environ.get('BUDDY_HOST', '127.1.0.0')
     PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.

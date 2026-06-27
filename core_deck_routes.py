@@ -448,28 +448,73 @@ def _target_program_tokens(target_name: str, info: dict) -> List[str]:
 
 
 def _matches_target(row: dict, target_name: str) -> bool:
-    text = ' '.join(_safe_str(row.get(k)) for k in (
-        'software_product', 'softwareProduct', 'build_id', 'build', 'build_name', 'taxonomy_path'
-    )).upper()
+    """Return True only when this Axiom row belongs to target_name.
+
+    Matching is done exclusively on software_product (the most reliable
+    domain-specific field in axiom_job_summary).  build_name / build_id /
+    taxonomy_path are intentionally excluded because they contain shared
+    program tokens (e.g. HQX) that appear across SA8797P, SA8650P, SA7255P
+    and other chip families, causing cross-target contamination.
+
+    Priority:
+      1. Exact SP prefix match  – sp_name starts with software_product prefix
+         e.g. SA8797P.HQX.5.7.7.0 matches SA8797P.HQX.*
+      2. Domain-variant match   – same program, different domain suffix
+         e.g. SA8797P_FLEX.HQX.* and SA8797P_ADAS.HQX.* for an IVI target
+         whose sp_name is SA8797P.HQX.*
+      3. No match               – return False
+    """
+    sp = _safe_str(row.get('software_product') or row.get('softwareProduct')).upper()
+    if not sp:
+        return False
+
     info = dc.get_target_info(target_name) or {}
-    primary = [
-        _safe_str(info.get('sp_name')).upper(),
-        _safe_str(info.get('display_name') or info.get('target_display')).upper(),
-        _safe_str(target_name).upper(),
-    ]
-    primary = [p for p in primary if len(p) >= 5]
-    # Specific SP/target strings must match exactly first. This avoids a broad
-    # SA8797P chip token pulling unrelated SA8797P programs into a selected target.
-    if any('.' in p or '_' in p or '-' in p for p in primary):
-        if any(p and p in text for p in primary):
-            return True
-        # If exact IVI SP did not match, still allow same-program FLEX/ADAS
-        # variants by specific program token (for example HQX/HGY), not by chip.
+
+    # Build the set of accepted SP prefixes for this target.
+    # Include the canonical IVI sp_name plus FLEX/ADAS variants derived from
+    # the same program token (e.g. HQX/HGY) so the modal shows all domains.
+    sp_name = _safe_str(info.get('sp_name')).upper()          # e.g. SA8797P.HQX.5.7.7.0
+    display  = _safe_str(info.get('display_name') or info.get('target_display')).upper()
+
+    accepted_prefixes: List[str] = []
+
+    def _add_prefix(value: str) -> None:
+        """Add value and its FLEX/ADAS domain variants as accepted prefixes."""
+        v = value.strip()
+        if not v or len(v) < 5:
+            return
+        # Derive the chip.program stem: SA8797P.HQX or SA8797P_FLEX.HQX
+        # Strip trailing version numbers so SA8797P.HQX.5.7.7.0 -> SA8797P.HQX
+        stem_match = re.match(r'^(SA\d+P(?:_[A-Z]+)?\.[A-Z0-9]+)', v, re.IGNORECASE)
+        stem = stem_match.group(1).upper() if stem_match else v
+
+        # Canonical prefix (IVI: SA8797P.HQX, FLEX: SA8797P_FLEX.HQX, etc.)
+        if stem not in accepted_prefixes:
+            accepted_prefixes.append(stem)
+
+        # If this is an IVI sp (no domain suffix), also accept FLEX/ADAS variants
+        # so the modal shows all three domains for the same program.
+        if re.match(r'^SA\d+P\.[A-Z0-9]+$', stem, re.IGNORECASE):
+            chip = stem.split('.')[0]          # SA8797P
+            prog = stem.split('.')[1]          # HQX
+            for domain in ('FLEX', 'ADAS', 'IVI'):
+                variant = f'{chip}_{domain}.{prog}'
+                if variant not in accepted_prefixes:
+                    accepted_prefixes.append(variant)
+
+    _add_prefix(sp_name)
+    _add_prefix(display)
+
+    # If no structured SP info, fall back to program tokens (HQX/HGY) but
+    # require them to appear at the start of software_product after the chip.
+    if not accepted_prefixes:
         program_tokens = _target_program_tokens(target_name, info)
-        return any(t and t in text for t in program_tokens)
-    tokens = _target_match_tokens(target_name)
-    strong = [t for t in tokens if len(t) >= 5]
-    return any(t in text for t in strong) if strong else any(t in text for t in tokens)
+        return any(
+            re.search(r'\.' + re.escape(t) + r'(?:\.|$)', sp)
+            for t in program_tokens if t
+        )
+
+    return any(sp.startswith(p) or sp == p for p in accepted_prefixes)
 
 
 def _auto_alias(meta_id: str, rows: List[dict]) -> str:
@@ -485,11 +530,26 @@ def _auto_alias(meta_id: str, rows: List[dict]) -> str:
     return meta_id
 
 
-def _deck_type_from_build(build_id: str) -> str:
+def _deck_type_from_build(build_id: str, software_product: str = '') -> str:
+    """Infer IVI/FLEX/ADAS from software_product first (most reliable),
+    then fall back to build_id text.
+    SA8797P_FLEX.HQX... -> FLEX
+    SA8797P_ADAS.HQX... -> ADAS
+    SA8797P.HQX...      -> IVI  (no domain prefix)
+    """
+    sp = _safe_str(software_product).upper()
+    if sp:
+        if '_FLEX.' in sp:
+            return 'FLEX'
+        if '_ADAS.' in sp:
+            return 'ADAS'
+        if '_IVI.' in sp:
+            return 'IVI'
+    # Fallback: build_id text
     text = _safe_str(build_id).upper()
-    if 'ADAS' in text or 'ADP' in text or 'RIDE' in text:
+    if '_ADAS.' in text or 'ADAS' in text or 'ADP' in text or 'RIDE' in text:
         return 'ADAS'
-    if 'FLEX' in text or 'FLE' in text:
+    if '_FLEX.' in text or 'FLEX' in text:
         return 'FLEX'
     return 'IVI'
 
@@ -526,7 +586,7 @@ def _target_build_flavor_options(target_name: str, limit: int = 1000) -> dict:
             'full_build_paths': [],
             'software_product': _safe_str(row.get('software_product') or row.get('softwareProduct')),
             'product_flavor': flavor,
-            'deck_type': _deck_type_from_build(build_id),
+            'deck_type': _deck_type_from_build(build_id, _safe_str(row.get('software_product') or row.get('softwareProduct'))),
             'job_count': 0,
             'device_count': 0,
             'latest_submitted': '',
@@ -2196,7 +2256,7 @@ def _build_flavor_rows_for_job_ids(target_name: str, payload: dict, job_ids: Lis
             'full_build_paths': [],
             'software_product': _safe_str(row.get('software_product') or row.get('softwareProduct')),
             'product_flavor': flavor,
-            'deck_type': _deck_type_from_build(build_id),
+            'deck_type': _deck_type_from_build(build_id, _safe_str(row.get('software_product') or row.get('softwareProduct'))),
             'job_count': 0,
             'device_count': 0,
             'latest_submitted': '',

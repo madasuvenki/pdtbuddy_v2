@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -50,18 +50,85 @@
     @media(max-width:1000px){.summary-grid{grid-template-columns:1fr}.toolbar{flex-direction:column;align-items:stretch}.toolbar .right{justify-content:flex-start}header{padding:18px 20px}}
 
     /* Current Report styles */
+    /* ── Current Report – redesigned nav-style left panel ── */
+    .cr-layout{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:600px}
+    /* LEFT NAV */
+    .cr-nav{background:linear-gradient(180deg,#0f172a 0%,#1e1b4b 60%,#1e3a5f 100%);display:flex;flex-direction:column;border-radius:0 0 0 28px;overflow:hidden}
+    .cr-nav-header{padding:16px 16px 10px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .cr-nav-brand{font-size:11px;font-weight:900;color:#a5b4fc;text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:7px;margin-bottom:10px}
+    .cr-nav-search{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 11px;color:#e2e8f0;font-size:12px;font-family:inherit;outline:none;box-shadow:none}
+    .cr-nav-search::placeholder{color:#64748b}
+    .cr-nav-search:focus{background:rgba(255,255,255,.12);border-color:rgba(165,180,252,.5)}
+    .cr-nav-domain-bar{display:flex;gap:4px;padding:8px 16px 6px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .cr-nav-domain-btn{flex:1;padding:5px 4px;border-radius:8px;border:1.5px solid transparent;background:rgba(255,255,255,.06);color:#94a3b8;font-size:10px;font-weight:900;cursor:pointer;text-align:center;transition:all .15s;letter-spacing:.04em}
+    .cr-nav-domain-btn:hover{background:rgba(255,255,255,.12);color:#e2e8f0}
+    .cr-nav-domain-btn.active-ADAS{background:#1d4ed8;color:#fff;border-color:#3b82f6;box-shadow:0 2px 8px rgba(59,130,246,.35)}
+    .cr-nav-domain-btn.active-FLEX{background:#6d28d9;color:#fff;border-color:#8b5cf6;box-shadow:0 2px 8px rgba(139,92,246,.35)}
+    .cr-nav-domain-btn.active-IVI{background:#065f46;color:#fff;border-color:#10b981;box-shadow:0 2px 8px rgba(16,185,129,.35)}
+    .cr-nav-tools{display:flex;gap:5px;padding:6px 16px 4px}
+    .cr-nav-tool-btn{flex:1;padding:4px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#94a3b8;font-size:10px;font-weight:800;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .cr-nav-tool-btn:hover{background:rgba(255,255,255,.12);color:#e2e8f0}
+    .cr-nav-tool-btn.danger-btn{border-color:rgba(252,165,165,.2);color:#fca5a5}
+    .cr-nav-tool-btn.danger-btn:hover{background:rgba(220,38,38,.2);color:#fca5a5}
+    .cr-nav-list{flex:1;overflow-y:auto;padding:6px 10px 12px}
+    .cr-nav-list::-webkit-scrollbar{width:4px}.cr-nav-list::-webkit-scrollbar-track{background:transparent}.cr-nav-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px}
+    .cr-nav-item{display:flex;align-items:stretch;border-radius:12px;margin-bottom:4px;cursor:pointer;transition:all .18s;border:1.5px solid transparent;overflow:hidden;position:relative}
+    .cr-nav-item:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.1)}
+    .cr-nav-item.selected{background:rgba(59,130,246,.18);border-color:rgba(99,102,241,.5);box-shadow:0 0 0 1px rgba(99,102,241,.2) inset}
+    .cr-nav-item.selected-solo{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.45)}
+    .cr-nav-item.deselected{opacity:.42}
+    .cr-nav-accent{width:4px;flex-shrink:0;border-radius:4px 0 0 4px}
+    .cr-nav-body{flex:1;padding:9px 10px 9px 8px;min-width:0}
+    .cr-nav-meta{font-size:12px;font-weight:900;color:#e2e8f0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .cr-nav-builds{font-size:10px;color:#64748b;margin-top:3px;line-height:1.4;word-break:break-all}
+    .cr-nav-stats{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+    .cr-nav-stat{font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.07);color:#94a3b8;white-space:nowrap}
+    .cr-nav-stat.has-crashes{background:rgba(220,38,38,.18);color:#fca5a5}
+    .cr-nav-actions{display:flex;flex-direction:column;gap:4px;padding:6px 6px 6px 0;justify-content:center}
+    .cr-nav-cb{width:15px;height:15px;accent-color:#6366f1;cursor:pointer;flex-shrink:0}
+    .cr-nav-rm{border:none;background:transparent;color:#475569;font-size:10px;cursor:pointer;padding:3px 5px;border-radius:5px;transition:all .15s}
+    .cr-nav-rm:hover{background:rgba(220,38,38,.25);color:#fca5a5}
+    .cr-nav-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:10px;color:#475569;line-height:1.5}
+    .cr-nav-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:#4f46e5;color:#fff;font-size:9px;font-weight:900;padding:0 5px}
+    /* RIGHT MAIN */
+    .cr-main{min-width:0;display:flex;flex-direction:column}
+    .cr-main-topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 20px;background:linear-gradient(90deg,#f8fafc,#eff6ff);border-bottom:1px solid rgba(219,227,239,.7)}
+    .cr-main-topbar-title{font-size:13px;font-weight:900;color:#1e3a8a;display:flex;align-items:center;gap:8px}
+    .cr-active-build-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:1px solid #a5b4fc;font-size:11px;font-weight:900;color:#3730a3;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cr-active-build-tag.all-mode{background:linear-gradient(135deg,#dcfce7,#d1fae5);border-color:#6ee7b7;color:#065f46}
+    .cr-results-area{flex:1;padding:14px 20px 20px;overflow:auto}
+    .cr-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+    .cr-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px;text-align:center;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+    .cr-kpi .k-num{font-size:24px;font-weight:1000;color:#1e3a8a;line-height:1}
+    .cr-kpi .k-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;font-weight:900;margin-top:4px}
+    .cr-section-title{font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:8px;margin:14px 0 8px}
+    .cr-section-title:before{content:'';width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,#3b82f6,#7c3aed);flex-shrink:0}
+    .acc-ADAS{background:#2563eb}.acc-FLEX{background:#7c3aed}.acc-IVI{background:#059669}
+    .cr-build-cards{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+    .cr-build-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;transition:all .15s;cursor:pointer}
+    .cr-build-card:hover{border-color:#a5b4fc;background:#f8faff;box-shadow:0 2px 10px rgba(99,102,241,.1)}
+    .cr-build-card.active-card{border-color:#6366f1;background:linear-gradient(135deg,#eef2ff,#f5f3ff);box-shadow:0 0 0 2px rgba(99,102,241,.15)}
+    .cr-build-card-meta{font-size:12px;font-weight:900;color:#1e3a8a}
+    .cr-build-card-builds{font-size:10px;color:#64748b;margin-top:2px;word-break:break-all}
+    .cr-build-card-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+    .cr-build-card-stat{font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:#f1f5f9;color:#475569}
+    .cr-build-card-stat.red{background:#fee2e2;color:#b91c1c}
+    .cr-build-card-stat.green{background:#dcfce7;color:#166534}
+    @media(max-width:1100px){.cr-layout{grid-template-columns:1fr}.cr-nav{border-radius:0}.cr-kpi-row{grid-template-columns:repeat(2,1fr)}}
     .cr-domain-radio{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;border:2px solid var(--dc);background:#fff;color:var(--dc);font-size:12px;font-weight:900;cursor:pointer;transition:all .18s;user-select:none;letter-spacing:.02em}
     .cr-domain-radio input{display:none}
     .cr-domain-radio:has(input:checked){background:var(--dc);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:translateY(-1px)}
     .cr-domain-radio:hover:not(:has(input:checked)){background:var(--dcs)}
     .cr-build-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #c7d2fe;background:#fff;color:#4338ca;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:850;cursor:pointer;transition:all .15s;white-space:nowrap}
-    .cr-build-chip.active{background:#eef2ff;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}
+    .cr-build-chip.active{background:#eef2ff;border-color:#6366f1}
     .cr-build-chip.running{border-color:#86efac;color:#166534;background:#f0fdf4}
     .cr-run-tbl td,.cr-run-tbl th{padding:9px 11px;font-size:12px}
     .cr-run-tbl .build-cell{font-weight:750;color:#1e3a8a;min-width:280px;max-width:520px;white-space:normal;overflow-wrap:anywhere}
     .cr-status-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:900}
     .cr-status-live{background:#dcfce7;color:#166534;border:1px solid #86efac}
     .cr-status-draft{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+    .cr-domain-dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:#2563eb}.cr-domain-dot.FLEX{background:#7c3aed}.cr-domain-dot.IVI{background:#059669}.cr-domain-dot.ADAS{background:#2563eb}
+
   </style>
 </head>
 <body>
@@ -334,80 +401,105 @@
     </div>
   </section>
 
-  <section class="panel" id="currentReportPanel">
+  <section class="panel" id="currentReportPanel" style="overflow:visible">
+    <!-- Panel header -->
     <div class="panel-h">
       <h2><i class="fas fa-circle" style="color:#16a34a;font-size:10px"></i> Current Report</h2>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span id="crJobBadge" style="display:none"></span>
         <span id="crJobStatus" class="muted"></span>
         <span id="crReportSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
-                <span id="crReportMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+        <span id="crReportMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
         <button class="primary small" id="crRefreshBtn" onclick="crRunReport(true)"><i class="fas fa-rotate"></i> Refresh</button>
-        <button class="ghost small" onclick="crLoadData(true)"><i class="fas fa-sync-alt"></i> Reload Builds</button>
-        <button class="primary small" onclick="crAddBuildFromRow()" title="Add a running build to ADAS MTBF Trend"><i class="fas fa-plus"></i> Add Build</button>
+        <button class="ghost small" onclick="crLoadData(true)"><i class="fas fa-sync-alt"></i> Reload</button>
+        <button class="primary small" onclick="crAddBuildFromRow()" title="Add to ADAS MTBF"><i class="fas fa-plus"></i> Add Build</button>
       </div>
     </div>
-    <div class="panel-b" style="padding:0">
 
-      <!-- Running Builds sub-panel -->
-      <div style="padding:14px 24px;border-bottom:1px solid rgba(219,227,239,.7)">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</span>
-          <span id="crRunCount" class="pill"></span>
-          <!-- Domain filter -->
-          <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Domain</span>
-          <label class="cr-domain-radio" style="--dc:#2563eb;--dcs:#dbeafe">
-            <input type="radio" name="crDomain" value="ADAS" checked onchange="crApplyDomainFilter('ADAS')"> <i class="fas fa-car"></i> ADAS
-          </label>
-          <label class="cr-domain-radio" style="--dc:#7c3aed;--dcs:#ede9fe">
-            <input type="radio" name="crDomain" value="FLEX" onchange="crApplyDomainFilter('FLEX')"> <i class="fas fa-microchip"></i> FLEX
-          </label>
-          <label class="cr-domain-radio" style="--dc:#059669;--dcs:#d1fae5">
-            <input type="radio" name="crDomain" value="IVI" onchange="crApplyDomainFilter('IVI')"> <i class="fas fa-display"></i> IVI
-          </label>
-        </div>
-        <!-- Build filter chips -->
-        <div style="font-size:11px;font-weight:950;color:#334155;text-transform:uppercase;margin-bottom:7px"><i class="fas fa-code-branch"></i> Build filter</div>
-        <div id="crBuildChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
-        <div class="muted" style="font-size:11px;font-weight:800">Click a build chip to scope the JIRA query to that build. Domain chip queries all builds in that domain.</div>
-                <!-- Running builds table -->
-        <div class="table-wrap" style="max-height:340px;margin-top:10px">
-          <table class="cr-run-tbl">
-            <thead><tr>
-              <th><input type="checkbox" id="crSelectAll" checked onchange="crToggleAllBuilds(this.checked)" title="Select all"></th>
-              <th>Week</th><th>Meta</th><th>Full Build</th><th>Hours</th><th>Crashes</th><th>MTBF</th><th>Jobs</th><th>Devices</th><th>Comment</th><th>Add to MTBF</th>
-            </tr></thead>
-            <tbody id="crRunBody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading running builds...</p></td></tr></tbody>
-          </table>
-        </div>
-      </div>
+    <!-- Two-column layout: dark nav left + main right -->
+    <div class="cr-layout">
 
-      <!-- CR / JIRA Results -->
-      <div style="padding:14px 24px 20px">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-                    <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Current Report</span>
-          <span id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></span>
-          <button class="ghost small" id="crCopyReportBtn" onclick="crCopyReport()" style="margin-left:auto"><i class="fas fa-copy"></i> Copy Crash Report</button>
+      <!-- ══ LEFT NAV ══ -->
+      <nav class="cr-nav" aria-label="Build selector">
+        <div class="cr-nav-header">
+          <div class="cr-nav-brand"><i class="fas fa-layer-group"></i> Current Builds <span id="crLeftCount" class="cr-nav-count-badge">0</span></div>
+          <input id="crBuildSearch" class="cr-nav-search" placeholder="Search meta / build..." oninput="crRenderBuildSidebar()">
         </div>
-        <!-- CR Table -->
-        <div class="table-wrap" style="max-height:420px;margin-bottom:14px">
-          <table>
-            <thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead>
-            <tbody id="crReportBody"><tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading current report...</p></td></tr></tbody>
-          </table>
+
+        <!-- Domain tabs -->
+        <div class="cr-nav-domain-bar">
+          <button class="cr-nav-domain-btn active-ADAS" id="crNavDomADAS" onclick="crNavSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
+          <button class="cr-nav-domain-btn" id="crNavDomFLEX" onclick="crNavSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
+          <button class="cr-nav-domain-btn" id="crNavDomIVI"  onclick="crNavSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
         </div>
-        <!-- Open JIRAs -->
-        <div id="crOpenJiraSection" style="display:none">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:900;color:#334155"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs</span>
-            <span id="crOpenJiraBadge" class="pill warn"></span>
+
+        <!-- Quick actions -->
+        <div class="cr-nav-tools">
+          <button class="cr-nav-tool-btn" onclick="crSelectAllGroups(true)"><i class="fas fa-check-double"></i> All</button>
+          <button class="cr-nav-tool-btn" onclick="crSelectAllGroups(false)"><i class="far fa-square"></i> None</button>
+          <button class="cr-nav-tool-btn danger-btn" onclick="crRestoreRemovedBuilds()"><i class="fas fa-undo"></i> Restore</button>
+        </div>
+
+        <!-- Build list -->
+        <div id="crBuildSidebar" class="cr-nav-list">
+          <div class="empty" style="padding:32px 12px;color:#475569"><i class="fas fa-circle-notch spin" style="font-size:22px;display:block;margin-bottom:10px"></i><p style="font-size:11px">Loading builds...</p></div>
+        </div>
+
+        <div class="cr-nav-footer">
+          <span id="crRunCount" style="color:#64748b"></span><br>
+          Click a build to scope the JIRA query. PERF &amp; STD with same META are grouped.
+        </div>
+      </nav>
+
+      <!-- ══ RIGHT MAIN ══ -->
+      <div class="cr-main">
+
+        <!-- Active-build topbar -->
+        <div class="cr-main-topbar">
+          <div class="cr-main-topbar-title"><i class="fas fa-bolt" style="color:#f59e0b"></i> Scoped to:</div>
+          <span id="crActiveBuildTag" class="cr-active-build-tag all-mode"><i class="fas fa-layer-group"></i> All ADAS builds</span>
+          <span id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:4px"></span>
+          <button class="ghost small" id="crCopyReportBtn" onclick="crCopyReport()" style="margin-left:auto"><i class="fas fa-copy"></i> Copy Report</button>
+        </div>
+
+        <div class="cr-results-area">
+
+          <!-- KPI row -->
+          <div class="cr-kpi-row">
+            <div class="cr-kpi"><div class="k-num" id="crKpiJiras">&mdash;</div><div class="k-lbl">JIRAs</div></div>
+            <div class="cr-kpi"><div class="k-num" id="crKpiCrs">&mdash;</div><div class="k-lbl">CRs</div></div>
+            <div class="cr-kpi"><div class="k-num" id="crKpiOpen">&mdash;</div><div class="k-lbl">Open JIRAs</div></div>
+            <div class="cr-kpi"><div class="k-num" id="crKpiBuilds">&mdash;</div><div class="k-lbl">Builds</div></div>
           </div>
-          <div class="table-wrap" style="max-height:320px">
+
+          <!-- Running builds compact cards -->
+          <div class="cr-section-title"><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</div>
+          <div id="crBuildCards" class="cr-build-cards"></div>
+
+          <!-- CR Table -->
+          <div class="cr-section-title"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</div>
+          <div class="table-wrap" style="max-height:400px;margin-bottom:14px">
             <table>
-              <thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead>
-              <tbody id="crOpenJiraBody"></tbody>
+              <thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead>
+              <tbody id="crReportBody"><tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr></tbody>
             </table>
           </div>
+
+          <!-- Open JIRAs -->
+          <div id="crOpenJiraSection" style="display:none">
+            <div class="cr-section-title"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs <span id="crOpenJiraBadge" class="pill warn" style="margin-left:4px"></span></div>
+            <div class="table-wrap" style="max-height:300px">
+              <table>
+                <thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead>
+                <tbody id="crOpenJiraBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- hidden legacy elements kept for JS compat -->
+          <div id="crBuildChips" style="display:none"></div>
+          <table style="display:none"><tbody id="crRunBody"></tbody></table>
+          <input type="checkbox" id="crSelectAll" style="display:none" onchange="crToggleAllBuilds(this.checked)">
         </div>
       </div>
     </div>
@@ -1443,84 +1535,381 @@ function _crInferDomain(row){
   return 'ADAS';
 }
 
+function _crJqlQuote(v){ return String(v || '').replace(/"/g, '\\"'); }
+
+function _crGetJql(){
+  const base = (_crJqlCustom || _crPersistedJql || "").trim();
+  if(!base) return "";
+  // If a custom search text is active (new PL not yet in DB), scope by that text
+  if(_crCustomSearchText){
+    const clause = "summary ~ " + JSON.stringify(_crCustomSearchText);
+    return "(" + clause + ") AND (" + base + ")";
+  }
+  const allBuilds = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
+  const selected  = _crSelectedBuilds();
+  if(!allBuilds.length || selected.length === allBuilds.length) return base;
+  if(!selected.length) return "";
+  const buildClause = "(" + selected.map(b => "summary ~ " + JSON.stringify(b)).join(" OR ") + ")";
+  return buildClause + " AND (" + base + ")";
+}
+
+// ── current-build grouping / sidebar ─────────────────────────────────────────
+const CR_RUNNING_DB_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/running_builds_db`;
+const CR_REMOVED_STORAGE_KEY = `live_status_current_removed:${TARGET}`;
+let _crSelectedGroups = new Set();
+let _crRemovedGroups  = new Set();
+let _crReportCache    = null;
+let _crSoloGroup      = null;  // key of the single-clicked (solo) group, null = all selected
+
+function _crLoadRemovedGroups(){
+  try{ _crRemovedGroups = new Set(JSON.parse(localStorage.getItem(CR_REMOVED_STORAGE_KEY) || '[]')); }
+  catch(_){ _crRemovedGroups = new Set(); }
+}
+function _crSaveRemovedGroups(){ localStorage.setItem(CR_REMOVED_STORAGE_KEY, JSON.stringify([..._crRemovedGroups])); }
+function _crMetaNumberFromText(value){
+  const s = String(value || '');
+  let m = s.match(/META[-_ ]?0*(\d{3,6})/i);
+  if(m) return m[1].padStart(5, '0');
+  m = s.match(/-0*(\d{3,6})(?:\.\d+)?-(?:STD|PERF|SAFE|USER|ENG|INT)/i) || s.match(/-0*(\d{3,6})-/);
+  return m ? m[1].padStart(5, '0') : '';
+}
+function _crMetaLabelFromRow(row){
+  const explicit = String((row || {}).meta_id || '').trim();
+  if(explicit && !/^unknown$/i.test(explicit)) return explicit;
+  const n = _crMetaNumberFromText([row?.build_full,row?.display_build,row?.build_id,row?.build,row?.build_name].join(' '));
+  return n ? `Meta-${Number(n)}` : (explicit || 'Unknown');
+}
+function _crBuildGroupKey(row){
+  const domain = _crInferDomain(row);
+  const n = _crMetaNumberFromText([row?.meta_id,row?.build_full,row?.display_build,row?.build_id,row?.build,row?.build_name].join(' '));
+  if(n) return `${domain}:META:${n}`;
+  const fallback = _crLeafBuild(row?.build_full || row?.display_build || row?.build_id || row?.build || row?.build_name || 'unknown').toUpperCase();
+  return `${domain}:BUILD:${fallback}`;
+}
+function _crGroups(){
+  const map = new Map();
+  (_crRunningRows || []).forEach((row, idx) => {
+    const key = _crBuildGroupKey(row);
+    if(_crRemovedGroups.has(key)) return;
+    const domain = _crInferDomain(row);
+    if(!map.has(key)) map.set(key, {key, domain, meta:_crMetaLabelFromRow(row), rows:[], builds:new Set(), jobs:0, devices:0, crashes:0});
+    const g = map.get(key);
+    g.rows.push({row, idx});
+    _crRowBuilds(row).forEach(b => g.builds.add(b));
+    g.jobs += Number(row.axiom_job_count || row.job_count || 0) || 0;
+    g.devices += Number(row.device_count || 0) || 0;
+    g.crashes += Number(row.crashes || 0) || 0;
+  });
+  return [...map.values()].sort((a,b) => {
+    if(a.domain !== b.domain) return a.domain.localeCompare(b.domain);
+    return a.meta.localeCompare(b.meta, undefined, {numeric:true});
+  });
+}
+function _crVisibleDomainGroups(){ return _crGroups().filter(g => g.domain === _crCurrentDomain); }
+function _crEnsureSelectedGroups(){
+  const keys = new Set(_crGroups().map(g => g.key));
+  _crSelectedGroups = new Set([..._crSelectedGroups].filter(k => keys.has(k)));
+  _crGroups().forEach(g => { if(!_crSelectedGroups.has(g.key)) _crSelectedGroups.add(g.key); });
+}
+// ── domain nav button ────────────────────────────────────────────────────────
+function crNavSetDomain(domain){
+  _crCurrentDomain = domain;
+  ['ADAS','FLEX','IVI'].forEach(d => {
+    const btn = document.getElementById('crNavDom'+d);
+    if(!btn) return;
+    btn.className = 'cr-nav-domain-btn' + (d === domain ? ' active-'+d : '');
+  });
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── left nav sidebar ─────────────────────────────────────────────────────────
+// custom search text: used when typed text matches no DB group
+let _crCustomSearchText = "";
+
+function crApplyCustomSearch(text){
+  _crCustomSearchText = String(text || "").trim();
+  const inp = document.getElementById("crBuildSearch");
+  if(inp) inp.value = "";
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+function crClearCustomSearch(){
+  _crCustomSearchText = "";
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+function crRenderBuildSidebar(){
+  const host = document.getElementById("crBuildSidebar");
+  const cnt  = document.getElementById("crLeftCount");
+  if(!host) return;
+  _crEnsureSelectedGroups();
+  const q = String(document.getElementById("crBuildSearch")?.value || "").toLowerCase().trim();
+  const groups = _crVisibleDomainGroups().filter(g => !q || (g.meta + " " + [...g.builds].join(" ") + " " + g.domain).toLowerCase().includes(q));
+
+  // Active custom-search banner (shown when a manual text filter is active)
+  const customBanner = _crCustomSearchText
+    ? "<div style=\"margin-bottom:8px;padding:8px 10px;background:rgba(245,158,11,.15);border:1.5px solid rgba(245,158,11,.4);border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap\">"
+      + "<i class=\"fas fa-search\" style=\"color:#f59e0b;font-size:11px;flex-shrink:0\"></i>"
+      + "<span style=\"font-size:10px;font-weight:900;color:#92400e;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">"
+      + "Filtered: <em>" + esc(_crCustomSearchText) + "</em></span>"
+      + "<button onclick=\"crClearCustomSearch()\" style=\"border:none;background:rgba(220,38,38,.15);color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;cursor:pointer;flex-shrink:0\">"
+      + "<i class=\"fas fa-times\"></i> Clear</button></div>"
+    : "";
+
+  if(cnt) cnt.textContent = String(groups.length);
+  if(!groups.length){
+    const noMatchHtml = q
+      ? "<div style=\"padding:18px 10px;text-align:center\">"
+        + "<i class=\"fas fa-search\" style=\"font-size:20px;display:block;margin-bottom:8px;color:#f59e0b;opacity:.8\"></i>"
+        + "<p style=\"font-size:11px;margin:0 0 4px;font-weight:700;color:#334155\">No DB match for <em>&ldquo;" + esc(q) + "&rdquo;</em></p>"
+        + "<p style=\"font-size:10px;color:#64748b;margin:0 0 10px\">This PL may be new or not yet in the DB.<br>Use it as a build text filter for the JIRA report.</p>"
+        + "<button onclick=\"crApplyCustomSearch(" + JSON.stringify(q) + ")\" style=\"background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(245,158,11,.3)\">"
+        + "<i class=\"fas fa-filter\"></i> Use &ldquo;" + esc(q.length>22?q.slice(0,20)+"\u2026":q) + "&rdquo; as filter</button></div>"
+      : "<div style=\"padding:28px 12px;text-align:center;color:#475569\"><i class=\"fas fa-inbox\" style=\"font-size:22px;display:block;margin-bottom:8px;opacity:.4\"></i><p style=\"font-size:11px\">No builds for " + esc(_crCurrentDomain) + "</p></div>";
+    host.innerHTML = customBanner + noMatchHtml;
+    return;
+  }
+  const domainAccent = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  host.innerHTML = groups.map(g => {
+    const checked  = _crSelectedGroups.has(g.key);
+    const isSolo   = _crSoloGroup === g.key;
+    const builds   = [...g.builds];
+    const safeKey  = esc(g.key).replace(/'/g, '&#39;');
+    const accent   = domainAccent[g.domain] || '#2563eb';
+    const cls      = isSolo ? 'selected-solo' : (checked ? 'selected' : 'deselected');
+    return `<div class="cr-nav-item ${cls}" id="crNavItem_${safeKey}">
+      <div class="cr-nav-accent acc-${esc(g.domain)}" style="background:${accent}"></div>
+      <div class="cr-nav-body" onclick="crNavClickGroup('${safeKey}')">
+        <div class="cr-nav-meta">
+          ${esc(g.meta)}
+          <span style="font-size:9px;background:rgba(255,255,255,.1);color:#94a3b8;padding:1px 6px;border-radius:4px">${builds.length} build${builds.length===1?'':'s'}</span>
+        </div>
+        <div class="cr-nav-builds">${esc(builds.slice(0,3).join(' · '))+(builds.length>3?` +${builds.length-3} more`:'')}</div>
+        <div class="cr-nav-stats">
+          ${g.jobs ? `<span class="cr-nav-stat">${g.jobs} jobs</span>` : ''}
+          ${g.devices ? `<span class="cr-nav-stat">${g.devices} dev</span>` : ''}
+          ${g.crashes ? `<span class="cr-nav-stat has-crashes"><i class="fas fa-bug" style="font-size:8px"></i> ${g.crashes}</span>` : ''}
+        </div>
+      </div>
+      <div class="cr-nav-actions">
+        <input type="checkbox" class="cr-nav-cb" ${checked ? 'checked' : ''} onchange="crToggleGroup('${safeKey}', this.checked)" onclick="event.stopPropagation()" title="Include in JIRA query">
+        <button class="cr-nav-rm" onclick="event.stopPropagation();crRemoveBuildGroup('${safeKey}')" title="Hide this build"><i class="fas fa-times"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function crToggleGroup(key, checked){
+  _crSoloGroup = null;  // manual checkbox clears solo mode
+  checked ? _crSelectedGroups.add(key) : _crSelectedGroups.delete(key);
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+function crSelectAllGroups(checked){
+  _crSoloGroup = null;
+  _crVisibleDomainGroups().forEach(g => checked ? _crSelectedGroups.add(g.key) : _crSelectedGroups.delete(g.key));
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+function crRemoveBuildGroup(key){
+  if(!confirm('Remove this build group from the current list?')) return;
+  _crRemovedGroups.add(key);
+  _crSelectedGroups.delete(key);
+  if(_crSoloGroup === key) _crSoloGroup = null;
+  _crSaveRemovedGroups();
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
+}
+function crRestoreRemovedBuilds(){
+  _crRemovedGroups.clear();
+  _crSoloGroup = null;
+  _crSaveRemovedGroups();
+  _crEnsureSelectedGroups();
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+}
+
+// ── nav click: solo-select a single group ───────────────────────────────────────────────
+function crNavClickGroup(key){
+  if(_crSoloGroup === key){
+    // Second click on same group → restore all
+    _crSoloGroup = null;
+    _crEnsureSelectedGroups();
+  } else {
+    // Solo-select this group only
+    _crSoloGroup = key;
+    _crSelectedGroups.clear();
+    _crSelectedGroups.add(key);
+  }
+  // Update active-build tag
+  const tag = document.getElementById('crActiveBuildTag');
+  if(tag){
+    if(_crSoloGroup){
+      const g = _crVisibleDomainGroups().find(g => g.key === _crSoloGroup);
+      const builds = g ? [...g.builds] : [];
+      tag.className = 'cr-active-build-tag';
+      tag.innerHTML = `<i class="fas fa-code-branch"></i> ${esc(g ? g.meta : key)} <span style="font-size:9px;opacity:.7">(${builds.length} build${builds.length===1?'':'s'})</span>`;
+    } else {
+      tag.className = 'cr-active-build-tag all-mode';
+      tag.innerHTML = `<i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)} builds`;
+    }
+  }
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── right-side build cards ─────────────────────────────────────────────────────────────
+function _crRenderBuildCards(){
+  const host = document.getElementById('crBuildCards');
+  if(!host) return;
+  const groups = _crVisibleDomainGroups();
+  if(!groups.length){
+    host.innerHTML = `<div style="padding:14px;color:#94a3b8;font-size:12px"><i class="fas fa-inbox"></i> No running builds for ${esc(_crCurrentDomain)}.</div>`;
+    return;
+  }
+  const domainAccent = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  host.innerHTML = groups.map(g => {
+    const isActive = _crSoloGroup === g.key;
+    const safeKey  = esc(g.key).replace(/'/g, '&#39;');
+    const builds   = [...g.builds];
+    const accent   = domainAccent[g.domain] || '#2563eb';
+    return `<div class="cr-build-card ${isActive ? 'active-card' : ''}" onclick="crNavClickGroup('${safeKey}')">
+      <div style="width:5px;height:100%;min-height:52px;border-radius:4px;background:${accent};flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div class="cr-build-card-meta">${esc(g.meta)}</div>
+        <div class="cr-build-card-builds">${esc(builds.join(' · '))}</div>
+        <div class="cr-build-card-stats">
+          ${g.jobs ? `<span class="cr-build-card-stat">${g.jobs} jobs</span>` : ''}
+          ${g.devices ? `<span class="cr-build-card-stat green">${g.devices} devices</span>` : ''}
+          ${g.crashes ? `<span class="cr-build-card-stat red"><i class="fas fa-bug" style="font-size:9px"></i> ${g.crashes} crashes</span>` : '<span class="cr-build-card-stat green"><i class="fas fa-check" style="font-size:9px"></i> No crashes</span>'}
+        </div>
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534;font-size:10px" onclick="event.stopPropagation();crAddBuildFromRow('${esc(g.meta)}','','${esc(g.domain)}')" title="Add to MTBF"><i class="fas fa-plus"></i></button>
+        ${isActive ? `<span style="font-size:9px;font-weight:900;color:#6366f1"><i class="fas fa-bolt"></i> Active</span>` : `<span style="font-size:9px;color:#94a3b8">Click to scope</span>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+  const row = {...(r || {})};
+  row.display_build = row.display_build || row.build_full || row.build_name || row.build_id || row.build || '';
+  row.build_full = row.build_full || row.build_name || row.build_id || row.display_build || '';
+  row.meta_id = _crMetaLabelFromRow(row);
+  row.job_count = row.job_count || row.axiom_job_count || 1;
+  row.display_hours = row.display_hours || row.hours || row.axiom_hours_total || '';
+  row.display_mtbf = row.display_mtbf || row.mtbf || '';
+  row.comments = row.comments || row.crash_source || row.product_flavor || '';
+  return row;
+}
+function _crMergeRows(jobRows, dbRows){
+  const byKey = new Map();
+  function add(row){
+    row = _crNormalizeDbRow(row);
+    const key = `${_crBuildGroupKey(row)}:${_crLeafBuild(row.build_full || row.display_build || row.build_id).toUpperCase()}`;
+    const old = byKey.get(key) || {};
+    byKey.set(key, {...old, ...row, axiom_jobs: row.axiom_jobs || old.axiom_jobs});
+  }
+  (jobRows || []).forEach(add);
+  (dbRows || []).forEach(add);
+  return [...byKey.values()];
+}
+
+// Override selected builds to use the left grouped build list.
 function _crSelectedBuilds(){
-  const checks = [...document.querySelectorAll('.cr-run-check')];
   const selected = [];
-  checks.forEach(ch => {
-    if(!ch.checked) return;
-    const idx = Number(ch.getAttribute('data-row-idx'));
-    _crRowBuilds((_crRunningRows || [])[idx]).forEach(b => selected.push(b));
+  (_crRunningRows || []).forEach(row => {
+    const key = _crBuildGroupKey(row);
+    if(_crRemovedGroups.has(key) || !_crSelectedGroups.has(key)) return;
+    _crRowBuilds(row).forEach(b => selected.push(b));
   });
   return [...new Set(selected)];
 }
 
-function _crJqlQuote(v){ return String(v || '').replace(/"/g, '\\"'); }
-
-function _crGetJql(){
-  const base = (_crJqlCustom || _crPersistedJql || '').trim();
-  if(!base) return '';
-  const allBuilds = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
-  const selected  = _crSelectedBuilds();
-  if(!allBuilds.length || selected.length === allBuilds.length) return base;
-  if(!selected.length) return '';
-  const buildClause = '(' + selected.map(b => `summary ~ "${_crJqlQuote(b)}"`).join(' OR ') + ')';
-  return `${buildClause} AND (${base})`;
-}
-
 function _crUpdateRunPill(){
-  const all      = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
-  const selected = _crSelectedBuilds();
+  const visibleGroups = _crVisibleDomainGroups();
+  const selectedGroups = visibleGroups.filter(g => _crSelectedGroups.has(g.key));
+  const allBuilds = [...new Set(visibleGroups.flatMap(g => [...g.builds]))];
+  const selectedBuilds = _crSelectedBuilds().filter(b => allBuilds.includes(b));
   const pill = document.getElementById('crRunCount');
-  if(pill) pill.textContent = `${selected.length || 0}/${all.length || 0} build${all.length !== 1 ? 's' : ''} selected`;
+  if(pill) pill.textContent = `${selectedBuilds.length}/${allBuilds.length} builds • ${selectedGroups.length}/${visibleGroups.length} groups selected`;
   const allBox = document.getElementById('crSelectAll');
   if(allBox){
-    allBox.checked       = selected.length > 0 && selected.length === all.length;
-    allBox.indeterminate = selected.length > 0 && selected.length < all.length;
+    allBox.checked = visibleGroups.length > 0 && selectedGroups.length === visibleGroups.length;
+    allBox.indeterminate = selectedGroups.length > 0 && selectedGroups.length < visibleGroups.length;
   }
 }
 
-function crToggleAllBuilds(checked){
-  document.querySelectorAll('.cr-run-check').forEach(ch => ch.checked = checked);
-  _crUpdateRunPill();
-  _crLastJiraCount = null;
-  if(_crPersistedJql) crRunReport(true);
-}
-
+function crToggleAllBuilds(checked){ crSelectAllGroups(checked); }
 function crOnBuildSelectionChanged(){
+  document.querySelectorAll('.cr-run-check').forEach(ch => {
+    const idx = Number(ch.getAttribute('data-row-idx'));
+    const row = (_crRunningRows || [])[idx];
+    if(row) ch.checked ? _crSelectedGroups.add(_crBuildGroupKey(row)) : _crSelectedGroups.delete(_crBuildGroupKey(row));
+  });
+  crRenderBuildSidebar();
   _crUpdateRunPill();
   _crLastJiraCount = null;
   if(_crPersistedJql) crRunReport(true);
 }
+function crApplyDomainFilter(domain){ crNavSetDomain(domain); }
 
-// ── domain filter ─────────────────────────────────────────────────────────────
-function crApplyDomainFilter(domain){
-  _crCurrentDomain = domain;
-  _crRenderRunningBuilds();
-  _crRenderBuildChips();
+async function _crFetchDbRows(){
+  try{
+    const res = await fetch(CR_RUNNING_DB_API, {cache:'no-store'});
+    const data = await res.json();
+    return data.ok ? (data.rows || []) : [];
+  }catch(_){ return []; }
 }
 
-// ── load job data ─────────────────────────────────────────────────────────────
+// Override load to include all current Axiom builds plus job rows.
 async function crLoadData(force){
   const sp  = document.getElementById('crReportSpinner');
   const msg = document.getElementById('crReportMsg');
   if(sp) sp.style.display = 'inline';
-  if(msg) msg.textContent = '';
+  if(msg){ msg.textContent = ''; msg.style.color = '#059669'; }
   try{
-    const res  = await fetch(CR_REPORT_DATA_API);
+    _crLoadRemovedGroups();
+    const [res, dbRows] = await Promise.all([fetch(CR_REPORT_DATA_API, {cache:'no-store'}), _crFetchDbRows()]);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'Failed to load current report data');
-    if(!data.found){
-      document.getElementById('crRunBody').innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-info-circle"></i><p>No live status job found for this target.</p></td></tr>`;
+
+    if(!data.found && !dbRows.length){
+      _crJobId = null; _crRunningRows = [];
+      document.getElementById('crRunBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-info-circle"></i><p>No live status job/current builds found for this target.</p></td></tr>`;
       document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>No live status job configured for this target.</p></td></tr>`;
-      if(msg){ msg.textContent = 'No job found for this target.'; msg.style.color = '#d97706'; }
+      crRenderBuildSidebar();
+      if(msg){ msg.textContent = 'No job/current builds found for this target.'; msg.style.color = '#d97706'; }
       return;
     }
-    _crJobId        = data.job_id || null;
-    _crRunningRows  = data.running_rows || [];
+
+    _crJobId        = data.job_id || 'db-current-builds';
+    _crRunningRows  = _crMergeRows(data.running_rows || [], dbRows || []);
     _crPersistedJql = data.persisted_jql || '';
     _crJqlCustom    = '';
+    _crEnsureSelectedGroups();
 
-    // Update job badge
     const badge  = document.getElementById('crJobBadge');
     const status = document.getElementById('crJobStatus');
     if(badge){
@@ -1530,10 +1919,10 @@ async function crLoadData(force){
         ? `<i class="fas fa-circle" style="font-size:7px"></i> LIVE`
         : `<i class="fas fa-pen" style="font-size:9px"></i> DRAFT`;
     }
-    if(status) status.textContent = data.job_name ? `Job: ${data.job_name}` : '';
+    if(status) status.textContent = data.job_name ? `Job: ${data.job_name}` : 'Current Axiom builds';
 
-    _crRenderRunningBuilds();
-    _crRenderBuildChips();
+    crRenderBuildSidebar();
+    _crRenderBuildCards();
     _crUpdateRunPill();
 
     if(_crPersistedJql && _crRunningRows.length){
@@ -1541,96 +1930,140 @@ async function crLoadData(force){
     } else {
       document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>${_crRunningRows.length ? 'No JIRA query configured for this job.' : 'No running builds found.'}</p></td></tr>`;
     }
-    if(msg && data.job_status === 'published'){
-      msg.textContent = data.published_at ? `Published ${new Date(data.published_at).toLocaleString()}` : 'Published';
+    if(msg){
+      msg.textContent = data.published_at ? `Published ${new Date(data.published_at).toLocaleString()}` : `Loaded ${_crRunningRows.length} current build rows`;
       msg.style.color = '#059669';
     }
   }catch(err){
     if(msg){ msg.textContent = 'Error: ' + err.message; msg.style.color = '#dc2626'; }
-    document.getElementById('crRunBody').innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message)}</p></td></tr>`;
+    document.getElementById('crRunBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message)}</p></td></tr>`;
   }finally{
     if(sp) sp.style.display = 'none';
   }
 }
 
-// ── render running builds table ───────────────────────────────────────────────
+// Override running-build table so it respects grouped selection/removal.
 function _crRenderRunningBuilds(){
   const body = document.getElementById('crRunBody');
   if(!body) return;
-  const rows = (_crRunningRows || []).filter(r => {
-    const dom = _crInferDomain(r);
-    return dom === _crCurrentDomain;
-  });
-    if(!rows.length){
+  const rows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain && !_crRemovedGroups.has(_crBuildGroupKey(r)));
+  if(!rows.length){
     body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No running builds for ${esc(_crCurrentDomain)} domain.</p></td></tr>`;
     return;
   }
-  body.innerHTML = rows.map((r, i) => {
+  body.innerHTML = rows.map((r) => {
     const globalIdx = (_crRunningRows || []).indexOf(r);
+    const key = _crBuildGroupKey(r);
+    const checked = _crSelectedGroups.has(key);
     const hv = String(r.display_hours !== undefined && r.display_hours !== null && r.display_hours !== '' ? r.display_hours : (r.hours || '')).trim();
     const mv = String(r.display_mtbf  !== undefined && r.display_mtbf  !== null && r.display_mtbf  !== '' ? r.display_mtbf  : (r.mtbf  || '')).trim();
     const missing = !hv || /^(na|none|--|-)$/i.test(hv);
-    const builds = Array.isArray(r.merged_builds) && r.merged_builds.length ? r.merged_builds : [r.build_full || r.display_build || '--'];
+    const builds = Array.isArray(r.merged_builds) && r.merged_builds.length ? r.merged_builds : [r.build_full || r.display_build || r.build_id || '--'];
     const rowDomain = _crInferDomain(r);
     const metaIdSafe  = String(r.meta_id  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const buildSafe   = String(builds[0]  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const domainSafe  = String(rowDomain  || '').replace(/'/g,"\\'");
     return `<tr data-cr-row-idx="${globalIdx}">
-      <td><input type="checkbox" class="cr-run-check check" checked data-row-idx="${globalIdx}" onchange="crOnBuildSelectionChanged()" title="Include in JIRA query"></td>
-      <td>${fmt(r.week || r.first_submitted || '--')}</td>
+      <td><input type="checkbox" class="cr-run-check check" ${checked ? 'checked' : ''} data-row-idx="${globalIdx}" onchange="crOnBuildSelectionChanged()" title="Include this META group in JIRA query"></td>
+      <td>${fmt(r.week || r.first_submitted || r.started_at || '--')}</td>
       <td style="font-weight:950;color:#1e3a8a;white-space:nowrap">${fmt(r.meta_id || '--')}${missing ? '<div class="pill warn" style="margin-top:4px;padding:2px 7px;font-size:10px"><i class="fas fa-user-clock"></i> Not updated</div>' : ''}</td>
       <td class="build-cell">${builds.map(b => esc(b)).join('<br>')}</td>
       <td>${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : `<strong>${esc(hv)}</strong>`}</td>
       <td style="font-weight:800;color:#dc2626">${fmt(r.crashes || '--')}</td>
       <td style="font-weight:950;color:#6366f1">${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : esc(mv)}</td>
-      <td>${fmt(r.job_count || '--')}</td>
+      <td>${fmt(r.axiom_job_count || r.job_count || '--')}</td>
       <td>${fmt(r.device_count || '--')}</td>
-      <td>${fmt(r.comments || r.test_eng_comment || '--')}</td>
-      <td style="white-space:nowrap">
-        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534"
-          onclick="crAddBuildFromRow('${metaIdSafe}','${buildSafe}','${domainSafe}')"
-          title="Add this build to ADAS MTBF Trend">
-          <i class="fas fa-plus"></i> Add to MTBF
-        </button>
-      </td>
+      <td>${fmt(r.comments || r.test_eng_comment || r.product_flavor || '--')}</td>
+      <td style="white-space:nowrap"><button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534" onclick="crAddBuildFromRow('${metaIdSafe}','${buildSafe}','${domainSafe}')" title="Add this build to ADAS MTBF Trend"><i class="fas fa-plus"></i> Add to MTBF</button></td>
     </tr>`;
   }).join('');
 }
 
-// ── render build chips ────────────────────────────────────────────────────────
 function _crRenderBuildChips(){
   const host = document.getElementById('crBuildChips');
   if(!host) return;
-  const domainRows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain);
-  const allBuilds  = [...new Set(domainRows.flatMap(_crRowBuilds))];
-  if(!allBuilds.length){ host.innerHTML = '<span class="muted">No builds available</span>'; return; }
-  // Domain chip
-  const domainChip = `<button class="cr-build-chip" onclick="crSelectDomainBuilds()" title="Query all ${esc(_crCurrentDomain)} builds"><i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)}</button>`;
-  const buildChips = allBuilds.map(b => `<button class="cr-build-chip running" onclick="crSelectSingleBuild('${esc(b).replace(/'/g, "&#39;")}')" title="${esc(b)}">${esc(b.length > 40 ? b.slice(-40) : b)}</button>`).join('');
-  host.innerHTML = domainChip + buildChips;
+  const groups = _crVisibleDomainGroups();
+  const selectedBuilds = _crSelectedBuilds();
+  if(!groups.length){ host.innerHTML = '<span class="muted">No builds available</span>'; return; }
+  const domainChip = `<button class="cr-build-chip active" onclick="crSelectDomainBuilds()" title="Query all ${esc(_crCurrentDomain)} builds"><i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)}</button>`;
+  const buildChips = groups.slice(0, 28).map(g => `<button class="cr-build-chip ${_crSelectedGroups.has(g.key) ? 'running' : ''}" onclick="crToggleGroup('${esc(g.key).replace(/'/g, '&#39;')}', true)" title="${esc([...g.builds].join(' | '))}">${esc(g.meta)}</button>`).join('');
+  host.innerHTML = domainChip + buildChips + (groups.length > 28 ? `<span class="muted">+${groups.length - 28} more in left list</span>` : '');
 }
-
-function crSelectDomainBuilds(){
-  // Select all builds in current domain
-  document.querySelectorAll('.cr-run-check').forEach(ch => {
-    const idx = Number(ch.getAttribute('data-row-idx'));
-    const row = (_crRunningRows || [])[idx];
-    ch.checked = row ? _crInferDomain(row) === _crCurrentDomain : false;
-  });
-  crOnBuildSelectionChanged();
-}
-
+function crSelectDomainBuilds(){ crSelectAllGroups(true); }
 function crSelectSingleBuild(buildName){
-  // Uncheck all, then check only the row(s) containing this build
-  document.querySelectorAll('.cr-run-check').forEach(ch => {
-    const idx  = Number(ch.getAttribute('data-row-idx'));
-    const row  = (_crRunningRows || [])[idx];
-    ch.checked = row ? _crRowBuilds(row).includes(buildName) : false;
-  });
-  crOnBuildSelectionChanged();
+  _crSelectedGroups.clear();
+  (_crRunningRows || []).forEach(row => { if(_crRowBuilds(row).includes(buildName)) _crSelectedGroups.add(_crBuildGroupKey(row)); });
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
 }
 
-// ── run CR report ─────────────────────────────────────────────────────────────
+// ── report rendering ─────────────────────────────────────────────────────────
+function _crCrashType(row){
+  const t = [row?.crash_type,row?.type,row?.cr_title,row?.title,row?.cr_area,row?.cr_subsystem].join(' ').toLowerCase();
+  if(t.includes('system')) return 'System';
+  if(/\bssr\b|subsystem restart/.test(t)) return 'SSR';
+  return 'Process';
+}
+function _crJiraKey(j){ return String(j?.final_key || j?.key || j?.stability_ticket || j?.ticket || '').toUpperCase(); }
+function _crNormalizeReportRows(hierarchical){
+  const crRows = [], open = [], seenJ = new Set();
+  (hierarchical || []).forEach(r => {
+    const jiras = r.jiras || [];
+    if(r.cr && r.cr !== 'NO_CR'){
+      crRows.push({
+        cr:r.cr, title:r.cr_title || r.title || '', occurrences:jiras.length || r.cr_count || r.jira_count || 1,
+        area:r.cr_area || r.area || '', subsystem:r.cr_subsystem || r.subsystem || '', functionality:r.cr_functionality || r.cr_function || r.functionality || '',
+        parent:r.parent_cr || r.parent || r.cr_status || '', age:r.cr_age || r.overall_age || '', jiras
+      });
+    }
+    jiras.forEach(j => {
+      const key = _crJiraKey(j);
+      if(!key || seenJ.has(key)) return;
+      const st = String(j.final_status || j.status || '').toLowerCase();
+      if(st.includes('closed') || st.includes('resolved')) return;
+      if(!r.cr || r.cr === 'NO_CR' || st){
+        seenJ.add(key);
+        open.push({key, grouping:r.cr || 'NO_CR', occurrences:1, summary:j.final_summary || j.summary || j.jira_title || '', status:j.final_status || j.status || 'Open'});
+      }
+    });
+  });
+  return {crRows, open};
+}
+function _crRenderCrTable(hierarchical){
+  const body = document.getElementById('crReportBody');
+  const parsed = _crNormalizeReportRows(hierarchical);
+  _crAllRows = parsed.crRows;
+  if(!body) return;
+  if(!_crAllRows.length){ body.innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-inbox"></i><p>No CR rows found for the selected builds.</p></td></tr>`; return; }
+  body.innerHTML = _crAllRows.map((r,i) => `<tr>
+    <td>${i+1}</td>
+    <td>${crLink(r.cr)}</td>
+    <td style="max-width:460px">${fmt(r.title || '--')}</td>
+    <td><b style="color:#4f46e5">${fmt(r.occurrences)}</b></td>
+    <td>${fmt(r.area || '--')}</td>
+    <td>${fmt(r.subsystem || '--')}</td>
+    <td>${fmt(r.functionality || '--')}</td>
+    <td>${fmt(r.parent || '--')}</td>
+    <td>${fmt(r.age || '--')}</td>
+  </tr>`).join('');
+}
+function _crRenderOpenJiras(hierarchical){
+  const sec = document.getElementById('crOpenJiraSection');
+  const body = document.getElementById('crOpenJiraBody');
+  const badge = document.getElementById('crOpenJiraBadge');
+  const parsed = _crNormalizeReportRows(hierarchical);
+  _crOpenJiraGroups = parsed.open;
+  if(!sec || !body) return;
+  if(!_crOpenJiraGroups.length){ sec.style.display = 'none'; body.innerHTML = ''; return; }
+  sec.style.display = 'block';
+  if(badge) badge.textContent = `${_crOpenJiraGroups.length} open`;
+  body.innerHTML = _crOpenJiraGroups.map((r,i) => `<tr>
+    <td>${i+1}</td><td>${jiraLink(r.key)}</td><td>${fmt(r.grouping)}</td><td>${fmt(r.occurrences)}</td><td>${fmt(r.summary)}</td><td>${fmt(r.status)}</td>
+  </tr>`).join('');
+}
+
 async function crRunReport(force){
   if(!_crJobId){ return; }
   const jql = _crGetJql();
@@ -1640,28 +2073,67 @@ async function crRunReport(force){
     return;
   }
   const sp = document.getElementById('crReportSpinner');
+  const msg = document.getElementById('crReportMsg');
   if(sp) sp.style.display = 'inline';
+  if(msg){ msg.textContent = 'Fetching crash data...'; msg.style.color = '#4f46e5'; }
   if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
   try{
     const res  = await fetch(`/api/live_status/targets/${encodeURIComponent(TARGET)}/current_report`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({force: force === true, custom_jql: jql})
     });
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'Report failed');
     const report  = data.report || {};
-    const meta    = report.meta || {};
+    _crReportCache = report;
+    const meta = report.meta || {};
     const newCount = meta.jira_count !== undefined ? meta.jira_count : (report.jiras || []).length;
-    const shouldRender = force === true || _crLastJiraCount === null || newCount !== _crLastJiraCount;
     _crLastJiraCount = newCount;
     _crExcludedJiras = (report.excluded_jiras || []).map(k => String(k).toUpperCase());
-    if(shouldRender){
-      _crRenderCrTable(report.hierarchical_report || []);
-      _crRenderOpenJiras(report.hierarchical_report || []);
-    }
-    // Summary pills
+    _crRenderCrTable(report.hierarchical_report || []);
+    _crRenderOpenJiras(report.hierarchical_report || []);
     const pills = document.getElementById('crSummaryPills');
     if(pills){
-      const total   = newCount;
-      const w
+      pills.innerHTML = `<span class="pill"><i class="fas fa-ticket-alt"></i> ${newCount || 0} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${_crAllRows.length} CRs</span><span class="pill warn"><i class="fas fa-door-open"></i> ${_crOpenJiraGroups.length} open</span><span class="pill"><i class="fas fa-code-branch"></i> ${_crSelectedBuilds().length} builds</span>`;
+    }
+    if(msg){ msg.textContent = `Updated ${new Date().toLocaleTimeString()}`; msg.style.color = '#059669'; }
+  }catch(err){
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
+    document.getElementById('crOpenJiraSection').style.display = 'none';
+    if(msg){ msg.textContent = 'Error: ' + (err.message || err); msg.style.color = '#dc2626'; }
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+function crCopyReport(){
+  const lines = [];
+  lines.push('Current Crash Report - ' + String(TARGET || '').toUpperCase());
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('Selected builds: ' + _crSelectedBuilds().join(', '));
+  lines.push('');
+  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','Parent/Status','Age'].join('\t'));
+  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.parent,r.age].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  if(_crOpenJiraGroups.length){
+    lines.push(''); lines.push('Open / Unmapped JIRAs');
+    lines.push(['#','Ticket','Grouping','Occurrences','Summary','Status'].join('\t'));
+    _crOpenJiraGroups.forEach((r,i) => lines.push([i+1,r.key,r.grouping,r.occurrences,r.summary,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  }
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => { const m = document.getElementById('crReportMsg'); if(m){ m.textContent = 'Crash report copied.'; m.style.color = '#059669'; } })
+    .catch(() => alert('Copy failed.'));
+}
+
+function crCopyRecentMetas(){
+  const rows = getVisibleCrRows();
+  if(!rows.length){ alert('No CR rows to copy.'); return; }
+  const lines = rows.map(r => [r.mapped_cr || r.cr || '', r.cr_title || '', r.jira_count || ''].join('\t'));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Copied recent META CR rows.')).catch(() => alert('Copy failed.'));
+}
+
+// Initial current-report load after all overrides are registered.
+document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
+</script>
+</body>
+</html>
+ 

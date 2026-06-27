@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import re
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
 
@@ -1754,11 +1754,11 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     visible_tabs = ['core']  # core slide shown for all BUs
     if _job_type(job) == 'ENG':
         initial_tab = 'current'
-    visible_tabs += ['current', 'mtbf']
-    if not _job_type(job) == 'ENG':
+    else:
         visible_tabs += ['weekly', 'opencrs', 'openjiras', 'buildreport']
+    visible_tabs += ['current', 'mtbf']
 
-        return render_template(
+    return render_template(
         'live_status_publish_edit.html' if is_auto_bu else 'live_status_publish_edit_nonau.html',
         job=job,
         workspace_data=None,
@@ -1770,7 +1770,7 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         is_compute_mtbf=is_compute_mtbf,
         is_auto_bu=is_auto_bu,
         is_eng_job=_job_type(job) == 'ENG',
-                can_edit=can_edit,
+        can_edit=can_edit,
         initial_tab=initial_tab if initial_tab in ('core', 'current', 'mtbf', 'weekly', 'opencrs', 'openjiras', 'buildreport') else 'current',
         mtbf_only=(initial_tab == 'mtbf' and _job_type(job) != 'ENG'),
         embedded_core_deck=embedded_core_deck,
@@ -2403,7 +2403,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
                 return 'APPS'
             return ''
 
-        # ── 1. JIRA rows (jiras + openjiras) for the date range ─────────────
+        # ΓöÇΓöÇ 1. JIRA rows (jiras + openjiras) for the date range ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         jira_rows = []
         open_jira_rows = []
         build_ids = []
@@ -2509,7 +2509,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
                     if cv:
                         selected_cr_ids.add(cv)
 
-        # ── 2. CR rows from unique_crs ──────────────────────────────────────
+        # ΓöÇΓöÇ 2. CR rows from unique_crs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         # Start with date-window rows, then for selected builds enrich every
         # mapped CR directly from the full unique_crs table by CR id. The second
         # lookup is required because build-selected JIRAs can map to older CRs
@@ -2537,13 +2537,13 @@ def api_published_weekly_full(job_id=None, target_name=None):
             # date-filtered rather than fabricating CR details.
             logger.info('[WEEKLY_FULL] selected builds have no CR mapping columns; CR rows left date-filtered')
 
-        # ── 3. Pie aggregations ──────────────────────────────────────────────
+        # ΓöÇΓöÇ 3. Pie aggregations ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         status_ctr = Counter(str(r.get('cr_status') or '').strip() for r in cr_rows if str(r.get('cr_status') or '').strip())
         area_ctr   = Counter(str(r.get('cr_area')   or '').strip() for r in cr_rows if str(r.get('cr_area') or '').strip())
         pie_status = [{'name': k, 'y': v} for k, v in sorted(status_ctr.items(), key=lambda x: x[0].lower())]
         pie_area   = [{'name': k, 'y': v} for k, v in sorted(area_ctr.items(),   key=lambda x: x[0].lower())]
 
-        # ── 4. Per-build CR/JIRA area matrix ────────────────────────────────
+        # ΓöÇΓöÇ 4. Per-build CR/JIRA area matrix ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         # Area source rule:
         #   - Open/unmapped JIRAs: title-based bucket when available.
         #   - CRs / mapped JIRAs: Orbit CR area from unique_crs.cr_area.
@@ -2589,7 +2589,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             for area in areas:
                 build_area_matrix[mb].setdefault(area, 0)
 
-        # ── 5. Counts ────────────────────────────────────────────────────────
+        # ΓöÇΓöÇ 5. Counts ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         total_jiras  = len({r.get('stability_ticket') for r in all_jira_rows if r.get('stability_ticket')})
         open_jiras   = len({r.get('stability_ticket') for r in open_jira_rows if r.get('stability_ticket')})
         total_crs    = len(cr_rows)
@@ -3230,7 +3230,7 @@ def _run_published_current_report(job, force=False, custom_jql=''):
     import logging as _logging
     _rlog = _logging.getLogger(__name__)
     _rlog.info(f"[CURRENT_REPORT] job_id={job.get('id')}, target={target!r}, builds={builds}, force={force}")
-    # Only use the persisted JQL — never auto-generate from builds.
+    # Only use the persisted JQL ΓÇö never auto-generate from builds.
     # The editor is responsible for saving the JQL before publish.
     persisted_jql = (sc.get('jql') or '').strip()
     jql = (custom_jql or '').strip() or persisted_jql
@@ -3349,7 +3349,7 @@ def api_swpdt_force_refresh():
         new_jobs  = fetch_swpdt_jobs(DEFAULT_API_HOST, token, DEFAULT_PAGE_SIZE, DEFAULT_APP_NAME)
 
         if not new_jobs:
-            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom — API may be down or no Running jobs today'}), 502
+            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom ΓÇö API may be down or no Running jobs today'}), 502
 
         final_jobs = merge_and_prune(output_path, new_jobs, RETENTION_DAYS)
         from datetime import datetime as _dt, timezone as _tz
@@ -3368,7 +3368,7 @@ def api_swpdt_force_refresh():
             payload['state_counts'][s] = payload['state_counts'].get(s, 0) + 1
 
         _save(output_path, payload)
-        logger.info('[SWPDT FORCE REFRESH] Done — %d jobs saved to %s', len(final_jobs), output_path)
+        logger.info('[SWPDT FORCE REFRESH] Done ΓÇö %d jobs saved to %s', len(final_jobs), output_path)
 
         return jsonify({
             'ok':           True,

@@ -67,3 +67,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+
+# Temp fix/debug scripts
+_fix*.py
+_dbg*.py
+
