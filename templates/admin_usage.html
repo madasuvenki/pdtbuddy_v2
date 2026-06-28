@@ -23,7 +23,7 @@
   display:block !important;
 }
 
-/* ── Page shell ── */
+/*    Page shell    */
 .adm-shell {
   width:100%;
   max-width:1680px;
@@ -33,7 +33,7 @@
 }
 @media(max-width:700px){ .adm-shell{ padding:18px 14px 48px; } }
 
-/* ── Page header ── */
+/*    Page header    */
 .adm-page-header {
   display:flex;
   align-items:center;
@@ -46,7 +46,7 @@
 .adm-page-title  { font-size:28px; font-weight:950; color:#0f172a; display:flex; align-items:center; gap:12px; letter-spacing:-.03em; }
 .adm-page-title i { color:#6366f1; }
 
-/* ── Accordion section ── */
+/*    Accordion section    */
 .adm-section {
   width:100%;
   background:rgba(255,255,255,.96);
@@ -73,15 +73,18 @@
 .adm-section-body { display:none; padding:24px 26px 28px; }
 .adm-section-body.open { display:block; }
 
-/* ── Period tabs ── */
+/*    Period tabs    */
 .au-period-wrap  { display:flex; align-items:center; gap:8px; }
 .au-period-label { font-size:12px; font-weight:700; color:#6b7280; }
 .au-period-tabs  { display:flex; gap:4px; background:#f1f5f9; border-radius:10px; padding:4px; }
+.au-toggle-btn        { padding:5px 14px; border-radius:7px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:#64748b; background:transparent; transition:.15s; }
+.au-toggle-active     { background:#fff; color:#4f46e5; box-shadow:0 2px 8px rgba(99,102,241,.18); }
+.au-toggle-btn:hover:not(.au-toggle-active) { background:#e2e8f0; }
 .au-period-tab   { padding:5px 14px; border-radius:7px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:#64748b; background:transparent; transition:.15s; }
 .au-period-tab.active { background:#fff; color:#4f46e5; box-shadow:0 2px 8px rgba(99,102,241,.18); }
 .au-period-tab:hover:not(.active) { background:#e2e8f0; }
 
-/* ── Stat cards ── */
+/*    Stat cards    */
 .au-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; margin-bottom:22px; }
 @media(max-width:900px){ .au-cards{ grid-template-columns:repeat(2,1fr); } }
 @media(max-width:500px){ .au-cards{ grid-template-columns:1fr; } }
@@ -100,7 +103,7 @@
 .au-card-value { font-size:34px; font-weight:950; color:#0f172a; line-height:1; letter-spacing:-.04em; }
 .au-card-sub   { font-size:11px; color:#9ca3af; font-weight:600; }
 
-/* ── Chart rows ── */
+/*    Chart rows    */
 .au-main-row   { display:grid; grid-template-columns:minmax(0,2fr) minmax(300px,.85fr); gap:14px; margin-bottom:14px; }
 .au-bottom-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:14px; }
 @media(max-width:900px){ .au-main-row,.au-bottom-row{ grid-template-columns:1fr; } }
@@ -108,20 +111,20 @@
 .au-chart-title { font-size:15px; font-weight:900; color:#0f172a; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
 .au-chart-title i { color:#6366f1; }
 
-/* ── Recent users ── */
+/*    Recent users    */
 .au-recent-list { display:flex; flex-direction:column; gap:7px; max-height:300px; overflow-y:auto; }
 .au-recent-item { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:9px; background:#fff; border:1px solid #f1f5f9; }
 .au-avatar      { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; flex-shrink:0; }
 .au-recent-name { font-size:12px; font-weight:700; color:#1e293b; }
 .au-recent-time { font-size:10px; color:#9ca3af; }
 
-/* ── Failure list ── */
+/*    Failure list    */
 .au-failure-list { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; }
 .au-failure-item { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:9px 12px; border-radius:10px; background:#fff5f5; border:1px solid #fecaca; }
 .au-failure-reason { font-size:11px; font-weight:700; color:#7f1d1d; line-height:1.4; }
 .au-failure-count  { flex-shrink:0; font-size:11px; font-weight:900; color:#dc2626; background:#fee2e2; border-radius:999px; padding:3px 9px; }
 
-/* ── Shared summary pills ── */
+/*    Shared summary pills    */
 .adm-summary-pills { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
 .adm-sum-pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:800; padding:4px 12px; border-radius:999px; }
 .adm-sum-pill.ok       { background:#dcfce7; color:#15803d; }
@@ -131,7 +134,7 @@
 .adm-sum-pill.active   { background:#dcfce7; color:#15803d; }
 .adm-sum-pill.inactive { background:#f1f5f9; color:#94a3b8; }
 
-/* ── Ingest table ── */
+/*    Ingest table    */
 .is-table-wrap { background:#f8faff; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden; }
 table.is-table { width:100%; border-collapse:collapse; font-size:13px; }
 table.is-table th { padding:10px 14px; text-align:left; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#6b7280; background:#f1f5f9; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
@@ -149,7 +152,7 @@ table.is-table tr:hover td { background:#f0f4ff; }
 .is-bu      { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; background:#f1f5f9; color:#374151; }
 .is-empty   { text-align:center; padding:36px; color:#9ca3af; font-size:13px; }
 
-/* ── Target toggle table ── */
+/*    Target toggle table    */
 .tm-filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .tm-search { flex:1; min-width:180px; padding:7px 13px; border-radius:8px; border:1px solid #e2e8f0; font-size:13px; outline:none; background:#f8faff; }
 .tm-search:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.12); background:#fff; }
@@ -173,7 +176,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 .tm-bu-pill { font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#374151; }
 .tm-empty   { text-align:center;padding:36px;color:#9ca3af;font-size:13px; }
 
-/* ── Feedback ── */
+/*    Feedback    */
 .fb-cards { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:16px; }
 @media(max-width:1100px){ .fb-cards{ grid-template-columns:repeat(3,1fr); } }
 @media(max-width:600px){  .fb-cards{ grid-template-columns:repeat(2,1fr); } }
@@ -191,15 +194,15 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 .fb-star-empty { color:#e2e8f0; }
 .fb-empty      { text-align:center; padding:28px; color:#9ca3af; font-size:13px; }
 
-/* ── Shared spinner ── */
+/*    Shared spinner    */
 .adm-spinner { display:flex; align-items:center; justify-content:center; height:160px; color:#9ca3af; font-size:13px; gap:8px; }
 
-/* ── Toast ── */
+/*    Toast    */
 .adm-toast { position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:opacity .3s;pointer-events:none; }
 .adm-toast.ok  { background:#16a34a; }
 .adm-toast.err { background:#dc2626; }
 
-/* ── Refresh button ── */
+/*    Refresh button    */
 .adm-refresh-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;color:#fff;font-size:12px;font-weight:800;border:none;cursor:pointer; }
 .adm-refresh-btn:hover { opacity:.88; }
 </style>
@@ -209,7 +212,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 
 <div class="adm-shell">
 
-  <!-- ── Page header ── -->
+  <!--    Page header    -->
   <div class="adm-page-header">
     <div class="adm-page-title"><i class="fas fa-shield-alt"></i> Admin Dashboard</div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -224,26 +227,39 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SECTION 1 — User Usage Dashboard (open by default)
-  ══════════════════════════════════════════ -->
+  <!--                                           
+       SECTION 1   User Usage Dashboard (open by default)
+                                             -->
   <div class="adm-section" id="sec-usage">
     <div class="adm-section-head open" onclick="admToggle('usage')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-chart-line"></i></div>
         <div>
           <div class="adm-section-label">User Usage Dashboard</div>
-          <div class="adm-section-sub">Logins · actions · top users · failures</div>
+          <div class="adm-section-sub">Logins   actions   top users   failures</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
+        <!-- Internal / External toggle -->
+        <div style="display:flex;align-items:center;gap:0;background:#f1f5f9;border-radius:10px;padding:4px;margin-right:8px;">
+          <button id="au-toggle-all"      class="au-toggle-btn au-toggle-active" onclick="event.stopPropagation();auSetType('all')">All</button>
+          <button id="au-toggle-internal" class="au-toggle-btn"                  onclick="event.stopPropagation();auSetType('internal')">Internal</button>
+          <button id="au-toggle-external" class="au-toggle-btn"                  onclick="event.stopPropagation();auSetType('external')">External</button>
+        </div>
         <div class="au-period-wrap">
           <span class="au-period-label">View:</span>
           <div class="au-period-tabs">
-            <button class="au-period-tab active" data-period="daily"   onclick="event.stopPropagation()">Day</button>
+            <button class="au-period-tab"         data-period="daily"   onclick="event.stopPropagation()">Day</button>
             <button class="au-period-tab"         data-period="weekly"  onclick="event.stopPropagation()">Week</button>
-            <button class="au-period-tab"         data-period="monthly" onclick="event.stopPropagation()">Month</button>
+            <button class="au-period-tab active"  data-period="monthly" onclick="event.stopPropagation()">Month</button>
           </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-right:8px;">
+          <span style="font-size:12px;font-weight:700;color:#6b7280;">User:</span>
+          <select id="au-user-filter" onchange="event.stopPropagation();auSetUser(this.value)"
+            style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;font-weight:700;color:#374151;background:#f8faff;cursor:pointer;max-width:160px;">
+            <option value="">All Users</option>
+          </select>
         </div>
         <i class="fas fa-chevron-down adm-section-chevron"></i>
       </div>
@@ -254,25 +270,25 @@ table.tm-table tr:hover td { background:#f0f4ff; }
         <div class="au-card au-card-users">
           <div class="au-card-icon"><i class="fas fa-users"></i></div>
           <div class="au-card-label">Unique Users</div>
-          <div class="au-card-value" id="au-total-users">—</div>
+          <div class="au-card-value" id="au-total-users"> </div>
           <div class="au-card-sub" id="au-period-sub">Today</div>
         </div>
         <div class="au-card au-card-activity">
           <div class="au-card-icon"><i class="fas fa-bolt"></i></div>
           <div class="au-card-label">Total Actions</div>
-          <div class="au-card-value" id="au-total-actions">—</div>
+          <div class="au-card-value" id="au-total-actions"> </div>
           <div class="au-card-sub" id="au-period-sub2">Today</div>
         </div>
         <div class="au-card au-card-logins">
           <div class="au-card-icon"><i class="fas fa-sign-in-alt"></i></div>
           <div class="au-card-label">Logins</div>
-          <div class="au-card-value" id="au-total-logins">—</div>
+          <div class="au-card-value" id="au-total-logins"> </div>
           <div class="au-card-sub" id="au-period-sub3">Today</div>
         </div>
         <div class="au-card au-card-fail">
           <div class="au-card-icon"><i class="fas fa-times-circle"></i></div>
           <div class="au-card-label">Failures</div>
-          <div class="au-card-value" id="au-failures">—</div>
+          <div class="au-card-value" id="au-failures"> </div>
           <div class="au-card-sub" id="au-period-sub4">Today</div>
         </div>
       </div>
@@ -280,7 +296,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
       <div class="au-main-row">
         <div class="au-chart-inner">
           <div class="au-chart-title"><i class="fas fa-chart-bar"></i> Activity Trend</div>
-          <div id="au-activity-chart" style="height:260px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+          <div id="au-activity-chart" style="height:260px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
         </div>
         <div class="au-chart-inner">
           <div class="au-chart-title"><i class="fas fa-user-clock"></i> Recent Users</div>
@@ -291,30 +307,50 @@ table.tm-table tr:hover td { background:#f0f4ff; }
       <div class="au-bottom-row">
         <div class="au-chart-inner">
           <div class="au-chart-title"><i class="fas fa-trophy"></i> Top Users</div>
-          <div id="au-top-users-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+          <div id="au-top-users-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
         </div>
         <div class="au-chart-inner">
           <div class="au-chart-title"><i class="fas fa-th-large"></i> Action Breakdown</div>
-          <div id="au-action-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+          <div id="au-action-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
         </div>
       </div>
       <!-- Failure reasons -->
       <div class="au-chart-inner">
         <div class="au-chart-title"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Failure Reasons</div>
-        <div class="au-failure-list" id="au-failure-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+        <div class="au-failure-list" id="au-failure-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
+      </div>
+
+      <!-- Login Users -->
+      <div class="au-chart-inner" style="margin-top:14px;">
+        <div class="au-chart-title"><i class="fas fa-sign-in-alt" style="color:#10b981;"></i> Login Users &mdash; <span id="au-login-period-label">Last 12 months</span></div>
+        <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">#</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">User ID</th>
+                <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Logins</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Last Login</th>
+              </tr>
+            </thead>
+            <tbody id="au-login-users-tbody">
+              <tr><td colspan="4" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SECTION 2 — Ingest Status (collapsed)
-  ══════════════════════════════════════════ -->
+  <!--                                           
+       SECTION 2   Ingest Status (collapsed)
+                                             -->
   <div class="adm-section" id="sec-ingest">
     <div class="adm-section-head" onclick="admToggle('ingest')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#dcfce7;color:#059669;"><i class="fas fa-database"></i></div>
         <div>
-          <div class="adm-section-label">Ingest Status — All Targets</div>
+          <div class="adm-section-label">Ingest Status   All Targets</div>
           <div class="adm-section-sub">Last ingest run result per target</div>
         </div>
       </div>
@@ -346,9 +382,9 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SECTION 3 — Target Enable / Disable (collapsed)
-  ══════════════════════════════════════════ -->
+  <!--                                           
+       SECTION 3   Target Enable / Disable (collapsed)
+                                             -->
   <div class="adm-section" id="sec-targets">
     <div class="adm-section-head" onclick="admToggle('targets')">
       <div class="adm-section-head-left">
@@ -369,7 +405,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     <div class="adm-section-body" id="body-targets">
       <div id="tmSummary" class="adm-summary-pills"></div>
       <div class="tm-filter-bar">
-        <input class="tm-search" id="tmSearch" placeholder="Search target or BU…" oninput="tmRender()">
+        <input class="tm-search" id="tmSearch" placeholder="Search target or BU " oninput="tmRender()">
         <div class="tm-ftabs">
           <button class="tm-ftab active" id="tmTabAll"      onclick="tmSetFilter('all')">All</button>
           <button class="tm-ftab"        id="tmTabActive"   onclick="tmSetFilter('active')">Active</button>
@@ -389,9 +425,9 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SECTION 4 — Tool Feedback (collapsed)
-  ══════════════════════════════════════════ -->
+  <!--                                           
+       SECTION 4   Tool Feedback (collapsed)
+                                             -->
   <div class="adm-section" id="sec-feedback">
     <div class="adm-section-head" onclick="admToggle('feedback')">
       <div class="adm-section-head-left">
@@ -411,12 +447,12 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     </div>
     <div class="adm-section-body" id="body-feedback">
       <div class="fb-cards">
-        <div class="fb-card"><div class="fb-card-val" style="color:#6366f1;" id="fbTotal">—</div><div class="fb-card-lbl">Responses</div></div>
-        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbAvgRating">—</div><div class="fb-card-lbl">Avg Rating</div></div>
-        <div class="fb-card"><div class="fb-card-val" style="color:#10b981;" id="fbTotalHrs">—</div><div class="fb-card-lbl">Total Hrs Saved</div></div>
-        <div class="fb-card"><div class="fb-card-val" style="color:#0ea5e9;" id="fbAvgHrs">—</div><div class="fb-card-lbl">Avg Hrs Saved</div></div>
-        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbFiveStar">—</div><div class="fb-card-lbl">5★ Ratings</div></div>
-        <div class="fb-card"><div class="fb-card-val" style="color:#84cc16;" id="fbFourStar">—</div><div class="fb-card-lbl">4★ Ratings</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#6366f1;" id="fbTotal"> </div><div class="fb-card-lbl">Responses</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbAvgRating"> </div><div class="fb-card-lbl">Avg Rating</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#10b981;" id="fbTotalHrs"> </div><div class="fb-card-lbl">Total Hrs Saved</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#0ea5e9;" id="fbAvgHrs"> </div><div class="fb-card-lbl">Avg Hrs Saved</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#f59e0b;" id="fbFiveStar"> </div><div class="fb-card-lbl">5  Ratings</div></div>
+        <div class="fb-card"><div class="fb-card-val" style="color:#84cc16;" id="fbFourStar"> </div><div class="fb-card-lbl">4  Ratings</div></div>
       </div>
       <div class="fb-table-inner">
         <div class="fb-table-title"><i class="fas fa-users" style="color:#6366f1;"></i> Per-User Breakdown</div>
@@ -424,7 +460,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
           <table class="fb-table"><thead><tr>
             <th>User</th><th>Submissions</th><th>Avg Rating</th><th>Total Hrs Saved</th><th>Last Submitted</th>
           </tr></thead><tbody id="fbUserTbody">
-            <tr><td colspan="5" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>
+            <tr><td colspan="5" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading </td></tr>
           </tbody></table>
         </div>
       </div>
@@ -434,16 +470,16 @@ table.tm-table tr:hover td { background:#f0f4ff; }
           <table class="fb-table"><thead><tr>
             <th>User</th><th>Rating</th><th>Hrs Saved</th><th>Comment</th><th>Page</th><th>Submitted At</th>
           </tr></thead><tbody id="fbRecentTbody">
-            <tr><td colspan="6" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>
+            <tr><td colspan="6" class="fb-empty"><i class="fas fa-spinner fa-spin"></i> Loading </td></tr>
           </tbody></table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SECTION 5 — Page Visibility Control
-  ══════════════════════════════════════════ -->
+  <!--                                           
+       SECTION 5   Page Visibility Control
+                                             -->
   <div class="adm-section" id="sec-pv" style="display:none;">
     <div class="adm-section-head" onclick="admToggle('pv')">
       <div class="adm-section-head-left">
@@ -517,9 +553,9 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 </div><!-- /adm-shell -->
 
 <script>
-/* ══════════════════════════════════════════
+/*                                           
    SHARED HELPERS
-══════════════════════════════════════════ */
+                                           */
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -531,9 +567,9 @@ function admShowToast(msg, ok) {
   setTimeout(function() { t.style.opacity = '0'; }, 3000);
 }
 
-/* ══════════════════════════════════════════
+/*                                           
    ACCORDION
-══════════════════════════════════════════ */
+                                           */
 function admToggle(id) {
   var head = document.querySelector('#sec-' + id + ' .adm-section-head');
   var body = document.getElementById('body-' + id);
@@ -577,16 +613,31 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
   });
 })();
 
-/* ══════════════════════════════════════════
-   SECTION 1 — Usage Dashboard
-══════════════════════════════════════════ */
+/*                                           
+   SECTION 1   Usage Dashboard
+                                           */
 (function() {
   var COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
   function avatarColor(n) { var h=0; for(var i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))&0xffff; return COLORS[h%COLORS.length]; }
   function initials(n) { return (n||'?').slice(0,2).toUpperCase(); }
 
-  var period = 'daily';
-  var labels = { daily:'Today', weekly:'Last 7 days', monthly:'Last 30 days' };
+  var period = 'monthly';
+  var filterUser = '';
+  var userType   = 'all';
+
+    window.auSetType = function(t) {
+    userType = t;
+    document.querySelectorAll('.au-toggle-btn').forEach(function(b){ b.classList.remove('au-toggle-active'); });
+    var el = document.getElementById('au-toggle-' + t);
+    if (el) el.classList.add('au-toggle-active');
+    loadUsage();
+  };
+
+  window.auSetUser = function(val) {
+    filterUser = val || '';
+    loadUsage();
+  };
+  var labels = { daily:'Today', weekly:'Last 7 days', monthly:'Last 12 months' };
 
   document.querySelectorAll('.au-period-tab').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
@@ -599,7 +650,8 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
   });
 
   function loadUsage() {
-    fetch('/admin/usage_data?period=' + period)
+    var url = '/admin/usage_data?period=' + period + (filterUser ? '&user_id=' + encodeURIComponent(filterUser) : '') + (userType !== 'all' ? '&user_type=' + userType : '');
+    fetch(url)
       .then(function(r){ return r.json(); })
       .then(function(d) {
         if (d.error) return;
@@ -611,11 +663,31 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
         ['au-period-sub','au-period-sub2','au-period-sub3','au-period-sub4'].forEach(function(id){
           var el=document.getElementById(id); if(el) el.textContent=lbl;
         });
+        // Sync toggle state from response
+        if (d.user_type && d.user_type !== userType) {
+          userType = d.user_type;
+          document.querySelectorAll('.au-toggle-btn').forEach(function(b){ b.classList.remove('au-toggle-active'); });
+          var el = document.getElementById('au-toggle-' + userType);
+          if (el) el.classList.add('au-toggle-active');
+        }
+        // Populate user filter dropdown
+        var sel = document.getElementById('au-user-filter');
+        if (sel && d.all_users_list && d.all_users_list.length) {
+          var cur = sel.value;
+          sel.innerHTML = '<option value="">All Users</option>';
+          d.all_users_list.forEach(function(u) {
+            var opt = document.createElement('option');
+            opt.value = u; opt.textContent = u;
+            if (u === cur || u === d.filter_user) opt.selected = true;
+            sel.appendChild(opt);
+          });
+        }
         renderActivityChart(d);
         renderTopUsersChart(d);
         renderActionChart(d);
         renderRecentUsers(d);
         renderFailureReasons(d);
+        renderLoginUsers(d);
       })
       .catch(function(e){ console.error('Usage load failed:',e); });
   }
@@ -702,12 +774,40 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
     }).join('');
   }
 
+
+  function renderLoginUsers(d) {
+    var COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
+    var rows = d.login_users || [];
+    var tbody = document.getElementById('au-login-users-tbody');
+    var lbl   = document.getElementById('au-login-period-label');
+    if (lbl) lbl.textContent = labels[period] || period;
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;">No login data for selected period.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(u, i) {
+      var h = 0;
+      for (var c = 0; c < (u.user_id || '').length; c++) h = (h * 31 + u.user_id.charCodeAt(c)) & 0xffff;
+      var col = COLORS[h % COLORS.length];
+      var ini = (u.user_id || '?').slice(0, 2).toUpperCase();
+      return '<tr style="border-bottom:1px solid #f1f5f9;">'
+        + '<td style="padding:8px 12px;color:#9ca3af;font-size:11px;">' + (i + 1) + '</td>'
+        + '<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:8px;">'
+        + '<div style="width:28px;height:28px;border-radius:50%;background:' + col + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0;">' + ini + '</div>'
+        + '<span style="font-size:13px;font-weight:700;color:#1e293b;">' + escHtml(u.user_id) + '</span></div></td>'
+        + '<td style="padding:8px 12px;text-align:center;"><span style="background:#dcfce7;color:#15803d;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;">' + u.total_logins + '</span></td>'
+        + '<td style="padding:8px 12px;font-size:11px;color:#64748b;">' + escHtml(u.last_login || '-') + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
   loadUsage();
 })();
 
-/* ══════════════════════════════════════════
-   SECTION 2 — Ingest Status
-══════════════════════════════════════════ */
+/*                                           
+   SECTION 2   Ingest Status
+                                           */
 function isLoad() {
   fetch('/admin/ingest_log/latest')
     .then(function(r){ return r.json(); })
@@ -732,7 +832,7 @@ function isLoad() {
           ?'<span class="is-reason"><i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i>'+escHtml(r.message)+'</span>'
           :r.status==='SKIPPED'&&r.message
           ?'<span style="font-size:11px;color:#92400e;">'+escHtml(r.message)+'</span>'
-          :'<span style="color:#9ca3af;font-size:11px;">—</span>';
+          :'<span style="color:#9ca3af;font-size:11px;"> </span>';
         var byColor=(r.triggered_by||'').toLowerCase().includes('admin')
           ?'background:#ede9fe;color:#6d28d9;':'background:#dbeafe;color:#1d4ed8;';
         return '<tr>'
@@ -752,9 +852,9 @@ function isLoad() {
 }
 setInterval(isLoad, 60000);
 
-/* ══════════════════════════════════════════
-   SECTION 3 — Target Toggle
-══════════════════════════════════════════ */
+/*                                           
+   SECTION 3   Target Toggle
+                                           */
 (function(){
   var _rows=[], _filter='all';
 
@@ -838,9 +938,9 @@ setInterval(isLoad, 60000);
   };
 })();
 
-/* ══════════════════════════════════════════
-   SECTION 4 — Feedback
-══════════════════════════════════════════ */
+/*                                           
+   SECTION 4   Feedback
+                                           */
 function adminForceIngestAll(btn) {
   if (!confirm('Force re-ingest ALL active targets?\nThis ignores dashboard_static timestamps and runs everything.\n\nThis may take several minutes.')) return;
   btn.disabled = true;
@@ -878,7 +978,7 @@ function fbLoad(){
       if(d.error) return;
       var agg=d.aggregates||{},byUser=d.by_user||[],recent=d.recent||[];
       document.getElementById('fbTotal').textContent    =(agg.total_responses||0).toLocaleString();
-      document.getElementById('fbAvgRating').textContent=parseFloat(agg.avg_rating||0).toFixed(1)+' ★';
+      document.getElementById('fbAvgRating').textContent=parseFloat(agg.avg_rating||0).toFixed(1)+'  ';
       document.getElementById('fbTotalHrs').textContent =parseFloat(agg.total_hours_saved||0).toFixed(1)+'h';
       document.getElementById('fbAvgHrs').textContent   =parseFloat(agg.avg_hours_saved||0).toFixed(1)+'h';
       document.getElementById('fbFiveStar').textContent =(agg.five_star||0);
@@ -903,17 +1003,17 @@ function fbLoad(){
             +'<td style="font-weight:700;color:#1e293b;">'+escHtml(r.username)+'</td>'
             +'<td>'+stars(r.rating)+'</td>'
             +'<td style="text-align:center;font-weight:800;color:#10b981;">'+r.hours_saved+'h</td>'
-            +'<td style="color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(r.feedback_text||'—')+'</td>'
-            +'<td><span style="font-size:10px;background:#f1f5f9;padding:2px 8px;border-radius:999px;font-weight:700;color:#374151;">'+escHtml(r.page||'—')+'</span></td>'
+            +'<td style="color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(r.feedback_text||' ')+'</td>'
+            +'<td><span style="font-size:10px;background:#f1f5f9;padding:2px 8px;border-radius:999px;font-weight:700;color:#374151;">'+escHtml(r.page||' ')+'</span></td>'
             +'<td style="color:#64748b;">'+escHtml((r.submitted_at||'').toString().substring(0,16))+'</td>'
             +'</tr>';
         }).join('');
     })
     .catch(function(e){ console.error('Feedback load error:',e); });
 }
-/* ══════════════════════════════════════════
-   SECTION 5 — Page Visibility
-══════════════════════════════════════════ */
+/*                                           
+   SECTION 5   Page Visibility
+                                           */
 (function(){
   var PV_PAGES = [
     { key:'dashboard',        label:'Dashboard',        icon:'fa-th-large',       color:'#4f46e5' },
@@ -1057,13 +1157,13 @@ function fbLoad(){
           cb.checked = enabled;
           cb.dataset.target = tKey;
           cb.dataset.page   = page.key;
-          cb.title = page.label + (enabled ? ' — Visible' : ' — Hidden');
+          cb.title = page.label + (enabled ? '   Visible' : '   Hidden');
           cb.style.cssText = 'width:16px;height:16px;accent-color:'+page.color+';cursor:pointer;';
           cb.addEventListener('change', function() {
             if (!_pvSettings[tKey]) _pvSettings[tKey] = {};
             _pvSettings[tKey][page.key] = cb.checked;
             _pvDirty = true;
-            pvSetStatus('Unsaved changes — click Save All Changes', null);
+            pvSetStatus('Unsaved changes   click Save All Changes', null);
             var sab = document.getElementById('pv_save_all_btn');
             if (sab) sab.style.boxShadow = '0 0 0 3px rgba(22,163,74,.4)';
           });
@@ -1132,7 +1232,7 @@ function fbLoad(){
       });
     });
     _pvDirty = true;
-    pvSetStatus('Unsaved changes — click Save All Changes', null);
+    pvSetStatus('Unsaved changes   click Save All Changes', null);
   }
 
   /* Public load function (called by accordion + refresh button) */
@@ -1154,7 +1254,7 @@ function fbLoad(){
   if (pvSaveAllBtn) {
     pvSaveAllBtn.addEventListener('click', function() {
       pvSaveAllBtn.disabled = true;
-      pvSaveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+      pvSaveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving ';
       var keys = Object.keys(_pvSettings);
       var done = 0, ok = 0, fail = 0;
       if (!keys.length) {
@@ -1170,7 +1270,7 @@ function fbLoad(){
           if (done === keys.length) {
             pvSaveAllBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
             pvSaveAllBtn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
-            pvSetStatus('Saved '+ok+' target(s)'+(fail?' — '+fail+' failed':''), fail===0);
+            pvSetStatus('Saved '+ok+' target(s)'+(fail?'   '+fail+' failed':''), fail===0);
             _pvDirty = false;
             setTimeout(function(){
               pvSaveAllBtn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
@@ -1194,7 +1294,7 @@ function fbLoad(){
       _pvSettings[cb.dataset.target][cb.dataset.page] = val;
     });
     _pvDirty = true;
-    pvSetStatus('Unsaved changes — click Save All Changes', null);
+    pvSetStatus('Unsaved changes   click Save All Changes', null);
   }
   if (pvEnableAll)  pvEnableAll.addEventListener('click',  function(){ pvSetGlobalAll(true);  });
   if (pvDisableAll) pvDisableAll.addEventListener('click', function(){ pvSetGlobalAll(false); });

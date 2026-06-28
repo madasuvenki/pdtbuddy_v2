@@ -2,7 +2,115 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>📊 Admin Chatbot Analytics</h2>
+    <h2>📊 Admin Analytics</h2>
+
+    <form method="GET" class="row g-2 align-items-end mt-3 mb-3">
+        <div class="col-auto">
+            <label for="months" class="form-label mb-1">Login stats range</label>
+            <select id="months" name="months" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for m in [1, 3, 6, 12, 24, 36] %}
+                <option value="{{ m }}" {% if stats_months == m %}selected{% endif %}>Last {{ m }} month{{ '' if m == 1 else 's' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <h3 class="mt-4">Internal Login User Analytics</h3>
+    <div class="row mt-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Total Logins</h6>
+                    <h3>{{ login_summary.total_logins or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Unique Login Users</h6>
+                    <h3>{{ login_summary.unique_login_users or 0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>First Login In Range</h6>
+                    <div>{{ login_summary.first_login or '-' }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6>Latest Login</h6>
+                    <div>{{ login_summary.latest_login or '-' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginDailyChart" style="height: 380px; margin-top: 20px;"></div>
+    <div id="loginWeeklyChart" style="height: 380px; margin-top: 20px;"></div>
+    <div id="loginMonthlyChart" style="height: 380px; margin-top: 20px;"></div>
+    <div id="topLoginUsersChart" style="height: 420px; margin-top: 20px;"></div>
+
+    <div class="row mt-4">
+        <div class="col-lg-7">
+            <h4>Top Login Users</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Total Logins</th>
+                            <th>Active Days</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in top_login_users %}
+                        <tr>
+                            <td>{{ row.user_id }}</td>
+                            <td>{{ row.total_logins }}</td>
+                            <td>{{ row.active_days }}</td>
+                            <td>{{ row.last_login }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center">No login data found</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <h4>Recent Logins</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in recent_logins %}
+                        <tr>
+                            <td>{{ row.user_id }}</td>
+                            <td>{{ row.created_at }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="2" class="text-center">No recent logins</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-4">
+    <h3>Chatbot Analytics</h3>
 
     <div class="row mt-4">
         <div class="col-md-3">
@@ -79,6 +187,49 @@
 
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
+Highcharts.chart('loginDailyChart', {
+    chart: { type: 'line' },
+    title: { text: 'Daily Internal Logins' },
+    xAxis: { categories: {{ login_daily_categories|tojson }} },
+    yAxis: { title: { text: 'Count' } },
+    series: [
+        { name: 'Total Logins', data: {{ login_daily_total|tojson }} },
+        { name: 'Unique Users', data: {{ login_daily_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('loginWeeklyChart', {
+    chart: { type: 'line' },
+    title: { text: 'Weekly Internal Logins' },
+    xAxis: { categories: {{ login_weekly_categories|tojson }} },
+    yAxis: { title: { text: 'Count' } },
+    series: [
+        { name: 'Total Logins', data: {{ login_weekly_total|tojson }} },
+        { name: 'Unique Users', data: {{ login_weekly_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('loginMonthlyChart', {
+    chart: { type: 'column' },
+    title: { text: 'Monthly Internal Logins (Multiple Months)' },
+    xAxis: { categories: {{ login_monthly_categories|tojson }} },
+    yAxis: { title: { text: 'Count' } },
+    series: [
+        { name: 'Total Logins', data: {{ login_monthly_total|tojson }} },
+        { name: 'Unique Users', data: {{ login_monthly_users|tojson }} }
+    ]
+});
+
+Highcharts.chart('topLoginUsersChart', {
+    chart: { type: 'bar' },
+    title: { text: 'Top Internal Login Users' },
+    xAxis: { categories: {{ top_login_user_categories|tojson }} },
+    yAxis: { title: { text: 'Logins' } },
+    series: [
+        { name: 'Logins', data: {{ top_login_user_values|tojson }} }
+    ]
+});
+
 Highcharts.chart('dailyQueriesChart', {
     chart: { type: 'line' },
     title: { text: 'Daily Chatbot Queries' },

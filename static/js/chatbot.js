@@ -392,6 +392,18 @@ document.addEventListener('DOMContentLoaded', () => {
             let mt = text || "";
             if (context.multi_sheet_url) mt += ` <a href="${context.multi_sheet_url}" target="_blank" class="chat-option-btn view-table-btn">View Report</a>`;
             bubble.innerHTML = `<div class="text">${String(mt).replace(/\n/g,'<br>')}</div>`;
+
+            // JQL / Build Report suggestion
+            const jqlKeywords = /jql|jira.*query|jira.*report|build.*report|report.*build|jira.*filter|query.*jira/i;
+            if (jqlKeywords.test(mt)) {
+                const jqlHint = document.createElement('div');
+                jqlHint.style.cssText = 'margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border:1px solid #c7d2fe;border-radius:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+                jqlHint.innerHTML = '<span style="font-size:11px;font-weight:700;color:#3730a3;"><i class="fas fa-info-circle" style="color:#6366f1;margin-right:4px;"></i>Looking for a JQL report?</span>'
+                    + '<a href="/build-report" target="_blank" '
+                    + 'style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-size:11px;font-weight:800;text-decoration:none;box-shadow:0 3px 10px rgba(99,102,241,.3);">'
+                    + '<i class="fas fa-file-alt"></i> Build Report</a>';
+                bubble.appendChild(jqlHint);
+            }
         } else {
             bubble.innerHTML = `<div class="text">${String(text||'').replace(/\n/g,'<br>')}</div>`;
         }

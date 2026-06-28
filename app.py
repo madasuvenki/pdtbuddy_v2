@@ -1,4 +1,4 @@
-﻿# ====================================================================================
+# ====================================================================================
 # IMPORTS
 # ====================================================================================
 import logging
@@ -33,7 +33,7 @@ from ldap3.utils.conv import escape_filter_chars
 import traceback
 
 
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user, login_fresh
 from flask_session import Session
 
 from src.ingest_logic import ingest_logic
@@ -249,6 +249,17 @@ def _check_session_idle():
 
     if not current_user.is_authenticated:
         return
+
+    if not login_fresh():
+        session.clear()
+        logout_user()
+        flash("Please sign in again.", "warning")
+        if (request.path.startswith('/api/') or
+                request.headers.get('Accept', '').startswith('application/json') or
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            from flask import jsonify as _jfy
+            return _jfy(ok=False, error='Please sign in again.', login_required=True), 401
+        return redirect(url_for('login'))
 
     now_ts = datetime.now().timestamp()
     last_active = session.get('last_active')
@@ -1042,9 +1053,26 @@ def ensure_user_data_table(cursor):
             error_message TEXT NULL,
             result_count INT NULL,
             duration_ms INT NULL,
+            user_type VARCHAR(20) NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
+        # Add user_type column to existing tables that predate this column
+    try:
+        cursor.execute("""
+            SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA='pdt_stats_dashboard'
+              AND TABLE_NAME='user_data'
+              AND COLUMN_NAME='user_type'
+        """)
+        row = cursor.fetchone()
+        if (row.get('cnt') if isinstance(row, dict) else row[0]) == 0:
+            cursor.execute("""
+                ALTER TABLE pdt_stats_dashboard.user_data
+                ADD COLUMN user_type VARCHAR(20) NULL
+            """)
+    except Exception:
+        pass
 
 def log_user_activity(
     user_id,
@@ -1057,7 +1085,8 @@ def log_user_activity(
     result_status="SUCCESS",
     error_message=None,
     result_count=None,
-    duration_ms=None
+    duration_ms=None,
+    user_type=None
 ):
     # Skip logging for admin users (e.g. vmadasu, rkatkoor)
     if str(user_id or "").strip().lower() in {u.lower() for u in ADMIN_USERS}:
@@ -1079,9 +1108,9 @@ def log_user_activity(
         (
             user_id, user_name, email, action_type, endpoint,
             target_name, query_text, result_status, error_message,
-            result_count, duration_ms
+            result_count, duration_ms, user_type
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(insert_sql, (
             str(user_id)[:100] if user_id else "UNKNOWN",
@@ -1094,7 +1123,8 @@ def log_user_activity(
             str(result_status)[:20] if result_status else "SUCCESS",
             str(error_message)[:5000] if error_message else None,
             int(result_count) if result_count is not None else None,
-            int(duration_ms) if duration_ms is not None else None
+            int(duration_ms) if duration_ms is not None else None,
+            str(user_type)[:20] if user_type else None
         ))
         conn.commit()
 
@@ -2221,12 +2251,17 @@ def validate_target_availability(target_name):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET' and current_user.is_authenticated:
+        if not login_fresh():
+            session.clear()
+            logout_user()
+            flash("Please sign in again.", "warning")
+            return render_template("login.html")
         if session.get('viewer_mode'):
             return redirect(url_for('live_status_publish_bp.landing'))
         if session.get('needs_qgenie_before_team_selection'):
             return redirect(url_for('post_login_qgenie_gate'))
         if session.get('needs_team_selection'):
-            return redirect(url_for('team_selection'))
+            return redirect(url_for('post_login_team_selection'))
         return redirect(url_for('cr_overview_embed'))
 
     if request.method == 'POST':
@@ -2237,7 +2272,9 @@ def login():
         if username.endswith('@qti.qualcomm.com'):
             username = username.split('@', 1)[0].strip()
         password = request.form.get('password') or ''
-        remember_me = bool(request.form.get('remember_me'))
+        # The login-page checkbox is only for browser password-manager opt-in.
+        # Do not create a persistent Flask remember cookie; user must still submit login.
+        remember_me = False
 
         try:
             if not username:
@@ -2275,34 +2312,29 @@ def login():
             if _login_target_group:
                 user = User.get(username)
                 login_user(user, remember=remember_me)
-                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS")
+                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS", user_type='internal')
                 flash(f"Welcome {username}!", "success")
                 _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f"[LOGIN] TARGET_GROUP user selecting access mode: {username}  |  {_now}", flush=True)
+                print(f"[LOGIN] TARGET_GROUP user sent directly to internal PDT Buddy: {username}  |  {_now}", flush=True)
                 session['login_time'] = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
-                session['needs_team_selection'] = True
-                session['needs_qgenie_popup'] = True
-                session['needs_qgenie_before_team_selection'] = True
+                session.pop('needs_team_selection', None)
+                session.pop('needs_qgenie_popup', None)
+                session.pop('needs_qgenie_before_team_selection', None)
                 session.pop('viewer_mode', None)
                 session.modified = True
-
-                return redirect(url_for('post_login_qgenie_gate'))
-
+                return redirect(url_for('bu_selection'))
 
             if username in BYPASS_USERS:
-
                 user = User.get(username)
                 login_user(user, remember=remember_me)
-                log_user_activity(user_id=username, action_type='LOGIN', result_status='SUCCESS')
+                log_user_activity(user_id=username, action_type='LOGIN', result_status='SUCCESS', user_type='external')
                 session['login_time']  = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
                 session.pop('needs_qgenie_popup', None)
                 session['viewer_mode'] = True
                 session.modified = True
-
                 flash(f'Welcome {username}! (viewer mode)', 'success')
-
                 return redirect(url_for('live_status_publish_bp.landing'))
 
             # Step 2: Admin check
@@ -2312,7 +2344,8 @@ def login():
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
-                    result_status="SUCCESS"
+                    result_status="SUCCESS",
+                    user_type='internal'
                 )
                 flash("Admin login successful.", "success")
                 _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -2358,7 +2391,7 @@ def login():
             if username.lower() in _dyn_admins:
                 user = User(id=username, role='admin')
                 login_user(user, remember=remember_me)
-                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS")
+                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS", user_type='internal')
                 flash(f"Welcome {username}! (admin)", "success")
                 session['login_time'] = session['last_active'] = datetime.now().timestamp()
                 session.pop('viewer_mode', None)
@@ -2370,7 +2403,8 @@ def login():
             if username.lower() in _viewers and not _in_target_group:
                 user = User(id=username, role='viewer')
                 login_user(user, remember=remember_me)
-                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS")
+                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS",
+                                   error_message="viewer list login", user_type='external')
                 flash(f"Welcome {username}! (viewer)", "success")
                 session['login_time'] = session['last_active'] = datetime.now().timestamp()
                 session.pop('needs_qgenie_popup', None)
@@ -2398,20 +2432,21 @@ def login():
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
-                    result_status="SUCCESS"
+                    result_status="SUCCESS",
+                    user_type='internal'
                 )
                 flash(f"Welcome {username}!", "success")
                 _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f"[LOGIN] TARGET_GROUP user logged in:  {username}  |  {_now}", flush=True)
+                print(f"[LOGIN] TARGET_GROUP user sent directly to internal PDT Buddy:  {username}  |  {_now}", flush=True)
                 session['login_time'] = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
-                session['needs_team_selection'] = True
-                session['needs_qgenie_popup'] = True
-                session['needs_qgenie_before_team_selection'] = True
+                session.pop('needs_team_selection', None)
+                session.pop('needs_qgenie_popup', None)
+                session.pop('needs_qgenie_before_team_selection', None)
                 session.pop('viewer_mode', None)
                 session.modified = True
 
-                return redirect(url_for('post_login_qgenie_gate'))
+                return redirect(url_for('bu_selection'))
 
 
             if _in_extra:
@@ -2421,7 +2456,8 @@ def login():
                     user_id=username,
                     action_type="LOGIN",
                     result_status="SUCCESS",
-                    error_message=f"Extra group external access: {', '.join(_extra_hits)}"
+                    error_message=f"Extra group external access: {', '.join(_extra_hits)}",
+                    user_type='external'
                 )
                 flash(f"Welcome {username}!", "success")
                 _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -2443,7 +2479,8 @@ def login():
                     user_id=username,
                     action_type="LOGIN",
                     result_status="SUCCESS",
-                    error_message="LDAP success; fallback viewer login"
+                    error_message="LDAP success; fallback viewer login",
+                    user_type='external'
                 )
                 print(f"[LOGIN] Fallback viewer login for {username}: LDAP success but no target-group match. target_group={_in_target_group}, extra_group_hits={_extra_hits}", flush=True)
                 flash(f"Welcome {username}! (viewer)", "success")
@@ -2927,7 +2964,7 @@ def view_multi_sheet_report(result_id):
 
         if not report:
             flash("Report not found or has expired. Please re-run the query.", "warning")
-            return redirect(url_for('index'))
+            return redirect(url_for('cr_overview_embed'))
 
         download_url = None
         try:
@@ -3739,29 +3776,45 @@ def admin_usage_data():
     if not is_admin():
         return jsonify({"error": "Unauthorized"}), 403
 
+    period      = (request.args.get("period") or "daily").lower()
+    filter_user = (request.args.get("user_id") or "").strip()
+    user_type   = (request.args.get("user_type") or "all").lower()  # all | internal | external
 
-    period = (request.args.get("period") or "daily").lower()
-
-        # Map period to SQL window and grouping
-
-    # daily   = today only,   grouped by hour
-    # weekly  = last 7 days,  grouped by day
-    # monthly = last 30 days, grouped by day
+    # daily   = today only,      grouped by hour
+    # weekly  = last 7 days,     grouped by day
+    # monthly = last 12 months,  grouped by month
     if period == "weekly":
         where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
         group_by     = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
         label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
     elif period == "monthly":
-        where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)"
-        group_by     = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
-        label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
-    else:  # daily — today only, grouped by hour
+        where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)"
+        group_by     = "DATE_FORMAT(created_at, '%%Y-%%m')"
+        label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m')"
+    else:  # daily
         where_clause = "DATE(created_at) = CURDATE()"
         group_by     = "DATE_FORMAT(created_at, '%%H:00')"
         label_expr   = "DATE_FORMAT(created_at, '%%H:00')"
 
-    # Exclude system/admin users from all queries
-    EXCLUDE_USERS = "('UNKNOWN', 'unknown', 'vmadasu')"
+    EXCLUDE_USERS     = "('UNKNOWN', 'unknown', 'vmadasu')"
+    user_filter_sql   = ""
+    user_filter_params: tuple = ()
+    if filter_user:
+        user_filter_sql    = "AND user_id = %s"
+        user_filter_params = (filter_user,)
+
+                # Internal = TARGET_GROUP / admin login (user_type = 'internal')
+    # External = viewer / extra-group login (user_type = 'external')
+    if user_type == 'internal':
+        user_type_sql = ("AND user_id IN ("
+                         "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
+                         "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='internal')")
+    elif user_type == 'external':
+        user_type_sql = ("AND user_id IN ("
+                         "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
+                         "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='external')")
+    else:
+        user_type_sql = ""
 
     conn = get_mysql_connection_db()
     if not conn:
@@ -3772,7 +3825,7 @@ def admin_usage_data():
     try:
         ensure_user_data_table(cursor)
 
-        # Trend query â€” grouped by period
+        # ── Trend ────────────────────────────────────────────────────────────
         trend_sql = f"""
             SELECT
                 {group_by} AS bucket,
@@ -3783,16 +3836,36 @@ def admin_usage_data():
                 SUM(CASE WHEN result_status = 'SUCCESS' THEN 1 ELSE 0 END) AS success_count,
                 SUM(CASE WHEN result_status = 'FAILURE' THEN 1 ELSE 0 END) AS failure_count
             FROM pdt_stats_dashboard.user_data
-                        WHERE {where_clause}
+            WHERE {where_clause}
               AND user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {user_type_sql}
             GROUP BY {group_by}
-
             ORDER BY bucket
         """
-        cursor.execute(trend_sql)
+        cursor.execute(trend_sql, user_filter_params)
         trend_rows = cursor.fetchall() or []
 
-        # Summary â€” scoped to selected period
+        # For monthly: fill all 12 month slots so chart always shows full range
+        if period == 'monthly':
+            from datetime import date
+            try:
+                from dateutil.relativedelta import relativedelta
+                trend_map = {r['label']: r for r in trend_rows}
+                filled = []
+                for m in range(11, -1, -1):
+                    d   = date.today().replace(day=1) - relativedelta(months=m)
+                    key = d.strftime('%Y-%m')
+                    filled.append(trend_map.get(key, {
+                        'label': key, 'bucket': key,
+                        'total_actions': 0, 'unique_users': 0,
+                        'total_logins': 0, 'success_count': 0, 'failure_count': 0
+                    }))
+                trend_rows = filled
+            except ImportError:
+                pass  # dateutil not installed, use raw rows
+
+        # ── Summary ──────────────────────────────────────────────────────────
         summary_sql = f"""
             SELECT
                 COUNT(*) AS total_actions,
@@ -3801,55 +3874,121 @@ def admin_usage_data():
                 SUM(CASE WHEN result_status = 'SUCCESS' THEN 1 ELSE 0 END) AS success_count,
                 SUM(CASE WHEN result_status = 'FAILURE' THEN 1 ELSE 0 END) AS failure_count
             FROM pdt_stats_dashboard.user_data
-                        WHERE {where_clause}
+            WHERE {where_clause}
               AND user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {user_type_sql}
         """
-        cursor.execute(summary_sql)
-
+        cursor.execute(summary_sql, user_filter_params)
         summary = cursor.fetchone() or {}
-        # Convert Decimal to int for JSON
         summary = {k: int(v) if v is not None else 0 for k, v in summary.items()}
 
-        # Top users â€” scoped to selected period
+        # ── Top users ─────────────────────────────────────────────────────────
         top_users_sql = f"""
-            SELECT
-                user_id,
-                COUNT(*) AS total_actions,
-                MAX(created_at) AS last_seen
+            SELECT user_id, COUNT(*) AS total_actions, MAX(created_at) AS last_seen
             FROM pdt_stats_dashboard.user_data
-                        WHERE {where_clause}
+            WHERE {where_clause}
               AND user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {user_type_sql}
             GROUP BY user_id
-
             ORDER BY total_actions DESC
             LIMIT 10
         """
-        cursor.execute(top_users_sql)
+        cursor.execute(top_users_sql, user_filter_params)
         top_users_raw = cursor.fetchall() or []
         top_users = []
         for u in top_users_raw:
             last = u.get('last_seen')
             top_users.append({
-                'user_id': u['user_id'],
+                'user_id':       u['user_id'],
                 'total_actions': int(u['total_actions'] or 0),
+                'last_seen':     last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
+            })
+
+        # ── Action breakdown ──────────────────────────────────────────────────
+        action_breakdown_sql = f"""
+            SELECT action_type, COUNT(*) AS cnt
+            FROM pdt_stats_dashboard.user_data
+            WHERE {where_clause}
+              AND user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {user_type_sql}
+            GROUP BY action_type
+            ORDER BY cnt DESC
+        """
+        cursor.execute(action_breakdown_sql, user_filter_params)
+        action_breakdown = [
+            {'action_type': r['action_type'], 'cnt': int(r['cnt'] or 0)}
+            for r in (cursor.fetchall() or [])
+        ]
+
+        # ── Recent users (always last 10, no period filter) ───────────────────
+        cursor.execute(f"""
+            SELECT user_id, MAX(created_at) AS last_seen
+            FROM pdt_stats_dashboard.user_data
+            WHERE user_id NOT IN {EXCLUDE_USERS}
+              AND action_type = 'LOGIN' AND result_status = 'SUCCESS'
+              {user_filter_sql}
+              {user_type_sql}
+            GROUP BY user_id ORDER BY last_seen DESC LIMIT 10
+        """, user_filter_params)
+        recent_users_raw = cursor.fetchall() or []
+        recent_users = []
+        for u in recent_users_raw:
+            last = u.get('last_seen')
+            recent_users.append({
+                'user_id':  u['user_id'],
                 'last_seen': last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
-        # Action breakdown â€” scoped to selected period
-        action_breakdown_sql = f"""
-            SELECT
-                action_type,
-                COUNT(*) AS cnt
+        # ── Failure reasons ───────────────────────────────────────────────────
+        cursor.execute(f"""
+            SELECT COALESCE(error_message, 'Unknown error') AS reason, COUNT(*) AS cnt
             FROM pdt_stats_dashboard.user_data
-                        WHERE {where_clause}
+            WHERE {where_clause}
               AND user_id NOT IN {EXCLUDE_USERS}
-            GROUP BY action_type
+              AND result_status = 'FAILURE'
+              {user_filter_sql}
+              {user_type_sql}
+            GROUP BY COALESCE(error_message, 'Unknown error')
+            ORDER BY cnt DESC LIMIT 10
+        """, user_filter_params)
+        failure_reasons = [
+            {'reason': (r['reason'] or 'Unknown')[:80], 'cnt': int(r['cnt'] or 0)}
+            for r in (cursor.fetchall() or [])
+        ]
 
-            ORDER BY cnt DESC
-        """
-        cursor.execute(action_breakdown_sql)
-        action_breakdown = [{'action_type': r['action_type'], 'cnt': int(r['cnt'] or 0)}
-                            for r in (cursor.fetchall() or [])]
+        # ── Login users (per-period) ───────────────────────────────────────────
+        cursor.execute(f"""
+            SELECT user_id, COUNT(*) AS total_logins, MAX(created_at) AS last_login
+            FROM pdt_stats_dashboard.user_data
+            WHERE {where_clause}
+              AND user_id NOT IN {EXCLUDE_USERS}
+              AND action_type = 'LOGIN' AND result_status = 'SUCCESS'
+              {user_filter_sql}
+              {user_type_sql}
+            GROUP BY user_id ORDER BY total_logins DESC LIMIT 30
+        """, user_filter_params)
+        login_users_raw = cursor.fetchall() or []
+        login_users = []
+        for u in login_users_raw:
+            last = u.get('last_login')
+            login_users.append({
+                'user_id':      u['user_id'],
+                'total_logins': int(u['total_logins'] or 0),
+                'last_login':   last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
+            })
+
+        # ── All users list for dropdown (no period/user filter) ───────────────
+        cursor.execute(f"""
+            SELECT DISTINCT user_id
+            FROM pdt_stats_dashboard.user_data
+            WHERE user_id NOT IN {EXCLUDE_USERS}
+              AND action_type = 'LOGIN' AND result_status = 'SUCCESS'
+            ORDER BY user_id
+        """)
+        all_users_list = [r['user_id'] for r in (cursor.fetchall() or [])]
 
         return jsonify({
             "summary": summary,
@@ -3861,18 +4000,23 @@ def admin_usage_data():
                 "success_count": [int(r["success_count"] or 0) for r in trend_rows],
                 "failure_count": [int(r["failure_count"] or 0) for r in trend_rows]
             },
-            "top_users": top_users,
-            "action_breakdown": action_breakdown
+            "top_users":        top_users,
+            "action_breakdown": action_breakdown,
+            "recent_users":     recent_users,
+            "failure_reasons":  failure_reasons,
+            "login_users":      login_users,
+            "all_users_list":   all_users_list,
+            "filter_user":      filter_user,
+            "user_type":        user_type,
         })
 
     except Exception as e:
-        logger.debug(traceback.format_exc())
+        print("[admin_usage_data ERROR]", __import__("traceback").format_exc(), flush=True)
         return jsonify({"error": str(e)}), 500
 
     finally:
         cursor.close()
         conn.close()
-
 
 # -- Auto selection
 
@@ -5375,7 +5519,13 @@ def admin_sync_db():
 def admin_chatbot_stats():
     if getattr(current_user, "role", "user") != "admin":
         flash("Access denied.", "danger")
-        return redirect(url_for("index"))
+        return redirect(url_for('cr_overview_embed'))
+
+    try:
+        stats_months = int(request.args.get("months", 12))
+    except Exception:
+        stats_months = 12
+    stats_months = max(1, min(stats_months, 36))
 
     conn = None
     cursor = None
@@ -5384,7 +5534,7 @@ def admin_chatbot_stats():
         conn = get_mysql_connection_db()
         if not conn:
             flash("Database connection failed.", "danger")
-            return redirect(url_for("index"))
+            return redirect(url_for('cr_overview_embed'))
 
         cursor = conn.cursor(dictionary=True)
 
@@ -5475,7 +5625,7 @@ def admin_chatbot_stats():
         """)
         top_targets = cursor.fetchall() or []
 
-        # Recent failures
+                # Recent failures
         cursor.execute("""
             SELECT
                 user_id,
@@ -5489,6 +5639,96 @@ def admin_chatbot_stats():
             LIMIT 20
         """)
         recent_failures = cursor.fetchall() or []
+
+        login_since_sql = f"created_at >= DATE_SUB(CURDATE(), INTERVAL {stats_months} MONTH)"
+
+        # Login user analytics summary
+        cursor.execute(f"""
+            SELECT
+                COUNT(*) AS total_logins,
+                COUNT(DISTINCT user_id) AS unique_login_users,
+                MIN(created_at) AS first_login,
+                MAX(created_at) AS latest_login
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+              AND {login_since_sql}
+        """)
+        login_summary = cursor.fetchone() or {}
+
+        # Daily login stats
+        cursor.execute(f"""
+            SELECT
+                DATE(created_at) AS day,
+                COUNT(*) AS total_logins,
+                COUNT(DISTINCT user_id) AS unique_users
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+              AND {login_since_sql}
+            GROUP BY DATE(created_at)
+            ORDER BY day
+        """)
+        login_daily_rows = cursor.fetchall() or []
+
+        # Weekly login stats
+        cursor.execute(f"""
+            SELECT
+                YEAR(created_at) AS yr,
+                WEEK(created_at, 1) AS wk,
+                COUNT(*) AS total_logins,
+                COUNT(DISTINCT user_id) AS unique_users
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+              AND {login_since_sql}
+            GROUP BY YEAR(created_at), WEEK(created_at, 1)
+            ORDER BY yr, wk
+        """)
+        login_weekly_rows = cursor.fetchall() or []
+
+        # Monthly login stats - multiple months, default last 12 months
+        cursor.execute(f"""
+            SELECT
+                DATE_FORMAT(created_at, '%%Y-%%m') AS month_label,
+                COUNT(*) AS total_logins,
+                COUNT(DISTINCT user_id) AS unique_users
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+              AND {login_since_sql}
+            GROUP BY DATE_FORMAT(created_at, '%%Y-%%m')
+            ORDER BY month_label
+        """)
+        login_monthly_rows = cursor.fetchall() or []
+
+        # Top login users
+        cursor.execute(f"""
+            SELECT
+                user_id,
+                COUNT(*) AS total_logins,
+                COUNT(DISTINCT DATE(created_at)) AS active_days,
+                MAX(created_at) AS last_login
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+              AND {login_since_sql}
+            GROUP BY user_id
+            ORDER BY total_logins DESC, last_login DESC
+            LIMIT 20
+        """)
+        top_login_users = cursor.fetchall() or []
+
+        # Recent successful logins
+        cursor.execute("""
+            SELECT user_id, created_at
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type = 'LOGIN'
+              AND result_status = 'SUCCESS'
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+        recent_logins = cursor.fetchall() or []
 
         # Prepare chart arrays
         daily_categories = [str(r["day"]) for r in daily_rows]
@@ -5510,6 +5750,21 @@ def admin_chatbot_stats():
 
         top_target_categories = [r["target_name"] for r in top_targets]
         top_target_values = [int(r["total_queries"] or 0) for r in top_targets]
+
+        login_daily_categories = [str(r["day"]) for r in login_daily_rows]
+        login_daily_total = [int(r["total_logins"] or 0) for r in login_daily_rows]
+        login_daily_users = [int(r["unique_users"] or 0) for r in login_daily_rows]
+
+        login_weekly_categories = [f'{r["yr"]}-W{int(r["wk"]):02d}' for r in login_weekly_rows]
+        login_weekly_total = [int(r["total_logins"] or 0) for r in login_weekly_rows]
+        login_weekly_users = [int(r["unique_users"] or 0) for r in login_weekly_rows]
+
+        login_monthly_categories = [r["month_label"] for r in login_monthly_rows]
+        login_monthly_total = [int(r["total_logins"] or 0) for r in login_monthly_rows]
+        login_monthly_users = [int(r["unique_users"] or 0) for r in login_monthly_rows]
+
+        top_login_user_categories = [r["user_id"] for r in top_login_users]
+        top_login_user_values = [int(r["total_logins"] or 0) for r in top_login_users]
 
         return render_template(
             "admin_chatbot_stats.html",
@@ -5535,12 +5790,30 @@ def admin_chatbot_stats():
             top_user_values=top_user_values,
             top_target_categories=top_target_categories,
             top_target_values=top_target_values,
+            stats_months=stats_months,
+            login_summary=login_summary,
+            login_daily_rows=login_daily_rows,
+            login_weekly_rows=login_weekly_rows,
+            login_monthly_rows=login_monthly_rows,
+            top_login_users=top_login_users,
+            recent_logins=recent_logins,
+            login_daily_categories=login_daily_categories,
+            login_daily_total=login_daily_total,
+            login_daily_users=login_daily_users,
+            login_weekly_categories=login_weekly_categories,
+            login_weekly_total=login_weekly_total,
+            login_weekly_users=login_weekly_users,
+            login_monthly_categories=login_monthly_categories,
+            login_monthly_total=login_monthly_total,
+            login_monthly_users=login_monthly_users,
+            top_login_user_categories=top_login_user_categories,
+            top_login_user_values=top_login_user_values,
         )
 
     except Exception as e:
         logger.debug(traceback.format_exc())
         flash(f"Failed to load chatbot stats: {e}", "danger")
-        return redirect(url_for("index"))
+        return redirect(url_for('cr_overview_embed'))
 
     finally:
         try:
@@ -8440,7 +8713,7 @@ if __name__ == '__main__':
 
     # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
     # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
