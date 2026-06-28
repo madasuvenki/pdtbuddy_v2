@@ -12,10 +12,8 @@
   <!-- Font Awesome 5 -->
   <link
     rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
-    integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
+        href="{{ url_for('static', filename='css/fontawesome/all.min.css') }}"
+    onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';"
   />
 
   <!-- CSS -->
@@ -869,23 +867,39 @@ body:has(.bu-simple-page) .app-bg-gradient {
         </div>
       </div>
       #}
-              {% if current_user.is_authenticated %}
-                <a href="{{ url_for('live_status_publish_bp.landing') }}"
-           target="_blank" rel="noopener"
-           style="display:inline-flex;align-items:center;gap:7px;
-                  padding:0 16px;height:34px;border-radius:10px;
-                  background:linear-gradient(135deg,#7c3aed,#4f46e5);
-                  color:#fff;font-size:13px;font-weight:900;
-                  letter-spacing:.03em;text-decoration:none;
-                  box-shadow:0 4px 14px rgba(99,102,241,.40);
-                  border:1.5px solid rgba(255,255,255,.18);
-                  transition:filter .15s,transform .15s;"
-           onmouseover="this.style.filter='brightness(1.12)';this.style.transform='translateY(-1px)'"
-           onmouseout="this.style.filter='';this.style.transform=''"
-           title="Published Live Status Reports">
-          <i class="fas fa-paper-plane" style="font-size:12px;"></i>
-          <span>Published Report</span>
-        </a>
+                            {% if current_user.is_authenticated %}
+                <div style="display:inline-flex;align-items:center;gap:0;">
+                  <a href="{{ url_for('live_status_publish_bp.landing') }}"
+             style="display:inline-flex;align-items:center;gap:6px;
+                    padding:0 14px;height:34px;border-radius:10px 0 0 10px;
+                    background:linear-gradient(135deg,#7c3aed,#4f46e5);
+                    color:#fff;font-size:12px;font-weight:900;
+                    letter-spacing:.03em;text-decoration:none;
+                    box-shadow:0 4px 14px rgba(99,102,241,.40);
+                    border:1.5px solid rgba(255,255,255,.18);border-right:none;
+                    transition:filter .15s;"
+             onmouseover="this.style.filter='brightness(1.12)'"
+             onmouseout="this.style.filter=''"
+             title="Publish Live Status Report">
+            <i class="fas fa-paper-plane" style="font-size:11px;"></i>
+            <span>Publish Report</span>
+          </a>
+          <a href="{{ url_for('live_status_publish_bp.landing') }}"
+             style="display:inline-flex;align-items:center;gap:6px;
+                    padding:0 14px;height:34px;border-radius:0 10px 10px 0;
+                    background:linear-gradient(135deg,#0ea5e9,#6366f1);
+                    color:#fff;font-size:12px;font-weight:900;
+                    letter-spacing:.03em;text-decoration:none;
+                    box-shadow:0 4px 14px rgba(99,102,241,.30);
+                    border:1.5px solid rgba(255,255,255,.18);
+                    transition:filter .15s;"
+             onmouseover="this.style.filter='brightness(1.12)'"
+             onmouseout="this.style.filter=''"
+             title="View Published Reports &amp; Join Groups">
+            <i class="fas fa-eye" style="font-size:11px;"></i>
+            <span>View</span>
+          </a>
+                </div>
         {% endif %}
         {% if current_user.is_authenticated %}
         <div class="topbar-item">

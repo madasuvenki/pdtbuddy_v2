@@ -127,7 +127,8 @@ LIVE_STATUS_VIEWER_GROUP_ACCESS = {
 LIVE_STATUS_TEST_USER_GROUPS = {
     # TEMP TEST: treat akacham as member of these LDAP groups without changing LDAP.
     # Remove after validating /live_status_view grouped target cards.
-    'akacham': ['PdtBuddy.Nord'],
+
+    'akacham': ['PdtBuddy.IoT'],
 }
 
 
