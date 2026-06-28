@@ -672,6 +672,12 @@
         <button id="bwrCT_process"   class="bwr-ct-btn btn" onclick="bwrToggleCT('process')"   style="font-size:11px;padding:4px 10px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;"><i class="fas fa-gear"></i> Process</button>
         <button id="bwrCT_open_jira" class="bwr-ct-btn btn" onclick="bwrToggleCT('open_jira')" style="font-size:11px;padding:4px 10px;background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd;"><i class="fas fa-ticket-alt"></i> Open JIRA</button>
         {% endif %}
+        <div style="width:1px;height:24px;background:#e2e8f0;margin:0 2px;"></div>
+        <div style="position:relative;display:flex;align-items:center;">
+          <i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none;"></i>
+          <input id="bwrBuildSearch" class="compact-input" placeholder="Search build e.g. 638..." oninput="bwrFilterBuilds()" style="padding-left:28px;width:200px;font-size:11px;" autocomplete="off">
+          <button id="bwrBuildSearchClear" onclick="bwrClearBuildSearch()" style="display:none;position:absolute;right:6px;background:none;border:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0;" title="Clear search"><i class="fas fa-xmark"></i></button>
+        </div>
         <span style="flex:1"></span>
         <span id="bwrBuildCount" style="font-size:11px;font-weight:800;color:#64748b;"></span>
       </div>
@@ -696,7 +702,8 @@
       var bwrDomain     = '';
       var bwrCrashTypes = {system:true, ssr:true, process:true, open_jira:true};
       var bwrOpenBuild  = null;   // currently expanded build id
-      var bwrRowCache   = {};     // build_id → detail_rows
+      var bwrRowCache   = {};     // build_id -> detail_rows
+      var bwrBuildQ     = '';    // current build search query
 
       function bwrSetStatus(msg){ document.getElementById('bwrStatus').textContent = msg||''; }
 
@@ -712,6 +719,11 @@
           btn.style.fontWeight  = active ? '900'     : '700';
         });
         bwrRowCache = {};
+        bwrBuildQ = '';
+        var inp = document.getElementById('bwrBuildSearch');
+        if(inp) inp.value = '';
+        var clr = document.getElementById('bwrBuildSearchClear');
+        if(clr) clr.style.display = 'none';
         bwrLoad();
       };
 
@@ -721,6 +733,11 @@
         var btn = document.getElementById('bwrCT_' + ct);
         if(btn) btn.style.opacity = bwrCrashTypes[ct] ? '1' : '0.35';
         bwrRowCache = {};
+        bwrBuildQ = '';
+        var inp2 = document.getElementById('bwrBuildSearch');
+        if(inp2) inp2.value = '';
+        var clr2 = document.getElementById('bwrBuildSearchClear');
+        if(clr2) clr2.style.display = 'none';
         bwrLoad();
       };
 
@@ -748,8 +765,7 @@
             if(!d.success){ bwrSetStatus('Error: '+(d.message||'unknown')); return; }
             bwrBuilds = d.builds || [];
             bwrRenderAccordion();
-            var cnt = document.getElementById('bwrBuildCount');
-            if(cnt) cnt.textContent = bwrBuilds.length + ' build(s)';
+            // count shown in bwrRenderAccordion
             bwrSetStatus('');
           })
           .catch(function(e){ bwrSetStatus('Network error: '+e); });
@@ -758,11 +774,19 @@
       /* ── render accordion rows ───────────────────────────────────── */
       function bwrRenderAccordion(){
         var container = document.getElementById('bwrBuildsRow');
-        if(!bwrBuilds.length){
-          container.innerHTML = '<div style="padding:12px 16px;color:#94a3b8;font-size:12px;">No builds found for selected filters.</div>';
+        // Client-side build search filter
+        var visible = bwrBuildQ
+          ? bwrBuilds.filter(function(b){ return b.build_id.toLowerCase().indexOf(bwrBuildQ) !== -1; })
+          : bwrBuilds;
+        var cnt = document.getElementById('bwrBuildCount');
+        if(cnt) cnt.textContent = (bwrBuildQ ? visible.length+' / '+bwrBuilds.length : bwrBuilds.length) + ' build(s)';
+        if(!visible.length){
+          container.innerHTML = bwrBuildQ
+            ? '<div style="padding:12px 16px;color:#94a3b8;font-size:12px;"><i class="fas fa-magnifying-glass"></i> No builds match &ldquo;'+esc(bwrBuildQ)+'&rdquo;. <a href="#" onclick="bwrClearBuildSearch();return false;" style="color:#6366f1;font-weight:700;">Clear</a></div>'
+            : '<div style="padding:12px 16px;color:#94a3b8;font-size:12px;">No builds found for selected filters.</div>';
           return;
         }
-        container.innerHTML = bwrBuilds.map(function(b, idx){
+        container.innerHTML = visible.map(function(b, idx){
           var crashInfo = IS_AUTO
             ? ('<span style="color:#991b1b;font-size:11px;font-weight:800;background:#fee2e2;padding:2px 7px;border-radius:5px;margin-right:4px;">Sys '+b.system_count+'</span>'+
                '<span style="color:#92400e;font-size:11px;font-weight:800;background:#fef3c7;padding:2px 7px;border-radius:5px;margin-right:4px;">SSR '+b.ssr_count+'</span>'+
@@ -912,6 +936,24 @@
         a.href = URL.createObjectURL(blob);
         a.download = TARGET+'_'+bid+'_report.csv';
         a.click();
+      };
+
+      /* ── build search (client-side, no server call) ──────────────────── */
+      window.bwrFilterBuilds = function(){
+        var inp = document.getElementById('bwrBuildSearch');
+        var clr = document.getElementById('bwrBuildSearchClear');
+        bwrBuildQ = (inp ? inp.value : '').trim().toLowerCase();
+        if(clr) clr.style.display = bwrBuildQ ? '' : 'none';
+        bwrRenderAccordion();
+      };
+
+      window.bwrClearBuildSearch = function(){
+        var inp = document.getElementById('bwrBuildSearch');
+        if(inp){ inp.value = ''; inp.focus(); }
+        bwrBuildQ = '';
+        var clr = document.getElementById('bwrBuildSearchClear');
+        if(clr) clr.style.display = 'none';
+        bwrRenderAccordion();
       };
 
       function esc(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
