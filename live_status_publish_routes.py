@@ -3451,3 +3451,38 @@ def api_publish_job(target_name):
         return jsonify({'ok': True, 'published_at': now, 'published_by': username, 'status': 'published'})
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── Delete job ──────────────────────────────────────────────────────────────
+@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/delete', methods=['POST'])
+@login_required
+def api_delete_job(job_id):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    job = get_job(job_id)
+    if not job:
+        return jsonify({'ok': False, 'error': 'Job not found'}), 404
+    if job.get('status') == 'published':
+        return jsonify({'ok': False, 'error': 'Cannot delete a published job. Revoke it first.'}), 400
+    ok = delete_job(job_id)
+    if ok:
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'Delete failed'}), 500
+
+
+# ── Revoke job ──────────────────────────────────────────────────────────────
+@live_status_publish_bp.route('/api/live_status/jobs/<job_id>/revoke', methods=['POST'])
+@login_required
+def api_revoke_job(job_id):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    job = get_job(job_id)
+    if not job:
+        return jsonify({'ok': False, 'error': 'Job not found'}), 404
+    username = getattr(current_user, 'username', None) or getattr(current_user, 'id', 'unknown')
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get('reason') or '').strip()
+    updated = revoke_job(job_id, username=username, reason=reason)
+    if updated:
+        return jsonify({'ok': True, 'status': 'revoked', 'revoked_by': username})
+    return jsonify({'ok': False, 'error': 'Revoke failed'}), 500
