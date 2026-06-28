@@ -676,49 +676,13 @@
         <span id="bwrBuildCount" style="font-size:11px;font-weight:800;color:#64748b;"></span>
       </div>
 
-      <!-- Build buttons row -->
-      <div id="bwrBuildsRow" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:40px;">
-        <span style="color:#94a3b8;font-size:12px;">Loading builds...</span>
+      <!-- Build accordion rows -->
+      <div id="bwrBuildsRow" style="display:flex;flex-direction:column;gap:0;margin-bottom:14px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <div style="padding:12px 16px;color:#94a3b8;font-size:12px;">Loading builds...</div>
       </div>
 
       <!-- Selected build label -->
       <div id="bwrSelectedLabel" style="display:none;font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:8px;"></div>
-
-      <!-- Consolidated CR table -->
-      <div class="card" id="bwrTableCard" style="display:none;">
-        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report <span id="bwrCrBadge" class="badge badge-warn"></span></h2>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input id="bwrSearch" class="compact-input" placeholder="Search CR / title..." oninput="bwrFilterTable()" style="width:200px;">
-            <button class="btn" style="font-size:11px;padding:5px 10px;" onclick="bwrExportCsv()"><i class="fas fa-download"></i> CSV</button>
-          </div>
-        </div>
-        <div class="tbl-wrap">
-          <table class="tbl" id="bwrTable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>CR</th>
-                <th>JIRA</th>
-                <th>Title</th>
-                <th>CR Count</th>
-                <th>Area</th>
-                <th>Subsystem</th>
-                <th>Functionality</th>
-                <th>CR Status</th>
-                <th>CR Age</th>
-                <th>SI Last Seen</th>
-                <th>Last Instance</th>
-                <th>Crash Type</th>
-                {% if is_auto_bu %}<th>Domain</th>{% endif %}
-              </tr>
-            </thead>
-            <tbody id="bwrTbody">
-              <tr><td colspan="13" class="empty">Select a build above to load details.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       <!-- Loading / error state -->
       <div id="bwrStatus" style="font-size:12px;color:#64748b;margin-top:8px;"></div>
@@ -728,13 +692,13 @@
     (function(){
       var TARGET   = {{ primary_target | tojson }};
       var IS_AUTO  = {{ 'true' if is_auto_bu else 'false' }};
-      var bwrBuilds      = [];
-      var bwrCurrentBuild= null;
-      var bwrAllRows     = [];
-      var bwrDomain      = '';                                    // '' | 'ADAS' | 'FLEX' | 'IVI'
-      var bwrCrashTypes  = {system:true, ssr:true, process:true, open_jira:true};
+      var bwrBuilds     = [];
+      var bwrDomain     = '';
+      var bwrCrashTypes = {system:true, ssr:true, process:true, open_jira:true};
+      var bwrOpenBuild  = null;   // currently expanded build id
+      var bwrRowCache   = {};     // build_id → detail_rows
 
-      function bwrSetStatus(msg){ document.getElementById('bwrStatus').textContent = msg || ''; }
+      function bwrSetStatus(msg){ document.getElementById('bwrStatus').textContent = msg||''; }
 
       /* ── domain selector ─────────────────────────────────────────── */
       window.bwrSetDomain = function(d){
@@ -747,6 +711,7 @@
           btn.style.color       = active ? '#4338ca' : '#475569';
           btn.style.fontWeight  = active ? '900'     : '700';
         });
+        bwrRowCache = {};
         bwrLoad();
       };
 
@@ -755,10 +720,11 @@
         bwrCrashTypes[ct] = !bwrCrashTypes[ct];
         var btn = document.getElementById('bwrCT_' + ct);
         if(btn) btn.style.opacity = bwrCrashTypes[ct] ? '1' : '0.35';
+        bwrRowCache = {};
         bwrLoad();
       };
 
-      /* ── build URL with current filters ─────────────────────────── */
+      /* ── build API URL ───────────────────────────────────────────── */
       function bwrApiUrl(extra){
         var url = '/api/live_status/targets/' + encodeURIComponent(TARGET) + '/build_wise_report';
         var params = [];
@@ -774,139 +740,177 @@
       /* ── load build list ─────────────────────────────────────────── */
       window.bwrLoad = function(){
         bwrSetStatus('Loading builds...');
-        document.getElementById('bwrBuildsRow').innerHTML = '<span style="color:#94a3b8;font-size:12px;">Loading...</span>';
-        document.getElementById('bwrTableCard').style.display = 'none';
+        var container = document.getElementById('bwrBuildsRow');
+        container.innerHTML = '<div style="padding:12px 16px;color:#94a3b8;font-size:12px;">Loading...</div>';
         fetch(bwrApiUrl())
           .then(function(r){ return r.json(); })
           .then(function(d){
-            if(!d.success){ bwrSetStatus('Error: ' + (d.message||'unknown')); return; }
+            if(!d.success){ bwrSetStatus('Error: '+(d.message||'unknown')); return; }
             bwrBuilds = d.builds || [];
-            bwrRenderBuilds();
+            bwrRenderAccordion();
             var cnt = document.getElementById('bwrBuildCount');
             if(cnt) cnt.textContent = bwrBuilds.length + ' build(s)';
             bwrSetStatus('');
           })
-          .catch(function(e){ bwrSetStatus('Network error: ' + e); });
+          .catch(function(e){ bwrSetStatus('Network error: '+e); });
       };
 
-      /* ── render build buttons ────────────────────────────────────── */
-      function bwrRenderBuilds(){
-        var row = document.getElementById('bwrBuildsRow');
+      /* ── render accordion rows ───────────────────────────────────── */
+      function bwrRenderAccordion(){
+        var container = document.getElementById('bwrBuildsRow');
         if(!bwrBuilds.length){
-          row.innerHTML = '<span style="color:#94a3b8;font-size:12px;">No builds found for selected filters.</span>';
+          container.innerHTML = '<div style="padding:12px 16px;color:#94a3b8;font-size:12px;">No builds found for selected filters.</div>';
           return;
         }
-        row.innerHTML = bwrBuilds.map(function(b){
-          var crashLine = IS_AUTO
-            ? ('<span style="color:#ef4444;font-size:10px;font-weight:800;">⚠ '+b.total_crashes+' total</span> '+
-               '<span style="color:#991b1b;font-size:9px;">Sys:'+b.system_count+'</span> '+
-               '<span style="color:#92400e;font-size:9px;">SSR:'+b.ssr_count+'</span> '+
-               '<span style="color:#1e40af;font-size:9px;">Proc:'+b.process_count+'</span> '+
-               '<span style="color:#5b21b6;font-size:9px;">OJ:'+b.open_jira_count+'</span>')
-            : ('<span style="color:#ef4444;font-weight:800;font-size:10px;">⚠ '+b.total_crashes+' crashes</span>');
-          return '<button class="bwr-build-btn" data-bid="'+esc(b.build_id)+'" '+
-            'onclick="bwrSelectBuild('+JSON.stringify(b.build_id)+')" '+
-            'style="display:inline-flex;flex-direction:column;align-items:flex-start;gap:3px;padding:8px 12px;border-radius:10px;'+
-            'background:#f8fafc;border:1.5px solid #e2e8f0;cursor:pointer;font-size:11px;font-weight:700;color:#0f172a;'+
-            'transition:all .15s;min-width:160px;">'+
-            '<span style="font-size:11px;font-weight:900;color:#1e293b;word-break:break-all;">'+esc(b.build_id)+'</span>'+
-            crashLine+
-            '<span style="color:#6366f1;font-size:9px;">'+b.cr_count+' CRs</span>'+
-            '</button>';
+        container.innerHTML = bwrBuilds.map(function(b, idx){
+          var crashInfo = IS_AUTO
+            ? ('<span style="color:#991b1b;font-size:11px;font-weight:800;background:#fee2e2;padding:2px 7px;border-radius:5px;margin-right:4px;">Sys '+b.system_count+'</span>'+
+               '<span style="color:#92400e;font-size:11px;font-weight:800;background:#fef3c7;padding:2px 7px;border-radius:5px;margin-right:4px;">SSR '+b.ssr_count+'</span>'+
+               '<span style="color:#1e40af;font-size:11px;font-weight:800;background:#dbeafe;padding:2px 7px;border-radius:5px;margin-right:4px;">Proc '+b.process_count+'</span>'+
+               '<span style="color:#5b21b6;font-size:11px;font-weight:800;background:#ede9fe;padding:2px 7px;border-radius:5px;margin-right:4px;">OJ '+b.open_jira_count+'</span>')
+            : ('<span style="color:#64748b;font-size:11px;">JIRAs: '+b.jira_count+' &nbsp; Open JIRAs: '+b.open_jira_count+'</span>');
+          var border = idx > 0 ? 'border-top:1px solid #e2e8f0;' : '';
+          return (
+            '<div class="bwr-acc-row" data-bid="'+esc(b.build_id)+'" style="'+border+'">' +
+              '<div class="bwr-acc-head" onclick="bwrToggleRow(\''+esc(b.build_id)+'\')" '+
+                'style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;background:#fff;'+
+                'transition:background .12s;user-select:none;" '+
+                'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">' +
+                '<i class="fas fa-chevron-right bwr-chevron" style="font-size:10px;color:#94a3b8;transition:transform .2s;width:12px;"></i>'+
+                '<span style="font-size:12px;font-weight:900;color:#0f172a;min-width:0;flex:1;word-break:break-all;">'+esc(b.build_id)+'</span>'+
+                '<span style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'+
+                  '<span style="font-size:12px;font-weight:900;color:#ef4444;">\u26a0 '+b.total_crashes+' crashes</span>'+
+                  '<span style="color:#cbd5e1;margin:0 4px;">|</span>'+
+                  crashInfo+
+                  '<span style="color:#6366f1;font-size:11px;font-weight:800;background:#eef2ff;padding:2px 7px;border-radius:5px;">'+b.cr_count+' CRs</span>'+
+                '</span>'+
+              '</div>'+
+              '<div class="bwr-acc-body" id="bwrBody_'+idx+'" data-bid="'+esc(b.build_id)+'" style="display:none;border-top:1px solid #f1f5f9;background:#fafafa;padding:0;">'+
+                '<div class="bwr-acc-loading" style="padding:12px 16px;font-size:12px;color:#94a3b8;">Click to expand...</div>'+
+              '</div>'+
+            '</div>'
+          );
         }).join('');
       }
 
-      /* ── select build → load detail rows ────────────────────────── */
-      window.bwrSelectBuild = function(bid){
-        bwrCurrentBuild = bid;
-        document.querySelectorAll('.bwr-build-btn').forEach(function(btn){
-          var active = btn.getAttribute('data-bid') === bid;
-          btn.style.background  = active ? '#eef2ff' : '#f8fafc';
-          btn.style.borderColor = active ? '#6366f1' : '#e2e8f0';
-          btn.style.color       = active ? '#4338ca' : '#0f172a';
+      /* ── toggle accordion row ────────────────────────────────────── */
+      window.bwrToggleRow = function(bid){
+        var rows = document.querySelectorAll('.bwr-acc-row');
+        rows.forEach(function(row){
+          var rowBid = row.getAttribute('data-bid');
+          var body   = row.querySelector('.bwr-acc-body');
+          var chev   = row.querySelector('.bwr-chevron');
+          if(rowBid === bid){
+            var isOpen = body.style.display !== 'none';
+            if(isOpen){
+              body.style.display = 'none';
+              if(chev) chev.style.transform = '';
+              bwrOpenBuild = null;
+            } else {
+              body.style.display = 'block';
+              if(chev) chev.style.transform = 'rotate(90deg)';
+              bwrOpenBuild = bid;
+              bwrLoadDetail(bid, body);
+            }
+          } else {
+            body.style.display = 'none';
+            if(chev) chev.style.transform = '';
+          }
         });
-        var lbl = document.getElementById('bwrSelectedLabel');
-        lbl.textContent = 'Showing: ' + bid;
-        lbl.style.display = 'block';
-        bwrSetStatus('Loading CR details...');
-        document.getElementById('bwrTableCard').style.display = 'none';
-        fetch(bwrApiUrl('build=' + encodeURIComponent(bid)))
+      };
+
+      /* ── load detail rows for a build ────────────────────────────── */
+      function bwrLoadDetail(bid, bodyEl){
+        if(bwrRowCache[bid]){
+          bwrRenderDetail(bodyEl, bid, bwrRowCache[bid]);
+          return;
+        }
+        bodyEl.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:#94a3b8;"><i class="fas fa-circle-notch spin"></i> Loading CR details...</div>';
+        fetch(bwrApiUrl('build='+encodeURIComponent(bid)))
           .then(function(r){ return r.json(); })
           .then(function(d){
-            if(!d.success){ bwrSetStatus('Error: ' + (d.message||'unknown')); return; }
-            bwrAllRows = d.detail_rows || [];
-            bwrRenderTable(bwrAllRows);
-            bwrSetStatus('');
+            if(!d.success){ bodyEl.innerHTML='<div style="padding:12px 16px;color:#dc2626;font-size:12px;">Error: '+(d.message||'unknown')+'</div>'; return; }
+            bwrRowCache[bid] = d.detail_rows || [];
+            bwrRenderDetail(bodyEl, bid, bwrRowCache[bid]);
           })
-          .catch(function(e){ bwrSetStatus('Network error: ' + e); });
-      };
-
-      /* ── render CR table ─────────────────────────────────────────── */
-      function bwrCrashTypeBadge(ct){
-        var map = {
-          system:    ['#fee2e2','#991b1b','System'],
-          ssr:       ['#fef3c7','#92400e','SSR'],
-          process:   ['#dbeafe','#1e40af','Process'],
-          open_jira: ['#ede9fe','#5b21b6','Open JIRA']
-        };
-        var s = map[ct] || ['#f1f5f9','#475569', ct||''];
-        return '<span style="background:'+s[0]+';color:'+s[1]+';border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;">'+s[2]+'</span>';
+          .catch(function(e){ bodyEl.innerHTML='<div style="padding:12px 16px;color:#dc2626;font-size:12px;">Network error: '+e+'</div>'; });
       }
 
-      function bwrRenderTable(rows){
-        document.getElementById('bwrCrBadge').textContent = rows.length;
-        var tbody = document.getElementById('bwrTbody');
-        if(!rows.length){
-          tbody.innerHTML = '<tr><td colspan="14" class="empty">No CR/JIRA data for this build with current filters.</td></tr>';
-        } else {
-          var sno = 0;
-          tbody.innerHTML = rows.map(function(r){
-            sno++;
-            var statusColor = r.cr_status === 'Open' ? '#16a34a' : r.cr_status === 'Closed' ? '#dc2626' : '#64748b';
-            var domainBadge = r.domain ? '<span style="background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;">'+esc(r.domain)+'</span>' : '';
-            return '<tr>'+
-              '<td>'+sno+'</td>'+
-              '<td style="font-weight:800;color:#4f46e5;">'+esc(r.cr)+'</td>'+
-              '<td style="color:#0369a1;">'+esc(r.jira)+'</td>'+
-              '<td style="max-width:240px;white-space:normal;">'+esc(r.title)+'</td>'+
-              '<td style="text-align:center;font-weight:800;">'+r.cr_count+'</td>'+
-              '<td>'+esc(r.cr_area)+'</td>'+
-              '<td>'+esc(r.cr_subsystem)+'</td>'+
-              '<td>'+esc(r.cr_functionality)+'</td>'+
-              '<td style="color:'+statusColor+';font-weight:700;">'+esc(r.cr_status)+'</td>'+
-              '<td>'+esc(r.cr_age)+'</td>'+
-              '<td>'+esc(r.si_last_seen)+'</td>'+
-              '<td>'+esc(r.last_instance)+'</td>'+
-              '<td>'+bwrCrashTypeBadge(r.crash_type)+'</td>'+
-              (IS_AUTO ? '<td>'+domainBadge+'</td>' : '')+
-              '</tr>';
-          }).join('');
-        }
-        document.getElementById('bwrTableCard').style.display = '';
+      /* ── render detail table inside accordion body ───────────────── */
+      function bwrCrashBadge(ct){
+        var map={system:['#fee2e2','#991b1b','System'],ssr:['#fef3c7','#92400e','SSR'],process:['#dbeafe','#1e40af','Process'],open_jira:['#ede9fe','#5b21b6','Open JIRA']};
+        var s=map[ct]||['#f1f5f9','#475569',ct||''];
+        return '<span style="background:'+s[0]+';color:'+s[1]+';border-radius:4px;padding:1px 6px;font-size:9px;font-weight:800;">'+s[2]+'</span>';
       }
 
-      /* ── search filter ───────────────────────────────────────────── */
-      window.bwrFilterTable = function(){
-        var q = (document.getElementById('bwrSearch').value || '').toLowerCase();
-        var filtered = !q ? bwrAllRows : bwrAllRows.filter(function(r){
-          return (r.cr+r.jira+r.title+r.cr_area+r.cr_subsystem+r.cr_status+r.crash_type+r.domain).toLowerCase().indexOf(q) !== -1;
+      function bwrRenderDetail(bodyEl, bid, rows){
+        var domainCol = IS_AUTO ? '<th>Domain</th>' : '';
+        var thead = '<tr><th>#</th><th>CR</th><th>JIRA</th><th>Title</th><th>Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Status</th><th>CR Age</th><th>SI Last Seen</th><th>Last Instance</th><th>Crash Type</th>'+domainCol+'</tr>';
+        var toolbar = '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">'+
+          '<input class="compact-input bwr-search-input" data-bid="'+esc(bid)+'" placeholder="Search CR / title..." oninput="bwrSearchDetail(\''+esc(bid)+'\')" style="width:200px;">'+
+          '<span style="font-size:11px;font-weight:800;color:#64748b;" id="bwrCount_'+esc(bid)+'">'+rows.length+' rows</span>'+
+          '<span style="flex:1"></span>'+
+          '<button class="btn" style="font-size:11px;padding:4px 10px;" onclick="bwrExportCsv(\''+esc(bid)+'\')"><i class="fas fa-download"></i> CSV</button>'+
+          '</div>';
+        var tbody = bwrBuildTbody(rows, IS_AUTO);
+        bodyEl.innerHTML = toolbar +
+          '<div class="tbl-wrap" style="max-height:400px;overflow:auto;">'+
+          '<table class="tbl" id="bwrTbl_'+esc(bid)+'"><thead>'+thead+'</thead>'+
+          '<tbody id="bwrTbody_'+esc(bid)+'">'+tbody+'</tbody></table></div>';
+      }
+
+      function bwrBuildTbody(rows, showDomain){
+        if(!rows.length) return '<tr><td colspan="14" class="empty">No CR/JIRA data for this build with current filters.</td></tr>';
+        return rows.map(function(r,i){
+          var sc=r.cr_status==='Open'?'#16a34a':r.cr_status==='Closed'?'#dc2626':'#64748b';
+          var dom=showDomain?('<td><span style="background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;">'+esc(r.domain||'')+'</span></td>'):'';
+          return '<tr>'+
+            '<td>'+(i+1)+'</td>'+
+            '<td style="font-weight:800;color:#4f46e5;">'+esc(r.cr)+'</td>'+
+            '<td style="color:#0369a1;">'+esc(r.jira)+'</td>'+
+            '<td style="max-width:220px;white-space:normal;">'+esc(r.title)+'</td>'+
+            '<td style="text-align:center;font-weight:800;">'+r.cr_count+'</td>'+
+            '<td>'+esc(r.cr_area)+'</td>'+
+            '<td>'+esc(r.cr_subsystem)+'</td>'+
+            '<td>'+esc(r.cr_functionality)+'</td>'+
+            '<td style="color:'+sc+';font-weight:700;">'+esc(r.cr_status)+'</td>'+
+            '<td>'+esc(r.cr_age)+'</td>'+
+            '<td>'+esc(r.si_last_seen)+'</td>'+
+            '<td>'+esc(r.last_instance)+'</td>'+
+            '<td>'+bwrCrashBadge(r.crash_type)+'</td>'+
+            dom+
+            '</tr>';
+        }).join('');
+      }
+
+      /* ── search inside a build's detail table ────────────────────── */
+      window.bwrSearchDetail = function(bid){
+        var inp = document.querySelector('.bwr-search-input[data-bid="'+bid+'"]');
+        var q   = inp ? inp.value.toLowerCase() : '';
+        var rows = bwrRowCache[bid] || [];
+        var filtered = !q ? rows : rows.filter(function(r){
+          return (r.cr+r.jira+r.title+r.cr_area+r.cr_subsystem+r.cr_status+r.crash_type+(r.domain||'')).toLowerCase().indexOf(q) !== -1;
         });
-        bwrRenderTable(filtered);
+        var tbody = document.getElementById('bwrTbody_'+bid);
+        if(tbody) tbody.innerHTML = bwrBuildTbody(filtered, IS_AUTO);
+        var cnt = document.getElementById('bwrCount_'+bid);
+        if(cnt) cnt.textContent = filtered.length + ' rows';
       };
 
-      /* ── CSV export ──────────────────────────────────────────────── */
-      window.bwrExportCsv = function(){
-        if(!bwrAllRows.length) return;
+      /* ── CSV export for a build ──────────────────────────────────── */
+      window.bwrExportCsv = function(bid){
+        var rows = bwrRowCache[bid] || [];
+        if(!rows.length) return;
         var hdr = ['#','CR','JIRA','Title','CR Count','Area','Subsystem','Functionality','CR Status','CR Age','SI Last Seen','Last Instance','Crash Type','Domain'];
         var lines = [hdr.join(',')];
-        bwrAllRows.forEach(function(r){
-          lines.push([r.sno,r.cr,r.jira,r.title,r.cr_count,r.cr_area,r.cr_subsystem,r.cr_functionality,r.cr_status,r.cr_age,r.si_last_seen,r.last_instance,r.crash_type,r.domain]
+        rows.forEach(function(r,i){
+          lines.push([i+1,r.cr,r.jira,r.title,r.cr_count,r.cr_area,r.cr_subsystem,r.cr_functionality,r.cr_status,r.cr_age,r.si_last_seen,r.last_instance,r.crash_type,r.domain||'']
             .map(function(v){ return '"'+(String(v||'').replace(/"/g,'""'))+'"'; }).join(','));
         });
         var blob = new Blob([lines.join('\n')], {type:'text/csv'});
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = TARGET + '_' + (bwrCurrentBuild||'build') + '_report.csv';
+        a.download = TARGET+'_'+bid+'_report.csv';
         a.click();
       };
 
