@@ -8440,7 +8440,7 @@ if __name__ == '__main__':
 
     # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
     # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.1.0.0')
+    HOST = os.environ.get('BUDDY_HOST', '127.1.1.0')
     PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.

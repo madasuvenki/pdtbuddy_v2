@@ -93,18 +93,41 @@ SI_PRIORITY = {
 # =============================================================================
 # PROGRESS TRACKER  — shared state for SSE streaming
 # =============================================================================
+class ReportCancelled(RuntimeError):
+    """Raised when a running consolidated report is cancelled by the UI."""
+
+
 class ProgressTracker:
     """Thread-safe progress tracker passed through the pipeline."""
     def __init__(self):
-        self._lock   = threading.Lock()
-        self.stage   = 'init'
-        self.total   = 0
-        self.done    = 0
-        self.message = ''
-        self.log     = []
+        self._lock     = threading.Lock()
+        self.stage     = 'init'
+        self.total     = 0
+        self.done      = 0
+        self.message   = ''
+        self.log       = []
+        self.cancelled = False
+
+    def _raise_if_cancelled_locked(self):
+        if self.cancelled:
+            raise ReportCancelled('Cancelled by user')
+
+    def cancel(self, message='Cancelled by user'):
+        with self._lock:
+            self.cancelled = True
+            self.stage = 'cancelled'
+            self.message = message
+            self.log.append(message)
+            if len(self.log) > 60: self.log = self.log[-60:]
+
+    def is_cancelled(self):
+        with self._lock:
+            return bool(self.cancelled)
 
     def update(self, stage=None, done=None, total=None, message=None):
         with self._lock:
+            if not (stage in ('cancelled', 'error')):
+                self._raise_if_cancelled_locked()
             if stage   is not None: self.stage   = stage
             if done    is not None: self.done     = done
             if total   is not None: self.total    = total
@@ -115,6 +138,7 @@ class ProgressTracker:
 
     def increment(self, message=None):
         with self._lock:
+            self._raise_if_cancelled_locked()
             self.done += 1
             if message:
                 self.message = message
@@ -124,12 +148,13 @@ class ProgressTracker:
     def snapshot(self):
         with self._lock:
             return {
-                'stage'  : self.stage,
-                'total'  : self.total,
-                'done'   : self.done,
-                'pct'    : round(self.done * 100 / self.total) if self.total else 0,
-                'message': self.message,
-                'log'    : list(self.log[-8:]),
+                'stage'    : self.stage,
+                'total'    : self.total,
+                'done'     : self.done,
+                'pct'      : round(self.done * 100 / self.total) if self.total else 0,
+                'message'  : self.message,
+                'log'      : list(self.log[-8:]),
+                'cancelled': bool(self.cancelled),
             }
 
 
@@ -146,6 +171,14 @@ def register_progress(job_id: str) -> ProgressTracker:
 def get_progress(job_id: str):
     with _PROGRESS_LOCK:
         return _PROGRESS_REGISTRY.get(job_id)
+
+def cancel_progress(job_id: str, message='Cancelled by user'):
+    with _PROGRESS_LOCK:
+        pt = _PROGRESS_REGISTRY.get(job_id)
+    if pt:
+        pt.cancel(message)
+        return True
+    return False
 
 def unregister_progress(job_id: str):
     with _PROGRESS_LOCK:

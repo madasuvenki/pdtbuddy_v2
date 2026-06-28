@@ -6772,10 +6772,10 @@ def api_consolidated_report_progress(job_id):
                 yield f'data: {{"stage":"error","message":"job not found","done":0,"total":0,"pct":0}}\n\n'
                 return
             snap = pt.snapshot()
-            if snap['done'] != last_done or snap['stage'] in ('done', 'error'):
+            if snap['done'] != last_done or snap['stage'] in ('done', 'error', 'cancelled'):
                 last_done = snap['done']
                 yield f'data: {json.dumps(snap)}\n\n'
-            if snap['stage'] in ('done', 'error'):
+            if snap['stage'] in ('done', 'error', 'cancelled'):
                 return
             time.sleep(0.5)
 
@@ -6787,6 +6787,23 @@ def api_consolidated_report_progress(job_id):
             'X-Accel-Buffering': 'no',
         }
     )
+
+
+@dashboard_bp.route("/api/consolidated_report/cancel/<job_id>", methods=["POST"])
+@login_required
+def api_consolidated_report_cancel(job_id):
+    """Cooperatively cancel a running consolidated report job."""
+    import sys as _sys, os as _os
+    _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    try:
+        from fetch_consolidated_report import cancel_progress
+        ok = cancel_progress(job_id, 'Cancelled by user while switching tabs')
+        _JOB_RESULTS[job_id] = {'cancelled': True, 'error': 'Cancelled by user'}
+        return jsonify({'ok': True, 'cancelled': bool(ok), 'job_id': job_id})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc), 'job_id': job_id}), 500
 
 
 @dashboard_bp.route("/api/consolidated_report/result/<job_id>")
@@ -7244,12 +7261,17 @@ def api_consolidated_report():
 
         except Exception as e:
             import traceback
-            logger.error(f"[consolidated_report] job {job_id} error: {e}\n{traceback.format_exc()}")
-            _JOB_RESULTS[job_id] = {'error': str(e)}
+            is_cancel = 'cancel' in str(e).lower()
+            if is_cancel:
+                logger.info(f"[consolidated_report] job {job_id} cancelled: {e}")
+                _JOB_RESULTS[job_id] = {'cancelled': True, 'error': 'Cancelled by user'}
+            else:
+                logger.error(f"[consolidated_report] job {job_id} error: {e}\n{traceback.format_exc()}")
+                _JOB_RESULTS[job_id] = {'error': str(e)}
             try:
                 from fetch_consolidated_report import get_progress
                 pt = get_progress(job_id)
-                if pt: pt.update(stage='error', message=str(e))
+                if pt and not is_cancel: pt.update(stage='error', message=str(e))
             except Exception:
                 pass
         finally:

@@ -137,11 +137,11 @@
     {% if not embedded_core_deck %}
     <div class="tabs">
             {% if 'core' in visible_tabs %}
+        {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
     <button class="tab {{ 'active' if initial_tab == 'core' else '' }}" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
-    {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
     {% endif %}
         {% if not mtbf_only and 'current' in visible_tabs %}
-        <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build (WIP)</button>
+        <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build</button>
 
     {% endif %}
     {% if 'mtbf' in visible_tabs %}<button class="tab {{ 'active' if mtbf_only or initial_tab == 'mtbf' else '' }}" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>{% endif %}
@@ -921,23 +921,27 @@ window.LSP_DATA = {
   }
 
     /* ---- load DB rows -- returns a Promise (same pattern as loadCoreDeckJiraBuilds) ---- */
-  window.loadRunningBuildsDb=function(){
+    window.loadRunningBuildsDb=function(){
     var st=document.getElementById('rbDbStatus');
     if(st) st.textContent='Loading DB...';
     return fetch(RB_API+'?_='+Date.now())
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed');
-        _rbRows=window._rbRows=d.rows||[];
-        console.log('[RunningBuildsDB] rows=',_rbRows.length,'sample domain=',(_rbRows[0]||{}).domain);
+                _rbRows=window._rbRows=d.rows||[];
         _rbNextMs=Date.now()+INTERVAL_MS;
-        if(_rbRows.length && !_rbRows.some(function(r){return String(r.domain||'').toUpperCase()===_rbDomain;})){
-          _rbDomain=String((_rbRows[0]||{}).domain||_rbDomain).toUpperCase();
+        // If current domain has no rows, switch to the first available domain
+        var curDom = String(window._lspNavDomain||_rbDomain||'ADAS').toUpperCase();
+        if(_rbRows.length && !_rbRows.some(function(r){return String(r.domain||r.deck_type||'').toUpperCase()===curDom;})){
+          _rbDomain=String((_rbRows[0]||{}).domain||(_rbRows[0]||{}).deck_type||_rbDomain).toUpperCase();
           _syncDomainRadio();
           if(typeof window.lspSetCurrentDomain==='function') window.lspSetCurrentDomain(_rbDomain);
         }
-        if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' -- '+(_rbRows.length||0)+' row(s)';
+                if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' -- '+(_rbRows.length||0)+' row(s)';
         _render();
+        // ── Always re-render nav after DB rows arrive ──
+        if(typeof window.lspNavRender==='function') window.lspNavRender();
+                // Report is NOT auto-run. User must click a build/meta in the nav.
       })
       .catch(function(e){if(st) st.textContent='DB error: '+e.message;});
   };
@@ -1947,7 +1951,7 @@ window.LSP_DATA = {
 }());
 </script>
 
-<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260623_editmode6"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260623_editmode8"></script>
 <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
@@ -2341,7 +2345,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
 // LSP NAV – dark left panel for Current Running Build tab
 // =======================================================================
 (function(){
-  var _lspNavDomain = 'ADAS';
+  var _lspNavDomain = window._lspNavDomain = 'ADAS';
   var _lspSoloMeta  = null;
 
   function _esc(v){var d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;}
@@ -2354,11 +2358,11 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var dom = String(r.domain||r.deck_type||'ADAS').toUpperCase();
       if(dom !== domain) return;
       var meta = String(r.meta_id||r.build_id||'Unknown');
-      if(!map[meta]) map[meta] = {meta_id:meta, domain:dom, builds:[], crashes:0, devices:0, rowIdxs:[]};
+            if(!map[meta]) map[meta] = {meta_id:meta, domain:dom, builds:[], crashes:null, devices:0, rowIdxs:[]};
       var g = map[meta];
       var bid = String(r.build_full||r.display_build||r.build_id||'');
       if(bid && !g.builds.includes(bid)) g.builds.push(bid);
-      g.crashes += parseFloat(r.crashes||0)||0;
+      if(r._lspFreshCrashes != null) g.crashes = (g.crashes||0) + (parseFloat(r._lspFreshCrashes)||0);
       g.devices += parseInt(r.device_count||r.devices||0)||0;
     }
     function addRowWithIdx(r, idx){
@@ -2435,8 +2439,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
           +'<div class="lsp-nav-build">'+_esc(builds)+'</div>'
           +'<div class="lsp-nav-stats">'
             +(g.devices?'<span class="lsp-nav-stat green">'+g.devices+' dev</span>':'')
-            +(g.crashes?'<span class="lsp-nav-stat red"><i class="fas fa-bug" style="font-size:8px"></i> '+g.crashes+'</span>'
-                       :'<span class="lsp-nav-stat green"><i class="fas fa-check" style="font-size:8px"></i> 0</span>')
+                        +(g.crashes!=null?'<span class="lsp-nav-stat red"><i class="fas fa-bug" style="font-size:8px"></i> '+g.crashes+'</span>'
+                       :'<span class="lsp-nav-stat" title="Run report to refresh Jira count">--</span>')
           +'</div>'
         +'</div>'
         +(isActive?'<div style="display:flex;align-items:center;padding:0 6px"><span style="font-size:9px;font-weight:900;color:#6ee7b7"><i class="fas fa-bolt"></i></span></div>':'')
@@ -2488,13 +2492,14 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var panel    = document.getElementById('lspJqlPanel');
     var jqlText  = document.getElementById('lspJqlText');
     var jiraLink = document.getElementById('lspJqlJiraLink');
-    if(!panel || !jqlText) return;
+        if(!panel || !jqlText) return;
     jqlText.textContent = jql || '';
     var jiraUrl = (window.BuildReportCommon && BuildReportCommon.jiraIssuesUrl)
       ? BuildReportCommon.jiraIssuesUrl(jql||'')
       : 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + encodeURIComponent(jql||'');
     if(jiraLink) jiraLink.href = jiraUrl;
-    panel.style.display = 'block';
+    // Keep generated JQL internal; do not show JQL query panel in UI.
+    panel.style.display = 'none';
   }
   window.lspCopyJql = function(){
     var jqlText = document.getElementById('lspJqlText');
@@ -2517,15 +2522,33 @@ if(!window.ojClear)  window.ojClear  = function(){};
 
   // -- Tab-switch guard: warn if JQL report is in progress ------------------
   var _lspReportRunning = false;
+  var _lspCurrentJobId = null;
+  var _lspReportRunSeq = 0;
+  var _lspFetchController = null;
+
+  function _lspCancelRunningReport(reason){
+    _lspReportRunSeq++;
+    var jobId = _lspCurrentJobId;
+    _lspCurrentJobId = null;
+    _lspReportRunning = false;
+    if(_lspFetchController){ try{ _lspFetchController.abort(); }catch(e){} _lspFetchController=null; }
+    if(_lspProgressSource){ try{ _lspProgressSource.close(); }catch(e){} _lspProgressSource=null; }
+    if(jobId){
+      try{ fetch('/api/consolidated_report/cancel/'+encodeURIComponent(jobId), {method:'POST', cache:'no-store'}).catch(function(){}); }catch(e){}
+    }
+    _lspUpdateProgress({stage:'cancelled', pct:100, message:reason||'Report cancelled.', log:reason||'Report cancelled.'});
+    _lspHideProgress(500);
+    var tb = document.getElementById('crTbody');
+    if(tb) tb.innerHTML = '<tr><td colspan="9" class="empty">JQL report cancelled.</td></tr>';
+  }
+
   (function(){
     var _origSwitchTab = window.switchTab;
     window.switchTab = function(name){
       if(_lspReportRunning){
-        var leave = confirm('A JQL report is still running.\nLeave this tab? The report will stop.\n\nOK = Leave   Cancel = Stay');
+        var leave = confirm('A JQL report is still running.\n\nStop the current JQL process and switch tab?\n\nOK = Stop & switch   Cancel = Stay here');
         if(!leave) return;
-        if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} _lspProgressSource=null; }
-        _lspReportRunning = false;
-        _lspHideProgress(0);
+        _lspCancelRunningReport('Cancelled because user switched tabs.');
       }
       if(typeof _origSwitchTab==='function') _origSwitchTab(name);
     };
@@ -2640,6 +2663,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
 
   // ── Normalize + render report (same logic as build_report_standalone) ────────
   var _lspCrRows=[], _lspJiraRows=[];
+    var _lspLastReport = null;
+  var _lspSelectedBuilds = new Set();
+  var _lspBuildFilterActive = false;
   var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
   var JIRA_ISSUES_LSP = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 
@@ -2670,16 +2696,103 @@ if(!window.ojClear)  window.ojClear  = function(){};
     });
     return out;
   }
-  function _lspJiraKeysUrl(keys){
+    function _lspJiraKeysUrl(keys){
     var uniq=[], seen=new Set();
     (keys||[]).forEach(function(k){ k=String(k||'').trim().toUpperCase(); if(k&&!seen.has(k)){seen.add(k);uniq.push(k);} });
     return JIRA_ISSUES_LSP + encodeURIComponent('key in ('+uniq.slice(0,50).join(',')+') ORDER BY created DESC');
   }
+      function _lspNormBuild(v){
+    var parts = String(v==null?'':v).trim().replace(/\\/g,'/').split('/').filter(Boolean);
+    return String(parts.length ? parts[parts.length-1] : '').toUpperCase();
+  }
+  function _lspBuildAliases(v){
+    var raw = String(v==null?'':v).trim();
+    var norm = _lspNormBuild(raw);
+    var out = [];
+    function add(x){ x=String(x||'').trim().toUpperCase(); if(x && out.indexOf(x)<0) out.push(x); }
+    add(norm);
+    add(raw.replace(/\\/g,'/'));
+    add(raw);
+    return out;
+  }
+  function _lspIssueBuildText(j){
+    return [
+      j&&j.matched_build, j&&j.metabuild, j&&j.meta_build, j&&j.build_id,
+      j&&j.build, j&&j.build_full, j&&j.display_build, j&&j.affected_build,
+      j&&j.affected_builds, j&&j.found_in_build, j&&j.fix_build,
+      j&&j.title, j&&j.summary, j&&j.jira_title, j&&j.final_summary
+    ].join(' ').replace(/\\/g,'/').toUpperCase();
+  }
+    function _lspIssueSelected(j){
+    if(!_lspBuildFilterActive) return true;
+    if(!_lspSelectedBuilds || !_lspSelectedBuilds.size) return false;
+    var text = _lspIssueBuildText(j);
+    var directValues = [j&&j.matched_build, j&&j.metabuild, j&&j.meta_build, j&&j.build_id, j&&j.build, j&&j.build_full, j&&j.display_build];
+    for(var i=0;i<directValues.length;i++){
+      var directAliases = _lspBuildAliases(directValues[i]);
+      for(var a=0;a<directAliases.length;a++){
+        if(_lspSelectedBuilds.has(directAliases[a])) return true;
+      }
+    }
+    var ok = false;
+    _lspSelectedBuilds.forEach(function(b){
+      _lspBuildAliases(b).forEach(function(alias){ if(alias && text.indexOf(alias)>=0) ok = true; });
+    });
+    return ok;
+  }
+  function _lspBuildKeySelected(buildKey){
+    var keyAliases = _lspBuildAliases(buildKey);
+    for(var i=0;i<keyAliases.length;i++){
+      if(_lspSelectedBuilds.has(keyAliases[i])) return true;
+    }
+    var keyText = String(buildKey||'').replace(/\\/g,'/').toUpperCase();
+    var ok = false;
+    _lspSelectedBuilds.forEach(function(sel){
+      _lspBuildAliases(sel).forEach(function(alias){
+        if(alias && (keyText.indexOf(alias)>=0 || alias.indexOf(keyText)>=0)) ok = true;
+      });
+    });
+    return ok;
+  }
+  function _lspSelectedByBuildTotal(rep){
+    if(!_lspBuildFilterActive || !_lspSelectedBuilds || !_lspSelectedBuilds.size) return null;
+    var byBuild = ((rep||{}).summary||{}).by_build || {};
+    var keys = Object.keys(byBuild||{});
+    if(!keys.length) return null;
+    var total = 0, matched = 0;
+    keys.forEach(function(k){
+      if(!_lspBuildKeySelected(k)) return;
+      matched++;
+      var v = byBuild[k];
+      if(typeof v === 'number') total += v;
+      else if(v && typeof v === 'object') total += Number(v.count||v.total||v.jiras||v.jira_count||v.open||0)||0;
+      else total += Number(v)||0;
+    });
+    return matched ? total : null;
+  }
+  function _lspSetSelectedBuildsFromRows(rows){
+    _lspBuildFilterActive = true;
+    _lspSelectedBuilds = new Set();
+    (rows||[]).forEach(function(r){
+      var b = _lspNormBuild(r.build_id||r.build_full||r.build);
+      if(b) _lspSelectedBuilds.add(b);
+    });
+  }
+    window.lspToggleReportBuild = function(build, checked){
+    if(!_lspSelectedBuilds || !(_lspSelectedBuilds instanceof Set)) _lspSelectedBuilds = new Set();
+    var aliases = _lspBuildAliases(build);
+    if(!aliases.length) return;
+    _lspBuildFilterActive = true;
+    aliases.forEach(function(b){ if(checked) _lspSelectedBuilds.add(b); else _lspSelectedBuilds.delete(b); });
+    if(_lspSoloMeta) _lspRenderFlavorTable(_lspSoloMeta);
+    if(_lspLastReport) _lspRenderReport(_lspLastReport);
+  };
   function _lspNormalizeReport(rep){
     _lspCrRows=[]; _lspJiraRows=[];
     var seenJ={}, totalJiras=0, convertedToCrs=0;
-    (rep.hierarchical_report||[]).forEach(function(r){
-      var jiras = r.jiras||[];
+        (rep.hierarchical_report||[]).forEach(function(r){
+      var jiras = (r.jiras||[]).filter(_lspIssueSelected);
+      if(!jiras.length) return;
       totalJiras += jiras.length||0;
       if(r.cr && r.cr!=='NO_CR'){
         var cnt = jiras.length||r.cr_count||r.jira_count||1;
@@ -2702,7 +2815,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
     });
     // fallback: cr_rows / open_jiras
     if(rep.cr_rows&&rep.cr_rows.length&&!_lspCrRows.length){
-      (rep.cr_rows||[]).forEach(function(r){
+            (rep.cr_rows||[]).forEach(function(r){
+        if(!_lspIssueSelected(r)) return;
         var c=Number(r.jira_count||1)||1; convertedToCrs+=c;
         _lspCrRows.push({cr:r.mapped_cr||r.cr, title:r.cr_title||'', area:r.cr_area||'',
           sub:r.cr_subsystem||'', func:r.cr_functionality||'', age:r.cr_age||r.overall_age||'',
@@ -2710,14 +2824,21 @@ if(!window.ojClear)  window.ojClear  = function(){};
       });
     }
     if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length){
-      (rep.open_jiras||[]).forEach(function(j){
+            (rep.open_jiras||[]).filter(_lspIssueSelected).forEach(function(j){
         _lspJiraRows.push({key:j.stability_ticket||j.key, title:j.jira_title||j.summary,
           status:j.status||'Open', resolution:_lspFinalResolution(j)||j.status||'Open', type:_lspCrashType(j), count:1});
       });
     }
-    var summary = rep.summary||{};
-    totalJiras = Number(summary.total_jiras||summary.total||totalJiras||convertedToCrs+_lspJiraRows.length)||0;
-    convertedToCrs = Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
+        var summary = rep.summary||{};
+    // When build checkboxes are active, use filtered live counts instead of unfiltered summary totals.
+        if(_lspBuildFilterActive){
+      var byBuildTotal = _lspSelectedByBuildTotal(rep);
+      totalJiras = Number(byBuildTotal != null ? byBuildTotal : (totalJiras || convertedToCrs + _lspJiraRows.length)) || 0;
+      convertedToCrs = Number(convertedToCrs) || 0;
+    } else {
+      totalJiras = Number(summary.total_jiras||summary.total||totalJiras||convertedToCrs+_lspJiraRows.length)||0;
+      convertedToCrs = Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
+    }
     return {totalJiras:totalJiras, convertedToCrs:convertedToCrs};
   }
 
@@ -2734,12 +2855,13 @@ if(!window.ojClear)  window.ojClear  = function(){};
       : (mappedTotal + _lspJiraRows.length) || 0;
 
     // -- Update the 4 big KPI boxes at the top (always) ---------------------
-    var kpiJ = document.getElementById('lspKpiJiras');
+        var kpiJ = document.getElementById('lspKpiJiras');
     var kpiC = document.getElementById('lspKpiCrs');
     var kpiO = document.getElementById('lspKpiOpen');
-    if(kpiJ) kpiJ.textContent = totalJirasDisplay || '0';
-    if(kpiC) kpiC.textContent = _lspCrRows.length  || '0';
-    if(kpiO) kpiO.textContent = _lspJiraRows.length || '0';
+    window._lspLastKpis = {jiras: totalJirasDisplay || 0, crs: _lspCrRows.length || 0, open: _lspJiraRows.length || 0};
+    if(kpiJ) kpiJ.textContent = window._lspLastKpis.jiras;
+    if(kpiC) kpiC.textContent = window._lspLastKpis.crs;
+    if(kpiO) kpiO.textContent = window._lspLastKpis.open;
 
     // -- Crash-type counts for filter pills ---------------------------------
     var ct = {System:0, SSR:0, Process:0};
@@ -2880,6 +3002,63 @@ if(!window.ojClear)  window.ojClear  = function(){};
   }
 
   // ── Core runner: /api/consolidated_report with job_id + SSE progress ─────────
+  function _lspApplyReportCrashesToRows(rep){
+    var summary = (rep && rep.summary) || {};
+    var byBuild = summary.by_build || {};
+    var keys = Object.keys(byBuild || {});
+    // Fallback: compute per-build counts from returned JIRA rows if summary.by_build is absent.
+    if(!keys.length){
+      (rep.jiras||[]).forEach(function(j){
+        var b = String(j.matched_build || j.meta_build || '').trim();
+        if(b) byBuild[b] = (byBuild[b]||0) + 1;
+      });
+      (rep.hierarchical_report||[]).forEach(function(cr){
+        (cr.jiras||[]).forEach(function(j){
+          var b = String(j.matched_build || j.meta_build || '').trim();
+          if(b) byBuild[b] = (byBuild[b]||0) + 1;
+        });
+      });
+      keys = Object.keys(byBuild || {});
+    }
+    if(!keys.length) return;
+
+        function norm(v){
+      var parts = String(v||'').trim().replace(/\\/g,'/').split('/').filter(Boolean);
+      return String(parts.length ? parts[parts.length-1] : '').toUpperCase();
+    }
+    (window._rbRows||[]).forEach(function(r){ delete r._lspFreshCrashes; });
+    (window._rbSaved||[]).forEach(function(r){ delete r._lspFreshCrashes; });
+    var crashMap = {};
+    keys.forEach(function(k){
+      var n = norm(k);
+      if(n) crashMap[n] = (crashMap[n]||0) + (parseInt(byBuild[k]||0)||0);
+    });
+
+    var changed = false;
+    (window._rbRows||[]).forEach(function(r){
+      var n1 = norm(r.build_id || r.build_full || r.build);
+      var n2 = norm(r.build_full || r.build_id || r.build);
+            var val = crashMap[n1];
+      if(val == null) val = crashMap[n2];
+      if(val == null){
+        Object.keys(crashMap).some(function(k){
+          if((n1 && (k.indexOf(n1)>=0 || n1.indexOf(k)>=0)) || (n2 && (k.indexOf(n2)>=0 || n2.indexOf(k)>=0))){ val = crashMap[k]; return true; }
+          return false;
+        });
+      }
+            if(val != null){ r._lspFreshCrashes = val; changed = true; }
+    });
+    (window._rbSaved||[]).forEach(function(r){
+      var n = norm(r.build_id || r.build_full || r.build);
+      if(crashMap[n] != null){ r._lspFreshCrashes = crashMap[n]; changed = true; }
+    });
+
+    if(changed){
+      try{ if(typeof window.lspNavRender==='function') window.lspNavRender(); }catch(e){}
+      try{ if(_lspSoloMeta) _lspRenderFlavorTable(_lspSoloMeta); }catch(e){}
+    }
+  }
+
   function _lspRunReport(jql, labelForStatus){
     var crTb   = document.getElementById('crTbody');
     var target = (window.LSP_DATA||{}).primary_target||'';
@@ -2892,7 +3071,15 @@ if(!window.ojClear)  window.ojClear  = function(){};
     _lspShowJqlPanel(jql);
 
         // Show progress window
+    if(_lspReportRunning){
+      var stopPrev = confirm('Another JQL report is already running.\n\nStop it and start the new report?');
+      if(!stopPrev) return;
+      _lspCancelRunningReport('Previous report cancelled before starting a new one.');
+    }
+    var runSeq = ++_lspReportRunSeq;
     _lspReportRunning = true;
+    _lspCurrentJobId = null;
+    _lspFetchController = window.AbortController ? new AbortController() : null;
     _lspShowProgress('Running Report', 'Submitting report for '+(labelForStatus||'selected builds')+'...');
     if(crTb) crTb.innerHTML = '<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report... see progress window.</td></tr>';
     // Hide copy buttons while running
@@ -2915,7 +3102,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
     fetch('/api/consolidated_report', {
       method: 'POST',
       headers: {'Content-Type':'application/json', 'Accept':'application/json'},
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: _lspFetchController ? _lspFetchController.signal : undefined
     })
     .then(function(r){
       var ct = r.headers.get('content-type')||'';
@@ -2928,11 +3116,15 @@ if(!window.ojClear)  window.ojClear  = function(){};
     .then(function(data){
       if(data && data.login_required) throw new Error('Session expired. Please refresh and log in again.');
       if(data.error) throw new Error(data.error);
+      if(runSeq !== _lspReportRunSeq) throw new Error('__cancelled__');
       if(data.job_id){
-        // Async job — watch SSE progress then poll for result
+        // Async job - watch SSE progress then poll for result
+        _lspCurrentJobId = data.job_id;
         document.getElementById('lspProgressLog').textContent = 'Job ID: '+data.job_id+'\nConnecting progress stream...';
         _lspWatchProgress(data.job_id);
         return BuildReportCommon.waitForResult(data.job_id).then(function(result){
+          if(runSeq !== _lspReportRunSeq) throw new Error('__cancelled__');
+          if(result.cancelled) throw new Error('__cancelled__');
           if(result.error) throw new Error(result.error);
           return result;
         });
@@ -2940,16 +3132,26 @@ if(!window.ojClear)  window.ojClear  = function(){};
       return data;
     })
         .then(function(data){
+      if(runSeq !== _lspReportRunSeq) return;
       _lspReportRunning = false;
-      _lspUpdateProgress({stage:'done', done:1, total:1, pct:100, message:'Report complete. Rendering results...'});
-      _lspRenderReport(data||{});
+      _lspCurrentJobId = null;
+      _lspFetchController = null;
+            _lspUpdateProgress({stage:'done', done:1, total:1, pct:100, message:'Report complete. Rendering results...'});
+      _lspLastReport = data || {};
+      _lspApplyReportCrashesToRows(_lspLastReport);
+      _lspRenderReport(_lspLastReport);
       // Show copy buttons now that data is ready
       var copyCrBtn = document.getElementById('lspCopyCrBtn');
       if(copyCrBtn) copyCrBtn.style.display='inline-flex';
       _lspHideProgress(1800);
     })
     .catch(function(e){
+      if((e && (e.name==='AbortError' || e.message==='__cancelled__')) || runSeq !== _lspReportRunSeq){
+        return;
+      }
       _lspReportRunning = false;
+      _lspCurrentJobId = null;
+      _lspFetchController = null;
       _lspUpdateProgress({stage:'error', pct:100, message:String(e.message||e), log:String(e.message||e)});
       if(crTb) crTb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626;font-weight:800">'
         +'<i class="fas fa-triangle-exclamation"></i> '+_esc(String(e.message||e))+'</td></tr>';
@@ -2983,8 +3185,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var entry = metaMap[meta][bid];
       var raw = String(r.product_flavor||'').trim();
       if(raw) raw.split(',').forEach(function(f){ f=f.trim(); if(f) entry.flavors[f.toLowerCase()]=f; });
-      entry.dev = Math.max(entry.dev, parseInt(r.device_count||0)||0);
-      if(r.crashes != null) entry.crashes = (entry.crashes||0) + parseInt(r.crashes||0);
+            entry.dev = Math.max(entry.dev, parseInt(r.device_count||0)||0);
+      if(r._lspFreshCrashes != null) entry.crashes = Math.max(entry.crashes||0, parseInt(r._lspFreshCrashes||0));
     });
 
     // Flatten to display rows
@@ -2992,7 +3194,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     Object.keys(metaMap).sort(function(a,b){ return a.localeCompare(b,undefined,{numeric:true}); }).forEach(function(meta){
       Object.keys(metaMap[meta]).sort().forEach(function(bid){
         var e = metaMap[meta][bid];
-        displayRows.push({ meta:meta, build:e.build, flavors:Object.values(e.flavors), dev:e.dev, crashes:e.crashes });
+        displayRows.push({ meta:meta, build:e.build, flavors:Object.values(e.flavors), dev:e.dev, crashes:e.crashes, selected:(!_lspBuildFilterActive || _lspSelectedBuilds.has(_lspNormBuild(e.build))) });
       });
     });
 
@@ -3000,43 +3202,44 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var html = '<table class="lsp-flavor-tbl" style="width:100%">'
       + '<thead><tr>'
       + '<th style="width:36px">#</th>'
+      + '<th style="text-align:center;width:44px">Use</th>'
       + '<th style="width:90px">Meta</th>'
       + '<th>Build</th>'
       + '<th>Build Flavour</th>'
       + '<th style="text-align:center;width:80px">Devices</th>'
-      + '<th style="text-align:center;width:70px">Crashes</th>'
-      + '<th style="text-align:center;width:70px">JQL</th>'
-      + '</tr></thead><tbody>';
+            + '<th style="text-align:center;width:70px">Crashes</th>'
+      + '</tr></thead><tbody>'; 
 
     var totalDev=0, totalCrash=0;
     displayRows.forEach(function(row, idx){
-      totalDev += row.dev||0;
-      if(row.crashes!=null) totalCrash += row.crashes;
+            if(row.selected){
+        totalDev += row.dev||0;
+        if(row.crashes!=null) totalCrash += row.crashes;
+      }
       var buildShort = row.build.replace(/\\/g,'/').split('/').filter(Boolean).pop() || row.build;
       var flavorHtml = row.flavors.length
         ? row.flavors.map(function(f){ return '<div style="white-space:nowrap;font-size:10px">'+_esc(f)+'</div>'; }).join('')
         : '<span style="color:#94a3b8">--</span>';
-            var runBtn = '<button onclick="lspRunFlavorJql('+JSON.stringify(row.build)+')"'
-        + ' style="border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;'
-        + 'border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;white-space:nowrap">'
-        + '<i class="fas fa-play" style="font-size:9px"></i> Run</button>';
-      html += '<tr>'
+            var checked = row.selected ? ' checked' : '';
+      var rowStyle = row.selected ? '' : ' style="opacity:.45"';
+      html += '<tr'+rowStyle+'>'
         + '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(idx+1)+'</td>'
+        + '<td style="text-align:center"><input type="checkbox"'+checked+' data-build="'+_esc(row.build)+'" onchange="lspToggleReportBuild(this.getAttribute(\'data-build\'),this.checked)"></td>'
         + '<td style="font-weight:900;color:#1e3a8a;font-size:11px;white-space:nowrap">'+_esc(row.meta)+'</td>'
         + '<td style="font-size:10px;color:#334155;word-break:break-all;max-width:220px" title="'+_esc(row.build)+'">'+_esc(buildShort)+'</td>'
         + '<td>'+flavorHtml+'</td>'
         + '<td style="text-align:center;font-weight:800">'+(row.dev||0)+'</td>'
-        + '<td style="text-align:center">'+(row.crashes!=null?row.crashes:'--')+'</td>'
-        + '<td style="text-align:center">'+runBtn+'</td>'
-        + '</tr>';
+                + '<td style="text-align:center">'+(row.crashes!=null?row.crashes:'--')+'</td>'
+        + '</tr>'; 
     });
     html += '<tr class="lsp-flavor-total">'
-      + '<td colspan="4"><b>Total</b></td>'
+      + '<td colspan="5"><b>Total</b></td>'
       + '<td style="text-align:center"><b>'+totalDev+'</b></td>'
-      + '<td style="text-align:center"><b>'+(totalCrash||'--')+'</b></td>'
-      + '<td></td></tr>';
-    html += '</tbody></table>';
+            + '<td style="text-align:center"><b>'+(totalCrash||'--')+'</b></td></tr>';
+        html += '</tbody></table>';
     host.innerHTML = html;
+    var kpiB = document.getElementById('lspKpiBuilds');
+    if(kpiB) kpiB.textContent = displayRows.filter(function(r){ return r.selected; }).length || '0';
   }
 
   // ── Run JQL for a single build (▶ Run button) ─────────────────────────────
@@ -3051,7 +3254,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   function _lspConfirmAndRun(jql, label){
     var modal = document.getElementById('lspRunConfirmModal');
     var msgEl = document.getElementById('lspRunConfirmMsg');
-    if(msgEl) msgEl.textContent = 'Run JQL report for: ' + (label||'selected builds') + '?';
+    if(msgEl) msgEl.textContent = 'Run report for: ' + (label||'selected builds') + '?';
     // Store pending jql on modal for the Yes button
     if(modal){ modal._pendingJql = jql; modal._pendingLabel = label; modal.style.display='flex'; }
   }
@@ -3078,6 +3281,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       return domainMatch && String(r.meta_id||'').toUpperCase() === String(metaId||'').toUpperCase();
     });
     if(!rows.length) return;
+    _lspSetSelectedBuildsFromRows(rows);
     var buildIds = [];
     rows.forEach(function(r){
       // build_id is the canonical field in _rbRows
@@ -3094,6 +3298,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(_lspSoloMeta === metaId){
       // Second click: deselect
       _lspSoloMeta = null;
+      _lspBuildFilterActive = false;
       _setChecked(null);
       var tag = document.getElementById('lspScopeTag');
       if(tag){ tag.className='lsp-scope-tag'; tag.innerHTML='<i class="fas fa-layer-group"></i> All '+_esc(_lspNavDomain)+' builds'; }
@@ -3106,16 +3311,20 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var tag = document.getElementById('lspScopeTag');
       if(tag){ tag.className='lsp-scope-tag scoped'; tag.innerHTML='<i class="fas fa-code-branch"></i> '+_esc(metaId); }
       // Render flavor table + auto JQL
+            var metaRows = (window._rbRows||[]).filter(function(r){
+        var domainMatch = !_lspNavDomain || String(r.domain||r.deck_type||'').toUpperCase() === String(_lspNavDomain).toUpperCase();
+        return domainMatch && String(r.meta_id||'').toUpperCase()===String(metaId||'').toUpperCase();
+      });
+      _lspSetSelectedBuildsFromRows(metaRows);
       _lspRenderFlavorTable(metaId);
       _lspAutoJql(metaId);
     }
-    lspNavRender();
-    if(typeof window.onRunningBuildSelectionChanged==='function') window.onRunningBuildSelectionChanged();
+        lspNavRender();
   };
 
   /* ---- Set domain from nav tab buttons ---- */
-  window.lspNavSetDomain = function(domain){
-    _lspNavDomain = domain;
+      window.lspNavSetDomain = function(domain){
+    _lspNavDomain = window._lspNavDomain = domain;
     _lspSoloMeta  = null;
     ['ADAS','FLEX','IVI'].forEach(function(d){
       var btn = document.getElementById('lspNavDom_'+d);
@@ -3129,13 +3338,38 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(tag){ tag.className='lsp-scope-tag'; tag.innerHTML='<i class="fas fa-layer-group"></i> All '+_esc(domain)+' builds'; }
     // Re-check all boxes for new domain
     _setChecked(null);
-    lspNavRender();
-    if(typeof window.onRunningBuildSelectionChanged === 'function') window.onRunningBuildSelectionChanged();
+        lspNavRender();
+    // Do not auto-run on domain switch. User must click a build/meta.
   };
 
+  /* ---- Run JQL for ALL builds in a domain ---- */
+  window._lspRunAllDomainBuilds = function _lspRunAllDomainBuilds(domain){
+    var allRows = (window._rbRows||[]).concat(window._rbSaved||[]);
+    var buildIds = [];
+    allRows.forEach(function(r){
+      var dom = String(r.domain||r.deck_type||'').toUpperCase();
+      if(dom !== String(domain||'').toUpperCase()) return;
+      var b = String(r.build_id||r.build_full||r.build||'').trim();
+      if(b && buildIds.indexOf(b)<0) buildIds.push(b);
+    });
+        if(!buildIds.length){
+      var tb = document.getElementById('crTbody');
+      if(tb) tb.innerHTML = '<tr><td colspan="9" class="empty">No running builds found for '+_esc(domain)+'.</td></tr>';
+      var kpiB = document.getElementById('lspKpiBuilds'); if(kpiB) kpiB.textContent='0';
+      return;
+    }
+    var jql = _lspBuildJql(buildIds);
+    if(!jql){
+      var tb2 = document.getElementById('crTbody');
+      if(tb2) tb2.innerHTML = '<tr><td colspan="9" class="empty">Unable to generate JQL for '+_esc(domain)+' builds.</td></tr>';
+      return;
+    }
+    _lspRunReport(jql, 'All '+domain+' builds');
+  }
+
   /* ---- Called back by applyCurrentDomainFilter ---- */
-  window.lspSetCurrentDomain = function(domain){
-    _lspNavDomain = domain;
+    window.lspSetCurrentDomain = function(domain){
+    _lspNavDomain = window._lspNavDomain = domain;
     ['ADAS','FLEX','IVI'].forEach(function(d){
       var btn = document.getElementById('lspNavDom_'+d);
       if(!btn) return;
@@ -3144,37 +3378,80 @@ if(!window.ojClear)  window.ojClear  = function(){};
     lspNavRender();
   };
 
-  /* ---- Update KPI boxes from rendered table rows ---- */
-  function _lspUpdateKpi(){
-    var crRows  = document.querySelectorAll('#crTbody tr:not([style*="display:none"])').length;
-    var jiraRows= document.querySelectorAll('#jiraTbody tr').length;
-    var kpiC = document.getElementById('lspKpiCrs');   if(kpiC && crRows)   kpiC.textContent = crRows;
-    var kpiO = document.getElementById('lspKpiOpen');  if(kpiO && jiraRows) kpiO.textContent = jiraRows;
-    // JIRAs from summary pills text
-    var pills = document.getElementById('crSummaryPills');
-    if(pills){
-      var m = (pills.textContent||'').match(/(\d+)\s*JIRA/i);
-      var kpiJ = document.getElementById('lspKpiJiras');
-      if(kpiJ && m) kpiJ.textContent = m[1];
+    /* ---- Update KPI boxes from rendered table rows ---- */
+    function _lspUpdateKpi(){
+    // If System-B rendered a filtered report, keep its authoritative filtered totals.
+    if(window._lspLastKpis){
+      var kpiJ0 = document.getElementById('lspKpiJiras'); if(kpiJ0) kpiJ0.textContent = window._lspLastKpis.jiras;
+      var kpiC0 = document.getElementById('lspKpiCrs');   if(kpiC0) kpiC0.textContent = window._lspLastKpis.crs;
+      var kpiO0 = document.getElementById('lspKpiOpen');  if(kpiO0) kpiO0.textContent = window._lspLastKpis.open;
+      return;
     }
+    // Only count real data rows - exclude empty/placeholder rows
+    var crRows = 0;
+    document.querySelectorAll('#crTbody tr:not([style*="display:none"])').forEach(function(tr){
+      var td = tr.querySelector('td');
+      if(td && td.colSpan > 1) return; // skip colspan placeholder rows
+      crRows++;
+    });
+    var jiraRows = 0;
+    document.querySelectorAll('#jiraTbody tr').forEach(function(tr){
+      var td = tr.querySelector('td');
+      if(td && td.colSpan > 1) return;
+      jiraRows++;
+    });
+    var kpiC = document.getElementById('lspKpiCrs');  if(kpiC) kpiC.textContent = crRows;
+    var kpiO = document.getElementById('lspKpiOpen'); if(kpiO) kpiO.textContent = jiraRows;
   }
+
+    /* ---- Deterministic loader for nav/report rows ---- */
+  window.lspEnsureRunningBuildsLoaded = function(force){
+        if(!force && (window._rbRows||[]).length){
+      lspNavRender();
+      return Promise.resolve(window._rbRows);
+    }
+    var host = document.getElementById('lspNavList');
+    var st   = document.getElementById('rbDbStatus');
+    if(host) host.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:10px">'
+      +'<i class="fas fa-circle-notch spin" style="font-size:16px;display:block;margin-bottom:6px;color:#c7d2fe"></i>Loading running builds...</div>';
+    if(st) st.textContent = 'Loading DB...';
+    var target = (window.LSP_DATA&&window.LSP_DATA.primary_target)||'';
+    return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_builds_db?_='+Date.now(), {cache:'no-store'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok) throw new Error(d.error||'Failed to load running builds');
+        window._rbRows = d.rows || [];
+        if(st) st.textContent = 'DB updated '+new Date().toLocaleTimeString()+' -- '+window._rbRows.length+' row(s)';
+        // If current domain has no rows, switch to first available domain.
+        var cur = String(_lspNavDomain||'ADAS').toUpperCase();
+        if(window._rbRows.length && !window._rbRows.some(function(r){return String(r.domain||r.deck_type||'').toUpperCase()===cur;})){
+          var firstDom = String((window._rbRows[0]||{}).domain||'ADAS').toUpperCase();
+          window.lspSetCurrentDomain(firstDom);
+        } else {
+          lspNavRender();
+        }
+                // Do not auto-run after loading. User must click a build/meta.
+        return window._rbRows;
+      })
+      .catch(function(e){
+        if(st) st.textContent = 'DB error: '+e.message;
+        if(host) host.innerHTML = '<div style="padding:24px 10px;text-align:center;color:#dc2626;font-size:10px">'
+          +'<i class="fas fa-triangle-exclamation" style="font-size:18px;display:block;margin-bottom:6px"></i>'+_esc(e.message)+'</div>';
+      });
+  };
 
   /* ---- Refresh: reload builds from API (PL-filtered server-side) ---- */
   window.lspNavRefresh = function(){
-    if(typeof window.loadRunningBuildsDb === 'function'){
-      var host = document.getElementById('lspNavList');
-      if(host) host.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:10px">'
-        +'<i class="fas fa-circle-notch spin" style="font-size:16px;display:block;margin-bottom:6px;color:#c7d2fe"></i>Refreshing...</div>';
-      window.loadRunningBuildsDb();
-    }
+    return window.lspEnsureRunningBuildsLoaded(true);
   };
 
-  /* ---- Init on DOMContentLoaded ---- */
+    /* ---- Init on DOMContentLoaded ---- */
   document.addEventListener('DOMContentLoaded', function(){
     _ensureCheckboxes();
-    lspNavRender();
-    // Re-render after DB fetch (which fires ~1s after load)
-    setTimeout(function(){ lspNavRender(); }, 1500);
+        // Deterministically load DB rows and render nav only. No auto-run.
+    window.lspEnsureRunningBuildsLoaded(true);
+    // Safety re-render after any earlier loader finishes.
+    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); }, 1500);
     setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); }, 3500);
     // Periodic KPI refresh
     setInterval(_lspUpdateKpi, 2500);
@@ -3224,10 +3501,10 @@ if(!window.ojClear)  window.ojClear  = function(){};
   <div style="background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.28);border:1px solid #c7d2fe;width:min(420px,96vw);overflow:hidden">
     <div style="padding:14px 16px;background:linear-gradient(90deg,#eef2ff,#f5f3ff);border-bottom:1px solid #e0e7ff;display:flex;align-items:center;gap:10px">
       <span style="font-size:18px">&#9889;</span>
-      <span style="font-size:13px;font-weight:950;color:#312e81">Run JQL Report?</span>
+      <span style="font-size:13px;font-weight:950;color:#312e81">Run Report?</span>
     </div>
     <div style="padding:18px 16px">
-      <p id="lspRunConfirmMsg" style="margin:0 0 18px;font-size:13px;color:#1e293b;font-weight:600;line-height:1.5">Run JQL report for selected builds?</p>
+      <p id="lspRunConfirmMsg" style="margin:0 0 18px;font-size:13px;color:#1e293b;font-weight:600;line-height:1.5">Run report for selected builds?</p>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="lspConfirmRunNo()"
           style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 22px;font-size:13px;font-weight:900;cursor:pointer">
