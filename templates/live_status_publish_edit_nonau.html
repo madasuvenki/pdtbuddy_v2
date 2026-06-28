@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>{{ (job.name or primary_target or "Live Status")|upper }} â€” Live Status</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#f0f4ff;color:#0f172a;min-height:100vh;font-size:14px}
@@ -126,6 +126,7 @@
         <button class="btn" id="lspSaveBtn" style="display:none" onclick="lspSaveDraft()"><i class="fas fa-save"></i> Save</button>
         <button class="btn btn-primary" id="lspPublishBtn" style="display:none" onclick="lspPublishJob()"><i class="fas fa-rocket"></i> Publish</button>
       {% endif %}
+      <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
       <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
