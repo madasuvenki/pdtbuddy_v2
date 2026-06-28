@@ -217,7 +217,7 @@
 
       <div class="ls-content">
 
-    {% if (not can_edit) and viewer_bu_sections %}
+    {% if viewer_bu_sections %}
   <div class="ls-viewer-home" id="lsViewerHome">
     <div class="ls-viewer-tools">
       <div class="ls-viewer-search-wrap">
@@ -294,7 +294,7 @@
 
 
   <!-- Navigation area -->
-  <div id="lsNav" {% if (not can_edit) and viewer_bu_sections %}style="display:none;"{% endif %}>
+    <div id="lsNav" style="display:none;">
 
 
     <!-- LEVEL 1: BU rows -->

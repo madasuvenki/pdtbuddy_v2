@@ -1531,15 +1531,14 @@ def landing():
         bu_targets_js.setdefault(bk, []).append(entry)
 
     viewer_bu_sections = []
-    if not can_edit:
-        for bu_key, bu_name in bu_list:
-            targets = [t for t in (bu_targets_js.get(bu_key) or []) if t.get('status') == 'published']
-            if targets:
-                viewer_bu_sections.append({
-                    'bu_key': bu_key,
-                    'bu_name': bu_name,
-                    'targets': targets,
-                })
+    for bu_key, bu_name in bu_list:
+        targets = [t for t in (bu_targets_js.get(bu_key) or []) if t.get('status') == 'published']
+        if targets:
+            viewer_bu_sections.append({
+                'bu_key': bu_key,
+                'bu_name': bu_name,
+                'targets': targets,
+            })
 
     total_viewer_targets = sum(len(section.get('targets') or []) for section in viewer_bu_sections)
     if not can_edit and total_viewer_targets == 1:
