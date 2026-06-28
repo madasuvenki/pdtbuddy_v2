@@ -75,8 +75,8 @@ RAW_OUTPUT_FILENAME = AUDIT_FILENAME
 MAX_PAGES            = 50              # max pages to fetch (100 jobs/page = 5000 jobs max)
 STALE_THRESHOLD_DAYS = 1               # re-fetch if JSON is >= 1 day old
 
-# Temporarily disable all Axiom network calls. Re-enable only when requested.
-AXIOM_FETCH_DISABLED = True
+# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+AXIOM_FETCH_DISABLED = False
 
 # ── Always resolve local backup paths relative to the project root,
 

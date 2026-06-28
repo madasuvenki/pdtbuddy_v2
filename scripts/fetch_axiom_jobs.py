@@ -71,8 +71,8 @@ RETRY_DELAY_SEC    = 5
 TIMEOUT_SEC        = 300
 TOKEN_TTL_SEC      = 50 * 60  # refresh token every 50 minutes (Axiom tokens expire in ~1 hour)
 
-# Temporarily disable all Axiom network calls. Re-enable only when requested.
-AXIOM_FETCH_DISABLED = True
+# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+AXIOM_FETCH_DISABLED = False
 
 
 class AxiomAuthError(RuntimeError):

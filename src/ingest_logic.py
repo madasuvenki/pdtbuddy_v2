@@ -10,8 +10,8 @@ from src.ingest import ingest_excel_data
 from src.utils import get_mysql_connection_db
 from src.ingest_log import new_run_id, log_start, log_finish
 
-# Temporarily disable all Axiom-related fetch triggers. Re-enable only when requested.
-AXIOM_FETCH_DISABLED = True
+# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+AXIOM_FETCH_DISABLED = False
 
 
 def _project_root() -> str:

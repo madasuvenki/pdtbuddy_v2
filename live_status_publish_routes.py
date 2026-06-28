@@ -68,8 +68,8 @@ def _iframe_aware_redirect(url):
 
 
 
-# Temporarily disable all Axiom-related fetch triggers. Re-enable only when requested.
-AXIOM_FETCH_DISABLED = True
+# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+AXIOM_FETCH_DISABLED = False
 
 live_status_publish_bp = Blueprint('live_status_publish_bp', __name__)
 

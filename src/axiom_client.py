@@ -103,8 +103,8 @@ TAXONOMY_PATH_SW: str = os.getenv("AXIOM_TAXONOMY_PATH_SW", "/PDT")
 TAXONOMY_PATH_HW: str = os.getenv("AXIOM_TAXONOMY_PATH_HW", "/PDT/QIPL/HW")
 DEFAULT_TAXONOMY_PATH: str = TAXONOMY_PATH_SW
 
-# Temporarily disable all Axiom network calls. Re-enable only when requested.
-AXIOM_FETCH_DISABLED = True
+# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+AXIOM_FETCH_DISABLED = False
 
 
 def _resolve_taxonomy_path(pdt_type: str) -> str:
