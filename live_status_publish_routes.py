@@ -3586,13 +3586,29 @@ def api_build_wise_report(target_name):
         return s.replace('/', '\\').split('\\')[-1] if s else ''
 
     def _crash_type_from_title(title):
+        """Classify jira_title into system / ssr / process using the same
+        keyword rules as the JQL crash-type filters:
+
+          Process : summary ~ ProcessDump OR ProcessCrash OR QNX OR Undetermined
+          SSR     : (summary ~ sleep OR ssr) AND NOT (ProcessDump OR ProcessCrash OR QNX)
+          System  : everything else (no ProcessDump/ProcessCrash/QNX/sleep/ssr/Undetermined)
+        """
         t = str(title or '').lower()
-        if 'ssr' in t or 'subsystem restart' in t:
-            return 'ssr'
-        if 'system crash' in t or 'kernel panic' in t or 'system reset' in t:
-            return 'system'
-        if 'process crash' in t or 'process died' in t or 'native crash' in t:
+
+        # Process crash keywords (highest priority)
+        process_kw = ('processdump', 'processcrash', 'process dump', 'process crash',
+                      'qnx', 'undetermined')
+        is_process = any(kw in t for kw in process_kw)
+        if is_process:
             return 'process'
+
+        # SSR keywords — only when no process keywords present
+        ssr_kw = ('ssr', 'sleep', 'subsystem restart')
+        is_ssr = any(kw in t for kw in ssr_kw)
+        if is_ssr:
+            return 'ssr'
+
+        # Default: System crash
         return 'system'
 
     def _area_from_open_jira_title(value):
