@@ -641,120 +641,285 @@
   {% endif %}
 
 
-  <!-- ===== BUILD REPORT TAB ===== -->
+    <!-- ===== BUILD REPORT TAB ===== -->
   {% if 'buildreport' in visible_tabs %}
   <section id="tab-buildreport" class="tab-section {{ 'active' if initial_tab == 'buildreport' else '' }}">
 
-    <!-- Top toolbar: domain selector + Add Build + All/Clear + crash type filters -->
-    <div id="brTopPanel" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);">
+    <!-- Build-wise consolidated report -->
+    <div id="bwrPanel">
 
-            <!-- Domain pills: Auto BU only -->
-      {% if is_auto_bu %}
-      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <div>
+          <div style="font-size:15px;font-weight:900;color:#0f172a;"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">All builds &mdash; latest to oldest. Click a build to see full CR details.</div>
+        </div>
+        <button class="btn" style="font-size:12px;padding:6px 14px;" onclick="bwrLoad()"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
 
-      <label id="brDomainBtn_ADAS" class="lsp-domain-radio" data-domain="ADAS" style="--dc:#2563eb;--dcs:#dbeafe;background:var(--dcs);border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-        <input type="radio" name="brDomain" value="ADAS" style="display:none" onchange="brSetDomain('ADAS')">
-        <i class="fas fa-car"></i> ADAS
-      </label>
-      <label id="brDomainBtn_FLEX" class="lsp-domain-radio" data-domain="FLEX" style="--dc:#059669;--dcs:#d1fae5;background:#fff;border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-        <input type="radio" name="brDomain" value="FLEX" style="display:none" onchange="brSetDomain('FLEX')">
-        <i class="fas fa-microchip"></i> FLEX
-      </label>
-      <label id="brDomainBtn_IVI" class="lsp-domain-radio" data-domain="IVI" style="--dc:#7c3aed;--dcs:#ede9fe;background:#fff;border:2px solid var(--dc);color:var(--dc);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-        <input type="radio" name="brDomain" value="IVI" style="display:none" onchange="brSetDomain('IVI')">
-        <i class="fas fa-display"></i> IVI
-      </label>
+      <!-- Filters toolbar (AUTO BU: domain + crash type) -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+        {% if is_auto_bu %}
+        <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Domain</span>
+        <button id="bwrDomain_ALL"  class="bwr-domain-btn btn" onclick="bwrSetDomain('')"      style="font-size:11px;padding:4px 12px;background:#eef2ff;color:#4338ca;border:1.5px solid #6366f1;font-weight:800;">All</button>
+        <button id="bwrDomain_ADAS" class="bwr-domain-btn btn" onclick="bwrSetDomain('ADAS')" style="font-size:11px;padding:4px 12px;"><i class="fas fa-car"></i> ADAS</button>
+        <button id="bwrDomain_FLEX" class="bwr-domain-btn btn" onclick="bwrSetDomain('FLEX')" style="font-size:11px;padding:4px 12px;"><i class="fas fa-microchip"></i> FLEX</button>
+        <button id="bwrDomain_IVI"  class="bwr-domain-btn btn" onclick="bwrSetDomain('IVI')"  style="font-size:11px;padding:4px 12px;"><i class="fas fa-display"></i> IVI</button>
+        <div style="width:1px;height:24px;background:#e2e8f0;"></div>
+        <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Crash Type</span>
+        <button id="bwrCT_system"    class="bwr-ct-btn btn" onclick="bwrToggleCT('system')"    style="font-size:11px;padding:4px 10px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;"><i class="fas fa-circle-xmark"></i> System</button>
+        <button id="bwrCT_ssr"       class="bwr-ct-btn btn" onclick="bwrToggleCT('ssr')"       style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;"><i class="fas fa-triangle-exclamation"></i> SSR</button>
+        <button id="bwrCT_process"   class="bwr-ct-btn btn" onclick="bwrToggleCT('process')"   style="font-size:11px;padding:4px 10px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;"><i class="fas fa-gear"></i> Process</button>
+        <button id="bwrCT_open_jira" class="bwr-ct-btn btn" onclick="bwrToggleCT('open_jira')" style="font-size:11px;padding:4px 10px;background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd;"><i class="fas fa-ticket-alt"></i> Open JIRA</button>
+        {% endif %}
+        <span style="flex:1"></span>
+        <span id="bwrBuildCount" style="font-size:11px;font-weight:800;color:#64748b;"></span>
+      </div>
 
-      <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
-      {% endif %}
+      <!-- Build buttons row -->
+      <div id="bwrBuildsRow" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:40px;">
+        <span style="color:#94a3b8;font-size:12px;">Loading builds...</span>
+      </div>
 
-      <!-- Add Build button -->
+      <!-- Selected build label -->
+      <div id="bwrSelectedLabel" style="display:none;font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:8px;"></div>
 
-      <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="brOpenAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>
-      <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(true)">All</button>
-      <button class="btn" style="font-size:12px;padding:6px 12px;" onclick="brSelectAll(false)">Clear</button>
-
-            {% if is_auto_bu %}
-      <div style="width:1px;height:24px;background:#e2e8f0;margin:0 4px;"></div>
-
-      <!-- Crash type filters: Auto BU only -->
-      <span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Crash type</span>
-
-      <button id="brCrashBtn_system" class="btn" style="font-size:11px;padding:4px 10px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;" onclick="brToggleCrashType('system')"><i class="fas fa-circle-xmark"></i> System</button>
-      <button id="brCrashBtn_ssr" class="btn" style="font-size:11px;padding:4px 10px;background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;" onclick="brToggleCrashType('ssr')"><i class="fas fa-triangle-exclamation"></i> SSR</button>
-      <button id="brCrashBtn_process" class="btn" style="font-size:11px;padding:4px 10px;background:#dbeafe;color:#1e40af;border:1.5px solid #93c5fd;" onclick="brToggleCrashType('process')"><i class="fas fa-gear"></i> Process</button>
-      <button id="brCrashBtn_open_jira" class="btn" style="font-size:11px;padding:4px 10px;background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd;" onclick="brToggleCrashType('open_jira')"><i class="fas fa-ticket-alt"></i> Open JIRA</button>
-      {% endif %}
-
-      <span style="flex:1"></span>
-
-      <span id="brBuildCount" class="pill" style="font-size:11px;">0 builds</span>
-    </div>
-
-    <!-- Build chips row -->
-    <div id="brBuildChipsRow" style="display:flex;gap:6px;flex-wrap:wrap;max-height:72px;overflow:auto;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;">
-      <span class="muted" style="font-size:12px;">Select a domain to load builds.</span>
-    </div>
-
-    <!-- KPI cards -->
-    <div id="brKpiCards" style="display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:8px;margin-bottom:12px;"></div>
-
-    <!-- CR Table -->
-    <div class="card">
-      <div class="card-head">
-                <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CRs List <span id="brCrBadge" class="badge badge-warn"></span></h2>
-
-        <div class="mini-toolbar">
-          <input id="brCrSearch" class="compact-input" oninput="brFilterCrTable()" placeholder="Search CRs...">
-          <select id="brCrSort" onchange="brFilterCrTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit;">
-            <option value="occ_desc">Occurrences high-low</option>
-            <option value="occ_asc">Occurrences low-high</option>
-            <option value="age_desc">Age high-low</option>
-            <option value="cr_asc">CR ID</option>
-          </select>
-          <button class="btn btn-primary" onclick="brGenerateReport()" style="font-size:12px;padding:6px 14px;"><i class="fas fa-chart-bar"></i> Generate Report</button>
-          <span id="brGenSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
-          <span id="brGenStatus" class="muted" style="font-size:11px;"></span>
+      <!-- Consolidated CR table -->
+      <div class="card" id="bwrTableCard" style="display:none;">
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <h2><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report <span id="bwrCrBadge" class="badge badge-warn"></span></h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="bwrSearch" class="compact-input" placeholder="Search CR / title..." oninput="bwrFilterTable()" style="width:200px;">
+            <button class="btn" style="font-size:11px;padding:5px 10px;" onclick="bwrExportCsv()"><i class="fas fa-download"></i> CSV</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="bwrTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>CR</th>
+                <th>JIRA</th>
+                <th>Title</th>
+                <th>CR Count</th>
+                <th>Area</th>
+                <th>Subsystem</th>
+                <th>Functionality</th>
+                <th>CR Status</th>
+                <th>CR Age</th>
+                <th>SI Last Seen</th>
+                <th>Last Instance</th>
+                <th>Crash Type</th>
+                {% if is_auto_bu %}<th>Domain</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody id="bwrTbody">
+              <tr><td colspan="13" class="empty">Select a build above to load details.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Status</th></tr></thead><tbody id="brCrTbody"><tr><td colspan="9" class="empty">Select a domain, choose builds, then click Generate Report.</td></tr></tbody></table></div>
+
+      <!-- Loading / error state -->
+      <div id="bwrStatus" style="font-size:12px;color:#64748b;margin-top:8px;"></div>
     </div>
 
-    <!-- Open JIRAs -->
-    <div class="card" id="brJiraSection" style="display:none;">
-      <div class="card-head"><h2><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open JIRAs <span id="brJiraBadge" class="badge badge-warn"></span></h2></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>JIRA</th><th>Summary</th><th>Status</th><th>Occurrences</th></tr></thead><tbody id="brJiraTbody"></tbody></table></div>
-    </div>
+    <script>
+    (function(){
+      var TARGET   = {{ primary_target | tojson }};
+      var IS_AUTO  = {{ 'true' if is_auto_bu else 'false' }};
+      var bwrBuilds      = [];
+      var bwrCurrentBuild= null;
+      var bwrAllRows     = [];
+      var bwrDomain      = '';                                    // '' | 'ADAS' | 'FLEX' | 'IVI'
+      var bwrCrashTypes  = {system:true, ssr:true, process:true, open_jira:true};
 
-    <!-- Add Build Modal -->
-    <div id="brAddBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:16px;width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#6366f1);">
-                  <h3 style="font-size:15px;color:#fff;margin:0;"><i class="fas fa-plus"></i> Add Build Search <span id="brModalDomainLabel">ADAS</span></h3>
+      function bwrSetStatus(msg){ document.getElementById('bwrStatus').textContent = msg || ''; }
 
-          <button onclick="brCloseAddBuildModal()" style="background:rgba(255,255,255,.18);border:none;font-size:22px;cursor:pointer;color:#fff;border-radius:8px;width:30px;height:30px;line-height:1;">&times;</button>
-        </div>
-        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    {% if is_auto_bu %}<span style="font-size:11px;font-weight:950;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Domain</span>
-          <button id="brModalDomainBtn_ADAS" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('ADAS');return false;"><i class="fas fa-car"></i> ADAS</button>
-          <button id="brModalDomainBtn_FLEX" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('FLEX');return false;"><i class="fas fa-microchip"></i> FLEX</button>
-          <button id="brModalDomainBtn_IVI" class="btn" style="font-size:11px;padding:5px 10px;" onclick="brModalSetDomain('IVI');return false;"><i class="fas fa-display"></i> IVI</button>
-          <span style="width:1px;height:24px;background:#e2e8f0;"></span>{% endif %}
+      /* ── domain selector ─────────────────────────────────────────── */
+      window.bwrSetDomain = function(d){
+        bwrDomain = d;
+        document.querySelectorAll('.bwr-domain-btn').forEach(function(btn){
+          var bid = btn.id.replace('bwrDomain_','');
+          var active = (bid === (d||'ALL'));
+          btn.style.background  = active ? '#eef2ff' : '#fff';
+          btn.style.borderColor = active ? '#6366f1' : '#e2e8f0';
+          btn.style.color       = active ? '#4338ca' : '#475569';
+          btn.style.fontWeight  = active ? '900'     : '700';
+        });
+        bwrLoad();
+      };
 
-                    <input id="brBuildSearchModal" class="compact-input" style="flex:1;min-width:220px;" placeholder="Type meta / full build to search..." oninput="brRenderModalList()">
-          <button class="btn" onclick="brModalSelectAll(true)">Select Matches</button>
-          <button class="btn" onclick="brModalSelectAll(false)">Clear Matches</button>
-          <span id="brModalCount" class="muted" style="font-size:12px;font-weight:800;"></span>
-        </div>
-                <div id="brModalBuildList" style="flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px;min-height:200px;max-height:400px;">
-          <div class="empty">Type in search to find meta builds. No default build list is shown.</div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid #f1f5f9;background:#f8fafc;">
-          <button class="btn" onclick="brCloseAddBuildModal()">Cancel</button>
-          <button class="btn btn-primary" onclick="brApplyModalSelection()"><i class="fas fa-check"></i> Apply</button>
-        </div>
-      </div>
-    </div>
+      /* ── crash type toggle ───────────────────────────────────────── */
+      window.bwrToggleCT = function(ct){
+        bwrCrashTypes[ct] = !bwrCrashTypes[ct];
+        var btn = document.getElementById('bwrCT_' + ct);
+        if(btn) btn.style.opacity = bwrCrashTypes[ct] ? '1' : '0.35';
+        bwrLoad();
+      };
+
+      /* ── build URL with current filters ─────────────────────────── */
+      function bwrApiUrl(extra){
+        var url = '/api/live_status/targets/' + encodeURIComponent(TARGET) + '/build_wise_report';
+        var params = [];
+        if(IS_AUTO && bwrDomain) params.push('domain=' + encodeURIComponent(bwrDomain));
+        if(IS_AUTO){
+          var cts = Object.keys(bwrCrashTypes).filter(function(k){ return bwrCrashTypes[k]; });
+          if(cts.length) params.push('crash_types=' + encodeURIComponent(cts.join(',')));
+        }
+        if(extra) params.push(extra);
+        return url + (params.length ? '?' + params.join('&') : '');
+      }
+
+      /* ── load build list ─────────────────────────────────────────── */
+      window.bwrLoad = function(){
+        bwrSetStatus('Loading builds...');
+        document.getElementById('bwrBuildsRow').innerHTML = '<span style="color:#94a3b8;font-size:12px;">Loading...</span>';
+        document.getElementById('bwrTableCard').style.display = 'none';
+        fetch(bwrApiUrl())
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if(!d.success){ bwrSetStatus('Error: ' + (d.message||'unknown')); return; }
+            bwrBuilds = d.builds || [];
+            bwrRenderBuilds();
+            var cnt = document.getElementById('bwrBuildCount');
+            if(cnt) cnt.textContent = bwrBuilds.length + ' build(s)';
+            bwrSetStatus('');
+          })
+          .catch(function(e){ bwrSetStatus('Network error: ' + e); });
+      };
+
+      /* ── render build buttons ────────────────────────────────────── */
+      function bwrRenderBuilds(){
+        var row = document.getElementById('bwrBuildsRow');
+        if(!bwrBuilds.length){
+          row.innerHTML = '<span style="color:#94a3b8;font-size:12px;">No builds found for selected filters.</span>';
+          return;
+        }
+        row.innerHTML = bwrBuilds.map(function(b){
+          var crashLine = IS_AUTO
+            ? ('<span style="color:#ef4444;font-size:10px;font-weight:800;">⚠ '+b.total_crashes+' total</span> '+
+               '<span style="color:#991b1b;font-size:9px;">Sys:'+b.system_count+'</span> '+
+               '<span style="color:#92400e;font-size:9px;">SSR:'+b.ssr_count+'</span> '+
+               '<span style="color:#1e40af;font-size:9px;">Proc:'+b.process_count+'</span> '+
+               '<span style="color:#5b21b6;font-size:9px;">OJ:'+b.open_jira_count+'</span>')
+            : ('<span style="color:#ef4444;font-weight:800;font-size:10px;">⚠ '+b.total_crashes+' crashes</span>');
+          return '<button class="bwr-build-btn" data-bid="'+esc(b.build_id)+'" '+
+            'onclick="bwrSelectBuild('+JSON.stringify(b.build_id)+')" '+
+            'style="display:inline-flex;flex-direction:column;align-items:flex-start;gap:3px;padding:8px 12px;border-radius:10px;'+
+            'background:#f8fafc;border:1.5px solid #e2e8f0;cursor:pointer;font-size:11px;font-weight:700;color:#0f172a;'+
+            'transition:all .15s;min-width:160px;">'+
+            '<span style="font-size:11px;font-weight:900;color:#1e293b;word-break:break-all;">'+esc(b.build_id)+'</span>'+
+            crashLine+
+            '<span style="color:#6366f1;font-size:9px;">'+b.cr_count+' CRs</span>'+
+            '</button>';
+        }).join('');
+      }
+
+      /* ── select build → load detail rows ────────────────────────── */
+      window.bwrSelectBuild = function(bid){
+        bwrCurrentBuild = bid;
+        document.querySelectorAll('.bwr-build-btn').forEach(function(btn){
+          var active = btn.getAttribute('data-bid') === bid;
+          btn.style.background  = active ? '#eef2ff' : '#f8fafc';
+          btn.style.borderColor = active ? '#6366f1' : '#e2e8f0';
+          btn.style.color       = active ? '#4338ca' : '#0f172a';
+        });
+        var lbl = document.getElementById('bwrSelectedLabel');
+        lbl.textContent = 'Showing: ' + bid;
+        lbl.style.display = 'block';
+        bwrSetStatus('Loading CR details...');
+        document.getElementById('bwrTableCard').style.display = 'none';
+        fetch(bwrApiUrl('build=' + encodeURIComponent(bid)))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if(!d.success){ bwrSetStatus('Error: ' + (d.message||'unknown')); return; }
+            bwrAllRows = d.detail_rows || [];
+            bwrRenderTable(bwrAllRows);
+            bwrSetStatus('');
+          })
+          .catch(function(e){ bwrSetStatus('Network error: ' + e); });
+      };
+
+      /* ── render CR table ─────────────────────────────────────────── */
+      function bwrCrashTypeBadge(ct){
+        var map = {
+          system:    ['#fee2e2','#991b1b','System'],
+          ssr:       ['#fef3c7','#92400e','SSR'],
+          process:   ['#dbeafe','#1e40af','Process'],
+          open_jira: ['#ede9fe','#5b21b6','Open JIRA']
+        };
+        var s = map[ct] || ['#f1f5f9','#475569', ct||''];
+        return '<span style="background:'+s[0]+';color:'+s[1]+';border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;">'+s[2]+'</span>';
+      }
+
+      function bwrRenderTable(rows){
+        document.getElementById('bwrCrBadge').textContent = rows.length;
+        var tbody = document.getElementById('bwrTbody');
+        if(!rows.length){
+          tbody.innerHTML = '<tr><td colspan="14" class="empty">No CR/JIRA data for this build with current filters.</td></tr>';
+        } else {
+          var sno = 0;
+          tbody.innerHTML = rows.map(function(r){
+            sno++;
+            var statusColor = r.cr_status === 'Open' ? '#16a34a' : r.cr_status === 'Closed' ? '#dc2626' : '#64748b';
+            var domainBadge = r.domain ? '<span style="background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;">'+esc(r.domain)+'</span>' : '';
+            return '<tr>'+
+              '<td>'+sno+'</td>'+
+              '<td style="font-weight:800;color:#4f46e5;">'+esc(r.cr)+'</td>'+
+              '<td style="color:#0369a1;">'+esc(r.jira)+'</td>'+
+              '<td style="max-width:240px;white-space:normal;">'+esc(r.title)+'</td>'+
+              '<td style="text-align:center;font-weight:800;">'+r.cr_count+'</td>'+
+              '<td>'+esc(r.cr_area)+'</td>'+
+              '<td>'+esc(r.cr_subsystem)+'</td>'+
+              '<td>'+esc(r.cr_functionality)+'</td>'+
+              '<td style="color:'+statusColor+';font-weight:700;">'+esc(r.cr_status)+'</td>'+
+              '<td>'+esc(r.cr_age)+'</td>'+
+              '<td>'+esc(r.si_last_seen)+'</td>'+
+              '<td>'+esc(r.last_instance)+'</td>'+
+              '<td>'+bwrCrashTypeBadge(r.crash_type)+'</td>'+
+              (IS_AUTO ? '<td>'+domainBadge+'</td>' : '')+
+              '</tr>';
+          }).join('');
+        }
+        document.getElementById('bwrTableCard').style.display = '';
+      }
+
+      /* ── search filter ───────────────────────────────────────────── */
+      window.bwrFilterTable = function(){
+        var q = (document.getElementById('bwrSearch').value || '').toLowerCase();
+        var filtered = !q ? bwrAllRows : bwrAllRows.filter(function(r){
+          return (r.cr+r.jira+r.title+r.cr_area+r.cr_subsystem+r.cr_status+r.crash_type+r.domain).toLowerCase().indexOf(q) !== -1;
+        });
+        bwrRenderTable(filtered);
+      };
+
+      /* ── CSV export ──────────────────────────────────────────────── */
+      window.bwrExportCsv = function(){
+        if(!bwrAllRows.length) return;
+        var hdr = ['#','CR','JIRA','Title','CR Count','Area','Subsystem','Functionality','CR Status','CR Age','SI Last Seen','Last Instance','Crash Type','Domain'];
+        var lines = [hdr.join(',')];
+        bwrAllRows.forEach(function(r){
+          lines.push([r.sno,r.cr,r.jira,r.title,r.cr_count,r.cr_area,r.cr_subsystem,r.cr_functionality,r.cr_status,r.cr_age,r.si_last_seen,r.last_instance,r.crash_type,r.domain]
+            .map(function(v){ return '"'+(String(v||'').replace(/"/g,'""'))+'"'; }).join(','));
+        });
+        var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = TARGET + '_' + (bwrCurrentBuild||'build') + '_report.csv';
+        a.click();
+      };
+
+      function esc(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+
+      /* ── auto-load on tab click ──────────────────────────────────── */
+      document.addEventListener('DOMContentLoaded', function(){
+        var tabBtn = document.querySelector('.tab[onclick*="buildreport"]');
+        if(tabBtn) tabBtn.addEventListener('click', function(){ if(!bwrBuilds.length) bwrLoad(); });
+        if(document.getElementById('tab-buildreport').classList.contains('active')) bwrLoad();
+      });
+    })();
+    </script>
 
     </section>
   {% endif %}

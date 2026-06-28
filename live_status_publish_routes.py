@@ -3486,3 +3486,317 @@ def api_revoke_job(job_id):
     if updated:
         return jsonify({'ok': True, 'status': 'revoked', 'revoked_by': username})
     return jsonify({'ok': False, 'error': 'Revoke failed'}), 500
+
+
+# ── Build-wise consolidated report ──────────────────────────────────────────
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/build_wise_report', methods=['GET'])
+@login_required
+def api_build_wise_report(target_name):
+    """Return all builds (latest→oldest) with per-build consolidated CR+JIRA data.
+
+    Query params:
+      build       : (optional) single build ID — returns full CR detail rows
+      domain      : (optional) ADAS | FLEX | IVI  — AUTO BU only
+      crash_types : (optional) comma-separated: system,ssr,process,open_jira
+    """
+    import re as _re
+    from datetime import date as _date, datetime as _datetime
+    from dashboard_common import get_schema_for_target, get_mysql_connection_db
+
+    job, err = _get_target_report_job_for_api(target_name)
+    if err:
+        return jsonify(err[0]), err[1]
+    target      = (job.get('targets') or [''])[0]
+    is_auto     = _is_core_deck_target(target)
+
+    # ── filters from query string ────────────────────────────────────────────
+    selected_build  = (request.args.get('build') or '').strip()
+    domain_filter   = (request.args.get('domain') or '').strip().upper()   # ADAS|FLEX|IVI
+    ct_raw          = (request.args.get('crash_types') or 'system,ssr,process,open_jira').strip()
+    crash_types     = {c.strip().lower() for c in ct_raw.split(',') if c.strip()}
+    if not crash_types:
+        crash_types = {'system', 'ssr', 'process', 'open_jira'}
+
+    schema = get_schema_for_target(target)
+    if not schema:
+        return jsonify({'success': False, 'message': 'Target schema not found'}), 404
+    conn = get_mysql_connection_db(bu_key=schema)
+    if not conn:
+        return jsonify({'success': False, 'message': 'DB connection error'}), 500
+
+    sc  = schema.strip('`')
+    tgt = target.strip('`.')
+    jiras_tbl  = f'`{sc}`.`{tgt}_jiras`'
+    open_tbl   = f'`{sc}`.`{tgt}_openjiras`'
+    unique_tbl = f'`{sc}`.`{tgt}_unique_crs`'
+
+    cur = conn.cursor(dictionary=True)
+
+    def _tbl_exists(fq):
+        n = fq.replace('`', '')
+        try:
+            parts = n.split('.')
+            cur.execute('SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1',
+                        (parts[0], parts[1]) if len(parts) == 2 else (sc, parts[-1]))
+            return bool(cur.fetchone())
+        except Exception:
+            return False
+
+    def _table_cols(fq):
+        try:
+            cur.execute(f'SELECT * FROM {fq} LIMIT 0')
+            cur.fetchall()
+            return {d[0] for d in cur.description}
+        except Exception:
+            return set()
+
+    def _first_col(cols, candidates):
+        for c in candidates:
+            if c in cols:
+                return c
+        return None
+
+    def _norm_build(raw):
+        s = str(raw or '').strip()
+        return s.replace('/', '\\').split('\\')[-1] if s else ''
+
+    def _crash_type_from_title(title):
+        """Classify jira_title into system/ssr/process crash type."""
+        t = str(title or '').lower()
+        if 'ssr' in t or 'subsystem restart' in t:
+            return 'ssr'
+        if 'system crash' in t or 'kernel panic' in t or 'system reset' in t:
+            return 'system'
+        if 'process crash' in t or 'process died' in t or 'native crash' in t:
+            return 'process'
+        return 'system'  # default for jiras
+
+    def _domain_from_cr(cr_area, cr_sub, cr_func, cr_title):
+        """Derive ADAS/FLEX/IVI domain from CR metadata."""
+        text = ' '.join([str(x or '') for x in (cr_area, cr_sub, cr_func, cr_title)]).upper()
+        if any(x in text for x in ('ADAS', 'ADP', 'RIDE', 'VISION', 'CAMERA')):
+            return 'ADAS'
+        if 'FLEX' in text or _re.search(r'\bFLE\b', text):
+            return 'FLEX'
+        return 'IVI'
+
+    try:
+        # ── 1. Collect all rows from jiras + openjiras ────────────────────────
+        base_cols = ['stability_ticket', 'jira_date', 'jira_title', 'serial_no', 'metabuild']
+        cr_cols   = ['mapped_cr', 'cr', 'cr_number', 'cr_area', 'area',
+                     'cr_subsystem', 'subsystem', 'cr_function', 'cr_functionality', 'functionality',
+                     'application_domain']
+
+        all_rows = []
+        for tbl, source in [(jiras_tbl, 'jira'), (open_tbl, 'openjira')]:
+            if not _tbl_exists(tbl):
+                continue
+            cols = _table_cols(tbl)
+            sel  = [c for c in base_cols + cr_cols if c in cols]
+            if not sel:
+                continue
+            mb_col = _first_col(cols, ('metabuild', 'MetaBuild', 'meta_build'))
+            if not mb_col:
+                continue
+            try:
+                if selected_build:
+                    tail = _norm_build(selected_build)
+                    cur.execute(
+                        f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
+                        f'WHERE `{mb_col}` LIKE %s ORDER BY jira_date DESC LIMIT 5000',
+                        (f'%{tail}%',)
+                    )
+                else:
+                    cur.execute(
+                        f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
+                        f'ORDER BY jira_date DESC LIMIT 20000'
+                    )
+                for row in (cur.fetchall() or []):
+                    row['_source'] = source
+                    row['_build']  = _norm_build(row.get(mb_col) or '')
+                    # crash type from title
+                    row['_crash_type'] = 'open_jira' if source == 'openjira' else _crash_type_from_title(row.get('jira_title') or '')
+                    # domain from table column or derive later after unique_crs enrichment
+                    row['_domain_raw'] = str(row.get('application_domain') or '').strip().upper()
+                    all_rows.append(row)
+            except Exception as e:
+                logger.warning('[BUILD_WISE] table %s error: %s', tbl, e)
+
+        # ── 2. Collect unique_crs for enrichment ──────────────────────────────
+        cr_detail = {}  # cr_id → {cr_status, cr_age, si_last_seen, cr_title, cr_area, cr_subsystem, cr_functionality, domain}
+        if _tbl_exists(unique_tbl):
+            try:
+                ucols = _table_cols(unique_tbl)
+                want  = ['mapped_cr', 'cr', 'cr_number', 'cr_title', 'cr_status', 'cr_age',
+                         'si_image', 'cr_area', 'cr_subsystem', 'cr_functionality',
+                         'cr_occurrence', 'last_instance', 'jira_date']
+                sel   = [c for c in want if c in ucols]
+                if sel:
+                    cur.execute(f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {unique_tbl} LIMIT 50000')
+                    for row in (cur.fetchall() or []):
+                        for ck in ('mapped_cr', 'cr', 'cr_number'):
+                            cid = str(row.get(ck) or '').strip()
+                            if cid and cid not in cr_detail:
+                                area  = str(row.get('cr_area') or '').strip()
+                                sub   = str(row.get('cr_subsystem') or '').strip()
+                                func  = str(row.get('cr_functionality') or '').strip()
+                                title = str(row.get('cr_title') or '').strip()
+                                cr_detail[cid] = {
+                                    'cr_title':         title,
+                                    'cr_status':        str(row.get('cr_status') or '').strip(),
+                                    'cr_age':           str(row.get('cr_age') or '').strip(),
+                                    'si_last_seen':     str(row.get('si_image') or row.get('last_instance') or '').strip(),
+                                    'cr_area':          area,
+                                    'cr_subsystem':     sub,
+                                    'cr_functionality': func,
+                                    'cr_occurrence':    str(row.get('cr_occurrence') or '').strip(),
+                                    'last_instance':    str(row.get('last_instance') or row.get('jira_date') or '').strip(),
+                                    'domain':           _domain_from_cr(area, sub, func, title) if is_auto else '',
+                                }
+            except Exception as e:
+                logger.warning('[BUILD_WISE] unique_crs error: %s', e)
+
+        # ── 3. Enrich rows with domain from unique_crs ────────────────────────
+        for row in all_rows:
+            cr_id = ''
+            for ck in ('mapped_cr', 'cr', 'cr_number'):
+                cid = str(row.get(ck) or '').strip()
+                if cid:
+                    cr_id = cid
+                    break
+            detail = cr_detail.get(cr_id, {})
+            if is_auto:
+                # prefer table column, then unique_crs domain, then derive from row fields
+                row['_domain'] = (
+                    row['_domain_raw'] or
+                    detail.get('domain') or
+                    _domain_from_cr(
+                        row.get('cr_area') or row.get('area') or '',
+                        row.get('cr_subsystem') or row.get('subsystem') or '',
+                        row.get('cr_functionality') or row.get('functionality') or '',
+                        row.get('jira_title') or ''
+                    )
+                )
+            else:
+                row['_domain'] = ''
+
+        # ── 4. Apply domain + crash_type filters ──────────────────────────────
+        def _row_passes(row):
+            if is_auto and domain_filter and row.get('_domain') != domain_filter:
+                return False
+            ct = row.get('_crash_type', 'system')
+            if ct not in crash_types:
+                return False
+            return True
+
+        filtered_rows = [r for r in all_rows if _row_passes(r)]
+
+        # ── 5. Group by build ─────────────────────────────────────────────────
+        from collections import defaultdict
+        build_map = defaultdict(list)
+        for row in filtered_rows:
+            bid = row.get('_build') or 'UNKNOWN'
+            build_map[bid].append(row)
+
+        def _build_sort_key(bid):
+            m = _re.search(r'-(\d{3,6})(?:\.\d+)?-', bid)
+            return -int(m.group(1)) if m else 0
+
+        sorted_builds = sorted(build_map.keys(), key=_build_sort_key)
+
+        # ── 6. Build summary list ─────────────────────────────────────────────
+        builds_summary = []
+        for bid in sorted_builds:
+            rows = build_map[bid]
+            jira_count      = sum(1 for r in rows if r.get('_source') == 'jira')
+            open_jira_count = sum(1 for r in rows if r.get('_source') == 'openjira')
+            system_count    = sum(1 for r in rows if r.get('_crash_type') == 'system')
+            ssr_count       = sum(1 for r in rows if r.get('_crash_type') == 'ssr')
+            process_count   = sum(1 for r in rows if r.get('_crash_type') == 'process')
+            cr_ids = set()
+            for r in rows:
+                for ck in ('mapped_cr', 'cr', 'cr_number'):
+                    cid = str(r.get(ck) or '').strip()
+                    if cid:
+                        cr_ids.add(cid)
+                        break
+            builds_summary.append({
+                'build_id':        bid,
+                'total_crashes':   len(rows),
+                'jira_count':      jira_count,
+                'open_jira_count': open_jira_count,
+                'system_count':    system_count,
+                'ssr_count':       ssr_count,
+                'process_count':   process_count,
+                'cr_count':        len(cr_ids),
+            })
+
+        # ── 7. Detail rows for selected build ─────────────────────────────────
+        detail_rows = []
+        if selected_build:
+            tail = _norm_build(selected_build)
+            matched_bid = next((b for b in sorted_builds if tail.lower() in b.lower()), None)
+            rows = build_map.get(matched_bid or tail, [])
+            seen_cr = {}
+            sno = 0
+            for row in rows:
+                cr_id = ''
+                for ck in ('mapped_cr', 'cr', 'cr_number'):
+                    cid = str(row.get(ck) or '').strip()
+                    if cid:
+                        cr_id = cid
+                        break
+                ticket   = str(row.get('stability_ticket') or '').strip()
+                jira_ttl = str(row.get('jira_title') or '').strip()
+                source   = row.get('_source', 'jira')
+                crash_t  = row.get('_crash_type', 'system')
+                domain   = row.get('_domain', '')
+                detail   = cr_detail.get(cr_id, {})
+                key      = cr_id or ticket
+                if key and key in seen_cr:
+                    seen_cr[key]['cr_count'] = seen_cr[key].get('cr_count', 1) + 1
+                    continue
+                sno += 1
+                entry = {
+                    'sno':              sno,
+                    'cr':               cr_id,
+                    'jira':             ticket,
+                    'title':            detail.get('cr_title') or jira_ttl,
+                    'cr_count':         1,
+                    'cr_status':        detail.get('cr_status', ''),
+                    'cr_age':           detail.get('cr_age', ''),
+                    'si_last_seen':     detail.get('si_last_seen', ''),
+                    'cr_area':          detail.get('cr_area') or str(row.get('cr_area') or row.get('area') or '').strip(),
+                    'cr_subsystem':     detail.get('cr_subsystem') or str(row.get('cr_subsystem') or row.get('subsystem') or '').strip(),
+                    'cr_functionality': detail.get('cr_functionality') or str(row.get('cr_functionality') or row.get('functionality') or '').strip(),
+                    'cr_occurrence':    detail.get('cr_occurrence', ''),
+                    'last_instance':    detail.get('last_instance', ''),
+                    'source':           source,
+                    'crash_type':       crash_t,
+                    'domain':           domain,
+                    'jira_date':        str(row.get('jira_date') or '').strip(),
+                }
+                if key:
+                    seen_cr[key] = entry
+                detail_rows.append(entry)
+
+        cur.close()
+        conn.close()
+        return jsonify({
+            'success':        True,
+            'target':         target,
+            'is_auto':        is_auto,
+            'domain_filter':  domain_filter,
+            'crash_types':    list(crash_types),
+            'builds':         builds_summary,
+            'detail_rows':    detail_rows,
+            'selected_build': selected_build,
+        })
+
+    except Exception as exc:
+        logger.exception('[BUILD_WISE] %s', exc)
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(exc)}), 500
