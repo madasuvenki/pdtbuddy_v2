@@ -3615,7 +3615,19 @@ def api_build_wise_report(target_name):
             return 'APPS'
         return ''
 
+    def _domain_from_build_id(build_id):
+        """Primary domain signal: read directly from the build/metabuild name.
+        SA8797P_ADAS.HGX... → ADAS, CI_SA8797P_FLEX.HGX... → FLEX, rest → IVI.
+        """
+        b = str(build_id or '').upper()
+        if '_ADAS' in b or '.ADAS' in b or 'ADAS_' in b or 'ADAS.' in b:
+            return 'ADAS'
+        if '_FLEX' in b or '.FLEX' in b or 'FLEX_' in b or 'FLEX.' in b:
+            return 'FLEX'
+        return 'IVI'   # everything else in AUTO BU is IVI
+
     def _domain_from_cr(area, sub, func, title):
+        """Fallback only: derive domain from CR metadata when build name has no signal."""
         text = ' '.join([str(x or '') for x in (area, sub, func, title)]).upper()
         if any(x in text for x in ('ADAS','ADP','RIDE','VISION','CAMERA')):
             return 'ADAS'
@@ -3780,7 +3792,10 @@ def api_build_wise_report(target_name):
                 if detail:
                     break
             if is_auto:
+                # Build name is the ground truth — SA8797P_ADAS/FLEX/other.
+                # CR metadata is only a fallback for rows with no build signal.
                 row['_domain'] = (
+                    _domain_from_build_id(row.get('_build') or '') or
                     row['_domain_raw'] or
                     detail.get('domain') or
                     _domain_from_cr(
