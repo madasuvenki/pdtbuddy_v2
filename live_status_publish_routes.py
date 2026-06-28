@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import re
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
 
@@ -3849,13 +3849,27 @@ def api_build_wise_report(target_name):
         builds_summary = []
         for bid in sorted_builds:
             rows = build_map[bid]
+            # Count unique CRs: use raw jira-table CR columns first;
+            # if empty, resolve via stability_ticket -> cr_detail (unique_crs join).
             cr_ids = set()
             for r in rows:
+                raw_cr = ''
                 for ck in ('mapped_cr', 'cr', 'cr_number'):
                     cid = str(r.get(ck) or '').strip()
                     if cid:
-                        cr_ids.add(cid)
+                        raw_cr = cid
                         break
+                if raw_cr:
+                    norm = _re.sub(r'[^0-9]', '', raw_cr)
+                    cr_ids.add(norm or raw_cr)
+                    continue
+                # Ticket -> unique_crs lookup
+                ticket = str(r.get('stability_ticket') or '').strip()
+                if ticket:
+                    for lk in _cr_lookup_keys(ticket):
+                        if cr_lookup.get(lk):
+                            cr_ids.add(lk)
+                            break
             builds_summary.append({
                 'build_id':        bid,
                 'total_crashes':   len(rows),
