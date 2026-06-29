@@ -6902,6 +6902,7 @@ def _extract_axiom_meta_ids_from_jql(jql: str):
 
     Handles examples like:
       summary ~ "Glymur.WP.1.0.r0-05125.13-MAH.INT-1"
+      "Build Info" ~ "Glymur.WP.1.0.r0-05125.13-STD.INT-1"
       summary ~ Maili.LA.1.0-00129-STD.INT-1
     """
     import re as _re
@@ -6919,9 +6920,9 @@ def _extract_axiom_meta_ids_from_jql(jql: str):
         if key not in seen:
             seen.add(key); out.append(v)
 
-    for m in _re.finditer(r"summary\s*~\s*(['\"])(.*?)\1", text, flags=_re.I):
+    for m in _re.finditer(r"(?:summary|\"Build\s+Info\"|'Build\s+Info'|Build\s+Info)\s*~\s*(['\"])(.*?)\1", text, flags=_re.I):
         _add(m.group(2))
-    for m in _re.finditer(r"summary\s*~\s*([^\s\)]+)", text, flags=_re.I):
+    for m in _re.finditer(r"(?:summary|\"Build\s+Info\"|'Build\s+Info'|Build\s+Info)\s*~\s*([^\s\)]+)", text, flags=_re.I):
         _add(m.group(1))
 
     # Fallback: scan all tokens for typical build/meta shape.
@@ -7026,6 +7027,126 @@ def _fetch_axiom_stability_metrics_for_meta_ids(meta_ids, taxonomy_path=None, ma
 
     def _fail_all(error, **extra):
         return {m: {"ok": False, "matched": False, "metaId": m, "taxonomyPath": taxonomy, "metrics": [], "error": error, **extra} for m in unique}
+
+    def _local_axiom_job_summary_metrics():
+        """Prefer exact local Axiom DB rows for selected build IDs.
+
+        The direct Axiom stability report uses a date window and can miss older
+        selected/running builds. The Build Report picker already comes from
+        axiom_job_summary, so use that same table first for hours/devices.
+        """
+        import json as _json_local, re as _re_local
+
+        def _tail(value):
+            text = str(value or '').strip()
+            if not text:
+                return ''
+            parts = [p for p in text.replace('\\\\', '/').replace('\\', '/').split('/') if p]
+            return parts[-1] if parts else text
+
+        def _num(value):
+            if value in (None, ''):
+                return 0.0
+            try:
+                return float(value)
+            except Exception:
+                m = _re_local.search(r'-?\d+(?:\.\d+)?', str(value))
+                return float(m.group(0)) if m else 0.0
+
+        def _chips(value):
+            if value in (None, ''):
+                return []
+            if isinstance(value, (list, tuple, set)):
+                raw = list(value)
+            else:
+                text = str(value or '').strip()
+                try:
+                    parsed = _json_local.loads(text)
+                    raw = parsed if isinstance(parsed, list) else [parsed]
+                except Exception:
+                    raw = _re_local.split(r'[,;\s]+', text)
+            out = []
+            for chip in raw:
+                chip = str(chip or '').strip().strip('"\'')
+                if chip:
+                    out.append(chip)
+            return out
+
+        results = {}
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return results
+        cur = conn.cursor(dictionary=True)
+        try:
+            for meta_id in unique:
+                meta_u = str(meta_id or '').strip().upper()
+                if not meta_u:
+                    continue
+                cur.execute("""
+                    SELECT job_id, build_id, build_name, software_product,
+                           taxonomy_path, team, state, device_count, chip_ids,
+                           submitted_at, started_at, ended_at,
+                           axiom_hours, hours, product_flavor, submitter, site
+                    FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                    WHERE UPPER(COALESCE(build_id, ''))=%s
+                       OR UPPER(COALESCE(build_name, ''))=%s
+                       OR build_name LIKE %s
+                    ORDER BY COALESCE(started_at, submitted_at, ended_at) DESC
+                    LIMIT 500
+                """, (meta_u, meta_u, '%' + str(meta_id).replace('%', '\\%').replace('_', '\\_') + '%'))
+                rows = []
+                for r in cur.fetchall() or []:
+                    build_id = str(r.get('build_id') or '').strip().upper()
+                    build_tail = _tail(r.get('build_name')).upper()
+                    if build_id == meta_u or build_tail == meta_u:
+                        rows.append(r)
+                if not rows:
+                    continue
+                chip_set = set()
+                total_devices = 0
+                total_hours = 0.0
+                latest = rows[0]
+                job_ids = []
+                for r in rows:
+                    if r.get('job_id'):
+                        job_ids.append(str(r.get('job_id')))
+                    chips = _chips(r.get('chip_ids'))
+                    chip_set.update(c.upper() for c in chips if c)
+                    if not chips:
+                        total_devices += int(_num(r.get('device_count')))
+                    total_hours += _num(r.get('hours')) or _num(r.get('axiom_hours'))
+                device_count = len(chip_set) if chip_set else total_devices
+                metric = {
+                    'meta': meta_id,
+                    'runtimeHours': f"{round(total_hours, 1)} hr",
+                    'hours': round(total_hours, 3),
+                    'totalHours': round(total_hours, 3),
+                    'uniqueDevices': device_count,
+                    'deviceCount': device_count,
+                    'crashes': 0,
+                    'jobCount': len(rows),
+                    'jobIds': job_ids,
+                    'state': str(latest.get('state') or ''),
+                    'softwareProduct': str(latest.get('software_product') or ''),
+                    'taxonomyPath': str(latest.get('taxonomy_path') or taxonomy),
+                    'startedAt': str(latest.get('started_at') or ''),
+                    'submittedAt': str(latest.get('submitted_at') or ''),
+                    'source': 'db:axiom_job_summary',
+                }
+                results[meta_id] = {
+                    'ok': True, 'matched': True, 'metaId': meta_id,
+                    'taxonomyPath': metric['taxonomyPath'] or taxonomy,
+                    'source': 'db:axiom_job_summary', 'metrics': [metric],
+                }
+            return results
+        except Exception:
+            return results
+        finally:
+            cur.close(); conn.close()
+
+    local_results = _local_axiom_job_summary_metrics()
+    if local_results and any(v.get('matched') for v in local_results.values()):
+        return {m: local_results.get(m) or {"ok": False, "matched": False, "metaId": m, "taxonomyPath": taxonomy, "metrics": [], "error": "No exact axiom_job_summary row matched requested metaId"} for m in unique}
 
     st, body = _request("POST", "/ent/oauth/v1/accesstoken?grant_type=client_credentials")
     if st != 200:
@@ -7233,19 +7354,58 @@ def api_consolidated_report():
                 progress     = pt,
                 custom_jql   = custom_jql or None,
             )
+            if not isinstance(report, dict):
+                raise RuntimeError(f"run_consolidated_report returned {type(report).__name__}; no report was generated")
+
+            def _add_build_id(acc, seen, value):
+                val = str(value or '').strip()
+                if not val:
+                    return
+                # If a path slipped through, keep only the final build folder/name.
+                val = val.replace('\\\\', '/').replace('\\', '/').rstrip('/').split('/')[-1].strip()
+                if not val:
+                    return
+                key = val.upper()
+                if key not in seen:
+                    seen.add(key)
+                    acc.append(val)
+
+            def _build_ids_from_report(rep):
+                found, seen = [], set()
+                for b in (raw or []):
+                    _add_build_id(found, seen, b)
+                for b in (extracted_from_jql or []):
+                    _add_build_id(found, seen, b)
+                for jira in (rep.get('jiras') or []):
+                    if not isinstance(jira, dict):
+                        continue
+                    for fld in ('matched_build', 'meta_build', 'build_id', 'build'):
+                        _add_build_id(found, seen, jira.get(fld))
+                    for comp in (jira.get('software_components') or []):
+                        if isinstance(comp, dict):
+                            _add_build_id(found, seen, comp.get('build_id') or comp.get('image_path') or comp.get('image_name'))
+                return found
+
+            report_build_ids = _build_ids_from_report(report)
             report_meta = report.setdefault('meta', {})
-            report_meta['build_ids'] = raw
+            report_meta['build_ids'] = report_build_ids or raw
             if extracted_from_jql:
                 report_meta['build_ids_extracted_from_jql'] = extracted_from_jql
+            if report_build_ids:
+                report_meta['build_ids_detected_for_axiom'] = report_build_ids
             if include_axiom_metrics:
                 try:
-                    metrics = _fetch_axiom_stability_metrics_for_meta_ids(raw, taxonomy_path=axiom_taxonomy_path or None)
+                    metrics_build_ids = report_build_ids or raw
+                    metrics = _fetch_axiom_stability_metrics_for_meta_ids(metrics_build_ids, taxonomy_path=axiom_taxonomy_path or None) or {}
+                    if not isinstance(report.get('summary'), dict):
+                        report['summary'] = {}
                     report['axiom_metrics'] = metrics
-                    report.setdefault('summary', {})['axiom_metrics_found'] = sum(1 for v in metrics.values() if isinstance(v, dict) and v.get('matched'))
-                    report.setdefault('summary', {})['axiom_metrics_requested'] = len(metrics)
+                    report['summary']['axiom_metrics_found'] = sum(1 for v in metrics.values() if isinstance(v, dict) and v.get('matched'))
+                    report['summary']['axiom_metrics_requested'] = len(metrics)
                 except Exception as me:
                     logger.warning(f"[consolidated_report] Axiom metrics enrichment failed: {me}")
-                    report['axiom_metrics_error'] = str(me)
+                    if isinstance(report, dict):
+                        report['axiom_metrics_error'] = str(me)
             # save to disk
             try:
                 with open(cache_path, 'w', encoding='utf-8') as fh:
@@ -7525,7 +7685,7 @@ def api_pdt_crs(target_name):
             _col("cr_age"),
             _col("cr_status"),
             _col("image", "cr_si"),
-            _coalesce_col(("built_date", "build_date", "cr_built_date", "cr_date", "date_added__created"), "built_date"),
+            _coalesce_col(("built_date", "build_date"), "built_date"),
             _coalesce_col(("pdt_priority_tag", "pdt_tag", "pdt_priority"), "pdt_priority_tag"),
             last_jira_sel,
             _col("cr_category"),

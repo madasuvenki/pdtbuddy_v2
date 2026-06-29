@@ -31,6 +31,30 @@ window.lspEnterEditMode=function(){
     });
   }
 };
+
+function lspCollectDraftRows(){
+  const src=(Array.isArray(window._rbSaved)&&(window._rbSaved.length||window._rbSavedHydrated))?window._rbSaved:(D.all_rows||[]);
+  const rows=(src||[]).map(r=>({
+    meta_id:r.meta_id||'',
+    build_id:r.build_id||r.build_full||'',
+    build_full:r.build_full||r.build_id||'',
+    display_build:r.meta_id||r.build_id||'',
+    domain:String(r.domain||'').toUpperCase(),
+    deck_type:String(r.domain||'').toUpperCase(),
+    deviceName:r.deviceName||r.device_name||'',
+    product_flavor:r.product_flavor||r.deviceName||'',
+    hours:r.hours||'',
+    reduction:r.reduction||'',
+    reduction_percent:r.reduction||'',
+    crashes:r.crashes||'',
+    device_count:r.device_count||'',
+    published:!!r.published,
+    publishedAt:r.publishedAt||'',
+    run_status:r.run_status||'running',
+    source:r.source||'json'
+  })).filter(r=>r.build_full||r.meta_id);
+  return rows;
+}
 window.lspSaveDraft=async function(){
   var target=(window.LSP_DATA||{}).primary_target||'';
   if(!target){alert('No target found.');return;}
@@ -42,7 +66,7 @@ window.lspSaveDraft=async function(){
   }
   setStatus('Saving...');
   try{
-    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:lspCollectDraftRows()})});
     var d=await r.json();
     if(!d.ok){setStatus(d.error||'Save failed',true);return;}
     setStatus('Saved \u2713');
@@ -64,8 +88,8 @@ window.lspPublishJob=async function(){
   if(!confirm('Publish this report? Viewers will see it immediately.'))return;
   setStatus('Publishing...');
   try{
-    await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:lspCollectDraftRows()})});
+    var r=await fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:lspCollectDraftRows()})});
     var d=await r.json();
     if(!d.ok){setStatus(d.error||'Publish failed',true);return;}
     setStatus('Published \u2713');
@@ -488,7 +512,28 @@ function _convertAutoMtbfRows(rows){const series=[],details=[];(rows||[]).forEac
 window._applyAutoMtbfRawRows = function _applyAutoMtbfRawRows(rows){_mtbfRawAutoRows=Array.isArray(rows)?rows.slice():[];const pack=_convertAutoMtbfRows(_mtbfRawAutoRows);_mtbfSeriesRows=pack.series;_mtbfBuildRows=pack.details;return !!(_mtbfSeriesRows.length||_mtbfBuildRows.length)}
 const _mtbfDatalabels={id:'mtbfDatalabels',afterDatasetsDraw(chart){if(!IS_AUTO_BU)return;const ctx=chart.ctx,area=chart.chartArea||{};const fmt=v=>String(Number(v).toFixed(Number(v)%1?1:0)).replace(/\.0$/,'');const badge=(txt,x,y,color)=>{ctx.save();ctx.font='900 11px Inter,Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=Math.max(22,ctx.measureText(txt).width+12),h=18,rx=5;x=Math.max((area.left||0)+w/2+2,Math.min(x,(area.right||chart.width)-w/2-2));y=Math.max((area.top||0)+h/2+2,Math.min(y,(area.bottom||chart.height)-h/2-2));ctx.fillStyle='rgba(255,255,255,.96)';ctx.strokeStyle=color;ctx.lineWidth=1.2;ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,rx);ctx.fill();ctx.stroke();ctx.fillStyle=color;ctx.fillText(txt,x,y+.5);ctx.restore();};chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((el,i)=>{const raw=ds.data[i];if(raw==null||Number(raw)===0)return;const txt=fmt(raw);if(ds.type==='bar'){const p=el.getProps(['x','y','base'],true);badge(txt,p.x,Math.min(p.y,p.base)-12,'#1f4e79');}else badge(txt,el.x,el.y+(ds.label==='Crashes'?18:-20),ds.borderColor||'#0f172a');});});}};
 async function _loadAutoBuMtbf(){const url=`/api/live_status/targets/${encodeURIComponent(PRIMARY_TARGET)}/auto_mtbf?view=${encodeURIComponent(_mtbfAutoDeck)}`;const resp=await fetch(url,{cache:'no-store',credentials:'same-origin'});const data=await resp.json().catch(()=>({}));if(!data.ok)throw new Error(data.error||'Auto MTBF load failed');return _applyAutoMtbfRawRows(data.rows||[])}
-async function loadMtbfData(force){if(_mtbfLoaded&&!force)return;const sp=$('mtbfSpinner');if(sp)sp.style.display='inline';try{let ok=false;if(IS_AUTO_BU){_ensureMtbfAutoDomainBar();_styleMtbfAutoButtons();ok=await _loadAutoBuMtbf();_mtbfLoaded=true;renderMtbfTrend();renderMtbfTable();if(!ok&&$('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML=`No ${esc(_mtbfAutoDeck)} MTBF data available.`;}return;}try{const resp=await fetch(`/api/live_status/targets/${encodeURIComponent(PRIMARY_TARGET)}/mtbf_dashboard`);const data=await resp.json().catch(()=>({}));if(data.success){_mtbfSeriesRows=data.mtbf_series||[];_mtbfBuildRows=data.mtbf_build_table||[];ok=!!(_mtbfSeriesRows.length||_mtbfBuildRows.length)}}catch(_){}if(!ok)ok=await _loadMtbfFromExcel();_mtbfLoaded=true;renderMtbfTrend();renderMtbfTable();if(!ok&&$('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML='No MTBF data available for this target.'}}catch(e){if($('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML=`Error loading MTBF data: ${esc(String(e))}`}}finally{if(sp)sp.style.display='none'}}
+
+function _convertManualMtbfRows(rows){
+  const series=[], details=[];
+  (rows||[]).forEach((r,i)=>{
+    const meta=String(r.meta_id||r.meta||r.build_full||'').trim();
+    if(!meta)return;
+    const hours=_num(r.hours), crashes=_num(r.total_crashes||r.crashes), mtbf=_num(r.mtbf)||_mtbfFromHoursCrashes(hours,crashes);
+    series.push({meta_id:meta,week:r.date||r.week||'',total_hours:hours,crashes:crashes,mtbf:mtbf,source:'MANUAL_MTBF_JSON'});
+    details.push({id:r.id||'',s_no:r.s_no||i+1,date:r.date||'',meta_id:meta,build_id:r.build_id||r.build_full||meta,hours:r.hours||'',crashes:crashes||'',total_crashes:crashes||'',mtbf:mtbf||'',mode:r.mode||'',mtbf_details:r.comment||r.notes||r.mtbf_details||'',raw:r});
+  });
+  return {series,details};
+}
+async function _loadNonAutoManualMtbf(){
+  const resp=await fetch(`/api/live_status_view/${encodeURIComponent(PRIMARY_TARGET)}/adas_mtbf?view=ADAS`,{cache:'no-store',credentials:'same-origin'});
+  const data=await resp.json().catch(()=>({}));
+  if(!data.ok)throw new Error(data.error||'MTBF load failed');
+  const pack=_convertManualMtbfRows(data.rows||[]);
+  _mtbfSeriesRows=pack.series;
+  _mtbfBuildRows=pack.details;
+  return !!(_mtbfSeriesRows.length||_mtbfBuildRows.length);
+}
+async function loadMtbfData(force){if(_mtbfLoaded&&!force)return;const sp=$('mtbfSpinner');if(sp)sp.style.display='inline';try{let ok=false;if(IS_AUTO_BU){_ensureMtbfAutoDomainBar();_styleMtbfAutoButtons();ok=await _loadAutoBuMtbf();_mtbfLoaded=true;renderMtbfTrend();renderMtbfTable();if(!ok&&$('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML=`No ${esc(_mtbfAutoDeck)} MTBF data available.`;}return;}ok=await _loadNonAutoManualMtbf();_mtbfLoaded=true;renderMtbfTrend();renderMtbfTable();if(!ok&&$('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML='No MTBF data entered yet. Click Edit, then Add Build to enter MTBF details.'}}catch(e){if($('mtbfEmpty')){$('mtbfEmpty').style.display='block';$('mtbfEmpty').innerHTML=`Error loading MTBF data: ${esc(String(e))}`}}finally{if(sp)sp.style.display='none'}}
 function renderMtbfTrend(){const canvas=$('mtbfCanvas'),empty=$('mtbfEmpty'),pills=$('mtbfSummaryPills'),wrap=$('mtbfChartWrap');if(!canvas||typeof Chart==='undefined')return;if(IS_AUTO_BU){_ensureMtbfAutoDomainBar();_styleMtbfAutoButtons();}let rows=(_mtbfSeriesRows||[]).filter(r=>r&&String(r.meta_id||'').trim());const n=IS_AUTO_BU?(window._adasNFilter!=null?window._adasNFilter:10):parseInt($('mtbfShowN')?.value||'10');if(n>0)rows=rows.slice(-n);if(!rows.length){canvas.style.display='none';if(empty){empty.style.display='block';empty.innerHTML=IS_AUTO_BU?`No ${esc(_mtbfAutoDeck)} MTBF trend data available.`:'No MTBF trend data available.';}if(pills)pills.innerHTML='';return;}canvas.style.display='block';if(empty)empty.style.display='none';const labels=rows.map(r=>String(r.meta_id||''));const hours=rows.map(r=>_num(r.total_hours||r.hours)),crashes=rows.map(r=>_num(r.crashes)),mtbf=rows.map((r,i)=>_num(r.mtbf)||_mtbfFromHoursCrashes(hours[i],crashes[i]));const totalH=hours.reduce((s,v)=>s+v,0),totalC=crashes.reduce((s,v)=>s+v,0),avg=totalH&&totalC?(totalH/totalC):0;if(pills){pills.style.display='flex';pills.innerHTML=`<span class="pill"><i class="fas fa-clock"></i> ${totalH.toFixed(0)}h total</span><span class="pill warn"><i class="fas fa-bug"></i> ${totalC} crashes</span><span class="pill good"><i class="fas fa-chart-line"></i> Avg MTBF: ${avg?avg.toFixed(1):'NA'}h</span><span class="pill"><i class="fas fa-table"></i> ${_mtbfBuildRows.length} rows</span>`;}if(_mtbfChart)_mtbfChart.destroy();if(IS_AUTO_BU){const host=wrap||canvas.parentElement;const wrapW=host?Math.max(host.clientWidth||0,host.offsetWidth||0,host.getBoundingClientRect?host.getBoundingClientRect().width||0:0):0;const cssW=Math.max(wrapW||900,rows.length*90);canvas.width=cssW;canvas.height=320;canvas.style.width=cssW+'px';canvas.style.height='320px';_mtbfChart=new Chart(canvas,{type:'bar',plugins:[_mtbfDatalabels],data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#1f4e79',borderColor:'#1f4e79',borderWidth:0,borderRadius:2,maxBarThickness:44,yAxisID:'yHours',order:2,clip:false},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',borderWidth:3,pointRadius:7,pointHoverRadius:9,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2.5,tension:0,yAxisID:'yRight',order:1,clip:false},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'transparent',borderWidth:3,pointRadius:7,pointHoverRadius:9,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2.5,tension:0,yAxisID:'yMtbf',order:0,clip:false}]},options:{responsive:false,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{title:{display:true,text:`${String(PRIMARY_TARGET||'').toUpperCase().replace(/_/g,' ')} ${_mtbfAutoDeck} MTBF`,font:{size:15,weight:'700'},color:'#1e293b',padding:{top:8,bottom:12}},legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:12,weight:'700'},padding:18}},tooltip:{backgroundColor:'rgba(15,23,42,.92)',padding:12,cornerRadius:10}},scales:{x:{grid:{display:false},ticks:{font:{size:11,weight:'700'},color:'#334155',maxRotation:0,minRotation:0}},yHours:{type:'linear',position:'left',beginAtZero:true,ticks:{color:'#1f4e79',font:{size:11,weight:'700'},callback:v=>v===0?'':v},grid:{color:'rgba(226,232,240,.6)'}},yRight:{type:'linear',position:'right',beginAtZero:true,ticks:{color:'#dc2626',font:{size:11,weight:'700'},callback:v=>v===0?'':v},grid:{drawOnChartArea:false}},yMtbf:{type:'linear',position:'right',beginAtZero:true,ticks:{color:'#16a34a',font:{size:11,weight:'700'},callback:v=>v===0?'':v},grid:{drawOnChartArea:false},offset:true}},layout:{padding:{top:34,bottom:8,left:8,right:18}}}});return;}canvas.style.width='100%';canvas.style.height='520px';_mtbfChart=new Chart(canvas,{type:'bar',data:{labels,datasets:[{label:'Hours',data:hours,backgroundColor:'rgba(37,99,235,.78)'},{label:'Crashes',data:crashes,backgroundColor:'rgba(245,158,11,.85)'},{type:'line',label:'MTBF',data:mtbf,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.12)',tension:.28,yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true},y1:{type:'linear',position:'right',beginAtZero:true,grid:{drawOnChartArea:false}}}}})}
 function renderMtbfTable(){
   _removePublishedMtbfEditControls();
@@ -498,6 +543,7 @@ function renderMtbfTable(){
   const q=($('mtbfTableSearch')?.value||'').toLowerCase();
   if(q)rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
   if($('mtbfTableCount'))$('mtbfTableCount').textContent=rows.length+' rows';
+  window._mtbfRenderedRows=rows;
   const editBtn=(r,i)=>CAN_EDIT
     ?`<td style="text-align:center;white-space:nowrap"><button onclick="adasOpenEditModal(${i})" title="Edit" style="border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:900;cursor:pointer"><i class="fas fa-pen"></i></button><button onclick="adasDeleteRowById('${r.id||r.s_no||i}','${esc(r.meta_id||'')}')" title="Delete" style="margin-left:3px;border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:900;cursor:pointer"><i class="fas fa-trash"></i></button></td>`
     :'';
@@ -520,7 +566,7 @@ function renderMtbfTable(){
     return;
   }
   head.innerHTML=`<tr><th style="width:50px">#</th><th>Meta-ID</th><th>Build ID</th><th>Hours</th><th>Crashes</th><th>MTBF</th><th>Mode</th><th>Details</th>${editTh}</tr>`;
-  body.innerHTML=rows.length?rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.meta_id||'--')}</td><td style="word-break:break-all">${esc(r.build_id||r.full_build||'--')}</td><td>${esc(r.hours||'--')}</td><td>${esc(r.crashes||0)}</td><td>${esc(r.mtbf||'--')}</td><td>${esc(r.mode||'')}</td><td>${esc(r.mtbf_details||'')}</td>${editBtn(i)}</tr>`).join(''):`<tr><td colspan="${CAN_EDIT?9:8}" class="empty">No MTBF data available.</td></tr>`;
+  body.innerHTML=rows.length?rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.meta_id||'--')}</td><td style="word-break:break-all">${esc(r.build_id||r.full_build||'--')}</td><td>${esc(r.hours||'--')}</td><td>${esc(r.crashes||0)}</td><td>${esc(r.mtbf||'--')}</td><td>${esc(r.mode||'')}</td><td>${esc(r.mtbf_details||'')}</td>${editBtn(r,i)}</tr>`).join(''):`<tr><td colspan="${CAN_EDIT?9:8}" class="empty">No MTBF data available.</td></tr>`;
 }
 function setMtbfAutoDeck(deck){_mtbfAutoDeck=String(deck||'ADAS').toUpperCase();_mtbfRawAutoRows=[];_mtbfLoaded=false;if(typeof window.adasSetDomain==='function')window.adasSetDomain(_mtbfAutoDeck);else loadMtbfData(true);}
 function setMtbfCrashFilter(name){name=String(name||'').toLowerCase();if(!Object.prototype.hasOwnProperty.call(_mtbfCrashFilters,name))return;_mtbfCrashFilters[name]=!_mtbfCrashFilters[name];if(!_mtbfCrashFilters.system&&!_mtbfCrashFilters.ssr&&!_mtbfCrashFilters.process)_mtbfCrashFilters[name]=true;_styleMtbfAutoButtons();if(IS_AUTO_BU&&_mtbfRawAutoRows.length){_applyAutoMtbfRawRows(_mtbfRawAutoRows);renderMtbfTrend();renderMtbfTable();return;}_mtbfLoaded=false;loadMtbfData(true)}

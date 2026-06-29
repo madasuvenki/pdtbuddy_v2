@@ -111,6 +111,7 @@
         <button id="brCsvCrBtn" class="btn" type="button" onclick="brDownloadCrCsv()" style="display:none"><i class="fas fa-file-csv"></i> CR CSV</button>
         <button id="brCopyJiraBtn" class="btn btn-good" type="button" onclick="brCopyJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy Open JIRAs</button>
         <button id="brCsvJiraBtn" class="btn" type="button" onclick="brDownloadJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> JIRA CSV</button>
+        <button id="brCsvAllJiraBtn" class="btn" type="button" onclick="brDownloadAllJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> All JIRAs CSV</button>
         <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Full Report</button>
         <div id="brCounts" class="toolbar"></div>
       </div>
@@ -136,6 +137,7 @@ const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
 const JIRA_ISSUES_BASE = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 let brLastCrRows=[];
 let brLastJiraRows=[];
+let brLastAllJiraRows=[];
 function g(id){return document.getElementById(id)}
 function esc(v){return BuildReportCommon.escapeHtml(v)}
 function brGoHome(){try{window.top.location.href='/cr_overview/embed';}catch(e){window.location.href='/cr_overview/embed';}}
@@ -223,7 +225,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -328,11 +330,32 @@ function jiraLinksHtml(items){
   return '<div class="jira-links">'+keys.map(k=>'<a class="jira-chip" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('')+'</div>';
 }
 function normalize(rep){
-  const crRows=[], jiraRows=[], seenJ={};
+  const crRows=[], jiraRows=[], allJiraRows=[], seenJ={}, seenAll={};
   let totalJiras=0, convertedToCrs=0;
+  function pushAll(j, cr){
+    const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
+    if(!key||seenAll[key])return;
+    seenAll[key]=1;
+    allJiraRows.push({
+      key:key,
+      title:j.final_summary||j.summary||j.jira_title||j.title||'',
+      status:j.final_status||j.status||'Open',
+      resolution:finalResolution(j)||j.final_status||j.status||'',
+      resolution_notes:j.resolution_notes||j.final_resolution_notes||'',
+      cr:cr&&cr!=='NO_CR'?cr:(j.cr_mapped||j.final_cr||''),
+      build:j.matched_build||j.meta_build||'',
+      project:j.project||'',
+      created:j.created||'',
+      reporter:j.reporter||'',
+      type:crashType(j),
+      chain:Array.isArray(j.chain)?j.chain.join(' > '):(j.chain||'')
+    });
+  }
+  const hasRawJiras=Boolean(rep.jiras&&rep.jiras.length);
   (rep.hierarchical_report||[]).forEach(r=>{
     const jiras=r.jiras||[];
     totalJiras+=jiras.length||0;
+    if(!hasRawJiras) jiras.forEach(j=>pushAll(j,r.cr));
     if(r.cr&&r.cr!=='NO_CR'){
       const mappedCount=jiras.length||r.cr_count||r.jira_count||1;
       convertedToCrs+=Number(mappedCount)||0;
@@ -340,12 +363,13 @@ function normalize(rep){
     }
     jiras.forEach(j=>{const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; const st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; seenJ[key]=1; jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',resolution:finalResolution(j)||j.final_status||j.status||'Open',type:crashType(j),count:1});});
   });
+  if(rep.jiras&&rep.jiras.length){(rep.jiras||[]).forEach(j=>pushAll(j,j.cr_mapped||((j.traversal||{}).final_cr)||''));}
   if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){(rep.cr_rows||[]).forEach(r=>{const c=Number(r.jira_count||1)||1;const linked=r.jiras||r.mapped_jiras||r.jira_keys||[];convertedToCrs+=c;crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||'',resolution:finalResolution(r),count:c,jiras:linked,type:crashTypeSummary(linked,r)});});}
   if(rep.open_jiras&&rep.open_jiras.length&&!jiraRows.length){(rep.open_jiras||[]).forEach(j=>jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',resolution:finalResolution(j)||j.status||'Open',type:crashType(j),count:1}));}
   const summary=rep.summary||{};
-  totalJiras=Number(summary.total_jiras||summary.total||totalJiras||convertedToCrs+jiraRows.length)||0;
+  totalJiras=Number(summary.total_all_jiras||summary.total_jiras||summary.total||allJiraRows.length||totalJiras||convertedToCrs+jiraRows.length)||0;
   convertedToCrs=Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
-  return {crRows,jiraRows,totalJiras,convertedToCrs};
+  return {crRows,jiraRows,allJiraRows,totalJiras,convertedToCrs};
 }
 function formatStandardTime(value){
   const raw=String(value||'').trim();
@@ -402,8 +426,10 @@ function renderAxiomMetricsHtml(rep){
 }
 function renderReport(rep){
   const rows=normalize(rep||{}), crRows=rows.crRows, jiraRows=rows.jiraRows;
+  brLastAllJiraRows=rows.allJiraRows||[];
   g('brCounts').innerHTML='';
   ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
+  const allBtn=g('brCsvAllJiraBtn'); if(allBtn) allBtn.style.display=brLastAllJiraRows.length?'inline-flex':'none';
   const metricBox=g('brMetricCards');
   metricBox.style.display='grid';
   let crashSegHtml='';
@@ -416,7 +442,8 @@ function renderReport(rep){
       '<div class="metric-card"><b>'+esc(ct.SSR)+'</b><span>SSR Crashes</span></div>'+
       '<div class="metric-card purple"><b>'+esc(ct.Process)+'</b><span>Process Crashes</span></div>';
   }
-  metricBox.innerHTML='<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Converted to CRs</span></div><div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div><div class="metric-card warn"><b>'+esc(jiraRows.length)+'</b><span>Open JIRAs</span></div>'+crashSegHtml+renderAxiomMetricsHtml(rep||{});
+  const invalidCount=Number(((rep||{}).summary||{}).invalid_jiras||0)||0;
+  metricBox.innerHTML='<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Converted to CRs</span></div><div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div><div class="metric-card warn"><b>'+esc(jiraRows.length)+'</b><span>Open JIRAs</span></div>'+(invalidCount?'<div class="metric-card warn"><b>'+esc(invalidCount)+'</b><span>Invalid / Closed Included</span></div>':'')+crashSegHtml+renderAxiomMetricsHtml(rep||{});
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
   const jr=g('brJiraRows');
   brLastJiraRows=jiraRows;
@@ -520,6 +547,11 @@ function brDownloadJiraCsv(){
   const headers=['#','JIRA','JIRA URL','Title','Crash Type','Final Resolution','Count'];
   const rows=(brLastJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Crash Type':r.type||'','Final Resolution':r.resolution||r.status||'','Count':r.count||1}));
   brDownloadCsv('build_report_open_jiras.csv',headers,rows);
+}
+function brDownloadAllJiraCsv(){
+  const headers=['#','JIRA','JIRA URL','Title','Project','Build','Mapped CR','Crash Type','Status','Final Resolution','Resolution Notes','Created','Reporter','Traversal Chain'];
+  const rows=(brLastAllJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Project':r.project||'','Build':r.build||'','Mapped CR':r.cr||'','Crash Type':r.type||'','Status':r.status||'','Final Resolution':r.resolution||'','Resolution Notes':r.resolution_notes||'','Created':r.created||'','Reporter':r.reporter||'','Traversal Chain':r.chain||''}));
+  brDownloadCsv('build_report_all_jiras_with_resolution_notes.csv',headers,rows);
 }
 function brCopyReportOutput(btn){
   const src=g('brReportOutputBody');

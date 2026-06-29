@@ -3413,17 +3413,23 @@ def _get_job_file_for_target(target_name: str):
 def api_save_job(target_name):
     if not _target_group_access():
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job, job_path = _get_job_file_for_target(target_name)
-    if not job or not job_path:
+    job, _job_path = _get_job_file_for_target(target_name)
+    if not job:
         return jsonify({'ok': False, 'error': 'No job found for target'}), 404
-    import json
-    from datetime import datetime, timezone
-    job['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    payload = request.get_json(silent=True) or {}
     try:
-        with open(job_path, 'w', encoding='utf-8') as fh:
-            json.dump(job, fh, indent=2)
-        return jsonify({'ok': True, 'updated_at': job['updated_at']})
+        if isinstance(payload, dict) and 'rows' in payload:
+            saved = save_job_rows(job['id'], payload.get('rows') or [], getattr(current_user, 'id', 'unknown'))
+        else:
+            # Metadata/no-op save: keep existing draft rows intact, but refresh the
+            # job timestamp through the service writer so index/locks stay consistent.
+            saved = save_job_meta(job['id'], {})
+        if not saved:
+            return jsonify({'ok': False, 'error': 'Save failed'}), 500
+        return jsonify({'ok': True, 'updated_at': saved.get('updated_at'), 'row_count': len(saved.get('draft_rows') or [])})
     except Exception as exc:
+        logger.exception('[LIVE STATUS TARGET SAVE] %s', exc)
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
@@ -3432,24 +3438,29 @@ def api_save_job(target_name):
 def api_publish_job(target_name):
     if not _target_group_access():
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    job, job_path = _get_job_file_for_target(target_name)
-    if not job or not job_path:
+    job, _job_path = _get_job_file_for_target(target_name)
+    if not job:
         return jsonify({'ok': False, 'error': 'No job found for target'}), 404
-    import json
-    from datetime import datetime, timezone
+
+    payload = request.get_json(silent=True) or {}
     username = getattr(current_user, 'username', None) or getattr(current_user, 'id', 'unknown')
-    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    job['status']                      = 'published'
-    job['published_at']                = now
-    job['published_by']                = username
-    job['updated_at']                  = now
-    job['published_comments_snapshot'] = job.get('published_comments_draft', '')
-    job['published_rows']              = list(job.get('draft_rows') or [])
     try:
-        with open(job_path, 'w', encoding='utf-8') as fh:
-            json.dump(job, fh, indent=2)
-        return jsonify({'ok': True, 'published_at': now, 'published_by': username, 'status': 'published'})
+        # Persist browser rows first when supplied. publish_job snapshots
+        # draft_rows into published_rows, so viewers don't depend on localStorage.
+        if isinstance(payload, dict) and 'rows' in payload:
+            job = save_job_rows(job['id'], payload.get('rows') or [], username) or job
+        published = publish_job(job['id'], username)
+        if not published:
+            return jsonify({'ok': False, 'error': 'Publish failed'}), 500
+        return jsonify({
+            'ok': True,
+            'published_at': published.get('published_at'),
+            'published_by': published.get('published_by'),
+            'status': published.get('status'),
+            'row_count': len(published.get('published_rows') or []),
+        })
     except Exception as exc:
+        logger.exception('[LIVE STATUS TARGET PUBLISH] %s', exc)
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 

@@ -34,6 +34,16 @@ _env_path = _find_dotenv_path()
 load_dotenv(_env_path, override=True)
 logger.info(f"[CONFIG] Loading .env from: {_env_path}  (exists={os.path.exists(_env_path)})")
 
+# When running as a frozen EXE, ALSO load the .env beside the exe on top of
+# the bundled one. This allows admins to add/override tokens (e.g.
+# PDTBUDDY_API_TOKEN) without rebuilding the exe — just place a .env next
+# to pdtbuddyapp.exe with the extra keys.
+if getattr(sys, 'frozen', False):
+    _exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
+    if _exe_dir_env != _env_path and os.path.exists(_exe_dir_env):
+        load_dotenv(_exe_dir_env, override=True)
+        logger.info(f"[CONFIG] Also loaded override .env from exe dir: {_exe_dir_env}")
+
 ADMIN_USERS = {
     "vmadasu",
     "rkatkoor",

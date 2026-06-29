@@ -3876,6 +3876,48 @@ def _fetch_consolidate_target_info_map(before_week_end: date | None = None) -> d
         cur.close(); conn.close()
 
 
+def _fetch_sp2_previous_bu_map(before_week_start: date | None = None) -> dict:
+    """Latest previous Smart Build BU by target and target+PL.
+
+    Used to carry a target's BU forward to the selected/current week when the
+    current Smart Build snapshot row has no BU yet. Keys are upper-cased
+    `(target, pl_id)` tuples plus `(target, '')` target-level fallbacks.
+    """
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {}
+    cur = conn.cursor(dictionary=True)
+    try:
+        params = []
+        where = "WHERE COALESCE(bu, '') <> ''"
+        if before_week_start:
+            where += ' AND week_start < %s'
+            params.append(before_week_start.isoformat())
+        cur.execute(f"""
+            SELECT target, pl_id, bu
+            FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+            {where}
+            ORDER BY week_start DESC, week_end DESC, updated_at DESC
+            LIMIT 2000
+        """, tuple(params))
+        out = {}
+        for r in cur.fetchall() or []:
+            tgt = str(r.get('target') or '').strip().upper()
+            pl_id = str(r.get('pl_id') or '').strip().upper()
+            bu = _normalize_bu(str(r.get('bu') or '').strip())
+            if not tgt or not bu:
+                continue
+            if pl_id and (tgt, pl_id) not in out:
+                out[(tgt, pl_id)] = bu
+            if (tgt, '') not in out:
+                out[(tgt, '')] = bu
+        return out
+    except Exception:
+        return {}
+    finally:
+        cur.close(); conn.close()
+
+
 def _ucr_match_text(value: str) -> str:
     """Normalize Unique CR/Sharepoint Target and PL-ID values for matching.
 
@@ -7275,7 +7317,10 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
     if not static_rows:
         return False
 
+        
     dash_map = _fetch_dashboard_status_map()
+    previous_bu_map = _fetch_sp2_previous_bu_map(before_week_start=ws)
+
     try:
         _refresh_ucr_excel_from_latest_csv_if_needed(we)
         ucr_counts = _build_ucr_target_pl_count_map(we) or {}
@@ -7364,14 +7409,24 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
         for _tu, _keys in target_keys.items():
             _first = grouped[_keys[0]]
             _dash_tgt = _match_dashboard_with_fallback(_first['target'], dash_map) or {}
-            _bu = saved_bu.get((_tu, '')) or str(_first.get('bu') or '').strip() or str(_dash_tgt.get('bu') or '').strip()
+            _bu = (
+                saved_bu.get((_tu, ''))
+                or str(_first.get('bu') or '').strip()
+                or previous_bu_map.get((_tu, ''))
+                or str(_dash_tgt.get('bu') or '').strip()
+            )
             if not _bu:
                 for _key in _keys:
                     _pl_dash = _match_dashboard_with_fallback(grouped[_key]['pl_id'], dash_map) or {}
-                    _bu = str(grouped[_key].get('bu') or _pl_dash.get('bu') or '').strip()
+                    _bu = (
+                        str(grouped[_key].get('bu') or '').strip()
+                        or previous_bu_map.get(_key)
+                        or previous_bu_map.get((_key[0], ''))
+                        or str(_pl_dash.get('bu') or '').strip()
+                    )
                     if _bu:
                         break
-            target_bu_map[_tu] = _bu
+            target_bu_map[_tu] = _normalize_bu(_bu)
 
         # Device distribution: use each target's unique device pool and split it
         # across that target's PL rows by CRM hours. This preserves totals:
@@ -7411,7 +7466,20 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
             build_type = 'Eng' if votes.get('Eng', 0) > votes.get('CRM', 0) else 'CRM'
             dash_tgt = _match_dashboard_with_fallback(g['target'], dash_map) or {}
             dash_pl = _match_dashboard_with_fallback(g['pl_id'], dash_map) or {}
-            bu = saved_bu.get(key) or target_bu_map.get(str(g['target'] or '').strip().upper()) or str(dash_tgt.get('bu') or dash_pl.get('bu') or '').strip()
+            bu = _normalize_bu(
+                saved_bu.get(key)
+                or target_bu_map.get(str(g['target'] or '').strip().upper())
+                or previous_bu_map.get(key)
+                or previous_bu_map.get((str(g['target'] or '').strip().upper(), ''))
+                or str(dash_tgt.get('bu') or dash_pl.get('bu') or '').strip()
+            )
+            if bu:
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET bu=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND target=%s AND pl_id=%s
+                """, (bu, ws.isoformat(), we.isoformat(), g['target'], g['pl_id']))
             # Milestones are PL-specific: PL name == dashboard_status.sp_name.
             milestone_dash = dash_pl or dash_tgt or {}
             es = _fmt_iso_date(milestone_dash.get('ES')) if milestone_dash.get('ES') else ''
@@ -8869,6 +8937,13 @@ def api_sp2_save_pl_rows():
                             (week_start, week_end, target, pl_id, build_name,
                              build_type, hours, total_crashes, updated_by)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON DUPLICATE KEY UPDATE
+                            target=VALUES(target),
+                            build_type=VALUES(build_type),
+                            hours=VALUES(hours),
+                            total_crashes=VALUES(total_crashes),
+                            updated_by=VALUES(updated_by),
+                            updated_at=CURRENT_TIMESTAMP
                     """, (ws.isoformat(), we.isoformat(), target, pl_id, build_name,
                           build_type, hours, crashes, _current_user_identifier()))
                 saved += 1
@@ -9041,6 +9116,14 @@ def api_sp2_save_target():
                             (week_start, week_end, target, pl_id, build_name,
                              build_type, hours, total_crashes, bu, updated_by)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON DUPLICATE KEY UPDATE
+                            target=VALUES(target),
+                            bu=VALUES(bu),
+                            build_type=VALUES(build_type),
+                            hours=VALUES(hours),
+                            total_crashes=VALUES(total_crashes),
+                            updated_by=VALUES(updated_by),
+                            updated_at=CURRENT_TIMESTAMP
                     """, (ws.isoformat(), we.isoformat(),
                           target, pl_id, build_name,
                           build_type, hours, crashes,

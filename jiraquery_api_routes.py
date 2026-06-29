@@ -108,6 +108,44 @@ def jiraquery_login_or_token_required(fn):
     return wrapper
 
 
+@jiraquery_api_bp.route("/api/token/verify", methods=["GET", "POST"])
+def api_token_verify():
+    """Quick endpoint to verify an API token without running a full report.
+
+    Returns 200 + {ok:true} if the token is valid, 401 if not.
+    No login session required — token-only check.
+
+    Usage:
+      curl -H "X-PDTBuddy-API-Token: <token>" http://<host>/api/token/verify
+    """
+    provided = _request_api_token()
+    configured = _configured_api_tokens()
+    if not configured:
+        return jsonify({
+            'ok': False,
+            'error': 'No API tokens are configured on this server. '
+                     'Set PDTBUDDY_API_TOKEN in .env and restart.',
+            'token_configured': False,
+        }), 503
+    if not provided:
+        return jsonify({
+            'ok': False,
+            'error': 'No token provided. Send X-PDTBuddy-API-Token header or Authorization: Bearer <token>.',
+            'token_configured': True,
+        }), 401
+    if any(compare_digest(provided, expected) for expected in configured):
+        return jsonify({
+            'ok': True,
+            'authenticated': True,
+            'message': 'Token is valid.',
+        }), 200
+    return jsonify({
+        'ok': False,
+        'error': 'Token is invalid or does not match any configured token.',
+        'token_configured': True,
+    }), 401
+
+
 @jiraquery_api_bp.route("/api/jiraquery/raw", methods=["GET", "POST"])
 @jiraquery_login_or_token_required
 def api_jiraquery_raw():

@@ -69,8 +69,8 @@ SEARCH_FIELDS = (
     "customfield_10034,customfield_10221,customfield_10270,customfield_10686,"
     "customfield_10842,customfield_10933,customfield_10935,customfield_11063,"
     "customfield_12830,customfield_13323,customfield_14929,customfield_14930,"
-    "customfield_26413,customfield_26610,customfield_26614,customfield_27810,"
-    "customfield_28311,customfield_29211,customfield_10070,customfield_100070"
+        "customfield_26413,customfield_26610,customfield_26614,customfield_27810,"
+    "customfield_28311,customfield_29211,customfield_30012,customfield_10070,customfield_100070"
 )
 
 STABILITY_PREFIXES = [
@@ -235,21 +235,27 @@ def _cf(fields, cf_name):
 
 
 def _extract_cr_from_text(text):
-    """Return 'CR<number>' if a valid 6-7 digit CR is found in text, else ''."""
-    if not text:
+    """Return 'CR<number>' if a valid 6-7 digit CR is found in text, else ''.
+
+    Mirrors PDT_StatsCommonLib.checkValidCR(): strip / and quotes, if text
+    contains CR use the suffix after the last CR, then accept a pure 6/7 digit
+    value. This intentionally accepts fields whose entire value is just
+    "3561234" because legacy PDT reports count those as CR3561234.
+    """
+    if text is None:
         return ''
     s = str(text).strip().upper().replace('/', '').replace('"', '')
-    m = re.search(r'ORBIT/CR/(\d{6,7})', s)
+    if not s:
+        return ''
+    # Preserve explicit Orbit URL support before slash removal makes it CR123.
+    raw = str(text).strip().upper().replace('"', '')
+    m = re.search(r'ORBIT\s*/\s*CR\s*/\s*(\d{6,7})', raw)
     if m:
         return 'CR' + m.group(1)
     if 'CR' in s:
-        s2 = s[s.rfind('CR') + 2:]
-        digits = re.match(r'(\d{6,7})', s2.strip())
-        if digits:
-            return 'CR' + digits.group(1)
-    # Match the legacy PDT_Stats checkValidCR behavior: do not treat any
-    # standalone 6/7 digit number as a CR unless it is explicitly CR-like.
-    # This avoids mapping serial/build/random numbers as CRs.
+        s = s[s.rfind('CR') + 2:].strip()
+    if re.fullmatch(r'\d{6,7}', s):
+        return 'CR' + s
     return ''
 
 
@@ -266,6 +272,58 @@ def _extract_stability_key(text):
             if m:
                 return m.group(1)
     return ''
+
+
+def _query_qwinbug_analysis(issue):
+    """Resolve QWINBUG through Windows crash-analysis service.
+
+    Mirrors C:\\Dropbox\\Development\\PDT_StatsQueryWin.py::issueQWINBUG:
+    read customfield_30012 analysis URL/id, call wincrash get_latest_CR_from_analyses,
+    and return CR/status/details when available.
+    """
+    import http.client as _http_client
+    import json as _json
+
+    details = {
+        'analysis_id': '',
+        'issue_id': '',
+        'issue_title': '',
+        'source': 'wincrash.qualcomm.com/rpc/get_latest_CR_from_analyses/',
+    }
+    try:
+        raw = getattr(issue.fields, 'customfield_30012', None)
+        analysis_id = str(raw or '').strip()
+        if analysis_id:
+            parts = [p for p in analysis_id.split('/') if p]
+            analysis_id = parts[-1] if parts else analysis_id
+        details['analysis_id'] = analysis_id
+        if not analysis_id:
+            return '', _safe(issue.fields.status), details
+
+        body = _json.dumps({'analysis_list': [analysis_id]})
+        conn = _http_client.HTTPConnection('wincrash.qualcomm.com', timeout=30)
+        try:
+            conn.request('POST', '/rpc/get_latest_CR_from_analyses/', body, {'Content-type': 'application/json'})
+            res = conn.getresponse()
+            payload = res.read().decode('utf-8', errors='ignore')
+        finally:
+            conn.close()
+
+        result = _json.loads(payload or '{}')
+        cr = ''
+        for item in result.get('Data') or []:
+            cr = str(item.get('CR') or '').strip()
+            details['issue_id'] = str(item.get('issue_id') or '').strip()
+            details['issue_title'] = str(item.get('issue_title') or '').strip()
+
+        if cr and cr.upper() != 'NO_CR':
+            if not cr.upper().startswith('CR'):
+                cr = 'CR' + cr
+            return cr.upper(), 'closed', details
+        return '', _safe(issue.fields.status), details
+    except Exception as exc:
+        details['error'] = str(exc)
+        return '', _safe(getattr(issue.fields, 'status', '')), details
 
 
 def _get_resolution_notes_text(fields):
@@ -587,10 +645,13 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
     all_crs          = set()
     all_crs_lock     = threading.Lock()
 
-    # Phase 1: JIRAs with direct CR — no traversal needed
+        # Phase 1: JIRAs with direct CR — no traversal needed.
+    # Important: legacy PDT_Stats.processJira intentionally ignores normal
+    # resolution-note CRs for QWINBUG and sends QWINBUG through wincrash
+    # analysis lookup instead.
     needs_traversal = []
     for d in issues_dicts:
-        if d['cr_mapped']:
+        if d['cr_mapped'] and 'QWINBUG' not in str(d.get('key') or '').upper():
             d['traversal'] = {
                 'final_key'        : d['key'],
                 'final_cr'         : d['cr_mapped'],
@@ -684,6 +745,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         last_issue = None
         cyclic_mapping_reason = ''
         cyclic_mapping_final_key = ''
+        qwinbug_details = {}
 
         closed_statuses = {'closed', 'transferred', 'resolved'}
         resolved_resolutions = {
@@ -696,6 +758,22 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 issues = _cached_fetch(jira_conn, [key])
                 return issues[0] if issues else None
             except Exception as e:
+                return None
+
+        def _fetch_full_issue(key):
+            """Fetch full JIRA issue object.
+
+            Legacy PDT_Stats.processJira does this specifically for QWINBUG:
+                issue = jiraQ.fetchJIRA(issue.key)
+            because some Windows crash custom fields are not reliably available
+            on the search result object.
+            """
+            try:
+                issue = jira_conn.issue(key)
+                with issue_cache_lock:
+                    issue_cache[str(issue.key)] = issue
+                return issue
+            except Exception:
                 return None
 
         def _valid_resolution_mapping(issue):
@@ -727,7 +805,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             )
 
         def _process_issue(issue, depth=0):
-            nonlocal last_issue, cyclic_mapping_reason, cyclic_mapping_final_key
+            nonlocal last_issue, cyclic_mapping_reason, cyclic_mapping_final_key, qwinbug_details
             if issue is None:
                 return '', '', '', ''
 
@@ -773,8 +851,25 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
             cr, resolution_ticket, raw_resolution_text = _valid_resolution_mapping(issue)
 
-                        # ── Has a CR mapped → this is the final ticket ────────────────────
-            if cr and 'QWINBUG' not in key:
+            # ── Windows/QWINBUG special handling ─────────────────────────────
+            # Legacy PDT_StatsQueryWin.py does not rely on normal JIRA CR fields;
+            # it reads customfield_30012 analysis id and asks wincrash for the
+            # latest CR/details. Without this, QWINBUG tickets stay unmapped.
+            if 'QWINBUG' in key.upper():
+                # Match PDT_Stats.processJira exactly: re-fetch the QWINBUG
+                # issue before calling issueQWINBUG(), otherwise customfield_30012
+                # may be missing from the search result object.
+                q_issue = _fetch_full_issue(key) or issue
+                qcr, qstatus, qdetails = _query_qwinbug_analysis(q_issue)
+                qwinbug_details = qdetails or {}
+                if qcr:
+                    # Match PDT_Stats.processJira: after issueQWINBUG returns a
+                    # valid CR, processJira returns (tempCrNumber, 'Done', 'Done').
+                    return qcr, key, 'Done', 'Done'
+                return '', key, qstatus or status, resolution
+
+            # ── Has a CR mapped → this is the final ticket ────────────────────
+            if cr:
                 return cr, key, status, resolution
 
             # ── Self-reference in resolution notes, e.g. ADSPIMAGE-X maps to ADSPIMAGE-X.
@@ -852,6 +947,12 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             _fsu = _safe(last_issue.fields.summary)     if last_issue else ''
             _mtype = 'CRMapped' if final_cr else 'Unmapped'
             _mreason = ''
+            if qwinbug_details:
+                _fst = final_status or _fst
+                _fre = final_resolution or _fre
+                _fsu = qwinbug_details.get('issue_title') or _fsu
+                _mtype = 'QWINBUGCR' if final_cr else 'QWINBUGAnalysis'
+                _mreason = qwinbug_details.get('analysis_id') or qwinbug_details.get('issue_id') or qwinbug_details.get('error') or ''
 
         d['traversal'] = {
             'final_key'        : _fk,
@@ -862,8 +963,9 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             'hop_count'        : max(len(visited) - 1, 0),
             'chain'            : list(dict.fromkeys(visited or [start_key])),
             'transferred_chain': list(dict.fromkeys(transferred)),
-            'mapping_type'     : _mtype,
+                        'mapping_type'     : _mtype,
             'mapping_reason'   : _mreason,
+            'qwinbug_details'  : qwinbug_details,
         }
 
         # ── Store result in traversal cache for all keys in the chain ────────────────
@@ -1241,6 +1343,8 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
                 'title'             : jira['summary'],
                 'status'            : jira['status'],
                 'resolution'        : jira['resolution'],
+                'resolution_notes'  : jira.get('resolution_notes', ''),
+                'cr_number_field'   : jira.get('cr_number_field', ''),
                 'created'           : jira['created'],
                 'reporter'          : jira['reporter'],
                 'matched_build'     : jira['matched_build'],
@@ -1271,7 +1375,10 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
 # =============================================================================
 
 def make_summary(build_ids, issues_dicts):
-    # Statuses that are definitively junk/invalid — exclude from all counts
+    # Statuses that are definitively junk/invalid. They are still included in
+    # total_jiras because the Build Report must match JIRA's raw result count;
+    # invalid_validated counts are exposed separately for consumers that need
+    # the older filtered total.
     # Source: PDT_StatsConstants.py ISSUE_CLOSED + resolution mapping
     EXCLUDE_STATUSES = {
         'rejected',                    # ISSUE_STATUS_CLOSED_REJECTED (10014)
@@ -1303,8 +1410,8 @@ def make_summary(build_ids, issues_dicts):
             return True
         return False
 
-    # exclude invalid/junk tickets from all counts
     valid_issues = [d for d in issues_dicts if not _is_invalid(d)]
+    invalid_issues = [d for d in issues_dicts if _is_invalid(d)]
 
     by_build   = {b: 0 for b in build_ids}
     by_project = {}
@@ -1312,7 +1419,7 @@ def make_summary(build_ids, issues_dicts):
     transferred = 0
     open_no_cr  = 0
 
-    for d in valid_issues:
+    for d in issues_dicts:
         proj = d['project']
         by_project[proj] = by_project.get(proj, 0) + 1
 
@@ -1331,8 +1438,13 @@ def make_summary(build_ids, issues_dicts):
         if 'open' in status and not final_cr:
             open_no_cr += 1
 
-    return {
-        'total_jiras'       : len(valid_issues),
+        return {
+        # Raw count from JIRA. This should match the JIRA UI result count for
+        # the exact JQL (for example 248), not the old filtered count.
+        'total_jiras'       : len(issues_dicts),
+        'total_all_jiras'   : len(issues_dicts),
+        'valid_jiras'       : len(valid_issues),
+        'invalid_jiras'     : len(invalid_issues),
         'by_build'          : by_build,
         'by_project'        : by_project,
         'with_cr'           : with_cr,
@@ -1642,6 +1754,30 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
     summary = make_summary(build_ids, issues_dicts)
     hierarchical_report = build_hierarchical_report(issues_dicts, cr_info_map)
     final_cr_count = len([r for r in hierarchical_report if r.get('cr') and r.get('cr') != 'NO_CR'])
+    qwinbug_rows = [d for d in issues_dicts if 'QWINBUG' in str(d.get('key') or '').upper()]
+    qwinbug_stats = {
+        'total': len(qwinbug_rows),
+        'mapped_to_cr': sum(1 for d in qwinbug_rows if (d.get('traversal') or {}).get('final_cr')),
+        'with_analysis_id': sum(1 for d in qwinbug_rows if ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('analysis_id')),
+        'with_wincrash_issue_id': sum(1 for d in qwinbug_rows if ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('issue_id')),
+        'errors': [
+            {'key': d.get('key'), 'error': ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('error')}
+            for d in qwinbug_rows
+            if ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('error')
+        ][:10],
+        'samples_unmapped': [
+            {
+                'key': d.get('key'),
+                'status': d.get('status'),
+                'final_status': (d.get('traversal') or {}).get('final_status'),
+                'analysis_id': ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('analysis_id'),
+                'issue_id': ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('issue_id'),
+                'issue_title': ((d.get('traversal') or {}).get('qwinbug_details') or {}).get('issue_title'),
+            }
+            for d in qwinbug_rows
+            if not (d.get('traversal') or {}).get('final_cr')
+        ][:10],
+    }
 
     if progress:
         progress.update(
@@ -1663,8 +1799,9 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             "traversal_done"  : traverse,
             "orbit_enriched"  : enrich_orbit and bool(cr_info_map),
             "generated_at"    : time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "target_name"     : target_name,
+                        "target_name"     : target_name,
             "custom_jql"      : custom_jql or None,
+            "qwinbug_stats"   : qwinbug_stats,
         },
         "summary"            : summary,
         "cr_index"           : cr_info_map,

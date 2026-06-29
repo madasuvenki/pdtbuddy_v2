@@ -151,7 +151,7 @@
     {% endif %}
     {% if not is_eng_job and 'opencrs' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'opencrs' else '' }}" id="tab-btn-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope" style="color:#be123c"></i> Open CRs</button>{% endif %}
     {% if not is_eng_job and 'openjiras' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'openjiras' else '' }}" id="tab-btn-openjiras" onclick="switchTab('openjiras')"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</button>{% endif %}
-        {% if 'buildreport' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'buildreport' else '' }}" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report (old Builds) - WIP</button>{% endif %}
+        {% if 'buildreport' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'buildreport' else '' }}" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report (old Builds)</button>{% endif %}
 
   </div>
   {% endif %}
@@ -266,7 +266,7 @@
 
       <!-- Card header -->
       <div class="card-head">
-        <h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build (WIP)</h2>
+        <h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build</h2>
         <div class="mini-toolbar">
           <span id="runCount" class="pill"></span>
           <span id="rbDbStatus" style="font-size:11px;font-weight:700;color:#64748b"></span>
@@ -1019,7 +1019,7 @@ window.LSP_DATA = {
 
   /* ---- helpers ---- */
   function _esc(v){var d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;}
-  function _load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(_){return [];}}
+  function _load(){try{var server=((window.LSP_DATA||{}).all_rows||[]).filter(function(r){return r&&String(r.source||'').toLowerCase()!=='excel';});if(server.length)return server.map(function(r){return {build_id:r.build_id||r.build_full||r.display_build||'',build_full:r.build_full||r.build_id||'',meta_id:r.meta_id||r.display_build||'',domain:String(r.domain||r.deck_type||'ADAS').toUpperCase(),deviceName:r.deviceName||r.device_name||r.product_flavor||r.display_build||r.build_full||'',hours:r.hours||'',reduction:r.reduction||r.reduction_percent||'',crashes:r.crashes||'',device_count:r.device_count||r.devices||'',published:!!r.published,product_flavor:r.product_flavor||'',run_status:r.run_status||'running',source:r.source||'json'};});return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(_){return [];}}
   function _save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(_rbSaved));}catch(_){}}
 
   /* ---- hours / reduction calc (mirrors lsp_v2 logic) ---- */
@@ -2163,7 +2163,7 @@ window.LSP_DATA = {
 }());
 </script>
 
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260623_editmode8"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260629_mtbf_common"></script>
 <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
