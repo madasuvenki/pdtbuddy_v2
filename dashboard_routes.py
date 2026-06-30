@@ -5293,8 +5293,6 @@ def device_summary_page(target_name):
     return render_template('device_summary_page.html', **data, **ctx)
 
 
-
-
 def normalize_dashboard_section(section):
     section = (section or 'dashboard').strip().lower()
     mapping = {
