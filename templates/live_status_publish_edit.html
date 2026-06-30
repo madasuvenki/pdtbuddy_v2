@@ -3200,7 +3200,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       });
     }
     if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length){
-            (rep.open_jiras||[]).filter(_lspIssueSelected).forEach(function(j){
+            (rep.open_jiras||[]).forEach(function(j){  // domain table rows: no build filter
         _lspJiraRows.push({key:j.stability_ticket||j.key, title:j.jira_title||j.summary,
           status:j.status||'Open', resolution:_lspFinalResolution(j)||j.status||'Open', type:_lspCrashType(j), count:1});
       });
@@ -3465,6 +3465,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var kpiWrap = document.getElementById('lspReportKpis');
     if(kpiWrap) kpiWrap.style.display='none';
 
+    var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+    var _activeDomain = String(window._lspNavDomain || window._domain || 'ADAS').toUpperCase();
     var payload = {
       builds: builds,
       traverse: true,
@@ -3472,7 +3474,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
       target: target,
       force: true,
       custom_jql: jql,
-      include_axiom_metrics: true
+      include_axiom_metrics: true,
+      domain: IS_AUTO ? _activeDomain : '',
+      use_domain_tables: IS_AUTO
     };
 
     fetch('/api/consolidated_report', {
