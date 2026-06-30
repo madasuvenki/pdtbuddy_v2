@@ -98,12 +98,27 @@ def jiraquery_login_or_token_required(fn):
     def wrapper(*args, **kwargs):
         if _jiraquery_authenticated():
             return fn(*args, **kwargs)
+        configured = bool(_configured_api_tokens())
         return jsonify({
             "success": False,
             "ok": False,
             "login_required": True,
-            "token_allowed": bool(_configured_api_tokens()),
-            "error": "Login session or API token required. Use browser login cookie, or send X-PDTBuddy-API-Token / Authorization: Bearer token.",
+            "token_allowed": configured,
+            "error": (
+                "Unauthorized. Browser session has expired or is missing. "
+                "For API/curl access use a static token: "
+                "add header  X-PDTBuddy-API-Token: <token>  "
+                "or  Authorization: Bearer <token>. "
+                + ("A token IS configured on this server — ask the admin for it."
+                   if configured else
+                   "No API token is configured on this server yet. "
+                   "Admin must set PDTBUDDY_API_TOKEN in .env and restart.")
+            ),
+            "how_to_fix": (
+                'curl -H "X-PDTBuddy-API-Token: <token>" -X POST '
+                'http://<host>/api/jiraquery/raw -H "Content-Type: application/json" '
+                '-d \'{"builds":"BUILD1,BUILD2","target":"ALDABRA"}\'' 
+            ),
         }), 401
     return wrapper
 
