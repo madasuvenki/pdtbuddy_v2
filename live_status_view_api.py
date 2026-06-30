@@ -1186,7 +1186,37 @@ def api_running_builds_db(target_name: str):
         except Exception as exc:
             _logger.warning('[RUNNING BUILDS DB] deck_config load failed: %s', exc)
 
-        # Fallback: use fq_table_for_target on the parent target directly
+                # Fallback: auto-discover domain-specific tables from information_schema
+        # e.g. nord_hgy_ivi_5_7_7_0_jiras, nord_hgy_flex_5_7_7_0_jiras etc.
+        if not tables:
+            try:
+                schema = schema or (get_schema_for_target(target_name) or '').strip('`')
+                tgt_prefix = str(target_name or '').strip().lower().replace('-', '_')
+                domain_keywords = [domain_filter.lower()] if domain_filter in ('ADAS', 'FLEX', 'IVI') \
+                                  else ['adas', 'flex', 'ivi']
+                conn_fb = get_mysql_connection_db()
+                if conn_fb and schema and tgt_prefix:
+                    cur_fb = conn_fb.cursor()
+                    for dk in domain_keywords:
+                        like_pat = f'{tgt_prefix}_{dk}%'
+                        cur_fb.execute(
+                            "SELECT table_name FROM information_schema.tables "
+                            "WHERE table_schema = %s AND table_name LIKE %s "
+                            "AND (table_name LIKE %s OR table_name LIKE %s) "
+                            "ORDER BY table_name DESC LIMIT 10",
+                            (schema, like_pat + '%',
+                             like_pat + '%_jiras',
+                             like_pat + '%_openjiras')
+                        )
+                        for (tbl,) in (cur_fb.fetchall() or []):
+                            if tbl.endswith('_jiras') or tbl.endswith('_openjiras'):
+                                tables.append(f'`{schema}`.`{tbl}`')
+                    cur_fb.close()
+                    conn_fb.close()
+            except Exception as exc:
+                _logger.warning('[RUNNING BUILDS DB] auto-discover tables failed: %s', exc)
+
+        # Final fallback: use target-level jiras/openjiras table
         if not tables:
             for suffix in ('jiras', 'openjiras'):
                 try:
