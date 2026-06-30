@@ -277,53 +277,82 @@ def _extract_stability_key(text):
 def _query_qwinbug_analysis(issue):
     """Resolve QWINBUG through Windows crash-analysis service.
 
-    Mirrors C:\\Dropbox\\Development\\PDT_StatsQueryWin.py::issueQWINBUG:
-    read customfield_30012 analysis URL/id, call wincrash get_latest_CR_from_analyses,
-    and return CR/status/details when available.
+    Mirrors PDT_StatsQueryWin.py::issueQWINBUG exactly:
+      1. Read customfield_30012 (analysis URL) — split on '/' take last non-empty part
+      2. POST {'analysis_list':[id]} to wincrash HTTPS endpoint
+         (legacy used httplib.HTTPConnection which got HTTP 301 redirect;
+          we must use HTTPS + follow redirect to get the actual JSON)
+      3. CR comes back as integer in Data[].CR — convert to 'CR<num>'
+      4. If CR valid and != 'NO_CR' → return ('CR<num>', 'closed', details)
+      5. Else → return ('', issue.status, details)
     """
-    import http.client as _http_client
     import json as _json
+    import ssl as _ssl
+    import urllib.request as _urlreq
 
     details = {
-        'analysis_id': '',
-        'issue_id': '',
-        'issue_title': '',
-        'source': 'wincrash.qualcomm.com/rpc/get_latest_CR_from_analyses/',
+        'analysis_id' : '',
+        'issue_id'    : '',
+        'issue_title' : '',
+        'source'      : 'wincrash.qualcomm.com/rpc/get_latest_CR_from_analyses/',
     }
     try:
+        # ── Step 1: extract analysis ID from customfield_30012 ───────────────
+        # Field value is a URL like: http://wincrash.qualcomm.com/analysis/8926999
+        # Legacy: analysisID = issue.fields.customfield_30012.split('/')[-1]
         raw = getattr(issue.fields, 'customfield_30012', None)
         analysis_id = str(raw or '').strip()
         if analysis_id:
-            parts = [p for p in analysis_id.split('/') if p]
-            analysis_id = parts[-1] if parts else analysis_id
+            parts = [p.strip() for p in analysis_id.split('/') if p.strip()]
+            analysis_id = parts[-1] if parts else ''
         details['analysis_id'] = analysis_id
+
         if not analysis_id:
             return '', _safe(issue.fields.status), details
 
-        body = _json.dumps({'analysis_list': [analysis_id]})
-        conn = _http_client.HTTPConnection('wincrash.qualcomm.com', timeout=30)
-        try:
-            conn.request('POST', '/rpc/get_latest_CR_from_analyses/', body, {'Content-type': 'application/json'})
-            res = conn.getresponse()
-            payload = res.read().decode('utf-8', errors='ignore')
-        finally:
-            conn.close()
+        # ── Step 2: POST to wincrash over HTTPS (HTTP gives 301 redirect) ────
+        # Legacy used httplib.HTTPConnection which silently got 301+empty body.
+        # We use urllib.request which follows redirects automatically.
+        body = _json.dumps({'analysis_list': [analysis_id]}).encode('utf-8')
+        req  = _urlreq.Request(
+            'https://wincrash.qualcomm.com/rpc/get_latest_CR_from_analyses/',
+            data    = body,
+            headers = {'Content-type': 'application/json'},
+            method  = 'POST',
+        )
+        ctx = _ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode    = _ssl.CERT_NONE
+        with _urlreq.urlopen(req, context=ctx, timeout=30) as resp:
+            payload = resp.read().decode('utf-8', errors='ignore')
 
+        # ── Step 3: parse response ───────────────────────────────────────────
         result = _json.loads(payload or '{}')
-        cr = ''
-        for item in result.get('Data') or []:
-            cr = str(item.get('CR') or '').strip()
-            details['issue_id'] = str(item.get('issue_id') or '').strip()
-            details['issue_title'] = str(item.get('issue_title') or '').strip()
+        cr = issue_id = issue_title = ''
+        # Legacy iterates result['Data'] — last item wins
+        for item in (result.get('Data') or []):
+            # CR comes back as integer (e.g. 4385171) or string or 'NO_CR'
+            cr          = str(item.get('CR')          or '').strip()
+            issue_id    = str(item.get('issue_id')    or '').strip()
+            issue_title = str(item.get('issue_title') or '').strip()
 
-        if cr and cr.upper() != 'NO_CR':
+        details['issue_id']    = issue_id
+        details['issue_title'] = issue_title
+
+        # ── Step 4: return CR if valid ───────────────────────────────────────
+        if cr and cr.upper() not in ('NO_CR', 'NONE', '') and cr != '0':
             if not cr.upper().startswith('CR'):
                 cr = 'CR' + cr
             return cr.upper(), 'closed', details
+
+        details['no_cr_reason'] = (
+            f'wincrash returned CR={cr!r} for analysis_id={analysis_id!r}'
+        )
         return '', _safe(issue.fields.status), details
+
     except Exception as exc:
         details['error'] = str(exc)
-        return '', _safe(getattr(issue.fields, 'status', '')), details
+        return '', _safe(getattr(issue.fields, 'status', None) or ''), details
 
 
 def _get_resolution_notes_text(fields):
@@ -645,10 +674,12 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
     all_crs          = set()
     all_crs_lock     = threading.Lock()
 
-        # Phase 1: JIRAs with direct CR — no traversal needed.
+            # Phase 1: JIRAs with direct CR — no traversal needed.
     # Important: legacy PDT_Stats.processJira intentionally ignores normal
     # resolution-note CRs for QWINBUG and sends QWINBUG through wincrash
     # analysis lookup instead.
+    # Also: QWINBUG tickets must ALWAYS go through wincrash even if cr_mapped
+    # is set, because the legacy code re-fetches and calls issueQWINBUG().
     needs_traversal = []
     for d in issues_dicts:
         if d['cr_mapped'] and 'QWINBUG' not in str(d.get('key') or '').upper():
@@ -796,9 +827,19 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         def _resolution_notes_without_check(issue):
             return _get_resolution_notes_text(issue.fields) or _safe(issue.fields.resolution)
 
+                # Statuses that are definitively inactive — treated as closed for
+        # traversal purposes even without a matching resolution string.
+        inactive_statuses = {
+            's2_analysis', 'rejected', 'withdrawn', 'duplicate',
+            'transferred', 'invalid', 'cannot reproduce',
+        }
+
         def _is_closed_resolved(issue):
             status = _safe(issue.fields.status).lower()
             resolution = _safe(issue.fields.resolution).lower()
+            # Inactive statuses are treated as closed regardless of resolution
+            if any(s in status for s in inactive_statuses):
+                return True
             return (
                 any(s in status for s in closed_statuses) and
                 any(r == resolution or r in resolution for r in resolved_resolutions)
@@ -851,10 +892,18 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
             cr, resolution_ticket, raw_resolution_text = _valid_resolution_mapping(issue)
 
+                        # ── Has a CR mapped → this is the final ticket ────────────────────
+            # Check this BEFORE the QWINBUG wincrash path so that QWINBUG tickets
+            # with a direct CR in cf_12830 (e.g. https://orbit/CR/4331690) are
+            # resolved immediately without calling wincrash.
+            # Legacy PDT_Stats.processJira also checks resolutionTicketMap first.
+            if cr:
+                return cr, key, status, resolution
+
             # ── Windows/QWINBUG special handling ─────────────────────────────
-            # Legacy PDT_StatsQueryWin.py does not rely on normal JIRA CR fields;
-            # it reads customfield_30012 analysis id and asks wincrash for the
-            # latest CR/details. Without this, QWINBUG tickets stay unmapped.
+            # Only reached when no direct CR found in resolution fields.
+            # Legacy PDT_StatsQueryWin.py reads customfield_30012 analysis id
+            # and asks wincrash for the latest CR/details.
             if 'QWINBUG' in key.upper():
                 # Match PDT_Stats.processJira exactly: re-fetch the QWINBUG
                 # issue before calling issueQWINBUG(), otherwise customfield_30012
@@ -863,14 +912,12 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 qcr, qstatus, qdetails = _query_qwinbug_analysis(q_issue)
                 qwinbug_details = qdetails or {}
                 if qcr:
-                    # Match PDT_Stats.processJira: after issueQWINBUG returns a
-                    # valid CR, processJira returns (tempCrNumber, 'Done', 'Done').
-                    return qcr, key, 'Done', 'Done'
+                    # CR found via wincrash — return real JIRA status/resolution
+                    last_issue = q_issue
+                    return qcr, key, status, resolution
+                # No CR from wincrash — return real status, not hardcoded 'Done'
+                last_issue = q_issue
                 return '', key, qstatus or status, resolution
-
-            # ── Has a CR mapped → this is the final ticket ────────────────────
-            if cr:
-                return cr, key, status, resolution
 
             # ── Self-reference in resolution notes, e.g. ADSPIMAGE-X maps to ADSPIMAGE-X.
             # Treat as CyclicMapping instead of a normal final JIRA, matching PDT_Stats.py
@@ -890,19 +937,26 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 if res_result[1] and res_result[1] != key: # deeper key found
                     return res_result
 
-            # ── Closed/Resolved/Duplicate: follow outward link + res ticket ───
+                    # ── Closed/Resolved/Duplicate: follow outward link + res ticket ───
             if _is_closed_resolved(issue) and 'QWINBUG' not in key:
                 outward_keys  = _get_outward_keys(issue)
-                linked_key    = outward_keys[0] if outward_keys else ''
-                linked_ticket = _extract_stability_key(linked_key) if linked_key else ''
+                # Legacy checkLinkedIssue: walk ALL outward links, not just [0]
+                linked_ticket = ''
+                for lk in outward_keys:
+                    candidate = _extract_stability_key(lk) or lk
+                    if candidate and candidate not in visited:
+                        linked_ticket = candidate
+                        break
 
                 # Build deduplicated list of next-hop candidates
+                # Legacy PDT_Stats.processJira tries resolution_ticket FIRST
+                # (resolutionTicketMap), then linked/dup ticket (dupIssueMappingTck)
                 next_keys = []
-                if linked_ticket and linked_ticket not in visited:
-                    next_keys.append(linked_ticket)
                 if (resolution_ticket and resolution_ticket not in visited
                         and resolution_ticket not in next_keys):
                     next_keys.append(resolution_ticket)
+                if linked_ticket and linked_ticket not in visited and linked_ticket not in next_keys:
+                    next_keys.append(linked_ticket)
 
                 best_result = None
                 for nk in next_keys:
@@ -917,8 +971,10 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 if best_result:
                     return best_result
 
-                # Dead end at this ticket — return its actual status/resolution
-                return '', key, status, resolution
+                # Dead end — return raw resolution text if no ticket found
+                # Legacy: return queryKey, sTatus, resolNote
+                resolnote = _resolution_notes_without_check(issue)
+                return '', key, status, resolnote or resolution
 
             # ── Open/active: only follow explicit stability ticket ─────────────
             if (resolution_ticket and resolution_ticket != key
@@ -942,8 +998,8 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             _mreason = cyclic_mapping_reason
         else:
             _fk  = str(last_issue.key)                  if last_issue else start_key
-            _fst = _safe(last_issue.fields.status)      if last_issue else ''
-            _fre = _safe(last_issue.fields.resolution)  if last_issue else ''
+            _fst = final_status  or (_safe(last_issue.fields.status)     if last_issue else '')
+            _fre = final_resolution or (_safe(last_issue.fields.resolution) if last_issue else '')
             _fsu = _safe(last_issue.fields.summary)     if last_issue else ''
             _mtype = 'CRMapped' if final_cr else 'Unmapped'
             _mreason = ''
@@ -959,11 +1015,18 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             'final_cr'         : final_cr or '',
             'final_status'     : _fst,
             'final_resolution' : _fre,
+            # resolution_notes_text: raw text from all resolution-note CFs on
+            # the FINAL ticket visited. Used by the Open/Unmapped table to show
+            # a meaningful "Final Resolution" value even when no CR is found.
+            'resolution_notes_text': (
+                _get_resolution_notes_text(last_issue.fields)
+                if last_issue else ''
+            ),
             'final_summary'    : _fsu,
             'hop_count'        : max(len(visited) - 1, 0),
             'chain'            : list(dict.fromkeys(visited or [start_key])),
             'transferred_chain': list(dict.fromkeys(transferred)),
-                        'mapping_type'     : _mtype,
+            'mapping_type'     : _mtype,
             'mapping_reason'   : _mreason,
             'qwinbug_details'  : qwinbug_details,
         }
@@ -1354,6 +1417,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
                 'final_key'         : jira['traversal'].get('final_key', ''),
                 'final_status'      : jira['traversal'].get('final_status', ''),
                 'final_resolution'  : jira['traversal'].get('final_resolution', ''),
+                'resolution_notes_text': jira['traversal'].get('resolution_notes_text', '') or jira.get('resolution_notes', ''),
                 'final_summary'     : jira['traversal'].get('final_summary', ''),
                 'hop_count'         : jira['traversal'].get('hop_count', 0),
                 'chain'             : jira['traversal'].get('chain', []),
@@ -1438,7 +1502,7 @@ def make_summary(build_ids, issues_dicts):
         if 'open' in status and not final_cr:
             open_no_cr += 1
 
-        return {
+    return {
         # Raw count from JIRA. This should match the JIRA UI result count for
         # the exact JQL (for example 248), not the old filtered count.
         'total_jiras'       : len(issues_dicts),

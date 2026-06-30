@@ -6,7 +6,7 @@
   <title>Build Report</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}th{position:sticky;top:0;background:#f1f5ff;color:#4338ca;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:360px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;table-layout:fixed}th{position:sticky;top:0;background:#f1f5ff;color:#4338ca;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;overflow-wrap:break-word;word-break:break-word}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:360px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
   </style>
   <style>
     :root{--br-ink:#172033;--br-navy:#172554;--br-indigo:#4f46e5;--br-violet:#7c3aed;--br-fuchsia:#c026d3;--br-cyan:#0891b2;--br-emerald:#059669;--br-amber:#d97706;--br-gold:#b45309;--br-line:rgba(99,102,241,.18);--br-shadow:0 18px 55px rgba(23,37,84,.13)}
@@ -112,6 +112,7 @@
         <button id="brCopyJiraBtn" class="btn btn-good" type="button" onclick="brCopyJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy Open JIRAs</button>
         <button id="brCsvJiraBtn" class="btn" type="button" onclick="brDownloadJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> JIRA CSV</button>
         <button id="brCsvAllJiraBtn" class="btn" type="button" onclick="brDownloadAllJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> All JIRAs CSV</button>
+        <button id="brCopyAllJiraBtn" class="btn btn-good" type="button" onclick="brCopyAllJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy All JIRAs</button>
         <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Full Report</button>
         <div id="brCounts" class="toolbar"></div>
       </div>
@@ -124,6 +125,16 @@
       <div id="brJiraSection" style="display:none;margin-bottom:14px">
         <h3 style="font-size:13px;color:#1e3a8a;margin:0 0 8px"><i class="fas fa-ticket-alt"></i> Open / Unmapped JIRAs</h3>
         <div class="tbl-wrap"><table><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Final Resolution</th><th>Count</th></tr></thead><tbody id="brJiraRows"></tbody></table></div>
+      </div>
+      <div id="brAllJiraSection" style="display:none;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <h3 style="font-size:13px;color:#1e3a8a;margin:0"><i class="fas fa-list-alt"></i> All JIRAs — Full Traversal Detail</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input id="brAllJiraSearch" class="mini-input" placeholder="Search JIRA / title / CR / reporter..." oninput="brFilterAllJiraTable()" style="max-width:280px">
+            <span id="brAllJiraCount" class="pill" style="font-size:11px"></span>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table id="brAllJiraTable"><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Reporter</th><th>Crash Type</th><th>Status</th><th>Mapped CR</th><th>Traversal Path</th><th>Final Resolution</th><th>Resolution Notes</th></tr></thead><tbody id="brAllJiraRows"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -138,11 +149,12 @@ const JIRA_ISSUES_BASE = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 let brLastCrRows=[];
 let brLastJiraRows=[];
 let brLastAllJiraRows=[];
+let brAllJiraRawData=[];
 function g(id){return document.getElementById(id)}
 function esc(v){return BuildReportCommon.escapeHtml(v)}
-function brGoHome(){try{window.top.location.href='/cr_overview/embed';}catch(e){window.location.href='/cr_overview/embed';}}
-function brGoBack(){if(window.history.length>1)window.history.back();else brGoHome();}
-function brCloseReport(){brGoHome();}
+  function brGoHome(){try{window.top.location.href='/cr_overview/embed';}catch(e){window.location.href='/cr_overview/embed';}}
+  function brGoBack(){if(window.history.length>1)window.history.back();else brGoHome();}
+  function brCloseReport(){brGoHome();}
 function buildList(){return BuildReportCommon.asList(g('brBuilds').value)}
 function jiraUrl(jql){return BuildReportCommon.jiraIssuesUrl(jql)}
 function jiraKeysUrl(keys){
@@ -225,7 +237,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -320,7 +332,18 @@ function crashTypeSummary(items, fallbackRow){
   return Object.keys(counts).filter(k=>counts[k]>0).map(k=>k+': '+counts[k]).join(', ') || '--';
 }
 function finalResolution(row){
-  return String((row&&row.final_resolution)||(row&&row.resolution)||(row&&row.cr_resolution)||(row&&row.final_status)||(row&&row.cr_status)||(row&&row.status)||'').trim();
+  // Prefer resolution notes text (actual notes from JIRA CF fields) over
+  // status strings. Falls back through: resolution_notes_text -> final_resolution
+  // -> resolution -> cr_resolution -> final_status -> cr_status -> status
+  return String(
+    (row&&row.resolution_notes_text)||
+    (row&&row.final_resolution)||
+    (row&&row.resolution)||
+    (row&&row.cr_resolution)||
+    (row&&row.final_status)||
+    (row&&row.cr_status)||
+    (row&&row.status)||''
+  ).trim();
 }
 function jiraKeyFromIssue(j){return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();}
 function jiraLinksHtml(items){
@@ -332,38 +355,90 @@ function jiraLinksHtml(items){
 function normalize(rep){
   const crRows=[], jiraRows=[], allJiraRows=[], seenJ={}, seenAll={};
   let totalJiras=0, convertedToCrs=0;
-  function pushAll(j, cr){
+
+  // Primary: build allJiraRows from raw jiras[] using original key + traversal.*
+  function pushAllFromRaw(j){
+    const origKey=String(j.key||'').toUpperCase();
+    if(!origKey||seenAll[origKey])return;
+    seenAll[origKey]=1;
+    const trav=j.traversal||{};
+    const finalCr=trav.final_cr||j.cr_mapped||'';
+    const chainArr=Array.isArray(trav.chain)?trav.chain:[];
+    const chain=chainArr.length>1?chainArr.join(' → '):(chainArr.length===1?chainArr[0]:'');
+    allJiraRows.push({
+      key:origKey,
+      title:j.summary||j.jira_title||j.title||'',
+      reporter:j.reporter||'',
+      status:j.status||'',
+      final_status:trav.final_status||j.status||'',
+      final_resolution:trav.final_resolution||j.resolution||'',
+      resolution_notes:j.resolution_notes||'',
+      cr:finalCr&&finalCr!=='NO_CR'?finalCr:'',
+      final_key:trav.final_key||origKey,
+      mapping_type:trav.mapping_type||'',
+      build:j.matched_build||j.meta_build||'',
+      project:j.project||'',
+      created:j.created||'',
+      type:crashType(j),
+      chain:chain,
+      hop_count:trav.hop_count||0,
+    });
+  }
+  // Fallback: hierarchical_report path (no raw jiras[])
+  function pushAllFromHierarchical(j,cr){
     const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
     if(!key||seenAll[key])return;
     seenAll[key]=1;
     allJiraRows.push({
       key:key,
       title:j.final_summary||j.summary||j.jira_title||j.title||'',
+      reporter:j.reporter||'',
       status:j.final_status||j.status||'Open',
-      resolution:finalResolution(j)||j.final_status||j.status||'',
+      final_status:j.final_status||j.status||'',
+      final_resolution:finalResolution(j)||'',
       resolution_notes:j.resolution_notes||j.final_resolution_notes||'',
       cr:cr&&cr!=='NO_CR'?cr:(j.cr_mapped||j.final_cr||''),
+      final_key:j.final_key||key,
+      mapping_type:j.mapping_type||'',
       build:j.matched_build||j.meta_build||'',
       project:j.project||'',
       created:j.created||'',
-      reporter:j.reporter||'',
       type:crashType(j),
-      chain:Array.isArray(j.chain)?j.chain.join(' > '):(j.chain||'')
+      chain:Array.isArray(j.chain)?j.chain.join(' → '):(j.chain||''),
+      hop_count:j.hop_count||0,
     });
   }
+
   const hasRawJiras=Boolean(rep.jiras&&rep.jiras.length);
   (rep.hierarchical_report||[]).forEach(r=>{
     const jiras=r.jiras||[];
     totalJiras+=jiras.length||0;
-    if(!hasRawJiras) jiras.forEach(j=>pushAll(j,r.cr));
+    if(!hasRawJiras) jiras.forEach(j=>pushAllFromHierarchical(j,r.cr));
     if(r.cr&&r.cr!=='NO_CR'){
       const mappedCount=jiras.length||r.cr_count||r.jira_count||1;
       convertedToCrs+=Number(mappedCount)||0;
       crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',resolution:finalResolution(r),count:mappedCount,jiras:jiras,type:crashTypeSummary(jiras,r)});
     }
-    jiras.forEach(j=>{const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; const st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; seenJ[key]=1; jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',resolution:finalResolution(j)||j.final_status||j.status||'Open',type:crashType(j),count:1});});
+    jiras.forEach(j=>{
+      const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
+      if(!key||seenJ[key])return;
+      // ── Skip if this JIRA is already mapped to a CR ──────────────────────
+      // Covers: QWINBUG→wincrash CR, QSTABILITY→traversal CR, DirectCR
+      // Check both the parent CR row (r.cr) and the JIRA's own traversal result
+      const jiraCr=String(j.final_cr||j.cr_mapped||j.cr||'').trim();
+      const parentCr=String(r.cr||'').trim();
+      if((jiraCr&&jiraCr!=='NO_CR')||(parentCr&&parentCr!=='NO_CR'))return;
+      // ── Skip if status is definitively closed/inactive ──────────────
+      const st=String(j.final_status||j.status||'').toLowerCase();
+      const _closedSt=['closed','resolved','done','rejected','s2_analysis',
+                       'withdrawn','transferred','duplicate','wont fix',
+                       "won't fix",'invalid','cannot reproduce','incomplete'];
+      if(_closedSt.some(s=>st===s||st.indexOf(s)>=0))return;
+      seenJ[key]=1;
+      jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',resolution:finalResolution(j)||j.final_status||j.status||'Open',resolution_notes_text:j.resolution_notes_text||j.resolution_notes||'',type:crashType(j),count:1});
+    });
   });
-  if(rep.jiras&&rep.jiras.length){(rep.jiras||[]).forEach(j=>pushAll(j,j.cr_mapped||((j.traversal||{}).final_cr)||''));}
+  if(hasRawJiras){(rep.jiras||[]).forEach(j=>pushAllFromRaw(j));}
   if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){(rep.cr_rows||[]).forEach(r=>{const c=Number(r.jira_count||1)||1;const linked=r.jiras||r.mapped_jiras||r.jira_keys||[];convertedToCrs+=c;crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||'',resolution:finalResolution(r),count:c,jiras:linked,type:crashTypeSummary(linked,r)});});}
   if(rep.open_jiras&&rep.open_jiras.length&&!jiraRows.length){(rep.open_jiras||[]).forEach(j=>jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',resolution:finalResolution(j)||j.status||'Open',type:crashType(j),count:1}));}
   const summary=rep.summary||{};
@@ -424,12 +499,68 @@ function renderAxiomMetricsHtml(rep){
     '<div class="metric-card purple"><b>'+esc(Math.round(totalDevices))+'</b><span>Devices</span></div>'+
     '<div class="metric-card good"><b>'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>';
 }
+function brFilterAllJiraTable(){
+  const q=String((g('brAllJiraSearch')||{}).value||'').toLowerCase();
+  let visible=0;
+  document.querySelectorAll('#brAllJiraRows tr').forEach(tr=>{
+    const show=!q||tr.textContent.toLowerCase().indexOf(q)>=0;
+    tr.style.display=show?'':'none';
+    if(show)visible++;
+  });
+  const cnt=g('brAllJiraCount');
+  if(cnt)cnt.textContent=q?(visible+' / '+brAllJiraRawData.length+' shown'):brAllJiraRawData.length+' total';
+}
+function renderAllJiraTable(rows){
+  brAllJiraRawData=rows||[];
+  const sec=g('brAllJiraSection'),tbody=g('brAllJiraRows'),cnt=g('brAllJiraCount');
+  if(!sec||!tbody)return;
+  if(!brAllJiraRawData.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  if(cnt)cnt.textContent=brAllJiraRawData.length+' total';
+  tbody.innerHTML=brAllJiraRawData.map((r,i)=>{
+    const jiraLink='<a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a>';
+    const crNum=String(r.cr||'').replace(/^CR/i,'');
+    const crHtml=r.cr?'<a class="link" href="https://orbit/CR/'+esc(crNum)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':'<span style="color:#94a3b8">—</span>';
+    const chainArr=r.chain?r.chain.split(' → ').map(k=>k.trim()).filter(Boolean):[];
+    let chainHtml='';
+    if(chainArr.length>1){
+      chainHtml='<div class="jira-links" style="flex-wrap:wrap;gap:3px">'+chainArr.map((k,hi)=>{
+        const isLast=hi===chainArr.length-1;
+        return '<a class="jira-chip" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener" style="'+(isLast?'background:#dcfce7;border-color:#86efac;color:#166534;':'')+'">'+esc(k)+'</a>'+(hi<chainArr.length-1?'<span style="color:#94a3b8;font-size:9px;padding:0 1px">→</span>':'');
+      }).join('')+'</div>';
+    } else if(chainArr.length===1){
+      chainHtml='<a class="jira-chip" href="'+JIRA_BASE+esc(chainArr[0])+'" target="_blank" rel="noopener">'+esc(chainArr[0])+'</a>';
+    }
+    const st=String(r.final_status||r.status||'').toLowerCase();
+    const stColor=st.indexOf('closed')>=0||st.indexOf('done')>=0?'#166534':st.indexOf('open')>=0?'#b45309':'#1e3a8a';
+    const stBg=st.indexOf('closed')>=0||st.indexOf('done')>=0?'#dcfce7':st.indexOf('open')>=0?'#fff7ed':'#eff6ff';
+    const stBadge='<span style="background:'+stBg+';color:'+stColor+';border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">'+esc(r.final_status||r.status||'—')+'</span>';
+    const mt=String(r.mapping_type||'');
+    const mtColor=mt==='CRMapped'||mt==='QWINBUGCR'?'#166534':mt==='Unmapped'?'#b45309':'#4338ca';
+    const mtBg=mt==='CRMapped'||mt==='QWINBUGCR'?'#dcfce7':mt==='Unmapped'?'#fff7ed':'#eff6ff';
+    const mtBadge=mt?'<span style="background:'+mtBg+';color:'+mtColor+';border-radius:999px;padding:2px 7px;font-size:9px;font-weight:900;margin-left:4px">'+esc(mt)+'</span>':'';
+    const resNotes=r.resolution_notes?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.resolution_notes)+'">'+esc(r.resolution_notes.substring(0,80))+(r.resolution_notes.length>80?'…':'')+'</div>':'';
+    return '<tr>'+
+      '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
+      '<td style="white-space:nowrap">'+jiraLink+'</td>'+
+      '<td style="max-width:360px;font-size:11px">'+esc(r.title||'—')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;color:#475569">'+esc(r.reporter||'—')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.type||'—')+'</td>'+
+      '<td>'+stBadge+'</td>'+
+      '<td style="white-space:nowrap">'+crHtml+mtBadge+'</td>'+
+      '<td style="min-width:160px">'+chainHtml+'</td>'+
+      '<td style="font-size:11px;max-width:180px">'+esc(r.final_resolution||'—')+'</td>'+
+      '<td>'+resNotes+'</td>'+
+    '</tr>';
+  }).join('');
+}
 function renderReport(rep){
   const rows=normalize(rep||{}), crRows=rows.crRows, jiraRows=rows.jiraRows;
   brLastAllJiraRows=rows.allJiraRows||[];
   g('brCounts').innerHTML='';
   ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
   const allBtn=g('brCsvAllJiraBtn'); if(allBtn) allBtn.style.display=brLastAllJiraRows.length?'inline-flex':'none';
+  const copyAllBtn=g('brCopyAllJiraBtn'); if(copyAllBtn) copyAllBtn.style.display=brLastAllJiraRows.length?'inline-flex':'none';
   const metricBox=g('brMetricCards');
   metricBox.style.display='grid';
   let crashSegHtml='';
@@ -449,11 +580,12 @@ function renderReport(rep){
   brLastJiraRows=jiraRows;
   if(jiraRows.length){g('brJiraSection').style.display='block';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution||r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
   else {g('brJiraSection').style.display='none';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});}
+  renderAllJiraTable(brLastAllJiraRows);
   const cr=g('brCrRows');
   if(!crRows.length){cr.innerHTML='<tr><td colspan="10" class="empty">No CR rows found for this query.</td></tr>';return;}
   crRows.sort((a,b)=>(b.count||0)-(a.count||0));
   brLastCrRows=crRows;
-  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td style="max-width:440px">'+esc(r.title||'--')+'</td><td style="text-align:center">'+cntHtml+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution||r.status||'--')+'</td><td style="text-align:center;font-weight:900">'+esc(r.age||'--')+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td></tr>';}).join('');
+  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td style="width:36px;text-align:center;white-space:nowrap">'+(i+1)+'</td><td style="width:90px;white-space:nowrap">'+link+'</td><td style="word-break:break-word;overflow-wrap:break-word;white-space:normal;min-width:160px">'+esc(r.title||'--')+'</td><td style="width:72px;text-align:center;white-space:nowrap">'+cntHtml+'</td><td style="width:100px;white-space:nowrap">'+esc(r.type||'--')+'</td><td style="width:110px">'+esc(r.resolution||r.status||'--')+'</td><td style="width:56px;text-align:center;font-weight:900;white-space:nowrap">'+esc(r.age||'--')+'</td><td style="width:80px">'+esc(r.area||'--')+'</td><td style="width:110px">'+esc(r.sub||'--')+'</td><td style="width:130px">'+esc(r.func||'--')+'</td></tr>';}).join('');
 }
 function brJiraItemsForCr(row){
   const out=[], seen=new Set();
@@ -549,10 +681,11 @@ function brDownloadJiraCsv(){
   brDownloadCsv('build_report_open_jiras.csv',headers,rows);
 }
 function brDownloadAllJiraCsv(){
-  const headers=['#','JIRA','JIRA URL','Title','Project','Build','Mapped CR','Crash Type','Status','Final Resolution','Resolution Notes','Created','Reporter','Traversal Chain'];
-  const rows=(brLastAllJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Project':r.project||'','Build':r.build||'','Mapped CR':r.cr||'','Crash Type':r.type||'','Status':r.status||'','Final Resolution':r.resolution||'','Resolution Notes':r.resolution_notes||'','Created':r.created||'','Reporter':r.reporter||'','Traversal Chain':r.chain||''}));
-  brDownloadCsv('build_report_all_jiras_with_resolution_notes.csv',headers,rows);
+  const headers=['#','JIRA','JIRA URL','Title','Reporter','Project','Build','Mapped CR','Crash Type','Status','Final Status','Final Resolution','Resolution Notes','Traversal Path','Mapping Type','Hops','Created'];
+  const rows=(brLastAllJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Reporter':r.reporter||'','Project':r.project||'','Build':r.build||'','Mapped CR':r.cr||'','Crash Type':r.type||'','Status':r.status||'','Final Status':r.final_status||'','Final Resolution':r.final_resolution||'','Resolution Notes':r.resolution_notes||'','Traversal Path':r.chain||'','Mapping Type':r.mapping_type||'','Hops':r.hop_count||0,'Created':r.created||''}));
+  brDownloadCsv('build_report_all_jiras_full.csv',headers,rows);
 }
+function brCopyAllJiraTable(btn){brCopyHtmlTable(g('brAllJiraTable'),btn);}
 function brCopyReportOutput(btn){
   const src=g('brReportOutputBody');
   if(!src){alert('Report output not found.');return;}

@@ -459,8 +459,33 @@
   const navBtns       = document.querySelectorAll('.bu-nav-btn[data-frame-url]');
   const buildReportBtns = document.querySelectorAll('.bu-nav-btn[data-build-report-url]');
 
-    const params = new URLSearchParams(window.location.search || '');
-  if (params.has('frame')) {
+      // ── Restore iframe state on page refresh ───────────────────────────────
+  // When the user refreshes /cr_overview/embed?frame=build-report the shell
+  // reloads and must re-open the correct iframe instead of showing the blank
+  // inline content. Previously this block only stripped the param and did
+  // nothing, so refresh always landed on the home view.
+  const params = new URLSearchParams(window.location.search || '');
+  const frameParam = params.get('frame');
+  if (frameParam === 'build-report') {
+    // Find the Build Report button and simulate a click to restore the iframe
+    const brBtn = document.querySelector('.bu-nav-btn[data-build-report-url]');
+    if (brBtn && frame && inlineContent) {
+      const url = brBtn.dataset.buildReportUrl;
+      if (url) {
+        document.querySelectorAll('.bu-nav-btn.is-active').forEach(function(x){ x.classList.remove('is-active'); });
+        brBtn.classList.add('is-active');
+        inlineContent.style.display = 'none';
+        frame.style.display = 'block';
+        frame.src = url;
+        // Keep ?frame=build-report in the URL so next refresh works too
+        try {
+          window.history.replaceState({buildReport:true}, '',
+            {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report');
+        } catch(e) {}
+      }
+    }
+  } else if (frameParam) {
+    // Unknown frame param — strip it cleanly
     try {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete('frame');
@@ -492,7 +517,7 @@
       inlineContent.style.display = 'none';
       frame.style.display = 'block';
       frame.src = url;
-      try { window.history.pushState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
+      try { window.history.replaceState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
     });
   });
 
