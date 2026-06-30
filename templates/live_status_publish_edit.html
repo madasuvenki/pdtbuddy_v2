@@ -130,6 +130,7 @@
       {% endif %}
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+      <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain, tables and settings" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
@@ -969,6 +970,192 @@
 
     </section>
   {% endif %}
+
+<!-- ===== TOP CONFIG MODAL ===== -->
+<div id="lspTopCfgModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.55);align-items:center;justify-content:center" onclick="if(event.target===this)lspCloseTopConfig()">
+  <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#1e3a8a,#f59e0b,#ef4444);color:#fff">
+      <span style="font-size:14px;font-weight:950"><i class="fas fa-cog"></i> Live Status Config</span>
+      <button onclick="lspCloseTopConfig()" style="background:rgba(255,255,255,.2);border:0;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px">
+
+      <!-- AUTO BU: Domain selector -->
+      <div id="lspTopCfgDomainSection">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px"><i class="fas fa-car"></i> Default Domain (Automotive)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:2px solid #93c5fd;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:900;cursor:pointer">
+            <input type="radio" name="topCfgDomain" value="ADAS" style="accent-color:#2563eb"> <i class="fas fa-car"></i> ADAS
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:2px solid #c4b5fd;background:#ede9fe;color:#6d28d9;font-size:12px;font-weight:900;cursor:pointer">
+            <input type="radio" name="topCfgDomain" value="FLEX" style="accent-color:#7c3aed"> <i class="fas fa-microchip"></i> FLEX
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:2px solid #6ee7b7;background:#d1fae5;color:#065f46;font-size:12px;font-weight:900;cursor:pointer">
+            <input type="radio" name="topCfgDomain" value="IVI" style="accent-color:#059669"> <i class="fas fa-display"></i> IVI
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:12px;font-weight:900;cursor:pointer">
+            <input type="radio" name="topCfgDomain" value="" style="accent-color:#6366f1"> All
+          </label>
+        </div>
+        <div style="height:1px;background:#e2e8f0;margin-bottom:16px"></div>
+      </div>
+
+      <!-- Overall CR Table (both AUTO and non-AUTO) -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-table"></i> Overall CR Table</div>
+        <select id="lspTopCfgOverallTable" style="width:100%;height:36px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+          <option value="">-- Loading tables... --</option>
+        </select>
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Table used for the Overall CRs view across all domains.</div>
+      </div>
+
+      <!-- Non-AUTO: Target Table -->
+      <div id="lspTopCfgTargetSection" style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-crosshairs"></i> Target CR Table</div>
+        <select id="lspTopCfgTargetTable" style="width:100%;height:36px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+          <option value="">-- Loading tables... --</option>
+        </select>
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Table used for the target-specific CR view.</div>
+      </div>
+
+      <!-- Members -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-users"></i> Target Group Members</div>
+        <div id="lspTopCfgMembers" style="font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;line-height:1.8;min-height:32px">Loading...</div>
+      </div>
+
+      <!-- Footer buttons -->
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+        <button onclick="lspCloseTopConfig()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:9px 22px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
+        <button onclick="lspApplyTopConfig()" style="border:0;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border-radius:10px;padding:9px 22px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(239,68,68,.3)"><i class="fas fa-check"></i> Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Top Config Modal ──────────────────────────────────────────────────────────
+window.lspOpenTopConfig = function(){
+  var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+  var modal = document.getElementById('lspTopCfgModal');
+  if(!modal) return;
+
+  // Show/hide sections based on BU type
+  var domSec = document.getElementById('lspTopCfgDomainSection');
+  var tgtSec = document.getElementById('lspTopCfgTargetSection');
+  if(domSec) domSec.style.display = IS_AUTO ? 'block' : 'none';
+  if(tgtSec) tgtSec.style.display = IS_AUTO ? 'none' : 'block';
+
+  // Set current domain radio
+  if(IS_AUTO){
+    var curDom = String(window._lspNavDomain || window._domain || 'ADAS').toUpperCase();
+    document.querySelectorAll('input[name="topCfgDomain"]').forEach(function(r){
+      r.checked = (r.value === curDom || (r.value === '' && curDom === ''));
+    });
+  }
+
+  // Load overall CR tables dropdown
+  var ovSel = document.getElementById('lspTopCfgOverallTable');
+  var tgtSel = document.getElementById('lspTopCfgTargetTable');
+  var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || '';
+  var qs = target ? '?target=' + encodeURIComponent(target) : '';
+  fetch('/api/core_deck/overallcrs_tables' + qs)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var tables = d.tables || [];
+      var curOv = window._lspOverallCrsTable || '';
+      var curTgt = window._lspTargetCrsTable || '';
+      if(ovSel){
+        ovSel.innerHTML = '<option value="">-- Select Overall CR Table --</option>' +
+          tables.map(function(t){
+            var sel = (t.fq === curOv) ? ' selected' : '';
+            return '<option value="' + t.fq + '"' + sel + '>' + (t.label || t.fq) + '</option>';
+          }).join('');
+      }
+      if(tgtSel){
+        tgtSel.innerHTML = '<option value="">-- Select Target CR Table --</option>' +
+          tables.map(function(t){
+            var sel = (t.fq === curTgt) ? ' selected' : '';
+            return '<option value="' + t.fq + '"' + sel + '>' + (t.label || t.fq) + '</option>';
+          }).join('');
+      }
+    })
+    .catch(function(){
+      if(ovSel) ovSel.innerHTML = '<option value="">-- Could not load tables --</option>';
+      if(tgtSel) tgtSel.innerHTML = '<option value="">-- Could not load tables --</option>';
+    });
+
+  // Load members
+  var membersEl = document.getElementById('lspTopCfgMembers');
+  if(membersEl){
+    fetch('/api/live_status/target_group_members')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var members = d.members || [];
+        membersEl.innerHTML = members.length
+          ? members.map(function(m){
+              return '<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;color:#3730a3;margin:2px">' +
+                '<i class="fas fa-user" style="font-size:8px"></i>' + String(m).replace(/</g,'&lt;') + '</span>';
+            }).join('')
+          : '<span style="color:#94a3b8">No members configured.</span>';
+      })
+      .catch(function(){ membersEl.innerHTML = '<span style="color:#94a3b8">Could not load members.</span>'; });
+  }
+
+  modal.style.display = 'flex';
+};
+
+window.lspCloseTopConfig = function(){
+  var modal = document.getElementById('lspTopCfgModal');
+  if(modal) modal.style.display = 'none';
+};
+
+window.lspApplyTopConfig = function(){
+  var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+
+  // Apply domain (AUTO only)
+  if(IS_AUTO){
+    var selDom = document.querySelector('input[name="topCfgDomain"]:checked');
+    if(selDom){
+      var newDom = selDom.value || 'ADAS';
+      window._lspNavDomain = newDom;
+      window._domain = newDom;
+      if(typeof window.lspNavSetDomain === 'function') window.lspNavSetDomain(newDom);
+      if(typeof window.applyCurrentDomainFilter === 'function') window.applyCurrentDomainFilter(newDom);
+      // Update domain nav buttons
+      ['ADAS','FLEX','IVI'].forEach(function(d){
+        var btn = document.getElementById('lspNavDom_' + d);
+        if(btn){ btn.className = 'lsp-nav-dombtn' + (d === newDom ? ' dom-' + d : ''); }
+      });
+      // Update MTBF domain buttons
+      if(typeof window.adasSetDomain === 'function') window.adasSetDomain(newDom);
+    }
+  }
+
+  // Apply overall CR table
+  var ovSel = document.getElementById('lspTopCfgOverallTable');
+  if(ovSel && ovSel.value){
+    window._lspOverallCrsTable = ovSel.value;
+    if(typeof window._cdOverallCrsTable !== 'undefined') window._cdOverallCrsTable = ovSel.value;
+  }
+
+  // Apply target CR table (non-AUTO)
+  if(!IS_AUTO){
+    var tgtSel = document.getElementById('lspTopCfgTargetTable');
+    if(tgtSel && tgtSel.value){
+      window._lspTargetCrsTable = tgtSel.value;
+    }
+  }
+
+  lspCloseTopConfig();
+
+  // Show confirmation
+  var msg = document.getElementById('jobStatusMessage');
+  if(msg){ msg.textContent = 'Config applied.'; msg.style.color = '#16a34a'; setTimeout(function(){ msg.textContent = ''; }, 2500); }
+};
+</script>
+
 </div>
 
 <script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260627_no_qwinbug"></script>
