@@ -4,7 +4,6 @@ from functools import wraps
 from hmac import compare_digest
 
 from flask import Blueprint, jsonify, request
-from flask_login import current_user
 
 from config import JIRA_PDT_FILTER_ID
 
@@ -85,12 +84,18 @@ def _request_api_token():
 
 
 def _jiraquery_authenticated():
-    if getattr(current_user, "is_authenticated", False):
-        return True
+    """API endpoints only accept a static API token.
+    Browser session cookies are NOT accepted for external API calls —
+    they are tied to the server's SECRET_KEY and expire after 8 hours.
+    Use X-PDTBuddy-API-Token header or Authorization: Bearer <token>.
+    """
     provided = _request_api_token()
     if not provided:
         return False
-    return any(compare_digest(provided, expected) for expected in _configured_api_tokens())
+    configured = _configured_api_tokens()
+    if not configured:
+        return False
+    return any(compare_digest(provided, expected) for expected in configured)
 
 
 def jiraquery_login_or_token_required(fn):
@@ -100,23 +105,21 @@ def jiraquery_login_or_token_required(fn):
             return fn(*args, **kwargs)
         configured = bool(_configured_api_tokens())
         return jsonify({
-            "success": False,
             "ok": False,
-            "login_required": True,
-            "token_allowed": configured,
             "error": (
-                "Unauthorized. Browser session has expired or is missing. "
-                "For API/curl access use a static token: "
-                "add header  X-PDTBuddy-API-Token: <token>  "
-                "or  Authorization: Bearer <token>. "
-                + ("A token IS configured on this server — ask the admin for it."
+                "API token required. Browser session cookies are not accepted for "
+                "external API calls. Send a static token via: "
+                "X-PDTBuddy-API-Token: <token>  "
+                "or  Authorization: Bearer <token>."
+                + (" A token IS configured on this server — ask the admin."
                    if configured else
-                   "No API token is configured on this server yet. "
-                   "Admin must set PDTBUDDY_API_TOKEN in .env and restart.")
+                   " No API token configured yet — admin must set "
+                   "PDTBUDDY_API_TOKEN in .env and restart.")
             ),
             "how_to_fix": (
-                'curl -H "X-PDTBuddy-API-Token: <token>" -X POST '
-                'http://<host>/api/jiraquery/raw -H "Content-Type: application/json" '
+                'curl -H "X-PDTBuddy-API-Token: <token>" '
+                '-X POST http://<host>/api/jiraquery/raw '
+                '-H "Content-Type: application/json" '
                 '-d \'{"builds":"BUILD1,BUILD2","target":"ALDABRA"}\'' 
             ),
         }), 401
