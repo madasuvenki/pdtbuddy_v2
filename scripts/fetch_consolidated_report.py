@@ -373,6 +373,34 @@ def _get_resolution_notes_text(fields):
     return ''
 
 
+def _build_resolution_notes_text(last_issue, final_status, final_resolution, final_cr):
+    """
+    Build a human-readable resolution notes string for the Open/Unmapped table.
+
+    Priority:
+      1. Raw CF notes text — but only if it is NOT a bare CR/Orbit URL.
+         e.g. 'https://orbit/CR/4385171' is not useful; skip it.
+         e.g. 'Duplicate of QSTABILITY-12345 - root cause found' IS useful.
+      2. final_resolution  (e.g. 'Fixed', 'Duplicate')
+      3. final_status      (e.g. 'S1_ANALYSIS', 'Closed', 'Open')
+    """
+    if last_issue:
+        raw = _get_resolution_notes_text(last_issue.fields)
+        if raw:
+            # Skip if the entire value is just a CR/Orbit URL or bare CR number
+            stripped = raw.strip()
+            is_bare_cr_url = bool(
+                re.match(r'^https?://orbit[^\s]*/CR/\d+\s*$', stripped, re.I) or
+                re.match(r'^https?://[^\s]+/CR/\d+\s*$', stripped, re.I) or
+                re.match(r'^CR\d{6,7}\s*$', stripped, re.I) or
+                re.match(r'^\d{6,7}\s*$', stripped)
+            )
+            if not is_bare_cr_url:
+                return stripped
+    # Fallback: resolution string or status
+    return final_resolution or final_status or ''
+
+
 def _check_cr_mapped(fields):
     """Extract CR from all resolution-note custom fields."""
     for cf in [
@@ -1010,17 +1038,16 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 _mtype = 'QWINBUGCR' if final_cr else 'QWINBUGAnalysis'
                 _mreason = qwinbug_details.get('analysis_id') or qwinbug_details.get('issue_id') or qwinbug_details.get('error') or ''
 
-        d['traversal'] = {
+                d['traversal'] = {
             'final_key'        : _fk,
             'final_cr'         : final_cr or '',
             'final_status'     : _fst,
             'final_resolution' : _fre,
-            # resolution_notes_text: raw text from all resolution-note CFs on
-            # the FINAL ticket visited. Used by the Open/Unmapped table to show
-            # a meaningful "Final Resolution" value even when no CR is found.
-            'resolution_notes_text': (
-                _get_resolution_notes_text(last_issue.fields)
-                if last_issue else ''
+            # resolution_notes_text: human-readable notes from the final ticket.
+            # Strip raw CR/Orbit URLs — those are not useful display text.
+            # Falls back to final_status so the column always shows something.
+            'resolution_notes_text': _build_resolution_notes_text(
+                last_issue, _fst, _fre, final_cr
             ),
             'final_summary'    : _fsu,
             'hop_count'        : max(len(visited) - 1, 0),

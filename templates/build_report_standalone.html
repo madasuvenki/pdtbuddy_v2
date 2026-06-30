@@ -332,11 +332,10 @@ function crashTypeSummary(items, fallbackRow){
   return Object.keys(counts).filter(k=>counts[k]>0).map(k=>k+': '+counts[k]).join(', ') || '--';
 }
 function finalResolution(row){
-  // Prefer resolution notes text (actual notes from JIRA CF fields) over
-  // status strings. Falls back through: resolution_notes_text -> final_resolution
-  // -> resolution -> cr_resolution -> final_status -> cr_status -> status
+  // Returns the best human-readable resolution/status string.
+  // resolution_notes_text is shown separately in its own column;
+  // here we just want the status/resolution label.
   return String(
-    (row&&row.resolution_notes_text)||
     (row&&row.final_resolution)||
     (row&&row.resolution)||
     (row&&row.cr_resolution)||
@@ -579,14 +578,14 @@ function renderReport(rep){
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
   const jr=g('brJiraRows');
   brLastJiraRows=jiraRows;
-  if(jiraRows.length){g('brJiraSection').style.display='block';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution||r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
+  if(jiraRows.length){g('brJiraSection').style.display='block';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution_notes_text||r.resolution||r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
   else {g('brJiraSection').style.display='none';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});}
   renderAllJiraTable(brLastAllJiraRows);
   const cr=g('brCrRows');
   if(!crRows.length){cr.innerHTML='<tr><td colspan="10" class="empty">No CR rows found for this query.</td></tr>';return;}
   crRows.sort((a,b)=>(b.count||0)-(a.count||0));
   brLastCrRows=crRows;
-  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td style="width:36px;text-align:center;white-space:nowrap">'+(i+1)+'</td><td style="width:90px;white-space:nowrap">'+link+'</td><td style="word-break:break-word;overflow-wrap:break-word;white-space:normal;min-width:160px">'+esc(r.title||'--')+'</td><td style="width:72px;text-align:center;white-space:nowrap">'+cntHtml+'</td><td style="width:100px;white-space:nowrap">'+esc(r.type||'--')+'</td><td style="width:110px">'+esc(r.resolution||r.status||'--')+'</td><td style="width:56px;text-align:center;font-weight:900;white-space:nowrap">'+esc(r.age||'--')+'</td><td style="width:80px">'+esc(r.area||'--')+'</td><td style="width:110px">'+esc(r.sub||'--')+'</td><td style="width:130px">'+esc(r.func||'--')+'</td></tr>';}).join('');
+  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td style="width:36px;text-align:center;white-space:nowrap">'+(i+1)+'</td><td style="width:90px;white-space:nowrap">'+link+'</td><td style="word-break:break-word;overflow-wrap:break-word;white-space:normal;min-width:160px">'+esc(r.title||'--')+'</td><td style="width:72px;text-align:center;white-space:nowrap">'+cntHtml+'</td><td style="width:100px;white-space:nowrap">'+esc(r.type||'--')+'</td><td style="width:110px">'+esc(r.resolution_notes_text||r.resolution||r.status||'--')+'</td><td style="width:56px;text-align:center;font-weight:900;white-space:nowrap">'+esc(r.age||'--')+'</td><td style="width:80px">'+esc(r.area||'--')+'</td><td style="width:110px">'+esc(r.sub||'--')+'</td><td style="width:130px">'+esc(r.func||'--')+'</td></tr>';}).join('');
 }
 function brJiraItemsForCr(row){
   const out=[], seen=new Set();
