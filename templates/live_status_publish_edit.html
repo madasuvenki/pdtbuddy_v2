@@ -130,7 +130,7 @@
       {% endif %}
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
-      <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain, tables and settings" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
+      <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
@@ -1019,12 +1019,6 @@
         <div style="font-size:10px;color:#94a3b8;margin-top:4px">Table used for the target-specific CR view.</div>
       </div>
 
-      <!-- Members -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-users"></i> Target Group Members</div>
-        <div id="lspTopCfgMembers" style="font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;line-height:1.8;min-height:32px">Loading...</div>
-      </div>
-
       <!-- Footer buttons -->
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
         <button onclick="lspCloseTopConfig()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:9px 22px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
@@ -1038,24 +1032,24 @@
 // ── Top Config Modal ──────────────────────────────────────────────────────────
 window.lspOpenTopConfig = function(){
   var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+
+  // AUTO BU: use the full Core Deck Config modal (per-domain table config + overall CR table)
+  if(IS_AUTO && typeof window.openCoreDeckConfigModal === 'function'){
+    window.openCoreDeckConfigModal();
+    return;
+  }
+
+  // Non-AUTO BU: use our simpler modal (overall CR table + target CR table)
   var modal = document.getElementById('lspTopCfgModal');
   if(!modal) return;
 
-  // Show/hide sections based on BU type
+  // Hide domain section for non-AUTO
   var domSec = document.getElementById('lspTopCfgDomainSection');
   var tgtSec = document.getElementById('lspTopCfgTargetSection');
-  if(domSec) domSec.style.display = IS_AUTO ? 'block' : 'none';
-  if(tgtSec) tgtSec.style.display = IS_AUTO ? 'none' : 'block';
+  if(domSec) domSec.style.display = 'none';
+  if(tgtSec) tgtSec.style.display = 'block';
 
-  // Set current domain radio
-  if(IS_AUTO){
-    var curDom = String(window._lspNavDomain || window._domain || 'ADAS').toUpperCase();
-    document.querySelectorAll('input[name="topCfgDomain"]').forEach(function(r){
-      r.checked = (r.value === curDom || (r.value === '' && curDom === ''));
-    });
-  }
-
-  // Load overall CR tables dropdown
+  // Load overall CR tables + target tables dropdown
   var ovSel = document.getElementById('lspTopCfgOverallTable');
   var tgtSel = document.getElementById('lspTopCfgTargetTable');
   var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || '';
@@ -1085,23 +1079,6 @@ window.lspOpenTopConfig = function(){
       if(ovSel) ovSel.innerHTML = '<option value="">-- Could not load tables --</option>';
       if(tgtSel) tgtSel.innerHTML = '<option value="">-- Could not load tables --</option>';
     });
-
-  // Load members
-  var membersEl = document.getElementById('lspTopCfgMembers');
-  if(membersEl){
-    fetch('/api/live_status/target_group_members')
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        var members = d.members || [];
-        membersEl.innerHTML = members.length
-          ? members.map(function(m){
-              return '<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;color:#3730a3;margin:2px">' +
-                '<i class="fas fa-user" style="font-size:8px"></i>' + String(m).replace(/</g,'&lt;') + '</span>';
-            }).join('')
-          : '<span style="color:#94a3b8">No members configured.</span>';
-      })
-      .catch(function(){ membersEl.innerHTML = '<span style="color:#94a3b8">Could not load members.</span>'; });
-  }
 
   modal.style.display = 'flex';
 };
