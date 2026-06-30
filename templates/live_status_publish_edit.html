@@ -3756,6 +3756,32 @@ if(!window.ojClear)  window.ojClear  = function(){};
         <label class="lsp-cfg-lbl">Exclude</label>
         <input id="lspCfgExclude" class="lsp-cfg-inp" placeholder="e.g. tombstone" value="tombstone">
       </div>
+      <!-- Default Domain -->
+      <div class="lsp-cfg-row" id="lspCfgDomainRow">
+        <label class="lsp-cfg-lbl">Domain</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #93c5fd;background:#dbeafe;color:#1d4ed8"><input type="radio" name="lspCfgDomain" id="lspCfgDomADAS" value="ADAS" checked style="accent-color:#2563eb"> ADAS</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #c4b5fd;background:#ede9fe;color:#6d28d9"><input type="radio" name="lspCfgDomain" id="lspCfgDomFLEX" value="FLEX" style="accent-color:#7c3aed"> FLEX</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #6ee7b7;background:#d1fae5;color:#065f46"><input type="radio" name="lspCfgDomain" id="lspCfgDomIVI" value="IVI" style="accent-color:#059669"> IVI</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569"><input type="radio" name="lspCfgDomain" id="lspCfgDomALL" value="" style="accent-color:#6366f1"> All</label>
+        </div>
+      </div>
+      <!-- Overall CR Table -->
+      <div class="lsp-cfg-row">
+        <label class="lsp-cfg-lbl">CR Table</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="radio" name="lspCfgCrTable" id="lspCfgCrByDomain" value="domain" checked style="accent-color:#6366f1"> By Domain</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="radio" name="lspCfgCrTable" id="lspCfgCrOverall" value="overall" style="accent-color:#6366f1"> Overall (all domains)</label>
+        </div>
+      </div>
+      <!-- Target Group Members -->
+      <div class="lsp-cfg-row" style="align-items:flex-start">
+        <label class="lsp-cfg-lbl" style="padding-top:6px">Members</label>
+        <div>
+          <div id="lspCfgMembersInfo" style="font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;line-height:1.6;max-height:80px;overflow-y:auto;"></div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Target group members who can edit this live status page.</div>
+        </div>
+      </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button onclick="lspCloseCfg()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
         <button onclick="lspSaveCfg()" style="border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:10px;padding:8px 20px;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,.3)"><i class="fas fa-check"></i> Apply</button>
@@ -3772,6 +3798,34 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(d) d.checked=_lsp.indexOf('DROIDBUG')>=0;
     var fi=document.getElementById('lspCfgFilterId');
     if(fi) fi.value=(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997';
+    // Domain radio
+    var curDom=String(window._lspNavDomain||window._domain||'ADAS').toUpperCase();
+    ['ADAS','FLEX','IVI',''].forEach(function(v){
+      var el=document.getElementById('lspCfgDom'+(v||'ALL'));
+      if(el) el.checked=(v===curDom||(v===''&&curDom===''));
+    });
+    // CR table radio
+    var crMode=window._lspCrTableMode||'domain';
+    var crD=document.getElementById('lspCfgCrByDomain'),crO=document.getElementById('lspCfgCrOverall');
+    if(crD) crD.checked=(crMode==='domain');
+    if(crO) crO.checked=(crMode==='overall');
+    // Hide domain row for non-AUTO
+    var domRow=document.getElementById('lspCfgDomainRow');
+    if(domRow) domRow.style.display=(window.LSP_DATA&&window.LSP_DATA.is_auto_bu)?'grid':'none';
+    // Members
+    var membersEl=document.getElementById('lspCfgMembersInfo');
+    if(membersEl){
+      fetch('/api/live_status/target_group_members')
+        .then(function(r){return r.json();})
+        .then(function(d){
+          var members=d.members||d.users||[];
+          membersEl.innerHTML=members.length
+            ? members.map(function(m){return '<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800;color:#3730a3;margin:2px">'+
+                '<i class="fas fa-user" style="font-size:8px"></i>'+String(m).replace(/</g,'&lt;')+'</span>';}).join('')
+            : '<span style="color:#94a3b8;font-size:11px">No members found or not configured.</span>';
+        })
+        .catch(function(){membersEl.innerHTML='<span style="color:#94a3b8;font-size:11px">Could not load members.</span>';});
+    }
     var modal=document.getElementById('lspCfgModal');
     if(modal) modal.style.display='flex';
   };
@@ -3795,6 +3849,27 @@ if(!window.ojClear)  window.ojClear  = function(){};
     });
     var fi=document.getElementById('lspCfgFilterId');
     if(fi&&fi.value.trim()&&window.LSP_DATA) window.LSP_DATA.jira_filter_id=fi.value.trim();
+    // Apply domain
+    var selDom=document.querySelector('input[name="lspCfgDomain"]:checked');
+    if(selDom){
+      var newDom=selDom.value.toUpperCase()||'ADAS';
+      window._lspNavDomain=newDom;
+      window._domain=newDom;
+      if(typeof window.lspNavSetDomain==='function') window.lspNavSetDomain(newDom);
+      if(typeof window.applyCurrentDomainFilter==='function') window.applyCurrentDomainFilter(newDom);
+      // Update domain nav buttons
+      ['ADAS','FLEX','IVI'].forEach(function(d){
+        var btn=document.getElementById('lspNavDom_'+d);
+        if(btn){ btn.className='lsp-nav-dombtn'+(d===newDom?' dom-'+d:''); }
+      });
+    }
+    // Apply CR table mode
+    var selCr=document.querySelector('input[name="lspCfgCrTable"]:checked');
+    if(selCr){
+      window._lspCrTableMode=selCr.value;
+      // use_domain_tables flag picked up by next report run
+      window._lspUseDomainTables=(selCr.value==='domain');
+    }
     lspCloseCfg();
   };
 </script>

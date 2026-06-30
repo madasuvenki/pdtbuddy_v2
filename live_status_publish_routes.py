@@ -3968,3 +3968,14 @@ def api_build_wise_report(target_name):
         except Exception:
             pass
         return jsonify({'success': False, 'message': str(exc)}), 500
+
+
+@live_status_publish_bp.route('/api/live_status/target_group_members', methods=['GET'])
+@login_required
+def api_target_group_members():
+    """Return list of TARGET_GROUP members for the Customize modal Members section."""
+    try:
+        members = sorted(list(TARGET_GROUP)) if TARGET_GROUP else []
+        return jsonify({'ok': True, 'members': members})
+    except Exception as exc:
+        return jsonify({'ok': False, 'members': [], 'error': str(exc)})
