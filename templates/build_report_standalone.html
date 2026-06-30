@@ -44,7 +44,7 @@
       <div class="context-panel">
         <div class="field">
           <label>Business Unit</label>
-          <select id="brBu" onchange="brPopulateTargets()">
+          <select id="brBu" onchange="brAutoIsAutomotive=null;brPopulateTargets()">
             <option value="">-- Optional BU --</option>
           </select>
           <div class="mode-help">Optional. Pick BU first only when you want target context/running-build filtering.</div>
@@ -306,10 +306,94 @@ async function brRunConsolidatedWithProgress(opts){
   return data;
 }
 async function brCheckJiraReady(){return BuildReportCommon.checkJiraReady()}
+// ── Automotive BU detection ─────────────────────────────────────────────────
+// brAutoIsAutomotive: null=unknown, true=yes, false=no
+// Set by: BU selector, JQL auto-detect, or user popup answer
+var brAutoIsAutomotive = null;
+
+// Known Automotive JIRA project prefixes
+const AUTO_JIRA_PREFIXES = [
+  'CNSS','CNSSDEBUG','ADSPIMAGE','CHIPMD','QWINBUG',
+  'ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH',
+  'DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST',
+  'FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY',
+  'TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO',
+  'WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST',
+];
+// Automotive-ONLY project prefixes (always AUTO, no popup needed)
+const AUTO_ONLY_PREFIXES = ['CNSS','CNSSDEBUG','ADSPIMAGE'];
+// Automotive BU keywords in JQL / build strings
+const AUTO_JQL_KEYWORDS = [
+  'automotive','auto.','aldabra','glymur','kaanapali','skyros',
+  'nicobar','andaman','sa515m','sa525m','sa8','qam','telematics',
+];
+
+function _detectAutoFromJql(jql){
+  if(!jql) return null;
+  const j = jql.toLowerCase();
+  // Definite AUTO: known auto-only project in JQL
+  if(AUTO_ONLY_PREFIXES.some(p=>j.indexOf(p.toLowerCase())>=0)) return true;
+  // Definite AUTO: automotive build/platform keywords
+  if(AUTO_JQL_KEYWORDS.some(k=>j.indexOf(k)>=0)) return true;
+  return null; // uncertain
+}
+
 function brIsAutomotiveBu(){
+  // 1. Explicit user answer from popup
+  if(brAutoIsAutomotive===true)  return true;
+  if(brAutoIsAutomotive===false) return false;
+  // 2. BU selector
   const row=brSelectedTargetRow();
   const bu=String((row&&row.bu_key)||g('brBu').value||'').toUpperCase();
-  return bu==='AUTO'||bu==='AUTOMOTIVE';
+  if(bu==='AUTO'||bu==='AUTOMOTIVE') return true;
+  if(bu && bu!=='') return false; // non-AUTO BU selected
+  // 3. Auto-detect from JQL
+  const jql=String((g('brJql')&&g('brJql').value)||'');
+  const detected=_detectAutoFromJql(jql);
+  if(detected===true)  return true;
+  if(detected===false) return false;
+  // 4. Unknown — return false (popup will be shown before renderReport)
+  return false;
+}
+
+function _brShowAutoPopup(onAnswer){
+  // Don't show if already answered
+  if(brAutoIsAutomotive!==null){onAnswer(brAutoIsAutomotive);return;}
+  // Don't show if BU is already selected
+  const bu=String(g('brBu').value||'').toUpperCase();
+  if(bu) {onAnswer(bu==='AUTO'||bu==='AUTOMOTIVE'); return;}
+  // Don't show if JQL gives a clear answer
+  const jql=String((g('brJql')&&g('brJql').value)||'');
+  const detected=_detectAutoFromJql(jql);
+  if(detected!==null){brAutoIsAutomotive=detected;onAnswer(detected);return;}
+  // Show popup
+  let overlay=document.getElementById('brAutoPopup');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='brAutoPopup';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML=
+      '<div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center">'+
+      '<div style="font-size:22px;margin-bottom:8px">&#x1F697;</div>'+
+      '<div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:8px">Automotive BU Report?</div>'+
+      '<div style="font-size:12px;color:#64748b;margin-bottom:20px">Crash Type segregation (System / SSR / Process) is only relevant for Automotive BUs.<br>Is this report for an <b>Automotive BU</b>?</div>'+
+      '<div style="display:flex;gap:12px;justify-content:center">'+
+      '<button id="brAutoYes" style="padding:10px 28px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:800;cursor:pointer">Yes, Automotive</button>'+
+      '<button id="brAutoNo"  style="padding:10px 28px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;font-size:13px;font-weight:700;cursor:pointer">No, skip crash type</button>'+
+      '</div></div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display='flex';
+  document.getElementById('brAutoYes').onclick=function(){
+    brAutoIsAutomotive=true;
+    overlay.style.display='none';
+    onAnswer(true);
+  };
+  document.getElementById('brAutoNo').onclick=function(){
+    brAutoIsAutomotive=false;
+    overlay.style.display='none';
+    onAnswer(false);
+  };
 }
 function crashTypeFromTitle(title){
   const t=String(title||'').toLowerCase();
@@ -555,6 +639,21 @@ function renderAllJiraTable(rows){
   }).join('');
 }
 function renderReport(rep){
+  // If BU is unknown and JQL is ambiguous, ask user once before rendering
+  if(brAutoIsAutomotive===null){
+    const bu=String(g('brBu').value||'').toUpperCase();
+    const jql=String((g('brJql')&&g('brJql').value)||'');
+    const detected=bu?(bu==='AUTO'||bu==='AUTOMOTIVE'):_detectAutoFromJql(jql);
+    if(detected===null){
+      // Show popup, then re-render with the answer
+      _brShowAutoPopup(function(){
+        renderReport(rep);
+      });
+      return;
+    }
+    brAutoIsAutomotive = (detected===true);
+  }
+  // Reset brAutoIsAutomotive when BU selector changes
   const rows=normalize(rep||{}), crRows=rows.crRows, jiraRows=rows.jiraRows;
   brLastAllJiraRows=rows.allJiraRows||[];
   g('brCounts').innerHTML='';
