@@ -372,8 +372,8 @@ function normalize(rep){
       status:j.status||'',
       final_status:trav.final_status||j.status||'',
       final_resolution:trav.final_resolution||j.resolution||'',
-      resolution_notes:j.resolution_notes||'',
-      cr:finalCr&&finalCr!=='NO_CR'?finalCr:'',
+      resolution_notes_text:trav.resolution_notes_text||j.resolution_notes||'',
+      resolution_notes:j.resolution_notes||'',r:finalCr&&finalCr!=='NO_CR'?finalCr:'',
       final_key:trav.final_key||origKey,
       mapping_type:trav.mapping_type||'',
       build:j.matched_build||j.meta_build||'',
@@ -396,6 +396,7 @@ function normalize(rep){
       status:j.final_status||j.status||'Open',
       final_status:j.final_status||j.status||'',
       final_resolution:finalResolution(j)||'',
+      resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'',
       resolution_notes:j.resolution_notes||j.final_resolution_notes||'',
       cr:cr&&cr!=='NO_CR'?cr:(j.cr_mapped||j.final_cr||''),
       final_key:j.final_key||key,
@@ -539,7 +540,7 @@ function renderAllJiraTable(rows){
     const mtColor=mt==='CRMapped'||mt==='QWINBUGCR'?'#166534':mt==='Unmapped'?'#b45309':'#4338ca';
     const mtBg=mt==='CRMapped'||mt==='QWINBUGCR'?'#dcfce7':mt==='Unmapped'?'#fff7ed':'#eff6ff';
     const mtBadge=mt?'<span style="background:'+mtBg+';color:'+mtColor+';border-radius:999px;padding:2px 7px;font-size:9px;font-weight:900;margin-left:4px">'+esc(mt)+'</span>':'';
-    const resNotes=r.resolution_notes?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.resolution_notes)+'">'+esc(r.resolution_notes.substring(0,80))+(r.resolution_notes.length>80?'…':'')+'</div>':'';
+    const resNotes=(r.resolution_notes_text||r.resolution_notes)?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.resolution_notes_text||r.resolution_notes)+'">'+(function(){var t=r.resolution_notes_text||r.resolution_notes||'';return esc(t.substring(0,80))+(t.length>80?'…':'');})()+'</div>':'';
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap">'+jiraLink+'</td>'+
@@ -549,7 +550,7 @@ function renderAllJiraTable(rows){
       '<td>'+stBadge+'</td>'+
       '<td style="white-space:nowrap">'+crHtml+mtBadge+'</td>'+
       '<td style="min-width:160px">'+chainHtml+'</td>'+
-      '<td style="font-size:11px;max-width:180px">'+esc(r.final_resolution||'—')+'</td>'+
+      '<td style="font-size:11px;max-width:180px">'+esc(r.resolution_notes_text||r.final_resolution||'—')+'</td>'+
       '<td>'+resNotes+'</td>'+
     '</tr>';
   }).join('');
