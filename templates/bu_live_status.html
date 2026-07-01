@@ -905,7 +905,7 @@ function getCurrentReportJql(){
 function buildAutoJql(builds){
   if(!builds || !builds.length) return '';
   const parts = builds.map(b => `summary ~ "${String(b).replace(/"/g,'\\"')}"`).join(' OR ');
-  return `(${parts}) AND filter = 76997 AND project = "Target Stability" ORDER BY created ASC`;
+  return `(${parts}) AND filter = 76997 ORDER BY created ASC`;
 }
 
 function jqlToJiraUrl(jql){
@@ -1202,7 +1202,7 @@ function buildVisibleReport(report){
 
   return {
     ...report,
-    meta: { ...(report.meta || {}), build_ids: selectedBuilds, filtered_from_build_ids: (report.meta || {}).build_ids || [], jql: (report.meta || {}).custom_jql ? ((report.meta || {}).jql || (report.meta || {}).custom_jql) : `(${selectedBuilds.map(b => `summary ~ "${String(b).replace(/"/g, '\\"')}"`).join(' OR ')}) AND filter = 76997 AND project = "Target Stability" ORDER BY created ASC` },
+    meta: { ...(report.meta || {}), build_ids: selectedBuilds, filtered_from_build_ids: (report.meta || {}).build_ids || [], jql: (report.meta || {}).custom_jql ? ((report.meta || {}).jql || (report.meta || {}).custom_jql) : `(${selectedBuilds.map(b => `summary ~ "${String(b).replace(/"/g, '\\"')}"`).join(' OR ')}) AND filter = 76997 ORDER BY created ASC` },
     summary: { total_jiras: selectedIssues.length, by_build: byBuild, by_project: byProject, with_cr: withCr, transferred_count: transferred, open_without_cr: openNoCr },
     hierarchical_report: hierarchical,
   };

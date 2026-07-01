@@ -1368,6 +1368,83 @@ document.getElementById('spConsolidateModal').addEventListener('click', function
 </script>
 {% endif %}
 
+<!-- Shared copy functions used by both sharepoint and unique_report -->
+<script>
+  /* HTML-escape helper */
+  function _esc(s){ var d=document.createElement('div'); d.appendChild(document.createTextNode(String(s==null?'':s))); return d.innerHTML; }
+  
+  /* Flash copy button feedback */
+  function spFlashCopyBtn(btn, ok, okText, failText){
+    if(!btn) return;
+    var orig = btn.getAttribute('data-orig-html') || btn.innerHTML;
+    btn.setAttribute('data-orig-html', orig);
+    btn.innerHTML = ok ? (okText || '&#10003; Copied') : (failText || '&#9888; Copy manually');
+    btn.style.background = ok ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#f59e0b,#f97316)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = ok ? '#16a34a' : '#f59e0b';
+    setTimeout(function(){
+      btn.innerHTML = orig;
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2200);
+  }
+  
+  /* Legacy HTML copy for HTTP */
+  function spCopyHtmlLegacy(html, btn, plain){
+    var wrap = document.createElement('div');
+    wrap.contentEditable = 'true';
+    wrap.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;background:#fff;';
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+    var range = document.createRange();
+    range.selectNodeContents(wrap);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+    sel.removeAllRanges();
+    document.body.removeChild(wrap);
+    if(ok) return true;
+    if(plain){
+      var ta = document.createElement('textarea');
+      ta.value = plain;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+      document.body.removeChild(ta);
+    }
+    return ok;
+  }
+  
+  /* Rich table copy - handles both HTTPS (ClipboardItem) and HTTP (execCommand) */
+  function spCopyTableRich(table, btn){
+    if(!table) return;
+    var html = '<html><head><meta charset="utf-8"></head><body>' + table.outerHTML + '</body></html>';
+    var plain = table.innerText || '';
+    if(window.isSecureContext && typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write){
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plain], {type:'text/plain'})
+      })]).then(function(){
+        spFlashCopyBtn(btn, true, '&#10003; Rich Copied');
+      }).catch(function(){
+        spFlashCopyBtn(btn, spCopyHtmlLegacy(html, btn, plain), '&#10003; Copied', '&#9888; Copy manually');
+      });
+      return;
+    }
+    spFlashCopyBtn(btn, spCopyHtmlLegacy(html, btn, plain), '&#10003; Copied', '&#9888; Copy manually');
+  }
+  
+  /* Expose globally */
+  window.spCopyTableRich = spCopyTableRich;
+  window.spFlashCopyBtn = spFlashCopyBtn;
+  window.spCopyHtmlLegacy = spCopyHtmlLegacy;
+</script>
+
 {% if card_key == 'sharepoint' %}
 <script>
     window.spSwitchTab = function(tab, btn){
@@ -1488,68 +1565,8 @@ window.spCloseNoCrashModal = window.spCloseNoCrashModal || function(){
   window.spApplyPlAlias = function(){ var alias = (document.getElementById('spPlAlias') || {}).value || ''; if(alias.trim()) document.getElementById('spPlId').value = alias.trim(); };
   window.spNoCrashApplyPlAlias = function(){ var alias = (document.getElementById('spNoCrashPlAlias') || {}).value || ''; if(alias.trim()) document.getElementById('spNoCrashPlId').value = alias.trim(); };
 
-  /* HTML-escape helper used throughout this block */
-  function esc(s){ var d=document.createElement('div'); d.appendChild(document.createTextNode(String(s==null?'':s))); return d.innerHTML; }
-  function spFlashCopyBtn(btn, ok, okText, failText){
-    if(!btn) return;
-    var orig = btn.getAttribute('data-orig-html') || btn.innerHTML;
-    btn.setAttribute('data-orig-html', orig);
-    btn.innerHTML = ok ? (okText || '&#10003; Copied') : (failText || '&#9888; Copy manually');
-    btn.style.background = ok ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#f59e0b,#f97316)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = ok ? '#16a34a' : '#f59e0b';
-    setTimeout(function(){
-      btn.innerHTML = orig;
-      btn.style.background = '';
-      btn.style.color = '';
-      btn.style.borderColor = '';
-    }, 2200);
-  }
-  function spCopyHtmlLegacy(html, btn, plain){
-    var wrap = document.createElement('div');
-    wrap.contentEditable = 'true';
-    wrap.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;background:#fff;';
-    wrap.innerHTML = html;
-    document.body.appendChild(wrap);
-    var range = document.createRange();
-    range.selectNodeContents(wrap);
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
-    sel.removeAllRanges();
-    document.body.removeChild(wrap);
-    if(ok) return true;
-    if(plain){
-      var ta = document.createElement('textarea');
-      ta.value = plain;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
-      document.body.removeChild(ta);
-    }
-    return ok;
-  }
-  function spCopyTableRich(table, btn){
-    if(!table) return;
-    var html = '<html><head><meta charset="utf-8"></head><body>' + table.outerHTML + '</body></html>';
-    var plain = table.innerText || '';
-    if(window.isSecureContext && typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write){
-      navigator.clipboard.write([new ClipboardItem({
-        'text/html': new Blob([html], {type:'text/html'}),
-        'text/plain': new Blob([plain], {type:'text/plain'})
-      })]).then(function(){
-        spFlashCopyBtn(btn, true, '&#10003; Rich Copied');
-      }).catch(function(){
-        spFlashCopyBtn(btn, spCopyHtmlLegacy(html, btn, plain), '&#10003; Copied', '&#9888; Copy manually');
-      });
-      return;
-    }
-    spFlashCopyBtn(btn, spCopyHtmlLegacy(html, btn, plain), '&#10003; Copied', '&#9888; Copy manually');
-  }
+    /* HTML-escape helper used throughout this block */
+  function esc(s){ return _esc(s); }
 
 
   /* Session-expired handler: show banner instead of broken popup */

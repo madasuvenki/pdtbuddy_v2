@@ -104,14 +104,14 @@ def _get_target_excel_config(target_name):
 def _update_target_excel_config(target_name, page_key, payload):
     data = _load_target_excel_page_config()
     target_cfg = data.get(target_name) or {}
-    target_cfg[page_key] = {
-        **(target_cfg.get(page_key) or {}),
-        **(payload or {}),
-        'updated_at': _dt.utcnow().isoformat() + 'Z',
-    }
+    page_cfg = dict(target_cfg.get(page_key) or {})
+    page_cfg.update(payload or {})
+    page_cfg['updated_at'] = _dt.utcnow().isoformat() + 'Z'
+    target_cfg[page_key] = page_cfg
     data[target_name] = target_cfg
     _save_target_excel_page_config(data)
     return target_cfg[page_key]
+
 
 def _normalize_excel_path(path_value):
     path = str(path_value or '').strip().strip('"').strip("'")
@@ -3590,11 +3590,31 @@ def build_weekly_report_context(target_name, request):
                 r for r in orig_rows
                 if not any(kw in str(r.get('cr_title') or '').lower() for kw in _kws)
             ]
-            # Recompute counts and pie data from filtered rows
+                        # Recompute counts and pie data from filtered rows
             from collections import Counter as _Counter
+            def _wk_norm(v):
+                return str(v or '').strip().lower().replace(' ', '').replace('-', '_')
+            def _wk_is_dup_row(r):
+                cat = _wk_norm(r.get('cr_category'))
+                status = _wk_norm(r.get('cr_status'))
+                return cat in {'dup', 'duplicate', 'duplicates'} or status in {'dup', 'duplicate', 'duplicates'}
+            def _wk_is_invalid_row(r):
+                cat = _wk_norm(r.get('cr_category'))
+                status = _wk_norm(r.get('cr_status'))
+                invalid_values = {'invalid', 'invalid_dup', 'nosir', 'no_sir', 'notapplicable', 'not_applicable', 'na', 'n/a'}
+                return cat in invalid_values or status in invalid_values or 'invalid' in cat or 'invalid' in status or 'nosir' in status or 'notapplicable' in status
+            filtered_dup_crs = sum(1 for r in filtered_rows if _wk_is_dup_row(r))
+            filtered_invalid_crs = sum(1 for r in filtered_rows if (not _wk_is_dup_row(r)) and _wk_is_invalid_row(r))
+            filtered_valid_crs = max(len(filtered_rows) - filtered_invalid_crs - filtered_dup_crs, 0)
             report_summary['cr_rows']          = filtered_rows
             report_summary['num_crs_reported'] = len(filtered_rows)
             report_summary['num_crs_week']     = len(filtered_rows)
+            report_summary['num_overall_crs']  = len(filtered_rows)
+            report_summary['num_crs_total']    = len(filtered_rows)
+            report_summary['num_valid_crs']    = filtered_valid_crs
+            report_summary['num_invalid_crs']  = filtered_invalid_crs
+            report_summary['num_dup_crs']      = filtered_dup_crs
+            report_summary['dup']              = filtered_dup_crs
             _status_counts = _Counter((r.get('cr_status') or 'Unknown').strip() for r in filtered_rows)
             _area_counts   = _Counter((r.get('cr_area')   or 'Unknown').strip() for r in filtered_rows)
             report_summary['cr_status_counts'] = dict(_status_counts)
@@ -7315,16 +7335,22 @@ def api_consolidated_report():
         return jsonify({'error': f'Unable to read JIRA config: {e}', 'missing_credentials': True}), 500
 
     # -- check static cache unless force=true ---------------------------------
-
+    # Cache TTL: 6 hours. Stale results (e.g. after traversal logic fixes)
+    # are automatically re-fetched even without force=true.
+    _CACHE_TTL_SECONDS = 6 * 3600
 
     cache_path, _ = _consolidated_report_path(target, raw, custom_jql or None)
     if not force and os.path.exists(cache_path):
         try:
-            with open(cache_path, encoding='utf-8') as fh:
-                cached = json.load(fh)
-            cached.setdefault('meta', {})['from_cache'] = True
-            logger.info(f"[consolidated_report] serving from cache: {cache_path}")
-            return jsonify(cached)
+            _cache_age = time.time() - os.path.getmtime(cache_path)
+            if _cache_age <= _CACHE_TTL_SECONDS:
+                with open(cache_path, encoding='utf-8') as fh:
+                    cached = json.load(fh)
+                cached.setdefault('meta', {})['from_cache'] = True
+                logger.info(f"[consolidated_report] serving from cache: {cache_path}")
+                return jsonify(cached)
+            else:
+                logger.info(f"[consolidated_report] cache expired ({_cache_age/3600:.1f}h old), re-running: {cache_path}")
         except Exception:
             pass
 

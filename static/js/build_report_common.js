@@ -14,11 +14,11 @@
     return 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + encodeURIComponent(jql || '');
   }
 
-  // QWINBUG is intentionally excluded from the primary JQL query.
-  // QSTABILITY/CHIPMD tickets that are moved to QWINBUG are fetched
-  // separately during CR traversal to get final resolution — adding
-  // QWINBUG here would cause duplicate crash counts.
-  var DEFAULT_PROJECTS = ['QSTABILITY', 'CHIPMD', 'DROIDBUG'];
+  // Match legacy pdt_Stats.py build-report behavior: the saved PDT filter
+  // defines the project population. Do not add a hard-coded project clause here,
+  // because final tickets can be ADSPIMAGE/CNSSDEBUG/etc and are resolved during
+  // the one-by-one traversal step.
+  var DEFAULT_PROJECTS = [];
 
   function generateJql(options){
     options = options || {};
@@ -26,10 +26,11 @@
     var projects = asList(options.projects && options.projects.length ? options.projects : DEFAULT_PROJECTS);
     var filterId = options.filterId || window.JIRA_FILTER_ID || '76997';
     if(!builds.length) return '';
-    if(!projects.length) return '';
     var buildPart = builds.map(function(b){ return 'summary ~ "' + q(b) + '"'; }).join(' OR ');
-    var projectPart = '(' + projects.map(function(p){ return 'project = ' + p; }).join(' OR ') + ')';
-    return '(' + buildPart + ') AND filter = ' + filterId + ' AND ' + projectPart + ' AND summary !~ "tombstone" ORDER BY created ASC';
+    var projectPart = projects.length
+      ? ' AND (' + projects.map(function(p){ return 'project = ' + p; }).join(' OR ') + ')'
+      : '';
+    return '(' + buildPart + ') AND filter = ' + filterId + projectPart + ' AND summary !~ "tombstone" ORDER BY created ASC';
   }
 
   function waitForResult(jobId, options){

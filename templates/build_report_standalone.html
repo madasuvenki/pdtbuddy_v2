@@ -120,22 +120,39 @@
     <div class="card-b" id="brReportOutputBody">
       <div id="brSummary" class="summary"></div>
       <div id="brMetricCards" class="metric-grid" style="display:none"></div>
-      <h3 style="font-size:13px;color:#1e3a8a;margin:0 0 8px"><i class="fas fa-bug"></i> CR Summary</h3>
-      <div class="tbl-wrap" style="margin-bottom:14px"><table><thead><tr><th>#</th><th>CR</th><th>JIRA Title</th><th>JIRA Count</th><th>Crash Type</th><th>Final Resolution / CR Status</th><th>CR Age</th><th>Area</th><th>Subsystem</th><th>Function</th></tr></thead><tbody id="brCrRows"><tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
-      <div id="brJiraSection" style="display:none;margin-bottom:14px">
-        <h3 style="font-size:13px;color:#1e3a8a;margin:0 0 8px"><i class="fas fa-ticket-alt"></i> Open / Unmapped JIRAs</h3>
-        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Final Resolution</th><th>Count</th></tr></thead><tbody id="brJiraRows"></tbody></table></div>
-      </div>
-      <div id="brAllJiraSection" style="display:none;margin-bottom:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-          <h3 style="font-size:13px;color:#1e3a8a;margin:0"><i class="fas fa-list-alt"></i> All JIRAs — Full Traversal Detail</h3>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input id="brAllJiraSearch" class="mini-input" placeholder="Search JIRA / title / CR / reporter..." oninput="brFilterAllJiraTable()" style="max-width:280px">
-            <span id="brAllJiraCount" class="pill" style="font-size:11px"></span>
-          </div>
+      <!-- Report Tabs (PDT-style: CRs / Mapped JIRAs / Open JIRAs) -->
+      <div id="brReportTabs" style="display:none;margin-bottom:0">
+        <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:14px">
+          <button id="brTab_crs" onclick="brSwitchTab('crs')" style="padding:7px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid #6366f1;background:#fff;color:#6366f1;cursor:pointer;margin-bottom:-2px"><i class="fas fa-bug"></i> CRs <span id="brTabBadge_crs" style="background:#6366f1;color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+          <button id="brTab_mapped" onclick="brSwitchTab('mapped')" style="padding:7px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-link"></i> Mapped JIRAs <span id="brTabBadge_mapped" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+          <button id="brTab_open" onclick="brSwitchTab('open')" style="padding:7px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-ticket-alt"></i> Open JIRAs <span id="brTabBadge_open" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
         </div>
-        <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table id="brAllJiraTable"><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Reporter</th><th>Crash Type</th><th>Status</th><th>Mapped CR</th><th>Traversal Path</th><th>Final Resolution</th><th>Resolution Notes</th></tr></thead><tbody id="brAllJiraRows"></tbody></table></div>
+        <!-- CRs Tab: mirrors PDT CR_Summary sheet -->
+        <div id="brTabPane_crs">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
+            <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
+          </div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>CR-ID</th><th>Occurrence</th><th>CR Title</th><th>CR Area</th><th>CR SubSystem</th><th>CR Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="11" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+        </div>
+        <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
+        <div id="brTabPane_mapped" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <input id="brMappedSearch" class="mini-input" placeholder="Search ticket / title / status..." oninput="brRenderMappedTab()" style="max-width:260px">
+          </div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th><th>JIRA Tickets (Source)</th></tr></thead><tbody id="brMappedRows"></tbody></table></div>
+        </div>
+        <!-- Open JIRAs Tab: mirrors PDT Qstability_Tickets sheet (no mapping found) -->
+        <div id="brTabPane_open" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <input id="brOpenSearch" class="mini-input" placeholder="Search JIRA / title / status..." oninput="brRenderOpenTab()" style="max-width:260px">
+          </div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
+        </div>
       </div>
+      <!-- legacy hidden containers kept for CSV/copy functions -->
+      <div style="display:none"><table><tbody id="brJiraRows"></tbody></table></div>
+      <div style="display:none"><table><tbody id="brAllJiraRows"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -436,99 +453,130 @@ function jiraLinksHtml(items){
   return '<div class="jira-links">'+keys.map(k=>'<a class="jira-chip" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('')+'</div>';
 }
 function normalize(rep){
-  const crRows=[], jiraRows=[], allJiraRows=[], seenJ={}, seenAll={};
+  // Produces 3 arrays matching PDT_Stats Excel output exactly:
+  //   crRows      -> CR_Summary sheet     (CRxxxxxxx mapped)
+  //   mappedRows  -> Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hop)
+  //   openRows    -> Qstability_Tickets   (no mapping: Open/OnHold/Invalid)
+  //   allJiraRows -> full traversal detail (unchanged)
+  const crRows=[], mappedRows=[], openRows=[], allJiraRows=[];
   let totalJiras=0, convertedToCrs=0;
+  const seenJ={};
 
-  // Primary: build allJiraRows from raw jiras[] using original key + traversal.*
-  function pushAllFromRaw(j){
-    const origKey=String(j.key||'').toUpperCase();
-    if(!origKey||seenAll[origKey])return;
-    seenAll[origKey]=1;
-    const trav=j.traversal||{};
-    const finalCr=trav.final_cr||j.cr_mapped||'';
-    const chainArr=Array.isArray(trav.chain)?trav.chain:[];
-    const chain=chainArr.length>1?chainArr.join(' → '):(chainArr.length===1?chainArr[0]:'');
-    allJiraRows.push({
-      key:origKey,
-      title:j.summary||j.jira_title||j.title||'',
-      reporter:j.reporter||'',
-      status:j.status||'',
-      final_status:trav.final_status||j.status||'',
-      final_resolution:trav.final_resolution||j.resolution||'',
-      resolution_notes_text:trav.resolution_notes_text||j.resolution_notes||'',
-      resolution_notes:j.resolution_notes||'',r:finalCr&&finalCr!=='NO_CR'?finalCr:'',
-      final_key:trav.final_key||origKey,
-      mapping_type:trav.mapping_type||'',
-      build:j.matched_build||j.meta_build||'',
-      project:j.project||'',
-      created:j.created||'',
-      type:crashType(j),
-      chain:chain,
-      hop_count:trav.hop_count||0,
-    });
+  // CR_EQUIVALENT prefixes (non-CR final destinations = Mapped_Tickets sheet)
+  const CR_EQ_PREFIXES=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN'];
+  function isCrEquiv(key){
+    const k=String(key||'').toUpperCase();
+    return CR_EQ_PREFIXES.some(p=>k.startsWith(p+'-'));
   }
-  // Fallback: hierarchical_report path (no raw jiras[])
-  function pushAllFromHierarchical(j,cr){
-    const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
-    if(!key||seenAll[key])return;
-    seenAll[key]=1;
-    allJiraRows.push({
-      key:key,
-      title:j.final_summary||j.summary||j.jira_title||j.title||'',
-      reporter:j.reporter||'',
-      status:j.final_status||j.status||'Open',
-      final_status:j.final_status||j.status||'',
-      final_resolution:finalResolution(j)||'',
-      resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'',
-      resolution_notes:j.resolution_notes||j.final_resolution_notes||'',
-      cr:cr&&cr!=='NO_CR'?cr:(j.cr_mapped||j.final_cr||''),
-      final_key:j.final_key||key,
-      mapping_type:j.mapping_type||'',
-      build:j.matched_build||j.meta_build||'',
-      project:j.project||'',
-      created:j.created||'',
-      type:crashType(j),
-      chain:Array.isArray(j.chain)?j.chain.join(' → '):(j.chain||''),
-      hop_count:j.hop_count||0,
-    });
+  function isTrueCr(key){
+    return /^CR\d{5,9}$/i.test(String(key||'').trim());
   }
 
+  // Status badge helper
+  function statusBadge(st){
+    const s=String(st||'').toLowerCase();
+    const color=s.indexOf('open')>=0||s.indexOf('hold')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':
+      s.indexOf('closed')>=0||s.indexOf('done')>=0||s.indexOf('resolved')>=0?'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0':
+      s.indexOf('ready')>=0||s.indexOf('analysis')>=0||s.indexOf('information')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+      'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+    return '<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+color+'">'+esc(st||'--')+'</span>';
+  }
+
+    const hier=rep.hierarchical_report||[];
   const hasRawJiras=Boolean(rep.jiras&&rep.jiras.length);
-  (rep.hierarchical_report||[]).forEach(r=>{
+
+  hier.forEach(r=>{
     const jiras=r.jiras||[];
     totalJiras+=jiras.length||0;
-    if(!hasRawJiras) jiras.forEach(j=>pushAllFromHierarchical(j,r.cr));
-    if(r.cr&&r.cr!=='NO_CR'){
-      const mappedCount=jiras.length||r.cr_count||r.jira_count||1;
-      convertedToCrs+=Number(mappedCount)||0;
-      crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',resolution:finalResolution(r),count:mappedCount,jiras:jiras,type:crashTypeSummary(jiras,r)});
+
+    const cr=String(r.cr||'').trim();
+
+    if(isTrueCr(cr)){
+      // ── CR_Summary sheet row ──────────────────────────────────────────────
+      const cnt=jiras.length||r.cr_count||r.jira_count||1;
+      convertedToCrs+=Number(cnt)||0;
+      crRows.push({
+        cr, title:r.cr_title||r.title||'',
+        area:r.cr_area||r.area||'', sub:r.cr_subsystem||r.subsystem||'',
+        func:r.cr_functionality||r.cr_function||r.functionality||'',
+        date:r.cr_date||'', si:r.cr_si||'', status:r.cr_status||r.status||'',
+        count:cnt, jiras
+      });
+    } else if(isCrEquiv(cr)){
+      // ── Mapped_Tickets sheet row (ADSPIMAGE etc.) ─────────────────────────
+      // One row per unique final ticket, listing source QSTABILITYs
+      const srcKeys=jiras.map(j=>String(j.key||j.stability_ticket||'')).filter(Boolean);
+      const firstJ=jiras[0]||{};
+      mappedRows.push({
+        ticket:cr,
+        count:jiras.length||1,
+        title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',
+        date:String(firstJ.created||'').slice(0,10),
+        status:firstJ.final_status||firstJ.status||'',
+        srcKeys
+      });
+        } else if(cr==='NO_CR'||!cr){
+      // ── Qstability_Tickets sheet rows ─────────────────────────────────────
+      // Mirror PDT_StatsConstants.py: exclude closed tickets with junk resolutions
+      // and always-exclude rejected/transferred tickets (same as _cr_report_funcs.js)
+      const _EXCL_RES  = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+      const _CLOSED_ST = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
+      jiras.forEach(j=>{
+        const key=String(j.key||j.stability_ticket||'').toUpperCase();
+        if(!key||seenJ[key])return;
+        const jSt  = String(j.status||j.final_status||'').trim().toLowerCase();
+        const jRes = String(j.resolution||'').trim().toLowerCase();
+        const jFRes= String(j.final_resolution||'').trim().toLowerCase();
+        // Always skip rejected and transferred tickets
+        if(jSt==='rejected') return;
+        if(jSt.indexOf('transfer')>=0) return;
+        // Skip closed tickets with invalid/junk resolutions
+        if(_CLOSED_ST.has(jSt)&&(_EXCL_RES.has(jRes)||_EXCL_RES.has(jFRes))) return;
+        seenJ[key]=1;
+        openRows.push({
+          key,
+          count:1,
+          title:j.summary||j.jira_title||j.final_summary||'',
+          date:String(j.created||'').slice(0,10),
+          status:j.status||j.final_status||'',
+          final_resolution:j.final_resolution||j.resolution||'',
+          resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||''
+        });
+      });
     }
-    jiras.forEach(j=>{
-      const key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
-      if(!key||seenJ[key])return;
-      // ── Skip if this JIRA is already mapped to a CR ──────────────────────
-      // Covers: QWINBUG→wincrash CR, QSTABILITY→traversal CR, DirectCR
-      // Check both the parent CR row (r.cr) and the JIRA's own traversal result
-      const jiraCr=String(j.final_cr||j.cr_mapped||j.cr||'').trim();
-      const parentCr=String(r.cr||'').trim();
-      if((jiraCr&&jiraCr!=='NO_CR')||(parentCr&&parentCr!=='NO_CR'))return;
-      // ── Skip if status is definitively closed/inactive ──────────────
-      const st=String(j.final_status||j.status||'').toLowerCase();
-      const _closedSt=['closed','resolved','done','rejected','s2_analysis',
-                       'withdrawn','transferred','duplicate','wont fix',
-                       "won't fix",'invalid','cannot reproduce','incomplete'];
-      if(_closedSt.some(s=>st===s||st.indexOf(s)>=0))return;
-      seenJ[key]=1;
-      jiraRows.push({key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',resolution:finalResolution(j)||j.final_status||j.status||'Open',resolution_notes_text:j.resolution_notes_text||j.resolution_notes||'',type:crashType(j),count:1});
-    });
   });
-  if(hasRawJiras){(rep.jiras||[]).forEach(j=>pushAllFromRaw(j));}
-  if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){(rep.cr_rows||[]).forEach(r=>{const c=Number(r.jira_count||1)||1;const linked=r.jiras||r.mapped_jiras||r.jira_keys||[];convertedToCrs+=c;crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||'',resolution:finalResolution(r),count:c,jiras:linked,type:crashTypeSummary(linked,r)});});}
-  if(rep.open_jiras&&rep.open_jiras.length&&!jiraRows.length){(rep.open_jiras||[]).forEach(j=>jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',resolution:finalResolution(j)||j.status||'Open',type:crashType(j),count:1}));}
+
+    // (raw jiras array — no separate push needed; allJiraRows built from hier above)
+
+  // Legacy fallbacks
+  if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){
+    (rep.cr_rows||[]).forEach(r=>{
+      const c=Number(r.jira_count||1)||1;
+      convertedToCrs+=c;
+      crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',
+        sub:r.cr_subsystem||'',func:r.cr_functionality||'',date:'',si:'',
+        status:r.cr_status||'',count:c,jiras:r.jiras||[]});
+    });
+  }
+  if(rep.open_jiras&&rep.open_jiras.length&&!openRows.length){
+    (rep.open_jiras||[]).forEach(j=>{
+            openRows.push({key:j.stability_ticket||j.key,count:1,
+        title:j.jira_title||j.summary,date:'',status:j.status||'Open',
+        final_resolution:j.final_resolution||j.resolution||'',
+        resolution_notes_text:j.resolution_notes_text||j.resolution_notes||''});
+    });
+  }
+
   const summary=rep.summary||{};
-  totalJiras=Number(summary.total_all_jiras||summary.total_jiras||summary.total||allJiraRows.length||totalJiras||convertedToCrs+jiraRows.length)||0;
-  convertedToCrs=Number(summary.with_cr||summary.converted_to_crs||convertedToCrs)||0;
-  return {crRows,jiraRows,allJiraRows,totalJiras,convertedToCrs};
+  totalJiras=Number(summary.total_all_jiras||summary.total_jiras||totalJiras)||0;
+  convertedToCrs=Number(summary.with_cr||convertedToCrs)||0;
+
+  // Keep jiraRows for legacy CSV/copy (= openRows)
+  const jiraRows=openRows.map(r=>({key:r.key,title:r.title,status:r.status,
+    resolution:r.status,resolution_notes_text:'',final_key:r.key,chain:[],
+    mapping_type:'Unmapped',type:'',count:1}));
+
+  return {crRows,mappedRows,openRows,jiraRows,allJiraRows,totalJiras,convertedToCrs};
 }
 function formatStandardTime(value){
   const raw=String(value||'').trim();
@@ -639,53 +687,229 @@ function renderAllJiraTable(rows){
   }).join('');
 }
 function renderReport(rep){
-  // If BU is unknown and JQL is ambiguous, ask user once before rendering
   if(brAutoIsAutomotive===null){
     const bu=String(g('brBu').value||'').toUpperCase();
     const jql=String((g('brJql')&&g('brJql').value)||'');
     const detected=bu?(bu==='AUTO'||bu==='AUTOMOTIVE'):_detectAutoFromJql(jql);
-    if(detected===null){
-      // Show popup, then re-render with the answer
-      _brShowAutoPopup(function(){
-        renderReport(rep);
-      });
-      return;
-    }
-    brAutoIsAutomotive = (detected===true);
+    if(detected===null){_brShowAutoPopup(function(){renderReport(rep);});return;}
+    brAutoIsAutomotive=(detected===true);
   }
-  // Reset brAutoIsAutomotive when BU selector changes
-  const rows=normalize(rep||{}), crRows=rows.crRows, jiraRows=rows.jiraRows;
-  brLastAllJiraRows=rows.allJiraRows||[];
-  g('brCounts').innerHTML='';
+  const rows=normalize(rep||{});
+  const {crRows,mappedRows,openRows,jiraRows,allJiraRows}=rows;
+  brLastAllJiraRows=allJiraRows||[];
+  brLastJiraRows=jiraRows;
+  brLastCrRows=crRows;
+  // Store for tab renders
+  window._brCrRows=crRows;
+  window._brMappedRows=mappedRows;
+  window._brOpenRows=openRows;
+
+  // Show/hide action buttons
   ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
-  const allBtn=g('brCsvAllJiraBtn'); if(allBtn) allBtn.style.display=brLastAllJiraRows.length?'inline-flex':'none';
-  const copyAllBtn=g('brCopyAllJiraBtn'); if(copyAllBtn) copyAllBtn.style.display=brLastAllJiraRows.length?'inline-flex':'none';
+  const allBtn=g('brCsvAllJiraBtn'); if(allBtn)allBtn.style.display='none';
+  const copyAllBtn=g('brCopyAllJiraBtn'); if(copyAllBtn)copyAllBtn.style.display='none';
+  ['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display=openRows.length?'inline-flex':'none';});
+
+  // Metric cards
   const metricBox=g('brMetricCards');
   metricBox.style.display='grid';
-  let crashSegHtml='';
-  if(brIsAutomotiveBu()){
-    const ct={System:0,SSR:0,Process:0};
-    crRows.forEach(r=>{const linked=brJiraItemsForCr(r);if(linked.length){linked.forEach(j=>{ct[crashType(j)]++;});}else{ct[crashType(r)]++;}});
-    jiraRows.forEach(j=>{ct[crashType(j)]++;});
-    crashSegHtml='<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-car"></i> Automotive Crash Type Segregation</div>'+
-      '<div class="metric-card warn"><b>'+esc(ct.System)+'</b><span>System Crashes</span></div>'+
-      '<div class="metric-card"><b>'+esc(ct.SSR)+'</b><span>SSR Crashes</span></div>'+
-      '<div class="metric-card purple"><b>'+esc(ct.Process)+'</b><span>Process Crashes</span></div>';
-  }
-  const invalidCount=Number(((rep||{}).summary||{}).invalid_jiras||0)||0;
-  metricBox.innerHTML='<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Converted to CRs</span></div><div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div><div class="metric-card warn"><b>'+esc(jiraRows.length)+'</b><span>Open JIRAs</span></div>'+(invalidCount?'<div class="metric-card warn"><b>'+esc(invalidCount)+'</b><span>Invalid / Closed Included</span></div>':'')+crashSegHtml+renderAxiomMetricsHtml(rep||{});
+    // Count invalid JIRAs: openRows whose status/resolution matches invalid keywords
+    const INVALID_KEYWORDS=['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn','closed','cannotduplicate','invalid_dup'];
+  const invalidCount=openRows.filter(r=>{
+    const s=String(r.status||'').toLowerCase();
+    const fr=String(r.final_resolution||'').toLowerCase();
+    const rn=String(r.resolution_notes_text||'').toLowerCase();
+    return INVALID_KEYWORDS.some(k=>s.indexOf(k)>=0||fr.indexOf(k)>=0||rn.indexOf(k)>=0);
+  }).length || Number(((rep||{}).summary||{}).invalid_jiras||0)||0;
+  const activeOpenCount=openRows.length-invalidCount;
+  metricBox.innerHTML=
+    '<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div>'+
+    '<div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Mapped to CRs</span></div>'+
+    '<div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div>'+
+    '<div class="metric-card" style="border-color:#fcd34d;background:linear-gradient(135deg,#fef3c7,#fff)"><b>'+esc(mappedRows.length)+'</b><span>Mapped Tickets</span></div>'+
+    '<div class="metric-card warn"><b>'+esc(openRows.length)+'</b><span>Open JIRAs</span></div>'+
+    (invalidCount?'<div class="metric-card" style="border-color:#fca5a5;background:linear-gradient(135deg,#fee2e2,#fff)"><b style="color:#b91c1c">'+esc(invalidCount)+'</b><span>Invalid / Closed</span></div>':'')+
+    (activeOpenCount>0?'<div class="metric-card warn"><b>'+esc(activeOpenCount)+'</b><span>Active Open JIRAs</span></div>':'')+
+    renderAxiomMetricsHtml(rep||{});
+
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
-  const jr=g('brJiraRows');
-  brLastJiraRows=jiraRows;
-  if(jiraRows.length){g('brJiraSection').style.display='block';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});jr.innerHTML=jiraRows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td>'+esc(r.title||'--')+'</td><td>'+esc(r.type||'--')+'</td><td>'+esc(r.resolution_notes_text||r.resolution||r.status||'--')+'</td><td>'+esc(r.count||1)+'</td></tr>').join('');}
-  else {g('brJiraSection').style.display='none';['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});}
-  renderAllJiraTable(brLastAllJiraRows);
-  const cr=g('brCrRows');
-  if(!crRows.length){cr.innerHTML='<tr><td colspan="10" class="empty">No CR rows found for this query.</td></tr>';return;}
-  crRows.sort((a,b)=>(b.count||0)-(a.count||0));
-  brLastCrRows=crRows;
-  cr.innerHTML=crRows.map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const link=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');const jiraKeys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);const cnt=Number(r.count||jiraKeys.length||0);const cntHtml=jiraKeys.length?'<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open '+Math.min(jiraKeys.length,50)+' mapped JIRAs in JIRA">'+esc(cnt)+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>':'<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';return '<tr><td style="width:36px;text-align:center;white-space:nowrap">'+(i+1)+'</td><td style="width:90px;white-space:nowrap">'+link+'</td><td style="word-break:break-word;overflow-wrap:break-word;white-space:normal;min-width:160px">'+esc(r.title||'--')+'</td><td style="width:72px;text-align:center;white-space:nowrap">'+cntHtml+'</td><td style="width:100px;white-space:nowrap">'+esc(r.type||'--')+'</td><td style="width:110px">'+esc(r.resolution_notes_text||r.resolution||r.status||'--')+'</td><td style="width:56px;text-align:center;font-weight:900;white-space:nowrap">'+esc(r.age||'--')+'</td><td style="width:80px">'+esc(r.area||'--')+'</td><td style="width:110px">'+esc(r.sub||'--')+'</td><td style="width:130px">'+esc(r.func||'--')+'</td></tr>';}).join('');
+
+  // Show tabs
+  const tabs=g('brReportTabs'); if(tabs)tabs.style.display='block';
+
+  // Update tab badges
+  function setBadge(id,n,active){
+    const b=g('brTabBadge_'+id); if(!b)return;
+    b.textContent=n;
+    b.style.background=active?'#6366f1':'#e2e8f0';
+    b.style.color=active?'#fff':'#475569';
+  }
+  setBadge('crs',crRows.length,true);
+  setBadge('mapped',mappedRows.length,false);
+  setBadge('open',openRows.length,false);
+
+  // Render active tab (CRs by default)
+  brSwitchTab('crs');
 }
+
+/* ── Tab switcher ─────────────────────────────────────────────────────────── */
+window.brSwitchTab=function(name){
+  ['crs','mapped','open'].forEach(t=>{
+    const pane=g('brTabPane_'+t), btn=g('brTab_'+t), badge=g('brTabBadge_'+t);
+    const active=(t===name);
+    if(pane)pane.style.display=active?'block':'none';
+    if(btn){
+      btn.style.borderBottomColor=active?'#6366f1':'transparent';
+      btn.style.color=active?'#6366f1':'#64748b';
+    }
+    if(badge){
+      badge.style.background=active?'#6366f1':'#e2e8f0';
+      badge.style.color=active?'#fff':'#475569';
+    }
+  });
+  if(name==='crs')    brRenderCrTab();
+  if(name==='mapped') brRenderMappedTab();
+  if(name==='open')   brRenderOpenTab();
+};
+
+/* ── CRs Tab render (PDT CR_Summary) ─────────────────────────────────────── */
+window.brRenderCrTab=function(){
+  const crRows=window._brCrRows||[];
+  const q=String((g('brCrSearch')||{}).value||'').toLowerCase();
+  const sort=(g('brCrSort')||{}).value||'occ_desc';
+  let rows=crRows.filter(r=>!q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0);
+  rows.sort((a,b)=>{
+    if(sort==='occ_asc')return (a.count||0)-(b.count||0);
+    if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr));
+    return (b.count||0)-(a.count||0);
+  });
+  const tb=g('brCrRows'); if(!tb)return;
+  if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="empty">No CRs found.</td></tr>';return;}
+  tb.innerHTML=rows.map((r,i)=>{
+    const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+    const crLink=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':esc(r.cr||'--');
+    // CR Status badge
+    const st=String(r.status||'');
+    const stLow=st.toLowerCase();
+    const stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+      stLow==='fix'||stLow==='inprogress'?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
+      stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534;border:1px solid #86efac':
+      'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+    const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
+    // JIRA Tickets cell: expandable pills
+    const jiraItems=brJiraItemsForCr(r);
+    const jiraKeys=jiraItems.map(x=>x.key).filter(Boolean);
+    const cnt=Number(r.count||jiraKeys.length||0);
+    let jiraCell;
+    if(!jiraKeys.length){
+      jiraCell='<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';
+    } else if(jiraKeys.length<=3){
+      jiraCell='<div style="display:flex;flex-wrap:wrap;gap:3px">'+
+        jiraKeys.map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;white-space:nowrap" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('')+
+        '</div>';
+    } else {
+      const pills=jiraKeys.slice(0,5).map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('');
+      const more=jiraKeys.length>5?'<span style="color:#94a3b8;font-size:10px"> +'+(jiraKeys.length-5)+' more</span>':'';
+      jiraCell='<div>'+
+        '<span style="font-weight:950;color:#4f46e5;cursor:pointer;white-space:nowrap" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(cnt)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span>'+
+        '<div style="display:none;margin-top:4px;line-height:1.9">'+pills+more+'</div>'+
+        '</div>';
+    }
+    return '<tr>'+
+      '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
+      '<td style="white-space:nowrap">'+crLink+'</td>'+
+      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(cnt)+'</td>'+
+      '<td style="max-width:320px;word-break:break-word">'+esc(r.title||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.area||'--')+'</td>'+
+      '<td style="font-size:11px">'+esc(r.sub||'--')+'</td>'+
+      '<td style="font-size:11px">'+esc(r.func||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
+      '<td style="font-size:11px">'+esc(r.si||'--')+'</td>'+
+      '<td>'+stBadge+'</td>'+
+      '<td style="min-width:180px">'+jiraCell+'</td>'+
+      '</tr>';
+  }).join('');
+};
+
+/* ── Mapped JIRAs Tab render (PDT Mapped_Tickets) ─────────────────────────── */
+window.brRenderMappedTab=function(){
+  const rows=window._brMappedRows||[];
+  const q=String((g('brMappedSearch')||{}).value||'').toLowerCase();
+  const filtered=rows.filter(r=>!q||[r.ticket,r.title,r.status].join(' ').toLowerCase().indexOf(q)>=0);
+  const tb=g('brMappedRows'); if(!tb)return;
+  if(!filtered.length){tb.innerHTML='<tr><td colspan="7" class="empty">No mapped tickets found.</td></tr>';return;}
+  tb.innerHTML=filtered.map((r,i)=>{
+    const prefix=String(r.ticket||'').split('-')[0]||'';
+    const prefixColor={'ADSPIMAGE':'#7c3aed','CNSSDEBUG':'#0369a1','CHIPMD':'#059669','QSTABILITY':'#1e40af'}[prefix]||'#475569';
+    const ticketLink='<a class="link" style="font-weight:900;color:'+prefixColor+'" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.ticket)+'" target="_blank" rel="noopener">'+esc(r.ticket)+'</a>';
+    // Status badge
+    const st=String(r.status||'');
+    const stLow=st.toLowerCase();
+    const stColor=stLow.indexOf('information')>=0||stLow.indexOf('analysis')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+      stLow.indexOf('ready')>=0?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
+      stLow.indexOf('hold')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':
+      'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+    const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
+    // Source JIRA pills
+    const srcKeys=r.srcKeys||[];
+    let srcCell;
+    if(!srcKeys.length){srcCell='--';}
+    else if(srcKeys.length<=3){
+      srcCell=srcKeys.map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('');
+    } else {
+      const pills=srcKeys.slice(0,4).map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('');
+      const more=srcKeys.length>4?'<span style="color:#94a3b8;font-size:10px"> +'+(srcKeys.length-4)+' more</span>':'';
+      srcCell='<div>'+
+        '<span style="font-weight:950;color:#4f46e5;cursor:pointer;white-space:nowrap" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(srcKeys.length)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span>'+
+        '<div style="display:none;margin-top:4px;line-height:1.9">'+pills+more+'</div>'+
+        '</div>';
+    }
+    return '<tr>'+
+      '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
+      '<td style="white-space:nowrap">'+ticketLink+'</td>'+
+      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td>'+
+      '<td style="max-width:360px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
+      '<td>'+stBadge+'</td>'+
+      '<td style="min-width:160px">'+srcCell+'</td>'+
+      '</tr>';
+  }).join('');
+};
+
+/* ── Open JIRAs Tab render (PDT Qstability_Tickets) ──────────────────────── */
+window.brRenderOpenTab=function(){
+  const rows=window._brOpenRows||[];
+  const q=String((g('brOpenSearch')||{}).value||'').toLowerCase();
+  const filtered=rows.filter(r=>!q||[r.key,r.title,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0);
+  const tb=g('brOpenRows'); if(!tb)return;
+  if(!filtered.length){tb.innerHTML='<tr><td colspan="6" class="empty">No open/unmapped JIRAs found.</td></tr>';return;}
+  const _INV_OPEN=['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
+  tb.innerHTML=filtered.map((r,i)=>{
+    const st=String(r.status||'');
+    const stLow=st.toLowerCase();
+    const fr=String(r.final_resolution||'').toLowerCase();
+    const rn=String(r.resolution_notes_text||'').toLowerCase();
+    const isInv=_INV_OPEN.some(v=>stLow.indexOf(v)>=0||fr.indexOf(v)>=0||rn.indexOf(v)>=0);
+    const stColor=stLow.indexOf('open')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':
+      stLow.indexOf('hold')>=0?'background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc':
+      (stLow.indexOf('closed')>=0||isInv)?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':
+      'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+    const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
+    const invBadge=isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'';
+    const resDisplay=r.resolution_notes_text||r.final_resolution||'';
+    const resNote=resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'\u2026':'')+'</div>':'';
+    return '<tr>'+
+      '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
+      '<td style="white-space:nowrap"><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a></td>'+
+      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td>'+
+      '<td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
+      '<td>'+stBadge+invBadge+resNote+'</td>'+
+      '</tr>';
+  }).join('');
+};
+
+
 function brJiraItemsForCr(row){
   const out=[], seen=new Set();
   (row&&row.jiras||[]).forEach(j=>{

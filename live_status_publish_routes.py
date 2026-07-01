@@ -1745,7 +1745,19 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     is_compute_mtbf = (get_bu_for_target(primary_target) or '').upper() == 'COMPUTE'
     is_auto_bu = _is_core_deck_target(primary_target)
 
-    visible_tabs = ['core']  # core slide shown for all BUs
+            # Core Slides tab: only shown for AUTO BU targets or targets with
+    # core_deck_enabled=True in their per-target config. Default: disabled.
+    try:
+        _meta = load_metadata_config() or {}
+        _targets_cfg = _meta.get('TARGETS_CONFIG', {}) or {}
+        _target_cfg  = _targets_cfg.get(primary_target) or next(
+            (v for k, v in _targets_cfg.items() if str(k).lower() == str(primary_target).lower()),
+            {}
+        ) or {}
+        _core_enabled = is_auto_bu or bool(_target_cfg.get('core_deck_enabled', False))
+    except Exception:
+        _core_enabled = is_auto_bu
+    visible_tabs = ['core'] if _core_enabled else []
     if _job_type(job) == 'ENG':
         initial_tab = 'current'
     else:
@@ -3192,7 +3204,7 @@ def _build_published_current_jql(builds):
     parts = [f'summary ~ "{_q(b)}"' for b in (builds or []) if str(b or '').strip()]
     if not parts:
         return ''
-    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND (project = QSTABILITY OR project = CHIPMD OR project = DROIDBUG) AND summary !~ \"tombstone\" ORDER BY created ASC"
+    return f"({' OR '.join(parts)}) AND filter = {JIRA_PDT_FILTER_ID} AND summary !~ \"tombstone\" ORDER BY created ASC"
 
 
 def _count_jira_for_jql(jql):

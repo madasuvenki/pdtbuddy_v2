@@ -1155,12 +1155,12 @@ document.addEventListener('DOMContentLoaded', function () {
         minPadding: 0,
         startOnTick: false,
         endOnTick: false,
-        labels: {
-          rotation:-35,
-          y:22,
-                                        style:{fontSize:"13px",fontWeight:"800",color:"#334155"},
-          formatter:function(){ return data.categories[this.value] || ""; }
-        },
+                  labels: {
+            rotation:-35,
+            y:22,
+            style:{fontSize:"13px",fontWeight:"700",color:"#334155"},
+            formatter:function(){ return data.categories[this.value] || ""; }
+          },
         title: { text: _crAgeGroup==='subsystem'?'CR Subsystem':_crAgeGroup==='func'?'CR Functionality':'CR Area', margin:36, style:{fontSize:"22px",fontWeight:"bold",color:"#0f172a"} }
 
 
@@ -1172,12 +1172,33 @@ document.addEventListener('DOMContentLoaded', function () {
             legend: { enabled:true, align:"center", verticalAlign:"top", layout:"horizontal", itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:"11px",fontWeight:"700",color:"#374151"}, itemDistance: 14 },
       tooltip: { shared:true, headerFormat:"<span style='font-size:11px'>{point.key}</span><br/>" },
             plotOptions: {
-        series: {
+                series: {
           events: {
             legendItemClick: function(){
               var chart = this.chart;
               // Run after Highcharts toggles the series so the secondary axis follows Average TAT visibility.
-              setTimeout(function(){ _syncAverageTatAxis(chart, true); }, 0);
+              setTimeout(function(){
+                _syncAverageTatAxis(chart, true);
+                // Update chart title when CR Average Age series is toggled
+                var avgSeries = null;
+                (chart.series || []).forEach(function(s){
+                  if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
+                });
+                if(avgSeries){
+                  var isHidden = avgSeries.visible === false;
+                  var newTitle = isHidden ? 'CR Area wise count' : 'CR Avg Age';
+                  var groupLabel = _groupLabel();
+                  var fullTitle = isHidden ? newTitle : (newTitle + ' by ' + groupLabel);
+                  chart.setTitle({text: fullTitle});
+                  // Also update the card title
+                  var _ctEl = document.getElementById('crAgeCardTitle');
+                  if(_ctEl){
+                    var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
+                    var totalOverall = (allCrRows||[]).length;
+                    _ctEl.innerHTML = newTitle + ' <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">' + totalSelected + ' selected / ' + totalOverall + ' total</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by ' + groupLabel + '</span>';
+                  }
+                }
+              }, 0);
             }
           }
         },
@@ -1924,12 +1945,13 @@ buildHeader(); buildFilters(); applyFilters();
     function _enhanceCopiedSvgText(svg) {
     if(!svg) return;
     try {
-      var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-      style.textContent = 'text{font-family:Inter,Segoe UI,Arial,sans-serif;text-rendering:geometricPrecision}';
+            var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = 'text{font-family:Inter,Segoe UI,Arial,sans-serif;text-rendering:geometricPrecision;font-weight:normal !important}tspan{font-weight:normal !important}';
       svg.insertBefore(style, svg.firstChild);
       Array.prototype.forEach.call(svg.querySelectorAll('text,tspan'), function(t){
         t.removeAttribute('textLength');
         t.removeAttribute('lengthAdjust');
+        t.setAttribute('font-weight', 'normal');
       });
     } catch(e) {}
   }
@@ -2069,7 +2091,7 @@ buildHeader(); buildFilters(); applyFilters();
       setTimeout(function(){ btn.innerHTML = orig; }, 2200);
     }
 
-        // Copy behavior:
+    // Copy behavior:
     // If CR Average Age is disabled on the page, Highcharts shows it as a
     // strike-through legend item. For Outlook copy, remove that disabled legend
     // item from the copied image only, then restore the page chart back to the
@@ -2258,4 +2280,3 @@ buildHeader(); buildFilters(); applyFilters();
 </script>
 {% endif %}
 {% endblock %}
-

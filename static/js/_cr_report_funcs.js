@@ -1,10 +1,10 @@
-﻿function crStatusBadge(status){
+function crStatusBadge(status){
   const s = (status||'').toLowerCase();
   if(s==='built')           return `<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
   if(s.includes('ready')||s.includes('fix')||s.includes('release')) return `<span style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
   if(s.includes('open')||s.includes('progress')||s.includes('analysis')) return `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
   if(s.includes('closed')||s.includes('withdrawn')||s.includes('duplicate')) return `<span style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
-  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||'â€”')}</span>`;
+  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||'—')}</span>`;
 }
 
 function jiraStatusBadge(status){
@@ -14,7 +14,7 @@ function jiraStatusBadge(status){
   if(s.includes("open"))      return `<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
   if(s.includes("progress")||s.includes("active")) return `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
   if(s.includes("reopen"))    return `<span style="background:#fffbeb;color:#b45309;border:1px solid #fcd34d;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status)}</span>`;
-  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||"â€”")}</span>`;
+  return `<span style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${esc(status||"—")}</span>`;
 }
 
 function scrollToReport(){
@@ -23,7 +23,7 @@ function scrollToReport(){
 }
 
 function renderConsolidatedReport(){
-  // legacy compat â€” delegates to hierarchy
+  // legacy compat — delegates to hierarchy
   if(_consolidatedReport) renderHierarchicalReport(_consolidatedReport);
   else autoLoadConsolidatedReport();
 }
@@ -155,7 +155,7 @@ function buildVisibleReport(report){
 
   return {
     ...report,
-    meta: { ...(report.meta || {}), build_ids: selectedBuilds, filtered_from_build_ids: (report.meta || {}).build_ids || [], jql: (report.meta || {}).custom_jql ? ((report.meta || {}).jql || (report.meta || {}).custom_jql) : `(${selectedBuilds.map(b => `summary ~ "${String(b).replace(/"/g, '\\"')}"`).join(' OR ')}) AND filter = 76997 AND project = "Target Stability" ORDER BY created ASC` },
+    meta: { ...(report.meta || {}), build_ids: selectedBuilds, filtered_from_build_ids: (report.meta || {}).build_ids || [], jql: (report.meta || {}).custom_jql ? ((report.meta || {}).jql || (report.meta || {}).custom_jql) : `(${selectedBuilds.map(b => `summary ~ "${String(b).replace(/"/g, '\\"')}"`).join(' OR ')}) AND filter = 76997 ORDER BY created ASC` },
     summary: { total_jiras: selectedIssues.length, by_build: byBuild, by_project: byProject, with_cr: withCr, transferred_count: transferred, open_without_cr: openNoCr },
     hierarchical_report: hierarchical,
   };
@@ -177,11 +177,11 @@ function renderHierarchicalReport(report){
   const displayJql = meta.custom_jql || meta.jql || buildAutoJql(builds);
   updateJqlPanel(displayJql, { fromCache:!!meta.from_cache, custom:!!meta.custom_jql });
 
-  // â”€â”€ CR rows (have a CR) vs open JIRAs (no CR mapped) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── CR rows (have a CR) vs open JIRAs (no CR mapped) ──────────────────────
   const crRows   = rows.filter(r => r.cr && r.cr !== 'NO_CR');
   const noCrRows = rows.filter(r => !r.cr || r.cr === 'NO_CR');
         // flatten open JIRAs from all NO_CR groups
-  // Exclude junk tickets â€” matches PDT_StatsConstants.py ISSUE_CLOSED + resolution IDs
+  // Exclude junk tickets — matches PDT_StatsConstants.py ISSUE_CLOSED + resolution IDs
   const EXCLUDE_RESOLUTIONS = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
   const CLOSED_STATUSES     = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
   const openJiras = noCrRows.flatMap(r => r.jiras || [])
@@ -209,7 +209,7 @@ function renderHierarchicalReport(report){
   let html = ``;
 
 
-  // â”€â”€ TABLE 1: CRs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── TABLE 1: CRs ──────────────────────────────────────────────────────────
   html += `
   <div style="background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 8px 24px rgba(15,23,42,.07);overflow:hidden;margin-bottom:24px">
     <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">
@@ -284,16 +284,16 @@ function renderHierarchicalReport(report){
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${idx+1}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${crLink}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${occHtml}</td>
-        <td title="${esc(row.cr_title||'â€”')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.32">${esc(row.cr_title||'â€”')}</td>
-        <td title="${esc(row.cr_area||'â€”')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_area||'â€”')}</td>
-        <td title="${esc(row.cr_subsystem||'â€”')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_subsystem||'â€”')}</td>
-        <td title="${esc(row.cr_function||'â€”')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_function||'â€”')}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">${esc(row.cr_built_date||row.cr_date||'â€”')}</td>
+        <td title="${esc(row.cr_title||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.32">${esc(row.cr_title||'—')}</td>
+        <td title="${esc(row.cr_area||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_area||'—')}</td>
+        <td title="${esc(row.cr_subsystem||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_subsystem||'—')}</td>
+        <td title="${esc(row.cr_function||'—')}" style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${esc(row.cr_function||'—')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">${esc(row.cr_built_date||row.cr_date||'—')}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;white-space:nowrap">
-          ${esc(row.cr_image||'â€”')}
-          ${row.cr_image_matched?'<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:3px">âœ“</span>':''}
+          ${esc(row.cr_image||'—')}
+          ${row.cr_image_matched?'<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:999px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:3px">✓</span>':''}
         </td>
-        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;${statusCls}">${esc(row.cr_status||'â€”')}</span></td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;${statusCls}">${esc(row.cr_status||'—')}</span></td>
       </tr>`;
 
 
@@ -304,14 +304,14 @@ function renderHierarchicalReport(report){
   html += `
   <div style="background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 8px 24px rgba(15,23,42,.07);overflow:hidden;margin-bottom:24px">
     <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">
-      <span style="font-size:16px">ðŸ“Œ</span>
+      <span style="font-size:16px">📌</span>
       <span style="font-size:13px;font-weight:800;color:#1e1b4b">Open JIRAs</span>
       <span data-jira-count-badge style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:2px 12px;font-size:10px;font-weight:700">${openJiras.length} JIRA${openJiras.length!==1?'s':''}</span>
       <button type="button" class="inline-collapse-btn" onclick="toggleInlineSection('jiraTableWrap','jiraTableCollapseIcon')"><i class="fas fa-chevron-up" id="jiraTableCollapseIcon"></i> Collapse</button>
       <div style="margin-left:auto"><input type="text" id="jiraSearchInline" placeholder="Search JIRA title, ticket..." oninput="applyJiraFilters()" style="padding:4px 10px;border-radius:999px;border:1px solid #d1d5db;font-size:11px;min-width:220px"></div>
     </div>
     <div id="jiraFilterBar" style="padding:8px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-      <span id="jiraFilterClearBtn" onclick="clearJiraFilters()" style="display:none;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">Ã— Clear</span>
+      <span id="jiraFilterClearBtn" onclick="clearJiraFilters()" style="display:none;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">× Clear</span>
     </div>
     <div id="jiraTableWrap" class="inline-table-wrap" style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:11px;color:#111827;min-width:1000px">
@@ -454,7 +454,7 @@ async function saveBuild(){
     if(IS_AUTO_MODE){
       saveStore();
     } else if(isNew){
-      // New build â€” POST to add_build
+      // New build — POST to add_build
       const resp = await fetch(`/api/dashboard/${encodeURIComponent(currentTarget)}/excel/add_build`,{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -476,7 +476,7 @@ async function saveBuild(){
       renderBuildPills();
       renderRecentBuilds();
     } else {
-      // Existing row â€” mark dirty and update
+      // Existing row — mark dirty and update
       const row = rows[savedIndex];
       if(row && row.excel_row){
         markDirty(row);

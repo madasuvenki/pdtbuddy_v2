@@ -101,15 +101,15 @@ window.renderRunningBuildsDb = function(){
     var actions = CAN_EDIT ?
       '<button class="btn lsp-editor-only" style="font-size:11px;padding:4px 8px" onclick="rbEditRow('+i+')"><i class="fas fa-pen"></i></button> ' +
       '<button class="btn lsp-editor-only" style="font-size:11px;padding:4px 8px;color:#b91c1c" onclick="rbDeleteRow('+i+')"><i class="fas fa-trash"></i></button>' : '';
-    return '<tr>' +
-      '<td style="text-align:center;color:#94a3b8;">'+(i+1)+'</td>' +
-      '<td style="word-break:break-all;font-size:11px;">'+esc(r.build_full||r.build_id||r.display_build||'-')+'</td>' +
-      '<td><b style="color:#1e3a8a;">'+esc(r.meta_id||'-')+'</b></td>' +
-      '<td>'+esc(r.deviceName||r.device_name||'-')+'</td>' +
-      '<td>'+esc(r.hours||'-')+'</td>' +
-      '<td>'+esc(r.reduction||r.reduction_percent||r.reduction_pct||'-')+'</td>' +
-      '<td>'+esc(r.crashes||'-')+'</td>' +
-      '<td style="text-align:center;font-weight:800;color:#6366f1;">'+esc(r.device_count||'-')+'</td>' +
+    return '<tr style="font-size:15px">' +
+      '<td style="text-align:center;color:#94a3b8;padding:9px 10px">'+(i+1)+'</td>' +
+      '<td style="word-break:break-all;font-size:14px;padding:9px 10px">'+esc(r.build_full||r.build_id||r.display_build||'-')+'</td>' +
+      '<td style="padding:9px 10px"><b style="color:#1e3a8a;">'+esc(r.meta_id||'-')+'</b></td>' +
+      '<td style="padding:9px 10px">'+esc(r.deviceName||r.device_name||'-')+'</td>' +
+      '<td style="padding:9px 10px">'+esc(r.hours||'-')+'</td>' +
+      '<td style="padding:9px 10px">'+esc(r.reduction||r.reduction_percent||r.reduction_pct||'-')+'</td>' +
+      '<td style="padding:9px 10px">'+esc(r.crashes||'-')+'</td>' +
+      '<td style="text-align:center;font-weight:800;color:#6366f1;padding:9px 10px">'+esc(r.device_count||'-')+'</td>' +
       '<td><span style="background:#dcfce7;color:#166534;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;">'+esc(status)+'</span></td>' +
       '<td>'+actions+'</td>' +
     '</tr>';

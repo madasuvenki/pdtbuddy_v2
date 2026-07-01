@@ -183,7 +183,7 @@
 }
 .wk-search{min-width:300px;}
 .wk-search:focus,.wk-select:focus{border-color:#6366f1;outline:none;}
-.wk-table-scroll{max-height:440px;overflow:auto;}
+.wk-table-scroll{max-height:960px;overflow:auto;}
 .wk-table-scroll table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;}
 .wk-table-scroll th,.wk-table-scroll td{
   padding:9px 12px;vertical-align:top;
@@ -338,18 +338,18 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     <div class="wk-panel">
       <h2>Summary</h2>
       <div class="wk-weekline">{% if from_date_val == 'ALL' %}Range: ALL complete data{% elif from_date_val and to_date_val %}Week: {{ from_date_val }} - {{ to_date_val }}{% else %}Range: Last Monday - Sunday{% endif %}</div>
-      <div class="wk-metric"><span class="k">Total JIRAs reported</span><span class="v">{{ rs.get('num_jiras_reported', 0) }}</span></div>
-      <div class="wk-metric"><span class="k">Total Open JIRAs</span><span class="v">{{ rs.get('num_open_jiras_week', rs.get('num_open_jiras', 0)) }}</span></div>
-            <div class="wk-metric"><span class="k">Total CRs reported</span><span class="v">{{ rs.get('num_crs_week', rs.get('num_crs_reported', 0)) }}</span></div>
-      <div class="wk-metric"><span class="k">Overall CRs reported</span><span class="v">{{ rs.get('num_crs_total', rs.get('num_overall_crs', 0)) }}</span></div>
-      <div class="wk-metric"><span class="k">Valid CRs reported</span><span class="v">{{ rs.get('num_valid_crs', 0) }}</span></div>
-      <div class="wk-metric" onclick="document.getElementById('dupCrossVerifyPanel').scrollIntoView({behavior:'smooth',block:'start'})" style="cursor:pointer;" title="Click to see DUP CRs list"><span class="k">Dup CRs &#8595;</span><span class="v" style="color:#5b9bd5;">{{ rs.get('num_dup_crs', rs.get('dup', rs.get('duplicate', 0))) }}</span></div>
+            <div class="wk-metric"><span class="k">Total JIRAs reported</span><span class="v" id="wkSummaryJiras">{{ rs.get('num_jiras_reported', 0) }}</span></div>
+      <div class="wk-metric"><span class="k">Total Open JIRAs</span><span class="v" id="wkSummaryOpenJiras">{{ rs.get('num_open_jiras_week', rs.get('num_open_jiras', 0)) }}</span></div>
+            <div class="wk-metric"><span class="k">Total CRs reported</span><span class="v" id="wkSummaryTotalCrs">{{ rs.get('num_crs_week', rs.get('num_crs_reported', 0)) }}</span></div>
+      <div class="wk-metric"><span class="k">Overall CRs reported</span><span class="v" id="wkSummaryOverallCrs">{{ rs.get('num_crs_total', rs.get('num_overall_crs', 0)) }}</span></div>
+      <div class="wk-metric"><span class="k">Valid CRs reported</span><span class="v" id="wkSummaryValidCrs">{{ rs.get('num_valid_crs', 0) }}</span></div>
+      <div class="wk-metric" onclick="document.getElementById('dupCrossVerifyPanel').scrollIntoView({behavior:'smooth',block:'start'})" style="cursor:pointer;" title="Click to see DUP CRs list"><span class="k">Dup CRs &#8595;</span><span class="v" id="wkSummaryDupCrs" style="color:#5b9bd5;">{{ rs.get('num_dup_crs', rs.get('dup', rs.get('duplicate', 0))) }}</span></div>
 
 
     </div>
 
     <div class="wk-panel">
-      <h2 id="pieTitle">CR Status  Distribution</h2>
+      <h2 id="pieTitle">CR Status Distribution</h2>
       <div class="wk-control-card">
         <div class="wk-control-row">
                                         <div class="wk-pick">Chart:
@@ -715,6 +715,14 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
   const btnAreaStatusAll = document.getElementById('btnAreaStatusAll');
   const btnAreaStatusNone = document.getElementById('btnAreaStatusNone');
   const wkBody = document.getElementById('weeklyCrBody');
+  const wkSummaryBase = {
+    jiras: Number({{ rs.get('num_jiras_reported', 0) | tojson }} || 0),
+    openJiras: Number({{ rs.get('num_open_jiras_week', rs.get('num_open_jiras', 0)) | tojson }} || 0),
+    totalCrs: Number({{ rs.get('num_crs_week', rs.get('num_crs_reported', 0)) | tojson }} || 0),
+    overallCrs: Number({{ rs.get('num_crs_total', rs.get('num_overall_crs', 0)) | tojson }} || 0),
+    validCrs: Number({{ rs.get('num_valid_crs', 0) | tojson }} || 0),
+    dupCrs: Number({{ rs.get('num_dup_crs', rs.get('dup', rs.get('duplicate', 0))) | tojson }} || 0)
+  };
   // CR Title Exclude state (window.* so compute script block can access)
   window._wkExcludeEnabled  = false;
   window._wkExcludeKeywords = [];
@@ -803,6 +811,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
   let POS_KEY = '';
   let labelPos = {};
   let currentTrendRows = [];
+  let rawTrendRows = [];
   let activeAreaStatuses = new Set();
 
   const DUP_NAMES = new Set(['dup','duplicate','duplicates']);
@@ -891,7 +900,25 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
         const W=900,H=420,L=54,R=16,T=34,B=64;
     const plotW=W-L-R, plotH=H-T-B;
         const mk2=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag);
-    const COLORS=['#2563eb','#f59e0b','#10b981','#8b5cf6','#06b6d4','#84cc16','#f97316','#14b8a6','#a855f7','#eab308','#0ea5e9','#22c55e'];
+        // Use the same calm Excel-style palette as the Overall PDT CRs Trend.
+    // Keep status colors grouped instead of assigning a different bright color to every label.
+    const trendLikeColors = {
+      analysis:'#156082',
+      open:'#ed7d31',
+      built:'#70ad47', build:'#70ad47', closed:'#70ad47', close:'#70ad47', fix:'#70ad47', fixed:'#70ad47',
+      ready:'#9e480e', inprogress:'#9e480e', progress:'#9e480e',
+      invalid:'#a5a5a5', invaliddup:'#a5a5a5', nosir:'#a5a5a5', notapplicable:'#a5a5a5', cannotduplicate:'#a5a5a5', withdrawn:'#a5a5a5',
+      postponed:'#2f5597', deferred:'#2f5597',
+      dup:'#5b9bd5', duplicate:'#5b9bd5', duplicates:'#5b9bd5',
+      unknown:'#64748b'
+    };
+    function barColorFor(name, idx){
+      var key = String(name || '').toLowerCase().replace(/[\s_-]+/g, '');
+      if(mode === 'area') return '#156082';
+      var orderedKeys = ['analysis','open','built','build','closed','close','fix','fixed','ready','inprogress','progress','invaliddup','invalid','nosir','notapplicable','cannotduplicate','withdrawn','postponed','deferred','duplicate','duplicates','dup'];
+      for(var i=0;i<orderedKeys.length;i++){ var k = orderedKeys[i]; if(key.indexOf(k) >= 0) return trendLikeColors[k]; }
+      return trendLikeColors.unknown;
+    }
     const maxVal=Math.max(1,...(points||[]).map(p=>Number(p.value||0)));
     const nice=Math.ceil(maxVal/10)*10 || maxVal;
     const y=v=>T+plotH-(Number(v||0)/nice)*plotH;
@@ -905,7 +932,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     const axisX=mk2('line');axisX.setAttribute('x1',L);axisX.setAttribute('x2',W-R);axisX.setAttribute('y1',T+plotH);axisX.setAttribute('y2',T+plotH);axisX.setAttribute('stroke','#94a3b8');axisX.setAttribute('stroke-width','1.4');svg.appendChild(axisX);
         const n=Math.max(1,points.length), step=plotW/n, barW=Math.max(10,Math.min(24,step*0.28));
     points.forEach((p,i)=>{
-      const x=L+(i*step)+((step-barW)/2), val=Number(p.value||0), h=T+plotH-y(val), color=COLORS[i%COLORS.length];
+      const x=L+(i*step)+((step-barW)/2), val=Number(p.value||0), h=T+plotH-y(val), color=barColorFor(p.name, i);
       const rect=mk2('rect');rect.setAttribute('x',x);rect.setAttribute('y',y(val));rect.setAttribute('width',barW);rect.setAttribute('height',Math.max(0,h));rect.setAttribute('rx','2');rect.setAttribute('fill',color);rect.setAttribute('opacity','0.94');rect.style.cursor='pointer';rect.addEventListener('click',()=>{activeCats.has(p.name)?activeCats.delete(p.name):activeCats.add(p.name);rebuildCatFilters();draw();});svg.appendChild(rect);
                   const vtx=mk2('text');
       vtx.setAttribute('x',x+barW/2);
@@ -1007,9 +1034,8 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const plotW=W-L-R, plotH=H-T-B;
     const mk2=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag);
-    const colorMap={Analysis:'#156082',Open:'#ed7d31',Built:'#c0504d',Fix:'#70ad47',NoSIR:'#8064a2',NotApplicable:'#5b9bd5',Postponed:'#2f5597',Ready:'#9e480e',Invalid:'#a5a5a5',Unknown:'#64748b'};
-    const fallback=['#156082','#ed7d31','#c0504d','#2f5597','#70ad47','#8064a2','#5b9bd5','#9e480e','#a5a5a5','#00b0f0','#92d050','#7030a0'];
-    const colorFor=(name,i)=>colorMap[name] || fallback[i % fallback.length];
+        const colorMap={Analysis:'#156082',Open:'#ed7d31',Built:'#70ad47',Fix:'#70ad47',NoSIR:'#a5a5a5',NotApplicable:'#a5a5a5',Postponed:'#2f5597',Ready:'#9e480e',Invalid:'#a5a5a5',Unknown:'#64748b'};
+    const colorFor=(name,i)=>colorMap[name] || '#64748b';
     const maxVal = Math.max(1, ...areas.map(a => a.total));
     const nice = niceAxisMax(maxVal);
     const y = v => T + plotH - (Number(v||0)/nice)*plotH;
@@ -1183,11 +1209,13 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     }
   }
         function reloadPieData(resetCats=true){ const hadSubsetSelection = allData.length > 0 && activeCats.size < allData.length; allData = computeCurrentChartData(); if(resetCats){ activeCats = new Set(allData.map(d => d.name)); } else { const valid = new Set(allData.map(d => d.name)); activeCats = new Set([...activeCats].filter(s => valid.has(s))); if(!hadSubsetSelection) allData.forEach(d => { if(!activeCats.has(d.name)) activeCats.add(d.name); }); } rebuildCatFilters(); }
-  function refreshAfterTitleExclude(){
-    rebuildAreaStatusFilters();
+    function refreshAfterTitleExclude(){
+        rebuildAreaStatusFilters();
     if(chartType === 'regular') reloadPieData(false);
     else reloadStackCategoryFilters(chartType === 'area_open_analysis' ? 'open_analysis' : 'status', false);
+    updateWeeklySummaryFromExclude();
     draw();
+    if(rawTrendRows.length || currentTrendRows.length) drawTrendChart(rawTrendRows);
   }
   function draw(){
     const opts = getOpts();
@@ -1222,9 +1250,58 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     else reloadStackCategoryFilters(chartType === 'area_open_analysis' ? 'open_analysis' : 'status', true);
     draw();
   }
-  function setMode(newMode){ mode = (newMode === 'area') ? 'area' : 'status'; POS_KEY = 'wk_pie_label_pos_v1_' + mode; labelPos = loadLabelPos(); if(areaStatusCard) areaStatusCard.style.display = chartType === 'regular' && mode === 'area' ? '' : 'none'; rebuildAreaStatusFilters(); reloadPieData(true); if (pieTitleEl) pieTitleEl.textContent = (mode === 'area') ? 'CR Area Bar Distribution' : 'CR Status Bar Distribution'; emptyEl.textContent = (mode === 'area') ? 'No CR area data for the selected status/date filters.' : 'No CR status data for the selected date range/plan.'; draw(); applyWeeklyTableTools(); }
-  function wkNum(v){ const n = parseInt(String(v || '0').replace(/[^0-9-]/g, ''), 10); return isNaN(n) ? 0 : n; }
-  function getRows(){ return _wkApplyExclude(Array.from(wkBody?.querySelectorAll('.weekly-cr-row') || [])); }
+  function setMode(newMode){ mode = (newMode === 'area') ? 'area' : 'status'; POS_KEY = 'wk_pie_label_pos_v1_' + mode; labelPos = loadLabelPos(); if(areaStatusCard) areaStatusCard.style.display = chartType === 'regular' && mode === 'area' ? '' : 'none'; rebuildAreaStatusFilters(); reloadPieData(true); if (pieTitleEl) pieTitleEl.textContent = (mode === 'area') ? 'CR Area Distribution' : 'CR Status Distribution'; emptyEl.textContent = (mode === 'area') ? 'No CR area data for the selected status/date filters.' : 'No CR status data for the selected date range/plan.'; draw(); applyWeeklyTableTools(); }
+    function wkNum(v){ const n = parseInt(String(v || '0').replace(/[^0-9-]/g, ''), 10); return isNaN(n) ? 0 : n; }
+  function getAllCrRows(){ return Array.from(wkBody?.querySelectorAll('.weekly-cr-row') || []); }
+  function getRows(){ return _wkApplyExclude(getAllCrRows()); }
+  function _wkNorm(v){ return String(v || '').trim().toLowerCase().replace(/[\s-]+/g, '_'); }
+  function _wkIsDupRow(tr){
+    var cat = _wkNorm(tr && tr.dataset ? tr.dataset.category : '');
+    var st = _wkNorm(tr && tr.dataset ? tr.dataset.status : '');
+    return ['dup','duplicate','duplicates'].indexOf(cat) >= 0 || ['dup','duplicate','duplicates'].indexOf(st) >= 0;
+  }
+  function _wkIsInvalidRow(tr){
+    var cat = _wkNorm(tr && tr.dataset ? tr.dataset.category : '');
+    var st = _wkNorm(tr && tr.dataset ? tr.dataset.status : '');
+    return ['invalid','invalid_dup','nosir','no_sir','notapplicable','not_applicable','na','n/a'].indexOf(cat) >= 0
+      || ['invalid','invalid_dup','nosir','no_sir','notapplicable','not_applicable','na','n/a'].indexOf(st) >= 0
+      || cat.indexOf('invalid') >= 0 || st.indexOf('invalid') >= 0 || st.indexOf('nosir') >= 0 || st.indexOf('notapplicable') >= 0;
+  }
+  function _wkSetSummaryValue(id, value){
+    var el = document.getElementById(id);
+    if(el) el.textContent = Number(value || 0).toLocaleString();
+  }
+        function getCurrentTrendBaseForActiveExclude(){
+    if(!window._wkExcludeEnabled || !window._wkExcludeKeywords.length) return currentTrendBase;
+    const rows = getRows();
+    const dup = rows.filter(_wkIsDupRow).length;
+    const invalid = rows.filter(tr => !_wkIsDupRow(tr) && _wkIsInvalidRow(tr)).length;
+    const built = rows.filter(tr => {
+      if(_wkIsDupRow(tr) || _wkIsInvalidRow(tr)) return false;
+      const st = _wkNorm(tr.dataset.status || '');
+      return st.includes('built') || st.includes('build') || st.includes('closed') || st.includes('close') || st.includes('fix') || st.includes('fixed') || st.includes('ready');
+    }).length;
+    const undisposed = Math.max(0, rows.length - built - invalid - dup);
+    return { total_cr: rows.length, built, undisposed, invalid, dup };
+  }
+  function updateWeeklySummaryFromExclude(){
+    _wkSetSummaryValue('wkSummaryJiras', wkSummaryBase.jiras);
+    _wkSetSummaryValue('wkSummaryOpenJiras', wkSummaryBase.openJiras);
+    if(!window._wkExcludeEnabled || !window._wkExcludeKeywords.length){
+      _wkSetSummaryValue('wkSummaryTotalCrs', wkSummaryBase.totalCrs);
+      _wkSetSummaryValue('wkSummaryOverallCrs', wkSummaryBase.overallCrs);
+      _wkSetSummaryValue('wkSummaryValidCrs', wkSummaryBase.validCrs);
+      _wkSetSummaryValue('wkSummaryDupCrs', wkSummaryBase.dupCrs);
+      return;
+    }
+    const rows = getRows();
+    const dup = rows.filter(_wkIsDupRow).length;
+    const valid = rows.filter(tr => !_wkIsDupRow(tr) && !_wkIsInvalidRow(tr)).length;
+    _wkSetSummaryValue('wkSummaryTotalCrs', rows.length);
+    _wkSetSummaryValue('wkSummaryOverallCrs', rows.length);
+    _wkSetSummaryValue('wkSummaryValidCrs', valid);
+    _wkSetSummaryValue('wkSummaryDupCrs', dup);
+  }
   function applyWeeklyTableTools(){
     if (!wkBody) return;
 
@@ -1264,6 +1341,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
       if(currHdr) currHdr.textContent = currLabel;
     }
 
+        const allRows = getAllCrRows();
     const rows = getRows();
     const q = (wkSearch?.value || '').toLowerCase().trim();
     const sortBy = wkSortBy?.value || 'occ_desc';
@@ -1347,14 +1425,21 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
       return true;
     });
     visible.sort((a,b)=>{ if (sortBy === 'occ_desc') return wkNum(b.dataset.occ) - wkNum(a.dataset.occ); if (sortBy === 'occ_asc') return wkNum(a.dataset.occ) - wkNum(b.dataset.occ); if (sortBy === 'age_desc') return wkNum(b.dataset.age) - wkNum(a.dataset.age); if (sortBy === 'age_asc') return wkNum(a.dataset.age) - wkNum(b.dataset.age); if (sortBy === 'last_desc') return String(b.dataset.last || '').localeCompare(String(a.dataset.last || '')); if (sortBy === 'last_asc') return String(a.dataset.last || '').localeCompare(String(b.dataset.last || '')); if (sortBy === 'cr_desc') return String(b.dataset.cr || '').localeCompare(String(a.dataset.cr || '')); return String(a.dataset.cr || '').localeCompare(String(b.dataset.cr || '')); });
-    rows.forEach(tr => tr.style.display = 'none');
-    visible.forEach((tr, idx) => { tr.style.display = ''; const sno = tr.querySelector('.wk-sno'); if (sno) sno.textContent = idx + 1; });
+        allRows.forEach(tr => tr.style.display = 'none');
+    visible.forEach((tr, idx) => {
+      tr.style.display = '';
+      const sno = tr.querySelector('.wk-sno');
+      if (sno) sno.textContent = idx + 1;
+      wkBody.appendChild(tr);
+    });
     const totalShown = visible.length, totalAll = rows.length;
     const dupHidden = !tableIncludeDup;
-    if (wkCount) wkCount.innerHTML = (pieFiltering || dupHidden) && totalShown < totalAll
+    const titleFiltering = fTitleTerms.length > 0;
+    if (wkCount) wkCount.innerHTML = (pieFiltering || dupHidden || titleFiltering) && totalShown < totalAll
       ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-weight:800;">${totalShown} of ${totalAll} CRs shown</span>`
       : `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#e8fff3;color:#0f766e;border:1px solid #99f6e4;font-weight:800;">${totalShown} CRs</span>`;
     if (wkFilterBadge) { if (pieFiltering) { wkFilterBadge.style.display = 'block'; wkFilterBadge.textContent = `Pie filter active: ${[...activeCats].join(', ')}`; } else { wkFilterBadge.style.display = 'none'; wkFilterBadge.textContent = ''; } }
+    updateWeeklySummaryFromExclude();
   }
   function svgToPngBlob(svgEl, outW){ return (async() => { const clone = svgEl.cloneNode(true); clone.setAttribute('xmlns','http://www.w3.org/2000/svg'); const svgText = new XMLSerializer().serializeToString(clone); const svgBlob = new Blob([svgText], { type:'image/svg+xml;charset=utf-8' }); const svgUrl = URL.createObjectURL(svgBlob); const img = new Image(); await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = svgUrl; }); const vb = svgEl.viewBox.baseVal, srcW = (vb && vb.width) ? vb.width : 900, srcH = (vb && vb.height) ? vb.height : 420, scale = outW / srcW, outH = Math.round(srcH * scale); const canvas = document.createElement('canvas'); canvas.width = outW; canvas.height = outH; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,outW,outH); ctx.drawImage(img,0,0,outW,outH); URL.revokeObjectURL(svgUrl); return await new Promise(resolve => canvas.toBlob(resolve, 'image/png')); })(); }
   function blobToDataURL(blob){ return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(blob); }); }
@@ -1471,26 +1556,29 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
 
     if(wkIsAllRange){ if(trendSub) trendSub.textContent='ALL data mode - showing all available weeks'; }
     else {
-    const selectedTrendCtx = {week_end: wkToDate, week_end_display: wkToDate ? wkToDate.slice(5).replace('-', '/') : ''};
+          const selectedTrendCtx = {week_end: wkToDate, week_end_display: wkToDate ? wkToDate.slice(5).replace('-', '/') : ''};
     const selectedLabel = normalizeTrendWeekLabel(selectedTrendCtx);
     const selectedKey = normalizeTrendWeekKey(selectedTrendCtx);
+    const activeCurrentTrendBase = getCurrentTrendBaseForActiveExclude();
 
-    if (selectedLabel && isCompletedTrendWeek(selectedTrendCtx) && hasTrendValues(currentTrendBase)) {
+    if (selectedLabel && isCompletedTrendWeek(selectedTrendCtx) && hasTrendValues(activeCurrentTrendBase)) {
 
       const idx = data.findIndex(r => (r.week_key || r.label) === selectedKey);
-      const currentRow = { label: selectedLabel, week_key: selectedKey, ...currentTrendBase };
+      const currentRow = { label: selectedLabel, week_key: selectedKey, ...activeCurrentTrendBase };
 
       if (idx >= 0) {
         // Preserve the scheduler-stored cumulative snapshot. Only fill a blank
         // total from the live summary; do not replace cumulative status bars
         // with this page's weekly-only counts.
-        data[idx] = { ...data[idx], total_cr: data[idx].total_cr || currentRow.total_cr };
+        data[idx] = (window._wkExcludeEnabled && window._wkExcludeKeywords.length)
+          ? { ...data[idx], ...activeCurrentTrendBase }
+          : { ...data[idx], total_cr: data[idx].total_cr || currentRow.total_cr };
       } else {
         data.push(currentRow);
       }
     }
     } // end !wkIsAllRange
-        data = dedupeTrendRows(data);
+         data = dedupeTrendRows(data);
     const filled = withDummyPreviousWeeks(data);
 
     data = dedupeTrendRows(filled.rows);
@@ -1598,10 +1686,12 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
       }
       const suffix = qs.toString() ? `?${qs.toString()}` : '';
       const res = await fetch(`/api/weekly_summary/${encodeURIComponent(targetName)}${suffix}`, {credentials:'same-origin'});
-      const payload = await res.json();
+            const payload = await res.json();
       if(!payload.success) throw new Error(payload.message || 'weekly_summary API failed');
-      drawTrendChart(payload.rows || []);
-    }catch(e){
+      rawTrendRows = payload.rows || [];
+      drawTrendChart(rawTrendRows);
+        }catch(e){
+      rawTrendRows = [];
       drawTrendChart([]);
       if(trendSub) trendSub.textContent='Could not load weekly summary. Scheduler runs every Monday 6 AM.';
     }
@@ -1644,6 +1734,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     if(crModalCopy){ crModalCopy.innerHTML = ok ? 'Copied!' : 'Copy failed'; setTimeout(()=>{ crModalCopy.innerHTML = orig || 'Copy Table'; }, 1800); }
   }
     function openTrendSummaryTable(){
+    if(rawTrendRows.length || currentTrendRows.length) drawTrendChart(rawTrendRows);
     const rows = currentTrendRows || [];
     if(trendSummaryMeta) trendSummaryMeta.textContent = rows.length
       ? `${rows.length} week(s) | ${rows[0].label || ''} → ${rows[rows.length-1].label || ''}`

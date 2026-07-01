@@ -1,4 +1,4 @@
-﻿"""
+"""
 fetch_consolidated_report.py
 -----------------------------
 Single API call: pass one or more build IDs → get back one complete JSON.
@@ -254,7 +254,7 @@ def _extract_cr_from_text(text):
         return 'CR' + m.group(1)
     if 'CR' in s:
         s = s[s.rfind('CR') + 2:].strip()
-    if re.fullmatch(r'\d{6,7}', s):
+    if re.fullmatch(r'\d{5,9}', s):
         return 'CR' + s
     return ''
 
@@ -796,8 +796,12 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         with traversal_cache_lock:
             cached = traversal_cache.get(start_key)
         if cached:
-            d['traversal'] = cached.copy()
-            return d, ({cached['final_cr']} if cached.get('final_cr') else set())
+            # Guard: never reuse a cache entry with empty chain (stale/partial)
+            if cached.get('chain'):
+                d['traversal'] = cached.copy()
+                return d, ({cached['final_cr']} if cached.get('final_cr') else set())
+            else:
+                logger.warning('[traverse_cache] %s: stale cache entry chain=[] ignored', start_key)
 
         visited = []
         transferred = []
@@ -808,9 +812,13 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
         closed_statuses = {'closed', 'transferred', 'resolved'}
         resolved_resolutions = {
-            'fixed', "won't fix", 'duplicate', 'complete', 'done',
+            'fixed', "won't fix", 'duplicate', 'complete',
             'cannot reproduce', 'incomplete'
         }
+        # 'done' is NOT a stop condition — PDT_Stats follows Done/Done tickets
+        # through the chain to find the final CR (e.g. QSTABILITY-23385853
+        # Status=Done/Done still points to CR4485357 via resolution notes).
+        # 'done' status alone (without a resolved resolution) also continues.
 
         def _fetch_one(key):
             try:
@@ -858,8 +866,10 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 # Statuses that are definitively inactive — treated as closed for
         # traversal purposes even without a matching resolution string.
         inactive_statuses = {
-            's2_analysis', 'rejected', 'withdrawn', 'duplicate',
+            's2_analysis', 'rejected', 'withdrawn',
             'transferred', 'invalid', 'cannot reproduce',
+            # 'duplicate' removed: duplicate tickets still carry resolution notes
+            # pointing to a CR — PDT_Stats follows them.
         }
 
         def _is_closed_resolved(issue):
@@ -920,97 +930,92 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
             cr, resolution_ticket, raw_resolution_text = _valid_resolution_mapping(issue)
 
-                        # ── Has a CR mapped → this is the final ticket ────────────────────
-            # Check this BEFORE the QWINBUG wincrash path so that QWINBUG tickets
-            # with a direct CR in cf_12830 (e.g. https://orbit/CR/4331690) are
-            # resolved immediately without calling wincrash.
-            # Legacy PDT_Stats.processJira also checks resolutionTicketMap first.
+            # ── Has a CR mapped directly → this is the final ticket ──────────
+            # Check BEFORE QWINBUG path: QWINBUG tickets with a direct CR in
+            # cf_12830 resolve immediately without calling wincrash.
             if cr:
                 return cr, key, status, resolution
 
-            # ── Windows/QWINBUG special handling ─────────────────────────────
-            # Only reached when no direct CR found in resolution fields.
-            # Legacy PDT_StatsQueryWin.py reads customfield_30012 analysis id
-            # and asks wincrash for the latest CR/details.
+            # ── QWINBUG special handling ──────────────────────────────────────
             if 'QWINBUG' in key.upper():
-                # Match PDT_Stats.processJira exactly: re-fetch the QWINBUG
-                # issue before calling issueQWINBUG(), otherwise customfield_30012
-                # may be missing from the search result object.
                 q_issue = _fetch_full_issue(key) or issue
                 qcr, qstatus, qdetails = _query_qwinbug_analysis(q_issue)
                 qwinbug_details = qdetails or {}
                 if qcr:
-                    # CR found via wincrash — return real JIRA status/resolution
                     last_issue = q_issue
                     return qcr, key, status, resolution
-                # No CR from wincrash — return real status, not hardcoded 'Done'
                 last_issue = q_issue
                 return '', key, qstatus or status, resolution
 
-            # ── Self-reference in resolution notes, e.g. ADSPIMAGE-X maps to ADSPIMAGE-X.
-            # Treat as CyclicMapping instead of a normal final JIRA, matching PDT_Stats.py
-            # cyclic-reference semantics.
+            # ── Self-reference guard ──────────────────────────────────────────
             if resolution_ticket and resolution_ticket == key:
                 cyclic_mapping_final_key = key
                 cyclic_mapping_reason = f'{key}_{key}'
                 return '', key, 'CyclicMapping', cyclic_mapping_reason
 
-            # ── Transferred: ALWAYS follow resolution_ticket first ────────────
-            # Handles: QSTABILITY → ADSPIMAGE → CNSSDEBUG multi-hop chains
-            if is_transferred and resolution_ticket and resolution_ticket not in visited:
-                res_issue  = _fetch_one(resolution_ticket)
-                res_result = _process_issue(res_issue, depth + 1)
-                if res_result[0]:                          # CR found downstream
-                    return res_result
-                if res_result[1] and res_result[1] != key: # deeper key found
-                    return res_result
+            # ════════════════════════════════════════════════════════════════
+            # CORE FIX — mirrors PDT_Stats.processJira exactly:
+            #
+            # PDT_Stats ALWAYS builds two candidate lists regardless of status:
+            #   resolutionTicketMap  → stability key from resolution notes (CF)
+            #   dupIssueMappingTck   → outward/duplicate linked ticket
+            # Then tries resolutionTicketMap FIRST, dupIssueMappingTck second.
+            #
+            # Status (open/closed/transferred) does NOT gate the follow.
+            # It only determines whether we walk outward links at all.
+            #
+            # OLD BUG: we had separate branches (transferred / closed / open)
+            # each with different follow logic. QSTABILITY tickets in status
+            # S1_Analysis / In-Progress / Open failed _is_closed_resolved()
+            # so the hop to ADSPIMAGE → CR was silently skipped.
+            # ════════════════════════════════════════════════════════════════
 
-                    # ── Closed/Resolved/Duplicate: follow outward link + res ticket ───
-            if _is_closed_resolved(issue) and 'QWINBUG' not in key:
-                outward_keys  = _get_outward_keys(issue)
-                # Legacy checkLinkedIssue: walk ALL outward links, not just [0]
-                linked_ticket = ''
-                for lk in outward_keys:
+            # Step 1: outward/dup linked ticket (dupIssueMappingTck)
+            linked_ticket = ''
+            outward_keys = _get_outward_keys(issue)
+            for lk in outward_keys:
+                candidate = _extract_stability_key(lk) or lk
+                if candidate and candidate not in visited:
+                    linked_ticket = candidate
+                    break
+
+            # Step 2: inward links — PDT_Stats checkLinkedIssue also walks
+            # inward links when outward links are exhausted.
+            inward_ticket = ''
+            if not linked_ticket:
+                for lk in _get_inward_keys(issue):
                     candidate = _extract_stability_key(lk) or lk
                     if candidate and candidate not in visited:
-                        linked_ticket = candidate
+                        inward_ticket = candidate
                         break
 
-                # Build deduplicated list of next-hop candidates
-                # Legacy PDT_Stats.processJira tries resolution_ticket FIRST
-                # (resolutionTicketMap), then linked/dup ticket (dupIssueMappingTck)
-                next_keys = []
-                if (resolution_ticket and resolution_ticket not in visited
-                        and resolution_ticket not in next_keys):
-                    next_keys.append(resolution_ticket)
-                if linked_ticket and linked_ticket not in visited and linked_ticket not in next_keys:
-                    next_keys.append(linked_ticket)
+            # Step 3: ordered candidate list — resolution_ticket FIRST
+            # (resolutionTicketMap), then outward dup, then inward.
+            next_keys = []
+            for candidate in [resolution_ticket, linked_ticket, inward_ticket]:
+                if (candidate and candidate != key
+                        and candidate not in visited
+                        and candidate not in next_keys):
+                    next_keys.append(candidate)
 
-                best_result = None
-                for nk in next_keys:
-                    nk_issue  = _fetch_one(nk)
-                    nk_result = _process_issue(nk_issue, depth + 1)
-                    if nk_result and nk_result[0]:              # CR found
-                        return nk_result
-                    # keep deepest result (furthest from start)
-                    if nk_result and nk_result[1] and nk_result[1] != key:
+            # Step 4: follow each candidate — return first CR found
+            best_result = None
+            for nk in next_keys:
+                nk_issue  = _fetch_one(nk)
+                nk_result = _process_issue(nk_issue, depth + 1)
+                if nk_result and nk_result[0]:          # CR found downstream
+                    return nk_result
+                # keep deepest non-self result as fallback
+                if nk_result and nk_result[1] and nk_result[1] != key:
+                    if best_result is None:
                         best_result = nk_result
 
-                if best_result:
-                    return best_result
+            if best_result:
+                return best_result
 
-                # Dead end — return raw resolution text if no ticket found
-                # Legacy: return queryKey, sTatus, resolNote
-                resolnote = _resolution_notes_without_check(issue)
-                return '', key, status, resolnote or resolution
-
-            # ── Open/active: only follow explicit stability ticket ─────────────
-            if (resolution_ticket and resolution_ticket != key
-                    and resolution_ticket not in visited):
-                res_issue = _fetch_one(resolution_ticket)
-                return _process_issue(res_issue, depth + 1)
-
-            return '', key, status, resolution
+            # Step 5: dead end — return raw resolution notes as display text
+            resolnote = _resolution_notes_without_check(issue)
+            return '', key, status, resolnote or resolution
         start_issue = _fetch_one(start_key)
         final_cr, final_key, final_status, final_resolution = _process_issue(start_issue, 0)
 
@@ -1038,7 +1043,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 _mtype = 'QWINBUGCR' if final_cr else 'QWINBUGAnalysis'
                 _mreason = qwinbug_details.get('analysis_id') or qwinbug_details.get('issue_id') or qwinbug_details.get('error') or ''
 
-                d['traversal'] = {
+        d['traversal'] = {
             'final_key'        : _fk,
             'final_cr'         : final_cr or '',
             'final_status'     : _fst,
@@ -1079,7 +1084,8 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 with all_crs_lock:
                     all_crs.update(crs)
             except Exception as e:
-                pass
+                orig_d = futures[fut]
+                logger.warning('[traverse] %s failed: %s', orig_d.get('key','?'), e, exc_info=True)
             completed += 1
             if progress:
                 progress.update(
@@ -1358,8 +1364,27 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
     # key = CR number (or 'NO_CR' for unresolved)
     cr_to_jiras = {}   # { 'CR1234567': [ jira_dict, ... ] }
 
+        # CR_EQUIVALENT_PREFIXES: stability-project tickets that PDT_Stats treats
+    # as the final destination (like a CR) when no CRxxxxxxx is found.
+    # e.g. ADSPIMAGE-1166073, CNSSDEBUG-12345, CHIPMD-999
+    CR_EQUIVALENT_PREFIXES = (
+        'ADSPIMAGE', 'CNSSDEBUG', 'CHIPMD', 'QWINBUG',
+        'ADSPBUG', 'CNSS', 'WLAN',
+    )
+
     for d in issues_dicts:
-        cr = d['traversal'].get('final_cr') or d.get('cr_mapped', '') or 'NO_CR'
+        trav = d['traversal']
+        final_cr  = trav.get('final_cr') or d.get('cr_mapped', '')
+        final_key = trav.get('final_key') or d['key']
+        # If no CR was found but the traversal ended at an ADSPIMAGE/CNSSDEBUG
+        # etc. ticket, use that ticket as the CR-equivalent grouping key.
+        # PDT_Stats outputs these as the "CR/Current Ticket" value directly.
+        if not final_cr and final_key and final_key != d['key']:
+            fk_upper = str(final_key).upper()
+            if any(fk_upper.startswith(p) for p in CR_EQUIVALENT_PREFIXES):
+                final_cr = final_key
+                trav['final_cr'] = final_cr
+        cr = final_cr or 'NO_CR'
         cr_to_jiras.setdefault(cr, []).append(d)
 
     # ── Step 2: build key → dict lookup for fast title/status lookup ─────────

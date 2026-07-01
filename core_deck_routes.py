@@ -2171,17 +2171,22 @@ def core_deck_overallcrs_tables():
                 checked.add(schema)
                 _append_schema_tables(target_name, schema, exact_target_match=False)
 
-    # Core Deck OverallCRs usually lives in the shared auto schema, while PL
-    # target rows may resolve to a different schema. Always try this schema as a
-    # fallback so the dropdown is not blank for Nord/Monaco/Lemans programs.
-    _append_schema_tables('pdt_stats_auto', 'pdt_stats_auto', exact_target_match=False)
-    for fq in ('pdt_stats_auto.nord_hqx_overallcrs', 'pdt_stats_auto.nord_hgy_overallcrs'):
-        if fq not in seen:
-            schema, table = fq.split('.', 1)
-            seen.add(fq)
-            results.append({'fq': fq, 'schema': schema, 'table': table, 'label': fq, 'target_hint': 'fallback'})
+    # Fallback: if no results found for the requested target, try the shared
+    # auto schema — but ONLY if the target itself belongs to the auto schema.
+    # Never inject Nord-specific tables for non-Nord targets.
+    if not results and requested_target:
+        info = dc.get_target_info(requested_target) or {}
+        target_schema = _safe_str(dc.get_schema_for_target(requested_target)).strip('`')
+        if target_schema == 'pdt_stats_auto':
+            _append_schema_tables(requested_target, 'pdt_stats_auto', exact_target_match=False)
 
-    results.sort(key=lambda r: (0 if 'nord_hqx_overallcrs' in (r.get('fq') or '').lower() else 1, r.get('schema') or '', r.get('table') or ''))
+    # Sort: exact target match first, then alphabetical
+    def _sort_key(r):
+        fq = (r.get('fq') or '').lower()
+        hint = (r.get('target_hint') or '').lower()
+        exact = 1 if hint == (requested_target or '').lower() else 2
+        return (exact, r.get('schema') or '', r.get('table') or '')
+    results.sort(key=_sort_key)
     return jsonify({'ok': True, 'target': requested_target, 'tables': results})
 
 

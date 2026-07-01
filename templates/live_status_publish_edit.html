@@ -23,15 +23,15 @@
     .lsp-nav-search::placeholder{color:#94a3b8}
     .lsp-nav-search:focus{background:#fff;border-color:#a5b4fc}
     .lsp-nav-dombar{display:flex;gap:4px;padding:6px 10px 5px;border-bottom:1px solid #e2e8f0;background:#fff}
-    .lsp-nav-dombtn{flex:1;padding:5px 3px;border-radius:7px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;font-weight:900;cursor:pointer;text-align:center;transition:all .15s;letter-spacing:.03em}
+    .lsp-nav-dombtn{flex:1;padding:7px 3px;border-radius:8px;border:2px solid #c7d2fe;background:#f8fafc;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;text-align:center;transition:all .15s;letter-spacing:.03em;box-shadow:0 1px 4px rgba(99,102,241,.1)}
     .lsp-nav-dombtn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
     .lsp-nav-dombtn.dom-ADAS{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;box-shadow:0 2px 6px rgba(59,130,246,.2)}
     .lsp-nav-dombtn.dom-FLEX{background:#ede9fe;color:#6d28d9;border-color:#c4b5fd;box-shadow:0 2px 6px rgba(109,40,217,.2)}
     .lsp-nav-dombtn.dom-IVI{background:#d1fae5;color:#065f46;border-color:#6ee7b7;box-shadow:0 2px 6px rgba(16,185,129,.2)}
     .lsp-nav-list{flex:1;overflow-y:auto;padding:5px 8px 10px;background:#f8fafc}
     .lsp-nav-list::-webkit-scrollbar{width:4px}.lsp-nav-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
-    .lsp-nav-item{display:flex;align-items:stretch;border-radius:10px;margin-bottom:4px;cursor:pointer;transition:all .18s;border:1.5px solid #e2e8f0;background:#fff;overflow:hidden}
-    .lsp-nav-item:hover{border-color:#a5b4fc;background:#f5f3ff;box-shadow:0 2px 8px rgba(99,102,241,.08)}
+    .lsp-nav-item{display:flex;align-items:stretch;border-radius:10px;margin-bottom:5px;cursor:pointer;transition:all .18s;border:2px solid #e0e7ff;background:#fff;overflow:hidden;box-shadow:0 1px 4px rgba(99,102,241,.07)}
+    .lsp-nav-item:hover{border-color:#818cf8;background:#eef2ff;box-shadow:0 3px 12px rgba(99,102,241,.18)}
     .lsp-nav-item.lsp-nav-active{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7;box-shadow:0 2px 8px rgba(16,185,129,.15)}
     .lsp-nav-item.lsp-nav-selected{background:#fff;border-color:#e2e8f0}
     .lsp-nav-accent{width:4px;flex-shrink:0;border-radius:3px 0 0 3px}
@@ -235,7 +235,7 @@
     <div class="card" style="margin-bottom:14px;">
       <div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</h2><span id="cd-run-pill" class="pill"></span></div>
       <div style="overflow:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:18px;">
           <thead><tr style="background:linear-gradient(90deg,#4f46e5,#0ea5e9);">
             <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;">Meta</th>
             <th style="padding:8px 12px;color:#fff;font-weight:900;font-size:11px;text-transform:uppercase;">Full Build</th>
@@ -341,20 +341,8 @@
                         <span id="rbDbCount" class="pill" style="background:#dbeafe;color:#1e40af;font-size:10px"></span>
           </div>
 
-          <!-- KPI row -->
-          <div class="lsp-kpi-row">
-            <div class="lsp-kpi"><div class="kn" id="lspKpiBuilds">&mdash;</div><div class="kl">Builds</div></div>
-            <div class="lsp-kpi"><div class="kn" id="lspKpiJiras">&mdash;</div><div class="kl">JIRAs</div></div>
-            <div class="lsp-kpi"><div class="kn" id="lspKpiCrs">&mdash;</div><div class="kl">CRs</div></div>
-            <div class="lsp-kpi"><div class="kn" id="lspKpiOpen">&mdash;</div><div class="kl">Open JIRAs</div></div>
-          </div>
-
-          <div class="lsp-results">
-                        <!-- Flavor-wise device/crash table (shown when a meta is clicked) -->
-            <div id="lspFlavorTableWrap" style="margin-bottom:10px"></div>
-
-            <!-- JQL Showcase Panel -->
-            <div id="lspJqlPanel" style="display:none;margin-bottom:14px;border:1.5px solid #c7d2fe;border-radius:12px;overflow:hidden;background:#fff">
+          <!-- JQL panel - shown above KPI when report runs -->
+          <div id="lspJqlPanel" style="display:none;margin-bottom:14px;border:1.5px solid #c7d2fe;border-radius:12px;overflow:hidden;background:#fff">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#eef2ff,#f5f3ff);border-bottom:1px solid #e0e7ff">
                 <span style="font-size:11px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-code"></i> JQL Query</span>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -368,6 +356,20 @@
               </div>
             </div>
 
+          <!-- KPI row -->
+          <div class="lsp-kpi-row">
+                        <div class="lsp-kpi"><div class="kn" id="lspKpiBuilds">&mdash;</div><div class="kl">Builds</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiJiras">&mdash;</div><div class="kl">JIRAs</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiCrs">&mdash;</div><div class="kl">CRs</div></div>
+            <div class="lsp-kpi"><div class="kn" id="lspKpiOpen">&mdash;</div><div class="kl">Open JIRAs</div></div>
+            <div class="lsp-kpi" style="background:#fff1f2;border-color:#fca5a5" title="JIRAs with Invalid/Setup/Incomplete/Won't Fix resolution"><div class="kn" id="lspKpiInvalid" style="color:#b91c1c">&mdash;</div><div class="kl" style="color:#b91c1c">Invalid JIRAs</div></div>
+          </div>
+
+          <div class="lsp-results">
+                        <!-- Flavor-wise device/crash table (shown when a meta is clicked) -->
+            <div id="lspFlavorTableWrap" style="margin-bottom:10px;max-height:320px;overflow-y:auto;overflow-x:auto"></div>
+
+            <!-- JQL Showcase Panel -->
                         <!-- CR / JIRA Report -->
             <!-- KPI cards injected here by _lspRenderReport -->
             <div id="lspReportKpis" style="display:none;margin-bottom:10px"></div>
@@ -387,7 +389,7 @@
             <div class="tbl-wrap" style="max-height:380px;margin-bottom:14px">
               <table class="tbl">
                 <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
-                <tbody id="crTbody"><tr><td colspan="9" class="empty">Loading current report...</td></tr></tbody>
+                <tbody id="crTbody"><tr><td colspan="9" class="empty" style="padding:32px;font-size:14px;color:#64748b;text-align:center"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:10px;color:#a5b4fc"></i><b>Select a domain and build</b> from the left panel to load the report.</td></tr></tbody>
               </table>
             </div>
 
@@ -405,7 +407,7 @@
                 </div>
               </div>
               <div class="tbl-wrap" style="max-height:300px">
-                <table class="tbl" id="jiraTable">
+                <table class="tbl" id="jiraTable" style="font-size:18px">
                                      <thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Resolution / Status</th></tr></thead>
                   <tbody id="jiraTbody"></tbody>
                 </table>
@@ -453,12 +455,12 @@
           {% endif %}
           <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
           <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
-          {% if can_edit %}
-          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px;font-weight:900" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+                    {% if can_edit %}
+          {% if is_auto_bu %}<button class="btn btn-primary" style="font-size:11px;padding:5px 13px;font-weight:900" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}
           {% endif %}
           <button class="btn" onclick="adasLoadData(true)"><i class="fas fa-rotate"></i> Refresh</button>
           <button class="btn" onclick="copyMtbfChart()" title="Copy chart as image"><i class="fas fa-image"></i> Copy Chart</button>
-        </div>
+        </div>Shikra_CQ2390_LA_10:3769 Uncaught SyntaxError: Unexpected token ';' (at Shikra_CQ2390_LA_10:3769:4)Shikra_CQ2390_LA_10:3769 Uncaught SyntaxError: Unexpected token ';' (at Shikra_CQ2390_LA_10:3769:4)
       </div>
       {% if is_auto_bu %}
       <!-- Crash-type checkboxes -->
@@ -2242,7 +2244,7 @@ window.LSP_DATA = {
     fetch('/api/consolidated_report',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({builds:[buildId],traverse:true,orbit:false,target:TARGET,force:false,custom_jql:jql})
+      body:JSON.stringify({builds:[buildId],traverse:true,orbit:false,target:TARGET,force:true,custom_jql:jql})
     })
     .then(function(r){return r.json();})
     .then(function(d){
@@ -2350,7 +2352,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
    - Auto BU only: ADAS/FLEX/IVI domain and crash-type filters. */
 (function(){
   var D=window.LSP_DATA||{}, TARGET=D.primary_target||'', IS_AUTO=!!D.is_auto_bu;
-  var _domain='ADAS', _allBuilds=[], _selected=new Set(), _modalBuilds=[], _crRows=[], _jiraRows=[];
+  var _domain='ADAS', _allBuilds=[], _selected=new Set(), _modalBuilds=[], _crRows=[], _jiraRows=[], _mappedRows=[];
   var _crashFilters={system:true,ssr:true,process:true,open_jira:true};
   function g(id){return document.getElementById(id)}
     function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -2414,7 +2416,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   window.brToggleBuildFromTable=function(b,on){if(on)_selected.add(b);else _selected.delete(b);renderChips();};
   window.brSetDomain=async function(d){if(!IS_AUTO)return; _domain=String(d||'ADAS').toUpperCase(); styleDomain(); _selected.clear(); await window.brRefreshBuilds();};
   window.brRefreshBuilds=async function(){var cnt=g('brBuildCount'), row=g('brBuildChipsRow'), tb=g('brBuildTableTbody'); if(cnt)cnt.textContent='Loading...'; if(row)row.innerHTML='<span class="muted" style="font-size:12px"><i class="fas fa-circle-notch spin"></i> Loading searchable builds...</span>'; if(tb)tb.innerHTML='<tr><td colspan="6" class="empty"><i class="fas fa-circle-notch spin"></i> Loading '+(IS_AUTO?esc(_domain):'')+' meta builds...</td></tr>'; _allBuilds=await buildAvailableBuilds(); _modalBuilds=_allBuilds.slice(); _selected=new Set(Array.from(_selected).filter(function(b){return _allBuilds.some(function(x){return x.build===b;});})); renderChips(); if(!_allBuilds.length&&row)row.innerHTML='<span class="muted" style="font-size:12px">No builds found for this '+(IS_AUTO?_domain:'target')+'.</span>';};
-  window.brInit=function(){styleDomain(); if(!_allBuilds.length)window.brRefreshBuilds();};
+  window.brInit=function(){styleDomain(); if(!_selected.size){  var _pubBuilds=[];  [].concat(D.all_rows||[],D.running_rows||[]).forEach(function(r){    var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;    var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];    builds.forEach(function(b){if(b)_pubBuilds.push(String(b));});  });  _pubBuilds.forEach(function(b){_selected.add(b);});}if(!_allBuilds.length){  var _preBuilds=[];  [].concat(D.all_rows||[],D.running_rows||[]).forEach(function(r){    var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;    var meta=r.meta_id||r.display_build||'';    var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];    builds.forEach(function(b){if(b){_allBuilds.push({build:String(b),meta:meta,domain:IS_AUTO?dom:'',source:'Live Status'});}});  });  _modalBuilds=_allBuilds.slice();}renderChips();};
   window.brOpenAddBuildModal=async function(){var m=g('brAddBuildModal'), q=g('brBuildSearchModal'); if(q)q.value=''; styleDomain(); if(m)m.style.display='flex'; if(!_allBuilds.length)await window.brRefreshBuilds(); window.brRenderModalList();};
   window.brCloseAddBuildModal=function(){var m=g('brAddBuildModal'); if(m)m.style.display='none';};
   window.brModalSetDomain=async function(d){await window.brSetDomain(d); window.brRenderModalList();};
@@ -2427,11 +2429,126 @@ if(!window.ojClear)  window.ojClear  = function(){};
   window.brToggleCrashType=function(k){_crashFilters[k]=!_crashFilters[k]; var b=g('brCrashBtn_'+k); if(b){b.style.opacity=_crashFilters[k]?'1':'0.4'; b.style.textDecoration=_crashFilters[k]?'':'line-through';} window.brFilterCrTable();};
   function waitForResult(jobId){return new Promise(function(resolve,reject){var tries=0,t=setInterval(function(){tries++; fetch('/api/consolidated_report/result/'+jobId,{cache:'no-store'}).then(function(r){return r.status===202?null:r.json();}).then(function(d){if(!d){if(tries>120){clearInterval(t);reject(new Error('Timed out waiting for report'));}return;} clearInterval(t); resolve(d);}).catch(function(e){clearInterval(t);reject(e);});},1500);});}
   function crashType(row){var t=[row.crash_type,row.type,row.cr_title,row.title,row.cr_area,row.cr_subsystem].join(' ').toLowerCase(); if(t.indexOf('system')>=0)return 'system'; if(/\bssr\b|subsystem restart/.test(t))return 'ssr'; return 'process';}
-  function normalizeReport(rep){_crRows=[]; _jiraRows=[]; var seenJ={}; (rep.hierarchical_report||[]).forEach(function(r){var jiras=r.jiras||[]; if(r.cr&&r.cr!=='NO_CR'){var ct=crashType(r); _crRows.push({cr:r.cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',age:r.cr_age||r.overall_age||'',status:r.cr_status||r.status||'',count:jiras.length||r.cr_count||r.jira_count||1,type:ct});} jiras.forEach(function(j){var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase(); if(!key||seenJ[key])return; var st=String(j.final_status||j.status||'').toLowerCase(); if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0)return; if(!r.cr||r.cr==='NO_CR'||st){seenJ[key]=1; _jiraRows.push({key:key,title:j.final_summary||j.summary||j.jira_title||'',status:j.final_status||j.status||'Open',count:1});}}); }); if(rep.cr_rows&&rep.cr_rows.length&&!_crRows.length){(rep.cr_rows||[]).forEach(function(r){_crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||'',status:r.cr_status||'',count:r.jira_count||1,type:crashType(r)});});} if(rep.open_jiras&&rep.open_jiras.length&&!_jiraRows.length){(rep.open_jiras||[]).forEach(function(j){_jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',count:1});});}}
-  function renderKpis(){var el=g('brKpiCards'); if(!el)return; if(!IS_AUTO){el.innerHTML='<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#1d4ed8;font-size:11px;text-transform:uppercase">Selected Builds</div><div style="font-size:28px">'+_selected.size+'</div></div><div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#c2410c;font-size:11px;text-transform:uppercase">CRs</div><div style="font-size:28px">'+_crRows.length+'</div></div><div style="border:1px solid #c4b5fd;background:#f5f3ff;border-radius:10px;text-align:center;padding:10px;font-weight:950"><div style="color:#7c3aed;font-size:11px;text-transform:uppercase">Open JIRAs</div><div style="font-size:28px">'+_jiraRows.length+'</div></div>';return;} var counts={system:0,ssr:0,process:0,open_jira:_jiraRows.length}; _crRows.forEach(function(r){counts[r.type]=(counts[r.type]||0)+(Number(r.count)||1);}); var defs=[['system','System','#dc2626','#fee2e2','#fca5a5'],['ssr','SSR','#d97706','#fef3c7','#fcd34d'],['process','Process','#2563eb','#dbeafe','#93c5fd'],['open_jira','Open JIRA','#7c3aed','#ede9fe','#c4b5fd']]; el.innerHTML=defs.map(function(d){return '<div style="border:1px solid '+d[4]+';background:linear-gradient(135deg,'+d[3]+',#fff);border-radius:10px;text-align:center;padding:10px;font-size:12px;font-weight:950"><div style="color:'+d[2]+';font-size:11px;text-transform:uppercase">'+d[1]+'</div><div style="font-size:28px;color:#111827;margin-top:4px">'+(counts[d[0]]||0)+'</div></div>';}).join('');}
-  function renderJiras(){var sec=g('brJiraSection'), tb=g('brJiraTbody'), badge=g('brJiraBadge'); if(!sec||!tb)return; if(!_jiraRows.length){sec.style.display='none';return;} sec.style.display='block'; if(badge)badge.textContent=_jiraRows.length+' open'; tb.innerHTML=_jiraRows.map(function(r,i){return '<tr><td class="muted">'+(i+1)+'</td><td><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="max-width:460px">'+esc(r.title||'--')+'</td><td>'+esc(r.status||'--')+'</td><td style="text-align:center;font-weight:900;color:#6366f1">'+(r.count||1)+'</td></tr>';}).join('');}
-  window.brFilterCrTable=function(){var q=String((g('brCrSearch')||{}).value||'').toLowerCase(), sort=(g('brCrSort')||{}).value||'occ_desc'; var rows=_crRows.filter(function(r){if(IS_AUTO&&!_crashFilters[String(r.type||'process').toLowerCase()])return false; return !q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0;}); rows.sort(function(a,b){if(sort==='occ_asc')return (a.count||0)-(b.count||0); if(sort==='age_desc')return (parseInt(b.age)||0)-(parseInt(a.age)||0); if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr)); return (b.count||0)-(a.count||0);}); var tb=g('brCrTbody'), badge=g('brCrBadge'); if(badge)badge.textContent=rows.length+' CRs'; if(!tb)return; if(!rows.length){tb.innerHTML='<tr><td colspan="9" class="empty">No CRs match current filters.</td></tr>';return;} tb.innerHTML=rows.map(function(r,i){var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||''; var link=id?'<a class="linkBtn" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--'); return '<tr><td class="muted">'+(i+1)+'</td><td>'+link+'</td><td style="max-width:300px">'+esc(r.title||'--')+'</td><td style="text-align:center;font-weight:950;color:#6366f1">'+(r.count||0)+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td><td style="text-align:center">'+esc(r.age||'--')+'</td><td>'+esc(r.status||'--')+'</td></tr>';}).join('');};
-  window.brGenerateReport=async function(){var builds=selectedBuilds(), sp=g('brGenSpinner'), st=g('brGenStatus'), tb=g('brCrTbody'); if(!builds.length){alert('Select at least one build.');return;} if(sp)sp.style.display='inline'; if(st){st.style.color='#6366f1';st.textContent='Running report for '+builds.length+' build(s)...';} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Running consolidated report...</td></tr>'; try{var resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({builds:builds,traverse:true,orbit:true,target:TARGET,force:true,domain:IS_AUTO?_domain:'',use_domain_tables:IS_AUTO,custom_jql:(window.BuildReportCommon?BuildReportCommon.generateJql({builds:builds,filterId:(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997'}):undefined)})}); var data=await resp.json(); if(data.job_id)data=await waitForResult(data.job_id); if(data.error)throw new Error(data.error); normalizeReport(data||{}); renderKpis(); renderJiras(); window.brFilterCrTable(); if(st){st.style.color='#059669';st.textContent='Done - '+builds.length+' build(s), '+_crRows.length+' CRs, '+_jiraRows.length+' open JIRAs';}}catch(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+(e.message||e);} if(tb)tb.innerHTML='<tr><td colspan="9" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>';} finally{if(sp)sp.style.display='none';}};
+  var CR_EQ_PFX=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG'];
+  function isCrEquiv(k){var u=String(k||'').toUpperCase(); return CR_EQ_PFX.some(function(p){return u.indexOf(p+'-')===0;});}
+  function isTrueCr(k){return /^CR\d{5,9}$/i.test(String(k||'').trim());}
+  function stBadge(st){var s=String(st||'').toLowerCase(); var c=s.indexOf('open')>=0||s.indexOf('hold')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':s.indexOf('closed')>=0||s.indexOf('invalid')>=0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':s.indexOf('ready')>=0||s.indexOf('analysis')>=0||s.indexOf('information')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':s.indexOf('fix')>=0||s.indexOf('progress')>=0?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0'; return '<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+c+'">'+esc(st||'--')+'</span>';}
+  function normalizeReport(rep){
+    _crRows=[]; _jiraRows=[]; _mappedRows=[];
+    var seenJ={};
+    (rep.hierarchical_report||[]).forEach(function(r){
+      var jiras=r.jiras||[];
+      var cr=String(r.cr||'').trim();
+      if(isTrueCr(cr)){
+        var ct=crashType(r);
+        var srcKeys=jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean);
+        _crRows.push({cr:cr,title:r.cr_title||r.title||'',area:r.cr_area||r.area||'',sub:r.cr_subsystem||r.subsystem||'',func:r.cr_functionality||r.cr_function||r.functionality||'',date:r.cr_date||'',si:r.cr_si||'',status:r.cr_status||r.status||'',count:jiras.length||r.cr_count||r.jira_count||1,type:ct,jiras:jiras,srcKeys:srcKeys});
+      } else if(isCrEquiv(cr)){
+        var firstJ=jiras[0]||{};
+        var srcKeys2=jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean);
+        _mappedRows.push({ticket:cr,count:jiras.length||1,title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',date:String(firstJ.created||'').slice(0,10),status:firstJ.final_status||firstJ.status||'',srcKeys:srcKeys2});
+            } else {
+        // NO_CR: mirror PDT_StatsConstants.py — exclude closed+junk and rejected/transferred
+        var _EXCL_RES_BR  = {'invalid':1,'incomplete':1,"won't fix":1,'wont fix':1,'cannot reproduce':1,'withdrawn':1};
+        var _CLOSED_ST_BR = {'closed':1,'closed_root_cause_not_found':1,'closed_root_cause_cr_found':1,'resolved':1,'rejected':1};
+        jiras.forEach(function(j){
+          var key=String(j.key||j.stability_ticket||'').toUpperCase();
+          if(!key||seenJ[key])return;
+          var jSt  = String(j.status||j.final_status||'').trim().toLowerCase();
+          var jRes = String(j.resolution||'').trim().toLowerCase();
+          var jFRes= String(j.final_resolution||'').trim().toLowerCase();
+          if(jSt==='rejected') return;
+          if(jSt.indexOf('transfer')>=0) return;
+          if(_CLOSED_ST_BR[jSt]&&(_EXCL_RES_BR[jRes]||_EXCL_RES_BR[jFRes])) return;
+          seenJ[key]=1;
+          _jiraRows.push({key:key,title:j.summary||j.jira_title||j.final_summary||'',status:j.status||j.final_status||'',date:String(j.created||'').slice(0,10),count:1,final_resolution:j.final_resolution||j.resolution||'',resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||''});
+        });
+      }
+    });
+    // Legacy fallbacks
+    if(rep.cr_rows&&rep.cr_rows.length&&!_crRows.length){(rep.cr_rows||[]).forEach(function(r){_crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',date:'',si:'',status:r.cr_status||'',count:r.jira_count||1,type:crashType(r),jiras:[],srcKeys:[]});});}
+    if(rep.open_jiras&&rep.open_jiras.length&&!_jiraRows.length){(rep.open_jiras||[]).forEach(function(j){_jiraRows.push({key:j.stability_ticket||j.key,title:j.jira_title||j.summary,status:j.status||'Open',date:'',count:1,final_resolution:j.final_resolution||j.resolution||'',resolution_notes_text:j.resolution_notes_text||j.resolution_notes||''});});}
+  }
+  function renderKpis(){var el=g('brKpiCards'); if(!el)return; if(!IS_AUTO){el.innerHTML='<div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;text-align:center;padding:10px;font-size:12px;font-weight:900;color:#1e40af"><i class="fas fa-info-circle"></i> Non-AUTO BU: crash type segregation not available.</div>';return;} var ct={system:0,ssr:0,process:0}; _crRows.forEach(function(r){ct[r.type]=(ct[r.type]||0)+(r.count||1);}); _jiraRows.forEach(function(j){ct[crashType(j)]=(ct[crashType(j)]||0)+1;}); el.innerHTML='<div class="metric-card"><b>'+(_crRows.reduce(function(s,r){return s+(r.count||1);},0)+_mappedRows.reduce(function(s,r){return s+(r.count||1);},0)+_jiraRows.length)+'</b><span>Total JIRAs</span></div><div class="metric-card good"><b>'+_crRows.reduce(function(s,r){return s+(r.count||1);},0)+'</b><span>Mapped to CRs</span></div><div class="metric-card purple"><b>'+_crRows.length+'</b><span>CRs</span></div><div class="metric-card" style="border-color:#fcd34d;background:linear-gradient(135deg,#fef3c7,#fff)"><b>'+_mappedRows.length+'</b><span>Mapped Tickets</span></div><div class="metric-card warn"><b>'+_jiraRows.length+'</b><span>Open JIRAs</span></div>'+(IS_AUTO?'<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-car"></i> Crash Type Segregation</div><div class="metric-card warn"><b>'+ct.system+'</b><span>System Crashes</span></div><div class="metric-card"><b>'+ct.ssr+'</b><span>SSR Crashes</span></div><div class="metric-card purple"><b>'+ct.process+'</b><span>Process Crashes</span></div>':'');}
+  function renderTabs(){
+    var tabs=g('brReportTabs'); if(tabs)tabs.style.display='block';
+    var b_crs=g('brTabBadge_crs'), b_map=g('brTabBadge_mapped'), b_open=g('brTabBadge_open');
+    if(b_crs){b_crs.textContent=_crRows.length; b_crs.style.background='#6366f1'; b_crs.style.color='#fff';}
+    if(b_map){b_map.textContent=_mappedRows.length; b_map.style.background='#e2e8f0'; b_map.style.color='#475569';}
+    if(b_open){b_open.textContent=_jiraRows.length; b_open.style.background='#e2e8f0'; b_open.style.color='#475569';}
+    brSwitchTab('crs');
+  }
+  window.brSwitchTab=function(name){
+    ['crs','mapped','open'].forEach(function(t){
+      var pane=g('brTabPane_'+t), btn=g('brTab_'+t), badge=g('brTabBadge_'+t);
+      var active=(t===name);
+      if(pane)pane.style.display=active?'block':'none';
+      if(btn){btn.style.borderBottomColor=active?'#6366f1':'transparent'; btn.style.color=active?'#6366f1':'#64748b';}
+      if(badge){badge.style.background=active?'#6366f1':'#e2e8f0'; badge.style.color=active?'#fff':'#475569';}
+    });
+    if(name==='crs')    window.brFilterCrTable();
+    if(name==='mapped') window.brRenderMappedTab();
+    if(name==='open')   window.brRenderOpenTab();
+  };
+  window.brFilterCrTable=function(){
+    var q=String((g('brCrSearch')||{}).value||'').toLowerCase(), sort=(g('brCrSort')||{}).value||'occ_desc';
+    var rows=_crRows.filter(function(r){if(IS_AUTO&&!_crashFilters[String(r.type||'process').toLowerCase()])return false; return !q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0;});
+    rows.sort(function(a,b){if(sort==='occ_asc')return (a.count||0)-(b.count||0); if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr)); return (b.count||0)-(a.count||0);});
+    var tb=g('brCrTbody'), badge=g('brCrBadge'); if(badge)badge.textContent=rows.length+' CRs'; if(!tb)return;
+    if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="empty">No CRs match current filters.</td></tr>';return;}
+    tb.innerHTML=rows.map(function(r,i){
+      var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+      var link=id?'<a class="linkBtn" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--');
+      var st=String(r.status||''); var stLow=st.toLowerCase();
+      var stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':stLow==='fix'||stLow==='inprogress'?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534;border:1px solid #86efac':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+      var stBadgeHtml=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
+      var jiraKeys=(r.srcKeys||[]).filter(Boolean);
+      var cnt=Number(r.count||jiraKeys.length||0);
+      var jiraCell;
+      if(!jiraKeys.length){jiraCell='<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';}
+      else if(jiraKeys.length<=3){jiraCell='<div style="display:flex;flex-wrap:wrap;gap:3px">'+jiraKeys.map(function(k){return '<a class="linkBtn" style="font-size:10px;font-weight:800;color:#1d4ed8;white-space:nowrap" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(k)+'" target="_blank">'+esc(k)+'</a>';}).join('')+'</div>';}
+      else{var pills=jiraKeys.slice(0,5).map(function(k){return '<a class="linkBtn" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(k)+'" target="_blank">'+esc(k)+'</a>';}).join(''); var more=jiraKeys.length>5?'<span style="color:#94a3b8;font-size:10px"> +'+(jiraKeys.length-5)+' more</span>':''; jiraCell='<div><span style="font-weight:950;color:#4f46e5;cursor:pointer;white-space:nowrap" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(cnt)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span><div style="display:none;margin-top:4px;line-height:1.9">'+pills+more+'</div></div>';}
+      return '<tr><td class="muted">'+(i+1)+'</td><td style="white-space:nowrap">'+link+'</td><td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(cnt)+'</td><td style="max-width:300px;word-break:break-word">'+esc(r.title||'--')+'</td><td style="font-size:11px">'+esc(r.area||'--')+'</td><td style="font-size:11px">'+esc(r.sub||'--')+'</td><td style="font-size:11px">'+esc(r.func||'--')+'</td><td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td><td style="font-size:11px">'+esc(r.si||'--')+'</td><td>'+stBadgeHtml+'</td><td style="min-width:180px">'+jiraCell+'</td></tr>';
+    }).join('');
+  };
+  window.brRenderMappedTab=function(){
+    var rows=_mappedRows;
+    var q=String((g('brMappedSearch')||{}).value||'').toLowerCase();
+    var filtered=rows.filter(function(r){return !q||[r.ticket,r.title,r.status].join(' ').toLowerCase().indexOf(q)>=0;});
+    var tb=g('brMappedTbody'); if(!tb)return;
+    if(!filtered.length){tb.innerHTML='<tr><td colspan="7" class="empty">No mapped tickets found.</td></tr>';return;}
+    tb.innerHTML=filtered.map(function(r,i){
+      var prefix=String(r.ticket||'').split('-')[0]||'';
+      var pc={'ADSPIMAGE':'#7c3aed','CNSSDEBUG':'#0369a1','CHIPMD':'#059669','QSTABILITY':'#1e40af'}[prefix]||'#475569';
+      var ticketLink='<a class="linkBtn" style="font-weight:900;color:'+pc+'" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.ticket)+'" target="_blank">'+esc(r.ticket)+'</a>';
+      var srcKeys=r.srcKeys||[];
+      var srcCell;
+      if(!srcKeys.length){srcCell='--';}
+      else if(srcKeys.length<=3){srcCell=srcKeys.map(function(k){return '<a class="linkBtn" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(k)+'" target="_blank">'+esc(k)+'</a>';}).join('');}
+      else{var pills=srcKeys.slice(0,4).map(function(k){return '<a class="linkBtn" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(k)+'" target="_blank">'+esc(k)+'</a>';}).join(''); var more=srcKeys.length>4?'<span style="color:#94a3b8;font-size:10px"> +'+(srcKeys.length-4)+' more</span>':''; srcCell='<div><span style="font-weight:950;color:#4f46e5;cursor:pointer;white-space:nowrap" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(srcKeys.length)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span><div style="display:none;margin-top:4px;line-height:1.9">'+pills+more+'</div></div>';}
+      return '<tr><td class="muted">'+(i+1)+'</td><td style="white-space:nowrap">'+ticketLink+'</td><td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td><td style="max-width:360px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td><td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td><td>'+stBadge(r.status)+'</td><td style="min-width:160px">'+srcCell+'</td></tr>';
+    }).join('');
+  };
+    window.brRenderOpenTab=function(){
+    var rows=_jiraRows;
+    var q=String((g('brOpenSearch')||{}).value||'').toLowerCase();
+    var filtered=rows.filter(function(r){return !q||[r.key,r.title,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0;});
+    var tb=g('brOpenTbody'); if(!tb)return;
+    if(!filtered.length){tb.innerHTML='<tr><td colspan="6" class="empty">No open/unmapped JIRAs found.</td></tr>';return;}
+    var _INV_OPEN=['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
+    tb.innerHTML=filtered.map(function(r,i){
+      var fr=String(r.final_resolution||'').toLowerCase();
+      var rn=String(r.resolution_notes_text||'').toLowerCase();
+      var st=String(r.status||'').toLowerCase();
+      var isInv=_INV_OPEN.some(function(v){return st.indexOf(v)>=0||fr.indexOf(v)>=0||rn.indexOf(v)>=0;});
+      var resDisplay=r.resolution_notes_text||r.final_resolution||'';
+      var statusCell=stBadge(r.status)+(isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'')+(resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'…':'')+'</div>':'');
+      return '<tr><td class="muted">'+(i+1)+'</td><td style="white-space:nowrap"><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td><td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td><td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td><td>'+statusCell+'</td></tr>';
+    }).join('');
+  };
+  function renderJiras(){renderTabs();}
+  window.brFilterCrTable=function(){var q=String((g('brCrSearch')||{}).value||'').toLowerCase(), sort=(g('brCrSort')||{}).value||'occ_desc'; var rows=_crRows.filter(function(r){if(IS_AUTO&&!_crashFilters[String(r.type||'process').toLowerCase()])return false; return !q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0;}); rows.sort(function(a,b){if(sort==='occ_asc')return (a.count||0)-(b.count||0); if(sort==='age_desc')return (parseInt(b.age)||0)-(parseInt(a.age)||0); if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr)); return (b.count||0)-(a.count||0);}); var tb=g('brCrTbody'), badge=g('brCrBadge'); if(badge)badge.textContent=rows.length+' CRs'; if(!tb)return; if(!rows.length){tb.innerHTML='<tr><td colspan="9" class="empty">No CRs match current filters.</td></tr>';return;} tb.innerHTML=rows.map(function(r,i){var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||''; var link=id?'<a class="linkBtn" href="https://orbit/CR/'+esc(id)+'" target="_blank">'+esc(r.cr)+'</a>':esc(r.cr||'--'); var jiraList=Array.isArray(r.jiras)?r.jiras:[]; var cnt=Number(r.count||jiraList.length||0); var jiraKeys=jiraList.map(function(j){return String(j.key||j.final_key||j.stability_ticket||j||'').toUpperCase();}).filter(Boolean); var jiraHtml; if(jiraKeys.length<=1){  jiraHtml='<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';}else{  var rowId='brCrJiras_'+i;  var pills=jiraKeys.slice(0,5).map(function(k){return '<a class="linkBtn" style="font-size:10px;font-weight:800;color:#1d4ed8" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(k)+'" target="_blank">'+esc(k)+'</a>';}).join(' ');  var more=jiraKeys.length>5?'<span style="color:#94a3b8;font-size:10px"> +' +(jiraKeys.length-5)+' more</span>':'';  jiraHtml='<div><span style="font-weight:950;color:#4f46e5;cursor:pointer" onclick="(function(el){el.nextElementSibling.style.display=el.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(cnt)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span><div style="display:none;margin-top:4px;line-height:1.8">'+pills+more+'</div></div>';}return '<tr><td class="muted">'+(i+1)+'</td><td>'+link+'</td><td style="max-width:300px">'+esc(r.title||'--')+'</td><td style="text-align:center;min-width:60px">'+jiraHtml+'</td><td>'+esc(r.area||'--')+'</td><td>'+esc(r.sub||'--')+'</td><td>'+esc(r.func||'--')+'</td><td style="text-align:center">'+esc(r.age||'--')+'</td><td>'+esc(r.status||'--')+'</td></tr>';}).join('');};
+  window.brGenerateReport=async function(){var builds=selectedBuilds(), sp=g('brGenSpinner'), st=g('brGenStatus'); if(!builds.length){alert('Select at least one build.');return;} if(sp)sp.style.display='inline'; if(st){st.style.color='#6366f1';st.textContent='Running report for '+builds.length+' build(s)...';} var tabs=g('brReportTabs'); if(tabs)tabs.style.display='none'; try{var resp=await fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({builds:builds,traverse:true,orbit:true,target:TARGET,force:true,domain:IS_AUTO?_domain:'',use_domain_tables:IS_AUTO,custom_jql:(window.BuildReportCommon?BuildReportCommon.generateJql({builds:builds,filterId:(window.LSP_DATA&&window.LSP_DATA.jira_filter_id)||'76997'}):undefined)})}); var data=await resp.json(); if(data.job_id)data=await waitForResult(data.job_id); if(data.error)throw new Error(data.error); normalizeReport(data||{}); renderKpis(); renderTabs(); if(st){st.style.color='#059669';st.textContent='Done - '+builds.length+' build(s), '+_crRows.length+' CRs, '+_mappedRows.length+' mapped, '+_jiraRows.length+' open';}} catch(e){if(st){st.style.color='#dc2626';st.textContent='Error: '+e.message;}} finally{if(sp)sp.style.display='none';}};
   var oldSwitch=window.switchTab; window.switchTab=function(name){if(typeof oldSwitch==='function')oldSwitch(name); if(name==='buildreport')window.brInit();};
   document.addEventListener('DOMContentLoaded',function(){if(g('tab-buildreport')&&g('tab-buildreport').classList.contains('active'))window.brInit();});
 })();
@@ -3040,6 +3157,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   // ── Normalize + render report (same logic as build_report_standalone) ────────
   var _lspCrRows=[], _lspJiraRows=[];
     var _lspLastReport = null;
+  var _lspLastReportJql = '';
   var _lspSelectedBuilds = new Set();
   var _lspBuildFilterActive = false;
   var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
@@ -3167,7 +3285,10 @@ if(!window.ojClear)  window.ojClear  = function(){};
     _lspCrRows=[]; _lspJiraRows=[];
     var seenJ={}, totalJiras=0, convertedToCrs=0;
         (rep.hierarchical_report||[]).forEach(function(r){
-      var jiras = (r.jiras||[]).filter(_lspIssueSelected);
+      var jiras = (r.jiras||[]).filter(_lspIssueSelected).map(function(j){
+        // keep resolution fields for invalid badge counting
+        return j;
+      });
       if(!jiras.length) return;
       totalJiras += jiras.length||0;
       if(r.cr && r.cr!=='NO_CR'){
@@ -3176,18 +3297,27 @@ if(!window.ojClear)  window.ojClear  = function(){};
         _lspCrRows.push({cr:r.cr, title:r.cr_title||r.title||'', area:r.cr_area||r.area||'',
           sub:r.cr_subsystem||r.subsystem||'', func:r.cr_functionality||r.cr_function||r.functionality||'',
           age:r.cr_age||r.overall_age||'', status:r.cr_status||r.status||'',
-          resolution:_lspFinalResolution(r), count:cnt, jiras:jiras, type:_lspCrashTypeSummary(jiras,r)});
+          resolution:_lspFinalResolution(r),
+          resolution_notes_text:r.resolution_notes_text||r.resolution_notes||'',
+          count:cnt, jiras:jiras, type:_lspCrashTypeSummary(jiras,r)});
       }
-      jiras.forEach(function(j){
-        var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
-        if(!key||seenJ[key]) return;
-        var st=String(j.final_status||j.status||'').toLowerCase();
-        if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0) return;
-        seenJ[key]=1;
-        _lspJiraRows.push({key:key, title:j.final_summary||j.summary||j.jira_title||'',
-          status:j.final_status||j.status||'Open', resolution:_lspFinalResolution(j)||j.final_status||j.status||'Open',
-          type:_lspCrashType(j), count:1});
-      });
+      // Open/unmapped JIRAs: only NO_CR rows go to open JIRA table (same as build report)
+      if(!r.cr || r.cr==='NO_CR'){
+        jiras.forEach(function(j){
+          var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
+          if(!key||seenJ[key]) return;
+          var st=String(j.final_status||j.status||'').toLowerCase();
+          if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0) return;
+          seenJ[key]=1;
+          _lspJiraRows.push({key:key,
+            title:j.final_summary||j.title||j.summary||j.jira_title||'',
+            status:j.final_status||j.status||'Open',
+            final_resolution:j.final_resolution||_lspFinalResolution(j)||'',
+            resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'',
+            resolution:j.final_resolution||_lspFinalResolution(j)||j.final_status||j.status||'Open',
+            type:_lspCrashType(j), count:1, cr:''});
+        });
+      }
     });
     // fallback: cr_rows / open_jiras
     if(rep.cr_rows&&rep.cr_rows.length&&!_lspCrRows.length){
@@ -3200,9 +3330,14 @@ if(!window.ojClear)  window.ojClear  = function(){};
       });
     }
     if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length){
-            (rep.open_jiras||[]).forEach(function(j){  // domain table rows: no build filter
-        _lspJiraRows.push({key:j.stability_ticket||j.key, title:j.jira_title||j.summary,
-          status:j.status||'Open', resolution:_lspFinalResolution(j)||j.status||'Open', type:_lspCrashType(j), count:1});
+            (rep.open_jiras||[]).filter(_lspIssueSelected).forEach(function(j){
+        _lspJiraRows.push({key:j.stability_ticket||j.key,
+          title:j.final_summary||j.jira_title||j.title||j.summary||'',
+          status:j.final_status||j.status||'Open',
+          final_resolution:j.final_resolution||_lspFinalResolution(j)||'',
+          resolution_notes_text:j.resolution_notes_text||j.resolution_notes||'',
+          resolution:j.final_resolution||_lspFinalResolution(j)||j.status||'Open',
+          type:_lspCrashType(j), count:1, cr:''});
       });
     }
         var summary = rep.summary||{};
@@ -3234,10 +3369,22 @@ if(!window.ojClear)  window.ojClear  = function(){};
         var kpiJ = document.getElementById('lspKpiJiras');
     var kpiC = document.getElementById('lspKpiCrs');
     var kpiO = document.getElementById('lspKpiOpen');
-    window._lspLastKpis = {jiras: totalJirasDisplay || 0, crs: _lspCrRows.length || 0, open: _lspJiraRows.length || 0};
+        // Count invalid JIRAs across all CR rows + open JIRAs
+    var _INVALID_RES_KPI = ['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
+    function _isInvalidKpi(j){
+      var fr = String(j.final_resolution||j.resolution||'').toLowerCase();
+      var rn = String(j.resolution_notes_text||j.resolution_notes||'').toLowerCase();
+      return _INVALID_RES_KPI.some(function(v){ return fr===v||fr.indexOf(v)>=0||rn.indexOf(v)>=0; });
+    }
+    var invalidTotal = 0;
+    _lspCrRows.forEach(function(r){ (r.jiras||[]).forEach(function(j){ if(_isInvalidKpi(j)) invalidTotal++; }); });
+    _lspJiraRows.forEach(function(j){ if(_isInvalidKpi(j)) invalidTotal++; });
+    window._lspLastKpis = {jiras: totalJirasDisplay || 0, crs: _lspCrRows.length || 0, open: _lspJiraRows.length || 0, invalid: invalidTotal};
     if(kpiJ) kpiJ.textContent = window._lspLastKpis.jiras;
     if(kpiC) kpiC.textContent = window._lspLastKpis.crs;
     if(kpiO) kpiO.textContent = window._lspLastKpis.open;
+    var kpiInv = document.getElementById('lspKpiInvalid');
+    if(kpiInv) kpiInv.textContent = invalidTotal > 0 ? invalidTotal : '0';
 
     // -- Crash-type counts for filter pills ---------------------------------
     var ct = {System:0, SSR:0, Process:0};
@@ -3342,16 +3489,33 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var cntHtml = jiraKeys.length
         ? '<a style="display:inline-flex;align-items:center;gap:4px;border:1px solid #c4b5fd;background:#eef2ff;color:#4f46e5;border-radius:999px;font-size:11px;font-weight:950;padding:2px 8px;text-decoration:none" href="'+_lspJiraKeysUrl(jiraKeys)+'" target="_blank">'+cnt+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>'
         : '<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>';
-      return '<tr>'
-        +'<td>'+(i+1)+'</td>'
-        +'<td>'+crLink+'</td>'
-        +'<td style="max-width:340px">'+_esc(r.title||'--')+'</td>'
-        +'<td style="text-align:center">'+cntHtml+'</td>'
-        +'<td>'+_esc(r.area||'--')+'</td>'
-        +'<td>'+_esc(r.sub||'--')+'</td>'
-        +'<td>'+_esc(r.func||'--')+'</td>'
-        +'<td style="text-align:center">'+_esc(r.age||'--')+'</td>'
-        +'<td>'+_esc(r.resolution||r.status||'--')+'</td>'
+      var res = String(r.resolution||r.status||'--');
+      // Count invalid JIRAs: traverse each JIRA under this CR
+      var _INVALID_RES = ['invalid','setup issue','setup_issue','incomplete','incomplete ram dump','won\'t fix','wont fix','cannot reproduce','not a bug','no sir','nosir','not applicable','n/a','na','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
+      var invalidJiras = (r.jiras||[]).filter(function(j){
+        var fr = String(j.final_resolution||j.resolution||j.cr_resolution||'').toLowerCase().trim();
+        var rn = String(j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'').toLowerCase().trim();
+        return _INVALID_RES.some(function(v){ return fr===v || fr.indexOf(v)>=0 || rn.indexOf(v)>=0; });
+      });
+      var invalidCount = invalidJiras.length;
+      var invalidBadge = invalidCount>0
+        ? '<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:11px;font-weight:900;padding:2px 9px;margin-left:5px" title="'+invalidCount+' Invalid/Setup/Incomplete JIRAs">'+invalidCount+' invalid</span>'
+        : '';
+      // Count open JIRAs for this CR inline
+      var openForCr = _lspJiraRows.filter(function(j){ return String(j.cr||j.mapped_cr||'').toUpperCase()===String(r.cr||'').toUpperCase(); }).length;
+      var openBadge = openForCr>0
+        ? '<span style="display:inline-block;background:#fef9c3;color:#854d0e;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;padding:2px 9px;margin-left:5px" title="Open JIRAs for this CR">'+openForCr+' open</span>'
+        : '';
+      return '<tr style="font-size:18px">'
+        +'<td style="padding:9px 12px">'+(i+1)+'</td>'
+        +'<td style="padding:9px 12px">'+crLink+'</td>'
+        +'<td style="max-width:380px;padding:9px 12px">'+_esc(r.title||'--')+'</td>'
+        +'<td style="text-align:center;padding:9px 12px">'+cntHtml+openBadge+invalidBadge+'</td>'
+        +'<td style="padding:9px 12px">'+_esc(r.area||'--')+'</td>'
+        +'<td style="padding:9px 12px">'+_esc(r.sub||'--')+'</td>'
+        +'<td style="padding:9px 12px">'+_esc(r.func||'--')+'</td>'
+        +'<td style="text-align:center;padding:9px 12px">'+_esc(r.age||'--')+'</td>'
+        +'<td style="padding:9px 12px">'+_esc(r.resolution_notes_text||r.resolution||r.status||'--')+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -3367,12 +3531,19 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(!rows.length){ jiraSec.style.display='none'; return; }
     jiraSec.style.display = 'block';
     if(jiraTb) jiraTb.innerHTML = rows.map(function(r,i){
-      return '<tr>'
-        +'<td>'+(i+1)+'</td>'
-        +'<td><a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.key)+'" target="_blank">'+_esc(r.key)+'</a></td>'
-        +'<td>'+_esc(r.title||'--')+'</td>'
-        +'<td>'+_esc(r.type||'--')+'</td>'
-        +'<td>'+_esc(r.resolution||r.status||'--')+'</td>'
+      var jiraRes = r.resolution_notes_text||r.final_resolution||r.resolution||r.status||'--';
+      var jiraResLow = jiraRes.toLowerCase();
+      var _INV = ['invalid','setup issue','incomplete','won\'t fix','wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
+      var isInvalidJira = _INV.some(function(v){ return jiraResLow.indexOf(v)>=0; });
+      var jiraResBadge = isInvalidJira
+        ? '<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:11px;font-weight:900;padding:2px 8px">'+_esc(jiraRes)+'</span>'
+        : _esc(jiraRes);
+      return '<tr style="font-size:18px">'
+        +'<td style="padding:8px 10px">'+(i+1)+'</td>'
+        +'<td style="padding:8px 10px"><a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.key)+'" target="_blank">'+_esc(r.key)+'</a></td>'
+        +'<td style="padding:8px 10px">'+_esc(r.title||'--')+'</td>'
+        +'<td style="padding:8px 10px">'+_esc(r.type||'--')+'</td>'
+        +'<td style="padding:8px 10px">'+jiraResBadge+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -3443,6 +3614,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var m, re = /summary\s*~\s*"([^"]+)"/gi;
     while((m=re.exec(jql))!==null) builds.push(m[1]);
 
+    window._lspLastJql = jql;
     // Show JQL panel
     _lspShowJqlPanel(jql);
 
@@ -3465,8 +3637,6 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var kpiWrap = document.getElementById('lspReportKpis');
     if(kpiWrap) kpiWrap.style.display='none';
 
-    var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
-    var _activeDomain = String(window._lspNavDomain || window._domain || 'ADAS').toUpperCase();
     var payload = {
       builds: builds,
       traverse: true,
@@ -3474,9 +3644,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       target: target,
       force: true,
       custom_jql: jql,
-      include_axiom_metrics: true,
-      domain: IS_AUTO ? _activeDomain : '',
-      use_domain_tables: IS_AUTO
+      include_axiom_metrics: true
     };
 
     fetch('/api/consolidated_report', {
@@ -3518,6 +3686,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       _lspFetchController = null;
             _lspUpdateProgress({stage:'done', done:1, total:1, pct:100, message:'Report complete. Rendering results...'});
       _lspLastReport = data || {};
+      _lspLastReportJql = jql || '';
       _lspApplyReportCrashesToRows(_lspLastReport);
       _lspRenderReport(_lspLastReport);
       // Show copy buttons now that data is ready
@@ -3671,6 +3840,13 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(!buildIds.length) return;
     var jql = _lspBuildJql(buildIds);
     if(!jql) return;
+    // Reuse cached report if JQL unchanged
+    if(_lspLastReport && _lspLastReportJql && _lspLastReportJql === jql){
+      _lspShowJqlPanel(jql);
+      window._lspLastJql = jql;
+      _lspRenderReport(_lspLastReport);
+      return;
+    }
     _lspConfirmAndRun(jql, metaId);
   }
   window.lspNavClick = function(metaId){
@@ -3762,9 +3938,10 @@ if(!window.ojClear)  window.ojClear  = function(){};
     function _lspUpdateKpi(){
     // If System-B rendered a filtered report, keep its authoritative filtered totals.
     if(window._lspLastKpis){
-      var kpiJ0 = document.getElementById('lspKpiJiras'); if(kpiJ0) kpiJ0.textContent = window._lspLastKpis.jiras;
-      var kpiC0 = document.getElementById('lspKpiCrs');   if(kpiC0) kpiC0.textContent = window._lspLastKpis.crs;
-      var kpiO0 = document.getElementById('lspKpiOpen');  if(kpiO0) kpiO0.textContent = window._lspLastKpis.open;
+          var kpiJ0 = document.getElementById('lspKpiJiras'); if(kpiJ0) kpiJ0.textContent = window._lspLastKpis.jiras;
+    var kpiC0 = document.getElementById('lspKpiCrs');   if(kpiC0) kpiC0.textContent = window._lspLastKpis.crs;
+    var kpiO0 = document.getElementById('lspKpiOpen');  if(kpiO0) kpiO0.textContent = window._lspLastKpis.open;
+    var kpiI0 = document.getElementById('lspKpiInvalid'); if(kpiI0) kpiI0.textContent = window._lspLastKpis.invalid != null ? window._lspLastKpis.invalid : '0';
       return;
     }
     // Only count real data rows - exclude empty/placeholder rows
@@ -3924,30 +4101,12 @@ if(!window.ojClear)  window.ojClear  = function(){};
         <label class="lsp-cfg-lbl">Exclude</label>
         <input id="lspCfgExclude" class="lsp-cfg-inp" placeholder="e.g. tombstone" value="tombstone">
       </div>
-      <!-- Default Domain -->
-      <div class="lsp-cfg-row" id="lspCfgDomainRow">
-        <label class="lsp-cfg-lbl">Domain</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #93c5fd;background:#dbeafe;color:#1d4ed8"><input type="radio" name="lspCfgDomain" id="lspCfgDomADAS" value="ADAS" checked style="accent-color:#2563eb"> ADAS</label>
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #c4b5fd;background:#ede9fe;color:#6d28d9"><input type="radio" name="lspCfgDomain" id="lspCfgDomFLEX" value="FLEX" style="accent-color:#7c3aed"> FLEX</label>
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #6ee7b7;background:#d1fae5;color:#065f46"><input type="radio" name="lspCfgDomain" id="lspCfgDomIVI" value="IVI" style="accent-color:#059669"> IVI</label>
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569"><input type="radio" name="lspCfgDomain" id="lspCfgDomALL" value="" style="accent-color:#6366f1"> All</label>
-        </div>
-      </div>
-      <!-- Overall CR Table -->
-      <div class="lsp-cfg-row">
-        <label class="lsp-cfg-lbl">CR Table</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="radio" name="lspCfgCrTable" id="lspCfgCrByDomain" value="domain" checked style="accent-color:#6366f1"> By Domain</label>
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer"><input type="radio" name="lspCfgCrTable" id="lspCfgCrOverall" value="overall" style="accent-color:#6366f1"> Overall (all domains)</label>
-        </div>
-      </div>
-      <!-- Target Group Members -->
-      <div class="lsp-cfg-row" style="align-items:flex-start">
-        <label class="lsp-cfg-lbl" style="padding-top:6px">Members</label>
-        <div>
-          <div id="lspCfgMembersInfo" style="font-size:11px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;line-height:1.6;max-height:80px;overflow-y:auto;"></div>
-          <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Target group members who can edit this live status page.</div>
+      <!-- JQL Preview (edit users only) -->
+      <div class="lsp-cfg-row" id="lspCfgJqlRow" style="display:none;align-items:flex-start">
+        <label class="lsp-cfg-lbl" style="padding-top:6px">JQL</label>
+        <div style="flex:1">
+          <code id="lspCfgJqlPreview" style="display:block;font-family:Consolas,monospace;font-size:10px;color:#1e293b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;word-break:break-all;white-space:pre-wrap;line-height:1.6;max-height:80px;overflow-y:auto;"></code>
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Current JQL query being used for CR/JIRA report.</div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
@@ -3972,27 +4131,13 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var el=document.getElementById('lspCfgDom'+(v||'ALL'));
       if(el) el.checked=(v===curDom||(v===''&&curDom===''));
     });
-    // CR table radio
-    var crMode=window._lspCrTableMode||'domain';
-    var crD=document.getElementById('lspCfgCrByDomain'),crO=document.getElementById('lspCfgCrOverall');
-    if(crD) crD.checked=(crMode==='domain');
-    if(crO) crO.checked=(crMode==='overall');
-    // Hide domain row for non-AUTO
-    var domRow=document.getElementById('lspCfgDomainRow');
-    if(domRow) domRow.style.display=(window.LSP_DATA&&window.LSP_DATA.is_auto_bu)?'grid':'none';
-    // Members
-    var membersEl=document.getElementById('lspCfgMembersInfo');
-    if(membersEl){
-      fetch('/api/live_status/target_group_members')
-        .then(function(r){return r.json();})
-        .then(function(d){
-          var members=d.members||d.users||[];
-          membersEl.innerHTML=members.length
-            ? members.map(function(m){return '<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800;color:#3730a3;margin:2px">'+
-                '<i class="fas fa-user" style="font-size:8px"></i>'+String(m).replace(/</g,'&lt;')+'</span>';}).join('')
-            : '<span style="color:#94a3b8;font-size:11px">No members found or not configured.</span>';
-        })
-        .catch(function(){membersEl.innerHTML='<span style="color:#94a3b8;font-size:11px">Could not load members.</span>';});
+    var jqlRow = document.getElementById('lspCfgJqlRow');
+    var jqlPrev = document.getElementById('lspCfgJqlPreview');
+    var canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
+    if(jqlRow) jqlRow.style.display = canEdit ? 'grid' : 'none';
+    if(jqlPrev && canEdit){
+      var jql = (window._lspLastJql || (window.LSP_DATA && window.LSP_DATA.persisted_jql) || '');
+      jqlPrev.textContent = jql || '(no JQL run yet)';
     }
     var modal=document.getElementById('lspCfgModal');
     if(modal) modal.style.display='flex';
@@ -4017,27 +4162,6 @@ if(!window.ojClear)  window.ojClear  = function(){};
     });
     var fi=document.getElementById('lspCfgFilterId');
     if(fi&&fi.value.trim()&&window.LSP_DATA) window.LSP_DATA.jira_filter_id=fi.value.trim();
-    // Apply domain
-    var selDom=document.querySelector('input[name="lspCfgDomain"]:checked');
-    if(selDom){
-      var newDom=selDom.value.toUpperCase()||'ADAS';
-      window._lspNavDomain=newDom;
-      window._domain=newDom;
-      if(typeof window.lspNavSetDomain==='function') window.lspNavSetDomain(newDom);
-      if(typeof window.applyCurrentDomainFilter==='function') window.applyCurrentDomainFilter(newDom);
-      // Update domain nav buttons
-      ['ADAS','FLEX','IVI'].forEach(function(d){
-        var btn=document.getElementById('lspNavDom_'+d);
-        if(btn){ btn.className='lsp-nav-dombtn'+(d===newDom?' dom-'+d:''); }
-      });
-    }
-    // Apply CR table mode
-    var selCr=document.querySelector('input[name="lspCfgCrTable"]:checked');
-    if(selCr){
-      window._lspCrTableMode=selCr.value;
-      // use_domain_tables flag picked up by next report run
-      window._lspUseDomainTables=(selCr.value==='domain');
-    }
     lspCloseCfg();
   };
 </script>

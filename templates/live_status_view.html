@@ -476,25 +476,40 @@
           <div class="cr-section-title"><i class="fas fa-vial" style="color:#16a34a"></i> Running Builds</div>
           <div id="crBuildCards" class="cr-build-cards"></div>
 
-          <!-- CR Table -->
-          <div class="cr-section-title"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</div>
-          <div class="table-wrap" style="max-height:400px;margin-bottom:14px">
-            <table>
-              <thead><tr><th>#</th><th>CR</th><th>Title</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Parent CR</th><th>CR Age</th></tr></thead>
-              <tbody id="crReportBody"><tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr></tbody>
-            </table>
-          </div>
-
-          <!-- Open JIRAs -->
-          <div id="crOpenJiraSection" style="display:none">
-            <div class="cr-section-title"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs <span id="crOpenJiraBadge" class="pill warn" style="margin-left:4px"></span></div>
-            <div class="table-wrap" style="max-height:300px">
-              <table>
-                <thead><tr><th>#</th><th>Ticket</th><th>Grouping</th><th>Occurrences</th><th>Summary</th><th>Status</th></tr></thead>
-                <tbody id="crOpenJiraBody"></tbody>
-              </table>
+          <!-- 3-Tab Report (CRs / Mapped JIRAs / Open JIRAs) -->
+          <div id="crReportTabs" style="display:none;margin-bottom:0">
+            <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:10px">
+              <button id="crTab_crs" onclick="crSwitchTab('crs')" style="padding:6px 14px;font-size:11px;font-weight:800;border:none;border-bottom:3px solid #6366f1;background:#fff;color:#6366f1;cursor:pointer;margin-bottom:-2px"><i class="fas fa-bug"></i> CRs <span id="crTabBadge_crs" style="background:#6366f1;color:#fff;border-radius:999px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
+              <button id="crTab_mapped" onclick="crSwitchTab('mapped')" style="padding:6px 14px;font-size:11px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-link"></i> Mapped JIRAs <span id="crTabBadge_mapped" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
+              <button id="crTab_open" onclick="crSwitchTab('open')" style="padding:6px 14px;font-size:11px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-ticket-alt"></i> Open JIRAs <span id="crTabBadge_open" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
+            </div>
+            <!-- CRs Tab -->
+            <div id="crTabPane_crs">
+              <div class="table-wrap" style="max-height:380px;margin-bottom:10px">
+                <table><thead><tr><th>#</th><th>CR-ID</th><th>Occ.</th><th>CR Title</th><th>Area</th><th>SubSystem</th><th>Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead>
+                <tbody id="crReportBody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr></tbody></table>
+              </div>
+            </div>
+            <!-- Mapped JIRAs Tab -->
+            <div id="crTabPane_mapped" style="display:none">
+              <div class="table-wrap" style="max-height:380px;margin-bottom:10px">
+                <table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occ.</th><th>Jira Title</th><th>Jira Date</th><th>Status</th><th>Source JIRAs</th></tr></thead>
+                <tbody id="crMappedBody"></tbody></table>
+              </div>
+            </div>
+            <!-- Open JIRAs Tab -->
+            <div id="crTabPane_open" style="display:none">
+              <div class="table-wrap" style="max-height:380px;margin-bottom:10px">
+                <table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occ.</th><th>Jira Title</th><th>Jira Date</th><th>Status</th></tr></thead>
+                <tbody id="crOpenJiraBody"></tbody></table>
+              </div>
             </div>
           </div>
+          <!-- fallback empty state before first load -->
+          <div id="crReportEmpty" style="padding:18px;color:#94a3b8;font-size:12px;text-align:center"><i class="fas fa-circle-notch spin"></i> Loading...</div>
+          <!-- hidden legacy compat -->
+          <div id="crOpenJiraSection" style="display:none"></div>
+          <span id="crOpenJiraBadge" style="display:none"></span>          </div>
 
           <!-- hidden legacy elements kept for JS compat -->
           <div id="crBuildChips" style="display:none"></div>
@@ -1999,7 +2014,11 @@ function crSelectSingleBuild(buildName){
   if(_crPersistedJql) crRunReport(true);
 }
 
-// ── report rendering ─────────────────────────────────────────────────────────
+// ── 3-tab report state ────────────────────────────────────────────────────
+let _crMappedRows  = [];  // ADSPIMAGE/CNSSDEBUG/CHIPMD/ADSPBUG rows
+let _crOpenRows    = [];  // NO_CR open JIRAs (filtered)
+
+// ── report rendering ──────────────────────────────────────────────────────
 function _crCrashType(row){
   const t = [row?.crash_type,row?.type,row?.cr_title,row?.title,row?.cr_area,row?.cr_subsystem].join(' ').toLowerCase();
   if(t.includes('system')) return 'System';
@@ -2007,76 +2026,171 @@ function _crCrashType(row){
   return 'Process';
 }
 function _crJiraKey(j){ return String(j?.final_key || j?.key || j?.stability_ticket || j?.ticket || '').toUpperCase(); }
+
+// CR classification helpers (mirrors build_report_standalone.html)
+const _CR_EQ_PREFIXES = ['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN'];
+function _isTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
+function _isCrEquiv(k){ const u=String(k||'').toUpperCase(); return _CR_EQ_PREFIXES.some(p=>u.startsWith(p+'-')); }
+
+// Closed-ticket filter (mirrors PDT_StatsConstants.py)
+const _CR_EXCL_RES  = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+const _CR_CLOSED_ST = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
+function _crIsClosedJunk(j){
+  const st   = String(j?.final_status||j?.status||'').trim().toLowerCase();
+  const res  = String(j?.resolution||'').trim().toLowerCase();
+  const fres = String(j?.final_resolution||'').trim().toLowerCase();
+  if(st==='rejected') return true;
+  if(st.includes('transfer')) return true;
+  if(_CR_CLOSED_ST.has(st)&&(_CR_EXCL_RES.has(res)||_CR_EXCL_RES.has(fres))) return true;
+  return false;
+}
+
 function _crNormalizeReportRows(hierarchical){
-  const crRows = [], open = [], seenJ = new Set();
-  (hierarchical || []).forEach(r => {
-    const jiras = r.jiras || [];
-    if(r.cr && r.cr !== 'NO_CR'){
+  const crRows=[], mappedRows=[], openRows=[], seenJ=new Set();
+  (hierarchical||[]).forEach(r=>{
+    const jiras=r.jiras||[];
+    const cr=String(r.cr||'').trim();
+    if(_isTrueCr(cr)){
       crRows.push({
-        cr:r.cr, title:r.cr_title || r.title || '', occurrences:jiras.length || r.cr_count || r.jira_count || 1,
-        area:r.cr_area || r.area || '', subsystem:r.cr_subsystem || r.subsystem || '', functionality:r.cr_functionality || r.cr_function || r.functionality || '',
-        parent:r.parent_cr || r.parent || r.cr_status || '', age:r.cr_age || r.overall_age || '', jiras
+        cr, title:r.cr_title||r.title||'', occurrences:jiras.length||r.cr_count||r.jira_count||1,
+        area:r.cr_area||r.area||'', subsystem:r.cr_subsystem||r.subsystem||'',
+        functionality:r.cr_functionality||r.cr_function||r.functionality||'',
+        date:r.cr_date||'', si:r.cr_si||'', status:r.cr_status||r.status||'',
+        age:r.cr_age||r.overall_age||'', jiras
+      });
+    } else if(_isCrEquiv(cr)){
+      const firstJ=jiras[0]||{};
+      const srcKeys=jiras.map(j=>_crJiraKey(j)).filter(Boolean);
+      mappedRows.push({
+        ticket:cr, count:jiras.length||1,
+        title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',
+        date:String(firstJ.created||'').slice(0,10),
+        status:firstJ.final_status||firstJ.status||'',
+        srcKeys
+      });
+    } else {
+      // NO_CR - filter out closed+junk tickets (mirrors PDT_StatsConstants.py)
+      jiras.forEach(j=>{
+        const key=_crJiraKey(j);
+        if(!key||seenJ.has(key)) return;
+        if(_crIsClosedJunk(j)) return;
+        seenJ.add(key);
+        openRows.push({
+          key, occurrences:1,
+          summary:j.final_summary||j.summary||j.jira_title||'',
+          date:String(j.created||'').slice(0,10),
+          status:j.final_status||j.status||'Open',
+          final_resolution:j.final_resolution||j.resolution||'',
+          resolution_notes_text:j.resolution_notes_text||j.resolution_notes||''
+        });
       });
     }
-    jiras.forEach(j => {
-      const key = _crJiraKey(j);
-      if(!key || seenJ.has(key)) return;
-      const st = String(j.final_status || j.status || '').toLowerCase();
-      if(st.includes('closed') || st.includes('resolved')) return;
-      if(!r.cr || r.cr === 'NO_CR' || st){
-        seenJ.add(key);
-        open.push({key, grouping:r.cr || 'NO_CR', occurrences:1, summary:j.final_summary || j.summary || j.jira_title || '', status:j.final_status || j.status || 'Open'});
-      }
-    });
   });
-  return {crRows, open};
+  return {crRows, mappedRows, open:openRows};
 }
+
+function crSwitchTab(name){
+  ['crs','mapped','open'].forEach(t=>{
+    const pane=document.getElementById('crTabPane_'+t);
+    const btn=document.getElementById('crTab_'+t);
+    const badge=document.getElementById('crTabBadge_'+t);
+    const active=(t===name);
+    if(pane) pane.style.display=active?'block':'none';
+    if(btn){ btn.style.borderBottomColor=active?'#6366f1':'transparent'; btn.style.color=active?'#6366f1':'#64748b'; }
+    if(badge){ badge.style.background=active?'#6366f1':'#e2e8f0'; badge.style.color=active?'#fff':'#475569'; }
+  });
+}
+
 function _crRenderCrTable(hierarchical){
   const body = document.getElementById('crReportBody');
   const parsed = _crNormalizeReportRows(hierarchical);
-  _crAllRows = parsed.crRows;
+  _crAllRows    = parsed.crRows;
+  _crMappedRows = parsed.mappedRows;
+  _crOpenRows   = parsed.open;
+  _crOpenJiraGroups = parsed.open; // legacy compat for crCopyReport
+
+  // Update tab badges
+  const setBadge=(id,n,active)=>{ const b=document.getElementById('crTabBadge_'+id); if(!b)return; b.textContent=n; b.style.background=active?'#6366f1':'#e2e8f0'; b.style.color=active?'#fff':'#475569'; };
+  setBadge('crs',   _crAllRows.length,    true);
+  setBadge('mapped',_crMappedRows.length, false);
+  setBadge('open',  _crOpenRows.length,   false);
+
+  // Show tabs, hide empty state
+  const tabs=document.getElementById('crReportTabs');
+  const empty=document.getElementById('crReportEmpty');
+  if(tabs)  tabs.style.display='block';
+  if(empty) empty.style.display='none';
+
+  // Render CRs tab
   if(!body) return;
-  if(!_crAllRows.length){ body.innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-inbox"></i><p>No CR rows found for the selected builds.</p></td></tr>`; return; }
-  body.innerHTML = _crAllRows.map((r,i) => `<tr>
-    <td>${i+1}</td>
-    <td>${crLink(r.cr)}</td>
-    <td style="max-width:460px">${fmt(r.title || '--')}</td>
-    <td><b style="color:#4f46e5">${fmt(r.occurrences)}</b></td>
-    <td>${fmt(r.area || '--')}</td>
-    <td>${fmt(r.subsystem || '--')}</td>
-    <td>${fmt(r.functionality || '--')}</td>
-    <td>${fmt(r.parent || '--')}</td>
-    <td>${fmt(r.age || '--')}</td>
-  </tr>`).join('');
+  if(!_crAllRows.length){ body.innerHTML=`<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No CRs found for the selected builds.</p></td></tr>`; }
+  else body.innerHTML=_crAllRows.map((r,i)=>{
+    const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+    const crLinkHtml=id?`<a class="link" href="https://orbit/CR/${esc(id)}" target="_blank" rel="noopener">${esc(r.cr)}</a>`:esc(r.cr||'--');
+    const jiraKeys=(r.jiras||[]).map(j=>_crJiraKey(j)).filter(Boolean);
+    const cnt=Number(r.occurrences||jiraKeys.length||0);
+    let jiraCell;
+    if(!jiraKeys.length){ jiraCell=`<b style="color:#4f46e5">${esc(cnt)}</b>`; }
+    else if(jiraKeys.length<=3){ jiraCell=jiraKeys.map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''); }
+    else{ const pills=jiraKeys.slice(0,4).map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''); const more=jiraKeys.length>4?`<span style="color:#94a3b8;font-size:10px"> +${jiraKeys.length-4} more</span>`:''; jiraCell=`<b style="color:#4f46e5">${esc(cnt)}</b><div style="margin-top:3px">${pills}${more}</div>`; }
+    const stLow=String(r.status||'').toLowerCase();
+    const stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6':stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534':'background:#f1f5f9;color:#475569';
+    const stBadge=r.status?`<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 6px;${stColor}">${esc(r.status)}</span>`:'--';
+    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${crLinkHtml}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(cnt)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="font-size:11px">${esc(r.area||'--')}</td><td style="font-size:11px">${esc(r.subsystem||'--')}</td><td style="font-size:11px">${esc(r.functionality||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.si||'--')}</td><td>${stBadge}</td><td style="min-width:160px">${jiraCell}</td></tr>`;
+  }).join('');
+
+  // Render Mapped tab
+  const mappedBody=document.getElementById('crMappedBody');
+  if(mappedBody){
+    if(!_crMappedRows.length){ mappedBody.innerHTML=`<tr><td colspan="7" class="empty">No mapped tickets found.</td></tr>`; }
+    else mappedBody.innerHTML=_crMappedRows.map((r,i)=>{
+      const prefix=String(r.ticket||'').split('-')[0]||'';
+      const pColor={'ADSPIMAGE':'#7c3aed','CNSSDEBUG':'#0369a1','CHIPMD':'#059669','ADSPBUG':'#b45309'}[prefix]||'#475569';
+      const tLink=`<a class="link" style="font-weight:900;color:${pColor}" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(r.ticket)}" target="_blank">${esc(r.ticket)}</a>`;
+      const srcKeys=r.srcKeys||[];
+      const srcCell=srcKeys.length<=3?srcKeys.map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''):(srcKeys.slice(0,3).map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join('')+(srcKeys.length>3?`<span style="color:#94a3b8;font-size:10px"> +${srcKeys.length-3} more</span>`:''));
+      return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${tLink}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(r.count||1)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.status||'--')}</td><td style="min-width:140px">${srcCell}</td></tr>`;
+    }).join('');
+  }
+
+  // Render Open JIRAs tab
+  _crRenderOpenJiras(null);
 }
-function _crRenderOpenJiras(hierarchical){
-  const sec = document.getElementById('crOpenJiraSection');
-  const body = document.getElementById('crOpenJiraBody');
-  const badge = document.getElementById('crOpenJiraBadge');
-  const parsed = _crNormalizeReportRows(hierarchical);
-  _crOpenJiraGroups = parsed.open;
-  if(!sec || !body) return;
-  if(!_crOpenJiraGroups.length){ sec.style.display = 'none'; body.innerHTML = ''; return; }
-  sec.style.display = 'block';
-  if(badge) badge.textContent = `${_crOpenJiraGroups.length} open`;
-  body.innerHTML = _crOpenJiraGroups.map((r,i) => `<tr>
-    <td>${i+1}</td><td>${jiraLink(r.key)}</td><td>${fmt(r.grouping)}</td><td>${fmt(r.occurrences)}</td><td>${fmt(r.summary)}</td><td>${fmt(r.status)}</td>
-  </tr>`).join('');
+
+function _crRenderOpenJiras(_ignored){
+  const body  = document.getElementById('crOpenJiraBody');
+  if(!body) return;
+  const rows = _crOpenRows||[];
+  if(!rows.length){ body.innerHTML=`<tr><td colspan="6" class="empty">No open/unmapped JIRAs found.</td></tr>`; return; }
+  const _INV=['invalid','setup issue','incomplete',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
+  body.innerHTML=rows.map((r,i)=>{
+    const st=String(r.status||''); const stLow=st.toLowerCase();
+    const fr=String(r.final_resolution||'').toLowerCase();
+    const rn=String(r.resolution_notes_text||'').toLowerCase();
+    const isInv=_INV.some(v=>stLow.includes(v)||fr.includes(v)||rn.includes(v));
+    const stColor=stLow.includes('open')?'background:#fef9c3;color:#854d0e':(stLow.includes('closed')||isInv)?'background:#fee2e2;color:#b91c1c':'background:#f1f5f9;color:#475569';
+    const stBadge=st?`<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 6px;${stColor}">${esc(st)}</span>`:'--';
+    const invBadge=isInv?`<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 5px;margin-left:3px">invalid</span>`:'';
+    const resDisplay=r.resolution_notes_text||r.final_resolution||'';
+    const resNote=resDisplay?`<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(resDisplay)}">${esc(resDisplay.substring(0,55))}${resDisplay.length>55?'\u2026':''}</div>`:'';
+    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap"><a class="link" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(r.key)}" target="_blank">${esc(r.key)}</a></td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(r.occurrences||1)}</td><td style="max-width:360px;word-break:break-word;font-size:11px">${esc(r.summary||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td>${stBadge}${invBadge}${resNote}</td></tr>`;
+  }).join('');
 }
 
 async function crRunReport(force){
   if(!_crJobId){ return; }
   const jql = _crGetJql();
   if(!jql){
-    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
-    document.getElementById('crOpenJiraSection').style.display = 'none';
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
+    const tabs=document.getElementById('crReportTabs'); if(tabs) tabs.style.display='none';
+    const empty=document.getElementById('crReportEmpty'); if(empty){ empty.style.display='block'; empty.innerHTML='<i class="fas fa-info-circle"></i> Select at least one build to view the report.'; }
     return;
   }
   const sp = document.getElementById('crReportSpinner');
   const msg = document.getElementById('crReportMsg');
   if(sp) sp.style.display = 'inline';
   if(msg){ msg.textContent = 'Fetching crash data...'; msg.style.color = '#4f46e5'; }
-  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
+  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
   try{
     const res  = await fetch(`/api/live_status/targets/${encodeURIComponent(TARGET)}/current_report`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2091,15 +2205,15 @@ async function crRunReport(force){
     _crLastJiraCount = newCount;
     _crExcludedJiras = (report.excluded_jiras || []).map(k => String(k).toUpperCase());
     _crRenderCrTable(report.hierarchical_report || []);
-    _crRenderOpenJiras(report.hierarchical_report || []);
+    // Switch to CRs tab by default
+    crSwitchTab('crs');
     const pills = document.getElementById('crSummaryPills');
     if(pills){
-      pills.innerHTML = `<span class="pill"><i class="fas fa-ticket-alt"></i> ${newCount || 0} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${_crAllRows.length} CRs</span><span class="pill warn"><i class="fas fa-door-open"></i> ${_crOpenJiraGroups.length} open</span><span class="pill"><i class="fas fa-code-branch"></i> ${_crSelectedBuilds().length} builds</span>`;
+      pills.innerHTML = `<span class="pill"><i class="fas fa-ticket-alt"></i> ${newCount || 0} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${_crAllRows.length} CRs</span><span class="pill" style="background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9"><i class="fas fa-link"></i> ${_crMappedRows.length} mapped</span><span class="pill warn"><i class="fas fa-door-open"></i> ${_crOpenRows.length} open</span><span class="pill"><i class="fas fa-code-branch"></i> ${_crSelectedBuilds().length} builds</span>`;
     }
     if(msg){ msg.textContent = `Updated ${new Date().toLocaleTimeString()}`; msg.style.color = '#059669'; }
   }catch(err){
-    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
-    document.getElementById('crOpenJiraSection').style.display = 'none';
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
     if(msg){ msg.textContent = 'Error: ' + (err.message || err); msg.style.color = '#dc2626'; }
   }finally{
     if(sp) sp.style.display = 'none';
@@ -2112,12 +2226,21 @@ function crCopyReport(){
   lines.push('Generated: ' + new Date().toLocaleString());
   lines.push('Selected builds: ' + _crSelectedBuilds().join(', '));
   lines.push('');
-  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','Parent/Status','Age'].join('\t'));
-  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.parent,r.age].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
-  if(_crOpenJiraGroups.length){
-    lines.push(''); lines.push('Open / Unmapped JIRAs');
-    lines.push(['#','Ticket','Grouping','Occurrences','Summary','Status'].join('\t'));
-    _crOpenJiraGroups.forEach((r,i) => lines.push([i+1,r.key,r.grouping,r.occurrences,r.summary,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  // CRs tab
+  lines.push('=== CRs (' + (_crAllRows||[]).length + ') ===');
+  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','CR Date','CR SI','CR Status'].join('\t'));
+  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.date,r.si,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  // Mapped tab
+  if((_crMappedRows||[]).length){
+    lines.push(''); lines.push('=== Mapped JIRAs (' + _crMappedRows.length + ') ===');
+    lines.push(['#','Ticket','Count','Title','Date','Status','Source JIRAs'].join('\t'));
+    _crMappedRows.forEach((r,i) => lines.push([i+1,r.ticket,r.count,r.title,r.date,r.status,(r.srcKeys||[]).join(', ')].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  }
+  // Open JIRAs tab
+  if((_crOpenRows||[]).length){
+    lines.push(''); lines.push('=== Open JIRAs (' + _crOpenRows.length + ') ===');
+    lines.push(['#','Ticket','Occurrences','Summary','Date','Status'].join('\t'));
+    _crOpenRows.forEach((r,i) => lines.push([i+1,r.key,r.occurrences,r.summary,r.date,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
   }
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => { const m = document.getElementById('crReportMsg'); if(m){ m.textContent = 'Crash report copied.'; m.style.color = '#059669'; } })
