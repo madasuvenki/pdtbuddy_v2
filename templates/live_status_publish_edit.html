@@ -373,43 +373,90 @@
                         <!-- CR / JIRA Report -->
             <!-- KPI cards injected here by _lspRenderReport -->
             <div id="lspReportKpis" style="display:none;margin-bottom:10px"></div>
-                          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
               <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</span>
-               <span id="crFreshStatus" class="muted" style="font-size:11px"></span>
-               <span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
-               <div id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-               <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
-                 <button id="lspCopyCrBtn" onclick="lspCopyTable('crTbody',this)" style="display:none;border:1px solid #bbf7d0;background:#ecfdf5;color:#047857;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy CR Table</button>
-                 <div class="search-row" style="padding:0;border:0;background:transparent">
-                   <i class="fas fa-search muted"></i>
-                   <input id="crSearchInput" oninput="filterCrTable()" placeholder="Search CRs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
-                 </div>
-               </div>
-             </div>
-            <div class="tbl-wrap" style="max-height:380px;margin-bottom:14px">
-              <table class="tbl">
-                <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
-                <tbody id="crTbody"><tr><td colspan="9" class="empty" style="padding:32px;font-size:14px;color:#64748b;text-align:center"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:10px;color:#a5b4fc"></i><b>Select a domain and build</b> from the left panel to load the report.</td></tr></tbody>
-              </table>
+              <span id="crFreshStatus" class="muted" style="font-size:11px"></span>
+              <span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+              <div id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
             </div>
 
-            <!-- Open JIRAs -->
-            <div id="jiraSection" style="display:none">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-                <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs</span>
-                <span id="jiraBadge" class="badge badge-warn"></span>
+            <div id="lspCurrentReportTabs" style="display:none;margin:0 0 10px;border-bottom:2px solid #e2e8f0;gap:0;flex-wrap:wrap">
+              <button id="lspCurTab_crs" onclick="lspSwitchCurrentReportTab('crs')" style="padding:7px 18px;font-size:12px;font-weight:900;border:none;border-bottom:3px solid #6366f1;background:#fff;color:#6366f1;cursor:pointer;margin-bottom:-2px"><i class="fas fa-bug"></i> CRs <span id="lspCurTabBadge_crs" style="background:#6366f1;color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+              <button id="lspCurTab_mapped" onclick="lspSwitchCurrentReportTab('mapped')" style="padding:7px 18px;font-size:12px;font-weight:900;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-link"></i> Mapped JIRAs <span id="lspCurTabBadge_mapped" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+              <button id="lspCurTab_open" onclick="lspSwitchCurrentReportTab('open')" style="padding:7px 18px;font-size:12px;font-weight:900;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-ticket-alt"></i> Open JIRAs <span id="lspCurTabBadge_open" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+              <button id="lspCurTab_invalid" onclick="lspSwitchCurrentReportTab('invalid')" style="padding:7px 18px;font-size:12px;font-weight:900;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-ban"></i> Invalid JIRAs <span id="lspCurTabBadge_invalid" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+            </div>
+
+            <div id="lspTabPane_crs">
+              <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
+                <button id="lspCopyCrBtn" onclick="lspCopyTable('crTbody',this)" style="display:none;border:1px solid #bbf7d0;background:#ecfdf5;color:#047857;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy CR Table</button>
+                <div class="search-row" style="padding:0;border:0;background:transparent">
+                  <i class="fas fa-search muted"></i>
+                  <input id="crSearchInput" oninput="filterCrTable()" placeholder="Search CRs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
+                </div>
+              </div>
+              <div class="tbl-wrap" style="max-height:380px;margin-bottom:14px">
+                <table class="tbl">
+                  <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
+                  <tbody id="crTbody"><tr><td colspan="9" class="empty" style="padding:32px;font-size:14px;color:#64748b;text-align:center"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:10px;color:#a5b4fc"></i><b>Select a domain and build</b> from the left panel to load the report.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="lspTabPane_mapped" style="display:none">
+              <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
+                <button onclick="lspCopyTable('mappedTbody',this)" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy Mapped Table</button>
+                <div class="search-row" style="padding:0;border:0;background:transparent">
+                  <i class="fas fa-search muted"></i>
+                  <input id="mappedSearchInput" oninput="filterMappedTable()" placeholder="Search mapped JIRAs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:200px">
+                </div>
+              </div>
+              <div class="tbl-wrap" style="max-height:340px;margin-bottom:14px">
+                <table class="tbl" id="mappedTable" style="font-size:16px">
+                  <thead><tr><th>#</th><th>Mapped Ticket</th><th>Occurrence</th><th>JIRA Title</th><th>JIRA Date</th><th>Status</th><th>Source JIRAs</th></tr></thead>
+                  <tbody id="mappedTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="lspTabPane_open" style="display:none">
+              <div id="jiraSection" style="display:block">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                  <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs</span>
+                  <span id="jiraBadge" class="badge badge-warn"></span>
+                  <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
+                    <button id="lspCopyJiraBtn" onclick="lspCopyTable('jiraTbody',this)" style="border:1px solid #fed7aa;background:#fff7ed;color:#b45309;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy Open JIRA Table</button>
+                    <div class="search-row" style="padding:0;border:0;background:transparent">
+                      <i class="fas fa-search muted"></i>
+                      <input id="jiraSearchInput" oninput="filterJiraTable()" placeholder="Search open JIRAs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
+                    </div>
+                  </div>
+                </div>
+                <div class="tbl-wrap" style="max-height:300px">
+                  <table class="tbl" id="jiraTable" style="font-size:18px">
+                    <thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Resolution / Status</th></tr></thead>
+                    <tbody id="jiraTbody"></tbody>
+                  </table>
+                </div>
+              </div>
+                        </div>
+
+            <div id="lspTabPane_invalid" style="display:none">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-ban" style="color:#dc2626"></i> Invalid JIRAs</span>
+                <span id="invalidJiraBadge" class="badge badge-warn"></span>
                 <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
-                  <button id="lspCopyJiraBtn" onclick="lspCopyTable('jiraTbody',this)" style="border:1px solid #fed7aa;background:#fff7ed;color:#b45309;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy JIRA Table</button>
+                  <button onclick="lspCopyTable('invalidJiraTbody',this)" style="border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy Invalid JIRA Table</button>
                   <div class="search-row" style="padding:0;border:0;background:transparent">
                     <i class="fas fa-search muted"></i>
-                    <input id="jiraSearchInput" oninput="filterJiraTable()" placeholder="Search JIRAs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
+                    <input id="invalidJiraSearchInput" oninput="filterInvalidJiraTable()" placeholder="Search invalid JIRAs..." style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;min-width:180px">
                   </div>
                 </div>
               </div>
               <div class="tbl-wrap" style="max-height:300px">
-                <table class="tbl" id="jiraTable" style="font-size:18px">
-                                     <thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Resolution / Status</th></tr></thead>
-                  <tbody id="jiraTbody"></tbody>
+                <table class="tbl" style="font-size:18px">
+                  <thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Crash Type</th><th>Final Resolution / Status</th></tr></thead>
+                  <tbody id="invalidJiraTbody"></tbody>
                 </table>
               </div>
             </div>
@@ -460,7 +507,7 @@
           {% endif %}
           <button class="btn" onclick="adasLoadData(true)"><i class="fas fa-rotate"></i> Refresh</button>
           <button class="btn" onclick="copyMtbfChart()" title="Copy chart as image"><i class="fas fa-image"></i> Copy Chart</button>
-        </div>Shikra_CQ2390_LA_10:3769 Uncaught SyntaxError: Unexpected token ';' (at Shikra_CQ2390_LA_10:3769:4)Shikra_CQ2390_LA_10:3769 Uncaught SyntaxError: Unexpected token ';' (at Shikra_CQ2390_LA_10:3769:4)
+        </div>
       </div>
       {% if is_auto_bu %}
       <!-- Crash-type checkboxes -->
@@ -1315,7 +1362,25 @@ window.LSP_DATA = {
           _syncDomainRadio();
           if(typeof window.lspSetCurrentDomain==='function') window.lspSetCurrentDomain(_rbDomain);
         }
-                if(st) st.textContent='DB updated '+new Date().toLocaleTimeString()+' -- '+(_rbRows.length||0)+' row(s)';
+        if(st){
+          var dbTs=d.db_last_updated||d.db_last_fetched||'';
+          var dbAge='';
+          if(dbTs){
+            try{
+              // Backend now returns UTC (CONVERT_TZ). Parse as UTC by appending Z.
+              var dbTsUtc=dbTs.replace(' ','T').replace(/Z?$/,'Z');
+              var dbDate=new Date(dbTsUtc);
+              var ageMs=Date.now()-dbDate.getTime();
+              var ageMins=Math.round(ageMs/60000);
+              if(ageMins<2) dbAge=' (just now)';
+              else if(ageMins<60) dbAge=' ('+ageMins+' min ago)';
+              else dbAge=' ('+(Math.round(ageMins/6)/10)+' hr ago)';
+              if(ageMins>90) dbAge='<span style="color:#dc2626;font-weight:900"> ⚠ '+dbAge.trim()+'</span>';
+            }catch(e){}
+          }
+          var dbTsLocal=dbTs?new Date(dbTs.replace(' ','T').replace(/Z?$/,'Z')).toLocaleTimeString():new Date().toLocaleTimeString();
+          st.innerHTML='Axiom DB last updated: <b>'+dbTsLocal+'</b>'+dbAge+' &mdash; '+(_rbRows.length||0)+' row(s) fetched at '+new Date().toLocaleTimeString()+(d.db_total_running?' &mdash; '+d.db_total_running+' total running in DB':'');
+        }
         _render();
         // ── Always re-render nav after DB rows arrive ──
         if(typeof window.lspNavRender==='function') window.lspNavRender();
@@ -3155,13 +3220,21 @@ if(!window.ojClear)  window.ojClear  = function(){};
   }
 
   // ── Normalize + render report (same logic as build_report_standalone) ────────
-  var _lspCrRows=[], _lspJiraRows=[];
+    var _lspCrRows=[], _lspMappedRows=[], _lspJiraRows=[], _lspInvalidJiraRows=[];
     var _lspLastReport = null;
   var _lspLastReportJql = '';
   var _lspSelectedBuilds = new Set();
   var _lspBuildFilterActive = false;
-  var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
+    var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
   var JIRA_ISSUES_LSP = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
+  var _LSP_CR_EQ_PFX = ['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG'];
+  var _LSP_INVALID_KEYWORDS = ['invalid','setup issue','setup_issue','incomplete','incomplete ram dump','similar substring found','similar substring','substring found',"won't fix",'wont fix','cannot reproduce','not a bug','no sir','nosir','not applicable','n/a','na','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
+  function _lspIsTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
+  function _lspIsCrEquiv(k){ var u=String(k||'').toUpperCase(); return _LSP_CR_EQ_PFX.some(function(p){ return u.indexOf(p+'-')===0; }); }
+  function _lspIsInvalidJira(j){
+    var hay = [j&&j.status, j&&j.final_status, j&&j.final_resolution, j&&j.resolution, j&&j.cr_resolution, j&&j.resolution_notes_text, j&&j.resolution_notes, j&&j.final_resolution_notes].join(' ').toLowerCase();
+    return _LSP_INVALID_KEYWORDS.some(function(v){ return hay.indexOf(v) >= 0; });
+  }
 
   function _lspFinalResolution(row){
     return String((row&&row.final_resolution)||(row&&row.resolution)||(row&&row.cr_resolution)||(row&&row.final_status)||(row&&row.cr_status)||(row&&row.status)||'').trim();
@@ -3281,41 +3354,50 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(_lspSoloMeta) _lspRenderFlavorTable(_lspSoloMeta);
     if(_lspLastReport) _lspRenderReport(_lspLastReport);
   };
-  function _lspNormalizeReport(rep){
-    _lspCrRows=[]; _lspJiraRows=[];
+    function _lspNormalizeReport(rep){
+    _lspCrRows=[]; _lspMappedRows=[]; _lspJiraRows=[]; _lspInvalidJiraRows=[];
     var seenJ={}, totalJiras=0, convertedToCrs=0;
         (rep.hierarchical_report||[]).forEach(function(r){
       var jiras = (r.jiras||[]).filter(_lspIssueSelected).map(function(j){
-        // keep resolution fields for invalid badge counting
+        // keep resolution fields for invalid/setup/incomplete detection
         return j;
       });
       if(!jiras.length) return;
       totalJiras += jiras.length||0;
-      if(r.cr && r.cr!=='NO_CR'){
+      var crKey = String(r.cr||'').trim();
+      if(crKey && crKey !== 'NO_CR'){
         var cnt = jiras.length||r.cr_count||r.jira_count||1;
-        convertedToCrs += Number(cnt)||0;
-        _lspCrRows.push({cr:r.cr, title:r.cr_title||r.title||'', area:r.cr_area||r.area||'',
-          sub:r.cr_subsystem||r.subsystem||'', func:r.cr_functionality||r.cr_function||r.functionality||'',
-          age:r.cr_age||r.overall_age||'', status:r.cr_status||r.status||'',
-          resolution:_lspFinalResolution(r),
-          resolution_notes_text:r.resolution_notes_text||r.resolution_notes||'',
-          count:cnt, jiras:jiras, type:_lspCrashTypeSummary(jiras,r)});
+        if(_lspIsTrueCr(crKey)){
+          convertedToCrs += Number(cnt)||0;
+          _lspCrRows.push({cr:crKey, title:r.cr_title||r.title||'', area:r.cr_area||r.area||'',
+            sub:r.cr_subsystem||r.subsystem||'', func:r.cr_functionality||r.cr_function||r.functionality||'',
+            age:r.cr_age||r.overall_age||'', status:r.cr_status||r.status||'',
+            resolution:_lspFinalResolution(r),
+            resolution_notes_text:r.resolution_notes_text||r.resolution_notes||'',
+            count:cnt, jiras:jiras, type:_lspCrashTypeSummary(jiras,r)});
+        } else if(_lspIsCrEquiv(crKey)){
+          var firstJ=jiras[0]||{};
+          var srcKeys=jiras.map(function(j){return String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();}).filter(Boolean);
+          _lspMappedRows.push({ticket:crKey,count:cnt,title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',date:String(firstJ.created||firstJ.date||'').slice(0,10),status:firstJ.final_status||firstJ.status||r.status||'',srcKeys:srcKeys,jiras:jiras,type:_lspCrashTypeSummary(jiras,r)});
+        }
       }
-      // Open/unmapped JIRAs: only NO_CR rows go to open JIRA table (same as build report)
-      if(!r.cr || r.cr==='NO_CR'){
+      // Open/invalid/unmapped JIRAs: NO_CR rows. Closed invalid/setup/incomplete rows are intentionally kept.
+      if(!crKey || crKey==='NO_CR'){
         jiras.forEach(function(j){
           var key=String(j.final_key||j.key||j.stability_ticket||'').toUpperCase();
           if(!key||seenJ[key]) return;
           var st=String(j.final_status||j.status||'').toLowerCase();
-          if(st.indexOf('closed')>=0||st.indexOf('resolved')>=0) return;
-          seenJ[key]=1;
-          _lspJiraRows.push({key:key,
+          var isInvalid=_lspIsInvalidJira(j);
+          if((st.indexOf('closed')>=0||st.indexOf('resolved')>=0) && !isInvalid) return;
+                    seenJ[key]=1;
+          var normalizedJira={key:key,
             title:j.final_summary||j.title||j.summary||j.jira_title||'',
             status:j.final_status||j.status||'Open',
             final_resolution:j.final_resolution||_lspFinalResolution(j)||'',
             resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'',
             resolution:j.final_resolution||_lspFinalResolution(j)||j.final_status||j.status||'Open',
-            type:_lspCrashType(j), count:1, cr:''});
+            type:_lspCrashType(j), count:1, cr:'', invalid:isInvalid};
+          if(isInvalid)_lspInvalidJiraRows.push(normalizedJira);else _lspJiraRows.push(normalizedJira);
         });
       }
     });
@@ -3329,15 +3411,17 @@ if(!window.ojClear)  window.ojClear  = function(){};
           status:r.cr_status||'', resolution:_lspFinalResolution(r), count:c, jiras:r.jiras||[], type:_lspCrashTypeSummary(r.jiras||[],r)});
       });
     }
-    if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length){
+    if(rep.open_jiras&&rep.open_jiras.length&&!_lspJiraRows.length&&!_lspInvalidJiraRows.length){
             (rep.open_jiras||[]).filter(_lspIssueSelected).forEach(function(j){
-        _lspJiraRows.push({key:j.stability_ticket||j.key,
+                var isInvalid=_lspIsInvalidJira(j);
+        var normalizedJira={key:j.stability_ticket||j.key,
           title:j.final_summary||j.jira_title||j.title||j.summary||'',
           status:j.final_status||j.status||'Open',
           final_resolution:j.final_resolution||_lspFinalResolution(j)||'',
           resolution_notes_text:j.resolution_notes_text||j.resolution_notes||'',
           resolution:j.final_resolution||_lspFinalResolution(j)||j.status||'Open',
-          type:_lspCrashType(j), count:1, cr:''});
+          type:_lspCrashType(j), count:1, cr:'', invalid:isInvalid};
+        if(isInvalid)_lspInvalidJiraRows.push(normalizedJira);else _lspJiraRows.push(normalizedJira);
       });
     }
         var summary = rep.summary||{};
@@ -3360,25 +3444,21 @@ if(!window.ojClear)  window.ojClear  = function(){};
     _lspActiveCrashFilter = null;
 
     // -- Compute total JIRAs from real normalized data -----------------------
-    var mappedTotal = _lspCrRows.reduce(function(s,r){ return s+(Number(r.count)||0); },0);
+        var crJiraTotal = _lspCrRows.reduce(function(s,r){ return s+(Number(r.count)||0); },0);
+    var mappedJiraTotal = _lspMappedRows.reduce(function(s,r){ return s+(Number(r.count)||0); },0);
     var totalJirasDisplay = (counts.totalJiras > 0)
       ? counts.totalJiras
-      : (mappedTotal + _lspJiraRows.length) || 0;
+      : (crJiraTotal + mappedJiraTotal + _lspJiraRows.length + _lspInvalidJiraRows.length) || 0;
 
     // -- Update the 4 big KPI boxes at the top (always) ---------------------
         var kpiJ = document.getElementById('lspKpiJiras');
     var kpiC = document.getElementById('lspKpiCrs');
     var kpiO = document.getElementById('lspKpiOpen');
-        // Count invalid JIRAs across all CR rows + open JIRAs
-    var _INVALID_RES_KPI = ['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
-    function _isInvalidKpi(j){
-      var fr = String(j.final_resolution||j.resolution||'').toLowerCase();
-      var rn = String(j.resolution_notes_text||j.resolution_notes||'').toLowerCase();
-      return _INVALID_RES_KPI.some(function(v){ return fr===v||fr.indexOf(v)>=0||rn.indexOf(v)>=0; });
-    }
+                // Count invalid crashes across all JIRAs using final resolution + resolution notes substring matching.
     var invalidTotal = 0;
-    _lspCrRows.forEach(function(r){ (r.jiras||[]).forEach(function(j){ if(_isInvalidKpi(j)) invalidTotal++; }); });
-    _lspJiraRows.forEach(function(j){ if(_isInvalidKpi(j)) invalidTotal++; });
+    _lspCrRows.forEach(function(r){ (r.jiras||[]).forEach(function(j){ if(_lspIsInvalidJira(j)) invalidTotal++; }); });
+    _lspMappedRows.forEach(function(r){ (r.jiras||[]).forEach(function(j){ if(_lspIsInvalidJira(j)) invalidTotal++; }); });
+    _lspInvalidJiraRows.forEach(function(j){ if(_lspIsInvalidJira(j)) invalidTotal++; });
     window._lspLastKpis = {jiras: totalJirasDisplay || 0, crs: _lspCrRows.length || 0, open: _lspJiraRows.length || 0, invalid: invalidTotal};
     if(kpiJ) kpiJ.textContent = window._lspLastKpis.jiras;
     if(kpiC) kpiC.textContent = window._lspLastKpis.crs;
@@ -3422,16 +3502,23 @@ if(!window.ojClear)  window.ojClear  = function(){};
       kpiWrap.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
         +'<span style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#1e3a8a"><b>'+totalJirasDisplay+'</b> JIRAs</span>'
         +'<span style="border:1px solid #bbf7d0;background:#ecfdf5;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#047857"><b>'+counts.convertedToCrs+'</b> &#8594; CRs</span>'
-        +'<span style="border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#6d28d9"><b>'+_lspCrRows.length+'</b> CRs</span>'
+                +'<span style="border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#6d28d9"><b>'+_lspCrRows.length+'</b> CRs</span>'
+        +'<span style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#1d4ed8"><b>'+_lspMappedRows.length+'</b> Mapped JIRAs</span>'
         +'<span style="border:1px solid #fed7aa;background:#fff7ed;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#b45309"><b>'+_lspJiraRows.length+'</b> Open JIRAs</span>'
+        +'<span style="border:1px solid #fca5a5;background:#fff1f2;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:950;color:#b91c1c"><b>'+invalidTotal+'</b> Invalid JIRAs</span>'
         + crashSeg
         +'</div>';
       kpiWrap.style.display = 'block';
     }
 
-    _lspCrRows.sort(function(a,b){ return (b.count||0)-(a.count||0); });
-    _lspRenderCrRows();
+        _lspCrRows.sort(function(a,b){ return (b.count||0)-(a.count||0); });
+    _lspMappedRows.sort(function(a,b){ return (b.count||0)-(a.count||0); });
+        _lspRenderCrRows();
+    _lspRenderMappedRows();
     _lspRenderJiraRows();
+    _lspRenderInvalidJiraRows();
+    _lspUpdateReportTabBadges();
+    window.lspSwitchCurrentReportTab(window._lspCurrentReportTab || 'crs');
   }
 
   // -- Crash-type pill click: toggle filter + re-render ----------------------
@@ -3462,17 +3549,48 @@ if(!window.ojClear)  window.ojClear  = function(){};
         btn.style.transform   = '';
       }
     });
-    _lspRenderCrRows();
+                _lspRenderCrRows();
+    _lspRenderMappedRows();
     _lspRenderJiraRows();
+    _lspRenderInvalidJiraRows();
+    _lspUpdateReportTabBadges();
   };
+
+  function _lspUpdateReportTabBadges(){
+    var tabs=document.getElementById('lspCurrentReportTabs');
+    if(tabs) tabs.style.display='flex';
+    var vals={crs:_lspCrRows.length, mapped:_lspMappedRows.length, open:_lspJiraRows.length, invalid:_lspInvalidJiraRows.length};
+    Object.keys(vals).forEach(function(k){ var b=document.getElementById('lspCurTabBadge_'+k); if(b) b.textContent=vals[k]; });
+    var jb=document.getElementById('jiraBadge'); if(jb) jb.textContent=_lspJiraRows.length+' open JIRAs';var ib=document.getElementById('invalidJiraBadge'); if(ib) ib.textContent=_lspInvalidJiraRows.length+' invalid JIRAs';
+  }
+  window.lspSwitchCurrentReportTab=function(name){
+    window._lspCurrentReportTab = name || 'crs';
+    ['crs','mapped','open','invalid'].forEach(function(t){
+      var pane=document.getElementById('lspTabPane_'+t), btn=document.getElementById('lspCurTab_'+t), badge=document.getElementById('lspCurTabBadge_'+t);
+      var active=(t===window._lspCurrentReportTab);
+      if(pane) pane.style.display=active?'block':'none';
+      if(btn){ btn.style.borderBottomColor=active?'#6366f1':'transparent'; btn.style.color=active?'#6366f1':'#64748b'; }
+      if(badge){ badge.style.background=active?'#6366f1':'#e2e8f0'; badge.style.color=active?'#fff':'#475569'; }
+    });
+    if(window._lspCurrentReportTab==='crs') _lspRenderCrRows();
+    if(window._lspCurrentReportTab==='mapped') _lspRenderMappedRows();
+    if(window._lspCurrentReportTab==='open') _lspRenderJiraRows();
+    if(window._lspCurrentReportTab==='invalid') _lspRenderInvalidJiraRows();
+  };
+  window.filterCrTable=function(){ _lspRenderCrRows(); };
+  window.filterMappedTable=function(){ _lspRenderMappedRows(); };
+  window.filterJiraTable=function(){ _lspRenderJiraRows(); };
+  window.filterInvalidJiraTable=function(){ _lspRenderInvalidJiraRows(); };
 
   // -- Render CR rows (respects _lspActiveCrashFilter) -----------------------
   function _lspRenderCrRows(){
     var crTb = document.getElementById('crTbody');
     if(!crTb) return;
+        var q=String((document.getElementById('crSearchInput')||{}).value||'').toLowerCase();
     var rows = _lspActiveCrashFilter
       ? _lspCrRows.filter(function(r){ return String(r.type||'').indexOf(_lspActiveCrashFilter)>=0; })
       : _lspCrRows;
+    rows = rows.filter(function(r){ return !q || [r.cr,r.title,r.area,r.sub,r.func,r.status,r.resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0; });
     if(!rows.length){
       crTb.innerHTML = '<tr><td colspan="9" class="empty">No CRs match the "'
         +_esc(_lspActiveCrashFilter||'selected')+'" filter.</td></tr>';
@@ -3490,13 +3608,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
         ? '<a style="display:inline-flex;align-items:center;gap:4px;border:1px solid #c4b5fd;background:#eef2ff;color:#4f46e5;border-radius:999px;font-size:11px;font-weight:950;padding:2px 8px;text-decoration:none" href="'+_lspJiraKeysUrl(jiraKeys)+'" target="_blank">'+cnt+' <i class="fas fa-external-link-alt" style="font-size:9px"></i></a>'
         : '<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>';
       var res = String(r.resolution||r.status||'--');
-      // Count invalid JIRAs: traverse each JIRA under this CR
-      var _INVALID_RES = ['invalid','setup issue','setup_issue','incomplete','incomplete ram dump','won\'t fix','wont fix','cannot reproduce','not a bug','no sir','nosir','not applicable','n/a','na','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
-      var invalidJiras = (r.jiras||[]).filter(function(j){
-        var fr = String(j.final_resolution||j.resolution||j.cr_resolution||'').toLowerCase().trim();
-        var rn = String(j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||'').toLowerCase().trim();
-        return _INVALID_RES.some(function(v){ return fr===v || fr.indexOf(v)>=0 || rn.indexOf(v)>=0; });
-      });
+            // Count invalid JIRAs: traverse each JIRA under this CR using final resolution + notes.
+      var invalidJiras = (r.jiras||[]).filter(_lspIsInvalidJira);
       var invalidCount = invalidJiras.length;
       var invalidBadge = invalidCount>0
         ? '<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:11px;font-weight:900;padding:2px 9px;margin-left:5px" title="'+invalidCount+' Invalid/Setup/Incomplete JIRAs">'+invalidCount+' invalid</span>'
@@ -3520,24 +3633,68 @@ if(!window.ojClear)  window.ojClear  = function(){};
     }).join('');
   }
 
+    function _lspRenderMappedRows(){
+    var tb=document.getElementById('mappedTbody');
+    if(!tb) return;
+    var q=String((document.getElementById('mappedSearchInput')||{}).value||'').toLowerCase();
+    var rows=_lspActiveCrashFilter
+      ? _lspMappedRows.filter(function(r){ return String(r.type||'').indexOf(_lspActiveCrashFilter)>=0; })
+      : _lspMappedRows;
+    rows=rows.filter(function(r){ return !q || [r.ticket,r.title,r.status,(r.srcKeys||[]).join(' ')].join(' ').toLowerCase().indexOf(q)>=0; });
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="7" class="empty">No mapped JIRAs found.</td></tr>'; return; }
+    tb.innerHTML=rows.map(function(r,i){
+      var srcKeys=(r.srcKeys||[]).filter(Boolean);
+      var srcCell=srcKeys.length ? srcKeys.map(function(k){ return '<a style="font-size:11px;font-weight:900;color:#1d4ed8;text-decoration:none;display:inline-block;margin:1px 3px" href="'+JIRA_BASE_LSP+_esc(k)+'" target="_blank">'+_esc(k)+'</a>'; }).join('') : '--';
+      var ticket='<a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.ticket)+'" target="_blank">'+_esc(r.ticket)+'</a>';
+      return '<tr style="font-size:16px">'
+        +'<td style="padding:8px 10px">'+(i+1)+'</td>'
+        +'<td style="padding:8px 10px;white-space:nowrap">'+ticket+'</td>'
+        +'<td style="padding:8px 10px;text-align:center;font-weight:950;color:#4f46e5">'+_esc(r.count||srcKeys.length||1)+'</td>'
+        +'<td style="padding:8px 10px;max-width:420px;word-break:break-word">'+_esc(r.title||'--')+'</td>'
+        +'<td style="padding:8px 10px;white-space:nowrap">'+_esc(r.date||'--')+'</td>'
+        +'<td style="padding:8px 10px">'+_esc(r.status||'--')+'</td>'
+        +'<td style="padding:8px 10px;min-width:180px">'+srcCell+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
   // -- Render JIRA rows (respects _lspActiveCrashFilter) ---------------------
   function _lspRenderJiraRows(){
     var jiraSec = document.getElementById('jiraSection');
     var jiraTb  = document.getElementById('jiraTbody');
-    if(!jiraSec) return;
+        if(!jiraSec) return;
+    var q=String((document.getElementById('jiraSearchInput')||{}).value||'').toLowerCase();
     var rows = _lspActiveCrashFilter
       ? _lspJiraRows.filter(function(j){ return _lspCrashType(j)===_lspActiveCrashFilter; })
       : _lspJiraRows;
-    if(!rows.length){ jiraSec.style.display='none'; return; }
+    rows=rows.filter(function(r){ return !q || [r.key,r.title,r.type,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0; });
     jiraSec.style.display = 'block';
-    if(jiraTb) jiraTb.innerHTML = rows.map(function(r,i){
+    var jb=document.getElementById('jiraBadge'); if(jb) jb.textContent=rows.length+' open JIRAs';
+    if(!jiraTb) return;
+    if(!rows.length){ jiraTb.innerHTML='<tr><td colspan="5" class="empty">No open/unmapped JIRAs found.</td></tr>'; return; }
+        jiraTb.innerHTML = rows.map(function(r,i){
       var jiraRes = r.resolution_notes_text||r.final_resolution||r.resolution||r.status||'--';
-      var jiraResLow = jiraRes.toLowerCase();
-      var _INV = ['invalid','setup issue','incomplete','won\'t fix','wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
-      var isInvalidJira = _INV.some(function(v){ return jiraResLow.indexOf(v)>=0; });
-      var jiraResBadge = isInvalidJira
-        ? '<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:11px;font-weight:900;padding:2px 8px">'+_esc(jiraRes)+'</span>'
-        : _esc(jiraRes);
+      return '<tr style="font-size:18px">'
+        +'<td style="padding:8px 10px">'+(i+1)+'</td>'
+        +'<td style="padding:8px 10px"><a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.key)+'" target="_blank">'+_esc(r.key)+'</a></td>'
+        +'<td style="padding:8px 10px">'+_esc(r.title||'--')+'</td>'
+        +'<td style="padding:8px 10px">'+_esc(r.type||'--')+'</td>'
+        +'<td style="padding:8px 10px">'+_esc(jiraRes)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  // ── Core runner: /api/consolidated_report with job_id + SSE progress ─────────
+  function _lspRenderInvalidJiraRows(){
+    var tb=document.getElementById('invalidJiraTbody');if(!tb)return;
+    var q=String((document.getElementById('invalidJiraSearchInput')||{}).value||'').toLowerCase();
+    var rows=_lspActiveCrashFilter?_lspInvalidJiraRows.filter(function(j){return _lspCrashType(j)===_lspActiveCrashFilter;}):_lspInvalidJiraRows.slice();
+    rows=rows.filter(function(r){return !q||[r.key,r.title,r.type,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0;});
+    var badge=document.getElementById('invalidJiraBadge');if(badge)badge.textContent=rows.length+' invalid JIRAs';
+    if(!rows.length){tb.innerHTML='<tr><td colspan="5" class="empty">No invalid JIRAs found.</td></tr>';return;}
+    tb.innerHTML=rows.map(function(r,i){
+      var jiraRes=r.resolution_notes_text||r.final_resolution||r.resolution||r.status||'--';
+      var jiraResBadge='<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:11px;font-weight:900;padding:2px 8px">'+_esc(jiraRes)+'</span>';
       return '<tr style="font-size:18px">'
         +'<td style="padding:8px 10px">'+(i+1)+'</td>'
         +'<td style="padding:8px 10px"><a style="color:#1d4ed8;font-weight:900;text-decoration:none" href="'+JIRA_BASE_LSP+_esc(r.key)+'" target="_blank">'+_esc(r.key)+'</a></td>'
@@ -3548,7 +3705,6 @@ if(!window.ojClear)  window.ojClear  = function(){};
     }).join('');
   }
 
-  // ── Core runner: /api/consolidated_report with job_id + SSE progress ─────────
   function _lspApplyReportCrashesToRows(rep){
     var summary = (rep && rep.summary) || {};
     var byBuild = summary.by_build || {};
@@ -3978,7 +4134,24 @@ if(!window.ojClear)  window.ojClear  = function(){};
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed to load running builds');
         window._rbRows = d.rows || [];
-        if(st) st.textContent = 'DB updated '+new Date().toLocaleTimeString()+' -- '+window._rbRows.length+' row(s)';
+                if(st){
+          var dbTs2=d.db_last_updated||d.db_last_fetched||'';
+          var dbAge2='';
+          if(dbTs2){
+            try{
+              var dbTsUtc2=dbTs2.replace(' ','T').replace(/Z?$/,'Z');
+              var dbDate2=new Date(dbTsUtc2);
+              var ageMs2=Date.now()-dbDate2.getTime();
+              var ageMins2=Math.round(ageMs2/60000);
+              if(ageMins2<2) dbAge2=' (just now)';
+              else if(ageMins2<60) dbAge2=' ('+ageMins2+' min ago)';
+              else dbAge2=' ('+(Math.round(ageMins2/6)/10)+' hr ago)';
+              if(ageMins2>90) dbAge2='<span style="color:#dc2626;font-weight:900"> ⚠ '+dbAge2.trim()+'</span>';
+            }catch(e){}
+          }
+          var dbTsLocal2=dbTs2?new Date(dbTs2.replace(' ','T').replace(/Z?$/,'Z')).toLocaleTimeString():new Date().toLocaleTimeString();
+          st.innerHTML='Axiom DB last updated: <b>'+dbTsLocal2+'</b>'+dbAge2+' &mdash; '+window._rbRows.length+' row(s) fetched at '+new Date().toLocaleTimeString()+(d.db_total_running?' &mdash; '+d.db_total_running+' total running in DB':'');
+        }
         // If current domain has no rows, switch to first available domain.
         var cur = String(_lspNavDomain||'ADAS').toUpperCase();
         if(window._rbRows.length && !window._rbRows.some(function(r){return String(r.domain||r.deck_type||'').toUpperCase()===cur;})){

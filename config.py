@@ -15,14 +15,18 @@ from dotenv import load_dotenv
 # 3. Next to config.py (dev / source run)
 def _find_dotenv_path() -> str:
     if getattr(sys, 'frozen', False):
-        # Priority 1 — .env bundled inside the PyInstaller archive (_MEIPASS)
+        # Priority 1 — .env beside the .exe (admin/live override — highest priority)
+        # This allows updating ENABLE_SWPDT_AXIOM_POLLER etc. without rebuilding.
+        exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
+        if os.path.exists(exe_dir_env):
+            return exe_dir_env
+        # Priority 2 — .env bundled inside the PyInstaller archive (_MEIPASS)
         meipass = getattr(sys, '_MEIPASS', None)
         if meipass:
             bundled_env = os.path.join(meipass, '.env')
             if os.path.exists(bundled_env):
                 return bundled_env
-        # Priority 2 — fallback: .env sitting beside the .exe (admin override)
-        exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
+        # Priority 3 — fallback: exe dir even if missing (will be a no-op)
         return exe_dir_env
     else:
         # Running from source — .env is in the project root (next to config.py)
@@ -34,15 +38,18 @@ _env_path = _find_dotenv_path()
 load_dotenv(_env_path, override=True)
 logger.info(f"[CONFIG] Loading .env from: {_env_path}  (exists={os.path.exists(_env_path)})")
 
-# When running as a frozen EXE, ALSO load the .env beside the exe on top of
-# the bundled one. This allows admins to add/override tokens (e.g.
-# PDTBUDDY_API_TOKEN) without rebuilding the exe — just place a .env next
-# to pdtbuddyapp.exe with the extra keys.
+# When running as a frozen EXE and the primary .env was the exe-dir one,
+# ALSO load the bundled _MEIPASS .env as a base layer (lower priority).
+# This ensures bundled defaults are present even if the exe-dir .env only
+# has a subset of keys.
 if getattr(sys, 'frozen', False):
-    _exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
-    if _exe_dir_env != _env_path and os.path.exists(_exe_dir_env):
-        load_dotenv(_exe_dir_env, override=True)
-        logger.info(f"[CONFIG] Also loaded override .env from exe dir: {_exe_dir_env}")
+    meipass = getattr(sys, '_MEIPASS', None)
+    if meipass:
+        _bundled_env = os.path.join(meipass, '.env')
+        if _bundled_env != _env_path and os.path.exists(_bundled_env):
+            # override=False so exe-dir values already loaded take precedence
+            load_dotenv(_bundled_env, override=False)
+            logger.info(f"[CONFIG] Also loaded bundled .env from _MEIPASS (base layer): {_bundled_env}")
 
 ADMIN_USERS = {
     "vmadasu",

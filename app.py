@@ -1907,6 +1907,12 @@ cleanup_thread.start()
 # ---------------------------------------------------------------------------
 try:
     _axiom_enabled = os.environ.get("ENABLE_SWPDT_AXIOM_POLLER", "0").strip().lower() in ("1", "true", "yes", "on")
+    logger.info(
+        "[APP] ENABLE_SWPDT_AXIOM_POLLER=%s  AXIOM_POLL_INTERVAL=%s  AXIOM_CLIENT_ID_SET=%s",
+        os.environ.get("ENABLE_SWPDT_AXIOM_POLLER", "(not set)"),
+        os.environ.get("AXIOM_POLL_INTERVAL", "(not set)"),
+        bool(os.environ.get("AXIOM_CLIENT_ID", "").strip()),
+    )
     if _axiom_enabled:
         from scripts.fetch_axiom_combined import run_combined_poller as _run_combined_poller
         import threading as _threading
@@ -1929,6 +1935,62 @@ try:
         logger.info("[APP] Axiom combined poller disabled (ENABLE_SWPDT_AXIOM_POLLER not set).")
 except Exception as _e:
     logger.warning("[APP] Axiom combined poller could not start: %s", _e)
+
+
+# ---------------------------------------------------------------------------
+# Axiom poller status diagnostic endpoint
+# ---------------------------------------------------------------------------
+@app.route('/api/axiom_poller_status')
+@login_required
+def axiom_poller_status():
+    """Diagnostic: shows whether the Axiom poller is running and DB freshness."""
+    import threading as _thr
+    poller_thread = next((t for t in _thr.enumerate() if t.name == 'axiom-combined-poller'), None)
+    env_enabled = os.environ.get('ENABLE_SWPDT_AXIOM_POLLER', '(not set)')
+    env_interval = os.environ.get('AXIOM_POLL_INTERVAL', '(not set)')
+    client_id_set = bool(os.environ.get('AXIOM_CLIENT_ID', '').strip())
+    client_secret_set = bool(os.environ.get('AXIOM_CLIENT_SECRET', '').strip())
+    # Check DB freshness
+    db_last_updated = None
+    db_total_running = None
+    try:
+        from src.utils import get_mysql_connection_db
+        conn = get_mysql_connection_db(bu_key=None)
+        if conn:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT MAX(updated_at) AS ts, MAX(fetched_at) AS ft, COUNT(*) AS cnt FROM pdt_stats_dashboard.axiom_job_summary WHERE state='Running'")
+            row = cur.fetchone() or {}
+            db_last_updated = str(row.get('ts') or '')
+            db_last_fetched = str(row.get('ft') or '')
+            db_total_running = int(row.get('cnt') or 0)
+            cur.close()
+            conn.close()
+    except Exception as _dbe:
+        db_last_updated = f'DB error: {_dbe}'
+        db_last_fetched = ''
+        db_total_running = 0
+    import sys as _sys
+    frozen = getattr(_sys, 'frozen', False)
+    meipass = getattr(_sys, '_MEIPASS', None)
+    exe_dir = os.path.dirname(_sys.executable) if frozen else None
+    exe_dir_env = os.path.join(exe_dir, '.env') if exe_dir else None
+    bundled_env = os.path.join(meipass, '.env') if meipass else None
+    return jsonify({
+        'poller_thread_alive': poller_thread.is_alive() if poller_thread else False,
+        'poller_thread_found': poller_thread is not None,
+        'env_ENABLE_SWPDT_AXIOM_POLLER': env_enabled,
+        'env_AXIOM_POLL_INTERVAL': env_interval,
+        'AXIOM_CLIENT_ID_set': client_id_set,
+        'AXIOM_CLIENT_SECRET_set': client_secret_set,
+        'db_last_updated': db_last_updated,
+        'db_last_fetched': db_last_fetched,
+        'db_total_running': db_total_running,
+        'frozen_exe': frozen,
+        'exe_dir': exe_dir,
+        'exe_dir_env_exists': os.path.exists(exe_dir_env) if exe_dir_env else None,
+        'bundled_env_exists': os.path.exists(bundled_env) if bundled_env else None,
+        'meipass': meipass,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -8720,10 +8782,10 @@ if __name__ == '__main__':
     logger.debug("app.py started executing")
     os.makedirs('temp_reports', exist_ok=True)
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

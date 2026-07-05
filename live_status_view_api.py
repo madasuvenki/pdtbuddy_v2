@@ -1118,19 +1118,19 @@ def api_running_builds_db(target_name: str):
             seen_bases.add(base.upper())
             if '_' in base:
                 # Has underscore (FLEX/ADAS) — neutralise underscore wildcard via REPLACE
-                # REPLACE(software_product,'_','|') LIKE 'SA8797P|FLEX.HQX.5.7.7.0%'
+                # Use substring match (%...%) so CI_ prefixed builds also match
                 safe_base = base.replace('_', '|')
                 parts.append(
                     "(software_product = %s "
                     " OR REPLACE(software_product,'_','|') LIKE %s)"
                 )
-                params.extend([base, safe_base + '%'])
+                params.extend([base, '%' + safe_base + '%'])
             else:
-                # No underscore (IVI: SA8797P.HQX) — plain LIKE is safe
+                # No underscore (IVI: SA8797P.HQX) — plain LIKE substring match
                 parts.append(
                     "(software_product = %s OR software_product LIKE %s)"
                 )
-                params.extend([base, base + '%'])
+                params.extend([base, '%' + base + '%'])
         if not parts:
             return None, []
         return ' OR '.join(parts), params
@@ -1267,14 +1267,27 @@ def api_running_builds_db(target_name: str):
         # ── 1. Pull Running rows from axiom_job_summary ───────────────────
         running_rows: List[Dict] = []
         pl_terms_used: List[str] = []
+        db_meta: Dict = {}
         try:
             conn = get_mysql_connection_db(bu_key=None)
             if conn:
                 cur = conn.cursor(dictionary=True)
 
-                                # Step A: read PL values from domain-correct jiras/openjiras tables
+                # Step A: read PL values from domain-correct jiras/openjiras tables
                 pl_values = _read_pl_from_tables(cur, target_name, domain_filter)
                 pl_terms_used = pl_values
+
+                                # Step A2: get real DB freshness timestamp
+                # Use CONVERT_TZ to return UTC so the browser can convert correctly.
+                # MySQL stores updated_at in server local time (IST); we normalise to UTC here.
+                cur.execute("""
+                    SELECT CONVERT_TZ(MAX(updated_at), @@session.time_zone, '+00:00') AS db_last_updated,
+                           CONVERT_TZ(MAX(fetched_at),  @@session.time_zone, '+00:00') AS db_last_fetched,
+                           COUNT(*) AS total_running
+                    FROM pdt_stats_dashboard.axiom_job_summary
+                    WHERE state = 'Running'
+                """)
+                db_meta = cur.fetchone() or {}
 
                 pl_where_sql, pl_params = _pl_where(pl_values)
                 if pl_where_sql:
@@ -1424,7 +1437,7 @@ def api_running_builds_db(target_name: str):
         for i, r in enumerate(result, 1):
             r["s_no"] = i
 
-        return jsonify({
+            return jsonify({
             "ok":            True,
             "target":        target_name,
             "domain_filter": domain_filter or "ALL",
@@ -1432,6 +1445,9 @@ def api_running_builds_db(target_name: str):
             "total":         len(result),
             "pl_terms":      pl_terms_used,
             "generated_at":  datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                        "db_last_updated": str(db_meta.get('db_last_updated') or ''),
+            "db_last_fetched": str(db_meta.get('db_last_fetched') or ''),
+            "db_total_running": int(db_meta.get('total_running') or 0),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500

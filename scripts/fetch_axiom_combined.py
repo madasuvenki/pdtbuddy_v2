@@ -101,28 +101,31 @@ TEAM_LABEL = {
 }
 
 # Cross-match fetch sizes per taxonomy.
-# /PDT broad fetch = swpdt_jobs + hwpdt_jobs per cycle.
-# Sub-teams only need enough recent IDs to cover their share of that window.
-# Distribution: QIPL~86%, CH~7%, SD~3%, HW~2% of all /PDT jobs.
+# First-run only: used to assign team labels to the full 20-day backfill.
+# Regular cycles skip cross-match entirely — team is inferred from software_product.
 CROSS_MATCH_JOBS = {
-    HWPDT_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_HWPDT", "5000")),
-    QIPL_SWPDT_TAXONOMY : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_QIPL",  "25000")),
-    CHINA_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_CHINA", "5000")),
-    SANDIEGO_TAXONOMY   : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_SD",    "5000")),
+    HWPDT_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_HWPDT", "100")),
+    QIPL_SWPDT_TAXONOMY : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_QIPL",  "1000")),
+    CHINA_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_CHINA", "500")),
+    SANDIEGO_TAXONOMY   : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_SD",    "500")),
 }
 
 RETENTION_DAYS      = 20
-# Default poll interval -- 30 min.  Override via AXIOM_POLL_INTERVAL env var.
-# app.py reads this env var and passes it explicitly to run_combined_poller().
-# The module-level read here also covers standalone / script invocations.
-POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "900"))  # default 15 min
-
+# Default poll interval. Override via AXIOM_POLL_INTERVAL env var.
+POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "600"))  # default 10 min
 
 # Job fetch counts per cycle
-FIRST_RUN_SWPDT_JOBS = 15000   # first cycle: full 20-day backfill
-FIRST_RUN_HWPDT_JOBS = 1000    # first cycle: full 20-day HWPDT backfill
-SWPDT_CYCLE_JOBS     = 25000  # subsequent cycles: full 20-day DB refresh
-HWPDT_CYCLE_JOBS     = 1000   # subsequent cycles: HWPDT direct top-up
+# First run  : full 20-day backfill to populate DB from scratch.
+# Regular cycle: only fetch recent jobs (last CYCLE_SINCE_MINUTES minutes).
+#   100 jobs per taxonomy is more than enough for a 10-min poll window.
+#   _refresh_running_jobs() handles state updates for already-known Running jobs.
+FIRST_RUN_SWPDT_JOBS  = 15000  # first cycle: full 20-day backfill
+FIRST_RUN_HWPDT_JOBS  = 1000   # first cycle: full 20-day HWPDT backfill
+SWPDT_CYCLE_JOBS      = 100    # regular cycle: last 10-min new jobs
+HWPDT_CYCLE_JOBS      = 100    # regular cycle: last 10-min new HWPDT jobs
+# How far back to look on regular cycles (minutes). Slightly wider than the
+# poll interval so no jobs are missed if a cycle runs a little late.
+CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "20"))
 
 
 # DB table for Axiom job summary (replaces JSON files long-term)
@@ -665,23 +668,27 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
 # ---------------------------------------------------------------------------
 def _fetch_jobs(host: str, token: str, app_name: str,
                 taxonomy: str, max_jobs: int,
-                since_days: int = RETENTION_DAYS) -> List[dict]:
+                since_days: int = RETENTION_DAYS,
+                since_minutes: Optional[int] = None) -> List[dict]:
     """
-    Fetch ALL jobs from Axiom for the given taxonomy submitted within the last
-    since_days days.  Paginates through every page until exhausted or max_jobs
-    is reached — whichever comes first.
+    Fetch jobs from Axiom for the given taxonomy.
 
-    Using submittedAfter means we never miss older builds within the retention
-    window just because they fell off the first page of results.
+    since_minutes (if set) overrides since_days and uses a minute-level window.
+    Used for regular cycles so we only pull the last 30 min instead of 20 days.
     """
     if AXIOM_FETCH_DISABLED:
         logger.info("[AXIOM DISABLED] fetch skipped for %s", taxonomy)
         return []
 
-    # Date filter: start of day, 20 days ago
-    since_utc  = (
-        datetime.now(timezone.utc) - timedelta(days=since_days)
-    ).strftime("%Y-%m-%dT00:00:00Z")
+    # Date filter
+    if since_minutes is not None:
+        since_utc = (
+            datetime.now(timezone.utc) - timedelta(minutes=since_minutes)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        since_utc = (
+            datetime.now(timezone.utc) - timedelta(days=since_days)
+        ).strftime("%Y-%m-%dT00:00:00Z")
         # submittedBefore = now minus a small configurable buffer to avoid Axiom
     # 400: "Submitted To date must not be ahead of the current time". This was
     # previously 24 hours, which caused the DB poller to miss all jobs submitted
@@ -1249,34 +1256,76 @@ def _json_write_lock(path: str, timeout_sec: int = JSON_LOCK_TIMEOUT_SEC):
                 logger.warning("[JSON LOCK] failed to remove %s: %s", lock_path, exc)
 
 
-# ---------------------------------------------------------------------------
-# Load existing JSON
-# ---------------------------------------------------------------------------
-def _load_json(network_path: str, local_path: str) -> dict:
-    for path in [network_path, local_path]:
+def _is_network_path(path: str) -> bool:
+    """Return True if path is a UNC network share (\\\\server\\...)."""
+    return str(path or '').startswith('\\\\')
+
+
+def _safe_load_json(network_path: str, local_path: str) -> dict:
+    """Load JSON — skip network path silently if unreachable."""
+    paths = []
+    if not _is_network_path(network_path):
+        paths.append(network_path)
+    paths.append(local_path)
+    # Also try network as last resort
+    if _is_network_path(network_path):
+        paths.append(network_path)
+    for path in paths:
         if path and os.path.exists(path):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as exc:
-                logger.warning("[LOAD] %s failed: %s", path, exc)
+                logger.warning('[LOAD] %s failed: %s', path, exc)
     return {}
 
 
-# ---------------------------------------------------------------------------
-# Save JSON
-# ---------------------------------------------------------------------------
-def _save_json(data: dict, network_path: str, local_path: str) -> None:
-    for path in [network_path, local_path]:
-        if not path:
-            continue
+def _safe_save_json(data: dict, network_path: str, local_path: str) -> None:
+    """Save JSON — always write local, attempt network but never raise."""
+    # Always write local first
+    if local_path:
+        try:
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.info('[SAVE] local %s  (%d builds)', local_path, data.get('total_builds', 0))
+        except Exception as exc:
+            logger.warning('[SAVE] local %s failed: %s', local_path, exc)
+    # Attempt network — skip entirely if UNC path unreachable
+    if network_path and not _is_network_path(network_path):
+        try:
+            os.makedirs(os.path.dirname(network_path), exist_ok=True)
+            with open(network_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.info('[SAVE] network %s  (%d builds)', network_path, data.get('total_builds', 0))
+        except Exception as exc:
+            logger.warning('[SAVE] network %s failed: %s', network_path, exc)
+    elif network_path and _is_network_path(network_path):
+        try:
+            os.makedirs(os.path.dirname(network_path), exist_ok=True)
+            with open(network_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.info('[SAVE] network %s  (%d builds)', network_path, data.get('total_builds', 0))
+        except Exception as exc:
+            logger.warning('[SAVE] network %s unreachable/failed (non-fatal): %s', network_path, exc)
+
+
+@contextmanager
+def _safe_json_write_lock(path: str, timeout_sec: int = JSON_LOCK_TIMEOUT_SEC):
+    """Like _json_write_lock but never raises on network path failures.
+    If the path is a UNC share and makedirs fails, just yields without locking.
+    """
+    if _is_network_path(path):
+        # Check if network path is reachable before trying to lock
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.info("[SAVE] %s  (%d builds)", path, data.get("total_builds", 0))
         except Exception as exc:
-            logger.warning("[SAVE] %s failed: %s", path, exc)
+            logger.warning('[JSON LOCK] network path unreachable, skipping lock for %s: %s', path, exc)
+            yield  # yield without lock — JSON write will also be skipped
+            return
+    # Delegate to real lock for local paths or reachable network paths
+    with _json_write_lock(path, timeout_sec=timeout_sec):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -1446,207 +1495,155 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
 # ---------------------------------------------------------------------------
 # Core: run one fetch+merge cycle
 # ---------------------------------------------------------------------------
+def _infer_team_from_product(j: dict) -> tuple:
+    """Infer team label + taxonomy_path from software_product / build_id.
+    Used on regular cycles to avoid expensive cross-match API calls.
+    HWPDT jobs have taxonomy /PDT/QIPL/HW — their software_product typically
+    contains 'HW' or the build path contains 'HWPDT'. Everything else is QIPL/PDT.
+    """
+    sp  = str(j.get('softwareProduct') or j.get('software_product') or '').upper()
+    bid = str(j.get('build') or j.get('build_id') or '').upper()
+    tax = str(j.get('taxonomyPath') or j.get('taxonomy_path') or '').upper()
+    # Axiom sometimes returns taxonomyPath in single-job /info responses
+    if '/QIPL/HW' in tax:
+        return 'HWPDT', HWPDT_TAXONOMY
+    if '/QIPL' in tax:
+        return 'QIPL', QIPL_SWPDT_TAXONOMY
+    if '/CHINA' in tax:
+        return 'CH', CHINA_TAXONOMY
+    if '/SANDIEGO' in tax:
+        return 'SD', SANDIEGO_TAXONOMY
+    # Fallback: infer from build path / software_product
+    if 'HWPDT' in bid or 'HWPDT' in sp:
+        return 'HWPDT', HWPDT_TAXONOMY
+    # Default: QIPL (most jobs are QIPL SWPDT)
+    return 'QIPL', QIPL_SWPDT_TAXONOMY
+
+
 def run_cycle(host: str, token: str, app_name: str,
               swpdt_jobs: int, hwpdt_jobs: int,
               first_run: bool = False) -> None:
     """
-    Fetch SWPDT + HWPDT jobs, ALWAYS merge into existing JSONs, save.
-    first_run only controls job count (5000 vs 100) — never clears existing data.
-    Always append/merge so accumulated history is preserved across runs.
+    Fetch + upsert Axiom jobs into DB. JSON files are no longer used.
+
+    First run  : full 20-day backfill with cross-match team assignment.
+    Regular cycle: fetch only last CYCLE_SINCE_MINUTES of new jobs (fast),
+                   then refresh all currently-Running jobs via /info endpoint.
+                   Cross-match API calls are skipped — team inferred from product.
     """
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     logger.info("[CYCLE] start  swpdt_jobs=%d  hwpdt_jobs=%d  first_run=%s",
                 swpdt_jobs, hwpdt_jobs, first_run)
 
-    swpdt_net = os.path.join(SWPDT_OUTPUT_DIR, SWPDT_FILENAME)
-    qipl_swpdt_net = os.path.join(SWPDT_OUTPUT_DIR, QIPL_SWPDT_FILENAME)
-    hwpdt_net = os.path.join(HWPDT_OUTPUT_DIR, HWPDT_FILENAME)
+    # ── Step 1: Fetch /PDT jobs ────────────────────────────────────────────
+    if first_run:
+        # Full 20-day backfill
+        logger.info("[FETCH] first-run: broad /PDT last %d days ...", RETENTION_DAYS)
+        raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
+                              swpdt_jobs + hwpdt_jobs, since_days=RETENTION_DAYS)
+    else:
+        # Regular cycle: only last CYCLE_SINCE_MINUTES minutes — fast
+        logger.info("[FETCH] cycle: /PDT last %d min (max %d jobs) ...",
+                    CYCLE_SINCE_MINUTES, swpdt_jobs + hwpdt_jobs)
+        raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
+                              swpdt_jobs + hwpdt_jobs,
+                              since_minutes=CYCLE_SINCE_MINUTES)
 
-    # ── Step 1: Fetch broad /PDT (all teams) ──────────────────────────────
-    logger.info("[FETCH] broad /PDT — last %d days ...", RETENTION_DAYS)
-    raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
-                          swpdt_jobs + hwpdt_jobs, since_days=RETENTION_DAYS)
     all_by_id = {str(j.get('jobId') or ''): j for j in raw_all if j.get('jobId')}
-    logger.info("[FETCH] /PDT total fetched: %d", len(all_by_id))
+    logger.info("[FETCH] /PDT fetched: %d jobs", len(all_by_id))
 
-    # ── Step 2: Fetch each sub-team to build cross-match ID sets ──────────
-    logger.info("[CROSS-MATCH] fetching team ID sets for taxonomy assignment ...")
-    team_id_sets: Dict[str, set] = {}
-    for tax, max_j in CROSS_MATCH_JOBS.items():
-        logger.info("[CROSS-MATCH] fetching %s (max %d) ...", tax, max_j)
-        team_id_sets[tax] = _fetch_team_job_ids(host, token, app_name, tax, max_j)
-        logger.info("[CROSS-MATCH] %s -> %d job IDs", tax, len(team_id_sets[tax]))
+    # ── Step 2: Team assignment ────────────────────────────────────────────
+    if first_run:
+        # Cross-match: fetch sub-team ID sets to assign team labels accurately
+        logger.info("[CROSS-MATCH] first-run: fetching team ID sets ...")
+        team_id_sets: Dict[str, set] = {}
+        for tax, max_j in CROSS_MATCH_JOBS.items():
+            logger.info("[CROSS-MATCH] %s (max %d) ...", tax, max_j)
+            team_id_sets[tax] = _fetch_team_job_ids(host, token, app_name, tax, max_j)
+            logger.info("[CROSS-MATCH] %s -> %d IDs", tax, len(team_id_sets[tax]))
 
-    hw_ids      = team_id_sets.get(HWPDT_TAXONOMY,      set())
-    qipl_ids    = team_id_sets.get(QIPL_SWPDT_TAXONOMY, set())
-    china_ids   = team_id_sets.get(CHINA_TAXONOMY,      set())
-    sandiego_ids= team_id_sets.get(SANDIEGO_TAXONOMY,   set())
+        hw_ids       = team_id_sets.get(HWPDT_TAXONOMY,      set())
+        qipl_ids     = team_id_sets.get(QIPL_SWPDT_TAXONOMY, set())
+        china_ids    = team_id_sets.get(CHINA_TAXONOMY,      set())
+        sandiego_ids = team_id_sets.get(SANDIEGO_TAXONOMY,   set())
 
-    # ── Step 3: Assign team label to every job (most-specific wins) ───────
-    # Priority: HWPDT > QIPL > CH > SD > PDT
-    def _assign_team(jid: str) -> tuple:
-        """Returns (team_label, taxonomy_path)"""
-        if jid in hw_ids:
-            return TEAM_LABEL[HWPDT_TAXONOMY],      HWPDT_TAXONOMY
-        if jid in qipl_ids:
-            return TEAM_LABEL[QIPL_SWPDT_TAXONOMY], QIPL_SWPDT_TAXONOMY
-        if jid in china_ids:
-            return TEAM_LABEL[CHINA_TAXONOMY],      CHINA_TAXONOMY
-        if jid in sandiego_ids:
-            return TEAM_LABEL[SANDIEGO_TAXONOMY],   SANDIEGO_TAXONOMY
-        return TEAM_LABEL[TAXONOMY_ALL],            TAXONOMY_ALL
+        def _assign_team(jid: str) -> tuple:
+            if jid in hw_ids:       return TEAM_LABEL[HWPDT_TAXONOMY],      HWPDT_TAXONOMY
+            if jid in qipl_ids:     return TEAM_LABEL[QIPL_SWPDT_TAXONOMY], QIPL_SWPDT_TAXONOMY
+            if jid in china_ids:    return TEAM_LABEL[CHINA_TAXONOMY],      CHINA_TAXONOMY
+            if jid in sandiego_ids: return TEAM_LABEL[SANDIEGO_TAXONOMY],   SANDIEGO_TAXONOMY
+            return TEAM_LABEL[TAXONOMY_ALL], TAXONOMY_ALL
 
-    # Stamp team + taxonomy_path on every raw job
-    for jid, j in all_by_id.items():
-        team_label, tax_path = _assign_team(jid)
-        j['team']          = team_label
-        j['taxonomy_path'] = tax_path
+        for jid, j in all_by_id.items():
+            team_label, tax_path = _assign_team(jid)
+            j['team'] = team_label
+            j['taxonomy_path'] = tax_path
 
-    # Log team distribution
-    from collections import Counter
-    team_dist = Counter(j['team'] for j in all_by_id.values())
-    logger.info("[CROSS-MATCH] team distribution: %s", dict(team_dist))
+        from collections import Counter
+        logger.info("[CROSS-MATCH] team distribution: %s",
+                    dict(Counter(j['team'] for j in all_by_id.values())))
+    else:
+        # Regular cycle: infer team from software_product — no extra API calls
+        qipl_ids = set()
+        hw_ids   = set()
+        for jid, j in all_by_id.items():
+            team_label, tax_path = _infer_team_from_product(j)
+            j['team'] = team_label
+            j['taxonomy_path'] = tax_path
+            if team_label == 'HWPDT':
+                hw_ids.add(jid)
+            else:
+                qipl_ids.add(jid)
 
-    # Split for downstream processing
-    raw_hwpdt = [j for j in all_by_id.values() if j['team'] == 'HWPDT']
-    raw_swpdt = [j for j in all_by_id.values() if j['team'] not in ('HWPDT',)]
+        # Split for downstream processing
+    raw_hwpdt = [j for j in all_by_id.values() if j.get('team') == 'HWPDT']
+    raw_swpdt = [j for j in all_by_id.values() if j.get('team') != 'HWPDT']
 
-    # Always fetch HWPDT directly too (ensures full 20-day coverage)
-    if first_run or len(raw_hwpdt) < hwpdt_jobs:
-        logger.info("[HWPDT] direct fetch from %s (last %d days) ...", HWPDT_TAXONOMY, RETENTION_DAYS)
+    # On first run also fetch HWPDT directly for full coverage
+    if first_run:
+        logger.info("[HWPDT] first-run direct fetch from %s ...", HWPDT_TAXONOMY)
         raw_hwpdt_direct = _fetch_jobs(host, token, app_name, HWPDT_TAXONOMY,
                                        hwpdt_jobs, since_days=RETENTION_DAYS)
         existing_hw_ids = {j.get('jobId') for j in raw_hwpdt}
         for j in raw_hwpdt_direct:
             if j.get('jobId') not in existing_hw_ids:
-                j['team']          = 'HWPDT'
+                j['team'] = 'HWPDT'
                 j['taxonomy_path'] = HWPDT_TAXONOMY
                 raw_hwpdt.append(j)
                 existing_hw_ids.add(j.get('jobId'))
 
     logger.info("[SPLIT] swpdt+other=%d  hwpdt=%d", len(raw_swpdt), len(raw_hwpdt))
 
-    # ── Process SWPDT ──────────────────────────────────────────────────────
-    # Do not do slow product-flavour config calls in the background poller.
-    # Core Deck enriches selected job_ids on demand before showing the second
-    # popup, then updates SWPDT_job_summary.json/cache for those jobs.
-    new_swpdt_builds = _normalise_to_builds(raw_swpdt)
-    existing_swpdt_snapshot = _load_json(swpdt_net, SWPDT_LOCAL)
-    staged_swpdt_builds = _merge_builds(dict(existing_swpdt_snapshot.get("builds") or {}), new_swpdt_builds)
-    logger.info("[SWPDT] staged before lock: %d existing + %d new = %d total builds",
-                len(existing_swpdt_snapshot.get("builds") or {}), len(new_swpdt_builds), len(staged_swpdt_builds))
-
-    with _json_write_lock(swpdt_net):
-        existing_swpdt_latest = _load_json(swpdt_net, SWPDT_LOCAL)
-        swpdt_builds = _merge_builds(dict(existing_swpdt_latest.get("builds") or {}), staged_swpdt_builds)
-        logger.info("[SWPDT] final save under lock: latest_existing=%d staged=%d final=%d",
-                    len(existing_swpdt_latest.get("builds") or {}), len(staged_swpdt_builds), len(swpdt_builds))
-        _save_json(_make_payload(swpdt_builds, TAXONOMY_ALL), swpdt_net, SWPDT_LOCAL)
-
-    # ── Process HWPDT ──────────────────────────────────────────────────────
-    new_hwpdt_builds  = _normalise_to_builds(raw_hwpdt)
-    existing_hwpdt    = _load_json(hwpdt_net, HWPDT_LOCAL)
-    existing_hwpdt_builds = existing_hwpdt.get("builds") or {}
-    # Use HWPDT-specific merge that preserves existing playlist_name
-    hwpdt_builds = _merge_builds_hwpdt(existing_hwpdt_builds, new_hwpdt_builds)
-    logger.info("[HWPDT] merged: %d existing + %d new = %d total builds",
-                len(existing_hwpdt_builds), len(new_hwpdt_builds), len(hwpdt_builds))
-
-    # Enrich playlist names — only for jobs that still have no playlist_name
-    # (new jobs this cycle; already-enriched jobs are skipped automatically)
-    logger.info("[HWPDT] enriching playlist names for jobs missing them...")
-    hwpdt_builds = _enrich_hwpdt_playlists(host, token, app_name, hwpdt_builds)
-
-    # HWPDT: full history kept forever
-    _save_json(_make_payload(hwpdt_builds, HWPDT_TAXONOMY), hwpdt_net, HWPDT_LOCAL)
-
-    # ── QIPL-only SWPDT for Weekly Sharepoint no-crash lookup ─────────────
-    # Re-use already-fetched qipl_ids set — exclude HW, stamp taxonomy
-    raw_qipl_only = []
-    for jid in qipl_ids:
-        if jid in hw_ids:
-            continue
-        j = all_by_id.get(jid)
-        if not j:
-            continue
-        stamped = dict(j)
-        stamped['team']          = 'QIPL'
-        stamped['taxonomy_path'] = QIPL_SWPDT_TAXONOMY
-        raw_qipl_only.append(stamped)
-
-    new_qipl_builds = _normalise_to_builds(raw_qipl_only)
-    # stamp team on each normalised build
-    for b in new_qipl_builds.values():
-        b['team'] = 'QIPL'
-
-    existing_qipl   = _load_json(qipl_swpdt_net, QIPL_SWPDT_LOCAL)
-    qipl_builds     = existing_qipl.get('builds') or {}
-    qipl_builds     = _merge_builds(qipl_builds, new_qipl_builds)
-    qipl_payload    = _make_payload(qipl_builds, QIPL_SWPDT_TAXONOMY)
-    qipl_payload['hwpdt_excluded'] = HWPDT_TAXONOMY
-    qipl_payload['source_note']    = (
-        'Jobs fetched from /PDT/QIPL, HW excluded via cross-match with '
-        '/PDT/QIPL/HW. Team stamped from fetch URL (Axiom never returns '
-        'taxonomyPath in list responses).'
-    )
-    _save_json(qipl_payload, qipl_swpdt_net, QIPL_SWPDT_LOCAL)
-
-    # ── DB upsert — all teams ──────────────────────────────────────────────
-    # Combine all normalised builds and stamp team before upsert
+    # ── Normalise all jobs → DB upsert (no JSON files) ────────────────────
     all_normalised: Dict[str, dict] = {}
 
-    # SWPDT + other teams (QIPL-SW, CH, SD, PDT)
-    swpdt_norm = _normalise_to_builds(raw_swpdt)
-    for jid, b in swpdt_norm.items():
+    # SWPDT + other teams
+    for jid, b in _normalise_to_builds(raw_swpdt).items():
         src = all_by_id.get(jid, {})
         b['team']          = src.get('team', 'PDT')
         b['taxonomy_path'] = src.get('taxonomy_path', TAXONOMY_ALL)
         all_normalised[jid] = b
 
-    # HWPDT — from raw API jobs (current cycle)
+    # HWPDT — enrich playlist names for new jobs only (DB-cached jobs skipped)
     hwpdt_norm = _normalise_to_builds(raw_hwpdt)
+    if hwpdt_norm:
+        hwpdt_norm = _enrich_hwpdt_playlists(host, token, app_name, hwpdt_norm)
     for jid, b in hwpdt_norm.items():
         b['team']          = 'HWPDT'
         b['taxonomy_path'] = HWPDT_TAXONOMY
-        enriched_hw = hwpdt_builds.get(jid) or {}
-        if enriched_hw.get('playlist_name'):
-            b['playlist_name'] = enriched_hw.get('playlist_name')
-            b['playlist'] = enriched_hw.get('playlist')
-        if enriched_hw.get('certicom_playlist'):
-            b['certicom_playlist'] = enriched_hw.get('certicom_playlist')
         all_normalised[jid] = b
 
-    # HWPDT audit file — also upsert historical jobs list (chip_ids already populated)
-    # The audit stores jobs as a LIST under 'jobs' key (different from builds dict)
-    hwpdt_audit = _load_json(hwpdt_net, HWPDT_LOCAL)
-    audit_jobs  = hwpdt_audit.get('jobs') or []   # list format from fetch_hwpdt_chip_ids.py
-    if audit_jobs:
-        audit_norm = _normalise_to_builds(audit_jobs)
-        for jid, b in audit_norm.items():
-            if jid not in all_normalised:          # don't overwrite fresher cycle data
-                b['team']          = 'HWPDT'
-                b['taxonomy_path'] = HWPDT_TAXONOMY
-                all_normalised[jid] = b
-        logger.info('[DB UPSERT] HWPDT audit jobs added: %d (total unique: %d)',
-                    len(audit_norm), len(all_normalised))
-
-        # Product flavour is needed by Core Deck Add Builds for Auto/SA8797P/HQX/HGY.
-    # First reuse DB values by job_id; only truly-missing matching jobs call
-    # /axiom/v1/public/jobs/{job_id}/configuration.  Then upsert writes any new
-    # flavour into pdt_stats_dashboard.axiom_job_summary.product_flavor.
+    # Product flavour — reuse DB cache, only call Axiom for truly missing ones
     all_normalised = _apply_cached_product_flavors(all_normalised)
     all_normalised = _backfill_missing_fields_by_rules(host, token, app_name, all_normalised)
 
     logger.info('[DB UPSERT] upserting %d total jobs across all teams ...', len(all_normalised))
-    _upsert_jobs_to_db(all_normalised)
+    upserted = _upsert_jobs_to_db(all_normalised)
 
-
-    # -- Fix 1: refresh all still-open (Running/JobSetup) jobs in DB -------
-    # Catches jobs submitted days ago that are beyond the normal cycle window.
+    # ── Refresh all still-Running jobs in DB ──────────────────────────────
     refreshed = _refresh_running_jobs(host, token, app_name)
 
-    logger.info("[CYCLE] done  swpdt_builds=%d  qipl_swpdt_builds=%d  hwpdt_builds=%d  db_upserted=%d  running_refreshed=%d",
-                len(swpdt_builds), len(qipl_builds), len(hwpdt_builds), len(all_normalised), refreshed)
+    logger.info("[CYCLE] done  fetched=%d  db_upserted=%d  running_refreshed=%d",
+                len(all_normalised), upserted, refreshed)
 
 
 # ---------------------------------------------------------------------------
@@ -1789,7 +1786,7 @@ def load_builds_for_product(software_product_prefix: str,
         net   = os.path.join(SWPDT_OUTPUT_DIR, SWPDT_FILENAME)
         local = SWPDT_LOCAL
 
-    data   = _load_json(net, local)
+    data   = _safe_load_json(net, local)
     builds = data.get("builds") or {}
     prefix = software_product_prefix.strip().upper()
 
