@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import re
 from datetime import date, datetime
@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
-from dashboard_common import fq_table_for_target, get_mysql_connection_db, get_schema_for_target
+from dashboard_common import fq_table_for_target, get_bu_for_target, get_mysql_connection_db, get_schema_for_target
 from dashboard_service import build_mtbf_dashboard_payload, ensure_meta_builds_table, get_build_report_for_target
 
 live_status_view_api_bp = Blueprint("live_status_view_api_bp", __name__)
@@ -1056,24 +1056,23 @@ def api_live_status_view_current_report_data(target_name: str):
 @live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/running_builds_db", methods=["GET"])
 @login_required
 def api_running_builds_db(target_name: str):
-    """Return currently Running builds from axiom_job_summary for a target,
-    grouped by (build_id, product_flavor), with crash count from the
-    consolidated JQL report cache (data/consolidated_reports/*.json).
-    Intended for the 'Current Running Build' table — refreshed every 15 min.
+    """
+    Return currently Running builds from axiom_job_summary for a target.
 
-    Filtering strategy (same as live_status_publish_routes.py):
-      1. Read DISTINCT PL values from the target's jiras + openjiras tables
-         (columns: PL / Product_Line / software_product / chipset …)
-      2. Filter axiom_job_summary.software_product by those PL values (exact
-         prefix match after normalisation) — this gives only the right domain
-         builds instead of every build that mentions the chip token.
-      3. Fall back to broad _target_axiom_search_terms if no PL values found.
+    Flow:
+      BU + target  ->  schema  ->  jiras/openjiras table
+      ->  read DISTINCT PL column  ->  filter axiom_job_summary.software_product
+      ->  group by build_name  ->  return rows
+
+    domain param (ADAS/FLEX/IVI) scopes which jiras tables are read.
+    For non-AUTO BUs (MOBILE etc.) domain is ignored and the target's
+    own jiras/openjiras table is used directly.
     """
     import glob as _glob
     import logging as _log
     _logger = _log.getLogger(__name__)
 
-    # ── PL column candidates (same list as live_status_publish_routes.py) ──
+    # PL column name candidates — checked in priority order
     _PL_COLS = (
         'pl_id', 'PL_ID', 'PL', 'PL ID',
         'Product Line', 'Product_Line', 'product_line', 'productline',
@@ -1081,142 +1080,132 @@ def api_running_builds_db(target_name: str):
         'chipset', 'software_product', 'software product',
     )
 
-    def _first_col(cols, candidates):
-        col_set = set(cols)
+    def _first_col(cols: Set[str], candidates) -> Optional[str]:
         for c in candidates:
-            if c in col_set:
+            if c in cols:
                 return c
         return None
 
-    def _pl_base(pl):
-        """Strip revision suffix from PL value to get the base prefix.
-        SA8797P_FLEX.HQX.5.7.7.0.r1  ->  SA8797P_FLEX.HQX.5.7.7.0
-        SA8797P_ADAS.HQX.5.7.7.0.r1  ->  SA8797P_ADAS.HQX.5.7.7.0
-        SA8797P.HQX.5.7.7.0.r1       ->  SA8797P.HQX.5.7.7.0
-        SA8797P.HQX.5.7.7.0          ->  SA8797P.HQX.5.7.7.0  (unchanged)
-        """
-        # Remove trailing revision like .r1 .r2 .c1 .rc1 etc.
-        base = re.sub(r'\.[rc]\d+$', '', str(pl or '').strip(), flags=re.IGNORECASE)
-        return base.strip()
+    def _pl_base(pl: str) -> str:
+        """Strip trailing revision (.r1 .r2 .c1 .rc1) from a PL value."""
+        return re.sub(r'\.[rc]\d+$', '', str(pl or '').strip(), flags=re.IGNORECASE).strip()
 
-    def _pl_where(pl_values):
-        """Build WHERE clause matching software_product against PL base prefixes.
-        Handles both dot-only (IVI: SA8797P.HQX) and underscore (FLEX/ADAS: SA8797P_FLEX.HQX)
-        variants. Uses LIKE %s with the base as prefix so .r1/.r2/.c1 revisions also match.
-        Underscore in LIKE is a wildcard so we use REPLACE on the column to neutralise it.
+    def _pl_where(pl_values: List[str]):
+        """
+        Build SQL WHERE fragment matching axiom_job_summary.software_product
+        against the given PL base values.
+        - Underscore in LIKE is a single-char wildcard, so we neutralise it
+          via REPLACE(col,'_','|') for PL values that contain underscores.
+        - Uses substring match (%base%) so CI_SA8797P_ADAS... also matches.
         """
         if not pl_values:
             return None, []
-        parts, params = [], []
-        seen_bases: set = set()
+        parts: List[str] = []
+        params: List[str] = []
+        seen: set = set()
         for pl in pl_values:
-            base = _pl_base(pl)          # e.g. SA8797P_FLEX.HQX.5.7.7.0
-            if not base:
+            base = _pl_base(pl)
+            if not base or base.upper() in seen:
                 continue
-            if base.upper() in seen_bases:
-                continue
-            seen_bases.add(base.upper())
+            seen.add(base.upper())
             if '_' in base:
-                # Has underscore (FLEX/ADAS) — neutralise underscore wildcard via REPLACE
-                # Use substring match (%...%) so CI_ prefixed builds also match
-                safe_base = base.replace('_', '|')
+                safe = base.replace('_', '|')
                 parts.append(
-                    "(software_product = %s "
+                    "(software_product = %s"
                     " OR REPLACE(software_product,'_','|') LIKE %s)"
                 )
-                params.extend([base, '%' + safe_base + '%'])
+                params.extend([base, f'%{safe}%'])
             else:
-                # No underscore (IVI: SA8797P.HQX) — plain LIKE substring match
                 parts.append(
                     "(software_product = %s OR software_product LIKE %s)"
                 )
-                params.extend([base, '%' + base + '%'])
+                params.extend([base, f'%{base}%'])
         if not parts:
             return None, []
         return ' OR '.join(parts), params
 
-    def _tables_from_deck_config(target_name, domain_filter):
-        """Read jiras+openjiras table names from the saved Core Deck state.
-
-        deck_config entries are either:
-          - plain string  e.g. 'nord_hqx_ivi_5_7_7_0'
-            -> tables: pdt_stats_auto.nord_hqx_ivi_5_7_7_0_jiras
-                       pdt_stats_auto.nord_hqx_ivi_5_7_7_0_openjiras
-          - dict with explicit keys: jiras_table / openjiras_table
-
-        Schema is resolved from the parent target_name.
-        Falls back to fq_table_for_target(target_name) if no deck_config saved.
+    def _jiras_tables_for_target(target_name: str, domain_filter: str,
+                                  is_auto: bool) -> List[str]:
         """
+        Resolve the jiras + openjiras table(s) to read PL values from.
+
+        AUTO BU  : read from Core Deck deck_config (domain-scoped),
+                   then fall back to information_schema discovery.
+        Other BUs: use fq_table_for_target directly — no domain concept.
+        """
+        schema = (get_schema_for_target(target_name) or '').strip('`')
         tables: List[str] = []
-        try:
-            from core_deck_routes import _load_state as _cd_load_state
-            state = _cd_load_state(target_name) or {}
-            deck_config = (
-                state.get('deck_config')
-                or (state.get('saved_preview') or {}).get('deck_config')
-                or {}
-            )
 
-            # Get schema from parent target (e.g. pdt_stats_auto for nord_hqx)
-            schema = (get_schema_for_target(target_name) or '').strip('`')
-
-            domains = [domain_filter] if domain_filter in ('ADAS', 'FLEX', 'IVI') \
-                      else ['ADAS', 'FLEX', 'IVI']
-
-            for dom in domains:
-                entries = deck_config.get(dom) or deck_config.get(dom.lower()) or []
-                for entry in entries:
-                    if isinstance(entry, str):
-                        # Plain string entry e.g. 'nord_hqx_ivi_5_7_7_0'
-                        # Tables are: <schema>.<entry>_jiras  and  <schema>.<entry>_openjiras
-                        prefix = entry.strip().strip('`')
-                        if schema and prefix:
-                            tables.append(f'`{schema}`.`{prefix}_jiras`')
-                            tables.append(f'`{schema}`.`{prefix}_openjiras`')
-                    elif isinstance(entry, dict):
-                        # Explicit table names in dict
-                        for key in ('jiras_table', 'jira_table'):
-                            t = str(entry.get(key) or '').strip()
-                            if t:
-                                tables.append(t)
-                        for key in ('openjiras_table', 'open_jiras_table', 'open_jira_table'):
-                            t = str(entry.get(key) or '').strip()
-                            if t:
-                                tables.append(t)
-        except Exception as exc:
-            _logger.warning('[RUNNING BUILDS DB] deck_config load failed: %s', exc)
-
-                # Fallback: auto-discover domain-specific tables from information_schema
-        # e.g. nord_hgy_ivi_5_7_7_0_jiras, nord_hgy_flex_5_7_7_0_jiras etc.
-        if not tables:
+        if is_auto:
+            # ── AUTO: try Core Deck deck_config first ──────────────────────
             try:
-                schema = schema or (get_schema_for_target(target_name) or '').strip('`')
-                tgt_prefix = str(target_name or '').strip().lower().replace('-', '_')
-                domain_keywords = [domain_filter.lower()] if domain_filter in ('ADAS', 'FLEX', 'IVI') \
-                                  else ['adas', 'flex', 'ivi']
-                conn_fb = get_mysql_connection_db()
-                if conn_fb and schema and tgt_prefix:
-                    cur_fb = conn_fb.cursor()
-                    for dk in domain_keywords:
-                        like_pat = f'{tgt_prefix}_{dk}%'
-                        cur_fb.execute(
-                            "SELECT table_name FROM information_schema.tables "
-                            "WHERE table_schema = %s AND table_name LIKE %s "
-                            "AND (table_name LIKE %s OR table_name LIKE %s) "
-                            "ORDER BY table_name DESC LIMIT 10",
-                            (schema, like_pat + '%',
-                             like_pat + '%_jiras',
-                             like_pat + '%_openjiras')
-                        )
-                        for (tbl,) in (cur_fb.fetchall() or []):
-                            if tbl.endswith('_jiras') or tbl.endswith('_openjiras'):
-                                tables.append(f'`{schema}`.`{tbl}`')
-                    cur_fb.close()
-                    conn_fb.close()
+                from core_deck_routes import _load_state as _cd_load_state
+                state = _cd_load_state(target_name) or {}
+                deck_config = (
+                    state.get('deck_config')
+                    or (state.get('saved_preview') or {}).get('deck_config')
+                    or {}
+                )
+                domains = ([domain_filter] if domain_filter in ('ADAS', 'FLEX', 'IVI')
+                           else ['ADAS', 'FLEX', 'IVI'])
+                for dom in domains:
+                    for entry in (deck_config.get(dom) or deck_config.get(dom.lower()) or []):
+                        if isinstance(entry, str):
+                            prefix = entry.strip().strip('`')
+                            if schema and prefix:
+                                tables.append(f'`{schema}`.`{prefix}_jiras`')
+                                tables.append(f'`{schema}`.`{prefix}_openjiras`')
+                        elif isinstance(entry, dict):
+                            for k in ('jiras_table', 'jira_table'):
+                                t = str(entry.get(k) or '').strip()
+                                if t:
+                                    tables.append(t)
+                            for k in ('openjiras_table', 'open_jiras_table', 'open_jira_table'):
+                                t = str(entry.get(k) or '').strip()
+                                if t:
+                                    tables.append(t)
             except Exception as exc:
-                _logger.warning('[RUNNING BUILDS DB] auto-discover tables failed: %s', exc)
+                _logger.warning('[RUNNING BUILDS DB] deck_config load failed: %s', exc)
 
-        # Final fallback: use target-level jiras/openjiras table
+            # ── AUTO fallback: discover via information_schema ─────────────
+            if not tables and schema:
+                try:
+                    tgt_prefix = target_name.strip().lower().replace('-', '_')
+                    domain_kws = ([domain_filter.lower()]
+                                  if domain_filter in ('ADAS', 'FLEX', 'IVI')
+                                  else ['adas', 'flex', 'ivi'])
+                    conn_fb = get_mysql_connection_db(bu_key=None)
+                    if conn_fb:
+                        cur_fb = conn_fb.cursor()
+                        for dk in domain_kws:
+                            cur_fb.execute(
+                                "SELECT TABLE_NAME FROM information_schema.TABLES "
+                                "WHERE TABLE_SCHEMA = %s "
+                                "  AND TABLE_NAME LIKE %s "
+                                "  AND (TABLE_NAME LIKE %s OR TABLE_NAME LIKE %s) "
+                                "ORDER BY TABLE_NAME DESC LIMIT 10",
+                                (schema,
+                                 f'{tgt_prefix}_{dk}%',
+                                 f'%_jiras',
+                                 f'%_openjiras'),
+                            )
+                            for row in (cur_fb.fetchall() or []):
+                                tbl = row[0] if isinstance(row, (list, tuple)) else row.get('TABLE_NAME', '')
+                                if tbl and (tbl.endswith('_jiras') or tbl.endswith('_openjiras')):
+                                    tables.append(f'`{schema}`.`{tbl}`')
+                        cur_fb.close()
+                        conn_fb.close()
+                except Exception as exc:
+                    _logger.warning('[RUNNING BUILDS DB] auto-discover failed: %s', exc)
+        else:
+            # ── Non-AUTO BU: use target's own jiras/openjiras tables ───────
+            for suffix in ('jiras', 'openjiras'):
+                try:
+                    tables.append(fq_table_for_target(target_name, suffix))
+                except Exception:
+                    pass
+
+        # Final safety fallback
         if not tables:
             for suffix in ('jiras', 'openjiras'):
                 try:
@@ -1226,13 +1215,14 @@ def api_running_builds_db(target_name: str):
 
         return list(dict.fromkeys(tables))  # deduplicate, preserve order
 
-    def _read_pl_from_tables(cur, target_name, domain_filter):
-        """Read DISTINCT PL values from the domain-correct jiras/openjiras tables."""
+    def _read_pl_values(cur, target_name: str, domain_filter: str,
+                        is_auto: bool) -> List[str]:
+        """Read DISTINCT PL/software_product values from the target's jiras tables."""
         pl_values: List[str] = []
         seen: set = set()
-        tables = _tables_from_deck_config(target_name, domain_filter)
-        _logger.info('[RUNNING BUILDS DB] %s domain=%s: reading PL from tables: %s',
-                     target_name, domain_filter or 'ALL', tables)
+        tables = _jiras_tables_for_target(target_name, domain_filter, is_auto)
+        _logger.info('[RUNNING BUILDS DB] %s domain=%s is_auto=%s tables=%s',
+                     target_name, domain_filter or 'ALL', is_auto, tables)
         for table in tables:
             try:
                 if not _table_exists(cur, table):
@@ -1240,6 +1230,7 @@ def api_running_builds_db(target_name: str):
                 cols = _table_columns(cur, table)
                 pl_col = _first_col(cols, _PL_COLS)
                 if not pl_col:
+                    _logger.warning('[RUNNING BUILDS DB] no PL column in %s (cols=%s)', table, cols)
                     continue
                 cur.execute(
                     f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
@@ -1247,39 +1238,65 @@ def api_running_builds_db(target_name: str):
                     f'ORDER BY `{pl_col}` LIMIT 200',
                     ('',),
                 )
-                for row in cur.fetchall() or []:
+                for row in (cur.fetchall() or []):
                     val = str(row.get('pl') or '').strip()
-                    key = val.upper()
-                    if val and key not in seen:
-                        seen.add(key)
+                    if val and val.upper() not in seen:
+                        seen.add(val.upper())
                         pl_values.append(val)
             except Exception as exc:
-                _logger.warning('[RUNNING BUILDS DB] PL lookup failed for %s: %s', table, exc)
+                _logger.warning('[RUNNING BUILDS DB] PL read failed for %s: %s', table, exc)
+        _logger.info('[RUNNING BUILDS DB] %s: found %d PL values: %s',
+                     target_name, len(pl_values), pl_values[:10])
         return pl_values
 
-        
+    def _meta_id_from_build(build_name: str) -> str:
+        """Extract Meta-NNN from a build name like Hawi.LA.1.0-00806-STD.INT-1."""
+        s = str(build_name or '').strip()
+        m = re.search(r'-0*(\d{3,6})(?:\.\d+)?-(?:STD|PERF|SAFE|USER|ENG)', s, re.IGNORECASE)
+        if m:
+            return f'Meta-{int(m.group(1)):03d}'
+        m = re.search(r'-0*(\d{3,6})-', s)
+        if m:
+            return f'Meta-{int(m.group(1)):03d}'
+        return s[:60] or 'Unknown'
+
+    def _infer_domain(row: Dict) -> str:
+        """Infer domain from software_product field."""
+        sp = str(row.get('software_product') or '').upper()
+        if '_FLEX.' in sp:
+            return 'FLEX'
+        if '_ADAS.' in sp:
+            return 'ADAS'
+        if '_IVI.' in sp:
+            return 'IVI'
+        bn = str(row.get('build_name') or '').upper()
+        if '_FLEX.' in bn or '.FLEX.' in bn:
+            return 'FLEX'
+        if '_ADAS.' in bn or '.ADAS.' in bn:
+            return 'ADAS'
+        return 'IVI'
 
     try:
-        from dashboard_common import get_target_info
+        from dashboard_common import get_target_info, get_bu_for_target
         info          = get_target_info(target_name) or {}
-        domain_filter = str(request.args.get("domain") or "").strip().upper()  # ADAS/FLEX/IVI/''
+        bu            = (get_bu_for_target(target_name) or '').upper()
+        is_auto       = (bu == 'AUTO')
+        domain_filter = str(request.args.get('domain') or '').strip().upper()  # ADAS/FLEX/IVI/''
 
-        # ── 1. Pull Running rows from axiom_job_summary ───────────────────
-        running_rows: List[Dict] = []
-        pl_terms_used: List[str] = []
-        db_meta: Dict = {}
+        running_rows:  List[Dict] = []
+        pl_terms_used: List[str]  = []
+        db_meta:       Dict       = {}
+
         try:
             conn = get_mysql_connection_db(bu_key=None)
             if conn:
                 cur = conn.cursor(dictionary=True)
 
-                # Step A: read PL values from domain-correct jiras/openjiras tables
-                pl_values = _read_pl_from_tables(cur, target_name, domain_filter)
+                # Step 1: read PL values from jiras table → used to filter axiom DB
+                pl_values     = _read_pl_values(cur, target_name, domain_filter, is_auto)
                 pl_terms_used = pl_values
 
-                                # Step A2: get real DB freshness timestamp
-                # Use CONVERT_TZ to return UTC so the browser can convert correctly.
-                # MySQL stores updated_at in server local time (IST); we normalise to UTC here.
+                # Step 2: DB freshness timestamp (UTC)
                 cur.execute("""
                     SELECT CONVERT_TZ(MAX(updated_at), @@session.time_zone, '+00:00') AS db_last_updated,
                            CONVERT_TZ(MAX(fetched_at),  @@session.time_zone, '+00:00') AS db_last_fetched,
@@ -1289,11 +1306,11 @@ def api_running_builds_db(target_name: str):
                 """)
                 db_meta = cur.fetchone() or {}
 
+                # Step 3: query axiom_job_summary filtered by PL values
                 pl_where_sql, pl_params = _pl_where(pl_values)
                 if pl_where_sql:
-                    # PL-based filter — precise, domain-correct
-                    _logger.info('[RUNNING BUILDS DB] %s: using PL filter (%d PLs): %s',
-                                 target_name, len(pl_values), pl_values)
+                    _logger.info('[RUNNING BUILDS DB] %s: PL filter (%d values): %s',
+                                 target_name, len(pl_values), pl_values[:5])
                     cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
                                product_flavor, state, device_count, chip_ids,
@@ -1305,11 +1322,11 @@ def api_running_builds_db(target_name: str):
                         LIMIT 500
                     """, tuple(pl_params))
                 else:
-                    # Fallback: broad name/token matching
-                    axiom_terms = _target_axiom_search_terms(target_name, info)
+                    # No PL values found — fall back to broad token search
+                    axiom_terms   = _target_axiom_search_terms(target_name, info)
                     pl_terms_used = axiom_terms
-                    _logger.info('[RUNNING BUILDS DB] %s: no PL found, falling back to axiom_terms: %s',
-                                 target_name, axiom_terms)
+                    _logger.info('[RUNNING BUILDS DB] %s: no PL found, broad fallback: %s',
+                                 target_name, axiom_terms[:5])
                     search_where, search_params = _axiom_search_where(axiom_terms)
                     cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
@@ -1325,132 +1342,100 @@ def api_running_builds_db(target_name: str):
                 running_rows = cur.fetchall() or []
                 cur.close()
                 conn.close()
+                _logger.info('[RUNNING BUILDS DB] %s: %d raw rows from axiom DB',
+                             target_name, len(running_rows))
         except Exception as _db_err:
-            _logger.warning("[RUNNING BUILDS DB] axiom fetch failed: %s", _db_err)
+            _logger.warning('[RUNNING BUILDS DB] axiom fetch failed: %s', _db_err)
 
-                # ── 2. Infer domain per row — use software_product as primary signal ──
-        def _infer_domain(row: Dict) -> str:
-            # software_product is the most reliable signal:
-            #   SA8797P_FLEX.HQX... -> FLEX
-            #   SA8797P_ADAS.HQX... -> ADAS
-            #   SA8797P.HQX...      -> IVI  (no domain prefix = IVI)
-            sp = str(row.get("software_product") or "").upper()
-            if '_FLEX.' in sp:
-                return "FLEX"
-            if '_ADAS.' in sp:
-                return "ADAS"
-            if '_IVI.' in sp:
-                return "IVI"
-            # Fallback: check build_name
-            bn = str(row.get("build_name") or "").upper()
-            if '_FLEX.' in bn or '.FLEX.' in bn:
-                return "FLEX"
-            if '_ADAS.' in bn or '.ADAS.' in bn:
-                return "ADAS"
-            # No domain prefix = IVI
-            return "IVI"
-
-
-        # ── 3. Extract meta-id from build name ────────────────────────────
-        def _meta_id(build_name: str) -> str:
-            s = str(build_name or "").strip()
-            m = re.search(r'-0*(\d{3,6})(?:\.\d+)?-(?:STD|PERF|SAFE|USER|ENG)', s, re.IGNORECASE)
-            if m:
-                return f"Meta-{int(m.group(1)):03d}"
-            m = re.search(r'-0*(\d{3,6})-', s)
-            if m:
-                return f"Meta-{int(m.group(1)):03d}"
-            return s[:60] or "Unknown"
-
-                # ── 4. Group by build_id tail only — collect all flavors + unique chips ──
-        grouped: Dict[str, Dict] = {}  # key = build tail
+        # Step 4: group by build_name, collect unique chips + flavors
+        # domain_filter post-filter only applied for AUTO BU (non-AUTO has no domain)
+        grouped: Dict[str, Dict] = {}
         for r in running_rows:
-            bn     = str(r.get("build_name") or r.get("build_id") or "").strip()
-            tail   = bn.split("\\")[-1].split("/")[-1] or bn
-            flavor = str(r.get("product_flavor") or "").strip()
-            domain = _infer_domain(r)
-            if domain_filter and domain != domain_filter:
+            bn     = str(r.get('build_name') or r.get('build_id') or '').strip()
+            tail   = bn.split('\\')[-1].split('/')[-1] or bn
+            flavor = str(r.get('product_flavor') or '').strip()
+            domain = _infer_domain(r) if is_auto else ''
+            # For AUTO: skip rows that don't match the requested domain
+            if is_auto and domain_filter and domain != domain_filter:
                 continue
             if tail not in grouped:
                 grouped[tail] = {
-                    "build_id":       tail,
-                    "build_full":     bn,
-                    "meta_id":        _meta_id(tail),
-                    "domain":         domain,
-                    "job_count":      0,
-                    "flavors":        [],
-                    "chip_ids":       set(),   # unique chips across all jobs
-                    "device_count":   0,
-                    "started_at":     str(r.get("started_at") or "")[:19],
-                    "crashes":        None,
-                    "crash_source":   "",
+                    'build_id':     tail,
+                    'build_full':   bn,
+                    'meta_id':      _meta_id_from_build(tail),
+                    'domain':       domain,
+                    'job_count':    0,
+                    'flavors':      [],
+                    'chip_ids':     set(),
+                    'device_count': 0,
+                    'started_at':   str(r.get('started_at') or '')[:19],
+                    'crashes':      None,
+                    'crash_source': '',
                 }
             g = grouped[tail]
-            g["job_count"] += 1
-            if flavor and flavor not in g["flavors"]:
-                g["flavors"].append(flavor)
-            # Collect unique chip_ids
+            g['job_count'] += 1
+            if flavor and flavor not in g['flavors']:
+                g['flavors'].append(flavor)
             try:
-                import json as _json
-                chips = _json.loads(r.get("chip_ids") or "[]")
+                chips = json.loads(r.get('chip_ids') or '[]')
                 for c in chips:
-                    g["chip_ids"].add(str(c).strip().upper())
+                    g['chip_ids'].add(str(c).strip().upper())
             except Exception:
                 pass
 
-        # ── 5. Load crash counts from consolidated JQL report cache ───────
-        # Each file: data/consolidated_reports/<hash>.json
-        # meta.target_name must match; summary.by_build has build->count
-        reports_dir = os.path.join(_LOCAL_ROOT, "consolidated_reports")
-        crash_by_build: Dict[str, int] = {}   # build_tail_upper -> crash count
+        # Step 5: attach crash counts from consolidated JQL report cache
+        reports_dir    = os.path.join(_LOCAL_ROOT, 'consolidated_reports')
+        crash_by_build: Dict[str, int] = {}
         try:
-            for fpath in _glob.glob(os.path.join(reports_dir, "*.json")):
+            for fpath in _glob.glob(os.path.join(reports_dir, '*.json')):
                 try:
-                    with open(fpath, "r", encoding="utf-8") as fh:
+                    with open(fpath, 'r', encoding='utf-8') as fh:
                         rdata = json.load(fh)
-                    if str((rdata.get("meta") or {}).get("target_name") or "").lower() != target_name.lower():
+                    if str((rdata.get('meta') or {}).get('target_name') or '').lower() != target_name.lower():
                         continue
-                    by_build = (rdata.get("summary") or {}).get("by_build") or {}
-                    for bk, cnt in by_build.items():
-                        tail_key = bk.split("\\")[-1].split("/")[-1].upper()
-                        crash_by_build[tail_key] = crash_by_build.get(tail_key, 0) + int(cnt or 0)
+                    for bk, cnt in ((rdata.get('summary') or {}).get('by_build') or {}).items():
+                        key = bk.split('\\')[-1].split('/')[-1].upper()
+                        crash_by_build[key] = crash_by_build.get(key, 0) + int(cnt or 0)
                 except Exception:
                     continue
         except Exception as _ce:
-            _logger.warning("[RUNNING BUILDS DB] crash cache read failed: %s", _ce)
+            _logger.warning('[RUNNING BUILDS DB] crash cache read failed: %s', _ce)
 
-        # ── 6. Attach crash counts ────────────────────────────────────────
         for key, row in grouped.items():
-            tail_up = row["build_id"].upper()
+            tail_up = row['build_id'].upper()
             if tail_up in crash_by_build:
-                row["crashes"]      = crash_by_build[tail_up]
-                row["crash_source"] = "jql_cache"
+                row['crashes']      = crash_by_build[tail_up]
+                row['crash_source'] = 'jql_cache'
 
-                # ── 7. Build output list ──────────────────────────────────────────
-        result = []
+        # Step 6: finalise and return
+        result: List[Dict] = []
         for tail, g in grouped.items():
-            chip_set = g.pop("chip_ids", set())
-            g["device_count"]   = len(chip_set) if chip_set else g.get("job_count", 0)
-            g["product_flavor"] = ", ".join(g.pop("flavors", []))
+            chip_set = g.pop('chip_ids', set())
+            g['device_count']   = len(chip_set) if chip_set else g.get('job_count', 0)
+            g['product_flavor'] = ', '.join(g.pop('flavors', []))
             result.append(g)
-        result.sort(key=lambda r: (r.get("started_at") or ""), reverse=True)
+        result.sort(key=lambda r: (r.get('started_at') or ''), reverse=True)
         for i, r in enumerate(result, 1):
-            r["s_no"] = i
+            r['s_no'] = i
 
-            return jsonify({
-            "ok":            True,
-            "target":        target_name,
-            "domain_filter": domain_filter or "ALL",
-            "rows":          result,
-            "total":         len(result),
-            "pl_terms":      pl_terms_used,
-            "generated_at":  datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-                        "db_last_updated": str(db_meta.get('db_last_updated') or ''),
-            "db_last_fetched": str(db_meta.get('db_last_fetched') or ''),
-            "db_total_running": int(db_meta.get('total_running') or 0),
+        return jsonify({
+            'ok':              True,
+            'target':          target_name,
+            'bu':              bu,
+            'is_auto':         is_auto,
+            'domain_filter':   domain_filter or 'ALL',
+            'rows':            result,
+            'total':           len(result),
+            'pl_terms':        pl_terms_used,
+            'generated_at':    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'db_last_updated': str(db_meta.get('db_last_updated') or ''),
+            'db_last_fetched': str(db_meta.get('db_last_fetched') or ''),
+            'db_total_running': int(db_meta.get('total_running') or 0),
         })
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        import traceback as _tb
+        _log.getLogger(__name__).warning('[RUNNING BUILDS DB] unhandled: %s\n%s', exc, _tb.format_exc())
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 @live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/unique_crs_by_target", methods=["GET"])
