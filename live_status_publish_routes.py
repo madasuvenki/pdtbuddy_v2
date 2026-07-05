@@ -1286,20 +1286,52 @@ def api_build_report_running_builds():
 
         meta = cur.fetchone() or {}
 
-        # Important: do not SQL-limit to 300 before target filtering. Across all
-        # programs there can be >1000 active rows, so a target can be missed.
-        candidate_limit = limit if not target_raw else 10000
-        cur.execute("""
-                                                SELECT job_id, build_id, build_name, software_product,
-                   taxonomy_path, team, state, device_count, chip_ids,
-                   submitted_at, started_at, ended_at,
-                   product_flavor, submitter, site, updated_at, fetched_at
+                # Build SQL WHERE from PL terms so we never pull 10 000 rows into Python.
+        # Underscore is a LIKE wildcard — neutralise via REPLACE for ADAS/FLEX PLs.
+        def _pl_sql_where(pl_values):
+            parts, params = [], []
+            seen = set()
+            for pl in (pl_values or []):
+                base = re.sub(r'\.[rc]\d+$', '', str(pl or '').strip(), flags=re.IGNORECASE).strip()
+                if not base or base.upper() in seen:
+                    continue
+                seen.add(base.upper())
+                if '_' in base:
+                    safe = base.replace('_', '|')
+                    parts.append("(software_product = %s OR REPLACE(software_product,'_','|') LIKE %s)")
+                    params.extend([base, f'%{safe}%'])
+                else:
+                    parts.append("(software_product = %s OR software_product LIKE %s)")
+                    params.extend([base, f'%{base}%'])
+            return (' OR '.join(parts), params) if parts else (None, [])
 
-            FROM `pdt_stats_dashboard`.`axiom_job_summary`
-            WHERE state = 'Running'
-            ORDER BY COALESCE(started_at, submitted_at) DESC
-            LIMIT %s
-        """, (candidate_limit,))
+        pl_where, pl_params = _pl_sql_where(target_pl_terms)
+        if pl_where:
+            # PL-scoped query — only rows matching this target's software_product
+            cur.execute(f"""
+                SELECT job_id, build_id, build_name, software_product,
+                       taxonomy_path, team, state, device_count, chip_ids,
+                       submitted_at, started_at, ended_at,
+                       product_flavor, submitter, site, updated_at, fetched_at
+                FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                WHERE state = 'Running'
+                  AND ({pl_where})
+                ORDER BY COALESCE(started_at, submitted_at) DESC
+                LIMIT %s
+            """, tuple(pl_params) + (limit,))
+        else:
+            # No PL terms — broad fetch, Python alias filter below still applies
+            candidate_limit = limit if not target_raw else 10000
+            cur.execute("""
+                SELECT job_id, build_id, build_name, software_product,
+                       taxonomy_path, team, state, device_count, chip_ids,
+                       submitted_at, started_at, ended_at,
+                       product_flavor, submitter, site, updated_at, fetched_at
+                FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                WHERE state = 'Running'
+                ORDER BY COALESCE(started_at, submitted_at) DESC
+                LIMIT %s
+            """, (candidate_limit,))
 
         rows = cur.fetchall() or []
         out = []
@@ -1320,27 +1352,15 @@ def api_build_report_running_builds():
             if q and q not in hay_lower and q not in build.lower():
                 continue
 
-            if target_raw:
+            # When PL terms exist, SQL already filtered — no Python re-filter needed.
+            # When no PL terms, apply broad alias/token/family match in Python.
+            if target_raw and not pl_where:
                 hay_upper = (hay + ' ' + build).upper()
                 hay_norm = _product_norm(hay + ' ' + build)
                 alias_hit = any(str(alias or '').upper() in hay_upper for alias in target_aliases if str(alias or '').strip())
-
                 family_hit = any(fam and fam in hay_norm for fam in target_families)
                 token_hit = any(tok in hay_upper for tok in target_tokens)
-                # When the selected dashboard target has PL/Product Line values,
-                # filter Axiom rows strictly by axiom_job_summary.software_product.
-                # Do not let broad HGY/Nord/family/build-name matches pull in
-                # sibling products such as SA8797P.HGY or SA8797P_FLEX.HGY for
-                # an ADAS target whose PL is SA8797P_ADAS.HGY...
-                sp_norm = _product_norm(r.get('software_product'))
-                pl_hit = any(
-                    pl_norm and (sp_norm == pl_norm or sp_norm.startswith(pl_norm + '.'))
-                    for pl_norm in (_product_norm(pl) for pl in target_pl_terms)
-                )
-                if target_pl_terms:
-                    if not pl_hit:
-                        continue
-                elif not alias_hit and not family_hit and not token_hit:
+                if not alias_hit and not family_hit and not token_hit:
                     continue
 
 
