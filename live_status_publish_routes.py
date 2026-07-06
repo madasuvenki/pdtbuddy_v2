@@ -1061,9 +1061,31 @@ def api_build_report_running_builds():
         return f'`{schema}`.`{prefix}_{suffix}`'
 
     def _target_pl_terms_from_dashboard(cursor, dashboard_row):
-        """Read PL/Product Line values using dashboard_status -> actual target tables."""
+        """Read PL/Product Line values using dashboard_status -> actual target tables.
+        Filters by product/target name column so shared tables (e.g. COMPUTE)
+        only return PLs for the selected target, not all products in the table.
+        """
         pl_values = []
         seen = set()
+
+        # Candidate column names that identify the product/target in a shared table
+        _PRODUCT_COLS = (
+            'product', 'product_name', 'project', 'target', 'target_name',
+            'sp_name', 'program', 'cpl', 'program_line', 'Program Line',
+        )
+
+        # Build a set of name tokens from the dashboard row to match against
+        dr = dashboard_row or {}
+        name_candidates = [
+            str(dr.get('target_name') or '').strip(),
+            str(dr.get('target_display') or '').strip(),
+            str(dr.get('sp_name') or '').strip(),
+            str(dr.get('db_name') or '').strip(),
+            str(dr.get('program') or '').strip(),
+            str(dr.get('cpl') or '').strip(),
+        ]
+        name_candidates = [n for n in name_candidates if n]
+
         for suffix in ('jiras', 'openjiras'):
             table = _fq_from_dashboard(dashboard_row, suffix)
             if not table:
@@ -1079,13 +1101,46 @@ def api_build_report_running_builds():
                 ))
                 if not pl_col:
                     continue
-                cursor.execute(
-                    f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
-                    f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
-                    f'ORDER BY `{pl_col}` LIMIT 200',
-                    ('',),
-                )
-                for row in cursor.fetchall() or []:
+
+                # Try to find a product/target name column to scope the query
+                prod_col = _first_col(columns, _PRODUCT_COLS)
+
+                if prod_col and name_candidates:
+                    # Shared table: filter by product name so Kanapali PLs
+                    # don't appear when Glymur is selected
+                    like_parts = ' OR '.join(
+                        [f'LOWER(`{prod_col}`) LIKE %s'] * len(name_candidates)
+                    )
+                    params = [f'%{n.lower()}%' for n in name_candidates] + ['']
+                    cursor.execute(
+                        f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
+                        f'WHERE ({like_parts}) '
+                        f'  AND `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                        f'ORDER BY `{pl_col}` LIMIT 200',
+                        tuple(params),
+                    )
+                    rows_found = cursor.fetchall() or []
+                    # If the product col filter returns nothing, the column
+                    # probably doesn't hold target names — fall back to unfiltered
+                    if not rows_found:
+                        cursor.execute(
+                            f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
+                            f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                            f'ORDER BY `{pl_col}` LIMIT 200',
+                            ('',),
+                        )
+                        rows_found = cursor.fetchall() or []
+                else:
+                    # No product col found — read all PLs (single-product table)
+                    cursor.execute(
+                        f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
+                        f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                        f'ORDER BY `{pl_col}` LIMIT 200',
+                        ('',),
+                    )
+                    rows_found = cursor.fetchall() or []
+
+                for row in rows_found:
                     val = str(row.get('pl') or '').strip()
                     key = val.upper()
                     if val and key not in seen:
