@@ -846,12 +846,20 @@ document.addEventListener('DOMContentLoaded', function () {
     var totalMap = {};
     var selectedMap = {};
 
+        var builtMap = {};
     (allCrRows||[]).forEach(function(r){
       var key = _crAgeGroupKey(r);
       if(!totalMap[key]) totalMap[key]={count:0,totalAge:0,ageCount:0};
       totalMap[key].count++;
       var ta=Number(r.cr_age||0);
       if(ta>0){ totalMap[key].totalAge+=ta; totalMap[key].ageCount++; }
+
+      // Built CRs — count regardless of active status filter
+      var st = String(r.cr_status||r.status||'').trim().toLowerCase();
+      if(st === 'built'){
+        if(!builtMap[key]) builtMap[key]=0;
+        builtMap[key]++;
+      }
 
       if(_isRowActive(r)){
         if(!selectedMap[key]) selectedMap[key]={count:0,totalAge:0,ageCount:0};
@@ -862,16 +870,17 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if(!Object.keys(totalMap).length){
-      return {categories:undispData.categories||[],totalCount:undispData.count||[],selectedCount:undispData.count||[],avgAge:undispData.avgAge||[]};
+      return {categories:undispData.categories||[],totalCount:undispData.count||[],selectedCount:undispData.count||[],avgAge:undispData.avgAge||[],builtCount:[]};
     }
 
-        var cats=[], totalCounts=[], selectedCounts=[], avgAges=[];
+        var cats=[], totalCounts=[], selectedCounts=[], avgAges=[], builtCounts=[];
     Object.keys(totalMap).sort(function(a,b){ return totalMap[b].count-totalMap[a].count; }).forEach(function(k){
       var total = totalMap[k] || {count:0,totalAge:0,ageCount:0};
       var sel = selectedMap[k] || {count:0,totalAge:0,ageCount:0};
       cats.push(k);
       totalCounts.push(total.count||0);
       selectedCounts.push(sel.count||0);
+      builtCounts.push(builtMap[k]||0);
             // avgAge uses SELECTED rows so it reacts to status/category filters.
       // Do not fall back to total when viewing Invalid/Dup, otherwise Average TAT
       // can show unrelated Valid CR age.
@@ -879,7 +888,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       avgAges.push(_ageDisplay(rawAge));
     });
-    return {categories:cats,totalCount:totalCounts,selectedCount:selectedCounts,avgAge:avgAges};
+    return {categories:cats,totalCount:totalCounts,selectedCount:selectedCounts,avgAge:avgAges,builtCount:builtCounts};
   }
 
   function _getActivePieData(){
@@ -1211,9 +1220,10 @@ document.addEventListener('DOMContentLoaded', function () {
       },
 
       credits: { enabled:false },
-            series: [
+                  series: [
         { name:"Total CRs", type:"column", data:(data.totalCount||[]).slice(0, maxIdx + 1), color:"#3b82f6", yAxis:0 },
-        { name:selectedLabel, type:"column", data:(data.selectedCount||[]).slice(0, maxIdx + 1), color:selectedColor, yAxis:0 }
+        { name:selectedLabel, type:"column", data:(data.selectedCount||[]).slice(0, maxIdx + 1), color:selectedColor, yAxis:0 },
+        { name:"Built CRs", type:"column", data:(data.builtCount||[]).slice(0, maxIdx + 1), color:"#22c55e", yAxis:0 }
       ].concat(showAverageTat ? [{ name:"CR Average Age", type:"column", data:(data.avgAge||[]).slice(0, maxIdx + 1), color:"#a3a3a3", yAxis:1 }] : [])
     });
     _syncAverageTatAxis(crAgeChart, true);
@@ -2073,16 +2083,6 @@ buildHeader(); buildFilters(); applyFilters();
       var noChartOrig = btn ? btn.innerHTML : '';
       if(btn) {
         btn.innerHTML = '<i class="fas fa-times"></i> No chart';
-        setTimeout(function(){ btn.innerHTML = noChartOrig; }, 1800);
-      }
-      return;
-    }
-    var orig = btn ? btn.innerHTML : '';
-    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
-
-    function _ok() {
-      if(!btn) return;
-      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
       setTimeout(function(){ btn.innerHTML = orig; }, 2000);
     }
     function _fail() {
