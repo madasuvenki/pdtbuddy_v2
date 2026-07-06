@@ -2193,40 +2193,40 @@ buildHeader(); buildFilters(); applyFilters();
     });
   }
 
-  if (saveBtn2) {
-    saveBtn2.addEventListener('click', async function () {
-      const payload = {
+    if (saveBtn2) {
+    saveBtn2.addEventListener('click', function () {
+      var _payload = {
         target_name: targetName,
-        sp_name: (document.getElementById('dashboardMsSpName')?.value || '').trim(),
+        sp_name: (document.getElementById('dashboardMsSpName') ? document.getElementById('dashboardMsSpName').value : '').trim(),
         milestones: {
-          ES: document.getElementById('dashboardMsEsInput')?.value || '',
-          FC: document.getElementById('dashboardMsFcInput')?.value || '',
-          CS: document.getElementById('dashboardMsCsInput')?.value || '',
-          CS1: document.getElementById('dashboardMsCs1Input')?.value || ''
+          ES:  document.getElementById('dashboardMsEsInput')  ? document.getElementById('dashboardMsEsInput').value  : '',
+          FC:  document.getElementById('dashboardMsFcInput')  ? document.getElementById('dashboardMsFcInput').value  : '',
+          CS:  document.getElementById('dashboardMsCsInput')  ? document.getElementById('dashboardMsCsInput').value  : '',
+          CS1: document.getElementById('dashboardMsCs1Input') ? document.getElementById('dashboardMsCs1Input').value : ''
         }
       };
-
-      try {
-        const resp = await fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+      fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_payload)
+      })
+      .then(function(resp) {
+        return resp.json().catch(function(){ return {}; }).then(function(data) {
+          if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
+          var esEl  = document.getElementById('dashboardMsES');
+          var fcEl  = document.getElementById('dashboardMsFC');
+          var csEl  = document.getElementById('dashboardMsCS');
+          var cs1El = document.getElementById('dashboardMsCS1');
+          if (esEl)  esEl.textContent  = _payload.milestones.ES  || 'TBD';
+          if (fcEl)  fcEl.textContent  = _payload.milestones.FC  || 'TBD';
+          if (csEl)  csEl.textContent  = _payload.milestones.CS  || 'TBD';
+          if (cs1El) cs1El.textContent = _payload.milestones.CS1 || 'TBD';
+          closeMilestoneModal();
         });
-        const data = await resp.json().catch(function(){ return {}; });
-        if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
-
-        const esEl = document.getElementById('dashboardMsES');
-        const fcEl = document.getElementById('dashboardMsFC');
-        const csEl = document.getElementById('dashboardMsCS');
-        const cs1El = document.getElementById('dashboardMsCS1');
-        if (esEl) esEl.textContent = payload.milestones.ES || 'TBD';
-        if (fcEl) fcEl.textContent = payload.milestones.FC || 'TBD';
-        if (csEl) csEl.textContent = payload.milestones.CS || 'TBD';
-        if (cs1El) cs1El.textContent = payload.milestones.CS1 || 'TBD';
-        closeMilestoneModal();
-      } catch (err) {
-        alert(err.message || 'Failed to save milestones');
-      }
+      })
+      .catch(function(err) {
+        alert((err && err.message) || 'Failed to save milestones');
+      });
     });
   }
 
