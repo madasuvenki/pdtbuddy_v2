@@ -854,7 +854,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var ta=Number(r.cr_age||0);
       if(ta>0){ totalMap[key].totalAge+=ta; totalMap[key].ageCount++; }
 
-      // Built CRs — count regardless of active status filter
+      // Built CRs - count regardless of active status filter
       var st = String(r.cr_status||r.status||'').trim().toLowerCase();
       if(st === 'built'){
         if(!builtMap[key]) builtMap[key]=0;
