@@ -789,12 +789,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if(barRow) barRow.style.display = hideDetailedStatus ? 'none' : 'flex';
   }
 
-  function _selectedCrCategoryTitlePrefix(){
+    function _selectedCrCategoryTitlePrefix(){
     if(_activeCrCategories.valid) return 'CR Avg Age';
     var parts = [];
     if(_activeCrCategories.invalid) parts.push('Invalid CRs');
     if(_activeCrCategories.dup) parts.push('Dup CRs');
     return parts.length ? parts.join(' / ') : 'Selected CRs';
+  }
+
+  function _isBuiltFixReadyStatus(status, category){
+    var s = String(status||'').trim().toLowerCase().replace(/[^a-z]/g, '');
+    var c = String(category||'').trim().toLowerCase();
+    return c === 'built' || s.indexOf('built') >= 0 || s.indexOf('fix') >= 0 || s.indexOf('ready') >= 0;
   }
 
 
@@ -842,11 +848,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   window.setCrAgeGroup = setCrAgeGroup;
 
-    function _getActiveData(){
-    var totalMap = {};
-    var selectedMap = {};
+        function _getActiveData(){
+        var totalMap = {};
+    var selectedMap = {}; // non-built selected statuses such as Open/Analysis
+    var builtMap = {};    // Built/Fix/Ready selected statuses
+    var ageMap = {};      // all selected statuses for Average TAT
 
-        var builtMap = {};
     (allCrRows||[]).forEach(function(r){
       var key = _crAgeGroupKey(r);
       if(!totalMap[key]) totalMap[key]={count:0,totalAge:0,ageCount:0};
@@ -854,18 +861,25 @@ document.addEventListener('DOMContentLoaded', function () {
       var ta=Number(r.cr_age||0);
       if(ta>0){ totalMap[key].totalAge+=ta; totalMap[key].ageCount++; }
 
-      // Built CRs - count regardless of active status filter
-      var st = String(r.cr_status||r.status||'').trim().toLowerCase();
-      if(st === 'built'){
-        if(!builtMap[key]) builtMap[key]=0;
-        builtMap[key]++;
+            // Separate Built CR count bar. Treat Built/Fix/Ready as completion-side CRs.
+      // Count them only when the corresponding status chip is selected by the user.
+      var st = String(r.cr_status||r.status||'').trim();
+      var cat = String(r.cr_category||'').trim().toLowerCase();
+      if(_activeCrCategories.valid && _isBuiltFixReadyStatus(st, cat) && _isStatusActive(r)){
+        builtMap[key] = (builtMap[key]||0) + 1;
       }
 
-      if(_isRowActive(r)){
-        if(!selectedMap[key]) selectedMap[key]={count:0,totalAge:0,ageCount:0};
-        selectedMap[key].count++;
+            if(_isRowActive(r)){
+        if(!ageMap[key]) ageMap[key]={totalAge:0,ageCount:0};
         var sa=Number(r.cr_age||0);
-        if(sa>0){ selectedMap[key].totalAge+=sa; selectedMap[key].ageCount++; }
+        if(sa>0){ ageMap[key].totalAge+=sa; ageMap[key].ageCount++; }
+
+        // Do not duplicate Built/Fix/Ready in the orange selected-status bar;
+        // those statuses are represented only by the green Built CRs bar.
+        if(!_isBuiltFixReadyStatus(st, cat)){
+          if(!selectedMap[key]) selectedMap[key]={count:0};
+          selectedMap[key].count++;
+        }
       }
     });
 
@@ -875,16 +889,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var cats=[], totalCounts=[], selectedCounts=[], avgAges=[], builtCounts=[];
     Object.keys(totalMap).sort(function(a,b){ return totalMap[b].count-totalMap[a].count; }).forEach(function(k){
-      var total = totalMap[k] || {count:0,totalAge:0,ageCount:0};
-      var sel = selectedMap[k] || {count:0,totalAge:0,ageCount:0};
+            var total = totalMap[k] || {count:0,totalAge:0,ageCount:0};
+      var sel = selectedMap[k] || {count:0};
+      var age = ageMap[k] || {totalAge:0,ageCount:0};
       cats.push(k);
       totalCounts.push(total.count||0);
       selectedCounts.push(sel.count||0);
       builtCounts.push(builtMap[k]||0);
-            // avgAge uses SELECTED rows so it reacts to status/category filters.
-      // Do not fall back to total when viewing Invalid/Dup, otherwise Average TAT
-      // can show unrelated Valid CR age.
-      var rawAge = sel.ageCount > 0 ? Math.round(sel.totalAge/sel.ageCount*10)/10 : 0;
+            // avgAge uses all SELECTED rows so it reacts to status/category filters,
+      // including Built/Fix/Ready even though those counts are shown separately.
+      var rawAge = age.ageCount > 0 ? Math.round(age.totalAge/age.ageCount*10)/10 : 0;
 
       avgAges.push(_ageDisplay(rawAge));
     });
@@ -980,37 +994,41 @@ document.addEventListener('DOMContentLoaded', function () {
     bindAgeBadgeClicks();
   }
 
-  function renderCrAgeSummaryTable(data, selectedLabel, showAverageTat){
+    function renderCrAgeSummaryTable(data, selectedLabel, showAverageTat, showSelectedCrSeries, showBuiltCrSeries){
     var wrap = document.getElementById('crAgeSummaryTableWrap');
     if(!wrap) return;
     var cats = data.categories || [];
     if(!cats.length){ wrap.innerHTML=''; return; }
-    var totalTotal = 0, selectedTotal = 0;
+    var totalTotal = 0, selectedTotal = 0, builtTotal = 0;
     var labelName = _crAgeGroup==='subsystem' ? 'CR Subsystem' : (_crAgeGroup==='func' ? 'CR Functionality' : 'CR Area');
         var html = '<table id="crAgeSummaryTable" width="100%" border="1" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e5e7eb;table-layout:fixed;word-wrap:break-word;">'
       + '<thead><tr>'
       + '<th style="padding:8px 10px;text-align:left;background:#f8fafc;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#475569;">'+labelName+'</th>'
       + '<th style="padding:8px 10px;text-align:center;background:#eff6ff;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#1d4ed8;">Total CRs</th>'
-      + '<th style="padding:8px 10px;text-align:center;background:#fff7ed;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#c2410c;">'+selectedLabel+'</th>'
+      + (showSelectedCrSeries ? '<th style="padding:8px 10px;text-align:center;background:#fff7ed;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#c2410c;">'+selectedLabel+'</th>' : '')
+      + (showBuiltCrSeries ? '<th style="padding:8px 10px;text-align:center;background:#ecfdf5;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#047857;">Built CRs</th>' : '')
       + (showAverageTat ? '<th style="padding:8px 10px;text-align:center;background:#f3f4f6;border:1px solid #e5e7eb;font-size:11px;font-weight:800;color:#4b5563;">Average TAT</th>' : '')
       + '</tr></thead><tbody>'; 
         cats.forEach(function(cat, i){
       var total = Number((data.totalCount||[])[i]||0);
       var sel = Number((data.selectedCount||[])[i]||0);
+      var built = Number((data.builtCount||[])[i]||0);
       var avg = Number((data.avgAge||[])[i]||0);
-      if(sel<=0) return;
-      totalTotal += total; selectedTotal += sel;
+      if(sel<=0 && built<=0) return;
+      totalTotal += total; selectedTotal += sel; builtTotal += built;
             html += '<tr>'
         + '<td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:700;color:#111827;word-wrap:break-word;">'+cat+'</td>'
         + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;background:#eef2ff;">'+total+'</td>'
-        + '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+sel+'</td>'
+        + (showSelectedCrSeries ? '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+sel+'</td>' : '')
+        + (showBuiltCrSeries ? '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;background:#ecfdf5;color:#047857;font-weight:800;">'+built+'</td>' : '')
         + (showAverageTat ? '<td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;">'+(avg>0 ? Math.round(avg) : 0)+'</td>' : '')
         + '</tr>'; 
     });
         html += '</tbody><tfoot><tr>'
       + '<td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:900;background:#f8fafc;">Grand Total</td>'
       + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#eef2ff;">'+totalTotal+'</td>'
-      + '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+selectedTotal+'</td>'
+      + (showSelectedCrSeries ? '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;">'+selectedTotal+'</td>' : '')
+      + (showBuiltCrSeries ? '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#ecfdf5;color:#047857;">'+builtTotal+'</td>' : '')
       + (showAverageTat ? '<td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:900;background:#f8fafc;"></td>' : '')
       + '</tr></tfoot></table>'; 
     wrap.innerHTML = html;
@@ -1058,14 +1076,22 @@ document.addEventListener('DOMContentLoaded', function () {
       if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
     });
     if(!avgSeries) return;
-    var showAxis = avgSeries.visible !== false;
+        var showAxis = avgSeries.visible !== false;
     var axis = chart.yAxis[1];
-    axis.update({
+        axis.update({
       visible: showAxis,
       title: { text: showAxis ? _ageLabel() : null, style:{fontSize:"11px",color:"#6b7280"} },
       labels: { enabled: showAxis, style:{fontSize:"11px",color:"#6b7280"} }
     }, false);
-    chart.update({ chart: { spacingRight: showAxis ? 8 : 0 } }, false);
+        chart.update({ chart: { spacingRight: showAxis ? 8 : 0 } }, false);
+    if(chart.setTitle){
+      chart.setTitle({
+        text: showAxis
+          ? (_selectedCrCategoryTitlePrefix() + ' by ' + _groupLabel())
+          : ('CR ' + _groupLabel() + ' wise CR count'),
+        style:{fontSize:"18px",fontWeight:"900",color:"#0f172a"}
+      }, null, false);
+    }
     if(redraw !== false) chart.redraw();
   }
 
@@ -1118,17 +1144,20 @@ document.addEventListener('DOMContentLoaded', function () {
         var activeLabels = _activeStatusLabelsForSelectedCategories();
     var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
     var totalOverall = (allCrRows||[]).length;
+                var nonBuiltActiveLabels = activeLabels.filter(function(lbl){
+      return !_isBuiltFixReadyStatus(lbl, '');
+    });
         var selectedLabelParts = [];
     if(_activeCrCategories.valid || _activeCrCategories.invalid) {
-      if(activeLabels.length) selectedLabelParts = selectedLabelParts.concat(activeLabels);
-      else selectedLabelParts.push('CR Status');
+      if(nonBuiltActiveLabels.length) selectedLabelParts = selectedLabelParts.concat(nonBuiltActiveLabels);
+      else if(!activeLabels.length) selectedLabelParts.push('CR Status');
     }
     if(_activeCrCategories.invalid && !activeLabels.length) selectedLabelParts.push('Invalid');
     if(_activeCrCategories.dup) selectedLabelParts.push('Dup');
     var selectedLabel = selectedLabelParts.length ? selectedLabelParts.join('/') : 'Selected';
 
 
-    var selectedColor = '#f59e0b';
+        var selectedColor = '#f59e0b';
     if(activeLabels.length===1){
       var _sl = activeLabels[0].toLowerCase();
       if(_sl.indexOf('open')>=0) selectedColor = '#f97316';
@@ -1136,6 +1165,9 @@ document.addEventListener('DOMContentLoaded', function () {
       else if(_sl.indexOf('built')>=0) selectedColor = '#94a3b8';
       else if(_sl.indexOf('fix')>=0 || _sl.indexOf('ready')>=0) selectedColor = '#7c3aed';
     }
+        var showBuiltCrSeries = activeLabels.some(function(lbl){
+      return _isBuiltFixReadyStatus(lbl, '');
+    });
 
             var _ctEl=document.getElementById("crAgeCardTitle");
     var showAverageTat = !_isInvalidDupOnlyView();
@@ -1143,7 +1175,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var crAgeSummaryTitle = titlePrefix + ' by ' + _groupLabel();
     if(_ctEl) _ctEl.innerHTML=titlePrefix+' <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">'+totalSelected+' selected / '+totalOverall+' total</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by '+_groupLabel()+'</span>';
 
-    renderCrAgeSummaryTable(data, selectedLabel, showAverageTat);
+    var showSelectedCrSeries = selectedLabelParts.length > 0 && (data.selectedCount||[]).some(function(v){ return Number(v||0) > 0; });
+    renderCrAgeSummaryTable(data, selectedLabel, showAverageTat, showSelectedCrSeries, showBuiltCrSeries);
 
     var maxIdx = Math.min(data.categories.length-1, 11);
     var avgAgePoints = (data.avgAge || []).slice(0, maxIdx + 1).map(function(y, i){ return [i, y]; });
@@ -1164,12 +1197,12 @@ document.addEventListener('DOMContentLoaded', function () {
         minPadding: 0,
         startOnTick: false,
         endOnTick: false,
-                  labels: {
-            rotation:-35,
-            y:22,
-            style:{fontSize:"13px",fontWeight:"700",color:"#334155"},
-            formatter:function(){ return data.categories[this.value] || ""; }
-          },
+        labels: {
+          rotation:-35,
+          y:22,
+                                        style:{fontSize:"13px",fontWeight:"800",color:"#334155"},
+          formatter:function(){ return data.categories[this.value] || ""; }
+        },
         title: { text: _crAgeGroup==='subsystem'?'CR Subsystem':_crAgeGroup==='func'?'CR Functionality':'CR Area', margin:36, style:{fontSize:"22px",fontWeight:"bold",color:"#0f172a"} }
 
 
@@ -1181,33 +1214,12 @@ document.addEventListener('DOMContentLoaded', function () {
             legend: { enabled:true, align:"center", verticalAlign:"top", layout:"horizontal", itemMarginTop: 2, itemMarginBottom: 2, itemStyle:{fontSize:"11px",fontWeight:"700",color:"#374151"}, itemDistance: 14 },
       tooltip: { shared:true, headerFormat:"<span style='font-size:11px'>{point.key}</span><br/>" },
             plotOptions: {
-                series: {
+        series: {
           events: {
             legendItemClick: function(){
               var chart = this.chart;
               // Run after Highcharts toggles the series so the secondary axis follows Average TAT visibility.
-              setTimeout(function(){
-                _syncAverageTatAxis(chart, true);
-                // Update chart title when CR Average Age series is toggled
-                var avgSeries = null;
-                (chart.series || []).forEach(function(s){
-                  if(String(s && s.name || '').toLowerCase().indexOf('cr average age') >= 0) avgSeries = s;
-                });
-                if(avgSeries){
-                  var isHidden = avgSeries.visible === false;
-                  var newTitle = isHidden ? 'CR Area wise count' : 'CR Avg Age';
-                  var groupLabel = _groupLabel();
-                  var fullTitle = isHidden ? newTitle : (newTitle + ' by ' + groupLabel);
-                  chart.setTitle({text: fullTitle});
-                  // Also update the card title
-                  var _ctEl = document.getElementById('crAgeCardTitle');
-                  if(_ctEl){
-                    var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
-                    var totalOverall = (allCrRows||[]).length;
-                    _ctEl.innerHTML = newTitle + ' <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f1f5f9;padding:2px 8px;border-radius:999px;margin-left:6px;">' + totalSelected + ' selected / ' + totalOverall + ' total</span> <span style="font-size:10px;color:#94a3b8;margin-left:4px;">by ' + groupLabel + '</span>';
-                  }
-                }
-              }, 0);
+              setTimeout(function(){ _syncAverageTatAxis(chart, true); }, 0);
             }
           }
         },
@@ -1219,12 +1231,12 @@ document.addEventListener('DOMContentLoaded', function () {
           style:{fontSize:"8px",fontWeight:"600",textOutline:"none",color:"#6b7280"} } }
       },
 
-      credits: { enabled:false },
-                  series: [
-        { name:"Total CRs", type:"column", data:(data.totalCount||[]).slice(0, maxIdx + 1), color:"#3b82f6", yAxis:0 },
-        { name:selectedLabel, type:"column", data:(data.selectedCount||[]).slice(0, maxIdx + 1), color:selectedColor, yAxis:0 },
-        { name:"Built CRs", type:"column", data:(data.builtCount||[]).slice(0, maxIdx + 1), color:"#22c55e", yAxis:0 }
-      ].concat(showAverageTat ? [{ name:"CR Average Age", type:"column", data:(data.avgAge||[]).slice(0, maxIdx + 1), color:"#a3a3a3", yAxis:1 }] : [])
+                        credits: { enabled:false },
+                        series: [
+        { name:"Total CRs", type:"column", data:(data.totalCount||[]).slice(0, maxIdx + 1), color:"#3b82f6", yAxis:0 }
+      ].concat(showSelectedCrSeries ? [{ name:selectedLabel, type:"column", data:(data.selectedCount||[]).slice(0, maxIdx + 1), color:selectedColor, yAxis:0 }] : [])
+       .concat(showBuiltCrSeries ? [{ name:"Built CRs", type:"column", data:(data.builtCount||[]).slice(0, maxIdx + 1), color:"#22c55e", yAxis:0 }] : [])
+       .concat(showAverageTat ? [{ name:"CR Average Age", type:"column", data:(data.avgAge||[]).slice(0, maxIdx + 1), color:"#a3a3a3", yAxis:1 }] : [])
     });
     _syncAverageTatAxis(crAgeChart, true);
   }
@@ -1955,13 +1967,12 @@ buildHeader(); buildFilters(); applyFilters();
     function _enhanceCopiedSvgText(svg) {
     if(!svg) return;
     try {
-            var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-      style.textContent = 'text{font-family:Inter,Segoe UI,Arial,sans-serif;text-rendering:geometricPrecision;font-weight:normal !important}tspan{font-weight:normal !important}';
+      var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = 'text{font-family:Inter,Segoe UI,Arial,sans-serif;text-rendering:geometricPrecision}';
       svg.insertBefore(style, svg.firstChild);
       Array.prototype.forEach.call(svg.querySelectorAll('text,tspan'), function(t){
         t.removeAttribute('textLength');
         t.removeAttribute('lengthAdjust');
-        t.setAttribute('font-weight', 'normal');
       });
     } catch(e) {}
   }
@@ -2083,6 +2094,16 @@ buildHeader(); buildFilters(); applyFilters();
       var noChartOrig = btn ? btn.innerHTML : '';
       if(btn) {
         btn.innerHTML = '<i class="fas fa-times"></i> No chart';
+        setTimeout(function(){ btn.innerHTML = noChartOrig; }, 1800);
+      }
+      return;
+    }
+    var orig = btn ? btn.innerHTML : '';
+    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
+
+    function _ok() {
+      if(!btn) return;
+      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
       setTimeout(function(){ btn.innerHTML = orig; }, 2000);
     }
     function _fail() {
@@ -2091,7 +2112,7 @@ buildHeader(); buildFilters(); applyFilters();
       setTimeout(function(){ btn.innerHTML = orig; }, 2200);
     }
 
-    // Copy behavior:
+        // Copy behavior:
     // If CR Average Age is disabled on the page, Highcharts shows it as a
     // strike-through legend item. For Outlook copy, remove that disabled legend
     // item from the copied image only, then restore the page chart back to the
@@ -2193,40 +2214,40 @@ buildHeader(); buildFilters(); applyFilters();
     });
   }
 
-    if (saveBtn2) {
-    saveBtn2.addEventListener('click', function () {
-      var _payload = {
+  if (saveBtn2) {
+    saveBtn2.addEventListener('click', async function () {
+      const payload = {
         target_name: targetName,
-        sp_name: (document.getElementById('dashboardMsSpName') ? document.getElementById('dashboardMsSpName').value : '').trim(),
+        sp_name: (document.getElementById('dashboardMsSpName')?.value || '').trim(),
         milestones: {
-          ES:  document.getElementById('dashboardMsEsInput')  ? document.getElementById('dashboardMsEsInput').value  : '',
-          FC:  document.getElementById('dashboardMsFcInput')  ? document.getElementById('dashboardMsFcInput').value  : '',
-          CS:  document.getElementById('dashboardMsCsInput')  ? document.getElementById('dashboardMsCsInput').value  : '',
-          CS1: document.getElementById('dashboardMsCs1Input') ? document.getElementById('dashboardMsCs1Input').value : ''
+          ES: document.getElementById('dashboardMsEsInput')?.value || '',
+          FC: document.getElementById('dashboardMsFcInput')?.value || '',
+          CS: document.getElementById('dashboardMsCsInput')?.value || '',
+          CS1: document.getElementById('dashboardMsCs1Input')?.value || ''
         }
       };
-      fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(_payload)
-      })
-      .then(function(resp) {
-        return resp.json().catch(function(){ return {}; }).then(function(data) {
-          if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
-          var esEl  = document.getElementById('dashboardMsES');
-          var fcEl  = document.getElementById('dashboardMsFC');
-          var csEl  = document.getElementById('dashboardMsCS');
-          var cs1El = document.getElementById('dashboardMsCS1');
-          if (esEl)  esEl.textContent  = _payload.milestones.ES  || 'TBD';
-          if (fcEl)  fcEl.textContent  = _payload.milestones.FC  || 'TBD';
-          if (csEl)  csEl.textContent  = _payload.milestones.CS  || 'TBD';
-          if (cs1El) cs1El.textContent = _payload.milestones.CS1 || 'TBD';
-          closeMilestoneModal();
+
+      try {
+        const resp = await fetch('{{ url_for("admin_milestone_bp.save_milestones_route") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
-      })
-      .catch(function(err) {
-        alert((err && err.message) || 'Failed to save milestones');
-      });
+        const data = await resp.json().catch(function(){ return {}; });
+        if (!resp.ok || data.success === false) throw new Error(data.message || 'Save failed');
+
+        const esEl = document.getElementById('dashboardMsES');
+        const fcEl = document.getElementById('dashboardMsFC');
+        const csEl = document.getElementById('dashboardMsCS');
+        const cs1El = document.getElementById('dashboardMsCS1');
+        if (esEl) esEl.textContent = payload.milestones.ES || 'TBD';
+        if (fcEl) fcEl.textContent = payload.milestones.FC || 'TBD';
+        if (csEl) csEl.textContent = payload.milestones.CS || 'TBD';
+        if (cs1El) cs1El.textContent = payload.milestones.CS1 || 'TBD';
+        closeMilestoneModal();
+      } catch (err) {
+        alert(err.message || 'Failed to save milestones');
+      }
     });
   }
 
@@ -2280,3 +2301,4 @@ buildHeader(); buildFilters(); applyFilters();
 </script>
 {% endif %}
 {% endblock %}
+
