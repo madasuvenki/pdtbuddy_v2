@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import tempfile
 import csv as _csv_mod
@@ -7265,6 +7265,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
 
         ins = 0
         cur2 = conn.cursor()
+        _rows_to_insert = []
         for acc in grouped.values():
             crashes = _sp2_crash_count_for_build(
                 crash_map,
@@ -7272,29 +7273,45 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                 acc.get('build_id'),
                 acc.get('pl_id'),
             )
-
             chips = sorted(acc['chip_ids'])
-
-            cur2.execute(f"""
-                INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    (week_start, week_end, target, pl_id, build_name, build_id,
-                     job_ids, submitted_at, completed_at, state, device_count,
-                     chip_ids, hours, total_crashes, build_type, source, updated_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'CRM','axiom_csv_snapshot',%s)
-                ON DUPLICATE KEY UPDATE
-                    total_crashes=VALUES(total_crashes),
-                    source=VALUES(source),
-                    updated_by=VALUES(updated_by),
-                    updated_at=CURRENT_TIMESTAMP
-            """, (
+            _rows_to_insert.append((
                 ws.isoformat(), we.isoformat(), acc['target'], acc['pl_id'],
                 acc['build_name'], acc['build_id'], json.dumps(acc['job_ids']),
                 acc['submitted_at'], acc['completed_at'], acc['state'],
                 max(int(acc['device_count'] or 0), len(chips)), json.dumps(chips),
-                round(float(acc['hours'] or 0), 3), int(crashes or 0), username or _current_user_identifier(),
+                round(float(acc['hours'] or 0), 3), int(crashes or 0),
+                username or _current_user_identifier(),
             ))
-            ins += max(int(cur2.rowcount or 0), 0)
-        conn.commit()
+
+        import time as _time
+        _insert_sql = (
+            f"INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`"
+            " (week_start, week_end, target, pl_id, build_name, build_id,"
+            "  job_ids, submitted_at, completed_at, state, device_count,"
+            "  chip_ids, hours, total_crashes, build_type, source, updated_by)"
+            " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'CRM','axiom_csv_snapshot',%s)"
+            " ON DUPLICATE KEY UPDATE"
+            "  total_crashes=VALUES(total_crashes),"
+            "  source=VALUES(source),"
+            "  updated_by=VALUES(updated_by),"
+            "  updated_at=CURRENT_TIMESTAMP"
+        )
+        for _attempt in range(3):
+            try:
+                for _row_params in _rows_to_insert:
+                    cur2.execute(_insert_sql, _row_params)
+                    ins += max(int(cur2.rowcount or 0), 0)
+                conn.commit()
+                break
+            except Exception as _dl_exc:
+                _errno = getattr(_dl_exc, "errno", None)
+                try: conn.rollback()
+                except Exception: pass
+                if _errno == 1213 and _attempt < 2:
+                    ins = 0
+                    _time.sleep(0.5 * (2 ** _attempt))
+                    continue
+                raise
         return ins
     except Exception as exc:
         try: conn.rollback()
