@@ -973,7 +973,7 @@ def api_build_report_running_builds():
                 columns = _table_columns(table)
                 by_norm = {_norm_col(c): c for c in columns}
                 pl_col = next((by_norm.get(_norm_col(c)) for c in (
-                    'PL', 'Product Line', 'Product_Line', 'product_line',
+                    'PL-ID', 'pl-id', 'PL_ID', 'pl_id', 'PL ID', 'PL', 'Product Line', 'Product_Line', 'product_line',
                     'productline', 'Program Line', 'program_line', 'chipset',
                 ) if by_norm.get(_norm_col(c))), '')
                 if not pl_col:
@@ -1095,7 +1095,7 @@ def api_build_report_running_builds():
                     continue
                 columns = _table_columns(cursor, table)
                 pl_col = _first_col(columns, (
-                    'PL', 'PL ID', 'PL_ID', 'Product Line', 'Product_Line',
+                    'PL-ID', 'pl-id', 'PL_ID', 'pl_id', 'PL ID', 'PL', 'Product Line', 'Product_Line',
                     'product_line', 'productline', 'Program Line', 'program_line',
                     'chipset', 'software_product', 'software product',
                 ))
@@ -1184,7 +1184,7 @@ def api_build_report_running_builds():
                 mb_col = _first_col(columns, ('metabuild', 'MetaBuild', 'meta_build', 'build', 'build_id', 'builds'))
                 cr_col = _first_col(columns, ('mapped_cr', 'Mapped CR', 'mapped cr', 'cr', 'cr_number', 'CR', 'Change Request'))
                 ticket_col = _first_col(columns, ('stability_ticket', 'jira_key', 'JIRA', 'key'))
-                pl_col = _first_col(columns, ('PL', 'PL ID', 'PL_ID', 'Product Line', 'Product_Line', 'product_line', 'productline', 'software_product'))
+                pl_col = _first_col(columns, ('PL-ID', 'pl-id', 'PL_ID', 'pl_id', 'PL ID', 'PL', 'Product Line', 'Product_Line', 'product_line', 'productline', 'software_product'))
                 if not mb_col or not cr_col:
                     continue
                 select_parts = [f'`{mb_col}` AS metabuild', f'`{cr_col}` AS cr']

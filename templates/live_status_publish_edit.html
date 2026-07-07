@@ -131,6 +131,7 @@
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
       <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
+      <button onclick="lspOpenCustomizeTabs()" title="Show/hide tabs" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
@@ -1174,6 +1175,15 @@ window.lspApplyTopConfig = function(){
     }
   }
 
+  // Save selected tables to localStorage so config persists across refreshes
+  try {
+    var _jobId = (window.LSP_DATA && window.LSP_DATA.job_id) || 'new';
+    localStorage.setItem('lsp_cfg:' + _jobId, JSON.stringify({
+      overall: window._lspOverallCrsTable || '',
+      target:  window._lspTargetCrsTable  || ''
+    }));
+  } catch(_){}
+
   lspCloseTopConfig();
 
   // Show confirmation
@@ -1349,7 +1359,9 @@ window.LSP_DATA = {
     window.loadRunningBuildsDb=function(){
     var st=document.getElementById('rbDbStatus');
     if(st) st.textContent='Loading DB...';
-    return fetch(RB_API+'?_='+Date.now())
+    var _rbTbl=window._lspTargetCrsTable||window._lspOverallCrsTable||'';
+var _rbTblQs=_rbTbl?'&target_table='+encodeURIComponent(_rbTbl):'';
+return fetch(RB_API+'?_='+Date.now()+_rbTblQs)
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed');
@@ -2394,8 +2406,8 @@ window.LSP_DATA = {
 }());
 </script>
 
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260629_mtbf_common"></script>
-<script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260630_cfg_persist"></script>
+  <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
 if(!window.ocSetDomain) window.ocSetDomain = function(domain){
@@ -3013,7 +3025,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   /* ---- Click a nav item: solo-select or restore all ---- */
   /* ---- Render flavor-wise device/crash table for a meta ---- */
 
-        // -- Project filter state (QSTABILITY checked by default) -----------------
+                // -- Project filter state (QSTABILITY checked by default) -----------------
   window._lspSelectedProjects = window._lspSelectedProjects || ['QSTABILITY'];
   window.lspToggleProject = function(proj, pill){
     var _lspSelectedProjects = window._lspSelectedProjects;
@@ -3135,7 +3147,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
       if(/^https?:\/\//i.test(href)) a.setAttribute('href',href);
       a.setAttribute('style', a.style.borderRadius ? S.chip : S.link);
     });
-    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body></html>';
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body>
+
+</html>';
     var plain=(clone.innerText||clone.textContent||'').trim();
     function fallback(){
       try{
@@ -3239,7 +3253,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   function _lspFinalResolution(row){
     return String((row&&row.final_resolution)||(row&&row.resolution)||(row&&row.cr_resolution)||(row&&row.final_status)||(row&&row.cr_status)||(row&&row.status)||'').trim();
   }
-  function _lspJiraKeyFromIssue(j){
+    function _lspJiraKeyFromIssue(j){
     return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();
   }
   function _lspCrashType(row){
@@ -3467,7 +3481,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(kpiInv) kpiInv.textContent = invalidTotal > 0 ? invalidTotal : '0';
 
     // -- Crash-type counts for filter pills ---------------------------------
-    var ct = {System:0, SSR:0, Process:0};
+            var ct = {System:0, SSR:0, Process:0};
     _lspCrRows.forEach(function(r){
       var t = String(r.type||'');
       ['System','SSR','Process'].forEach(function(k){
@@ -4129,7 +4143,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
       +'<i class="fas fa-circle-notch spin" style="font-size:16px;display:block;margin-bottom:6px;color:#c7d2fe"></i>Loading running builds...</div>';
     if(st) st.textContent = 'Loading DB...';
     var target = (window.LSP_DATA&&window.LSP_DATA.primary_target)||'';
-    return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_builds_db?_='+Date.now(), {cache:'no-store'})
+    var _rbTbl2=window._lspTargetCrsTable||window._lspOverallCrsTable||'';
+var _rbTblQs2=_rbTbl2?'&target_table='+encodeURIComponent(_rbTbl2):'';
+return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_builds_db?_='+Date.now()+_rbTblQs2, {cache:'no-store'})
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d.ok) throw new Error(d.error||'Failed to load running builds');
@@ -4862,5 +4878,115 @@ if(!window.ojClear)  window.ojClear  = function(){};
   });
 })();
 </script>
-</html>
 
+
+
+<!-- Customize Tabs Modal -->
+<div id="lspCzModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:20px;width:min(420px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden;display:flex;flex-direction:column">
+    <div style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px"><i class="fas fa-sliders-h"></i> Customize Tabs</div>
+      <button onclick="lspCloseCustomizeTabs()" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:7px" id="lspCzRows"></div>
+    <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
+      <span id="lspCzMsg" style="font-size:11px;font-weight:700;flex:1;align-self:center"></span>
+      <button onclick="lspCloseCustomizeTabs()" style="padding:7px 16px;border-radius:9px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:800;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Customize Tabs - client-side show/hide, saved to localStorage */
+(function(){
+  var JOB_ID = (window.LSP_CONFIG && LSP_CONFIG.job_id) ? String(LSP_CONFIG.job_id) : 'lsp';
+  var STORE_KEY = 'lsp_hidden_tabs:' + JOB_ID;
+
+  var ALL_TABS = [
+    {id:'tab-core',       btn:'tab-btn-core',       label:'Core Slides',               icon:'fa-layer-group'},
+    {id:'tab-current',    btn:'tab-btn-current',     label:'Current Running Build',     icon:'fa-circle'},
+    {id:'tab-mtbf',       btn:'tab-btn-mtbf',        label:'MTBF Trend',                icon:'fa-chart-line'},
+    {id:'tab-weekly',     btn:'tab-btn-weekly',      label:'Weekly Report',             icon:'fa-calendar-week'},
+    {id:'tab-opencrs',    btn:'tab-btn-opencrs',     label:'Open CRs',                  icon:'fa-microscope'},
+    {id:'tab-openjiras',  btn:'tab-btn-openjiras',   label:'Open JIRAs',                icon:'fa-ticket-alt'},
+    {id:'tab-buildreport',btn:'tab-btn-buildreport', label:'Build Report (old Builds)', icon:'fa-file-alt'},
+  ];
+
+  function _getHidden(){
+    try{ return JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); }catch(e){ return []; }
+  }
+  function _setHidden(arr){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }catch(e){}
+  }
+  function _applyHidden(hidden){
+    ALL_TABS.forEach(function(t){
+      var hide = hidden.indexOf(t.id) !== -1;
+      var btn = document.getElementById(t.btn);
+      var sec = document.getElementById(t.id);
+      if(btn) btn.style.display = hide ? 'none' : '';
+      if(sec && hide && sec.classList.contains('active')){
+        sec.classList.remove('active');
+        var firstVisible = ALL_TABS.find(function(x){
+          return hidden.indexOf(x.id)===-1 && document.getElementById(x.id);
+        });
+        if(firstVisible){
+          var fs = document.getElementById(firstVisible.id);
+          if(fs) fs.classList.add('active');
+          var fb = document.getElementById(firstVisible.btn);
+          if(fb) fb.classList.add('active');
+        }
+      }
+    });
+  }
+
+  function _renderRows(hidden){
+    var container = document.getElementById('lspCzRows');
+    if(!container) return;
+    var html = '';
+    ALL_TABS.forEach(function(t){
+      if(!document.getElementById(t.btn) && !document.getElementById(t.id)) return;
+      var checked = hidden.indexOf(t.id) === -1;
+      html += '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;border:1.5px solid '+(checked?'#c7d2fe':'#e2e8f0')+';background:'+(checked?'#eef2ff':'#f8fafc')+'">'
+        + '<input type="checkbox" '+(checked?'checked':'')+' data-tab-id="'+t.id+'" onchange="lspCzToggle(this)" style="width:16px;height:16px;accent-color:#4f46e5;cursor:pointer">'
+        + '<i class="fas '+t.icon+'" style="color:'+(checked?'#4f46e5':'#94a3b8')+';width:16px;text-align:center"></i>'
+        + '<span style="font-size:13px;font-weight:800;color:#1e293b;flex:1">'+t.label+'</span>'
+        + '<span style="font-size:11px;font-weight:900;color:'+(checked?'#16a34a':'#94a3b8')+'">'+(checked?'Visible':'Hidden')+'</span>'
+        + '</label>';
+    });
+    container.innerHTML = html;
+  }
+
+  window.lspCzToggle = function(cb){
+    var tabId = cb.dataset.tabId;
+    var hidden = _getHidden();
+    if(cb.checked){
+      hidden = hidden.filter(function(x){ return x !== tabId; });
+    } else {
+      if(hidden.indexOf(tabId) === -1) hidden.push(tabId);
+    }
+    _setHidden(hidden);
+    _applyHidden(hidden);
+    _renderRows(hidden);
+    var msg = document.getElementById('lspCzMsg');
+    if(msg){ msg.textContent = '✓ Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
+  };
+
+  window.lspOpenCustomizeTabs = function(){
+    _renderRows(_getHidden());
+    var modal = document.getElementById('lspCzModal');
+    if(modal) modal.style.display='flex';
+  };
+  window.lspCloseCustomizeTabs = function(){
+    var modal = document.getElementById('lspCzModal');
+    if(modal) modal.style.display='none';
+  };
+  document.addEventListener('click', function(e){
+    var modal = document.getElementById('lspCzModal');
+    if(modal && e.target === modal) modal.style.display='none';
+  });
+  document.addEventListener('DOMContentLoaded', function(){ _applyHidden(_getHidden()); });
+  _applyHidden(_getHidden());
+})();
+</script>
+
+</html>

@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Live Status View</title>
+    <title>Live Status View</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
   <style>
     :root{--bg:#eef3fb;--panel:rgba(255,255,255,.9);--ink:#0f172a;--muted:#64748b;--line:#dbe3ef;--brand:#2563eb;--brand2:#7c3aed;--brand3:#06b6d4;--good:#16a34a;--warn:#d97706;--bad:#dc2626;--chip:#eef4ff;--shadow:0 24px 70px rgba(15,23,42,.16)}
     *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 12% -8%,rgba(59,130,246,.34) 0,transparent 30%),radial-gradient(circle at 88% 0%,rgba(124,58,237,.30) 0,transparent 31%),radial-gradient(circle at 50% 105%,rgba(6,182,212,.20) 0,transparent 32%),linear-gradient(135deg,#f8fbff 0,#eef3ff 42%,#f8f7ff 100%);color:var(--ink);min-height:100vh}
@@ -128,18 +129,49 @@
     .cr-status-live{background:#dcfce7;color:#166534;border:1px solid #86efac}
     .cr-status-draft{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
     .cr-domain-dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:#2563eb}.cr-domain-dot.FLEX{background:#7c3aed}.cr-domain-dot.IVI{background:#059669}.cr-domain-dot.ADAS{background:#2563eb}
+    /* == Customize Tabs Modal == */
+    #lsvCustomizeModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px}
+    #lsvCustomizeModal.open{display:flex}
+    .lsv-cz-box{background:#fff;border-radius:20px;width:min(440px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden;display:flex;flex-direction:column}
+    .lsv-cz-head{background:linear-gradient(135deg,#1e3a8a,#4f46e5);padding:15px 20px;display:flex;align-items:center;justify-content:space-between}
+    .lsv-cz-head-title{color:#fff;font-size:15px;font-weight:900;display:flex;align-items:center;gap:9px}
+    .lsv-cz-close{background:rgba(255,255,255,.18);border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .lsv-cz-body{padding:18px 20px;display:flex;flex-direction:column;gap:8px}
+    .lsv-cz-note{font-size:11px;color:#64748b;margin-bottom:4px;line-height:1.5}
+    .lsv-cz-row{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:12px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;transition:all .15s;user-select:none}
+    .lsv-cz-row:hover{border-color:#a5b4fc;background:#eef2ff}
+    .lsv-cz-row.checked{border-color:#6366f1;background:#eef2ff}
+    .lsv-cz-row input[type=checkbox]{width:17px;height:17px;accent-color:#4f46e5;cursor:pointer;flex-shrink:0}
+    .lsv-cz-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px}
+    .lsv-cz-label{font-size:13px;font-weight:800;color:#1e293b;flex:1}
+    .lsv-cz-desc{font-size:11px;color:#64748b;margin-top:1px}
+    .lsv-cz-foot{padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;justify-content:flex-end}
+    .lsv-cz-msg{font-size:11px;font-weight:700;min-height:16px;flex:1}
+    .lsv-cz-editor-badge{font-size:9px;font-weight:900;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:999px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+    .lsv-tab-hidden{display:none!important}
 
   </style>
 </head>
 <body>
 <header>
-  <div class="eyebrow"><i class="fas fa-database"></i> Live Status Workspace</div>
-  <h1>Live Status View - {{ ((TARGETS_CONFIG.get(target_name, {}) or {}).display_name or target_name) }}</h1>
-  <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
+    <div>
+      <div class="eyebrow"><i class="fas fa-database"></i> Live Status Workspace</div>
+      <h1>Live Status View - {{ ((TARGETS_CONFIG.get(target_name, {}) or {}).display_name or target_name) }}</h1>
+      <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding-top:6px;flex-shrink:0">
+      <button id="lsvCustomizeBtn" onclick="lsvOpenCustomize()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.12);transition:all .15s">
+        <i class="fas fa-sliders-h"></i> Customize Tabs
+        <span id="lsvCzEditorBadge" class="lsv-cz-editor-badge" style="display:none">Editor</span>
+      </button>
+    </div>
+  </div>
 </header>
 
 <main>
-  <section class="panel">
+    <section class="panel" id="lsvPanel_meta_selection">
 
 
     <div class="panel-h">
@@ -176,7 +208,7 @@
     <!-- ═══════════════════════════════════════════════════════════════════
        ADAS MTBF TAB
   ═══════════════════════════════════════════════════════════════════ -->
-  <section class="panel" id="adasMtbfPanel">
+  <section class="panel" id="adasMtbfPanel" data-lsv-tab="adas_mtbf">
         <div class="panel-h">
       <h2><i class="fas fa-chart-line" style="color:#059669"></i> ADAS MTBF Trend</h2>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -275,7 +307,34 @@
     </div>
   </section>
 
-  <!-- Add/Edit Build Modal -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+     CUSTOMIZE TABS MODAL
+═══════════════════════════════════════════════════════════════════ -->
+<div id="lsvCustomizeModal">
+  <div class="lsv-cz-box">
+    <div class="lsv-cz-head">
+      <div class="lsv-cz-head-title"><i class="fas fa-sliders-h"></i> Customize Live Status Tabs</div>
+      <button class="lsv-cz-close" onclick="lsvCloseCustomize()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="lsv-cz-body">
+      <div class="lsv-cz-note" id="lsvCzNote">
+        <i class="fas fa-info-circle" style="color:#6366f1"></i>
+        Toggle which sections are visible. Changes are saved server-side and apply to <strong>all viewers</strong> of this target.
+      </div>
+      <div id="lsvCzRows"></div>
+    </div>
+    <div class="lsv-cz-foot">
+      <span class="lsv-cz-msg" id="lsvCzMsg"></span>
+      <button onclick="lsvCloseCustomize()" style="padding:8px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>
+      <button id="lsvCzSaveBtn" onclick="lsvSaveCustomize()"
+        style="padding:8px 18px;border-radius:10px;border:0;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.25)">
+        <i class="fas fa-save"></i> Save for All Viewers
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Build Modal -->
   <div id="adasModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:20px;width:520px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
       <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
@@ -361,7 +420,7 @@
   <!-- ═══════════════════════════════════════════════════════════════
        UNIQUE CRs BY TARGET (FLEX / ADAS / IVI)
   ═══════════════════════════════════════════════════════════════ -->
-  <section class="panel" id="uniqueCrsByTargetPanel">
+  <section class="panel" id="uniqueCrsByTargetPanel" data-lsv-tab="unique_crs">
     <div class="panel-h" style="cursor:pointer;user-select:none" onclick="ucbToggle()">
       <h2><i class="fas fa-layer-group" style="color:#6366f1"></i> Unique CRs by Target
         <span id="ucbTotalBadge" style="display:none;margin-left:8px;background:#4f46e5;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:900"></span>
@@ -401,7 +460,7 @@
     </div>
   </section>
 
-  <section class="panel" id="currentReportPanel" style="overflow:visible">
+  <section class="panel" id="currentReportPanel" data-lsv-tab="current_report" style="overflow:visible">
     <!-- Panel header -->
     <div class="panel-h">
       <h2><i class="fas fa-circle" style="color:#16a34a;font-size:10px"></i> Current Report</h2>
@@ -520,7 +579,7 @@
     </div>
   </section>
 
-  <section id="resultsPanel" class="panel hidden">
+  <section id="resultsPanel" class="panel hidden" data-lsv-tab="consolidated_result">
 
 
     <div class="panel-h">
@@ -1153,13 +1212,30 @@ function _adasRenderChart(rows, crashTypes){
   canvas.style.display = 'block';
   if(empty) empty.style.display = 'none';
 
-  const labels    = rows.map(r => r.meta_id || '');
+  // Short X-axis label: extract Meta-NNN or Meta-NNN.r1 from full build string
+  function _shortMetaLabel(metaId){
+    const s = String(metaId || '');
+    // Already short form e.g. "Meta-183.r1" or "Meta-1577"
+    const already = s.match(/^Meta-\d+(\.r\d+)?$/i);
+    if(already) return s;
+    // Extract revision suffix: -r1- or .r1- in build string
+    const revMatch = s.match(/[\-\.](r\d+)[\-\.]/i);
+    const rev = revMatch ? '.' + revMatch[1].toLowerCase() : '';
+    // Extract numeric meta number: longest run of digits after a dash
+    const numMatch = s.match(/-(\d{3,6})(?:[\-\.]|$)/);
+    if(numMatch) return 'Meta-' + parseInt(numMatch[1], 10) + rev;
+    // Fallback: last segment after last dot or dash, max 12 chars
+    const parts = s.split(/[\-\.]/g).filter(Boolean);
+    return parts[parts.length - 1].slice(0, 12) || s.slice(0, 12);
+  }
+
+  const labels    = rows.map(r => _shortMetaLabel(r.meta_id || ''));
   const hoursVals = rows.map(r => Number(r.hours || 0));
   // Use effective totals based on active crash types
   const crashVals = rows.map(r => _adasEffective(r, crashTypes).total);
   const mtbfVals  = rows.map(r => _adasEffective(r, crashTypes).mtbf);
 
-  const minW = Math.max(700, labels.length * 90);
+  const minW = Math.max(600, labels.length * 72);
   canvas.width  = minW; canvas.height = 420;
   canvas.style.width = minW + 'px'; canvas.style.height = '420px';
 
@@ -1214,7 +1290,7 @@ function _adasRenderChart(rows, crashTypes){
         }
       },
             scales:{
-        x:{ grid:{display:false}, ticks:{font:{size:11,weight:'700'},color:'#334155',maxRotation:0} },
+        x:{ grid:{display:false}, ticks:{font:{size:11,weight:'700'},color:'#334155',maxRotation:30,minRotation:0,autoSkip:false} },
         yHours:{
           type:'linear', position:'left', beginAtZero:true,
           title:{display:true,text:'Hours',color:'#1f4e79',font:{size:12,weight:'900'},padding:{bottom:6}},
@@ -1567,6 +1643,7 @@ function _crGetJql(){
   const buildClause = "(" + selected.map(b => "summary ~ " + JSON.stringify(b)).join(" OR ") + ")";
   return buildClause + " AND (" + base + ")";
 }
+
 
 // ── current-build grouping / sidebar ─────────────────────────────────────────
 const CR_RUNNING_DB_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/running_builds_db`;
@@ -2256,7 +2333,180 @@ function crCopyRecentMetas(){
 
 // Initial current-report load after all overrides are registered.
 document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LSV CUSTOMIZE TABS
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const TAB_CFG_API = '/api/live_status_view/' + encodeURIComponent(TARGET) + '/tab_config';
+
+  const LSV_TABS = [
+    { key:'meta_selection',     label:'META Selection',       icon:'fa-layer-group',   color:'#4f46e5', desc:'META rows table, filter, submit selection' },
+    { key:'adas_mtbf',          label:'ADAS MTBF Trend',      icon:'fa-chart-line',    color:'#059669', desc:'MTBF chart and builds table (ADAS/IVI/FLEX)' },
+    { key:'unique_crs',         label:'Unique CRs by Target', icon:'fa-bug',           color:'#6366f1', desc:'FLEX / ADAS / IVI CR buckets' },
+    { key:'current_report',     label:'Current Report',       icon:'fa-circle',        color:'#16a34a', desc:'Running builds, CRs, JIRAs live view' },
+    { key:'consolidated_result',label:'Consolidated Result',  icon:'fa-table',         color:'#2563eb', desc:'Submitted META consolidated CR/JIRA result' },
+  ];
+
+  // Panel element IDs per tab key
+  const PANEL_IDS = {
+    meta_selection:      'lsvPanel_meta_selection',
+    adas_mtbf:           'adasMtbfPanel',
+    unique_crs:          'uniqueCrsByTargetPanel',
+    current_report:      'currentReportPanel',
+    consolidated_result: 'resultsPanel',
+  };
+
+  let _tabConfig = {};   // key -> bool (true = visible)
+  let _isEditor  = false;
+
+  // ── Apply visibility to DOM panels ──────────────────────────────────────
+  function _applyTabConfig(cfg){
+    _tabConfig = Object.assign({}, cfg);
+    LSV_TABS.forEach(function(t){
+      var panelId = PANEL_IDS[t.key];
+      var el = panelId ? document.getElementById(panelId) : null;
+      if(!el) return;
+      var visible = cfg[t.key] !== false;  // default true
+      if(visible){
+        el.classList.remove('lsv-tab-hidden');
+      } else {
+        el.classList.add('lsv-tab-hidden');
+        // Also hide consolidated result if it was shown
+        if(t.key === 'consolidated_result') el.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Load from server ─────────────────────────────────────────────────────
+  async function _loadTabConfig(){
+    try{
+      var res = await fetch(TAB_CFG_API, {cache:'no-store'});
+      var d   = await res.json();
+      if(d.ok) _applyTabConfig(d.tab_config || {});
+    }catch(e){ /* silent — defaults are all-visible */ }
+  }
+
+  // ── Check if current user is editor (TARGET_GROUP) ───────────────────────
+  async function _checkEditorAccess(){
+    try{
+      var res = await fetch('/api/feedback/check_access', {cache:'no-store'});
+      var d   = await res.json();
+      _isEditor = !!(d && d.allowed);
+    }catch(e){ _isEditor = false; }
+    var badge = document.getElementById('lsvCzEditorBadge');
+    if(badge) badge.style.display = _isEditor ? 'inline' : 'none';
+  }
+
+  // ── Render modal rows ────────────────────────────────────────────────────
+  function _renderCzRows(){
+    var container = document.getElementById('lsvCzRows');
+    if(!container) return;
+    var html = '';
+    LSV_TABS.forEach(function(t){
+      var checked = _tabConfig[t.key] !== false;
+      html += '<label class=lsv-cz-row' + (checked ? ' checked' : '') + ' id=lsvCzRow_' + t.key + ' onclick=lsvCzToggle(\'' + t.key + '\')>' +
+        '<input type=checkbox id=lsvCzCk_' + t.key + ' ' + (checked ? 'checked' : '') + ' onclick=event.stopPropagation() onchange=lsvCzToggle(\'' + t.key + '\')>' +
+        '<span class=lsv-cz-icon style=background:' + (checked ? t.color + '18' : '#f1f5f9') + '>' +
+          '<i class=fas ' + t.icon + ' style=color:' + (checked ? t.color : '#94a3b8') + '></i>' +
+        '</span>' +
+        '<span style=flex:1><div class=lsv-cz-label>' + t.label + '</div><div class=lsv-cz-desc>' + t.desc + '</div></span>' +
+        '<span style=font-size:11px;font-weight:900;color:' + (checked ? '#16a34a' : '#94a3b8') + '>' + (checked ? 'Visible' : 'Hidden') + '</span>' +
+      '</label>';
+    });
+    container.innerHTML = html;
+
+    // Show viewer-only note if not editor
+    var note = document.getElementById('lsvCzNote');
+    if(note){
+      if(_isEditor){
+        note.innerHTML = '<i class=fas fa-info-circle style=color:#6366f1></i> Toggle which sections are visible. Changes are saved server-side and apply to <strong>all viewers</strong> of this target.';
+      } else {
+        note.innerHTML = '<i class=fas fa-lock style=color:#d97706></i> <strong>View only.</strong> Only editors (TARGET_GROUP) can change tab visibility for all viewers.';
+      }
+    }
+    var saveBtn = document.getElementById('lsvCzSaveBtn');
+    if(saveBtn) saveBtn.style.display = _isEditor ? 'inline-flex' : 'none';
+  }
+
+  // ── Toggle a tab checkbox in the modal ───────────────────────────────────
+  window.lsvCzToggle = function(key){
+    if(!_isEditor) return;  // viewers cannot change
+    var ck  = document.getElementById('lsvCzCk_' + key);
+    var row = document.getElementById('lsvCzRow_' + key);
+    var tab = LSV_TABS.find(function(t){ return t.key === key; });
+    if(!ck || !tab) return;
+    var nowChecked = ck.checked;
+    _tabConfig[key] = nowChecked;
+    if(row){
+      row.classList.toggle('checked', nowChecked);
+      var icon = row.querySelector('.lsv-cz-icon');
+      if(icon){
+        icon.style.background = nowChecked ? tab.color + '18' : '#f1f5f9';
+        var i = icon.querySelector('i');
+        if(i) i.style.color = nowChecked ? tab.color : '#94a3b8';
+      }
+      var statusSpan = row.querySelector('span:last-child');
+      if(statusSpan){
+        statusSpan.textContent = nowChecked ? 'Visible' : 'Hidden';
+        statusSpan.style.color = nowChecked ? '#16a34a' : '#94a3b8';
+      }
+    }
+  };
+
+  // ── Open modal ───────────────────────────────────────────────────────────
+  window.lsvOpenCustomize = function(){
+    _renderCzRows();
+    var msg = document.getElementById('lsvCzMsg');
+    if(msg) msg.textContent = '';
+    document.getElementById('lsvCustomizeModal').classList.add('open');
+  };
+
+  // ── Close modal ──────────────────────────────────────────────────────────
+  window.lsvCloseCustomize = function(){
+    document.getElementById('lsvCustomizeModal').classList.remove('open');
+  };
+
+  // ── Save to server ───────────────────────────────────────────────────────
+  window.lsvSaveCustomize = async function(){
+    if(!_isEditor){ alert('Only editors can change tab visibility.'); return; }
+    var btn = document.getElementById('lsvCzSaveBtn');
+    var msg = document.getElementById('lsvCzMsg');
+    if(btn){ btn.disabled = true; btn.innerHTML = '<i class=fas fa-circle-notch fa-spin></i> Saving...'; }
+    if(msg){ msg.textContent = ''; msg.style.color = '#64748b'; }
+    try{
+      var res = await fetch(TAB_CFG_API, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({tab_config: _tabConfig})
+      });
+      var d = await res.json();
+      if(!d.ok) throw new Error(d.error || 'Save failed');
+      _applyTabConfig(d.tab_config || _tabConfig);
+      if(msg){ msg.textContent = '\u2713 Saved \u2014 all viewers will see the updated layout.'; msg.style.color = '#16a34a'; }
+      setTimeout(function(){ lsvCloseCustomize(); }, 1200);
+    }catch(e){
+      if(msg){ msg.textContent = 'Error: ' + (e.message || e); msg.style.color = '#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled = false; btn.innerHTML = '<i class=fas fa-save></i> Save for All Viewers'; }
+    }
+  };
+
+  // Close on backdrop click
+  document.getElementById('lsvCustomizeModal').addEventListener('click', function(e){
+    if(e.target === this) lsvCloseCustomize();
+  });
+
+  // ── Init: load config + check editor access on page load ─────────────────
+  document.addEventListener('DOMContentLoaded', function(){
+    _loadTabConfig();
+    _checkEditorAccess();
+  });
+  // Also run immediately in case DOMContentLoaded already fired
+  _loadTabConfig();
+  _checkEditorAccess();
+})();
+
 </script>
 </body>
 </html>
- 

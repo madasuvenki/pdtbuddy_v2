@@ -612,6 +612,12 @@ def _get_token(host: str, client_id: str, client_secret: str) -> str:
                      body="", headers={"Authorization": auth})
         resp    = conn.getresponse()
         payload = json.loads(resp.read().decode())
+    except OSError as exc:
+        # Wrap DNS/network errors with a clear message so the poller logs cleanly
+        raise OSError(
+            f"Cannot reach Axiom host '{host}': {exc}. "
+            f"Check VPN/network connectivity."
+        ) from exc
     finally:
         conn.close()
     token = payload.get("access_token", "")
@@ -1744,18 +1750,41 @@ def run_combined_poller(
 
         except Exception as exc:
             consecutive_errors += 1
-            is_auth_error = isinstance(exc, RuntimeError) and 'token kept expiring' in str(exc).lower()
+            is_auth_error    = isinstance(exc, RuntimeError) and 'token kept expiring' in str(exc).lower()
+            is_network_error = isinstance(exc, (
+                OSError, ConnectionRefusedError, ConnectionResetError, TimeoutError,
+            )) or type(exc).__name__ in ('gaierror', 'timeout', 'SSLError')
+            # Also catch socket.gaierror which is a subclass of OSError
+            import socket as _sock
+            if isinstance(exc, _sock.gaierror):
+                is_network_error = True
+
             if is_auth_error:
                 logger.info(
                     "[COMBINED POLLER] cycle=%d auth error (#%d): %s — token cleared, will retry next cycle.",
                     cycle, consecutive_errors, exc,
                 )
+            elif is_network_error:
+                # DNS / VPN / network unreachable — not a code bug, no traceback needed
+                logger.warning(
+                    "[COMBINED POLLER] cycle=%d NETWORK ERROR (#%d): %s — "
+                    "host=%s is unreachable (VPN/network down?). Will retry after %ds.",
+                    cycle, consecutive_errors, exc, api_host, poll_interval,
+                )
             else:
                 logger.error("[COMBINED POLLER] cycle=%d ERROR (#%d): %s", cycle, consecutive_errors, exc)
                 logger.error("[COMBINED POLLER] Traceback:\n%s", traceback.format_exc())
+
             token = None  # force token refresh next cycle
-            backoff = AUTH_BACKOFF_SEC if is_auth_error else min(poll_interval * consecutive_errors, 1800)
-            logger.warning("[COMBINED POLLER] cycle=%d failed at %s ? backing off %ds", cycle, _fmt_ts(), backoff)
+            if is_network_error:
+                # Network errors: always back off exactly poll_interval (not multiplied)
+                # — the network may come back at any time, no need to escalate
+                backoff = poll_interval
+            elif is_auth_error:
+                backoff = AUTH_BACKOFF_SEC
+            else:
+                backoff = min(poll_interval * consecutive_errors, 1800)
+            logger.warning("[COMBINED POLLER] cycle=%d failed at %s — backing off %ds", cycle, _fmt_ts(), backoff)
             time.sleep(backoff)
             continue
 

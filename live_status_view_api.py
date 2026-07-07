@@ -67,6 +67,18 @@ def _load_adas_mtbf(target_name: str, view: str) -> Dict[str, Any]:
     return {"target": target_name, "view": view, "headers": list(_ADAS_MTBF_HEADERS), "rows": []}
 
 
+def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sort ADAS MTBF rows by date ascending (oldest first = left on chart).
+    Rows with no date are placed at the end. Re-numbers s_no after sorting."""
+    def _date_key(r: Dict[str, Any]):
+        d = str(r.get("date") or "").strip()
+        return d if d else "9999-99-99"  # blank dates go last
+    sorted_rows = sorted(rows, key=_date_key)
+    for i, r in enumerate(sorted_rows, start=1):
+        r["s_no"] = i
+    return sorted_rows
+
+
 def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     view_clean = str(view or "ADAS").strip().upper()
     if view_clean not in _ADAS_MTBF_VIEWS:
@@ -76,7 +88,9 @@ def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any]) -> Dic
     data["view"] = view_clean
     data["headers"] = list(_ADAS_MTBF_HEADERS)
     data["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    data["rows"] = data.get("rows") if isinstance(data.get("rows"), list) else []
+    raw_rows = data.get("rows") if isinstance(data.get("rows"), list) else []
+    # Always persist rows sorted by date (oldest → newest) so chart is chronological
+    data["rows"] = _sort_adas_rows_by_date(raw_rows)
     path = _adas_mtbf_json_path(target_name, view_clean)
     tmp = path + ".tmp"
     try:
@@ -304,6 +318,44 @@ def _set_target_exclusions(target_name: str, excluded: Iterable[Any]) -> List[st
     data = _read_exclusions()
     cleaned = sorted({_norm(x) for x in (excluded or []) if _norm(x)})
     data[target_name] = cleaned
+    _write_exclusions(data)
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
+# LSV Tab config helpers  (stored inside the same exclusions JSON under
+# a special key  "_tab_config:<target_name>"  so no new file is needed)
+# ---------------------------------------------------------------------------
+_LSV_TAB_KEYS = {"meta_selection", "adas_mtbf", "unique_crs", "current_report", "consolidated_result"}
+_LSV_TAB_DEFAULTS = {
+    "meta_selection":     True,
+    "adas_mtbf":          True,
+    "unique_crs":         True,
+    "current_report":     True,
+    "consolidated_result": True,
+}
+
+
+def _tab_config_key(target_name: str) -> str:
+    return f"_tab_config:{target_name}"
+
+
+def _get_tab_config(target_name: str) -> Dict[str, bool]:
+    """Return tab visibility dict for target. Missing keys default to True (visible)."""
+    data = _read_exclusions()
+    stored = data.get(_tab_config_key(target_name)) or {}
+    result = dict(_LSV_TAB_DEFAULTS)
+    for k in _LSV_TAB_KEYS:
+        if k in stored:
+            result[k] = bool(stored[k])
+    return result
+
+
+def _set_tab_config(target_name: str, config: Dict[str, bool]) -> Dict[str, bool]:
+    """Persist tab visibility for target. Only known keys are stored."""
+    data = _read_exclusions()
+    cleaned = {k: bool(config.get(k, True)) for k in _LSV_TAB_KEYS}
+    data[_tab_config_key(target_name)] = cleaned
     _write_exclusions(data)
     return cleaned
 
@@ -584,6 +636,48 @@ def _resolve_cr_details(cursor, target_name: str, cr_to_tickets: Dict[str, List[
     return out
 
 
+# ---------------------------------------------------------------------------
+# Tab config API routes  (GET = all users, POST = TARGET_GROUP editors only)
+# ---------------------------------------------------------------------------
+
+@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/tab_config", methods=["GET"])
+@login_required
+def api_lsv_tab_config_get(target_name: str):
+    """Return current tab visibility config for this target. Readable by all authenticated users."""
+    try:
+        config = _get_tab_config(target_name)
+        return jsonify({"ok": True, "target": target_name, "tab_config": config})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/tab_config", methods=["POST"])
+@login_required
+def api_lsv_tab_config_save(target_name: str):
+    """Save tab visibility config. Restricted to TARGET_GROUP editors and admins."""
+    from flask_login import current_user as _cu
+    from config import ADMIN_USERS, TARGET_GROUP
+    uid = str(getattr(_cu, "id", "") or "").strip().lower()
+    # Check editor access
+    is_editor = uid in ADMIN_USERS
+    if not is_editor:
+        try:
+            import app as _app
+            is_editor = _app.is_user_in_group(uid, TARGET_GROUP)
+        except Exception:
+            is_editor = False
+    if not is_editor:
+        return jsonify({"ok": False, "error": "Only editors (TARGET_GROUP) can change tab visibility."}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    tab_config = payload.get("tab_config") or {}
+    try:
+        saved = _set_tab_config(target_name, tab_config)
+        return jsonify({"ok": True, "target": target_name, "tab_config": saved,
+                        "message": "Tab visibility saved — all viewers will see the updated layout."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/meta_rows", methods=["GET"])
 @login_required
 def api_live_status_view_meta_rows(target_name: str):
@@ -665,7 +759,8 @@ def api_adas_mtbf_get(target_name: str):
         crash_types = ["system", "ssr", "process"]
     try:
         data = _load_adas_mtbf(target_name, view)
-        rows = data.get("rows") or []
+        # Always sort by date on read so existing unsorted JSON files are fixed on first load
+        rows = _sort_adas_rows_by_date(data.get("rows") or [])
         chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({
             "ok": True,
@@ -838,7 +933,7 @@ def api_live_status_view_current_report_data(target_name: str):
         return None
 
     try:
-        from live_status_publish_service import list_jobs, _is_auto_bu_target
+        from live_status_publish_service import list_jobs
 
         # ── 1. Find the best published/draft job for this target ──────────
         wanted = str(target_name or "").strip().lower()
@@ -865,7 +960,13 @@ def api_live_status_view_current_report_data(target_name: str):
         rows         = job.get("published_rows") or job.get("draft_rows") or []
         running_rows = [r for r in rows if str((r or {}).get("run_status", "")).lower() == "running"]
         published_at = str(job.get("published_at") or "")
-        is_auto      = _is_auto_bu_target(target_name)
+        _tgt_up = str(target_name or '').strip().upper()
+        is_auto = (
+            str(get_bu_for_target(target_name) or '').upper() in ('AUTO', 'AUTOMOTIVE')
+            or _tgt_up.startswith('NORD')
+            or 'NORD_' in _tgt_up
+            or 'NORD.' in _tgt_up
+        )
 
         # ── 2. Load axiom_job_summary rows for this target ────────────────
         # Three indexes built in one pass:
@@ -1072,9 +1173,10 @@ def api_running_builds_db(target_name: str):
     import logging as _log
     _logger = _log.getLogger(__name__)
 
-    # PL column name candidates — checked in priority order
+        # PL column name candidates — checked in priority order
     _PL_COLS = (
-        'pl_id', 'PL_ID', 'PL', 'PL ID',
+        'PL-ID', 'pl-id',          # hyphen variant (actual column name in jiras tables)
+        'pl_id', 'PL_ID', 'PL ID', 'PL', 'PLID',
         'Product Line', 'Product_Line', 'product_line', 'productline',
         'Program Line', 'program_line',
         'chipset', 'software_product', 'software product',
@@ -1215,6 +1317,14 @@ def api_running_builds_db(target_name: str):
 
         return list(dict.fromkeys(tables))  # deduplicate, preserve order
 
+    def _target_scope_token(tname: str) -> Optional[str]:
+        """Return hardware-variant token (HGY/HQX/HCP/HSP) from target name."""
+        upper = str(tname or '').upper().replace('.', '_')
+        for token in ('HQX', 'HGY', 'HCP', 'HSP'):
+            if token in upper:
+                return token
+        return None
+
     def _read_pl_values(cur, target_name: str, domain_filter: str,
                         is_auto: bool) -> List[str]:
         """Read DISTINCT PL/software_product values from the target's jiras tables."""
@@ -1245,8 +1355,24 @@ def api_running_builds_db(target_name: str):
                         pl_values.append(val)
             except Exception as exc:
                 _logger.warning('[RUNNING BUILDS DB] PL read failed for %s: %s', table, exc)
-        _logger.info('[RUNNING BUILDS DB] %s: found %d PL values: %s',
+        _logger.info('[RUNNING BUILDS DB] %s: found %d PL values (raw): %s',
                      target_name, len(pl_values), pl_values[:10])
+
+        # Scope PL values to this target's hardware token (e.g. HGY, HQX).
+        # IVI/shared tables sometimes contain PL rows from sibling targets
+        # (e.g. HGY IVI table has HQX PL entries). Strip those out so we
+        # never return builds belonging to a different target.
+        scope_tok = _target_scope_token(target_name)
+        if scope_tok and pl_values:
+            scoped = [v for v in pl_values if scope_tok.upper() in str(v or '').upper()]
+            if scoped:
+                _logger.info('[RUNNING BUILDS DB] %s: scoped %d->%d PL values by token %s',
+                             target_name, len(pl_values), len(scoped), scope_tok)
+                pl_values = scoped
+            else:
+                _logger.warning('[RUNNING BUILDS DB] %s: scope token %s matched nothing in PL values %s',
+                                target_name, scope_tok, pl_values[:5])
+
         return pl_values
 
     def _meta_id_from_build(build_name: str) -> str:
@@ -1280,8 +1406,19 @@ def api_running_builds_db(target_name: str):
         from dashboard_common import get_target_info, get_bu_for_target
         info          = get_target_info(target_name) or {}
         bu            = (get_bu_for_target(target_name) or '').upper()
-        is_auto       = (bu == 'AUTO')
+        # Use same logic as _is_core_deck_target in live_status_publish_routes:
+        # NORD_HGY / NORD_HQX etc. are AUTO even if not in TARGETS_CONFIG
+        _tgt_upper = str(target_name or '').strip().upper()
+        is_auto = (
+            bu in ('AUTO', 'AUTOMOTIVE')
+            or _tgt_upper.startswith('NORD')
+            or 'NORD_' in _tgt_upper
+            or 'NORD.' in _tgt_upper
+        )
         domain_filter = str(request.args.get('domain') or '').strip().upper()  # ADAS/FLEX/IVI/''
+        # target_table: the exact jiras/overallcrs table selected in the Config modal.
+        # When provided, PL values are read directly from this table ? no discovery needed.
+        config_table  = str(request.args.get('target_table') or '').strip()
 
         running_rows:  List[Dict] = []
         pl_terms_used: List[str]  = []
@@ -1293,7 +1430,35 @@ def api_running_builds_db(target_name: str):
                 cur = conn.cursor(dictionary=True)
 
                 # Step 1: read PL values from jiras table → used to filter axiom DB
-                pl_values     = _read_pl_values(cur, target_name, domain_filter, is_auto)
+                # If the user already selected a specific table in Config, use it directly.
+                if config_table:
+                    pl_values = []
+                    seen_pl: set = set()
+                    for tbl in [config_table]:
+                        try:
+                            if not _table_exists(cur, tbl):
+                                continue
+                            cols = _table_columns(cur, tbl)
+                            pl_col = _first_col(cols, _PL_COLS)
+                            if not pl_col:
+                                continue
+                            cur.execute(
+                                f'SELECT DISTINCT `{pl_col}` AS pl FROM {tbl} '
+                                f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
+                                f'ORDER BY `{pl_col}` LIMIT 200',
+                                ('',),
+                            )
+                            for row in (cur.fetchall() or []):
+                                val = str(row.get('pl') or '').strip()
+                                if val and val.upper() not in seen_pl:
+                                    seen_pl.add(val.upper())
+                                    pl_values.append(val)
+                        except Exception as _te:
+                            _logger.warning('[RUNNING BUILDS DB] config_table read failed %s: %s', tbl, _te)
+                    _logger.info('[RUNNING BUILDS DB] %s: config_table=%s -> %d PL values: %s',
+                                 target_name, config_table, len(pl_values), pl_values[:5])
+                else:
+                    pl_values = _read_pl_values(cur, target_name, domain_filter, is_auto)
                 pl_terms_used = pl_values
 
                 # Step 2: DB freshness timestamp (UTC)

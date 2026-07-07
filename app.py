@@ -8778,14 +8778,57 @@ if 'dashboard_bp.view_all_undiposed_cr' in app.view_functions:
 # ====================================================================================
 # RUN APP
 # ====================================================================================
+def _start_mcp_server_thread():
+    """Start MCP MTBF server as a background daemon thread.
+    Auto-starts with PDTBuddy. SSE on MCP_MTBF_PORT (default 8765).
+    Any machine on the network can call: http://<host>:8765/sse
+    Set MCP_MTBF_ENABLED=0 in .env to disable.
+    """
+    import threading, sys as _sys
+    if os.environ.get('MCP_MTBF_ENABLED', '1').strip() == '0':
+        logger.info('[MCP] MCP_MTBF_ENABLED=0 - skipping MCP server.')
+        return
+    mcp_port = int(os.environ.get('MCP_MTBF_PORT', '8765'))
+    mcp_host = os.environ.get('MCP_MTBF_HOST', '0.0.0.0')
+    def _run():
+        try:
+            base = os.path.dirname(_sys.executable if getattr(_sys, 'frozen', False) else os.path.abspath(__file__))
+            server_path = os.path.join(base, 'mcp_mtbf_server.py')
+            if not os.path.exists(server_path):
+                logger.warning('[MCP] mcp_mtbf_server.py not found at %s', server_path)
+                return
+            import importlib.util as _ilu
+            spec = _ilu.spec_from_file_location('mcp_mtbf_server', server_path)
+            mod  = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            logger.info('[MCP] MTBF MCP server starting on %s:%s', mcp_host, mcp_port)
+            # host/port are FastMCP.__init__ args in this SDK version, not run() args.
+            # list_tools() returns Tool objects; add_tool() needs the raw .fn callable.
+            from mcp.server.fastmcp import FastMCP as _FastMCP
+            _sse = _FastMCP(
+                name=getattr(mod.mcp, 'name', 'PDTBuddy MTBF Trend Server'),
+                host=mcp_host,
+                port=mcp_port,
+            )
+            for _t in mod.mcp._tool_manager.list_tools():
+                _sse.add_tool(_t.fn, name=_t.name, description=_t.description)
+            _sse.run(transport='sse')
+        except Exception as _e:
+            logger.warning('[MCP] MTBF server error: %s', _e)
+    t = threading.Thread(target=_run, name='mcp-mtbf-server', daemon=True)
+    t.start()
+    logger.info('[MCP] MTBF server thread launched (port %s)', mcp_port)
+
+
 if __name__ == '__main__':
     logger.debug("app.py started executing")
     os.makedirs('temp_reports', exist_ok=True)
+    _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
