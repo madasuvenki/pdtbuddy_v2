@@ -4938,9 +4938,15 @@ def hwpdt_overview():
     from dashboard_common import get_mysql_connection_db as _get_db
 
     # -- Source 1: dashboard_status WHERE is_hwpdt=1 AND is_active=1 -------
-    hwpdt_rows = get_all_hwpdt_targets()  # list of dicts: target_name, sp_name, bu_key, display_name
+    all_hwpdt_rows = get_all_hwpdt_targets()  # list of dicts: target_name, sp_name, bu_key, display_name
+
+    # Keep the full managed target/SP set before exclusions so excluded managed
+    # targets do not get re-added later as synthetic Axiom-only rows.
+    managed_sp_names = {str(r.get('sp_name') or '').strip().upper() for r in all_hwpdt_rows if r.get('sp_name')}
+    managed_keys     = {str(r.get('target_name') or '').strip().upper() for r in all_hwpdt_rows if r.get('target_name')}
 
     # Apply the same exclusions used by the "Manage Excluded" modal.
+
     _excluded_path = os.environ.get(
         'HWPDT_EXCLUDED_TARGETS_PATH',
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'hwpdt_excluded_targets.json'),
@@ -4951,12 +4957,18 @@ def hwpdt_overview():
     except Exception:
         _excluded_targets = set()
 
-    hwpdt_rows = [r for r in hwpdt_rows if r.get('target_name') not in _excluded_targets]
+        _excluded_upper = {str(t).strip().upper() for t in _excluded_targets if str(t).strip()}
+    hwpdt_rows = [
+        r for r in all_hwpdt_rows
+        if str(r.get('target_name') or '').strip().upper() not in _excluded_upper
+        and str(r.get('sp_name') or '').strip().upper() not in _excluded_upper
+    ]
 
     # -- Source 2: Axiom axiom_job_summary HWPDT software_products ----------
-    # Show targets that have Axiom data even if not flagged is_hwpdt=1 in DB.
-    db_sp_names = {str(r.get('sp_name') or '').strip().upper() for r in hwpdt_rows if r.get('sp_name')}
-    db_keys     = {r['target_name'].upper() for r in hwpdt_rows}
+    # Show targets that have Axiom data only when not already managed/excluded.
+    db_sp_names = managed_sp_names
+    db_keys     = managed_keys
+
     try:
         _conn = _get_db(bu_key=None)
         if _conn:
@@ -4979,9 +4991,11 @@ def hwpdt_overview():
                 sp = str(row.get('software_product') or '').strip()
                 if not sp:
                     continue
-                if sp.upper() in db_sp_names or sp.upper() in db_keys:
+                sp_upper = sp.upper()
+                if sp_upper in db_sp_names or sp_upper in db_keys:
                     continue
-                if sp in _excluded_targets:
+                if sp_upper in _excluded_upper:
+
                     continue
                 # Axiom-only target — add as a synthetic row
                 hwpdt_rows.append({

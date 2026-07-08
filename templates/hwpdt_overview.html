@@ -488,8 +488,15 @@ function computeAliasStatus(target, aliases){
 }
 
 function buildChevronStrip(target, aliases){
+  const data = _targetChipData[target] || {};
+  const chipRows = data.chip_rows || [];
+  const playlistFilters = data.playlist_filters || [];
+  if(!chipRows.length || !playlistFilters.length){
+    return '<span style="font-size:11px;color:#cbd5e1;font-weight:700;">&#8212;</span>';
+  }
   if(!aliases.length) return '<span style="font-size:11px;color:#94a3b8;">No aliases defined. Click <b>Manage Aliases</b> to create.</span>';
   const statuses = computeAliasStatus(target, aliases);
+
   const colorMap = {green:'pal-chevron--green',red:'pal-chevron--red',amber:'pal-chevron--amber',grey:'pal-chevron--grey'};
   return statuses.map((s,i)=>{
     const cls = colorMap[s.status]||'pal-chevron--grey';
