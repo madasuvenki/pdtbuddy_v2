@@ -888,7 +888,7 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
                                 certicom_ids = [str(c).strip().upper() for c in _raw if str(c).strip()]
                                 break
 
-                    certicom_map.append({
+                        certicom_map.append({
                         "playlist_id": str(p or ""),
                         "playlist_name": n,
                         "revision": it.get("revision"),
@@ -896,10 +896,22 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
                         "certicom_results": certicom_results,
                         "summary": summary,
                     })
-                return job_id, names, ids, certicom_map
-        except Exception as exc:
+
+                # Build reverse map: chip_id -> [playlist_name, ...]
+                # so callers can answer "which playlists did chip X run on?"
+                chip_playlist_map: Dict[str, List[str]] = {}
+                for pl_entry in certicom_map:
+                    pl_name = pl_entry.get("playlist_name") or ""
+                    for cid in (pl_entry.get("certicom_ids") or []):
+                        if cid:
+                            chip_playlist_map.setdefault(cid, [])
+                            if pl_name and pl_name not in chip_playlist_map[cid]:
+                                chip_playlist_map[cid].append(pl_name)
+
+                return job_id, names, ids, certicom_map, chip_playlist_map
+                except Exception as exc:
             logger.debug("[ENRICH PLAYLIST] job %s failed: %s", job_id, exc)
-        return job_id, None, None, None
+        return job_id, None, None, None, None
 
     enriched = 0
     failed   = 0
@@ -910,12 +922,13 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
         futures = {pool.submit(_fetch_playlist, jid): jid for jid in to_enrich}
         done = 0
         for future in as_completed(futures):
-            job_id, names, ids, certicom_map = future.result()
+            job_id, names, ids, certicom_map, chip_playlist_map = future.result()
             done += 1
             if names is not None:
-                builds[job_id]["playlist_name"]    = ", ".join(names) if names else None
-                builds[job_id]["playlist"]         = ", ".join(ids)   if ids   else None
-                builds[job_id]["certicom_playlist"] = certicom_map or []
+                builds[job_id]["playlist_name"]     = ", ".join(names) if names else None
+                builds[job_id]["playlist"]          = ", ".join(ids)   if ids   else None
+                builds[job_id]["certicom_playlist"]  = certicom_map or []
+                builds[job_id]["chip_playlist_map"]  = chip_playlist_map or {}
                 enriched += 1
             else:
                 failed += 1

@@ -155,7 +155,24 @@ def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]
             "summary": summary,
         })
 
-    return ", ".join(playlist_names) if playlist_names else None, certicom_playlist
+    # Build reverse map: chip_id -> [playlist_name, ...]
+    # Answers: "which playlists did chip X run on in this job?"
+    chip_playlist_map: dict = {}
+    for pl_entry in certicom_playlist:
+        pl_name = pl_entry.get("playlist_name") or ""
+        for cid in (pl_entry.get("certicom_ids") or []):
+            if cid:
+                chip_playlist_map.setdefault(cid, [])
+                if pl_name and pl_name not in chip_playlist_map[cid]:
+                    chip_playlist_map[cid].append(pl_name)
+
+    # Attach chip_playlist_map into each playlist entry for easy per-playlist lookup
+    for pl_entry in certicom_playlist:
+        for cr in (pl_entry.get("certicom_results") or []):
+            cid = cr.get("certicom_id") or ""
+            cr["all_playlists_for_chip"] = chip_playlist_map.get(cid, [])
+
+    return ", ".join(playlist_names) if playlist_names else None, certicom_playlist, chip_playlist_map
 
 
 def _fetch_one(host: str, app_name: str, token: str, job_id: str) -> Tuple[str, Optional[str], Optional[List[dict]], Optional[str]]:
@@ -176,12 +193,12 @@ def _fetch_one(host: str, app_name: str, token: str, job_id: str) -> Tuple[str, 
     finally:
         conn.close()
     if resp.status != 200:
-        return job_id, None, None, f"HTTP {resp.status}: {body[:200]}"
+        return job_id, None, None, None, f"HTTP {resp.status}: {body[:200]}"
     try:
-        playlist_name, certicom_playlist = _parse_playlist_payload(job_id, json.loads(body))
-        return job_id, playlist_name, certicom_playlist, None
+        playlist_name, certicom_playlist, chip_playlist_map = _parse_playlist_payload(job_id, json.loads(body))
+        return job_id, playlist_name, certicom_playlist, chip_playlist_map, None
     except Exception as exc:
-        return job_id, None, None, f"parse failed: {exc}"
+        return job_id, None, None, None, f"parse failed: {exc}"
 
 
 def _load_jobs(limit: Optional[int], only_missing: bool) -> List[Dict[str, str]]:
@@ -206,14 +223,20 @@ def _load_jobs(limit: Optional[int], only_missing: bool) -> List[Dict[str, str]]
     return rows
 
 
-def _update_rows(results: List[Tuple[str, Optional[str], Optional[List[dict]], Optional[str]]]) -> int:
-    ok_rows = [(job_id, playlist_name, cp) for job_id, playlist_name, cp, err in results if err is None and cp is not None]
+def _update_rows(results: List[Tuple[str, Optional[str], Optional[List[dict]], Optional[dict], Optional[str]]]) -> int:
+    ok_rows = [(job_id, playlist_name, cp, cpm) for job_id, playlist_name, cp, cpm, err in results if err is None and cp is not None]
     if not ok_rows:
         return 0
     conn = get_mysql_connection_db(bu_key=None)
     cur = conn.cursor()
     try:
-        for job_id, playlist_name, cp in ok_rows:
+        for job_id, playlist_name, cp, cpm in ok_rows:
+            # Embed chip_playlist_map as a top-level key inside certicom_playlist JSON
+            # so the full chip->playlist reverse lookup is stored alongside the data
+            cp_with_map = {
+                "playlists": cp,
+                "chip_playlist_map": cpm or {},
+            } if cpm else cp
             cur.execute(
                 """
                 UPDATE pdt_stats_dashboard.axiom_job_summary
@@ -222,7 +245,7 @@ def _update_rows(results: List[Tuple[str, Optional[str], Optional[List[dict]], O
                     updated_at = CURRENT_TIMESTAMP
                 WHERE job_id = %s AND team = 'HWPDT'
                 """,
-                (playlist_name, json.dumps(cp, ensure_ascii=False), job_id),
+                (playlist_name, json.dumps(cp_with_map, ensure_ascii=False), job_id),
             )
         conn.commit()
         return len(ok_rows)
@@ -257,9 +280,9 @@ def main() -> int:
         for idx, fut in enumerate(as_completed(futs), 1):
             res = fut.result()
             results.append(res)
-            if res[3]:
+            if res[4]:   # err is now index 4
                 failed += 1
-                LOG.warning("job_id=%s failed: %s", res[0], res[3])
+                LOG.warning("job_id=%s failed: %s", res[0], res[4])
             if idx % 50 == 0:
                 LOG.info("Progress %d/%d fetched, failed=%d", idx, len(jobs), failed)
 
