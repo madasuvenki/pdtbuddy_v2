@@ -2588,6 +2588,30 @@ def mtbf_meta_jiras_view(target_name, meta_id):
             cursor.close()
         if conn:
             conn.close()
+def _normalize_hwpdt_certicom_playlist(raw):
+    """Return HWPDT certicom playlist data as a list of playlist entries.
+
+    New updater stores certicom_playlist as:
+        {"playlists": [...], "chip_playlist_map": {...}}
+    Older data stored it directly as a list. The UI/API code consumes a list.
+    """
+    import json as _json
+    try:
+        data = raw or []
+        if isinstance(data, str):
+            data = _json.loads(data or "[]")
+        if isinstance(data, dict):
+            playlists = data.get("playlists")
+            if isinstance(playlists, list):
+                return playlists
+            if data.get("playlist_name") or data.get("certicom_ids"):
+                return [data]
+            return []
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
 def _load_hwpdt_job_audit_data():
     """
     Load HWPDT job audit data.
@@ -2649,14 +2673,7 @@ def _load_hwpdt_job_audit_data():
                     except Exception:
                         chip_ids = []
 
-                    try:
-                        certicom_playlist = row.get("certicom_playlist") or []
-                        if isinstance(certicom_playlist, str):
-                            certicom_playlist = _json.loads(certicom_playlist or "[]")
-                        if not isinstance(certicom_playlist, list):
-                            certicom_playlist = []
-                    except Exception:
-                        certicom_playlist = []
+                    certicom_playlist = _normalize_hwpdt_certicom_playlist(row.get("certicom_playlist"))
 
                     if updated_at and updated_at > latest_ts:
                         latest_ts = updated_at
@@ -2746,9 +2763,7 @@ def _load_hwpdt_job_audit_data():
         start_time       = str(job.get("submitted") or job.get("start_time") or "").strip()
         playlist_name    = str(job.get("playlist_name") or "").strip()
         playlist         = str(job.get("playlist") or "").strip()
-        certicom_playlist = job.get("certicom_playlist") or []
-        if not isinstance(certicom_playlist, list):
-            certicom_playlist = []
+        certicom_playlist = _normalize_hwpdt_certicom_playlist(job.get("certicom_playlist"))
         build_id         = str(job.get("build_id") or "").strip()
         chip_ids         = [str(c).strip().upper() for c in (job.get("chip_ids") or []) if str(c).strip()]
 
@@ -3032,7 +3047,7 @@ def api_hwpdt_chip_parts(target_name):
             if pl and pl not in seen_pl:
                 seen_pl.add(pl)
                 playlist_filters.append(pl)
-            for pe in (je.get("certicom_playlist") or []):
+            for pe in _normalize_hwpdt_certicom_playlist(je.get("certicom_playlist")):
                 if not isinstance(pe, dict):
                     continue
                 pe_name = str(pe.get("playlist_name") or pe.get("name") or pl or "Unknown").strip() or "Unknown"
@@ -3041,6 +3056,13 @@ def api_hwpdt_chip_parts(target_name):
                 pe_ids = [str(c).strip().upper() for c in pe_ids_raw if str(c).strip()] if isinstance(pe_ids_raw, list) else []
                 if not pe_ids:
                     pe_ids = [chip_id]
+                if chip_id not in pe_ids:
+                    continue
+                if pe_name and pe_name != "Unknown" and pe_name not in playlist_names:
+                    playlist_names.append(pe_name)
+                if pe_name and pe_name != "Unknown" and pe_name not in seen_pl:
+                    seen_pl.add(pe_name)
+                    playlist_filters.append(pe_name)
                 pe_key = (pe_id, pe_name, ",".join(pe_ids))
                 if pe_key in seen_certicom_entries:
                     continue
