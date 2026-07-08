@@ -41,7 +41,6 @@ _a = Analysis(
         'src', 'src.utils',
         'scripts',
         'scripts.fetch_axiom_combined',
-        'scripts.backfill_hwpdt_certicom_playlist',
     ] + mysql_hiddenimports,
     hookspath=[],
     runtime_hooks=['pyi_rth_syspath.py'],

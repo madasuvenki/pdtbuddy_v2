@@ -8781,12 +8781,13 @@ def _start_mcp_server_thread():
     """Start MCP MTBF server as a background daemon thread.
     Auto-starts with PDTBuddy. SSE on MCP_MTBF_PORT (default 8765).
     Any machine on the network can call: http://<host>:8765/sse
-    Set MCP_MTBF_ENABLED=0 in .env to disable.
+        Set MCP_MTBF_ENABLED=1 in .env to enable.
     """
     import threading, sys as _sys
-    if os.environ.get('MCP_MTBF_ENABLED', '1').strip() == '0':
-        logger.info('[MCP] MCP_MTBF_ENABLED=0 - skipping MCP server.')
+    if os.environ.get('MCP_MTBF_ENABLED', '0').strip().lower() not in ('1', 'true', 'yes', 'on'):
+        logger.info('[MCP] MCP_MTBF_ENABLED not enabled - skipping MCP server.')
         return
+
     mcp_port = int(os.environ.get('MCP_MTBF_PORT', '8765'))
     mcp_host = os.environ.get('MCP_MTBF_HOST', '0.0.0.0')
     def _run():
@@ -8794,8 +8795,9 @@ def _start_mcp_server_thread():
             base = os.path.dirname(_sys.executable if getattr(_sys, 'frozen', False) else os.path.abspath(__file__))
             server_path = os.path.join(base, 'mcp_mtbf_server.py')
             if not os.path.exists(server_path):
-                logger.warning('[MCP] mcp_mtbf_server.py not found at %s', server_path)
+                logger.info('[MCP] mcp_mtbf_server.py not found at %s - MCP disabled.', server_path)
                 return
+
             import importlib.util as _ilu
             spec = _ilu.spec_from_file_location('mcp_mtbf_server', server_path)
             mod  = _ilu.module_from_spec(spec)
