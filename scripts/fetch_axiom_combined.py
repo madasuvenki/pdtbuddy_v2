@@ -366,6 +366,65 @@ def _hwpdt_track_result(state, build_loading_status, exception) -> tuple:
     return 'UNKNOWN', None
 
 
+def _hwpdt_normalize_test_result(raw) -> tuple:
+    """Actual Axiom UI result from /jobs/{job_id}/results testCaseTestResult."""
+    r = str(raw or '').strip().lower()
+    if r in ('passed', 'pass', 'success', 'succeeded'):
+        return 'PASS', True
+    if r in ('failed', 'fail', 'failure', 'error', 'errored'):
+        return 'FAIL', False
+    if r in ('running', 'inprogress', 'in_progress', 'queued', 'scheduled'):
+        return 'RUNNING', None
+    return 'UNKNOWN', None
+
+
+def _hwpdt_build_test_result_index(results_payload: dict) -> Dict[tuple, dict]:
+    """Group /results rows by playlist + chip + track + iteration."""
+    index: Dict[tuple, dict] = {}
+    for row in (results_payload or {}).get('data') or []:
+        if not isinstance(row, dict):
+            continue
+        resource = row.get('playlistTestResource') or {}
+        certicom_id = str(
+            (resource.get('name') if isinstance(resource, dict) else '')
+            or row.get('testCaseTestResourceName')
+            or ''
+        ).strip().upper()
+        key = (
+            str(row.get('playlistId') or '').strip(),
+            certicom_id,
+            row.get('playlistTrack'),
+            row.get('playlistIteration'),
+        )
+        status, passed = _hwpdt_normalize_test_result(row.get('testCaseTestResult'))
+        bucket = index.setdefault(key, {'statuses': [], 'test_cases': []})
+        bucket['statuses'].append(status)
+        bucket['test_cases'].append({
+            'test_case_name': row.get('testCaseName'),
+            'test_case_id': row.get('testCaseId'),
+            'test_case_revision': row.get('testCaseRevision'),
+            'test_case_result': row.get('testCaseTestResult'),
+            'result_status': status,
+            'passed': passed,
+            'started': row.get('testCaseStarted'),
+            'ended': row.get('testCaseEnded'),
+            'run_time': row.get('testCaseRunTime'),
+            'notes': row.get('testCaseNotes'),
+            'log_path': row.get('testCaseLogPath'),
+        })
+    for bucket in index.values():
+        statuses = bucket.get('statuses') or []
+        if any(s == 'FAIL' for s in statuses):
+            bucket['result_status'], bucket['passed'] = 'FAIL', False
+        elif any(s == 'RUNNING' for s in statuses):
+            bucket['result_status'], bucket['passed'] = 'RUNNING', None
+        elif statuses and all(s == 'PASS' for s in statuses):
+            bucket['result_status'], bucket['passed'] = 'PASS', True
+        else:
+            bucket['result_status'], bucket['passed'] = 'UNKNOWN', None
+    return index
+
+
 def _parse_dt(val) -> Optional[str]:
     """Return MySQL-compatible datetime string (YYYY-MM-DD HH:MM:SS) or None.
     Axiom returns ISO strings like '2026-06-17T16:14:19.1836775Z' which have
@@ -803,115 +862,136 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
         return builds
 
     def _fetch_playlist(job_id):
-        """Fetch playlist names + Certicom/device result details for one HWPDT job.
+        """Fetch playlist mapping and merge actual UI test results for one HWPDT job."""
+        headers = {
+            "Authorization":     f"Bearer {token}",
+            "X-QCOM-AppName":    app_name,
+            "X-QCOM-TokenType":  "OAuth",
+            "X-QCOM-ClientType": "Python",
+            "X-QCOM-TracingID":  _uuid.uuid4().hex,
+        }
 
-        Stored into axiom_job_summary.certicom_playlist JSON as:
-        [{playlist_id, playlist_name, certicom_ids, certicom_results, summary}]
-        """
-        path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
-        try:
+        def _get_json_path(path: str) -> tuple:
             conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
-            headers = {
-                "Authorization":     f"Bearer {token}",
-                "X-QCOM-AppName":    app_name,
-                "X-QCOM-TokenType":  "OAuth",
-                "X-QCOM-ClientType": "Python",
-                "X-QCOM-TracingID":  _uuid.uuid4().hex,
-            }
-            conn.request("GET", path, body="", headers=headers)
-            resp = conn.getresponse()
-            body = resp.read().decode("utf-8", errors="ignore")
-            conn.close()
-            if resp.status == 200:
-                items = json.loads(body).get("data") or []
-                names, ids, certicom_map = [], [], []
-                for it in items:
-                    n = str(it.get("name") or "").strip()
-                    p = it.get("id")
-                    if n and n not in names:
-                        names.append(n)
-                    if p and str(p) not in ids:
-                        ids.append(str(p))
+            try:
+                conn.request("GET", path, body="", headers=headers)
+                resp = conn.getresponse()
+                body = resp.read().decode("utf-8", errors="ignore")
+                return resp.status, body
+            finally:
+                conn.close()
 
-                    certicom_ids = []
-                    certicom_results = []
-                    summary = {"total": 0, "pass": 0, "fail": 0, "running": 0, "unknown": 0}
+        try:
+            playlist_path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
+            results_path = f"/axiom/v1/public/jobs/{job_id}/results?pageNumber=0&pageSize=500"
+            status, body = _get_json_path(playlist_path)
+            if status != 200:
+                return job_id, None, None, None, None
 
-                    tracks = it.get("playlistStatusOfEachTrack") or []
-                    if isinstance(tracks, list):
-                        for tr in tracks:
-                            if not isinstance(tr, dict):
-                                continue
-                            resource = tr.get("testResource") or {}
-                            if not isinstance(resource, dict):
-                                resource = {}
-                            certicom_id = str(resource.get("name") or "").strip().upper()
-                            if certicom_id and certicom_id not in certicom_ids:
-                                certicom_ids.append(certicom_id)
+            result_status_code, result_body = _get_json_path(results_path)
+            results_payload = json.loads(result_body) if result_status_code == 200 else {}
+            test_result_index = _hwpdt_build_test_result_index(results_payload)
 
-                            result_status, passed = _hwpdt_track_result(
-                                tr.get("state"), tr.get("buildLoadingStatus"), tr.get("exception")
-                            )
-                            summary["total"] += 1
-                            if result_status == "PASS":
-                                summary["pass"] += 1
-                            elif result_status == "FAIL":
-                                summary["fail"] += 1
-                            elif result_status == "RUNNING":
-                                summary["running"] += 1
-                            else:
-                                summary["unknown"] += 1
+            items = json.loads(body).get("data") or []
+            names, ids, certicom_map = [], [], []
+            for it in items:
+                n = str(it.get("name") or "").strip()
+                p = it.get("id")
+                playlist_id = str(p or "")
+                if n and n not in names:
+                    names.append(n)
+                if p and str(p) not in ids:
+                    ids.append(str(p))
 
-                            certicom_results.append({
-                                "certicom_id": certicom_id,
-                                "track": tr.get("track"),
-                                "playlist_iteration": tr.get("playlistIteration"),
-                                "state": tr.get("state"),
-                                "build_loading_status": tr.get("buildLoadingStatus"),
-                                "exception": tr.get("exception"),
-                                "result_status": result_status,
-                                "passed": passed,
-                                "started": tr.get("started"),
-                                "ended": tr.get("ended"),
-                                "run_time": tr.get("runTime"),
-                                "host_name": tr.get("hostName"),
-                                "chipset": resource.get("chipset"),
-                                "resource_id": resource.get("resourceId"),
-                                "resource_type": resource.get("type"),
-                            })
+                certicom_ids = []
+                certicom_results = []
+                tracks = it.get("playlistStatusOfEachTrack") or []
+                if isinstance(tracks, list):
+                    for tr in tracks:
+                        if not isinstance(tr, dict):
+                            continue
+                        resource = tr.get("testResource") or {}
+                        if not isinstance(resource, dict):
+                            resource = {}
+                        certicom_id = str(resource.get("name") or "").strip().upper()
+                        if certicom_id and certicom_id not in certicom_ids:
+                            certicom_ids.append(certicom_id)
 
-                    # Fallback for older/sparser Axiom payloads.
-                    if not certicom_ids:
-                        for _f in ("certicomIds", "certicom_ids", "deviceSerialNumbers", "chipIdSerialNumbers", "serialNumbers"):
-                            _raw = it.get(_f)
-                            if _raw and isinstance(_raw, list):
-                                certicom_ids = [str(c).strip().upper() for c in _raw if str(c).strip()]
-                                break
+                        build_load_result_status, build_load_passed = _hwpdt_track_result(
+                            tr.get("state"), tr.get("buildLoadingStatus"), tr.get("exception")
+                        )
+                        final_result_status, final_passed = build_load_result_status, build_load_passed
+                        test_key = (playlist_id, certicom_id, tr.get("track"), tr.get("playlistIteration"))
+                        test_bucket = test_result_index.get(test_key)
+                        if test_bucket:
+                            final_result_status = test_bucket.get("result_status") or final_result_status
+                            final_passed = test_bucket.get("passed")
 
-                        certicom_map.append({
-                        "playlist_id": str(p or ""),
-                        "playlist_name": n,
-                        "revision": it.get("revision"),
-                        "certicom_ids": certicom_ids,
-                        "certicom_results": certicom_results,
-                        "summary": summary,
-                    })
+                        certicom_results.append({
+                            "certicom_id": certicom_id,
+                            "track": tr.get("track"),
+                            "playlist_iteration": tr.get("playlistIteration"),
+                            "state": tr.get("state"),
+                            "build_loading_status": tr.get("buildLoadingStatus"),
+                            "exception": tr.get("exception"),
+                            "build_load_result_status": build_load_result_status,
+                            "build_load_passed": build_load_passed,
+                            "test_result_status": test_bucket.get("result_status") if test_bucket else None,
+                            "test_case_results": test_bucket.get("test_cases") if test_bucket else [],
+                            "result_status": final_result_status,
+                            "passed": final_passed,
+                            "started": tr.get("started"),
+                            "ended": tr.get("ended"),
+                            "run_time": tr.get("runTime"),
+                            "host_name": tr.get("hostName"),
+                            "chipset": resource.get("chipset"),
+                            "resource_id": resource.get("resourceId"),
+                            "resource_type": resource.get("type"),
+                        })
 
-                # Build reverse map: chip_id -> [playlist_name, ...]
-                # so callers can answer "which playlists did chip X run on?"
-                chip_playlist_map: Dict[str, List[str]] = {}
-                for pl_entry in certicom_map:
-                    pl_name = pl_entry.get("playlist_name") or ""
-                    for cid in (pl_entry.get("certicom_ids") or []):
-                        if cid:
-                            chip_playlist_map.setdefault(cid, [])
-                            if pl_name and pl_name not in chip_playlist_map[cid]:
-                                chip_playlist_map[cid].append(pl_name)
+                if not certicom_ids:
+                    for _f in ("certicomIds", "certicom_ids", "deviceSerialNumbers", "chipIdSerialNumbers", "serialNumbers"):
+                        _raw = it.get(_f)
+                        if _raw and isinstance(_raw, list):
+                            certicom_ids = [str(c).strip().upper() for c in _raw if str(c).strip()]
+                            break
 
-                return job_id, names, ids, certicom_map, chip_playlist_map
-                except Exception as exc:
+                summary = {"total": 0, "pass": 0, "fail": 0, "running": 0, "unknown": 0}
+                for cr in certicom_results:
+                    status_name = str(cr.get("result_status") or "UNKNOWN").upper()
+                    summary["total"] += 1
+                    if status_name == "PASS":
+                        summary["pass"] += 1
+                    elif status_name == "FAIL":
+                        summary["fail"] += 1
+                    elif status_name == "RUNNING":
+                        summary["running"] += 1
+                    else:
+                        summary["unknown"] += 1
+
+                certicom_map.append({
+                    "playlist_id": playlist_id,
+                    "playlist_name": n,
+                    "revision": it.get("revision"),
+                    "certicom_ids": certicom_ids,
+                    "certicom_results": certicom_results,
+                    "summary": summary,
+                })
+
+            chip_playlist_map: Dict[str, List[str]] = {}
+            for pl_entry in certicom_map:
+                pl_name = pl_entry.get("playlist_name") or ""
+                for cid in (pl_entry.get("certicom_ids") or []):
+                    if cid:
+                        chip_playlist_map.setdefault(cid, [])
+                        if pl_name and pl_name not in chip_playlist_map[cid]:
+                            chip_playlist_map[cid].append(pl_name)
+
+            return job_id, names, ids, certicom_map, chip_playlist_map
+        except Exception as exc:
             logger.debug("[ENRICH PLAYLIST] job %s failed: %s", job_id, exc)
         return job_id, None, None, None, None
+
 
     enriched = 0
     failed   = 0

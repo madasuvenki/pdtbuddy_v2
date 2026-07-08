@@ -1906,7 +1906,9 @@ cleanup_thread.start()
 # Later cycles: 100 SWPDT + 50 HWPDT (new jobs only, merged).
 # ---------------------------------------------------------------------------
 try:
-    _axiom_enabled = os.environ.get("ENABLE_SWPDT_AXIOM_POLLER", "0").strip().lower() in ("1", "true", "yes", "on")
+    # Axiom job-summary updates are now owned by scripts/update_axiom_job_summary.py
+    # or its standalone .exe. Do not start an app.py background Axiom poller.
+    _axiom_enabled = False
     logger.info(
         "[APP] ENABLE_SWPDT_AXIOM_POLLER=%s  AXIOM_POLL_INTERVAL=%s  AXIOM_CLIENT_ID_SET=%s",
         os.environ.get("ENABLE_SWPDT_AXIOM_POLLER", "(not set)"),
@@ -2044,12 +2046,9 @@ def _hwpdt_scheduler():
             logger.warning("[HWPDT SCHEDULER] Error (non-fatal): %s", _he)
         _time.sleep(3600)  # wait 1 hour
 
-try:
-    _hwpdt_thread = threading.Thread(target=_hwpdt_scheduler, name="hwpdt-scheduler", daemon=True)
-    _hwpdt_thread.start()
-    logger.info("[APP] HWPDT scheduler started (every 1 hour).")
-except Exception as _e:
-    logger.warning("[APP] HWPDT scheduler could not start: %s", _e)
+# HWPDT/Axiom chip/result updates are now owned by scripts/update_axiom_job_summary.py
+# or its standalone .exe. Do not start an app.py background HWPDT scheduler.
+logger.info("[APP] HWPDT scheduler disabled; use update_axiom_job_summary.py/.exe for Axiom updates.")
 
 
 # ---------------------------------------------------------------------------

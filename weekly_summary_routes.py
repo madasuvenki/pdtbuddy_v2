@@ -54,6 +54,8 @@ _CONSOLIDATE_JSON_NET   = r"\\sphere\pdtqipl_internal\PDTBuddy\consolidate"
 _CONSOLIDATE_JSON_LOCAL = str(Path(__file__).parent / "consolidate_snapshots")
 
 _QIPL_MIN_DATE           = date(2026, 5, 18)
+_QIPL_EXE_OUTPUT_DONE_MARKER = 'Please check following files for output/report'
+
 
 
 # Lightweight in-process cache for the Weekly landing Unique CR summary.
@@ -892,7 +894,50 @@ def _qipl_file_date(fname: str):
         return None
 
 
+def _qipl_exe_output_log_ready(csv_path: str) -> tuple[bool, str]:
+    """Return true only after matching QIPL_CR_AGE_Exe_output_*.txt reports completion."""
+    import re
+    try:
+        folder = os.path.dirname(csv_path)
+        csv_name = os.path.basename(csv_path)
+        m = re.search(r'(\d{4}y_\d{2}m_\d{2}d)(?:_(\d{2}h_\d{2}m_\d{2}s))?', csv_name, re.IGNORECASE)
+        if not m or not folder or not os.path.isdir(folder):
+            return False, 'completion_log_lookup_failed'
+
+        date_token = m.group(1).lower()
+        datetime_token = f"{date_token}_{m.group(2).lower()}" if m.group(2) else date_token
+        exact_prefix = f'qipl_cr_age_exe_output_{datetime_token}'
+        date_prefix = f'qipl_cr_age_exe_output_{date_token}'
+
+        exact_matches = []
+        date_matches = []
+        for fname in os.listdir(folder):
+            lower = fname.lower()
+            if not lower.endswith('.txt'):
+                continue
+            path = os.path.join(folder, fname)
+            if lower.startswith(exact_prefix):
+                exact_matches.append(path)
+            elif lower.startswith(date_prefix):
+                date_matches.append(path)
+
+        candidates = exact_matches or date_matches
+        if not candidates:
+            return False, 'completion_log_missing'
+        candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        log_path = candidates[0]
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as fh:
+            if _QIPL_EXE_OUTPUT_DONE_MARKER.casefold() in fh.read().casefold():
+                return True, 'completion_log_ready'
+        return False, f'completion_marker_missing:{os.path.basename(log_path)}'
+    except PermissionError:
+        return False, 'completion_log_locked'
+    except Exception as exc:
+        return False, f'completion_log_error:{exc}'
+
+
 def _list_qipl_source_files() -> list:
+
     """
     List auto-load candidates from the QIPL weekly share.
     Prefer consolidated CR_TAT_Jira CSV; ignore CrInfo/error/blacklist/log files.
@@ -1014,7 +1059,14 @@ def _is_qipl_file_ready(path: str, min_age_seconds: int = 180, settle_seconds: f
         # an exclusive write lock.
         with open(path, 'rb') as fh:
             fh.read(1024)
+
+
+        log_ready, log_reason = _qipl_exe_output_log_ready(path)
+        if not log_ready:
+            return False, log_reason
+
         return True, 'ready'
+
     except PermissionError:
         return False, 'locked'
     except OSError as exc:

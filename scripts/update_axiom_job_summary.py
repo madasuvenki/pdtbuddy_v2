@@ -22,8 +22,8 @@ Usage:
     # Refresh all currently-Running jobs in DB (re-calc hours):
     python scripts/update_axiom_job_summary.py --refresh-running
 
-    # Full update + refresh running (recommended for scheduled runs):
-    python scripts/update_axiom_job_summary.py --full --refresh-running
+    # Full update + refresh running + HWPDT test results (recommended):
+    python scripts/update_axiom_job_summary.py --full --refresh-running --refresh-hwpdt-results
 
     # Run as a continuous poller (every 10 min):
     python scripts/update_axiom_job_summary.py --poll --interval 600
@@ -43,7 +43,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Bootstrap project root + .env
@@ -81,7 +81,13 @@ try:
         SWPDT_CYCLE_JOBS,
         HWPDT_CYCLE_JOBS,
         RETENTION_DAYS,
+        QIPL_SWPDT_TAXONOMY,
         _get_token,
+        _fetch_jobs,
+        _normalise_to_builds,
+        _apply_cached_product_flavors,
+        _backfill_missing_fields_by_rules,
+        _upsert_jobs_to_db,
         _refresh_running_jobs,
         run_cycle,
         _TokenExpired,
@@ -95,6 +101,14 @@ try:
     from src.utils import get_mysql_connection_db
 except ImportError as e:
     sys.exit(f"ERROR: Could not import src.utils: {e}")
+
+try:
+    from scripts.backfill_hwpdt_certicom_playlist import (
+        _fetch_one as _fetch_hwpdt_certicom_one,
+        _update_rows as _update_hwpdt_certicom_rows,
+    )
+except ImportError as e:
+    sys.exit(f"ERROR: Could not import HWPDT result refresher: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +337,55 @@ def run_incremental_update(host: str, token: str, app_name: str,
     return token
 
 
+def run_refresh_qipl_last_days(host: str, token: str, app_name: str,
+                               days: int = 10,
+                               max_jobs: int = 15000) -> str:
+    """Refresh direct /PDT/QIPL Axiom jobs for the last N days into DB."""
+    days = max(1, int(days or 10))
+    max_jobs = max(1, int(max_jobs or 15000))
+    logger.info(
+        "[QIPL REFRESH] Fetching taxonomy=%s for last %d days, max_jobs=%d ...",
+        QIPL_SWPDT_TAXONOMY, days, max_jobs,
+    )
+
+    auth_failures = 0
+    while True:
+        try:
+            raw_jobs = _fetch_jobs(
+                host,
+                token,
+                app_name,
+                QIPL_SWPDT_TAXONOMY,
+                max_jobs,
+                since_days=days,
+            )
+            normalised = _normalise_to_builds(raw_jobs)
+            for jid, build in normalised.items():
+                build['team'] = 'QIPL'
+                build['taxonomy_path'] = QIPL_SWPDT_TAXONOMY
+
+            normalised = _apply_cached_product_flavors(normalised)
+            normalised = _backfill_missing_fields_by_rules(host, token, app_name, normalised)
+            upserted = _upsert_jobs_to_db(normalised)
+            logger.info(
+                "[QIPL REFRESH] Done. fetched=%d normalised=%d db_upserted=%d",
+                len(raw_jobs), len(normalised), upserted,
+            )
+            break
+        except _TokenExpired:
+            auth_failures += 1
+            if auth_failures >= AUTH_RETRY_LIMIT:
+                raise RuntimeError(f"Token kept expiring after {auth_failures} refresh attempts")
+            logger.info(
+                "[QIPL REFRESH] 401 - refreshing token (attempt %d/%d) ...",
+                auth_failures, AUTH_RETRY_LIMIT,
+            )
+            client_id = os.environ.get("AXIOM_CLIENT_ID", "").strip()
+            client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
+            token = _get_token_with_retry(host, client_id, client_secret)
+    return token
+
+
 def run_refresh_running(host: str, token: str, app_name: str) -> str:
     """Refresh all currently-Running jobs in DB (re-calculates live hours)."""
     logger.info("[REFRESH RUNNING] Refreshing all open/running jobs ...")
@@ -341,6 +404,78 @@ def run_refresh_running(host: str, token: str, app_name: str) -> str:
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "").strip()
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
             token = _get_token_with_retry(host, client_id, client_secret)
+    return token
+
+
+def _load_hwpdt_jobs_for_result_refresh(limit: Optional[int] = None,
+                                        running_only: bool = True) -> List[Dict[str, str]]:
+    """Load HWPDT jobs whose certicom/test-case result JSON should be refreshed."""
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        raise RuntimeError("DB connection failed — cannot load HWPDT jobs")
+    cur = conn.cursor(dictionary=True)
+    try:
+        where = "team='HWPDT' AND job_id IS NOT NULL AND TRIM(job_id) <> ''"
+        if running_only:
+            where += " AND state IN ('Running', 'JobSetup') AND is_closed = 0"
+        sql = f"""
+            SELECT job_id, software_product, build_name, state, updated_at
+            FROM pdt_stats_dashboard.axiom_job_summary
+            WHERE {where}
+            ORDER BY
+                CASE WHEN state IN ('Running', 'JobSetup') THEN 0 ELSE 1 END,
+                updated_at DESC
+        """
+        params: Tuple[int, ...] = ()
+        if limit:
+            sql += " LIMIT %s"
+            params = (int(limit),)
+        cur.execute(sql, params)
+        return cur.fetchall() or []
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
+                              limit: Optional[int] = None,
+                              running_only: bool = True,
+                              workers: int = 10) -> str:
+    """Refresh HWPDT certicom_playlist with actual /results test-case status.
+
+    This is important for the standalone updater/exe flow because Running HWPDT
+    jobs can receive new test results after the job summary row already exists.
+    It updates the existing axiom_job_summary.certicom_playlist JSON only.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    jobs = _load_hwpdt_jobs_for_result_refresh(limit=limit, running_only=running_only)
+    logger.info("[HWPDT RESULTS] Refreshing %d HWPDT jobs (running_only=%s, limit=%s) ...",
+                len(jobs), running_only, limit or "none")
+    if not jobs:
+        return token
+
+    results = []
+    failed = 0
+    with ThreadPoolExecutor(max_workers=max(1, int(workers or 1))) as pool:
+        futures = {
+            pool.submit(_fetch_hwpdt_certicom_one, host, app_name, token, str(j["job_id"])): j
+            for j in jobs
+        }
+        for idx, fut in enumerate(as_completed(futures), 1):
+            row = fut.result()
+            results.append(row)
+            if row[4]:
+                failed += 1
+                logger.warning("[HWPDT RESULTS] job_id=%s failed: %s", row[0], row[4])
+            if idx % 50 == 0:
+                logger.info("[HWPDT RESULTS] progress %d/%d fetched, failed=%d", idx, len(jobs), failed)
+
+    updated = _update_hwpdt_certicom_rows(results)
+    logger.info("[HWPDT RESULTS] Done — fetched=%d updated=%d failed=%d", len(results), updated, failed)
     return token
 
 
@@ -378,6 +513,7 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
             else:
                 token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10)
                 token = run_refresh_running(host, token, app_name)
+                token = run_refresh_hwpdt_results(host, token, app_name, running_only=True)
 
         except Exception as exc:
             logger.error("[POLLER] cycle=%d ERROR: %s", cycle, exc, exc_info=True)
@@ -415,8 +551,17 @@ Examples:
   # Refresh all Running jobs (re-calc live hours):
   python scripts/update_axiom_job_summary.py --refresh-running
 
-  # Full backfill + refresh running (recommended for scheduled/cron):
-  python scripts/update_axiom_job_summary.py --full --refresh-running
+  # Full backfill + refresh running + HWPDT /results merge (recommended for scheduled/exe):
+  python scripts/update_axiom_job_summary.py --full --refresh-running --refresh-hwpdt-results
+
+  # Refresh direct /PDT/QIPL data for last 10 days:
+  python scripts/update_axiom_job_summary.py --refresh-qipl-last-days
+
+  # Refresh direct /PDT/QIPL data for a custom day window:
+  python scripts/update_axiom_job_summary.py --refresh-qipl-last-days --qipl-days 10 --qipl-max-jobs 15000
+
+  # Refresh all Running HWPDT /results only:
+  python scripts/update_axiom_job_summary.py --refresh-hwpdt-results
 
   # Continuous poller every 10 min:
   python scripts/update_axiom_job_summary.py --poll --interval 600
@@ -433,6 +578,20 @@ Examples:
                         help="Minutes window for --incremental (default: 60)")
     parser.add_argument("--refresh-running", action="store_true",
                         help="Refresh all currently-Running jobs in DB (re-calc hours)")
+    parser.add_argument("--refresh-qipl-last-days", action="store_true",
+                        help="Refresh direct /PDT/QIPL Axiom jobs for the last N days into DB")
+    parser.add_argument("--qipl-days", type=int, default=10,
+                        help="Day window for --refresh-qipl-last-days (default: 10)")
+    parser.add_argument("--qipl-max-jobs", type=int, default=15000,
+                        help="Maximum /PDT/QIPL jobs to fetch for --refresh-qipl-last-days (default: 15000)")
+    parser.add_argument("--refresh-hwpdt-results", action="store_true",
+                        help="Refresh HWPDT certicom_playlist using /jobs/{id}/results actual test-case status")
+    parser.add_argument("--hwpdt-results-all", action="store_true",
+                        help="With --refresh-hwpdt-results, refresh all HWPDT jobs instead of only Running/JobSetup")
+    parser.add_argument("--hwpdt-results-limit", type=int, default=0,
+                        help="Optional max HWPDT jobs for --refresh-hwpdt-results")
+    parser.add_argument("--hwpdt-results-workers", type=int, default=10,
+                        help="Worker threads for --refresh-hwpdt-results (default: 10)")
     parser.add_argument("--poll",           action="store_true",
                         help="Run as continuous poller (first=full, then incremental)")
     parser.add_argument("--interval",       type=int, default=600,
@@ -443,6 +602,10 @@ Examples:
     parser.add_argument("--client-secret",  default=os.environ.get("AXIOM_CLIENT_SECRET", ""))
 
     args = parser.parse_args()
+
+    if len(sys.argv) == 1:
+        args.poll = True
+        logger.info("No arguments supplied; defaulting to --poll --interval %s", args.interval)
 
     # ── Status only ────────────────────────────────────────────────────────
     if args.status:
@@ -455,10 +618,10 @@ Examples:
         return
 
     # ── Validate credentials for any fetch operation ───────────────────────
-    if not (args.full or args.incremental or args.refresh_running or args.poll):
+    if not (args.full or args.incremental or args.refresh_running or args.refresh_qipl_last_days or args.refresh_hwpdt_results or args.poll):
         parser.print_help()
         print("\nNo action specified. Use --status, --full, --incremental, "
-              "--refresh-running, or --poll.")
+              "--refresh-running, --refresh-qipl-last-days, --refresh-hwpdt-results, or --poll.")
         sys.exit(0)
 
     client_id     = args.client_id.strip()
@@ -507,6 +670,25 @@ Examples:
 
         if args.refresh_running:
             token = run_refresh_running(host, token, app_name)
+
+        if args.refresh_qipl_last_days:
+            token = run_refresh_qipl_last_days(
+                host,
+                token,
+                app_name,
+                days=args.qipl_days,
+                max_jobs=args.qipl_max_jobs,
+            )
+
+        if args.refresh_hwpdt_results:
+            token = run_refresh_hwpdt_results(
+                host,
+                token,
+                app_name,
+                limit=args.hwpdt_results_limit or None,
+                running_only=not args.hwpdt_results_all,
+                workers=args.hwpdt_results_workers,
+            )
 
     except Exception as exc:
         logger.error("Update failed: %s", exc, exc_info=True)

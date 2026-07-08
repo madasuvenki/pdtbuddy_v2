@@ -69,6 +69,7 @@ def _get_token(host: str, client_id: str, client_secret: str) -> str:
 
 
 def _track_result(state, build_loading_status, exception) -> Tuple[str, Optional[bool]]:
+    """Build-load/playlist status only; actual UI test result comes from /results."""
     st = str(state or "").strip().lower()
     bl = str(build_loading_status or "").strip().lower()
     ex = str(exception or "").strip().lower()
@@ -81,10 +82,71 @@ def _track_result(state, build_loading_status, exception) -> Tuple[str, Optional
     return "UNKNOWN", None
 
 
-def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]]:
+def _normalize_test_result(raw) -> Tuple[str, Optional[bool]]:
+    """Actual Axiom UI result from /jobs/{job_id}/results testCaseTestResult."""
+    r = str(raw or "").strip().lower()
+    if r in ("passed", "pass", "success", "succeeded"):
+        return "PASS", True
+    if r in ("failed", "fail", "failure", "error", "errored"):
+        return "FAIL", False
+    if r in ("running", "inprogress", "in_progress", "queued", "scheduled"):
+        return "RUNNING", None
+    return "UNKNOWN", None
+
+
+def _build_test_result_index(results_payload: dict) -> Dict[tuple, dict]:
+    """Group /results rows by playlist + chip + track + iteration."""
+    index: Dict[tuple, dict] = {}
+    for row in (results_payload or {}).get("data") or []:
+        if not isinstance(row, dict):
+            continue
+        resource = row.get("playlistTestResource") or {}
+        certicom_id = str(
+            (resource.get("name") if isinstance(resource, dict) else "")
+            or row.get("testCaseTestResourceName")
+            or ""
+        ).strip().upper()
+        key = (
+            str(row.get("playlistId") or "").strip(),
+            certicom_id,
+            row.get("playlistTrack"),
+            row.get("playlistIteration"),
+        )
+        status, passed = _normalize_test_result(row.get("testCaseTestResult"))
+        bucket = index.setdefault(key, {"statuses": [], "test_cases": []})
+        bucket["statuses"].append(status)
+        bucket["test_cases"].append({
+            "test_case_name": row.get("testCaseName"),
+            "test_case_id": row.get("testCaseId"),
+            "test_case_revision": row.get("testCaseRevision"),
+            "test_case_result": row.get("testCaseTestResult"),
+            "result_status": status,
+            "passed": passed,
+            "started": row.get("testCaseStarted"),
+            "ended": row.get("testCaseEnded"),
+            "run_time": row.get("testCaseRunTime"),
+            "notes": row.get("testCaseNotes"),
+            "log_path": row.get("testCaseLogPath"),
+        })
+
+    for bucket in index.values():
+        statuses = bucket.get("statuses") or []
+        if any(s == "FAIL" for s in statuses):
+            bucket["result_status"], bucket["passed"] = "FAIL", False
+        elif any(s == "RUNNING" for s in statuses):
+            bucket["result_status"], bucket["passed"] = "RUNNING", None
+        elif statuses and all(s == "PASS" for s in statuses):
+            bucket["result_status"], bucket["passed"] = "PASS", True
+        else:
+            bucket["result_status"], bucket["passed"] = "UNKNOWN", None
+    return index
+
+
+def _parse_playlist_payload(job_id: str, payload: dict, results_payload: Optional[dict] = None) -> Tuple[str, List[dict]]:
     items = payload.get("data") or []
     playlist_names: List[str] = []
     certicom_playlist: List[dict] = []
+    test_result_index = _build_test_result_index(results_payload or {})
 
     for item in items:
         if not isinstance(item, dict):
@@ -110,16 +172,15 @@ def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]
                 if certicom_id and certicom_id not in certicom_ids:
                     certicom_ids.append(certicom_id)
 
-                result_status, passed = _track_result(tr.get("state"), tr.get("buildLoadingStatus"), tr.get("exception"))
-                summary["total"] += 1
-                if result_status == "PASS":
-                    summary["pass"] += 1
-                elif result_status == "FAIL":
-                    summary["fail"] += 1
-                elif result_status == "RUNNING":
-                    summary["running"] += 1
-                else:
-                    summary["unknown"] += 1
+                build_load_result_status, build_load_passed = _track_result(
+                    tr.get("state"), tr.get("buildLoadingStatus"), tr.get("exception")
+                )
+                result_status, passed = build_load_result_status, build_load_passed
+                test_key = (playlist_id, certicom_id, tr.get("track"), tr.get("playlistIteration"))
+                test_bucket = test_result_index.get(test_key)
+                if test_bucket:
+                    result_status = test_bucket.get("result_status") or result_status
+                    passed = test_bucket.get("passed")
 
                 certicom_results.append({
                     "certicom_id": certicom_id,
@@ -128,6 +189,10 @@ def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]
                     "state": tr.get("state"),
                     "build_loading_status": tr.get("buildLoadingStatus"),
                     "exception": tr.get("exception"),
+                    "build_load_result_status": build_load_result_status,
+                    "build_load_passed": build_load_passed,
+                    "test_result_status": test_bucket.get("result_status") if test_bucket else None,
+                    "test_case_results": test_bucket.get("test_cases") if test_bucket else [],
                     "result_status": result_status,
                     "passed": passed,
                     "started": tr.get("started"),
@@ -145,6 +210,20 @@ def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]
                 if raw and isinstance(raw, list):
                     certicom_ids = [str(c).strip().upper() for c in raw if str(c).strip()]
                     break
+
+        # Recompute summary from final result_status after merging /results.
+        summary = {"total": 0, "pass": 0, "fail": 0, "running": 0, "unknown": 0}
+        for cr in certicom_results:
+            status = str(cr.get("result_status") or "UNKNOWN").upper()
+            summary["total"] += 1
+            if status == "PASS":
+                summary["pass"] += 1
+            elif status == "FAIL":
+                summary["fail"] += 1
+            elif status == "RUNNING":
+                summary["running"] += 1
+            else:
+                summary["unknown"] += 1
 
         certicom_playlist.append({
             "playlist_id": playlist_id,
@@ -175,8 +254,7 @@ def _parse_playlist_payload(job_id: str, payload: dict) -> Tuple[str, List[dict]
     return ", ".join(playlist_names) if playlist_names else None, certicom_playlist, chip_playlist_map
 
 
-def _fetch_one(host: str, app_name: str, token: str, job_id: str) -> Tuple[str, Optional[str], Optional[List[dict]], Optional[str]]:
-    path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
+def _get_json(host: str, app_name: str, token: str, path: str) -> Tuple[int, str]:
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -190,21 +268,44 @@ def _fetch_one(host: str, app_name: str, token: str, job_id: str) -> Tuple[str, 
         conn.request("GET", path, body="", headers=headers)
         resp = conn.getresponse()
         body = resp.read().decode("utf-8", errors="ignore")
+        return resp.status, body
     finally:
         conn.close()
-    if resp.status != 200:
-        return job_id, None, None, None, f"HTTP {resp.status}: {body[:200]}"
+
+
+def _fetch_one(host: str, app_name: str, token: str, job_id: str) -> Tuple[str, Optional[str], Optional[List[dict]], Optional[str]]:
+    playlist_path = f"/axiom/v1/public/jobs/{job_id}/data/playlists?pageNumber=0&pageSize=100"
+    results_path = f"/axiom/v1/public/jobs/{job_id}/results?pageNumber=0&pageSize=500"
+
+    status, body = _get_json(host, app_name, token, playlist_path)
+    if status != 200:
+        return job_id, None, None, None, f"playlist HTTP {status}: {body[:200]}"
+
+    # /results carries actual UI test result. If unavailable, fall back to build-load status.
+    result_status, result_body = _get_json(host, app_name, token, results_path)
+    results_payload = {}
+    if result_status == 200:
+        results_payload = json.loads(result_body)
+    else:
+        LOG.warning("job_id=%s /results unavailable HTTP %s; falling back to /data/playlists result", job_id, result_status)
+
     try:
-        playlist_name, certicom_playlist, chip_playlist_map = _parse_playlist_payload(job_id, json.loads(body))
+        playlist_name, certicom_playlist, chip_playlist_map = _parse_playlist_payload(
+            job_id, json.loads(body), results_payload
+        )
         return job_id, playlist_name, certicom_playlist, chip_playlist_map, None
     except Exception as exc:
         return job_id, None, None, None, f"parse failed: {exc}"
 
 
-def _load_jobs(limit: Optional[int], only_missing: bool) -> List[Dict[str, str]]:
+def _load_jobs(limit: Optional[int], only_missing: bool, job_id: Optional[str] = None) -> List[Dict[str, str]]:
     conn = get_mysql_connection_db(bu_key=None)
     cur = conn.cursor(dictionary=True)
     where = "team='HWPDT' AND job_id IS NOT NULL AND TRIM(job_id) <> ''"
+    params: List[str] = []
+    if job_id:
+        where += " AND job_id = %s"
+        params.append(str(job_id).strip())
     if only_missing:
         where += " AND (certicom_playlist IS NULL OR JSON_LENGTH(certicom_playlist) = 0 OR JSON_EXTRACT(certicom_playlist, '$[0].certicom_results') IS NULL)"
     sql = f"""
@@ -215,9 +316,8 @@ def _load_jobs(limit: Optional[int], only_missing: bool) -> List[Dict[str, str]]
     """
     if limit:
         sql += " LIMIT %s"
-        cur.execute(sql, (int(limit),))
-    else:
-        cur.execute(sql)
+        params.append(int(limit))
+    cur.execute(sql, tuple(params))
     rows = cur.fetchall() or []
     cur.close(); conn.close()
     return rows
@@ -258,6 +358,7 @@ def main() -> int:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--app-name", default=DEFAULT_APP_NAME)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--job-id", default=None, help="Backfill one specific Axiom job_id")
     parser.add_argument("--workers", type=int, default=20)
     parser.add_argument("--only-missing", action="store_true", help="Only update rows missing detailed certicom_results")
     args = parser.parse_args()
@@ -267,7 +368,7 @@ def main() -> int:
     if not client_id or not client_secret:
         raise SystemExit("AXIOM_CLIENT_ID / AXIOM_CLIENT_SECRET missing")
 
-    jobs = _load_jobs(args.limit or None, args.only_missing)
+    jobs = _load_jobs(args.limit or None, args.only_missing, args.job_id)
     LOG.info("Loaded %d HWPDT jobs for certicom_playlist backfill", len(jobs))
     if not jobs:
         return 0
