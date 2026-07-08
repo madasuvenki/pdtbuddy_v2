@@ -22,8 +22,67 @@ _LOCAL_EXCLUSIONS_FILE = os.path.join(_LOCAL_ROOT, "live_status_view_exclusions.
 # Path: \\sphere\pdtqipl_internal\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
 # Nord_HQX -> folder Nord_HQX, Nord_HGY -> folder Nord_HGY
 # ---------------------------------------------------------------------------
-_ADAS_MTBF_VIEWS = ["ADAS", "IVI", "FLEX"]
+_ADAS_MTBF_VIEWS_DEFAULT = ["ADAS", "IVI", "FLEX"]
+_ADAS_MTBF_VIEWS = _ADAS_MTBF_VIEWS_DEFAULT  # kept for legacy compat
 _ADAS_MTBF_HEADERS = ["S.No", "Date", "Meta-ID", "Hours", "System Crashes", "SSR Crashes", "Process Crashes", "Total Crashes", "MTBF"]
+
+
+def _domains_config_path(target_name: str) -> str:
+    """Path to per-target custom domains JSON (stored alongside MTBF JSONs)."""
+    folder = _adas_mtbf_folder(target_name)
+    return os.path.join(folder, "mtbf_domains.json")
+
+
+def _get_target_domains(target_name: str) -> List[str]:
+    """Return ordered domain list for target. Always starts with ADAS/IVI/FLEX,
+    then any custom domains added by the user."""
+    path = _domains_config_path(target_name)
+    custom: List[str] = []
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            custom = [str(d).strip().upper() for d in (data.get("domains") or []) if str(d).strip()]
+        except Exception:
+            pass
+    # Merge: default first, then any custom not already in default
+    merged = list(_ADAS_MTBF_VIEWS_DEFAULT)
+    for d in custom:
+        if d not in merged:
+            merged.append(d)
+    return merged
+
+
+def _add_target_domain(target_name: str, new_domain: str) -> List[str]:
+    """Add a new custom domain for target. Returns updated domain list."""
+    new_domain = str(new_domain or "").strip().upper()
+    if not new_domain or len(new_domain) > 20:
+        raise ValueError("Domain name must be 1-20 characters.")
+    # Only allow alphanumeric + underscore/hyphen
+    if not re.match(r'^[A-Z0-9_\-]+$', new_domain):
+        raise ValueError("Domain name may only contain letters, digits, _ or -.")
+    current = _get_target_domains(target_name)
+    if new_domain in current:
+        return current  # already exists
+    path = _domains_config_path(target_name)
+    # Load existing custom list
+    custom: List[str] = []
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            custom = [str(d).strip().upper() for d in (data.get("domains") or []) if str(d).strip()]
+        except Exception:
+            pass
+    if new_domain not in custom:
+        custom.append(new_domain)
+    payload = {"target": target_name, "domains": custom, "updated_at": datetime.utcnow().isoformat() + "Z"}
+    tmp = path + ".tmp"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    os.replace(tmp, path)
+    return _get_target_domains(target_name)
 
 
 def _adas_mtbf_folder(target_name: str) -> str:
@@ -45,8 +104,9 @@ def _adas_mtbf_folder(target_name: str) -> str:
 
 def _adas_mtbf_json_path(target_name: str, view: str) -> str:
     view_clean = str(view or "ADAS").strip().upper()
-    if view_clean not in _ADAS_MTBF_VIEWS:
-        view_clean = _ADAS_MTBF_VIEWS[0]
+    allowed = _get_target_domains(target_name)
+    if view_clean not in allowed:
+        view_clean = allowed[0]
     folder = _adas_mtbf_folder(target_name)
     return os.path.join(folder, f"mtbf_{view_clean.lower()}.json")
 
@@ -81,8 +141,9 @@ def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     view_clean = str(view or "ADAS").strip().upper()
-    if view_clean not in _ADAS_MTBF_VIEWS:
-        view_clean = _ADAS_MTBF_VIEWS[0]
+    allowed = _get_target_domains(target_name)
+    if view_clean not in allowed:
+        view_clean = allowed[0]
     data = dict(payload) if isinstance(payload, dict) else {}
     data["target"] = target_name
     data["view"] = view_clean
@@ -749,10 +810,11 @@ def api_live_status_view_meta_rows(target_name: str):
 @live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/adas_mtbf", methods=["GET"])
 @login_required
 def api_adas_mtbf_get(target_name: str):
-    """GET ADAS MTBF rows for a target + view (ADAS/IVI/FLEX)."""
+    """GET ADAS MTBF rows for a target + view (ADAS/IVI/FLEX/custom)."""
+    allowed = _get_target_domains(target_name)
     view = (request.args.get("view") or "ADAS").strip().upper()
-    if view not in _ADAS_MTBF_VIEWS:
-        view = _ADAS_MTBF_VIEWS[0]
+    if view not in allowed:
+        view = allowed[0]
     crash_types_raw = (request.args.get("crash_types") or "system,ssr,process").strip()
     crash_types = [c.strip().lower() for c in crash_types_raw.split(",") if c.strip()]
     if not crash_types:
@@ -765,8 +827,8 @@ def api_adas_mtbf_get(target_name: str):
         return jsonify({
             "ok": True,
             "target": target_name,
-            "view": view,
-            "views": _ADAS_MTBF_VIEWS,
+                        "view": view,
+            "views": allowed,
             "rows": rows,
             "chart_data": chart_data,
             "updated_at": data.get("updated_at") or "",
@@ -780,9 +842,10 @@ def api_adas_mtbf_get(target_name: str):
 def api_adas_mtbf_add(target_name: str):
     """Add a new ADAS MTBF row."""
     payload = request.get_json(force=True, silent=True) or {}
+    allowed = _get_target_domains(target_name)
     view = str(payload.get("view") or "ADAS").strip().upper()
-    if view not in _ADAS_MTBF_VIEWS:
-        view = _ADAS_MTBF_VIEWS[0]
+    if view not in allowed:
+        view = allowed[0]
     meta_id = str(payload.get("meta_id") or "").strip()
     if not meta_id:
         return jsonify({"ok": False, "error": "Meta-ID is required."}), 400
@@ -811,9 +874,10 @@ def api_adas_mtbf_add(target_name: str):
 def api_adas_mtbf_edit(target_name: str):
     """Edit an existing ADAS MTBF row by id."""
     payload = request.get_json(force=True, silent=True) or {}
+    allowed = _get_target_domains(target_name)
     view = str(payload.get("view") or "ADAS").strip().upper()
-    if view not in _ADAS_MTBF_VIEWS:
-        view = _ADAS_MTBF_VIEWS[0]
+    if view not in allowed:
+        view = allowed[0]
     row_id = str(payload.get("id") or "").strip()
     if not row_id:
         return jsonify({"ok": False, "error": "Row id is required for edit."}), 400
@@ -845,7 +909,10 @@ def api_adas_mtbf_edit(target_name: str):
 def api_adas_mtbf_delete(target_name: str):
     """Delete an ADAS MTBF row by id."""
     payload = request.get_json(force=True, silent=True) or {}
+    allowed = _get_target_domains(target_name)
     view = str(payload.get("view") or "ADAS").strip().upper()
+    if view not in allowed:
+        view = allowed[0]
     row_id = str(payload.get("id") or "").strip()
     if not row_id:
         return jsonify({"ok": False, "error": "Row id is required."}), 400
@@ -876,9 +943,10 @@ def api_adas_mtbf_delete(target_name: str):
 def api_adas_mtbf_chart(target_name: str):
     """Return chart data for selected crash types and filter (last5/last10/all)."""
     payload = request.get_json(force=True, silent=True) or {}
+    allowed = _get_target_domains(target_name)
     view = str(payload.get("view") or "ADAS").strip().upper()
-    if view not in _ADAS_MTBF_VIEWS:
-        view = _ADAS_MTBF_VIEWS[0]
+    if view not in allowed:
+        view = allowed[0]
     crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
     n_filter = int(payload.get("n_filter") or 0)  # 0=all, 5=last5, 10=last10
     try:
@@ -888,6 +956,33 @@ def api_adas_mtbf_chart(target_name: str):
             rows = rows[-n_filter:]
         chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({"ok": True, "chart_data": chart_data, "rows": rows})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/adas_mtbf/domains", methods=["GET"])
+@login_required
+def api_adas_mtbf_domains_get(target_name: str):
+    """GET all domains (default + custom) for a target."""
+    try:
+        domains = _get_target_domains(target_name)
+        return jsonify({"ok": True, "target": target_name, "domains": domains})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/adas_mtbf/domains/add", methods=["POST"])
+@login_required
+def api_adas_mtbf_domains_add(target_name: str):
+    """Add a new custom domain for a target."""
+    payload = request.get_json(force=True, silent=True) or {}
+    domain = str(payload.get("domain") or "").strip().upper()
+    try:
+        domains = _add_target_domain(target_name, domain)
+        return jsonify({"ok": True, "target": target_name, "domain": domain, "domains": domains,
+                        "message": f"Domain '{domain}' added."})
+    except ValueError as ve:
+        return jsonify({"ok": False, "error": str(ve)}), 400
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 

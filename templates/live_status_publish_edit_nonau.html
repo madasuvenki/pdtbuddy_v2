@@ -401,13 +401,13 @@
       <div class="card-head">
         <h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2>
                 <div class="mini-toolbar">
-          
+          <select id="mtbfShowN" onchange="renderMtbfTrend()" style="height:30px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit;font-size:12px;font-weight:700"><option value="5">Last 5</option><option value="10" selected>Last 10</option><option value="20">Last 20</option><option value="0">All</option></select>
           <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
           <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
           {% if can_edit %}
-          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px;font-weight:900" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 13px;font-weight:900" onclick="mtbfOpenAddBuild()"><i class="fas fa-plus"></i> Add Build</button>
           {% endif %}
-          <button class="btn" onclick="adasLoadData(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          <button class="btn" onclick="loadMtbfData(true)"><i class="fas fa-rotate"></i> Refresh</button>
           <button class="btn" onclick="copyMtbfChart()" title="Copy chart as image"><i class="fas fa-image"></i> Copy Chart</button>
         </div>
       </div>
@@ -2254,7 +2254,7 @@ window.LSP_DATA = {
 }());
 </script>
 
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260630_cfg_persist"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260707_crash_filter"></script>
 <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
@@ -2993,9 +2993,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       if(/^https?:\/\//i.test(href)) a.setAttribute('href',href);
       a.setAttribute('style', a.style.borderRadius ? S.chip : S.link);
     });
-    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body>
-
-</html>';
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body></html>';
     var plain=(clone.innerText||clone.textContent||'').trim();
     function fallback(){
       try{
@@ -3799,13 +3797,13 @@ if(!window.ojClear)  window.ojClear  = function(){};
   };
 
   /* ---- Set domain from nav tab buttons ---- */
-
+  window.lspNavSetDomain = function(domain){
     _lspNavDomain = window._lspNavDomain = domain;
     _lspSoloMeta  = null;
     ['ADAS','FLEX','IVI'].forEach(function(d){
       var btn = document.getElementById('lspNavDom_'+d);
       if(!btn) return;
-
+      btn.className = 'lsp-nav-dombtn' + (d===domain?' dom-'+d:'');
     });
     // Sync legacy applyCurrentDomainFilter
     if(typeof window.applyCurrentDomainFilter === 'function') window.applyCurrentDomainFilter(domain);
@@ -4086,6 +4084,116 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(fi&&fi.value.trim()&&window.LSP_DATA) window.LSP_DATA.jira_filter_id=fi.value.trim();
     lspCloseCfg();
   };
+  /* ---- Functions required by nonau MTBF modal/table (from edit.html) ---- */
+
+  window.adasModalSetDomain = function(domain){
+    _styleModalDomBtns(domain);
+    // store on hidden field so save knows which domain
+    var hid = document.getElementById('adasModalRowId');
+    if(hid) hid.dataset.domain = domain;
+  };
+
+  window.adasFilterTable = function(){ _adasRenderTable(_adasRows, _adasCrashTypes); };
+
+  window.adasCopyTable = function(){
+    var rows = _adasTableRows.length ? _adasTableRows : _adasRows;
+    if(!rows.length){ alert('No rows to copy.'); return; }
+    var headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+    var lines = [headers.join('\t')];
+    rows.forEach(function(r){
+      lines.push([r.s_no,r.date,r.meta_id,r.hours,r.system_crashes,r.ssr_crashes,r.process_crashes,r.total_crashes,r.mtbf]
+        .map(function(v){ return v==null||v===''?'':String(v); }).join('\t'));
+    });
+    navigator.clipboard.writeText(lines.join('\n'))
+      .then(function(){ var m=document.getElementById('adasMsg'); if(m){m.textContent='Copied!';m.style.color='#059669';setTimeout(function(){m.textContent='';},2000);} })
+      .catch(function(){ alert('Copy failed.'); });
+  };
+
+  window.adasCloseModal = function(){
+    document.getElementById('adasModal').style.display = 'none';
+  };
+
+  window.adasAutoMtbf = function(){
+    var sys  = Number(document.getElementById('adasModalSystem').value  || 0);
+    var ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
+    var proc = Number(document.getElementById('adasModalProcess').value || 0);
+    var autoTotal = sys + ssr + proc;
+    var totalEl = document.getElementById('adasModalTotal');
+    if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
+    var hours = Number(document.getElementById('adasModalHours').value || 0);
+    var totalCrashes = Number((totalEl&&totalEl.value) || autoTotal);
+    var mtbfEl = document.getElementById('adasModalMtbf');
+    if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && totalCrashes > 0)
+      mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
+  };
+
+  window.adasSaveModal = async function(){
+    var hidEl  = document.getElementById('adasModalRowId');
+    var rowId  = hidEl ? hidEl.value.trim() : '';
+    var domain = (hidEl && hidEl.dataset.domain) ? hidEl.dataset.domain : _adasView;
+    var metaId = (document.getElementById('adasModalMetaId')||{}).value||'';
+    metaId = metaId.trim();
+    var msg = document.getElementById('adasModalMsg');
+    if(!metaId){ if(msg){msg.textContent='Meta-ID is required.';msg.style.color='#dc2626';} return; }
+    var payload = {
+      id:              rowId || undefined,
+      view:            domain,
+      meta_id:         metaId,
+      date:            (document.getElementById('adasModalDate')||{}).value    || '',
+      hours:           (document.getElementById('adasModalHours')||{}).value   || '',
+      system_crashes:  (document.getElementById('adasModalSystem')||{}).value  || '',
+      ssr_crashes:     (document.getElementById('adasModalSsr')||{}).value     || '',
+      process_crashes: (document.getElementById('adasModalProcess')||{}).value || '',
+      total_crashes:   (document.getElementById('adasModalTotal')||{}).value   || '',
+      mtbf:            (document.getElementById('adasModalMtbf')||{}).value    || '',
+    };
+    var btn = document.getElementById('adasModalSaveBtn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...'; }
+    try{
+      var endpoint = rowId ? (ADAS_API_BASE+'/edit') : (ADAS_API_BASE+'/add');
+      var res  = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      var data = await res.json();
+      if(!data.ok) throw new Error(data.error||'Save failed');
+      // If domain changed, switch view to show the saved row
+      if(domain !== _adasView){ _adasView = domain; _styleToolbarDomBtns(); }
+      _adasRows = data.rows || [];
+      _adasCrashTypes = _adasGetCrashTypes();
+      _adasRenderAll();
+      adasCloseModal();
+      var adasMsg = document.getElementById('adasMsg');
+      if(adasMsg){ adasMsg.textContent=(data.message||'Saved!'); adasMsg.style.color='#059669'; setTimeout(function(){adasMsg.textContent='';},3000); }
+    }catch(err){
+      if(msg){ msg.textContent=err.message||'Save failed.'; msg.style.color='#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save'; }
+    }
+  };
+
+  window.copyMtbfChart = function(){
+    var canvas = document.getElementById('mtbfCanvas');
+    var msg    = document.getElementById('adasMsg');
+    var showMsg = function(txt, color){
+      if(msg){ msg.textContent=txt; msg.style.color=color||'#059669';
+               setTimeout(function(){msg.textContent='';},3000); }
+    };
+    if(!canvas){ showMsg('No chart to copy.','#dc2626'); return; }
+
+    // Method 1: Modern Clipboard API (HTTPS + localhost)
+    if(navigator.clipboard && typeof ClipboardItem !== 'undefined'){
+      canvas.toBlob(function(blob){
+        if(!blob){ showMsg('Chart not ready.','#dc2626'); return; }
+        try{
+          navigator.clipboard.write([new ClipboardItem({'image/png': blob})])
+            .then(function(){ showMsg('\u2713 Chart copied to clipboard!'); })
+            .catch(function(){ _mtbfOpenInTab(canvas, showMsg); });
+        }catch(e){ _mtbfOpenInTab(canvas, showMsg); }
+      }, 'image/png');
+      return;
+    }
+    // Method 2: HTTP - open in new tab so user can right-click copy
+    _mtbfOpenInTab(canvas, showMsg);
+  };
+
 </script>
 
 

@@ -489,18 +489,18 @@
       <div class="card-head">
         <h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2>
                 <div class="mini-toolbar">
-          {% if is_auto_bu %}
           <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">Domain</span>
-          <button id="adasDomBtn_ADAS" class="adas-dom-btn active" onclick="adasSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
-          <button id="adasDomBtn_FLEX" class="adas-dom-btn" onclick="adasSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
-          <button id="adasDomBtn_IVI"  class="adas-dom-btn" onclick="adasSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          <span id="mtbfDomainBtnBar" style="display:inline-flex;gap:4px;align-items:center">
+            <button id="adasDomBtn_ADAS" class="adas-dom-btn active" onclick="adasSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
+            <button id="adasDomBtn_FLEX" class="adas-dom-btn" onclick="adasSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
+            <button id="adasDomBtn_IVI"  class="adas-dom-btn" onclick="adasSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          </span>
+          {% if can_edit %}<button id="mtbfAddDomainBtn" onclick="mtbfOpenAddDomainModal()" title="Add custom domain" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px dashed #a5b4fc;background:#eef2ff;color:#6366f1;font-size:14px;font-weight:900;cursor:pointer;padding:0;margin-left:2px">+</button>{% endif %}
           <span style="width:1px;height:20px;background:#e2e8f0"></span>
           <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
           <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
+          <button class="adas-flt-btn" data-n="20" onclick="adasSetFilter(20,this)">Last 20</button>
           <button class="adas-flt-btn" data-n="0" onclick="adasSetFilter(0,this)">All</button>
-          {% else %}
-          <select id="mtbfShowN" onchange="renderMtbfTrend()"><option value="5">Last 5</option><option value="10" selected>Last 10</option><option value="20">Last 20</option><option value="0">All</option></select>
-          {% endif %}
           <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
           <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
                     {% if can_edit %}
@@ -1010,7 +1010,8 @@
       function esc(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
 
       /* ── auto-load on tab click ──────────────────────────────────── */
-      document.addEventListener('DOMContentLoaded', function(){
+    
+  document.addEventListener('DOMContentLoaded', function(){
         var tabBtn = document.querySelector('.tab[onclick*="buildreport"]');
         if(tabBtn) tabBtn.addEventListener('click', function(){ if(!bwrBuilds.length) bwrLoad(); });
         if(document.getElementById('tab-buildreport').classList.contains('active')) bwrLoad();
@@ -2406,7 +2407,7 @@ return fetch(RB_API+'?_='+Date.now()+_rbTblQs)
 }());
 </script>
 
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260630_cfg_persist"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260707_crash_filter"></script>
   <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
@@ -3147,9 +3148,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       if(/^https?:\/\//i.test(href)) a.setAttribute('href',href);
       a.setAttribute('style', a.style.borderRadius ? S.chip : S.link);
     });
-    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body>
-
-</html>';
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+clone.outerHTML+'</body></html>';
     var plain=(clone.innerText||clone.textContent||'').trim();
     function fallback(){
       try{
@@ -4370,10 +4369,8 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       <!-- Domain selector -->
       <div>
         <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Domain</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" id="adasModalDomBtn_ADAS" onclick="adasModalSetDomain('ADAS')" style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-car"></i> ADAS</button>
-          <button type="button" id="adasModalDomBtn_FLEX" onclick="adasModalSetDomain('FLEX')" style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-microchip"></i> FLEX</button>
-          <button type="button" id="adasModalDomBtn_IVI"  onclick="adasModalSetDomain('IVI')"  style="flex:1;padding:7px 0;border-radius:10px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s"><i class="fas fa-display"></i> IVI</button>
+        <div id="adasModalDomBtnBar" style="display:flex;gap:6px;flex-wrap:wrap">
+          <!-- populated dynamically by _adasRebuildModalDomBtns() -->
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -4479,14 +4476,36 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     });
   }
 
+  // All known domains for this target (default + custom); populated on load
+  var _adasAllDomains = ['ADAS','FLEX','IVI'];
+
+  function _adasRebuildModalDomBtns(activeDomain){
+    var bar = document.getElementById('adasModalDomBtnBar');
+    if(!bar) return;
+    bar.innerHTML = '';
+    _adasAllDomains.forEach(function(d){
+      var on = d === activeDomain;
+      var col = _domColors[d] || '#6366f1';
+      var bg  = _domBg[d]     || '#eef2ff';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id   = 'adasModalDomBtn_' + d;
+      btn.style.cssText = 'flex:1;min-width:70px;padding:7px 0;border-radius:10px;border:2px solid '+(on?col:'#e2e8f0')+';background:'+(on?col:'#fff')+';color:'+(on?'#fff':'#64748b')+';font-size:12px;font-weight:900;cursor:pointer;transition:all .15s';
+      btn.innerHTML = d;
+      btn.onclick = (function(dom){ return function(){ adasModalSetDomain(dom); }; })(d);
+      bar.appendChild(btn);
+    });
+  }
+
   function _styleModalDomBtns(active){
-    ['ADAS','FLEX','IVI'].forEach(function(d){
+    _adasAllDomains.forEach(function(d){
       var btn = document.getElementById('adasModalDomBtn_'+d);
       if(!btn) return;
-      var on = d === active;
-      btn.style.background  = on ? _domColors[d] : '#fff';
-      btn.style.color       = on ? '#fff'         : '#64748b';
-      btn.style.borderColor = on ? _domColors[d] : '#e2e8f0';
+      var on  = d === active;
+      var col = _domColors[d] || '#6366f1';
+      btn.style.background  = on ? col   : '#fff';
+      btn.style.color       = on ? '#fff' : '#64748b';
+      btn.style.borderColor = on ? col   : '#e2e8f0';
       btn.style.fontWeight  = '900';
     });
   }
@@ -4623,7 +4642,8 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     _adasModalClear();
     document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add MTBF Build';
     document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
-    _styleModalDomBtns(_adasView);   // pre-select current domain
+    _adasRebuildModalDomBtns(_adasView);  // rebuild with all domains incl. custom
+    _styleModalDomBtns(_adasView);
     var hid = document.getElementById('adasModalRowId');
     if(hid) hid.dataset.domain = _adasView;
     document.getElementById('adasModal').style.display = 'flex';
@@ -4642,6 +4662,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     _adasModalClear();
     document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit MTBF Build';
     var rowDomain = row.mode || row.domain || _adasView;
+    _adasRebuildModalDomBtns(rowDomain);  // rebuild with all domains incl. custom
     _styleModalDomBtns(rowDomain);
     var hid = document.getElementById('adasModalRowId');
     if(hid){ hid.value = row.id || ''; hid.dataset.domain = rowDomain; hid.dataset.tableIdx = tableIdx; }
@@ -4855,8 +4876,84 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
   }
 
   /* ─── DOMContentLoaded wiring ───────────────────────────────── */
+
+  /* ─── Add Custom Domain ─────────────────────────────────────────────── */
+  window.mtbfOpenAddDomainModal = function(){
+    var inp = document.getElementById('mtbfNewDomainInput');
+    var msg = document.getElementById('mtbfAddDomainMsg');
+    if(inp){ inp.value = ''; inp.focus(); }
+    if(msg){ msg.textContent = ''; }
+    var modal = document.getElementById('mtbfAddDomainModal');
+    if(modal) modal.style.display = 'flex';
+  };
+
+  window.mtbfCloseAddDomainModal = function(){
+    var modal = document.getElementById('mtbfAddDomainModal');
+    if(modal) modal.style.display = 'none';
+  };
+
+  window.mtbfInjectDomainBtn = function(domain){
+    // Add to _adasAllDomains if not already there
+    if(_adasAllDomains.indexOf(domain) < 0) _adasAllDomains.push(domain);
+    // Inject toolbar button
+    var bar = document.getElementById('mtbfDomainBtnBar');
+    if(bar && !document.getElementById('adasDomBtn_' + domain)){
+      var btn = document.createElement('button');
+      btn.id = 'adasDomBtn_' + domain;
+      btn.className = 'adas-dom-btn';
+      btn.innerHTML = '<i class="fas fa-layer-group"></i> ' + domain;
+      btn.onclick = function(){ adasSetDomain(domain); };
+      bar.appendChild(btn);
+    }
+  };
+
+  window.mtbfConfirmAddDomain = async function(){
+    var inp     = document.getElementById('mtbfNewDomainInput');
+    var msg     = document.getElementById('mtbfAddDomainMsg');
+    var saveBtn = document.getElementById('mtbfAddDomainSaveBtn');
+    var domain  = (inp ? inp.value.trim().toUpperCase() : '');
+    if(!domain){
+      if(msg){ msg.textContent = 'Please enter a domain name.'; msg.style.color = '#dc2626'; }
+      return;
+    }
+    if(!/^[A-Z0-9_\-]+$/.test(domain)){
+      if(msg){ msg.textContent = 'Only letters, digits, _ or - allowed.'; msg.style.color = '#dc2626'; }
+      return;
+    }
+    if(saveBtn){ saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Adding...'; }
+    try{
+      var res  = await fetch(ADAS_API_BASE + '/domains/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({domain: domain})
+      });
+      var data = await res.json();
+      if(!data.ok) throw new Error(data.error || 'Failed to add domain');
+      // Inject button for every domain returned (catches any that were missing)
+      (data.domains || []).forEach(function(d){
+        if(d !== 'ADAS' && d !== 'FLEX' && d !== 'IVI') mtbfInjectDomainBtn(d);
+      });
+      mtbfCloseAddDomainModal();
+      // Switch to the new domain immediately
+      adasSetDomain(domain);
+    }catch(err){
+      if(msg){ msg.textContent = err.message || 'Error adding domain.'; msg.style.color = '#dc2626'; }
+    }finally{
+      if(saveBtn){ saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-plus"></i> Add Domain'; }
+    }
+  };
+
   document.addEventListener('DOMContentLoaded', function(){
     _styleToolbarDomBtns();
+    // Load custom domains from server, inject toolbar buttons + populate _adasAllDomains
+    fetch(ADAS_API_BASE + '/domains').then(function(r){ return r.json(); }).then(function(d){
+      if(d.ok && d.domains){
+        _adasAllDomains = d.domains.slice(); // keep full list for modal
+        d.domains.forEach(function(dom){
+          if(dom !== 'ADAS' && dom !== 'FLEX' && dom !== 'IVI') mtbfInjectDomainBtn(dom);
+        });
+      }
+    }).catch(function(){});
     // Auto-calc wiring
     var totalEl = document.getElementById('adasModalTotal');
     var mtbfEl  = document.getElementById('adasModalMtbf');
@@ -4988,5 +5085,28 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
   _applyHidden(_getHidden());
 })();
 </script>
+
+
+<!-- Add Custom Domain Modal -->
+<div id="mtbfAddDomainModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10001;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(380px,94vw);box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px"><i class="fas fa-plus-circle"></i> Add Custom Domain</div>
+      <button onclick="mtbfCloseAddDomainModal()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;color:#fff;width:26px;height:26px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <p style="font-size:12px;color:#64748b;margin:0">Enter a name for the new MTBF domain (e.g. <b>SAFETY</b>, <b>PERF</b>). It will get its own separate MTBF table and chart.</p>
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Domain Name <span style="color:#dc2626">*</span></label>
+        <input id="mtbfNewDomainInput" type="text" maxlength="20" placeholder="e.g. SAFETY" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 12px;font-family:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;box-sizing:border-box">
+      </div>
+      <div id="mtbfAddDomainMsg" style="font-size:11px;font-weight:700;min-height:16px"></div>
+    </div>
+    <div style="padding:12px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="mtbfCloseAddDomainModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
+      <button id="mtbfAddDomainSaveBtn" onclick="mtbfConfirmAddDomain()" style="border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-plus"></i> Add Domain</button>
+    </div>
+  </div>
+</div>
 
 </html>
