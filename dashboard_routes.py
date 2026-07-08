@@ -1351,9 +1351,38 @@ def api_save_excluded_targets():
 # /admin/cr_overview/clear_cache  � manual cache bust (admin only)
 # /admin/cr_overview/cache_stats  � inspect live cache entries (admin only)
 # -----------------------------------------------------------------------------
+_HWPDT_EXCLUDED_LOCAL = os.environ.get(
+    'HWPDT_EXCLUDED_TARGETS_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'hwpdt_excluded_targets.json'),
+)
+
+
+def _load_hwpdt_excluded_targets() -> set:
+    import json as _json
+    try:
+        if os.path.exists(_HWPDT_EXCLUDED_LOCAL):
+            with open(_HWPDT_EXCLUDED_LOCAL, 'r', encoding='utf-8') as fh:
+                return set(_json.load(fh).get('excluded', []))
+    except Exception as exc:
+        logger.warning('[HWPDT EXCLUDED] load failed from %s: %s', _HWPDT_EXCLUDED_LOCAL, exc)
+    return set()
+
+
+def _save_hwpdt_excluded_targets(excluded: list) -> list:
+    import json as _json
+    os.makedirs(os.path.dirname(_HWPDT_EXCLUDED_LOCAL), exist_ok=True)
+    clean = sorted(set(str(t).strip() for t in excluded if str(t).strip()))
+    tmp = _HWPDT_EXCLUDED_LOCAL + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as fh:
+        _json.dump({'excluded': clean}, fh, indent=2, ensure_ascii=False)
+    os.replace(tmp, _HWPDT_EXCLUDED_LOCAL)
+    return clean
+
+
 @dashboard_bp.route('/api/hwpdt/excluded_targets', methods=['GET'])
 @login_required
 def api_get_hwpdt_excluded_targets():
+
     """Return current HWPDT excluded targets + full target list.
 
     Merges two sources:
@@ -1364,13 +1393,10 @@ def api_get_hwpdt_excluded_targets():
     Axiom-only targets (not in dashboard_status) are shown with source='axiom'
     so the UI can badge them and let admins exclude them.
     """
-    import json as _json
     from dashboard_common import get_all_hwpdt_targets
-    _path = r'\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\hwpdt_excluded_targets.json'
-    try:
-        excluded = set(_json.load(open(_path, encoding='utf-8')).get('excluded', []))
-    except Exception:
-        excluded = set()
+    excluded = _load_hwpdt_excluded_targets()
+
+
 
     # -- Source 1: dashboard_status is_hwpdt=1 targets ----------------------
     all_rows = get_all_hwpdt_targets()
@@ -1435,32 +1461,38 @@ def api_get_hwpdt_excluded_targets():
 @login_required
 def api_save_hwpdt_excluded_targets():
     """Save updated HWPDT excluded targets list (admin only)."""
-    import json as _json
     if getattr(current_user, 'role', None) != 'admin':
         return jsonify({'error': 'Admin only'}), 403
     data = request.get_json(force=True, silent=True) or {}
-    excluded = sorted(set(data.get('excluded', [])))
-    _path = r'\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\hwpdt_excluded_targets.json'
     try:
-        with open(_path, 'w', encoding='utf-8') as f:
-            _json.dump({'excluded': excluded}, f, indent=2)
-        return jsonify({'ok': True, 'excluded': excluded})
+        excluded = _save_hwpdt_excluded_targets(data.get('excluded') or [])
+        return jsonify({'ok': True, 'excluded': excluded, 'path': _HWPDT_EXCLUDED_LOCAL})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 
+
 # -- HWPDT Playlist Aliases  GET / POST --------------------------------------
-# Aliases are stored server-side in hwpdt_playlist_aliases.json on the network
-# share so they are shared across all users and machines (not localStorage).
-_HWPDT_ALIASES_NET   = r'\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\hwpdt_playlist_aliases.json'
-_HWPDT_ALIASES_LOCAL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    'hwpdt_playlist_aliases_local_backup.json')
+# Aliases are stored server-side in a local managed JSON by default. Use
+# HWPDT_ALIASES_PATH to point to a shared team file if needed.
+_HWPDT_ALIASES_LOCAL = os.environ.get(
+    'HWPDT_ALIASES_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hwpdt_playlist_aliases_local_backup.json'),
+)
+_HWPDT_ALIASES_NET = os.environ.get('HWPDT_ALIASES_NETWORK_PATH', '').strip()
+
+
 
 def _load_hwpdt_aliases() -> list:
-    """Load aliases from network path, fall back to local backup."""
+    """Load aliases from local managed file first, optional network path second."""
     import json as _json
-    for path in [_HWPDT_ALIASES_NET, _HWPDT_ALIASES_LOCAL]:
+
+    paths = [_HWPDT_ALIASES_LOCAL]
+    if _HWPDT_ALIASES_NET:
+        paths.append(_HWPDT_ALIASES_NET)
+    for path in paths:
+
         if os.path.exists(path):
             try:
                 with open(path, 'r', encoding='utf-8') as fh:
@@ -1473,16 +1505,18 @@ def _load_hwpdt_aliases() -> list:
     return []
 
 def _save_hwpdt_aliases(aliases: list) -> list:
-    """Save aliases to network path and local backup. Returns saved list."""
+    """Save aliases to local managed file and optional network path. Returns saved list."""
     import json as _json
+
     from datetime import datetime as _dt
     payload = {
         'aliases':    aliases,
         'updated_at': _dt.utcnow().isoformat() + 'Z',
     }
     saved = []
-    net_dir = os.path.dirname(_HWPDT_ALIASES_NET)
-    if os.path.exists(net_dir):
+    net_dir = os.path.dirname(_HWPDT_ALIASES_NET) if _HWPDT_ALIASES_NET else ''
+    if net_dir and os.path.exists(net_dir):
+
         try:
             tmp = _HWPDT_ALIASES_NET + '.tmp'
             with open(tmp, 'w', encoding='utf-8') as fh:

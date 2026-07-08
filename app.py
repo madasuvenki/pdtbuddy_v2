@@ -4941,7 +4941,10 @@ def hwpdt_overview():
     hwpdt_rows = get_all_hwpdt_targets()  # list of dicts: target_name, sp_name, bu_key, display_name
 
     # Apply the same exclusions used by the "Manage Excluded" modal.
-    _excluded_path = r'\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\hwpdt_excluded_targets.json'
+    _excluded_path = os.environ.get(
+        'HWPDT_EXCLUDED_TARGETS_PATH',
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'hwpdt_excluded_targets.json'),
+    )
     try:
         with open(_excluded_path, encoding='utf-8') as _f:
             _excluded_targets = set(_json.load(_f).get('excluded', []))
