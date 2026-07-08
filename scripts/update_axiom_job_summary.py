@@ -83,6 +83,7 @@ try:
         FIRST_RUN_HWPDT_JOBS,
         SWPDT_CYCLE_JOBS,
         HWPDT_CYCLE_JOBS,
+        CYCLE_SINCE_MINUTES,
         RETENTION_DAYS,
         QIPL_SWPDT_TAXONOMY,
         _get_token,
@@ -293,11 +294,13 @@ def run_full_update(host: str, token: str, app_name: str) -> str:
 
 
 def run_incremental_update(host: str, token: str, app_name: str,
-                            minutes: int = 60) -> str:
+                            minutes: int = 60,
+                            max_jobs: Optional[int] = None) -> str:
     """Incremental update — fetch only jobs submitted in the last N minutes."""
+    swpdt_jobs = int(max_jobs) if max_jobs else SWPDT_CYCLE_JOBS
+    hwpdt_jobs = 0 if max_jobs else HWPDT_CYCLE_JOBS
     logger.info("[INCREMENTAL] Fetching jobs from last %d minutes ...", minutes)
-    logger.info("[INCREMENTAL] SWPDT jobs=%d  HWPDT jobs=%d",
-                SWPDT_CYCLE_JOBS, HWPDT_CYCLE_JOBS)
+    logger.info("[INCREMENTAL] max /PDT jobs=%d", swpdt_jobs + hwpdt_jobs)
 
     # Temporarily override CYCLE_SINCE_MINUTES for this run
     import scripts.fetch_axiom_combined as _fac
@@ -312,8 +315,8 @@ def run_incremental_update(host: str, token: str, app_name: str,
                     host=host,
                     token=token,
                     app_name=app_name,
-                    swpdt_jobs=SWPDT_CYCLE_JOBS,
-                    hwpdt_jobs=HWPDT_CYCLE_JOBS,
+                    swpdt_jobs=swpdt_jobs,
+                    hwpdt_jobs=hwpdt_jobs,
                     first_run=False,
                 )
                 break
@@ -817,6 +820,8 @@ Examples:
                         help="Incremental update — fetch last N minutes of new jobs")
     parser.add_argument("--minutes",        type=int, default=60,
                         help="Minutes window for --incremental (default: 60)")
+    parser.add_argument("--incremental-max-jobs", type=int, default=0,
+                        help="Optional max jobs for --incremental; default uses configured cycle max")
     parser.add_argument("--refresh-running", action="store_true",
                         help="Refresh all currently-Running jobs in DB (re-calc hours)")
     parser.add_argument("--refresh-qipl-last-days", action="store_true",
@@ -845,8 +850,14 @@ Examples:
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
-        args.poll = True
-        logger.info("No arguments supplied; defaulting to --poll --interval %s", args.interval)
+        args.incremental = True
+        args.minutes = int(os.environ.get("AXIOM_DEFAULT_INCREMENTAL_MINUTES", str(CYCLE_SINCE_MINUTES)))
+        args.incremental_max_jobs = int(os.environ.get("AXIOM_DEFAULT_INCREMENTAL_JOBS", "100"))
+        logger.info(
+            "No arguments supplied; defaulting to one-shot incremental: minutes=%s max_jobs=%s",
+            args.minutes,
+            args.incremental_max_jobs,
+        )
 
     # ── Status only ────────────────────────────────────────────────────────
     if args.status:
@@ -907,7 +918,13 @@ Examples:
             token = run_full_update(host, token, app_name)
 
         if args.incremental:
-            token = run_incremental_update(host, token, app_name, minutes=args.minutes)
+            token = run_incremental_update(
+                host,
+                token,
+                app_name,
+                minutes=args.minutes,
+                max_jobs=args.incremental_max_jobs or None,
+            )
 
         if args.refresh_running:
             token = run_refresh_running(host, token, app_name)
