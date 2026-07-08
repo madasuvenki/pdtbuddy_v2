@@ -1,3 +1,11 @@
 {
-  "excluded": []
+  "excluded": [
+    "ASPEN_LW",
+    "Balsam",
+    "Bonito",
+    "Matrix",
+    "Molokai",
+    "glymur",
+    "skyros"
+  ]
 }

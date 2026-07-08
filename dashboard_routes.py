@@ -1394,6 +1394,7 @@ def api_get_hwpdt_excluded_targets():
     so the UI can badge them and let admins exclude them.
     """
     from dashboard_common import get_all_hwpdt_targets
+    include_axiom_only = os.environ.get('HWPDT_INCLUDE_AXIOM_ONLY', '').strip().lower() in {'1', 'true', 'yes', 'on'}
     excluded = _load_hwpdt_excluded_targets()
 
 
@@ -1412,45 +1413,47 @@ def api_get_hwpdt_excluded_targets():
     db_sp_names = {str(r.get('sp_name') or '').strip().upper() for r in all_rows if r.get('sp_name')}
     db_keys     = {r['target_name'].upper() for r in all_rows}
 
-    # -- Source 2: Axiom axiom_job_summary HWPDT software_products ----------
-    try:
-        _conn = get_mysql_connection_db(bu_key=None)
-        if _conn:
-            _cur = _conn.cursor(dictionary=True)
-            _cur.execute("""
-                SELECT DISTINCT software_product,
-                       MAX(submitted_at) AS last_seen,
-                       COUNT(*)          AS job_count
-                FROM pdt_stats_dashboard.axiom_job_summary
-                WHERE team = 'HWPDT'
-                  AND software_product IS NOT NULL
-                  AND software_product != ''
-                GROUP BY software_product
-                ORDER BY software_product
-            """)
-            axiom_sps = _cur.fetchall() or []
-            _cur.close()
-            _conn.close()
+    # -- Optional Source 2: Axiom-only software_products ---------------------
+    # Default OFF: manage only dashboard_status HWPDT targets. Set
+    # HWPDT_INCLUDE_AXIOM_ONLY=1 to include extra Axiom-discovered SP rows.
+    if include_axiom_only:
+        try:
+            _conn = get_mysql_connection_db(bu_key=None)
+            if _conn:
+                _cur = _conn.cursor(dictionary=True)
+                _cur.execute("""
+                    SELECT DISTINCT software_product,
+                           MAX(submitted_at) AS last_seen,
+                           COUNT(*)          AS job_count
+                    FROM pdt_stats_dashboard.axiom_job_summary
+                    WHERE team = 'HWPDT'
+                      AND software_product IS NOT NULL
+                      AND software_product != ''
+                    GROUP BY software_product
+                    ORDER BY software_product
+                """)
+                axiom_sps = _cur.fetchall() or []
+                _cur.close()
+                _conn.close()
 
-            for row in axiom_sps:
-                sp = str(row.get('software_product') or '').strip()
-                if not sp:
-                    continue
-                # Skip if already covered by a db target (by sp_name or key match)
-                if sp.upper() in db_sp_names or sp.upper() in db_keys:
-                    continue
-                targets.append({
-                    'key':       sp,
-                    'display':   sp,
-                    'bu_key':    'HWPDT',
-                    'sp_name':   sp,
-                    'source':    'axiom',
-                    'last_seen': str(row.get('last_seen') or '')[:10],
-                    'job_count': int(row.get('job_count') or 0),
-                    'excluded':  sp in excluded,
-                })
-    except Exception as _ax_err:
-        logger.warning('[HWPDT EXCLUDED] Axiom SP fetch failed: %s', _ax_err)
+                for row in axiom_sps:
+                    sp = str(row.get('software_product') or '').strip()
+                    if not sp:
+                        continue
+                    if sp.upper() in db_sp_names or sp.upper() in db_keys:
+                        continue
+                    targets.append({
+                        'key':       sp,
+                        'display':   sp,
+                        'bu_key':    'HWPDT',
+                        'sp_name':   sp,
+                        'source':    'axiom',
+                        'last_seen': str(row.get('last_seen') or '')[:10],
+                        'job_count': int(row.get('job_count') or 0),
+                        'excluded':  sp in excluded,
+                    })
+        except Exception as _ax_err:
+            logger.warning('[HWPDT EXCLUDED] Axiom SP fetch failed: %s', _ax_err)
 
     # Sort: db targets first (alpha), then axiom-only (alpha)
     targets.sort(key=lambda t: (0 if t['source'] == 'db' else 1, t['key'].lower()))
