@@ -1,4 +1,4 @@
-# ====================================================================================
+ # ====================================================================================
 # IMPORTS
 # ====================================================================================
 import logging
@@ -127,6 +127,9 @@ from dashboard_routes import dashboard_bp
 from device_summary_api import device_summary_api_bp
 from live_status_publish_routes import live_status_publish_bp
 from live_status_view_api import live_status_view_api_bp
+from live_view_stats_routes import live_view_stats_bp
+from automotive_live_view_stats_routes import automotive_live_view_stats_bp
+from auto_gen45_public_routes import public_auto_gen45_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
@@ -242,9 +245,10 @@ def _check_session_idle():
     """Auto-logout users idle for more than SESSION_IDLE_TIMEOUT seconds.
     Exemptions: login/logout/static endpoints, and while a report task is running.
     """
-    # Skip for public / auth endpoints and static files
+    # Skip for public / auth endpoints and static files.
+    # /public/* routes are intentionally no-login public APIs/pages.
     exempt = {'login', 'logout', 'static'}
-    if request.endpoint in exempt or not request.endpoint:
+    if request.path.startswith('/public/') or request.endpoint in exempt or not request.endpoint:
         return
 
     # Skip session check when a valid static API token is provided.
@@ -346,6 +350,9 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(device_summary_api_bp)
 app.register_blueprint(live_status_publish_bp)
 app.register_blueprint(live_status_view_api_bp)
+app.register_blueprint(live_view_stats_bp)
+app.register_blueprint(automotive_live_view_stats_bp)
+app.register_blueprint(public_auto_gen45_bp)
 app.register_blueprint(core_deck_bp)
 app.register_blueprint(jiraquery_api_bp)
 from weekly_summary_routes import weekly_summary_bp
@@ -8845,10 +8852,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

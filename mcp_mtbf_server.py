@@ -25,9 +25,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Bootstrap .env
@@ -51,7 +52,7 @@ except ImportError:
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# Config — same paths as live_status_view_api.py
+# Config — same paths as live_status_view_api.py + Dropbox Excel source
 # ---------------------------------------------------------------------------
 _DATA_ROOT = os.environ.get(
     "PDTBUDDY_DATA_ROOT",
@@ -59,6 +60,20 @@ _DATA_ROOT = os.environ.get(
 )
 _MTBF_BASE = os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "MTBF")
 _LOCAL_FALLBACK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "adas_mtbf")
+
+_DROPBOX_ROOT = os.environ.get("PDTBUDDY_DROPBOX_ROOT", r"C:\Dropbox")
+_AUTO_EXCEL_PATH = os.environ.get(
+    "PDTBUDDY_AUTO_EXCEL_PATH",
+    os.path.join(_DROPBOX_ROOT, "4.8.0.9_Auto.xlsx"),
+)
+_AUTO_JSON_DIR = os.environ.get(
+    "PDTBUDDY_AUTO_JSON_DIR",
+    os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "Automotive", "Gen4.5"),
+)
+_AUTO_JSON_PATH = os.environ.get(
+    "PDTBUDDY_AUTO_JSON_PATH",
+    os.path.join(_AUTO_JSON_DIR, "4.8.0.9_Auto.json"),
+)
 
 _VIEWS = ["ADAS", "IVI", "FLEX"]
 
@@ -182,18 +197,505 @@ def _list_available_targets() -> List[Dict[str, Any]]:
     return targets
 
 
+def _resolve_excel_path(excel_path: str = "") -> str:
+    """Return a safe Excel path. Defaults to C:\\Dropbox\\4.8.0.9_Auto.xlsx."""
+    path = str(excel_path or "").strip() or _AUTO_EXCEL_PATH
+    path = os.path.abspath(os.path.expanduser(path))
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Excel file not found: {path}")
+    if not path.lower().endswith((".xlsx", ".xlsm")):
+        raise ValueError("Only .xlsx/.xlsm Excel files are supported")
+    return path
+
+
+def _clean_text(value: str) -> str:
+    text = str(value or "").replace("\u00a0", " ").replace("\t", " ").strip()
+    return " ".join(text.split())
+
+
+def _normalize_header(value: Any, fallback_index: int) -> str:
+    header = _clean_text(str(value or ""))
+    if not header:
+        header = f"Column {fallback_index}"
+    header = header.replace(".", "")
+    header = re.sub(r"[^A-Za-z0-9]+", "_", header).strip("_").lower()
+    return header or f"column_{fallback_index}"
+
+
+def _program_key(sheet_name: str) -> str:
+    """Convert Excel sheet names like '8775(Flex)' to '8775 (Flex)'."""
+    name = _clean_text(sheet_name)
+    match = re.match(r"^(\d+)\s*\(([^)]+)\)$", name)
+    if match:
+        return f"{match.group(1)} ({match.group(2).strip()})"
+    return name
+
+
+def _normalize_excel_value(value: Any, column_name: str = "") -> Any:
+    """Normalize Excel cell values for JSON/API consumers.
+
+    Required mappings:
+      '-'       -> 'NA'
+      '>600'    -> 600, '>260' -> 260, etc.
+      '200*'    -> 200, '150*' -> 150
+      Devices '-' / 'devices:-' -> null
+    """
+    if value is None:
+        return None
+    if isinstance(value, (datetime, date)):
+        return value.date().isoformat() if isinstance(value, datetime) else value.isoformat()
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return int(value) if isinstance(value, float) and value.is_integer() else value
+
+    text = _clean_text(str(value))
+    if not text:
+        return None
+
+    column_clean = _clean_text(column_name).lower().replace(" ", "_")
+    text_lower = text.lower().replace(" ", "")
+    if column_clean == "devices" and text in {"-", "NA", "N/A"}:
+        return None
+    if text_lower in {"devices:-", "device:-"}:
+        return None
+    if text == "-":
+        return "NA"
+
+    numeric_match = re.fullmatch(r">\s*(-?\d+(?:\.\d+)?)", text)
+    if not numeric_match:
+        numeric_match = re.fullmatch(r"(-?\d+(?:\.\d+)?)\*", text)
+    if numeric_match:
+        number = float(numeric_match.group(1))
+        return int(number) if number.is_integer() else number
+
+    plain_number = re.fullmatch(r"-?\d+(?:\.\d+)?", text)
+    if plain_number:
+        number = float(text)
+        return int(number) if number.is_integer() else number
+
+    return text
+
+
+def _resolve_json_path(json_path: str = "") -> str:
+    """Return the Auto program JSON path. Defaults to Sphere Automotive Gen4.5."""
+    path = str(json_path or "").strip() or _AUTO_JSON_PATH
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def _load_auto_payload_from_json(json_path: str = "") -> Dict[str, Any]:
+    """Load the already-generated Auto JSON. Does not read Excel."""
+    path = _resolve_json_path(json_path)
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Auto JSON not found: {path}. Run refresh_auto_program_json once to create it."
+        )
+    with open(path, "r", encoding="utf-8") as fh:
+        payload = json.load(fh)
+    if not isinstance(payload, dict) or not isinstance(payload.get("programs"), dict):
+        raise ValueError(f"Invalid Auto JSON format in {path}; expected top-level 'programs' object")
+    payload.setdefault("metadata", {})
+    payload["metadata"].setdefault("json_path", path)
+    return payload
+
+
+def _drop_rows_with_null_date(programs: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Remove rows where the canonical date field is null/blank."""
+    cleaned: Dict[str, List[Dict[str, Any]]] = {}
+    for program, rows in (programs or {}).items():
+        cleaned[program] = [
+            row for row in (rows or [])
+            if isinstance(row, dict) and row.get("date") not in (None, "")
+        ]
+    return cleaned
+
+
+def _load_auto_programs_from_json(json_path: str = "") -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
+    """Load Auto programs from JSON only."""
+    payload = _load_auto_payload_from_json(json_path)
+    programs = _drop_rows_with_null_date(payload.get("programs") or {})
+    metadata = payload.get("metadata") or {}
+    metadata.setdefault("json_path", _resolve_json_path(json_path))
+    return programs, metadata
+
+
+def _load_auto_programs_from_excel(excel_path: str = "") -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
+    """Read the Auto Excel workbook and return {'8775 (Flex)': [rows...], ...}."""
+    try:
+        import openpyxl
+    except ImportError as exc:
+        raise RuntimeError("openpyxl is required. Install with: pip install openpyxl") from exc
+
+    path = _resolve_excel_path(excel_path)
+    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    programs: Dict[str, List[Dict[str, Any]]] = {}
+    sheets: List[Dict[str, Any]] = []
+
+    for sheet_name in workbook.sheetnames:
+        ws = workbook[sheet_name]
+        program = _program_key(sheet_name)
+        header_values = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None) or []
+        headers = [_normalize_header(value, idx) for idx, value in enumerate(header_values, start=1)]
+        rows: List[Dict[str, Any]] = []
+
+        for row_number, values in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not values or all(v is None or _clean_text(str(v)) == "" for v in values):
+                continue
+            row: Dict[str, Any] = {"excel_row": row_number}
+            for idx, header in enumerate(headers):
+                value = values[idx] if idx < len(values) else None
+                row[header] = _normalize_excel_value(value, header)
+            if row.get("date") in (None, ""):
+                continue
+            rows.append(row)
+
+        programs[program] = rows
+        sheets.append({"sheet_name": sheet_name, "program": program, "rows": len(rows)})
+
+    metadata = {
+        "source_excel": path,
+        "sheet_count": len(workbook.sheetnames),
+        "sheets": sheets,
+        "updated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    try:
+        workbook.close()
+    except Exception:
+        pass
+    return programs, metadata
+
+
+def _find_program_key(programs: Dict[str, List[Dict[str, Any]]], program: str) -> Optional[str]:
+    query = _clean_text(program).lower()
+    if not query:
+        return None
+    for key in programs:
+        key_lower = key.lower()
+        digits = "".join(re.findall(r"\d+", key))
+        if query == key_lower or query == digits or query in key_lower:
+            return key
+    return None
+
+
+def _available_sp_response(programs: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, str]]:
+    out = []
+    for key in programs:
+        digits = "".join(re.findall(r"\d+", key))
+        domain_match = re.search(r"\(([^)]+)\)", key)
+        out.append({
+            "sp": digits or key,
+            "program": key,
+            "domain": domain_match.group(1) if domain_match else "",
+        })
+    return out
+
+
+def _program_summary(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total_hours = round(sum(_num(r.get("hours")) for r in rows or []), 2)
+    total_crashes = int(sum(_num(r.get("crashes")) for r in rows or []))
+    published_mtbf = [
+        _num(r.get("mtbf")) for r in (rows or [])
+        if isinstance(r.get("mtbf"), (int, float)) or str(r.get("mtbf") or "").strip().replace(".", "", 1).isdigit()
+    ]
+    latest = rows[-1] if rows else {}
+    return {
+        "row_count": len(rows or []),
+        "latest_date": latest.get("date") or "",
+        "latest_build": latest.get("build_s") or latest.get("builds") or latest.get("build") or "",
+        "latest_mtbf": latest.get("mtbf"),
+        "total_hours": total_hours,
+        "total_crashes": total_crashes,
+        "calculated_overall_mtbf": round(total_hours / total_crashes, 2) if total_crashes else total_hours,
+        "max_published_mtbf": max(published_mtbf) if published_mtbf else None,
+    }
+
+
 # ---------------------------------------------------------------------------
 # MCP Server
 # ---------------------------------------------------------------------------
 mcp = FastMCP(
-    name="PDTBuddy MTBF Trend Server",
+    name="PDTBuddy MTBF + Auto Excel Server",
     instructions=(
-        "Provides MTBF trend data from the PDTBuddy live_status_view page. "
-        "Use get_mtbf_trend to fetch raw rows, get_mtbf_chart_data for chart-ready "
-        "series, list_mtbf_targets to discover available targets, and "
-        "get_mtbf_summary for a quick summary of the latest MTBF values."
+        "Provides MTBF trend data and Auto Excel program data from C:\\Dropbox. "
+        "Use get_auto_program_json or get_auto_program_info to fetch Excel-backed "
+        "program information for 8775, 7255, 8255, 8650, and 8620. Existing MTBF "
+        "tools are also available."
     ),
 )
+
+
+@mcp.tool()
+def list_available_sps(json_path: str = "") -> Dict[str, Any]:
+    """List all SPs available in the Auto Gen4.5 JSON.
+
+    Request params:
+        json_path: optional override path; usually leave blank.
+
+    Response has available_sps like 8775/Flex, 7255/IVI, etc.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        return {
+            "ok": True,
+            "message": "Available SPs fetched successfully.",
+            "available_sps": _available_sp_response(programs),
+            "count": len(programs),
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+        }
+    except Exception as exc:
+        return {"ok": False, "message": f"Unable to list available SPs: {exc}", "available_sps": []}
+
+
+@mcp.tool()
+def get_sp_info(sp: str, json_path: str = "", last_n: int = 0, include_summary: bool = True) -> Dict[str, Any]:
+    """Get Auto Gen4.5 information for a requested SP.
+
+    Request params:
+        sp: SP/program requested by external tool. Examples: '8775', '7255', '8255', '8650', '8620'.
+        json_path: optional override path; usually leave blank.
+        last_n: optional latest N rows only. 0 means all rows.
+        include_summary: include summary metrics.
+
+    If SP is not available, response ok=false with message and available_sps.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        key = _find_program_key(programs, sp)
+        if not key:
+            return {
+                "ok": False,
+                "message": f"Requested SP '{sp}' is not available in Auto Gen4.5 data.",
+                "requested_sp": sp,
+                "available_sps": _available_sp_response(programs),
+                "rows": [],
+                "row_count": 0,
+            }
+        rows = programs[key]
+        if last_n and last_n > 0:
+            rows = rows[-last_n:]
+        response = {
+            "ok": True,
+            "message": f"SP '{sp}' data fetched successfully.",
+            "requested_sp": sp,
+            "resolved_program": key,
+            "rows": rows,
+            "row_count": len(rows),
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+            "generated_at": metadata.get("generated_at") or metadata.get("updated_at") or "",
+        }
+        if include_summary:
+            response["summary"] = _program_summary(rows)
+        return response
+    except Exception as exc:
+        return {"ok": False, "message": f"Unable to fetch SP '{sp}': {exc}", "requested_sp": sp, "rows": [], "row_count": 0}
+
+
+@mcp.tool()
+def search_sp_info(sp: str, query: str = "", json_path: str = "", limit: int = 50) -> Dict[str, Any]:
+    """Search rows for a requested SP.
+
+    Request params:
+        sp: SP/program requested by external tool, e.g. '8775'.
+        query: text to search in that SP rows.
+        json_path: optional override path; usually leave blank.
+        limit: maximum rows to return.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        key = _find_program_key(programs, sp)
+        if not key:
+            return {
+                "ok": False,
+                "message": f"Requested SP '{sp}' is not available in Auto Gen4.5 data.",
+                "requested_sp": sp,
+                "available_sps": _available_sp_response(programs),
+                "matches": [],
+                "match_count": 0,
+            }
+        q = _clean_text(query).lower()
+        matches: List[Dict[str, Any]] = []
+        max_rows = max(1, int(limit or 50))
+        for row in programs.get(key, []):
+            haystack = json.dumps(row, ensure_ascii=False, default=str).lower()
+            if not q or q in haystack:
+                matches.append({"program": key, **row})
+                if len(matches) >= max_rows:
+                    break
+        return {
+            "ok": True,
+            "message": f"Search completed for SP '{sp}'.",
+            "requested_sp": sp,
+            "resolved_program": key,
+            "query": query,
+            "matches": matches,
+            "match_count": len(matches),
+            "truncated": len(matches) >= max_rows,
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+        }
+    except Exception as exc:
+        return {"ok": False, "message": f"Unable to search SP '{sp}': {exc}", "requested_sp": sp, "matches": [], "match_count": 0}
+
+
+@mcp.tool()
+def list_auto_programs(json_path: str = "") -> Dict[str, Any]:
+    """List available Auto programs from the already-generated JSON.
+
+    Args:
+        json_path: Optional JSON path. Defaults to Sphere managed_excel/AUTO/Automotive/Gen4.5/4.8.0.9_Auto.json.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        return {
+            "ok": True,
+            "programs": list(programs.keys()),
+            "count": len(programs),
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+            "source_excel": metadata.get("source_excel") or "",
+            "generated_at": metadata.get("generated_at") or metadata.get("updated_at") or "",
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def refresh_auto_program_json(excel_path: str = "", output_path: str = "") -> Dict[str, Any]:
+    """One-time/explicit refresh: convert Dropbox Excel workbook into JSON.
+
+    Use this only when the Excel has changed and you want to regenerate the JSON.
+    Normal public MCP tools read JSON and do not touch Excel.
+
+    The JSON has this top-level shape:
+        {'programs': {'8775 (Flex)': [...], '7255 (IVI)': [...], ...}}
+
+    Value normalization includes '-' -> 'NA', '>600' -> 600, '200*' -> 200,
+    and Devices '-' / 'devices:-' -> null.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_excel(excel_path)
+        programs = _drop_rows_with_null_date(programs)
+        out_path = _resolve_json_path(output_path)
+        metadata["generated_at"] = datetime.now().isoformat(timespec="seconds")
+        metadata["json_path"] = out_path
+        payload = {"programs": programs, "metadata": metadata}
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        tmp_path = out_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, out_path)
+        return {
+            "ok": True,
+            "json_path": out_path,
+            "source_excel": metadata.get("source_excel"),
+            "programs": list(programs.keys()),
+            "program_count": len(programs),
+            "metadata": metadata,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def get_auto_program_json(json_path: str = "") -> Dict[str, Any]:
+    """Return the already-generated Auto program JSON without reading Excel.
+
+    Args:
+        json_path: Optional JSON path. Defaults to Sphere managed_excel/AUTO/Automotive/Gen4.5/4.8.0.9_Auto.json.
+    """
+    try:
+        payload = _load_auto_payload_from_json(json_path)
+        payload["programs"] = _drop_rows_with_null_date(payload.get("programs") or {})
+        return {"ok": True, **payload}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "programs": {}}
+
+
+@mcp.tool()
+def get_auto_program_info(program: str, json_path: str = "", last_n: int = 0) -> Dict[str, Any]:
+    """Fetch related rows for one Auto program from the generated JSON.
+
+    Args:
+        program: Program identifier. Examples: '8775', '8775 (Flex)', '7255'.
+        json_path: Optional JSON path. Defaults to Sphere managed_excel/AUTO/Automotive/Gen4.5/4.8.0.9_Auto.json.
+        last_n: Return only last N rows (0 = all).
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        key = _find_program_key(programs, program)
+        if not key:
+            return {
+                "ok": False,
+                "error": f"Program '{program}' not found",
+                "available_programs": list(programs.keys()),
+            }
+        rows = programs[key]
+        if last_n and last_n > 0:
+            rows = rows[-last_n:]
+        return {
+            "ok": True,
+            "program": key,
+            "rows": rows,
+            "row_count": len(rows),
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+            "source_excel": metadata.get("source_excel") or "",
+            "generated_at": metadata.get("generated_at") or metadata.get("updated_at") or "",
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def search_auto_program_info(
+    program: str = "",
+    query: str = "",
+    json_path: str = "",
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """Search Auto JSON rows by program and text query.
+
+    Args:
+        program: Optional program identifier, e.g. '8775'. Empty searches all programs.
+        query: Case-insensitive text to search across row values.
+        json_path: Optional JSON path. Defaults to Sphere managed_excel/AUTO/Automotive/Gen4.5/4.8.0.9_Auto.json.
+        limit: Maximum matched rows to return.
+    """
+    try:
+        programs, metadata = _load_auto_programs_from_json(json_path)
+        keys = [program]
+        if program:
+            found = _find_program_key(programs, program)
+            if not found:
+                return {"ok": False, "error": f"Program '{program}' not found", "available_programs": list(programs.keys())}
+            keys = [found]
+        else:
+            keys = list(programs.keys())
+
+        q = _clean_text(query).lower()
+        matches: List[Dict[str, Any]] = []
+        max_rows = max(1, int(limit or 50))
+        for key in keys:
+            for row in programs.get(key, []):
+                haystack = json.dumps(row, ensure_ascii=False, default=str).lower()
+                if not q or q in haystack:
+                    matches.append({"program": key, **row})
+                    if len(matches) >= max_rows:
+                        return {
+                            "ok": True,
+                            "matches": matches,
+                            "match_count": len(matches),
+                            "truncated": True,
+                            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+                            "source_excel": metadata.get("source_excel") or "",
+                        }
+        return {
+            "ok": True,
+            "matches": matches,
+            "match_count": len(matches),
+            "truncated": False,
+            "json_path": metadata.get("json_path") or _resolve_json_path(json_path),
+            "source_excel": metadata.get("source_excel") or "",
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
 
 
 @mcp.tool()
@@ -382,7 +884,7 @@ def get_mtbf_all_views(
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PDTBuddy MTBF Trend MCP Server")
+    parser = argparse.ArgumentParser(description="PDTBuddy MTBF + Auto Excel MCP Server")
     parser.add_argument(
         "--transport",
         choices=["stdio", "sse"],
@@ -400,12 +902,30 @@ if __name__ == "__main__":
         default="0.0.0.0",
         help="Host for SSE transport (default: 0.0.0.0)",
     )
+    parser.add_argument(
+        "--refresh-auto-json",
+        action="store_true",
+        help="Generate/refresh Auto JSON from Excel once, then exit unless --serve-after-refresh is set.",
+    )
+    parser.add_argument(
+        "--serve-after-refresh",
+        action="store_true",
+        help="Start the MCP server after --refresh-auto-json completes.",
+    )
     args = parser.parse_args()
+
+    if args.refresh_auto_json:
+        result = refresh_auto_program_json()
+        print(json.dumps(result, ensure_ascii=False, indent=2), file=sys.stderr)
+        if not result.get("ok"):
+            sys.exit(1)
+        if not args.serve_after_refresh:
+            sys.exit(0)
 
     if args.transport == "sse":
         # host/port are constructor-level settings in this version of FastMCP
         # Re-create the server with the requested host/port before running.
-        print(f"Starting MTBF MCP server (SSE) on {args.host}:{args.port}", file=sys.stderr)
+        print(f"Starting PDTBuddy MTBF + Auto Excel MCP server (SSE) on {args.host}:{args.port}", file=sys.stderr)
         sse_mcp = FastMCP(
             name=mcp.name,
             instructions=mcp.instructions if hasattr(mcp, 'instructions') else None,
@@ -417,5 +937,5 @@ if __name__ == "__main__":
             sse_mcp._tool_manager.add_tool(tool)
         sse_mcp.run(transport="sse")
     else:
-        print("Starting MTBF MCP server (stdio)", file=sys.stderr)
+        print("Starting PDTBuddy MTBF + Auto Excel MCP server (stdio)", file=sys.stderr)
         mcp.run(transport="stdio")

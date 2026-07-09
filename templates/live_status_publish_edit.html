@@ -96,6 +96,28 @@
   .adas-flt-btn{padding:4px 11px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;font-size:11px;font-weight:900;cursor:pointer;transition:all .15s;font-family:inherit}
   .adas-flt-btn:hover{border-color:#6366f1;color:#4f46e5}
   .adas-flt-btn.active{background:#eef2ff;color:#4f46e5;border-color:#6366f1}
+  .lsp-public-api-panel{display:none;margin:0 0 14px;background:#fff;border:2px solid #bfdbfe;border-radius:18px;box-shadow:0 8px 30px rgba(37,99,235,.12);overflow:hidden;}
+  .lsp-public-api-panel.open{display:block;}
+  .lsp-public-api-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 18px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-bottom:1px solid #dbeafe;}
+  .lsp-public-api-title{font-size:16px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:8px;}
+  .lsp-public-api-title i{color:#4f46e5;}
+  .lsp-public-api-sub{font-size:11px;font-weight:750;color:#64748b;margin-top:4px;line-height:1.45;}
+  .lsp-public-api-close{width:28px;height:28px;border-radius:9px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;font-weight:900;cursor:pointer;}
+  .lsp-api-category{margin:14px 16px 16px;border:1.5px solid #e2e8f0;border-radius:15px;background:#fafcff;overflow:hidden;}
+  .lsp-api-category-head{padding:12px 14px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:950;color:#1e293b;display:flex;align-items:center;gap:8px;}
+  .lsp-api-version-card{padding:13px 14px;display:grid;grid-template-columns:minmax(150px,.65fr) minmax(360px,1.5fr) auto;gap:12px;align-items:center;}
+  .lsp-api-version-name{font-size:15px;font-weight:950;color:#312e81;}
+  .lsp-api-version-desc{font-size:11px;font-weight:750;color:#64748b;margin-top:3px;line-height:1.45;}
+  .lsp-api-endpoints{display:grid;grid-template-columns:1fr;gap:6px;}
+  .lsp-api-endpoint{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:850;color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;overflow:hidden;}
+  .lsp-api-endpoint code{font-family:Consolas,monospace;color:#1d4ed8;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lsp-api-method{font-size:9px;font-weight:950;color:#15803d;background:#dcfce7;border:1px solid #86efac;border-radius:999px;padding:2px 6px;flex-shrink:0;}
+  .lsp-api-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+  .lsp-api-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:31px;padding:0 12px;border-radius:10px;text-decoration:none;font-size:11px;font-weight:950;white-space:nowrap;}
+  .lsp-api-action.primary{background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;box-shadow:0 7px 16px rgba(79,70,229,.22);}
+  .lsp-api-action.ghost{background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;}
+  .lsp-api-note{margin:0 16px 16px;font-size:11px;font-weight:750;color:#64748b;line-height:1.5;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 12px;}
+  @media(max-width:900px){.lsp-api-version-card{grid-template-columns:1fr}.lsp-api-actions{justify-content:flex-start}.lsp-api-endpoint code{white-space:normal}}
   </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
@@ -128,6 +150,7 @@
         <button class="btn" id="lspSaveBtn" style="display:none" onclick="lspSaveDraft()"><i class="fas fa-save"></i> Save</button>
         <button class="btn btn-primary" id="lspPublishBtn" style="display:none" onclick="lspPublishJob()"><i class="fas fa-rocket"></i> Publish</button>
       {% endif %}
+      <button class="btn" id="lspPublicApiBtn" type="button" onclick="lspTogglePublicApiPanel()" style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;border:none;font-weight:900;box-shadow:0 6px 16px rgba(79,70,229,.24);"><i class="fas fa-plug"></i> Public API</button>
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
       <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
@@ -135,6 +158,48 @@
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
+  <section class="lsp-public-api-panel" id="lspPublicApiPanel" aria-label="Public API details">
+    <div class="lsp-public-api-head">
+      <div>
+        <div class="lsp-public-api-title"><i class="fas fa-plug"></i> Public API</div>
+        <div class="lsp-public-api-sub">No login, no session, no user id/password required. External tools can call these HTTP endpoints directly.</div>
+      </div>
+      <button class="lsp-public-api-close" type="button" onclick="lspTogglePublicApiPanel(false)" aria-label="Close Public API panel"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="lsp-api-category">
+      <div class="lsp-api-category-head"><i class="fas fa-chart-line" style="color:#4f46e5;"></i> MTBF</div>
+      <div class="lsp-api-version-card">
+        <div>
+          <div class="lsp-api-version-name">Gen 4.5</div>
+          <div class="lsp-api-version-desc">Auto Gen4.5 SP information from the managed JSON. Gen5 can be added here later.</div>
+        </div>
+        <div class="lsp-api-endpoints">
+          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/sps</code></div>
+          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
+          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/search?sp=8620&amp;q=Snapdragon&amp;limit=10</code></div>
+        </div>
+        <div class="lsp-api-actions">
+          <a class="lsp-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
+          <a class="lsp-api-action ghost" href="/public/auto-gen45/api/sps" target="_blank" rel="noopener"><i class="fas fa-list"></i> Try SP List</a>
+        </div>
+      </div>
+    </div>
+    <div class="lsp-api-note"><strong>Public access:</strong> these `/public/auto-gen45/...` URLs are intentionally outside PDT Buddy login/session checks and include CORS headers for external tools.</div>
+  </section>
+  <script>
+    function lspTogglePublicApiPanel(forceOpen){
+      var panel = document.getElementById('lspPublicApiPanel');
+      var btn = document.getElementById('lspPublicApiBtn');
+      if(!panel) return;
+      var open = (typeof forceOpen === 'boolean') ? forceOpen : !panel.classList.contains('open');
+      panel.classList.toggle('open', open);
+      if(btn){
+        btn.innerHTML = open ? '<i class="fas fa-times"></i> Hide Public API' : '<i class="fas fa-plug"></i> Public API';
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  </script>
   {% endif %}
 
     {% if not embedded_core_deck %}

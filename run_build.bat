@@ -1,5 +1,5 @@
 @echo off
-cd /d C:\Users\slua_0038d920d430\Desktop\Buddy_DB_Ext_10
+cd /d C:\Users\slua_0038d920d430\Desktop\Buddy_DB_Ext_11
 
 echo ============================================ > build_log.txt
 echo Building pdtbuddyapp.exe (BuddyApp.spec)... >> build_log.txt

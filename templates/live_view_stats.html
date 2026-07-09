@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Live View Stats - {{ target_display }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#07111f;--panel:#0f1b2d;--card:#12233a;--line:#213756;--ink:#eaf2ff;--muted:#91a4c0;--blue:#38bdf8;--violet:#8b5cf6;--green:#22c55e;--orange:#f97316;--red:#ef4444;--shadow:0 24px 70px rgba(0,0,0,.32)}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Inter,Segoe UI,Arial,sans-serif;background:radial-gradient(circle at 10% 0%,rgba(56,189,248,.22),transparent 34%),radial-gradient(circle at 96% 6%,rgba(139,92,246,.22),transparent 34%),linear-gradient(135deg,#06101e,#0a1220 42%,#0d1b31);color:var(--ink)}
+    .shell{display:grid;grid-template-columns:310px minmax(0,1fr);min-height:100vh}.side{border-right:1px solid rgba(148,163,184,.16);background:linear-gradient(180deg,rgba(15,23,42,.98),rgba(9,18,33,.96));padding:18px;position:sticky;top:0;height:100vh;overflow:auto}.brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}.brand-ico{width:44px;height:44px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--violet));display:grid;place-items:center;box-shadow:0 12px 30px rgba(56,189,248,.22);font-size:20px}.brand-title{font-size:18px;font-weight:1000;letter-spacing:-.03em}.brand-sub{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em}.target-pill{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid rgba(56,189,248,.22);border-radius:14px;background:rgba(56,189,248,.08);font-size:12px;font-weight:900;color:#bae6fd;margin-bottom:14px}.side-actions{display:grid;gap:8px;margin-bottom:16px}.btn{border:0;border-radius:13px;padding:11px 13px;font-weight:950;cursor:pointer;color:var(--ink);background:#1c2e48;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.16s}.btn:hover{transform:translateY(-1px);filter:saturate(1.1)}.btn.primary{background:linear-gradient(135deg,var(--blue),var(--violet));box-shadow:0 12px 28px rgba(56,189,248,.18)}.btn.green{background:linear-gradient(135deg,#16a34a,#22c55e);color:#052e16}.btn.ghost{border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.04)}.btn.small{padding:7px 10px;border-radius:10px;font-size:11px}.sheet-search{width:100%;border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.05);border-radius:13px;color:var(--ink);padding:11px 12px;outline:none;margin-bottom:10px}.sheet-list{display:flex;flex-direction:column;gap:8px}.sheet-item{width:100%;text-align:left;border:1px solid rgba(148,163,184,.16);background:rgba(255,255,255,.045);border-radius:16px;padding:12px;cursor:pointer;color:var(--ink);transition:.16s}.sheet-item:hover,.sheet-item.active{border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.10)}.sheet-name{font-weight:1000;font-size:13px}.sheet-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.tag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;background:rgba(148,163,184,.14);color:#cbd5e1}.tag.green{background:rgba(34,197,94,.15);color:#86efac}.tag.warn{background:rgba(249,115,22,.16);color:#fdba74}.main{padding:18px 22px 28px;min-width:0}.hero{border:1px solid rgba(148,163,184,.18);border-radius:26px;background:linear-gradient(135deg,rgba(18,35,58,.92),rgba(15,27,45,.78));box-shadow:var(--shadow);padding:20px 22px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}.hero h1{margin:0;font-size:28px;letter-spacing:-.05em}.hero p{margin:6px 0 0;color:var(--muted);font-weight:700}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}.kpi{border:1px solid rgba(148,163,184,.16);border-radius:18px;background:rgba(255,255,255,.045);padding:14px}.kpi .num{font-size:24px;font-weight:1000;color:#bae6fd}.kpi .lbl{font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.08em;text-transform:uppercase}.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(380px,.9fr);gap:18px}.panel{border:1px solid rgba(148,163,184,.16);border-radius:22px;background:rgba(15,27,45,.84);box-shadow:0 16px 48px rgba(0,0,0,.22);overflow:hidden}.panel-h{padding:14px 16px;border-bottom:1px solid rgba(148,163,184,.14);display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.03)}.panel-title{font-weight:1000;display:flex;align-items:center;gap:8px}.panel-b{padding:15px 16px}.chart-wrap{overflow:auto;background:#fff;border-radius:16px;padding:10px;min-height:430px}.table-wrap{overflow:auto;max-height:410px;border-radius:14px;border:1px solid rgba(148,163,184,.14)}table{width:100%;border-collapse:collapse;font-size:12px;background:#0d1b31}th,td{padding:9px 10px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left;vertical-align:top}th{position:sticky;top:0;background:#172943;color:#dbeafe;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tr:hover td{background:rgba(56,189,248,.06)}.status{font-size:12px;font-weight:850;color:var(--muted)}.status.ok{color:#86efac}.status.err{color:#fca5a5}.config-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}.input{width:100%;border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.055);border-radius:12px;color:var(--ink);padding:10px 11px;outline:none}.config-table{display:grid;gap:8px}.db-row{display:grid;grid-template-columns:1fr 1.2fr;gap:8px;align-items:center}.empty{padding:36px;text-align:center;color:var(--muted)}.build-card{border:1px solid rgba(148,163,184,.16);border-radius:14px;background:rgba(255,255,255,.04);padding:11px 12px;margin-bottom:8px}.build-title{font-weight:1000;color:#dbeafe;word-break:break-all}.build-sub{font-size:11px;color:var(--muted);margin-top:4px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab{border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.04);color:var(--muted);border-radius:999px;padding:9px 14px;font-weight:950;cursor:pointer}.tab.active{background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;border-color:transparent}.tab-section{display:none}.tab-section.active{display:block}.db-row{border:1px solid rgba(148,163,184,.13);border-radius:14px;padding:10px;background:rgba(255,255,255,.035)}@media(max-width:1120px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><div class="brand-ico"><i class="fas fa-chart-network"></i></div><div><div class="brand-title">Live View Stats</div><div class="brand-sub">AUTO workbook sheets</div></div></div>
+    <div class="target-pill"><i class="fas fa-car"></i> {{ target_display|replace('_',' ')|upper }}</div>
+    <div class="side-actions">
+      <button class="btn primary" onclick="openConfig()"><i class="fas fa-cog"></i> Config Excel / DB Tables</button>
+      <button class="btn green" onclick="syncExcel()"><i class="fas fa-file-import"></i> Sync Excel to JSON</button>
+      <button class="btn ghost" onclick="loadSheets()"><i class="fas fa-rotate"></i> Refresh Sheets</button>
+    </div>
+    <input id="sheetSearch" class="sheet-search" placeholder="Search sheet..." oninput="renderSheets()">
+    <div id="sheetList" class="sheet-list"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i><p>Loading sheets...</p></div></div>
+  </aside>
+
+  <main class="main">
+    <section class="hero">
+      <div><h1 id="pageTitle">{{ target_display }} Live View Stats</h1><p id="pageSub">Select a workbook sheet from the left. Each sheet is persisted as JSON after sync.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><span class="tag green"><i class="fas fa-database"></i> AUTO only</span><span id="lastSync" class="tag warn">No sync yet</span></div>
+    </section>
+
+    <section class="kpis">
+      <div class="kpi"><div id="kRows" class="num">0</div><div class="lbl">Excel Rows</div></div>
+      <div class="kpi"><div id="kHours" class="num">0</div><div class="lbl">Hours</div></div>
+      <div class="kpi"><div id="kCrashes" class="num">0</div><div class="lbl">Crashes</div></div>
+      <div class="kpi"><div id="kMtbf" class="num">0</div><div class="lbl">Avg MTBF</div></div>
+    </section>
+
+    <div class="tabs">
+      <button id="tabBtnCurrent" class="tab active" onclick="switchMainTab('current')"><i class="fas fa-satellite-dish"></i> Current Running Build</button>
+      <button id="tabBtnMtbf" class="tab" onclick="switchMainTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>
+      <button id="tabBtnTable" class="tab" onclick="switchMainTab('table')"><i class="fas fa-table"></i> Excel Sheet Table</button>
+    </div>
+
+    <section id="tabCurrent" class="tab-section active">
+      <section class="panel">
+        <div class="panel-h"><div class="panel-title"><i class="fas fa-satellite-dish" style="color:#22c55e"></i> Current Running Build</div><button class="btn small ghost" onclick="loadCurrentBuilds(true)"><i class="fas fa-rotate"></i></button></div>
+        <div class="panel-b"><div id="currentBuildsBox"><div class="empty">Select a sheet to load current builds.</div></div></div>
+      </section>
+    </section>
+
+    <section id="tabMtbf" class="tab-section">
+      <section class="panel">
+        <div class="panel-h"><div class="panel-title"><i class="fas fa-chart-line" style="color:#38bdf8"></i> MTBF Trend</div><div id="sheetStatus" class="status">No sheet selected</div></div>
+        <div class="panel-b">
+          <div class="chart-wrap"><canvas id="mtbfChart" height="390"></canvas><div id="chartEmpty" class="empty">Select or sync a sheet to view chart.</div></div>
+        </div>
+      </section>
+    </section>
+
+    <section id="tabTable" class="tab-section">
+      <section class="panel">
+        <div class="panel-h"><div class="panel-title"><i class="fas fa-table" style="color:#f97316"></i> Sheet MTBF Table</div><input id="tableFilter" class="input" style="max-width:280px" placeholder="Filter rows..." oninput="renderTable()"></div>
+        <div class="panel-b"><div class="table-wrap"><table><thead id="mtbfThead"></thead><tbody id="mtbfTbody"><tr><td class="empty">No data.</td></tr></tbody></table></div></div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div id="configModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9999;align-items:center;justify-content:center;padding:18px">
+  <div style="width:min(900px,96vw);max-height:90vh;overflow:auto;border-radius:24px;background:#0f1b2d;border:1px solid rgba(148,163,184,.2);box-shadow:var(--shadow)">
+    <div class="panel-h"><div class="panel-title"><i class="fas fa-cog"></i> Live View Stats Config</div><button class="btn small ghost" onclick="closeConfig()"><i class="fas fa-times"></i></button></div>
+    <div class="panel-b">
+      <div class="config-row"><input id="excelPath" class="input" placeholder="Excel file path, e.g. C:\\Dropbox\\mtbf.xlsx"><button class="btn primary" onclick="saveConfig(false)"><i class="fas fa-save"></i> Save</button></div>
+      <div class="config-row"><input id="excelRoot" class="input" value="{{ default_excel_root }}" placeholder="Workbook search folder"><button class="btn ghost" onclick="listWorkbooks()"><i class="fas fa-folder-open"></i> Find Workbooks</button></div>
+      <div id="workbooksBox" style="margin-bottom:12px"></div>
+      <datalist id="dbTableOptions"></datalist>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 8px;flex-wrap:wrap">
+        <div style="font-weight:1000">Per-sheet DB table mapping <span class="status">one selector for every left-side sheet/config item</span></div>
+        <button class="btn small ghost" onclick="loadDbTables(true)"><i class="fas fa-database"></i> Reload DB Tables</button>
+      </div>
+      <div id="sheetDbConfig" class="config-table"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn ghost" onclick="closeConfig()">Cancel</button><button class="btn green" onclick="saveConfig(true)"><i class="fas fa-save"></i> Save & Sync</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TARGET = {{ target_name|tojson }};
+const API = `/api/live_view_stats/${encodeURIComponent(TARGET)}`;
+let config = {sheet_tables:{}, excel_path:'', excel_root:''};
+let sheets = [];
+let workbookSheets = [];
+let dbTables = [];
+let activeSheet = '';
+let sheetData = null;
+let chart = null;
+
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function num(v){const n=Number(v||0);return Number.isFinite(n)?n:0;}
+function openConfig(){document.getElementById('configModal').style.display='flex'; loadDbTables(false).finally(renderConfig);}
+function closeConfig(){document.getElementById('configModal').style.display='none';}
+function switchMainTab(tab){['Current','Mtbf','Table'].forEach(n=>{document.getElementById('tab'+n).classList.toggle('active',n.toLowerCase()===tab);document.getElementById('tabBtn'+n).classList.toggle('active',n.toLowerCase()===tab);});}
+
+async function loadConfig(){
+  const r=await fetch(`${API}/config`,{cache:'no-store'}); const d=await r.json(); if(!d.ok) throw new Error(d.error||'Config load failed');
+  config=d.config||config; workbookSheets=d.workbook_sheets||[]; document.getElementById('excelPath').value=config.excel_path||''; document.getElementById('excelRoot').value=config.excel_root||'{{ default_excel_root }}';
+  if((d.index||{}).updated_at) document.getElementById('lastSync').textContent='Synced '+new Date(d.index.updated_at).toLocaleString();
+}
+async function loadDbTables(force){
+  if(dbTables.length && !force) return dbTables;
+  const list=document.getElementById('dbTableOptions'); if(list) list.innerHTML='<option value="Loading DB tables...">';
+  try{const r=await fetch(`${API}/db_tables`,{cache:'no-store'}); const d=await r.json(); if(!d.ok) throw new Error(d.error||'DB table load failed'); dbTables=d.tables||[]; if(list) list.innerHTML=dbTables.map(t=>`<option value="${esc(t.fq)}">${esc(t.label||t.name)}</option>`).join('');}
+  catch(e){if(list) list.innerHTML=''; console.warn(e);}
+  return dbTables;
+}
+async function saveConfig(syncAfter){
+  const payload={excel_path:document.getElementById('excelPath').value.trim(),excel_root:document.getElementById('excelRoot').value.trim(),sheet_tables:collectDbConfig()};
+  const r=await fetch(`${API}/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!d.ok){alert(d.error||'Save failed');return;}
+  config=d.config||payload; if(syncAfter) await syncExcel(); else {await loadSheets(); closeConfig();}
+}
+function collectDbConfig(){
+  const out={}; document.querySelectorAll('[data-db-sheet]').forEach(row=>{const s=row.getAttribute('data-db-sheet'); out[s]={target_table:row.querySelector('[data-db-field="target_table"]').value.trim(),jiras_table:row.querySelector('[data-db-field="jiras_table"]').value.trim(),openjiras_table:row.querySelector('[data-db-field="openjiras_table"]').value.trim(),unique_crs_table:row.querySelector('[data-db-field="unique_crs_table"]').value.trim()};}); return out;
+}
+function renderConfig(){
+  document.getElementById('excelPath').value=config.excel_path||''; document.getElementById('excelRoot').value=config.excel_root||'{{ default_excel_root }}';
+  const names=[...new Set([...sheets.map(s=>s.sheet_name), ...workbookSheets])].filter(Boolean); const box=document.getElementById('sheetDbConfig');
+  const input=(field,placeholder,value)=>`<input class="input" list="dbTableOptions" data-db-field="${field}" placeholder="${placeholder}" value="${esc(value||'')}">`;
+  box.innerHTML = names.length ? names.map(name=>{const m=(config.sheet_tables||{})[name]||{};return `<div class="db-row" data-db-sheet="${esc(name)}"><div><b><i class="fas fa-table"></i> ${esc(name)}</b><div class="status">Select the exact DB tables for this left-side sheet. Suggestions come from the target schema; manual table names are also allowed.</div></div><div style="display:grid;gap:6px">${input('target_table','selected target/current-build table (usually *_jiras)',m.target_table||'')}${input('jiras_table','JIRAs table (optional, defaults to target table)',m.jiras_table||m.target_table||'')}${input('openjiras_table','Open JIRAs table (optional)',m.openjiras_table||'')}${input('unique_crs_table','Unique CRs table (optional)',m.unique_crs_table||'')}</div></div>`}).join('') : '<div class="empty">Save an Excel path or Sync Excel first to populate sheet names from C:\\Dropbox.</div>';
+}
+async function listWorkbooks(){
+  const root=document.getElementById('excelRoot').value.trim(); const box=document.getElementById('workbooksBox'); box.innerHTML='<div class="status">Searching...</div>';
+  const r=await fetch(`${API}/workbooks?root=${encodeURIComponent(root)}&recursive=1`); const d=await r.json();
+  box.innerHTML=(d.files||[]).slice(0,20).map(f=>`<button class="btn small ghost" style="margin:3px;justify-content:flex-start" onclick="document.getElementById('excelPath').value='${esc(f).replace(/\\/g,'\\\\')}'"><i class="fas fa-file-excel"></i> ${esc(f)}</button>`).join('') || '<div class="status err">No xlsx/xlsm found.</div>';
+}
+async function syncExcel(){
+  const payload={excel_path:document.getElementById('excelPath')?.value.trim()||config.excel_path,excel_root:document.getElementById('excelRoot')?.value.trim()||config.excel_root,sheet_tables:collectDbConfig()};
+  document.getElementById('sheetStatus').textContent='Syncing Excel...';
+  const r=await fetch(`${API}/sync`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json();
+  if(!d.ok && !(d.synced||[]).length){alert((d.errors||[])[0]?.error||d.error||'Sync failed');document.getElementById('sheetStatus').textContent='Sync failed';return;}
+  await loadSheets(); closeConfig(); document.getElementById('sheetStatus').textContent=`Synced ${(d.synced||[]).length} sheet(s)`;
+}
+async function loadSheets(){
+  await loadConfig(); const r=await fetch(`${API}/sheets`,{cache:'no-store'}); const d=await r.json(); sheets=((d.index||{}).sheets||[]); renderSheets(); renderConfig(); if(!activeSheet && sheets[0]) selectSheet(sheets[0].sheet_name);
+}
+function renderSheets(){
+  const q=(document.getElementById('sheetSearch').value||'').toLowerCase(); const box=document.getElementById('sheetList'); const visible=sheets.filter(s=>!q||JSON.stringify(s).toLowerCase().includes(q));
+  if(!visible.length){box.innerHTML='<div class="empty"><i class="fas fa-inbox"></i><p>No synced sheets. Configure Excel and Sync.</p></div>';return;}
+  box.innerHTML=visible.map(s=>`<button class="sheet-item ${s.sheet_name===activeSheet?'active':''}" onclick="selectSheet('${esc(s.sheet_name)}')"><div class="sheet-name"><i class="fas fa-table"></i> ${esc(s.sheet_name)}</div><div class="sheet-meta"><span class="tag">${s.rows||0} rows</span><span class="tag green">${s.chart_rows||0} MTBF</span></div></button>`).join('');
+}
+async function selectSheet(name){
+  activeSheet=name; renderSheets(); document.getElementById('sheetStatus').textContent='Loading '+name+'...';
+  const r=await fetch(`${API}/sheet/${encodeURIComponent(name)}`,{cache:'no-store'}); const d=await r.json(); if(!d.ok){document.getElementById('sheetStatus').textContent=d.error||'Sheet load failed';return;}
+  sheetData=d.sheet; document.getElementById('pageTitle').textContent=name; document.getElementById('pageSub').textContent=(sheetData.excel_path||'')+' • JSON-backed sheet'; document.getElementById('sheetStatus').textContent='Loaded '+name; renderChart(); renderTable(); loadCurrentBuilds(false);
+}
+function shortLabel(s){s=String(s||'');let m=s.match(/Meta[-\s_]*(\d+(?:\.r\d+)?)/i);if(m)return 'Meta-'+m[1];m=s.match(/-(\d{3,6})(?:[\-.]|$)/);return m?'Meta-'+parseInt(m[1],10):s.slice(0,14);}
+function renderChart(){
+  const rows=(sheetData&&sheetData.chart_rows)||[]; document.getElementById('chartEmpty').style.display=rows.length?'none':'block'; const canvas=document.getElementById('mtbfChart'); canvas.style.display=rows.length?'block':'none'; if(chart){chart.destroy();chart=null;} if(!rows.length)return;
+  const labels=rows.map(r=>shortLabel(r.meta_id)); const hours=rows.map(r=>num(r.hours)); const crashes=rows.map(r=>num(r.total_crashes)); const mtbf=rows.map(r=>num(r.mtbf)); canvas.width=Math.max(720,labels.length*78); canvas.style.width=canvas.width+'px';
+  chart=new Chart(canvas,{type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#1f4e79',yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#c55a11',backgroundColor:'transparent',yAxisID:'y1',tension:0,pointRadius:4},{type:'line',label:'MTBF',data:mtbf,borderColor:'#ed7d31',backgroundColor:'transparent',yAxisID:'y2',tension:0,pointRadius:4}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},title:{display:true,text:activeSheet+' MTBF Trend'}},scales:{x:{ticks:{autoSkip:false,maxRotation:35}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours'}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes'}},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF'}}}}});
+  const totalHours=hours.reduce((a,b)=>a+b,0), totalCrashes=crashes.reduce((a,b)=>a+b,0); document.getElementById('kRows').textContent=(sheetData.rows||[]).length; document.getElementById('kHours').textContent=totalHours.toFixed(1); document.getElementById('kCrashes').textContent=totalCrashes; document.getElementById('kMtbf').textContent=totalCrashes? (totalHours/totalCrashes).toFixed(1):'0';
+}
+function renderTable(){
+  const headers=(sheetData&&sheetData.headers)||[]; const rows=(sheetData&&sheetData.rows)||[]; const q=(document.getElementById('tableFilter').value||'').toLowerCase(); const filtered=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));
+  document.getElementById('mtbfThead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':'';
+  document.getElementById('mtbfTbody').innerHTML=filtered.length?filtered.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';
+}
+async function loadCurrentBuilds(){
+  const box=document.getElementById('currentBuildsBox'); if(!activeSheet){box.innerHTML='<div class="empty">Select a sheet.</div>';return;} box.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><p>Loading current builds...</p></div>';
+  const m=(config.sheet_tables||{})[activeSheet]||{}; const selectedTable=m.jiras_table||m.target_table||''; const qs=selectedTable?'&target_table='+encodeURIComponent(selectedTable):'';
+  try{const r=await fetch(`/api/live_status_view/${encodeURIComponent(TARGET)}/running_builds_db?domain=${encodeURIComponent(activeSheet)}${qs}`,{cache:'no-store'}); const d=await r.json(); if(!d.ok) throw new Error(d.error||'Load failed'); const rows=d.rows||[]; box.innerHTML=rows.length?rows.slice(0,30).map(x=>`<div class="build-card"><div class="build-title">${esc(x.build_id||x.build_full||'')}</div><div class="build-sub">${esc(x.meta_id||'')} • devices ${esc(x.device_count||0)} • jobs ${esc(x.job_count||0)} • ${esc(x.product_flavor||'')}</div></div>`).join(''):'<div class="empty">No current running builds found for this sheet/table.</div>';}
+  catch(e){box.innerHTML='<div class="empty"><i class="fas fa-triangle-exclamation"></i><p>'+esc(e.message||e)+'</p></div>';}
+}
+loadSheets().catch(e=>{document.getElementById('sheetList').innerHTML='<div class="empty">'+esc(e.message||e)+'</div>';});
+</script>
+</body>
+</html>

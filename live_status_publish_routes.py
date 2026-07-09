@@ -1612,31 +1612,116 @@ def landing():
             viewer_bu_sections.append({
                 'bu_key': bu_key,
                 'bu_name': bu_name,
-                'targets': targets,
+                                'targets': targets,
             })
 
+    viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
+    matched_groups_upper = {str(g or '').strip().upper() for g in (viewer_scope.get('matched_groups') or [])}
+
+    # ── Special "Live View Stats" BU sections (Automotive 4.5 + WBC) ──────────
+    # These are always shown as top-level cards that open the automotive_live_view_stats
+    # page directly — they are NOT backed by a Live Status publish job.
+    # Editors (full target-group access) always see them. Restricted viewers only
+    # see them if their access scope explicitly covers AUTO/WBC (same rule used
+    # for every other BU/target on this page) — this preserves per-group access.
+    _show_special_sections = can_edit or bool(viewer_scope.get('all')) or 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper or 'AUTO' in (viewer_scope.get('bus') or set()) or 'AUTOMOTIVE' in (viewer_scope.get('bus') or set()) or 'WBC' in (viewer_scope.get('bus') or set())
+
+    # Strip regular WBC/synthetic sections only so WBC does not duplicate with the
+    # special card below. Keep AUTO/AUTOMOTIVE because those are already-published
+    # Automotive Gen5 reports such as HQX/HGY.
+    viewer_bu_sections = [
+        section for section in viewer_bu_sections
+        if str(section.get('bu_key') or '').upper() not in {'WBC', 'AUTO_GEN45', 'AUTOMOTIVE4.5'}
+    ]
+
+    if _show_special_sections:
+        # Automotive 4.5 card
+        viewer_bu_sections.insert(0, {
+            'bu_key': 'AUTO_GEN45',
+            'bu_name': 'Automotive 4.5',
+            'special_page': True,
+            'targets': [{
+                'name': 'Automotive 4.5',
+                'bu_key': 'AUTO_GEN45',
+                'bu_name': 'Automotive 4.5',
+                'target_url': url_for('automotive_live_view_stats_bp.automotive_live_view_stats_page', target_name='4.8.9.0'),
+                'token': '',
+                'published_at': '',
+                'updated_at': '',
+                'published_by': '',
+                'job_type': 'CRM',
+                'meta_count': 0,
+                'job_name': 'Automotive 4.5 Live View Stats',
+                'status': 'published',
+                'job_id': '',
+                'special_page': True,
+                'special_label': 'Live View Stats',
+                'special_icon': 'fa-car',
+                'special_desc': 'Gen 4.5 - ADAS / FLEX / IVI',
+            }],
+        })
+
+        # WBC card
+        viewer_bu_sections.insert(1, {
+            'bu_key': 'WBC',
+            'bu_name': 'WBC',
+            'special_page': True,
+            'targets': [{
+                'name': 'WBC',
+                'bu_key': 'WBC',
+                'bu_name': 'WBC',
+                'target_url': url_for('automotive_live_view_stats_bp.automotive_live_view_stats_page', target_name='WBC'),
+                'token': '',
+                'published_at': '',
+                'updated_at': '',
+                'published_by': '',
+                'job_type': 'CRM',
+                'meta_count': 0,
+                'job_name': 'WBC Live View Stats',
+                'status': 'published',
+                'job_id': '',
+                'special_page': True,
+                'special_label': 'Live View Stats',
+                'special_icon': 'fa-network-wired',
+                'special_desc': 'Wireless Broadband Connectivity',
+            }],
+        })
+
+    # BUs whose targets should NOT appear in the Add Job modal. Keep AUTO/AUTOMOTIVE
+    # visible so already-published Automotive Gen5 targets can still be managed.
+    _hidden_add_job_bus = {'WBC', 'AUTO_GEN45', 'AUTOMOTIVE4.5'}
+
     total_viewer_targets = sum(len(section.get('targets') or []) for section in viewer_bu_sections)
-    if not can_edit and total_viewer_targets == 1:
+    # Never auto-redirect when special sections are present (multiple cards always shown)
+    _has_special = any(section.get('special_page') for section in viewer_bu_sections)
+    if not can_edit and total_viewer_targets == 1 and not _has_special:
         only_target = next((section['targets'][0] for section in viewer_bu_sections if section.get('targets')), None)
         if only_target:
             return redirect(only_target['target_url'])
 
-    viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
-
     requested_bu = (request.args.get('bu_key') or '').strip().upper()
     visible_bu_keys = {str(row[0]).upper() for row in bu_list}
     auto_open_bu = requested_bu if requested_bu in visible_bu_keys else ''
-    if not auto_open_bu and not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
+    if not auto_open_bu and not can_edit and 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper:
+        auto_open_bu = 'AUTO_GEN45'
+    elif not auto_open_bu and not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
         auto_open_bu = bu_list[0][0]
 
 
+
         
+        # Filter target_options passed to Add Job modal — exclude AUTO/WBC BUs
+    add_job_target_opts = [
+        row for row in all_target_opts
+        if str(row.get('bu_key') or '').upper() not in _hidden_add_job_bus
+    ]
+
     response = make_response(render_template(
         'live_status_publish_landing.html',
         jobs=visible_jobs,
         bu_list=bu_list,
         bu_targets_js=bu_targets_js,
-        target_options=all_target_opts,
+        target_options=add_job_target_opts,
         preselected_target=requested_target,
         preselected_bu=(request.args.get('bu_key') or '').strip(),
         can_edit=can_edit,

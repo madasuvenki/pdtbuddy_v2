@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto Gen4.5 Public API</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,system-ui,-apple-system,sans-serif;color:#0f172a;background:radial-gradient(circle at top left,#dbeafe 0,#f8fafc 34%,#eef2ff 100%);min-height:100vh}
+    .wrap{max-width:1180px;margin:0 auto;padding:34px 22px 60px}.hero{position:relative;overflow:hidden;border-radius:30px;padding:34px;background:linear-gradient(135deg,#0f172a,#1d4ed8 55%,#7c3aed);color:#fff;box-shadow:0 28px 70px rgba(30,64,175,.28)}
+    .hero:after{content:"";position:absolute;right:-90px;top:-90px;width:260px;height:260px;border-radius:999px;background:rgba(255,255,255,.14)}.badge{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+    h1{font-size:42px;line-height:1.05;margin:18px 0 10px;letter-spacing:-.04em}.lead{max-width:760px;color:#dbeafe;font-size:16px;font-weight:650;line-height:1.65}.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}.btn{display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 16px;border-radius:13px;text-decoration:none;font-weight:950;border:1px solid transparent}.btn.primary{background:#fff;color:#1d4ed8}.btn.ghost{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.24)}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;margin-top:20px}.card{background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border:1px solid #e2e8f0;border-radius:22px;padding:22px;box-shadow:0 14px 40px rgba(15,23,42,.08)}.card h2{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:19px}.muted{color:#64748b}.pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 10px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:12px;font-weight:900}
+    pre{margin:10px 0 0;background:#07111f;color:#dbeafe;border:1px solid #1e293b;border-radius:16px;padding:16px;overflow:auto;font-size:13px;line-height:1.5}code{background:#e0e7ff;color:#3730a3;border-radius:7px;padding:2px 6px;font-weight:850}.endpoint{border-left:5px solid #2563eb}.endpoint.search{border-left-color:#7c3aed}.endpoint.list{border-left-color:#10b981}.method{color:#22c55e;font-weight:950}.url{color:#93c5fd}.param-table,.sp-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:16px;border:1px solid #e2e8f0;background:#fff}.param-table th,.param-table td,.sp-table th,.sp-table td{padding:11px 12px;border-bottom:1px solid #edf2f7;text-align:left;font-size:13px}.param-table th,.sp-table th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.07em}.param-table tr:last-child td,.sp-table tr:last-child td{border-bottom:0}.sp-link{font-weight:950;color:#2563eb;text-decoration:none}.sp-link:hover{text-decoration:underline}.status-ok{color:#047857;font-weight:950}.status-err{color:#b91c1c;font-weight:950}.callout{border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#fff);border-radius:18px;padding:16px;color:#1e3a8a;font-weight:750}.steps{display:grid;gap:10px}.step{display:flex;gap:12px;align-items:flex-start}.num{width:28px;height:28px;border-radius:10px;background:#1d4ed8;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:950;flex:0 0 auto}.copyline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.small{font-size:12px}.footer{margin-top:24px;text-align:center;color:#64748b;font-size:12px;font-weight:700}
+    @media(max-width:860px){.grid{grid-template-columns:1fr}.hero{padding:26px}h1{font-size:32px}.wrap{padding:22px 14px 44px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="badge"><i class="fas fa-plug"></i> No-login JSON API</div>
+      <h1>Auto Gen4.5 &rarr; Public API</h1>
+      <p class="lead">Use these simple HTTP endpoints to let external tools fetch SP information from the managed Auto Gen4.5 JSON. Supports available-SP discovery, full table fetch, latest-N rows, summaries, and text search.</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="{{ base }}/public/auto-gen45/api/sps" target="_blank" rel="noopener"><i class="fas fa-list"></i> Try List SPs</a>
+        <a class="btn ghost" href="{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&summary=true" target="_blank" rel="noopener"><i class="fas fa-table"></i> Try SP 8620</a>
+        <a class="btn ghost" href="{{ base }}/public/auto-gen45/api/search?sp=8620&q=Snapdragon&limit=10" target="_blank" rel="noopener"><i class="fas fa-search"></i> Try Search</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <h2><i class="fas fa-globe" style="color:#2563eb"></i> Base URL</h2>
+        <div class="copyline"><span class="pill">Host {{ public_host }}</span><span class="pill">JSON</span><span class="pill">GET only</span></div>
+        <pre>{{ base }}</pre>
+        <p class="muted small" style="margin-top:12px">JSON source: <code>{{ json_path }}</code></p>
+        <p class="muted small">Generated at: <code>{{ generated_at or 'NA' }}</code></p>
+        {% if load_error %}<p class="status-err"><i class="fas fa-triangle-exclamation"></i> JSON load error: {{ load_error }}</p>{% else %}<p class="status-ok"><i class="fas fa-circle-check"></i> API data source loaded successfully.</p>{% endif %}
+      </div>
+      <div class="card">
+        <h2><i class="fas fa-circle-question" style="color:#7c3aed"></i> How to call</h2>
+        <div class="steps">
+          <div class="step"><div class="num">1</div><div><b>Find available SPs</b><br><span class="muted small">Call <code>/api/sps</code> to know valid SP numbers.</span></div></div>
+          <div class="step"><div class="num">2</div><div><b>Fetch one SP</b><br><span class="muted small">Call <code>/api/sp/&lt;sp&gt;</code>, for example <code>8620</code>.</span></div></div>
+          <div class="step"><div class="num">3</div><div><b>Limit or search</b><br><span class="muted small">Use <code>last_n</code>, <code>summary</code>, <code>q</code>, and <code>limit</code>.</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="card" style="margin-top:18px">
+      <h2><i class="fas fa-microchip" style="color:#10b981"></i> Available SPs</h2>
+      <table class="sp-table">
+        <thead><tr><th>SP</th><th>Program</th><th>Domain</th><th>Rows</th><th>Open API</th></tr></thead>
+        <tbody>
+        {% for item in available %}
+          <tr>
+            <td><b>{{ item.sp }}</b></td><td>{{ item.program }}</td><td>{{ item.domain }}</td><td>{{ item.row_count }}</td>
+            <td><a class="sp-link" href="{{ base }}/public/auto-gen45/api/sp/{{ item.sp }}" target="_blank" rel="noopener">GET /api/sp/{{ item.sp }}</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">No SPs loaded. Check JSON source / generated file.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <div class="grid">
+      <section class="card endpoint list">
+        <h2><i class="fas fa-list"></i> API 1: List available SPs</h2>
+        <pre><span class="method">GET</span> <span class="url">{{ base }}/public/auto-gen45/api/sps</span></pre>
+        <pre>curl "{{ base }}/public/auto-gen45/api/sps"</pre>
+        <pre>{
+  "ok": true,
+  "message": "Available SPs fetched successfully.",
+  "available_sps": [
+    {"sp": "8620", "program": "8620 (ADAS)", "domain": "ADAS", "row_count": 97}
+  ],
+  "count": 5
+}</pre>
+      </section>
+
+      <section class="card endpoint">
+        <h2><i class="fas fa-table"></i> API 2: Get one SP table</h2>
+        <pre><span class="method">GET</span> <span class="url">{{ base }}/public/auto-gen45/api/sp/8620?last_n=0&summary=true</span></pre>
+        <table class="param-table">
+          <thead><tr><th>Param</th><th>Required</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>sp</code> path</td><td>Yes</td><td>SP number or program text. Example: <code>8620</code>, <code>8775</code>.</td></tr>
+            <tr><td><code>last_n</code></td><td>No</td><td><code>0</code> or omitted returns full table. <code>5</code> returns latest 5 rows.</td></tr>
+            <tr><td><code>summary</code></td><td>No</td><td><code>true</code> default includes summary metrics. Use <code>false</code> to skip.</td></tr>
+          </tbody>
+        </table>
+        <pre>curl "{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&summary=true"</pre>
+      </section>
+    </div>
+
+    <section class="card endpoint search" style="margin-top:18px">
+      <h2><i class="fas fa-search"></i> API 3: Search within one SP</h2>
+      <pre><span class="method">GET</span> <span class="url">{{ base }}/public/auto-gen45/api/search?sp=8620&q=Snapdragon&limit=10</span></pre>
+      <table class="param-table">
+        <thead><tr><th>Param</th><th>Required</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>sp</code></td><td>Yes</td><td>SP to search inside.</td></tr>
+          <tr><td><code>q</code> or <code>query</code></td><td>No</td><td>Text to search across row values. Empty query returns rows up to limit.</td></tr>
+          <tr><td><code>limit</code></td><td>No</td><td>Max matched rows. Default <code>50</code>.</td></tr>
+        </tbody>
+      </table>
+      <pre>{
+  "ok": true,
+  "message": "Search completed for SP '8620'.",
+  "requested_sp": "8620",
+  "resolved_program": "8620 (ADAS)",
+  "query": "Snapdragon",
+  "matches": [ ... ],
+  "match_count": 10,
+  "truncated": true
+}</pre>
+    </section>
+
+    <section class="card" style="margin-top:18px">
+      <h2><i class="fas fa-code"></i> Response shape and errors</h2>
+      <div class="grid" style="margin-top:0">
+        <div>
+          <p><b>Successful SP response</b></p>
+          <pre>{
+  "ok": true,
+  "message": "SP '8620' data fetched successfully.",
+  "requested_sp": "8620",
+  "resolved_program": "8620 (ADAS)",
+  "rows": [
+    {"date": "2026-01-01", "hours": 120, "crashes": 1, "mtbf": 120}
+  ],
+  "row_count": 1,
+  "summary": {
+    "latest_date": "2026-01-01",
+    "latest_build": "...",
+    "latest_mtbf": 120,
+    "total_hours": 120,
+    "total_crashes": 1
+  }
+}</pre>
+        </div>
+        <div>
+          <p><b>SP not available</b></p>
+          <pre>{
+  "ok": false,
+  "message": "Requested SP '9999' is not available in Auto Gen4.5 data.",
+  "requested_sp": "9999",
+  "available_sps": [ ... ],
+  "rows": [],
+  "row_count": 0
+}</pre>
+          <div class="callout"><i class="fas fa-lightbulb"></i> If a tool asks for an invalid SP, call <code>/api/sps</code> first and let the user choose from the returned <code>available_sps</code>.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:18px">
+      <h2><i class="fas fa-robot" style="color:#4338ca"></i> External tool / MCP help</h2>
+      <p class="muted">For normal HTTP tools, use the REST APIs above. If an external tool supports MCP SSE, it can connect to:</p>
+      <pre>http://{{ public_host }}:8775/sse</pre>
+      <p class="muted">Recommended MCP call:</p>
+      <pre>{
+  "tool": "get_sp_info",
+  "arguments": {
+    "sp": "8620",
+    "last_n": 0,
+    "include_summary": true
+  }
+}</pre>
+    </section>
+
+    <div class="footer">Auto Gen4.5 Public API &bull; PDTBuddy &bull; No login required for these public JSON endpoints</div>
+  </div>
+</body>
+</html>

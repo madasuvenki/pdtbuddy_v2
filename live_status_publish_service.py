@@ -300,24 +300,53 @@ def _job_primary_target(job: Dict[str, Any]) -> str:
 
 def _storage_root() -> tuple:
     """
-    Returns (live_status_root, index_file).
-    Prefers network; falls back to local if network is read-only.
-    Cached after first probe.
+    Returns the preferred write root as (live_status_root, index_file).
+
+    Important: do not switch all reads to local just because a write probe on
+    the Sphere share fails. Published Live Status jobs are shared from Sphere;
+    a read-only/process-lock issue should not make the landing page look empty.
     """
     cached = getattr(_storage_root, '_cached', None)
     if cached:
         return cached
     try:
         os.makedirs(_LIVE_STATUS_ROOT, exist_ok=True)
-        probe = os.path.join(_LIVE_STATUS_ROOT, '.write_probe')
-        with open(probe, 'w') as _f:
-            _f.write('ok')
-        os.remove(probe)
-        _storage_root._cached = (_LIVE_STATUS_ROOT, _INDEX_FILE)
-    except Exception:
-        os.makedirs(_LOCAL_ROOT, exist_ok=True)
-        _storage_root._cached = (_LOCAL_ROOT, _LOCAL_INDEX_FILE)
+        if os.path.isdir(_LIVE_STATUS_ROOT):
+            _storage_root._cached = (_LIVE_STATUS_ROOT, _INDEX_FILE)
+            return _storage_root._cached
+    except Exception as exc:
+        logger.warning('[LIVE STATUS] Sphere storage unavailable for write root: %s', exc)
+    os.makedirs(_LOCAL_ROOT, exist_ok=True)
+    _storage_root._cached = (_LOCAL_ROOT, _LOCAL_INDEX_FILE)
     return _storage_root._cached
+
+
+def _storage_roots_for_read() -> List[str]:
+    """Return all readable Live Status roots, Sphere first, then local fallback."""
+    roots: List[str] = []
+    for root in (_LIVE_STATUS_ROOT, _LOCAL_ROOT):
+        try:
+            if root and os.path.isdir(root) and root not in roots:
+                roots.append(root)
+        except Exception:
+            continue
+    active_root, _ = _storage_root()
+    if active_root and active_root not in roots:
+        roots.append(active_root)
+    return roots
+
+
+def _index_file_for_root(root: str) -> str:
+    if os.path.abspath(root) == os.path.abspath(_LIVE_STATUS_ROOT):
+        return _INDEX_FILE
+    if os.path.abspath(root) == os.path.abspath(_LOCAL_ROOT):
+        return _LOCAL_INDEX_FILE
+    return os.path.join(root, 'jobs_index.json')
+
+
+def _target_live_status_dir_for_root(root: str, target_name: str) -> str:
+    bu, target = _target_dir_parts(target_name)
+    return os.path.join(root, bu, target)
 
 # SWPDT JSON paths
 _SWPDT_JSON_NETWORK = os.path.join(_PDTBUDDY_DATA_ROOT, 'SWPDT', 'SWPDT_job_summary.json')
@@ -491,28 +520,31 @@ def _job_lock(job_id: str) -> threading.Lock:
 
 
 def _candidate_job_files(job_id: str) -> List[str]:
-    root, _ = _storage_root()
     paths: List[str] = []
-    # New target-scoped path from index.
+    roots = _storage_roots_for_read()
+    # New target-scoped path from any available index, across Sphere + local.
     for e in _read_index():
         if str(e.get('id')) != str(job_id):
             continue
         target = str(((e.get('targets') or []) + ['UNKNOWN_TARGET'])[0] or 'UNKNOWN_TARGET')
-        paths.append(os.path.join(target_live_status_dir(target), 'jobs', f'{job_id}.json'))
-    # Legacy flat paths.
-    paths.append(os.path.join(root, 'jobs', f'{job_id}.json'))
+        for root in roots:
+            paths.append(os.path.join(_target_live_status_dir_for_root(root, target), 'jobs', f'{job_id}.json'))
+    # Legacy flat paths in both locations.
+    for root in roots:
+        paths.append(os.path.join(root, 'jobs', f'{job_id}.json'))
     paths.append(os.path.join(_LIVE_STATUS_ROOT, 'jobs', f'{job_id}.json'))
     paths.append(os.path.join(_LOCAL_ROOT, 'jobs', f'{job_id}.json'))
-    # Last-resort recursive search under active root only when indexed/legacy
-    # paths do not exist. This keeps list_jobs fast on network shares.
+    # Last-resort recursive search under all readable roots when indexed/legacy
+    # paths do not exist.
     if not any(os.path.exists(p) for p in paths):
-        try:
-            for base, _dirs, files in os.walk(root):
-                if f'{job_id}.json' in files:
-                    paths.append(os.path.join(base, f'{job_id}.json'))
-                    break
-        except Exception:
-            pass
+        for root in roots:
+            try:
+                for base, _dirs, files in os.walk(root):
+                    if f'{job_id}.json' in files:
+                        paths.append(os.path.join(base, f'{job_id}.json'))
+                        break
+            except Exception:
+                pass
     out = []
     for p in paths:
         if p and p not in out:
@@ -525,26 +557,25 @@ def _job_file_for_job(job: Dict[str, Any]) -> str:
 
 
 def get_job_for_target(target_name: str) -> Optional[Dict[str, Any]]:
-    """Directly load the job for a target by scanning its jobs/ folder.
-    No list_jobs() scan — goes straight to the target directory.
-    """
-    jobs_dir = os.path.join(target_live_status_dir(target_name), 'jobs')
-    if not os.path.isdir(jobs_dir):
-        return None
+    """Directly load the latest job for a target from Sphere or local fallback."""
     best = None
-    for fname in os.listdir(jobs_dir):
-        if not fname.endswith('.json'):
+    for root in _storage_roots_for_read():
+        jobs_dir = os.path.join(_target_live_status_dir_for_root(root, target_name), 'jobs')
+        if not os.path.isdir(jobs_dir):
             continue
-        fpath = os.path.join(jobs_dir, fname)
-        try:
-            with open(fpath, 'r', encoding='utf-8') as fh:
-                job = json.load(fh)
-            if not isinstance(job, dict) or not job.get('id'):
+        for fname in os.listdir(jobs_dir):
+            if not fname.endswith('.json'):
                 continue
-            if best is None or str(job.get('updated_at') or '') > str(best.get('updated_at') or ''):
-                best = job
-        except Exception:
-            continue
+            fpath = os.path.join(jobs_dir, fname)
+            try:
+                with open(fpath, 'r', encoding='utf-8') as fh:
+                    job = json.load(fh)
+                if not isinstance(job, dict) or not job.get('id'):
+                    continue
+                if best is None or str(job.get('updated_at') or '') > str(best.get('updated_at') or ''):
+                    best = job
+            except Exception:
+                continue
     return best
 
 
@@ -639,13 +670,24 @@ _INDEX_FIELDS = ('id', 'name', 'status', 'job_type', 'targets', 'targets_display
 
 
 def _read_index() -> List[Dict[str, Any]]:
-    _, index_file = _storage_root()
-    try:
-        with open(index_file, 'r', encoding='utf-8') as fh:
-            data = json.load(fh)
-            return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    """Read and merge jobs_index.json from Sphere and local fallback."""
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for root in _storage_roots_for_read():
+        index_file = _index_file_for_root(root)
+        try:
+            with open(index_file, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+            entries = data if isinstance(data, list) else []
+        except Exception:
+            entries = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get('id'):
+                continue
+            jid = str(entry.get('id'))
+            old = by_id.get(jid)
+            if old is None or str(entry.get('updated_at') or '') >= str(old.get('updated_at') or ''):
+                by_id[jid] = entry
+    return sorted(by_id.values(), key=lambda row: str(row.get('updated_at') or ''), reverse=True)
 
 
 def _write_index(entries: List[Dict[str, Any]]) -> None:
@@ -781,30 +823,32 @@ def delete_job(job_id: str) -> bool:
 def list_jobs() -> List[Dict[str, Any]]:
     """
     Return all jobs sorted by updated_at desc.
-    Uses the lightweight index for ordering, then loads each full job file.
+    Reads both the shared Sphere location and the local fallback so old
+    published jobs do not disappear when the process temporarily falls back.
     """
     _migrate_legacy()   # no-op after first run
-    root, _ = _storage_root()
     index = _read_index()
     if index:
-        ordered_ids = [e['id'] for e in
-                       sorted(index, key=lambda x: str(x.get('updated_at') or ''), reverse=True)
-                       if e.get('id')]
+        ordered_ids = [e['id'] for e in index if e.get('id')]
     else:
-        # fallback: scan directory
-        try:
-            ordered_ids = []
-            for base, _dirs, files in os.walk(root):
-                for f in files:
-                    if f.endswith('.json') and not f.startswith('.') and f not in ('jobs_index.json', 'jobs.json'):
-                        ordered_ids.append(f[:-5])
-        except Exception:
-            ordered_ids = []
-    jobs = []
+        ordered_ids = []
+        for root in _storage_roots_for_read():
+            try:
+                for base, _dirs, files in os.walk(root):
+                    for f in files:
+                        if f.endswith('.json') and not f.startswith('.') and f not in ('jobs_index.json', 'jobs.json'):
+                            ordered_ids.append(f[:-5])
+            except Exception:
+                pass
+    jobs_by_id: Dict[str, Dict[str, Any]] = {}
     for jid in ordered_ids:
         job = _read_job_file(jid)
         if job and isinstance(job, dict) and job.get('id'):
-            jobs.append(job)
+            old = jobs_by_id.get(str(job.get('id')))
+            if old is None or str(job.get('updated_at') or '') >= str(old.get('updated_at') or ''):
+                jobs_by_id[str(job.get('id'))] = job
+    jobs = list(jobs_by_id.values())
+    jobs.sort(key=lambda row: str(row.get('updated_at') or ''), reverse=True)
     return jobs
 
 

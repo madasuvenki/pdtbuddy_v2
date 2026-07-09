@@ -21,6 +21,41 @@
     .ls-subtitle{font-size:12px;color:#64748b;margin-top:2px;font-weight:600;}
     .ls-hdr-btns{display:flex;gap:8px;align-items:center;}
     .ls-btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:36px;border-radius:10px;font-size:13px;font-weight:800;text-decoration:none;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+    .ls-api-menu{position:relative;display:inline-flex;}
+    .ls-api-menu-btn{background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;box-shadow:0 6px 18px rgba(79,70,229,.32);border:1px solid rgba(255,255,255,.18);}
+    .ls-api-menu-btn:hover{filter:brightness(1.08);}
+    .ls-api-menu-btn .chev{font-size:10px;transition:transform .15s;}
+    .ls-api-menu.open .ls-api-menu-btn .chev{transform:rotate(180deg);}
+    .ls-api-panel{display:none;position:absolute;top:42px;left:0;min-width:240px;background:#fff;border:1.5px solid #dbeafe;border-radius:14px;box-shadow:0 18px 45px rgba(15,23,42,.18);padding:8px;z-index:1200;}
+    .ls-api-menu.open .ls-api-panel{display:block;}
+    .ls-api-panel-title{font-size:10px;font-weight:950;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;padding:6px 8px 8px;}
+    .ls-api-panel-link{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:11px;text-decoration:none;color:#0f172a;font-size:12px;font-weight:900;}
+    .ls-api-panel-link:hover{background:#eef2ff;color:#3730a3;}
+    .ls-api-panel-link i{width:18px;color:#4f46e5;}
+    .ls-api-panel-sub{display:block;font-size:10px;font-weight:700;color:#64748b;margin-top:2px;}
+    .ls-public-api-panel{display:none;margin:0 0 22px;background:#fff;border:1.5px solid #dbeafe;border-radius:20px;box-shadow:0 14px 38px rgba(37,99,235,.10);overflow:hidden;}
+    .ls-public-api-panel.open{display:block;}
+    .ls-public-api-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-bottom:1px solid #dbeafe;}
+    .ls-public-api-title{font-size:18px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:9px;}
+    .ls-public-api-title i{color:#4f46e5;}
+    .ls-public-api-sub{font-size:12px;font-weight:700;color:#64748b;margin-top:4px;line-height:1.45;}
+    .ls-public-api-close{width:30px;height:30px;border-radius:9px;border:1px solid #c7d2fe;background:#fff;color:#4338ca;cursor:pointer;font-weight:900;}
+    .ls-public-api-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px;}
+    .ls-api-category{border:1.5px solid #e2e8f0;border-radius:16px;overflow:hidden;background:#fafcff;}
+    .ls-api-category-head{padding:13px 15px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:950;color:#1e293b;display:flex;align-items:center;gap:8px;}
+    .ls-api-version-card{padding:14px 15px;display:grid;grid-template-columns:minmax(170px,.7fr) minmax(380px,1.6fr) auto;gap:14px;align-items:center;}
+    .ls-api-version-name{font-size:16px;font-weight:950;color:#312e81;}
+    .ls-api-version-desc{font-size:11px;font-weight:750;color:#64748b;margin-top:3px;line-height:1.45;}
+    .ls-api-endpoints{display:grid;grid-template-columns:1fr;gap:6px;}
+    .ls-api-endpoint{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:850;color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ls-api-endpoint code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#1d4ed8;font-weight:950;overflow:hidden;text-overflow:ellipsis;}
+    .ls-api-method{font-size:9px;font-weight:950;color:#15803d;background:#dcfce7;border:1px solid #86efac;border-radius:999px;padding:2px 6px;}
+    .ls-api-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+    .ls-api-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:10px;text-decoration:none;font-size:11px;font-weight:950;white-space:nowrap;}
+    .ls-api-action.primary{background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;box-shadow:0 7px 16px rgba(79,70,229,.22);}
+    .ls-api-action.ghost{background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;}
+    .ls-api-note{font-size:11px;font-weight:750;color:#64748b;line-height:1.5;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 12px;}
+    @media (max-width:900px){.ls-api-version-card{grid-template-columns:1fr;}.ls-api-actions{justify-content:flex-start;}.ls-api-endpoint{white-space:normal;}}
         .ls-btn-ghost{background:#fff;border:1.5px solid #e2e8f0;color:#475569;box-shadow:0 1px 3px rgba(15,23,42,.06);}
     .ls-btn-ghost:hover{background:#f8fafc;color:#1e293b;}
     .ls-btn-admin{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.3);}
@@ -86,12 +121,13 @@
                                         .ls-group-section{--acc:#6366f1;--acc2:#4f46e5;--acc-bg:#eef2ff;--acc-bg2:#f8faff;--acc-shadow:rgba(99,102,241,.16);background:#fff;border:1.5px solid var(--acc-bg);border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.07);overflow:hidden;}
 
 
-    .ls-group-section.acc-auto{--acc:#2563eb;--acc2:#0ea5e9;--acc-bg:#dbeafe;--acc-bg2:#eff6ff;--acc-shadow:rgba(37,99,235,.18);}
+    .ls-group-section.acc-auto{--acc:#1d4ed8;--acc2:#2563eb;--acc-bg:#dbeafe;--acc-bg2:#eff6ff;--acc-shadow:rgba(37,99,235,.18);}
     .ls-group-section.acc-nord{--acc:#0f766e;--acc2:#14b8a6;--acc-bg:#ccfbf1;--acc-bg2:#f0fdfa;--acc-shadow:rgba(20,184,166,.18);}
     .ls-group-section.acc-iot{--acc:#059669;--acc2:#84cc16;--acc-bg:#d1fae5;--acc-bg2:#f7fee7;--acc-shadow:rgba(5,150,105,.16);}
     .ls-group-section.acc-mobile{--acc:#7c3aed;--acc2:#ec4899;--acc-bg:#f5d0fe;--acc-bg2:#fdf4ff;--acc-shadow:rgba(124,58,237,.17);}
     .ls-group-section.acc-compute{--acc:#0891b2;--acc2:#2563eb;--acc-bg:#cffafe;--acc-bg2:#ecfeff;--acc-shadow:rgba(8,145,178,.17);}
-    .ls-group-section.acc-wbc{--acc:#ea580c;--acc2:#f59e0b;--acc-bg:#ffedd5;--acc-bg2:#fff7ed;--acc-shadow:rgba(234,88,12,.16);}
+    .ls-group-section.acc-wbc{--acc:#0891b2;--acc2:#0e7490;--acc-bg:#cffafe;--acc-bg2:#ecfeff;--acc-shadow:rgba(8,145,178,.16);}
+    .ls-group-section.acc-auto45{--acc:#7c3aed;--acc2:#6d28d9;--acc-bg:#ede9fe;--acc-bg2:#f5f3ff;--acc-shadow:rgba(124,58,237,.18);}
     .ls-group-section.acc-weekly{--acc:#d97706;--acc2:#eab308;--acc-bg:#fef3c7;--acc-bg2:#fffbeb;--acc-shadow:rgba(217,119,6,.16);}
     .ls-group-section.acc-hw{--acc:#be123c;--acc2:#f43f5e;--acc-bg:#ffe4e6;--acc-bg2:#fff1f2;--acc-shadow:rgba(190,18,60,.15);}
     .ls-group-section.acc-ai{--acc:#4338ca;--acc2:#7c3aed;--acc-bg:#e0e7ff;--acc-bg2:#eef2ff;--acc-shadow:rgba(67,56,202,.16);}
@@ -189,6 +225,9 @@
       </div>
     </div>
             <div class="ls-hdr-btns">
+        <button class="ls-btn ls-api-menu-btn" id="publicApiToggleBtn" type="button" aria-expanded="false">
+          <i class="fas fa-plug"></i> Public API <i class="fas fa-chevron-down chev"></i>
+        </button>
             {% if can_edit %}
         <button class="ls-btn ls-btn-admin" id="adminToggleBtn" type="button">
           <i class="fas fa-cog"></i> Manage Jobs
@@ -217,6 +256,37 @@
 
       <div class="ls-content">
 
+  <section class="ls-public-api-panel" id="publicApiPanel" aria-label="Public API details">
+    <div class="ls-public-api-head">
+      <div>
+        <div class="ls-public-api-title"><i class="fas fa-plug"></i> Public API</div>
+        <div class="ls-public-api-sub">No login, no session, no user id/password required. External tools can call these HTTP endpoints directly.</div>
+      </div>
+      <button class="ls-public-api-close" id="publicApiCloseBtn" type="button" aria-label="Close Public API panel"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="ls-public-api-body">
+      <div class="ls-api-category">
+        <div class="ls-api-category-head"><i class="fas fa-chart-line" style="color:#4f46e5;"></i> MTBF</div>
+        <div class="ls-api-version-card">
+          <div>
+            <div class="ls-api-version-name">Gen 4.5</div>
+            <div class="ls-api-version-desc">Auto Gen4.5 SP information from the managed JSON. More MTBF generations, such as Gen5, can be added here later.</div>
+          </div>
+          <div class="ls-api-endpoints">
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/sps</code></div>
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/search?sp=8620&amp;q=Snapdragon&amp;limit=10</code></div>
+          </div>
+          <div class="ls-api-actions">
+            <a class="ls-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
+            <a class="ls-api-action ghost" href="/public/auto-gen45/api/sps" target="_blank" rel="noopener"><i class="fas fa-list"></i> Try SP List</a>
+          </div>
+        </div>
+      </div>
+      <div class="ls-api-note"><strong>Public access:</strong> these `/public/auto-gen45/...` URLs are intentionally outside PDT Buddy login/session checks and include CORS headers for external tools.</div>
+    </div>
+  </section>
+
     {% if viewer_bu_sections %}
   <div class="ls-viewer-home" id="lsViewerHome">
     <div class="ls-viewer-tools">
@@ -231,14 +301,24 @@
       {% set bname = section.bu_name|upper %}
       {% set bu_display = (section.bu_name or section.bu_key)|replace('_', ' ')|upper %}
 
-            {% set bu_icon = 'fa-car' if ('AUTO' in bku or 'AUTO' in bname) else ('fa-route' if ('NORD' in bku or 'NORD' in bname) else ('fa-wifi' if ('IOT' in bku or 'IOT' in bname) else ('fa-mobile-alt' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('fa-server' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('fa-calendar-week' if ('WEEKLY' in bku or 'QIPL' in bku) else ('fa-microchip' if ('WBC' in bku or 'TELEMATICS' in bku) else ('fa-memory' if ('HW' in bku or 'HWPDT' in bku) else ('fa-wand-magic-sparkles' if ('AI' in bku or 'GENIE' in bku) else 'fa-shield-alt')))))))) %}
-      {% set bu_accent = 'acc-auto' if ('AUTO' in bku or 'AUTO' in bname) else ('acc-nord' if ('NORD' in bku or 'NORD' in bname) else ('acc-iot' if ('IOT' in bku or 'IOT' in bname) else ('acc-mobile' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('acc-compute' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('acc-weekly' if ('WEEKLY' in bku or 'QIPL' in bku) else ('acc-wbc' if ('WBC' in bku or 'TELEMATICS' in bku) else ('acc-hw' if ('HW' in bku or 'HWPDT' in bku) else ('acc-ai' if ('AI' in bku or 'GENIE' in bku) else '')))))))) %}
-      <section class="ls-group-section {{ bu_accent }}{% if bku == (auto_open_bu|default('', true)|upper) %} open{% endif %}" data-bu-section data-bu-name="{{ section.bu_name|e }}" data-bu-key="{{ section.bu_key|e }}">
+      {% set is_special = section.special_page|default(false) %}
+            {% set bu_icon = (section.targets[0].special_icon if (is_special and section.targets) else none) or ('fa-car' if ('AUTO' in bku or 'AUTO' in bname) else ('fa-route' if ('NORD' in bku or 'NORD' in bname) else ('fa-wifi' if ('IOT' in bku or 'IOT' in bname) else ('fa-mobile-alt' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('fa-server' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('fa-calendar-week' if ('WEEKLY' in bku or 'QIPL' in bku) else ('fa-network-wired' if ('WBC' in bku or 'TELEMATICS' in bku) else ('fa-memory' if ('HW' in bku or 'HWPDT' in bku) else ('fa-wand-magic-sparkles' if ('AI' in bku or 'GENIE' in bku) else 'fa-shield-alt')))))))))  %}
+      {% set bu_accent = 'acc-auto45' if ('AUTO_GEN45' in bku or '4.5' in bname) else ('acc-wbc' if ('WBC' in bku or 'TELEMATICS' in bku) else ('acc-auto' if ('AUTO' in bku or 'AUTO' in bname) else ('acc-nord' if ('NORD' in bku or 'NORD' in bname) else ('acc-iot' if ('IOT' in bku or 'IOT' in bname) else ('acc-mobile' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('acc-compute' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('acc-weekly' if ('WEEKLY' in bku or 'QIPL' in bku) else ('acc-hw' if ('HW' in bku or 'HWPDT' in bku) else ('acc-ai' if ('AI' in bku or 'GENIE' in bku) else ''))))))))) %}
+      <section class="ls-group-section {{ bu_accent }}{% if bku == (auto_open_bu|default('', true)|upper) %} open{% endif %}" data-bu-section data-bu-name="{{ section.bu_name|e }}" data-bu-key="{{ section.bu_key|e }}"{% if is_special %} data-special-section{% endif %}>
         <div class="ls-group-head" data-bu-toggle>
           <div class="ls-group-title">
             <div class="ls-group-icon"><i class="fas {{ bu_icon }}"></i></div>
             <div>
                             <div class="ls-group-name">{{ bu_display }}</div>
+              {% if is_special %}
+              <div class="ls-group-sub">Live View Stats &mdash; click to open dashboard</div>
+              <div class="ls-group-preview">
+                <span class="ls-group-preview-label">Type</span>
+                {% for pt in section.targets %}
+                  <span class="ls-group-preview-chip">{{ pt.special_desc or pt.bu_name }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
               <div class="ls-group-sub">{{ section.targets|length }} published target{{ 's' if section.targets|length != 1 else '' }} available</div>
               <div class="ls-group-preview">
                 <span class="ls-group-preview-label">Targets</span>
@@ -249,22 +329,42 @@
                   <span class="ls-group-preview-chip">+{{ section.targets|length - 4 }} more</span>
                 {% endif %}
               </div>
-
+              {% endif %}
             </div>
           </div>
-                    <div class="ls-group-toggle"><i class="fas fa-chevron-down"></i> {{ section.targets|length }} PANEL{{ 'S' if section.targets|length != 1 else '' }}</div>
-
+          {% if is_special %}
+          <div class="ls-group-toggle" style="background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border-color:transparent;"><i class="fas fa-arrow-right"></i> OPEN</div>
+          {% else %}
+          <div class="ls-group-toggle"><i class="fas fa-chevron-down"></i> {{ section.targets|length }} PANEL{{ 'S' if section.targets|length != 1 else '' }}</div>
+          {% endif %}
         </div>
         <div class="ls-group-body">
           <div class="ls-target-grid">
             {% for t in section.targets %}
+              {% if t.special_page|default(false) %}
+              <a class="ls-target-card" href="{{ t.target_url }}" data-target-card
+                 data-search="{{ (t.name ~ ' ' ~ t.bu_name ~ ' ' ~ t.bu_key ~ ' ' ~ (t.special_desc or ''))|lower|e }}"
+                 style="text-decoration:none;">
+                <div class="ls-target-top">
+                  <div>
+                    <div class="ls-target-name">{{ t.bu_name }}</div>
+                    <div class="ls-target-bu"><i class="fas {{ t.special_icon or bu_icon }}"></i> {{ t.special_desc or t.bu_name }}</div>
+                  </div>
+                  <span class="ls-live-badge"><span class="ls-live-dot"></span> LIVE</span>
+                </div>
+                <div class="ls-target-stats">
+                  <div class="ls-stat"><div class="ls-stat-k">Type</div><div class="ls-stat-v">Live View Stats</div></div>
+                  <div class="ls-stat"><div class="ls-stat-k">Access</div><div class="ls-stat-v">Authenticated</div></div>
+                  <div class="ls-stat"><div class="ls-stat-k">Config</div><div class="ls-stat-v">Editable</div></div>
+                </div>
+                <div class="ls-open-btn">Open <i class="fas fa-arrow-right"></i></div>
+              </a>
+              {% else %}
               <button class="ls-target-card" type="button" data-target-card data-search="{{ (t.name ~ ' ' ~ t.bu_name ~ ' ' ~ t.bu_key ~ ' ' ~ (t.published_by or '') ~ ' ' ~ (t.published_at or '') ~ ' ' ~ (t.updated_at or ''))|lower|e }}" onclick='openTargetViewer({{ t|tojson }})'>
                 <div class="ls-target-top">
                   <div>
-                                        <div class="ls-target-name">{{ t.name|replace('_', ' ')|upper }}</div>
-
-                                                            <div class="ls-target-bu"><i class="fas {{ bu_icon }}"></i> {{ (t.bu_name or t.bu_key)|replace('_', ' ')|upper }}</div>
-
+                    <div class="ls-target-name">{{ t.name|replace('_', ' ')|upper }}</div>
+                    <div class="ls-target-bu"><i class="fas {{ bu_icon }}"></i> {{ (t.bu_name or t.bu_key)|replace('_', ' ')|upper }}</div>
                   </div>
                   <span class="ls-live-badge"><span class="ls-live-dot"></span> LIVE</span>
                 </div>
@@ -275,6 +375,7 @@
                 </div>
                 <div class="ls-open-btn">Open <i class="fas fa-arrow-right"></i></div>
               </button>
+              {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -283,18 +384,17 @@
   </div>
   {% endif %}
 
-    {% if can_edit or not viewer_bu_sections %}
-  <!-- Breadcrumb — hidden at BU level -->
-    <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
+  <!-- Breadcrumb - hidden at BU level -->
+  <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
     <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-house"></i> Home</span>
     <span class="ls-bc-sep">/</span>
     <span class="ls-bc-cur" id="lsBcCur"></span>
   </div>
-  {% endif %}
 
 
-  <!-- Navigation area -->
-    <div id="lsNav" style="display:none;">
+    <!-- Legacy editor BU grid hidden; use top cards + Manage Jobs/Add Job instead. -->
+  <div id="lsNav" style="display:none;">
+
 
 
     <!-- LEVEL 1: BU rows -->
@@ -303,13 +403,18 @@
         <div class="ls-section-label">Business Units</div>
         <div class="ls-nav">
           {% for bu_key, bu_name in bu_list %}
+            {% set bku = bu_key|upper %}
+            {% set bname = bu_name|upper %}
+            {% set hide_editor_bu = ('QLI_IOT' in bku or 'QLI IOT' in bname or 'IOT_WEAR' in bku or 'IOT WEAR' in bname) %}
+            {% set editor_bu_name = 'Automotive Gen5' if (bku in ['AUTO', 'AUTOMOTIVE'] or bname == 'AUTOMOTIVE') else bu_name %}
+            {% if not hide_editor_bu %}
             {% set bu_targets = bu_targets_js.get(bu_key, []) %}
             {% set pub_count = bu_targets|selectattr('status','equalto','published')|list|length %}
             {% set draft_count = bu_targets|selectattr('status','equalto','draft')|list|length %}
-            <button class="ls-row" type="button" data-bu="{{ bu_key }}" data-bu-name="{{ bu_name }}" onclick="showTargets(this)">
+            <button class="ls-row" type="button" data-bu="{{ bu_key }}" data-bu-name="{{ editor_bu_name }}" onclick="showTargets(this)">
               <div class="ls-row-icon"><i class="fas fa-microchip"></i></div>
               <div class="ls-row-main">
-                <div class="ls-row-name">{{ bu_name }}</div>
+                <div class="ls-row-name">{{ editor_bu_name }}</div>
                 <div class="ls-row-sub">
                   {% if pub_count %}{{ pub_count }} live{% endif %}
                   {% if draft_count and can_edit %}&nbsp;&bull;&nbsp;{{ draft_count }} draft{% endif %}
@@ -320,6 +425,7 @@
               </div>
               <i class="fas fa-chevron-right ls-row-arrow"></i>
             </button>
+            {% endif %}
           {% endfor %}
         </div>
             {% else %}
@@ -506,6 +612,23 @@
   var BU_TARGETS = {{ bu_targets_js | tojson }};
   var AUTO_OPEN_BU = {{ auto_open_bu | default('', true) | tojson }};
 
+  (function initPublicApiPanel(){
+    var btn = document.getElementById('publicApiToggleBtn');
+    var panel = document.getElementById('publicApiPanel');
+    var closeBtn = document.getElementById('publicApiCloseBtn');
+    if (!btn || !panel) return;
+    function setOpen(open){
+      panel.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.innerHTML = open
+        ? '<i class="fas fa-times"></i> Hide Public API'
+        : '<i class="fas fa-plug"></i> Public API <i class="fas fa-chevron-down chev"></i>';
+      if (open) panel.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+    btn.addEventListener('click', function(){ setOpen(!panel.classList.contains('open')); });
+    if (closeBtn) closeBtn.addEventListener('click', function(){ setOpen(false); });
+  })();
+
   (function initViewerBuAccordions(){
     var home = document.getElementById('lsViewerHome');
     if (!home) return;
@@ -513,8 +636,18 @@
     var countEl = document.getElementById('lsViewerSearchCount');
     var sections = Array.prototype.slice.call(home.querySelectorAll('[data-bu-section]'));
 
-            sections.forEach(function(section){
+                        sections.forEach(function(section){
+      var isSpecial = section.hasAttribute('data-special-section');
       var head = section.querySelector('[data-bu-toggle]');
+      if (isSpecial) {
+        // Special cards (Automotive 4.5 / WBC) navigate directly — no accordion toggle.
+        var directLink = section.querySelector('a[data-target-card]');
+        if (head && directLink) {
+          head.style.cursor = 'pointer';
+          head.addEventListener('click', function(){ window.location.href = directLink.getAttribute('href'); });
+        }
+        return;
+      }
       var toggle = section.querySelector('.ls-group-toggle');
       function syncToggle(){
         if (!toggle) return;
