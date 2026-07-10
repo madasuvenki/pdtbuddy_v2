@@ -7,7 +7,7 @@ page to external apps (e.g. test automation, dashboards, CI pipelines).
 Data source: same JSON files used by live_status_view_api.py
   <DATA_ROOT>/managed_excel/AUTO/MTBF/<TARGET>/mtbf_<view>.json
 
-Transport: stdio (default) — works with any MCP client.
+Transport: stdio (default) - works with any MCP client.
 
 Usage:
     py -3 mcp_mtbf_server.py                        # stdio transport
@@ -52,11 +52,11 @@ except ImportError:
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# Config — same paths as live_status_view_api.py + Dropbox Excel source
+# Config - same paths as live_status_view_api.py + Dropbox Excel source
 # ---------------------------------------------------------------------------
 _DATA_ROOT = os.environ.get(
     "PDTBUDDY_DATA_ROOT",
-    r"\\sphere\pdtqipl_internal\PDTBuddy",
+    r"\\sphere\pdtstats\DB\PDTBuddy",
 )
 _MTBF_BASE = os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "MTBF")
 _LOCAL_FALLBACK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "adas_mtbf")
@@ -723,7 +723,7 @@ def get_mtbf_trend(
 
     Args:
         target_name: Target name, e.g. 'Nord_HQX' or 'Nord_HGY'.
-        view:        MTBF view — one of ADAS, IVI, FLEX. Default: ADAS.
+        view:        MTBF view - one of ADAS, IVI, FLEX. Default: ADAS.
         last_n:      Return only the last N rows (0 = all rows).
 
     Returns:
@@ -764,7 +764,7 @@ def get_mtbf_chart_data(
 
     Args:
         target_name:  Target name, e.g. 'Nord_HQX'.
-        view:         MTBF view — ADAS, IVI, or FLEX. Default: ADAS.
+        view:         MTBF view - ADAS, IVI, or FLEX. Default: ADAS.
         crash_types:  Comma-separated crash types to include in MTBF calculation.
                       Options: system, ssr, process. Default: 'system,ssr,process'.
         last_n:       Return only the last N data points (0 = all).
@@ -805,11 +805,11 @@ def get_mtbf_summary(
     target_name: str,
     view: str = "ADAS",
 ) -> Dict[str, Any]:
-    """Get a quick MTBF summary for a target — latest MTBF, total hours, total crashes.
+    """Get a quick MTBF summary for a target - latest MTBF, total hours, total crashes.
 
     Args:
         target_name: Target name, e.g. 'Nord_HQX'.
-        view:        MTBF view — ADAS, IVI, or FLEX. Default: ADAS.
+        view:        MTBF view - ADAS, IVI, or FLEX. Default: ADAS.
 
     Returns:
         ok, target, view, latest_meta_id, latest_mtbf, latest_date,

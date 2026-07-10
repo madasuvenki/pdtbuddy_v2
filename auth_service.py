@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 logger = logging.getLogger(__name__)
 from ldap3 import Server, Connection, SUBTREE
 from ldap3.utils.conv import escape_filter_chars
@@ -35,12 +35,12 @@ def validate_qgenie_api_key(api_key: str) -> dict:
         from qgenie import QGenieClient
     except ImportError:
         # If SDK not installed, skip QGenie check and allow login
-        logger.warning("QGenie SDK not available — skipping API key validation.")
+        logger.warning("QGenie SDK not available --- skipping API key validation.")
         return {"valid": True, "message": "QGenie SDK not available, key accepted."}
 
     try:
         client = QGenieClient(api_key=api_key)
-        # Lightweight probe — single-token response
+        # Lightweight probe --- single-token response
         client.chat(
             messages=[{"role": "user", "content": "Hi"}],
             model="qgenie-4.0-mini"

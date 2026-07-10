@@ -1,4 +1,4 @@
-﻿"""
+---"""
 fetch_jira_by_build.py
 ----------------------
 Fetch JIRA info for a given Build ID.
@@ -41,12 +41,12 @@ except ImportError:
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -
 # CONSTANTS
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -
 JIRA_ISSUES_INTERVAL = 100
 MAX_RESULTS_DEFAULT  = 99999
-MAX_CRS_QUERY_COUNT  = 100   # Orbit batch size â€” same as const.MAX_CRS_QUERY_COUNT
+MAX_CRS_QUERY_COUNT  = 100   # Orbit batch size - same as const.MAX_CRS_QUERY_COUNT
 
 SEARCH_FIELDS = (
     "summary,status,created,resolution,reporter,issuelinks,"
@@ -223,7 +223,7 @@ def _check_cr_mapped(f) -> str:
 
 
 # =============================================================================
-# ISSUE â†’ DICT
+# ISSUE - DICT
 # =============================================================================
 
 def issue_to_dict(issue) -> dict:
@@ -249,11 +249,11 @@ def issue_to_dict(issue) -> dict:
         pass
 
     return {
-        # â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Identity -
         "key"     : _safe(issue.key),
         "project" : issue.key.split("-")[0] if "-" in issue.key else "",
 
-        # â”€â”€ Core JIRA fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Core JIRA fields -
         "summary"        : _safe(f.summary),
         "status"         : _safe(f.status),
         "resolution"     : _safe(f.resolution),
@@ -263,11 +263,11 @@ def issue_to_dict(issue) -> dict:
         "component"      : component,
         "labels"         : labels,
 
-        # â”€â”€ Build / Target info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Build / Target info -
         "build_id"   : _extract_build_from_summary(_safe(f.summary)),
         "meta_build" : _cf(f, "customfield_10933"),
 
-        # â”€â”€ Device / Test info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Device / Test info -
         "serial_no"         : _cf(f, "customfield_14929"),
         "mcn_no"            : _cf(f, "customfield_14930"),
         "location"          : _cf(f, "customfield_26614"),
@@ -275,13 +275,13 @@ def issue_to_dict(issue) -> dict:
         "issue_tag"         : _cf(f, "customfield_27810"),
         "last_test_actions" : _cf(f, "customfield_26610"),
 
-        # â”€â”€ CR mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - CR mapping -
         "cr_mapped"        : _check_cr_mapped(f),
         "resolution_notes" : _cf(f, "customfield_12830"),
         "cr_number_field"  : _cf(f, "customfield_10270"),
         "root_cause"       : _cf(f, "customfield_10070"),
 
-        # â”€â”€ CR Orbit info (populated by enrich_with_cr_info if $processCRinfo) â”€
+        # - CR Orbit info (populated by enrich_with_cr_info if $processCRinfo) -
         "cr_title"    : "",
         "cr_date"     : "",
         "cr_status"   : "",
@@ -290,7 +290,7 @@ def issue_to_dict(issue) -> dict:
         "cr_subsystem": "",
         "cr_function" : "",
 
-        # â”€â”€ Misc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Misc -
         "serial_alt"  : _cf(f, "customfield_10842"),
         "ref_ticket"  : _cf(f, "customfield_13323"),
         "linked_issue": linked_issue,
@@ -344,7 +344,7 @@ def _batch_fetch_cr_info(cr_numbers: list, orbit_api) -> dict:
             logger.error(f"[!] Orbit batch query error: {e}")
             continue
 
-        # â”€â”€ build base dict from core data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - build base dict from core data -
         cr_dict = {}
         for row in core_data.get('Results', []):
             cr_num = 'CR' + str(row.get('ChangeRequestNumber', ''))
@@ -359,7 +359,7 @@ def _batch_fetch_cr_info(cr_numbers: list, orbit_api) -> dict:
                 '_sirs'       : [],
             }
 
-        # â”€â”€ attach SIR data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - attach SIR data -
         for row in sir_data.get('Results', []):
             cr_num = 'CR' + str(row.get('ChangeRequestNumber', ''))
             if cr_num in cr_dict:
@@ -369,7 +369,7 @@ def _batch_fetch_cr_info(cr_numbers: list, orbit_api) -> dict:
                     'built' : str(row.get('ChangeRequestIntegration.BuiltDate', '')),
                 })
 
-        # â”€â”€ resolve best SI (highest priority status) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - resolve best SI (highest priority status) -
         for cr_num, data in cr_dict.items():
             sirs = data.pop('_sirs', [])
             if sirs:
@@ -380,7 +380,7 @@ def _batch_fetch_cr_info(cr_numbers: list, orbit_api) -> dict:
                 data['cr_si']     = best[0]['si']
                 data['cr_status'] = best[0]['status']
 
-        # â”€â”€ attach primary participant (Area / Subsystem / Functionality) â”€â”€â”€â”€â”€
+        # - attach primary participant (Area / Subsystem / Functionality) -
         for row in participant_data.get('Results', []):
             cr_num = 'CR' + str(row.get('ChangeRequestNumber', ''))
             if cr_num in cr_dict:
@@ -390,7 +390,7 @@ def _batch_fetch_cr_info(cr_numbers: list, orbit_api) -> dict:
                     cr_dict[cr_num]['cr_function']   = str(row.get('ChangeRequestParticipant.Functionality', ''))
 
         result.update(cr_dict)
-        logger.info(f"[*] Orbit batch done â€” {len(cr_dict)} CRs enriched")
+        logger.info(f"[*] Orbit batch done - {len(cr_dict)} CRs enriched")
 
     return result
 
@@ -405,18 +405,18 @@ def enrich_with_cr_info(issues_dicts: list) -> list:
     cr_set = set(d['cr_mapped'] for d in issues_dicts if d.get('cr_mapped'))
 
     if not cr_set:
-        logger.info("[*] No CR numbers found â€” skipping Orbit enrichment")
+        logger.info("[*] No CR numbers found - skipping Orbit enrichment")
         return issues_dicts
 
     logger.info(f"[*] $processCRinfo: {len(cr_set)} unique CRs to enrich from Orbit")
 
     orbit_api = _get_orbit_api()
     if orbit_api is None:
-        logger.warning("[!] Orbit API unavailable â€” CR info will be empty")
+        logger.warning("[!] Orbit API unavailable - CR info will be empty")
         return issues_dicts
 
     cr_info_map = _batch_fetch_cr_info(list(cr_set), orbit_api)
-    logger.info(f"[*] Orbit enrichment complete â€” {len(cr_info_map)} CRs fetched")
+    logger.info(f"[*] Orbit enrichment complete - {len(cr_info_map)} CRs fetched")
 
     for d in issues_dicts:
         cr = d.get('cr_mapped', '')
@@ -629,7 +629,7 @@ def traverse_to_final_ticket(jira_obj: JIRA, start_key: str, max_hops: int = 10)
         cr        = _extract_cr_from_text(res_notes)
         stab_key  = _extract_stability_key(res_notes)
 
-        # if this ticket has a CR â†’ it is the final ticket
+        # if this ticket has a CR - it is the final ticket
         if cr:
             final.update({
                 'final_key'       : key,
@@ -657,7 +657,7 @@ def traverse_to_final_ticket(jira_obj: JIRA, start_key: str, max_hops: int = 10)
                 if str(iss.key) not in visited:
                     pending.append(iss)
 
-    # dead end â€” return last visited ticket as final
+    # dead end - return last visited ticket as final
     if last_issue:
         final.update({
             'final_key'       : str(last_issue.key),

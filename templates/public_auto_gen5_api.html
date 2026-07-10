@@ -1,0 +1,133 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auto Gen5 Public MTBF API</title><link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+.hero{border-radius:24px;padding:30px;background:linear-gradient(135deg,#0f172a,#1d4ed8 60%,#7c3aed);color:#fff;margin-bottom:20px}
+.hero h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
+.hero p{margin:0;color:#bfdbfe;font-size:14px;font-weight:600}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(15,23,42,.06)}
+.card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
+.tgt-label{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.hqx{background:#dbeafe;color:#1e40af}.hgy{background:#ede9fe;color:#5b21b6}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:13px}
+th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+tr:last-child td{border-bottom:0}
+a.ep{color:#1d4ed8;font-weight:700;font-size:12px;text-decoration:none}
+a.ep:hover{text-decoration:underline}
+.api-row{background:#0f172a;border-radius:12px;padding:12px 16px;margin:10px 0;display:flex;align-items:center;gap:10px}
+.api-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:13px;flex:1;word-break:break-all}
+.get{background:#059669;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;flex-shrink:0}
+pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font-size:12px;overflow:auto;margin:10px 0 0;line-height:1.6}
+.param{font-size:12px;color:#64748b;margin:8px 0 0}.param b{color:#334155}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap">
+  <div class="hero">
+    <h1><i class="fas fa-chart-line"></i> Auto Gen5 Public MTBF API</h1>
+    <p>No login required &mdash; CORS enabled. Fetch MTBF domain data for Nord HQX and Nord HGY targets.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2><i class="fas fa-table" style="color:#1e40af"></i> Nord HQX Domains</h2>
+      <span class="tgt-label hqx">target=nord_hqx</span>
+      <table>
+        <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Latest Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for d in hqx_domains %}
+          <tr>
+            <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
+            <td>{{ d.row_count }}</td>
+            <td style="font-size:11px;color:#475569">{{ d.latest_meta_id }}</td>
+            <td style="font-size:12px">{{ d.latest_date }}</td>
+            <td><b style="color:#059669">{{ d.latest_mtbf }}</b></td>
+            <td><a class="ep" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hqx" target="_blank">/api/domain/{{ d.domain }}</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" style="color:#94a3b8;text-align:center;padding:16px">No domains found.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-table" style="color:#5b21b6"></i> Nord HGY Domains</h2>
+      <span class="tgt-label hgy">target=nord_hgy</span>
+      <table>
+        <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Latest Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for d in hgy_domains %}
+          <tr>
+            <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
+            <td>{{ d.row_count }}</td>
+            <td style="font-size:11px;color:#475569">{{ d.latest_meta_id }}</td>
+            <td style="font-size:12px">{{ d.latest_date }}</td>
+            <td><b style="color:#059669">{{ d.latest_mtbf }}</b></td>
+            <td><a class="ep" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hgy" target="_blank">/api/domain/{{ d.domain }}</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" style="color:#94a3b8;text-align:center;padding:16px">No domains found.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2><i class="fas fa-code" style="color:#6366f1"></i> Endpoints</h2>
+    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:0 0 4px">API 1 &mdash; List domains for a target</p>
+    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div>
+    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:12px 0 4px">API 2 &mdash; Get rows for a domain</p>
+    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
+    <p class="param"><b>target</b> &mdash; nord_hqx or nord_hgy &bull; <b>last_n</b> &mdash; latest N rows (0=all) &bull; <b>summary</b> &mdash; include summary (default true)</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2><i class="fas fa-list" style="color:#059669"></i> Sample: /api/domains</h2>
+<pre>{
+  "ok": true,
+  "target": "nord_hqx",
+  "count": 3,
+  "domains": [
+    {
+      "domain": "ADAS",
+      "row_count": 21,
+      "latest_date": "2026-07-10",
+      "latest_meta_id": "SA8797P.HQX.5.7.7.0-00704-",
+      "latest_mtbf": 3.0
+    }
+  ]
+}</pre>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/domain/ADAS</h2>
+<pre>{
+  "ok": true,
+  "target": "nord_hqx",
+  "domain": "ADAS",
+  "row_count": 5,
+  "rows": [
+    {
+      "s_no": 21,
+      "date": "2026-07-10",
+      "meta_id": "SA8797P.HQX.5.7.7.0-00704-",
+      "hours": 270,
+      "system_crashes": 65,
+      "ssr_crashes": 0,
+      "process_crashes": 24,
+      "total_crashes": 89,
+      "mtbf": 3.0
+    }
+  ],
+  "summary": {
+    "domain": "ADAS",
+    "row_count": 21,
+    "latest_date": "2026-07-10",
+    "latest_meta_id": "SA8797P.HQX.5.7.7.0-00704-",
+    "latest_mtbf": 3.0
+  }
+}</pre>
+    </div>
+  </div>
+</div></body></html>

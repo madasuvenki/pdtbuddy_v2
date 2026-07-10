@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px;border-left:5px solid #6366f1}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}    .tab-section{display:none}.tab-section.active{display:block}#tab-current.active{display:flex;flex-direction:column}    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
-    /* ── Current Running Build – light left nav panel ── */
+    /* -- Current Running Build � light left nav panel -- */
     .lsp-current-layout{display:grid;grid-template-columns:280px minmax(0,1fr);height:calc(100vh - 220px);min-height:520px;border-radius:0 0 18px 18px;overflow:hidden}
     .lsp-nav{background:linear-gradient(180deg,#ecfdf5,#f0fdf4 60%,#f8fafc);border-right:2px solid #6ee7b7;display:flex;flex-direction:column;overflow:hidden;height:100%}
     .lsp-nav-header{padding:12px 12px 8px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#ecfdf5,#f0fdf4)}
@@ -118,6 +118,7 @@
   .lsp-api-action.ghost{background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;}
   .lsp-api-note{margin:0 16px 16px;font-size:11px;font-weight:750;color:#64748b;line-height:1.5;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 12px;}
   @media(max-width:900px){.lsp-api-version-card{grid-template-columns:1fr}.lsp-api-actions{justify-content:flex-start}.lsp-api-endpoint code{white-space:normal}}
+  .adas-bulk-inp:focus { border-color: #6366f1 !important; outline: none; }
   </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
@@ -171,21 +172,32 @@
       <div class="lsp-api-version-card">
         <div>
           <div class="lsp-api-version-name">Gen 4.5</div>
-          <div class="lsp-api-version-desc">Auto Gen4.5 SP information from the managed JSON. Gen5 can be added here later.</div>
+          <div class="lsp-api-version-desc">Auto Gen4.5 SP information from the managed JSON.</div>
         </div>
         <div class="lsp-api-endpoints">
-          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/sps</code></div>
-          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>/public/auto-gen45/api/search?sp=8620&amp;q=Snapdragon&amp;limit=10</code></div>
+          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sps</code></div>
+          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
         </div>
         <div class="lsp-api-actions">
           <a class="lsp-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-          <a class="lsp-api-action ghost" href="/public/auto-gen45/api/sps" target="_blank" rel="noopener"><i class="fas fa-list"></i> Try SP List</a>
         </div>
       </div>
-    </div>
-    <div class="lsp-api-note"><strong>Public access:</strong> these `/public/auto-gen45/...` URLs are intentionally outside PDT Buddy login/session checks and include CORS headers for external tools.</div>
-  </section>
+                    <div class="lsp-api-version-card" style="border-top:1px solid #e2e8f0;">
+      <div>
+        <div class="lsp-api-version-name">Gen 5</div>
+        <div class="lsp-api-version-desc">Auto Gen5 MTBF domains from Live Status JSON. Targets: <strong>nord_hqx</strong> &amp; <strong>nord_hgy</strong>. Domains: <strong>ADAS</strong>, <strong>FLEX</strong>, <strong>IVI</strong> (plus any custom domains added per target).</div>
+      </div>
+      <div class="lsp-api-endpoints">
+        <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domains?target=nord_hqx</code></div>
+        <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
+      </div>
+              <div class="lsp-api-actions">
+          <a class="lsp-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
+          </div>
+        </div>
+      </div>
+      </div>
+    </section>
   <script>
     function lspTogglePublicApiPanel(forceOpen){
       var panel = document.getElementById('lspPublicApiPanel');
@@ -346,7 +358,7 @@
       <!-- Two-column layout -->
       <div class="lsp-current-layout">
 
-        <!-- ══ LEFT NAV ══ -->
+        <!-- -- LEFT NAV -- -->
         <nav class="lsp-nav">
           <div class="lsp-nav-header">
                         <div class="lsp-nav-brand">
@@ -397,7 +409,7 @@
 
 
 
-        <!-- ══ RIGHT MAIN ══ -->
+        <!-- -- RIGHT MAIN -- -->
         <div class="lsp-main">
 
           <!-- Scope topbar -->
@@ -560,7 +572,7 @@
             <button id="adasDomBtn_FLEX" class="adas-dom-btn" onclick="adasSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
             <button id="adasDomBtn_IVI"  class="adas-dom-btn" onclick="adasSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
           </span>
-          {% if can_edit %}<button id="mtbfAddDomainBtn" onclick="mtbfOpenAddDomainModal()" title="Add custom domain" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px dashed #a5b4fc;background:#eef2ff;color:#6366f1;font-size:14px;font-weight:900;cursor:pointer;padding:0;margin-left:2px">+</button>{% endif %}
+          {% if can_edit %}<span style="display:inline-flex;gap:4px;align-items:center;margin-left:2px"><button id="mtbfAddDomainBtn" onclick="mtbfOpenAddDomainModal()" title="Add custom domain" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px dashed #a5b4fc;background:#eef2ff;color:#6366f1;font-size:14px;font-weight:900;cursor:pointer;padding:0">+</button><button id="mtbfDeleteDomainBtn" onclick="mtbfOpenDeleteDomainModal()" title="Delete custom domain" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px dashed #fecaca;background:#fff1f2;color:#dc2626;font-size:16px;font-weight:950;cursor:pointer;padding:0;line-height:20px">-</button></span>{% endif %}
           <span style="width:1px;height:20px;background:#e2e8f0"></span>
           <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
           <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
@@ -605,6 +617,9 @@
           <input id="mtbfTableSearch" placeholder="Search meta / build..." oninput="adasFilterTable();renderMtbfTable()" style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;min-width:200px;">
           <span id="mtbfTableCount" class="pill" style="font-size:11px;"></span>
           <button class="btn" onclick="adasCopyTable()" style="font-size:11px"><i class="fas fa-copy"></i> Copy</button>
+          {% if can_edit %}
+          <button class="btn btn-primary" onclick="adasOpenBulkEditModal()" style="font-size:11px;padding:5px 14px;font-weight:900"><i class="fas fa-table-cells"></i> Edit Table</button>
+          {% endif %}
         </div>
       </div>
       <div id="mtbfTableWrap" style="overflow:auto;width:100%;max-height:calc(100vh - 220px);">
@@ -618,15 +633,60 @@
               <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5">Process</th>
               <th style="text-align:center">Total Crashes</th>
               <th style="text-align:center">MTBF</th>
-              {% if can_edit %}<th style="text-align:center">Actions</th>{% endif %}
             </tr>
           </thead>
           <tbody id="mtbfTableBody" id="adasTableBody">
-            <tr><td colspan="10" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>
+            <tr><td colspan="9" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
+  <!-- BULK EDIT MODAL - full-window spreadsheet editor for MTBF table -->
+  <div id="adasBulkEditModal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,.6);backdrop-filter:blur(6px);align-items:flex-start;justify-content:center;padding:20px;overflow:auto;">
+    <div style="width:min(1200px,98vw);background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(15,23,42,.35);display:flex;flex-direction:column;max-height:calc(100vh - 40px);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;background:linear-gradient(135deg,#0f172a,#1e3a8a);flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;"><i class="fas fa-table-cells"></i></div>
+          <div>
+            <div style="font-size:16px;font-weight:950;color:#fff;" id="adasBulkEditTitle">Edit MTBF Table</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;">Edit all rows inline &mdash; click <strong style="color:#86efac">Save All</strong> to persist changes</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="adasBulkAddRow()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;background:#059669;border:none;color:#fff;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-plus"></i> Add Row</button>
+          <button id="adasBulkSaveBtn" onclick="adasBulkSaveAll()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#7c3aed);border:none;color:#fff;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,.35);"><i class="fas fa-save"></i> Save All</button>
+          <button onclick="adasCloseBulkEditModal()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-times"></i> Close</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-shrink:0;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:800;color:#64748b;"><i class="fas fa-circle-info" style="color:#6366f1;"></i> Click any cell to edit &bull; Tab to move &bull; Delete row with <i class="fas fa-trash" style="color:#dc2626;"></i></span>
+          <span id="adasBulkRowCount" style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;"></span>
+        </div>
+        <span id="adasBulkMsg" style="font-size:12px;font-weight:800;"></span>
+      </div>
+      <div style="overflow:auto;flex:1;">
+        <table id="adasBulkTable" style="width:100%;min-width:900px;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:linear-gradient(180deg,#f0f4ff,#f8fafc);position:sticky;top:0;z-index:5;">
+              <th style="width:44px;padding:10px 8px;text-align:center;border-bottom:2px solid #e2e8f0;color:#94a3b8;font-size:10px;">#</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Date</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Meta-ID</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:right;">Hours</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#dc2626;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#fff1f2;border-left:2px solid #fca5a5;">System</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#d97706;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#fffbeb;">SSR</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#7c3aed;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#faf5ff;border-right:2px solid #fca5a5;">Process</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;">Total Crashes</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#059669;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;">MTBF</th>
+              <th style="width:44px;padding:10px 8px;border-bottom:2px solid #e2e8f0;text-align:center;"></th>
+            </tr>
+          </thead>
+          <tbody id="adasBulkBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
       </section>
   {% endif %}
 
@@ -823,7 +883,7 @@
 
       function bwrSetStatus(msg){ document.getElementById('bwrStatus').textContent = msg||''; }
 
-      /* ── domain selector ─────────────────────────────────────────── */
+      /* -- domain selector ------------------------------------------- */
       window.bwrSetDomain = function(d){
         bwrDomain = d;
         document.querySelectorAll('.bwr-domain-btn').forEach(function(btn){
@@ -843,7 +903,7 @@
         bwrLoad();
       };
 
-      /* ── crash type toggle ───────────────────────────────────────── */
+      /* -- crash type toggle ----------------------------------------- */
       window.bwrToggleCT = function(ct){
         bwrCrashTypes[ct] = !bwrCrashTypes[ct];
         var btn = document.getElementById('bwrCT_' + ct);
@@ -857,7 +917,7 @@
         bwrLoad();
       };
 
-      /* ── build API URL ───────────────────────────────────────────── */
+      /* -- build API URL --------------------------------------------- */
       function bwrApiUrl(extra){
         var url = '/api/live_status/targets/' + encodeURIComponent(TARGET) + '/build_wise_report';
         var params = [];
@@ -870,7 +930,7 @@
         return url + (params.length ? '?' + params.join('&') : '');
       }
 
-      /* ── load build list ─────────────────────────────────────────── */
+      /* -- load build list ------------------------------------------- */
       window.bwrLoad = function(){
         bwrSetStatus('Loading builds...');
         var container = document.getElementById('bwrBuildsRow');
@@ -887,7 +947,7 @@
           .catch(function(e){ bwrSetStatus('Network error: '+e); });
       };
 
-      /* ── render accordion rows ───────────────────────────────────── */
+      /* -- render accordion rows ------------------------------------- */
       function bwrRenderAccordion(){
         var container = document.getElementById('bwrBuildsRow');
         // Client-side build search filter
@@ -933,7 +993,7 @@
         }).join('');
       }
 
-      /* ── toggle accordion row ────────────────────────────────────── */
+      /* -- toggle accordion row -------------------------------------- */
       window.bwrToggleRow = function(bid){
         var rows = document.querySelectorAll('.bwr-acc-row');
         rows.forEach(function(row){
@@ -959,7 +1019,7 @@
         });
       };
 
-      /* ── load detail rows for a build ────────────────────────────── */
+      /* -- load detail rows for a build ------------------------------ */
       function bwrLoadDetail(bid, bodyEl){
         if(bwrRowCache[bid]){
           bwrRenderDetail(bodyEl, bid, bwrRowCache[bid]);
@@ -976,7 +1036,7 @@
           .catch(function(e){ bodyEl.innerHTML='<div style="padding:12px 16px;color:#dc2626;font-size:12px;">Network error: '+e+'</div>'; });
       }
 
-      /* ── render detail table inside accordion body ───────────────── */
+      /* -- render detail table inside accordion body ----------------- */
       function bwrCrashBadge(ct){
         var map={system:['#fee2e2','#991b1b','System'],ssr:['#fef3c7','#92400e','SSR'],process:['#dbeafe','#1e40af','Process'],open_jira:['#ede9fe','#5b21b6','Open JIRA']};
         var s=map[ct]||['#f1f5f9','#475569',ct||''];
@@ -1023,7 +1083,7 @@
         }).join('');
       }
 
-      /* ── search inside a build's detail table ────────────────────── */
+      /* -- search inside a build's detail table ---------------------- */
       window.bwrSearchDetail = function(bid){
         var inp = document.querySelector('.bwr-search-input[data-bid="'+bid+'"]');
         var q   = inp ? inp.value.toLowerCase() : '';
@@ -1037,7 +1097,7 @@
         if(cnt) cnt.textContent = filtered.length + ' rows';
       };
 
-      /* ── CSV export for a build ──────────────────────────────────── */
+      /* -- CSV export for a build ------------------------------------ */
       window.bwrExportCsv = function(bid){
         var rows = bwrRowCache[bid] || [];
         if(!rows.length) return;
@@ -1054,7 +1114,7 @@
         a.click();
       };
 
-      /* ── build search (client-side, no server call) ──────────────────── */
+      /* -- build search (client-side, no server call) -------------------- */
       window.bwrFilterBuilds = function(){
         var inp = document.getElementById('bwrBuildSearch');
         var clr = document.getElementById('bwrBuildSearchClear');
@@ -1074,7 +1134,7 @@
 
       function esc(s){ var d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
 
-      /* ── auto-load on tab click ──────────────────────────────────── */
+      /* -- auto-load on tab click ------------------------------------ */
     
   document.addEventListener('DOMContentLoaded', function(){
         var tabBtn = document.querySelector('.tab[onclick*="buildreport"]');
@@ -1145,7 +1205,7 @@
 </div>
 
 <script>
-// ── Top Config Modal ──────────────────────────────────────────────────────────
+// -- Top Config Modal ----------------------------------------------------------
 window.lspOpenTopConfig = function(){
   var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
 
@@ -1453,14 +1513,14 @@ return fetch(RB_API+'?_='+Date.now()+_rbTblQs)
               if(ageMins<2) dbAge=' (just now)';
               else if(ageMins<60) dbAge=' ('+ageMins+' min ago)';
               else dbAge=' ('+(Math.round(ageMins/6)/10)+' hr ago)';
-              if(ageMins>90) dbAge='<span style="color:#dc2626;font-weight:900"> ⚠ '+dbAge.trim()+'</span>';
+              if(ageMins>90) dbAge='<span style="color:#dc2626;font-weight:900"> ? '+dbAge.trim()+'</span>';
             }catch(e){}
           }
           var dbTsLocal=dbTs?new Date(dbTs.replace(' ','T').replace(/Z?$/,'Z')).toLocaleTimeString():new Date().toLocaleTimeString();
           st.innerHTML='Axiom DB last updated: <b>'+dbTsLocal+'</b>'+dbAge+' &mdash; '+(_rbRows.length||0)+' row(s) fetched at '+new Date().toLocaleTimeString()+(d.db_total_running?' &mdash; '+d.db_total_running+' total running in DB':'');
         }
         _render();
-        // ── Always re-render nav after DB rows arrive ──
+        // -- Always re-render nav after DB rows arrive --
         if(typeof window.lspNavRender==='function') window.lspNavRender();
                 // Report is NOT auto-run. User must click a build/meta in the nav.
       })
@@ -2591,7 +2651,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
         var srcKeys2=jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean);
         _mappedRows.push({ticket:cr,count:jiras.length||1,title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',date:String(firstJ.created||'').slice(0,10),status:firstJ.final_status||firstJ.status||'',srcKeys:srcKeys2});
             } else {
-        // NO_CR: mirror PDT_StatsConstants.py — exclude closed+junk and rejected/transferred
+        // NO_CR: mirror PDT_StatsConstants.py � exclude closed+junk and rejected/transferred
         var _EXCL_RES_BR  = {'invalid':1,'incomplete':1,"won't fix":1,'wont fix':1,'cannot reproduce':1,'withdrawn':1};
         var _CLOSED_ST_BR = {'closed':1,'closed_root_cause_not_found':1,'closed_root_cause_cr_found':1,'resolved':1,'rejected':1};
         jiras.forEach(function(j){
@@ -2685,7 +2745,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var st=String(r.status||'').toLowerCase();
       var isInv=_INV_OPEN.some(function(v){return st.indexOf(v)>=0||fr.indexOf(v)>=0||rn.indexOf(v)>=0;});
       var resDisplay=r.resolution_notes_text||r.final_resolution||'';
-      var statusCell=stBadge(r.status)+(isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'')+(resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'…':'')+'</div>':'');
+      var statusCell=stBadge(r.status)+(isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'')+(resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'�':'')+'</div>':'');
       return '<tr><td class="muted">'+(i+1)+'</td><td style="white-space:nowrap"><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td><td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td><td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td><td>'+statusCell+'</td></tr>';
     }).join('');
   };
@@ -2741,7 +2801,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     el.innerHTML=h;
   }
   window.ocFilter=function(){var q=(_g('ocSearch')&&_g('ocSearch').value||'').toLowerCase();var st=(_g('ocStatusSel')&&_g('ocStatusSel').value||'');_fil=_all.filter(function(r){if(st&&(r.cr_status||'Unknown')!==st)return false;if(_area&&(r.cr_area||'Unknown')!==_area)return false;if(q&&!JSON.stringify(r).toLowerCase().includes(q))return false;return true;});_kpi();_render();};
-  function _render(){var tb=_g('ocTbody');if(!tb)return;if(!_fil.length){tb.innerHTML='<tr><td colspan="12" class="empty">No open / analysis CRs match the current filters.</td></tr>';return;}tb.innerHTML=_fil.map(function(r,i){var cr=_cr(r.cr_display||r.cr||r.raw_cr), id=_id(cr);var link=id?'<a class="linkBtn" href="'+CRB+encodeURIComponent(id)+'" target="_blank" rel="noopener">'+_e(cr)+'</a>':_e(cr||'--');var status=String(r.cr_status||'--');var cls=/built|ready/i.test(status)?'cr-ready':(/close/i.test(status)?'cr-closed':'cr-open');var dates=[_date(r.first_instance),_date(r.last_instance)].filter(Boolean).join(' → ');return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td><span class="'+cls+'">'+_e(status)+'</span></td><td>'+_e(_date(r.first_instance)||'--')+'</td><td>'+_e(_date(r.last_instance)||'--')+'</td><td>'+_e(dates||'--')+'</td><td>'+_e(r.cr_age||'--')+'</td><td>'+_e(r.cr_area||'--')+'</td><td>'+_e(r.cr_subsystem||'--')+'</td><td>'+_e(r.cr_functionality||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.latest_cr_notes||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.cr_title||'--')+'</td></tr>';}).join('');var b=_g('ocBadge');if(b)b.textContent=_fil.length+' / '+_all.length+' CRs';}
+  function _render(){var tb=_g('ocTbody');if(!tb)return;if(!_fil.length){tb.innerHTML='<tr><td colspan="12" class="empty">No open / analysis CRs match the current filters.</td></tr>';return;}tb.innerHTML=_fil.map(function(r,i){var cr=_cr(r.cr_display||r.cr||r.raw_cr), id=_id(cr);var link=id?'<a class="linkBtn" href="'+CRB+encodeURIComponent(id)+'" target="_blank" rel="noopener">'+_e(cr)+'</a>':_e(cr||'--');var status=String(r.cr_status||'--');var cls=/built|ready/i.test(status)?'cr-ready':(/close/i.test(status)?'cr-closed':'cr-open');var dates=[_date(r.first_instance),_date(r.last_instance)].filter(Boolean).join(' ? ');return '<tr><td>'+(i+1)+'</td><td>'+link+'</td><td><span class="'+cls+'">'+_e(status)+'</span></td><td>'+_e(_date(r.first_instance)||'--')+'</td><td>'+_e(_date(r.last_instance)||'--')+'</td><td>'+_e(dates||'--')+'</td><td>'+_e(r.cr_age||'--')+'</td><td>'+_e(r.cr_area||'--')+'</td><td>'+_e(r.cr_subsystem||'--')+'</td><td>'+_e(r.cr_functionality||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.latest_cr_notes||'--')+'</td><td style="max-width:360px;white-space:normal">'+_e(r.cr_title||'--')+'</td></tr>';}).join('');var b=_g('ocBadge');if(b)b.textContent=_fil.length+' / '+_all.length+' CRs';}
   var _orig=window.switchTab;
   window.switchTab=function(name){if(typeof _orig==='function')_orig(name);if(name==='opencrs'){_styleDomains();if(!_loaded)ocLoad(false);}};
   document.addEventListener('DOMContentLoaded',function(){_styleDomains();var sec=_g('tab-opencrs');if(sec&&sec.classList.contains('active'))ocLoad(false);});
@@ -2978,7 +3038,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
 })();
 
 // =======================================================================
-// LSP NAV – dark left panel for Current Running Build tab
+// LSP NAV � dark left panel for Current Running Build tab
 // =======================================================================
 (function(){
   var _lspNavDomain = window._lspNavDomain = 'ADAS';
@@ -3062,7 +3122,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var isActive = _lspSoloMeta === g.meta_id;
       var accent   = domAccent[g.domain]||'#2563eb';
       var cls      = isActive ? 'lsp-nav-item lsp-nav-active' : 'lsp-nav-item lsp-nav-selected';
-      var builds   = g.builds.slice(0,2).join(' · ') + (g.builds.length>2?' +'+(g.builds.length-2)+' more':'');
+      var builds   = g.builds.slice(0,2).join(' � ') + (g.builds.length>2?' +'+(g.builds.length-2)+' more':'');
 
       return '<div class="'+cls+'" data-meta="'+_esc(g.meta_id)+'" onclick="lspNavClick(this.dataset.meta)">'
         +'<div class="lsp-nav-accent" style="background:'+accent+'"></div>'
@@ -3085,7 +3145,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     // KPI: builds count
     var totalBuilds = groups.reduce(function(s,g){return s+g.builds.length;},0);
     var kpiB = document.getElementById('lspKpiBuilds');
-    if(kpiB) kpiB.textContent = totalBuilds||'—';
+    if(kpiB) kpiB.textContent = totalBuilds||'�';
   };
 
   /* ---- Click a nav item: solo-select or restore all ---- */
@@ -3123,7 +3183,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       + ' AND ' + projPart
       + ' AND summary !~ "tombstone" ORDER BY created ASC';
   }
-  // ── JQL showcase panel ───────────────────────────────────────────────────────
+  // -- JQL showcase panel -------------------------------------------------------
   function _lspShowJqlPanel(jql){
     var panel    = document.getElementById('lspJqlPanel');
     var jqlText  = document.getElementById('lspJqlText');
@@ -3241,7 +3301,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     btn.style.background=ok?'#16a34a':'#dc2626'; btn.style.color='#fff';
     setTimeout(function(){ btn.innerHTML=orig; btn.style.background=''; btn.style.color=''; },2000);
   }
-  // ── Progress window helpers (mirrors build_report_standalone) ────────────────
+  // -- Progress window helpers (mirrors build_report_standalone) ----------------
   var _lspProgressSource = null, _lspProgressStartedAt = 0;
   function _lspProgressElapsed(){
     if(!_lspProgressStartedAt) return '0s';
@@ -3278,7 +3338,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     document.getElementById('lspProgressPct').textContent   = pct+'%';
     document.getElementById('lspProgressFill').style.width  = Math.max(6,pct)+'%';
     var log = Array.isArray(snap.log) ? snap.log.join('\n') : (snap.log||'');
-    document.getElementById('lspProgressLog').textContent   = log || ('Stage: '+stage+' • elapsed '+_lspProgressElapsed());
+    document.getElementById('lspProgressLog').textContent   = log || ('Stage: '+stage+' � elapsed '+_lspProgressElapsed());
   }
   function _lspHideProgress(delay){
     if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} _lspProgressSource=null; }
@@ -3297,7 +3357,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     };
   }
 
-  // ── Normalize + render report (same logic as build_report_standalone) ────────
+  // -- Normalize + render report (same logic as build_report_standalone) --------
     var _lspCrRows=[], _lspMappedRows=[], _lspJiraRows=[], _lspInvalidJiraRows=[];
     var _lspLastReport = null;
   var _lspLastReportJql = '';
@@ -3762,7 +3822,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     }).join('');
   }
 
-  // ── Core runner: /api/consolidated_report with job_id + SSE progress ─────────
+  // -- Core runner: /api/consolidated_report with job_id + SSE progress ---------
   function _lspRenderInvalidJiraRows(){
     var tb=document.getElementById('invalidJiraTbody');if(!tb)return;
     var q=String((document.getElementById('invalidJiraSearchInput')||{}).value||'').toLowerCase();
@@ -4025,7 +4085,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(kpiB) kpiB.textContent = displayRows.filter(function(r){ return r.selected; }).length || '0';
   }
 
-  // ── Run JQL for a single build (▶ Run button) ─────────────────────────────
+  // -- Run JQL for a single build (? Run button) -----------------------------
     window.lspRunFlavorJql = function(build){
     var jql = _lspBuildJql([build]);
     if(!jql) return;
@@ -4053,10 +4113,10 @@ if(!window.ojClear)  window.ojClear  = function(){};
   window.lspConfirmRunNo = function(){
     var modal = document.getElementById('lspRunConfirmModal');
     if(modal){ modal.style.display='none'; modal._pendingJql=null; }
-    // Do nothing — stay idle
+    // Do nothing � stay idle
   };
 
-  // ── Auto-run JQL when meta is clicked in nav ──────────────────────────────
+  // -- Auto-run JQL when meta is clicked in nav ------------------------------
     function _lspAutoJql(metaId){
     var rows = (window._rbRows||[]).filter(function(r){
       var domainMatch = !_lspNavDomain ||
@@ -4226,7 +4286,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
               if(ageMins2<2) dbAge2=' (just now)';
               else if(ageMins2<60) dbAge2=' ('+ageMins2+' min ago)';
               else dbAge2=' ('+(Math.round(ageMins2/6)/10)+' hr ago)';
-              if(ageMins2>90) dbAge2='<span style="color:#dc2626;font-weight:900"> ⚠ '+dbAge2.trim()+'</span>';
+              if(ageMins2>90) dbAge2='<span style="color:#dc2626;font-weight:900"> ? '+dbAge2.trim()+'</span>';
             }catch(e){}
           }
           var dbTsLocal2=dbTs2?new Date(dbTs2.replace(' ','T').replace(/Z?$/,'Z')).toLocaleTimeString():new Date().toLocaleTimeString();
@@ -4444,12 +4504,12 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
           <input type="text" id="adasModalMetaId" placeholder="e.g. SA8797P_FLEX_HQX.5.7.7.0.r1-00051" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
         </div>
         <div>
-          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Date</label>
+                    <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Date <span style="color:#dc2626">*</span></label>
           <input type="date" id="adasModalDate" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
         </div>
       </div>
       <div>
-        <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Hours</label>
+                <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Hours <span style="color:#dc2626">*</span></label>
         <input type="number" id="adasModalHours" min="0" step="0.1" placeholder="e.g. 745" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
       </div>
       <div>
@@ -4471,11 +4531,11 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
           <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc;box-sizing:border-box" oninput="adasAutoMtbf()">
         </div>
         <div>
-          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">MTBF <span style="font-size:9px;color:#94a3b8">(auto-calc)</span></label>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">MTBF <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(auto-calc)</span></label>
           <input type="number" id="adasModalMtbf" min="0" step="0.01" placeholder="auto" style="width:100%;border:1.5px solid #a7f3d0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#059669;outline:none;box-sizing:border-box">
         </div>
       </div>
@@ -4490,7 +4550,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
 
 <script>
 (function(){
-  /* ─── state ─────────────────────────────────────────────────── */
+  /* --- state --------------------------------------------------- */
   var ADAS_API_BASE = '/api/live_status_view/' + encodeURIComponent((window.LSP_DATA&&window.LSP_DATA.primary_target)||'') + '/adas_mtbf';
   var _adasRows      = [];        // full rows for current view
   var _adasView      = 'ADAS';    // active domain
@@ -4498,7 +4558,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
   var _adasCrashTypes = ['system','ssr','process'];
   var _adasTableRows = [];        // rows currently shown in table (after search)
 
-  /* ─── helpers ───────────────────────────────────────────────── */
+  /* --- helpers ------------------------------------------------- */
   function _esc(v){ var d=document.createElement('div'); d.textContent=String(v==null?'':v); return d.innerHTML; }
 
   function _adasGetCrashTypes(){
@@ -4525,7 +4585,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     return { total: total, mtbf: mtbf };
   }
 
-  /* ─── domain button styling ─────────────────────────────────── */
+  /* --- domain button styling ----------------------------------- */
   var _domColors = { ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669' };
   var _domBg     = { ADAS:'#eff6ff', FLEX:'#f5f3ff', IVI:'#f0fdf4' };
 
@@ -4575,7 +4635,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     });
   }
 
-  /* ─── domain switch (toolbar buttons) ──────────────────────── */
+  /* --- domain switch (toolbar buttons) ------------------------ */
     window.adasSetDomain = function(domain){
     _adasView = domain;
     _styleToolbarDomBtns();
@@ -4588,7 +4648,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     window.adasLoadData(true);
   };
 
-  /* ─── modal domain switch ───────────────────────────────────── */
+  /* --- modal domain switch ------------------------------------- */
   window.adasModalSetDomain = function(domain){
     _styleModalDomBtns(domain);
     // store on hidden field so save knows which domain
@@ -4596,7 +4656,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     if(hid) hid.dataset.domain = domain;
   };
 
-  /* ─── render ────────────────────────────────────────────────── */
+  /* --- render -------------------------------------------------- */
   function _adasRenderAll(){
     _adasCrashTypes = _adasGetCrashTypes();
     _adasRenderTable(_adasRows, _adasCrashTypes);
@@ -4611,9 +4671,8 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     _adasTableRows = filtered;
     var countEl = document.getElementById('mtbfTableCount');
     if(countEl) countEl.textContent = filtered.length + ' rows';
-    var canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
     if(!filtered.length){
-      body.innerHTML = '<tr><td colspan="'+(canEdit?10:9)+'" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:22px;display:block;margin-bottom:8px;opacity:.4"></i>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:22px;display:block;margin-bottom:8px;opacity:.4"></i>No MTBF rows yet. Click <strong>Edit Table</strong> to add data.</td></tr>';
       return;
     }
     body.innerHTML = filtered.map(function(r, i){
@@ -4627,28 +4686,21 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       var sysDim  = crashTypes.indexOf('system')  < 0 ? 'opacity:.35;' : '';
       var ssrDim  = crashTypes.indexOf('ssr')     < 0 ? 'opacity:.35;' : '';
       var procDim = crashTypes.indexOf('process') < 0 ? 'opacity:.35;' : '';
-      var actionCell = canEdit
-        ? '<td style="text-align:center;white-space:nowrap">'
-            +'<button onclick="adasOpenEditModal('+i+')" title="Edit" style="border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-pen"></i></button>'
-            +'<button onclick="adasDeleteRow('+i+',\''+_esc(r.meta_id||'')+'\')" title="Delete" style="margin-left:4px;border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-trash"></i></button>'
-          +'</td>'
-        : '';
       return '<tr>'
         +'<td style="text-align:center;color:#94a3b8;font-weight:700">'+_esc(r.s_no||i+1)+'</td>'
         +'<td style="white-space:nowrap;font-size:12px;color:#64748b">'+_esc(r.date||'')+'</td>'
         +'<td><b style="color:#1e3a8a">'+_esc(r.meta_id||'')+'</b></td>'
         +'<td style="text-align:right;font-weight:700">'+_esc(r.hours||'')+'</td>'
         +'<td style="text-align:center;color:#dc2626;font-weight:800;border-left:2px solid #fca5a5;'+sysDim+'">'+_esc(sys)+'</td>'
-        +'<td style="text-align:center;color:#d97706;font-weight:800;'+ssrDim+'">'+_esc(ssr)+'</td>'
+        +'<td style="text-align:center;color:#d97706;font-weight:800;">'+_esc(ssr)+'</td>'
         +'<td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;'+procDim+'">'+_esc(proc)+'</td>'
         +'<td style="text-align:center;font-weight:900">'+(eff.total>0?eff.total:'-')+'</td>'
         +'<td style="text-align:center">'+mtbfBadge+'</td>'
-        +actionCell
         +'</tr>';
     }).join('');
   }
 
-  /* ─── crash-type checkbox change ───────────────────────────── */
+  /* --- crash-type checkbox change ----------------------------- */
   window.adasCrashTypeChanged = function(){
     _adasCrashTypes = _adasGetCrashTypes();
     // Sync _mtbfCrashFilters (used by renderMtbfTrend + renderMtbfTable in published_safe.js)
@@ -4664,7 +4716,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
   };
 
-  /* ─── filter / copy ─────────────────────────────────────────── */
+  /* --- filter / copy ------------------------------------------- */
   window.adasFilterTable = function(){ _adasRenderTable(_adasRows, _adasCrashTypes); };
 
   window.adasSetFilter = function(n, btn){
@@ -4690,7 +4742,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       .catch(function(){ alert('Copy failed.'); });
   };
 
-  /* ─── modal helpers ─────────────────────────────────────────── */
+  /* --- modal helpers ------------------------------------------- */
   function _adasModalClear(){
     ['adasModalRowId','adasModalMetaId','adasModalHours',
      'adasModalSystem','adasModalSsr','adasModalProcess',
@@ -4702,7 +4754,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     if(msg) msg.textContent = '';
   }
 
-  /* ─── open Add modal ────────────────────────────────────────── */
+  /* --- open Add modal ------------------------------------------ */
   window.adasOpenAddModal = function(){
     _adasModalClear();
     document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add MTBF Build';
@@ -4715,10 +4767,26 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     document.getElementById('adasModalMetaId').focus();
   };
 
-  /* ─── open Edit modal ───────────────────────────────────────── */
+    /* --- open Edit modal ----------------------------------------- */
   window.adasOpenEditModal = function(tableIdx){
-    // tableIdx is index into _adasTableRows (filtered), not _adasRows
-    var row = _adasTableRows[tableIdx];
+    // IMPORTANT: the table actually visible on screen is painted by
+    // window.renderMtbfTable() (published_safe.js), which runs AFTER
+    // _adasRenderTable() inside _adasRenderAll() and overwrites the same
+    // <tbody>. Its Edit/Delete buttons are built from window._mtbfRenderedRows,
+    // NOT from _adasTableRows. So tableIdx here is always an index into
+    // window._mtbfRenderedRows � look there FIRST so the modal shows the
+    // exact same row the user clicked on (previously this read the wrong
+    // array, causing the popup / save to affect a different row than the
+    // one visible in the table).
+    var rendered = window._mtbfRenderedRows || [];
+    var row = rendered[tableIdx];
+    // Unwrap to the original untouched row (raw) when available, so we
+    // don't save any display-only recomputed crash/mtbf values back.
+    if(row && row.raw) row = row.raw;
+    if(!row){
+      // fallback: legacy array from this template's own (overwritten) renderer
+      row = _adasTableRows[tableIdx];
+    }
     if(!row){
       // fallback: try _adasRows directly
       row = _adasRows[tableIdx];
@@ -4747,7 +4815,197 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     document.getElementById('adasModal').style.display = 'none';
   };
 
-  /* ─── auto-calc MTBF in modal ───────────────────────────────── */
+  /* =========================================================================
+     BULK EDIT MODAL JS
+     ========================================================================= */
+  var _bulkEditRows   = [];
+  var _bulkEditDomain = '';
+
+  window.adasOpenBulkEditModal = function(){
+    _bulkEditDomain = _adasView;
+    _bulkEditRows = (_adasRows || []).map(function(r){ return Object.assign({}, r); });
+    var title = document.getElementById('adasBulkEditTitle');
+    if(title) title.textContent = _bulkEditDomain + ' MTBF - Edit Table';
+    _adasBulkRender();
+    var modal = document.getElementById('adasBulkEditModal');
+    if(modal){ modal.style.display = 'flex'; modal.scrollTop = 0; }
+  };
+
+  window.adasCloseBulkEditModal = function(){
+    var modal = document.getElementById('adasBulkEditModal');
+    if(modal) modal.style.display = 'none';
+    _bulkEditRows = [];
+  };
+
+  function _adasBulkRender(){
+    var tbody = document.getElementById('adasBulkBody');
+    if(!tbody) return;
+    var countEl = document.getElementById('adasBulkRowCount');
+    if(countEl) countEl.textContent = _bulkEditRows.length + ' row' + (_bulkEditRows.length===1?'':'s');
+    if(!_bulkEditRows.length){
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>No rows yet. Click <strong>Add Row</strong> to start.</td></tr>';
+      return;
+    }
+    var inp = function(field, val, type, align, extra){
+      type = type || 'text';
+      var style = 'width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;'+(align?'text-align:'+align+';':'')+(extra||'');
+      return '<input type="'+type+'" data-field="'+field+'" value="'+_esc(val!=null&&val!==''?val:'')+'" class="adas-bulk-inp" style="'+style+'" oninput="_adasBulkAutoCalc(this)">';
+    };
+    tbody.innerHTML = _bulkEditRows.map(function(r, i){
+      var bg = i%2===0 ? '#fff' : '#f8fafc';
+      return '<tr data-row="'+i+'" style="background:'+bg+';border-bottom:1px solid #f1f5f9;">'
+        +'<td style="text-align:center;color:#94a3b8;font-weight:700;padding:8px 6px;font-size:11px;">'+(i+1)+'</td>'
+        +'<td style="padding:6px 8px;">'+inp('date', r.date, 'date', '', 'min-width:120px;')+'</td>'
+        +'<td style="padding:6px 8px;">'+inp('meta_id', r.meta_id, 'text', '', 'min-width:110px;font-weight:950;color:#1e3a8a;')+'</td>'
+        +'<td style="padding:6px 8px;">'+inp('hours', r.hours, 'number', 'right', 'min-width:80px;')+'</td>'
+        +'<td style="padding:6px 8px;background:#fff8f8;border-left:2px solid #fca5a5;">'+inp('system_crashes', r.system_crashes, 'number', 'center', 'min-width:70px;color:#dc2626;')+'</td>'
+        +'<td style="padding:6px 8px;background:#fffdf0;">'+inp('ssr_crashes', r.ssr_crashes, 'number', 'center', 'min-width:70px;color:#d97706;')+'</td>'
+        +'<td style="padding:6px 8px;background:#fdf8ff;border-right:2px solid #fca5a5;">'+inp('process_crashes', r.process_crashes, 'number', 'center', 'min-width:70px;color:#7c3aed;')+'</td>'
+        +'<td style="padding:6px 8px;">'+inp('total_crashes', r.total_crashes, 'number', 'center', 'min-width:80px;font-weight:900;')+'</td>'
+        +'<td style="padding:6px 8px;">'+inp('mtbf', r.mtbf, 'number', 'center', 'min-width:80px;font-weight:900;color:#059669;')+'</td>'
+        +'<td style="padding:6px 8px;text-align:center;"><button onclick="_adasBulkDeleteRow('+i+')" title="Delete row" style="border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer;"><i class="fas fa-trash"></i></button></td>'
+        +'</tr>';
+    }).join('');
+    tbody.querySelectorAll('input[data-field]').forEach(function(el){
+      el.addEventListener('change', function(){
+        var tr = el.closest('tr[data-row]');
+        if(!tr) return;
+        var idx = parseInt(tr.getAttribute('data-row'), 10);
+        if(isNaN(idx) || !_bulkEditRows[idx]) return;
+        _bulkEditRows[idx][el.getAttribute('data-field')] = el.value;
+      });
+    });
+  }
+
+  window._adasBulkAutoCalc = function(el){
+    var tr = el.closest('tr[data-row]');
+    if(!tr) return;
+    var idx = parseInt(tr.getAttribute('data-row'), 10);
+    if(isNaN(idx) || !_bulkEditRows[idx]) return;
+    _bulkEditRows[idx][el.getAttribute('data-field')] = el.value;
+    var r = _bulkEditRows[idx];
+    var sys  = Number(r.system_crashes  || 0);
+    var ssr  = Number(r.ssr_crashes     || 0);
+    var proc = Number(r.process_crashes || 0);
+    var autoTotal = sys + ssr + proc;
+    var totalEl = tr.querySelector('[data-field="total_crashes"]');
+    if(totalEl && (!totalEl.value || totalEl === el)){
+      totalEl.value = autoTotal || '';
+      r.total_crashes = totalEl.value;
+    }
+    var hours = Number(r.hours || 0);
+    var total = Number((totalEl && totalEl.value) || autoTotal);
+    var mtbfEl = tr.querySelector('[data-field="mtbf"]');
+    if(mtbfEl && hours > 0 && total > 0 && (!mtbfEl.value || mtbfEl === el)){
+      mtbfEl.value = Math.round((hours / total) * 10) / 10;
+      r.mtbf = mtbfEl.value;
+    }
+  };
+
+  window.adasBulkAddRow = function(){
+    _bulkEditRows.push({
+      id: '', s_no: _bulkEditRows.length + 1,
+      date: new Date().toISOString().slice(0,10),
+      meta_id: '', hours: '', system_crashes: '', ssr_crashes: '',
+      process_crashes: '', total_crashes: '', mtbf: ''
+    });
+    _adasBulkRender();
+    var tbody = document.getElementById('adasBulkBody');
+    if(tbody){
+      var lastRow = tbody.querySelector('tr:last-child');
+      if(lastRow){
+        lastRow.scrollIntoView({behavior:'smooth', block:'center'});
+        var metaInput = lastRow.querySelector('[data-field="meta_id"]');
+        if(metaInput) setTimeout(function(){ metaInput.focus(); }, 80);
+      }
+    }
+  };
+
+  window._adasBulkDeleteRow = function(idx){
+    var r = _bulkEditRows[idx];
+    var label = (r && r.meta_id) ? r.meta_id : ('row '+(idx+1));
+    if(!confirm('Delete "'+label+'" from the table?')) return;
+    _bulkEditRows.splice(idx, 1);
+    _adasBulkRender();
+  };
+
+  function _adasBulkCollectFromDOM(){
+    var tbody = document.getElementById('adasBulkBody');
+    if(!tbody) return _bulkEditRows;
+    tbody.querySelectorAll('tr[data-row]').forEach(function(tr){
+      var idx = parseInt(tr.getAttribute('data-row'), 10);
+      if(isNaN(idx) || !_bulkEditRows[idx]) return;
+      tr.querySelectorAll('[data-field]').forEach(function(el){
+        _bulkEditRows[idx][el.getAttribute('data-field')] = el.value;
+      });
+    });
+    return _bulkEditRows;
+  }
+
+  window.adasBulkSaveAll = async function(){
+    var rows = _adasBulkCollectFromDOM();
+    var invalid = rows.filter(function(r){ return !String(r.meta_id||'').trim(); });
+    if(invalid.length){
+      var msg = document.getElementById('adasBulkMsg');
+      if(msg){ msg.textContent = invalid.length+' row(s) missing Meta-ID - please fill in or delete them.'; msg.style.color='#dc2626'; }
+      return;
+    }
+    var btn = document.getElementById('adasBulkSaveBtn');
+    var msg = document.getElementById('adasBulkMsg');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...'; }
+    if(msg){ msg.textContent=''; }
+    var saved = 0, failed = 0;
+    try{
+      for(var i=0; i<rows.length; i++){
+        var r = rows[i];
+        var payload = {
+          view: _bulkEditDomain, id: r.id || undefined,
+          meta_id: String(r.meta_id||'').trim(), date: String(r.date||'').trim(),
+          hours: r.hours, system_crashes: r.system_crashes,
+          ssr_crashes: r.ssr_crashes, process_crashes: r.process_crashes,
+          total_crashes: r.total_crashes, mtbf: r.mtbf,
+        };
+        var endpoint = r.id ? (ADAS_API_BASE+'/edit') : (ADAS_API_BASE+'/add');
+        var res = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        var data = await res.json();
+        if(data.ok){
+          if(!r.id && data.row && data.row.id) r.id = data.row.id;
+          if(data.rows) _adasRows = data.rows;
+          saved++;
+        } else {
+          failed++;
+          if(msg){ msg.textContent='Row '+(i+1)+' failed: '+(data.error||'unknown'); msg.style.color='#dc2626'; }
+        }
+      }
+      var keepIds = new Set(rows.map(function(r){ return String(r.id||''); }).filter(Boolean));
+      var toDelete = (_adasRows||[]).filter(function(r){ return r.id && !keepIds.has(String(r.id)); });
+      for(var j=0; j<toDelete.length; j++){
+        var delRes = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:toDelete[j].id, view:_bulkEditDomain})});
+        var delData = await delRes.json();
+        if(delData.ok && delData.rows) _adasRows = delData.rows;
+      }
+      if(typeof window._applyAutoMtbfRawRows === 'function'){
+        window._applyAutoMtbfRawRows(_adasRows);
+      } else {
+        window._mtbfSeriesRows = _adasRows.map(function(r){ return {meta_id:r.meta_id||'',week:r.date||'',total_hours:Number(r.hours||0),crashes:Number(r.total_crashes||0),mtbf:Number(r.mtbf||0)}; });
+        window._mtbfBuildRows = _adasRows;
+      }
+      _adasCrashTypes = _adasGetCrashTypes();
+      _adasRenderAll();
+      if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+      if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
+      if(!failed){
+        if(msg){ msg.textContent = saved+' row'+(saved===1?'':'s')+' saved!'; msg.style.color='#059669'; }
+        setTimeout(function(){ adasCloseBulkEditModal(); }, 900);
+      }
+    }catch(err){
+      if(msg){ msg.textContent='Save error: '+(err.message||err); msg.style.color='#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save All'; }
+    }
+  };
+
+  /* --- auto-calc MTBF in modal --------------------------------- */
   window.adasAutoMtbf = function(){
     var sys  = Number(document.getElementById('adasModalSystem').value  || 0);
     var ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
@@ -4762,26 +5020,36 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
   };
 
-  /* ─── save modal ────────────────────────────────────────────── */
+  /* --- save modal ---------------------------------------------- */
   window.adasSaveModal = async function(){
     var hidEl  = document.getElementById('adasModalRowId');
     var rowId  = hidEl ? hidEl.value.trim() : '';
     var domain = (hidEl && hidEl.dataset.domain) ? hidEl.dataset.domain : _adasView;
-    var metaId = (document.getElementById('adasModalMetaId')||{}).value||'';
+        var metaId = (document.getElementById('adasModalMetaId')||{}).value||'';
     metaId = metaId.trim();
     var msg = document.getElementById('adasModalMsg');
+    var dateVal   = (document.getElementById('adasModalDate')||{}).value    || '';
+    var hoursVal  = (document.getElementById('adasModalHours')||{}).value   || '';
+    var totalVal  = (document.getElementById('adasModalTotal')||{}).value   || '';
+    var mtbfVal   = (document.getElementById('adasModalMtbf')||{}).value    || '';
+    // Mandatory fields: Date, Meta-ID, Hours, Total Crashes, MTBF.
+    // System/SSR/Process crash counts remain optional (can be blank).
+    if(!dateVal){ if(msg){msg.textContent='Date is required.';msg.style.color='#dc2626';} return; }
     if(!metaId){ if(msg){msg.textContent='Meta-ID is required.';msg.style.color='#dc2626';} return; }
+    if(!hoursVal){ if(msg){msg.textContent='Hours is required.';msg.style.color='#dc2626';} return; }
+    if(!totalVal){ if(msg){msg.textContent='Total Crashes is required.';msg.style.color='#dc2626';} return; }
+    if(!mtbfVal){ if(msg){msg.textContent='MTBF is required.';msg.style.color='#dc2626';} return; }
     var payload = {
       id:              rowId || undefined,
       view:            domain,
       meta_id:         metaId,
-      date:            (document.getElementById('adasModalDate')||{}).value    || '',
-      hours:           (document.getElementById('adasModalHours')||{}).value   || '',
+      date:            dateVal,
+      hours:           hoursVal,
       system_crashes:  (document.getElementById('adasModalSystem')||{}).value  || '',
       ssr_crashes:     (document.getElementById('adasModalSsr')||{}).value     || '',
       process_crashes: (document.getElementById('adasModalProcess')||{}).value || '',
-      total_crashes:   (document.getElementById('adasModalTotal')||{}).value   || '',
-      mtbf:            (document.getElementById('adasModalMtbf')||{}).value    || '',
+      total_crashes:   totalVal,
+      mtbf:            mtbfVal,
     };
     var btn = document.getElementById('adasModalSaveBtn');
     if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...'; }
@@ -4789,12 +5057,28 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
       var endpoint = rowId ? (ADAS_API_BASE+'/edit') : (ADAS_API_BASE+'/add');
       var res  = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
       var data = await res.json();
-      if(!data.ok) throw new Error(data.error||'Save failed');
+            if(!data.ok) throw new Error(data.error||'Save failed');
       // If domain changed, switch view to show the saved row
       if(domain !== _adasView){ _adasView = domain; _styleToolbarDomBtns(); }
       _adasRows = data.rows || [];
       _adasCrashTypes = _adasGetCrashTypes();
+      // Sync chart/table pipeline (same as adasLoadData/_adasDoDelete) so
+      // renderMtbfTable/renderMtbfTrend don't repaint stale _mtbfBuildRows
+      // over the just-saved row.
+      if(typeof window._applyAutoMtbfRawRows === 'function'){
+        window._applyAutoMtbfRawRows(_adasRows);
+      } else {
+        window._mtbfSeriesRows = _adasRows.map(function(r){
+          return { meta_id: r.meta_id||'', week: r.date||'',
+                   total_hours: Number(r.hours||0),
+                   crashes: Number(r.total_crashes||r.crashes||0),
+                   mtbf: Number(r.mtbf||0) };
+        });
+        window._mtbfBuildRows = _adasRows;
+      }
       _adasRenderAll();
+      if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+      if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
       adasCloseModal();
       var adasMsg = document.getElementById('adasMsg');
       if(adasMsg){ adasMsg.textContent=(data.message||'Saved!'); adasMsg.style.color='#059669'; setTimeout(function(){adasMsg.textContent='';},3000); }
@@ -4805,7 +5089,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     }
   };
 
-  /* ─── delete row ────────────────────────────────────────────── */
+  /* --- delete row ---------------------------------------------- */
   // Delete by table index (from template table - _adasTableRows)
   window.adasDeleteRow = async function(tableIdx, metaId){
     var row = _adasTableRows[tableIdx] || _adasRows[tableIdx];
@@ -4843,7 +5127,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     }catch(err){ alert(err.message||'Delete failed.'); }
   }
 
-  /* ─── switch domain (legacy adasSwitchView compat) ─────────── */
+  /* --- switch domain (legacy adasSwitchView compat) ----------- */
   window.adasSwitchView = function(){
     var sel = document.getElementById('adasViewSelect');
     if(sel) _adasView = sel.value || _adasView;
@@ -4851,7 +5135,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     window.adasLoadData(true);
   };
 
-  /* ─── load data from API ────────────────────────────────────── */
+  /* --- load data from API -------------------------------------- */
   window.adasLoadData = async function(force){
     var sp  = document.getElementById('mtbfSpinner');
     var msg = document.getElementById('adasMsg');
@@ -4892,7 +5176,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     }
   };
 
-  /* ─── copy chart as image ──────────────────────────────────── */
+  /* --- copy chart as image ------------------------------------ */
   window.copyMtbfChart = function(){
     var canvas = document.getElementById('mtbfCanvas');
     var msg    = document.getElementById('adasMsg');
@@ -4940,9 +5224,9 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     }catch(e){ showMsg('Failed: '+e.message,'#dc2626'); }
   }
 
-  /* ─── DOMContentLoaded wiring ───────────────────────────────── */
+  /* --- DOMContentLoaded wiring --------------------------------- */
 
-  /* ─── Add Custom Domain ─────────────────────────────────────────────── */
+  /* --- Add Custom Domain ----------------------------------------------- */
   window.mtbfOpenAddDomainModal = function(){
     var inp = document.getElementById('mtbfNewDomainInput');
     var msg = document.getElementById('mtbfAddDomainMsg');
@@ -4957,7 +5241,22 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     if(modal) modal.style.display = 'none';
   };
 
+      function mtbfCustomDomains(){
+    return (_adasAllDomains || []).filter(function(d){
+      d = String(d || '').trim().toUpperCase();
+      return d && d !== 'ADAS' && d !== 'FLEX' && d !== 'IVI';
+    });
+  }
+
+  function mtbfAllDeletableDomains(){
+    // All currently-visible domains (defaults + custom) are deletable.
+    // At least one domain must always remain (enforced server-side too).
+    return (_adasAllDomains || []).slice();
+  }
+
   window.mtbfInjectDomainBtn = function(domain){
+    domain = String(domain || '').trim().toUpperCase();
+    if(!domain) return;
     // Add to _adasAllDomains if not already there
     if(_adasAllDomains.indexOf(domain) < 0) _adasAllDomains.push(domain);
     // Inject toolbar button
@@ -4972,6 +5271,86 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     }
   };
 
+    window.mtbfOpenDeleteDomainModal = function(){
+    var modal = document.getElementById('mtbfDeleteDomainModal');
+    var list = document.getElementById('mtbfDeleteDomainList');
+    var msg = document.getElementById('mtbfDeleteDomainMsg');
+    var domains = mtbfAllDeletableDomains();
+    if(msg){ msg.textContent = domains.length > 1 ? '' : 'At least one MTBF domain must remain � cannot delete the last one.'; msg.style.color = domains.length > 1 ? '#64748b' : '#dc2626'; }
+    if(list){
+      if(!domains.length){
+        list.innerHTML = '<div style="padding:10px 12px;border:1px dashed #fecaca;border-radius:10px;color:#dc2626;font-size:12px;font-weight:800;background:#fff1f2">No domains found.</div>';
+      }else{
+        var html = domains.length > 1
+          ? '<label style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer"><input type="radio" name="mtbfDeleteDomainChoice" value="__ALL__"> <b>All domains</b></label>'
+          : '';
+        domains.forEach(function(d){
+          var isDefault = (d === 'ADAS' || d === 'FLEX' || d === 'IVI');
+          html += '<label style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer"><input type="radio" name="mtbfDeleteDomainChoice" value="' + d.replace(/"/g,'&quot;') + '"> <span>' + d + '</span>' + (isDefault ? ' <span style="font-size:10px;color:#94a3b8;font-weight:800">(default)</span>' : '') + '</label>';
+        });
+        list.innerHTML = html;
+      }
+    }
+    if(modal) modal.style.display = 'flex';
+  };
+
+  window.mtbfCloseDeleteDomainModal = function(){
+    var modal = document.getElementById('mtbfDeleteDomainModal');
+    if(modal) modal.style.display = 'none';
+  };
+
+    window.mtbfDeleteDomain = async function(domain, skipConfirm){
+    domain = String(domain || '').trim().toUpperCase();
+    if(!domain) return false;
+    if(!skipConfirm && !confirm('Delete MTBF domain "' + domain + '"?')) return false;
+    var res = await fetch(ADAS_API_BASE + '/domains/delete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({domain: domain})
+    });
+    var data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to delete domain');
+    _adasAllDomains = (data.domains || []).slice();
+    var wrap = document.getElementById('adasDomWrap_' + domain);
+    var btn = document.getElementById('adasDomBtn_' + domain);
+        if(wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    if(btn && btn.parentNode) btn.parentNode.removeChild(btn);
+    if(_adasView === domain){
+      var fallback = (_adasAllDomains && _adasAllDomains[0]) || 'ADAS';
+      adasSetDomain(fallback);
+    }
+    return true;
+  };
+
+  window.mtbfConfirmDeleteDomain = async function(){
+    var choice = document.querySelector('input[name="mtbfDeleteDomainChoice"]:checked');
+    var msg = document.getElementById('mtbfDeleteDomainMsg');
+    var btn = document.getElementById('mtbfDeleteDomainSaveBtn');
+    if(!choice){ if(msg){ msg.textContent = 'Please choose a domain to delete.'; msg.style.color = '#dc2626'; } return; }
+    var domains = choice.value === '__ALL__' ? mtbfAllDeletableDomains() : [choice.value];
+    if(!domains.length){ if(msg){ msg.textContent = 'No domains available to delete.'; msg.style.color = '#dc2626'; } return; }
+    if(!confirm('Delete ' + (choice.value === '__ALL__' ? 'all MTBF domains' : 'MTBF domain "' + domains[0] + '"') + '?')) return;
+    if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Deleting...'; }
+    try{
+      for(var i=0;i<domains.length;i++){
+        // Stop before deleting the very last remaining domain (server also enforces this).
+        if((_adasAllDomains || []).length <= 1) break;
+        await mtbfDeleteDomain(domains[i], true);
+      }
+      mtbfCloseDeleteDomainModal();
+      var status = document.getElementById('adasMsg');
+      if(status){ status.textContent = (domains.length === 1 ? 'Domain ' + domains[0] + ' deleted.' : 'Domains deleted.'); setTimeout(function(){ status.textContent=''; }, 2500); }
+    }catch(err){
+      if(msg){ msg.textContent = err.message || 'Error deleting domain.'; msg.style.color = '#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete'; }
+    }
+  };
+
+  
+
+
+  
   window.mtbfConfirmAddDomain = async function(){
     var inp     = document.getElementById('mtbfNewDomainInput');
     var msg     = document.getElementById('mtbfAddDomainMsg');
@@ -5010,13 +5389,24 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
 
   document.addEventListener('DOMContentLoaded', function(){
     _styleToolbarDomBtns();
-    // Load custom domains from server, inject toolbar buttons + populate _adasAllDomains
+        // Load custom domains from server, inject toolbar buttons + populate _adasAllDomains
     fetch(ADAS_API_BASE + '/domains').then(function(r){ return r.json(); }).then(function(d){
       if(d.ok && d.domains){
         _adasAllDomains = d.domains.slice(); // keep full list for modal
+        // Remove default-domain buttons (ADAS/FLEX/IVI) that the user has deleted
+        ['ADAS','FLEX','IVI'].forEach(function(def){
+          if(d.domains.indexOf(def) < 0){
+            var defBtn = document.getElementById('adasDomBtn_' + def);
+            if(defBtn && defBtn.parentNode) defBtn.parentNode.removeChild(defBtn);
+          }
+        });
         d.domains.forEach(function(dom){
           if(dom !== 'ADAS' && dom !== 'FLEX' && dom !== 'IVI') mtbfInjectDomainBtn(dom);
         });
+        // If the currently active domain got removed, fall back to the first available one
+        if(d.domains.indexOf(_adasView) < 0 && d.domains.length){
+          adasSetDomain(d.domains[0]);
+        }
       }
     }).catch(function(){});
     // Auto-calc wiring
@@ -5130,7 +5520,7 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     _applyHidden(hidden);
     _renderRows(hidden);
     var msg = document.getElementById('lspCzMsg');
-    if(msg){ msg.textContent = '✓ Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
+    if(msg){ msg.textContent = '? Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
   };
 
   window.lspOpenCustomizeTabs = function(){
@@ -5170,6 +5560,25 @@ return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_build
     <div style="padding:12px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end">
       <button onclick="mtbfCloseAddDomainModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
       <button id="mtbfAddDomainSaveBtn" onclick="mtbfConfirmAddDomain()" style="border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-plus"></i> Add Domain</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Custom Domain Modal -->
+<div id="mtbfDeleteDomainModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10001;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(420px,94vw);box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#dc2626,#f97316);padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px"><i class="fas fa-minus-circle"></i> Delete Custom Domain</div>
+      <button onclick="mtbfCloseDeleteDomainModal()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;color:#fff;width:26px;height:26px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <p style="font-size:12px;color:#64748b;margin:0">Choose one MTBF domain to delete (default or custom), or delete all domains at once. At least one domain must always remain � deleted default domains can be re-added anytime via the <b>+</b> button.</p>
+      <div id="mtbfDeleteDomainList" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto"></div>
+      <div id="mtbfDeleteDomainMsg" style="font-size:11px;font-weight:700;min-height:16px"></div>
+    </div>
+    <div style="padding:12px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="mtbfCloseDeleteDomainModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer">Cancel</button>
+      <button id="mtbfDeleteDomainSaveBtn" onclick="mtbfConfirmDeleteDomain()" style="border:0;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border-radius:9px;padding:7px 18px;font-size:12px;font-weight:900;cursor:pointer"><i class="fas fa-trash-alt"></i> Delete</button>
     </div>
   </div>
 </div>

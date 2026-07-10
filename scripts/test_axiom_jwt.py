@@ -24,7 +24,7 @@ token = raw.get('access_token', '')
 print('Full token response keys:', list(raw.keys()))
 print()
 
-# Decode JWT payload (no signature verification needed — just inspect claims)
+# Decode JWT payload (no signature verification needed - just inspect claims)
 parts = token.split('.')
 if len(parts) >= 2:
     payload_b64 = parts[1]

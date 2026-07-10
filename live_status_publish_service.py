@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtqipl_internal\PDTBuddy'
+    r'\\sphere\pdtstats\DB\PDTBuddy'
 )
 _LIVE_STATUS_ROOT = os.path.join(_PDTBUDDY_DATA_ROOT, 'live_status_publish')
 _INDEX_FILE       = os.path.join(_LIVE_STATUS_ROOT, 'jobs_index.json') # lightweight listing
@@ -502,7 +502,7 @@ def _utc_now() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
 
 
-# ── per-job write locks ──────────────────────────────────────────────────────
+# - per-job write locks -
 # One threading.Lock per job_id. Prevents two Flask threads from writing
 # the same <job_id>.json simultaneously (auto-refresh + manual save, etc.).
 _JOB_LOCKS: Dict[str, threading.Lock] = {}
@@ -514,7 +514,7 @@ def _job_lock(job_id: str) -> threading.Lock:
             _JOB_LOCKS[job_id] = threading.Lock()
         return _JOB_LOCKS[job_id]
 
-# ── per-job file helpers ──────────────────────────────────────────────────────
+# - per-job file helpers -
     jobs_dir, _ = _storage_root()
     return os.path.join(jobs_dir, f'{job_id}.json')
 
@@ -663,7 +663,7 @@ def _delete_job_file(job_id: str) -> None:
     _remove_from_index(job_id)
 
 
-# ── lightweight index (id/name/status/updated_at only) ────────────────────────
+# - lightweight index (id/name/status/updated_at only) -
 _INDEX_FIELDS = ('id', 'name', 'status', 'job_type', 'targets', 'targets_display',
                  'public_token', 'updated_at', 'created_at', 'published_at', 'published_by',
                  'revoked_at', 'revoked_by')
@@ -739,7 +739,7 @@ def _remove_from_index(job_id: str) -> None:
     _write_index([e for e in _read_index() if str(e.get('id')) != str(job_id)])
 
 
-# ── one-time migration from old monolithic jobs.json ─────────────────────────
+# - one-time migration from old monolithic jobs.json -
 
 def _migrate_legacy() -> None:
     root, _ = _storage_root()
@@ -759,7 +759,7 @@ def _migrate_legacy() -> None:
         pass
 
 
-# ── legacy shims so any remaining internal callers still work ────────────────
+# - legacy shims so any remaining internal callers still work -
 
 def _read_store() -> Dict[str, Any]:
     return {'jobs': list_jobs()}
@@ -940,7 +940,7 @@ def save_job_rows(job_id: str, rows: List[Dict[str, Any]], username: str = '') -
 
 
 
-# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ----?-------?--- helpers ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
 
 def _find_header_index(headers: List[str], candidates: List[str]) -> int:
     norm = [str(h or '').strip().lower() for h in (headers or [])]
@@ -974,7 +974,7 @@ def _row_key(row: Dict[str, Any]) -> str:
     return str(row.get('meta_id') or '').strip().upper()
 
 
-# â”€â”€ Excel reader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ----?-------?--- Excel reader ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
 
 def _read_excel_rows(primary_target: str) -> Tuple[List[Dict[str, Any]], str, str, Optional[str]]:
     """
@@ -1075,7 +1075,7 @@ def _read_excel_rows(primary_target: str) -> Tuple[List[Dict[str, Any]], str, st
         return [], '', '', str(exc)
 
 
-# â”€â”€ JSON row normalizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ----?-------?--- JSON row normalizer ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
 
 def _merge_rows(
     excel_rows: List[Dict[str, Any]],
@@ -1102,7 +1102,7 @@ def _merge_rows(
     return normalized
 
 
-# â”€â”€ collapsed view selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ----?-------?--- collapsed view selection ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
 
 def _build_collapsed(
     merged_rows: List[Dict[str, Any]],
@@ -1135,7 +1135,7 @@ def _build_collapsed(
     return collapsed, len(latest_set)
 
 
-# â”€â”€ public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ----?-------?--- public API ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
 
 def load_job_workspace_data(job: Dict[str, Any]) -> Dict[str, Any]:
     targets = [str(t).strip() for t in (job.get('targets') or []) if str(t).strip()]
@@ -1172,7 +1172,7 @@ def load_job_workspace_data(job: Dict[str, Any]) -> Dict[str, Any]:
     workspace['excel_path'] = excel_path
     if excel_err and not excel_rows:
         workspace['error'] = excel_err
-        # still continue â€” JSON rows may exist
+        # still continue -------? JSON rows may exist
 
     # 2. read JSON draft_rows from job
     json_rows: List[Dict[str, Any]] = list(job.get('draft_rows') or [])
@@ -1281,7 +1281,7 @@ def revoke_job(job_id: str, username: str, reason: str = '') -> Optional[Dict[st
 
 
 def update_viewer_heartbeat(job_id: str, username: str) -> Optional[Dict[str, Any]]:
-    # No write — viewer tracking removed. Was causing WinError 5 on network
+    # No write - viewer tracking removed. Was causing WinError 5 on network
     # share by writing job JSON on every page load from every viewer.
     return _read_job_file(job_id)
 

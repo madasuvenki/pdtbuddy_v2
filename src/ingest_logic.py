@@ -10,7 +10,7 @@ from src.ingest import ingest_excel_data
 from src.utils import get_mysql_connection_db
 from src.ingest_log import new_run_id, log_start, log_finish
 
-# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+# Axiom fetch enabled - controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
 AXIOM_FETCH_DISABLED = False
 
 
@@ -127,8 +127,8 @@ def ingest_logic(
                f"(BU '{resolved_bu}', prefix '{db_prefix}')")
         log_finish(log_id, "SUCCESS", msg, rows_ingested=0, started_at=started_at)
 
-        # ── After successful ingest: check if this target has CHIPMD jiras
-        # ── and if HWPDT_job_audit.json is stale (>= 1 day) → trigger fetch
+        # - After successful ingest: check if this target has CHIPMD jiras
+        # - and if HWPDT_job_audit.json is stale (>= 1 day) - trigger fetch
         try:
             _maybe_trigger_hwpdt_chip_fetch(target_key, resolved_bu, db_prefix)
         except Exception as _chip_ex:
@@ -232,7 +232,7 @@ def _set_is_hwpdt_flag(target_key: str, is_hwpdt: bool) -> None:
     """
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
-        logger.warning("INGEST_LOGIC: Cannot set is_hwpdt flag — no DB connection.")
+        logger.warning("INGEST_LOGIC: Cannot set is_hwpdt flag - no DB connection.")
         return
     try:
         cur = conn.cursor(dictionary=True)
@@ -276,7 +276,7 @@ def _target_has_chipmd_jiras(target_key: str, bu_key: str, db_prefix: str) -> bo
         conn = get_mysql_connection_db(bu_key=bu_key)
         if not conn:
             logger.warning(
-                f"INGEST_LOGIC: Cannot check HWPDT jiras — no DB connection for BU={bu_key}"
+                f"INGEST_LOGIC: Cannot check HWPDT jiras - no DB connection for BU={bu_key}"
             )
             return False
 
@@ -291,7 +291,7 @@ def _target_has_chipmd_jiras(target_key: str, bu_key: str, db_prefix: str) -> bo
         )
         if not cur.fetchone():
             logger.info(
-                f"INGEST_LOGIC: Table {jiras_table_sql} not found — is_hwpdt=0."
+                f"INGEST_LOGIC: Table {jiras_table_sql} not found - is_hwpdt=0."
             )
             return False
 
@@ -302,7 +302,7 @@ def _target_has_chipmd_jiras(target_key: str, bu_key: str, db_prefix: str) -> bo
         ticket_col = lower_to_actual.get('stability_ticket') or lower_to_actual.get('jira_id')
         if not team_col or not ticket_col:
             logger.info(
-                f"INGEST_LOGIC: {jiras_table_sql} missing test_team/stability_ticket columns — is_hwpdt=0."
+                f"INGEST_LOGIC: {jiras_table_sql} missing test_team/stability_ticket columns - is_hwpdt=0."
             )
             return False
 
@@ -319,13 +319,13 @@ def _target_has_chipmd_jiras(target_key: str, bu_key: str, db_prefix: str) -> bo
 
         if cnt > 0:
             logger.info(
-                f"INGEST_LOGIC: '{target_key}' — {cnt} CHIPMD + PDT_QIPL_HWPDT jiras found "
-                f"in saved DB table → setting is_hwpdt=1."
+                f"INGEST_LOGIC: '{target_key}' - {cnt} CHIPMD + PDT_QIPL_HWPDT jiras found "
+                f"in saved DB table - setting is_hwpdt=1."
             )
             return True
 
         logger.info(
-            f"INGEST_LOGIC: '{target_key}' — no CHIPMD + PDT_QIPL_HWPDT jiras found in saved DB table."
+            f"INGEST_LOGIC: '{target_key}' - no CHIPMD + PDT_QIPL_HWPDT jiras found in saved DB table."
         )
         return False
 
@@ -357,12 +357,12 @@ def _get_json_age_days() -> int:
     """
     import json as _json
 
-    network_path = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_job_audit.json"
+    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_job_audit.json"
     local_backup = os.path.join(_project_root(), "HWPDT_job_audit_local_backup.json")
     check_path   = network_path if os.path.exists(network_path) else local_backup
 
     if not os.path.exists(check_path):
-        logger.info("INGEST_LOGIC: HWPDT_job_audit.json not found — treating as stale (999).")
+        logger.info("INGEST_LOGIC: HWPDT_job_audit.json not found - treating as stale (999).")
         return 999
 
     try:
@@ -393,7 +393,7 @@ def _reset_hwpdt_ingest_status_if_needed() -> None:
     """
     import json as _json
 
-    network_path = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_job_audit.json"
+    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_job_audit.json"
     local_backup = os.path.join(_project_root(), "HWPDT_job_audit_local_backup.json")
     check_path   = network_path if os.path.exists(network_path) else local_backup
 
@@ -555,7 +555,7 @@ def _update_hwpdt_dashboard_status_from_map(chip_map: dict) -> None:
 
 def _run_hwpdt_fetch_direct() -> None:
     """
-    Unconditionally run fetch_hwpdt_chip_ids — no stale check, no is_hwpdt check.
+    Unconditionally run fetch_hwpdt_chip_ids - no stale check, no is_hwpdt check.
     Called at the end of every IngestAutoUpdate run.
     """
     if AXIOM_FETCH_DISABLED:
@@ -588,19 +588,19 @@ def _run_hwpdt_fetch_direct() -> None:
             _lde(_env, override=True)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "")
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "")
-            logger.info(f"INGEST_LOGIC: loaded .env from {_env} — id set: {bool(client_id)}")
+            logger.info(f"INGEST_LOGIC: loaded .env from {_env} - id set: {bool(client_id)}")
         except Exception as _de:
             logger.warning(f"INGEST_LOGIC: dotenv load failed: {_de}")
 
     if not client_id or not client_secret:
-        logger.warning("INGEST_LOGIC: AXIOM credentials not set — skipping HWPDT fetch.")
+        logger.warning("INGEST_LOGIC: AXIOM credentials not set - skipping HWPDT fetch.")
         return
 
     if not os.path.exists(script_path):
         logger.warning(f"INGEST_LOGIC: fetch_hwpdt_chip_ids.py not found at {script_path}")
         return
 
-    logger.info(f"INGEST_LOGIC: _run_hwpdt_fetch_direct — frozen={is_frozen}, script={script_path}")
+    logger.info(f"INGEST_LOGIC: _run_hwpdt_fetch_direct - frozen={is_frozen}, script={script_path}")
 
     import importlib.util as _ilu
     _saved_argv = sys.argv[:]
@@ -643,7 +643,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
         logger.info(f"INGEST_LOGIC: Axiom/HWPDT fetch trigger disabled; skipping for '{target_key}'.")
         return
 
-    logger.info(f"INGEST_LOGIC: HWPDT check for '{target_key}' — scanning freshly ingested jiras table...")
+    logger.info(f"INGEST_LOGIC: HWPDT check for '{target_key}' - scanning freshly ingested jiras table...")
 
     is_hwpdt = _target_has_chipmd_jiras(target_key, bu_key, db_prefix)
     _set_is_hwpdt_flag(target_key, is_hwpdt=is_hwpdt)
@@ -651,11 +651,11 @@ def _maybe_trigger_hwpdt_chip_fetch(
     if not is_hwpdt:
         logger.info(
             f"INGEST_LOGIC: '{target_key}' no HWPDT/CHIPMD evidence after ingest "
-            f"— is_hwpdt set to 0, skipping fetch."
+            f"--- is_hwpdt set to 0, skipping fetch."
         )
         return
 
-    # Step 2: is_hwpdt=1 confirmed — skip if fetch already running
+    # Step 2: is_hwpdt=1 confirmed - skip if fetch already running
     _reset_hwpdt_ingest_status_if_needed()
     conn_chk = get_mysql_connection_db(bu_key=None)
     if conn_chk:
@@ -670,7 +670,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
             if (_row.get('hwpdt_ingest_status') or '').strip() == 'Running':
                 logger.info(
                     f"INGEST_LOGIC: '{target_key}' is_hwpdt=1 but fetch already "
-                    f"Running — skipping duplicate launch."
+                    f"Running - skipping duplicate launch."
                 )
                 return
         except Exception as _ce:
@@ -679,7 +679,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
             try: conn_chk.close()
             except Exception: pass
 
-    # Step 3: trigger fetch — appends latest 100 jobs to audit
+    # Step 3: trigger fetch - appends latest 100 jobs to audit
     logger.info(
         f"INGEST_LOGIC: '{target_key}' is_hwpdt=1 "
         f"-> triggering HWPDT job fetch..."
@@ -695,7 +695,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
         real_root   = _project_root()
         script_path = os.path.join(real_root, "scripts", "fetch_hwpdt_chip_ids.py")
 
-        # Get credentials — config.py already loaded .env correctly for frozen EXE
+        # Get credentials - config.py already loaded .env correctly for frozen EXE
     client_id     = os.environ.get("AXIOM_CLIENT_ID", "")
     client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "")
     if not client_id or not client_secret:
@@ -707,7 +707,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
             logger.warning(f"INGEST_LOGIC: config import failed: {_ce}")
 
     if not client_id or not client_secret:
-        # Last resort — load .env directly using exe-aware path
+        # Last resort - load .env directly using exe-aware path
         try:
             from dotenv import load_dotenv as _lde
             if is_frozen:
@@ -717,7 +717,7 @@ def _maybe_trigger_hwpdt_chip_fetch(
             _lde(_env, override=True)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "")
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "")
-            logger.info(f"INGEST_LOGIC: loaded .env from {_env} — id set: {bool(client_id)}")
+            logger.info(f"INGEST_LOGIC: loaded .env from {_env} - id set: {bool(client_id)}")
         except Exception as _de:
             logger.warning(f"INGEST_LOGIC: dotenv load failed: {_de}")
 

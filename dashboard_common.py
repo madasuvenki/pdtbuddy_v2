@@ -1,4 +1,4 @@
-﻿
+
 import logging
 logger = logging.getLogger(__name__)
 import json
@@ -13,7 +13,7 @@ from src.utils import get_mysql_connection_db
 from config import BU_DATABASE_MAPPING, STATIC_BUSINESS_UNITS
 
 # ============================================================
-# In‑memory views of metadata (populated by update_global_targets_config)
+# In---memory views of metadata (populated by update_global_targets_config)
 # ============================================================
 
 BUSINESS_UNITS: Dict[str, dict] = {}
@@ -32,7 +32,7 @@ ONEVIEW_ENV = "prod"
 
 
 # ============================================================
-# DB → metadata builder
+# DB --- metadata builder
 # ============================================================
 
 def _fetch_dashboard_status_rows(active_only: bool = True) -> List[dict]:
@@ -695,7 +695,7 @@ def is_axiom_enabled_for_target(target_name: str) -> bool:
     """
     Return True when this target's chip_name is present in dashboard_status
     (i.e. chip_name is configured) and BU is not AUTO.
-    Chips are loaded from DB — no hardcoded list needed.
+    Chips are loaded from DB --- no hardcoded list needed.
     """
     bu = (get_bu_for_target(target_name) or "").upper()
     if bu == "AUTO":
@@ -755,7 +755,7 @@ def get_is_hwpdt_for_target(target_name: str) -> bool:
         row = cur.fetchone() or {}
         cnt = int((row.get("cnt") if isinstance(row, dict) else (row[0] if row else 0)) or 0)
         if cnt == 0:
-            return False   # column not yet created — ingest hasn't run yet
+            return False   # column not yet created --- ingest hasn't run yet
 
         cur.execute(
             """
@@ -1120,20 +1120,20 @@ def add_target_to_dashboard_status(
 
         platform = gen
         product_family = family
-        # Category is optional — empty means family-level overall target (cpl=NULL)
+        # Category is optional --- empty means family-level overall target (cpl=NULL)
         application_domain = category or ""
-        # cpl=NULL  → family-level overall (no SP)
-        # cpl=sp_label → SP-level target
+        # cpl=NULL  --- family-level overall (no SP)
+        # cpl=sp_label --- SP-level target
         cpl = cp if cp else None
 
         # For AUTO, program is the auto_project name (e.g. NORD)
         program = auto_project
 
     elif bu_upper in ("WBC", "MDM_TELEMATICS", "AUTO_TELEMATICS"):
-        # WBC hierarchy: Target → SP
-        # product_family = WBC target name  (e.g. Kuno)   → shown as Target pill
-        # cpl            = SP label          (e.g. LE.1.1) → shown as SP card
-        # cpl = NULL     → target-level overall dashboard
+        # WBC hierarchy: Target --- SP
+        # product_family = WBC target name  (e.g. Kuno)   --- shown as Target pill
+        # cpl            = SP label          (e.g. LE.1.1) --- shown as SP card
+        # cpl = NULL     --- target-level overall dashboard
         wbc_target_name = (auto_project or family or "").strip()
         wbc_sp_label    = (cp or "").strip()
 
@@ -1180,7 +1180,7 @@ def add_target_to_dashboard_status(
         return False, "DB connection error."
     cur = conn.cursor()
     try:
-        # Unique by active target_name only — allow re-add if previously removed
+        # Unique by active target_name only --- allow re-add if previously removed
         cur.execute(
             """
             SELECT id, is_active
@@ -1192,12 +1192,12 @@ def add_target_to_dashboard_status(
         )
         existing = cur.fetchone()
         if existing:
-            # If active row exists → block duplicate
+            # If active row exists --- block duplicate
             is_active_val = existing[1] if isinstance(existing, (list, tuple)) else existing.get('is_active', 1)
             if is_active_val:
                 return False, f"Target key '{target_name}' already exists. Use Full Resync to update it."
             else:
-                # Inactive row exists — delete it so we can re-insert cleanly
+                # Inactive row exists --- delete it so we can re-insert cleanly
                 cur.execute(
                     "DELETE FROM pdt_stats_dashboard.dashboard_status WHERE target_name = %s",
                     (target_name,),
@@ -1249,7 +1249,7 @@ def add_target_to_dashboard_status(
                 target_display,
                 chip_name,
                 excel_path,
-                unique_cr_path,      # optional — None if not provided
+                unique_cr_path,      # optional --- None if not provided
                 sp_name,
                 cpl,
                 es_date,
@@ -1469,7 +1469,7 @@ def fetch_total_jiras(conn, schema_name, target_name, from_date, to_date):
     open_tbl_exists = _tbl_exists(open_tbl)
     closed_tbl_exists = _tbl_exists(closed_tbl)
 
-    # total_jiras — include only tables that exist. ALL mode skips date filtering.
+    # total_jiras --- include only tables that exist. ALL mode skips date filtering.
     try:
         if all_data:
             union_parts = [f"SELECT DISTINCT stability_ticket FROM {jiras_tbl}"]

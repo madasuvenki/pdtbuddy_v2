@@ -12,14 +12,14 @@ from dashboard_service import build_mtbf_dashboard_payload, ensure_meta_builds_t
 
 live_status_view_api_bp = Blueprint("live_status_view_api_bp", __name__)
 
-_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtqipl_internal\PDTBuddy")
+_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy")
 _LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 _EXCLUSIONS_FILE = os.path.join(_DATA_ROOT, "live_status_view", "exclusions.json")
 _LOCAL_EXCLUSIONS_FILE = os.path.join(_LOCAL_ROOT, "live_status_view_exclusions.json")
 
 # ---------------------------------------------------------------------------
 # ADAS MTBF JSON storage helpers
-# Path: \\sphere\pdtqipl_internal\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
+# Path: \\sphere\pdtstats\DB\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
 # Nord_HQX -> folder Nord_HQX, Nord_HGY -> folder Nord_HGY
 # ---------------------------------------------------------------------------
 _ADAS_MTBF_VIEWS_DEFAULT = ["ADAS", "IVI", "FLEX"]
@@ -33,28 +33,60 @@ def _domains_config_path(target_name: str) -> str:
     return os.path.join(folder, "mtbf_domains.json")
 
 
-def _get_target_domains(target_name: str) -> List[str]:
-    """Return ordered domain list for target. Always starts with ADAS/IVI/FLEX,
-    then any custom domains added by the user."""
+def _read_domains_file(target_name: str) -> Dict[str, List[str]]:
+    """Read the raw per-target domains config file: {"domains": [...], "hidden": [...]}."""
     path = _domains_config_path(target_name)
-    custom: List[str] = []
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
-            custom = [str(d).strip().upper() for d in (data.get("domains") or []) if str(d).strip()]
+            if isinstance(data, dict):
+                return {
+                    "domains": [str(d).strip().upper() for d in (data.get("domains") or []) if str(d).strip()],
+                    "hidden": [str(d).strip().upper() for d in (data.get("hidden") or []) if str(d).strip()],
+                }
         except Exception:
             pass
-    # Merge: default first, then any custom not already in default
-    merged = list(_ADAS_MTBF_VIEWS_DEFAULT)
+    return {"domains": [], "hidden": []}
+
+
+def _write_domains_file(target_name: str, custom: List[str], hidden: List[str]) -> None:
+    path = _domains_config_path(target_name)
+    payload = {
+        "target": target_name,
+        "domains": custom,
+        "hidden": hidden,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
+    tmp = path + ".tmp"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    os.replace(tmp, path)
+
+
+def _get_target_domains(target_name: str) -> List[str]:
+    """Return ordered domain list for target. Starts with default ADAS/IVI/FLEX
+    domains (unless the user has hidden/deleted one of them), followed by any
+    custom domains added by the user."""
+    cfg = _read_domains_file(target_name)
+    custom = cfg["domains"]
+    hidden = set(cfg["hidden"])
+    # Merge: default first (unless hidden), then any custom not already in default
+    merged = [d for d in _ADAS_MTBF_VIEWS_DEFAULT if d not in hidden]
     for d in custom:
-        if d not in merged:
+        if d not in merged and d not in hidden:
             merged.append(d)
-    return merged
+    # Safety net: never return a fully empty domain list (would break
+    # downstream code that assumes allowed[0] exists). This only triggers
+    # if the user has hidden every single domain, defaults included.
+    return merged or list(_ADAS_MTBF_VIEWS_DEFAULT)
 
 
 def _add_target_domain(target_name: str, new_domain: str) -> List[str]:
-    """Add a new custom domain for target. Returns updated domain list."""
+    """Add a domain for target. If it's a default domain (ADAS/IVI/FLEX) that
+    was previously deleted/hidden, this un-hides it. Otherwise adds it as a
+    new custom domain. Returns updated domain list."""
     new_domain = str(new_domain or "").strip().upper()
     if not new_domain or len(new_domain) > 20:
         raise ValueError("Domain name must be 1-20 characters.")
@@ -63,26 +95,59 @@ def _add_target_domain(target_name: str, new_domain: str) -> List[str]:
         raise ValueError("Domain name may only contain letters, digits, _ or -.")
     current = _get_target_domains(target_name)
     if new_domain in current:
-        return current  # already exists
-    path = _domains_config_path(target_name)
-    # Load existing custom list
-    custom: List[str] = []
-    if os.path.exists(path):
+        return current  # already exists / already visible
+
+    cfg = _read_domains_file(target_name)
+    custom = cfg["domains"]
+    hidden = cfg["hidden"]
+
+    if new_domain in _ADAS_MTBF_VIEWS_DEFAULT:
+        # Re-show a previously deleted default domain
+        hidden = [d for d in hidden if d != new_domain]
+    elif new_domain not in custom:
+        custom.append(new_domain)
+
+    _write_domains_file(target_name, custom, hidden)
+    return _get_target_domains(target_name)
+
+
+def _remove_target_domain(target_name: str, domain: str, delete_data: bool = False) -> List[str]:
+    """Remove (hide) a domain for target - works for default (ADAS/IVI/FLEX)
+    domains as well as custom domains. At least one domain must always remain
+    visible."""
+    domain = str(domain or "").strip().upper()
+    if not domain:
+        raise ValueError("Domain name is required.")
+
+    current = _get_target_domains(target_name)
+    if domain not in current:
+        raise ValueError(f"Domain '{domain}' not found.")
+    if len(current) <= 1:
+        raise ValueError("At least one MTBF domain must remain.")
+
+    cfg = _read_domains_file(target_name)
+    custom = cfg["domains"]
+    hidden = cfg["hidden"]
+
+    # Capture the exact JSON path before removing it from the allowed domain list.
+    data_path = os.path.join(_adas_mtbf_folder(target_name), f"mtbf_{domain.lower()}.json")
+
+    if domain in _ADAS_MTBF_VIEWS_DEFAULT:
+        if domain not in hidden:
+            hidden.append(domain)
+    else:
+        custom = [d for d in custom if d != domain]
+
+    _write_domains_file(target_name, custom, hidden)
+
+    if delete_data:
         try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            custom = [str(d).strip().upper() for d in (data.get("domains") or []) if str(d).strip()]
+            if os.path.exists(data_path):
+                os.remove(data_path)
         except Exception:
             pass
-    if new_domain not in custom:
-        custom.append(new_domain)
-    payload = {"target": target_name, "domains": custom, "updated_at": datetime.utcnow().isoformat() + "Z"}
-    tmp = path + ".tmp"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2)
-    os.replace(tmp, path)
     return _get_target_domains(target_name)
+
 
 
 def _adas_mtbf_folder(target_name: str) -> str:
@@ -150,7 +215,7 @@ def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any]) -> Dic
     data["headers"] = list(_ADAS_MTBF_HEADERS)
     data["updated_at"] = datetime.utcnow().isoformat() + "Z"
     raw_rows = data.get("rows") if isinstance(data.get("rows"), list) else []
-    # Always persist rows sorted by date (oldest → newest) so chart is chronological
+    # Always persist rows sorted by date (oldest - newest) so chart is chronological
     data["rows"] = _sort_adas_rows_by_date(raw_rows)
     path = _adas_mtbf_json_path(target_name, view_clean)
     tmp = path + ".tmp"
@@ -734,7 +799,7 @@ def api_lsv_tab_config_save(target_name: str):
     try:
         saved = _set_tab_config(target_name, tab_config)
         return jsonify({"ok": True, "target": target_name, "tab_config": saved,
-                        "message": "Tab visibility saved — all viewers will see the updated layout."})
+                        "message": "Tab visibility saved - all viewers will see the updated layout."})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
@@ -987,6 +1052,24 @@ def api_adas_mtbf_domains_add(target_name: str):
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/adas_mtbf/domains/delete", methods=["POST"])
+@login_required
+def api_adas_mtbf_domains_delete(target_name: str):
+    """Delete/hide a domain for a target (default ADAS/IVI/FLEX or custom).
+    At least one domain must always remain visible for the target."""
+    payload = request.get_json(force=True, silent=True) or {}
+    domain = str(payload.get("domain") or "").strip().upper()
+    delete_data = bool(payload.get("delete_data") or False)
+    try:
+        domains = _remove_target_domain(target_name, domain, delete_data=delete_data)
+        return jsonify({"ok": True, "target": target_name, "domain": domain, "domains": domains,
+                        "message": f"Domain '{domain}' deleted."})
+    except ValueError as ve:
+        return jsonify({"ok": False, "error": str(ve)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/current_report_data", methods=["GET"])
 @login_required
 def api_live_status_view_current_report_data(target_name: str):
@@ -1030,7 +1113,7 @@ def api_live_status_view_current_report_data(target_name: str):
     try:
         from live_status_publish_service import list_jobs
 
-        # ── 1. Find the best published/draft job for this target ──────────
+        # - 1. Find the best published/draft job for this target -
         wanted = str(target_name or "").strip().lower()
         job = None
         for j in (list_jobs() or []):
@@ -1063,7 +1146,7 @@ def api_live_status_view_current_report_data(target_name: str):
             or 'NORD.' in _tgt_up
         )
 
-        # ── 2. Load axiom_job_summary rows for this target ────────────────
+        # - 2. Load axiom_job_summary rows for this target -
         # Three indexes built in one pass:
         #   axiom_by_exact  : build_name_upper          -> [rows]
         #   axiom_by_meta   : meta_number ("00806")     -> [rows]
@@ -1121,7 +1204,7 @@ def api_live_status_view_current_report_data(target_name: str):
         except Exception as _db_err:
             _logger.warning("[CURRENT REPORT] axiom_job_summary fetch failed: %s", _db_err)
 
-        # ── 3. Enrich each running row ────────────────────────────────────
+        # - 3. Enrich each running row -
         def _enrich_row(row: Dict) -> Dict:
             r = dict(row)
             r.setdefault("display_hours", r.get("hours") or "")
@@ -1268,7 +1351,7 @@ def api_running_builds_db(target_name: str):
     import logging as _log
     _logger = _log.getLogger(__name__)
 
-        # PL column name candidates — checked in priority order
+        # PL column name candidates - checked in priority order
     _PL_COLS = (
         'PL-ID', 'pl-id',          # hyphen variant (actual column name in jiras tables)
         'pl_id', 'PL_ID', 'PL ID', 'PL', 'PLID',
@@ -1328,13 +1411,13 @@ def api_running_builds_db(target_name: str):
 
         AUTO BU  : read from Core Deck deck_config (domain-scoped),
                    then fall back to information_schema discovery.
-        Other BUs: use fq_table_for_target directly — no domain concept.
+        Other BUs: use fq_table_for_target directly - no domain concept.
         """
         schema = (get_schema_for_target(target_name) or '').strip('`')
         tables: List[str] = []
 
         if is_auto:
-            # ── AUTO: try Core Deck deck_config first ──────────────────────
+            # - AUTO: try Core Deck deck_config first -
             try:
                 from core_deck_routes import _load_state as _cd_load_state
                 state = _cd_load_state(target_name) or {}
@@ -1364,7 +1447,7 @@ def api_running_builds_db(target_name: str):
             except Exception as exc:
                 _logger.warning('[RUNNING BUILDS DB] deck_config load failed: %s', exc)
 
-            # ── AUTO fallback: discover via information_schema ─────────────
+            # - AUTO fallback: discover via information_schema -
             if not tables and schema:
                 try:
                     tgt_prefix = target_name.strip().lower().replace('-', '_')
@@ -1395,7 +1478,7 @@ def api_running_builds_db(target_name: str):
                 except Exception as exc:
                     _logger.warning('[RUNNING BUILDS DB] auto-discover failed: %s', exc)
         else:
-            # ── Non-AUTO BU: use target's own jiras/openjiras tables ───────
+            # - Non-AUTO BU: use target's own jiras/openjiras tables -
             for suffix in ('jiras', 'openjiras'):
                 try:
                     tables.append(fq_table_for_target(target_name, suffix))
@@ -1524,7 +1607,7 @@ def api_running_builds_db(target_name: str):
             if conn:
                 cur = conn.cursor(dictionary=True)
 
-                # Step 1: read PL values from jiras table → used to filter axiom DB
+                # Step 1: read PL values from jiras table - used to filter axiom DB
                 # If the user already selected a specific table in Config, use it directly.
                 if config_table:
                     pl_values = []
@@ -1582,7 +1665,7 @@ def api_running_builds_db(target_name: str):
                         LIMIT 500
                     """, tuple(pl_params))
                 else:
-                    # No PL values found — fall back to broad token search
+                    # No PL values found - fall back to broad token search
                     axiom_terms   = _target_axiom_search_terms(target_name, info)
                     pl_terms_used = axiom_terms
                     _logger.info('[RUNNING BUILDS DB] %s: no PL found, broad fallback: %s',

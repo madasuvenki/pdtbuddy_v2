@@ -44,7 +44,7 @@ from live_status_publish_service import (
 
 def _iframe_aware_redirect(url):
     """Return a tiny HTML page that navigates window.top (the landing page)
-    to load the target URL inside the viewer iframe — never breaks out.
+    to load the target URL inside the viewer iframe - never breaks out.
     """
     import json
     from flask import make_response
@@ -68,7 +68,7 @@ def _iframe_aware_redirect(url):
 
 
 
-# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+# Axiom fetch enabled - controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
 AXIOM_FETCH_DISABLED = False
 
 live_status_publish_bp = Blueprint('live_status_publish_bp', __name__)
@@ -715,7 +715,7 @@ def _find_published_job_for_target(target_name):
 @live_status_publish_bp.route('/api/live_status/meta_jiras_json/<target_name>/<meta_id>')
 @login_required
 def meta_jiras_json(target_name, meta_id):
-    """JSON list of JIRAs for a meta_id — used by the Exclude JIRAs modal in the MTBF table."""
+    """JSON list of JIRAs for a meta_id - used by the Exclude JIRAs modal in the MTBF table."""
     from dashboard_common import get_mysql_connection_db, fq_table_for_target
     conn = None
     cursor = None
@@ -1121,7 +1121,7 @@ def api_build_report_running_builds():
                     )
                     rows_found = cursor.fetchall() or []
                     # If the product col filter returns nothing, the column
-                    # probably doesn't hold target names — fall back to unfiltered
+                    # probably doesn't hold target names - fall back to unfiltered
                     if not rows_found:
                         cursor.execute(
                             f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
@@ -1131,7 +1131,7 @@ def api_build_report_running_builds():
                         )
                         rows_found = cursor.fetchall() or []
                 else:
-                    # No product col found — read all PLs (single-product table)
+                    # No product col found - read all PLs (single-product table)
                     cursor.execute(
                         f'SELECT DISTINCT `{pl_col}` AS pl FROM {table} '
                         f'WHERE `{pl_col}` IS NOT NULL AND TRIM(`{pl_col}`) <> %s '
@@ -1342,7 +1342,7 @@ def api_build_report_running_builds():
         meta = cur.fetchone() or {}
 
                 # Build SQL WHERE from PL terms so we never pull 10 000 rows into Python.
-        # Underscore is a LIKE wildcard — neutralise via REPLACE for ADAS/FLEX PLs.
+        # Underscore is a LIKE wildcard - neutralise via REPLACE for ADAS/FLEX PLs.
         def _pl_sql_where(pl_values):
             parts, params = [], []
             seen = set()
@@ -1362,7 +1362,7 @@ def api_build_report_running_builds():
 
         pl_where, pl_params = _pl_sql_where(target_pl_terms)
         if pl_where:
-            # PL-scoped query — only rows matching this target's software_product
+            # PL-scoped query - only rows matching this target's software_product
             cur.execute(f"""
                 SELECT job_id, build_id, build_name, software_product,
                        taxonomy_path, team, state, device_count, chip_ids,
@@ -1375,7 +1375,7 @@ def api_build_report_running_builds():
                 LIMIT %s
             """, tuple(pl_params) + (limit,))
         else:
-            # No PL terms — broad fetch, Python alias filter below still applies
+            # No PL terms - broad fetch, Python alias filter below still applies
             candidate_limit = limit if not target_raw else 10000
             cur.execute("""
                 SELECT job_id, build_id, build_name, software_product,
@@ -1407,7 +1407,7 @@ def api_build_report_running_builds():
             if q and q not in hay_lower and q not in build.lower():
                 continue
 
-            # When PL terms exist, SQL already filtered — no Python re-filter needed.
+            # When PL terms exist, SQL already filtered - no Python re-filter needed.
             # When no PL terms, apply broad alias/token/family match in Python.
             if target_raw and not pl_where:
                 hay_upper = (hay + ' ' + build).upper()
@@ -1548,7 +1548,7 @@ def landing():
         return redirect(_canonical_target_edit_url(requested_target))
     can_edit = _target_group_access()
 
-    # All published jobs — both editor and viewer see the same BU→target navigation.
+    # All published jobs - both editor and viewer see the same BU---target navigation.
     # Editor additionally sees Add Job / Manage Jobs controls (can_edit flag).
     all_jobs = list_jobs()
     all_target_opts = _all_targets_for_ui()
@@ -1618,12 +1618,12 @@ def landing():
     viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
     matched_groups_upper = {str(g or '').strip().upper() for g in (viewer_scope.get('matched_groups') or [])}
 
-    # ── Special "Live View Stats" BU sections (Automotive 4.5 + WBC) ──────────
+    # - Special "Live View Stats" BU sections (Automotive 4.5 + WBC) -
     # These are always shown as top-level cards that open the automotive_live_view_stats
-    # page directly — they are NOT backed by a Live Status publish job.
+    # page directly - they are NOT backed by a Live Status publish job.
     # Editors (full target-group access) always see them. Restricted viewers only
     # see them if their access scope explicitly covers AUTO/WBC (same rule used
-    # for every other BU/target on this page) — this preserves per-group access.
+    # for every other BU/target on this page) - this preserves per-group access.
     _show_special_sections = can_edit or bool(viewer_scope.get('all')) or 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper or 'AUTO' in (viewer_scope.get('bus') or set()) or 'AUTOMOTIVE' in (viewer_scope.get('bus') or set()) or 'WBC' in (viewer_scope.get('bus') or set())
 
     # Strip regular WBC/synthetic sections only so WBC does not duplicate with the
@@ -1710,7 +1710,7 @@ def landing():
 
 
         
-        # Filter target_options passed to Add Job modal — exclude AUTO/WBC BUs
+        # Filter target_options passed to Add Job modal - exclude AUTO/WBC BUs
     add_job_target_opts = [
         row for row in all_target_opts
         if str(row.get('bu_key') or '').upper() not in _hidden_add_job_bus
@@ -1813,11 +1813,11 @@ def live_status_target_by_bu(bu_key, target_name):
     Viewers use the same URL for the published read-only report.
     """
     if current_user.is_authenticated and _target_group_access():
-        # Editors always get the edit workspace — draft or published.
+        # Editors always get the edit workspace - draft or published.
         job = _find_existing_single_target_job(target_name, 'CRM') or _find_published_job_for_target(target_name)
         if job:
             return _render_current_report_editor(job)
-        # No job exists yet — send editor back to landing to create one.
+        # No job exists yet - send editor back to landing to create one.
         return redirect(url_for('live_status_publish_bp.landing'))
 
     # Viewers: check access first.
@@ -1828,7 +1828,7 @@ def live_status_target_by_bu(bu_key, target_name):
             message='You do not have access to this target. Request the listed Live Status viewer group from the landing page.'
         ), 403
 
-    # Viewers only see a published job — never a draft.
+    # Viewers only see a published job - never a draft.
     if not _find_published_job_for_target(target_name):
         return render_template(
             'coming_soon_template.html',
@@ -2011,7 +2011,7 @@ def api_published_mtbf_dashboard(job_id=None, target_name=None):
             if value in (None, ''):
                 return default
             text = str(value).strip()
-            if text.upper() in ('NA', 'N/A', '-', '—', 'NONE'):
+            if text.upper() in ('NA', 'N/A', '-', '---', 'NONE'):
                 return default
             return float(text.replace(',', ''))
         except Exception:
@@ -2569,7 +2569,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
                 return 'APPS'
             return ''
 
-        # ΓöÇΓöÇ 1. JIRA rows (jiras + openjiras) for the date range ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        # - 1. JIRA rows (jiras + openjiras) for the date range -
         jira_rows = []
         open_jira_rows = []
         build_ids = []
@@ -2675,7 +2675,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
                     if cv:
                         selected_cr_ids.add(cv)
 
-        # ΓöÇΓöÇ 2. CR rows from unique_crs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        # - 2. CR rows from unique_crs -
         # Start with date-window rows, then for selected builds enrich every
         # mapped CR directly from the full unique_crs table by CR id. The second
         # lookup is required because build-selected JIRAs can map to older CRs
@@ -2703,13 +2703,13 @@ def api_published_weekly_full(job_id=None, target_name=None):
             # date-filtered rather than fabricating CR details.
             logger.info('[WEEKLY_FULL] selected builds have no CR mapping columns; CR rows left date-filtered')
 
-        # ΓöÇΓöÇ 3. Pie aggregations ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        # - 3. Pie aggregations -
         status_ctr = Counter(str(r.get('cr_status') or '').strip() for r in cr_rows if str(r.get('cr_status') or '').strip())
         area_ctr   = Counter(str(r.get('cr_area')   or '').strip() for r in cr_rows if str(r.get('cr_area') or '').strip())
         pie_status = [{'name': k, 'y': v} for k, v in sorted(status_ctr.items(), key=lambda x: x[0].lower())]
         pie_area   = [{'name': k, 'y': v} for k, v in sorted(area_ctr.items(),   key=lambda x: x[0].lower())]
 
-        # ΓöÇΓöÇ 4. Per-build CR/JIRA area matrix ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        # - 4. Per-build CR/JIRA area matrix -
         # Area source rule:
         #   - Open/unmapped JIRAs: title-based bucket when available.
         #   - CRs / mapped JIRAs: Orbit CR area from unique_crs.cr_area.
@@ -2755,7 +2755,7 @@ def api_published_weekly_full(job_id=None, target_name=None):
             for area in areas:
                 build_area_matrix[mb].setdefault(area, 0)
 
-        # ΓöÇΓöÇ 5. Counts ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        # - 5. Counts -
         total_jiras  = len({r.get('stability_ticket') for r in all_jira_rows if r.get('stability_ticket')})
         open_jiras   = len({r.get('stability_ticket') for r in open_jira_rows if r.get('stability_ticket')})
         total_crs    = len(cr_rows)
@@ -3396,7 +3396,7 @@ def _run_published_current_report(job, force=False, custom_jql=''):
     import logging as _logging
     _rlog = _logging.getLogger(__name__)
     _rlog.info(f"[CURRENT_REPORT] job_id={job.get('id')}, target={target!r}, builds={builds}, force={force}")
-    # Only use the persisted JQL ΓÇö never auto-generate from builds.
+    # Only use the persisted JQL - never auto-generate from builds.
     # The editor is responsible for saving the JQL before publish.
     persisted_jql = (sc.get('jql') or '').strip()
     jql = (custom_jql or '').strip() or persisted_jql
@@ -3515,7 +3515,7 @@ def api_swpdt_force_refresh():
         new_jobs  = fetch_swpdt_jobs(DEFAULT_API_HOST, token, DEFAULT_PAGE_SIZE, DEFAULT_APP_NAME)
 
         if not new_jobs:
-            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom ΓÇö API may be down or no Running jobs today'}), 502
+            return jsonify({'ok': False, 'error': 'No jobs returned from Axiom - API may be down or no Running jobs today'}), 502
 
         final_jobs = merge_and_prune(output_path, new_jobs, RETENTION_DAYS)
         from datetime import datetime as _dt, timezone as _tz
@@ -3534,7 +3534,7 @@ def api_swpdt_force_refresh():
             payload['state_counts'][s] = payload['state_counts'].get(s, 0) + 1
 
         _save(output_path, payload)
-        logger.info('[SWPDT FORCE REFRESH] Done ΓÇö %d jobs saved to %s', len(final_jobs), output_path)
+        logger.info('[SWPDT FORCE REFRESH] Done - %d jobs saved to %s', len(final_jobs), output_path)
 
         return jsonify({
             'ok':           True,
@@ -3636,7 +3636,7 @@ def api_publish_job(target_name):
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
-# ── Delete job ──────────────────────────────────────────────────────────────
+# - Delete job -
 @live_status_publish_bp.route('/api/live_status/jobs/<job_id>/delete', methods=['POST'])
 @login_required
 def api_delete_job(job_id):
@@ -3653,7 +3653,7 @@ def api_delete_job(job_id):
     return jsonify({'ok': False, 'error': 'Delete failed'}), 500
 
 
-# ── Revoke job ──────────────────────────────────────────────────────────────
+# - Revoke job -
 @live_status_publish_bp.route('/api/live_status/jobs/<job_id>/revoke', methods=['POST'])
 @login_required
 def api_revoke_job(job_id):
@@ -3671,17 +3671,17 @@ def api_revoke_job(job_id):
     return jsonify({'ok': False, 'error': 'Revoke failed'}), 500
 
 
-# ── Build-wise consolidated report ──────────────────────────────────────────
+# - Build-wise consolidated report -
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/build_wise_report', methods=['GET'])
 @login_required
 def api_build_wise_report(target_name):
-    """All builds (latest→oldest) with per-build consolidated CR+JIRA data.
+    """All builds (latest---oldest) with per-build consolidated CR+JIRA data.
 
     Uses the same jiras/openjiras/unique_crs join logic as weekly_full but
-    without a date window — scans ALL rows so every historical build appears.
+    without a date window - scans ALL rows so every historical build appears.
 
     Query params:
-      build       : single build ID → return full CR detail rows for that build
+      build       : single build ID - return full CR detail rows for that build
       domain      : ADAS | FLEX | IVI  (AUTO BU only)
       crash_types : comma list: system,ssr,process,open_jira  (AUTO BU only)
     """
@@ -3716,7 +3716,7 @@ def api_build_wise_report(target_name):
 
     cur = conn.cursor(dictionary=True)
 
-    # ── helpers (same as weekly_full) ────────────────────────────────────────
+    # - helpers (same as weekly_full) -
     def _tbl_exists(fq):
         n = fq.replace('`', '')
         try:
@@ -3785,7 +3785,7 @@ def api_build_wise_report(target_name):
         if is_process:
             return 'process'
 
-        # SSR keywords — only when no process keywords present
+        # SSR keywords - only when no process keywords present
         ssr_kw = ('ssr', 'sleep', 'subsystem restart')
         is_ssr = any(kw in t for kw in ssr_kw)
         if is_ssr:
@@ -3816,7 +3816,7 @@ def api_build_wise_report(target_name):
 
     def _domain_from_build_id(build_id):
         """Primary domain signal: read directly from the build/metabuild name.
-        SA8797P_ADAS.HGX... → ADAS, CI_SA8797P_FLEX.HGX... → FLEX, rest → IVI.
+        SA8797P_ADAS.HGX... - ADAS, CI_SA8797P_FLEX.HGX... - FLEX, rest - IVI.
         """
         b = str(build_id or '').upper()
         if '_ADAS' in b or '.ADAS' in b or 'ADAS_' in b or 'ADAS.' in b:
@@ -3835,7 +3835,7 @@ def api_build_wise_report(target_name):
         return 'IVI'
 
     try:
-        # ── 1. Read ALL rows from jiras + openjiras (no date filter) ─────────
+        # - 1. Read ALL rows from jiras + openjiras (no date filter) -
         base_cols = ['stability_ticket', 'jira_date', 'jira_title', 'serial_no', 'metabuild']
         extra_cr_cols = [
             'mapped_cr', 'cr', 'cr_number',
@@ -3885,7 +3885,7 @@ def api_build_wise_report(target_name):
 
         all_rows = all_jira_rows + all_open_rows
 
-        # ── 2. Collect all CR IDs seen across all rows ────────────────────────
+        # - 2. Collect all CR IDs seen across all rows -
         all_cr_ids = set()
         for row in all_rows:
             for ck in ('mapped_cr', 'cr', 'cr_number'):
@@ -3894,8 +3894,8 @@ def api_build_wise_report(target_name):
                     all_cr_ids.add(cid)
                     break
 
-        # ── 3. Fetch unique_crs for ALL cr_ids (same logic as weekly_full) ────
-        cr_detail = {}   # normalised_key → enriched row
+        # - 3. Fetch unique_crs for ALL cr_ids (same logic as weekly_full) -
+        cr_detail = {}   # normalised_key - enriched row
         if _tbl_exists(unique_tbl) and all_cr_ids:
             try:
                 ucols = _table_cols(unique_tbl)
@@ -3964,7 +3964,7 @@ def api_build_wise_report(target_name):
             except Exception as e:
                 logger.warning('[BUILD_WISE] unique_crs error: %s', e)
 
-        # ── 4. Build cr_lookup for area resolution (same as weekly_full) ──────
+        # - 4. Build cr_lookup for area resolution (same as weekly_full) -
         cr_lookup = {}
         for key, detail in cr_detail.items():
             cr_lookup[key] = detail
@@ -3977,7 +3977,7 @@ def api_build_wise_report(target_name):
                         return d.get('cr_area', '')
             return _area_from_open_jira_title(row.get('jira_title'))
 
-        # ── 5. Enrich each row with domain ────────────────────────────────────
+        # - 5. Enrich each row with domain -
         for row in all_rows:
             cr_id = ''
             for ck in ('mapped_cr', 'cr', 'cr_number'):
@@ -3991,7 +3991,7 @@ def api_build_wise_report(target_name):
                 if detail:
                     break
             if is_auto:
-                # Build name is the ground truth — SA8797P_ADAS/FLEX/other.
+                # Build name is the ground truth - SA8797P_ADAS/FLEX/other.
                 # CR metadata is only a fallback for rows with no build signal.
                 row['_domain'] = (
                     _domain_from_build_id(row.get('_build') or '') or
@@ -4007,7 +4007,7 @@ def api_build_wise_report(target_name):
             else:
                 row['_domain'] = ''
 
-        # ── 6. Apply domain + crash_type filters ──────────────────────────────
+        # - 6. Apply domain + crash_type filters -
         def _passes(row):
             if is_auto and domain_filter and row.get('_domain') != domain_filter:
                 return False
@@ -4017,7 +4017,7 @@ def api_build_wise_report(target_name):
 
         filtered = [r for r in all_rows if _passes(r)]
 
-        # ── 7. Group by build ─────────────────────────────────────────────────
+        # - 7. Group by build -
         build_map = defaultdict(list)
         for row in filtered:
             build_map[row.get('_build') or 'UNKNOWN'].append(row)
@@ -4028,7 +4028,7 @@ def api_build_wise_report(target_name):
 
         sorted_builds = sorted(build_map.keys(), key=_build_sort_key)
 
-        # ── 8. Build summary list ─────────────────────────────────────────────
+        # - 8. Build summary list -
         builds_summary = []
         for bid in sorted_builds:
             rows = build_map[bid]
@@ -4064,7 +4064,7 @@ def api_build_wise_report(target_name):
                 'cr_count':        len(cr_ids),
             })
 
-        # ── 9. Detail rows for selected build ─────────────────────────────────
+        # - 9. Detail rows for selected build -
         detail_rows = []
         if selected_build:
             tail = _norm_build(selected_build)

@@ -16,8 +16,8 @@ core_deck_bp = Blueprint('core_deck_bp', __name__)
 
 
 
-_LIVE_STATUS_BASE_DIR = r'\\sphere\pdtqipl_internal\PDTBuddy\live_status_publish'
-_LEGACY_CORE_DECK_BASE_DIR = r'\\sphere\pdtqipl_internal\PDTBuddy\managed_excel'
+_LIVE_STATUS_BASE_DIR = r'\\sphere\pdtstats\DB\PDTBuddy\live_status_publish'
+_LEGACY_CORE_DECK_BASE_DIR = r'\\sphere\pdtstats\DB\PDTBuddy\managed_excel'
 _STATE_FILE = 'core_deck_state.json'
 _REVISIONS_FILE = 'core_deck_revisions.json'
 _CORE_DECK_FLAVOR_PROGRESS: Dict[str, dict] = {}
@@ -457,12 +457,12 @@ def _matches_target(row: dict, target_name: str) -> bool:
     and other chip families, causing cross-target contamination.
 
     Priority:
-      1. Exact SP prefix match  – sp_name starts with software_product prefix
+      1. Exact SP prefix match  - sp_name starts with software_product prefix
          e.g. SA8797P.HQX.5.7.7.0 matches SA8797P.HQX.*
-      2. Domain-variant match   – same program, different domain suffix
+      2. Domain-variant match   - same program, different domain suffix
          e.g. SA8797P_FLEX.HQX.* and SA8797P_ADAS.HQX.* for an IVI target
          whose sp_name is SA8797P.HQX.*
-      3. No match               – return False
+      3. No match               - return False
     """
     sp = _safe_str(row.get('software_product') or row.get('softwareProduct')).upper()
     if not sp:
@@ -2172,7 +2172,7 @@ def core_deck_overallcrs_tables():
                 _append_schema_tables(target_name, schema, exact_target_match=False)
 
     # Fallback: if no results found for the requested target, try the shared
-    # auto schema — but ONLY if the target itself belongs to the auto schema.
+    # auto schema - but ONLY if the target itself belongs to the auto schema.
     # Never inject Nord-specific tables for non-Nord targets.
     if not results and requested_target:
         info = dc.get_target_info(requested_target) or {}

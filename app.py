@@ -130,6 +130,7 @@ from live_status_view_api import live_status_view_api_bp
 from live_view_stats_routes import live_view_stats_bp
 from automotive_live_view_stats_routes import automotive_live_view_stats_bp
 from auto_gen45_public_routes import public_auto_gen45_bp
+from auto_gen5_public_routes import public_auto_gen5_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
@@ -184,7 +185,7 @@ if server_name_env:
     app.config['SERVER_NAME'] = server_name_env  # set only when provided
 app.config['PREFERRED_URL_SCHEME'] = os.environ.get('FLASK_PREFERRED_URL_SCHEME', 'http') # 'https' if you're using SSL
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# ── Session config (single authoritative block) ──────────────────────────────
+# - Session config (single authoritative block) -
 app.config.update(
     SESSION_TYPE="filesystem",
     SESSION_FILE_DIR=os.path.join(BASE_DIR, "flask_session"),
@@ -192,7 +193,7 @@ app.config.update(
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_SECURE=False,      # set True only when serving over HTTPS
     SESSION_COOKIE_SAMESITE="Lax",   # prevents CSRF while allowing normal navigation
-    # Hard cookie expiry — must be LONGER than the idle-timeout (2 h).
+    # Hard cookie expiry - must be LONGER than the idle-timeout (2 h).
     # _check_session_idle() handles the 2-h idle logout; this is just the
     # absolute maximum a cookie can live (8 hours).
     PERMANENT_SESSION_LIFETIME=28800, # 8 hours in seconds
@@ -353,6 +354,7 @@ app.register_blueprint(live_status_view_api_bp)
 app.register_blueprint(live_view_stats_bp)
 app.register_blueprint(automotive_live_view_stats_bp)
 app.register_blueprint(public_auto_gen45_bp)
+app.register_blueprint(public_auto_gen5_bp)
 app.register_blueprint(core_deck_bp)
 app.register_blueprint(jiraquery_api_bp)
 from weekly_summary_routes import weekly_summary_bp
@@ -1786,7 +1788,7 @@ def normalize_cr_rows_for_table(rows, jira_counts_by_cr=None):
     """
     Normalize raw unique_crs rows into an enriched CR table format.
 
-    Data columns only (no S.No. â€“ template adds that):
+    Data columns only (no S.No. - template adds that):
 
     CR, CR Title, Occurrence, CR Age, CR Area, CR Subsystem, CR Functionality,
     CR Date, Image, CR Status, PDT Priority, Last JIRA date,
@@ -1925,7 +1927,7 @@ try:
     if _axiom_enabled:
         from scripts.fetch_axiom_combined import run_combined_poller as _run_combined_poller
         import threading as _threading
-        # Read poll interval from env — default 1800 s (30 min).
+        # Read poll interval from env - default 1800 s (30 min).
         # Minimum enforced at 300 s (5 min) to prevent accidental hammering.
         _axiom_interval = max(300, int(os.environ.get("AXIOM_POLL_INTERVAL", "1800")))
         _axiom_thread = _threading.Thread(
@@ -1936,7 +1938,7 @@ try:
         )
         _axiom_thread.start()
         logger.info(
-            "[APP] Axiom combined poller started — interval=%ds (%d min), "
+            "[APP] Axiom combined poller started - interval=%ds (%d min), "
             "first cycle=15000 backfill, then 100/50 per cycle.",
             _axiom_interval, _axiom_interval // 60,
         )
@@ -2003,7 +2005,7 @@ def axiom_poller_status():
 
 
 # ---------------------------------------------------------------------------
-# Weekly Summary Scheduler — runs every Monday at 06:00 local time
+# Weekly Summary Scheduler - runs every Monday at 06:00 local time
 # ---------------------------------------------------------------------------
 def _weekly_summary_scheduler():
     from weekly_summary_service import write_all_weekly_summaries as _run_all, previous_completed_monday_sunday as _prev_mon_sun
@@ -2020,7 +2022,7 @@ def _weekly_summary_scheduler():
                     results = _run_all(week_start, week_end)
                     ok  = [r for r in results if not r.startswith('ERROR')]
                     err = [r for r in results if r.startswith('ERROR')]
-                    logger.info("[WEEKLY SCHEDULER] Done — %d OK, %d errors.", len(ok), len(err))
+                    logger.info("[WEEKLY SCHEDULER] Done - %d OK, %d errors.", len(ok), len(err))
                     for e in err:
                         logger.warning("[WEEKLY SCHEDULER] %s", e)
                     _last_run_week[0] = week_key
@@ -2038,11 +2040,11 @@ except Exception as _e:
 
 
 # ---------------------------------------------------------------------------
-# HWPDT Chip Fetch Scheduler — runs every 1 hour
+# HWPDT Chip Fetch Scheduler - runs every 1 hour
 # ---------------------------------------------------------------------------
 def _hwpdt_scheduler():
     import time as _time
-    logger.info("[HWPDT SCHEDULER] Thread started — runs every 1 hour.")
+    logger.info("[HWPDT SCHEDULER] Thread started - runs every 1 hour.")
     while True:
         try:
             logger.info("[HWPDT SCHEDULER] Triggering fetch_hwpdt_chip_ids...")
@@ -2060,7 +2062,7 @@ logger.info("[APP] HWPDT scheduler disabled; use update_axiom_job_summary.py/.ex
 
 # ---------------------------------------------------------------------------
 # QIPL CSV Auto-Import Scheduler
-# Fires every Monday at 08:00 — imports the latest QIPL_CR_AGE__CR_TAT_Jira_*.csv
+# Fires every Monday at 08:00 - imports the latest QIPL_CR_AGE__CR_TAT_Jira_*.csv
 # for the just-completed Mon-Sun week (CSV is generated Sunday night ~midnight).
 # Also exposes /api/qipl_csv_import_now for manual on-demand import.
 # ---------------------------------------------------------------------------
@@ -2068,7 +2070,7 @@ def _qipl_csv_scheduler():
     import time as _time
     from datetime import datetime as _dt, date as _date, timedelta as _td
     _last_run_week = [None]
-    logger.info("[QIPL CSV SCHEDULER] Thread started — fires Monday 08:00 for previous completed week.")
+    logger.info("[QIPL CSV SCHEDULER] Thread started - fires Monday 08:00 for previous completed week.")
     while True:
         try:
             now = _dt.now()
@@ -2090,12 +2092,12 @@ def _qipl_csv_scheduler():
                                         result.get('inserted', 0), week_key,
                                         os.path.basename(result.get('path', '')))
                         else:
-                            logger.warning("[QIPL CSV SCHEDULER] Not imported — reason: %s | file: %s",
+                            logger.warning("[QIPL CSV SCHEDULER] Not imported - reason: %s | file: %s",
                                            result.get('reason') or result.get('message', ''),
                                            os.path.basename(result.get('path', '') or ''))
                     except Exception as _ie:
                         logger.error("[QIPL CSV SCHEDULER] Import error: %s", _ie)
-                    # Mark as attempted regardless — avoid retry storm
+                    # Mark as attempted regardless - avoid retry storm
                     _last_run_week[0] = week_key
         except Exception as _qe:
             logger.error("[QIPL CSV SCHEDULER] Scheduler error: %s", _qe)
@@ -2377,7 +2379,7 @@ def login():
 
                 return render_template("login.html")
 
-            # Bypass users — land on live_status landing (viewer test mode)
+            # Bypass users - land on live_status landing (viewer test mode)
             print(f"[LOGIN] LDAP auth success for: {username}", flush=True)
 
             try:
@@ -2641,7 +2643,7 @@ def select_target_for_bu():
 
     
 
-        # Get BU metadata — fetch ALL rows (active + inactive) so inactive
+        # Get BU metadata - fetch ALL rows (active + inactive) so inactive
     # targets appear on the page and can be filtered by the user.
     all_metadata    = dc.load_metadata_config(active_only=False)
     all_targets_cfg = all_metadata.get("TARGETS_CONFIG", {}) or {}
@@ -2779,7 +2781,7 @@ def bu_live_status():
 # ----------------------------------------------------------------------
 
 #  ------------------------------------------------------------------
-#  Milestoneâ€‘handling helpers (the logic that used to live in
+#  Milestone-handling helpers (the logic that used to live in
 #  axiom_certicom.py).  Keep them in this file for simplicity; you can
 #  move them to a separate module if you prefer.
 #  ------------------------------------------------------------------
@@ -2787,7 +2789,7 @@ def _load_raw_milestone_source(sp_name: str) -> str:
     """
     Load the raw source that contains the milestone data for the given
     SP name.  The original script could read a JSON file, a CSV file,
-    or call a REST endpoint â€“ copy that exact logic here.
+    or call a REST endpoint - copy that exact logic here.
     The example below assumes a simple JSON file stored in
     ``src/certicom_milestones/<sp_name>.json``.
     """
@@ -2797,19 +2799,19 @@ def _load_raw_milestone_source(sp_name: str) -> str:
     if not json_path.is_file():
         raise FileNotFoundError(f"Milestone file not found for SP '{sp_name}'")
 
-    # The file may contain JSON **or** plain keyâ€‘value lines â€“ we just
+    # The file may contain JSON **or** plain key-value lines - we just
     # return the raw text; the parser below will handle both formats.
     return json_path.read_text(encoding="utf-8")
 
 
 def _parse_milestone_text(raw: str) -> dict:
     """
-    Convert the raw text (JSON, CSV, simple ``key=value`` lines, â€¦)
+    Convert the raw text (JSON, CSV, simple ``key=value`` lines, -)
     into a dict with the keys ``ES``, ``FC``, ``CS`` and optionally ``CS1``.
     Missing values are left as ``None``.
     """
     # --------------------------------------------------------------
-    # Try JSON first â€“ many of the original files are JSON objects.
+    # Try JSON first - many of the original files are JSON objects.
     # --------------------------------------------------------------
     try:
         data = json.loads(raw)
@@ -2820,11 +2822,11 @@ def _parse_milestone_text(raw: str) -> dict:
             "CS1": data.get("CS1") or data.get("cs1"),
         }
     except Exception:
-        # Not JSON â†’ fall back to simple â€œkey = valueâ€ parsing
+        # Not JSON -- fall back to simple key=value parsing
         pass
 
     # --------------------------------------------------------------
-    # Simple â€œkey = valueâ€ (or â€œkey : valueâ€) parsing
+    # Simple key=value (or -key : value-) parsing
     # --------------------------------------------------------------
     result = {"ES": None, "FC": None, "CS": None, "CS1": None}
     for line in raw.splitlines():
@@ -2832,7 +2834,7 @@ def _parse_milestone_text(raw: str) -> dict:
         if not line or line.startswith("#"):
             continue
 
-        # Accept both â€œES=2026-01-22â€ and â€œES : 2026/01/22â€
+        # Accept both -ES=2026-01-22- and -ES : 2026/01/22-
         m = re.match(
             r"(?i)^\s*(ES|FC|CS|CS1)\s*[:=]\s*([0-9]{4}[-/][0-9]{2}[-/][0-9]{2})\s*$",
             line,
@@ -2845,7 +2847,7 @@ def _parse_milestone_text(raw: str) -> dict:
 
 def _normalise_date(value: str | None) -> str | None:
     """
-    Convert any accepted date format into ISO ``YYYYâ€‘MMâ€‘DD``.
+    Convert any accepted date format into ISO ``YYYY-MM-DD``.
     Returns ``None`` if the input is empty/invalid.
     """
     if not value:
@@ -2875,9 +2877,9 @@ def fetch_milestones(sp_name: str) -> dict:
     """
     Public API used by the Flask routes.
 
-    1ï¸âƒ£ Load the raw source (file / API) â†’ ``_load_raw_milestone_source``  
-    2ï¸âƒ£ Parse it â†’ ``_parse_milestone_text``  
-    3ï¸âƒ£ Normalise each date â†’ ``_normalise_date``  
+    1- Load the raw source (file / API) - ``_load_raw_milestone_source``  
+    2- Parse it - ``_parse_milestone_text``  
+    3- Normalise each date - ``_normalise_date``  
 
     Returns a clean dict (no ``print`` statements) e.g.:
 
@@ -2909,7 +2911,7 @@ def fetch_milestones(sp_name: str) -> dict:
 #  ------------------------------------------------------------------
 #  ADMIN ENDPOINTS
 #  ------------------------------------------------------------------
-# If you have a fullâ€‘featured admin blueprint elsewhere, import it and
+# If you have a full-featured admin blueprint elsewhere, import it and
 # **remove** the temporary stub defined near the top of this file.
 # Here we add the two routes you asked for.
 # ----------------------------------------------------------------------
@@ -2951,7 +2953,7 @@ def fetch_sp_milestones_route():
 
 
 # ----------------------------------------------------------------------
-#  Dummy implementation of the heavy-lifting â€œresyncâ€ logic.
+#  Dummy implementation of the heavy-lifting -resync- logic.
 #  Replace this with the real function that re-processes the Excel file,
 #  updates the DB, etc.
 # ----------------------------------------------------------------------
@@ -2981,8 +2983,8 @@ def resync_milestones_for_target(
 @login_required
 def resync_milestones_route():
     """
-    Frontâ€‘end sends: {"target_name":"skyros"}
-    Returns: {"success":True,"message":"â€¦"}
+    Front-end sends: {"target_name":"skyros"}
+    Returns: {"success":True,"message":"-"}
     """
     if getattr(current_user, "role", None) != "admin":
         return jsonify({"success": False, "message": "Forbidden"}), 403
@@ -3061,7 +3063,7 @@ def view_multi_sheet_report(result_id):
             elif isinstance(sheet_val, list):
                 sanitized[sheet_name] = sheet_val
             elif isinstance(sheet_val, dict):
-                # {rows: [...], columns: [...], ...} â†’ extract rows list
+                # {rows: [...], columns: [...], ...} - extract rows list
                 rows = sheet_val.get('rows')
                 sanitized[sheet_name] = rows if isinstance(rows, list) else []
             else:
@@ -3166,7 +3168,7 @@ def report_worker(cmd, prefix, out_dir, task_id):
                     for record in df.to_dict(orient='records'):
                         new_record = {k: v for k, v in record.items() if _norm(k) not in SNO_HEADERS}
 
-                        # JIRA TICKETS â†’ URL
+                        # JIRA TICKETS - URL
                         jira_tickets_list_col_name = next(
                             (col for col in record if col.upper() == "JIRA TICKETS"),
                             None
@@ -3257,7 +3259,7 @@ def api_report_task_status(task_id):
 @app.route('/overall_crs/<target_name>', methods=['GET'])
 @login_required
 def overall_crs_page(target_name):
-    """Standalone Overall CRs page — accessible directly from hierarchy."""
+    """Standalone Overall CRs page - accessible directly from hierarchy."""
     from dashboard_common import get_targets_config
     # Resolve canonical key (case-insensitive match)
     real_key = normalize_target_key(target_name)
@@ -3319,7 +3321,7 @@ def api_overall_crs_summary(target_name):
         summary = get_overall_crs_summary(target_name)
         return jsonify({"success": True, "summary": summary})
     except ValueError as e:
-        # Target not found — return 404 not 500
+        # Target not found - return 404 not 500
         logger.warning(f"OVERALL_CRS_SUMMARY: target not found '{target_name}': {e}")
         return jsonify({"success": False, "message": str(e)}), 404
     except Exception as e:
@@ -3401,7 +3403,7 @@ def api_overall_crs_rows(target_name):
         except Exception as e:
             last_err = e
             err_str = str(e)
-            # MySQL 1412: table definition changed — retry with fresh connection
+            # MySQL 1412: table definition changed - retry with fresh connection
             if '1412' in err_str or 'Table definition has changed' in err_str:
                 logger.warning(f"OVERALL_CRS_ROWS: 1412 retry {_attempt+1}/3 for '{target_name}'")
                 try: cur.close()
@@ -3902,7 +3904,7 @@ def admin_usage_data():
     try:
         ensure_user_data_table(cursor)
 
-        # ── Trend ────────────────────────────────────────────────────────────
+        # - Trend -
         trend_sql = f"""
             SELECT
                 {group_by} AS bucket,
@@ -3942,7 +3944,7 @@ def admin_usage_data():
             except ImportError:
                 pass  # dateutil not installed, use raw rows
 
-        # ── Summary ──────────────────────────────────────────────────────────
+        # - Summary -
         summary_sql = f"""
             SELECT
                 COUNT(*) AS total_actions,
@@ -3960,7 +3962,7 @@ def admin_usage_data():
         summary = cursor.fetchone() or {}
         summary = {k: int(v) if v is not None else 0 for k, v in summary.items()}
 
-        # ── Top users ─────────────────────────────────────────────────────────
+        # - Top users -
         top_users_sql = f"""
             SELECT user_id, COUNT(*) AS total_actions, MAX(created_at) AS last_seen
             FROM pdt_stats_dashboard.user_data
@@ -3983,7 +3985,7 @@ def admin_usage_data():
                 'last_seen':     last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
-        # ── Action breakdown ──────────────────────────────────────────────────
+        # - Action breakdown -
         action_breakdown_sql = f"""
             SELECT action_type, COUNT(*) AS cnt
             FROM pdt_stats_dashboard.user_data
@@ -4000,7 +4002,7 @@ def admin_usage_data():
             for r in (cursor.fetchall() or [])
         ]
 
-        # ── Recent users (always last 10, no period filter) ───────────────────
+        # - Recent users (always last 10, no period filter) -
         cursor.execute(f"""
             SELECT user_id, MAX(created_at) AS last_seen
             FROM pdt_stats_dashboard.user_data
@@ -4019,7 +4021,7 @@ def admin_usage_data():
                 'last_seen': last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
-        # ── Failure reasons ───────────────────────────────────────────────────
+        # - Failure reasons -
         cursor.execute(f"""
             SELECT COALESCE(error_message, 'Unknown error') AS reason, COUNT(*) AS cnt
             FROM pdt_stats_dashboard.user_data
@@ -4036,7 +4038,7 @@ def admin_usage_data():
             for r in (cursor.fetchall() or [])
         ]
 
-        # ── Login users (per-period) ───────────────────────────────────────────
+        # - Login users (per-period) -
         cursor.execute(f"""
             SELECT user_id, COUNT(*) AS total_logins, MAX(created_at) AS last_login
             FROM pdt_stats_dashboard.user_data
@@ -4057,7 +4059,7 @@ def admin_usage_data():
                 'last_login':   last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
-        # ── All users list for dropdown (no period/user filter) ───────────────
+        # - All users list for dropdown (no period/user filter) -
         cursor.execute(f"""
             SELECT DISTINCT user_id
             FROM pdt_stats_dashboard.user_data
@@ -4132,8 +4134,8 @@ def collect_auto_target_buttons(gen_name, gen_data):
     """
     Build a flat list of buttons from gen_data:
     [
-      { "key": "nord_hgy", "display_name": "Gen5 â†’ NORD â†’ HGY" },
-      { "key": "nord_hgy_adas", "display_name": "Gen5 â†’ NORD â†’ HGY â†’ ADAS" },
+      { "key": "nord_hgy", "display_name": "Gen5 - NORD - HGY" },
+      { "key": "nord_hgy_adas", "display_name": "Gen5 - NORD - HGY - ADAS" },
       ...
     ]
     """
@@ -4147,7 +4149,7 @@ def collect_auto_target_buttons(gen_name, gen_data):
             if family_target_key and family_target_key not in seen:
                 buttons.append({
                     "key": family_target_key,
-                    "display_name": f"{gen_name} â†’ {auto_target} â†’ {family}",
+                    "display_name": f"{gen_name} - {auto_target} - {family}",
                 })
                 seen.add(family_target_key)
 
@@ -4158,7 +4160,7 @@ def collect_auto_target_buttons(gen_name, gen_data):
                 if category_target_key and category_target_key not in seen:
                     buttons.append({
                         "key": category_target_key,
-                        "display_name": f"{gen_name} â†’ {auto_target} â†’ {family} â†’ {category}",
+                        "display_name": f"{gen_name} - {auto_target} - {family} - {category}",
                     })
                     seen.add(category_target_key)
 
@@ -4169,7 +4171,7 @@ def collect_auto_target_buttons(gen_name, gen_data):
                     if cp_target_key and cp_target_key not in seen:
                         buttons.append({
                             "key": cp_target_key,
-                            "display_name": f"{gen_name} â†’ {auto_target} â†’ {family} â†’ {category} â†’ {cp_name}",
+                            "display_name": f"{gen_name} - {auto_target} - {family} - {category} - {cp_name}",
                         })
                         seen.add(cp_target_key)
 
@@ -4214,7 +4216,7 @@ def build_auto_mermaid_for_gen(gen_name, gen_data):
             family_target_key = _norm(family_info.get("target_key", ""))
             if family_target_key:
                 tk_id = _mermaid_id("tk", family_target_key)
-                lines.append(f'    {tk_id}["ðŸ”— {_safe_mermaid_text(family_target_key)}"]')
+                lines.append(f'    {tk_id}["- {_safe_mermaid_text(family_target_key)}"]')
                 lines.append(f"    {family_id} --> {tk_id}")
 
             for category, category_info in family_info.get("categories", {}).items():
@@ -4225,7 +4227,7 @@ def build_auto_mermaid_for_gen(gen_name, gen_data):
                 category_target_key = _norm(category_info.get("target_key", ""))
                 if category_target_key:
                     tk_id = _mermaid_id("tk", category_target_key)
-                    lines.append(f'    {tk_id}["ðŸ”— {_safe_mermaid_text(category_target_key)}"]')
+                    lines.append(f'    {tk_id}["- {_safe_mermaid_text(category_target_key)}"]')
                     lines.append(f"    {category_id} --> {tk_id}")
 
                 for cp in category_info.get("cps", []):
@@ -4237,7 +4239,7 @@ def build_auto_mermaid_for_gen(gen_name, gen_data):
                     cp_target_key = _norm(cp.get("target_key", ""))
                     if cp_target_key:
                         tk_id = _mermaid_id("tk", cp_target_key)
-                        lines.append(f'    {tk_id}["ðŸ”— {_safe_mermaid_text(cp_target_key)}"]')
+                        lines.append(f'    {tk_id}["- {_safe_mermaid_text(cp_target_key)}"]')
                         lines.append(f"    {cp_id} --> {tk_id}")
 
     return "\n".join(lines)
@@ -4363,7 +4365,7 @@ def auto_root():
     selected = requested if requested in gens else (gens[0] if gens else "")
 
     if not selected:
-        # No AUTO targets configured at all â€” render empty page
+        # No AUTO targets configured at all - render empty page
         return render_template(
             "auto_hierarchy.html",
             bu_name="Automotive",
@@ -4904,7 +4906,7 @@ def bu_selection():
     return redirect(url_for('cr_overview_embed'))
 
 
-# ── HWPDT Parts standalone page ──────────────────────────────────────────────────
+# - HWPDT Parts standalone page -
 @app.route("/hwpdt_parts/<string:target_name>")
 @login_required
 def hwpdt_parts(target_name):
@@ -4934,7 +4936,7 @@ def hwpdt_parts(target_name):
     )
 
 
-# ── HWPDT Overview (BU panel) ────────────────────────────────────────────────────────
+# - HWPDT Overview (BU panel) -
 @app.route("/hwpdt_overview")
 @login_required
 def hwpdt_overview():
@@ -5030,11 +5032,11 @@ def hwpdt_overview():
         **bu_ctx,
     )
 
-# ───────────────────────────────────────────────────────────────────
-# CR OVERVIEW LANDING PAGE  —  Premium executive dashboard
+# -
+# CR OVERVIEW LANDING PAGE  -  Premium executive dashboard
 # Default landing page after login; bu_selection is accessible via
-# the “Explore BUs” button at the bottom of this page.
-# ───────────────────────────────────────────────────────────────────
+# the -Explore BUs- button at the bottom of this page.
+# -
 @app.route("/")
 @app.route("/home")
 @app.route("/cr_overview")
@@ -5262,7 +5264,7 @@ def add_target():
 
         # ---- NEW: read Automotive fields from auto_metadata if present ----
         auto_meta = data.get("auto_metadata") or {}
-        # defaults (for nonâ€‘AUTO)
+        # defaults (for non-AUTO)
         gen = data.get("gen")                 # old behavior fallback
         auto_project = data.get("auto_target")
         family = data.get("family")
@@ -5300,7 +5302,7 @@ def add_target():
 
         unique_cr_only = bool(data.get('unique_cr_only', False))
         if unique_cr_only:
-            # Unique CR Only mode — chip/sp/excel not required
+            # Unique CR Only mode - chip/sp/excel not required
             chip_name  = chip_name  or 'N/A'
             sp_name    = sp_name    or 'N/A'
             excel_path = excel_path or ''
@@ -5985,19 +5987,19 @@ def _ensure_cr_debug_notes_table(cursor, target_name: str) -> str:
     return table
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# CR Insight API  â€”  used by the CR Insight Panel (cr_insight_panel.js)
+# -
+# CR Insight API  -  used by the CR Insight Panel (cr_insight_panel.js)
 # Returns: cr meta, linked CRs, JIRA ids+last-reported from target unique_crs
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -
 @app.route('/api/cr_insight/<cr_number>', methods=['GET'])
 @login_required
 def api_cr_insight(cr_number):
     """Return CR overview data for the CR Insight Panel.
 
     Queries:
-      1. pdt_stats_dashboard.cr_master          â†’ meta (title, status, area, age â€¦)
-      2. pdt_stats_dashboard.cr_relationships   â†’ linked / sibling CRs
-      3. <schema>.<db_name>_jiras               â†’ JIRA ids + last reported date/build
+      1. pdt_stats_dashboard.cr_master          - meta (title, status, area, age -)
+      2. pdt_stats_dashboard.cr_relationships   - linked / sibling CRs
+      3. <schema>.<db_name>_jiras               - JIRA ids + last reported date/build
          (searched across every target that has this CR in cr_master)
     """
     cr_number = str(cr_number or '').strip()
@@ -6013,7 +6015,7 @@ def api_cr_insight(cr_number):
             return jsonify({'error': 'DB connection failed'}), 500
         cur = conn.cursor(dictionary=True)
 
-        # â”€â”€ 1. cr_master: pick the most-recent row for this CR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 1. cr_master: pick the most-recent row for this CR -
         cur.execute(
             f"""
             SELECT cr_number, cr_title, cr_status, cr_area, cr_subsystem,
@@ -6039,7 +6041,7 @@ def api_cr_insight(cr_number):
                 return str(v)
             return v
 
-        # â”€â”€ If this CR is a duplicate, fetch cr_age from the canonical mapped CR â”€â”€
+        # - If this CR is a duplicate, fetch cr_age from the canonical mapped CR -
         # Use pre-computed effective_cr_age / effective_jira_count / linked_crs
         _status_raw  = (master_row.get('cr_status') or '').lower()
         _is_dup      = any(k in _status_raw for k in ('dup', 'duplicate', 'invalid_dup'))
@@ -6130,7 +6132,7 @@ def api_cr_insight(cr_number):
                         'jira_count' : None,
                     })
 
-        # â”€â”€ 3. JIRAs: scan every target that has this CR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 3. JIRAs: scan every target that has this CR -
         # Find all (target_name, db_name, schema_name) rows from cr_master
         cur.execute(
             f"""
@@ -6251,7 +6253,7 @@ def api_cr_insight(cr_number):
         if conn: 
             conn.close()
 
-# ── CR Info Summary API — used by chatbot CR Info tab ──────────────────────────
+# - CR Info Summary API - used by chatbot CR Info tab -
 @app.route('/api/cr_info_summary', methods=['GET'])
 @login_required
 def api_cr_info_summary():
@@ -6511,7 +6513,7 @@ def api_cr_ai_summary():
         # Legacy PDT-table implementation below is intentionally unreachable; retained for rollback.
 
 
-        # â”€â”€ 1. Fetch from PDT DB (cr_master) â”€â”€
+        # - 1. Fetch from PDT DB (cr_master) -
         db_row = {}
         try:
             conn = get_mysql_connection_db()
@@ -6530,7 +6532,7 @@ def api_cr_ai_summary():
         except Exception:
             pass
 
-        # â”€â”€ 2. Pick best value: panel data > DB â”€â”€
+        # - 2. Pick best value: panel data > DB -
         def _g(*keys):
             for k in keys:
                 v = cr_data.get(k) or db_row.get(k)
@@ -6563,7 +6565,7 @@ def api_cr_ai_summary():
             return jsonify({'error': f'CR {cr_number} not found in PDT available BUs data.'}), 404
 
 
-        # â”€â”€ 3. Build context block for QGenie â”€â”€
+        # - 3. Build context block for QGenie -
         ctx_lines = [f"CR Number: {cr_number}"]
         if title:      ctx_lines.append(f"Title: {title}")
         if status:     ctx_lines.append(f"Status: {status}")
@@ -6600,7 +6602,7 @@ def api_cr_ai_summary():
             )
 
 
-        # â”€â”€ 4. Call QGenie â”€â”€
+        # - 4. Call QGenie -
         summary_text = None
         qgenie_client = get_current_qgenie_client()
         if qgenie_client:
@@ -6616,13 +6618,13 @@ def api_cr_ai_summary():
             except Exception as qe:
                 logger.info(f"[cr_ai_summary] QGenie error: {qe}")
 
-        # â”€â”€ 5. Build output â”€â”€
+        # - 5. Build output -
         if one_line:
             if summary_text:
                 one = " ".join(str(summary_text).replace('\n', ' ').split()).strip()
             else:
                 parts = [p for p in [title, subsys or area, status] if p]
-                one = " — ".join(parts) or f"CR {cr_number} summary unavailable."
+                one = " - ".join(parts) or f"CR {cr_number} summary unavailable."
             return jsonify({
                 'summary': one,
                 'cr_number': cr_number,
@@ -6799,7 +6801,7 @@ def get_open_crs(target_name):
         u_cols = _get_cols(cursor, u_table)
         j_cols = _get_cols(cursor, j_table)
 
-        # Column references (no AS alias here â€” alias added in SELECT)
+        # Column references (no AS alias here - alias added in SELECT)
         def _col(cols, name, fallback='NULL'):
             return f'u.{name}' if name in cols else fallback
 
@@ -6855,7 +6857,7 @@ def get_open_crs(target_name):
             if cid:
                 cr_ids.append(cid)
 
-        # â”€â”€ Query 2: jiras aggregated per CR â”€â”€
+        # - Query 2: jiras aggregated per CR -
         jira_info = {}   # cr_id -> {test_teams, latest_meta}
         if cr_ids and (j_cr_col or j_mapped_crs_col):
             placeholders = ','.join(['%s'] * len(cr_ids))
@@ -6894,7 +6896,7 @@ def get_open_crs(target_name):
                         'latest_meta': jr.get('latest_meta') or '',
                     }
 
-        # â”€â”€ Merge & serialise â”€â”€
+        # - Merge & serialise -
         rows = []
         for r in u_rows:
             cr_id  = (r.get('cr_id')  or '').strip()
@@ -6929,7 +6931,7 @@ from werkzeug.utils import secure_filename
 # Fallback to local static/workspace only if the share is unavailable.
 LOCAL_WORKSPACE_DIR = pathlib.Path('static/workspace')
 try:
-    MANAGED_EXCEL_DIR = pathlib.Path(os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtqipl_internal\PDTBuddy')) / 'managed_excel'
+    MANAGED_EXCEL_DIR = pathlib.Path(os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy')) / 'managed_excel'
     WORKSPACE_DIR = MANAGED_EXCEL_DIR / 'workspace'
     WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -7047,7 +7049,7 @@ def _get_milestones_for_ws(target_name: str) -> dict:
     except Exception:
         return {'SoD': '', 'ES': '', 'FC': '', 'CS': ''}
 
-# â”€â”€ LDAP DL existence check helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - LDAP DL existence check helper -
 def _ldap_dl_exists(dl_name: str, email: str = '') -> bool:
     """
     Returns True if the distribution list (DL) exists in Qualcomm LDAP.
@@ -7075,7 +7077,7 @@ def _ldap_dl_exists(dl_name: str, email: str = '') -> bool:
         return False  # treat LDAP errors as unknown (not invalid)
 
 
-# â”€â”€ AUTO-FILL workspace via QGenie â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - AUTO-FILL workspace via QGenie -
 def _prefill_compact_soc_highlights(target_name: str, sp_name: str | None = None, force: bool = False) -> bool:
     """One-time static QGenie prefill for target header highlights. User edits are preserved unless force=True."""
     try:
@@ -7120,7 +7122,7 @@ def _prefill_compact_soc_highlights(target_name: str, sp_name: str | None = None
         if not highlights:
             lines = [ln.strip() for ln in re.split(r'\r?\n+', content) if ln.strip()]
             for line in lines:
-                line = re.sub(r'^[-*•]\s*', '', line).strip()
+                line = re.sub(r'^[-*-]\s*', '', line).strip()
                 m = re.match(r'^([^:]{1,40})\s*:\s*(.+)$', line)
                 label = m.group(1).strip() if m else 'Highlight'
                 text = m.group(2).strip() if m else line
@@ -7174,7 +7176,7 @@ def api_autofill_workspace(target_name):
     - Links      : Qualcomm SharePoint / go-links conventions
     - Mailing    : standard DL naming convention
     - Customers  : from DB if table exists, else empty
-    Only fills empty fields â€” never overwrites existing user data.
+    Only fills empty fields - never overwrites existing user data.
     """
     try:
         ws        = _load_ws(target_name, None)
@@ -7187,7 +7189,7 @@ def api_autofill_workspace(target_name):
         sp_name   = info.get('sp_name') or ''
         tn        = target_name.lower()
 
-        # â”€â”€ 1. KEY HIGHLIGHTS via QGenie (chip specs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 1. KEY HIGHLIGHTS via QGenie (chip specs) -
         if not (ws.get('highlights') and len(ws['highlights']) > 0):
             highlights = []
             client = get_current_qgenie_client()
@@ -7198,7 +7200,7 @@ def api_autofill_workspace(target_name):
                     # Priority: chip_name > sp_name prefix (e.g. SAR2230 from SAR2230.x.x)
                     raw_chip = (info.get('chip_name') or '').strip()
                     if not raw_chip and sp_name:
-                        # Take first segment before '.' or '_' â€” e.g. SA8797P from SA8797P_ADAS.HGY.5.1.7.0
+                        # Take first segment before '.' or '_' - e.g. SA8797P from SA8797P_ADAS.HGY.5.1.7.0
                         raw_chip = re.split(r'[._]', sp_name)[0].strip()
                     if not raw_chip:
                         raw_chip = chip_name  # fallback to display name
@@ -7231,15 +7233,15 @@ def api_autofill_workspace(target_name):
                 except Exception as e:
                     logger.info(f'AUTOFILL highlights error for {target_name}: {e}')
                     highlights = []
-            # Only save if we got real results â€” leave empty to retry on next load
+            # Only save if we got real results - leave empty to retry on next load
             if highlights:
                 ws['highlights'] = highlights
             else:
                 logger.info(f'AUTOFILL highlights: no results for {target_name}, will retry on next load')
 
-        # â”€â”€ 2. KEY LINKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 2. KEY LINKS -
         if not (ws.get('links') and len(ws['links']) > 0):
-            # Build candidate links â€” PDT Dashboard excluded (user is already on it)
+            # Build candidate links - PDT Dashboard excluded (user is already on it)
             candidate_links = [
                 {'label': f'{chip_name} Announcements', 'url': f'https://qualcomm.sharepoint.com/teams/{tn}cs'},
                 {'label': f'{chip_name} Target',        'url': f'https://qualcomm.sharepoint.com/teams/{tn}Target'},
@@ -7248,21 +7250,21 @@ def api_autofill_workspace(target_name):
             if sp_name:
                 candidate_links.append({'label': f'SP: {sp_name}',
                                         'url': f'https://qwiki.qualcomm.com/display/PDT/{sp_name.replace(" ","+")}'})
-            # Skip HTTP reachability check â€” internal Qualcomm URLs are not reachable
+            # Skip HTTP reachability check - internal Qualcomm URLs are not reachable
             # from the dev/server machine outside the intranet. Mark all as unverified
             # so the UI shows the warning badge; user can remove any that don't work.
             for lk in candidate_links:
                 lk['url_valid'] = None  # null = manually added / not checked
             ws['links'] = candidate_links
 
-        # â”€â”€ 3. MAILING LISTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 3. MAILING LISTS -
         if not (ws.get('mailing_lists') and len(ws['mailing_lists']) > 0):
             candidate_lists = [
                 {'label': 'Global PDT',        'email': f'{tn}.pdt@qualcomm.com'},
                 {'label': 'QIPL PDT',          'email': f'qipl.pdt.{tn}@qualcomm.com'},
                 {'label': 'Daily PDT Reports', 'email': f'pdt.{tn}.reports@qualcomm.com'},
             ]
-            # Validate each DL against LDAP â€” only keep LDAP-confirmed ones automatically.
+            # Validate each DL against LDAP - only keep LDAP-confirmed ones automatically.
             # Unverified DLs are silently skipped; users can add them manually via Edit.
             validated_lists = []
             for ml in candidate_lists:
@@ -7273,10 +7275,10 @@ def api_autofill_workspace(target_name):
                 if ldap_valid:
                     ml['ldap_valid'] = True
                     validated_lists.append(ml)
-                # ldap_valid=False â†’ skip silently; user adds manually
+                # ldap_valid=False - skip silently; user adds manually
             ws['mailing_lists'] = validated_lists
 
-        # â”€â”€ 4. CUSTOMERS from DB (if table exists, else leave empty) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - 4. CUSTOMERS from DB (if table exists, else leave empty) -
         if not (ws.get('customers') and len(ws['customers']) > 0):
             try:
                 schema = get_schema_for_target(target_name)
@@ -7294,13 +7296,13 @@ def api_autofill_workspace(target_name):
                         'status': str(r.get('status') or '')
                     } for r in rows]
                 else:
-                    ws['customers'] = []  # table not found â€” leave empty for user
+                    ws['customers'] = []  # table not found - leave empty for user
                 cur.close(); conn.close()
             except Exception as e:
                 logger.info(f'AUTOFILL customers error: {e}')
                 ws['customers'] = []
 
-        # â”€â”€ Save & return â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Save & return -
         _save_ws(target_name, None, ws)
         return jsonify({'success': True, 'workspace': ws})
 
@@ -7309,7 +7311,7 @@ def api_autofill_workspace(target_name):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-# â”€â”€ ADMIN: Clear stale highlights so they get re-generated with correct model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - ADMIN: Clear stale highlights so they get re-generated with correct model -
 @app.route('/api/workspace/admin/clear_highlights', methods=['POST'])
 @login_required
 def api_admin_clear_highlights():
@@ -7336,7 +7338,7 @@ def api_admin_clear_highlights():
     })
 
 
-# â”€â”€ DEBUG: Inspect raw workspace JSON (admin only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - DEBUG: Inspect raw workspace JSON (admin only) -
 @app.route('/api/workspace/<target_name>/debug', methods=['GET'])
 @login_required
 def api_debug_workspace(target_name):
@@ -7347,7 +7349,7 @@ def api_debug_workspace(target_name):
     sp_name = (request.args.get('sp') or '').strip() or None
     ws = _load_ws(target_name, sp_name)
 
-    # â”€â”€ Validate mailing lists via LDAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # - Validate mailing lists via LDAP -
     mail_validation = []
     for m in (ws.get('mailing_lists') or []):
         email = (m.get('email') or '').strip()
@@ -7393,7 +7395,7 @@ def api_debug_workspace(target_name):
     })
 
 
-# â”€â”€ AUTO FETCH Image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - AUTO FETCH Image -
 @app.route('/api/workspace/<target_name>/fetch_image', methods=['POST'])
 @login_required
 def api_fetch_workspace_image(target_name):
@@ -7467,7 +7469,7 @@ def api_reset_workspace(target_name):
         logger.debug(traceback.format_exc())
         return jsonify({'success': False, 'message': str(e)}), 500
 
-# â”€â”€ GET workspace â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - GET workspace -
 @app.route('/api/workspace/<target_name>', methods=['GET'])
 @login_required
 def api_get_workspace(target_name):
@@ -7485,14 +7487,14 @@ def api_get_workspace(target_name):
     data['available_sps'] = sp_files
     return jsonify(data)
 
-# â”€â”€ SAVE workspace â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - SAVE workspace -
 @app.route('/api/workspace/<target_name>', methods=['POST'])
 @login_required
 def api_save_workspace(target_name):
     sp_name = (request.args.get('sp') or '').strip() or None
     payload = request.get_json(silent=True) or {}
 
-    # Strip milestones from payload â€” saved separately via admin_update_milestones
+    # Strip milestones from payload - saved separately via admin_update_milestones
     milestones = payload.pop('milestones', None)
 
     # Save workspace JSON
@@ -7541,7 +7543,7 @@ def api_save_workspace(target_name):
 
     return jsonify({'success': True})
 
-# â”€â”€ UPLOAD image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# - UPLOAD image -
 @app.route('/api/workspace/<target_name>/upload_image', methods=['POST'])
 @login_required
 def api_upload_workspace_image(target_name):
@@ -7807,11 +7809,11 @@ def process_qgenie_query_nl(query, target, context):
         # Build WHERE clauses for open/built + CR area
         where_clauses = []
 
-        # Explicit "built cr(s)" â†’ cr_category = 'built'
+        # Explicit "built cr(s)" - cr_category = 'built'
         if "built cr" in ql or "built crs" in ql:
             where_clauses.append("`cr_category` = 'built'")
 
-        # Explicit "open cr(s)" â†’ cr_category = 'undisposed'
+        # Explicit "open cr(s)" - cr_category = 'undisposed'
         if "open cr" in ql or "open crs" in ql:
             where_clauses.append("`cr_category` = 'undisposed'")
 
@@ -7873,7 +7875,7 @@ def process_qgenie_query_nl(query, target, context):
             cursor.close()
             conn.close()
 
-    # ---------------- Normal NLâ†’SQL for other cases ----------------
+    # ---------------- Normal NL-SQL for other cases ----------------
     query_for_llm = query
     if forced_table:
         query_for_llm = (
@@ -7901,11 +7903,11 @@ def process_qgenie_query_nl(query, target, context):
         if areas:
             sql = add_cr_area_filter(sql, areas, col_name="CR_Area")
 
-        # Explicit built CRs â†’ cr_category = 'built'
+        # Explicit built CRs - cr_category = 'built'
         if "built cr" in ql or "built crs" in ql:
             sql = add_cr_category_filter(sql, "built", col_name="cr_category")
 
-        # Explicit open CRs â†’ cr_category = 'undisposed'
+        # Explicit open CRs - cr_category = 'undisposed'
         if "open cr" in ql or "open crs" in ql:
             sql = add_cr_category_filter(sql, "undisposed", col_name="cr_category")
 
@@ -7962,7 +7964,7 @@ def process_qgenie_query_nl(query, target, context):
 def process_cr_query_with_count(query: str, target: str, context: dict):
     """
     For CR-related questions on unique_crs:
-    - If user asks for count â†’ return just the number, ask if they want table.
+    - If user asks for count - return just the number, ask if they want table.
     - Otherwise delegate to process_qgenie_query_nl.
     """
     ql = (query or "").lower().strip()
@@ -8022,7 +8024,7 @@ def process_cr_query_with_count(query: str, target: str, context: dict):
             cursor.close()
             conn.close()
 
-    # Non-count CR queries â†’ use your existing NLâ†’SQL path
+    # Non-count CR queries - use your existing NL-SQL path
     return process_qgenie_query_nl(query, target, context)
 
 # --- HELPER: Execute Common CRs Query ---
@@ -8030,7 +8032,7 @@ def execute_common_crs_query(target_list, context):
     num_targets = len(target_list)
     if num_targets < 2 or num_targets > 4:
         logger.warning(f" Common CRs query - Invalid number of targets: {num_targets}.")
-        return jsonify({"response": f"âš ï¸ Please provide 2 to 4 targets. You gave {num_targets}.", "context": context})
+        return jsonify({"response": f"- Please provide 2 to 4 targets. You gave {num_targets}.", "context": context})
     
     first_target_bu_key = get_bu_for_target(target_list[0])
     if not first_target_bu_key:
@@ -8111,7 +8113,7 @@ def execute_common_crs_query(target_list, context):
         # FIX: Return multi_sheet_url
         context['multi_sheet_url'] = f"/view_multi_sheet_report/{res_id}"
         return jsonify({
-            "response": f"âœ… Common CR report generated for **{len(final_rows)}** CRs. Click below to view.", 
+            "response": f"- Common CR report generated for **{len(final_rows)}** CRs. Click below to view.", 
             "context": context
         })
     except Error as e:
@@ -8165,7 +8167,7 @@ def execute_exclusive_crs_query(primary_target, compare_targets, context):
     """
     if not primary_target or not compare_targets or not isinstance(compare_targets, list) or not compare_targets:
         logger.warning(f" Exclusive CRs query - Missing primary target or compare targets.")
-        return jsonify({"response": "âš ï¸ Please provide a primary target and at least one target for comparison.", "context": context})
+        return jsonify({"response": "- Please provide a primary target and at least one target for comparison.", "context": context})
     # Combine primary and compare targets for full data fetching
     all_involved_targets_for_display = [primary_target] + compare_targets 
     
@@ -8269,7 +8271,7 @@ def execute_exclusive_crs_query(primary_target, compare_targets, context):
         
         context['table_view_url'] = url_for('view_query_table', token=_sign_result_id(res_id, current_user.get_id()))
         return jsonify({
-            "response": f"âœ… Report generated for **{len(final_rows)}** CRs exclusive to **{primary_target}**. Click below to view.", 
+            "response": f"- Report generated for **{len(final_rows)}** CRs exclusive to **{primary_target}**. Click below to view.", 
             "context": context
         })
     except Error as e:
@@ -8288,7 +8290,7 @@ def generate_multi_exclusive_report(target_list, context):
     """
     if not target_list or len(target_list) < 2:
         logger.warning(f" Multi-Exclusive CRs - Need at least 2 targets.")
-        return jsonify({"response": "âš ï¸ Please provide at least two targets for exclusive comparison.", "context": context})
+        return jsonify({"response": "- Please provide at least two targets for exclusive comparison.", "context": context})
     first_target_bu_key = get_bu_for_target(target_list[0])
     if not first_target_bu_key:
         logger.error(f" Multi-Exclusive CRs - Could not determine BU for target '{target_list[0]}'.")
@@ -8389,7 +8391,7 @@ def generate_multi_exclusive_report(target_list, context):
         }
         context['multi_sheet_url'] = f"/view_multi_sheet_report/{result_uuid}"
         return jsonify({
-            "response": f"âœ… Multi-exclusive CR report generated for {len(target_list)} targets. Click below to view.", 
+            "response": f"- Multi-exclusive CR report generated for {len(target_list)} targets. Click below to view.", 
             "context": context
         })
     except Error as e:

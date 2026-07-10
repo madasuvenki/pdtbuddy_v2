@@ -5,7 +5,7 @@ Standalone script to fetch Axiom job data and update
 pdt_stats_dashboard.axiom_job_summary DB table.
 
 This is the data source for the Build Report (standalone) page.
-The Build Report reads axiom_job_summary directly — it does NOT call
+The Build Report reads axiom_job_summary directly - it does NOT call
 Axiom at runtime. This script must be run to keep the table current.
 
 Usage:
@@ -15,7 +15,7 @@ Usage:
     # Full 20-day backfill (first time / catch-up):
     python scripts/update_axiom_job_summary.py --full
 
-    # Incremental update — last N minutes of new jobs (default 60):
+    # Incremental update - last N minutes of new jobs (default 60):
     python scripts/update_axiom_job_summary.py --incremental
     python scripts/update_axiom_job_summary.py --incremental --minutes 120
 
@@ -122,7 +122,7 @@ def fetch_db_status() -> dict:
     """Return summary stats from axiom_job_summary."""
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
-        raise RuntimeError("DB connection failed — check DB credentials in .env")
+        raise RuntimeError("DB connection failed - check DB credentials in .env")
     cur = conn.cursor(dictionary=True)
     try:
         # Overall summary
@@ -262,7 +262,7 @@ def _get_token_with_retry(host: str, client_id: str, client_secret: str,
 # ---------------------------------------------------------------------------
 
 def run_full_update(host: str, token: str, app_name: str) -> str:
-    """Full 20-day backfill — use on first run or to catch up after a gap."""
+    """Full 20-day backfill - use on first run or to catch up after a gap."""
     logger.info("[FULL UPDATE] Starting full %d-day backfill ...", RETENTION_DAYS)
     logger.info("[FULL UPDATE] SWPDT jobs=%d  HWPDT jobs=%d",
                 FIRST_RUN_SWPDT_JOBS, FIRST_RUN_HWPDT_JOBS)
@@ -283,7 +283,7 @@ def run_full_update(host: str, token: str, app_name: str) -> str:
             auth_failures += 1
             if auth_failures >= AUTH_RETRY_LIMIT:
                 raise RuntimeError(f"Token kept expiring after {auth_failures} refresh attempts")
-            logger.info("[FULL UPDATE] 401 — refreshing token (attempt %d/%d) ...",
+            logger.info("[FULL UPDATE] 401 - refreshing token (attempt %d/%d) ...",
                         auth_failures, AUTH_RETRY_LIMIT)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "").strip()
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
@@ -296,7 +296,7 @@ def run_full_update(host: str, token: str, app_name: str) -> str:
 def run_incremental_update(host: str, token: str, app_name: str,
                             minutes: int = 60,
                             max_jobs: Optional[int] = None) -> str:
-    """Incremental update — fetch only jobs submitted in the last N minutes."""
+    """Incremental update - fetch only jobs submitted in the last N minutes."""
     swpdt_jobs = int(max_jobs) if max_jobs else SWPDT_CYCLE_JOBS
     hwpdt_jobs = 0 if max_jobs else HWPDT_CYCLE_JOBS
     logger.info("[INCREMENTAL] Fetching jobs from last %d minutes ...", minutes)
@@ -324,7 +324,7 @@ def run_incremental_update(host: str, token: str, app_name: str,
                 auth_failures += 1
                 if auth_failures >= AUTH_RETRY_LIMIT:
                     raise RuntimeError(f"Token kept expiring after {auth_failures} refresh attempts")
-                logger.info("[INCREMENTAL] 401 — refreshing token (attempt %d/%d) ...",
+                logger.info("[INCREMENTAL] 401 - refreshing token (attempt %d/%d) ...",
                             auth_failures, AUTH_RETRY_LIMIT)
                 client_id     = os.environ.get("AXIOM_CLIENT_ID", "").strip()
                 client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
@@ -392,13 +392,13 @@ def run_refresh_running(host: str, token: str, app_name: str) -> str:
     while True:
         try:
             count = _refresh_running_jobs(host, token, app_name)
-            logger.info("[REFRESH RUNNING] Done — %d jobs refreshed.", count)
+            logger.info("[REFRESH RUNNING] Done - %d jobs refreshed.", count)
             break
         except _TokenExpired:
             auth_failures += 1
             if auth_failures >= AUTH_RETRY_LIMIT:
                 raise RuntimeError(f"Token kept expiring after {auth_failures} refresh attempts")
-            logger.info("[REFRESH RUNNING] 401 — refreshing token (attempt %d/%d) ...",
+            logger.info("[REFRESH RUNNING] 401 - refreshing token (attempt %d/%d) ...",
                         auth_failures, AUTH_RETRY_LIMIT)
             client_id     = os.environ.get("AXIOM_CLIENT_ID", "").strip()
             client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
@@ -656,7 +656,7 @@ def _load_hwpdt_jobs_for_result_refresh(limit: Optional[int] = None,
     """Load HWPDT jobs whose certicom/test-case result JSON should be refreshed."""
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
-        raise RuntimeError("DB connection failed — cannot load HWPDT jobs")
+        raise RuntimeError("DB connection failed - cannot load HWPDT jobs")
     cur = conn.cursor(dictionary=True)
     try:
         where = "team='HWPDT' AND job_id IS NOT NULL AND TRIM(job_id) <> ''"
@@ -719,7 +719,7 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
                 logger.info("[HWPDT RESULTS] progress %d/%d fetched, failed=%d", idx, len(jobs), failed)
 
     updated = _update_hwpdt_certicom_rows(results)
-    logger.info("[HWPDT RESULTS] Done — fetched=%d updated=%d failed=%d", len(results), updated, failed)
+    logger.info("[HWPDT RESULTS] Done - fetched=%d updated=%d failed=%d", len(results), updated, failed)
     return token
 
 
@@ -729,8 +729,8 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
 
 def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
                interval_sec: int = 600) -> None:
-    """Run as a continuous poller — first cycle is full, subsequent are incremental."""
-    logger.info("[POLLER] Starting — interval=%ds (%d min)", interval_sec, interval_sec // 60)
+    """Run as a continuous poller - first cycle is full, subsequent are incremental."""
+    logger.info("[POLLER] Starting - interval=%ds (%d min)", interval_sec, interval_sec // 60)
 
     token: Optional[str] = None
     token_obtained = 0.0
@@ -786,10 +786,10 @@ Examples:
   # Full 20-day backfill (first time or catch-up):
   python scripts/update_axiom_job_summary.py --full
 
-  # Incremental — last 60 min of new jobs:
+  # Incremental - last 60 min of new jobs:
   python scripts/update_axiom_job_summary.py --incremental
 
-  # Incremental — last 2 hours:
+  # Incremental - last 2 hours:
   python scripts/update_axiom_job_summary.py --incremental --minutes 120
 
   # Refresh all Running jobs (re-calc live hours):
@@ -817,7 +817,7 @@ Examples:
     parser.add_argument("--full",           action="store_true",
                         help=f"Full {RETENTION_DAYS}-day backfill from Axiom")
     parser.add_argument("--incremental",    action="store_true",
-                        help="Incremental update — fetch last N minutes of new jobs")
+                        help="Incremental update - fetch last N minutes of new jobs")
     parser.add_argument("--minutes",        type=int, default=60,
                         help="Minutes window for --incremental (default: 60)")
     parser.add_argument("--incremental-max-jobs", type=int, default=0,
@@ -859,7 +859,7 @@ Examples:
             args.incremental_max_jobs,
         )
 
-    # ── Status only ────────────────────────────────────────────────────────
+    # - Status only ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     if args.status:
         try:
             status = fetch_db_status()
@@ -869,7 +869,7 @@ Examples:
             sys.exit(1)
         return
 
-    # ── Validate credentials for any fetch operation ───────────────────────
+    # - Validate credentials for any fetch operation ---------------------------------------------------------------------
     if not (args.full or args.incremental or args.refresh_running or args.refresh_qipl_last_days or args.refresh_hwpdt_results or args.poll):
         parser.print_help()
         print("\nNo action specified. Use --status, --full, --incremental, "
@@ -888,12 +888,12 @@ Examples:
     host     = args.api_host
     app_name = args.app_name
 
-    # ── Continuous poller ──────────────────────────────────────────────────
+    # - Continuous poller ------------------------------------------------------------------------------------------------------------------------------------------------------
     if args.poll:
         run_poller(host, app_name, client_id, client_secret, interval_sec=args.interval)
         return  # never returns
 
-    # ── One-shot operations ────────────────────────────────────────────────
+    # - One-shot operations ------------------------------------------------------------------------------------------------------------------------------------------------
     logger.info("=" * 60)
     logger.info("  Axiom Job Summary Updater")
     logger.info("  Host     : %s", host)
@@ -960,7 +960,7 @@ Examples:
         after = fetch_db_status()
         print()
         print("=" * 60)
-        print("  After Update — DB Status")
+        print("  After Update - DB Status")
         print("=" * 60)
         print_db_status(after)
     except Exception as exc:

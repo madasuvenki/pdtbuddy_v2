@@ -148,7 +148,7 @@ def _resolve_latest_unique_cr_workbook(unique_cr_path: str) -> str:
     except OSError as e:
         raise FileNotFoundError(f"Network error listing '{unique_cr_path}': {e}") from e
 
-        # ── Only consider date-pattern folders: YYYY_MM_DD (e.g. 2026_05_02) ────────
+        # - Only consider date-pattern folders: YYYY_MM_DD (e.g. 2026_05_02) -
     import re as _re
     _DATE_FOLDER_RE = _re.compile(r'^\d{4}_\d{2}_\d{2}$')
     date_folders = [
@@ -159,7 +159,7 @@ def _resolve_latest_unique_cr_workbook(unique_cr_path: str) -> str:
     ]
 
     if not date_folders:
-        # No date subfolders — search the directory itself for xlsx/csv files directly
+        # No date subfolders - search the directory itself for xlsx/csv files directly
         all_patterns = list(UNIQUE_CR_FILENAME_PATTERNS) + ["*.xlsx", "*.csv"]
         direct_candidates = []
         for pat in all_patterns:
@@ -185,7 +185,7 @@ def _resolve_latest_unique_cr_workbook(unique_cr_path: str) -> str:
     # Walk from newest to oldest until a file is found.
     search_dirs = sorted(date_folders, key=lambda p: os.path.basename(p), reverse=True)
 
-    # ── Search each date folder newest→oldest, xlsx preferred over csv ──
+    # - Search each date folder newest---oldest, xlsx preferred over csv -
     all_patterns = list(UNIQUE_CR_FILENAME_PATTERNS) + ["*.xlsx", "*.csv"]
     for search_dir in search_dirs:
         workbook_candidates = []
@@ -505,7 +505,7 @@ def _derive_bonsai_test_team(stability_ticket, current_team, jira_title):
 
 def _apply_jira_team_rule_df(df: 'pd.DataFrame', target_name: str, sheet_name: str) -> 'pd.DataFrame':
     """
-    Apply CHIPMD → PDT_QIPL_HWPDT test_team rule on a full DataFrame.
+    Apply CHIPMD - PDT_QIPL_HWPDT test_team rule on a full DataFrame.
     For ALL targets (not just Bonsai).
     If stability_ticket starts with CHIPMD-, derive correct test_team.
     """
@@ -536,7 +536,7 @@ def _apply_jira_team_rule_df(df: 'pd.DataFrame', target_name: str, sheet_name: s
     if changed:
         logger.info(
             f"JIRA_TEAM_RULE: target={target_name} sheet={sheet_name} "
-            f"updated test_team for {changed} CHIPMD rows → PDT_QIPL_HWPDT"
+            f"updated test_team for {changed} CHIPMD rows - PDT_QIPL_HWPDT"
         )
     return df
 
@@ -688,7 +688,7 @@ def _build_seen_in_targets_map(crinfo_file: str) -> dict:
     - Group by CR column (case-insensitive header match)
     - Collect unique, sorted Target values per CR
     - Join with ';'
-    - CRs with no target rows → not in map (will get NULL in DB)
+    - CRs with no target rows - not in map (will get NULL in DB)
 
     Returns empty dict on any failure (non-fatal).
     """
@@ -721,7 +721,7 @@ def _build_seen_in_targets_map(crinfo_file: str) -> dict:
         df = df[(df[cr_col] != '') & (df[cr_col].str.upper() != 'NAN')]
         df = df[(df[target_col] != '') & (df[target_col].str.upper() != 'NAN')]
 
-        # Group CR → sorted unique targets joined by ';'
+        # Group CR - sorted unique targets joined by ';'
         seen_map = (
             df.groupby(cr_col)[target_col]
             .apply(lambda s: ';'.join(sorted(s.dropna().unique())))
@@ -730,7 +730,7 @@ def _build_seen_in_targets_map(crinfo_file: str) -> dict:
 
         logger.info(
             f"CRINFO: Built seen_in_targets map from '{os.path.basename(crinfo_file)}' "
-            f"— {len(seen_map)} unique CRs, "
+            f"--- {len(seen_map)} unique CRs, "
             f"{df[target_col].nunique()} unique targets: "
             f"{sorted(df[target_col].unique())}"
         )
@@ -955,7 +955,7 @@ def upsert_dashboard_status(cursor, target_name, dashboard_latest_update=None, u
         """
         cursor.execute(update_sql, (dashboard_latest_update, unique_cr_last_update, target_name))
     elif unique_cr_last_update is not None:
-        # unique_cr_only mode — only stamp unique_cr_last_update
+        # unique_cr_only mode - only stamp unique_cr_last_update
         update_sql = """
             UPDATE pdt_stats_dashboard.dashboard_status
             SET unique_cr_last_update = %s
@@ -1010,7 +1010,7 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
             except FileNotFoundError as nf:
                 logger.warning(f"WARN_INGEST_EXCEL: Unique CR workbook not found for '{target_name}': {nf}")
                 if unique_only_mode:
-                    # Don't raise — return False cleanly so other targets keep running
+                    # Don't raise - return False cleanly so other targets keep running
                     return False
 
         # Drop stale map-only tables from previous runs
@@ -1038,7 +1038,7 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
         if unique_only_mode:
             if overall_success and actual_unique_cr_file:
                 unique_cr_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(actual_unique_cr_file))
-                # Only update unique_cr_last_update — do NOT touch dashboard_latest_update
+                # Only update unique_cr_last_update - do NOT touch dashboard_latest_update
                 # (that belongs to the excel_path ingest timestamp)
                 upsert_dashboard_status(
                     cursor, target_name,
@@ -1096,7 +1096,7 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
 
             table_name = f"{target_db_prefix}_{sanitize_column_name(sheet_name)}"
 
-            # ── Jiras sheets: read full DataFrame, fix test_team, then write ──
+            # - Jiras sheets: read full DataFrame, fix test_team, then write -
             is_jiras_sheet = sanitize_column_name(sheet_name).lower() in {"jiras", "openjiras", "closed_jiras"}
             if is_jiras_sheet:
                 try:
@@ -1109,10 +1109,10 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
                     # Sanitize column names
                     df_jiras.columns = [sanitize_column_name(c) for c in df_jiras.columns]
 
-                    # ── Apply test_team rule on full DataFrame BEFORE writing ──
+                    # - Apply test_team rule on full DataFrame BEFORE writing -
                     df_jiras = _apply_jira_team_rule_df(df_jiras, target_name, sheet_name)
 
-                    # ── Verify CHIPMD rows got correct test_team ──
+                    # - Verify CHIPMD rows got correct test_team -
                     col_lower = {c.lower(): c for c in df_jiras.columns}
                     ticket_col = col_lower.get("stability_ticket") or col_lower.get("jira_id")
                     team_col   = col_lower.get("test_team")
@@ -1196,7 +1196,7 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
                     overall_success = False
                 continue  # skip the openpyxl path below for jiras sheets
 
-            # ── Non-jiras sheets: original openpyxl row-by-row path ──
+            # - Non-jiras sheets: original openpyxl row-by-row path -
             sheet = workbook[sheet_name]
             first_row = next(sheet.iter_rows(min_row=1, max_row=1), None)
             if not first_row:

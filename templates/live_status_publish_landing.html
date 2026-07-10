@@ -270,20 +270,31 @@
         <div class="ls-api-version-card">
           <div>
             <div class="ls-api-version-name">Gen 4.5</div>
-            <div class="ls-api-version-desc">Auto Gen4.5 SP information from the managed JSON. More MTBF generations, such as Gen5, can be added here later.</div>
+            <div class="ls-api-version-desc">Auto Gen4.5 SP information from the managed JSON.</div>
           </div>
           <div class="ls-api-endpoints">
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/sps</code></div>
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>/public/auto-gen45/api/search?sp=8620&amp;q=Snapdragon&amp;limit=10</code></div>
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sps</code></div>
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
           </div>
           <div class="ls-api-actions">
             <a class="ls-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-            <a class="ls-api-action ghost" href="/public/auto-gen45/api/sps" target="_blank" rel="noopener"><i class="fas fa-list"></i> Try SP List</a>
+          </div>
+        </div>
+         <div class="ls-api-version-card" style="border-top:1px solid #e2e8f0;">
+          <div>
+            <div class="ls-api-version-name">Gen 5</div>
+            <div class="ls-api-version-desc">Auto Gen5 MTBF domains from Live Status JSON. Targets: <strong>nord_hqx</strong> &amp; <strong>nord_hgy</strong>. Domains: <strong>ADAS</strong>, <strong>FLEX</strong>, <strong>IVI</strong> (plus any custom domains added per target).</div>
+          </div>
+          <div class="ls-api-endpoints">
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domains?target=nord_hqx</code></div>
+            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
+          </div>
+          <div class="ls-api-actions">
+            <a class="ls-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
           </div>
         </div>
       </div>
-      <div class="ls-api-note"><strong>Public access:</strong> these `/public/auto-gen45/...` URLs are intentionally outside PDT Buddy login/session checks and include CORS headers for external tools.</div>
+      </div>
     </div>
   </section>
 

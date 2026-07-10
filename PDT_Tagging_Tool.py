@@ -209,7 +209,7 @@ class TagNameDialog(tk.Toplevel):
         cy = p.winfo_rooty() + p.winfo_height()//2
         self.geometry("620x640+{}+{}".format(cx-310, cy-320))
 
-    # ── UI ────────────────────────────────────────────────────────────────
+    # - UI -
     def _build_ui(self):
         tk.Frame(self, bg=CLR_ACCENT, height=6).pack(fill="x")
 
@@ -227,13 +227,13 @@ class TagNameDialog(tk.Toplevel):
         tk.Label(sf, text=preview, font=FONT_SMALL, bg=CLR_PANEL, fg=CLR_TEXT,
                  wraplength=560, justify="left").pack(anchor="w", pady=(2,0))
 
-        # ── Section A: ADD TAG ────────────────────────────────────────────
+        # - Section A: ADD TAG -
         self._build_section_add()
 
-        # ── Section B: EXISTING PDT TAGS ─────────────────────────────────
+        # - Section B: EXISTING PDT TAGS -
         self._build_section_existing()
 
-        # ── Section C: REMOVE TAGS ───────────────────────────────────────
+        # - Section C: REMOVE TAGS -
         self._build_section_remove()
 
         # Validation message
@@ -258,7 +258,7 @@ class TagNameDialog(tk.Toplevel):
         if subtitle:
             tk.Label(row, text=subtitle, font=FONT_SMALL, bg=CLR_BG, fg=CLR_SUBTEXT).pack(side="left", padx=(8,0))
 
-    # ── Section A ─────────────────────────────────────────────────────────
+    # - Section A -
     def _build_section_add(self):
         self._section_header(self, "A", "Add Tag", "(optional - leave blank to skip)")
         ef = tk.Frame(self, bg=CLR_BG, padx=16); ef.pack(fill="x")
@@ -280,7 +280,7 @@ class TagNameDialog(tk.Toplevel):
                       activebackground=CLR_ACCENT2, activeforeground="white", cursor="hand2", padx=6, pady=2,
                       command=lambda t=tag: self._add_var.set(t)).pack(side="left", padx=(0,6), pady=2)
 
-    # ── Section B ─────────────────────────────────────────────────────────
+    # - Section B -
     def _build_section_existing(self):
         self._section_header(self, "B", "Existing PDT Tags on selected CRs",
                              "(click a tag to add it to Remove list)")
@@ -315,7 +315,7 @@ class TagNameDialog(tk.Toplevel):
         # Also populate remove chips
         self._refresh_remove_chips()
 
-    # ── Section C ─────────────────────────────────────────────────────────
+    # - Section C -
     def _build_section_remove(self):
         self._section_header(self, "C", "Remove Tags", "(optional - leave blank to skip)")
         rf = tk.Frame(self, bg=CLR_BG, padx=16); rf.pack(fill="x")
@@ -350,7 +350,7 @@ class TagNameDialog(tk.Toplevel):
                       cursor="hand2", padx=6, pady=2,
                       command=lambda t=tag: self._add_to_remove(t)).pack(side="left", padx=(6,0))
 
-    # ── Validation & result ───────────────────────────────────────────────
+    # - Validation & result -
     def _parse_remove_list(self):
         raw = self._rem_var.get()
         return [t.strip() for t in raw.split(",") if t.strip()]

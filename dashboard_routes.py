@@ -67,7 +67,7 @@ dashboard_bp = Blueprint("dashboard_bp", __name__)
 # because static/ can be replaced when Buddy is rebuilt/recompiled/redeployed.
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtqipl_internal\PDTBuddy'
+    r'\\sphere\pdtstats\DB\PDTBuddy'
 )
 _EXCEL_PAGE_CONFIG_PATH = os.path.join(
     _PDTBUDDY_DATA_ROOT,
@@ -813,7 +813,7 @@ def _build_device_summary_table(path_value, sheet_name):
     def safe_int(v):
         try:
             s = str(v).strip()
-            if s in ('', '-', '�', 'None', 'nan', 'none'): return 0
+            if s in ('', '-', '---', 'None', 'nan', 'none'): return 0
             return int(float(s))
         except Exception:
             return 0
@@ -966,7 +966,7 @@ def _jira_sort_key(row):
 
 
 # -----------------------------------------------------------------------------
-# CR OVERVIEW  �  direct read from unique_crs + jiras with 5-min in-memory cache
+# CR OVERVIEW  -  direct read from unique_crs + jiras with 5-min in-memory cache
 # Powered by src/cr_overview_service.py
 # -----------------------------------------------------------------------------
 
@@ -1003,7 +1003,7 @@ def _save_excluded_targets(excluded: list):
 
 
 # -----------------------------------------------------------------------------
-# /api/cr_overview  � summary payload (hero KPIs, BU cards, charts, pivot)
+# /api/cr_overview  - summary payload (hero KPIs, BU cards, charts, pivot)
 # Source: direct read from unique_crs + jiras via cr_overview_service
 # -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview')
@@ -1098,7 +1098,7 @@ def api_cr_overview():
 
 
 # -----------------------------------------------------------------------------
-# /api/cr_overview/cr_rows  � paginated detail rows
+# /api/cr_overview/cr_rows  - paginated detail rows
 # Source: direct read from unique_crs + jiras via cr_overview_service
 # -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview/cr_rows')
@@ -1198,7 +1198,7 @@ def api_cr_overview_cr_rows():
         return jsonify({'error': str(e)}), 500
 
 # -----------------------------------------------------------------------------
-# /api/cr_overview/area_targets  � per-target breakdown for a dimension value
+# /api/cr_overview/area_targets  - per-target breakdown for a dimension value
 # e.g. ?area=Multimedia&dim=cr_area&bu=MOBILE
 # Returns: targets[], all_areas[], site_keys[], site_labels{}
 # -----------------------------------------------------------------------------
@@ -1265,7 +1265,7 @@ def api_cr_overview_area_targets():
 
 
 # -----------------------------------------------------------------------------
-# /api/cr_overview/targets  � active targets for a given BU
+# /api/cr_overview/targets  - active targets for a given BU
 # -----------------------------------------------------------------------------
 @dashboard_bp.route('/api/cr_overview/targets')
 @login_required
@@ -1348,8 +1348,8 @@ def api_save_excluded_targets():
 
 
 # -----------------------------------------------------------------------------
-# /admin/cr_overview/clear_cache  � manual cache bust (admin only)
-# /admin/cr_overview/cache_stats  � inspect live cache entries (admin only)
+# /admin/cr_overview/clear_cache  - manual cache bust (admin only)
+# /admin/cr_overview/cache_stats  - inspect live cache entries (admin only)
 # -----------------------------------------------------------------------------
 _HWPDT_EXCLUDED_LOCAL = os.environ.get(
     'HWPDT_EXCLUDED_TARGETS_PATH',
@@ -1605,7 +1605,7 @@ def admin_cr_overview_cache_stats():
 
 
 # ---------------------------------------------------------------------------------
-# TOOL FEEDBACK / RATING  �  pdt_stats_dashboard.tool_feedback
+# TOOL FEEDBACK / RATING  -  pdt_stats_dashboard.tool_feedback
 # Access restricted to TARGET_GROUP = "qipl.target.pdt"
 # ---------------------------------------------------------------------------------
 _FEEDBACK_DB  = 'pdt_stats_dashboard'
@@ -1749,7 +1749,7 @@ def _get_pv_hidden_tabs(target_name):
     """Return list of hidden tab keys for a target from the page_visibility config."""
     import json as _json, os as _os
     pv_path = _os.path.join(
-        _os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtqipl_internal\PDTBuddy'),
+        _os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy'),
         'config', 'page_visibility.json'
     )
     try:
@@ -2144,7 +2144,7 @@ def api_mtbf_jiras(target_name, meta_id):
         meta_builds_table_name = ensure_meta_builds_table(cursor, schema_name, target_name)
         meta_builds_table = f"`{schema_name}`.`{meta_builds_table_name}`"
 
-        # ─ load excluded tickets from meta_notes ─
+        # - load excluded tickets from meta_notes -
         cursor.execute(
             f"""
             SELECT meta_notes
@@ -2165,7 +2165,7 @@ def api_mtbf_jiras(target_name, meta_id):
             except Exception:
                 pass
 
-        # ─ builds: from ?builds= param (real-time DOM) OR saved DB selection ─
+        # - builds: from ?builds= param (real-time DOM) OR saved DB selection -
         builds_param = request.args.get('builds', '').strip()
         if builds_param:
             selected_builds = [b.strip() for b in builds_param.split(',') if b.strip()]
@@ -2227,7 +2227,7 @@ def api_mtbf_jiras(target_name, meta_id):
                 )
         all_rows = cursor.fetchall() or []
 
-        # ─ exclude saved excluded tickets ─
+        # - exclude saved excluded tickets -
         rows = []
         for r in all_rows:
             ticket = (r.get("stability_ticket") or "").strip()
@@ -2312,7 +2312,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                                 "notice": "Open JIRAs table not available for this target."})
         metabuild_like = "%" + meta_id + "%"
 
-        # ─ Load SELECTED build IDs for this meta from meta_builds_table ─
+        # - Load SELECTED build IDs for this meta from meta_builds_table -
         cursor.execute(
             f"""
             SELECT build_id
@@ -2395,7 +2395,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
             cursor.execute(sql, jira_params)
         rows = cursor.fetchall() or []
 
-        # ─ Split into active (non-excluded) and excluded ─
+        # - Split into active (non-excluded) and excluded -
         # The JIRA table shows only active rows.
         # CR occurrence count + JQL link use only active rows.
         # Excluded tickets are stored in meta_notes and should not
@@ -2414,14 +2414,14 @@ def mtbf_meta_jiras_view(target_name, meta_id):
         # jiras passed to template = active only (excluded ones not shown)
         rows = active_rows
 
-        # ──────────────────────────────────────────────────────────────────
+        # -
         # CR FETCH
         # Source of truth for ticket count = active_rows (JIRA table)
         # Step 1: build ticket -> CR map from jiras table (has cr column)
         # Step 2: group active_rows tickets by CR  -> cr_to_tickets
         # Step 3: fetch CR details from unique_crs
         # Step 4: merge jira_count + jira_display onto each CR row
-        # ──────────────────────────────────────────────────────────────────
+        # -
         cr_rows = []
         try:
             u_table = fq_table_for_target(target_name, "unique_crs")
@@ -2534,7 +2534,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                 cr_list = list(cr_to_tickets.keys())
                 ph = ",".join(["%s"] * len(cr_list))
                 # Fetch ALL rows for these mapped_crs (including Dup rows)
-                # We deduplicate ourselves below � do NOT filter cr_occurrence here
+                # We deduplicate ourselves below - do NOT filter cr_occurrence here
                 cursor.execute(
                     f"SELECT {select_sql} "
                     f"FROM {u_table} "
@@ -2583,7 +2583,7 @@ def mtbf_meta_jiras_view(target_name, meta_id):
                 # sort by jira_count descending
                 cr_rows = sorted(raw_cr_rows, key=lambda x: x.get('jira_count', 0), reverse=True)
 
-            # ─ remove CR-mapped tickets from the JIRA table ─
+            # - remove CR-mapped tickets from the JIRA table -
             # tickets already shown in CR table should not appear in Open JIRAs
             cr_mapped_tickets = {
                 t
@@ -2757,7 +2757,7 @@ def _load_hwpdt_job_audit_data():
 
     # -- FALLBACK: read from flat JSON files --------------------------------
     logger.info("[HWPDT CHIP DATA] Falling back to HWPDT_job_audit.json")
-    network_path = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_job_audit.json"
+    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_job_audit.json"
     local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_job_audit_local_backup.json")
 
     raw = None
@@ -2842,7 +2842,7 @@ def _load_hwpdt_job_audit_data():
 def _get_projected_parts(target_name: str):
     """Read projected_parts for a target from HWPDT_projected.json (network then local backup)."""
     import json as _json
-    network_path = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_projected.json"
+    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_projected.json"
     local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_projected_local_backup.json")
     for path in [network_path, local_backup]:
         if os.path.exists(path):
@@ -2869,7 +2869,7 @@ def api_save_hwpdt_projected(target_name):
         if projected < 1:
             return jsonify({"success": False, "message": "projected_parts must be > 0"}), 400
 
-        network_path = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_projected.json"
+        network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_projected.json"
         local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_projected_local_backup.json")
 
         # Read existing
@@ -2974,7 +2974,7 @@ def api_hwpdt_chip_parts(target_name):
     if not sp_name:
         return jsonify({"success": False, "message": "sp_name not configured for this target."}), 200
 
-    # 2. Load audit JSON � single source of truth (certicom file no longer needed)
+    # 2. Load audit JSON - single source of truth (certicom file no longer needed)
     audit_data  = _load_hwpdt_job_audit_data() or {}
     chip_lookup = audit_data.get("chip_lookup") or {}
     chip_data   = audit_data   # for generated_at reference below
@@ -3058,7 +3058,7 @@ def api_hwpdt_chip_parts(target_name):
              if str(je.get("software_product") or "").strip() in matched_products]
             or job_entries
         )
-        # deduplicate by job_id � keep only unique jobs
+        # deduplicate by job_id - keep only unique jobs
         seen_jids      = set()
         job_ids        = []
         job_details    = []   # [{job_id, start_date, playlist_name}]
@@ -3071,7 +3071,7 @@ def api_hwpdt_chip_parts(target_name):
                 continue
             jid_str = str(jid)
             if jid_str in seen_jids:
-                continue          # same job_id already added � skip duplicate
+                continue          # same job_id already added - skip duplicate
             seen_jids.add(jid_str)
             job_ids.append(jid_str)
             # extract date from start_time
@@ -3150,7 +3150,7 @@ def api_hwpdt_cr_venn(target_name):
         conn = get_mysql_connection_db()
         cursor = conn.cursor(dictionary=True)
 
-        # ── helper: resolve table via dashboard_status first, then
+        # - helper: resolve table via dashboard_status first, then
         #    fall back to information_schema search by name pattern.
         #    This handles Axiom-only targets not yet in dashboard_status.
         def _resolve_table(suffix):
@@ -3180,7 +3180,7 @@ def api_hwpdt_cr_venn(target_name):
                     return f"`{_s}`.`{_n}`"
             return None
 
-        # ── resolve all three tables ──────────────────────────────────────
+        # - resolve all three tables -
         j_table = _resolve_table("jiras")
         if not j_table:
             return jsonify({"success": True, "rows": [], "area_summary": [],
@@ -3892,7 +3892,7 @@ def get_unified_device_summary(target_name, pdt_type, refresh=False):
         except Exception:
             pass
 
-    # No cache � return sentinel so the page renders the syncing banner immediately.
+    # No cache - return sentinel so the page renders the syncing banner immediately.
     # Live fetch is handled by /api/device_summary_data (triggered by the banner button).
     if not refresh:
         return [], "NO_CACHE"
@@ -3995,7 +3995,7 @@ def _build_swpdt_deployment_table(devices):
             return m2.group(1)
         return ""
 
-    # Exclude /PDT/QIPL/HW � those belong to HWPDT only
+    # Exclude /PDT/QIPL/HW - those belong to HWPDT only
     sw_only_devices = [
         d for d in (devices or [])
         if not _get_taxonomy(d).startswith("/PDT/QIPL/HW")
@@ -4017,7 +4017,7 @@ def _build_swpdt_deployment_table(devices):
         table[ff][mcn][sto][site_abbr]["dep"] += 1
         site_counts[site_abbr] += 1
 
-    # Only include sites that actually have devices � skip UNKNOWN and empty sites
+    # Only include sites that actually have devices - skip UNKNOWN and empty sites
     SITE_ORDER = ["QIPL", "CH", "SD"]
     active_sites = [s for s in SITE_ORDER if site_counts.get(s, 0) > 0]
 
@@ -4110,7 +4110,7 @@ def _build_hwpdt_screening_summary(hw_devices):
 
 def device_summary(target_name, base_context, cursor, conn):
     """
-    Device Summary section � only for non-AUTO BUs.
+    Device Summary section - only for non-AUTO BUs.
     SW DEL comes from saved override if present, else Axiom default.
     SW DEP always stays from Axiom.
     HW summary is read-only by default and becomes editable only after Edit is clicked.
@@ -4774,10 +4774,10 @@ def _append_build_to_excel(excel_path, sheet_name, row_data, hdrs):
             return row_data.get('device_count', '')
         if 'device' in hl:
             return row_data.get('devices', '')
-        # Build(s).1 � full build string (second build column)
+        # Build(s).1 - full build string (second build column)
         if hl in ('build(s).1', 'build.1', 'full build', 'build id') or ('build' in hl and 'full' in hl):
             return row_data.get('build_full', row_data.get('build', ''))
-        # Build(s) � short META id (first build column)
+        # Build(s) - short META id (first build column)
         if 'meta' in hl:
             return row_data.get('build', '')
         if 'build' in hl:
@@ -4955,7 +4955,7 @@ def api_excel_add_build(target_name):
             _pending_builds.setdefault(target_name, []).append({'row_data': row_data})
             return jsonify({'success': False, 'locked': True, 'locked_by': locked_by,
                             'message': f'Excel locked by {locked_by}. Saved locally.'})
-                # write to Excel � full table replace
+                # write to Excel - full table replace
         _append_build_to_excel(excel_path, sheet_name, row_data, [])
         return jsonify({'success': True, 'message': 'Build added to Excel.'})
     except Exception as exc:
@@ -5361,7 +5361,7 @@ def device_summary_page(target_name):
     import device_summary_service as ds_svc
     # Ensure each BU/target has a managed Excel workbook for direct Add/Edit/Remove.
     # If a user configured a network Excel, this keeps using it; otherwise it creates:
-        # \\sphere\pdtqipl_internal\PDTBuddy\managed_excel\<BU>\<TARGET>\Devices\<TARGET>_device_summary.xlsx
+        # \\sphere\pdtstats\DB\PDTBuddy\managed_excel\<BU>\<TARGET>\Devices\<TARGET>_device_summary.xlsx
 
     ds_svc.get_or_create_device_excel_config(target_name)
     project_filter = (request.args.get('project') or 'All').strip() or 'All'
@@ -5488,7 +5488,7 @@ def dashboard(target_name, section="dashboard"):
         }
         perf_marks.append(("dashboard_meta", _perf_elapsed_ms(perf_total_start)))
 
-        # 2) CR Age analysis � separate Built / Undisposed charts
+        # 2) CR Age analysis - separate Built / Undisposed charts
 
         # Check which optional columns exist before querying
         cursor.execute(f"SHOW COLUMNS FROM {tables['u']}")
@@ -5875,7 +5875,7 @@ def dashboard(target_name, section="dashboard"):
             # Hide unique_crs tab if no path or SP target
             if not str(base_context.get("unique_cr_path") or "").strip() or is_sp_target:
                 hidden.add("unique_crs")
-            # Always hide overall_crs from dashboard � it is a standalone page now
+            # Always hide overall_crs from dashboard - it is a standalone page now
             hidden.add("overall_crs")
             base_context["pv_hidden_tabs"] = sorted(hidden)
         except Exception:
@@ -6366,7 +6366,7 @@ def target_workspace(target_name):
         "coming_soon_template.html",
         target_name=target_name,
         page_heading="Customer Issues",
-        page_subtitle="Coming soon � this section is under development.",
+        page_subtitle="Coming soon - this section is under development.",
         **ctx,
     )
 
@@ -7328,7 +7328,7 @@ def _fetch_axiom_stability_metrics_for_meta_ids(meta_ids, taxonomy_path=None, ma
 @login_required
 def api_consolidated_report():
     """
-    Single endpoint � pass one or more build IDs, get back one complete JSON.
+    Single endpoint - pass one or more build IDs, get back one complete JSON.
     Saves result to disk so subsequent loads are instant.
 
     POST body (JSON):
@@ -7694,7 +7694,7 @@ def _fetch_grouped_cr_jira_context(cursor, target_name, search_value):
 
 
 # ---------------------------------------------------------------------
-# CR Title Exclude Keywords � save/load per Compute target
+# CR Title Exclude Keywords - save/load per Compute target
 # ---------------------------------------------------------------------
 def _get_cr_title_exclude(target_name):
     cfg = (_get_target_excel_config(target_name) or {}).get('cr_title_exclude', {})
@@ -8466,7 +8466,7 @@ def api_pdt_tags_get(target_name):
     """
     Return existing PDT tags on the given CRs.
     GET  ?crs=1234,5678   (small lists)
-    POST {crs: [1234, 5678]}  (large lists � avoids URL length limit)
+    POST {crs: [1234, 5678]}  (large lists - avoids URL length limit)
     Response: { tags: ["PDT_P1", ...] }
     """
     from orbit_client import bulk_get_cr_tags

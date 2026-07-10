@@ -144,13 +144,13 @@ class ChatbotEngine:
             'intent':    None,
         }
 
-        # â”€â”€ Hard intents first â”€â”€
+        # - Hard intents first -
         if ml in ['help', '?', 'options', 'menu']:
             result['intent'] = 'help'; return result
         if any(k in ml for k in ['task status', 'report status', 'running report', 'report running']):
             result['intent'] = 'task_status'; return result
                 # Only treat as jiraquery intent when the combined token 'jiraquery='
-        # is present â€” bare 'jiraquery' alone (without '=') is NOT enough.
+        # is present - bare 'jiraquery' alone (without '=') is NOT enough.
         if re.search(r'jiraquery=', ml, re.IGNORECASE):
             result['intent'] = 'jiraquery'; return result
         if re.search(r'\bcommon\s+crs?\b', ml):
@@ -158,7 +158,7 @@ class ChatbotEngine:
         if re.search(r'\bexclusive\s+crs?\b', ml):
             result['intent'] = 'exclusive_cr'; return result
 
-        # â”€â”€ Scope: does user want ALL targets / ALL BUs? â”€â”€
+        # - Scope: does user want ALL targets / ALL BUs? -
         ALL_SCOPE_PATTERNS = [
             r'\bacross\s+all\b',
             r'\ball\s+bu[s]?\b',
@@ -173,7 +173,7 @@ class ChatbotEngine:
         if any(re.search(p, ml) for p in ALL_SCOPE_PATTERNS):
             result['scope'] = 'all'
 
-        # â”€â”€ Specific BU mentioned â”€â”€
+        # - Specific BU mentioned -
         BU_ALIASES = {
             'MOBILE':   ['mobile', 'smartphone', 'phone'],
             'COMPUTE':  ['compute', 'pc', 'laptop', 'chromebook'],
@@ -188,29 +188,29 @@ class ChatbotEngine:
                     result['scope'] = 'bu'
                 break
 
-        # â”€â”€ CR number â”€â”€
+        # - CR number -
         result['cr_number'] = self.extract_cr_number(m)
 
-        # â”€â”€ CR areas (modem, camera, core...) â”€â”€
+        # - CR areas (modem, camera, core...) -
         result['areas'] = self.extract_cr_areas(ml)
 
-        # â”€â”€ Status filter â”€â”€
+        # - Status filter -
         if re.search(r'\bbuilt\b', ml):        result['status'] = 'built'
         elif re.search(r'\bopen\b', ml):       result['status'] = 'open'
         elif re.search(r'\binvalid\b', ml):    result['status'] = 'invalid'
         elif re.search(r'\bundisposed\b', ml): result['status'] = 'undisposed'
 
-        # â”€â”€ JIRA intent â”€â”€
+        # - JIRA intent -
         result['is_jira'] = bool(re.search(r'\bjiras?\b', ml))
 
-        # â”€â”€ Count intent â”€â”€
+        # - Count intent -
         result['is_count'] = bool(
             re.search(r'\bhow\s+many\b', ml) or
             re.search(r'\bcount\b', ml) or
             re.search(r'\bnumber\s+of\b', ml)
         )
 
-        # â”€â”€ Is this a CR query at all? â”€â”€
+        # - Is this a CR query at all? -
         result['is_cr'] = bool(
             result['cr_number'] or
             result['areas'] or
@@ -220,7 +220,7 @@ class ChatbotEngine:
         return result
 
     def detect_intent(self, msg_lower: str):
-        """Thin wrapper â€” delegates to understand_query."""
+        """Thin wrapper - delegates to understand_query."""
         return self.understand_query(msg_lower).get('intent')
 
     def is_bare_number(self, msg: str) -> bool:
@@ -435,7 +435,7 @@ class ChatbotEngine:
             html += "</tbody></table>"
             html += "<div style='font-size:11px;color:#6b7280;margin-top:4px;'>&#128279; Click a target name to open its CR dashboard.</div>"
 
-            # No state / no buttons â€” table links are self-contained
+            # No state / no buttons - table links are self-contained
             context.pop("state", None)
             context.pop("pending_cr_number", None)
             context.pop("pending_cr_targets", None)
@@ -667,13 +667,13 @@ class ChatbotEngine:
         Returns a dict with keys:
           intent       : 'cr_lookup' | 'jira_query' | 'count_query' |
                          'sql_query' | 'general_chat' | 'help' | 'task_status'
-          needs_sql    : bool  — True if SQL generation is required
+          needs_sql    : bool  - True if SQL generation is required
           cr_number    : str | None
           target_hint  : str | None
           areas        : list[str]
           status_filter: str | None
           scope        : 'target' | 'bu' | 'all'
-          summary      : str   — one-line plain-English restatement of the request
+          summary      : str   - one-line plain-English restatement of the request
         Falls back to rule-based understand_query() on any error.
         """
         client = self.get_current_qgenie_client()
@@ -720,7 +720,7 @@ class ChatbotEngine:
             })
             return rule_based
         except Exception as e:
-            logger.debug(f"[understand_query_with_llm] LLM parse failed: {e} — falling back to rule-based")
+            logger.debug(f"[understand_query_with_llm] LLM parse failed: {e} - falling back to rule-based")
             return self.understand_query(msg)
 
 
@@ -866,7 +866,7 @@ class ChatbotEngine:
             except Exception:
                 dash_url = None
 
-            # â”€â”€ Build rich detail card â”€â”€
+            # - Build rich detail card -
             html  = f"<div style='background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:16px 18px;margin-bottom:12px;'>"
             html += f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:8px;'>"
             html += f"<span style='font-size:16px;font-weight:900;color:#1e40af;'>CR {cr_bare}</span>"
@@ -1009,10 +1009,10 @@ class ChatbotEngine:
         latest_target = latest.get("target_name")
         table_url = url_for("chatbot_table", cache_id=self.cache_table(clean_data_for_session(rows), table_name=f"CR Exact Details - {cr_number}"))
         context["table_view_url"] = table_url
-        header = f"<b>CRs for target {target or latest_target or 'N/A'}</b> | CR <b>{cr_number}</b> | Status: <b>{latest.get('cr_status') or 'N/A'}</b> | Area: <b>{latest.get('cr_area') or 'N/A'}</b> | Age (days): <b>{latest.get('cr_age') if latest.get('cr_age') not in (None, '', '-') else 'â€”'}</b> | Jira count: <b>{latest.get('jira_count') if latest.get('jira_count') is not None else 'â€”'}</b>"
+        header = f"<b>CRs for target {target or latest_target or 'N/A'}</b> | CR <b>{cr_number}</b> | Status: <b>{latest.get('cr_status') or 'N/A'}</b> | Area: <b>{latest.get('cr_area') or 'N/A'}</b> | Age (days): <b>{latest.get('cr_age') if latest.get('cr_age') not in (None, '', '-') else '--------'}</b> | Jira count: <b>{latest.get('jira_count') if latest.get('jira_count') is not None else '--------'}</b>"
         preview_rows = []
         for r in rows[:8]:
-            preview_rows.append({"CR #": r.get("cr_number") or r.get("mapped_cr") or cr_number, "Title": (r.get("cr_title") or "N/A")[:90], "Status": r.get("cr_status") or "N/A", "Area": r.get("cr_area") or "N/A", "Age (days)": r.get("cr_age") if r.get("cr_age") not in (None, "", "-") else "â€”", "Jira count": r.get("jira_count") if r.get("jira_count") is not None else "â€”"})
+            preview_rows.append({"CR #": r.get("cr_number") or r.get("mapped_cr") or cr_number, "Title": (r.get("cr_title") or "N/A")[:90], "Status": r.get("cr_status") or "N/A", "Area": r.get("cr_area") or "N/A", "Age (days)": r.get("cr_age") if r.get("cr_age") not in (None, "", "-") else "--------", "Jira count": r.get("jira_count") if r.get("jira_count") is not None else "--------"})
         html_rows = ['<table style="width:100%; border-collapse:collapse; margin-top:10px; background:#fff; border:1px solid #dbeafe; overflow:hidden;"><thead><tr style="background:#eff6ff;"><th style="padding:8px 10px; border:1px solid #dbeafe;">CR #</th><th style="padding:8px 10px; border:1px solid #dbeafe;">Title (truncated)</th><th style="padding:8px 10px; border:1px solid #dbeafe;">Status</th><th style="padding:8px 10px; border:1px solid #dbeafe;">Area</th><th style="padding:8px 10px; border:1px solid #dbeafe;">Age (days)</th><th style="padding:8px 10px; border:1px solid #dbeafe;">Jira count</th></tr></thead><tbody>']
         for r in preview_rows:
             html_rows.append(f"<tr><td style='padding:8px 10px; border:1px solid #dbeafe;'><b>{r['CR #']}</b></td><td style='padding:8px 10px; border:1px solid #dbeafe;'>{r['Title']}</td><td style='padding:8px 10px; border:1px solid #dbeafe;'>{r['Status']}</td><td style='padding:8px 10px; border:1px solid #dbeafe;'>{r['Area']}</td><td style='padding:8px 10px; border:1px solid #dbeafe; text-align:center;'>{r['Age (days)']}</td><td style='padding:8px 10px; border:1px solid #dbeafe; text-align:center;'>{r['Jira count']}</td></tr>")
@@ -1564,7 +1564,7 @@ class ChatbotEngine:
         if norm in TARGET_NORM_INDEX:
             return TARGET_NORM_INDEX[norm], []
 
-        # 2. Prefix match — 'aldabra' matches 'aldabra_la' or 'aldabra_la_1_0'
+        # 2. Prefix match - 'aldabra' matches 'aldabra_la' or 'aldabra_la_1_0'
         prefix_hits = [canon for key, canon in TARGET_NORM_INDEX.items()
                        if key.startswith(norm) or norm.startswith(key)]
         if prefix_hits:
@@ -1720,7 +1720,7 @@ class ChatbotEngine:
             return None
 
                 # Build display name lookup: target_name (db key) -> display name
-        # cr_master target_name may differ in case from config keys â€” normalise
+        # cr_master target_name may differ in case from config keys - normalise
         from dashboard_common import load_metadata_config
         try:
             tcfg = load_metadata_config().get('TARGETS_CONFIG', {})
@@ -1747,7 +1747,7 @@ class ChatbotEngine:
 
         TH = "<th style='padding:7px 10px;border:1px solid #bfdbfe;background:#1e3a5f;color:#f0f9ff;white-space:nowrap;font-size:12px;'>{}</th>"
 
-        # â”€â”€ SINGLE-TARGET scope â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - SINGLE-TARGET scope -
         if scope == "target":
             headers = ["S.No", "CR #", "Title", "Age (d)", "Status", "JIRAs", "Last Seen", "AI Summary"]
             thead   = "".join(TH.format(h) for h in headers)
@@ -1795,7 +1795,7 @@ class ChatbotEngine:
             return jsonify({"response": html, "context": context,
                             "ui": {"type": "buttons", "options": [{"text": "Open Full Table", "value": table_url}]}})
 
-        # â”€â”€ BU-WIDE scope: single flat table with Target column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - BU-WIDE scope: single flat table with Target column -
         from collections import defaultdict
         by_target = defaultdict(list)
         for r in res:
@@ -1874,7 +1874,7 @@ class ChatbotEngine:
         bu_wide = nlu['scope'] in ('all', 'bu') if (nlu := self.understand_query(query)) else any(k in ql for k in ["all target", "all bu", "across all", "every target", "all targets", "for all", "globally", "overall"])
         scope = "bu" if bu_wide else "target"
 
-        # â”€â”€ Build WHERE clauses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - Build WHERE clauses -
         where_clauses = [] if bu_wide else ["m.target_name = %s"]
         params        = []  if bu_wide else [effective_target]
 
@@ -1892,7 +1892,7 @@ class ChatbotEngine:
 
         where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
-        # â”€â”€ COUNT path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # - COUNT path -
         if self.is_count_query(ql):
             count_sql = (
                 "SELECT COUNT(*) AS cr_count "
@@ -1923,7 +1923,7 @@ class ChatbotEngine:
             finally:
                 cursor.close(); conn.close()
 
-        # â”€â”€ SELECT path: JOIN cr_master + unique_crs for image & priority â”€â”€â”€â”€
+        # - SELECT path: JOIN cr_master + unique_crs for image & priority -
         # We need info to build the unique_crs table name
         info        = get_target_info(effective_target)
         schema_name = get_schema_for_target(effective_target)
@@ -2027,7 +2027,7 @@ class ChatbotEngine:
     def execute_common_crs_query(self, target_list, context):
         num_targets = len(target_list)
         if num_targets < 2 or num_targets > 4:
-            return jsonify({"response": f"âš ï¸ Please provide 2 to 4 targets. You gave {num_targets}.", "context": context})
+            return jsonify({"response": f"------------ Please provide 2 to 4 targets. You gave {num_targets}.", "context": context})
         first_target_bu_key = get_bu_for_target(target_list[0])
         conn = dc.get_mysql_connection_db(bu_key=first_target_bu_key)
         if not conn:
@@ -2066,14 +2066,14 @@ class ChatbotEngine:
             res_id = str(uuid.uuid4())
             self.GLOBAL_REPORT_DATA_STORAGE[res_id] = {'data': {"Common CRs": clean_data_for_session(final_rows)}, 'table_name': "Common CRs Report", 'report_type': 'multi_sheet_data', 'target_list': target_list}
             context['multi_sheet_url'] = f"/view_multi_sheet_report/{res_id}"
-            return jsonify({"response": f"âœ… Common CR report generated for **{len(final_rows)}** CRs. Click below to view.", "context": context})
+            return jsonify({"response": f"------- Common CR report generated for **{len(final_rows)}** CRs. Click below to view.", "context": context})
         finally:
             cursor.close()
             conn.close()
 
     def generate_multi_exclusive_report(self, target_list, context):
         if not target_list or len(target_list) < 2:
-            return jsonify({"response": "âš ï¸ Please provide at least two targets for exclusive comparison.", "context": context})
+            return jsonify({"response": "------------ Please provide at least two targets for exclusive comparison.", "context": context})
         first_target_bu_key = get_bu_for_target(target_list[0])
   
 
@@ -2100,7 +2100,7 @@ class ChatbotEngine:
         if data.get("is_welcome"):
             context["welcomed"] = True
             return jsonify({
-                "response": "👋 Hi! I'm <b>PDT Buddy</b>, your chipset tracking assistant.<br><br>I can help you with:<br>&#8226; CR lookups &amp; details<br>&#8226; CR counts by area / status<br>&#8226; JIRA queries<br>&#8226; Common / Exclusive CR reports<br>&#8226; Natural language DB questions<br><br>Just ask me anything or type <b>help</b> for more options.",
+                "response": "---- Hi! I'm <b>PDT Buddy</b>, your chipset tracking assistant.<br><br>I can help you with:<br>&#8226; CR lookups &amp; details<br>&#8226; CR counts by area / status<br>&#8226; JIRA queries<br>&#8226; Common / Exclusive CR reports<br>&#8226; Natural language DB questions<br><br>Just ask me anything or type <b>help</b> for more options.",
                 "context": context,
             })
 
@@ -2111,12 +2111,12 @@ class ChatbotEngine:
             context["welcomed"] = True
             if not welcomed:
                                 return jsonify({
-                    "response": "👋 Hi! I'm <b>PDT Buddy</b>, your chipset tracking assistant.<br><br>I can help you with:<br>&#8226; CR lookups &amp; details<br>&#8226; CR counts by area / status<br>&#8226; JIRA queries<br>&#8226; Common / Exclusive CR reports<br>&#8226; Natural language DB questions<br><br>Just ask me anything or type <b>help</b> for more options.",
+                    "response": "---- Hi! I'm <b>PDT Buddy</b>, your chipset tracking assistant.<br><br>I can help you with:<br>&#8226; CR lookups &amp; details<br>&#8226; CR counts by area / status<br>&#8226; JIRA queries<br>&#8226; Common / Exclusive CR reports<br>&#8226; Natural language DB questions<br><br>Just ask me anything or type <b>help</b> for more options.",
                     "context": context,
                 })
             else:
                 return jsonify({
-                    "response": "Hey again! 😊 What can I help you with?",
+                    "response": "Hey again! - What can I help you with?",
                     "context": context,
                 })
 
@@ -2223,7 +2223,7 @@ class ChatbotEngine:
                     })
 
             else:
-                # CR intent detected but no CR number — ask for it
+                # CR intent detected but no CR number - ask for it
                 context["state"] = "awaiting_cr_number"
                 return jsonify({
                     "response": "Sure! Please provide the <b>CR number</b> you want to look up.",
@@ -2254,10 +2254,10 @@ class ChatbotEngine:
                
                 return jsonify({
                     "response": "I can help with CR details! Please be more specific:\n"
-                                "• Provide a CR number (e.g. 4435880)\n"
-                                "• Ask by area (e.g. show modem CRs)\n"
-                                "• Ask by status (e.g. show open CRs)\n"
-                                "• Or type help for all options.",
+                                "--- Provide a CR number (e.g. 4435880)\n"
+                                "--- Ask by area (e.g. show modem CRs)\n"
+                                "--- Ask by status (e.g. show open CRs)\n"
+                                "--- Or type help for all options.",
                     "context": context,
                 })
 

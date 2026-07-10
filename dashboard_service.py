@@ -78,7 +78,7 @@ def _dt_signature(value):
 def _dashboard_static_root():
     root = os.environ.get(
         "PDTBUDDY_DATA_ROOT",
-        r"\\sphere\pdtqipl_internal\PDTBuddy",
+        r"\\sphere\pdtstats\DB\PDTBuddy",
     )
     path = os.path.join(root, "cache", "dashboard_static", "mtbf_build_report")
     os.makedirs(path, exist_ok=True)
@@ -280,7 +280,7 @@ import re
 def normalize_meta_id(raw_build: str) -> str | None:
     """
     Normalize metabuild to a meta-id consisting of the prefix up to and
-    including the first 4–6-digit build number after a dash.
+    including the first 4---6-digit build number after a dash.
 
     Examples:
       'ALDABRA.LA.1.0-00097-STD.INT-1_0211_PDT'
@@ -296,7 +296,7 @@ def normalize_meta_id(raw_build: str) -> str | None:
     if not s:
         return None
 
-    # Capture everything from start up to "-dddd" (4–6 digits)
+    # Capture everything from start up to "-dddd" (4---6 digits)
     m = re.match(r"^(.+?-\d{4,6})\b", s)
     if m:
         return m.group(1).upper()
@@ -921,7 +921,7 @@ def build_mtbf_dashboard_payload(build_report_rows, pdt_type="SWPDT"):
             }
         )
 
-        # Build‑level MTBF table
+        # Build---level MTBF table
         for build in builds:
             if not isinstance(build, dict):
                 continue

@@ -3,8 +3,10 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from config import ADMIN_USERS, BU_DATABASE_MAPPING, TARGET_GROUP, VIEWER_OVERRIDE_USERS
+
 from flask import Blueprint, jsonify, render_template, request
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from dashboard_common import get_bu_for_target, get_display_name_for_target, get_mysql_connection_db, get_schema_for_target
 from live_view_stats_routes import (
@@ -38,11 +40,26 @@ def _is_auto_gen45_target(target_name: str) -> bool:
     return _canonical_target(target_name) == _AUTO_CANONICAL_TARGET
 
 
+def _target_group_access() -> bool:
+    uid = str(getattr(current_user, "id", "") or "").strip().lower()
+    if not uid:
+        return False
+    if uid in VIEWER_OVERRIDE_USERS:
+        return False
+    if uid in ADMIN_USERS:
+        return True
+    try:
+        import app as _app
+        return bool(_app.is_user_in_group(uid, TARGET_GROUP))
+    except Exception:
+        return False
+
+
 def _is_allowed_target(target_name: str) -> bool:
     canonical = _canonical_target(target_name)
     target = str(canonical or target_name or "").upper()
     # "WBC" itself is a BU key, not a resolvable target in TARGETS_CONFIG, so
-    # get_bu_for_target("WBC") returns None. Allow it explicitly here — the
+    # get_bu_for_target("WBC") returns None. Allow it explicitly here - the
     # Live Status landing page links directly to target_name="WBC".
     if target in {"WBC", "AUTO", "AUTOMOTIVE", "AUTO_TELEMATICS"}:
         return True
@@ -109,12 +126,18 @@ def _find_col(cols: List[str], candidates: List[str]) -> Optional[str]:
     return None
 
 
+def _default_schema_for_target(target_name: str) -> str:
+    if _is_auto_gen45_target(target_name):
+        return str(BU_DATABASE_MAPPING.get("AUTO") or "pdt_stats_auto").strip("`")
+    return str(get_schema_for_target(target_name) or "").strip("`")
+
+
 def _count_from_table(target_name: str, fq_table: str, preferred_cols: List[str]) -> int:
-    schema_default = str(get_schema_for_target(target_name) or "").strip("`")
+    schema_default = _default_schema_for_target(target_name)
     schema, table = _split_fq_table(fq_table, schema_default)
     if not schema or not table:
         return 0
-    conn = get_mysql_connection_db(bu_key=schema) or get_mysql_connection_db(bu_key=None)
+    conn = get_mysql_connection_db(database_name=schema) or get_mysql_connection_db(bu_key=None)
     if not conn:
         return 0
     cur = conn.cursor(dictionary=True)
@@ -138,8 +161,8 @@ def _count_from_table(target_name: str, fq_table: str, preferred_cols: List[str]
             pass
 
 
-def _pl_values_from_table(cur, fq_table: str) -> List[str]:
-    schema, table = _split_fq_table(fq_table)
+def _pl_values_from_table(cur, fq_table: str, fallback_schema: str = "") -> List[str]:
+    schema, table = _split_fq_table(fq_table, fallback_schema)
     cols = _table_cols(cur, schema, table)
     if not cols:
         return []
@@ -192,7 +215,7 @@ def _current_running_builds(target_name: str, fq_jiras_table: str = "") -> Dict[
         return {"rows": [], "updated_at": "", "source": "No DB connection"}
     cur = conn.cursor(dictionary=True)
     try:
-        pl_values = _pl_values_from_table(cur, fq_jiras_table) if fq_jiras_table else []
+        pl_values = _pl_values_from_table(cur, fq_jiras_table, _default_schema_for_target(target_name)) if fq_jiras_table else []
         params: List[str] = []
         wheres: List[str] = []
         for value in pl_values[:40]:
@@ -265,6 +288,161 @@ def _ensure_page_defaults(target_name: str) -> Dict[str, Any]:
     return cfg
 
 
+def _auto_schema() -> str:
+    return str(BU_DATABASE_MAPPING.get("AUTO") or "pdt_stats_auto").strip("`")
+
+
+def _auto_gen45_db_table_options() -> List[Dict[str, str]]:
+    schema = _auto_schema()
+    conn = get_mysql_connection_db(database_name=schema) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return []
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT TABLE_NAME
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s
+              AND (
+                    TABLE_NAME LIKE '%%_jiras'
+                 OR TABLE_NAME LIKE '%%_openjiras'
+                 OR TABLE_NAME LIKE '%%_unique_crs'
+                 OR TABLE_NAME LIKE '%%overall%%cr%%'
+                 OR TABLE_NAME LIKE '%%4_8%%'
+                 OR TABLE_NAME LIKE '%%48%%'
+                 OR TABLE_NAME LIKE '%%hqx%%'
+                 OR TABLE_NAME LIKE '%%hgy%%'
+              )
+            ORDER BY
+              CASE
+                WHEN TABLE_NAME LIKE '%%_jiras' THEN 0
+                WHEN TABLE_NAME LIKE '%%_openjiras' THEN 1
+                WHEN TABLE_NAME LIKE '%%_unique_crs' THEN 2
+                WHEN TABLE_NAME LIKE '%%overall%%cr%%' THEN 3
+                ELSE 9
+              END,
+              TABLE_NAME
+            LIMIT 1500
+            """,
+            (schema,),
+        )
+        options: List[Dict[str, str]] = []
+        for row in cur.fetchall() or []:
+            name = str(row.get("TABLE_NAME") or "").strip()
+            if not name:
+                continue
+            lower = name.lower()
+            if lower.endswith("_openjiras"):
+                kind = "openjiras"
+            elif lower.endswith("_unique_crs"):
+                kind = "unique_crs"
+            elif "overall" in lower and "cr" in lower:
+                kind = "overallcrs"
+            elif lower.endswith("_jiras"):
+                kind = "jiras"
+            else:
+                kind = "other"
+            fq = f"`{schema}`.`{name}`"
+            options.append({"name": name, "fq": fq, "kind": kind, "label": f"{name} ({kind})"})
+        return options
+    except Exception:
+        return []
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+def _auto_gen45_rows_from_table(fq_table: str, kind: str, limit: int = 300) -> Dict[str, Any]:
+    schema, table = _split_fq_table(fq_table, _auto_schema())
+    if not schema or not table:
+        return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": "No table configured"}
+    conn = get_mysql_connection_db(database_name=schema) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": "No DB connection"}
+    cur = conn.cursor(dictionary=True)
+    try:
+        cols = _table_cols(cur, schema, table)
+        if not cols:
+            return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": "Table not found or no columns"}
+        count_col = _find_col(cols, ["stability_ticket", "jira_id", "ticket", "mapped_cr", "cr", "crid"]) or cols[0]
+        cur.execute(f"SELECT COUNT(DISTINCT NULLIF(TRIM(`{count_col}`), '')) AS cnt FROM {_bt(schema, table)}")
+        count = _safe_int((cur.fetchone() or {}).get("cnt"))
+        preferred = [
+            "stability_ticket", "jira_id", "jira_title", "jira_date", "jira_status", "metabuild",
+            "mapped_cr", "cr", "crid", "cr_title", "cr_status", "cr_category", "cr_area", "cr_subsystem", "cr_functionality",
+            "PL-ID", "pl_id", "software_product",
+        ]
+        selected = []
+        for cand in preferred:
+            col = _find_col(cols, [cand])
+            if col and col not in selected:
+                selected.append(col)
+        for col in cols:
+            if col not in selected and len(selected) < 16:
+                selected.append(col)
+        select_sql = ", ".join(f"`{c}`" for c in selected)
+        order_col = _find_col(cols, ["jira_date", "last_instance", "built_date", "updated_at", "created_at"]) or selected[0]
+        cur.execute(f"SELECT {select_sql} FROM {_bt(schema, table)} ORDER BY `{order_col}` DESC LIMIT %s", (int(limit or 300),))
+        return {"table": fq_table, "columns": selected, "rows": cur.fetchall() or [], "count": count, "error": ""}
+    except Exception as exc:
+        return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": str(exc)}
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+def _auto_gen45_sp_config(cfg: Dict[str, Any], sp: str) -> Dict[str, Any]:
+    sheet_tables = cfg.get("sheet_tables") or {}
+    sp_key = str(sp or "").strip()
+    candidates = [sp_key]
+    if sp_key and not sp_key.upper().startswith("SP"):
+        candidates.extend([f"SP {sp_key}", f"SP{sp_key}"])
+    if sp_key.upper().startswith("SP"):
+        digits = re.sub(r"\D+", "", sp_key)
+        if digits:
+            candidates.append(digits)
+    for key in candidates:
+        row = sheet_tables.get(key)
+        if isinstance(row, dict) and row:
+            return row
+    return {}
+
+
+def _auto_gen45_sp_db_payload(target_name: str, sp: str) -> Dict[str, Any]:
+    target_name = _canonical_target(target_name)
+    cfg = _ensure_page_defaults(target_name)
+    sp_key = str(sp or "").strip()
+    db_cfg = _auto_gen45_sp_config(cfg, sp_key) if sp_key else {}
+    jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
+    open_table = db_cfg.get("openjiras_table") or ""
+    unique_table = db_cfg.get("unique_crs_table") or ""
+    current = _current_running_builds(target_name, jiras_table)
+    return {
+        "ok": True,
+        "target": target_name,
+        "sp": sp_key,
+        "db_config": db_cfg,
+        "current_builds": current.get("rows") or [],
+        "source": current.get("source") or "",
+        "axiom_updated_at": current.get("updated_at") or "",
+        "counts": {
+            "total_jiras": _count_from_table(target_name, jiras_table, ["stability_ticket", "jira_id", "ticket"]),
+            "open_jiras": _count_from_table(target_name, open_table, ["stability_ticket", "jira_id", "ticket"]),
+            "total_crs": _count_from_table(target_name, unique_table, ["mapped_cr", "mapped_crs", "cr", "crid"]),
+        },
+        "open_jiras": _auto_gen45_rows_from_table(open_table, "openjiras", 300) if open_table else {"rows": [], "columns": [], "count": 0, "error": "No Open JIRAs table configured"},
+        "crs": _auto_gen45_rows_from_table(unique_table, "unique_crs", 300) if unique_table else {"rows": [], "columns": [], "count": 0, "error": "No Unique CRs table configured"},
+        "jiras": _auto_gen45_rows_from_table(jiras_table, "jiras", 150) if jiras_table else {"rows": [], "columns": [], "count": 0, "error": "No JIRAs table configured"},
+    }
+
+
 def _dashboard_payload(target_name: str, sheet_name: str = "") -> Dict[str, Any]:
     target_name = _canonical_target(target_name)
     cfg = _ensure_page_defaults(target_name)
@@ -317,8 +495,16 @@ def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
     target_name = _canonical_target(target_name)
     if not _is_allowed_target(target_name):
         return render_template("coming_soon_template.html", title="Auto/WBC Live View Stats", message="This page is enabled for AUTO/WBC style targets."), 404
-    default_excel = _DEFAULT_AUTO_EXCEL if _is_auto_gen45_target(target_name) else ""
-    default_root = _DEFAULT_AUTO_ROOT if _is_auto_gen45_target(target_name) else r"C:\Dropbox\WBC_Scrum_DB"
+    if _is_auto_gen45_target(target_name):
+        return render_template(
+            "auto_gen45_live_view_stats.html",
+            target_name=target_name,
+            target_display="Automotive 4.5",
+            can_edit=_target_group_access(),
+        )
+
+    default_excel = ""
+    default_root = r"C:\Dropbox\WBC_Scrum_DB"
     return render_template(
         "automotive_live_view_stats.html",
         target_name=target_name,
@@ -340,6 +526,8 @@ def api_automotive_live_view_stats_dashboard(target_name: str):
 def api_automotive_live_view_stats_config(target_name: str):
     target_name = _canonical_target(target_name)
     if request.method == "POST":
+        if not _target_group_access():
+            return jsonify({"ok": False, "error": "Access denied"}), 403
         cfg = _save_config(target_name, request.get_json(force=True, silent=True) or {})
     else:
         cfg = _ensure_page_defaults(target_name)
@@ -356,13 +544,27 @@ def api_automotive_live_view_stats_config(target_name: str):
 @login_required
 def api_automotive_live_view_stats_db_tables(target_name: str):
     target_name = _canonical_target(target_name)
-    return jsonify({"ok": True, "tables": _db_table_options(target_name)})
+    if not _target_group_access():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    tables = _auto_gen45_db_table_options() if _is_auto_gen45_target(target_name) else _db_table_options(target_name)
+    return jsonify({"ok": True, "tables": tables})
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_db_data")
+@login_required
+def api_automotive_live_view_stats_sp_db_data(target_name: str):
+    target_name = _canonical_target(target_name)
+    if not _is_auto_gen45_target(target_name):
+        return jsonify({"ok": False, "error": "SP DB data is Auto Gen4.5 only."}), 404
+    return jsonify(_auto_gen45_sp_db_payload(target_name, str(request.args.get("sp") or "").strip()))
 
 
 @automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sync", methods=["POST"])
 @login_required
 def api_automotive_live_view_stats_sync(target_name: str):
     target_name = _canonical_target(target_name)
+    if not _target_group_access():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
     payload = request.get_json(force=True, silent=True) or {}
     cfg = _save_config(target_name, payload)
     excel_path = str(payload.get("excel_path") or cfg.get("excel_path") or (_DEFAULT_AUTO_EXCEL if _is_auto_gen45_target(target_name) else "")).strip()

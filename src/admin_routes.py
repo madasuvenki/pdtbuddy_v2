@@ -1,7 +1,7 @@
-﻿# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 #  admin_routes.py
-#  All admin‑related Flask endpoints live here.
-#  The milestone‑handling logic is fully in‑lined – no external helper file.
+#  All admin---related Flask endpoints live here.
+#  The milestone---handling logic is fully in---lined --- no external helper file.
 # ----------------------------------------------------------------------
 import logging
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ from dashboard_common import (
 # ----------------------------------------------------------------------
 admin_bp = Blueprint('admin_bp', __name__)
 
-_PDTBUDDY_DATA_ROOT = os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtqipl_internal\PDTBuddy')
+_PDTBUDDY_DATA_ROOT = os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy')
 _AXIOM_ENRICHMENT_RULES_PATH = os.path.join(_PDTBUDDY_DATA_ROOT, 'config', 'axiom_enrichment_rules.json')
 _DEFAULT_AXIOM_ENRICHMENT_RULES = [
     {
@@ -98,14 +98,14 @@ def _save_axiom_enrichment_rules(rules):
 
 # ----------------------------------------------------------------------
 #  ------------------------------------------------------------------
-#  INLINE IMPLEMENTATION OF THE “axiom_certicom” LOGIC
+#  INLINE IMPLEMENTATION OF THE ---axiom_certicom--? LOGIC
 #  ------------------------------------------------------------------
 # ----------------------------------------------------------------------
 def _load_raw_milestone_source(sp_name: str) -> str:
     """
     **Replace the body of this function with the exact code that
     previously lived in `axiom_certicom.py`.**  
-    The example below assumes a JSON (or simple key‑value) file stored
+    The example below assumes a JSON (or simple key---value) file stored
     under ``src/certicom_milestones/<sp_name>.json``.
     If your original script reads a CSV, calls a REST API, etc.,
     copy that logic here and **return the raw text** (or JSON string)
@@ -122,12 +122,12 @@ def _load_raw_milestone_source(sp_name: str) -> str:
 
 def _parse_milestone_text(raw: str) -> dict:
     """
-    Convert the raw text (JSON, CSV, key‑value lines, …) into a dict with
+    Convert the raw text (JSON, CSV, key---value lines, ---) into a dict with
     the keys ``ES``, ``FC``, ``CS`` and optionally ``CS1``.
     Missing values are left as ``None``.
     """
     # ------------------------------------------------------------------
-    # Example for a simple “key = value” text file:
+    # Example for a simple ---key = value--? text file:
     # ------------------------------------------------------------------
     result = {"ES": None, "FC": None, "CS": None, "CS1": None}
 
@@ -136,7 +136,7 @@ def _parse_milestone_text(raw: str) -> dict:
         if not line or line.startswith("#"):
             continue
 
-        # Accept both “ES=2026-01-22” and “ES : 2026/01/22”
+        # Accept both ---ES=2026-01-22--? and ---ES : 2026/01/22--?
         m = re.match(r"(?i)^\s*(ES|FC|CS|CS1)\s*[:=]\s*([0-9]{4}[-/][0-9]{2}[-/][0-9]{2})\s*$", line)
         if m:
             key, val = m.group(1).upper(), m.group(2)
@@ -151,7 +151,7 @@ def _parse_milestone_text(raw: str) -> dict:
 
 
 def _normalise_date(value: str | None) -> str | None:
-    """Turn any accepted date format into ISO ``YYYY‑MM‑DD``."""
+    """Turn any accepted date format into ISO ``YYYY---MM---DD``."""
     if not value:
         return None
 
@@ -173,9 +173,9 @@ def fetch_milestones(sp_name: str) -> dict:
     """
     Public API used by the Flask routes.
 
-    1. Load the raw source (file / API) → ``_load_raw_milestone_source``  
-    2. Parse it → ``_parse_milestone_text``  
-    3. Normalise every date → ``_normalise_date``  
+    1. Load the raw source (file / API) --- ``_load_raw_milestone_source``  
+    2. Parse it --- ``_parse_milestone_text``  
+    3. Normalise every date --- ``_normalise_date``  
 
     Returns a clean dict, **no ``print`` statements**:
 
@@ -214,7 +214,7 @@ def admin_axiom_enrichment_rules():
 
 
 # ----------------------------------------------------------------------
-#  1️⃣  FETCH MILESTONES  (called from the front‑end)
+#  1--?---  FETCH MILESTONES  (called from the front---end)
 # ----------------------------------------------------------------------
 
 @admin_bp.route('/admin/fetch_sp_milestones', methods=['POST'])
@@ -295,7 +295,7 @@ def test_sp_milestones():
 
 
 # ----------------------------------------------------------------------
-#  2️⃣  SAVE (UPDATE) MILESTONES FOR A TARGET
+#  2--?---  SAVE (UPDATE) MILESTONES FOR A TARGET
 # ----------------------------------------------------------------------
 @admin_bp.route('/admin/save_milestones', methods=['POST'])
 @login_required
@@ -318,9 +318,9 @@ def save_milestones():
         return jsonify(success=False, message='Invalid payload'), 400
 
     # ------------------------------------------------------------------
-    # Connect to the meta‑schema (the same DB that holds dashboard_status)
+    # Connect to the meta---schema (the same DB that holds dashboard_status)
     # ------------------------------------------------------------------
-    conn = get_mysql_connection_db(bu_key=None)   # meta‑schema connection
+    conn = get_mysql_connection_db(bu_key=None)   # meta---schema connection
     if not conn:
         return jsonify(success=False, message='DB connection failed'), 500
 
@@ -329,7 +329,7 @@ def save_milestones():
         set_parts = []
         values = []
 
-        # The column names in dashboard_status are lower‑case
+        # The column names in dashboard_status are lower---case
         for col in ('es', 'fc', 'cs', 'cs1'):
             if col.upper() in milestones:
                 set_parts.append(f"{col} = %s")
@@ -357,7 +357,7 @@ def save_milestones():
 
 
 # ----------------------------------------------------------------------
-#  3️⃣  RESYNC – fetch fresh data and overwrite the DB row
+#  3--?---  RESYNC --- fetch fresh data and overwrite the DB row
 # ----------------------------------------------------------------------
 @admin_bp.route('/admin/resync_milestones', methods=['POST'])
 @login_required
@@ -375,13 +375,13 @@ def resync_milestones():
     if not target_name or not sp_name:
         return jsonify(success=False, message='target_name and sp_name required'), 400
 
-    # 1️⃣ fetch fresh milestones using the same inline logic
+    # 1--?--- fetch fresh milestones using the same inline logic
     try:
         milestones = fetch_milestones(sp_name)
     except Exception as exc:
         return jsonify(success=False, message=f'Fetching error: {exc}'), 500
 
-    # 2️⃣ store them (same UPDATE logic as /save_milestones)
+    # 2--?--- store them (same UPDATE logic as /save_milestones)
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return jsonify(success=False, message='DB connection failed'), 500
@@ -511,7 +511,7 @@ def add_target():
 
     # Mobile
     mobile_fam = (data.get('mobile_product_family') or '').strip() if bu_upper == 'MOBILE' else None
-    # Guard: never let mobile_fam be empty for Mobile BU — must be explicit VT/PT/PT-AU
+    # Guard: never let mobile_fam be empty for Mobile BU --- must be explicit VT/PT/PT-AU
     if bu_upper == 'MOBILE':
         if mobile_fam not in ('VT', 'PT', 'PT-AU'):
             mobile_fam = 'VT'
@@ -558,7 +558,7 @@ def add_target():
         )
         return jsonify(success=False, message=msg), 400
 
-    # Unique CR Only mode — skip Excel ingestion, just ingest unique_cr_path
+    # Unique CR Only mode --- skip Excel ingestion, just ingest unique_cr_path
     if unique_cr_only:
         if unique_cr_path:
             try:

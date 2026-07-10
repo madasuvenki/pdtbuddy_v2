@@ -5,31 +5,31 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# ── Locate .env — search order (frozen EXE) ─────────────────────────────────
-# 1. Inside the PyInstaller bundle (sys._MEIPASS) → the .env baked in at build
+# - Locate .env - search order (frozen EXE) -
+# 1. Inside the PyInstaller bundle (sys._MEIPASS) - the .env baked in at build
 #    This makes the EXE fully self-contained and work anywhere without any
 #    external files. Credentials are compiled in at build time.
-# 2. Next to the .exe on disk → admin/emergency override only.
+# 2. Next to the .exe on disk - admin/emergency override only.
 #    Place a .env beside the .exe ONLY if you need to override bundled creds
 #    without rebuilding. Not required for normal operation.
 # 3. Next to config.py (dev / source run)
 def _find_dotenv_path() -> str:
     if getattr(sys, 'frozen', False):
-        # Priority 1 — .env beside the .exe (admin/live override — highest priority)
+        # Priority 1 - .env beside the .exe (admin/live override - highest priority)
         # This allows updating ENABLE_SWPDT_AXIOM_POLLER etc. without rebuilding.
         exe_dir_env = os.path.join(os.path.dirname(sys.executable), '.env')
         if os.path.exists(exe_dir_env):
             return exe_dir_env
-        # Priority 2 — .env bundled inside the PyInstaller archive (_MEIPASS)
+        # Priority 2 - .env bundled inside the PyInstaller archive (_MEIPASS)
         meipass = getattr(sys, '_MEIPASS', None)
         if meipass:
             bundled_env = os.path.join(meipass, '.env')
             if os.path.exists(bundled_env):
                 return bundled_env
-        # Priority 3 — fallback: exe dir even if missing (will be a no-op)
+        # Priority 3 - fallback: exe dir even if missing (will be a no-op)
         return exe_dir_env
     else:
-        # Running from source — .env is in the project root (next to config.py)
+        # Running from source - .env is in the project root (next to config.py)
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 
 _env_path = _find_dotenv_path()
@@ -59,7 +59,7 @@ ADMIN_USERS = {
 }
 
 # ---------------------------------------------------------------------------
-# BYPASS_USERS — for testing viewer/non-TARGET_GROUP experience.
+# BYPASS_USERS - for testing viewer/non-TARGET_GROUP experience.
 # These users login successfully but land on live_status landing page
 # instead of cr_overview/embed, and do NOT get QGenie popup.
 # Remove entries here once testing is done.
@@ -85,7 +85,7 @@ VIEWER_OVERRIDE_USERS = {
 TARGET_GROUP = "qipl.target.pdt"
 
 # ---------------------------------------------------------------------------
-# LIVE_STATUS_VIEWER_GROUP_ACCESS — scoped read-only access for non-editor
+# LIVE_STATUS_VIEWER_GROUP_ACCESS - scoped read-only access for non-editor
 # Live Status viewers. This does NOT change TARGET_GROUP editor access.
 #
 # Configure LDAP group names with the BUs and/or individual targets that the
@@ -138,14 +138,15 @@ LIVE_STATUS_VIEWER_GROUP_ACCESS = {
 }
 
 # ---------------------------------------------------------------------------
-# LIVE_STATUS_TEST_USER_GROUPS — temporary UI testing override only.
+# LIVE_STATUS_TEST_USER_GROUPS - temporary UI testing override only.
 # This does not modify LDAP. Remove/empty this after validating multi-group UX.
 # ---------------------------------------------------------------------------
 LIVE_STATUS_TEST_USER_GROUPS = {
     # TEMP TEST: treat akacham as member of these LDAP groups without changing LDAP.
     # Remove after validating /live_status_view grouped target cards.
 
-    'akacham': ['PdtBuddy.IoT','PdtBuddy.Nord'],
+       # 'akacham': ['PdtBuddy.IoT', 'PdtBuddy.Nord', 'PdtBuddy.IVIGen4.5'],
+
 }
 
 
@@ -157,6 +158,16 @@ LIVE_STATUS_TEST_USER_GROUPS = {
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
+
+# ---------------------------------------------------------------------------
+# PDTBUDDY_DATA_ROOT - single place to change the shared data path.
+# All modules read this via os.environ.get("PDTBUDDY_DATA_ROOT", ...) so
+# setting the env var in .env always takes priority over this default.
+# ---------------------------------------------------------------------------
+PDTBUDDY_DATA_ROOT = os.environ.get(
+    "PDTBUDDY_DATA_ROOT",
+    r"\\sphere\pdtstats\DB\PDTBuddy",
+)
 
 
 USERS_DB_PATH = "config/users.json" # <--- UPDATED: Path to users.json, assuming it's in the config subdirectory
@@ -190,7 +201,7 @@ SECRET_KEY = (
     or os.environ.get('SECRET_KEY')
     or 'pdt-buddy-change-me-in-dotenv-32chars!!'
 )
-# ── Hardcoded fallbacks — used when .env is missing (frozen EXE) ────────────
+# - Hardcoded fallbacks - used when .env is missing (frozen EXE) -
 _ENV_FALLBACKS = {
         'FLASK_SECRET_KEY': '',
     'AXIOM_API_HOST': 'api-int.qualcomm.com',
@@ -297,8 +308,8 @@ QGENIE_API_KEY = os.getenv(
     "",   # Fallback for quick testing, remove in production
 )
 QGENIE_BASE_URL          = os.getenv("QGENIE_BASE_URL",          "https://qgenie-api.qualcomm.com/v1")
-QGENIE_TEXT_TO_SQL_MODEL = os.getenv("QGENIE_TEXT_TO_SQL_MODEL", "QGenie-Coder")              # SQL generation — must stay on QGenie-Coder
-QGENIE_HIGHLIGHTS_MODEL  = os.getenv("QGENIE_HIGHLIGHTS_MODEL",  "anthropic::claude-4-6-sonnet:1M") # Highlights — random session pick in app.py
+QGENIE_TEXT_TO_SQL_MODEL = os.getenv("QGENIE_TEXT_TO_SQL_MODEL", "QGenie-Coder")              # SQL generation - must stay on QGenie-Coder
+QGENIE_HIGHLIGHTS_MODEL  = os.getenv("QGENIE_HIGHLIGHTS_MODEL",  "anthropic::claude-4-6-sonnet:1M") # Highlights - random session pick in app.py
 
 # Models available for random per-session highlights rotation (used by app.py)
 QGENIE_HIGHLIGHTS_MODEL_OPTIONS = [
@@ -326,15 +337,15 @@ logger.info(
 
 
 # --- Axiom API (Qualcomm device / taxonomy service) ---
-# Credentials MUST be set in .env or the shell — never hardcode them here.
+# Credentials MUST be set in .env or the shell - never hardcode them here.
 # See src/axiom_client.py for usage.
 #
 # Two taxonomy paths are used depending on PDT type:
-#   SWPDT  →  /PDT            (general SW stability devices)
-#   HWPDT  →  /PDT/QIPL/HW   (hardware PDT devices under QIPL/HW node)
+#   SWPDT  -  /PDT            (general SW stability devices)
+#   HWPDT  -  /PDT/QIPL/HW   (hardware PDT devices under QIPL/HW node)
 AXIOM_API_HOST           = os.getenv("AXIOM_API_HOST",           "api-int.qualcomm.com")
-AXIOM_CLIENT_ID          = os.getenv("AXIOM_CLIENT_ID",          "")   # required — set in .env
-AXIOM_CLIENT_SECRET      = os.getenv("AXIOM_CLIENT_SECRET",      "")   # required — set in .env
+AXIOM_CLIENT_ID          = os.getenv("AXIOM_CLIENT_ID",          "")   # required - set in .env
+AXIOM_CLIENT_SECRET      = os.getenv("AXIOM_CLIENT_SECRET",      "")   # required - set in .env
 AXIOM_TAXONOMY_PATH_SW   = os.getenv("AXIOM_TAXONOMY_PATH_SW",   "/PDT")          # SWPDT
 AXIOM_TAXONOMY_PATH_HW   = os.getenv("AXIOM_TAXONOMY_PATH_HW",   "/PDT/QIPL/HW") # HWPDT
 # Chipsets for which Axiom querying is enabled (checkpoint control)
@@ -356,7 +367,7 @@ SHEET_CONFIG = [
     {'sheet_name': 'Closed_JIRAs', 'primary_key_column': 'Stability Ticket'},
     # OverallCrs is ingested from the unique_cr workbook (Option B).
     # PDT_UniqueCrs and PDT_ReportedCrs are read from Excel ONLY to build
-    # the reported_team classification map — no DB tables are created for them.
+    # the reported_team classification map - no DB tables are created for them.
     {'sheet_name': 'OverallCrs', 'primary_key_column': 'crid'},
 ]
 

@@ -29,7 +29,7 @@ def _add_public_auto_gen45_headers(response):
     return response
 
 
-_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtqipl_internal\PDTBuddy")
+_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy")
 _AUTO_JSON_PATH = os.environ.get(
     "PDTBUDDY_AUTO_JSON_PATH",
     os.path.join(
@@ -41,7 +41,7 @@ _AUTO_JSON_PATH = os.environ.get(
         "4.8.0.9_Auto.json",
     ),
 )
-_PUBLIC_HOST = os.environ.get("PDTBUDDY_PUBLIC_HOST", "10.142.213.5")
+_PUBLIC_HOST = os.environ.get("PDTBUDDY_PUBLIC_HOST", "pdt-buddy.qualcomm.com")
 _PUBLIC_PORT = os.environ.get("PDTBUDDY_PUBLIC_PORT", "")
 
 
@@ -68,9 +68,9 @@ def _load_payload() -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as fh:
         payload = json.load(fh)
     if not isinstance(payload, dict) or not isinstance(payload.get("programs"), dict):
-        raise ValueError("Invalid Auto Gen4.5 JSON format. Expected top-level 'programs' object.")
-    payload.setdefault("metadata", {})
-    payload["metadata"].setdefault("json_path", path)
+        raise ValueError("Invalid Auto Gen4.5 JSON format.")
+    # Strip metadata entirely - never expose file paths, timestamps or source info
+    payload.pop("metadata", None)
     payload["programs"] = _drop_rows_with_null_date(payload.get("programs") or {})
     return payload
 
@@ -145,7 +145,8 @@ def _bool_arg(name: str, default: bool = True) -> bool:
 def _base_url() -> str:
     scheme = request.headers.get("X-Forwarded-Proto") or request.scheme or "http"
     host = request.host or _PUBLIC_HOST
-    if host.startswith("127.0.0.1") or host.startswith("localhost"):
+    # Never expose 127.0.0.1 / localhost in public-facing URLs
+    if host.startswith("127.0.0.1") or host.startswith("localhost") or host.startswith("0.0.0.0"):
         host = f"{_PUBLIC_HOST}:{_PUBLIC_PORT}" if _PUBLIC_PORT else _PUBLIC_HOST
     return f"{scheme}://{host}".rstrip(":")
 
@@ -159,22 +160,14 @@ def public_auto_gen45_docs():
         payload = _load_payload()
         programs = payload.get("programs") or {}
         available = _available_sps(programs)
-        json_path = (payload.get("metadata") or {}).get("json_path") or _json_path()
-        generated_at = (payload.get("metadata") or {}).get("generated_at") or (payload.get("metadata") or {}).get("updated_at") or ""
+        load_error = ""
     except Exception as exc:
         available = []
-        json_path = _json_path()
-        generated_at = ""
         load_error = str(exc)
-    else:
-        load_error = ""
 
     return render_template(
         "public_auto_gen45_api.html",
         base=base,
-        public_host=_PUBLIC_HOST,
-        json_path=json_path,
-        generated_at=generated_at,
         available=available,
         load_error=load_error,
     )
@@ -187,18 +180,10 @@ def api_public_auto_gen45_sps():
     try:
         payload = _load_payload()
         programs = payload.get("programs") or {}
-        metadata = payload.get("metadata") or {}
         return jsonify({
             "ok": True,
-            "message": "Available SPs fetched successfully.",
-            "available_sps": _available_sps(programs),
             "count": len(programs),
-            "json_path": metadata.get("json_path") or _json_path(),
-            "generated_at": metadata.get("generated_at") or metadata.get("updated_at") or "",
-            "examples": {
-                "get_8620_full_table": f"{_base_url()}/public/auto-gen45/api/sp/8620",
-                "search_8620": f"{_base_url()}/public/auto-gen45/api/search?sp=8620&q=Snapdragon&limit=10",
-            },
+            "available_sps": _available_sps(programs),
         })
     except Exception as exc:
         return jsonify({"ok": False, "message": f"Unable to list available SPs: {exc}", "available_sps": []}), 500
@@ -211,79 +196,33 @@ def api_public_auto_gen45_sp(sp: str):
     try:
         payload = _load_payload()
         programs = payload.get("programs") or {}
-        metadata = payload.get("metadata") or {}
         key = _find_program_key(programs, sp)
         if not key:
-            return jsonify({
-                "ok": False,
-                "message": f"Requested SP '{sp}' is not available in Auto Gen4.5 data.",
-                "requested_sp": sp,
-                "available_sps": _available_sps(programs),
-                "rows": [],
-                "row_count": 0,
-            }), 404
+            return jsonify({"ok": False, "available_sps": _available_sps(programs), "rows": [], "row_count": 0}), 404
         rows = programs[key]
         last_n = int(request.args.get("last_n") or 0)
         if last_n > 0:
             rows = rows[-last_n:]
+        # Strip any internal fields from each row before returning
+        safe_rows = [{k: v for k, v in r.items() if k not in (
+            "json_path", "generated_at", "updated_at", "source_excel",
+            "source_excel_path", "file_path", "_path"
+        )} for r in rows]
         response = {
             "ok": True,
-            "message": f"SP '{sp}' data fetched successfully.",
-            "requested_sp": sp,
-            "resolved_program": key,
-            "rows": rows,
-            "row_count": len(rows),
-            "json_path": metadata.get("json_path") or _json_path(),
-            "generated_at": metadata.get("generated_at") or metadata.get("updated_at") or "",
+            "sp": key,
+            "row_count": len(safe_rows),
+            "rows": safe_rows,
         }
         if _bool_arg("summary", True):
             response["summary"] = _program_summary(rows)
         return jsonify(response)
     except Exception as exc:
-        return jsonify({"ok": False, "message": f"Unable to fetch SP '{sp}': {exc}", "requested_sp": sp, "rows": [], "row_count": 0}), 500
+        return jsonify({"ok": False, "rows": [], "row_count": 0}), 500
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/search", methods=["GET", "OPTIONS"])
 def api_public_auto_gen45_search():
     if request.method == "OPTIONS":
         return "", 204
-    sp = str(request.args.get("sp") or "").strip()
-    query = str(request.args.get("q") or request.args.get("query") or "").strip()
-    limit = max(1, int(request.args.get("limit") or 50))
-    if not sp:
-        return jsonify({"ok": False, "message": "Missing required query parameter: sp", "matches": [], "match_count": 0}), 400
-    try:
-        payload = _load_payload()
-        programs = payload.get("programs") or {}
-        metadata = payload.get("metadata") or {}
-        key = _find_program_key(programs, sp)
-        if not key:
-            return jsonify({
-                "ok": False,
-                "message": f"Requested SP '{sp}' is not available in Auto Gen4.5 data.",
-                "requested_sp": sp,
-                "available_sps": _available_sps(programs),
-                "matches": [],
-                "match_count": 0,
-            }), 404
-        q = _clean_text(query).lower()
-        matches: List[Dict[str, Any]] = []
-        for row in programs.get(key, []):
-            haystack = json.dumps(row, ensure_ascii=False, default=str).lower()
-            if not q or q in haystack:
-                matches.append({"program": key, **row})
-                if len(matches) >= limit:
-                    break
-        return jsonify({
-            "ok": True,
-            "message": f"Search completed for SP '{sp}'.",
-            "requested_sp": sp,
-            "resolved_program": key,
-            "query": query,
-            "matches": matches,
-            "match_count": len(matches),
-            "truncated": len(matches) >= limit,
-            "json_path": metadata.get("json_path") or _json_path(),
-        })
-    except Exception as exc:
-        return jsonify({"ok": False, "message": f"Unable to search SP '{sp}': {exc}", "requested_sp": sp, "matches": [], "match_count": 0}), 500
+        return jsonify({"ok": False, "message": "Search endpoint removed."}), 410

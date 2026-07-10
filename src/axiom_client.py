@@ -1,4 +1,4 @@
-﻿"""
+"""
 axiom_client.py
 ===============
 Qualcomm Axiom API client.
@@ -12,16 +12,16 @@ Provides:
 
 Two distinct Axiom taxonomy paths are used depending on PDT type:
 
-    SWPDT  →  /PDT              (general SW stability devices)
-    HWPDT  →  /PDT/QIPL/HW     (hardware PDT devices under QIPL/HW node)
+    SWPDT  ---  /PDT              (general SW stability devices)
+    HWPDT  ---  /PDT/QIPL/HW     (hardware PDT devices under QIPL/HW node)
 
 Both paths are configurable via environment variables:
 
-    AXIOM_API_HOST           – API hostname              (default: api-int.qualcomm.com)
-    AXIOM_CLIENT_ID          – OAuth client ID           (required)
-    AXIOM_CLIENT_SECRET      – OAuth client secret       (required)
-    AXIOM_TAXONOMY_PATH_SW   – SWPDT taxonomy root       (default: /PDT)
-    AXIOM_TAXONOMY_PATH_HW   – HWPDT taxonomy root       (default: /PDT/QIPL/HW)
+    AXIOM_API_HOST           --- API hostname              (default: api-int.qualcomm.com)
+    AXIOM_CLIENT_ID          --- OAuth client ID           (required)
+    AXIOM_CLIENT_SECRET      --- OAuth client secret       (required)
+    AXIOM_TAXONOMY_PATH_SW   --- SWPDT taxonomy root       (default: /PDT)
+    AXIOM_TAXONOMY_PATH_HW   --- HWPDT taxonomy root       (default: /PDT/QIPL/HW)
 
 Set them in your .env file or shell before running:
 
@@ -67,13 +67,13 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from dotenv import load_dotenv
 
-# Load .env — use exe-aware path so frozen builds find it next to BuddyApp.exe
+# Load .env --- use exe-aware path so frozen builds find it next to BuddyApp.exe
 import sys as _sys
 if getattr(_sys, 'frozen', False):
-    # Running as .exe — .env is next to the exe
+    # Running as .exe --- .env is next to the exe
     _env_file = os.path.join(os.path.dirname(_sys.executable), '.env')
 else:
-    # Running from source — .env is in the project root (parent of src/)
+    # Running from source --- .env is in the project root (parent of src/)
     _env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(_env_file, override=True)
 logger.info(f'[axiom_client] .env path: {_env_file}  exists={os.path.exists(_env_file)}')
@@ -82,13 +82,13 @@ logger.info(f'[axiom_client] AXIOM_CLIENT_ID set: {bool(os.getenv("AXIOM_CLIENT_
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-# Don't add a handler here — let the root app configure logging.
+# Don't add a handler here --- let the root app configure logging.
 # This prevents duplicate/noisy axiom log lines on every request.
 if not logger.handlers:
     logger.addHandler(logging.NullHandler())
 
 # ---------------------------------------------------------------------------
-# Axiom API configuration — all values sourced from environment variables
+# Axiom API configuration --- all values sourced from environment variables
 # ---------------------------------------------------------------------------
 
 # NOTE: Do NOT read credentials into module-level constants.
@@ -97,13 +97,13 @@ if not logger.handlers:
 AXIOM_API_HOST: str = os.getenv("AXIOM_API_HOST", "api-int.qualcomm.com")
 
 # ---------------------------------------------------------------------------
-# Taxonomy paths — SWPDT and HWPDT use different Axiom taxonomy roots
+# Taxonomy paths --- SWPDT and HWPDT use different Axiom taxonomy roots
 # ---------------------------------------------------------------------------
 TAXONOMY_PATH_SW: str = os.getenv("AXIOM_TAXONOMY_PATH_SW", "/PDT")
 TAXONOMY_PATH_HW: str = os.getenv("AXIOM_TAXONOMY_PATH_HW", "/PDT/QIPL/HW")
 DEFAULT_TAXONOMY_PATH: str = TAXONOMY_PATH_SW
 
-# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+# Axiom fetch enabled --- controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
 AXIOM_FETCH_DISABLED = False
 
 
@@ -188,12 +188,12 @@ def fetch_access_token(
         logger.info("[AXIOM DISABLED] Access-token fetch skipped.")
         return ""
 
-    # Always re-read from env at call time — never use stale module-level constants
+    # Always re-read from env at call time --- never use stale module-level constants
     resolved_id     = client_id     or os.getenv("AXIOM_CLIENT_ID", "")
     resolved_secret = client_secret or os.getenv("AXIOM_CLIENT_SECRET", "")
     _require_credentials(resolved_id, resolved_secret)
 
-    logger.info("Fetching new Axiom OAuth access token …")
+    logger.info("Fetching new Axiom OAuth access token ---")
     conn = http.client.HTTPSConnection(host, context=_ssl_context())
     try:
         conn.request(
@@ -230,7 +230,7 @@ def get_cached_token(
     Return a valid cached access token, refreshing it when it is about to
     expire (within *ttl_buffer_seconds* of expiry).
 
-    Token TTL is assumed to be 3600 s (1 hour) — standard for Qualcomm OAuth.
+    Token TTL is assumed to be 3600 s (1 hour) --- standard for Qualcomm OAuth.
 
     Credentials are always resolved from environment variables at call-time;
     the *client_id* / *client_secret* parameters exist only for testing.
@@ -408,7 +408,7 @@ class AxiomClient:
             client_secret: OAuth client secret (falls back to AXIOM_CLIENT_SECRET env-var).
             taxonomy_path: Explicit taxonomy path override.  When ``None`` the path
                            is resolved automatically from *pdt_type*:
-                           ``"SWPDT"`` → ``/PDT``,  ``"HWPDT"`` → ``/PDT/QIPL/HW``.
+                           ``"SWPDT"`` --- ``/PDT``,  ``"HWPDT"`` --- ``/PDT/QIPL/HW``.
             pdt_type:      ``"SWPDT"`` (default) or ``"HWPDT"``.
                            Ignored when *taxonomy_path* is supplied explicitly.
         """
@@ -426,7 +426,7 @@ class AxiomClient:
             else _resolve_taxonomy_path(self.pdt_type)
         )
         # Credentials are validated lazily at token-fetch time only.
-        # No warning here — missing credentials are normal when serving
+        # No warning here --- missing credentials are normal when serving
         # from cache. The error will surface clearly if a live sync is attempted.
 
     # ------------------------------------------------------------------
@@ -445,13 +445,13 @@ class AxiomClient:
 
         The taxonomy path is resolved in this priority order:
           1. *taxonomy_path* argument (explicit override)
-          2. *pdt_type* argument  → ``_resolve_taxonomy_path()``
+          2. *pdt_type* argument  --- ``_resolve_taxonomy_path()``
           3. ``self.taxonomy_path`` set at construction time
 
         Args:
             chipset:       Chipset identifier, e.g. ``"XG301062"``.
             taxonomy_path: Explicit taxonomy path override.
-            pdt_type:      ``"SWPDT"`` or ``"HWPDT"`` — used when
+            pdt_type:      ``"SWPDT"`` or ``"HWPDT"`` --- used when
                            *taxonomy_path* is not supplied.
             page_size:     Items per page for pagination (max 100).
 
@@ -502,7 +502,7 @@ class AxiomClient:
         path = f"/axiom/v1/public/resources/{device_id}"
         raw = axiom_get(path, host=self.host)
 
-        # Normalise — Axiom may wrap in {"data": {...}} or return the object directly
+        # Normalise --- Axiom may wrap in {"data": {...}} or return the object directly
         data: Dict[str, Any] = raw.get("data", raw) if isinstance(raw, dict) else {}
 
         props: Dict[str, Any] = data.get("properties") or {}
@@ -568,7 +568,7 @@ class AxiomClient:
         )
 
         if not items:
-            # Fallback: try without type filter — some chipsets are not typed
+            # Fallback: try without type filter --- some chipsets are not typed
             fallback_path = (
                 f"/axiom/v1/public/resources"
                 f"?taxonomyPath={self.taxonomy_path}"
@@ -625,8 +625,8 @@ def get_devices_by_chipset(
 
     The correct taxonomy path is chosen automatically based on *pdt_type*:
 
-    - ``"SWPDT"``  →  ``/PDT``           (env: AXIOM_TAXONOMY_PATH_SW)
-    - ``"HWPDT"``  →  ``/PDT/QIPL/HW``  (env: AXIOM_TAXONOMY_PATH_HW)
+    - ``"SWPDT"``  ---  ``/PDT``           (env: AXIOM_TAXONOMY_PATH_SW)
+    - ``"HWPDT"``  ---  ``/PDT/QIPL/HW``  (env: AXIOM_TAXONOMY_PATH_HW)
 
     Pass *taxonomy_path* explicitly to override the automatic selection.
 
@@ -648,23 +648,23 @@ def get_devices_by_chipset(
 
         .. code-block:: text
 
-            id              – Axiom resource ID
-            serial_number   – device serial number
-            hostname        – device hostname
-            location        – raw location value from Axiom
-            asset_tag_id    – asset tag
-            imei            – IMEI (if available)
-            mac_address     – MAC address (if available)
-            chipset         – chipset identifier (echoed from input)
-            chipset_rev     – chipset revision
-            form_factor     – form factor
-            device_type     – device type
-            heartbeat       – last heartbeat timestamp
-            created_by      – creator username
-            last_modified   – last modification timestamp
-            pdt_type        – PDT type used for this query (SWPDT / HWPDT)
-            taxonomy_path   – actual taxonomy path queried
-            site_info       – dict with site/lab/rack (only if include_site_details=True)
+            id              --- Axiom resource ID
+            serial_number   --- device serial number
+            hostname        --- device hostname
+            location        --- raw location value from Axiom
+            asset_tag_id    --- asset tag
+            imei            --- IMEI (if available)
+            mac_address     --- MAC address (if available)
+            chipset         --- chipset identifier (echoed from input)
+            chipset_rev     --- chipset revision
+            form_factor     --- form factor
+            device_type     --- device type
+            heartbeat       --- last heartbeat timestamp
+            created_by      --- creator username
+            last_modified   --- last modification timestamp
+            pdt_type        --- PDT type used for this query (SWPDT / HWPDT)
+            taxonomy_path   --- actual taxonomy path queried
+            site_info       --- dict with site/lab/rack (only if include_site_details=True)
     """
     if AXIOM_FETCH_DISABLED:
         logger.info("[AXIOM DISABLED] Device lookup skipped for chipset=%s pdt_type=%s.", chipset, pdt_type)
@@ -788,8 +788,8 @@ def get_full_axiom_report(
 
     Taxonomy path is resolved automatically from *pdt_type*:
 
-    - ``"SWPDT"``  →  ``/PDT``           (env: AXIOM_TAXONOMY_PATH_SW)
-    - ``"HWPDT"``  →  ``/PDT/QIPL/HW``  (env: AXIOM_TAXONOMY_PATH_HW)
+    - ``"SWPDT"``  ---  ``/PDT``           (env: AXIOM_TAXONOMY_PATH_SW)
+    - ``"HWPDT"``  ---  ``/PDT/QIPL/HW``  (env: AXIOM_TAXONOMY_PATH_HW)
 
     Pass *taxonomy_path* explicitly to override.
 
@@ -861,7 +861,7 @@ def _extract_site_from_device(dev: Dict[str, Any]) -> str:
 
     Priority:
       1. ``site_info.site``   (populated when include_site_details=True)
-      2. ``location``         (raw string, e.g. "HYD/Lab3/Rack5" → "HYD")
+      2. ``location``         (raw string, e.g. "HYD/Lab3/Rack5" --- "HYD")
       3. ``"Unknown"``
     """
     site_info = dev.get("site_info") or {}
@@ -900,7 +900,7 @@ def get_devices_site_wise(
     """
     Fetch all devices for *chipset* from **both** SWPDT (``/PDT``) and
     HWPDT (``/PDT/QIPL/HW``) taxonomies, then group them
-    **site → lab → devices**.
+    **site --- lab --- devices**.
 
     Devices that appear in both taxonomies are kept as separate entries
     so the caller can see which PDT type each device belongs to.
@@ -954,7 +954,7 @@ def get_devices_site_wise(
 
     all_devices = sw_devices + hw_devices
 
-    # Group: site → lab → [devices]
+    # Group: site --- lab --- [devices]
     sites: Dict[str, Dict[str, Any]] = {}
     for dev in all_devices:
         site_key = _extract_site_from_device(dev)
@@ -1002,7 +1002,7 @@ def get_devices_taxonomy_wise(
 ) -> Dict[str, Any]:
     """
     Fetch all devices for *chipset* from **both** SWPDT and HWPDT taxonomies,
-    then group them **taxonomy_path → pdt_type → site → devices**.
+    then group them **taxonomy_path --- pdt_type --- site --- devices**.
 
     This gives a clear view of which Axiom taxonomy node each device lives
     under, and within that node how devices are distributed across sites.
@@ -1114,8 +1114,8 @@ def get_sm4850_report(
     Full Axiom report for chipset **SM4850** covering:
 
     - Chipset metadata (from SWPDT taxonomy)
-    - All devices grouped **site-wise**  (site → lab → devices)
-    - All devices grouped **taxonomy-wise** (taxonomy → site → devices)
+    - All devices grouped **site-wise**  (site --- lab --- devices)
+    - All devices grouped **taxonomy-wise** (taxonomy --- site --- devices)
     - Raw flat device lists for SWPDT and HWPDT
 
     This is the primary entry point when ``chip_name = 'SM4850'``.
@@ -1197,8 +1197,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         description=(
             "Query Axiom API for devices and chipset details.\n\n"
             "Taxonomy paths by PDT type:\n"
-            f"  SWPDT  →  {TAXONOMY_PATH_SW}  (env: AXIOM_TAXONOMY_PATH_SW)\n"
-            f"  HWPDT  →  {TAXONOMY_PATH_HW}  (env: AXIOM_TAXONOMY_PATH_HW)\n\n"
+            f"  SWPDT  ---  {TAXONOMY_PATH_SW}  (env: AXIOM_TAXONOMY_PATH_SW)\n"
+            f"  HWPDT  ---  {TAXONOMY_PATH_HW}  (env: AXIOM_TAXONOMY_PATH_HW)\n\n"
             "Examples:\n"
             "  python -m src.axiom_client --chipset SM4850 --group-by both\n"
             "  python -m src.axiom_client --chipset SM4850 --group-by site --excel out.xlsx\n"
@@ -1218,7 +1218,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=["SWPDT", "HWPDT"],
         help=(
             "PDT type used when --group-by is not set: "
-            "SWPDT → /PDT,  HWPDT → /PDT/QIPL/HW  (default: SWPDT)"
+            "SWPDT --- /PDT,  HWPDT --- /PDT/QIPL/HW  (default: SWPDT)"
         ),
     )
     parser.add_argument(
@@ -1273,7 +1273,7 @@ def _export_excel(devices: List[Dict[str, Any]], path: str, sheet_name: str = "D
     try:
         import pandas as pd  # noqa: PLC0415
     except ImportError:
-        logger.error("pandas is not installed — skipping Excel export.")
+        logger.error("pandas is not installed --- skipping Excel export.")
         return
 
     rows = []
@@ -1307,7 +1307,7 @@ def _export_excel(devices: List[Dict[str, Any]], path: str, sheet_name: str = "D
         )
 
     df = pd.DataFrame(rows)
-    # Sort by Taxonomy Path → Site → Lab for readability
+    # Sort by Taxonomy Path --- Site --- Lab for readability
     sort_cols = [c for c in ["Taxonomy Path", "Site", "Lab", "Serial Number"] if c in df.columns]
     if sort_cols:
         df = df.sort_values(sort_cols).reset_index(drop=True)
@@ -1391,7 +1391,7 @@ def main() -> None:
     chipset   = args.chipset or CHIPSET_SM4850
     group_by  = (args.group_by or "").lower()
 
-    # ── grouped modes ────────────────────────────────────────────────────────
+    # ------ grouped modes ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     if group_by in ("site", "taxonomy", "both"):
         if group_by in ("site", "both"):
             site_report = get_devices_site_wise(
@@ -1443,7 +1443,7 @@ def main() -> None:
 
         return
 
-    # ── single pdt_type mode (original behaviour) ────────────────────────────
+    # ------ single pdt_type mode (original behaviour) ------------------------------------------------------------------------------------
     report = get_full_axiom_report(
         chipset=chipset,
         pdt_type=args.pdt_type,

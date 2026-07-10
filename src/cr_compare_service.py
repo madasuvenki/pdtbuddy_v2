@@ -1,15 +1,15 @@
-﻿# Target Delta Service
+# Target Delta Service
 """
 Standalone target delta module for CR Overview data. This file intentionally does
 not modify src/cr_overview_service.py or dashboard_routes.py. It reuses the
 existing CR Overview cache/fetch helpers and exposes a small blueprint:
 
-  GET  /target_compare_studio   ← premium target delta workspace
-  GET  /cr_compare_studio       ← legacy alias
-  GET  /cr_compare_new          ← legacy alias
+  GET  /target_compare_studio   --- premium target delta workspace
+  GET  /cr_compare_studio       --- legacy alias
+  GET  /cr_compare_new          --- legacy alias
   GET  /api/cr_compare/options
   POST /api/cr_compare
-  POST /api/cr_compare/pt_analysis   ← Deep analysis DataFrames (any target)
+  POST /api/cr_compare/pt_analysis   --- Deep analysis DataFrames (any target)
 
 Register the blueprint from app.py to enable these endpoints.
 Works for ANY target that has a {prefix}_unique_crs table in the DB.
@@ -35,7 +35,7 @@ try:
     _PANDAS_OK = True
 except ImportError:
     _PANDAS_OK = False
-    logger.warning("pandas not available — pt_analysis endpoint will return error")
+    logger.warning("pandas not available --- pt_analysis endpoint will return error")
 
 import dashboard_common as dc
 from src.cr_overview_service import (
@@ -1321,9 +1321,9 @@ def api_cr_compare_drilldown_data():
         return jsonify({"error": str(exc)}), 500
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  DEEP ANALYSIS  —  pandas DataFrames (works for any target)
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#  DEEP ANALYSIS  ---  pandas DataFrames (works for any target)
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Categories that are NOT valid active CRs (excluded from main analysis df)
 _INVALID_CATS_PT: set = {"invalid", "dup", "duplicate"}
@@ -1386,7 +1386,7 @@ def build_pt_analysis_dataframes(
     if not raw_rows:
         raise ValueError(f"No CR data found for targets: {canonical}")
 
-    # ── 1. Build flat DataFrame from raw rows ──────────────────────────────
+    # ------ 1. Build flat DataFrame from raw rows ------------------------------------------------------------------------------------------
     records = []
     for cr in raw_rows:
         cr_id   = _norm_cr(cr.get("mapped_cr") or cr.get("cr") or "")
@@ -1441,7 +1441,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 2. Split: NoSIR list (separate, before removing from main) ─────────
+    # ------ 2. Split: NoSIR list (separate, before removing from main) ---------------------------
     nosir_mask = (
         df_all["cr_status"].str.lower().str.strip() == "nosir"
     ) | (
@@ -1456,14 +1456,14 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 3. Main DF: exclude dup/invalid AND nosir ──────────────────────────
+    # ------ 3. Main DF: exclude dup/invalid AND nosir ------------------------------------------------------------------------------
     invalid_mask = df_all["cr_category"].isin(_INVALID_CATS_PT)
     df_main = (
         df_all[~invalid_mask & ~nosir_mask]
         .reset_index(drop=True)
     )
 
-    # ── 4. Occurrence DF (sorted desc) ────────────────────────────────────
+    # ------ 4. Occurrence DF (sorted desc) ------------------------------------------------------------------------------------------------------------
     df_occurrence = (
         df_main[["cr_id", "cr_title", "cr_area", "cr_subsystem",
                  "cr_functionality", "cr_status", "cr_category",
@@ -1473,7 +1473,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 5. Area breakdown ─────────────────────────────────────────────────
+    # ------ 5. Area breakdown ---------------------------------------------------------------------------------------------------------------------------------------------------
     df_area = (
         df_main.groupby("cr_area", as_index=False)
         .agg(
@@ -1485,7 +1485,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 6. Subsystem breakdown ────────────────────────────────────────────
+    # ------ 6. Subsystem breakdown ------------------------------------------------------------------------------------------------------------------------------------
     df_subsystem = (
         df_main.groupby("cr_subsystem", as_index=False)
         .agg(
@@ -1497,7 +1497,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 7. Functionality breakdown ────────────────────────────────────────
+    # ------ 7. Functionality breakdown ------------------------------------------------------------------------------------------------------------------------
     df_functionality = (
         df_main.groupby("cr_functionality", as_index=False)
         .agg(
@@ -1509,7 +1509,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 8. Regression DF ─────────────────────────────────────────────────
+    # ------ 8. Regression DF ---------------------------------------------------------------------------------------------------------------------------------------------------
     df_regression = (
         df_main[df_main["is_regression"] == True]  # noqa: E712
         [["cr_id", "cr_title", "cr_area", "cr_subsystem",
@@ -1519,7 +1519,7 @@ def build_pt_analysis_dataframes(
         .reset_index(drop=True)
     )
 
-    # ── 9. Age distribution DF ────────────────────────────────────────────
+    # ------ 9. Age distribution DF ------------------------------------------------------------------------------------------------------------------------------------
     age_band_order = ["<5d", "5-20d", "20-40d", ">40d", "Unknown"]
     df_age = (
         df_main.groupby("age_band", as_index=False)
@@ -1536,7 +1536,7 @@ def build_pt_analysis_dataframes(
     )
     df_age = df_age.sort_values("_order").drop(columns=["_order"]).reset_index(drop=True)
 
-    # ── 10. Summary KPIs ─────────────────────────────────────────────────
+    # ------ 10. Summary KPIs ---------------------------------------------------------------------------------------------------------------------------------------------------
     active_ages = df_main["cr_age"][df_main["cr_age"] > 0]
     summary = {
         "targets":            canonical,
@@ -1590,9 +1590,9 @@ def api_pt_analysis():
     POST /api/cr_compare/pt_analysis
 
     Body (JSON):
-        targets    : list[str]   — one or more target keys (any target)
-        date_from  : str         — optional YYYY-MM-DD
-        date_to    : str         — optional YYYY-MM-DD
+        targets    : list[str]   --- one or more target keys (any target)
+        date_from  : str         --- optional YYYY-MM-DD
+        date_to    : str         --- optional YYYY-MM-DD
 
     Returns JSON with:
         df_main, df_nosir, df_occurrence,

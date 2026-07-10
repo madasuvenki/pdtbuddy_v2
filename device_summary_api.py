@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 logger = logging.getLogger(__name__)
 import os
 import re
@@ -18,7 +18,7 @@ from pathlib import Path
 
 device_summary_api_bp = Blueprint("device_summary_api_bp", __name__)
 
-# ── pending device rows waiting for Excel unlock ──
+# ------ pending device rows waiting for Excel unlock ------
 _pending_device_rows = {}  # target_name -> list of {row}
 
 
@@ -37,9 +37,9 @@ def _get_excel_lock_info(path):
     return False, None
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # NEW: Excel-driven Device Summary APIs
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 @device_summary_api_bp.route('/api/ds/<string:target_name>/upload', methods=['POST'])
@@ -109,7 +109,7 @@ def api_ds_save_config(target_name):
         devices_sheet = str(p.get('devices_sheet') or 'Devices').strip()
         data_mode     = str(p.get('data_mode')     or 'excel').strip()
         # Only create a managed workbook when no path is given (Managed Excel button)
-        # When a real path is provided, just save the config — never touch the existing file
+        # When a real path is provided, just save the config --- never touch the existing file
         if not excel_path:
             excel_path, summary_sheet, devices_sheet = ds_svc.ensure_device_summary_workbook(
                 target_name, '', summary_sheet, devices_sheet
@@ -125,7 +125,7 @@ def api_ds_save_config(target_name):
 @device_summary_api_bp.route('/api/ds/<string:target_name>/debug', methods=['GET'])
 @login_required
 def api_ds_debug(target_name):
-    """Dump raw Excel parse info — devices sheet headers + aggregation result."""
+    """Dump raw Excel parse info --- devices sheet headers + aggregation result."""
     try:
         import openpyxl
         cfg           = ds_svc.get_ds_excel_config(target_name) or {}
@@ -313,9 +313,9 @@ def api_ds_edit_device(target_name):
         return jsonify({'success': False, 'message': str(exc)}), 400
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # EXISTING Axiom-based APIs (unchanged below)
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 def _app_root_dir():
@@ -489,7 +489,7 @@ def api_device_summary_data(target_name):
             _save_json(legacy_path, data)
             source = 'axiom' if not data.get('qdt_ok', True) else 'axiom+qdt'
         except OSError as e:
-            # Missing credentials — tell the UI clearly instead of 500
+            # Missing credentials --- tell the UI clearly instead of 500
             return jsonify({
                 'success': False,
                 'message': str(e),
@@ -507,7 +507,7 @@ def api_device_summary_data(target_name):
 @device_summary_api_bp.route('/api/device_summary_data/<string:target_name>/sync_status')
 @login_required
 def api_sync_status(target_name):
-    """Return current cache status for both PDT types — used by the sync banner to show progress."""
+    """Return current cache status for both PDT types --- used by the sync banner to show progress."""
     chip_name = get_chip_name_for_target(target_name) or ''
     result = {}
     for pdt in ('SWPDT', 'HWPDT'):
@@ -776,7 +776,7 @@ def device_summary_devices_page(target_name):
         tx = str(taxonomy_path or "").strip().upper()
         loc = str(raw_location or "").strip().upper()
 
-        # taxonomy mapping — check most specific first
+        # taxonomy mapping --- check most specific first
         # /PDT/QIPL/HW is excluded for SWPDT, but map it to QIPL if it ever appears
         if "/PDT/QIPL" in tx:
             return "QIPL"
@@ -800,7 +800,7 @@ def device_summary_devices_page(target_name):
 
     def _extract_mcn(device_obj):
         """Extract MCN (10-XXXXX-XXXX) from _raw.description or qdt_model_desc.
-        Never fall back to chipsetRev (V1.0) — that is a hardware revision, not MCN."""
+        Never fall back to chipsetRev (V1.0) --- that is a hardware revision, not MCN."""
         raw  = device_obj.get("_raw") or {}
         desc = str(raw.get("description") or device_obj.get("description") or "")
         m = _MCN_RE.search(desc)
@@ -904,7 +904,7 @@ def device_summary_devices_page(target_name):
             "No device JSON found for target=%s pdt=%s. Checked: %s",
             chip_name, pdt_type, [str(x) for x in candidate_files]
         )
-        # ── No cache at all: render the "syncing" waiting page ──
+        # ------ No cache at all: render the "syncing" waiting page ------
         return render_template(
             "device_summary_devices.html",
             target_name=target_name,
@@ -930,7 +930,7 @@ def device_summary_devices_page(target_name):
     for d in raw_devices:
         raw = d.get("_raw") or {}
 
-        # Always prefer _raw.taxonomyPath — the top-level taxonomy_path is often just "/PDT"
+        # Always prefer _raw.taxonomyPath --- the top-level taxonomy_path is often just "/PDT"
         taxonomy_path = _first_non_empty(
             raw.get("taxonomyPath"),
             d.get("taxonomy_path"),
@@ -940,7 +940,7 @@ def device_summary_devices_page(target_name):
             raw.get("taxonomy"),
         )
 
-        # HWPDT / SWPDT split — exclude /PDT/QIPL/HW from SWPDT
+        # HWPDT / SWPDT split --- exclude /PDT/QIPL/HW from SWPDT
         if not _include_for_pdt(pdt_type, taxonomy_path):
             continue
 

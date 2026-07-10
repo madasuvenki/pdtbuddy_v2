@@ -12,7 +12,7 @@ BuddyApp passes only:
 What it does every cycle:
     1. Fetch swpdt_jobs from /PDT  (all states, no filter)
     2. Fetch hwpdt_jobs from /PDT/QIPL/HW  (all states)
-    3. Split by taxonomy → SWPDT builds / HWPDT builds
+    3. Split by taxonomy - SWPDT builds / HWPDT builds
     4. Merge into existing JSONs  (union chip_ids per build)
     5. Prune builds older than 20 days
     6. Save both JSONs (network + local backup)
@@ -78,8 +78,8 @@ logger = logging.getLogger("axiom_poller")
 _SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 
-SWPDT_NET_PATH  = r"\\sphere\pdtqipl_internal\PDTBuddy\SWPDT\SWPDT_job_summary.json"
-HWPDT_NET_PATH  = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_job_audit.json"
+SWPDT_NET_PATH  = r"\\sphere\pdtstats\DB\PDTBuddy\SWPDT\SWPDT_job_summary.json"
+HWPDT_NET_PATH  = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_job_audit.json"
 SWPDT_LOCAL     = os.path.join(_PROJECT_ROOT, "SWPDT_job_summary_local.json")
 HWPDT_LOCAL     = os.path.join(_PROJECT_ROOT, "HWPDT_job_audit_local_backup.json")
 
@@ -98,7 +98,7 @@ TIMEOUT         = 300
 TOKEN_TTL       = 50 * 60   # refresh token every 50 min
 
 # ---------------------------------------------------------------------------
-# Global enable/disable flag — BuddyApp can flip this at runtime
+# Global enable/disable flag - BuddyApp can flip this at runtime
 # ---------------------------------------------------------------------------
 ENABLED = False   # set to True by BuddyApp or --enable flag
 
@@ -165,7 +165,7 @@ def _get(token: str, path: str) -> dict:
 def fetch_jobs(token: str, taxonomy: str, max_jobs: int) -> List[dict]:
     """
     Fetch up to max_jobs from Axiom for the given taxonomy.
-    All states — no state filter, no date filter.
+    All states - no state filter, no date filter.
     Returns raw Axiom job dicts.
     """
     page_size = min(100, max_jobs)
@@ -184,7 +184,7 @@ def fetch_jobs(token: str, taxonomy: str, max_jobs: int) -> List[dict]:
                     taxonomy, page, len(collected), max_jobs)
         resp = _get(token, path)
         if not resp:
-            logger.warning("[FETCH] empty response — stopping")
+            logger.warning("[FETCH] empty response - stopping")
             break
 
         data        = resp.get("data") or []
@@ -206,7 +206,7 @@ def fetch_jobs(token: str, taxonomy: str, max_jobs: int) -> List[dict]:
 
 
 # ===========================================================================
-# HWPDT-specific normalise — keeps full job + chip_lookup structure
+# HWPDT-specific normalise - keeps full job + chip_lookup structure
 # ===========================================================================
 
 def _hwpdt_normalise_jobs(raw_jobs: List[dict]) -> List[dict]:
@@ -276,7 +276,7 @@ def _hwpdt_build_audit(existing: dict, new_records: List[dict]) -> dict:
     """
     Merge new HWPDT job records into existing audit.
     Dedup by job_id. Rebuild chip_lookup and sp_chip_map after merge.
-    Never prunes — keeps all jobs forever.
+    Never prunes - keeps all jobs forever.
     """
     existing_jobs: Dict = {}
     for j in (existing.get("jobs") or []):
@@ -307,7 +307,7 @@ def _hwpdt_build_audit(existing: dict, new_records: List[dict]) -> dict:
     all_jobs = sorted(existing_jobs.values(),
                       key=lambda j: j.get("job_id") or 0, reverse=True)
 
-    # Rebuild chip_lookup: chip_id → list of { job_id, software_product, playlist_name, status }
+    # Rebuild chip_lookup: chip_id - list of { job_id, software_product, playlist_name, status }
     chip_lookup: Dict[str, List[dict]] = {}
     for job in all_jobs:
         for chip in (job.get("chip_ids") or []):
@@ -320,7 +320,7 @@ def _hwpdt_build_audit(existing: dict, new_records: List[dict]) -> dict:
                 "end_time":         job.get("end_time"),
             })
 
-    # Rebuild sp_chip_map: software_product → sorted unique chip_ids
+    # Rebuild sp_chip_map: software_product - sorted unique chip_ids
     sp_chip_map: Dict[str, List[str]] = {}
     for job in all_jobs:
         sp = str(job.get("software_product") or "").strip()
@@ -345,8 +345,8 @@ def _normalise_to_builds(raw_jobs: List[dict]) -> Dict[str, dict]:
     """
     Convert raw Axiom jobs into build-keyed records.
     Multiple jobs for the same build are merged:
-      - chip_ids  → union
-      - submitted → earliest date
+      - chip_ids  - union
+      - submitted - earliest date
     """
     builds: Dict[str, dict] = {}
 
@@ -418,10 +418,10 @@ def merge(existing: Dict[str, dict], new: Dict[str, dict]) -> Dict[str, dict]:
 def prune(builds: Dict[str, dict], taxonomy: str = 'swpdt') -> Dict[str, dict]:
     """
     SWPDT : remove builds older than RETENTION_DAYS (20 days).
-    HWPDT : never prune — keep all builds (chip history must be complete).
+    HWPDT : never prune - keep all builds (chip history must be complete).
     """
     if taxonomy == 'hwpdt':
-        logger.info("[PRUNE] HWPDT — no pruning, keeping all %d builds", len(builds))
+        logger.info("[PRUNE] HWPDT - no pruning, keeping all %d builds", len(builds))
         return builds
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
@@ -435,7 +435,7 @@ def prune(builds: Dict[str, dict], taxonomy: str = 'swpdt') -> Dict[str, dict]:
                 pruned += 1
                 continue
         except Exception:
-            pass   # unparseable date → keep
+            pass   # unparseable date - keep
         kept[bid] = b
     if pruned:
         logger.info("[PRUNE] SWPDT removed %d builds older than %d days", pruned, RETENTION_DAYS)
@@ -488,7 +488,7 @@ def make_payload(builds: Dict[str, dict], taxonomy: str) -> dict:
 def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
     """
     Fetch, merge, prune, save.
-    first_run=True  → clears existing JSONs (fresh start).
+    first_run=True  - clears existing JSONs (fresh start).
     Returns True on success, False on failure.
     """
     client_id     = os.environ.get("AXIOM_CLIENT_ID", "").strip()
@@ -503,14 +503,14 @@ def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
                 swpdt_jobs, hwpdt_jobs, first_run)
     logger.info("=" * 60)
 
-    # ── Token ──────────────────────────────────────────────────────────────
+    # - Token -
     try:
         token = get_token(client_id, client_secret)
     except Exception as exc:
         logger.error("[POLLER] Token fetch failed: %s", exc)
         return False
 
-    # ── Fetch SWPDT ────────────────────────────────────────────────────────
+    # - Fetch SWPDT -
     try:
         raw_swpdt_all = fetch_jobs(token, TAXONOMY_SWPDT, swpdt_jobs + hwpdt_jobs)
         # split by taxonomy
@@ -522,7 +522,7 @@ def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
         logger.error("[POLLER] SWPDT fetch failed: %s", exc)
         raw_swpdt, raw_hwpdt = [], []
 
-    # ── Fetch HWPDT directly (top up if needed) ────────────────────────────
+    # - Fetch HWPDT directly (top up if needed) -
     try:
         if len(raw_hwpdt) < hwpdt_jobs:
             need = hwpdt_jobs - len(raw_hwpdt)
@@ -538,13 +538,13 @@ def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
 
     logger.info("[POLLER] raw  swpdt=%d  hwpdt=%d", len(raw_swpdt), len(raw_hwpdt))
 
-    # ── Normalise ──────────────────────────────────────────────────────────
+    # - Normalise -
     new_swpdt         = _normalise_to_builds(raw_swpdt)
     new_hwpdt_records = _hwpdt_normalise_jobs(raw_hwpdt)
     logger.info("[POLLER] normalised  swpdt_builds=%d  hwpdt_jobs=%d",
                 len(new_swpdt), len(new_hwpdt_records))
 
-    # ── SWPDT: merge / fresh ───────────────────────────────────────────────
+    # - SWPDT: merge / fresh -
     if first_run:
         swpdt_builds = new_swpdt
         logger.info("[SWPDT] first-run fresh: %d builds", len(swpdt_builds))
@@ -556,7 +556,7 @@ def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
     swpdt_builds = prune(swpdt_builds, taxonomy='swpdt')
     save_json(make_payload(swpdt_builds, TAXONOMY_SWPDT), SWPDT_NET_PATH, SWPDT_LOCAL)
 
-    # ── HWPDT: merge / fresh ───────────────────────────────────────────────
+    # - HWPDT: merge / fresh -
     # -- HWPDT: enrich playlists then build full audit (jobs + chip_lookup + sp_chip_map) --
     new_hwpdt_records = _hwpdt_enrich_playlists(token, new_hwpdt_records)
 
@@ -583,7 +583,7 @@ def run_once(swpdt_jobs: int, hwpdt_jobs: int, first_run: bool = False) -> bool:
 
 
 # ===========================================================================
-# Background loop — called by BuddyApp as a daemon thread
+# Background loop - called by BuddyApp as a daemon thread
 # ===========================================================================
 
 def run_poller(swpdt_jobs: int = 100, hwpdt_jobs: int = 20,
@@ -596,8 +596,8 @@ def run_poller(swpdt_jobs: int = 100, hwpdt_jobs: int = 20,
         hwpdt_jobs    - jobs per HWPDT cycle  (e.g. 20)
         poll_interval - seconds between cycles (default 300)
 
-    Cycle 1  → first_run=True  (500 jobs each, fresh JSONs)
-    Cycle 2+ → first_run=False (swpdt_jobs + hwpdt_jobs, merge)
+    Cycle 1  - first_run=True  (500 jobs each, fresh JSONs)
+    Cycle 2+ - first_run=False (swpdt_jobs + hwpdt_jobs, merge)
 
     Global ENABLED flag can be flipped at runtime to pause/resume.
     """
@@ -611,7 +611,7 @@ def run_poller(swpdt_jobs: int = 100, hwpdt_jobs: int = 20,
 
     while True:
         if not ENABLED:
-            logger.info("[POLLER] disabled — sleeping 60s")
+            logger.info("[POLLER] disabled - sleeping 60s")
             time.sleep(60)
             continue
 
@@ -636,14 +636,14 @@ def run_poller(swpdt_jobs: int = 100, hwpdt_jobs: int = 20,
                          cycle, consecutive_errors, exc, traceback.format_exc())
 
         if consecutive_errors >= 5:
-            logger.warning("[POLLER] %d consecutive errors — pausing 30 min", consecutive_errors)
+            logger.warning("[POLLER] %d consecutive errors - pausing 30 min", consecutive_errors)
             time.sleep(1800)
             consecutive_errors = 0
             continue
 
         elapsed   = time.time() - cycle_start
         sleep_for = max(0, poll_interval - elapsed)
-        logger.info("[POLLER] cycle=%d done in %.1fs — sleeping %.0fs",
+        logger.info("[POLLER] cycle=%d done in %.1fs - sleeping %.0fs",
                     cycle, elapsed, sleep_for)
         time.sleep(sleep_for)
 
@@ -670,7 +670,7 @@ def start_background_poller(swpdt_jobs: int = 100,
     ENABLED = enabled
 
     if not enabled:
-        logger.info("[POLLER] start_background_poller called with enabled=False — not starting.")
+        logger.info("[POLLER] start_background_poller called with enabled=False - not starting.")
         return
 
     import threading
@@ -703,7 +703,7 @@ def start_background_poller(swpdt_jobs: int = 100,
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Axiom Poller — fetch HWPDT + SWPDT builds (build_id + devices only)."
+        description="Axiom Poller - fetch HWPDT + SWPDT builds (build_id + devices only)."
     )
     parser.add_argument("--swpdt-jobs", type=int, default=500,
                         help="Number of SWPDT jobs to fetch (default 500 for first run)")
@@ -731,7 +731,7 @@ def main() -> None:
     ENABLED = True
 
     logger.info("=" * 60)
-    logger.info("  Axiom Poller — standalone mode")
+    logger.info("  Axiom Poller - standalone mode")
     logger.info("  SWPDT jobs : %d", args.swpdt_jobs)
     logger.info("  HWPDT jobs : %d", args.hwpdt_jobs)
     logger.info("  Loop       : %s  (interval=%ds)", args.loop, args.interval)

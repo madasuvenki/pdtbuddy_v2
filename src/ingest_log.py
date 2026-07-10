@@ -1,4 +1,4 @@
-﻿"""
+"""
 src/ingest_log.py
 =================
 Helpers to write ingest run results to pdt_stats_dashboard.ingest_run_log.
@@ -19,7 +19,7 @@ from typing import Optional
 from src.utils import get_mysql_connection_db
 
 
-# ── public helpers ────────────────────────────────────────────────────────────
+# ------ public helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def new_run_id() -> str:
     """Generate a unique run_id (UUID4) for a batch ingest run."""

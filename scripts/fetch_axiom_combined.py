@@ -11,7 +11,7 @@ of how many jobs exist.
 Builds are keyed by Axiom job_id (unique per job).
 Same job_id on re-poll -> replaced with latest data.
 Same build_id, different job_id -> kept as separate entries.
-All builds are kept forever — no pruning.
+All builds are kept forever - no pruning.
 Full history is preserved for all teams.
 
 Output shape (both files):
@@ -82,10 +82,10 @@ DEFAULT_API_HOST    = "api-int.qualcomm.com"
 DEFAULT_APP_NAME    = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 
 # ---------------------------------------------------------------------------
-# Taxonomy paths — confirmed valid in Axiom (404 tested 2026-06-17)
+# Taxonomy paths - confirmed valid in Axiom (404 tested 2026-06-17)
 # Fetch order: most-specific first so cross-match assigns the narrowest team
 # ---------------------------------------------------------------------------
-TAXONOMY_ALL        = "/PDT"           # broad — all teams (used for initial fetch)
+TAXONOMY_ALL        = "/PDT"           # broad - all teams (used for initial fetch)
 QIPL_SWPDT_TAXONOMY = "/PDT/QIPL"      # QIPL team (SW + HW)
 HWPDT_TAXONOMY      = "/PDT/QIPL/HW"   # HWPDT sub-team under QIPL
 CHINA_TAXONOMY      = "/PDT/China"      # China team
@@ -102,7 +102,7 @@ TEAM_LABEL = {
 
 # Cross-match fetch sizes per taxonomy.
 # First-run only: used to assign team labels to the full 20-day backfill.
-# Regular cycles skip cross-match entirely — team is inferred from software_product.
+# Regular cycles skip cross-match entirely - team is inferred from software_product.
 CROSS_MATCH_JOBS = {
     HWPDT_TAXONOMY      : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_HWPDT", "100")),
     QIPL_SWPDT_TAXONOMY : int(os.environ.get("AXIOM_CROSS_MATCH_JOBS_QIPL",  "1000")),
@@ -133,7 +133,7 @@ AXIOM_DB_TABLE = "`pdt_stats_dashboard`.`axiom_job_summary`"
 MAX_RETRIES         = 3
 RETRY_DELAY_SEC     = 5
 TIMEOUT_SEC         = 300
-TOKEN_TTL_SEC       = 25 * 60   # refresh every 25 min — Axiom tokens expire ~30 min
+TOKEN_TTL_SEC       = 25 * 60   # refresh every 25 min - Axiom tokens expire ~30 min
 AUTH_RETRY_LIMIT    = 3         # token refresh attempts per cycle before giving up
 AUTH_BACKOFF_SEC    = 120       # backoff (seconds) after auth failure before next cycle
 # Axiom rejects submittedBefore values that are even slightly in the future on
@@ -147,8 +147,8 @@ JSON_LOCK_STALE_SEC   = 1800     # remove stale SWPDT JSON lock files older than
 _SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 
-SWPDT_OUTPUT_DIR  = r"\\sphere\pdtqipl_internal\PDTBuddy\SWPDT"
-HWPDT_OUTPUT_DIR  = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT"
+SWPDT_OUTPUT_DIR  = r"\\sphere\pdtstats\DB\PDTBuddy\SWPDT"
+HWPDT_OUTPUT_DIR  = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT"
 SWPDT_FILENAME    = "SWPDT_job_summary.json"
 QIPL_SWPDT_FILENAME = "qipl_SWPDT_job_summary.json"
 HWPDT_FILENAME    = "HWPDT_job_audit.json"
@@ -181,7 +181,7 @@ _ENRICHMENT_RULES = [
 
 
 # ---------------------------------------------------------------------------
-# DB helpers — axiom_job_summary table
+# DB helpers - axiom_job_summary table
 # ---------------------------------------------------------------------------
 
 def _ensure_axiom_job_table(cursor) -> None:
@@ -296,7 +296,7 @@ def _calc_hours(state: str, device_count: int,
         if state_l in ('completed', 'aborted') and ended_at:
             t_end = _dt.strptime(str(ended_at)[:19], fmt).replace(tzinfo=_tz.utc)
         else:
-            t_end = _dt.now(_tz.utc)          # Running — use current time
+            t_end = _dt.now(_tz.utc)          # Running - use current time
         raw_secs = max(0, (t_end - t_start).total_seconds()) * int(device_count)
         if raw_secs <= 0:
             return None, None
@@ -428,7 +428,7 @@ def _hwpdt_build_test_result_index(results_payload: dict) -> Dict[tuple, dict]:
 def _parse_dt(val) -> Optional[str]:
     """Return MySQL-compatible datetime string (YYYY-MM-DD HH:MM:SS) or None.
     Axiom returns ISO strings like '2026-06-17T16:14:19.1836775Z' which have
-    7 decimal places — MySQL DATETIME only accepts up to 6, so we truncate
+    7 decimal places - MySQL DATETIME only accepts up to 6, so we truncate
     to seconds only to keep it simple and universally compatible.
     """
     import re as _re
@@ -437,7 +437,7 @@ def _parse_dt(val) -> Optional[str]:
         return None
     # Strip trailing Z, replace T with space
     s = s.rstrip('Z').replace('T', ' ')
-    # Truncate fractional seconds entirely — keep only YYYY-MM-DD HH:MM:SS
+    # Truncate fractional seconds entirely - keep only YYYY-MM-DD HH:MM:SS
     s = _re.sub(r'\.\d+$', '', s)
     # Validate basic shape
     if len(s) < 19:
@@ -448,7 +448,7 @@ def _parse_dt(val) -> Optional[str]:
 def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
     """
     Upsert normalised Axiom job records into axiom_job_summary.
-    Only stores Running, Completed, Aborted jobs — skips Submitted/Dispatched
+    Only stores Running, Completed, Aborted jobs - skips Submitted/Dispatched
     as they have no chips yet and are noise.
     team + taxonomy_path are already stamped on each build by run_cycle().
     Returns count of rows upserted.
@@ -469,7 +469,7 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
         from src.utils import get_mysql_connection_db
         conn = get_mysql_connection_db(bu_key=None)
         if not conn:
-            logger.warning("[DB UPSERT] No DB connection — skipping")
+            logger.warning("[DB UPSERT] No DB connection - skipping")
             return 0
     except Exception as exc:
         logger.warning("[DB UPSERT] DB import failed: %s", exc)
@@ -687,7 +687,7 @@ def _get_token(host: str, client_id: str, client_secret: str) -> str:
 
 
 class _TokenExpired(Exception):
-    """Raised by _get() when Axiom returns 401 — signals caller to refresh token."""
+    """Raised by _get() when Axiom returns 401 - signals caller to refresh token."""
 
 
 def _get(host: str, token: str, path: str, app_name: str) -> dict:
@@ -712,8 +712,8 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
             if resp.status in (200, 201, 206):
                 return json.loads(raw.decode())
             if resp.status == 401:
-                # Token expired — no point retrying with same token. Log at INFO to avoid noisy WARNING spam.
-                logger.info("[GET] HTTP 401 — token expired, signalling refresh")
+                # Token expired - no point retrying with same token. Log at INFO to avoid noisy WARNING spam.
+                logger.info("[GET] HTTP 401 - token expired, signalling refresh")
                 raise _TokenExpired()
             if resp.status == 400 and b"must not be ahead of the current time" in raw:
                 logger.info("[GET] HTTP 400 from Axiom time-window guard; stopping this request: %r", raw[:200])
@@ -729,7 +729,7 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Fetch jobs from Axiom — all states, paginated, with 20-day date window
+# Fetch jobs from Axiom - all states, paginated, with 20-day date window
 # ---------------------------------------------------------------------------
 def _fetch_jobs(host: str, token: str, app_name: str,
                 taxonomy: str, max_jobs: int,
@@ -768,7 +768,7 @@ def _fetch_jobs(host: str, token: str, app_name: str,
     _since_dt = datetime.strptime(since_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     if _since_dt >= _safe_before:
         logger.info(
-            "[FETCH] taxonomy=%s since=%s is in the future (now-%dm=%s) — skipping fetch",
+            "[FETCH] taxonomy=%s since=%s is in the future (now-%dm=%s) - skipping fetch",
             taxonomy, since_utc[:16], AXIOM_SUBMITTED_BEFORE_LAG_MINUTES, before_utc[:16],
         )
         return []
@@ -798,7 +798,7 @@ def _fetch_jobs(host: str, token: str, app_name: str,
             # Bubble up so run_combined_poller can refresh and retry the whole cycle
             raise
         if not resp:
-            logger.warning("[FETCH] empty response — stopping")
+            logger.warning("[FETCH] empty response - stopping")
             break
 
         data        = resp.get("data") or []
@@ -823,7 +823,7 @@ def _fetch_jobs(host: str, token: str, app_name: str,
 
 
 # ---------------------------------------------------------------------------
-# Enrich HWPDT builds with playlist names  (threaded — fast)
+# Enrich HWPDT builds with playlist names  (threaded - fast)
 # Calls GET /axiom/v1/public/jobs/{jobId}/data/playlists for each job
 # that has no playlist_name yet. Skips jobs already enriched.
 # Uses a thread pool so 2000 jobs complete in ~2-3 min instead of ~40 min.
@@ -995,7 +995,7 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
 
     enriched = 0
     failed   = 0
-    # 20 threads — fast but not hammering the API
+    # 20 threads - fast but not hammering the API
     MAX_WORKERS = 20
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
@@ -1022,7 +1022,7 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
 
 
 # ---------------------------------------------------------------------------
-# Normalise raw jobs → build-keyed dict
+# Normalise raw jobs - build-keyed dict
 # ---------------------------------------------------------------------------
 def _norm_key(value) -> str:
     return "".join(ch for ch in str(value or "").lower() if ch.isalnum())
@@ -1135,7 +1135,7 @@ def _enrich_jobs_by_rules(host: str, token: str, app_name: str, jobs: List[dict]
                 cfg = _get(host, token, f"/axiom/v1/public/jobs/{quote(str(job_id), safe='')}/{config_path}", app_name)
             except _TokenExpired:
                 token_failures += 1
-                logger.info('[ENRICH] 401 on job_id=%s rule=%s — token expired; aborting cycle so poller refreshes token and retries', job_id, name)
+                logger.info('[ENRICH] 401 on job_id=%s rule=%s - token expired; aborting cycle so poller refreshes token and retries', job_id, name)
                 raise
             value = _extract_value_by_rule(cfg, rule)
             if value:
@@ -1172,7 +1172,7 @@ def _backfill_missing_fields_by_rules(host: str, token: str, app_name: str, buil
                 cfg = _get(host, token, f"/axiom/v1/public/jobs/{quote(str(job_id), safe='')}/{config_path}", app_name)
             except _TokenExpired:
                 token_failures += 1
-                logger.info('[BACKFILL] 401 on job_id=%s — token expired; aborting cycle so poller refreshes token and retries', job_id)
+                logger.info('[BACKFILL] 401 on job_id=%s - token expired; aborting cycle so poller refreshes token and retries', job_id)
                 raise
             value = _extract_value_by_rule(cfg, rule)
             if value:
@@ -1250,7 +1250,7 @@ def _normalise_to_builds(raw_jobs: List[dict]) -> Dict[str, dict]:
 
 
 # ---------------------------------------------------------------------------
-# Merge new builds into existing JSON builds dict (SWPDT — full replace)
+# Merge new builds into existing JSON builds dict (SWPDT - full replace)
 # ---------------------------------------------------------------------------
 def _merge_builds(existing_builds: Dict[str, dict],
                   new_builds: Dict[str, dict]) -> Dict[str, dict]:
@@ -1272,7 +1272,7 @@ def _merge_builds(existing_builds: Dict[str, dict],
 
 
 # ---------------------------------------------------------------------------
-# Merge new HWPDT builds — preserves playlist_name from existing entries
+# Merge new HWPDT builds - preserves playlist_name from existing entries
 # ---------------------------------------------------------------------------
 def _merge_builds_hwpdt(existing_builds: Dict[str, dict],
                         new_builds: Dict[str, dict]) -> Dict[str, dict]:
@@ -1361,7 +1361,7 @@ def _is_network_path(path: str) -> bool:
 
 
 def _safe_load_json(network_path: str, local_path: str) -> dict:
-    """Load JSON — skip network path silently if unreachable."""
+    """Load JSON - skip network path silently if unreachable."""
     paths = []
     if not _is_network_path(network_path):
         paths.append(network_path)
@@ -1380,7 +1380,7 @@ def _safe_load_json(network_path: str, local_path: str) -> dict:
 
 
 def _safe_save_json(data: dict, network_path: str, local_path: str) -> None:
-    """Save JSON — always write local, attempt network but never raise."""
+    """Save JSON - always write local, attempt network but never raise."""
     # Always write local first
     if local_path:
         try:
@@ -1390,7 +1390,7 @@ def _safe_save_json(data: dict, network_path: str, local_path: str) -> None:
             logger.info('[SAVE] local %s  (%d builds)', local_path, data.get('total_builds', 0))
         except Exception as exc:
             logger.warning('[SAVE] local %s failed: %s', local_path, exc)
-    # Attempt network — skip entirely if UNC path unreachable
+    # Attempt network - skip entirely if UNC path unreachable
     if network_path and not _is_network_path(network_path):
         try:
             os.makedirs(os.path.dirname(network_path), exist_ok=True)
@@ -1420,7 +1420,7 @@ def _safe_json_write_lock(path: str, timeout_sec: int = JSON_LOCK_TIMEOUT_SEC):
             os.makedirs(os.path.dirname(path), exist_ok=True)
         except Exception as exc:
             logger.warning('[JSON LOCK] network path unreachable, skipping lock for %s: %s', path, exc)
-            yield  # yield without lock — JSON write will also be skipped
+            yield  # yield without lock - JSON write will also be skipped
             return
     # Delegate to real lock for local paths or reachable network paths
     with _json_write_lock(path, timeout_sec=timeout_sec):
@@ -1597,7 +1597,7 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
 def _infer_team_from_product(j: dict) -> tuple:
     """Infer team label + taxonomy_path from software_product / build_id.
     Used on regular cycles to avoid expensive cross-match API calls.
-    HWPDT jobs have taxonomy /PDT/QIPL/HW — their software_product typically
+    HWPDT jobs have taxonomy /PDT/QIPL/HW - their software_product typically
     contains 'HW' or the build path contains 'HWPDT'. Everything else is QIPL/PDT.
     """
     sp  = str(j.get('softwareProduct') or j.get('software_product') or '').upper()
@@ -1628,19 +1628,19 @@ def run_cycle(host: str, token: str, app_name: str,
     First run  : full 20-day backfill with cross-match team assignment.
     Regular cycle: fetch only last CYCLE_SINCE_MINUTES of new jobs (fast),
                    then refresh all currently-Running jobs via /info endpoint.
-                   Cross-match API calls are skipped — team inferred from product.
+                   Cross-match API calls are skipped - team inferred from product.
     """
     logger.info("[CYCLE] start  swpdt_jobs=%d  hwpdt_jobs=%d  first_run=%s",
                 swpdt_jobs, hwpdt_jobs, first_run)
 
-    # ── Step 1: Fetch /PDT jobs ────────────────────────────────────────────
+    # - Step 1: Fetch /PDT jobs -
     if first_run:
         # Full 20-day backfill
         logger.info("[FETCH] first-run: broad /PDT last %d days ...", RETENTION_DAYS)
         raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
                               swpdt_jobs + hwpdt_jobs, since_days=RETENTION_DAYS)
     else:
-        # Regular cycle: only last CYCLE_SINCE_MINUTES minutes — fast
+        # Regular cycle: only last CYCLE_SINCE_MINUTES minutes - fast
         logger.info("[FETCH] cycle: /PDT last %d min (max %d jobs) ...",
                     CYCLE_SINCE_MINUTES, swpdt_jobs + hwpdt_jobs)
         raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
@@ -1650,7 +1650,7 @@ def run_cycle(host: str, token: str, app_name: str,
     all_by_id = {str(j.get('jobId') or ''): j for j in raw_all if j.get('jobId')}
     logger.info("[FETCH] /PDT fetched: %d jobs", len(all_by_id))
 
-    # ── Step 2: Team assignment ────────────────────────────────────────────
+    # - Step 2: Team assignment -
     if first_run:
         # Cross-match: fetch sub-team ID sets to assign team labels accurately
         logger.info("[CROSS-MATCH] first-run: fetching team ID sets ...")
@@ -1681,7 +1681,7 @@ def run_cycle(host: str, token: str, app_name: str,
         logger.info("[CROSS-MATCH] team distribution: %s",
                     dict(Counter(j['team'] for j in all_by_id.values())))
     else:
-        # Regular cycle: infer team from software_product — no extra API calls
+        # Regular cycle: infer team from software_product - no extra API calls
         qipl_ids = set()
         hw_ids   = set()
         for jid, j in all_by_id.items():
@@ -1712,7 +1712,7 @@ def run_cycle(host: str, token: str, app_name: str,
 
     logger.info("[SPLIT] swpdt+other=%d  hwpdt=%d", len(raw_swpdt), len(raw_hwpdt))
 
-    # ── Normalise all jobs → DB upsert (no JSON files) ────────────────────
+    # - Normalise all jobs - DB upsert (no JSON files) -
     all_normalised: Dict[str, dict] = {}
 
     # SWPDT + other teams
@@ -1722,7 +1722,7 @@ def run_cycle(host: str, token: str, app_name: str,
         b['taxonomy_path'] = src.get('taxonomy_path', TAXONOMY_ALL)
         all_normalised[jid] = b
 
-    # HWPDT — enrich playlist names for new jobs only (DB-cached jobs skipped)
+    # HWPDT - enrich playlist names for new jobs only (DB-cached jobs skipped)
     hwpdt_norm = _normalise_to_builds(raw_hwpdt)
     if hwpdt_norm:
         hwpdt_norm = _enrich_hwpdt_playlists(host, token, app_name, hwpdt_norm)
@@ -1731,14 +1731,14 @@ def run_cycle(host: str, token: str, app_name: str,
         b['taxonomy_path'] = HWPDT_TAXONOMY
         all_normalised[jid] = b
 
-    # Product flavour — reuse DB cache, only call Axiom for truly missing ones
+    # Product flavour - reuse DB cache, only call Axiom for truly missing ones
     all_normalised = _apply_cached_product_flavors(all_normalised)
     all_normalised = _backfill_missing_fields_by_rules(host, token, app_name, all_normalised)
 
     logger.info('[DB UPSERT] upserting %d total jobs across all teams ...', len(all_normalised))
     upserted = _upsert_jobs_to_db(all_normalised)
 
-    # ── Refresh all still-Running jobs in DB ──────────────────────────────
+    # - Refresh all still-Running jobs in DB -
     refreshed = _refresh_running_jobs(host, token, app_name)
 
     logger.info("[CYCLE] done  fetched=%d  db_upserted=%d  running_refreshed=%d",
@@ -1833,7 +1833,7 @@ def run_combined_poller(
                             f"token kept expiring after {auth_failures} refresh attempts in cycle {cycle}"
                         )
                     logger.info(
-                        "[COMBINED POLLER] 401 mid-cycle — refreshing token, retry %d/%d (cycle %d)",
+                        "[COMBINED POLLER] 401 mid-cycle - refreshing token, retry %d/%d (cycle %d)",
                         auth_failures, AUTH_RETRY_LIMIT, cycle,
                     )
                     token          = _get_token(api_host, client_id, client_secret)
@@ -1854,13 +1854,13 @@ def run_combined_poller(
 
             if is_auth_error:
                 logger.info(
-                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s — token cleared, will retry next cycle.",
+                    "[COMBINED POLLER] cycle=%d auth error (#%d): %s - token cleared, will retry next cycle.",
                     cycle, consecutive_errors, exc,
                 )
             elif is_network_error:
-                # DNS / VPN / network unreachable — not a code bug, no traceback needed
+                # DNS / VPN / network unreachable - not a code bug, no traceback needed
                 logger.warning(
-                    "[COMBINED POLLER] cycle=%d NETWORK ERROR (#%d): %s — "
+                    "[COMBINED POLLER] cycle=%d NETWORK ERROR (#%d): %s - "
                     "host=%s is unreachable (VPN/network down?). Will retry after %ds.",
                     cycle, consecutive_errors, exc, api_host, poll_interval,
                 )
@@ -1871,13 +1871,13 @@ def run_combined_poller(
             token = None  # force token refresh next cycle
             if is_network_error:
                 # Network errors: always back off exactly poll_interval (not multiplied)
-                # — the network may come back at any time, no need to escalate
+                # - the network may come back at any time, no need to escalate
                 backoff = poll_interval
             elif is_auth_error:
                 backoff = AUTH_BACKOFF_SEC
             else:
                 backoff = min(poll_interval * consecutive_errors, 1800)
-            logger.warning("[COMBINED POLLER] cycle=%d failed at %s — backing off %ds", cycle, _fmt_ts(), backoff)
+            logger.warning("[COMBINED POLLER] cycle=%d failed at %s - backing off %ds", cycle, _fmt_ts(), backoff)
             time.sleep(backoff)
             continue
 
@@ -1928,7 +1928,7 @@ def load_builds_for_product(software_product_prefix: str,
 # ---------------------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Fetch HWPDT + SWPDT builds from Axiom — build_id + devices only."
+        description="Fetch HWPDT + SWPDT builds from Axiom - build_id + devices only."
     )
     parser.add_argument("--api-host",      default=DEFAULT_API_HOST)
     parser.add_argument("--app-name",      default=DEFAULT_APP_NAME)

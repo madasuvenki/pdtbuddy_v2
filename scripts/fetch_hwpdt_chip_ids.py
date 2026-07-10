@@ -5,7 +5,7 @@ fetch_hwpdt_chip_ids.py
 Fetches ALL jobs from Axiom for taxonomy /PDT/QIPL/HW with pagination,
 retries on failure, deduplicates chipIdSerialNumbers per softwareProduct,
 and saves the result to:
-    \\sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_certicom_Ids.json
+    \\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_certicom_Ids.json
 
 Features:
   - Paginated fetch with retry on 504/timeout
@@ -58,15 +58,15 @@ try:
 except Exception as _e:
     logger.debug(f"[fetch_hwpdt] dotenv not loaded: {_e}")
 
-# ─── CONFIG ───────────────────────────────────────────────────────────────────
+# - CONFIG -
 DEFAULT_API_HOST     = "api-int.qualcomm.com"
 DEFAULT_APP_NAME     = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
 TAXONOMY_PATH        = "/PDT/QIPL/HW"
 PAGE_SIZE            = 100
 MAX_RETRIES          = 3
 RETRY_DELAY_SEC      = 5
-OUTPUT_DIR           = r"\\sphere\pdtqipl_internal\PDTBuddy\HWPDT"
-AUDIT_FILENAME       = "HWPDT_job_audit.json"       # primary — ever-growing
+OUTPUT_DIR           = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT"
+AUDIT_FILENAME       = "HWPDT_job_audit.json"       # primary - ever-growing
 CERTICOM_FILENAME    = "HWPDT_certicom_Ids.json"    # derived from audit each run
 
 # Keep old names as aliases so any external references still resolve
@@ -75,10 +75,10 @@ RAW_OUTPUT_FILENAME = AUDIT_FILENAME
 MAX_PAGES            = 50              # max pages to fetch (100 jobs/page = 5000 jobs max)
 STALE_THRESHOLD_DAYS = 1               # re-fetch if JSON is >= 1 day old
 
-# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+# Axiom fetch enabled - controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
 AXIOM_FETCH_DISABLED = False
 
-# ── Always resolve local backup paths relative to the project root,
+# - Always resolve local backup paths relative to the project root,
 
 #    NOT the current working directory (which may be venv/Scripts when
 #    launched by the scheduler).
@@ -90,7 +90,7 @@ LOCAL_CERTICOM_BACKUP = os.path.join(_PROJECT_ROOT, "HWPDT_certicom_Ids_local_ba
 # Keep old names as aliases
 LOCAL_BACKUP     = LOCAL_CERTICOM_BACKUP
 LOCAL_RAW_BACKUP = LOCAL_AUDIT_BACKUP
-# ──────────────────────────────────────────────────────────────────────────────
+# -
 
 
 # =============================================================================
@@ -174,7 +174,7 @@ def make_request_with_retry(
 
 def fetch_latest_jobs(api_host: str, token: str, app_name: str) -> List[Dict]:
     """
-    Fetch exactly 1 page (100 jobs) — the most recent jobs from Axiom.
+    Fetch exactly 1 page (100 jobs) - the most recent jobs from Axiom.
     Called once per run; results are appended to the existing audit.
     """
     if AXIOM_FETCH_DISABLED:
@@ -240,7 +240,7 @@ def append_new_jobs(
 ) -> Dict[str, Any]:
     """
     Append new jobs to the existing audit.
-    Dedup by job_id — a job already in the audit is never duplicated.
+    Dedup by job_id - a job already in the audit is never duplicated.
     Within a job, chip_ids are already deduplicated by normalise_raw_jobs().
     chip_lookup is fully rebuilt from all jobs after appending.
     """
@@ -257,7 +257,7 @@ def append_new_jobs(
             skipped += 1
             continue
         if jid in existing_jobs:
-            # Already exists — only update playlist_name if we now have it
+            # Already exists - only update playlist_name if we now have it
             old = existing_jobs[jid]
             if rec.get("playlist_name") and not old.get("playlist_name"):
                 old["playlist_name"] = rec["playlist_name"]
@@ -296,7 +296,7 @@ def append_new_jobs(
 
 def derive_certicom_from_audit(audit: Dict[str, Any]) -> Dict[str, List[str]]:
     """
-    Derive chip_map from audit — only programs present in the audit.
+    Derive chip_map from audit - only programs present in the audit.
     chip_ids per SP = union of all chip_ids across all audit jobs for that SP.
     """
     sp_chips: Dict[str, set] = {}
@@ -439,7 +439,7 @@ def _update_hwpdt_ingest_status(status: str, last_updated: Optional[datetime] = 
     """
     conn = _get_db_connection()
     if not conn:
-        logger.warning("  [DB] Skipping DB status update — no connection.")
+        logger.warning("  [DB] Skipping DB status update - no connection.")
         return
     try:
         cur = conn.cursor(dictionary=True)
@@ -485,7 +485,7 @@ def _update_hwpdt_dashboard_status(chip_map: Dict[str, List[str]]) -> None:
     No target is left NULL after this runs.
 
     NOTE: Matching is done against sp_name (e.g. 'Aldabra.LA.1.0', 'Skyros.LA.1.0'),
-    NOT chip_name (e.g. 'SM4850', 'SM6850') — softwareProduct keys in the Axiom JSON
+    NOT chip_name (e.g. 'SM4850', 'SM6850') - softwareProduct keys in the Axiom JSON
     are codename-based, not chip-name-based.
     """
     conn = _get_db_connection()
@@ -563,7 +563,7 @@ def check_json_stale(output_path: str) -> Tuple[bool, int, Optional[str]]:
         (is_stale: bool, days_diff: int, generated_at: str or None)
     """
     if not os.path.exists(output_path):
-        logger.info(f"  [STALE] File not found: {output_path} — treating as stale.")
+        logger.info(f"  [STALE] File not found: {output_path} - treating as stale.")
         return True, 999, None
 
     try:
@@ -701,7 +701,7 @@ def run_fetch(args) -> int:
             save_json(audit_out, audit_network_path)
             logger.info("  [OK] Saved to network.")
         except Exception as ex:
-            logger.warning(f"  [WARN] Network save failed: {ex} — local backup only.")
+            logger.warning(f"  [WARN] Network save failed: {ex} - local backup only.")
 
         # STEP 7b: Always save local backup
         save_json(audit_out, LOCAL_AUDIT_BACKUP)
@@ -754,7 +754,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Stale check — use audit JSON as the freshness indicator
+    # Stale check - use audit JSON as the freshness indicator
     audit_network_path = os.path.join(args.output_dir, AUDIT_FILENAME)
     check_path = audit_network_path if os.path.exists(audit_network_path) else LOCAL_AUDIT_BACKUP
     is_stale, days_diff, generated_at = check_json_stale(check_path)

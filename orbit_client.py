@@ -1,12 +1,12 @@
-﻿"""
+---"""
 orbit_client.py
 ---------------
 Unified Orbit CR client for PDT Buddy.
 
 Priority order for CR data:
-  1. OneView MCP  — basic CR details (fast, Python3)
-  2. PDT DB       — linked CRs via mapped_cr (already indexed)
-  3. Python2 subprocess — full linked CR tree from Orbit
+  1. OneView MCP  - basic CR details (fast, Python3)
+  2. PDT DB       - linked CRs via mapped_cr (already indexed)
+  3. Python2 subprocess - full linked CR tree from Orbit
                           (fallback, used until MCP supports linked CRs)
 
 Switch flags (set in config or here):
@@ -37,12 +37,12 @@ from typing import Optional
 # Suppress SSL verification warnings for internal Orbit server (self-signed cert)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# - Config -
 
 # Primary source for basic CR details
 ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYTHON2"
 
-# Direct Orbit REST API — uses 'orbit' hostname (resolves to vip-orbithyd-new.qualcomm.com)
+# Direct Orbit REST API - uses 'orbit' hostname (resolves to vip-orbithyd-new.qualcomm.com)
 # Auth: Windows SSPI Kerberos with indus@AP.QUALCOMM.COM from orbitauth.txt
 ORBIT_SERVER   = "orbit"
 ORBIT_QUERY_SERVER = "orbit-sd"
@@ -73,7 +73,7 @@ except ImportError:
     ONEVIEW_BASE_URL = ""
 
 
-# ── Simple in-memory cache (avoids repeated API calls in same session) ────────
+# - Simple in-memory cache (avoids repeated API calls in same session) -
 
 _cr_cache: dict = {}          # { cr_number: (data, fetched_at) }
 _CACHE_TTL_OPEN   = 3600      # 1 hour for open CRs
@@ -97,14 +97,14 @@ def _cache_set(cr_number: str, data: dict):
     _cr_cache[str(cr_number)] = (data, time.time())
 
 
-# ── Normalize CR number ───────────────────────────────────────────────────────
+# - Normalize CR number -
 
 def _normalize_cr(cr_number) -> str:
-    """Return digits-only string. '4477116' or 'CR4477116' → '4477116'"""
+    """Return digits-only string. '4477116' or 'CR4477116' - '4477116'"""
     return str(cr_number).upper().replace("CR", "").strip()
 
 
-# ── Kerberos auth helper ──────────────────────────────────────────────────────
+# - Kerberos auth helper -
 
 def _read_orbit_auth() -> dict:
     """Read credentials from orbitauth.txt."""
@@ -127,7 +127,7 @@ def _make_orbit_headers(server: str = None) -> dict:
     """
     Build Kerberos Negotiate auth headers using Windows SSPI via ctypes.
     Uses explicit credentials from orbitauth.txt (indus@AP.QUALCOMM.COM).
-    No extra packages needed — pure ctypes + secur32.dll.
+    No extra packages needed - pure ctypes + secur32.dll.
     """
     import ctypes, base64, socket
 
@@ -201,7 +201,7 @@ def _make_orbit_headers(server: str = None) -> dict:
 
 
 
-# ── Direct Orbit REST fetch ───────────────────────────────────────────────────
+# - Direct Orbit REST fetch -
 
 def _fetch_via_orbit_direct(cr_number: str) -> dict:
     """
@@ -222,7 +222,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
     sirs_url = f"{ORBIT_API_BASE}/{cr_number}/integrations"
 
     try:
-                # Fetch CR details — each call needs a fresh Kerberos token
+                # Fetch CR details - each call needs a fresh Kerberos token
         resp = requests.get(cr_url, headers=headers, timeout=15, verify=False)
         if resp.status_code == 404:
             logger.info(f"[orbit_direct] CR{cr_number} not found (404)")
@@ -242,7 +242,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         if not data:
             return {"found": False, "cr_number": cr_number}
 
-        # Fetch SIRs — needs a fresh token (each token is single-use)
+        # Fetch SIRs - needs a fresh token (each token is single-use)
         sirs = []
         try:
             sirs_headers = _make_orbit_headers()   # fresh token
@@ -291,7 +291,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         logger.warning(f"[orbit_direct] CR{cr_number} fetch error: {e}")
         return {"found": False, "error": str(e)}
 
-# ── OneView MCP fetch ─────────────────────────────────────────────────────────
+# - OneView MCP fetch -
 
 def _fetch_via_mcp(cr_number: str) -> dict:
     """
@@ -350,7 +350,7 @@ def _fetch_via_mcp(cr_number: str) -> dict:
         return {"found": False, "error": str(e)}
 
 
-# ── Python2 subprocess fetch ──────────────────────────────────────────────────
+# - Python2 subprocess fetch -
 
 def _fetch_via_python2(cr_number: str) -> dict:
     """
@@ -382,7 +382,7 @@ def _fetch_via_python2(cr_number: str) -> dict:
         return {"found": False, "error": str(e)}
 
 
-# ── Linked CRs via PDT DB ─────────────────────────────────────────────────────
+# - Linked CRs via PDT DB -
 
 def _fetch_linked_via_pdt_db(cr_number: str, target_name: str = None) -> list:
     """
@@ -469,7 +469,7 @@ def _fetch_linked_via_pdt_db(cr_number: str, target_name: str = None) -> list:
         return []
 
 
-# ── Linked CRs via Python2 subprocess ────────────────────────────────────────
+# - Linked CRs via Python2 subprocess -
 
 def _fetch_linked_via_python2(cr_number: str) -> list:
     """
@@ -502,13 +502,13 @@ def _fetch_linked_via_python2(cr_number: str) -> list:
         return []
 
 
-# ── Future: MCP linked CRs ────────────────────────────────────────────────────
+# - Future: MCP linked CRs -
 
 def _fetch_linked_via_mcp(cr_number: str) -> list:
     """
     Fetch linked CRs via OneView MCP.
     TODO: Enable once MCP exposes linked CRs endpoint.
-    Placeholder — returns empty list until endpoint is confirmed.
+    Placeholder - returns empty list until endpoint is confirmed.
     """
     # Will be implemented when MCP team confirms endpoint:
     # GET /mcp/orbit/cr/{cr_number}/linked
@@ -517,7 +517,7 @@ def _fetch_linked_via_mcp(cr_number: str) -> list:
     return []
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# - Public API -
 
 def fetch_cr_software_images(cr_number) -> list:
     """Fetch Software Image integrations for a CR directly from Orbit.
@@ -605,7 +605,7 @@ def fetch_linked_crs(cr_number, target_name: str = None) -> list:
 
     Args:
         cr_number   : CR number (with or without 'CR' prefix)
-        target_name : optional — scope PDT DB search to one target
+        target_name : optional - scope PDT DB search to one target
 
     Returns:
         list of CR number strings (digits only, no 'CR' prefix)
@@ -681,7 +681,7 @@ def get_current_config() -> dict:
     }
 
 
-# ── Orbit Tag API ─────────────────────────────────────────────────────────────
+# - Orbit Tag API -
 
 def get_cr_tags(cr_number: str) -> list:
     """
@@ -693,7 +693,7 @@ def get_cr_tags(cr_number: str) -> list:
     """
     cr = _normalize_cr(cr_number)
     try:
-        # ── Try dedicated /tags endpoint first ────────────────────────────────
+        # - Try dedicated /tags endpoint first -
         headers = _make_orbit_headers()
         headers['Accept'] = 'application/json'
         url = f"{ORBIT_API_BASE}/{cr}/tags"
@@ -708,7 +708,7 @@ def get_cr_tags(cr_number: str) -> list:
             if tags:
                 logger.info(f"[orbit_client] get_cr_tags({cr}): {len(tags)} tags via /tags endpoint")
                 return tags
-        # ── Fallback: read Tags from main CR object ───────────────────────────
+        # - Fallback: read Tags from main CR object -
         logger.info(f"[orbit_client] get_cr_tags({cr}): /tags empty/failed (HTTP {resp.status_code}), trying main CR object")
         headers2 = _make_orbit_headers()
         headers2['Accept'] = 'application/json'

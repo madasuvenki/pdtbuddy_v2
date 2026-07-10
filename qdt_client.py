@@ -1,4 +1,4 @@
-﻿
+
 import logging
 logger = logging.getLogger(__name__)
 import mysql.connector
@@ -21,7 +21,7 @@ def get_rework_info_from_qdt(chipset):
     Fetch device enrichment info from QDT (EAM) for all devices matching a chipset.
     Queries x_qui_engineering_eam_hardware_asset by dv_model containing the chipset name.
     Returns list of dicts with SERIAL_NO, REWORK_INFO, MCN, STORAGE, LOCATION, ASSET_TAG.
-    QDT enrichment is non-critical — device sync works without it.
+    QDT enrichment is non-critical --- device sync works without it.
     """
     conn = get_qdt_connection()
     if not conn:

@@ -1,4 +1,4 @@
-# Runtime hook — runs before any app code in the frozen EXE
+# Runtime hook - runs before any app code in the frozen EXE
 # Ensures sys._MEIPASS (the unpacked bundle root) is in sys.path
 # so that root-level modules (config, dashboard_common, etc.)
 # are importable from sub-packages like src/

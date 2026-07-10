@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 sp_entry_routes.py  -  Sharepoint Build Entry page.
 Tables: sp_entry_label, sp_entry_build (own tables only).
@@ -17,13 +17,13 @@ _DB             = "pdt_stats_dashboard"
 _LABEL_TABLE    = "sp_entry_label"
 _BUILD_TABLE    = "sp_entry_build"
 _SP_SUM_TABLE   = "weekly_sharepoint_build_summary"
-_SWPDT_NET      = r"\\sphere\pdtqipl_internal\PDTBuddy\SWPDT\SWPDT_job_summary.json"
+_SWPDT_NET      = r"\\sphere\pdtstats\DB\PDTBuddy\SWPDT\SWPDT_job_summary.json"
 _SWPDT_LOCAL    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SWPDT_job_summary_local.json")
 _QIPL_TAX       = "/PDT/QIPL"
 _HW_TAX         = "/PDT/QIPL/HW"
 _LABEL_TYPES    = ["CRM", "ENG"]
 
-# ── serialisation helper ────────────────────────────────────────────────────
+# ------ serialisation helper ------------------------------------------------------------------------------------------------------------------------------------------------------------
 def _clean(row):
     out = {}
     for k, v in row.items():
@@ -32,7 +32,7 @@ def _clean(row):
         else:                         out[k] = v
     return out
 
-# ── misc helpers ────────────────────────────────────────────────────────────
+# ------ misc helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def _basename(p):   return p.replace("\\","/").split("/")[-1] if p else p
 def _strip_hex(s):
     if s and re.match(r"^#[0-9A-Fa-f]{6}", s): return s[7:]
@@ -132,7 +132,7 @@ def _del_summary(conn, ws, we, tgt, sp, lt, bc):
     try: cur.execute(f"DELETE FROM `{_DB}`.`{_SP_SUM_TABLE}` WHERE week_start=%s AND week_end=%s AND target=%s AND COALESCE(pl_id,'')=%s AND COALESCE(build_type,'CRM')=%s AND build_label=%s",(ws,we,tgt,sp,lt,bl))
     finally: cur.close()
 
-# ── Main page ───────────────────────────────────────────────────────────────
+# ------ Main page ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/sp-entry")
 @login_required
 def sp_entry_page():
@@ -151,7 +151,7 @@ def sp_entry_page():
                            weeks=weeks, default_week_end=(monday+timedelta(days=6)).isoformat(),
                            label_types=_LABEL_TYPES)
 
-# ── Builds ──────────────────────────────────────────────────────────────────
+# ------ Builds ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/builds")
 @login_required
 def api_sp_entry_builds():
@@ -184,7 +184,7 @@ def api_sp_entry_builds():
     if sb: return jsonify({"builds":sb,"target":tgt,"in_db":_in_db(tgt,sp,we),"date_filtered":True,"source":"db_saved","week_too_old":too_old})
     return jsonify({"builds":[],"target":tgt,"in_db":_in_db(tgt,sp,we),"date_filtered":True,"source":"none","week_too_old":too_old,"json_generated":gen})
 
-# ── Crashes ─────────────────────────────────────────────────────────────────
+# ------ Crashes ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/crashes", methods=["POST"])
 @login_required
 def api_sp_entry_crashes():
@@ -216,7 +216,7 @@ def api_sp_entry_crashes():
     except Exception as e: return jsonify({"crashes":0,"per_build":pb,"source":"error","error":str(e)})
     return jsonify({"crashes":total,"per_build":pb,"source":"db" if total>0 else "none"})
 
-# ── Save ─────────────────────────────────────────────────────────────────────
+# ------ Save ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/save", methods=["POST"])
 @login_required
 def api_sp_entry_save():
@@ -256,7 +256,7 @@ def api_sp_entry_save():
         return jsonify({"ok":True,"label_id":lid,"build_count":bc})
     except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
 
-# ── Labels ───────────────────────────────────────────────────────────────────
+# ------ Labels ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/labels")
 @login_required
 def api_sp_entry_labels():
@@ -274,7 +274,7 @@ def api_sp_entry_labels():
         return jsonify({"labels":rows})
     except Exception as e: return jsonify({"labels":[],"error":str(e)})
 
-# ── Week summary ─────────────────────────────────────────────────────────────
+# ------ Week summary ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/week-summary")
 @login_required
 def api_sp_entry_week_summary():
@@ -290,11 +290,11 @@ def api_sp_entry_week_summary():
         return jsonify({"ok":True,"rows":rows})
     except Exception as e: return jsonify({"ok":False,"rows":[],"error":str(e)})
 
-# ── Consolidated ─────────────────────────────────────────────────────────────
+# ------ Consolidated ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/consolidated")
 @login_required
 def api_sp_entry_consolidated():
-    """CRM-only consolidated report — mirrors weekly_sharepoint_consolidate_summary columns."""
+    """CRM-only consolidated report --- mirrors weekly_sharepoint_consolidate_summary columns."""
     we = (request.args.get("week_end") or "").strip()
     if not we: return jsonify({"ok":False,"rows":[]})
 
@@ -396,7 +396,7 @@ def api_sp_entry_consolidated():
     except Exception as e: return jsonify({"ok":False,"rows":[],"error":str(e)})
 
 
-# ── Missing targets ───────────────────────────────────────────────────────────
+# ------ Missing targets ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/missing-targets")
 @login_required
 def api_sp_entry_missing_targets():
@@ -425,7 +425,7 @@ def api_sp_entry_missing_targets():
         return jsonify({"ok":True,"rows":[{"pl_id":pl,"target":_target(pl)} for pl in sorted(pls-saved)]})
     except Exception as e: return jsonify({"ok":False,"rows":[],"error":str(e)})
 
-# ── Device utilization ────────────────────────────────────────────────────────
+# ------ Device utilization ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/device-utilization")
 @login_required
 def api_sp_entry_device_utilization():
@@ -449,7 +449,7 @@ def api_sp_entry_device_utilization():
         return jsonify({"ok":True,"rows":rows,"trend":trend,"week_end":we})
     except Exception as e: return jsonify({"ok":False,"rows":[],"trend":[],"error":str(e)})
 
-# ── PDT Stability Health ──────────────────────────────────────────────────────
+# ------ PDT Stability Health ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/stability-health")
 @login_required
 def api_sp_entry_stability_health():
@@ -477,7 +477,7 @@ def api_sp_entry_stability_health():
         return jsonify({"ok":True,"rows":rows,"trend":trend,"week_end":we})
     except Exception as e: return jsonify({"ok":False,"rows":[],"trend":[],"error":str(e)})
 
-# ── Update label ─────────────────────────────────────────────────────────────
+# ------ Update label ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/update", methods=["POST"])
 @login_required
 def api_sp_entry_update():
@@ -504,7 +504,7 @@ def api_sp_entry_update():
         return jsonify({"ok":True})
     except Exception as e: return jsonify({"ok":False,"error":str(e)}), 500
 
-# ── Delete ────────────────────────────────────────────────────────────────────
+# ------ Delete ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 @sp_entry_bp.route("/api/sp-entry/delete", methods=["POST"])
 @login_required
 def api_sp_entry_delete():

@@ -1,4 +1,4 @@
-r"""Auto-update ingestion runner — only re-ingests targets whose files changed.
+r"""Auto-update ingestion runner - only re-ingests targets whose files changed.
 
 Queries dashboard_status directly for:
   - dashboard_latest_update  : mtime of excel_path at last ingest
@@ -122,7 +122,7 @@ def _fetch_targets_from_db(bu_filter: Optional[str] = None) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# File helpers — mirrors ingest.py resolution logic exactly
+# File helpers - mirrors ingest.py resolution logic exactly
 # ---------------------------------------------------------------------------
 
 EXPECTED_EXCEL_SUFFIX = "_Overall_PDT_Stats"
@@ -235,7 +235,7 @@ def _get_unique_cr_mtime(unique_cr_path: str) -> Optional[datetime]:
 
 
 # ---------------------------------------------------------------------------
-# Change detection — checks excel_path and unique_cr_path independently
+# Change detection - checks excel_path and unique_cr_path independently
 # ---------------------------------------------------------------------------
 
 def _file_changed(t: dict) -> tuple[bool, str]:
@@ -278,7 +278,7 @@ def _file_changed(t: dict) -> tuple[bool, str]:
         # --- unique_cr_path vs unique_cr_last_update ---
     if t["unique_cr_path"]:
         last_ucr = _trunc(t["unique_cr_last_ingest"])
-        # NOTE: do NOT fall back to excel_last_ingest for ucr_only targets —
+        # NOTE: do NOT fall back to excel_last_ingest for ucr_only targets -
         # that causes false "never ingested" on every run after a successful ingest.
         # If unique_cr_last_ingest is None it genuinely has never been ingested.
 
@@ -322,7 +322,7 @@ def _run_central_sync() -> None:
         if "failed" not in v.lower() and "error" not in v.lower()
     )
     logger.info(
-        f"AUTOUPDATE: Central sync done — "
+        f"AUTOUPDATE: Central sync done - "
         f"{ok_count}/{len(results)} targets OK, "
         f"{purged} orbit cache rows purged."
     )
@@ -376,15 +376,15 @@ def run_once(
 
             if changed:
                 to_ingest.append((t, reason))
-                logger.info(f"  CHANGED  [{t['bu_key']}] {t['target_name']} — {reason}")
+                logger.info(f"  CHANGED  [{t['bu_key']}] {t['target_name']} - {reason}")
             else:
                 skipped.append(t["target_name"])
-                logger.debug(f"  SKIP     [{t['bu_key']}] {t['target_name']} — {reason}")
+                logger.debug(f"  SKIP     [{t['bu_key']}] {t['target_name']} - {reason}")
         except OSError as e:
-            logger.warning(f"  SKIP     [{t.get('bu_key','')}] {t.get('target_name','')} — network error: {e}")
+            logger.warning(f"  SKIP     [{t.get('bu_key','')}] {t.get('target_name','')} - network error: {e}")
             skipped.append(t.get("target_name", "unknown"))
         except Exception as e:
-            logger.warning(f"  SKIP     [{t.get('bu_key','')}] {t.get('target_name','')} — unexpected error: {e}")
+            logger.warning(f"  SKIP     [{t.get('bu_key','')}] {t.get('target_name','')} - unexpected error: {e}")
             skipped.append(t.get("target_name", "unknown"))
 
     logger.info(
@@ -398,7 +398,7 @@ def run_once(
 
     if dry_run:
         for t, reason in to_ingest:
-            logger.info(f"  [DRY-RUN] [{t['bu_key']}] {t['target_name']} — {reason}")
+            logger.info(f"  [DRY-RUN] [{t['bu_key']}] {t['target_name']} - {reason}")
         return 0
 
     # --- Ingest changed targets ---
@@ -420,7 +420,7 @@ def run_once(
             logger.error(f"  ERROR {t['target_name']}: {exc}")
 
     logger.info(
-        f"AUTOUPDATE: Ingestion done — "
+        f"AUTOUPDATE: Ingestion done - "
         f"{ok_count} OK, {fail_count} failed / {len(to_ingest)} total."
     )
 
@@ -478,7 +478,7 @@ def main(argv=None) -> int:
 
     if args.interval > 0:
         logger.info(
-            f"AUTOUPDATE: Loop mode — interval={args.interval}s. "
+            f"AUTOUPDATE: Loop mode - interval={args.interval}s. "
             "Kill the process to stop."
         )
         run_number = 0
@@ -495,7 +495,7 @@ def main(argv=None) -> int:
             except Exception as exc:
                 logger.error(f"AUTOUPDATE: Unexpected error in run #{run_number}: {exc}")
             logger.info(
-                f"AUTOUPDATE: ===== Run #{run_number} done — "
+                f"AUTOUPDATE: ===== Run #{run_number} done - "
                 f"sleeping {args.interval}s ====="
             )
             time.sleep(args.interval)

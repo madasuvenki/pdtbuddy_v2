@@ -33,7 +33,7 @@ if not cid or not sec:
     print("FAIL: AXIOM_CLIENT_ID or AXIOM_CLIENT_SECRET is empty in .env")
     sys.exit(1)
 
-# ── Step 1: Token ──────────────────────────────────────────────────────────
+# - Step 1: Token ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 print("Step 1: Requesting OAuth token ...")
 auth = "Basic " + base64.b64encode(f"{cid}:{sec}".encode()).decode()
 try:
@@ -53,12 +53,12 @@ try:
         print(f"  Response    : {body[:400]}")
         sys.exit(1)
 except Exception as e:
-    print(f"  Token       : EXCEPTION — {e}")
+    print(f"  Token       : EXCEPTION - {e}")
     sys.exit(1)
 
 print(SEP)
 
-# ── Step 2: API call — /PDT 1 job ─────────────────────────────────────────
+# - Step 2: API call - /PDT 1 job ---------------------------------------------------------------------------------------------------------------------------
 print("Step 2: GET /axiom/v1/public/jobs?taxonomyPath=/PDT&pageSize=1 ...")
 headers = {
     "Authorization":    f"Bearer {token}",
@@ -91,12 +91,12 @@ try:
         print(f"  Response    : {body2[:400]}")
         sys.exit(1)
 except Exception as e:
-    print(f"  Result      : EXCEPTION — {e}")
+    print(f"  Result      : EXCEPTION - {e}")
     sys.exit(1)
 
 print(SEP)
 
-# ── Step 3: API call — /PDT/QIPL/HW (HWPDT) ──────────────────────────────
+# - Step 3: API call - /PDT/QIPL/HW (HWPDT) ------------------------------------------------------------------------------------------
 print("Step 3: GET /axiom/v1/public/jobs?taxonomyPath=/PDT/QIPL/HW&pageSize=1 ...")
 try:
     conn3 = http.client.HTTPSConnection(host, timeout=30, context=ssl_ctx())
@@ -116,7 +116,7 @@ try:
         print(f"  Result      : FAIL")
         print(f"  Response    : {body3[:400]}")
 except Exception as e:
-    print(f"  Result      : EXCEPTION — {e}")
+    print(f"  Result      : EXCEPTION - {e}")
 
 print(SEP)
 print("ALL TESTS PASSED" if True else "")

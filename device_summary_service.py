@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import os
 import json
 import openpyxl
@@ -8,13 +8,13 @@ logger = logging.getLogger(__name__)
 from src.axiom_client import get_devices_by_chipset
 from config import AXIOM_ENABLED_CHIPS
 
-# ── paths ────────────────────────────────────────────────────────────────────
+# ------ paths ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 _ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Persistent user/data storage. Do NOT keep generated Excel/config under static/,
 # because static/ can be replaced when Buddy is rebuilt/recompiled/redeployed.
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtqipl_internal\PDTBuddy'
+    r'\\sphere\pdtstats\DB\PDTBuddy'
 )
 _DS_STATIC_DIR      = os.path.join(_PDTBUDDY_DATA_ROOT, 'device_summary_data')
 _DS_CONFIG_PATH     = os.path.join(_PDTBUDDY_DATA_ROOT, 'config', 'target_excel_page_config.json')
@@ -22,7 +22,7 @@ _OLD_STATIC_CONFIG_PATH = os.path.join(_ROOT_DIR, 'static', 'target_excel_page_c
 _MANAGED_EXCEL_ROOT = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel')
 
 
-# ── generic JSON helpers ──────────────────────────────────────────────────────
+# ------ generic JSON helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def _load_json(path):
     if not os.path.exists(path):
         return {}
@@ -40,7 +40,7 @@ def _save_json(path, data):
     return data
 
 
-# ── Excel config (per-target, per-page) ──────────────────────────────────────
+# ------ Excel config (per-target, per-page) ------------------------------------------------------------------------------------------------------------------
 def _is_static_app_path(path_value):
     try:
         p = os.path.abspath(_normalize_path(path_value))
@@ -94,7 +94,7 @@ def save_ds_excel_config(target_name, excel_path, summary_sheet, devices_sheet, 
     return target_cfg['device_summary']
 
 
-# ── static device-summary data (JSON store) ───────────────────────────────────
+# ------ static device-summary data (JSON store) ---------------------------------------------------------------------------------------------------------
 def _static_path(target_name):
     return os.path.join(_DS_STATIC_DIR, f'{target_name.lower()}.json')
 
@@ -107,7 +107,7 @@ def save_static_data(target_name, data):
     return _save_json(_static_path(target_name), data)
 
 
-# ── Excel helpers ─────────────────────────────────────────────────────────────
+# ------ Excel helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def _normalize_path(path_value):
     if not path_value:
         return ''
@@ -150,7 +150,7 @@ def _cv(ws, merge_map, r, c):
 def _safe_int(v):
     try:
         s = str(v).strip()
-        if s in ('', '-', '—', 'None', 'nan', 'none'):
+        if s in ('', '-', '---', 'None', 'nan', 'none'):
             return 0
         return int(float(s))
     except Exception:
@@ -160,7 +160,7 @@ def _safe_int(v):
 def _has_number(v):
     try:
         s = str(v).strip()
-        if s in ('', '-', '—', 'None', 'nan', 'none'):
+        if s in ('', '-', '---', 'None', 'nan', 'none'):
             return False
         float(s)
         return True
@@ -186,7 +186,7 @@ def _is_dep_header(value):
     return text in ('DEP', 'DEPLOYED') or text.startswith('DEPLO')
 
 
-# ── Deployment table parser ───────────────────────────────────────────────────
+# ------ Deployment table parser ---------------------------------------------------------------------------------------------------------------------------------------------------------
 def build_deployment_table(excel_path, sheet_name):
     """
     Parse SW PDT deployment table from Excel.
@@ -207,7 +207,7 @@ def build_deployment_table(excel_path, sheet_name):
     max_col = ws.max_column
     max_row = ws.max_row
 
-    # ── Read header rows ──────────────────────────────────────────────────────
+    # ------ Read header rows ------------------------------------------------------------------------------------------------------------------------------------------------------------------
     # Find which row is the column-header row (row1) and sub-header row (row2).
     # Some sheets have a title row above the actual headers, so scan the first
     # 5 rows for the one that contains MCN / Form Factor.
@@ -226,7 +226,7 @@ def build_deployment_table(excel_path, sheet_name):
     logger.debug(f'[DS PARSER] header_row={header_row_idx} row1={row1}')
     logger.debug(f'[DS PARSER] sub_header_row={sub_header_row_idx} row2={row2}')
 
-    # ── Detect fixed columns ──────────────────────────────────────────────────
+    # ------ Detect fixed columns ------------------------------------------------------------------------------------------------------------------------------------------------------
     SKIP = {'FORM FACTOR','FORM','FACTOR','MCN','STORAGE','STORAGE TYPE',
             'TOTAL','GRAND TOTAL','','DELIVERED','DEPLOYED',
             'DEL','DEL.','DEP','DEP.'}
@@ -237,7 +237,7 @@ def build_deployment_table(excel_path, sheet_name):
         elif 'MCN' in vu and mcn_col is None:                 mcn_col = i
         elif 'STOR' in vu and sto_col is None:                sto_col = i
 
-    # ── Detect site + total columns ───────────────────────────────────────────
+    # ------ Detect site + total columns ---------------------------------------------------------------------------------------------------------------------------------
     TOTAL_W = {'TOTAL', 'GRAND TOTAL'}
     site_cols  = {}  # site_name -> {del: 0-based-idx, dep: 0-based-idx}
     total_cols = {'del': None, 'dep': None}
@@ -286,7 +286,7 @@ def build_deployment_table(excel_path, sheet_name):
         mcn = row[mcn_col] if mcn_col is not None and mcn_col < len(row) else ''
         sto = row[sto_col] if sto_col is not None and sto_col < len(row) else ''
 
-        # ── Detect Grand Total footer row ─────────────────────────────────────
+        # ------ Detect Grand Total footer row ---------------------------------------------------------------------------------------------------------------
         row_text = ' '.join(str(x or '').strip().upper() for x in row)
         ff_upper = str(ff).strip().upper()
         is_footer = (
@@ -357,7 +357,7 @@ def build_deployment_table(excel_path, sheet_name):
             'excel_grand_del_found': excel_grand_del}
 
 
-# ── Devices list reader ───────────────────────────────────────────────────────
+# ------ Devices list reader ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Mandatory display columns (always shown in popup + add-device form)
 DEVICE_MANDATORY_COLS = [
     'Serial', 'DDR Type', 'Memory bundle', 'Storage', 'Platform', 'MCN',
@@ -563,7 +563,7 @@ def read_devices_sheet(excel_path, sheet_name, max_rows=1000):
     return headers, rows[:max_rows], total
 
 
-# ── Build deployment table from devices sheet ────────────────────────────────
+# ------ Build deployment table from devices sheet ------------------------------------------------------------------------------------------------
 def build_deployment_table_from_devices(excel_path, devices_sheet, prefiltered_headers=None, prefiltered_rows=None):
     """
     Build the SW PDT deployment table by aggregating the Devices sheet.
@@ -609,7 +609,7 @@ def build_deployment_table_from_devices(excel_path, devices_sheet, prefiltered_h
             return str(row[idx] or '').strip()
 
         mcn = _get(mcn_idx)
-        if not mcn or mcn in ('-', '—'):
+        if not mcn or mcn in ('-', '---'):
             continue
 
         sto = _get(sto_idx) or 'N/A'
@@ -681,7 +681,7 @@ def build_deployment_table_from_devices(excel_path, devices_sheet, prefiltered_h
     }
 
 
-# ── Page data loader (called by route) ───────────────────────────────────────
+# ------ Page data loader (called by route) ---------------------------------------------------------------------------------------------------------------------
 def _find_latest_excel_in_dir(dir_path):
     try:
         if not dir_path or not os.path.isdir(dir_path):
@@ -837,7 +837,7 @@ def load_page_data(target_name, project_filter='All'):
     }
 
 
-# ── legacy Axiom helpers (kept for backward compat) ───────────────────────────
+# ------ legacy Axiom helpers (kept for backward compat) ---------------------------------------------------------------------------------
 def get_device_summary(target_name):
     if AXIOM_ENABLED_CHIPS:
         try:

@@ -1,5 +1,5 @@
 """
-CR Overview Service — Direct read from unique_crs + jiras with in-memory caching.
+CR Overview Service - Direct read from unique_crs + jiras with in-memory caching.
 Key source tables (per target):
   {schema}.{prefix}_unique_crs
     mapped_cr, cr, cr_category, cr_status, cr_area, cr_subsystem,
@@ -276,7 +276,7 @@ def _fetch_target_crs(conn, target_name: str) -> Tuple[List[Dict[str, Any]], Opt
             return f"`{col}` AS `{a}`" if col.lower() in existing else f"{fallback} AS `{a}`"
 
         occ_sel    = _sel("cr_occurrence", fallback="0")
-        # Do not filter out rows with cr_occurrence = 'dup' – we surface them via the Dup chip
+        # Do not filter out rows with cr_occurrence = 'dup' - we surface them via the Dup chip
         dup_filter = ""
         last_jira_col = next(
             (c for c in ("jira_date__last_instance",
@@ -456,14 +456,14 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
     site = (pdt_site_unique or "").strip().upper()
     qipl = (is_seen_at_qipl_raw or "").strip().upper()
 
-    # Step 1: single-site CRs — PDT_Site_Unique is definitive
+    # Step 1: single-site CRs - PDT_Site_Unique is definitive
     if site == "PDT_QIPL_UNIQUE": return "PDT_QIPL"
     if site == "PDT_SD_UNIQUE":   return "PDT_SD"
     if site == "PDT_CH_UNIQUE":   return "PDT_CH"
-    # DupCR — duplicate CR, category handles exclusion; assign QIPL as neutral bucket
+    # DupCR - duplicate CR, category handles exclusion; assign QIPL as neutral bucket
     if site == "DUPCR":           return "PDT_QIPL"
 
-    # Step 2: shared CRs (NA / empty) — use IsSeenAtQIPL_PDT
+    # Step 2: shared CRs (NA / empty) - use IsSeenAtQIPL_PDT
     if qipl == "PDT_QIPL_SEEN":
         has_ch = has_sd = False
         for title in (jira_titles or []):
@@ -477,7 +477,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
         return "PDT_QIPL"
 
     if qipl == "PDT_QIPL_NOTSEEN":
-        # Not seen at QIPL — seen at SD and/or CH
+        # Not seen at QIPL - seen at SD and/or CH
         has_ch = has_sd = False
         for title in (jira_titles or []):
             t = title.upper()
@@ -489,7 +489,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
         if has_sd:            return "PDT_SD"
         return "PDT_SD_AND_CH"  # default for NotSeen
 
-    # Step 3: both columns empty — parse from jira titles directly
+    # Step 3: both columns empty - parse from jira titles directly
     has_qipl = has_ch = has_sd = False
     for title in (jira_titles or []):
         t = title.upper()
@@ -508,7 +508,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
 
 
 def _site_counts(crs: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Count CRs per site bucket. No dedup — matches what fetch_cr_rows returns."""
+    """Count CRs per site bucket. No dedup - matches what fetch_cr_rows returns."""
     counts: Dict[str, int] = {k: 0 for k in SITE_KEYS}
     for cr in crs:
         sk = cr.get("site_bucket") or ""
@@ -744,7 +744,7 @@ def _age_buckets(crs: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def _site_jira_counts(crs: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Sum JIRA counts per site bucket. No dedup — consistent with _site_counts."""
+    """Sum JIRA counts per site bucket. No dedup - consistent with _site_counts."""
     counts: Dict[str, int] = {k: 0 for k in SITE_KEYS}
     for cr in crs:
         sk = cr.get("site_bucket") or "PDT_QIPL"
@@ -867,7 +867,7 @@ def _fetch_one_target(target_name: str) -> Tuple[str, List[Dict[str, Any]], bool
 
 
 # ---------------------------------------------------------------------------
-# Public API 1 — fetch_cr_overview_data
+# Public API 1 - fetch_cr_overview_data
 # ---------------------------------------------------------------------------
 def fetch_cr_overview_data(
     bu_filter:     str  = "ALL",
@@ -1083,7 +1083,7 @@ def _build_payload_from_crs(
 
     # 6. dimension breakdown
     if dimension == "bu_key":
-        # BU view — always use true BU totals from bu_summary
+        # BU view - always use true BU totals from bu_summary
         # site_counts inside each entry reflect per-site breakdown within that BU
         group_col = "bu_key"
         dim_breakdown = []
@@ -1208,7 +1208,7 @@ def _build_payload_from_crs(
 
 
 # ---------------------------------------------------------------------------
-# Public API 2 — fetch_area_target_breakdown
+# Public API 2 - fetch_area_target_breakdown
 # For a given dimension value (for example area="Multimedia"), returns
 # per-target stats so the frontend can render target/site-wise drilldown.
 # ---------------------------------------------------------------------------
@@ -1381,7 +1381,7 @@ def fetch_area_target_breakdown(
 
 
 # ---------------------------------------------------------------------------
-# Public API 3 — fetch_cr_rows  (paginated detail)
+# Public API 3 - fetch_cr_rows  (paginated detail)
 # ---------------------------------------------------------------------------
 def fetch_cr_rows(
     bu_filter:          str  = "ALL",

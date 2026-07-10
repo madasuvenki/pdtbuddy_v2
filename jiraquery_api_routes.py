@@ -85,7 +85,7 @@ def _request_api_token():
 
 def _jiraquery_authenticated():
     """API endpoints only accept a static API token.
-    Browser session cookies are NOT accepted for external API calls —
+    Browser session cookies are NOT accepted for external API calls ---
     they are tied to the server's SECRET_KEY and expire after 8 hours.
     Use X-PDTBuddy-API-Token header or Authorization: Bearer <token>.
     """
@@ -111,9 +111,9 @@ def jiraquery_login_or_token_required(fn):
                 "external API calls. Send a static token via: "
                 "X-PDTBuddy-API-Token: <token>  "
                 "or  Authorization: Bearer <token>."
-                + (" A token IS configured on this server — ask the admin."
+                + (" A token IS configured on this server - ask the admin."
                    if configured else
-                   " No API token configured yet — admin must set "
+                   " No API token configured yet - admin must set "
                    "PDTBUDDY_API_TOKEN in .env and restart.")
             ),
             "how_to_fix": (
@@ -131,7 +131,7 @@ def api_token_verify():
     """Quick endpoint to verify an API token without running a full report.
 
     Returns 200 + {ok:true} if the token is valid, 401 if not.
-    No login session required — token-only check.
+    No login session required - token-only check.
 
     Usage:
       curl -H "X-PDTBuddy-API-Token: <token>" http://<host>/api/token/verify

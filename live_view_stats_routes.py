@@ -12,7 +12,7 @@ from dashboard_common import get_bu_for_target, get_display_name_for_target, get
 
 live_view_stats_bp = Blueprint("live_view_stats_bp", __name__)
 
-_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtqipl_internal\PDTBuddy")
+_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy")
 _LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 _DEFAULT_EXCEL_ROOT = os.environ.get("LIVE_VIEW_STATS_EXCEL_ROOT", r"C:\Dropbox")
 _STATS_HEADERS = ["S.No", "Date", "Meta-ID", "Hours", "System Crashes", "SSR Crashes", "Process Crashes", "Total Crashes", "MTBF"]

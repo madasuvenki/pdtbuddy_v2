@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import os
 
@@ -37,7 +37,7 @@ def _is_admin_user():
 
 def _page_visibility_path():
     return os.path.join(
-        os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtqipl_internal\PDTBuddy'),
+        os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy'),
         'config',
         'page_visibility.json',
     )
@@ -275,7 +275,7 @@ def save_milestones_route():
     milestones = data.get('milestones') or {}
     if not target_name:
         return jsonify(success=False, message='Target name is required'), 400
-    # sp_name is optional — skip update if not provided
+    # sp_name is optional --- skip update if not provided
     if not isinstance(milestones, dict):
         return jsonify(success=False, message='Milestones payload must be an object'), 400
 
@@ -368,7 +368,7 @@ def remove_target_route():
 # ---------------------------------------------------------------------------
 def _user_privileges_path():
     return os.path.join(
-        os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtqipl_internal\PDTBuddy'),
+        os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy'),
         'config',
         'user_privileges.json',
     )

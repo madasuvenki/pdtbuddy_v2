@@ -1,14 +1,14 @@
 """
 fetch_consolidated_report.py
 -----------------------------
-Single API call: pass one or more build IDs → get back one complete JSON.
+Single API call: pass one or more build IDs - get back one complete JSON.
 
 Pipeline (all in one response):
   1. Build combined JQL:
        (summary ~ "BUILD1" OR summary ~ "BUILD2")
   2. Fetch all JIRAs (raw, no filters)
-  3. Parse pl_id_raw → software_components list per JIRA
-  4. Traverse each JIRA → final ticket + CR via resolution notes / inward links
+  3. Parse pl_id_raw - software_components list per JIRA
+  4. Traverse each JIRA - final ticket + CR via resolution notes / inward links
   5. Collect all unique CRs found across all JIRAs
   6. Batch fetch CR info from Orbit (title, status, area, subsystem, SI, built date)
   7. Merge everything back into each JIRA record
@@ -54,9 +54,9 @@ except ImportError:
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -
 # CONSTANTS
-# ─────────────────────────────────────────────────────────────────────────────
+# -
 JIRA_ISSUES_INTERVAL  = 100
 MAX_RESULTS_DEFAULT   = 99999
 MAX_CRS_QUERY_COUNT   = 100
@@ -91,7 +91,7 @@ SI_PRIORITY = {
 
 
 # =============================================================================
-# PROGRESS TRACKER  — shared state for SSE streaming
+# PROGRESS TRACKER  - shared state for SSE streaming
 # =============================================================================
 class ReportCancelled(RuntimeError):
     """Raised when a running consolidated report is cancelled by the UI."""
@@ -158,7 +158,7 @@ class ProgressTracker:
             }
 
 
-# Global registry: job_id → ProgressTracker
+# Global registry: job_id - ProgressTracker
 _PROGRESS_REGISTRY: dict = {}
 _PROGRESS_LOCK = threading.Lock()
 
@@ -278,13 +278,13 @@ def _query_qwinbug_analysis(issue):
     """Resolve QWINBUG through Windows crash-analysis service.
 
     Mirrors PDT_StatsQueryWin.py::issueQWINBUG exactly:
-      1. Read customfield_30012 (analysis URL) — split on '/' take last non-empty part
+      1. Read customfield_30012 (analysis URL) - split on '/' take last non-empty part
       2. POST {'analysis_list':[id]} to wincrash HTTPS endpoint
          (legacy used httplib.HTTPConnection which got HTTP 301 redirect;
           we must use HTTPS + follow redirect to get the actual JSON)
-      3. CR comes back as integer in Data[].CR — convert to 'CR<num>'
-      4. If CR valid and != 'NO_CR' → return ('CR<num>', 'closed', details)
-      5. Else → return ('', issue.status, details)
+      3. CR comes back as integer in Data[].CR - convert to 'CR<num>'
+      4. If CR valid and != 'NO_CR' - return ('CR<num>', 'closed', details)
+      5. Else - return ('', issue.status, details)
     """
     import json as _json
     import ssl as _ssl
@@ -297,7 +297,7 @@ def _query_qwinbug_analysis(issue):
         'source'      : 'wincrash.qualcomm.com/rpc/get_latest_CR_from_analyses/',
     }
     try:
-        # ── Step 1: extract analysis ID from customfield_30012 ───────────────
+        # - Step 1: extract analysis ID from customfield_30012 -
         # Field value is a URL like: http://wincrash.qualcomm.com/analysis/8926999
         # Legacy: analysisID = issue.fields.customfield_30012.split('/')[-1]
         raw = getattr(issue.fields, 'customfield_30012', None)
@@ -310,7 +310,7 @@ def _query_qwinbug_analysis(issue):
         if not analysis_id:
             return '', _safe(issue.fields.status), details
 
-        # ── Step 2: POST to wincrash over HTTPS (HTTP gives 301 redirect) ────
+        # - Step 2: POST to wincrash over HTTPS (HTTP gives 301 redirect) -
         # Legacy used httplib.HTTPConnection which silently got 301+empty body.
         # We use urllib.request which follows redirects automatically.
         body = _json.dumps({'analysis_list': [analysis_id]}).encode('utf-8')
@@ -326,10 +326,10 @@ def _query_qwinbug_analysis(issue):
         with _urlreq.urlopen(req, context=ctx, timeout=30) as resp:
             payload = resp.read().decode('utf-8', errors='ignore')
 
-        # ── Step 3: parse response ───────────────────────────────────────────
+        # - Step 3: parse response -
         result = _json.loads(payload or '{}')
         cr = issue_id = issue_title = ''
-        # Legacy iterates result['Data'] — last item wins
+        # Legacy iterates result['Data'] - last item wins
         for item in (result.get('Data') or []):
             # CR comes back as integer (e.g. 4385171) or string or 'NO_CR'
             cr          = str(item.get('CR')          or '').strip()
@@ -339,7 +339,7 @@ def _query_qwinbug_analysis(issue):
         details['issue_id']    = issue_id
         details['issue_title'] = issue_title
 
-        # ── Step 4: return CR if valid ───────────────────────────────────────
+        # - Step 4: return CR if valid -
         if cr and cr.upper() not in ('NO_CR', 'NONE', '') and cr != '0':
             if not cr.upper().startswith('CR'):
                 cr = 'CR' + cr
@@ -378,7 +378,7 @@ def _build_resolution_notes_text(last_issue, final_status, final_resolution, fin
     Build a human-readable resolution notes string for the Open/Unmapped table.
 
     Priority:
-      1. Raw CF notes text — but only if it is NOT a bare CR/Orbit URL.
+      1. Raw CF notes text - but only if it is NOT a bare CR/Orbit URL.
          e.g. 'https://orbit/CR/4385171' is not useful; skip it.
          e.g. 'Duplicate of QSTABILITY-12345 - root cause found' IS useful.
       2. final_resolution  (e.g. 'Fixed', 'Duplicate')
@@ -566,7 +566,7 @@ def fetch_by_keys(jira_obj, keys):
 
 
 # =============================================================================
-# JQL BUILDER  — combined OR query for multiple builds
+# JQL BUILDER  - combined OR query for multiple builds
 # =============================================================================
 
 def build_combined_jql(build_ids, filter_id):
@@ -584,7 +584,7 @@ def build_combined_jql(build_ids, filter_id):
 
 
 # =============================================================================
-# ISSUE → DICT  (full, with software_components parsed)
+# ISSUE - DICT  (full, with software_components parsed)
 # =============================================================================
 
 def issue_to_dict(issue, queried_builds=None):
@@ -617,12 +617,12 @@ def issue_to_dict(issue, queried_builds=None):
                 break
 
     return {
-        # ── Identity ─────────────────────────────────────────────────────────
+        # - Identity -
         "key"           : _safe(issue.key),
         "project"       : issue.key.split("-")[0] if "-" in issue.key else "",
         "matched_build" : matched_build,
 
-        # ── Core JIRA fields ─────────────────────────────────────────────────
+        # - Core JIRA fields -
         "summary"        : _safe(f.summary),
         "status"         : _safe(f.status),
         "resolution"     : _safe(f.resolution),
@@ -632,11 +632,11 @@ def issue_to_dict(issue, queried_builds=None):
         "component"      : component,
         "labels"         : labels,
 
-        # ── Build / Target info ──────────────────────────────────────────────
+        # - Build / Target info -
         "meta_build"      : _cf(f, "customfield_10933"),
         "software_components": sw_components,   # parsed list
 
-        # ── Device / Test info ───────────────────────────────────────────────
+        # - Device / Test info -
         "serial_no"         : _cf(f, "customfield_14929"),
         "mcn_no"            : _cf(f, "customfield_14930"),
         "serial_alt"        : _cf(f, "customfield_10842"),
@@ -645,18 +645,18 @@ def issue_to_dict(issue, queried_builds=None):
         "issue_tag"         : _cf(f, "customfield_27810"),
         "last_test_actions" : _cf(f, "customfield_26610"),
 
-        # ── CR mapping (direct, from this ticket's fields) ───────────────────
+        # - CR mapping (direct, from this ticket's fields) -
         "cr_mapped"        : _check_cr_mapped(f),
         "resolution_notes" : _cf(f, "customfield_12830"),
         "cr_number_field"  : _cf(f, "customfield_10270"),
         "root_cause"       : _cf(f, "customfield_10070"),
 
-        # ── Linked tickets ───────────────────────────────────────────────────
+        # - Linked tickets -
         "inward_links"  : inward_keys,
         "outward_links" : outward_keys,
         "ref_ticket"    : _cf(f, "customfield_13323"),
 
-        # ── Traversal result (filled in later) ───────────────────────────────
+        # - Traversal result (filled in later) -
         "traversal": {
             "final_key"        : "",
             "final_cr"         : "",
@@ -670,7 +670,7 @@ def issue_to_dict(issue, queried_builds=None):
             "mapping_reason"   : "",
         },
 
-        # ── Orbit CR info (filled in later) ──────────────────────────────────
+        # - Orbit CR info (filled in later) -
         "cr_info": {
             "cr_number"   : "",
             "cr_title"    : "",
@@ -686,7 +686,7 @@ def issue_to_dict(issue, queried_builds=None):
 
 
 # =============================================================================
-# TRAVERSAL  — fully multithreaded, one thread per JIRA
+# TRAVERSAL  - fully multithreaded, one thread per JIRA
 # =============================================================================
 
 def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
@@ -702,7 +702,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
     all_crs          = set()
     all_crs_lock     = threading.Lock()
 
-            # Phase 1: JIRAs with direct CR — no traversal needed.
+            # Phase 1: JIRAs with direct CR - no traversal needed.
     # Important: legacy PDT_Stats.processJira intentionally ignores normal
     # resolution-note CRs for QWINBUG and sends QWINBUG through wincrash
     # analysis lookup instead.
@@ -790,9 +790,9 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         jira_conn = _make_jira()
         start_key = d['key']
 
-        # ── Check traversal cache first ──────────────────────────────────────
+        # - Check traversal cache first -
         # If this exact key was already fully traversed by another thread,
-        # reuse the result directly — no JIRA fetches needed.
+        # reuse the result directly - no JIRA fetches needed.
         with traversal_cache_lock:
             cached = traversal_cache.get(start_key)
         if cached:
@@ -815,7 +815,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             'fixed', "won't fix", 'duplicate', 'complete',
             'cannot reproduce', 'incomplete'
         }
-        # 'done' is NOT a stop condition — PDT_Stats follows Done/Done tickets
+        # 'done' is NOT a stop condition - PDT_Stats follows Done/Done tickets
         # through the chain to find the final CR (e.g. QSTABILITY-23385853
         # Status=Done/Done still points to CR4485357 via resolution notes).
         # 'done' status alone (without a resolved resolution) also continues.
@@ -863,13 +863,13 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         def _resolution_notes_without_check(issue):
             return _get_resolution_notes_text(issue.fields) or _safe(issue.fields.resolution)
 
-                # Statuses that are definitively inactive — treated as closed for
+                # Statuses that are definitively inactive - treated as closed for
         # traversal purposes even without a matching resolution string.
         inactive_statuses = {
             's2_analysis', 'rejected', 'withdrawn',
             'transferred', 'invalid', 'cannot reproduce',
             # 'duplicate' removed: duplicate tickets still carry resolution notes
-            # pointing to a CR — PDT_Stats follows them.
+            # pointing to a CR - PDT_Stats follows them.
         }
 
         def _is_closed_resolved(issue):
@@ -890,7 +890,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
             key = str(issue.key)
 
-            # ── Traversal cache hit for intermediate hop ─────────────────────────────
+            # - Traversal cache hit for intermediate hop -
             # If this intermediate key was already fully resolved by another
             # thread, skip all further fetches and return the cached final.
             if depth > 0:
@@ -930,13 +930,13 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
 
             cr, resolution_ticket, raw_resolution_text = _valid_resolution_mapping(issue)
 
-            # ── Has a CR mapped directly → this is the final ticket ──────────
+            # - Has a CR mapped directly - this is the final ticket -
             # Check BEFORE QWINBUG path: QWINBUG tickets with a direct CR in
             # cf_12830 resolve immediately without calling wincrash.
             if cr:
                 return cr, key, status, resolution
 
-            # ── QWINBUG special handling ──────────────────────────────────────
+            # - QWINBUG special handling -
             if 'QWINBUG' in key.upper():
                 q_issue = _fetch_full_issue(key) or issue
                 qcr, qstatus, qdetails = _query_qwinbug_analysis(q_issue)
@@ -947,18 +947,18 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                 last_issue = q_issue
                 return '', key, qstatus or status, resolution
 
-            # ── Self-reference guard ──────────────────────────────────────────
+            # - Self-reference guard -
             if resolution_ticket and resolution_ticket == key:
                 cyclic_mapping_final_key = key
                 cyclic_mapping_reason = f'{key}_{key}'
                 return '', key, 'CyclicMapping', cyclic_mapping_reason
 
-            # ════════════════════════════════════════════════════════════════
-            # CORE FIX — mirrors PDT_Stats.processJira exactly:
+            # -
+            # CORE FIX - mirrors PDT_Stats.processJira exactly:
             #
             # PDT_Stats ALWAYS builds two candidate lists regardless of status:
-            #   resolutionTicketMap  → stability key from resolution notes (CF)
-            #   dupIssueMappingTck   → outward/duplicate linked ticket
+            #   resolutionTicketMap  - stability key from resolution notes (CF)
+            #   dupIssueMappingTck   - outward/duplicate linked ticket
             # Then tries resolutionTicketMap FIRST, dupIssueMappingTck second.
             #
             # Status (open/closed/transferred) does NOT gate the follow.
@@ -967,8 +967,8 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             # OLD BUG: we had separate branches (transferred / closed / open)
             # each with different follow logic. QSTABILITY tickets in status
             # S1_Analysis / In-Progress / Open failed _is_closed_resolved()
-            # so the hop to ADSPIMAGE → CR was silently skipped.
-            # ════════════════════════════════════════════════════════════════
+            # so the hop to ADSPIMAGE - CR was silently skipped.
+            # -
 
             # Step 1: outward/dup linked ticket (dupIssueMappingTck)
             linked_ticket = ''
@@ -979,7 +979,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                     linked_ticket = candidate
                     break
 
-            # Step 2: inward links — PDT_Stats checkLinkedIssue also walks
+            # Step 2: inward links - PDT_Stats checkLinkedIssue also walks
             # inward links when outward links are exhausted.
             inward_ticket = ''
             if not linked_ticket:
@@ -989,7 +989,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                         inward_ticket = candidate
                         break
 
-            # Step 3: ordered candidate list — resolution_ticket FIRST
+            # Step 3: ordered candidate list - resolution_ticket FIRST
             # (resolutionTicketMap), then outward dup, then inward.
             next_keys = []
             for candidate in [resolution_ticket, linked_ticket, inward_ticket]:
@@ -998,7 +998,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
                         and candidate not in next_keys):
                     next_keys.append(candidate)
 
-            # Step 4: follow each candidate — return first CR found
+            # Step 4: follow each candidate - return first CR found
             best_result = None
             for nk in next_keys:
                 nk_issue  = _fetch_one(nk)
@@ -1013,7 +1013,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             if best_result:
                 return best_result
 
-            # Step 5: dead end — return raw resolution notes as display text
+            # Step 5: dead end - return raw resolution notes as display text
             resolnote = _resolution_notes_without_check(issue)
             return '', key, status, resolnote or resolution
         start_issue = _fetch_one(start_key)
@@ -1049,7 +1049,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             'final_status'     : _fst,
             'final_resolution' : _fre,
             # resolution_notes_text: human-readable notes from the final ticket.
-            # Strip raw CR/Orbit URLs — those are not useful display text.
+            # Strip raw CR/Orbit URLs - those are not useful display text.
             # Falls back to final_status so the column always shows something.
             'resolution_notes_text': _build_resolution_notes_text(
                 last_issue, _fst, _fre, final_cr
@@ -1063,7 +1063,7 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             'qwinbug_details'  : qwinbug_details,
         }
 
-        # ── Store result in traversal cache for all keys in the chain ────────────────
+        # - Store result in traversal cache for all keys in the chain -
         # Every intermediate key (e.g. ADSPIMAGE-1124645) that was visited
         # during this traversal now maps to the same final result.
         # Next ticket that hops through any of these keys skips all fetches.
@@ -1350,17 +1350,17 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
     """
     Build a 3-level hierarchical report from the flat jiras list.
 
-    Level 1 — CR
+    Level 1 - CR
       S.No | CR | cr_count | cr_title | cr_status | cr_image
 
-    Level 2 — JIRAs mapped to this CR, always populated.
+    Level 2 - JIRAs mapped to this CR, always populated.
       S.No | key | title | current_status | mapped_jiras_count
 
-    Level 3 — linked JIRAs inside each Level-2 JIRA
+    Level 3 - linked JIRAs inside each Level-2 JIRA
       S.No | linked_key | title | status
     """
 
-    # ── Step 1: group JIRAs by their final CR ────────────────────────────────
+    # - Step 1: group JIRAs by their final CR -
     # key = CR number (or 'NO_CR' for unresolved)
     cr_to_jiras = {}   # { 'CR1234567': [ jira_dict, ... ] }
 
@@ -1387,10 +1387,10 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
         cr = final_cr or 'NO_CR'
         cr_to_jiras.setdefault(cr, []).append(d)
 
-    # ── Step 2: build key → dict lookup for fast title/status lookup ─────────
+    # - Step 2: build key - dict lookup for fast title/status lookup -
     key_lookup = {d['key']: d for d in issues_dicts}
 
-    # ── Step 3: assemble report rows ─────────────────────────────────────────
+    # - Step 3: assemble report rows -
     report_rows = []
     sno = 0
 
@@ -1406,7 +1406,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
         cr_count   = len(jira_list)
         cr_data    = cr_info_map.get(cr, {})
 
-        # ── Level 1 row ───────────────────────────────────────────────────────
+        # - Level 1 row -
         level1 = {
             'sno'            : sno,
             'cr'             : cr,
@@ -1426,7 +1426,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
 
         }
 
-        # ── Level 2 rows — keep every matching JIRA, including occurrence=1
+        # - Level 2 rows - keep every matching JIRA, including occurrence=1
         # and NO_CR rows. The UI needs these rows to filter an already-fetched
         # multi-build report when the user selects/unselects builds. It also
         # needs NO_CR rows to render the "Open JIRAs (unmapped to CR)" table.
@@ -1439,7 +1439,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
                 [k for k in jira['traversal'].get('chain', []) if k != jira['key']]
             ))
 
-            # ── Level 3 rows — linked JIRAs ──────────────────────────────
+            # - Level 3 rows - linked JIRAs -
             linked_rows = []
             for lk_sno, lk in enumerate(linked_keys, 1):
                 lk_data = key_lookup.get(lk, {})
@@ -1570,7 +1570,7 @@ def make_summary(build_ids, issues_dicts):
 
 
 # =============================================================================
-# DB LOOKUP  — check unique_crs table first before hitting Orbit
+# DB LOOKUP  - check unique_crs table first before hitting Orbit
 # =============================================================================
 
 def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
@@ -1663,7 +1663,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
         cursor.execute(sql, lookup_values * len(lookup_cols))
         rows = cursor.fetchall() or []
 
-        # ── Diagnostic: if nothing found, check each column separately ──
+        # - Diagnostic: if nothing found, check each column separately -
         if not rows:
             for diag_col in lookup_cols:
                 try:
@@ -1773,14 +1773,14 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
 
     jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
 
-    # Step 1 — build combined JQL
+    # Step 1 - build combined JQL
     # Step 1 - build JQL (custom_jql overrides auto-built)
     if custom_jql:
         jql = custom_jql.strip()
     else:
         jql = build_combined_jql(build_ids, filter_id)
 
-    # Step 2 — fetch all JIRAs
+    # Step 2 - fetch all JIRAs
     if progress:
         progress.update(stage='fetch', message=f'Fetching JIRAs for {len(build_ids)} build(s)...')
 
@@ -1796,7 +1796,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             message=f'Fetched {total} JIRAs. Starting traversal with {TRAVERSAL_WORKERS} threads...'
         )
 
-    # Step 3 — traverse
+    # Step 3 - traverse
     all_crs = set()
     if traverse:
         all_crs = traverse_all_jiras(jira_obj, issues_dicts, progress=progress)
@@ -1901,7 +1901,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             done=total,
             total=total,
             message=(
-                f"Final report ready in {elapsed}s — "
+                f"Final report ready in {elapsed}s - "
             )
         )
 

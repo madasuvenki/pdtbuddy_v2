@@ -1,7 +1,7 @@
 """
 fetch_axiom_jobs.py
 -------------------
-Standalone script — completely independent of ingest.
+Standalone script - completely independent of ingest.
 
 Fetches SWPDT Running jobs submitted in the last 20 days in a single
 paginated stream from the /PDT taxonomy.
@@ -15,7 +15,7 @@ For each job it captures:
 Rolling 20-day window: on every run jobs older than 20 days are pruned.
 
 Output:
-  \\\\sphere\\pdtqipl_internal\\PDTBuddy\\SWPDT\\SWPDT_job_summary.json
+  \\\\sphere\\pdtstats\\DB\\PDTBuddy\\SWPDT\\SWPDT_job_summary.json
 
 Usage:
   python scripts/fetch_axiom_jobs.py
@@ -58,10 +58,10 @@ logger = logging.getLogger("fetch_axiom_jobs")
 # ---------------------------------------------------------------------------
 DEFAULT_API_HOST   = "api-int.qualcomm.com"
 DEFAULT_APP_NAME   = os.environ.get("AXIOM_APP_NAME", "PDTDashboard")
-SWPDT_TAXONOMY        = "/PDT"           # single call — covers all SWPDT sub-taxonomies
-HWPDT_TAXONOMY        = "/PDT/QIPL/HW"   # excluded — handled by fetch_hwpdt_chip_ids.py
+SWPDT_TAXONOMY        = "/PDT"           # single call - covers all SWPDT sub-taxonomies
+HWPDT_TAXONOMY        = "/PDT/QIPL/HW"   # excluded - handled by fetch_hwpdt_chip_ids.py
 DEFAULT_PAGE_SIZE     = 100
-DEFAULT_OUTPUT_DIR    = r"\\sphere\pdtqipl_internal\PDTBuddy\SWPDT"
+DEFAULT_OUTPUT_DIR    = r"\\sphere\pdtstats\DB\PDTBuddy\SWPDT"
 OUTPUT_FILENAME       = "SWPDT_job_summary.json"
 RETENTION_DAYS        = 20   # jobs with submitted date older than this are pruned
 POLL_INTERVAL_SEC     = 300  # 5 min between polls when running inside app.py thread
@@ -71,7 +71,7 @@ RETRY_DELAY_SEC    = 5
 TIMEOUT_SEC        = 300
 TOKEN_TTL_SEC      = 50 * 60  # refresh token every 50 minutes (Axiom tokens expire in ~1 hour)
 
-# Axiom fetch enabled — controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
+# Axiom fetch enabled - controlled by ENABLE_SWPDT_AXIOM_POLLER env var.
 AXIOM_FETCH_DISABLED = False
 
 
@@ -144,7 +144,7 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
                 return json.loads(raw.decode("utf-8"))
             if resp.status in (401, 403):
                 logger.warning(
-                    "  [AUTH] HTTP %s from Axiom — token rejected, forcing refresh. Body: %r",
+                    "  [AUTH] HTTP %s from Axiom - token rejected, forcing refresh. Body: %r",
                     resp.status, raw[:300]
                 )
                 raise AxiomAuthError(f"Axiom token rejected with HTTP {resp.status}")
@@ -249,7 +249,7 @@ def _normalise_axiom_job(j: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Core fetch — single /PDT call, last RETENTION_DAYS days, Running state only
+# Core fetch - single /PDT call, last RETENTION_DAYS days, Running state only
 # ---------------------------------------------------------------------------
 def fetch_swpdt_jobs(host: str, token: str, page_size: int, app_name: str,
                      max_jobs: int = DEFAULT_MAX_RUNNING_JOBS) -> list:
@@ -282,10 +282,10 @@ def fetch_swpdt_jobs(host: str, token: str, page_size: int, app_name: str,
             f"&pageSize={page_size}"
             f"&expand=chipIdSerialNumbers"
         )
-        logger.info(f"  [PAGE {page}] fetching Running jobs (from {since_utc}) — limit {max_jobs}...")
+        logger.info(f"  [PAGE {page}] fetching Running jobs (from {since_utc}) - limit {max_jobs}...")
         resp = _get(host, token, path, app_name)
         if not resp:
-            logger.warning("  [FETCH] Empty response — stopping pagination.")
+            logger.warning("  [FETCH] Empty response - stopping pagination.")
             break
 
         data        = resp.get("data") or []
@@ -323,13 +323,13 @@ def fetch_swpdt_jobs(host: str, token: str, page_size: int, app_name: str,
 
 
 # ---------------------------------------------------------------------------
-# RETENTION_DAYS rolling window — merge new jobs into existing, prune old ones
+# RETENTION_DAYS rolling window - merge new jobs into existing, prune old ones
 # ---------------------------------------------------------------------------
 def merge_and_prune(existing_path: str, new_jobs: list,
                    retention_days: int = RETENTION_DAYS) -> list:
     """
     1. Load existing jobs from *existing_path* (if it exists).
-    2. Merge with *new_jobs* — dedup by job_id, new data wins.
+    2. Merge with *new_jobs* - dedup by job_id, new data wins.
     3. Drop any job whose `submitted` date is older than *retention_days*.
     Returns the final merged+pruned list and logs what happened.
     """
@@ -349,7 +349,7 @@ def merge_and_prune(existing_path: str, new_jobs: list,
                     existing_by_id[jid] = j
             logger.info(f"  [MERGE] Loaded {len(existing_by_id)} existing jobs from {existing_path}")
         except Exception as exc:
-            logger.warning(f"  [MERGE] Could not load existing JSON ({exc}) — starting fresh")
+            logger.warning(f"  [MERGE] Could not load existing JSON ({exc}) - starting fresh")
 
     # Merge: new data wins on conflict
     added = updated = 0
@@ -378,7 +378,7 @@ def merge_and_prune(existing_path: str, new_jobs: list,
                 pruned.append(j)
                 continue
         except Exception:
-            pass  # can't parse date — keep the job
+            pass  # can't parse date - keep the job
         kept.append(j)
 
     # Sort newest first
@@ -393,7 +393,7 @@ def merge_and_prune(existing_path: str, new_jobs: list,
 
 
 # ---------------------------------------------------------------------------
-# Re-check stale Running jobs — fetch their current state from Axiom
+# Re-check stale Running jobs - fetch their current state from Axiom
 # ---------------------------------------------------------------------------
 def _is_stale_running(job: dict, now_utc, min_age_minutes: int = 30) -> bool:
     """Return True if job has been Running for more than min_age_minutes."""
@@ -456,7 +456,7 @@ def recheck_running_jobs(host: str, token: str, app_name: str, existing_path: st
         logger.info("[RECHECK] No stale Running jobs to recheck.")
         return 0
 
-    logger.info("[RECHECK] %d stale Running jobs — checking current status by job ID...", len(running))
+    logger.info("[RECHECK] %d stale Running jobs - checking current status by job ID...", len(running))
 
     updated = 0
     for old_job in running:
@@ -493,7 +493,7 @@ def recheck_running_jobs(host: str, token: str, app_name: str, existing_path: st
         data["state_counts"] = state_counts
         data["generated_at"] = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         _save(existing_path, data)
-        logger.info("[RECHECK] Updated %d jobs — saved JSON.", updated)
+        logger.info("[RECHECK] Updated %d jobs - saved JSON.", updated)
     else:
         logger.info("[RECHECK] No state changes found for stale Running jobs.")
 
@@ -501,7 +501,7 @@ def recheck_running_jobs(host: str, token: str, app_name: str, existing_path: st
 
 
 # ---------------------------------------------------------------------------
-# Background poller — called as a daemon thread from app.py
+# Background poller - called as a daemon thread from app.py
 # ---------------------------------------------------------------------------
 def run_swpdt_poller(
     output_dir: str  = DEFAULT_OUTPUT_DIR,
@@ -518,7 +518,7 @@ def run_swpdt_poller(
       2. Merges/appends them into SWPDT_job_summary.json
       3. Prunes jobs older than RETENTION_DAYS
     Token is refreshed automatically every TOKEN_TTL_SEC.
-    Safe to call from app.py — never raises, logs all errors with full traceback.
+    Safe to call from app.py - never raises, logs all errors with full traceback.
     """
     import traceback
 
@@ -531,10 +531,10 @@ def run_swpdt_poller(
     output_path   = os.path.join(output_dir, OUTPUT_FILENAME)
 
     if not client_id or not client_secret:
-        logger.warning("[SWPDT POLLER] AXIOM_CLIENT_ID/SECRET not set — poller disabled.")
+        logger.warning("[SWPDT POLLER] AXIOM_CLIENT_ID/SECRET not set - poller disabled.")
         return
 
-    logger.info("[SWPDT POLLER] Starting — output: %s  interval: %ss", output_path, poll_interval)
+    logger.info("[SWPDT POLLER] Starting - output: %s  interval: %ss", output_path, poll_interval)
 
     token          = None
     token_obtained = 0.0
@@ -560,7 +560,7 @@ def run_swpdt_poller(
             try:
                 new_jobs = fetch_swpdt_jobs(api_host, token, page_size, app_name, max_jobs=max_jobs)
             except AxiomAuthError:
-                logger.warning("[SWPDT POLLER] Axiom token rejected — refreshing token and retrying cycle=%d once.", cycle)
+                logger.warning("[SWPDT POLLER] Axiom token rejected - refreshing token and retrying cycle=%d once.", cycle)
                 token          = _get_token(api_host, client_id, client_secret)
                 token_obtained = time.time()
                 new_jobs       = fetch_swpdt_jobs(api_host, token, page_size, app_name, max_jobs=max_jobs)
@@ -597,13 +597,13 @@ def run_swpdt_poller(
                     cycle, len(final_jobs), final_devices, state_counts
                 )
             else:
-                logger.warning("[SWPDT POLLER] cycle=%d  no Running jobs found in rolling window — JSON NOT updated.", cycle)
+                logger.warning("[SWPDT POLLER] cycle=%d  no Running jobs found in rolling window - JSON NOT updated.", cycle)
 
             # Re-check stale Running jobs every cycle
             try:
                 recheck_running_jobs(api_host, token, app_name, output_path)
             except AxiomAuthError:
-                logger.warning("[SWPDT POLLER] Token rejected during recheck — refreshing.")
+                logger.warning("[SWPDT POLLER] Token rejected during recheck - refreshing.")
                 token          = _get_token(api_host, client_id, client_secret)
                 token_obtained = time.time()
                 recheck_running_jobs(api_host, token, app_name, output_path)
@@ -628,7 +628,7 @@ def run_swpdt_poller(
         elapsed = time.time() - cycle_start
         sleep_for = max(0, poll_interval - elapsed)
         logger.info(
-            "[SWPDT POLLER] cycle=%d done in %.1fs — sleeping %.0fs",
+            "[SWPDT POLLER] cycle=%d done in %.1fs - sleeping %.0fs",
             cycle, elapsed, sleep_for
         )
         time.sleep(sleep_for)
@@ -702,8 +702,8 @@ def main() -> None:
 
     logger.info("=" * 60)
     logger.info("  SWPDT Axiom Job Summary Fetcher")
-    logger.info(f"  Fetch window  : last {RETENTION_DAYS} days → now")
-    logger.info(f"  Excluding     : {HWPDT_TAXONOMY}  (HWPDT — separate script)")
+    logger.info(f"  Fetch window  : last {RETENTION_DAYS} days - now")
+    logger.info(f"  Excluding     : {HWPDT_TAXONOMY}  (HWPDT - separate script)")
     logger.info(f"  Retention     : {RETENTION_DAYS} days rolling window")
     logger.info(f"  API Host      : {args.api_host}")
     logger.info(f"  Output        : {output_path}")
