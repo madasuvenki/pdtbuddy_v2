@@ -1,12 +1,14 @@
 import os
 import re
-from datetime import datetime
+from collections import Counter, defaultdict
+from datetime import datetime, date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import ADMIN_USERS, BU_DATABASE_MAPPING, TARGET_GROUP, VIEWER_OVERRIDE_USERS
 
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
+
 
 from dashboard_common import get_bu_for_target, get_display_name_for_target, get_mysql_connection_db, get_schema_for_target
 from live_view_stats_routes import (
@@ -209,23 +211,113 @@ def _meta_label(build: str) -> str:
     return text[:40] or "-"
 
 
-def _current_running_builds(target_name: str, fq_jiras_table: str = "") -> Dict[str, Any]:
+_AUTO_GEN45_BUILD_PREFIX = "Snapdragon_Auto.HQX.4.8.9.0.1.r1"
+
+
+def _auto_target_token_from_table(value: str) -> str:
+    """Derive the platform/flavor name (e.g. "lemans", "monaco") that an Auto
+    Gen4.5 SP's configured table belongs to, from the table name itself.
+
+    Table names follow the convention "<platform>_hqx_adas_4_8_9_0_1_jiras"
+    (or "..._openjiras" / "..._unique_crs" / "..._overall_crs"), so the
+    platform token is the first name segment that isn't one of those known
+    suffixes. This mirrors the client-side `_targetFromTable()` helper in
+    auto_gen45_live_view_stats.html so Current Running Build filtering uses
+    exactly the same platform name the Config tab already shows per SP
+    (e.g. "lemans", "monaco"), which is what axiom_job_summary carries in its
+    `product_flavor` column (e.g. "..._asic_autosar_evb_lemans").
+    """
+    text = str(value or "").replace("`", "").strip()
+    if not text:
+        return ""
+    if "." in text:
+        text = text.split(".")[-1]
+    parts = [p for p in text.lower().split("_") if p]
+    known_suffixes = {"openjiras", "unique", "crs", "jiras", "overall"}
+    significant = next((p for p in parts if p not in known_suffixes and not p.endswith("crs")), "")
+    if significant and not re.fullmatch(r"\d+", significant):
+        return significant
+    return ""
+
+
+def _current_running_builds(
+    target_name: str,
+    fq_jiras_table: str = "",
+    extra_tables: Optional[List[str]] = None,
+    strict: bool = False,
+    target_token: str = "",
+) -> Dict[str, Any]:
+    """Look up currently-running builds from axiom_job_summary.
+
+    For Auto Gen4.5 (`strict=True`), builds are identified by the two fields
+    that actually distinguish them in axiom_job_summary:
+      - `software_product` / `build_name` must start with/contain the fixed
+        Auto Gen4.5 build identifier "Snapdragon_Auto.HQX.4.8.9.0.1.r1".
+      - `product_flavor` must contain the platform token (e.g. "lemans",
+        "monaco") derived from the SP's own configured JIRAs/Open JIRAs/
+        Unique CRs table name (`target_token`).
+    Both conditions are required together so a SP only ever shows builds
+    that are (a) actually Auto Gen4.5 builds and (b) actually belong to that
+    SP's own platform - not another SP's builds that happen to also be Auto
+    Gen4.5. If no `target_token` can be resolved from the SP's config, we
+    return an empty result with an explanatory message rather than falling
+    back to a shared, ungrouped search that would show the same builds under
+    every SP.
+
+    Non-Auto-Gen4.5 targets (`strict=False`, e.g. WBC) keep the previous
+    PL-ID / generic target-term based matching.
+    """
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return {"rows": [], "updated_at": "", "source": "No DB connection"}
     cur = conn.cursor(dictionary=True)
     try:
-        pl_values = _pl_values_from_table(cur, fq_jiras_table, _default_schema_for_target(target_name)) if fq_jiras_table else []
-        params: List[str] = []
-        wheres: List[str] = []
-        for value in pl_values[:40]:
-            wheres.append("software_product LIKE %s")
-            params.append(f"%{value}%")
-        if not wheres:
-            for term in _target_terms(target_name):
-                wheres.append("(software_product LIKE %s OR build_name LIKE %s OR build_id LIKE %s)")
-                params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
-        where_sql = " OR ".join(wheres) if wheres else "1=0"
+        if strict:
+            if not target_token:
+                return {
+                    "rows": [],
+                    "updated_at": "",
+                    "source": (
+                        "Could not derive a platform name (e.g. 'lemans', 'monaco') from this "
+                        "SP's configured JIRAs / Open JIRAs / Unique CRs table name, so Current "
+                        "Running Build cannot be scoped to this SP's own axiom_job_summary "
+                        "product_flavor. Configure a table for this SP first."
+                    ),
+                }
+            where_sql = (
+                "(software_product LIKE %s OR build_name LIKE %s) "
+                "AND product_flavor LIKE %s"
+            )
+            params: List[str] = [
+                f"%{_AUTO_GEN45_BUILD_PREFIX}%",
+                f"%{_AUTO_GEN45_BUILD_PREFIX}%",
+                f"%{target_token}%",
+            ]
+        else:
+            pl_values: List[str] = []
+            seen_pl = set()
+            for fq in [fq_jiras_table] + list(extra_tables or []):
+                if not fq:
+                    continue
+                for value in _pl_values_from_table(cur, fq, _default_schema_for_target(target_name)):
+                    key = value.upper()
+                    if key not in seen_pl:
+                        seen_pl.add(key)
+                        pl_values.append(value)
+            params = []
+            wheres: List[str] = []
+            for value in pl_values[:40]:
+                if re.fullmatch(r"\d{3,8}", value):
+                    wheres.append(r"software_product REGEXP CONCAT('(^|[^0-9])', %s, '($|[^0-9])')")
+                    params.append(value)
+                else:
+                    wheres.append("software_product LIKE %s")
+                    params.append(f"%{value}%")
+            if not wheres:
+                for term in _target_terms(target_name):
+                    wheres.append("(software_product LIKE %s OR build_name LIKE %s OR build_id LIKE %s)")
+                    params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
+            where_sql = " OR ".join(wheres) if wheres else "1=0"
         cur.execute("SELECT MAX(updated_at) AS updated_at FROM pdt_stats_dashboard.axiom_job_summary")
         meta = cur.fetchone() or {}
         cur.execute(
@@ -398,6 +490,542 @@ def _auto_gen45_rows_from_table(fq_table: str, kind: str, limit: int = 300) -> D
             pass
 
 
+def _ser_db(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(value, date):
+        return value.isoformat()
+    return "" if value is None else value
+
+
+def _norm_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def _auto_first_col(cols: List[str], candidates: List[str]) -> str:
+    by_norm = {_norm_key(c): c for c in (cols or [])}
+    for cand in candidates:
+        hit = by_norm.get(_norm_key(cand))
+        if hit:
+            return hit
+    for col in cols or []:
+        c_norm = _norm_key(col)
+        if any(_norm_key(cand) and _norm_key(cand) in c_norm for cand in candidates):
+            return col
+    return ""
+
+
+def _auto_open_table(target_name: str, fq_table: str):
+    schema, table = _split_fq_table(fq_table, _default_schema_for_target(target_name))
+    if not schema or not table:
+        raise RuntimeError("No table configured")
+    conn = get_mysql_connection_db(database_name=schema) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        raise RuntimeError("No DB connection")
+    cur = conn.cursor(dictionary=True)
+    cols = _table_cols(cur, schema, table)
+    if not cols:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+        raise RuntimeError(f"Table not found or no columns: {schema}.{table}")
+    return conn, cur, schema, table, cols
+
+
+def _auto_alias_rows(
+    target_name: str,
+    fq_table: str,
+    aliases: Dict[str, List[str]],
+    limit: int = 5000,
+    order_candidates: Optional[List[str]] = None,
+    date_candidates: Optional[List[str]] = None,
+    date_from: str = "",
+    date_to: str = "",
+) -> Tuple[List[Dict[str, Any]], List[str], str]:
+    conn = cur = None
+    try:
+        conn, cur, schema, table, cols = _auto_open_table(target_name, fq_table)
+        select_parts = []
+        for alias, candidates in aliases.items():
+            col = _auto_first_col(cols, candidates)
+            select_parts.append(f"`{col}` AS `{alias}`" if col else f"NULL AS `{alias}`")
+        order_col = _auto_first_col(cols, order_candidates or ["last_instance", "jira_date", "updated_at", "created_at", "built_date"]) or cols[0]
+        where_sql, params = "", []
+        if date_from and date_to:
+            date_col = _auto_first_col(cols, date_candidates or ["jira_date", "created", "created_date", "built_date", "updated_at"])
+            if date_col:
+                where_sql = f" WHERE `{date_col}` BETWEEN %s AND %s"
+                params = [date_from, date_to]
+        cur.execute(
+            f"SELECT {', '.join(select_parts)} FROM {_bt(schema, table)}{where_sql} ORDER BY `{order_col}` DESC LIMIT %s",
+            tuple(params) + (int(limit or 5000),),
+        )
+        rows = [{k: _ser_db(v) for k, v in (r or {}).items()} for r in (cur.fetchall() or [])]
+        return rows, cols, f"{schema}.{table}"
+    finally:
+        try:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
+def _auto_cr_aliases() -> Dict[str, List[str]]:
+    return {
+        "cr": ["mapped_cr", "mapped_crs", "Mapped CRs", "Mapped CR", "cr", "cr_number", "crid", "stability_ticket"],
+        "raw_cr": ["cr", "cr_number", "crid", "stability_ticket", "mapped_cr"],
+        "cr_title": ["cr_title", "CR Title", "jira_title", "title", "summary"],
+        "cr_status": ["cr_status", "CR Status", "status", "final_status"],
+        "cr_category": ["cr_category", "CR Category", "category"],
+        "cr_area": ["cr_area", "CR Area", "area", "ChangeRequestParticipant.Area"],
+        "cr_subsystem": ["cr_subsystem", "CR Subsystem", "subsystem", "ChangeRequestParticipant.Subsystem"],
+        "cr_functionality": ["cr_functionality", "CR Functionality", "functionality", "ChangeRequestParticipant.Functionality"],
+        "cr_age": ["cr_age", "CR Age", "overall_age", "age"],
+        "first_instance": ["first_seen_date", "first_seen", "jira_date__first_instance", "first_instance", "jira_date", "created_date", "cr_date", "built_date"],
+        "last_instance": ["last_seen_date", "last_seen", "jira_date__last_instance", "last_instance", "updated_date", "jira_date"],
+        "latest_cr_notes": ["latest_cr_notes", "latest_notes", "latest_comment", "latest_comments", "analysis", "debug_notes", "cr_notes", "notes", "comment"],
+        "occurrence": ["cr_occurrence", "overall_cr_occurrence", "jira_count", "cr_____current_month", "current_month_occurrence"],
+        "priority": ["cr_priority", "priority", "severity"],
+    }
+
+
+def _auto_jira_aliases() -> Dict[str, List[str]]:
+    return {
+        "jira": ["stability_ticket", "jira_id", "jira_key", "ticket", "key"],
+        "title": ["jira_title", "title", "summary"],
+        "build": ["metabuild", "MetaBuild", "meta_build", "build", "build_id", "builds"],
+        "cr": ["mapped_cr", "mapped_crs", "Mapped CR", "Mapped CRs", "cr", "cr_number", "crid"],
+        "jira_date": ["jira_date", "created", "created_date", "built_date", "updated_at"],
+        "area": ["area", "cr_area", "component", "jira_component"],
+        "team": ["test_team", "team", "owner", "assignee"],
+        "pl": ["PL-ID", "pl_id", "PL ID", "software_product", "product_line"],
+    }
+
+
+def _auto_is_open_cr(row: Dict[str, Any]) -> bool:
+    status = _norm_key(row.get("cr_status"))
+    category = _norm_key(row.get("cr_category"))
+    if category in {"duplicate", "dup", "invalid", "notvalid", "cannotduplicate"}:
+        return False
+    if not status:
+        return False
+    return status in {"open", "analysis"} or "open" in status or "analysis" in status
+
+
+def _auto_cr_display(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    m = re.search(r"(\d{5,9})", text)
+    if m:
+        return f"CR{m.group(1)}"
+    return text
+
+
+def _auto_cr_key(value: Any) -> str:
+    text = str(value or "").upper()
+    m = re.search(r"(\d{5,9})", text)
+    return m.group(1) if m else re.sub(r"[^A-Z0-9]+", "", text)
+
+
+def _auto_build_label(value: Any) -> str:
+    text = str(value or "").strip().replace("/", "\\")
+    return text.split("\\")[-1] if text else ""
+
+
+def _auto_crash_type(title: Any, source: str = "") -> str:
+    if source == "open_jira":
+        return "open_jira"
+    text = str(title or "").lower()
+    if any(k in text for k in ("processdump", "processcrash", "process dump", "process crash", "qnx", "undetermined")):
+        return "process"
+    if any(k in text for k in ("ssr", "sleep", "subsystem restart")):
+        return "ssr"
+    return "system"
+
+
+def _auto_week_key(value: Any) -> str:
+    text = str(value or "").strip()[:10]
+    try:
+        dt = datetime.strptime(text, "%Y-%m-%d").date()
+    except Exception:
+        return "Unknown"
+    start = dt - timedelta(days=dt.weekday())
+    end = start + timedelta(days=6)
+    return f"{start.isoformat()} to {end.isoformat()}"
+
+
+def _auto_gen45_open_jiras_table_payload(target_name: str, fq_table: str) -> Dict[str, Any]:
+    if not fq_table:
+        return {"rows": [], "columns": [], "count": 0, "error": "No Open JIRAs table configured"}
+    try:
+        rows, _, table_name = _auto_alias_rows(target_name, fq_table, _auto_jira_aliases(), 5000, ["jira_date", "created", "updated_at"])
+        out = []
+        for row in rows:
+            item = {
+                "stability_ticket": row.get("jira") or "",
+                "jira_title": row.get("title") or "",
+                "jira_date": row.get("jira_date") or "",
+                "crash_type": _auto_crash_type(row.get("title")),
+                "area": row.get("area") or "Other",
+                "cr_current_ticket": _auto_cr_display(row.get("cr")),
+                "test_team": row.get("team") or "",
+                "metabuild": _auto_build_label(row.get("build")),
+                "pl_id": row.get("pl") or "",
+            }
+            if item["stability_ticket"] or item["jira_title"]:
+                out.append(item)
+        return {"table": table_name, "columns": list(out[0].keys()) if out else [], "rows": out, "count": len(out), "error": ""}
+    except Exception as exc:
+        return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": str(exc)}
+
+
+def _auto_gen45_open_crs_payload(target_name: str, sp: str) -> Dict[str, Any]:
+    cfg = _ensure_page_defaults(target_name)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    unique_table = sp_cfg.get("unique_crs_table") or ""
+    if not unique_table:
+        return {"ok": False, "success": False, "message": "No Unique CRs table configured for this SP", "rows": []}
+    rows, cols, table_name = _auto_alias_rows(target_name, unique_table, _auto_cr_aliases(), 8000)
+    if not _auto_first_col(cols, ["cr_status", "CR Status", "status", "final_status"]):
+        return {"ok": False, "success": False, "message": f"No CR status column found in {table_name}; cannot calculate Open CRs", "rows": []}
+    out, seen = [], set()
+    for row in rows:
+        if not _auto_is_open_cr(row):
+            continue
+        key = _auto_cr_key(row.get("cr") or row.get("raw_cr"))
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        row = dict(row)
+        row["cr_display"] = _auto_cr_display(row.get("cr") or row.get("raw_cr"))
+        out.append(row)
+    return {
+        "ok": True,
+        "success": True,
+        "sp": str(sp or ""),
+        "table": table_name,
+        "rows": out,
+        "status_counts": dict(Counter(str(r.get("cr_status") or "Unknown") for r in out)),
+        "area_counts": dict(Counter(str(r.get("cr_area") or "Unknown") for r in out)),
+    }
+
+
+def _auto_default_week_range() -> Tuple[str, str]:
+    """Last completed Monday-Sunday window, same rule as HQX/HGY weekly_full."""
+    today = date.today()
+    offset = 7 if today.weekday() == 6 else today.weekday() + 1
+    to_dt = today - timedelta(days=offset)
+    from_dt = to_dt - timedelta(days=6)
+    return from_dt.isoformat(), to_dt.isoformat()
+
+
+def _auto_area_from_open_jira_title(value: Any) -> str:
+    """Bucket open/unmapped JIRAs from title text only (mirrors HQX/HGY logic)."""
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    if any(tok in text for tok in ("wconnect", "wcnss", "cnss", "wlan", "wi-fi", "wifi", "btfm", "bluetooth", "wireless")):
+        return "WConnect"
+    if " bt " in f" {text} " or text.startswith("bt ") or text.endswith(" bt"):
+        return "WConnect"
+    if any(tok in text for tok in ("modem", "mpss", "ril", "data call", "lte", "5g", "nr", "ims", "qmi")):
+        return "Modem"
+    if any(tok in text for tok in ("adsp", "audio", "qdsp")):
+        return "ADSP"
+    if any(tok in text for tok in ("cdsp", "compute dsp")):
+        return "CDSP"
+    if any(tok in text for tok in ("trustzone", "trust zone", "qsee")) or text == "tz" or " tz " in f" {text} ":
+        return "TZ"
+    if any(tok in text for tok in ("apps", "apss", "android", "kernel", "framework", "userspace")):
+        return "APPS"
+    return ""
+
+
+def _auto_fetch_unique_cr_details_by_keys(target_name: str, unique_table: str, keys: set) -> Dict[str, Dict[str, Any]]:
+    """Unbounded (no date filter) lookup of specific CR rows from the Unique
+    CRs table, keyed by CR number (same normalized key as `_auto_cr_key`).
+
+    Mirrors the HQX/HGY 'authoritative CR detail' fallback used in
+    live_status_publish_routes.py: a JIRA reported this week can map to a CR
+    (via mapped_cr) whose own first/last-seen dates in *_unique_crs fall
+    outside this week's date window, so the date-windowed CR query alone
+    would miss it. Without this fallback the Weekly CR Table would show that
+    CR with blank Status/Area/Subsystem/Functionality/Age even though the
+    Unique CRs table actually has that data - just not within this date
+    range. We look the CR up again by number, with no date restriction, so
+    those columns are always populated whenever the CR exists anywhere in
+    the Unique CRs table.
+    """
+    if not unique_table or not keys:
+        return {}
+    try:
+        raw_rows, _, _ = _auto_alias_rows(target_name, unique_table, _auto_cr_aliases(), 20000)
+    except Exception:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for row in raw_rows:
+        key = _auto_cr_key(row.get("cr") or row.get("raw_cr"))
+        if not key or key not in keys or key in out:
+            continue
+        out[key] = row
+    return out
+
+
+def _auto_gen45_weekly_payload(target_name: str, sp: str, from_arg: str = "", to_arg: str = "") -> Dict[str, Any]:
+    """Weekly report payload for Auto Gen4.5, shaped exactly like the HQX/HGY
+    /api/live_status/targets/<target>/weekly_full response so the same
+    cr_rows / jira_rows / open_jira_rows / pie_status / pie_area / counts /
+    build_area_matrix contract is used everywhere.
+    """
+    cfg = _ensure_page_defaults(target_name)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    jiras_table = sp_cfg.get("jiras_table") or sp_cfg.get("target_table") or ""
+    open_table = sp_cfg.get("openjiras_table") or ""
+    unique_table = sp_cfg.get("unique_crs_table") or ""
+    if not jiras_table and not open_table:
+        return {"ok": False, "success": False, "message": "No JIRAs/Open JIRAs table configured for this SP", "cr_rows": [], "jira_rows": [], "open_jira_rows": []}
+
+    from_s = str(from_arg or "").strip()[:10]
+    to_s = str(to_arg or "").strip()[:10]
+    if not (from_s and to_s):
+        from_s, to_s = _auto_default_week_range()
+
+    date_cands = ["jira_date", "created", "created_date", "built_date", "updated_at"]
+
+    def _load_jiras(fq_table: str) -> List[Dict[str, Any]]:
+        if not fq_table:
+            return []
+        raw, _, _ = _auto_alias_rows(target_name, fq_table, _auto_jira_aliases(), 20000, date_cands, date_candidates=date_cands, date_from=from_s, date_to=to_s)
+        return raw
+
+    raw_jira_rows = _load_jiras(jiras_table)
+    raw_open_rows = _load_jiras(open_table)
+
+    def _norm_jira_row(row: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "stability_ticket": row.get("jira") or "",
+            "jira_date": str(row.get("jira_date") or "")[:19],
+            "jira_title": row.get("title") or "",
+            "metabuild": _auto_build_label(row.get("build")),
+            "mapped_cr": row.get("cr") or "",
+            "cr": row.get("cr") or "",
+        }
+
+    jira_rows = [_norm_jira_row(r) for r in raw_jira_rows if (r.get("jira") or r.get("title"))]
+    open_jira_rows = [_norm_jira_row(r) for r in raw_open_rows if (r.get("jira") or r.get("title"))]
+    all_jira_rows = jira_rows + open_jira_rows
+
+    seen_builds: Dict[str, bool] = {}
+    for row in all_jira_rows:
+        mb = str(row.get("metabuild") or "").strip()
+        if mb and mb not in seen_builds:
+            seen_builds[mb] = True
+    build_ids = list(seen_builds.keys())
+
+    # CR rows from the configured Unique CRs table, date-windowed on
+    # first/last instance (same rule as fetch_weekly_crs), then deduped by CR key
+    # keeping the row with the highest occurrence / most recent last_instance.
+    cr_rows: List[Dict[str, Any]] = []
+    cr_date_cands = ["last_instance", "first_instance", "jira_date"]
+    by_key: Dict[str, Dict[str, Any]] = {}
+    if unique_table:
+        raw_cr_rows, _, _ = _auto_alias_rows(
+            target_name, unique_table, _auto_cr_aliases(), 20000, cr_date_cands,
+            date_candidates=cr_date_cands, date_from=from_s, date_to=to_s,
+        )
+        for row in raw_cr_rows:
+            key = _auto_cr_key(row.get("cr") or row.get("raw_cr"))
+            if not key:
+                continue
+            existing = by_key.get(key)
+            occ = _safe_int(row.get("occurrence"))
+            if existing is None or occ > _safe_int(existing.get("occurrence")):
+                by_key[key] = row
+
+        # Any CR this week's JIRAs mapped_cr point to (mapped_crs column) that
+        # wasn't found above - either because its own first/last-seen dates in
+        # *_unique_crs fall outside this date window, or its jira_date doesn't
+        # line up - is looked up again with no date restriction, exactly like
+        # HQX/HGY's authoritative-CR-detail fallback. This is what fills in
+        # Status/Area/Subsystem/Functionality/Age for CRs that would otherwise
+        # show up blank in the Weekly CR Table.
+        jira_cr_keys = {
+            _auto_cr_key(r.get("mapped_cr") or r.get("cr"))
+            for r in (jira_rows + open_jira_rows)
+        }
+        jira_cr_keys.discard("")
+        missing_keys = jira_cr_keys - set(by_key.keys())
+        if missing_keys:
+            fallback_rows = _auto_fetch_unique_cr_details_by_keys(target_name, unique_table, missing_keys)
+            for key, row in fallback_rows.items():
+                by_key[key] = row
+
+        for key, row in by_key.items():
+            row = dict(row)
+            row["cr"] = row.get("cr") or row.get("raw_cr") or key
+            row["cr_display"] = _auto_cr_display(row.get("cr"))
+            cr_rows.append(row)
+        cr_rows.sort(key=lambda r: str(r.get("last_instance") or r.get("first_instance") or ""), reverse=True)
+
+    # Pie aggregations from CR rows (same shape as HQX/HGY pie_status/pie_area).
+    status_ctr = Counter(str(r.get("cr_status") or "").strip() for r in cr_rows if str(r.get("cr_status") or "").strip())
+    area_ctr = Counter(str(r.get("cr_area") or "").strip() for r in cr_rows if str(r.get("cr_area") or "").strip())
+    pie_status = [{"name": k, "y": v} for k, v in sorted(status_ctr.items(), key=lambda x: x[0].lower())]
+    pie_area = [{"name": k, "y": v} for k, v in sorted(area_ctr.items(), key=lambda x: x[0].lower())]
+
+    # Per-build area matrix: mapped JIRAs use the CR's Area, open/unmapped
+    # JIRAs are bucketed from title text only (mirrors HQX/HGY logic).
+    cr_lookup: Dict[str, Dict[str, Any]] = {}
+    for row in cr_rows:
+        key = _auto_cr_key(row.get("cr"))
+        if key:
+            cr_lookup[key] = row
+
+    def _area_for_jira(row: Dict[str, Any]) -> str:
+        key = _auto_cr_key(row.get("mapped_cr") or row.get("cr"))
+        if key and key in cr_lookup:
+            return str(cr_lookup[key].get("cr_area") or "").strip()
+        return _auto_area_from_open_jira_title(row.get("jira_title"))
+
+    build_area_matrix: Dict[str, Dict[str, int]] = {}
+    area_totals: Counter = Counter()
+    for row in all_jira_rows:
+        mb = str(row.get("metabuild") or "").strip()
+        if not mb:
+            continue
+        area = _area_for_jira(row)
+        if not area:
+            continue
+        build_area_matrix.setdefault(mb, {})[area] = build_area_matrix.setdefault(mb, {}).get(area, 0) + 1
+        area_totals[area] += 1
+    if not area_totals:
+        for row in cr_rows:
+            area = str(row.get("cr_area") or "").strip()
+            if area:
+                area_totals[area] += 1
+    areas = [a for a, _ in area_totals.most_common()]
+    for mb in build_ids:
+        build_area_matrix.setdefault(mb, {})
+        for area in areas:
+            build_area_matrix[mb].setdefault(area, 0)
+
+    total_jiras = len({r.get("stability_ticket") for r in all_jira_rows if r.get("stability_ticket")})
+    open_jiras = len({r.get("stability_ticket") for r in open_jira_rows if r.get("stability_ticket")})
+    total_crs = len(cr_rows)
+    valid_crs = sum(1 for r in cr_rows if _norm_key(r.get("cr_category")) in {"built", "undisposed"})
+    overall_crs = _count_from_table(target_name, unique_table, ["mapped_cr", "mapped_crs", "cr", "crid"]) if unique_table else total_crs
+
+    return {
+        "ok": True,
+        "success": True,
+        "sp": str(sp or ""),
+        "from_date": from_s,
+        "to_date": to_s,
+        "cr_rows": cr_rows,
+        "jira_rows": jira_rows,
+        "open_jira_rows": open_jira_rows,
+        "build_ids": build_ids,
+        "available_build_ids": build_ids,
+        "selected_build_ids": build_ids,
+        "build_area_matrix": build_area_matrix,
+        "areas": areas,
+        "pie_status": pie_status,
+        "pie_area": pie_area,
+        "counts": {
+            "total_jiras": total_jiras,
+            "open_jiras": open_jiras,
+            "total_crs": total_crs,
+            "overall_crs": overall_crs,
+            "valid_crs": valid_crs,
+            "build_count": len(build_ids),
+        },
+    }
+
+
+def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: str = "", crash_types: Optional[set] = None) -> Dict[str, Any]:
+    cfg = _ensure_page_defaults(target_name)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    jiras_table = sp_cfg.get("jiras_table") or sp_cfg.get("target_table") or ""
+    open_table = sp_cfg.get("openjiras_table") or ""
+    unique_table = sp_cfg.get("unique_crs_table") or ""
+    if not jiras_table and not open_table:
+        return {"ok": False, "success": False, "message": "No JIRAs/Open JIRAs table configured for this SP", "builds": [], "detail_rows": []}
+    crash_types = crash_types or {"system", "ssr", "process", "open_jira"}
+    all_jiras: List[Dict[str, Any]] = []
+    for fq, source in ((jiras_table, "jiras"), (open_table, "open_jira")):
+        if not fq:
+            continue
+        try:
+            rows, _, _ = _auto_alias_rows(target_name, fq, _auto_jira_aliases(), 20000, ["metabuild", "jira_date", "updated_at"])
+            for row in rows:
+                row["source"] = source
+                row["build_id"] = _auto_build_label(row.get("build"))
+                row["crash_type"] = _auto_crash_type(row.get("title"), source)
+                if row["build_id"]:
+                    all_jiras.append(row)
+        except Exception:
+            continue
+    unique_by_cr: Dict[str, Dict[str, Any]] = {}
+    if unique_table:
+        try:
+            cr_rows, _, _ = _auto_alias_rows(target_name, unique_table, _auto_cr_aliases(), 20000)
+            for row in cr_rows:
+                key = _auto_cr_key(row.get("cr") or row.get("raw_cr"))
+                if key and key not in unique_by_cr:
+                    unique_by_cr[key] = row
+        except Exception:
+            unique_by_cr = {}
+    grouped: Dict[str, Dict[str, Any]] = {}
+    detail_by_build: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    seen_detail = set()
+    for row in all_jiras:
+        ct = row.get("crash_type") or "system"
+        if ct not in crash_types:
+            continue
+        build = row.get("build_id") or ""
+        if not build:
+            continue
+        cr_key = _auto_cr_key(row.get("cr"))
+        detail_key = (build.upper(), cr_key or str(row.get("jira") or "").upper(), ct)
+        if detail_key not in seen_detail:
+            seen_detail.add(detail_key)
+            cr_info = unique_by_cr.get(cr_key, {}) if cr_key else {}
+            detail_by_build[build].append({
+                "cr": _auto_cr_display(row.get("cr")) or _auto_cr_display(cr_info.get("cr")) or "-",
+                "jira": row.get("jira") or "-",
+                "title": row.get("title") or cr_info.get("cr_title") or "-",
+                "cr_count": 1,
+                "cr_area": cr_info.get("cr_area") or row.get("area") or "-",
+                "cr_subsystem": cr_info.get("cr_subsystem") or "-",
+                "cr_functionality": cr_info.get("cr_functionality") or "-",
+                "cr_status": cr_info.get("cr_status") or "-",
+                "cr_age": cr_info.get("cr_age") or "-",
+                "si_last_seen": cr_info.get("last_instance") or "-",
+                "last_instance": cr_info.get("last_instance") or row.get("jira_date") or "-",
+                "crash_type": ct,
+            })
+        item = grouped.setdefault(build, {"build_id": build, "total_crashes": 0, "system_count": 0, "ssr_count": 0, "process_count": 0, "open_jira_count": 0, "cr_count": 0})
+        item["total_crashes"] += 1
+        item[f"{ct}_count"] = _safe_int(item.get(f"{ct}_count")) + 1
+        if cr_key:
+            item.setdefault("_crs", set()).add(cr_key)
+    builds = []
+    for item in grouped.values():
+        item["cr_count"] = len(item.pop("_crs", set()))
+        builds.append(item)
+    builds.sort(key=lambda r: str(r.get("build_id") or ""), reverse=True)
+    if selected_build:
+        detail = detail_by_build.get(selected_build) or next((v for k, v in detail_by_build.items() if k.lower() == selected_build.lower()), [])
+        return {"ok": True, "success": True, "sp": str(sp or ""), "build": selected_build, "detail_rows": detail}
+    return {"ok": True, "success": True, "sp": str(sp or ""), "builds": builds, "crash_types_available": ["system", "ssr", "process", "open_jira"]}
+
+
 def _auto_gen45_sp_config(cfg: Dict[str, Any], sp: str) -> Dict[str, Any]:
     sheet_tables = cfg.get("sheet_tables") or {}
     sp_key = str(sp or "").strip()
@@ -423,7 +1051,17 @@ def _auto_gen45_sp_db_payload(target_name: str, sp: str) -> Dict[str, Any]:
     jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
     open_table = db_cfg.get("openjiras_table") or ""
     unique_table = db_cfg.get("unique_crs_table") or ""
-    current = _current_running_builds(target_name, jiras_table)
+    target_token = (
+        _auto_target_token_from_table(jiras_table)
+        or _auto_target_token_from_table(open_table)
+        or _auto_target_token_from_table(unique_table)
+    )
+    current = _current_running_builds(
+        target_name, jiras_table,
+        extra_tables=[open_table, unique_table],
+        strict=_is_auto_gen45_target(target_name),
+        target_token=target_token,
+    )
     return {
         "ok": True,
         "target": target_name,
@@ -437,7 +1075,7 @@ def _auto_gen45_sp_db_payload(target_name: str, sp: str) -> Dict[str, Any]:
             "open_jiras": _count_from_table(target_name, open_table, ["stability_ticket", "jira_id", "ticket"]),
             "total_crs": _count_from_table(target_name, unique_table, ["mapped_cr", "mapped_crs", "cr", "crid"]),
         },
-        "open_jiras": _auto_gen45_rows_from_table(open_table, "openjiras", 300) if open_table else {"rows": [], "columns": [], "count": 0, "error": "No Open JIRAs table configured"},
+        "open_jiras": _auto_gen45_open_jiras_table_payload(target_name, open_table) if open_table else {"rows": [], "columns": [], "count": 0, "error": "No Open JIRAs table configured"},
         "crs": _auto_gen45_rows_from_table(unique_table, "unique_crs", 300) if unique_table else {"rows": [], "columns": [], "count": 0, "error": "No Unique CRs table configured"},
         "jiras": _auto_gen45_rows_from_table(jiras_table, "jiras", 150) if jiras_table else {"rows": [], "columns": [], "count": 0, "error": "No JIRAs table configured"},
     }
@@ -454,7 +1092,17 @@ def _dashboard_payload(target_name: str, sheet_name: str = "") -> Dict[str, Any]
     jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
     open_table = db_cfg.get("openjiras_table") or ""
     unique_table = db_cfg.get("unique_crs_table") or ""
-    current = _current_running_builds(target_name, jiras_table)
+    target_token = (
+        _auto_target_token_from_table(jiras_table)
+        or _auto_target_token_from_table(open_table)
+        or _auto_target_token_from_table(unique_table)
+    )
+    current = _current_running_builds(
+        target_name, jiras_table,
+        extra_tables=[open_table, unique_table],
+        strict=_is_auto_gen45_target(target_name),
+        target_token=target_token,
+    )
     chart_rows = sheet.get("chart_rows") or []
     hours = round(sum(_safe_float(r.get("hours")) for r in chart_rows), 2)
     crashes = sum(_safe_int(r.get("total_crashes")) for r in chart_rows)
@@ -489,7 +1137,7 @@ def _dashboard_payload(target_name: str, sheet_name: str = "") -> Dict[str, Any]
 
 
 @automotive_live_view_stats_bp.route("/automotive/live_view_stats")
-@automotive_live_view_stats_bp.route("/automotive/live_view_stats/<string:target_name>")
+@automotive_live_view_stats_bp.route("/automotive/live_view_stats/<path:target_name>")
 @login_required
 def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
     target_name = _canonical_target(target_name)
@@ -502,7 +1150,6 @@ def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
             target_display="Automotive 4.5",
             can_edit=_target_group_access(),
         )
-
     default_excel = ""
     default_root = r"C:\Dropbox\WBC_Scrum_DB"
     return render_template(
@@ -557,6 +1204,56 @@ def api_automotive_live_view_stats_sp_db_data(target_name: str):
     if not _is_auto_gen45_target(target_name):
         return jsonify({"ok": False, "error": "SP DB data is Auto Gen4.5 only."}), 404
     return jsonify(_auto_gen45_sp_db_payload(target_name, str(request.args.get("sp") or "").strip()))
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_open_crs_full")
+@login_required
+def api_automotive_live_view_stats_sp_open_crs_full(target_name: str):
+    target_name = _canonical_target(target_name)
+    if not _is_auto_gen45_target(target_name):
+        return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "rows": []}), 404
+    try:
+        payload = _auto_gen45_open_crs_payload(target_name, str(request.args.get("sp") or "").strip())
+        return jsonify(payload), (200 if payload.get("success") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "success": False, "message": str(exc), "rows": []}), 500
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_weekly_report")
+@login_required
+def api_automotive_live_view_stats_sp_weekly_report(target_name: str):
+    target_name = _canonical_target(target_name)
+    if not _is_auto_gen45_target(target_name):
+        return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "rows": []}), 404
+    try:
+        payload = _auto_gen45_weekly_payload(
+            target_name,
+            str(request.args.get("sp") or "").strip(),
+            str(request.args.get("from") or "").strip(),
+            str(request.args.get("to") or "").strip(),
+        )
+        return jsonify(payload), (200 if payload.get("success") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "success": False, "message": str(exc), "cr_rows": [], "jira_rows": [], "open_jira_rows": []}), 500
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_build_wise_report")
+@login_required
+def api_automotive_live_view_stats_sp_build_wise_report(target_name: str):
+    target_name = _canonical_target(target_name)
+    if not _is_auto_gen45_target(target_name):
+        return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "builds": [], "detail_rows": []}), 404
+    try:
+        crash_types = {c.strip().lower() for c in str(request.args.get("crash_types") or "system,ssr,process,open_jira").split(",") if c.strip()}
+        payload = _auto_gen45_build_report_payload(
+            target_name,
+            str(request.args.get("sp") or "").strip(),
+            str(request.args.get("build") or "").strip(),
+            crash_types or {"system", "ssr", "process", "open_jira"},
+        )
+        return jsonify(payload), (200 if payload.get("success") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "success": False, "message": str(exc), "builds": [], "detail_rows": []}), 500
 
 
 @automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sync", methods=["POST"])

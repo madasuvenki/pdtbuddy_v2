@@ -62,7 +62,9 @@
         </div>
         {% endif %}
 
-        <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm" autocomplete="on" data-form-type="login" onsubmit="return onLoginSubmit()">
+        <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm"
+              autocomplete="on"
+              onsubmit="return onLoginSubmit()">
 
           <!-- Username -->
           <div class="form-group">
@@ -72,13 +74,11 @@
                 <circle cx="10" cy="7" r="3.5" stroke="#a0aec0" stroke-width="1.6"/>
                 <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="#a0aec0" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
-              <input type="text" id="username" name="username"
+                            <input type="text" id="username" name="username"
                 placeholder="e.g. vmadas or vmadasu@qti.qualcomm.com"
                 value="{{ username or '' }}"
                 autocomplete="username"
                 autocorrect="off" autocapitalize="off" spellcheck="false"
-                data-form-type="username"
-                data-lpignore="false"
                 required>
             </div>
           </div>
@@ -91,11 +91,9 @@
                 <rect x="4" y="9" width="12" height="9" rx="2" stroke="#a0aec0" stroke-width="1.6"/>
                 <path d="M7 9V6.5a3 3 0 0 1 6 0V9" stroke="#a0aec0" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
-              <input type="password" id="password" name="password"
+                            <input type="password" id="password" name="password"
                 placeholder="Qualcomm LDAP password"
                 autocomplete="current-password"
-                data-form-type="password"
-                data-lpignore="false"
                 required>
               <button type="button" class="eye-btn" onclick="togglePwd('password',this)" tabindex="-1">
                 <svg class="eye-icon" viewBox="0 0 20 20" fill="none">
@@ -106,13 +104,13 @@
             </div>
           </div>
 
-          <!-- Credentials are handled only by LDAP login and optional browser password manager save. -->
-
-          <!-- Browser credential save opt-in -->
+                    <!-- "Set browser selected" checkbox: when checked the browser's
+               password manager will offer to save / update credentials
+               after a successful login. Unchecked = browser will not prompt. -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
             <input type="checkbox" id="rememberMe" name="remember_me" value="1"
               style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer;">
-            <label for="rememberMe" style="font-size:13px;font-weight:600;color:#64748b;cursor:pointer;margin:0;">Ask browser to save credentials</label>
+            <label for="rememberMe" style="font-size:13px;font-weight:600;color:#64748b;cursor:pointer;margin:0;">Set browser selected (save credentials)</label>
           </div>
 
           <!-- Submit -->
@@ -130,8 +128,10 @@
 
         </form>
 
-                        <div class="login-note">
-          Sign in with your Qualcomm user ID &amp; password. If selected, only your browser password manager may save credentials.
+                                  <div class="login-note">
+          Sign in with your Qualcomm user ID &amp; password.<br>
+          Type your username — the browser will suggest your saved password automatically.
+          Tick <b>Set browser selected</b> to let the browser save or update your credentials.
         </div>
 
         <!-- Step indicators -->
@@ -238,88 +238,19 @@ function togglePwd(id, btn) {
 }
 
 
-var _credentialSaveDone = false;
-
 function onLoginSubmit() {
-  var form    = document.getElementById('loginForm');
-  var cb      = document.getElementById('rememberMe');
   var btn     = document.getElementById('loginBtn');
   var txt     = document.getElementById('loginBtnText');
   var spinner = document.getElementById('loginBtnSpinner');
   var arrow   = document.getElementById('loginArrow');
 
-  // Do not auto-login. Submit only after user clicks Sign In.
-  if (btn) btn.disabled = true;
-  if (txt) txt.style.display = 'none';
+  // Show spinner, disable button while LDAP auth runs
+  if (btn)     btn.disabled = true;
+  if (txt)     txt.style.display = 'none';
   if (spinner) spinner.style.display = 'inline-flex';
-  if (arrow) arrow.style.display = 'none';
+  if (arrow)   arrow.style.display = 'none';
 
-  // If selected, save/update browser credential first, then submit normally.
-  // This prevents the page navigation from cancelling the browser save call.
-  if (!_credentialSaveDone && cb && cb.checked && form && navigator.credentials && window.PasswordCredential) {
-    try {
-      navigator.credentials.store(new PasswordCredential(form)).catch(function(){}).finally(function(){
-        _credentialSaveDone = true;
-        form.submit();
-      });
-      return false;
-    } catch(e) {
-      _credentialSaveDone = true;
-      return true;
-    }
-  }
-
-  return true;
+  return true;  // let the form POST normally — login is tracked server-side
 }
-// If the browser already has saved credentials for this origin, fill the fields only.
-// This does NOT submit the form and does NOT auto-login.
-(function setupBrowserCredentialFill(){
-  var userEl = document.getElementById('username');
-  var passEl = document.getElementById('password');
-  var cb = document.getElementById('rememberMe');
-  var prompted = false;
-
-  function applyCredential(cred) {
-    if (!cred || cred.type !== 'password') return false;
-    if (userEl && cred.id && !userEl.value) userEl.value = cred.id;
-    if (passEl && cred.password && !passEl.value) passEl.value = cred.password;
-    if (cb) cb.checked = true;
-    try {
-      userEl && userEl.dispatchEvent(new Event('input', { bubbles: true }));
-      passEl && passEl.dispatchEvent(new Event('input', { bubbles: true }));
-    } catch(e) {}
-    return true;
-  }
-
-  function requestCredential(mediation) {
-    try {
-      if (!(navigator.credentials && window.PasswordCredential)) return;
-      navigator.credentials.get({ password: true, mediation: mediation }).then(applyCredential).catch(function(){});
-    } catch(e) {}
-  }
-
-  // First try the same silent browser credential flow used previously.
-  requestCredential('optional');
-  setTimeout(function(){
-    if ((!userEl || !userEl.value) || (!passEl || !passEl.value)) requestCredential('optional');
-  }, 700);
-
-  // Some Chrome builds will not return saved passwords silently after logout.
-  // On field focus/click, ask Chrome for the saved credential and fill only.
-  function promptForCredentialOnce() {
-    if (prompted) return;
-    if (userEl && userEl.value && passEl && passEl.value) return;
-    prompted = true;
-    requestCredential('required');
-  }
-  if (userEl) {
-    userEl.addEventListener('focus', promptForCredentialOnce);
-    userEl.addEventListener('click', promptForCredentialOnce);
-  }
-  if (passEl) {
-    passEl.addEventListener('focus', promptForCredentialOnce);
-    passEl.addEventListener('click', promptForCredentialOnce);
-  }
-})();
 </script>
 {% endblock %}

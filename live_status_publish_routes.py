@@ -406,6 +406,8 @@ def _is_core_deck_target(target_name: str) -> bool:
     Some configs return AUTO, some AUTOMOTIVE, and some NORD targets are
     grouped under a product-specific BU. Keep this broader than exact AUTO so
     NORD_HQX/NORD_HGY pages show the Core Deck tab.
+    auto_gen4.5 / 4.8.9.0 / 4.8.0.9 are not in TARGETS_CONFIG so
+    get_bu_for_target returns None - match them explicitly by target name.
     """
     target = str(target_name or '').strip().upper()
     bu = str(get_bu_for_target(target_name) or '').strip().upper()
@@ -414,6 +416,8 @@ def _is_core_deck_target(target_name: str) -> bool:
         or target.startswith('NORD')
         or 'NORD_' in target
         or 'NORD.' in target
+        or target in {'AUTO_GEN4.5', 'AUTO_GEN45', '4.8.9.0', '4.8.0.9'}
+        or target.startswith('AUTO_GEN4')
     )
 
 

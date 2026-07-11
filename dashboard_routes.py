@@ -8253,9 +8253,15 @@ def api_open_jiras(target_name):
         )
         area_summary.append({"area": "Total", "count": len(rows)})
 
-                # AUTO-only grouping helpers for the redesigned Open JIRAs tab.
+            # AUTO-only grouping helpers for the redesigned Open JIRAs tab.
         bu_key = (get_bu_for_target(target_name) or '').upper()
-        is_auto_bu = bu_key in ('AUTO', 'AUTOMOTIVE')
+        _tgt_upper = str(target_name or '').strip().upper()
+        is_auto_bu = (
+            bu_key in ('AUTO', 'AUTOMOTIVE')
+            or _tgt_upper.startswith('NORD')
+            or 'NORD_' in _tgt_upper
+            or 'NORD.' in _tgt_upper
+        )
 
         def _crash_type(title):
             t = (title or '').lower()
