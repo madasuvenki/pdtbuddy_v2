@@ -315,7 +315,16 @@
       {% set is_special = section.special_page|default(false) %}
             {% set bu_icon = (section.targets[0].special_icon if (is_special and section.targets) else none) or ('fa-car' if ('AUTO' in bku or 'AUTO' in bname) else ('fa-route' if ('NORD' in bku or 'NORD' in bname) else ('fa-wifi' if ('IOT' in bku or 'IOT' in bname) else ('fa-mobile-alt' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('fa-server' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('fa-calendar-week' if ('WEEKLY' in bku or 'QIPL' in bku) else ('fa-network-wired' if ('WBC' in bku or 'TELEMATICS' in bku) else ('fa-memory' if ('HW' in bku or 'HWPDT' in bku) else ('fa-wand-magic-sparkles' if ('AI' in bku or 'GENIE' in bku) else 'fa-shield-alt')))))))))  %}
       {% set bu_accent = 'acc-auto45' if ('AUTO_GEN45' in bku or '4.5' in bname) else ('acc-wbc' if ('WBC' in bku or 'TELEMATICS' in bku) else ('acc-auto' if ('AUTO' in bku or 'AUTO' in bname) else ('acc-nord' if ('NORD' in bku or 'NORD' in bname) else ('acc-iot' if ('IOT' in bku or 'IOT' in bname) else ('acc-mobile' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('acc-compute' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('acc-weekly' if ('WEEKLY' in bku or 'QIPL' in bku) else ('acc-hw' if ('HW' in bku or 'HWPDT' in bku) else ('acc-ai' if ('AI' in bku or 'GENIE' in bku) else ''))))))))) %}
-      <section class="ls-group-section {{ bu_accent }}{% if bku == (auto_open_bu|default('', true)|upper) %} open{% endif %}" data-bu-section data-bu-name="{{ section.bu_name|e }}" data-bu-key="{{ section.bu_key|e }}"{% if is_special %} data-special-section{% endif %}>
+      {# Special cards (Automotive 4.5 / WBC) navigate directly on click and have
+         no accordion body content worth showing - they must NEVER get the
+         "open" class. Without this guard, a viewer whose access group matches
+         auto_open_bu (e.g. PdtBuddy.IVIGen4.5 -> AUTO_GEN45) would have the
+         "open" class applied via bku == auto_open_bu below, which (per the
+         .ls-group-section.open .ls-group-body{display:block} CSS rule) force-
+         expands the hidden body and renders the SAME Automotive 4.5 target
+         card a second time directly underneath the header - looking like two
+         duplicate "Automotive 4.5" cards stacked on the page. #}
+      <section class="ls-group-section {{ bu_accent }}{% if not is_special and bku == (auto_open_bu|default('', true)|upper) %} open{% endif %}" data-bu-section data-bu-name="{{ section.bu_name|e }}" data-bu-key="{{ section.bu_key|e }}"{% if is_special %} data-special-section{% endif %}>
         <div class="ls-group-head" data-bu-toggle>
           <div class="ls-group-title">
             <div class="ls-group-icon"><i class="fas {{ bu_icon }}"></i></div>
@@ -481,7 +490,7 @@
 
     </div>
 
-  {% if access_groups and bu_list %}
+    {% if access_groups %}
   <div class="ls-access-panel" id="accessGroupsPanel">
     <div class="ls-access-card" style="margin:0;">
       <div class="ls-access-head">

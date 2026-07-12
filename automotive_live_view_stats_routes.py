@@ -26,6 +26,72 @@ from live_view_stats_routes import (
 
 automotive_live_view_stats_bp = Blueprint("automotive_live_view_stats_bp", __name__)
 
+# -- Current Running Build report cache (per target/sp/build) ----------------
+# Shared across ALL users/page-refreshes: a report for a given running build
+# is generated at most once every _CURRENT_BUILD_REPORT_TTL_SECONDS. Any
+# concurrent request for the same key while a generation is already running
+# waits for that same in-flight result instead of starting a second DB pull.
+import threading as _threading
+import time as _time
+
+_CURRENT_BUILD_REPORT_TTL_SECONDS = 30 * 60
+_current_build_report_cache: Dict[str, Dict[str, Any]] = {}
+_current_build_report_locks: Dict[str, "_threading.Lock"] = {}
+_current_build_report_locks_guard = _threading.Lock()
+
+
+def _current_build_report_lock(key: str) -> "_threading.Lock":
+    with _current_build_report_locks_guard:
+        lock = _current_build_report_locks.get(key)
+        if lock is None:
+            lock = _threading.Lock()
+            _current_build_report_locks[key] = lock
+        return lock
+
+
+def _cached_current_build_report(cache_key: str, ttl_seconds: int, builder) -> Dict[str, Any]:
+    """Return a cached payload for cache_key if fresh, else (re)generate it.
+
+    Only one thread actually calls `builder()` per cache_key at a time; any
+    other thread/request for the same key blocks briefly on the same lock and
+    then reuses whatever that first call produced (or generates once itself
+    if the first call failed to populate the cache for some reason).
+    """
+    now = _time.time()
+    entry = _current_build_report_cache.get(cache_key)
+    if entry and (now - entry.get("_cached_at", 0)) < ttl_seconds:
+        payload = dict(entry.get("payload") or {})
+        payload["from_cache"] = True
+        payload["cache_age_seconds"] = round(now - entry.get("_cached_at", now), 1)
+        payload["cache_ttl_minutes"] = round(ttl_seconds / 60)
+        payload["generated_at"] = datetime.utcfromtimestamp(entry.get("_cached_at", now)).isoformat() + "Z"
+        payload["next_auto_refresh_at"] = datetime.utcfromtimestamp(entry.get("_cached_at", now) + ttl_seconds).isoformat() + "Z"
+        return payload
+
+    lock = _current_build_report_lock(cache_key)
+    with lock:
+        # Re-check after acquiring the lock: another thread may have just
+        # finished generating this same report while we were waiting.
+        now = _time.time()
+        entry = _current_build_report_cache.get(cache_key)
+        if entry and (now - entry.get("_cached_at", 0)) < ttl_seconds:
+            payload = dict(entry.get("payload") or {})
+            payload["from_cache"] = True
+            payload["cache_age_seconds"] = round(now - entry.get("_cached_at", now), 1)
+            payload["cache_ttl_minutes"] = round(ttl_seconds / 60)
+            payload["generated_at"] = datetime.utcfromtimestamp(entry.get("_cached_at", now)).isoformat() + "Z"
+            payload["next_auto_refresh_at"] = datetime.utcfromtimestamp(entry.get("_cached_at", now) + ttl_seconds).isoformat() + "Z"
+            return payload
+        payload = builder()
+        _cached_at = _time.time()
+        _current_build_report_cache[cache_key] = {"payload": payload, "_cached_at": _cached_at}
+        out = dict(payload)
+        out["from_cache"] = False
+        out["cache_ttl_minutes"] = round(ttl_seconds / 60)
+        out["generated_at"] = datetime.utcfromtimestamp(_cached_at).isoformat() + "Z"
+        out["next_auto_refresh_at"] = datetime.utcfromtimestamp(_cached_at + ttl_seconds).isoformat() + "Z"
+        return out
+
 _DEFAULT_AUTO_EXCEL = os.environ.get("AUTO_LIVE_VIEW_STATS_EXCEL", r"C:\Dropbox\4.8.0.9_Auto.xlsx")
 _DEFAULT_AUTO_ROOT = os.environ.get("AUTO_LIVE_VIEW_STATS_ROOT", r"C:\Dropbox")
 _AUTO_CANONICAL_TARGET = "auto_gen4.5"
@@ -346,10 +412,14 @@ def _current_running_builds(
                 "software_product": str(row.get("software_product") or ""),
                 "product_flavor": str(row.get("product_flavor") or ""),
                 "started_at": str(row.get("started_at") or "")[:19],
+                "job_ids": [],
             })
             item["job_count"] += 1
             item["device_count"] = max(_safe_int(item.get("device_count")), _safe_int(row.get("device_count")))
             item["hours"] = round(_safe_float(item.get("hours")) + _safe_float(row.get("hours")), 2)
+            jid = str(row.get("job_id") or "").strip()
+            if jid and jid not in item["job_ids"]:
+                item["job_ids"].append(jid)
         rows = list(grouped.values())
         rows.sort(key=lambda x: str(x.get("started_at") or ""), reverse=True)
         return {"rows": rows, "updated_at": str(meta.get("updated_at") or ""), "source": "axiom_job_summary"}
@@ -948,7 +1018,7 @@ def _auto_gen45_weekly_payload(target_name: str, sp: str, from_arg: str = "", to
     }
 
 
-def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: str = "", crash_types: Optional[set] = None) -> Dict[str, Any]:
+def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: str = "", crash_types: Optional[set] = None, job_ids: Optional[List[str]] = None) -> Dict[str, Any]:
     cfg = _ensure_page_defaults(target_name)
     sp_cfg = _auto_gen45_sp_config(cfg, sp)
     jiras_table = sp_cfg.get("jiras_table") or sp_cfg.get("target_table") or ""
@@ -984,13 +1054,6 @@ def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: 
     grouped: Dict[str, Dict[str, Any]] = {}
     detail_by_build: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     seen_detail = set()
-    for row in all_jiras:
-        ct = row.get("crash_type") or "system"
-        if ct not in crash_types:
-            continue
-        build = row.get("build_id") or ""
-        if not build:
-            continue
         cr_key = _auto_cr_key(row.get("cr"))
         detail_key = (build.upper(), cr_key or str(row.get("jira") or "").upper(), ct)
         if detail_key not in seen_detail:
@@ -1144,11 +1207,13 @@ def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
     if not _is_allowed_target(target_name):
         return render_template("coming_soon_template.html", title="Auto/WBC Live View Stats", message="This page is enabled for AUTO/WBC style targets."), 404
     if _is_auto_gen45_target(target_name):
+        from config import JIRA_PDT_FILTER_ID
         return render_template(
             "auto_gen45_live_view_stats.html",
             target_name=target_name,
             target_display="Automotive 4.5",
             can_edit=_target_group_access(),
+            jira_pdt_filter_id=JIRA_PDT_FILTER_ID,
         )
     default_excel = ""
     default_root = r"C:\Dropbox\WBC_Scrum_DB"
@@ -1244,12 +1309,32 @@ def api_automotive_live_view_stats_sp_build_wise_report(target_name: str):
     if not _is_auto_gen45_target(target_name):
         return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "builds": [], "detail_rows": []}), 404
     try:
-        crash_types = {c.strip().lower() for c in str(request.args.get("crash_types") or "system,ssr,process,open_jira").split(",") if c.strip()}
-        payload = _auto_gen45_build_report_payload(
-            target_name,
-            str(request.args.get("sp") or "").strip(),
-            str(request.args.get("build") or "").strip(),
-            crash_types or {"system", "ssr", "process", "open_jira"},
+        sp = str(request.args.get("sp") or "").strip()
+        build = str(request.args.get("build") or "").strip()
+        crash_types_raw = str(request.args.get("crash_types") or "system,ssr,process,open_jira")
+        crash_types = {c.strip().lower() for c in crash_types_raw.split(",") if c.strip()} or {"system", "ssr", "process", "open_jira"}
+        force = str(request.args.get("_force") or request.args.get("force") or "").strip().lower() in ("1", "true", "yes", "y")
+        # Gen4.5: Axiom job IDs passed from the UI to scope the report to the
+        # correct SP (same build name runs under multiple SPs / job IDs).
+        job_ids_raw = str(request.args.get("job_ids") or "").strip()
+        job_ids: List[str] = [j.strip() for j in job_ids_raw.split(",") if j.strip()] if job_ids_raw else []
+
+        # Only the per-build detail report (Current Running Build) is cached
+        # for 30 minutes and shared across all users/page-refreshes. The
+        # builds-summary call (no `build` param) is cheap and always live.
+        if not build:
+            payload = _auto_gen45_build_report_payload(target_name, sp, build, crash_types)
+            return jsonify(payload), (200 if payload.get("success") else 400)
+
+        # Include job_ids in cache key so different SPs get separate cached reports
+        job_ids_key = ",".join(sorted(job_ids)) if job_ids else ""
+        cache_key = f"{target_name}|{sp}|{build.lower()}|{','.join(sorted(crash_types))}|{job_ids_key}"
+        if force:
+            _current_build_report_cache.pop(cache_key, None)
+        payload = _cached_current_build_report(
+            cache_key,
+            _CURRENT_BUILD_REPORT_TTL_SECONDS,
+            lambda: _auto_gen45_build_report_payload(target_name, sp, build, crash_types, job_ids),
         )
         return jsonify(payload), (200 if payload.get("success") else 400)
     except Exception as exc:

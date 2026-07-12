@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -44,8 +44,9 @@
       <div class="hero-actions">
         <span class="badge badge-live"><i class="fas fa-circle" style="font-size:8px"></i> JSON API Active</span>
         <span id="generatedAt" class="badge badge-info">Updated -</span>
-        <a class="btn" href="/public/auto-gen45" target="_blank"><i class="fas fa-code"></i> API Docs</a>
-        <button class="btn" onclick="lspOpenCustomizeTabs()" title="Show/hide tabs"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
+        <button class="btn" onclick="goLiveStatusHome()"><i class="fas fa-house"></i> Home</button>
+        <a class="btn" href="/public/auto-gen45" target="_blank"><i class="fas fa-code"></i> Public API</a>
+        {% if can_edit %}<button class="btn" onclick="lspOpenCustomizeTabs()" title="Show/hide tabs"><i class="fas fa-sliders-h"></i> Customize Tabs</button>{% endif %}
         <button class="btn btn-primary" onclick="refreshSelected()"><i class="fas fa-rotate"></i> Refresh</button>
       </div>
     </header>
@@ -303,9 +304,12 @@
 const PUBLIC_API='/public/auto-gen45/api';
 const TARGET={{ target_name|tojson }};
 const CAN_EDIT={{ can_edit|tojson }};
+const JIRA_FILTER_ID={{ jira_pdt_filter_id|tojson }};
 const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
 let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null;
 let config={sheet_tables:{}}, dbTables=[];
+const CURRENT_REPORT_TTL_MS = 30 * 60 * 1000;
+let currentReportCache = {}, currentReportSelectedBuild = ''; 
 
 // --- Customize Tabs (localStorage-backed show/hide) ---
 (function(){
@@ -355,6 +359,18 @@ let config={sheet_tables:{}}, dbTables=[];
   _applyVisibility(_getHidden());
 })();
 // --- end Customize Tabs ---
+function goLiveStatusHome(){
+  if(window.parent && window.parent !== window){
+    try{ window.parent.postMessage({type:'lsp_close_viewer'}, '*'); return; }catch(e){}
+  }
+  window.location.href='/live_status_view';
+}
+function closeLiveStatusViewer(){
+  if(window.parent && window.parent !== window){
+    try{ window.parent.postMessage({type:'lsp_close_viewer'}, '*'); return; }catch(e){}
+  }
+  window.location.href='/live_status_view';
+}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function n(v){const x=Number(String(v||0).replace(/,/g,''));return Number.isFinite(x)?x:0;} function fmt(v,d=1){const x=n(v);return x?x.toLocaleString(undefined,{maximumFractionDigits:d}):'0';}
 function setText(id,v){const e=document.getElementById(id); if(e)e.textContent=v==null?'':v;}
@@ -415,10 +431,97 @@ async function loadSpDbData(){dbPayload=null;if(!activeSp)return;try{dbPayload=a
 function rows(){return (spPayload&&spPayload.rows)||[]} function latestRow(){const r=rows();return r.length?r[r.length-1]:{};}
 function buildLabel(r){return r.build_s||r.builds||r.build||r.meta_id||r.meta||'-';}
 function dateVal(r){return r.date||r.week||r.report_date||'';}
-function renderAll(){const s=spPayload.summary||{}, l=latestRow(), c=(dbPayload&&dbPayload.counts)||{};setText('kRows',s.row_count||rows().length);setText('kLatestMtbf',s.latest_mtbf==null?'0':s.latest_mtbf);setText('kHours',fmt(s.total_hours,1));setText('kCrashes',fmt(c.total_crs||s.total_crashes,0));setText('kOverallMtbf',fmt(s.calculated_overall_mtbf,2));setText('kDate',s.latest_date||dateVal(l)||'-');setText('kBuild',s.latest_build||buildLabel(l));setText('corePill','SP '+activeSp+' • '+(s.row_count||rows().length)+' rows');renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();}
-function renderSnapshot(){const s=spPayload.summary||{}, l=latestRow(), cfg=(dbPayload&&dbPayload.db_config)||{};document.getElementById('snapshotBox').innerHTML=`<div class="build-card"><div class="build-title">${esc(activeProgram)}</div><div class="build-sub">Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div><div class="build-sub">Rows: ${esc(s.row_count||rows().length)} • Total hours: ${esc(fmt(s.total_hours,1))} • DB CRs: ${esc(((dbPayload&&dbPayload.counts)||{}).total_crs||0)} • DB Open JIRAs: ${esc(((dbPayload&&dbPayload.counts)||{}).open_jiras||0)}</div></div><div class="hint" style="margin-top:10px">Configured JIRAs: ${esc(cfg.jiras_table||cfg.target_table||'not set')}<br>Open JIRAs: ${esc(cfg.openjiras_table||'not set')}<br>Unique CRs: ${esc(cfg.unique_crs_table||'not set')}</div>`;}
-function renderCoreSlides(){const s=spPayload.summary||{},l=latestRow();const el=document.getElementById('coreSnapshotRows'),em=document.getElementById('coreEmpty');if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}if(em)em.style.display='none';if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} — ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;} }
-function renderCurrent(){const dbRows=(dbPayload&&dbPayload.current_builds)||[];if(dbRows.length){document.getElementById('currentBox').innerHTML=dbRows.map(r=>`<div class="build-card"><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} • Jobs ${esc(r.job_count||0)} • Devices ${esc(r.device_count||0)} • Hours ${esc(r.hours||0)}</div><div class="build-sub">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div>`).join('');return;}const l=latestRow(), s=spPayload.summary||{};document.getElementById('currentBox').innerHTML=rows().length?`<div class="hint">No DB running builds found for configured table. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} • ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} • Crashes ${esc(l.crashes||l.total_crashes||'0')} • MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';}
+function renderAll(){const s=spPayload.summary||{}, l=latestRow(), c=(dbPayload&&dbPayload.counts)||{};setText('kRows',s.row_count||rows().length);setText('kLatestMtbf',s.latest_mtbf==null?'0':s.latest_mtbf);setText('kHours',fmt(s.total_hours,1));setText('kCrashes',fmt(c.total_crs||s.total_crashes,0));setText('kOverallMtbf',fmt(s.calculated_overall_mtbf,2));setText('kDate',s.latest_date||dateVal(l)||'-');setText('kBuild',s.latest_build||buildLabel(l));setText('corePill','SP '+activeSp+' &middot; '+(s.row_count||rows().length)+' rows');renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();}
+function renderSnapshot(){const s=spPayload.summary||{}, l=latestRow(), cfg=(dbPayload&&dbPayload.db_config)||{};document.getElementById('snapshotBox').innerHTML=`<div class="build-card"><div class="build-title">${esc(activeProgram)}</div><div class="build-sub">Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div><div class="build-sub">Rows: ${esc(s.row_count||rows().length)} &middot; Total hours: ${esc(fmt(s.total_hours,1))} &middot; DB CRs: ${esc(((dbPayload&&dbPayload.counts)||{}).total_crs||0)} &middot; DB Open JIRAs: ${esc(((dbPayload&&dbPayload.counts)||{}).open_jiras||0)}</div></div><div class="hint" style="margin-top:10px">Configured JIRAs: ${esc(cfg.jiras_table||cfg.target_table||'not set')}<br>Open JIRAs: ${esc(cfg.openjiras_table||'not set')}<br>Unique CRs: ${esc(cfg.unique_crs_table||'not set')}</div>`;}
+function renderCoreSlides(){const s=spPayload.summary||{},l=latestRow();const el=document.getElementById('coreSnapshotRows'),em=document.getElementById('coreEmpty');if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}if(em)em.style.display='none';if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} â€” ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;} }
+function renderCurrent(){
+  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
+  const box=document.getElementById('currentBox');
+  if(dbRows.length){
+    box.innerHTML=`<div class="hint" style="margin-bottom:12px">The report for the top running build loads automatically below. Click any other running build to switch to its CR/JIRA report. Reports are shared across all users and refreshed automatically every 30 minutes per build.</div>`+
+      dbRows.map((r,i)=>`<div class="build-card" id="curBuild_${i}" style="cursor:pointer" onclick="showCurrentBuildReport(${i},false)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} &middot; Jobs ${esc(r.job_count||0)} &middot; Devices ${esc(r.device_count||0)}</div><div class="build-sub" style="font-size:10px;color:#64748b">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div><button class="btn btn-primary" onclick="event.stopPropagation();showCurrentBuildReport(${i},false)"><i class="fas fa-microscope"></i> Load Report</button></div></div>`).join('')+
+      '<div id="currentReportBox" class="card" style="margin-top:14px;margin-bottom:0"><div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Selected Running Build Report</h2><span id="currentReportStatus" class="small-muted">Loading report for the top running build...</span></div><div class="card-body"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading report...</div></div></div>';
+    // Auto-load the report for the first (top) running build - no click required.
+    // The server-side cache (30 min TTL, shared across all users) makes this cheap
+    // on repeated page loads/refreshes.
+    showCurrentBuildReport(0,false);
+    return;
+  }
+  const l=latestRow(), s=spPayload.summary||{};
+  box.innerHTML=rows().length?`<div class="hint">No DB running builds found for configured table. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} &middot; ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} &middot; Crashes ${esc(l.crashes||l.total_crashes||'0')} &middot; MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';
+}
+function _currentReportKey(build){return String(activeSp||'')+'|'+String(build||'').trim().toLowerCase();}
+function _currentCacheAgeText(entry){const mins=Math.max(0,Math.floor((Date.now()-(entry&&entry.loadedAt||Date.now()))/60000));return mins<1?'just now':mins+' min ago';}
+function _fmtDt(v){if(!v)return'-';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString();}
+function _currentReportBody(){const box=document.querySelector('#currentReportBox .card-body');return box||document.getElementById('currentBox');}
+function _currentReportStatus(msg){setText('currentReportStatus',msg||'');}
+function _currentReportCols(rows){const preferred=['cr','jira','title','cr_count','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','si_last_seen','last_instance','crash_type'];const keys=[];preferred.forEach(k=>{if(rows.some(r=>r&&r[k]!=null)&&!keys.includes(k))keys.push(k);});rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!keys.includes(k))keys.push(k);}));return keys;}
+function renderCurrentBuildReport(build,rowData,fromCache,cacheEntry){
+  const body=_currentReportBody();
+  const rows=(rowData&&rowData.detail_rows)||[];
+  const buildName=String((rowData&&rowData.build)||build||currentReportSelectedBuild||'');
+  const serverCached=!!(rowData&&rowData.from_cache);
+  const age=cacheEntry?(' &middot; cache age '+_currentCacheAgeText(cacheEntry)):'';
+  const totalCrashes=rows.reduce((sum,r)=>sum+Math.max(1,n(r&&r.cr_count)),0);
+  _currentReportStatus((serverCached?'Loaded shared cached report':'Report freshly generated')+age+' &middot; shared across all users, refreshes every 30 min per build');
+  currentReportSelectedBuild=buildName;
+  const cols=_currentReportCols(rows);
+  const zeroState=`<div style="border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px">`+
+    `<div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div>`+
+    `<div style="font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px">0</div>`+
+    `<div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this running build</div>`+
+    `<div class="small-muted" style="max-width:720px;margin:0 auto">The load completed successfully, but no matching CR/JIRA rows were found in the configured JIRAs/Open JIRAs tables for this exact build. This is treated as <b>0 crashes</b> for the selected running build.</div>`+
+    `</div>`;
+  // Build JQL string for cross-check display (editor/target-group only)
+  const _jobIds=(rowData&&rowData.job_ids)||[];
+  const _jqlBase='project = DROIDBUG AND filter = '+(JIRA_FILTER_ID||'76997');
+  const _jqlBuild=' AND summary ~ "'+buildName+'"';
+  const _jqlScenario=_jobIds.length
+    ? ' AND ('+_jobIds.map(j=>'Scenario ~ "https://axiom.qualcomm.com/#/reports/job/'+j+'"').join(' OR ')+')'
+    : '';
+  const _jqlFull=_jqlBase+_jqlBuild+_jqlScenario;
+  // JQL box: only shown to editors/target-group, not viewers
+  const _jqlBox=CAN_EDIT ? (
+    '<div style="margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em">JQL Used</span>'
+    +'<code id="_jqlCode" style="font-size:10px;color:#1e3a8a;word-break:break-all;flex:1">'+esc(_jqlFull)+'</code>'
+    +'<button class="btn" style="font-size:10px;padding:2px 8px" onclick="var el=document.getElementById(\'_jqlCode\');if(el)navigator.clipboard&&navigator.clipboard.writeText(el.textContent).then(()=>{this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)});">Copy</button>'
+    +(_jobIds.length?'':
+      '<span style="font-size:10px;color:#f59e0b;font-weight:700" title="No Axiom job IDs - report may include JIRAs from other SPs"><i class="fas fa-triangle-exclamation"></i> No job IDs</span>')
+    +'</div></div>'
+  ) : '';
+  body.innerHTML=_jqlBox+`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><b style="color:#1e3a8a;word-break:break-all">${esc(buildName)}</b><div class="small-muted">${serverCached?'Reused shared server-side report.':'Fresh report generated and cached for all users.'} Refreshes automatically every 30 minutes for this build.</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(totalCrashes)} crashes</span><span class="pill">${esc(rows.length)} rows</span><button class="btn" onclick="showCurrentBuildReportById('${esc(buildName)}',true)"><i class="fas fa-rotate"></i> Regenerate</button></div></div>`+
+    (rows.length?`<div class="tbl-wrap" style="max-height:460px"><table class="tbl"><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c.replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:zeroState);
+}
+async function showCurrentBuildReportById(build,force){
+  const idx=((dbPayload&&dbPayload.current_builds)||[]).findIndex(r=>String(r.build_id||r.build_full||'')===String(build));
+  if(idx>=0)return showCurrentBuildReport(idx,force);
+}
+async function showCurrentBuildReport(i,force){
+  const r=((dbPayload&&dbPayload.current_builds)||[])[i]||{};
+  const build=String(r.build_id||r.build_full||'').trim();
+  if(!activeSp||!build)return;
+  currentReportSelectedBuild=build;
+  document.querySelectorAll('[id^="curBuild_"]').forEach(el=>el.style.boxShadow='');
+  const active=document.getElementById('curBuild_'+i); if(active)active.style.boxShadow='0 0 0 3px rgba(99,102,241,.20)';
+  const key=_currentReportKey(build), cached=currentReportCache[key];
+  if(!force&&cached&&(Date.now()-cached.loadedAt)<CURRENT_REPORT_TTL_MS){renderCurrentBuildReport(build,cached.data,true,cached);return;}
+  const body=_currentReportBody();
+  if(body)body.innerHTML=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>Loading report for<br><b>${esc(build)}</b><br><small>Reports are shared across all users and cached for 30 minutes.</small></div>`;
+  _currentReportStatus('Loading report...');
+  try{
+    const jobIds=(r.job_ids||[]).join(','); const url=_bwrUrl('build='+encodeURIComponent(build)+(force?'&force=1':'')+(jobIds?'&job_ids='+encodeURIComponent(jobIds):''));
+    if(!url)throw new Error('Configure a JIRAs / Open JIRAs table for this SP first.');
+    const d=await getJson(url);
+    if(r.job_ids&&r.job_ids.length&&d)d.job_ids=r.job_ids;
+    currentReportCache[key]={data:d,loadedAt:Date.now()};
+    renderCurrentBuildReport(build,d,!!d.from_cache,currentReportCache[key]);
+  }catch(e){
+    _currentReportStatus('Report failed');
+    if(body)body.innerHTML=`<div class="empty" style="color:#dc2626"><b>${esc(build)}</b><br>${esc(e.message||e)}</div>`;
+  }
+}
 function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
 function metaId(r){
   const raw=String(rawBuildId(r)||'').trim();
@@ -466,7 +569,7 @@ function renderCharts(){
   canvas.style.width=Math.max(1100,cr.length*92)+'px';
   canvas.width=Math.max(1100,cr.length*92);
   const labels=cr.map(x=>x.label), hours=cr.map(x=>Number(x.hours.toFixed(2))), crashes=cr.map(x=>Number(x.crashes.toFixed(0))), mtbf=cr.map(x=>Number(x.mtbf.toFixed(2)));
-  const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#a5b4fc',borderColor:'#a5b4fc',borderWidth:0,borderRadius:2,yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'transparent',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0}]},plugins:[mtbfValueLabels],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:true,text:'Meta ID'},ticks:{autoSkip:false,maxRotation:55,minRotation:35,callback:function(v){const s=this.getLabelForValue(v);return s.length>28?s.slice(0,28)+'…':s;}}},y:{beginAtZero:true,title:{display:true,text:'Hours'},ticks:{color:'#1f4e79'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes / MTBF'}}}}};
+  const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#a5b4fc',borderColor:'#a5b4fc',borderWidth:0,borderRadius:2,yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'transparent',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0}]},plugins:[mtbfValueLabels],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:true,text:'Meta ID'},ticks:{autoSkip:false,maxRotation:55,minRotation:35,callback:function(v){const s=this.getLabelForValue(v);return s.length>28?s.slice(0,28)+'â€¦':s;}}},y:{beginAtZero:true,title:{display:true,text:'Hours'},ticks:{color:'#1f4e79'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes / MTBF'}}}}};
   mtbfChart=new Chart(canvas,cfg);
 }
 function firstVal(r,keys,fb=''){for(const k of keys){if(r&&r[k]!=null&&String(r[k]).trim()!=='')return r[k];}return fb;}
@@ -485,7 +588,7 @@ function fixedTableColumns(){return[
 ];}
 function renderTable(){const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();const filtered=rows().filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 // ---------------------------------------------------------------------------
-// Add Build modal — appends a new row to this SP's own per-SP JSON file.
+// Add Build modal â€” appends a new row to this SP's own per-SP JSON file.
 // The form shows every raw column present in the SP's rows (except
 // excel_row/sno, which are always assigned server-side), and "Copy All
 // Columns" can pre-fill every field from any existing row so the user only
@@ -507,7 +610,7 @@ function openAddBuildModal(){
   setText('addBuildSpLabel',activeSp);
   const sel=document.getElementById('addBuildCopySel');
   const rs=rows();
-  sel.innerHTML='<option value="">-- Copy from existing row (optional) --</option>'+rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} • ${esc(rawBuildId(r))}</option>`).join('');
+  sel.innerHTML='<option value="">-- Copy from existing row (optional) --</option>'+rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
   const keys=_addBuildFieldKeys();
   const fieldsEl=document.getElementById('addBuildFields');
   fieldsEl.innerHTML=keys.map(k=>{
@@ -617,7 +720,7 @@ async function editTableSave(){
   }catch(e){msg.style.color='#dc2626'; msg.textContent='Save failed: '+(e.message||e);}
 }
 // ---------------------------------------------------------------------------
-// Weekly Report tab — same data contract as HQX/HGY's
+// Weekly Report tab â€” same data contract as HQX/HGY's
 // /api/live_status/targets/<target>/weekly_full (cr_rows / jira_rows /
 // open_jira_rows / pie_status / pie_area / counts / build_area_matrix),
 // sourced from this SP's own configured JIRAs/Open JIRAs/Unique CRs tables.
@@ -625,7 +728,7 @@ async function editTableSave(){
 let _wkReport=null, _wkCrRows=[];
 function _wkDefaultWeek(){const d=new Date();d.setHours(12,0,0,0);const day=d.getDay();const offset=day===0?7:day;const to=new Date(d);to.setDate(d.getDate()-offset);const from=new Date(to);from.setDate(to.getDate()-6);return{from,to};}
 function _wkFmtDate(d){const x=new Date(d);x.setHours(12,0,0,0);return x.toISOString().slice(0,10);}
-function _wkDates(){const def=_wkDefaultWeek();const fromEl=document.getElementById('wkFromDate'),toEl=document.getElementById('wkToDate');if(fromEl&&!fromEl.value)fromEl.value=_wkFmtDate(def.from);if(toEl&&!toEl.value)toEl.value=_wkFmtDate(def.to);const from=fromEl&&fromEl.value?fromEl.value:_wkFmtDate(def.from);const to=toEl&&toEl.value?toEl.value:_wkFmtDate(def.to);setText('wkDateLabel',from+' → '+to);return{from,to};}
+function _wkDates(){const def=_wkDefaultWeek();const fromEl=document.getElementById('wkFromDate'),toEl=document.getElementById('wkToDate');if(fromEl&&!fromEl.value)fromEl.value=_wkFmtDate(def.from);if(toEl&&!toEl.value)toEl.value=_wkFmtDate(def.to);const from=fromEl&&fromEl.value?fromEl.value:_wkFmtDate(def.from);const to=toEl&&toEl.value?toEl.value:_wkFmtDate(def.to);setText('wkDateLabel',from+' â†’ '+to);return{from,to};}
 function wkApplyDateRange(){renderWeekly(true);}
 function _wkCrDisplay(v){const s=String(v||'').trim().toUpperCase();if(!s)return'';return s.startsWith('CR')?s:'CR'+s;}
 function _wkCrId(v){return(String(v||'').match(/(\d{5,9})/)||[])[1]||'';}
@@ -794,7 +897,7 @@ function ojBuildFilters(){const fill=(id,vals,label)=>{const s=document.getEleme
 function ojFilterArea(a){document.getElementById('ojAreaSel').value=a;ojFilter();} function ojFilterCrash(t){document.getElementById('ojCrashSel').value=t;ojFilter();}
 function ojFilter(){const ct=document.getElementById('ojCrashSel')?.value||'',a=document.getElementById('ojAreaSel')?.value||'',tm=document.getElementById('ojTeamSel')?.value||'',q=(document.getElementById('ojSearch')?.value||'').toLowerCase();_ojFil=_ojAll.filter(r=>!(ct&&r.crash_type!==ct)&&!(a&&r.area!==a)&&!(tm&&r.test_team!==tm)&&!(q&&!((r.stability_ticket||'').toLowerCase().includes(q)||(r.jira_title||'').toLowerCase().includes(q)||(r.cr_current_ticket||'').toLowerCase().includes(q))));_ojPg=1;ojTable();}
 function ojClear(){['ojCrashSel','ojAreaSel','ojTeamSel','ojSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});_ojFil=_ojAll.slice();_ojPg=1;ojTable();} function ojPage(dir){const pages=Math.ceil(_ojFil.length/_PG)||1;_ojPg=Math.max(1,Math.min(pages,_ojPg+dir));ojTable();}
-function ojTable(){const tb=document.getElementById('ojTbody');if(!tb)return;const start=(_ojPg-1)*_PG,page=_ojFil.slice(start,start+_PG),pages=Math.ceil(_ojFil.length/_PG)||1;setText('ojPageInfo',_ojFil.length?`Showing ${start+1}-${Math.min(start+_PG,_ojFil.length)} of ${_ojFil.length} (page ${_ojPg}/${pages})`:'0 results');setText('ojBadge',_ojFil.length+' tickets');const prev=document.getElementById('ojPrev'),next=document.getElementById('ojNext');if(prev)prev.disabled=_ojPg<=1;if(next)next.disabled=_ojPg>=pages;if(!page.length){_empty('ojTbody','No tickets match the current filters.',8);return;}tb.innerHTML=page.map((r,i)=>{const ac=_areaColor(r.area),tc=_typeColor(r.crash_type),tu=r.stability_ticket?_JB+encodeURIComponent(r.stability_ticket):'#',cu=r.cr_current_ticket?_JB+encodeURIComponent(r.cr_current_ticket):'#';return `<tr><td>${start+i+1}</td><td><a href="${tu}" target="_blank" style="font-weight:800;color:#4f46e5;text-decoration:none">${esc(r.stability_ticket||'—')}</a></td><td>${esc(r.jira_date||'—')}</td><td><span style="background:${tc}18;color:${tc};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;">${esc(r.crash_type||'—')}</span></td><td><span style="background:${ac}18;color:${ac};border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">${esc(r.area||'—')}</span></td><td>${r.cr_current_ticket?`<a href="${cu}" target="_blank" style="font-weight:800;color:#0ea5e9;text-decoration:none">${esc(r.cr_current_ticket)}</a>`:'—'}</td><td>${esc(r.test_team||'—')}</td><td style="max-width:320px;white-space:normal">${esc(r.jira_title||'—')}</td></tr>`;}).join('');}
+function ojTable(){const tb=document.getElementById('ojTbody');if(!tb)return;const start=(_ojPg-1)*_PG,page=_ojFil.slice(start,start+_PG),pages=Math.ceil(_ojFil.length/_PG)||1;setText('ojPageInfo',_ojFil.length?`Showing ${start+1}-${Math.min(start+_PG,_ojFil.length)} of ${_ojFil.length} (page ${_ojPg}/${pages})`:'0 results');setText('ojBadge',_ojFil.length+' tickets');const prev=document.getElementById('ojPrev'),next=document.getElementById('ojNext');if(prev)prev.disabled=_ojPg<=1;if(next)next.disabled=_ojPg>=pages;if(!page.length){_empty('ojTbody','No tickets match the current filters.',8);return;}tb.innerHTML=page.map((r,i)=>{const ac=_areaColor(r.area),tc=_typeColor(r.crash_type),tu=r.stability_ticket?_JB+encodeURIComponent(r.stability_ticket):'#',cu=r.cr_current_ticket?_JB+encodeURIComponent(r.cr_current_ticket):'#';return `<tr><td>${start+i+1}</td><td><a href="${tu}" target="_blank" style="font-weight:800;color:#4f46e5;text-decoration:none">${esc(r.stability_ticket||'â€”')}</a></td><td>${esc(r.jira_date||'â€”')}</td><td><span style="background:${tc}18;color:${tc};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;">${esc(r.crash_type||'â€”')}</span></td><td><span style="background:${ac}18;color:${ac};border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">${esc(r.area||'â€”')}</span></td><td>${r.cr_current_ticket?`<a href="${cu}" target="_blank" style="font-weight:800;color:#0ea5e9;text-decoration:none">${esc(r.cr_current_ticket)}</a>`:'â€”'}</td><td>${esc(r.test_team||'â€”')}</td><td style="max-width:320px;white-space:normal">${esc(r.jira_title||'â€”')}</td></tr>`;}).join('');}
 function _bwrUrl(extra){
   const cfg=_activeCfg();
   if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table))return'';
@@ -837,7 +940,7 @@ function bwrRender(){
   const cont=document.getElementById('bwrBuildsRow'), vis=_bwrQ?filteredBuilds.filter(b=>String(b.build_id||'').toLowerCase().includes(_bwrQ)):filteredBuilds;
   setText('bwrBuildCount',(_bwrQ?vis.length+' / '+filteredBuilds.length:filteredBuilds.length)+' build(s)');
   if(!vis.length){cont.innerHTML='<div class="empty">No builds found for selected filters.</div>';return;}
-  cont.innerHTML=vis.map((b,i)=>`<div class="bwr-acc-row" data-bid="${esc(b.build_id)}" style="${i?'border-top:1px solid #e2e8f0;':''}"><div onclick="bwrToggleRow('${esc(b.build_id)}',this)" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;background:#fff;"><i class="fas fa-chevron-right" style="font-size:10px;color:#94a3b8;width:12px;"></i><span style="font-size:12px;font-weight:900;color:#0f172a;min-width:0;flex:1;word-break:break-all;">${esc(b.build_id)}</span><span style="font-size:12px;font-weight:900;color:#ef4444;">⚠ ${b.total_crashes||0} crashes</span><span class="pill">Sys ${b.system_count||0}</span><span class="pill">SSR ${b.ssr_count||0}</span><span class="pill">Proc ${b.process_count||0}</span><span class="pill">OJ ${b.open_jira_count||0}</span><span class="pill">${b.cr_count||0} CRs</span></div><div class="bwr-body" style="display:none;border-top:1px solid #f1f5f9;background:#fafafa;"></div></div>`).join('');
+  cont.innerHTML=vis.map((b,i)=>`<div class="bwr-acc-row" data-bid="${esc(b.build_id)}" style="${i?'border-top:1px solid #e2e8f0;':''}"><div onclick="bwrToggleRow('${esc(b.build_id)}',this)" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;background:#fff;"><i class="fas fa-chevron-right" style="font-size:10px;color:#94a3b8;width:12px;"></i><span style="font-size:12px;font-weight:900;color:#0f172a;min-width:0;flex:1;word-break:break-all;">${esc(b.build_id)}</span><span style="font-size:12px;font-weight:900;color:#ef4444;">âš  ${b.total_crashes||0} crashes</span><span class="pill">Sys ${b.system_count||0}</span><span class="pill">SSR ${b.ssr_count||0}</span><span class="pill">Proc ${b.process_count||0}</span><span class="pill">OJ ${b.open_jira_count||0}</span><span class="pill">${b.cr_count||0} CRs</span></div><div class="bwr-body" style="display:none;border-top:1px solid #f1f5f9;background:#fafafa;"></div></div>`).join('');
 }
 function bwrToggleRow(bid,head){
   const row=head.closest('.bwr-acc-row'),body=row.querySelector('.bwr-body'),icon=head.querySelector('i'),open=body.style.display!=='none';

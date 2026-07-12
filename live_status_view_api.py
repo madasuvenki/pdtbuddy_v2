@@ -1701,6 +1701,7 @@ def api_running_builds_db(target_name: str):
             # For AUTO: skip rows that don't match the requested domain
             if is_auto and domain_filter and domain != domain_filter:
                 continue
+            
             if tail not in grouped:
                 grouped[tail] = {
                     'build_id':     tail,
@@ -1714,9 +1715,14 @@ def api_running_builds_db(target_name: str):
                     'started_at':   str(r.get('started_at') or '')[:19],
                     'crashes':      None,
                     'crash_source': '',
+                    'job_ids':      [],
                 }
             g = grouped[tail]
             g['job_count'] += 1
+            # Collect Axiom job_id for Scenario-based JQL
+            jid = str(r.get('job_id') or '').strip()
+            if jid and jid not in g['job_ids']:
+                g['job_ids'].append(jid)
             if flavor and flavor not in g['flavors']:
                 g['flavors'].append(flavor)
             try:
@@ -1750,12 +1756,13 @@ def api_running_builds_db(target_name: str):
                 row['crashes']      = crash_by_build[tail_up]
                 row['crash_source'] = 'jql_cache'
 
-        # Step 6: finalise and return
+                # Step 6: finalise and return
         result: List[Dict] = []
         for tail, g in grouped.items():
             chip_set = g.pop('chip_ids', set())
             g['device_count']   = len(chip_set) if chip_set else g.get('job_count', 0)
             g['product_flavor'] = ', '.join(g.pop('flavors', []))
+            # job_ids already collected above
             result.append(g)
         result.sort(key=lambda r: (r.get('started_at') or ''), reverse=True)
         for i, r in enumerate(result, 1):

@@ -6644,17 +6644,77 @@ _CONSOLIDATED_REPORT_DIR = os.path.join(
 os.makedirs(_CONSOLIDATED_REPORT_DIR, exist_ok=True)
 
 
+def _normalize_jql_for_cache_key(custom_jql):
+    """Return a build-order-independent version of custom_jql for cache keys.
+
+    The Current Running Build UI generates JQL like:
+        (summary ~ "BuildA" OR summary ~ "BuildB") AND filter = 76997 AND ...
+    where BuildA/BuildB come from a DB query with no deterministic ORDER BY.
+    If the DB happens to return those rows in a different order on a later
+    page load, the generated JQL string (and therefore the naive md5 of the
+    raw string) differs even though it represents the exact same set of
+    builds - causing a guaranteed cache miss (and a full Jira re-traversal)
+    on every single page refresh. Sorting the individual `summary ~ "..."`
+    clauses before hashing makes the cache key stable regardless of the
+    order the underlying DB rows/build IDs were returned in.
+    """
+    import re as _re
+    text = str(custom_jql or '').strip()
+    if not text:
+        return text
+    clauses = _re.findall(r'summary\s*~\s*"[^"]*"', text, flags=_re.I)
+    if not clauses:
+        return text
+    # Replace each clause occurrence, in order, with a placeholder so the
+    # surrounding JQL (filter id, project clause, ordering, etc.) is preserved
+    # verbatim, then append the sorted clause list separately. This keeps the
+    # key stable under reordering while still changing if any other part of
+    # the JQL (filter/project/domain) changes.
+    normalized_rest = text
+    for i, clause in enumerate(clauses):
+        normalized_rest = normalized_rest.replace(clause, f'__BUILD_CLAUSE_{i}__', 1)
+    sorted_clauses = ','.join(sorted(c.strip().lower() for c in clauses))
+    return normalized_rest + '||' + sorted_clauses
+
+
 def _consolidated_report_path(target, builds, custom_jql=None):
     key_parts = [(target or 'notarget'), '_'.join(sorted(str(b) for b in (builds or [])))]
     if custom_jql:
-        key_parts.append('jql:' + str(custom_jql).strip())
+        key_parts.append('jql:' + _normalize_jql_for_cache_key(custom_jql))
     key   = '_'.join(key_parts)
     fname = _hashlib.md5(key.encode()).hexdigest()[:12] + '.json'
     return os.path.join(_CONSOLIDATED_REPORT_DIR, fname), key
 
 
-# job_id ? final report dict (populated by background thread)
+# job_id -> final report dict (populated by background thread)
+# IMPORTANT: results are intentionally NOT removed when read. Multiple
+# concurrent viewers (e.g. two users watching the same Current Running Build,
+# or the auto-run trigger racing with a manual click) may all poll the same
+# job_id via the "in-flight job join" path below - if the first poller to
+# read the result deleted it, every other poller would be stuck seeing
+# {"status":"pending"} forever even though the report already finished.
+# Entries are cleaned up by age instead (see _JOB_RESULTS_TS / cleanup below).
 _JOB_RESULTS: dict = {}
+_JOB_RESULTS_TS: dict = {}   # job_id -> time.time() when result was stored
+_JOB_RESULTS_TTL_SECONDS = 30 * 60  # keep finished results around for 30 min so late pollers can still read them
+
+
+def _job_results_set(job_id, value):
+    _JOB_RESULTS[job_id] = value
+    _JOB_RESULTS_TS[job_id] = time.time()
+    # Opportunistic cleanup of old entries so this dict does not grow forever.
+    if len(_JOB_RESULTS) > 200:
+        cutoff = time.time() - _JOB_RESULTS_TTL_SECONDS
+        stale = [jid for jid, ts in _JOB_RESULTS_TS.items() if ts < cutoff]
+        for jid in stale:
+            _JOB_RESULTS.pop(jid, None)
+            _JOB_RESULTS_TS.pop(jid, None)
+
+
+# cache_key -> job_id for reports currently being generated. This prevents
+# multiple users refreshing/clicking the same Current Running Build JQL from
+# starting duplicate backend Jira runs before the cache file exists.
+_JOB_CACHE_KEYS: dict = {}
 
 
 # -- SSE progress endpoint -----------------------------------------------------
@@ -6843,11 +6903,38 @@ def api_consolidated_report_progress(job_id):
 
         last_done = -1
         deadline  = time.time() + 600   # 10 min max
+        # -- Startup grace period ------------------------------------------
+        # The background job thread (see api_consolidated_report -> _run_job)
+        # only calls register_progress(job_id) AFTER importing
+        # fetch_consolidated_report/config and opening the JIRA connection,
+        # which can take a few seconds. This SSE stream, however, is opened
+        # by the browser immediately after the job_id is returned - so it can
+        # easily reach here before the tracker is registered. Previously this
+        # was treated as a hard "job not found" error, which incorrectly
+        # aborted the UI even though the job was still starting up fine in
+        # the background. Instead, wait up to _NOT_FOUND_GRACE_SECONDS,
+        # retrying, before actually giving up. Also check _JOB_RESULTS in
+        # case the job somehow already finished (super-fast cache hit racing
+        # with SSE connect) before a tracker was even created.
+        _NOT_FOUND_GRACE_SECONDS = 20
+        _not_found_since = None
         while time.time() < deadline:
             pt = get_progress(job_id)
             if pt is None:
-                yield f'data: {{"stage":"error","message":"job not found","done":0,"total":0,"pct":0}}\n\n'
-                return
+                if job_id in _JOB_RESULTS:
+                    # Job already finished (result available) before the SSE
+                    # stream ever saw a progress tracker - report done so the
+                    # client's waitForResult() pickup proceeds normally.
+                    yield 'data: {"stage":"done","done":1,"total":1,"pct":100,"message":"Report complete."}\n\n'
+                    return
+                if _not_found_since is None:
+                    _not_found_since = time.time()
+                elif (time.time() - _not_found_since) >= _NOT_FOUND_GRACE_SECONDS:
+                    yield f'data: {{"stage":"error","message":"job not found","done":0,"total":0,"pct":0}}\n\n'
+                    return
+                time.sleep(0.3)
+                continue
+            _not_found_since = None
             snap = pt.snapshot()
             if snap['done'] != last_done or snap['stage'] in ('done', 'error', 'cancelled'):
                 last_done = snap['done']
@@ -6877,7 +6964,7 @@ def api_consolidated_report_cancel(job_id):
     try:
         from fetch_consolidated_report import cancel_progress
         ok = cancel_progress(job_id, 'Cancelled by user while switching tabs')
-        _JOB_RESULTS[job_id] = {'cancelled': True, 'error': 'Cancelled by user'}
+        _job_results_set(job_id, {'cancelled': True, 'error': 'Cancelled by user'})
         return jsonify({'ok': True, 'cancelled': bool(ok), 'job_id': job_id})
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc), 'job_id': job_id}), 500
@@ -6886,8 +6973,17 @@ def api_consolidated_report_cancel(job_id):
 @dashboard_bp.route("/api/consolidated_report/result/<job_id>")
 @login_required
 def api_consolidated_report_result(job_id):
-    """Pick up the finished report by job_id."""
-    report = _JOB_RESULTS.pop(job_id, None)
+    """Pick up the finished report by job_id.
+
+    Non-destructive read: the result is NOT removed here. Multiple concurrent
+    viewers can be polling the same job_id (e.g. two users on the same
+    Current Running Build, or an auto-run racing a manual click that both
+    joined the same in-flight job) - if we deleted the result on first read,
+    every poller after the first would see {"status":"pending"} forever even
+    though the report already finished. Stale entries are pruned by age in
+    _job_results_set() instead.
+    """
+    report = _JOB_RESULTS.get(job_id)
     if report is None:
         return jsonify({'status': 'pending'}), 202
     if 'error' in report:
@@ -7349,6 +7445,7 @@ def api_consolidated_report():
         target    = (body.get("target") or "").strip()
         force      = bool(body.get("force",    False))
         custom_jql = (body.get("custom_jql") or body.get("jql") or "").strip()
+        cache_ttl_minutes = body.get("cache_ttl_minutes") or body.get("cacheTtlMinutes")
         axiom_taxonomy_path = (body.get("axiom_taxonomy_path") or body.get("taxonomyPath") or body.get("taxonomy_path") or "").strip()
         include_axiom_metrics = body.get("include_axiom_metrics", True)
         domain = (body.get("domain") or "").strip().upper()
@@ -7361,6 +7458,7 @@ def api_consolidated_report():
         target    = (request.args.get("target") or "").strip()
         force      = request.args.get("force",    "0") != "0"
         custom_jql = (request.args.get("custom_jql") or request.args.get("jql") or "").strip()
+        cache_ttl_minutes = request.args.get("cache_ttl_minutes") or request.args.get("cacheTtlMinutes")
         axiom_taxonomy_path = (request.args.get("axiom_taxonomy_path") or request.args.get("taxonomyPath") or request.args.get("taxonomy_path") or "").strip()
         include_axiom_metrics = request.args.get("include_axiom_metrics", "1") != "0"
         domain = (request.args.get("domain") or "").strip().upper()
@@ -7394,18 +7492,33 @@ def api_consolidated_report():
         return jsonify({'error': f'Unable to read JIRA config: {e}', 'missing_credentials': True}), 500
 
     # -- check static cache unless force=true ---------------------------------
-    # Cache TTL: 6 hours. Stale results (e.g. after traversal logic fixes)
-    # are automatically re-fetched even without force=true.
-    _CACHE_TTL_SECONDS = 6 * 3600
+    # Default cache TTL remains 6 hours for generic Build Report usage.
+    # Current Running Build pages pass cache_ttl_minutes=30 so all users share
+    # one generated report per build/JQL for 30 minutes across page refreshes.
+    try:
+        _ttl_minutes = int(cache_ttl_minutes) if cache_ttl_minutes not in (None, '') else 0
+    except Exception:
+        _ttl_minutes = 0
+    _CACHE_TTL_SECONDS = (_ttl_minutes * 60) if _ttl_minutes > 0 else (6 * 3600)
 
-    cache_path, _ = _consolidated_report_path(target, raw, custom_jql or None)
+    cache_path, cache_key = _consolidated_report_path(target, raw, custom_jql or None)
     if not force and os.path.exists(cache_path):
         try:
             _cache_age = time.time() - os.path.getmtime(cache_path)
             if _cache_age <= _CACHE_TTL_SECONDS:
                 with open(cache_path, encoding='utf-8') as fh:
                     cached = json.load(fh)
-                cached.setdefault('meta', {})['from_cache'] = True
+                meta = cached.setdefault('meta', {})
+                meta['from_cache'] = True
+                meta['cache_ttl_minutes'] = round(_CACHE_TTL_SECONDS / 60)
+                meta['cache_age_seconds'] = round(_cache_age, 1)
+                # Derive generated_at from the cache file's mtime (same clock as
+                # next_auto_refresh_at below) so the "Last generated / Next
+                # trigger" UI badges are always consistent with each other,
+                # regardless of what the original run_consolidated_report call
+                # wrote into meta['generated_at'] (local time, different format).
+                meta['generated_at'] = datetime.utcfromtimestamp(os.path.getmtime(cache_path)).isoformat() + 'Z'
+                meta['next_auto_refresh_at'] = datetime.utcfromtimestamp(os.path.getmtime(cache_path) + _CACHE_TTL_SECONDS).isoformat() + 'Z'
                 logger.info(f"[consolidated_report] serving from cache: {cache_path}")
                 return jsonify(cached)
             else:
@@ -7413,8 +7526,20 @@ def api_consolidated_report():
         except Exception:
             pass
 
+    # If the same cache key is already running, return the existing job_id so
+    # concurrent users do not start duplicate Jira jobs for the same build/JQL.
+    if not force:
+        running_job = _JOB_CACHE_KEYS.get(cache_key)
+        if running_job and running_job not in _JOB_RESULTS:
+            logger.info(f"[consolidated_report] joining in-flight job {running_job}: {cache_key}")
+            return jsonify({'job_id': running_job, 'from_inflight': True, 'cache_ttl_minutes': round(_CACHE_TTL_SECONDS / 60)})
+        elif running_job:
+            _JOB_CACHE_KEYS.pop(cache_key, None)
+
     # -- start background job, return job_id for SSE polling -----------------
     job_id = _uuid.uuid4().hex[:16]
+    if not force:
+        _JOB_CACHE_KEYS[cache_key] = job_id
 
     def _run_job():
         import os as _os, sys as _sys
@@ -7497,20 +7622,29 @@ def api_consolidated_report():
             except Exception as se:
                 logger.warning(f"[consolidated_report] cache save failed: {se}")
 
-            # store result for pickup
-            report.setdefault('meta', {})['from_cache'] = False
-            report.setdefault('meta', {})['job_id']     = job_id
-            _JOB_RESULTS[job_id] = report
+                        # store result for pickup
+            meta = report.setdefault('meta', {})
+            meta['from_cache'] = False
+            meta['job_id'] = job_id
+            meta['cache_ttl_minutes'] = round(_CACHE_TTL_SECONDS / 60)
+            # Overwrite generated_at with a UTC timestamp (run_consolidated_report
+            # sets it from local time via time.strftime) so it and
+            # next_auto_refresh_at are always computed from the same clock and
+            # stay in sync for the "Last generated / Next trigger" UI badges.
+            _generated_at_dt = datetime.utcnow()
+            meta['generated_at'] = _generated_at_dt.isoformat() + 'Z'
+            meta['next_auto_refresh_at'] = (_generated_at_dt + timedelta(seconds=_CACHE_TTL_SECONDS)).isoformat() + 'Z'
+            _job_results_set(job_id, report)
 
         except Exception as e:
             import traceback
             is_cancel = 'cancel' in str(e).lower()
             if is_cancel:
                 logger.info(f"[consolidated_report] job {job_id} cancelled: {e}")
-                _JOB_RESULTS[job_id] = {'cancelled': True, 'error': 'Cancelled by user'}
+                _job_results_set(job_id, {'cancelled': True, 'error': 'Cancelled by user'})
             else:
                 logger.error(f"[consolidated_report] job {job_id} error: {e}\n{traceback.format_exc()}")
-                _JOB_RESULTS[job_id] = {'error': str(e)}
+                _job_results_set(job_id, {'error': str(e)})
             try:
                 from fetch_consolidated_report import get_progress
                 pt = get_progress(job_id)
@@ -7518,7 +7652,9 @@ def api_consolidated_report():
             except Exception:
                 pass
         finally:
-            pass  # keep progress alive for SSE to read final state
+            if _JOB_CACHE_KEYS.get(cache_key) == job_id:
+                _JOB_CACHE_KEYS.pop(cache_key, None)
+            # keep progress alive for SSE to read final state
 
     import threading as _threading
     t = _threading.Thread(target=_run_job, daemon=True)

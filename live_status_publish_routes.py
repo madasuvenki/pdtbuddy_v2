@@ -439,21 +439,35 @@ def _find_existing_single_target_job(target_name, job_type='CRM'):
     return matches[0]
 
 
-def _canonical_target_edit_url(target_name):
+def _normal_live_status_tab(value, default='current'):
+    tab = str(value or '').strip().lower()
+    return tab if tab in {'core', 'current', 'mtbf', 'weekly', 'opencrs', 'openjiras', 'buildreport'} else default
+
+
+def _requested_live_status_tab(default='current'):
+    return _normal_live_status_tab(request.args.get('tab') or request.args.get('initial_tab'), default=default)
+
+
+def _canonical_target_edit_url(target_name, tab=None):
     target_name = str(target_name or '').strip()
     bu_key = str(get_bu_for_target(target_name) or '').strip().upper() or 'TARGET'
-    return url_for('live_status_publish_bp.live_status_target_by_bu', bu_key=bu_key, target_name=target_name)
+    values = {'bu_key': bu_key, 'target_name': target_name}
+    if tab:
+        values['tab'] = _normal_live_status_tab(tab)
+    return url_for('live_status_publish_bp.live_status_target_by_bu', **values)
 
 
-def _canonical_target_editor_url(target_name):
-    return _canonical_target_edit_url(target_name)
+def _canonical_target_editor_url(target_name, tab=None):
+    return _canonical_target_edit_url(target_name, tab=tab)
 
 
-def _render_current_report_editor(job):
+def _render_current_report_editor(job, initial_tab=None):
     """Editors use live_status_publish_edit.html (the single canonical template)
     with can_edit=True, giving the full rich UI plus Save / Publish controls.
     """
-    return _render_published_full_page(job, initial_tab='core' if _is_core_deck_target((job.get('targets') or [''])[0]) else 'current', suppress_top_redirect=True)
+    default_tab = 'core' if _is_core_deck_target((job.get('targets') or [''])[0]) else 'current'
+    return _render_published_full_page(job, initial_tab=_normal_live_status_tab(initial_tab, default_tab), suppress_top_redirect=True)
+
 
 
 def _count_active_eng_jobs(target_name):
@@ -800,10 +814,11 @@ def _render_target_status_page(target_name, initial_tab=None):
     if canonical_target and canonical_target in targets and (not targets or targets[0] != canonical_target):
         job = dict(job)
         job['targets'] = [canonical_target] + [t for t in targets if t != canonical_target]
-    return _render_published_full_page(job, initial_tab or request.args.get('tab') or 'current')
+    return _render_published_full_page(job, initial_tab or _requested_live_status_tab('current'))
 
 
 @live_status_publish_bp.route('/pdt/<target_name>/ext_status')
+
 @live_status_publish_bp.route('/pdt/<target_name>/ext-status')
 def pdt_target_ext_status(target_name):
     """Legacy URL. Use /live_status_view/<BU>/<target> instead."""
@@ -1542,14 +1557,18 @@ def landing():
     TARGET_GROUP users get editor controls (Add Job / Manage Jobs). Other
     authenticated users see the same BU -> target published-report navigation,
     without editor controls.
-        """
+    """
+
     requested_target = (request.args.get('target') or request.args.get('target_name') or '').strip()
     if requested_target:
+
+        requested_tab = _requested_live_status_tab('current')
         if _target_group_access():
-            return redirect(_canonical_target_edit_url(requested_target))
+            return redirect(_canonical_target_edit_url(requested_target, tab=requested_tab))
         if not _can_view_live_status_target(requested_target):
             return redirect(url_for('live_status_publish_bp.landing'))
-        return redirect(_canonical_target_edit_url(requested_target))
+        return redirect(_canonical_target_edit_url(requested_target, tab=requested_tab))
+
     can_edit = _target_group_access()
 
     # All published jobs - both editor and viewer see the same BU---target navigation.
@@ -1561,6 +1580,7 @@ def landing():
     hidden_bus = {'WEEKLY_QIPL_REPORTS', 'HWPDT'}
 
         # Annotate every job with BU info (needed for admin table and bu_list)
+
     for job in all_jobs:
         first_target = (job.get('targets') or [''])[0]
         info = target_to_bu.get(first_target, {})
@@ -1606,6 +1626,7 @@ def landing():
             'job_name': job.get('name') or '',
             'status': job.get('status') or 'draft',
                         'job_id': job.get('id') or '',
+
         }
         bu_targets_js.setdefault(bk, []).append(entry)
 
@@ -1617,18 +1638,31 @@ def landing():
                 'bu_key': bu_key,
                 'bu_name': bu_name,
                                 'targets': targets,
+
             })
 
     viewer_scope = _current_live_status_viewer_scope() if not can_edit else {'matched_groups': []}
     matched_groups_upper = {str(g or '').strip().upper() for g in (viewer_scope.get('matched_groups') or [])}
 
-    # - Special "Live View Stats" BU sections (Automotive 4.5 + WBC) -
-    # These are always shown as top-level cards that open the automotive_live_view_stats
-    # page directly - they are NOT backed by a Live Status publish job.
-    # Editors (full target-group access) always see them. Restricted viewers only
-    # see them if their access scope explicitly covers AUTO/WBC (same rule used
-    # for every other BU/target on this page) - this preserves per-group access.
-    _show_special_sections = can_edit or bool(viewer_scope.get('all')) or 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper or 'AUTO' in (viewer_scope.get('bus') or set()) or 'AUTOMOTIVE' in (viewer_scope.get('bus') or set()) or 'WBC' in (viewer_scope.get('bus') or set())
+        # - Special "Live View Stats" BU sections (Automotive 4.5 + WBC) -
+
+    # These are always shown as top-level cards that open their own dedicated
+    # stats page directly - they are NOT backed by a Live Status publish job.
+    # Editors (full target-group access) always see BOTH. Restricted viewers
+    # only see the card whose BU their access scope explicitly covers - each
+    # card has its OWN visibility flag so a user scoped only to WBC does not
+    # also see the Automotive 4.5 card (and vice versa).
+    _viewer_bus_scope = viewer_scope.get('bus') or set()
+    _show_auto_gen45_section = (
+        can_edit or bool(viewer_scope.get('all'))
+        or 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper
+        or 'AUTO' in _viewer_bus_scope or 'AUTOMOTIVE' in _viewer_bus_scope
+        or 'AUTO_GEN45' in _viewer_bus_scope or 'AUTOMOTIVE4.5' in _viewer_bus_scope
+    )
+    _show_wbc_section = (
+        can_edit or bool(viewer_scope.get('all'))
+        or 'WBC' in _viewer_bus_scope
+    )
 
     # Strip regular WBC/synthetic sections only so WBC does not duplicate with the
     # special card below. Keep AUTO/AUTOMOTIVE because those are already-published
@@ -1638,7 +1672,7 @@ def landing():
         if str(section.get('bu_key') or '').upper() not in {'WBC', 'AUTO_GEN45', 'AUTOMOTIVE4.5'}
     ]
 
-    if _show_special_sections:
+    if _show_auto_gen45_section:
         # Automotive 4.5 card
         viewer_bu_sections.insert(0, {
             'bu_key': 'AUTO_GEN45',
@@ -1665,8 +1699,9 @@ def landing():
             }],
         })
 
+    if _show_wbc_section:
         # WBC card
-        viewer_bu_sections.insert(1, {
+        viewer_bu_sections.insert(1 if _show_auto_gen45_section else 0, {
             'bu_key': 'WBC',
             'bu_name': 'WBC',
             'special_page': True,
@@ -1674,7 +1709,7 @@ def landing():
                 'name': 'WBC',
                 'bu_key': 'WBC',
                 'bu_name': 'WBC',
-                'target_url': url_for('automotive_live_view_stats_bp.automotive_live_view_stats_page', target_name='WBC'),
+                'target_url': url_for('wbc_live_view_stats_bp.wbc_live_view_status_page'),
                 'token': '',
                 'published_at': '',
                 'updated_at': '',
@@ -1706,6 +1741,14 @@ def landing():
     requested_bu = (request.args.get('bu_key') or '').strip().upper()
     visible_bu_keys = {str(row[0]).upper() for row in bu_list}
     auto_open_bu = requested_bu if requested_bu in visible_bu_keys else ''
+    # NOTE: 'AUTO_GEN45' here is legacy - it used to auto-expand the old
+    # accordion-style BU section for viewers whose only LDAP group is
+    # PdtBuddy.IVIGen4.5. Automotive 4.5 is now rendered as a "special_page"
+    # card that always navigates directly on click and must never be
+    # force-expanded (see the `not is_special` guard in
+    # live_status_publish_landing.html - without it, this assignment caused
+    # the special card's hidden body to render a second time, showing what
+    # looked like two duplicate "Automotive 4.5" cards stacked on the page).
     if not auto_open_bu and not can_edit and 'PDTBUDDY.IVIGEN4.5' in matched_groups_upper:
         auto_open_bu = 'AUTO_GEN45'
     elif not auto_open_bu and not can_edit and len(viewer_scope.get('matched_groups') or []) == 1 and len(bu_list) == 1:
@@ -1714,7 +1757,9 @@ def landing():
 
 
         
-        # Filter target_options passed to Add Job modal - exclude AUTO/WBC BUs
+        
+    # Filter target_options passed to Add Job modal - exclude AUTO/WBC BUs
+
     add_job_target_opts = [
         row for row in all_target_opts
         if str(row.get('bu_key') or '').upper() not in _hidden_add_job_bus
@@ -1807,22 +1852,29 @@ def live_status_bu_incomplete_url(bu_key):
     return redirect(url_for('live_status_publish_bp.landing'))
 
 
+@live_status_publish_bp.route('/live_status/<bu_key>/<target_name>/<initial_tab_path>')
+@live_status_publish_bp.route('/live_status_view/<bu_key>/<target_name>/<initial_tab_path>')
 @live_status_publish_bp.route('/live_status/<bu_key>/<target_name>')
 @live_status_publish_bp.route('/live_status_view/<bu_key>/<target_name>')
 @login_required
-def live_status_target_by_bu(bu_key, target_name):
+def live_status_target_by_bu(bu_key, target_name, initial_tab_path=None):
+
     """Canonical per-target Live Status URL.
 
     Editors use this URL as the single Current Report edit/save/publish workspace.
-    Viewers use the same URL for the published read-only report.
+        Viewers use the same URL for the published read-only report.
     """
+
+    initial_tab = _normal_live_status_tab(initial_tab_path, _requested_live_status_tab('current'))
     if current_user.is_authenticated and _target_group_access():
+
         # Editors always get the edit workspace - draft or published.
         job = _find_existing_single_target_job(target_name, 'CRM') or _find_published_job_for_target(target_name)
         if job:
-            return _render_current_report_editor(job)
+            return _render_current_report_editor(job, initial_tab=initial_tab)
         # No job exists yet - send editor back to landing to create one.
         return redirect(url_for('live_status_publish_bp.landing'))
+
 
     # Viewers: check access first.
     if not _can_view_live_status_target(target_name, bu_key):
@@ -1839,10 +1891,11 @@ def live_status_target_by_bu(bu_key, target_name):
             title='Live Status',
             message='No published report is available for this target yet.'
         ), 404
-    return _render_target_status_page(target_name)
+    return _render_target_status_page(target_name, initial_tab=initial_tab)
 
 
 @live_status_publish_bp.route('/live_status_view/<job_id>')
+
 @login_required
 def view_job(job_id):
     """Legacy one-segment route.
@@ -1889,13 +1942,17 @@ def view_job(job_id):
 
 def _render_published_full_page(job, initial_tab='current', suppress_top_redirect=False):
     """
-    Render the canonical Live Status page.
+        Render the canonical Live Status page.
     Works for both published and draft jobs.
-        """
+    """
+
     primary_target = (job.get('targets') or [''])[0]
-    if _is_core_deck_target(primary_target) and str(initial_tab or '').lower() == 'current' and _job_type(job) != 'ENG':
+    initial_tab = _normal_live_status_tab(initial_tab, 'current')
+
+    if _is_core_deck_target(primary_target) and initial_tab == 'current' and _job_type(job) != 'ENG':
         initial_tab = 'core'
-    embedded_core_deck = str(request.args.get('embed') or '').lower() in ('1', 'true', 'yes') and str(initial_tab or '').lower() == 'core'
+    embedded_core_deck = str(request.args.get('embed') or '').lower() in ('1', 'true', 'yes') and initial_tab == 'core'
+
     can_edit = current_user.is_authenticated and _target_group_access()
 
     # Editors work from draft_rows. Viewers see only the last explicitly
@@ -1910,6 +1967,7 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     is_auto_bu = _is_core_deck_target(primary_target)
 
             # Core Slides tab: only shown for AUTO BU targets or targets with
+
     # core_deck_enabled=True in their per-target config. Default: disabled.
     try:
         _meta = load_metadata_config() or {}
@@ -1940,8 +1998,10 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         is_compute_mtbf=is_compute_mtbf,
         is_auto_bu=is_auto_bu,
         is_eng_job=_job_type(job) == 'ENG',
-        can_edit=can_edit,
-        initial_tab=initial_tab if initial_tab in ('core', 'current', 'mtbf', 'weekly', 'opencrs', 'openjiras', 'buildreport') else 'current',
+                can_edit=can_edit,
+        initial_tab=initial_tab,
+
+
         mtbf_only=(initial_tab == 'mtbf' and _job_type(job) != 'ENG'),
         embedded_core_deck=embedded_core_deck,
         suppress_top_redirect=suppress_top_redirect,

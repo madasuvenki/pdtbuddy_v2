@@ -129,6 +129,7 @@ from live_status_publish_routes import live_status_publish_bp
 from live_status_view_api import live_status_view_api_bp
 from live_view_stats_routes import live_view_stats_bp
 from automotive_live_view_stats_routes import automotive_live_view_stats_bp
+from wbc_live_view_stats_routes import wbc_live_view_stats_bp
 from auto_gen45_public_routes import public_auto_gen45_bp
 from auto_gen5_public_routes import public_auto_gen5_bp
 from core_deck_routes import core_deck_bp
@@ -353,6 +354,7 @@ app.register_blueprint(live_status_publish_bp)
 app.register_blueprint(live_status_view_api_bp)
 app.register_blueprint(live_view_stats_bp)
 app.register_blueprint(automotive_live_view_stats_bp)
+app.register_blueprint(wbc_live_view_stats_bp)
 app.register_blueprint(public_auto_gen45_bp)
 app.register_blueprint(public_auto_gen5_bp)
 app.register_blueprint(core_deck_bp)
@@ -8854,10 +8856,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    #HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    #PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

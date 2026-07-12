@@ -118,10 +118,15 @@ LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS = {
         "target_patterns": ["GEN4.5", "GEN4_5", "IVI_4_5", "IVI.4.5", "_4_5_", "4.5"],
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.IVIGen4.5",
     },
-    "PdtBuddy.Compute": {
+        "PdtBuddy.Compute": {
         "label": "Compute",
         "bus": ["COMPUTE"],
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Compute",
+    },
+    "PdtBuddy.WBC": {
+        "label": "WBC",
+        "bus": ["WBC"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.WBC",
     },
 }
 
@@ -145,7 +150,8 @@ LIVE_STATUS_TEST_USER_GROUPS = {
     # TEMP TEST: treat akacham as member of these LDAP groups without changing LDAP.
     # Remove after validating /live_status_view grouped target cards.
 
-       # 'akacham': ['PdtBuddy.IoT', 'PdtBuddy.Nord', 'PdtBuddy.IVIGen4.5'],
+    'akacham': ['PdtBuddy.IoT', 'PdtBuddy.Nord', 'PdtBuddy.IVIGen4.5','PdtBuddy.WBC'],
+    
 
 }
 

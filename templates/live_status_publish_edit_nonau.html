@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px;border-left:5px solid #6366f1}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}    .tab-section{display:none}.tab-section.active{display:block}#tab-current.active{display:flex;flex-direction:column}    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
-    /* -- Current Running Build ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ light left nav panel -- */
+    /* -- Current Running Build ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ light left nav panel -- */
     .lsp-current-layout{display:grid;grid-template-columns:280px minmax(0,1fr);height:calc(100vh - 220px);min-height:520px;border-radius:0 0 18px 18px;overflow:hidden}
     .lsp-nav{background:linear-gradient(180deg,#ecfdf5,#f0fdf4 60%,#f8fafc);border-right:2px solid #6ee7b7;display:flex;flex-direction:column;overflow:hidden;height:100%}
     .lsp-nav-header{padding:12px 12px 8px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#ecfdf5,#f0fdf4)}
@@ -334,9 +334,10 @@
             <!-- KPI cards injected here by _lspRenderReport -->
             <div id="lspReportKpis" style="display:none;margin-bottom:10px"></div>
                           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-              <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</span>
+                            <span style="font-size:12px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-bug" style="color:#7c3aed"></i> CR / JIRA Report</span>
                <span id="crFreshStatus" class="muted" style="font-size:11px"></span>
                <span id="crSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+               <span id="lspRunTimesBadge" style="display:none;gap:8px;flex-wrap:wrap"></span>
                <div id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
                <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap">
                  <button id="lspCopyCrBtn" onclick="lspCopyTable('crTbody',this)" style="display:none;border:1px solid #bbf7d0;background:#ecfdf5;color:#047857;border-radius:8px;padding:4px 12px;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy CR Table</button>
@@ -2222,7 +2223,7 @@ window.LSP_DATA = {
   }
 
     /* ---- tab switch hook ---- */
-  window.rbEnsureDbRunning=function(){
+    window.rbEnsureDbRunning=function(){
     // Poller disabled: parallel script handles DB updates. One-shot load only.
     if(!_rbRows.length) window.loadRunningBuildsDb();
     // No setInterval - avoids conflict with the production axiom poller.
@@ -2230,7 +2231,14 @@ window.LSP_DATA = {
   var _origSwitch=window.switchTab;
   window.switchTab=function(name){
     if(typeof _origSwitch==='function') _origSwitch(name);
-    if(name==='current') window.rbEnsureDbRunning();
+        if(name==='current'){
+      window.rbEnsureDbRunning();
+      // Give _lspAutoRunCurrentReportOnce() a chance to run now that the
+      // "current" tab is actually active (it's a no-op after the first
+      // successful run, and the 30-min server cache makes repeat opens
+      // effectively instant instead of re-triggering a fresh traversal).
+      if(typeof window._lspAutoRunCurrentReportOnce==='function') window._lspAutoRunCurrentReportOnce();
+    }
   };
 
   /* ---- init ---- */
@@ -2373,7 +2381,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
         var srcKeys2=jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean);
         _mappedRows.push({ticket:cr,count:jiras.length||1,title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',date:String(firstJ.created||'').slice(0,10),status:firstJ.final_status||firstJ.status||'',srcKeys:srcKeys2});
             } else {
-        // NO_CR: mirror PDT_StatsConstants.py ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â exclude closed+junk and rejected/transferred
+        // NO_CR: mirror PDT_StatsConstants.py ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â exclude closed+junk and rejected/transferred
         var _EXCL_RES_BR  = {'invalid':1,'incomplete':1,"won't fix":1,'wont fix':1,'cannot reproduce':1,'withdrawn':1};
         var _CLOSED_ST_BR = {'closed':1,'closed_root_cause_not_found':1,'closed_root_cause_cr_found':1,'resolved':1,'rejected':1};
         jiras.forEach(function(j){
@@ -2467,7 +2475,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var st=String(r.status||'').toLowerCase();
       var isInv=_INV_OPEN.some(function(v){return st.indexOf(v)>=0||fr.indexOf(v)>=0||rn.indexOf(v)>=0;});
       var resDisplay=r.resolution_notes_text||r.final_resolution||'';
-      var statusCell=stBadge(r.status)+(isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'')+(resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦':'')+'</div>':'');
+      var statusCell=stBadge(r.status)+(isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'')+(resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦':'')+'</div>':'');
       return '<tr><td class="muted">'+(i+1)+'</td><td style="white-space:nowrap"><a class="linkBtn" href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.key)+'" target="_blank">'+esc(r.key)+'</a></td><td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td><td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td><td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td><td>'+statusCell+'</td></tr>';
     }).join('');
   };
@@ -2760,7 +2768,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
 })();
 
 // =======================================================================
-// LSP NAV ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ dark left panel for Current Running Build tab
+// LSP NAV ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ dark left panel for Current Running Build tab
 // =======================================================================
 (function(){
   var _lspNavDomain = window._lspNavDomain = 'ADAS';
@@ -2844,15 +2852,19 @@ if(!window.ojClear)  window.ojClear  = function(){};
       var isActive = _lspSoloMeta === g.meta_id;
       var accent   = domAccent[g.domain]||'#2563eb';
       var cls      = isActive ? 'lsp-nav-item lsp-nav-active' : 'lsp-nav-item lsp-nav-selected';
-      var builds   = g.builds.slice(0,2).join(' Ãƒâ€šÃ‚Â· ') + (g.builds.length>2?' +'+(g.builds.length-2)+' more':'');
+      var isWarming = !!(window._lspWarmingMetas||{})[g.meta_id];
+      var isWarmed  = !!(window._lspWarmedMetas||{})[g.meta_id];
+      var builds   = g.builds.slice(0,2).join(' ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ') + (g.builds.length>2?' +'+(g.builds.length-2)+' more':'');
 
       return '<div class="'+cls+'" data-meta="'+_esc(g.meta_id)+'" onclick="lspNavClick(this.dataset.meta)">'
         +'<div class="lsp-nav-accent" style="background:'+accent+'"></div>'
         +'<div class="lsp-nav-body">'
-          +'<div class="lsp-nav-meta">'+_esc(g.meta_id)
+                    +'<div class="lsp-nav-meta">'+_esc(g.meta_id)
             +'<span style="font-size:9px;background:rgba(255,255,255,.1);color:#94a3b8;padding:1px 5px;border-radius:3px">'
               +g.builds.length+' build'+(g.builds.length===1?'':'s')
             +'</span>'
+            +(isWarming?'<span style="font-size:9px;color:#fbbf24" title="Report generating in the background for all users"><i class="fas fa-circle-notch spin"></i></span>'
+              :(isWarmed?'<span style="font-size:9px;color:#6ee7b7" title="Report ready - shared with all users"><i class="fas fa-check"></i></span>':''))
           +'</div>'
           +'<div class="lsp-nav-build">'+_esc(builds)+'</div>'
           +'<div class="lsp-nav-stats">'
@@ -2867,7 +2879,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     // KPI: builds count
     var totalBuilds = groups.reduce(function(s,g){return s+g.builds.length;},0);
     var kpiB = document.getElementById('lspKpiBuilds');
-    if(kpiB) kpiB.textContent = totalBuilds||'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
+    if(kpiB) kpiB.textContent = totalBuilds||'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â';
   };
 
   /* ---- Click a nav item: solo-select or restore all ---- */
@@ -3058,21 +3070,47 @@ if(!window.ojClear)  window.ojClear  = function(){};
     document.getElementById('lspProgressPct').textContent   = pct+'%';
     document.getElementById('lspProgressFill').style.width  = Math.max(6,pct)+'%';
     var log = Array.isArray(snap.log) ? snap.log.join('\n') : (snap.log||'');
-    document.getElementById('lspProgressLog').textContent   = log || ('Stage: '+stage+' ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ elapsed '+_lspProgressElapsed());
+    document.getElementById('lspProgressLog').textContent   = log || ('Stage: '+stage+' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ elapsed '+_lspProgressElapsed());
   }
   function _lspHideProgress(delay){
     if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} _lspProgressSource=null; }
     setTimeout(function(){ var box=document.getElementById('lspProgressBox'); if(box) box.style.display='none'; }, delay==null?0:delay);
   }
-  function _lspWatchProgress(jobId){
+    function _lspWatchProgress(jobId){
     if(!window.EventSource || !jobId) return;
     if(_lspProgressSource){ try{_lspProgressSource.close();}catch(e){} }
-    _lspProgressSource = new EventSource('/api/consolidated_report/progress/'+encodeURIComponent(jobId));
-    _lspProgressSource.onmessage = function(ev){
-      try{ _lspUpdateProgress(JSON.parse(ev.data||'{}')); }catch(e){}
+    var src = _lspProgressSource = new EventSource('/api/consolidated_report/progress/'+encodeURIComponent(jobId));
+    var errorStreak = 0;
+    src.onmessage = function(ev){
+      errorStreak = 0;
+      var snap = {};
+      try{ snap = JSON.parse(ev.data||'{}'); }catch(e){}
+      _lspUpdateProgress(snap);
+      // The server-side SSE generator already exits its loop on a terminal
+      // stage (done/error/cancelled) and ends the HTTP response. Explicitly
+      // closing here too stops the browser's EventSource from auto-reconnecting
+      // and re-opening a brand new stream for a job that is already finished
+      // (which would otherwise loop "Progress stream reconnecting..." forever,
+      // or spuriously reintroduce the old race-condition "job not found").
+      if(snap && (snap.stage==='done' || snap.stage==='error' || snap.stage==='cancelled')){
+        try{ src.close(); }catch(e){}
+        if(_lspProgressSource === src) _lspProgressSource = null;
+      }
     };
-    _lspProgressSource.onerror = function(){
+    src.onerror = function(){
+      errorStreak++;
       var log=document.getElementById('lspProgressLog');
+      // A handful of transient reconnects (e.g. Waitress worker briefly busy)
+      // are normal and harmless - the underlying job keeps running regardless.
+      // Only surface a hard failure after several consecutive errors so a
+      // single blip does not scare the user, and stop the browser from
+      // hammering an endpoint for a job that may genuinely be gone.
+      if(errorStreak >= 6){
+        try{ src.close(); }catch(e){}
+        if(_lspProgressSource === src) _lspProgressSource = null;
+        if(log) log.textContent = 'Lost connection to progress stream. The report may still finish in the background - it will appear automatically once ready.';
+        return;
+      }
       if(log) log.textContent='Progress stream reconnecting... report is still running.';
     };
   }
@@ -3081,6 +3119,71 @@ if(!window.ojClear)  window.ojClear  = function(){};
   var _lspCrRows=[], _lspJiraRows=[];
     var _lspLastReport = null;
   var _lspLastReportJql = '';
+    var _lspReportCacheByJql = {};
+  var _lspReportCacheTtlMs = 30 * 60 * 1000;
+  var _lspLastReportLabel = '';
+  function _lspReportCacheKey(jql){
+    return String(jql||'').replace(/\s+/g,' ').trim();
+  }
+  function _lspRememberReport(jql, report, label){
+    var key = _lspReportCacheKey(jql);
+    if(key && report) _lspReportCacheByJql[key] = {report:report, label:label||'', loadedAt:Date.now()};
+  }
+  function _lspGetCachedReport(jql){
+    return _lspReportCacheByJql[_lspReportCacheKey(jql)] || null;
+  }
+  function _lspCacheAgeText(entry){
+    var mins = Math.max(0, Math.floor((Date.now()-(entry&&entry.loadedAt||Date.now()))/60000));
+    return mins < 1 ? 'just now' : (mins+' min ago');
+  }
+    function _lspEnsureForceRunControl(jql, label){
+    // Force-run is intentionally disabled for Current Running Build reports.
+    // All users share the same server-side report cache for 30 minutes per build/JQL.
+  }
+  function _lspFmtDt(ms){
+    if(!ms) return '-';
+    var d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
+  }
+  function _lspParseIsoMs(v){
+    if(!v) return 0;
+    var d = new Date(v);
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  function _lspRenderRunTimesBadge(lastRunMs, ttlMs, nextRunMsOverride){
+    var badge = document.getElementById('lspRunTimesBadge');
+    if(!badge) return;
+    var nextMs = nextRunMsOverride || (lastRunMs ? (lastRunMs + (ttlMs || _lspReportCacheTtlMs)) : 0);
+    badge.style.display = 'inline-flex';
+    badge.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:5px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900"><i class="fas fa-clock"></i> Last generated: '+_esc(_lspFmtDt(lastRunMs))+'</span>'+
+      '<span style="display:inline-flex;align-items:center;gap:5px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900"><i class="fas fa-rotate"></i> Next auto trigger: '+_esc(_lspFmtDt(nextMs))+'</span>';
+  }
+  function _lspUseCachedReport(jql, label){
+    var cached = _lspGetCachedReport(jql);
+    if(!cached || !cached.report || (Date.now() - (cached.loadedAt||0)) >= _lspReportCacheTtlMs) return false;
+    _lspShowJqlPanel(jql);
+    window._lspLastJql = jql;
+    _lspLastReport = cached.report;
+    _lspLastReportJql = jql || '';
+    _lspLastReportLabel = label || cached.label || _lspLastReportLabel || '';
+    _lspApplyReportCrashesToRows(_lspLastReport);
+    _lspRenderReport(_lspLastReport);
+    var copyCrBtn = document.getElementById('lspCopyCrBtn');
+    if(copyCrBtn) copyCrBtn.style.display='inline-flex';
+    var fresh = document.getElementById('crFreshStatus');
+    if(fresh) fresh.textContent = 'Loaded from page cache ('+_lspCacheAgeText(cached)+').';
+    var _meta = (_lspLastReport && _lspLastReport.meta) || {};
+    var _genMs = _lspParseIsoMs(_meta.generated_at) || cached.loadedAt;
+    var _nextMs = _lspParseIsoMs(_meta.next_auto_refresh_at);
+    _lspRenderRunTimesBadge(_genMs, _lspReportCacheTtlMs, _nextMs);
+    _lspEnsureForceRunControl(jql, _lspLastReportLabel);
+    return true;
+  }
+  function _lspRunOrUseCachedReport(jql, label, force){
+    if(!force && _lspUseCachedReport(jql, label)) return;
+    _lspRunReport(jql, label, !!force);
+  }
   var _lspSelectedBuilds = new Set();
   var _lspBuildFilterActive = false;
   var JIRA_BASE_LSP = 'https://jira-dc2.qualcomm.com/jira/browse/';
@@ -3524,7 +3627,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     }
   }
 
-  function _lspRunReport(jql, labelForStatus){
+  function _lspRunReport(jql, labelForStatus, forceRun){
     var crTb   = document.getElementById('crTbody');
     var target = (window.LSP_DATA||{}).primary_target||'';
     var builds = [];
@@ -3533,6 +3636,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     while((m=re.exec(jql))!==null) builds.push(m[1]);
 
     window._lspLastJql = jql;
+    _lspLastReportLabel = labelForStatus || _lspLastReportLabel || '';
     // Show JQL panel
     _lspShowJqlPanel(jql);
 
@@ -3560,8 +3664,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
       traverse: true,
       orbit: true,
       target: target,
-      force: true,
+      force: false,
       custom_jql: jql,
+      cache_ttl_minutes: 30,
       include_axiom_metrics: true
     };
 
@@ -3603,13 +3708,19 @@ if(!window.ojClear)  window.ojClear  = function(){};
       _lspCurrentJobId = null;
       _lspFetchController = null;
             _lspUpdateProgress({stage:'done', done:1, total:1, pct:100, message:'Report complete. Rendering results...'});
-      _lspLastReport = data || {};
+              _lspLastReport = data || {};
       _lspLastReportJql = jql || '';
+      _lspRememberReport(jql, _lspLastReport, labelForStatus);
       _lspApplyReportCrashesToRows(_lspLastReport);
       _lspRenderReport(_lspLastReport);
-      // Show copy buttons now that data is ready
-      var copyCrBtn = document.getElementById('lspCopyCrBtn');
+            // Show copy buttons now that data is ready
+            var copyCrBtn = document.getElementById('lspCopyCrBtn');
       if(copyCrBtn) copyCrBtn.style.display='inline-flex';
+      var fresh = document.getElementById('crFreshStatus');
+      if(fresh) fresh.textContent = ((_lspLastReport.meta||{}).from_cache?'Loaded cached report.':'Report refreshed.');
+      var _meta2 = (_lspLastReport && _lspLastReport.meta) || {};
+      _lspRenderRunTimesBadge(_lspParseIsoMs(_meta2.generated_at) || Date.now(), _lspReportCacheTtlMs, _lspParseIsoMs(_meta2.next_auto_refresh_at));
+      _lspEnsureForceRunControl(jql, labelForStatus);
       _lspHideProgress(1800);
     })
     .catch(function(e){
@@ -3718,12 +3829,9 @@ if(!window.ojClear)  window.ojClear  = function(){};
   };
 
   // -- Confirm dialog before running JQL ------------------------------------
-  function _lspConfirmAndRun(jql, label){
-    var modal = document.getElementById('lspRunConfirmModal');
-    var msgEl = document.getElementById('lspRunConfirmMsg');
-    if(msgEl) msgEl.textContent = 'Run report for: ' + (label||'selected builds') + '?';
-    // Store pending jql on modal for the Yes button
-    if(modal){ modal._pendingJql = jql; modal._pendingLabel = label; modal.style.display='flex'; }
+    function _lspConfirmAndRun(jql, label){
+    // Click should run directly. Cache prevents rerun for 30 minutes; use Force run to bypass.
+    _lspRunOrUseCachedReport(jql, label, false);
   }
   window.lspConfirmRunYes = function(){
     var modal = document.getElementById('lspRunConfirmModal');
@@ -3732,12 +3840,12 @@ if(!window.ojClear)  window.ojClear  = function(){};
     var label = modal._pendingLabel;
     modal.style.display = 'none';
     modal._pendingJql = null;
-    if(jql) _lspRunReport(jql, label);
+    if(jql) _lspRunReport(jql, label, true);
   };
   window.lspConfirmRunNo = function(){
     var modal = document.getElementById('lspRunConfirmModal');
     if(modal){ modal.style.display='none'; modal._pendingJql=null; }
-    // Do nothing ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stay idle
+    // Do nothing ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â stay idle
   };
 
   // -- Auto-run JQL when meta is clicked in nav ------------------------------
@@ -3758,14 +3866,8 @@ if(!window.ojClear)  window.ojClear  = function(){};
     if(!buildIds.length) return;
     var jql = _lspBuildJql(buildIds);
     if(!jql) return;
-    // Reuse cached report if JQL unchanged
-    if(_lspLastReport && _lspLastReportJql && _lspLastReportJql === jql){
-      _lspShowJqlPanel(jql);
-      window._lspLastJql = jql;
-      _lspRenderReport(_lspLastReport);
-      return;
-    }
-    _lspConfirmAndRun(jql, metaId);
+                  // Run directly; cache prevents rerun for 30 minutes unless Force run is clicked.
+    _lspRunOrUseCachedReport(jql, metaId, false);
   }
   window.lspNavClick = function(metaId){
     var groups = _buildGroups();
@@ -3838,7 +3940,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
       if(tb2) tb2.innerHTML = '<tr><td colspan="9" class="empty">Unable to generate JQL for '+_esc(domain)+' builds.</td></tr>';
       return;
     }
-    _lspRunReport(jql, 'All '+domain+' builds');
+        _lspRunOrUseCachedReport(jql, 'All '+domain+' builds', false);
   }
 
   /* ---- Called back by applyCurrentDomainFilter ---- */
@@ -3922,14 +4024,126 @@ if(!window.ojClear)  window.ojClear  = function(){};
     return window.lspEnsureRunningBuildsLoaded(true);
   };
 
+    var _lspAutoCurrentReportStarted = false;
+        function _lspAutoRunCurrentReportOnce(){
+    if(_lspAutoCurrentReportStarted || _lspReportRunning || _lspLastReport) return;
+    if((document.getElementById('lspNavSearch')||{}).value) return;
+    // Only auto-run the JIRA/CR traversal when the "Current Running Build"
+    // tab is actually the one visible to the user (see the paired change in
+    // live_status_publish_edit.html for the full explanation).
+    var curSection = document.getElementById('tab-current');
+    if(!curSection || !curSection.classList.contains('active')) return;
+    var groups = _buildGroups();
+    var g = groups && groups[0];
+    if(!g || !g.meta_id) return;
+    _lspAutoCurrentReportStarted = true;
+    _lspSoloMeta = g.meta_id;
+    _lspBuildFilterActive = true;
+    _setChecked(new Set(g.rowIdxs||[]));
+    var tag = document.getElementById('lspScopeTag');
+    if(tag){ tag.className='lsp-scope-tag scoped'; tag.innerHTML='<i class="fas fa-code-branch"></i> '+_esc(g.meta_id); }
+    _lspRenderFlavorTable(g.meta_id);
+    _lspAutoJql(g.meta_id);
+    lspNavRender();
+    // Kick off background warm-up for every OTHER running build too, so all
+    // reports are generated (or already generating - visible to any other
+    // user who opens this page) in parallel instead of one-at-a-time on click.
+        _lspWarmAllRunningBuilds(groups.filter(function(x){ return x.meta_id !== g.meta_id; }));
+  }
+  // Exposed globally so the switchTab() hook (defined in an earlier,
+  // separate IIFE closure) can trigger this the first time the "Current
+  // Running Build" tab becomes active, even if DB rows were already loaded.
+  window._lspAutoRunCurrentReportOnce = _lspAutoRunCurrentReportOnce;
+
+
+  // -- Warm (pre-generate) reports for running builds in the background -------
+  // Only the foreground/selected build shows the big progress window; every
+  // other running build is silently requested here so its shared server-side
+  // report (30 min cache, same as a manual click) is ready - or already in
+  // progress and visible to any other user who opens that build - well before
+  // anyone actually clicks its nav item.
+  var _lspWarmingMetas = window._lspWarmingMetas = {};  // meta_id -> true while a background warm request is in flight
+  var _lspWarmedMetas  = window._lspWarmedMetas  = {};  // meta_id -> true once its report has been warmed successfully
+  function _lspMetaJql(metaId){
+    var rows = (window._rbRows||[]).filter(function(r){
+      var domainMatch = !_lspNavDomain ||
+        String(r.domain||r.deck_type||'').toUpperCase() === String(_lspNavDomain).toUpperCase();
+      return domainMatch && String(r.meta_id||'').toUpperCase() === String(metaId||'').toUpperCase();
+    });
+    if(!rows.length) return '';
+    var buildIds = [];
+    rows.forEach(function(r){
+      var b = String(r.build_id||r.build_full||r.build||'').trim();
+      if(b && buildIds.indexOf(b)<0) buildIds.push(b);
+    });
+    return buildIds.length ? _lspBuildJql(buildIds) : '';
+  }
+  function _lspWarmBuildReport(jql, metaId){
+    if(!jql || !metaId) return;
+    var cached = _lspGetCachedReport(jql);
+    if(cached && (Date.now() - (cached.loadedAt||0)) < _lspReportCacheTtlMs){ _lspWarmedMetas[metaId] = true; return; }
+    if(_lspWarmingMetas[metaId]) return;
+    _lspWarmingMetas[metaId] = true;
+    lspNavRender();
+    function _done(){ delete _lspWarmingMetas[metaId]; lspNavRender(); }
+    var target = (window.LSP_DATA||{}).primary_target||'';
+    var builds = [];
+    var m, re = /summary\s*~\s*"([^"]+)"/gi;
+    while((m=re.exec(jql))!==null) builds.push(m[1]);
+    var payload = {
+      builds: builds, traverse: true, orbit: true, target: target,
+      force: false, custom_jql: jql, cache_ttl_minutes: 30, include_axiom_metrics: true
+    };
+    fetch('/api/consolidated_report', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Accept':'application/json'},
+      body: JSON.stringify(payload)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.error) throw new Error(data.error);
+      if(data && data.job_id) return BuildReportCommon.waitForResult(data.job_id);
+      return data;
+    })
+    .then(function(result){
+      if(result && !result.error && !result.cancelled){
+        _lspRememberReport(jql, result, metaId);
+        _lspWarmedMetas[metaId] = true;
+        // If the user has since selected this exact build and nothing loaded
+        // yet in the foreground, show the freshly warmed result immediately.
+        if(_lspSoloMeta === metaId && !_lspLastReport){
+          _lspLastReport = result;
+          _lspLastReportJql = jql;
+          _lspApplyReportCrashesToRows(_lspLastReport);
+          _lspRenderReport(_lspLastReport);
+          var copyCrBtn = document.getElementById('lspCopyCrBtn');
+          if(copyCrBtn) copyCrBtn.style.display='inline-flex';
+          var fresh = document.getElementById('crFreshStatus');
+          if(fresh) fresh.textContent = ((result.meta||{}).from_cache?'Loaded cached report.':'Report refreshed.');
+          var _meta = result.meta || {};
+          _lspRenderRunTimesBadge(_lspParseIsoMs(_meta.generated_at) || Date.now(), _lspReportCacheTtlMs, _lspParseIsoMs(_meta.next_auto_refresh_at));
+        }
+      }
+      _done();
+    })
+    .catch(function(){ _done(); });
+  }
+  function _lspWarmAllRunningBuilds(groups){
+    (groups||[]).forEach(function(g){
+      if(!g || !g.meta_id) return;
+      var jql = _lspMetaJql(g.meta_id);
+      if(jql) _lspWarmBuildReport(jql, g.meta_id);
+    });
+  }
+
     /* ---- Init on DOMContentLoaded ---- */
   document.addEventListener('DOMContentLoaded', function(){
     _ensureCheckboxes();
         // Deterministically load DB rows and render nav only. No auto-run.
     window.lspEnsureRunningBuildsLoaded(true);
     // Safety re-render after any earlier loader finishes.
-    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); }, 1500);
-    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); }, 3500);
+    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); _lspAutoRunCurrentReportOnce(); }, 1500);
+    setTimeout(function(){ lspNavRender(); _lspUpdateKpi(); _lspAutoRunCurrentReportOnce(); }, 3500);
     // Periodic KPI refresh
     setInterval(_lspUpdateKpi, 2500);
   });
@@ -4366,7 +4580,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     _applyHidden(hidden);
     _renderRows(hidden);
     var msg = document.getElementById('lspCzMsg');
-    if(msg){ msg.textContent = 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
+    if(msg){ msg.textContent = 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
   };
 
   window.lspOpenCustomizeTabs = function(){
