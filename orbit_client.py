@@ -44,10 +44,10 @@ ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYT
 
 # Direct Orbit REST API - uses 'orbit' hostname (resolves to vip-orbithyd-new.qualcomm.com)
 # Auth: Windows SSPI Kerberos with indus@AP.QUALCOMM.COM from orbitauth.txt
-ORBIT_SERVER   = "orbit"
-ORBIT_QUERY_SERVER = "orbit-sd"
-ORBIT_API_BASE = f"https://{ORBIT_SERVER}/api/changerequest"
-ORBIT_QUERY_API_BASE = f"https://{ORBIT_QUERY_SERVER}/api"
+ORBIT_SERVER        = "orbit"
+ORBIT_QUERY_SERVER  = "orbit-sd"   # NOTE: keep as plain str; do NOT use in f-string at module scope
+ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
+ORBIT_QUERY_API_BASE = "https://" + ORBIT_QUERY_SERVER + "/api"
 
 
 
