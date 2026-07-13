@@ -40,13 +40,27 @@ def _jql_quote(value):
     return f'"{escaped}"'
 
 
-def _build_jql_for_builds_and_projects(builds, projects):
+def _build_jql_for_builds_and_projects(builds, projects, filter_id=None):
+    """Build JQL matching the same pattern used by the working Live Status /
+    Build Report pages, e.g.:
+      (summary ~ "BUILD1") AND filter = 76997
+        AND (project = QSTABILITY OR project = DROIDBUG OR project = CHIPMD)
+        AND summary !~ "tombstone" ORDER BY created ASC
+
+    Using `project = X OR project = Y` (unquoted project keys) instead of
+    `project in ("X","Y")` matches JIRA's own saved-filter JQL exactly and
+    avoids empty results caused by quoting a project KEY as a string.
+    """
     summary_parts = " OR ".join(f"summary ~ {_jql_quote(build)}" for build in builds)
     build_jql = f"({summary_parts})" if len(builds) > 1 else summary_parts
+    clauses = [f"({build_jql})"]
+    if filter_id:
+        clauses.append(f"filter = {filter_id}")
     if projects:
-        project_values = ", ".join(_jql_quote(project) for project in projects)
-        return f"({build_jql}) AND project in ({project_values}) ORDER BY created ASC"
-    return f"{build_jql} ORDER BY created ASC"
+        project_clause = " OR ".join(f"project = {p}" for p in projects)
+        clauses.append(f"({project_clause})" if len(projects) > 1 else project_clause)
+    clauses.append('summary !~ "tombstone"')
+    return " AND ".join(clauses) + " ORDER BY created ASC"
 
 
 def _as_bool(value, default=True):
@@ -235,7 +249,7 @@ def api_jiraquery_raw():
         or ""
     ).strip()
     if not custom_jql and projects:
-        custom_jql = _build_jql_for_builds_and_projects(builds, projects)
+        custom_jql = _build_jql_for_builds_and_projects(builds, projects, filter_id=filter_id)
 
     traverse = _as_bool(body.get("traverse", request.args.get("traverse")), default=True)
     enrich_orbit = _as_bool(body.get("enrich_orbit", request.args.get("enrich_orbit")), default=True)

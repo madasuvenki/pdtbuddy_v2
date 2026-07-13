@@ -53,7 +53,7 @@
 
     <div class="tabs">
       <button class="tab" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
-      <button class="tab active" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build</button>
+      <button class="tab active" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Axiom Builds</button>
       <button class="tab" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>
       <button class="tab" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>
       <button class="tab" id="tab-btn-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope" style="color:#be123c"></i> Open CRs</button>
@@ -88,7 +88,7 @@
     </section>
 
     <section id="tab-current" class="tab-section active">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build</h2></div><div class="card-body" id="currentBox"><div class="empty">Select an SP.</div></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Axiom Builds</h2></div><div class="card-body" id="currentBox"><div class="empty">Select an SP.</div></div></div>
     </section>
 
     <section id="tab-mtbf" class="tab-section">
@@ -316,7 +316,7 @@ let currentReportCache = {}, currentReportSelectedBuild = '';
   const STORE_KEY = 'auto_gen45_hidden_tabs';
   const ALL_TABS = [
     {key:'core',       label:'Core Slides',          icon:'fa-layer-group'},
-    {key:'current',    label:'Current Running Build', icon:'fa-circle'},
+    {key:'current',    label:'Current Axiom Builds', icon:'fa-circle'},
     {key:'mtbf',       label:'MTBF Trend',            icon:'fa-chart-line'},
     {key:'weekly',     label:'Weekly Report',         icon:'fa-calendar-week'},
     {key:'opencrs',    label:'Open CRs',              icon:'fa-microscope'},
@@ -436,11 +436,11 @@ function renderSnapshot(){const s=spPayload.summary||{}, l=latestRow(), cfg=(dbP
 function renderCoreSlides(){const s=spPayload.summary||{},l=latestRow();const el=document.getElementById('coreSnapshotRows'),em=document.getElementById('coreEmpty');if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}if(em)em.style.display='none';if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} â€” ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;} }
 function renderCurrent(){
   const dbRows=(dbPayload&&dbPayload.current_builds)||[];
-  const box=document.getElementById('currentBox');
+    const box=document.getElementById('currentBox');
   if(dbRows.length){
-    box.innerHTML=`<div class="hint" style="margin-bottom:12px">The report for the top running build loads automatically below. Click any other running build to switch to its CR/JIRA report. Reports are shared across all users and refreshed automatically every 30 minutes per build.</div>`+
-      dbRows.map((r,i)=>`<div class="build-card" id="curBuild_${i}" style="cursor:pointer" onclick="showCurrentBuildReport(${i},false)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} &middot; Jobs ${esc(r.job_count||0)} &middot; Devices ${esc(r.device_count||0)}</div><div class="build-sub" style="font-size:10px;color:#64748b">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div><button class="btn btn-primary" onclick="event.stopPropagation();showCurrentBuildReport(${i},false)"><i class="fas fa-microscope"></i> Load Report</button></div></div>`).join('')+
-      '<div id="currentReportBox" class="card" style="margin-top:14px;margin-bottom:0"><div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Selected Running Build Report</h2><span id="currentReportStatus" class="small-muted">Loading report for the top running build...</span></div><div class="card-body"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading report...</div></div></div>';
+    box.innerHTML=`<div class="hint" style="margin-bottom:12px">Axiom builds are read from <b>axiom_job_summary</b>. For Auto Gen4.5, the SP's configured table decides the product flavor scope (for example Lemans / Monaco). Related <b>Running + Aborted</b> Axiom jobs are included, and their job IDs are used in the cross-check JQL.</div>`+
+      dbRows.map((r,i)=>{const sc=r.state_counts||{};const stateText=Object.keys(sc).length?Object.keys(sc).map(k=>k+' '+sc[k]).join(' / '):(r.state||'Running');return `<div class="build-card" id="curBuild_${i}" style="cursor:pointer" onclick="showCurrentBuildReport(${i},false)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} &middot; Jobs ${esc(r.job_count||0)} &middot; Devices ${esc(r.device_count||0)} &middot; ${esc(stateText)}</div><div class="build-sub" style="font-size:10px;color:#64748b">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div><button class="btn btn-primary" onclick="event.stopPropagation();showCurrentBuildReport(${i},false)"><i class="fas fa-microscope"></i> Load Report</button></div></div>`}).join('')+
+      '<div id="currentReportBox" class="card" style="margin-top:14px;margin-bottom:0"><div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Selected Axiom Build Report</h2><span id="currentReportStatus" class="small-muted">Loading report for the top Axiom build...</span></div><div class="card-body"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading report...</div></div></div>';
     // Auto-load the report for the first (top) running build - no click required.
     // The server-side cache (30 min TTL, shared across all users) makes this cheap
     // on repeated page loads/refreshes.
@@ -448,11 +448,19 @@ function renderCurrent(){
     return;
   }
   const l=latestRow(), s=spPayload.summary||{};
-  box.innerHTML=rows().length?`<div class="hint">No DB running builds found for configured table. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} &middot; ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} &middot; Crashes ${esc(l.crashes||l.total_crashes||'0')} &middot; MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';
+  box.innerHTML=rows().length?`<div class="hint">No current Axiom builds found for the configured table/product flavor. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} &middot; ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} &middot; Crashes ${esc(l.crashes||l.total_crashes||'0')} &middot; MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';
 }
 function _currentReportKey(build){return String(activeSp||'')+'|'+String(build||'').trim().toLowerCase();}
 function _currentCacheAgeText(entry){const mins=Math.max(0,Math.floor((Date.now()-(entry&&entry.loadedAt||Date.now()))/60000));return mins<1?'just now':mins+' min ago';}
 function _fmtDt(v){if(!v)return'-';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString();}
+function copyReportJql(btn){
+  const el=document.getElementById('_jqlCode');
+  const text=el?String(el.textContent||''):'';
+  if(!text)return;
+  const done=()=>{if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied';setTimeout(()=>{btn.innerHTML='<i class="fas fa-copy"></i> Copy JQL';},1600);}};
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');done();}finally{document.body.removeChild(ta);}};
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(fallback);}else{fallback();}
+}
 function _currentReportBody(){const box=document.querySelector('#currentReportBox .card-body');return box||document.getElementById('currentBox');}
 function _currentReportStatus(msg){setText('currentReportStatus',msg||'');}
 function _currentReportCols(rows){const preferred=['cr','jira','title','cr_count','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','si_last_seen','last_instance','crash_type'];const keys=[];preferred.forEach(k=>{if(rows.some(r=>r&&r[k]!=null)&&!keys.includes(k))keys.push(k);});rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!keys.includes(k))keys.push(k);}));return keys;}
@@ -469,10 +477,13 @@ function renderCurrentBuildReport(build,rowData,fromCache,cacheEntry){
   const zeroState=`<div style="border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px">`+
     `<div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div>`+
     `<div style="font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px">0</div>`+
-    `<div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this running build</div>`+
-    `<div class="small-muted" style="max-width:720px;margin:0 auto">The load completed successfully, but no matching CR/JIRA rows were found in the configured JIRAs/Open JIRAs tables for this exact build. This is treated as <b>0 crashes</b> for the selected running build.</div>`+
+    `<div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this Axiom build</div>`+
+    `<div class="small-muted" style="max-width:720px;margin:0 auto">The load completed successfully, but no matching CR/JIRA rows were found in the configured JIRAs/Open JIRAs tables for this exact build. This is treated as <b>0 crashes</b> for the selected Axiom build.</div>`+
     `</div>`;
-  // Build JQL string for cross-check display (editor/target-group only)
+    // Build JQL string for cross-check display (editor/target-group only).
+  // Product flavor (monaco/lemans) is used only on the backend to scope the
+  // Axiom DB query by SP/table. It is not a DROIDBUG summary field, so do not
+  // add it to JQL.
   const _jobIds=(rowData&&rowData.job_ids)||[];
   const _jqlBase='project = DROIDBUG AND filter = '+(JIRA_FILTER_ID||'76997');
   const _jqlBuild=' AND summary ~ "'+buildName+'"';
@@ -486,12 +497,18 @@ function renderCurrentBuildReport(build,rowData,fromCache,cacheEntry){
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     +'<span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em">JQL Used</span>'
     +'<code id="_jqlCode" style="font-size:10px;color:#1e3a8a;word-break:break-all;flex:1">'+esc(_jqlFull)+'</code>'
-    +'<button class="btn" style="font-size:10px;padding:2px 8px" onclick="var el=document.getElementById(\'_jqlCode\');if(el)navigator.clipboard&&navigator.clipboard.writeText(el.textContent).then(()=>{this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy\',1500)});">Copy</button>'
+    + '<button class="btn btn-primary" style="font-size:12px;padding:6px 12px;font-weight:950" onclick="copyReportJql(this)"><i class="fas fa-copy"></i> Copy JQL</button>'
     +(_jobIds.length?'':
       '<span style="font-size:10px;color:#f59e0b;font-weight:700" title="No Axiom job IDs - report may include JIRAs from other SPs"><i class="fas fa-triangle-exclamation"></i> No job IDs</span>')
-    +'</div></div>'
+        +'</div></div>'
   ) : '';
-  body.innerHTML=_jqlBox+`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><b style="color:#1e3a8a;word-break:break-all">${esc(buildName)}</b><div class="small-muted">${serverCached?'Reused shared server-side report.':'Fresh report generated and cached for all users.'} Refreshes automatically every 30 minutes for this build.</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(totalCrashes)} crashes</span><span class="pill">${esc(rows.length)} rows</span><button class="btn" onclick="showCurrentBuildReportById('${esc(buildName)}',true)"><i class="fas fa-rotate"></i> Regenerate</button></div></div>`+
+  const _generatedAt=(rowData&&rowData.generated_at)||(cacheEntry&&cacheEntry.loadedAt?new Date(cacheEntry.loadedAt).toISOString():'');
+  const _nextAt=(rowData&&rowData.next_auto_refresh_at)||(cacheEntry&&cacheEntry.loadedAt?new Date(cacheEntry.loadedAt+CURRENT_REPORT_TTL_MS).toISOString():'');
+  const _timingBox=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px 0">`+
+    `<div style="border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)"><div style="font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-clock"></i> Last Generated</div><div style="font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px">${esc(_fmtDt(_generatedAt))}</div><div class="small-muted" style="font-size:12px;margin-top:4px">${serverCached?'Shared cached report reused':'Fresh report generated now'}</div></div>`+
+    `<div style="border:2px solid #86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(22,163,74,.12)"><div style="font-size:11px;font-weight:1000;color:#166534;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-rotate"></i> Next Auto Refresh / Next Run</div><div style="font-size:22px;font-weight:1000;color:#14532d;margin-top:4px">${esc(_fmtDt(_nextAt))}</div><div style="font-size:12px;font-weight:900;color:#166534;margin-top:4px">Auto refresh interval: 30 minutes per build</div></div>`+
+    `</div>`;
+  body.innerHTML=_jqlBox+_timingBox+`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><b style="color:#1e3a8a;word-break:break-all">${esc(buildName)}</b><div class="small-muted">${serverCached?'Reused shared server-side report.':'Fresh report generated and cached for all users.'} Refreshes automatically every 30 minutes for this build.</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(totalCrashes)} crashes</span><span class="pill">${esc(rows.length)} rows</span><button class="btn" onclick="showCurrentBuildReportById('${esc(buildName)}',true)"><i class="fas fa-rotate"></i> Regenerate</button></div></div>`+
     (rows.length?`<div class="tbl-wrap" style="max-height:460px"><table class="tbl"><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c.replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:zeroState);
 }
 async function showCurrentBuildReportById(build,force){
@@ -508,13 +525,16 @@ async function showCurrentBuildReport(i,force){
   const key=_currentReportKey(build), cached=currentReportCache[key];
   if(!force&&cached&&(Date.now()-cached.loadedAt)<CURRENT_REPORT_TTL_MS){renderCurrentBuildReport(build,cached.data,true,cached);return;}
   const body=_currentReportBody();
-  if(body)body.innerHTML=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>Loading report for<br><b>${esc(build)}</b><br><small>Reports are shared across all users and cached for 30 minutes.</small></div>`;
+  if(body)body.innerHTML=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>Loading report for<br><b>${esc(build)}</b><br><small>Running + Aborted Axiom job IDs are included; reports are cached for 30 minutes.</small></div>`;
   _currentReportStatus('Loading report...');
   try{
     const jobIds=(r.job_ids||[]).join(','); const url=_bwrUrl('build='+encodeURIComponent(build)+(force?'&force=1':'')+(jobIds?'&job_ids='+encodeURIComponent(jobIds):''));
     if(!url)throw new Error('Configure a JIRAs / Open JIRAs table for this SP first.');
-    const d=await getJson(url);
-    if(r.job_ids&&r.job_ids.length&&d)d.job_ids=r.job_ids;
+        const d=await getJson(url);
+    if(d){
+      if(r.job_ids&&r.job_ids.length)d.job_ids=r.job_ids;
+      d.product_flavor=r.product_flavor||'';
+    }
     currentReportCache[key]={data:d,loadedAt:Date.now()};
     renderCurrentBuildReport(build,d,!!d.from_cache,currentReportCache[key]);
   }catch(e){

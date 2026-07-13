@@ -254,6 +254,40 @@ def _add_column_if_missing(cursor, table: str, column: str, definition: str) -> 
         logger.info("[DB] Added column %s.%s", table, column)
 
 
+def _add_index_if_missing(cursor, table: str, index_name: str, columns_sql: str) -> None:
+    """ALTER TABLE to add an index only if it doesn't already exist."""
+    cursor.execute("""
+        SELECT COUNT(*) FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = 'pdt_stats_dashboard'
+          AND TABLE_NAME   = %s
+          AND INDEX_NAME    = %s
+    """, (table, index_name))
+    row = cursor.fetchone()
+    cnt = row[0] if isinstance(row, (list, tuple)) else (row or {}).get('COUNT(*)', 0)
+    if int(cnt or 0) == 0:
+        cursor.execute(
+            f"ALTER TABLE `pdt_stats_dashboard`.`{table}` ADD INDEX `{index_name}` {columns_sql}"
+        )
+        logger.info("[DB] Added index %s.%s", table, index_name)
+
+
+def _derive_city_team(taxonomy_path: str) -> str:
+    """
+    Derive the physical-location bucket (city_team) from a job's taxonomy_path.
+
+    Confirmed via Axiom Device resources (location field, city segment):
+      - San Diego devices    -> taxonomy /PDT/SanDiego*  -> 'SD'
+      - Beijing/Shanghai     -> taxonomy /PDT/China*      -> 'CHINA'
+      - Hyderabad + everyone else (incl. /PDT/QIPL*, bare /PDT) -> 'QIPL'
+    """
+    tax = str(taxonomy_path or '').strip().upper()
+    if '/SANDIEGO' in tax:
+        return 'SD'
+    if '/CHINA' in tax:
+        return 'CHINA'
+    return 'QIPL'
+
+
 def _parse_site(build_id: str) -> str:
     """Extract site from UNC build path: \\\\crmhyd\\... -> crmhyd"""
     import re as _re
@@ -486,6 +520,7 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
             chip_json  = json.dumps(chips if isinstance(chips, list) else list(chips))
             team       = str(b.get('team') or 'PDT').strip()
             tax        = str(b.get('taxonomy_path') or '/PDT').strip()
+            city_team  = _derive_city_team(tax)
             build_id   = str(b.get('build_id') or b.get('build') or '').strip()
             build_name = _parse_build_name(build_id) or None
             site       = _parse_site(build_id) or None
@@ -506,18 +541,19 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
 
             cur.execute("""
                                 INSERT INTO `pdt_stats_dashboard`.`axiom_job_summary`
-                    (job_id, team, taxonomy_path, build_id, build_name, site,
+                    (job_id, team, taxonomy_path, build_id, build_name, site, city_team,
                      software_product, product_flavor, submitter,
                      state, device_count, chip_ids,
                      submitted_at, started_at, ended_at,
                      executed_playlists, axiom_hours, hours,
                      playlist_name, certicom_playlist, is_closed)
                 VALUES
-                    (%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s)
+                    (%s,%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s)
                 ON DUPLICATE KEY UPDATE
                     team               = VALUES(team),
                     taxonomy_path      = VALUES(taxonomy_path),
                     build_name         = COALESCE(VALUES(build_name), build_name),
+                    city_team          = VALUES(city_team),
                     state              = VALUES(state),
                     device_count       = VALUES(device_count),
                     chip_ids           = IF(JSON_LENGTH(VALUES(chip_ids)) > 0,
@@ -533,7 +569,7 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                     is_closed          = VALUES(is_closed),
                     updated_at         = CURRENT_TIMESTAMP
             """, (
-                job_id, team, tax, build_id, build_name, site,
+                job_id, team, tax, build_id, build_name, site, city_team,
                 str(b.get('software_product') or '').strip() or None,
                 str(b.get('product_flavor')   or '').strip() or None,
                 str(b.get('submitter')         or '').strip() or None,

@@ -822,7 +822,12 @@ def _jql_quote(value: Any) -> str:
 
 def _wbc_build_jql(build_id: str) -> str:
     build = _build_tail(build_id)
-    return f'(summary ~ {_jql_quote(build)}) AND filter = {JIRA_PDT_FILTER_ID} AND summary !~ "tombstone" ORDER BY created ASC'
+    return (
+        f'(summary ~ {_jql_quote(build)}) '
+        f'AND filter = {JIRA_PDT_FILTER_ID} '
+        f'AND (project = QSTABILITY OR project = DROIDBUG OR project = CHIPMD) '
+        f'AND summary !~ "tombstone" ORDER BY created ASC'
+    )
 
 
 def _parse_iso_dt(value: Any) -> datetime:
@@ -957,69 +962,102 @@ def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: boo
 
 
 def _running_build_report(target: Dict[str, str], db_cfg: Dict[str, str], current: Dict[str, Any], build_summary: Dict[str, Any], force: bool = False) -> Dict[str, Any]:
+    """Generate WBC current-running build report from JIRA JQL, not DB tables.
+
+    DB/config is only used upstream to discover the current Axiom running builds.
+    Crash/JIRA/CR counts and detail rows come from the consolidated JQL report,
+    exactly like the single-build Force Run endpoint.
+    """
     running_rows = current.get("rows") or []
     running_builds = [str(r.get("build_id") or "").strip() for r in running_rows if str(r.get("build_id") or "").strip()]
     cache_key_payload = {
+        "mode": "jql_consolidated_v2_qstability",
         "target": target.get("key") or target.get("name") or "",
         "running_builds": sorted(_norm_build_key(b) for b in running_builds),
         "axiom_updated_at": current.get("updated_at") or "",
-        "jiras_table": db_cfg.get("jiras_table") or db_cfg.get("target_table") or "",
-        "openjiras_table": db_cfg.get("openjiras_table") or "",
-        "unique_crs_table": db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or "",
+        "jqls": {b: _wbc_build_jql(b) for b in running_builds},
     }
     cache_key = hashlib.sha1(json.dumps(cache_key_payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
     cache_path = _running_report_cache_path(target.get("key") or target.get("name") or "target")
     cached = _read_json(cache_path, {})
-    if not force and cached.get("cache_key") == cache_key and cached.get("report"):
+    ttl = timedelta(minutes=30)
+    now = datetime.utcnow()
+    saved_at = _parse_iso_dt(cached.get("saved_at") or (cached.get("report") or {}).get("generated_at"))
+    if (
+        not force
+        and cached.get("cache_key") == cache_key
+        and cached.get("report")
+        and saved_at != datetime.min
+        and now - saved_at < ttl
+    ):
         report = cached.get("report") or {}
         report["cache_status"] = "cached"
         report["cache_key"] = cache_key
+        report["cache_ttl_minutes"] = 30
+        report["next_auto_refresh_at"] = (saved_at + ttl).isoformat() + "Z"
         return report
 
-    all_rows_by_build = build_summary.get("rows_by_build") or {}
-    all_builds = build_summary.get("builds") or []
     rows_by_build: Dict[str, List[Dict[str, Any]]] = {}
     builds: List[Dict[str, Any]] = []
-    matched_running = set()
+    errors: Dict[str, str] = {}
+    missing: List[str] = []
+    jql_by_build: Dict[str, str] = {}
     for running_build in running_builds:
-        detail_rows: List[Dict[str, Any]] = []
-        crs, jiras, matched_old = set(), set(), []
-        for item in all_builds:
-            old_build = str(item.get("build_id") or "").strip()
-            if not old_build or not _builds_match(running_build, old_build):
-                continue
-            matched_old.append(old_build)
-            rows = all_rows_by_build.get(old_build) or []
-            detail_rows.extend(rows)
-            for row in rows:
-                cr = str(row.get("mapped_cr") or row.get("cr") or row.get("cr_id") or row.get("crid") or row.get("cr_current_ticket") or "").strip()
-                jira = str(row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or row.get("ticket") or "").strip()
-                if cr:
-                    crs.add(cr)
-                if jira:
-                    jiras.add(jira)
-        if detail_rows:
-            clean = {"build_id": running_build, "meta_id": _meta_label(running_build), "matched_old_builds": matched_old,
-                     "cr_count": len(crs), "jira_count": len(jiras), "row_count": len(detail_rows)}
-            builds.append(clean)
-            rows_by_build[running_build] = detail_rows
-            matched_running.add(_norm_build_key(running_build))
+        one = _wbc_build_report_from_jql(target, running_build, force=force)
+        rows = one.get("rows") or []
+        jql_by_build[running_build] = one.get("jql") or _wbc_build_jql(running_build)
+        rows_by_build[running_build] = rows
+        if one.get("error"):
+            errors[running_build] = str(one.get("error") or "")
+        if not rows:
+            missing.append(running_build)
+        builds.append({
+            "build_id": running_build,
+            "meta_id": _meta_label(running_build),
+            "matched_old_builds": [],
+            "cr_count": one.get("cr_count") or 0,
+            "jira_count": one.get("jira_count") or 0,
+            "row_count": one.get("row_count") or len(rows),
+            "cache_status": one.get("cache_status") or "",
+            "jql": jql_by_build[running_build],
+            "source": one.get("source") or "JIRA JQL consolidated report",
+        })
 
-    missing = [b for b in running_builds if _norm_build_key(b) and _norm_build_key(b) not in matched_running]
     report = {
         "ok": True,
-        "generated_at": datetime.utcnow().isoformat() + "Z",
-        "cache_status": "generated",
+        "generated_at": now.isoformat() + "Z",
+        "cache_status": "generated" if not force else "force_generated",
         "cache_key": cache_key,
-        "source": "WBC configured JIRAs/Open JIRAs tables",
+        "cache_ttl_minutes": 30,
+        "next_auto_refresh_at": (now + ttl).isoformat() + "Z",
+        "source": "JIRA JQL consolidated report",
         "running_builds": running_builds,
         "builds": builds,
         "rows_by_build": rows_by_build,
         "missing_builds": missing,
-        "message": "Auto-generated from cached WBC DB data; regenerated only when running builds or table config changes.",
+        "errors": errors,
+        "jql_by_build": jql_by_build,
+        "message": "Auto-generated from JIRA JQL consolidated reports; DB tables are not used for crash counts/details. Cache is reused for 30 minutes unless Force Run is clicked.",
     }
     _write_json(cache_path, {"cache_key": cache_key, "report": report, "saved_at": report["generated_at"]})
     return report
+
+
+def _empty_running_build_report(current: Dict[str, Any]) -> Dict[str, Any]:
+    running_builds = [str(r.get("build_id") or "").strip() for r in (current.get("rows") or []) if str(r.get("build_id") or "").strip()]
+    return {
+        "ok": True,
+        "generated_at": "",
+        "cache_status": "not_loaded",
+        "source": "Current Running Builds",
+        "running_builds": running_builds,
+        "builds": [],
+        "rows_by_build": {},
+        "missing_builds": [],
+        "errors": {},
+        "jql_by_build": {},
+        "message": "Select a current running build to generate its consolidated report.",
+    }
 
 
 def _target_payload(target_key: str, force_running_report: bool = False) -> Dict[str, Any]:
@@ -1035,8 +1073,10 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
     crashes = sum(_safe_int(r.get("total_crashes")) for r in chart_rows)
     current = _current_running_builds(target, db_cfg)
     unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
-    build_summary = _build_summary_from_jiras(db_cfg.get("jiras_table") or db_cfg.get("target_table") or "", db_cfg.get("openjiras_table") or "")
-    running_build_report = _running_build_report(target, db_cfg, current, build_summary, force=force_running_report)
+    # HGY/HQX-style current build report: initial page load only lists current
+    # running builds. The consolidated report is generated for a selected build
+    # by /running_build_report?build_id=... (Force Run uses force=true).
+    running_build_report = _empty_running_build_report(current) if not force_running_report else _running_build_report(target, db_cfg, current, {}, force=True)
     return {
         "ok": True,
         "target": target,
@@ -1063,7 +1103,9 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
             "all_crs": _preview_rows_filtered(unique_table, 150),
             "crs": _preview_rows_filtered(unique_table, 150),
         },
-        "build_summary": build_summary,
+        # Keep build_summary as an alias for the UI tab, but point it at the
+        # JQL-based report so the Build Report tab cannot show DB-table rows.
+        "build_summary": running_build_report,
         "running_build_report": running_build_report,
         "overview_summary": _load_overview_summary(target["key"]),
     }
