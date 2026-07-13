@@ -213,8 +213,15 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
       <div class="muted"><i class="fas fa-database" style="font-size:10px"></i> Axiom DB &mdash; /PDT/QIPL &mdash; Crashes from weekly CSV</div>
     </div>
     <div class="mini-toolbar" style="margin-left:auto">
-      <span id="sp2Spinner" style="display:none;color:#a5b4fc"><i class="fas fa-circle-notch spin"></i> Loading...</span>
+            <span id="sp2Spinner" style="display:none;color:#a5b4fc"><i class="fas fa-circle-notch spin"></i> Loading...</span>
       <button class="btn btn-primary" onclick="sp2Load(true)"><i class="fas fa-rotate"></i> Refresh</button>
+      {% if is_sp2_admin %}
+      <button class="btn" id="sp2AdminForceRefreshBtn" onclick="sp2AdminForceRefreshWeek()"
+              style="background:linear-gradient(135deg,#b91c1c,#f97316);color:#fff;border-color:transparent"
+              title="Admin only: delete this week's Smart Build cached DB rows and rebuild from axiom_job_summary">
+        <i class="fas fa-bolt"></i> Admin Force Refresh Week
+      </button>
+      {% endif %}
     </div>
   </div>
 
@@ -529,6 +536,31 @@ window.sp2Tab=function(name,btn){
 /* TAB 1 - BUILDS
    Crashes sourced from weekly_qipl_data (same CSV import as CR Pie / CR Age).
    Hours are week-bounded: running builds capped at week_end Sunday 23:59:59. */
+window.sp2AdminForceRefreshWeek=function(){
+  var btn=g('sp2AdminForceRefreshBtn');
+  var w=getWeek();
+  if(!confirm('Force refresh Smart Build for '+w.ws+' to '+w.we+'?\n\nThis deletes cached Smart Build rows for this week and rebuilds from axiom_job_summary.')) return;
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Force refreshing...';}
+  spinner(true);
+  fetch('/api/sp2/admin_force_refresh_week',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    cache:'no-store',
+    body:JSON.stringify({week_start:w.ws,week_end:w.we})
+  }).then(function(r){return r.json().then(function(d){d._status=r.status;return d;});}).then(function(d){
+    if(!d.success){throw new Error(d.message||'Force refresh failed');}
+    alert('Force refresh completed.\nBuild rows: '+d.build_rows+'\nConsolidate rows: '+d.consolidate_rows+'\nConsolidate devices: '+d.consolidate_device_count);
+    _consLoaded=false;_devLoaded=false;_udLoaded=false;
+    sp2Load(false);
+    sp2LoadConsolidate(false);
+  }).catch(function(e){
+    alert('Force refresh failed: '+String(e));
+  }).finally(function(){
+    spinner(false);
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-bolt"></i> Admin Force Refresh Week';}
+  });
+};
+
 window.sp2Load=function(force){
   spinner(true);
   var w=getWeek();

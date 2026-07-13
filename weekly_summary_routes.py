@@ -2978,15 +2978,17 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
 
 
 def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> list:
-    """Return chip IDs, falling back to/padding with synthetic device slots when
-    Axiom is chip_ids list under-reports the real device_count.
+    """Return chip IDs, padding with target-scoped synthetic device slots.
 
     Some Axiom rows (e.g. SA510M.LE.1.0-style builds) report a real
     device_count of many devices but only populate chip_ids with 1-2 chipset
     identifiers (not one entry per physical device). Trusting len(chip_ids)
     alone in that case silently undercounts devices, so device_count is
-    always treated as the floor: chips are padded with synthetic slots up to
-    device_count when chip_ids has fewer unique entries than device_count.
+    treated as the floor.
+
+    Important: fallback_key should be the target, not job/build name. The same
+    physical devices often run multiple PLs under one target; target-scoped
+    synthetic slots let target-level unique-device counts dedupe across PLs.
     """
     if isinstance(chips_raw, str):
         try:
@@ -3009,7 +3011,7 @@ def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> li
 
 
 def _clear_sp2_static_snapshot(ws, we) -> int:
-    """Clear the frozen Smart Build snapshot for an explicit user refresh."""
+    """Clear the frozen Smart Build build-row snapshot for one week."""
     _ensure_sp2_override_snapshot_columns()
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
@@ -3017,9 +3019,8 @@ def _clear_sp2_static_snapshot(ws, we) -> int:
     cur = conn.cursor()
     try:
         cur.execute(f"""
-            DELETE FROM {_QIPL_DB}.{_SP2_BUILD_TYPE_OVERRIDES_TABLE}
+            DELETE FROM `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
             WHERE week_start=%s AND week_end=%s
-              AND COALESCE(source, '')='axiom_csv_snapshot'
         """, (ws.isoformat(), we.isoformat()))
         deleted = int(cur.rowcount or 0)
         conn.commit()
@@ -3032,6 +3033,43 @@ def _clear_sp2_static_snapshot(ws, we) -> int:
         return 0
     finally:
         cur.close(); conn.close()
+
+
+def _clear_sp2_consolidate_snapshot(ws, we) -> int:
+    """Clear Smart Build consolidated sentinel rows for one week."""
+    _ensure_sp2_build_consolidate_table()
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return 0
+    cur = conn.cursor()
+    try:
+        cur.execute(f"""
+            DELETE FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+            WHERE week_start=%s AND week_end=%s
+              AND build_name LIKE '__consolidated__%'
+        """, (ws.isoformat(), we.isoformat()))
+        deleted = int(cur.rowcount or 0)
+        conn.commit()
+        return deleted
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return 0
+    finally:
+        cur.close(); conn.close()
+
+
+def _is_sp2_admin_user() -> bool:
+    try:
+        if getattr(current_user, 'role', None) == 'admin':
+            return True
+        from config import ADMIN_USERS
+        uid = str(getattr(current_user, 'id', '') or getattr(current_user, 'username', '') or '').strip().lower()
+        return uid in {str(u).strip().lower() for u in ADMIN_USERS}
+    except Exception:
+        return False
 
 
 def _sp2_crash_count_for_build(crash_map: dict, build_name: str = '', build_id: str = '', pl_id: str = '') -> int:
@@ -5144,6 +5182,7 @@ def _sp2_landing_summary(week_start, week_end):
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                      AND COALESCE(city_team, 'QIPL')='QIPL'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                 """, (week_end.isoformat(), week_start.isoformat()))
@@ -7330,15 +7369,16 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
             " ELSE 0 END"
         )
         cur.execute(f"""
-            SELECT job_id, build_id, build_name, software_product,
-                   state, device_count, chip_ids, submitted_at, ended_at,
+                        SELECT job_id, build_id, build_name, software_product,
+                   taxonomy_path, team, state, device_count, chip_ids, submitted_at, ended_at,
                    submitter, ({live_h}) AS hours_live
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
-            WHERE taxonomy_path LIKE '/PDT%'
-              AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
-              AND taxonomy_path NOT LIKE '/PDT/China%'
-              AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-              AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
+                                                    WHERE taxonomy_path LIKE '/PDT%'
+                      AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
+                      AND taxonomy_path NOT LIKE '/PDT/China%'
+                      AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
+                      AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
             ORDER BY submitted_at
         """, (we.isoformat(), ws.isoformat()))
@@ -7351,16 +7391,23 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                     chips = []
             else:
                 chips = list(chips_raw) if chips_raw else []
-            _raw_dev = int(r.get('device_count') or 0)
-            chips = _sp2_parse_chip_ids(chips, _raw_dev, r.get('job_id') or r.get('build_name') or r.get('build_id'))
+            _source_tax = str(r.get('taxonomy_path') or '').strip()
+            _source_team = str(r.get('team') or '').strip().upper()
+            _device_eligible = (
+                _source_tax.upper().startswith('/PDT/QIPL')
+                or (_source_tax.upper() == '/PDT' and _source_team == 'QIPL')
+            )
+            _raw_dev_actual = int(r.get('device_count') or 0)
+            _raw_dev = _raw_dev_actual if _device_eligible else 0
+            pl_exact = str(r.get('software_product') or '').strip()
+            pl_id = _pl_group(pl_exact)
+            target = _swpdt_target_from_product(pl_id) or pl_id
+            chips = _sp2_parse_chip_ids(chips if _device_eligible else [], _raw_dev, target or pl_id)
             _raw_hrs = float(r.get('hours_live') or 0)
             # 20% reduction applies to ALL jobs' hours (not just AUTO submitter).
             _raw_hrs = round(_raw_hrs * 0.80, 3)
             if _raw_dev <= 0 and not chips and _raw_hrs <= 0.1:
                 continue
-            pl_exact = str(r.get('software_product') or '').strip()
-            pl_id = _pl_group(pl_exact)
-            target = _swpdt_target_from_product(pl_id) or pl_id
             build_id = str(r.get('build_id') or '').strip()
             build_name = str(r.get('build_name') or build_id).strip()
             if not build_name:
@@ -7412,7 +7459,16 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
             "  job_ids, submitted_at, completed_at, state, device_count,"
             "  chip_ids, hours, total_crashes, build_type, source, updated_by)"
             " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'CRM','axiom_csv_snapshot',%s)"
-            " ON DUPLICATE KEY UPDATE"
+                        " ON DUPLICATE KEY UPDATE"
+            "  target=VALUES(target),"
+            "  build_id=VALUES(build_id),"
+            "  job_ids=VALUES(job_ids),"
+            "  submitted_at=VALUES(submitted_at),"
+            "  completed_at=VALUES(completed_at),"
+            "  state=VALUES(state),"
+            "  device_count=VALUES(device_count),"
+            "  chip_ids=VALUES(chip_ids),"
+            "  hours=VALUES(hours),"
             "  total_crashes=VALUES(total_crashes),"
             "  source=VALUES(source),"
             "  updated_by=VALUES(updated_by),"
@@ -7713,10 +7769,11 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                            state, device_count, chip_ids, submitter,
                            ({live_h}) AS hours_live
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                    WHERE taxonomy_path LIKE '/PDT%'
+                                                            WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                 """, (we.isoformat(), ws.isoformat()))
@@ -7841,7 +7898,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         hours      = float(r.get('hours_live') or 0)
         # 20% reduction applies to ALL jobs' hours (not just AUTO submitter).
         hours = round(hours * 0.80, 3)
-        chip_ids = _sp2_parse_chip_ids(chip_ids, r.get('device_count'), r.get('job_id') or build_name or build_id)
+        chip_ids = _sp2_parse_chip_ids(chip_ids, r.get('device_count'), target or pl_grp)
 
                 
         crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, pl_grp)
@@ -8337,9 +8394,43 @@ def sharepoint2_page():
     return render_template(
         'sharepoint2.html',
         sel_start=sel_start,
-        sel_end=sel_end,
+                sel_end=sel_end,
         week_ranges=week_ranges,
+        is_sp2_admin=_is_sp2_admin_user(),
         **shell_ctx,
+    )
+
+
+@weekly_summary_bp.route('/api/sp2/admin_force_refresh_week', methods=['POST'])
+@login_required
+def api_sp2_admin_force_refresh_week():
+    """Admin-only hard refresh: clear cached Smart Build week and rebuild from DB."""
+    if not _is_sp2_admin_user():
+        return jsonify(success=False, message='Admin only'), 403
+    data = request.get_json(silent=True) or {}
+    ws = _safe_date(data.get('week_start') or request.form.get('week_start') or request.args.get('week_start'))
+    we = _safe_date(data.get('week_end') or request.form.get('week_end') or request.args.get('week_end'))
+    if not ws or not we:
+        return jsonify(success=False, message='Invalid week'), 400
+
+    deleted_builds = _clear_sp2_static_snapshot(ws, we)
+    deleted_consolidate = _clear_sp2_consolidate_snapshot(ws, we)
+    inserted_builds = _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    _build_and_save_sp2_consolidate_from_static(ws, we, _current_user_identifier())
+
+    static_rows = _load_sp2_static_build_rows(ws, we)
+    consolidate_rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
+    return jsonify(
+        success=True,
+        message='Force refreshed from axiom_job_summary',
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
+        deleted_build_snapshot_rows=deleted_builds,
+        deleted_consolidate_rows=deleted_consolidate,
+        inserted_or_updated_build_rows=inserted_builds,
+        build_rows=len(static_rows or []),
+        consolidate_rows=len(consolidate_rows or []),
+        consolidate_device_count=sum(int(r.get('device_count') or 0) for r in (consolidate_rows or [])),
     )
 
 
@@ -8466,10 +8557,11 @@ def api_sp2_builds():
                            ({live_h}) AS hours_live,
                            product_flavor, submitter, site
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                    WHERE taxonomy_path LIKE '/PDT%'
+                                                            WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                     ORDER BY submitted_at DESC
@@ -8570,9 +8662,16 @@ def api_sp2_builds():
         # Skip ghost/auto jobs: no devices assigned AND negligible hours.
         # These are Axiom bookkeeping rows (device_count=0, chip_ids=[],
         # hours<=0.1) that inflate the build count without real execution.
-        _raw_dev = int(r.get('device_count') or 0)
+        _source_tax = str(r.get('taxonomy_path') or '').strip()
+        _source_team = str(r.get('team') or '').strip().upper()
+        _device_eligible = (
+            _source_tax.upper().startswith('/PDT/QIPL')
+            or (_source_tax.upper() == '/PDT' and _source_team == 'QIPL')
+        )
+        _raw_dev_actual = int(r.get('device_count') or 0)
+        _raw_dev = _raw_dev_actual if _device_eligible else 0
         _raw_hrs = float(r.get('hours_live') or 0)
-        if _raw_dev <= 0 and not chip_ids and _raw_hrs <= 0.1:
+        if _raw_dev_actual <= 0 and not chip_ids and _raw_hrs <= 0.1:
             continue
 
         pl_id      = str(r.get('software_product') or '').strip()
@@ -8619,11 +8718,12 @@ def api_sp2_builds():
                 'build_type':   bt,
                 'bu':           _bu,
                 'meta_id':      _sp2_meta_build_key(build_name),
-            }
+                                    }
 
         acc = grouped[grp_key]
         acc['job_ids'].append(job_id)
         acc['hours']        += hours
+        chip_ids = _sp2_parse_chip_ids(chip_ids if _device_eligible else [], _raw_dev, target or pl_grp)
         acc['chip_ids_set'].update(str(c).strip() for c in chip_ids if str(c).strip())
         acc['device_count']  = max(int(acc.get('device_count') or 0), _raw_dev)
         all_chips.update(chip_ids)

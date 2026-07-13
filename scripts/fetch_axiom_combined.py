@@ -195,6 +195,7 @@ def _ensure_axiom_job_table(cursor) -> None:
             build_id            VARCHAR(512) NOT NULL DEFAULT '',
             build_name          VARCHAR(255) NULL,
             site                VARCHAR(64)  NULL,
+            city_team           VARCHAR(16)  NOT NULL DEFAULT 'QIPL',
             software_product    VARCHAR(255) NULL,
             product_flavor      VARCHAR(255) NULL,
             submitter           VARCHAR(128) NULL,
@@ -227,6 +228,8 @@ def _ensure_axiom_job_table(cursor) -> None:
     # Add new columns to existing tables that were created before these columns existed
     _add_column_if_missing(cursor, 'axiom_job_summary', 'build_name',
                            'VARCHAR(255) NULL AFTER build_id')
+    _add_column_if_missing(cursor, 'axiom_job_summary', 'city_team',
+                           "VARCHAR(16) NOT NULL DEFAULT 'QIPL' AFTER site")
     _add_column_if_missing(cursor, 'axiom_job_summary', 'axiom_hours',
                            'VARCHAR(64) NULL AFTER executed_playlists')
     _add_column_if_missing(cursor, 'axiom_job_summary', 'hours',
@@ -235,6 +238,7 @@ def _ensure_axiom_job_table(cursor) -> None:
                            'VARCHAR(512) NULL AFTER hours')
     _add_column_if_missing(cursor, 'axiom_job_summary', 'certicom_playlist',
                            'JSON NULL AFTER playlist_name')
+    _add_index_if_missing(cursor, 'axiom_job_summary', 'idx_city_team', '(city_team)')
 
 
 def _add_column_if_missing(cursor, table: str, column: str, definition: str) -> None:
