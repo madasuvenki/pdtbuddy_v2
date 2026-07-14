@@ -528,7 +528,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
                 data-category="{{ (row.get('cr_category','')|string)|lower }}"
                 data-sub="{{ (row.get('cr_subsystem','')|string)|lower }}"
                 data-func="{{ (row.get('cr_functionality','')|string)|lower }}"
-                data-date="{{ (row.get('cr_date','')|string)[:10] }}"
+                data-date="{{ (row.get('jira_date') or row.get('cr_date','') or '')|string|trim|truncate(10, True, '') }}"
                 data-occ="{{ row.get('overall_cr_occurrence') or 0 }}"
                 data-age="{{ row.get('overall_age') or 0 }}"
                 data-last="{{ (row.get('last_instance') or '')[:10] }}"
@@ -1703,7 +1703,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
       const lastT = ymdToTime(tr.dataset.last || tr.dataset.date);
       if(wkIsAllRange) return true;
       if(!Number.isFinite(fromT) || !Number.isFinite(toT)) return kind === 'current';
-      if(kind === 'current') return Number.isFinite(crT) && crT >= fromT && crT <= toT;
+      if(kind === 'current') return Number.isFinite(crT) && crT >= fromT && crT <= toT && Number.isFinite(lastT) && lastT >= fromT && lastT <= toT;
       return Number.isFinite(crT) && crT < fromT && Number.isFinite(lastT) && lastT >= fromT && lastT <= toT;
     });
   }
