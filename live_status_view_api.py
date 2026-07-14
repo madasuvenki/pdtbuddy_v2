@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -176,6 +177,123 @@ def _adas_mtbf_json_path(target_name: str, view: str) -> str:
     return os.path.join(folder, f"mtbf_{view_clean.lower()}.json")
 
 
+def _mtbf_build_core(value: Any) -> str:
+    """Return the build identity without trailing flavor/suffix.
+
+    This treats values such as
+    ``SA8797P.HQX.5.7.7.0-00623-`` and
+    ``SA8797P.HQX.5.7.7.0-00623-STD_SAFEIVI.INT-1`` as the same MTBF row.
+    """
+    text = str(value or "").strip().upper().rstrip("-")
+    if not text:
+        return ""
+    match = re.match(r"^(.*?-0*\d{3,6})(?:[-.].*)?$", text)
+    return (match.group(1) if match else text).rstrip("-")
+
+
+_HQX_ADAS_CANONICAL_MTBF_BUILDS = {
+    "SA8797P.HQX.5.7.7.0-00623": "SA8797P.HQX.5.7.7.0-00623-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00625": "SA8797P.HQX.5.7.7.0-00625-STD_SAFEIVI.INT-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00051": "SA8797P_ADAS.HQX.5.7.7.0.r1-00051-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00052": "SA8797P_ADAS.HQX.5.7.7.0.r1-00052-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00056": "SA8797P_ADAS.HQX.5.7.7.0.r1-00056-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00057": "SA8797P_ADAS.HQX.5.7.7.0.r1-00057-STD.PVM-1",
+    "SA8797P.HQX.5.7.7.0-00638": "SA8797P.HQX.5.7.7.0-00638-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00639": "SA8797P.HQX.5.7.7.0-00639-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00647": "SA8797P.HQX.5.7.7.0-00647-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00651": "SA8797P.HQX.5.7.7.0-00651-STD_SAFEIVI.INT-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00059": "SA8797P_ADAS.HQX.5.7.7.0.r1-00059-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00060": "SA8797P_ADAS.HQX.5.7.7.0.r1-00060-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00062": "SA8797P_ADAS.HQX.5.7.7.0.r1-00062-STD.PVM-1",
+    "SA8797P.HQX.5.7.7.0-00674": "SA8797P.HQX.5.7.7.0-00674-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00679": "SA8797P.HQX.5.7.7.0-00679-STD_SAFEIVI.INT-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00063": "SA8797P_ADAS.HQX.5.7.7.0.r1-00063-STD.PVM-1",
+    "SA8797P_ADAS.HQX.5.7.7.0.R1-00064": "SA8797P_ADAS.HQX.5.7.7.0.r1-00064-STD.PVM-1",
+    "SA8797P.HQX.5.7.7.0-00688": "SA8797P.HQX.5.7.7.0-00688-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00691": "SA8797P.HQX.5.7.7.0-00691-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00692": "SA8797P.HQX.5.7.7.0-00692-STD_SAFEIVI.INT-1",
+    "SA8797P.HQX.5.7.7.0-00704": "SA8797P.HQX.5.7.7.0-00704-STD_SAFEIVI.INT-1",
+}
+
+
+def _canonical_mtbf_build_id(value: Any) -> str:
+    """Return the preferred full build ID for known HQX ADAS MTBF rows."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    canonical = _HQX_ADAS_CANONICAL_MTBF_BUILDS.get(_mtbf_build_core(text))
+    if canonical and len(text.rstrip("-")) < len(canonical.rstrip("-")):
+        return canonical
+    return text
+
+
+def _stable_adas_row_id(row: Dict[str, Any], index: int) -> str:
+    existing = str((row or {}).get("id") or "").strip()
+    if existing:
+        return existing
+    parts = [
+        str((row or {}).get("date") or ""),
+        str((row or {}).get("meta_id") or ""),
+        str((row or {}).get("hours") or ""),
+        str((row or {}).get("system_crashes") or ""),
+        str((row or {}).get("ssr_crashes") or ""),
+        str((row or {}).get("process_crashes") or ""),
+        str((row or {}).get("total_crashes") or ""),
+        str((row or {}).get("mtbf") or ""),
+        str(index),
+    ]
+    digest = hashlib.sha1("|".join(parts).encode("utf-8", "ignore")).hexdigest()[:16]
+    return f"legacy-{digest}"
+
+
+def _normalise_adas_mtbf_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Ensure legacy rows have ids and keep exactly one row per build.
+
+    The MTBF table is edited by build/META identifier. If the user changes
+    Date/Hours/System/SSR/Process/MTBF for an existing build, it must update the
+    existing build row instead of creating another row. Short build labels and
+    full build labels are collapsed via ``_mtbf_build_core``.
+    """
+    normalised: List[Dict[str, Any]] = []
+    for idx, raw in enumerate(rows or []):
+        if not isinstance(raw, dict):
+            continue
+        row = dict(raw)
+        row["id"] = _stable_adas_row_id(row, idx)
+        canonical_meta = _canonical_mtbf_build_id(row.get("meta_id") or row.get("build_id"))
+        if canonical_meta:
+            row["meta_id"] = canonical_meta
+        normalised.append(row)
+
+    deduped: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+    for row in normalised:
+        key = _mtbf_build_core(row.get("meta_id") or row.get("build_id"))
+        key = key or str(row.get("meta_id") or row.get("build_id") or "").strip().upper()
+        if not key:
+            # Keep malformed/blank rows separate instead of merging all blanks.
+            key = f"__blank__:{row.get('id') or len(order)}"
+
+        previous = deduped.get(key)
+        if previous is None:
+            deduped[key] = row
+            order.append(key)
+            continue
+
+        prev_label = str(previous.get("build_id") or previous.get("meta_id") or "")
+        row_label = str(row.get("build_id") or row.get("meta_id") or "")
+        prev_len = len(prev_label.rstrip("-"))
+        row_len = len(row_label.rstrip("-"))
+
+        # Prefer the later row for edits, but do not let a short label replace a
+        # fuller build label. This collapses duplicates already created by old
+        # saves while preserving the user's latest metric values.
+        merged = dict(row if row_len >= prev_len else {**row, "meta_id": previous.get("meta_id") or row.get("meta_id")})
+        merged["id"] = previous.get("id") or row.get("id")
+        deduped[key] = merged
+    return [deduped[k] for k in order]
+
+
 def _load_adas_mtbf(target_name: str, view: str) -> Dict[str, Any]:
     path = _adas_mtbf_json_path(target_name, view)
     if os.path.exists(path):
@@ -185,7 +303,7 @@ def _load_adas_mtbf(target_name: str, view: str) -> Dict[str, Any]:
             if isinstance(data, dict):
                 data.setdefault("target", target_name)
                 data.setdefault("view", view)
-                data.setdefault("rows", [])
+                data["rows"] = _normalise_adas_mtbf_rows(data.get("rows") or [])
                 return data
         except Exception:
             pass
@@ -215,8 +333,9 @@ def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any]) -> Dic
     data["headers"] = list(_ADAS_MTBF_HEADERS)
     data["updated_at"] = datetime.utcnow().isoformat() + "Z"
     raw_rows = data.get("rows") if isinstance(data.get("rows"), list) else []
-    # Always persist rows sorted by date (oldest - newest) so chart is chronological
-    data["rows"] = _sort_adas_rows_by_date(raw_rows)
+    # Always persist rows sorted by date (oldest - newest) so chart is chronological.
+    # Also assign ids to legacy rows and collapse short/full duplicate build rows.
+    data["rows"] = _sort_adas_rows_by_date(_normalise_adas_mtbf_rows(raw_rows))
     path = _adas_mtbf_json_path(target_name, view_clean)
     tmp = path + ".tmp"
     try:
@@ -273,7 +392,7 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
         "id": str(payload.get("id") or "").strip() or datetime.utcnow().strftime("%Y%m%d%H%M%S%f"),
         "s_no": s_no,
         "date": str(payload.get("date") or "").strip()[:10],
-        "meta_id": str(payload.get("meta_id") or "").strip(),
+        "meta_id": _canonical_mtbf_build_id(payload.get("meta_id")),
         "hours": hours,
         "system_crashes": system_c,
         "ssr_crashes": ssr_c,
@@ -919,7 +1038,18 @@ def api_adas_mtbf_add(target_name: str):
         rows = data.get("rows") or []
         new_row = _adas_row_from_payload(payload, rows)
         new_row["s_no"] = len(rows) + 1
-        rows.append(new_row)
+        new_core = _mtbf_build_core(new_row.get("meta_id"))
+        existing_idx = next((
+            i for i, r in enumerate(rows)
+            if new_core
+            and _mtbf_build_core(r.get("meta_id") or r.get("build_id")) == new_core
+        ), None)
+        if existing_idx is not None:
+            new_row["id"] = rows[existing_idx].get("id") or new_row.get("id")
+            new_row["s_no"] = rows[existing_idx].get("s_no") or (existing_idx + 1)
+            rows[existing_idx] = new_row
+        else:
+            rows.append(new_row)
         data["rows"] = rows
         saved = _save_adas_mtbf(target_name, view, data)
         crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
@@ -950,6 +1080,14 @@ def api_adas_mtbf_edit(target_name: str):
         data = _load_adas_mtbf(target_name, view)
         rows = data.get("rows") or []
         idx = next((i for i, r in enumerate(rows) if str(r.get("id") or "") == row_id), None)
+        if idx is None:
+            # Legacy pages could submit an empty/stale row id. Fall back to the
+            # build identity so editing an existing build still updates it.
+            payload_core = _mtbf_build_core(payload.get("meta_id") or payload.get("build_id"))
+            idx = next((
+                i for i, r in enumerate(rows)
+                if payload_core and _mtbf_build_core(r.get("meta_id") or r.get("build_id")) == payload_core
+            ), None)
         if idx is None:
             return jsonify({"ok": False, "error": f"Row id {row_id} not found."}), 404
         updated_row = _adas_row_from_payload({**rows[idx], **payload}, rows)
