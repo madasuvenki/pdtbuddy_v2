@@ -48,6 +48,8 @@ ORBIT_SERVER        = "orbit"
 ORBIT_QUERY_SERVER  = "orbit-sd"   # NOTE: keep as plain str; do NOT use in f-string at module scope
 ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
 ORBIT_QUERY_API_BASE = "https://" + ORBIT_QUERY_SERVER + "/api"
+ORBIT_DIRECT_TIMEOUT = (5, 30)   # connect, read seconds for per-CR REST calls
+ORBIT_QUERY_TIMEOUT  = (10, 60)  # connect, read seconds for query/run fallback
 
 
 
@@ -201,6 +203,166 @@ def _make_orbit_headers(server: str = None) -> dict:
 
 
 
+# - Orbit query/run fallback -
+
+def _orbit_query_run(cr_numbers: list, fields: list, page_size: int = 5000) -> list:
+    """Run the Orbit SD query API for one or more CRs and return result rows."""
+    cr_list = []
+    seen = set()
+    for cr in cr_numbers or []:
+        norm = _normalize_cr(cr)
+        if norm and norm.isdigit() and norm not in seen:
+            cr_list.append(norm)
+            seen.add(norm)
+    if not cr_list:
+        return []
+
+    payload = {
+        "Query": {
+            "Projection": fields,
+            "Predicate": {
+                "Operands": [{
+                    "Field": {"Name": "ChangeRequestNumber"},
+                    "FieldValue": cr_list,
+                }]
+            },
+        },
+        "Page": 1,
+        "PageSize": page_size,
+    }
+    headers = _make_orbit_headers(ORBIT_QUERY_SERVER)
+    headers['Accept'] = 'application/json'
+    headers['Content-Type'] = 'application/json'
+    resp = requests.post(
+        f"{ORBIT_QUERY_API_BASE}/query/run",
+        headers=headers,
+        json=payload,
+        timeout=ORBIT_QUERY_TIMEOUT,
+        verify=False,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, dict) and 'IsSuccess' in data:
+        if not data.get('IsSuccess'):
+            raise RuntimeError(f"Orbit query/run failed: {data.get('Errors')}")
+        data = data.get('Content') or {}
+    return (data.get('Results') if isinstance(data, dict) else []) or []
+
+
+def _query_value(row: dict, *names, default=''):
+    for name in names:
+        if isinstance(row, dict) and row.get(name) not in (None, ''):
+            return row.get(name)
+    return default
+
+
+def _query_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or '').strip().lower() in ('true', '1', 'yes', 'y')
+
+
+def _fetch_via_orbit_query(cr_number: str) -> dict:
+    """Fallback CR fetch using Orbit SD /api/query/run when direct Orbit REST is slow/unavailable."""
+    cr = _normalize_cr(cr_number)
+    try:
+        core_fields = [
+            {"Name": "ChangeRequestNumber"},
+            {"Name": "Title"},
+            {"Name": "CreatedOn"},
+            {"Name": "Status"},
+            {"Name": "Type"},
+            {"Name": "Severity"},
+            {"Name": "IsCrash"},
+            {"Name": "Priority"},
+            {"Name": "Reporter"},
+            {"Name": "Assignee"},
+            {"Name": "ParentId"},
+            {"Name": "Description"},
+            {"Name": "Tags"},
+            {"Name": "Duplicates"},
+            {"Name": "FoundOnSoftwareImage"},
+        ]
+        sir_fields = [
+            {"Name": "ChangeRequestNumber"},
+            {"Name": "ChangeRequestIntegration.SoftwareImageName"},
+            {"Name": "ChangeRequestIntegration.Status"},
+            {"Name": "ChangeRequestIntegration.BuiltDate"},
+            {"Name": "ChangeRequestIntegration.ReadyDate"},
+        ]
+        participant_fields = [
+            {"Name": "ChangeRequestNumber"},
+            {"Name": "ChangeRequestParticipant.Area"},
+            {"Name": "ChangeRequestParticipant.Subsystem"},
+            {"Name": "ChangeRequestParticipant.Functionality"},
+            {"Name": "ChangeRequestParticipant.IsPrimary"},
+        ]
+
+        core_rows = _orbit_query_run([cr], core_fields, page_size=100)
+        if not core_rows:
+            return {"found": False, "cr_number": cr}
+        core = core_rows[0]
+
+        sirs = []
+        try:
+            for row in _orbit_query_run([cr], sir_fields, page_size=5000):
+                sirs.append({
+                    'SoftwareImageName': _query_value(row, 'ChangeRequestIntegration.SoftwareImageName'),
+                    'Name': _query_value(row, 'ChangeRequestIntegration.SoftwareImageName'),
+                    'Status': _query_value(row, 'ChangeRequestIntegration.Status'),
+                    'BuiltDate': _query_value(row, 'ChangeRequestIntegration.BuiltDate'),
+                    'ReadyDate': _query_value(row, 'ChangeRequestIntegration.ReadyDate'),
+                })
+        except Exception as se:
+            logger.warning(f"[orbit_query] CR{cr}: SIR query failed: {se}")
+
+        participants = []
+        try:
+            for row in _orbit_query_run([cr], participant_fields, page_size=1000):
+                participants.append({
+                    'AreaName': _query_value(row, 'ChangeRequestParticipant.Area'),
+                    'SubsystemName': _query_value(row, 'ChangeRequestParticipant.Subsystem'),
+                    'FunctionalityName': _query_value(row, 'ChangeRequestParticipant.Functionality'),
+                    'IsPrimary': _query_bool(_query_value(row, 'ChangeRequestParticipant.IsPrimary')),
+                })
+        except Exception as pe:
+            logger.warning(f"[orbit_query] CR{cr}: participant query failed: {pe}")
+
+        dup_raw = _query_value(core, 'Duplicates', default='')
+        duplicate_ids = []
+        if dup_raw:
+            import re
+            duplicate_ids = re.findall(r'\d{5,9}', str(dup_raw))
+
+        result = {
+            "found"                   : True,
+            "ChangeRequestNumber"     : cr,
+            "Title"                   : _query_value(core, "Title"),
+            "Status"                  : _query_value(core, "Status"),
+            "Type"                    : _query_value(core, "Type"),
+            "Severity"                : _query_value(core, "Severity"),
+            "IsCrash"                 : _query_bool(_query_value(core, "IsCrash")),
+            "Priority"                : _query_value(core, "Priority", default=None),
+            "ReporterUid"             : _query_value(core, "Reporter"),
+            "AssigneeUid"             : _query_value(core, "Assignee"),
+            "CreatedOn"               : str(_query_value(core, "CreatedOn"))[:10],
+            "ParentId"                : _query_value(core, "ParentId", default=None),
+            "Description"             : _query_value(core, "Description"),
+            "Tags"                    : _parse_orbit_tags(_query_value(core, "Tags", default=[])),
+            "Participants"            : participants,
+            "SoftwareImageReleases"   : sirs,
+            "FoundOnSoftwareImage"    : _query_value(core, "FoundOnSoftwareImage"),
+            "DuplicateChangeRequests" : [{"Id": d} for d in duplicate_ids],
+            "RelatedChangeRequests"   : [],
+            "source"                  : "ORBIT_QUERY_RUN",
+        }
+        logger.info(f"[orbit_query] CR{cr}: OK status={result['Status']!r} SIRs={len(sirs)} participants={len(participants)}")
+        return result
+    except Exception as e:
+        logger.warning(f"[orbit_query] CR{cr} fetch error: {e}")
+        return {"found": False, "error": str(e)}
+
+
 # - Direct Orbit REST fetch -
 
 def _fetch_via_orbit_direct(cr_number: str) -> dict:
@@ -223,7 +385,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
 
     try:
                 # Fetch CR details - each call needs a fresh Kerberos token
-        resp = requests.get(cr_url, headers=headers, timeout=15, verify=False)
+        resp = requests.get(cr_url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
         if resp.status_code == 404:
             logger.info(f"[orbit_direct] CR{cr_number} not found (404)")
             return {"found": False, "cr_number": cr_number}
@@ -246,7 +408,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         sirs = []
         try:
             sirs_headers = _make_orbit_headers()   # fresh token
-            sirs_resp = requests.get(sirs_url, headers=sirs_headers, timeout=15, verify=False)
+            sirs_resp = requests.get(sirs_url, headers=sirs_headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
             if sirs_resp.status_code == 200:
                 sirs_raw = sirs_resp.json()
                 if isinstance(sirs_raw, dict) and 'IsSuccess' in sirs_raw:
@@ -287,8 +449,14 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
                     f"SIRs={len(sirs)} participants={len(participants)}")
         return result
 
+    except requests.exceptions.Timeout as e:
+        logger.warning(f"[orbit_direct] CR{cr_number} timed out, trying query/run fallback: {e}")
+        return _fetch_via_orbit_query(cr_number)
     except Exception as e:
         logger.warning(f"[orbit_direct] CR{cr_number} fetch error: {e}")
+        fallback = _fetch_via_orbit_query(cr_number)
+        if fallback.get("found"):
+            return fallback
         return {"found": False, "error": str(e)}
 
 # - OneView MCP fetch -
@@ -531,7 +699,7 @@ def fetch_cr_software_images(cr_number) -> list:
         headers = _make_orbit_headers()
         headers['Accept'] = 'application/json'
         url = f"{ORBIT_API_BASE}/{cr}/integrations"
-        resp = requests.get(url, headers=headers, timeout=8, verify=False)
+        resp = requests.get(url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
 
         if resp.status_code != 200:
             logger.info(f"[orbit_direct] CR{cr}: integrations returned {resp.status_code}")
@@ -902,7 +1070,7 @@ def bulk_query_cr_software_images(cr_numbers: list, batch_size: int = 100, progr
         headers['Accept'] = 'application/json'
         headers['Content-Type'] = 'application/json'
         url = f"{ORBIT_QUERY_API_BASE}/query/run"
-        resp = requests.post(url, headers=headers, json=payload, timeout=45, verify=False)
+        resp = requests.post(url, headers=headers, json=payload, timeout=ORBIT_QUERY_TIMEOUT, verify=False)
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and 'IsSuccess' in data:
@@ -971,7 +1139,7 @@ def bulk_query_cr_tags(cr_numbers: list, batch_size: int = 100, progress_callbac
         headers['Accept'] = 'application/json'
         headers['Content-Type'] = 'application/json'
         url = f"{ORBIT_QUERY_API_BASE}/query/run"
-        resp = requests.post(url, headers=headers, json=payload, timeout=45, verify=False)
+        resp = requests.post(url, headers=headers, json=payload, timeout=ORBIT_QUERY_TIMEOUT, verify=False)
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and 'IsSuccess' in data:

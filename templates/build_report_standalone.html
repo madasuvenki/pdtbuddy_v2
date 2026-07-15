@@ -40,64 +40,66 @@
         <span id="brSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
       </div>
     </div>
-    <div class="card-b">
-      <div class="context-panel">
-        <div class="field">
-          <label>Business Unit</label>
-          <select id="brBu" onchange="brAutoIsAutomotive=null;brPopulateTargets()">
-            <option value="">-- Optional BU --</option>
-          </select>
-          <div class="mode-help">Optional. Pick BU first only when you want target context/running-build filtering.</div>
-        </div>
-        <div class="field">
-          <label>Target Display Name</label>
-          <select id="brTarget" onchange="brTargetChanged()">
-            <option value="">-- Optional target --</option>
-          </select>
-          <div class="mode-help">Optional. You can skip BU/target and run by direct JQL.</div>
-        </div>
-        <button class="btn" type="button" onclick="brShowTargetDetails()"><i class="fas fa-info-circle"></i> Details</button>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div class="field">
-          <label>Project Include / Remove</label>
-          <div class="check-row" id="brProjectChecks">
-            <label class="check-pill"><input type="checkbox" value="QSTABILITY" checked onchange="brGenerateJql()"> QSTABILITY</label>
-            <label class="check-pill"><input type="checkbox" value="CHIPMD" checked onchange="brGenerateJql()"> CHIPMD</label>
-            <label class="check-pill"><input type="checkbox" value="DROIDBUG" checked onchange="brGenerateJql()"> DROIDBUG</label>
+        <div class="card-b">
+      <!-- Hidden but kept in DOM: BU/Target context + Project checks + live Running Builds picker.
+           JS functions (brPopulateBus, brGenerateJql, brQueueRunningBuildsLoad, etc.) still
+           reference these elements, so they stay mounted, just not shown in the simplified UI. -->
+      <div style="display:none">
+        <div class="context-panel">
+          <div class="field">
+            <label>Business Unit</label>
+            <select id="brBu" onchange="brAutoIsAutomotive=null;brPopulateTargets()">
+              <option value="">-- Optional BU --</option>
+            </select>
           </div>
-          <div class="mode-help">Uncheck a project to remove it from generated JQL. Direct JQL remains fully editable.</div>
+          <div class="field">
+            <label>Target Display Name</label>
+            <select id="brTarget" onchange="brTargetChanged()">
+              <option value="">-- Optional target --</option>
+            </select>
+          </div>
+          <button class="btn" type="button" onclick="brShowTargetDetails()"><i class="fas fa-info-circle"></i> Details</button>
         </div>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div class="field">
-          <label>Builds</label>
-          <div class="build-picker" style="margin-top:0;margin-bottom:10px">
-            <div class="build-picker-h">
-              <b style="font-size:11px;color:#1e3a8a"><i class="fas fa-server"></i> Running Builds</b>
-              <span id="brAxiomMeta" class="muted" style="font-size:10px;font-weight:900"></span>
-              <div class="toolbar">
-                <input id="brBuildSearch" class="mini-input" placeholder="filter builds..." oninput="brQueueRunningBuildsLoad()">
-                <button class="btn" type="button" onclick="brSelectAllRunningBuilds(true)"><i class="fas fa-check-double"></i> Select All</button>
-                <button class="btn" type="button" onclick="brSelectAllRunningBuilds(false)"><i class="fas fa-times"></i> Clear</button>
-                <button class="btn btn-good" type="button" onclick="brAddSelectedBuilds()"><i class="fas fa-plus"></i> Add Selected</button>
-              </div>
+        <div class="check-row" id="brProjectChecks">
+          <label class="check-pill"><input type="checkbox" value="QSTABILITY" checked onchange="brGenerateJql()"> QSTABILITY</label>
+          <label class="check-pill"><input type="checkbox" value="CHIPMD" checked onchange="brGenerateJql()"> CHIPMD</label>
+          <label class="check-pill"><input type="checkbox" value="DROIDBUG" checked onchange="brGenerateJql()"> DROIDBUG</label>
+        </div>
+        <div class="build-picker">
+          <div class="build-picker-h">
+            <b style="font-size:11px;color:#1e3a8a"><i class="fas fa-server"></i> Running Builds</b>
+            <span id="brAxiomMeta" class="muted" style="font-size:10px;font-weight:900"></span>
+            <div class="toolbar">
+              <input id="brBuildSearch" class="mini-input" placeholder="filter builds..." oninput="brQueueRunningBuildsLoad()">
+              <button class="btn" type="button" onclick="brSelectAllRunningBuilds(true)"><i class="fas fa-check-double"></i> Select All</button>
+              <button class="btn" type="button" onclick="brSelectAllRunningBuilds(false)"><i class="fas fa-times"></i> Clear</button>
+              <button class="btn btn-good" type="button" onclick="brAddSelectedBuilds()"><i class="fas fa-plus"></i> Add Selected</button>
             </div>
-            <div class="build-picker-b" id="brRunningBuilds"><div class="empty" style="padding:16px"><i class="fas fa-circle-notch spin"></i> Loading running builds...</div></div>
           </div>
-          <textarea id="brBuilds" placeholder="Selected/running builds will be added here&#10;You can also paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql()"></textarea>
-          <div class="mode-help">Select builds from the live list above, then click Add Selected. The selected build IDs are added here and used to generate JQL.</div>
+          <div class="build-picker-b" id="brRunningBuilds"><div class="empty" style="padding:16px">Loading running builds...</div></div>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:0">
+        <div class="field">
+          <label>JIRA Filter ID / URL / Direct JQL</label>
+          <input id="brFilterInput" placeholder="Optional: 346152, filter=346152, or JIRA filter URL" oninput="brGenerateJql()">
+          <div class="mode-help">Use a saved JIRA filter, for example <b>filter=346152</b>, or a full filter URL. Leave blank and use the Direct JQL box on the right if you prefer to paste JQL directly.</div>
         </div>
         <div class="field">
           <label>Direct JQL</label>
-          <textarea id="brJql" placeholder="Paste direct JQL here, or select builds to generate it automatically"></textarea>
-          <div class="toolbar" style="margin-top:8px;justify-content:flex-end">
-            <button class="btn" onclick="brClear()"><i class="fas fa-eraser"></i> Clear</button>
-            <button class="btn" onclick="brGenerateJql()"><i class="fas fa-wand-magic-sparkles"></i> Generate JQL</button>
-            <a id="brOpenJira" class="btn" href="#" target="_blank" rel="noopener" style="display:none"><i class="fas fa-external-link-alt"></i> Open in JIRA</a>
-            <button class="btn btn-primary" onclick="brRun()"><i class="fas fa-play"></i> Run Query</button>
-          </div>
+          <textarea id="brJql" placeholder="Paste direct JQL here, paste filter=346152 / a JIRA filter URL, or list builds below to generate JQL automatically"></textarea>
+          <div class="mode-help">Priority: Direct JQL / pasted filter URL → Filter ID field → builds below.</div>
         </div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="field" style="grid-column:1/-1">
+          <label>Builds</label>
+          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql()"></textarea>
+          <div class="mode-help">Optional. List build IDs here (one per line) to generate JQL automatically, in addition to or instead of the Filter/JQL fields above.</div>
+        </div>
+      </div>
+            <div class="toolbar" style="margin-top:8px;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="brRun()"><i class="fas fa-play"></i> Run Query</button>
       </div>
       <div id="brStatus" class="muted" style="margin-top:10px"></div>
     </div>
@@ -133,7 +135,7 @@
             <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
             <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>CR-ID</th><th>Occurrence</th><th>CR Title</th><th>CR Area</th><th>CR SubSystem</th><th>CR Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="11" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>CR-ID</th><th>Occurrence</th><th>Crash Type</th><th>CR Title</th><th>CR Area</th><th>CR SubSystem</th><th>CR Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="12" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
         </div>
         <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
         <div id="brTabPane_mapped" style="display:none">
@@ -147,7 +149,7 @@
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
             <input id="brOpenSearch" class="mini-input" placeholder="Search JIRA / title / status..." oninput="brRenderOpenTab()" style="max-width:260px">
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
+                    <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
         </div>
       </div>
       <!-- legacy hidden containers kept for CSV/copy functions -->
@@ -174,6 +176,37 @@ function esc(v){return BuildReportCommon.escapeHtml(v)}
   function brCloseReport(){brGoHome();}
 function buildList(){return BuildReportCommon.asList(g('brBuilds').value)}
 function jiraUrl(jql){return BuildReportCommon.jiraIssuesUrl(jql)}
+function brExtractFilterId(value){
+  const raw=String(value||'').trim();
+  if(!raw)return '';
+  try{
+    const u=new URL(raw, window.location.origin);
+    const f=u.searchParams.get('filter')||u.searchParams.get('filterId')||'';
+    if(/^\d+$/.test(String(f).trim()))return String(f).trim();
+  }catch(e){}
+  let m=raw.match(/[?&]filter(?:Id)?=(\d+)/i); if(m)return m[1];
+  m=raw.match(/\bfilter\s*=\s*(\d+)\b/i); if(m)return m[1];
+  m=raw.match(/^\d{3,}$/); if(m)return m[0];
+  return '';
+}
+function brFilterClause(){return brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value)||JIRA_FILTER_ID;}
+function brNormalizeJqlInput(value){
+  const raw=String(value||'').trim();
+  if(!raw)return '';
+  const fid=brExtractFilterId(raw);
+  if(fid && (/^\d+$/.test(raw)||/\bfilter\s*=\s*\d+\b/i.test(raw)||/[?&]filter(?:Id)?=\d+/i.test(raw))){
+    return 'filter = '+fid+' ORDER BY created ASC';
+  }
+  return raw;
+}
+function brCurrentRunnableJql(){
+  const direct=brNormalizeJqlInput(g('brJql')&&g('brJql').value);
+  if(direct)return direct;
+  const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);
+  if(filterOnly && !buildList().length)return 'filter = '+filterOnly+' ORDER BY created ASC';
+  if(buildList().length){brGenerateJql();return brNormalizeJqlInput(g('brJql').value);}
+  return '';
+}
 function jiraKeysUrl(keys){
   const uniq=[];const seen=new Set();
   (keys||[]).forEach(k=>{k=String(k||'').trim().toUpperCase();if(k&&!seen.has(k)){seen.add(k);uniq.push(k);}});
@@ -190,9 +223,17 @@ function brGenerateJql(){
   const builds=buildList();
   const projects=selectedProjects();
   const open=g('brOpenJira');
-  if(!builds.length){ if(open)open.style.display='none'; return; }
-  if(!projects.length){ g('brJql').value=''; if(open)open.style.display='none'; return; }
-  const jql=BuildReportCommon.generateJql({builds:builds,projects:projects,filterId:JIRA_FILTER_ID});
+  const fid=brFilterClause();
+  if(!builds.length){
+    const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);
+    const direct=brNormalizeJqlInput(g('brJql')&&g('brJql').value);
+    const jql=direct || (filterOnly?('filter = '+filterOnly+' ORDER BY created ASC'):'');
+    if(open&&jql){open.href=jiraUrl(jql);open.style.display='inline-flex';}
+    else if(open)open.style.display='none';
+    return;
+  }
+  // Projects are optional. If all are unchecked, generate build + filter JQL without a project clause.
+  const jql=BuildReportCommon.generateJql({builds:builds,projects:projects,filterId:fid});
   g('brJql').value=jql;
   if(open){open.href=jiraUrl(jql);open.style.display='inline-flex'}
 }
@@ -254,7 +295,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';g('brJiraSection').style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty">Enter builds or JQL and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="12" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -419,7 +460,10 @@ function crashTypeFromTitle(title){
   return 'System';
 }
 function crashType(row){
-  const title=[row&&row.jira_title,row&&row.final_summary,row&&row.summary,row&&row.cr_title,row&&row.title].filter(Boolean).join(' ');
+  const title=[
+    row&&row.jira_title,row&&row.final_summary,row&&row.summary,
+    row&&row.cr_title,row&&row.title,row&&row.resolution_notes_text
+  ].filter(Boolean).join(' ');
   if(brIsAutomotiveBu())return crashTypeFromTitle(title);
   const t=[row&&row.crash_type,row&&row.type,title,row&&row.cr_area,row&&row.cr_subsystem].join(' ').toLowerCase();
   if(t.indexOf('system')>=0)return 'System';
@@ -446,6 +490,12 @@ function finalResolution(row){
   ).trim();
 }
 function jiraKeyFromIssue(j){return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();}
+function brTraversalOf(j){return (j&&j.traversal)||{};}
+function brFinalCrOf(j){const t=brTraversalOf(j);return String(t.final_cr||j.cr_mapped||j.mapped_cr||j.cr||'').trim();}
+function brFinalKeyOf(j){const t=brTraversalOf(j);return String(t.final_key||j.final_key||j.key||j.stability_ticket||'').trim().toUpperCase();}
+function brFinalStatusOf(j){const t=brTraversalOf(j);return String(t.final_status||j.final_status||j.status||'').trim();}
+function brFinalResolutionOf(j){const t=brTraversalOf(j);return String(t.final_resolution||j.final_resolution||j.resolution||'').trim();}
+function brFinalSummaryOf(j){const t=brTraversalOf(j);return String(t.final_summary||j.final_summary||j.summary||j.jira_title||j.title||'').trim();}
 function jiraLinksHtml(items){
   const seen=new Set();
   const keys=(items||[]).map(j=>typeof j==='string'?j:jiraKeyFromIssue(j)).filter(Boolean).filter(k=>{if(seen.has(k))return false;seen.add(k);return true;});
@@ -462,8 +512,18 @@ function normalize(rep){
   let totalJiras=0, convertedToCrs=0;
   const seenJ={};
 
-  // CR_EQUIVALENT prefixes (non-CR final destinations = Mapped_Tickets sheet)
-  const CR_EQ_PREFIXES=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN'];
+    // CR_EQUIVALENT prefixes (non-CR final destinations = Mapped_Tickets sheet)
+  // Mirrors scripts/fetch_consolidated_report.py CR_EQUIVALENT_PREFIXES: covers
+  // ALL stability projects, not just ADSPIMAGE/CNSSDEBUG/CHIPMD. A QSTABILITY
+  // ticket whose traversal hops to a *different* QSTABILITY ticket (no CR
+  // found) must still land in "Mapped JIRAs", not silently in Open JIRAs.
+  const CR_EQ_PREFIXES=[
+    'ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG',
+    'ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG',
+    'ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT',
+    'QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO',
+    'WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'
+  ];
   function isCrEquiv(key){
     const k=String(key||'').toUpperCase();
     return CR_EQ_PREFIXES.some(p=>k.startsWith(p+'-'));
@@ -482,8 +542,34 @@ function normalize(rep){
     return '<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+color+'">'+esc(st||'--')+'</span>';
   }
 
-    const hier=rep.hierarchical_report||[];
+        let hier=rep.hierarchical_report||[];
   const hasRawJiras=Boolean(rep.jiras&&rep.jiras.length);
+
+  // Defensive fallback: if the backend returns flat JIRA rows but no hierarchy,
+  // rebuild the grouping in the browser so CR/Open/Automotive triage still renders.
+  if((!hier.length)&&hasRawJiras){
+    const groups={};
+    (rep.jiras||[]).forEach(j=>{
+      let key=brFinalCrOf(j);
+      const finalKey=brFinalKeyOf(j);
+      if(!key&&finalKey&&finalKey!==String(j.key||'').toUpperCase()&&isCrEquiv(finalKey))key=finalKey;
+      if(!key)key='NO_CR';
+      if(!groups[key])groups[key]=[];
+      groups[key].push(j);
+    });
+    const crIndex=rep.cr_index||{};
+    hier=Object.keys(groups).sort((a,b)=>(a==='NO_CR')-(b==='NO_CR')||groups[b].length-groups[a].length).map(key=>{
+      const info=crIndex[key]||{};
+      return {
+        cr:key,
+        cr_count:groups[key].length,
+        cr_title:info.cr_title||'', cr_status:info.cr_status||'', cr_si:info.cr_si||'',
+        cr_area:info.cr_area||'', cr_subsystem:info.cr_subsystem||'',
+        cr_function:info.cr_function||'', cr_date:info.cr_date||'',
+        jiras:groups[key].map(j=>Object.assign({},j,{final_key:brFinalKeyOf(j),final_status:brFinalStatusOf(j),final_resolution:brFinalResolutionOf(j),final_summary:brFinalSummaryOf(j),resolution_notes_text:(brTraversalOf(j).resolution_notes_text||j.resolution_notes_text||j.resolution_notes||'')}))
+      };
+    });
+  }
 
   hier.forEach(r=>{
     const jiras=r.jiras||[];
@@ -499,7 +585,7 @@ function normalize(rep){
         cr, title:r.cr_title||r.title||'',
         area:r.cr_area||r.area||'', sub:r.cr_subsystem||r.subsystem||'',
         func:r.cr_functionality||r.cr_function||r.functionality||'',
-        date:r.cr_date||'', si:r.cr_si||'', status:r.cr_status||r.status||'',
+                date:r.cr_date||'', si:r.cr_si||r.cr_image||'', status:r.cr_status||r.status||'',
         count:cnt, jiras
       });
     } else if(isCrEquiv(cr)){
@@ -510,9 +596,9 @@ function normalize(rep){
       mappedRows.push({
         ticket:cr,
         count:jiras.length||1,
-        title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',
+                title:brFinalSummaryOf(firstJ)||r.title||'',
         date:String(firstJ.created||'').slice(0,10),
-        status:firstJ.final_status||firstJ.status||'',
+        status:brFinalStatusOf(firstJ)||firstJ.status||'',
         srcKeys
       });
         } else if(cr==='NO_CR'||!cr){
@@ -536,11 +622,11 @@ function normalize(rep){
         openRows.push({
           key,
           count:1,
-          title:j.summary||j.jira_title||j.final_summary||'',
+                    title:j.summary||j.jira_title||brFinalSummaryOf(j)||'',
           date:String(j.created||'').slice(0,10),
-          status:j.status||j.final_status||'',
-          final_resolution:j.final_resolution||j.resolution||'',
-          resolution_notes_text:j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||''
+          status:j.status||brFinalStatusOf(j)||'',
+          final_resolution:brFinalResolutionOf(j)||j.resolution||'',
+          resolution_notes_text:(brTraversalOf(j).resolution_notes_text)||j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||''
         });
       });
     }
@@ -567,6 +653,7 @@ function normalize(rep){
     });
   }
 
+    if(hasRawJiras&&totalJiras===0)totalJiras=(rep.jiras||[]).length;
   const summary=rep.summary||{};
   totalJiras=Number(summary.total_all_jiras||summary.total_jiras||totalJiras)||0;
   convertedToCrs=Number(summary.with_cr||convertedToCrs)||0;
@@ -679,6 +766,25 @@ function brFilterAllJiraTable(){
   const cnt=g('brAllJiraCount');
   if(cnt)cnt.textContent=q?(visible+' / '+brAllJiraRawData.length+' shown'):brAllJiraRawData.length+' total';
 }
+function brAutomotiveCrashCards(crRows,mappedRows,openRows){
+  if(!brIsAutomotiveBu()) return '';
+  const counts={System:0,SSR:0,Process:0};
+  function add(row,n){
+    const ct=crashType(row);
+    counts[ct]=(counts[ct]||0)+(Number(n||1)||1);
+  }
+  (crRows||[]).forEach(r=>{
+    const jiras=(r&&r.jiras)||[];
+    if(jiras.length) jiras.forEach(j=>add(j,1));
+    else add(r,r.count||1);
+  });
+  (mappedRows||[]).forEach(r=>add(r,r.count||1));
+  (openRows||[]).forEach(r=>add(r,r.count||1));
+  return ''+
+    '<div class="metric-card" style="border-color:#fca5a5;background:linear-gradient(135deg,#fff1f2,#fff)"><b style="color:#dc2626">'+esc(counts.System||0)+'</b><span>System Crashes</span></div>'+
+    '<div class="metric-card" style="border-color:#fcd34d;background:linear-gradient(135deg,#fffbeb,#fff)"><b style="color:#d97706">'+esc(counts.SSR||0)+'</b><span>SSR Crashes</span></div>'+
+    '<div class="metric-card" style="border-color:#c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff)"><b style="color:#7c3aed">'+esc(counts.Process||0)+'</b><span>Process Crashes</span></div>';
+}
 function renderAllJiraTable(rows){
   brAllJiraRawData=rows||[];
   const sec=g('brAllJiraSection'),tbody=g('brAllJiraRows'),cnt=g('brAllJiraCount');
@@ -736,10 +842,12 @@ function renderReport(rep){
   brLastAllJiraRows=allJiraRows||[];
   brLastJiraRows=jiraRows;
   brLastCrRows=crRows;
-  // Store for tab renders
+    // Store for tab renders
   window._brCrRows=crRows;
   window._brMappedRows=mappedRows;
   window._brOpenRows=openRows;
+  window._brAxiomMetrics=(rep||{}).axiom_metrics||{};
+  window._brAxiomBuildIds=((rep||{}).meta||{}).build_ids_detected_for_axiom||((rep||{}).meta||{}).build_ids||[];
 
   // Show/hide action buttons
   ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
@@ -762,11 +870,11 @@ function renderReport(rep){
   metricBox.innerHTML=
     '<div class="metric-card"><b>'+esc(rows.totalJiras)+'</b><span>Total JIRAs</span></div>'+
     '<div class="metric-card good"><b>'+esc(rows.convertedToCrs)+'</b><span>Mapped to CRs</span></div>'+
-    '<div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div>'+
+        '<div class="metric-card purple"><b>'+esc(crRows.length)+'</b><span>CRs</span></div>'+
     '<div class="metric-card" style="border-color:#fcd34d;background:linear-gradient(135deg,#fef3c7,#fff)"><b>'+esc(mappedRows.length)+'</b><span>Mapped Tickets</span></div>'+
-    '<div class="metric-card warn"><b>'+esc(openRows.length)+'</b><span>Open JIRAs</span></div>'+
+    brAutomotiveCrashCards(crRows,mappedRows,openRows)+
+    '<div class="metric-card warn"><b>'+esc(activeOpenCount)+'</b><span>Open / Unmapped JIRAs</span></div>'+
     (invalidCount?'<div class="metric-card" style="border-color:#fca5a5;background:linear-gradient(135deg,#fee2e2,#fff)"><b style="color:#b91c1c">'+esc(invalidCount)+'</b><span>Invalid / Closed</span></div>':'')+
-    (activeOpenCount>0?'<div class="metric-card warn"><b>'+esc(activeOpenCount)+'</b><span>Active Open JIRAs</span></div>':'')+
     renderAxiomMetricsHtml(rep||{});
 
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
@@ -821,7 +929,7 @@ window.brRenderCrTab=function(){
     return (b.count||0)-(a.count||0);
   });
   const tb=g('brCrRows'); if(!tb)return;
-  if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="empty">No CRs found.</td></tr>';return;}
+  if(!rows.length){tb.innerHTML='<tr><td colspan="12" class="empty">No CRs found.</td></tr>';return;}
   tb.innerHTML=rows.map((r,i)=>{
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
     const crLink=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':esc(r.cr||'--');
@@ -856,6 +964,7 @@ window.brRenderCrTab=function(){
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap">'+crLink+'</td>'+
       '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(cnt)+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;font-weight:900">'+esc(crashTypeSummary(jiraItems,r))+'</td>'+
       '<td style="max-width:320px;word-break:break-word">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.area||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.sub||'--')+'</td>'+
@@ -942,7 +1051,7 @@ window.brRenderOpenTab=function(){
       '<td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
       '<td>'+stBadge+invBadge+resNote+'</td>'+
-      '</tr>';
+            '</tr>';
   }).join('');
 };
 
@@ -954,10 +1063,13 @@ function brJiraItemsForCr(row){
     if(!key||seen.has(key))return;seen.add(key);
     out.push({
       key:key,
-      title:typeof j==='string'?'':(j.summary||j.jira_title||j.title||j.final_summary||''),
-      status:typeof j==='string'?'':(j.status||j.final_status||''),
-      serial:typeof j==='string'?'':(j.serial||j.device||j.host_name||j.mcn||''),
-      team:typeof j==='string'?'':(j.test_team||j.team||j.jira_reporter||'')
+      title:typeof j==='string'?'':(j.summary||j.jira_title||j.title||brFinalSummaryOf(j)||''),
+      status:typeof j==='string'?'':(j.status||brFinalStatusOf(j)||''),
+      final_summary:typeof j==='string'?'':brFinalSummaryOf(j),
+      summary:typeof j==='string'?'':(j.summary||j.jira_title||j.title||''),
+      resolution_notes_text:typeof j==='string'?'':((brTraversalOf(j).resolution_notes_text)||j.resolution_notes_text||j.resolution_notes||''),
+      serial:typeof j==='string'?'':(j.serial||j.device||j.host_name||j.mcn||j.serial_no||j.mcn_no||''),
+      team:typeof j==='string'?'':(j.test_team||j.team||j.jira_reporter||j.reporter||'')
     });
   });
   return out;
@@ -1032,7 +1144,7 @@ function brDownloadCsv(filename, headers, rows){
 }
 function brDownloadCrCsv(){
   const headers=['#','CR','CR URL','JIRA Title','JIRA Count','Mapped JIRAs URL','Crash Type','Final Resolution / CR Status','CR Age','Area','Subsystem','Function'];
-  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const keys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':r.type||'','Final Resolution / CR Status':r.resolution||r.status||'','CR Age':r.age||'','Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
+  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'Final Resolution / CR Status':r.resolution||r.status||'','CR Age':r.age||'','Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
   brDownloadCsv('build_report_cr_summary.csv',headers,rows);
 }
 function brDownloadJiraCsv(){
@@ -1125,11 +1237,14 @@ function brCopyReportOutput(btn){
   }catch(e){fallback();}
 }
 async function brRun(){
-  const jql=String(g('brJql').value||'').trim();
   const builds=buildList();
-  if(!jql&&!builds.length){alert('Enter builds or paste direct JQL first.');return;}
-  if(!jql) brGenerateJql();
-  const activeJql=String(g('brJql').value||'').trim();
+  const directJql=brNormalizeJqlInput(g('brJql').value||'');
+  const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);
+  if(!directJql&&!filterOnly&&!builds.length){alert('Enter builds, paste direct JQL, or provide a JIRA filter ID/URL first.');return;}
+  if(!directJql) brGenerateJql();
+  const activeJql=brCurrentRunnableJql();
+  if(!activeJql){alert('Unable to build a runnable JQL. Please check builds/filter/JQL input.');return;}
+  if(g('brJql')&&!String(g('brJql').value||'').trim())g('brJql').value=activeJql;
   if(g('brOpenJira')){g('brOpenJira').href=jiraUrl(activeJql);g('brOpenJira').style.display=activeJql?'inline-flex':'none'}
   g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
   try{
