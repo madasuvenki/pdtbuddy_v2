@@ -95,7 +95,7 @@ def _load_swpdt_json_payload() -> tuple[dict, str]:
             cur = conn.cursor(dictionary=True)
             cur.execute("""
                 SELECT job_id, build_id, build_name, software_product,
-                       taxonomy_path, team, state, device_count, chip_ids,
+                       taxonomy_path, team, city_team, state, device_count, chip_ids,
                        submitted_at, started_at, ended_at,
                        axiom_hours, hours, product_flavor, submitter, site
                 FROM `pdt_stats_dashboard`.`axiom_job_summary`
@@ -7370,7 +7370,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
         )
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
-                   taxonomy_path, team, state, device_count, chip_ids, submitted_at, ended_at,
+                   taxonomy_path, team, city_team, state, device_count, chip_ids, submitted_at, ended_at,
                    submitter, ({live_h}) AS hours_live
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
                                                     WHERE taxonomy_path LIKE '/PDT%'
@@ -7382,7 +7382,18 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
             ORDER BY submitted_at
         """, (we.isoformat(), ws.isoformat()))
-        for r in cur.fetchall() or []:
+        _seed_rows = cur.fetchall() or []
+        _explicit_qipl_targets = set()
+        for _er in _seed_rows:
+            _tax = str(_er.get('taxonomy_path') or '').strip().upper()
+            if not _tax.startswith('/PDT/QIPL'):
+                continue
+            _pl = _pl_group(str(_er.get('software_product') or '').strip())
+            _tgt = (_swpdt_target_from_product(_pl) or _pl).upper()
+            if int(_er.get('device_count') or 0) > 0:
+                _explicit_qipl_targets.add(_tgt)
+
+        for r in _seed_rows:
             chips_raw = r.get('chip_ids') or '[]'
             if isinstance(chips_raw, str):
                 try:
@@ -7391,22 +7402,28 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                     chips = []
             else:
                 chips = list(chips_raw) if chips_raw else []
-            _source_tax = str(r.get('taxonomy_path') or '').strip()
-            _source_team = str(r.get('team') or '').strip().upper()
-            _device_eligible = (
-                _source_tax.upper().startswith('/PDT/QIPL')
-                or (_source_tax.upper() == '/PDT' and _source_team == 'QIPL')
-            )
-            _raw_dev_actual = int(r.get('device_count') or 0)
-            _raw_dev = _raw_dev_actual if _device_eligible else 0
             pl_exact = str(r.get('software_product') or '').strip()
             pl_id = _pl_group(pl_exact)
             target = _swpdt_target_from_product(pl_id) or pl_id
+            _target_key = str(target or '').upper()
+            _source_tax = str(r.get('taxonomy_path') or '').strip()
+            _source_team = str(r.get('team') or '').strip().upper()
+            _tax_u = _source_tax.upper()
+            _device_eligible = (
+                _tax_u.startswith('/PDT/QIPL')
+                or (
+                    _tax_u == '/PDT'
+                    and _target_key not in _explicit_qipl_targets
+                    and (str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL')
+                )
+            )
+            _raw_dev_actual = int(r.get('device_count') or 0)
+            _raw_dev = _raw_dev_actual if _device_eligible else 0
             chips = _sp2_parse_chip_ids(chips if _device_eligible else [], _raw_dev, target or pl_id)
-            _raw_hrs = float(r.get('hours_live') or 0)
-            # 20% reduction applies to ALL jobs' hours (not just AUTO submitter).
-            _raw_hrs = round(_raw_hrs * 0.80, 3)
-            if _raw_dev <= 0 and not chips and _raw_hrs <= 0.1:
+            _raw_hrs_actual = float(r.get('hours_live') or 0)
+            # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
+            _raw_hrs = round(_raw_hrs_actual * 0.80, 3)
+            if _raw_dev_actual <= 0 and not chips and _raw_hrs_actual <= 0.1:
                 continue
             build_id = str(r.get('build_id') or '').strip()
             build_name = str(r.get('build_name') or build_id).strip()
@@ -7765,8 +7782,8 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                     " ELSE 0 END"
                 )
                 cur.execute(f"""
-                    SELECT job_id, build_id, build_name, software_product,
-                           state, device_count, chip_ids, submitter,
+                                        SELECT job_id, build_id, build_name, software_product,
+                           taxonomy_path, team, city_team, state, device_count, chip_ids, submitter,
                            ({live_h}) AS hours_live
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
                                                             WHERE taxonomy_path LIKE '/PDT%'
@@ -7877,6 +7894,16 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         return _sp2_meta_build_key(bn)
 
 
+        _explicit_qipl_targets = set()
+    for _er in db_rows:
+        _tax = str(_er.get('taxonomy_path') or '').strip().upper()
+        if not _tax.startswith('/PDT/QIPL'):
+            continue
+        _pl = _pl_group(str(_er.get('software_product') or '').strip())
+        _tgt = (_swpdt_target_from_product(_pl) or _pl).upper()
+        if int(_er.get('device_count') or 0) > 0:
+            _explicit_qipl_targets.add(_tgt)
+
     grouped = {}
     group_order = []
 
@@ -7893,12 +7920,22 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         pl_id      = str(r.get('software_product') or '').strip()
         pl_grp     = _pl_group(pl_id)
         target     = _swpdt_target_from_product(pl_grp) or pl_grp
+        _target_key = str(target or '').upper()
+        _source_tax = str(r.get('taxonomy_path') or '').strip().upper()
+        _metric_eligible = (
+            _source_tax.startswith('/PDT/QIPL')
+            or (
+                _source_tax == '/PDT'
+                and _target_key not in _explicit_qipl_targets
+                and str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL'
+            )
+        )
         build_id   = str(r.get('build_id') or '').strip()
         build_name = str(r.get('build_name') or build_id).strip()
+                # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
         hours      = float(r.get('hours_live') or 0)
-        # 20% reduction applies to ALL jobs' hours (not just AUTO submitter).
         hours = round(hours * 0.80, 3)
-        chip_ids = _sp2_parse_chip_ids(chip_ids, r.get('device_count'), target or pl_grp)
+        chip_ids = _sp2_parse_chip_ids(chip_ids if _metric_eligible else [], r.get('device_count') if _metric_eligible else 0, target or pl_grp)
 
                 
         crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, pl_grp)
@@ -8552,7 +8589,7 @@ def api_sp2_builds():
                 )
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
-                    taxonomy_path, team, state, device_count, chip_ids,
+                    taxonomy_path, team, city_team, state, device_count, chip_ids,
                            submitted_at, started_at, ended_at,
                            ({live_h}) AS hours_live,
                            product_flavor, submitter, site
@@ -8646,6 +8683,16 @@ def api_sp2_builds():
     #    Hours are SUMMED, chip_ids are UNIONED (unique devices),
     #    crashes come from crash_map (keyed by build_name, not job_id),
     #    status = running if ANY job for that build is still running.
+        _explicit_qipl_targets = set()
+    for _er in db_rows:
+        _tax = str(_er.get('taxonomy_path') or '').strip().upper()
+        if not _tax.startswith('/PDT/QIPL'):
+            continue
+        _pl = _pl_group(str(_er.get('software_product') or '').strip())
+        _tgt = (_swpdt_target_from_product(_pl) or _pl).upper()
+        if int(_er.get('device_count') or 0) > 0:
+            _explicit_qipl_targets.add(_tgt)
+
     grouped = {}   # key: (build_name_upper, pl_grp_upper) -> accumulator dict
     all_chips = set()
 
@@ -8660,31 +8707,31 @@ def api_sp2_builds():
             chip_ids = list(chips_raw) if chips_raw else []
 
         # Skip ghost/auto jobs: no devices assigned AND negligible hours.
-        # These are Axiom bookkeeping rows (device_count=0, chip_ids=[],
+                # These are Axiom bookkeeping rows (device_count=0, chip_ids=[],
         # hours<=0.1) that inflate the build count without real execution.
-        _source_tax = str(r.get('taxonomy_path') or '').strip()
-        _source_team = str(r.get('team') or '').strip().upper()
-        _device_eligible = (
-            _source_tax.upper().startswith('/PDT/QIPL')
-            or (_source_tax.upper() == '/PDT' and _source_team == 'QIPL')
-        )
         _raw_dev_actual = int(r.get('device_count') or 0)
-        _raw_dev = _raw_dev_actual if _device_eligible else 0
-        _raw_hrs = float(r.get('hours_live') or 0)
-        if _raw_dev_actual <= 0 and not chip_ids and _raw_hrs <= 0.1:
+        _raw_hrs_actual = float(r.get('hours_live') or 0)
+        if _raw_dev_actual <= 0 and not chip_ids and _raw_hrs_actual <= 0.1:
             continue
 
         pl_id      = str(r.get('software_product') or '').strip()
         pl_grp     = _pl_group(pl_id)
         target     = _swpdt_target_from_product(pl_grp) or pl_grp
+        _target_key = str(target or '').upper()
+        _source_tax = str(r.get('taxonomy_path') or '').strip().upper()
+        _device_eligible = (
+            _source_tax.startswith('/PDT/QIPL')
+            or (
+                _source_tax == '/PDT'
+                and _target_key not in _explicit_qipl_targets
+                and str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL'
+            )
+        )
+        _raw_dev = _raw_dev_actual if _device_eligible else 0
         build_id   = str(r.get('build_id') or '').strip()
         build_name = str(r.get('build_name') or build_id).strip()
-        hours      = float(r.get('hours_live') or 0)
-
-        # 20% reduction applies to ALL jobs' hours (Axiom auto-scheduled jobs
-        # run at reduced farm priority and their wall-clock hours overcount
-        # actual PDT execution time; the same reduction is now applied
-        # uniformly regardless of submitter).
+                # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
+        hours      = _raw_hrs_actual
         hours = round(hours * 0.80, 3)
 
         state      = str(r.get('state') or '').lower()

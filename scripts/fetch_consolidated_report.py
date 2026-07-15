@@ -1364,13 +1364,18 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
     # key = CR number (or 'NO_CR' for unresolved)
     cr_to_jiras = {}   # { 'CR1234567': [ jira_dict, ... ] }
 
-        # CR_EQUIVALENT_PREFIXES: stability-project tickets that PDT_Stats treats
+                # CR_EQUIVALENT_PREFIXES: stability-project tickets that PDT_Stats treats
     # as the final destination (like a CR) when no CRxxxxxxx is found.
     # e.g. ADSPIMAGE-1166073, CNSSDEBUG-12345, CHIPMD-999
-    CR_EQUIVALENT_PREFIXES = (
-        'ADSPIMAGE', 'CNSSDEBUG', 'CHIPMD', 'QWINBUG',
-        'ADSPBUG', 'CNSS', 'WLAN',
-    )
+    #
+    # IMPORTANT: this must cover ALL stability projects (QSTABILITY, DROIDBUG,
+    # etc.), not just ADSPIMAGE/CNSSDEBUG/CHIPMD. When a QSTABILITY ticket's
+    # traversal hops to a *different* QSTABILITY ticket (duplicate/linked,
+    # no CR found on either), that final ticket must still be treated as a
+    # mapped destination so the pair shows up in the "Mapped JIRAs" tab -
+    # not silently dumped into NO_CR (Open JIRAs), which is what caused
+    # already-mapped tickets to be miscounted as unmapped/invalid.
+    CR_EQUIVALENT_PREFIXES = tuple(set(STABILITY_PREFIXES) | {'ADSPBUG', 'CNSS', 'WLAN'})
 
     for d in issues_dicts:
         trav = d['traversal']
