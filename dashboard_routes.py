@@ -6880,6 +6880,141 @@ def _build_domain_table_report(target, domain, builds):
         'db_sources': sources,
         'deck_config': cfg,
     }
+
+
+def _consolidated_body_bool(body, name, default=False, *aliases):
+    for key in (name,) + aliases:
+        if key in body:
+            value = body.get(key)
+            if isinstance(value, bool):
+                return value
+            return str(value).strip().lower() in ('1', 'true', 'yes', 'y', 'on')
+    return default
+
+
+@dashboard_bp.route("/api/consolidated_report", methods=["POST"])
+@login_required
+def api_consolidated_report():
+    """Start a background consolidated Build Report job."""
+    body = request.get_json(force=True, silent=True) or {}
+
+    raw_builds = body.get('builds') or []
+    if isinstance(raw_builds, str):
+        import re as _re
+        builds = [b.strip() for b in _re.split(r'[,;\n]+', raw_builds) if b.strip()]
+    elif isinstance(raw_builds, (list, tuple, set)):
+        builds = [str(b).strip() for b in raw_builds if str(b).strip()]
+    else:
+        builds = []
+
+    target = str(body.get('target') or body.get('target_name') or '').strip()
+    custom_jql = str(body.get('custom_jql') or body.get('jql') or '').strip()
+    domain = str(body.get('domain') or '').strip()
+    use_domain_tables = _consolidated_body_bool(body, 'use_domain_tables', False)
+    force = _consolidated_body_bool(body, 'force', False)
+    traverse = _consolidated_body_bool(body, 'traverse', True)
+    enrich_orbit = _consolidated_body_bool(body, 'orbit', True, 'enrich_orbit')
+    include_axiom_metrics = _consolidated_body_bool(body, 'include_axiom_metrics', False)
+    axiom_taxonomy_path = str(body.get('axiom_taxonomy_path') or '').strip()
+
+    if not builds and not custom_jql:
+        return jsonify({'error': 'builds or custom_jql is required'}), 400
+
+    try:
+        cache_ttl_minutes = float(body.get('cache_ttl_minutes', 30) or 0)
+    except Exception:
+        cache_ttl_minutes = 30
+
+    cache_path, cache_key = _consolidated_report_path(target, builds, custom_jql or None)
+    if not force and os.path.exists(cache_path):
+        try:
+            age_seconds = time.time() - os.path.getmtime(cache_path)
+            if cache_ttl_minutes <= 0 or age_seconds <= cache_ttl_minutes * 60:
+                with open(cache_path, 'r', encoding='utf-8') as fh:
+                    cached = json.load(fh)
+                if isinstance(cached, dict):
+                    cached.setdefault('meta', {})['from_cache'] = True
+                    cached['meta']['cache_age_seconds'] = round(age_seconds, 1)
+                    return jsonify(cached)
+        except Exception:
+            logger.debug('[consolidated_report] cache read failed: %s', cache_path, exc_info=True)
+
+    existing_job_id = _JOB_CACHE_KEYS.get(cache_key)
+    if existing_job_id and existing_job_id not in _JOB_RESULTS:
+        return jsonify({'ok': True, 'job_id': existing_job_id, 'joined': True}), 202
+
+    job_id = str(_uuid.uuid4())
+    _JOB_CACHE_KEYS[cache_key] = job_id
+
+    def _run_job():
+        progress = None
+        try:
+            import sys as _sys, os as _os
+            _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
+            if _scripts_dir not in _sys.path:
+                _sys.path.insert(0, _scripts_dir)
+
+            from config import JIRA_PDT_FILTER_ID
+            from fetch_consolidated_report import register_progress, unregister_progress, run_consolidated_report
+
+            progress = register_progress(job_id)
+            progress.update(stage='queued', total=1, done=0, message='Report job queued...')
+
+            if use_domain_tables and domain:
+                report = _build_domain_table_report(target, domain, builds)
+            else:
+                report = run_consolidated_report(
+                    build_ids=builds,
+                    filter_id=body.get('filter_id') or JIRA_PDT_FILTER_ID,
+                    traverse=traverse,
+                    enrich_orbit=enrich_orbit,
+                    target_name=target,
+                    progress=progress,
+                    custom_jql=custom_jql or None,
+                )
+
+            meta = report.setdefault('meta', {}) if isinstance(report, dict) else {}
+            meta.update({
+                'job_id': job_id,
+                'target_name': target or meta.get('target_name'),
+                'custom_jql': custom_jql or meta.get('custom_jql'),
+                'include_axiom_metrics': include_axiom_metrics,
+                'axiom_taxonomy_path': axiom_taxonomy_path,
+            })
+
+            try:
+                with open(cache_path, 'w', encoding='utf-8') as fh:
+                    json.dump(report, fh, ensure_ascii=False)
+            except Exception:
+                logger.debug('[consolidated_report] cache write failed: %s', cache_path, exc_info=True)
+
+            _job_results_set(job_id, report)
+            if progress:
+                progress.update(stage='done', total=1, done=1, message='Report complete.')
+        except Exception as exc:
+            logger.error('[consolidated_report] job %s failed: %s\n%s', job_id, exc, traceback.format_exc())
+            _job_results_set(job_id, {'error': str(exc), 'job_id': job_id})
+            try:
+                if progress:
+                    progress.update(stage='error', total=1, done=1, message=str(exc))
+            except Exception:
+                pass
+        finally:
+            try:
+                if progress:
+                    unregister_progress(job_id)
+            except Exception:
+                pass
+            if _JOB_CACHE_KEYS.get(cache_key) == job_id:
+                _JOB_CACHE_KEYS.pop(cache_key, None)
+
+    import threading as _threading
+    t = _threading.Thread(target=_run_job, name=f'consolidated-report-{job_id}', daemon=True)
+    t.start()
+
+    return jsonify({'ok': True, 'job_id': job_id}), 202
+
+
 @dashboard_bp.route("/api/consolidated_report/progress/<job_id>")
 @login_required
 def api_consolidated_report_progress(job_id):
@@ -7070,1646 +7205,84 @@ def api_consolidated_report_status():
         return jsonify({'ok': False, 'configured': False, 'error': str(exc)}), 500
 
 
-def _extract_axiom_meta_ids_from_jql(jql: str):
-    """Extract likely meta/build IDs from direct JQL summary clauses.
-
-    Handles examples like:
-      summary ~ "Glymur.WP.1.0.r0-05125.13-MAH.INT-1"
-      "Build Info" ~ "Glymur.WP.1.0.r0-05125.13-STD.INT-1"
-      summary ~ Maili.LA.1.0-00129-STD.INT-1
-    """
+def _jira_filter_id_from_jql(jql: str):
+    """Return the saved-filter ID when JQL is just a filter reference."""
     import re as _re
-    text = str(jql or "")
-    out, seen = [], set()
-
-    def _add(value):
-        v = str(value or "").strip().strip('"').strip("'")
-        if not v or v.lower() in ("tombstone", "target stability"):
-            return
-        # Meta/build IDs normally contain both dots and dashes and at least one digit.
-        if not ("." in v and "-" in v and _re.search(r"\d", v)):
-            return
-        key = v.upper()
-        if key not in seen:
-            seen.add(key); out.append(v)
-
-    for m in _re.finditer(r"(?:summary|\"Build\s+Info\"|'Build\s+Info'|Build\s+Info)\s*~\s*(['\"])(.*?)\1", text, flags=_re.I):
-        _add(m.group(2))
-    for m in _re.finditer(r"(?:summary|\"Build\s+Info\"|'Build\s+Info'|Build\s+Info)\s*~\s*([^\s\)]+)", text, flags=_re.I):
-        _add(m.group(1))
-
-    # Fallback: scan all tokens for typical build/meta shape.
-    token_re = r"\b[A-Za-z0-9][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+(?:-[A-Za-z0-9_.]+)+\b"
-    for m in _re.finditer(token_re, text):
-        _add(m.group(0))
-    return out
+    text = str(jql or '').strip()
+    if not text:
+        return ''
+    match = _re.match(r'^\s*filter\s*=\s*(\d+)\s*(?:ORDER\s+BY\s+.+)?$', text, flags=_re.I)
+    return match.group(1) if match else ''
 
 
-def _fetch_axiom_stability_metrics_for_meta_ids(meta_ids, taxonomy_path=None, max_workers=8, start_date=None):
-    """Create an Axiom stability report instance and fetch metrics for meta IDs.
-
-    Correct Axiom sequence:
-      POST /stabilityreport -> reportId
-      POST /stabilityreport/{reportId}/instances -> instanceId
-      poll GET /stabilityreport/{reportId}/instances until Completed
-      GET /stabilityreport/{reportId}/instances/{instanceId}/metrics
-    """
-    import base64 as _base64, http.client as _http_client, json as _json
-    import os as _os, re as _re, ssl as _ssl, time as _time
-    import urllib.parse as _urlparse, uuid as _uuid
-    from datetime import datetime as _datetime, timezone as _timezone, timedelta as _timedelta
-
-    unique = []
-    seen = set()
-    for m in (meta_ids or []):
-        s = str(m or "").strip()
-        if s and s.upper() not in seen:
-            seen.add(s.upper())
-            unique.append(s)
-    if not unique:
-        return {}
-
-    host = (_os.getenv("AXIOM_API_HOST") or "api-int.qualcomm.com").replace("https://", "").replace("http://", "").strip("/")
-    if not host or "qualcomm" not in host.lower():
-        host = "api-int.qualcomm.com"
-    app_name = _os.getenv("AXIOM_APP_NAME", "Axiom_public-pdt-pcie").strip() or "Axiom_public-pdt-pcie"
-    client_id = _os.getenv("AXIOM_CLIENT_ID", "").strip()
-    client_secret = _os.getenv("AXIOM_CLIENT_SECRET", "").strip()
-    taxonomy = str(taxonomy_path or _os.getenv("AXIOM_STABILITY_TAXONOMY_PATH") or _os.getenv("AXIOM_TAXONOMY_PATH_SW") or "/PDT").strip() or "/PDT"
-
-    if not client_id or not client_secret:
-        return {m: {"ok": False, "matched": False, "taxonomyPath": taxonomy, "error": "AXIOM_CLIENT_ID / AXIOM_CLIENT_SECRET missing"} for m in unique}
-
-    def _default_start_date():
-        configured = str(start_date or _os.getenv("AXIOM_STABILITY_START_DATE") or "").strip()
-        if configured:
-            return configured
-        now = _datetime.now(_timezone.utc)
-        if now.day >= 24:
-            return now.replace(day=24, hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-        return (now - _timedelta(days=27)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-    def _runtime_hours_label(value):
-        raw = str(value or "").strip().lower()
-        if not raw:
-            return "--"
-        days = hours = minutes = 0.0
-        m = _re.search(r"(\d+(?:\.\d+)?)\s*day", raw)
-        if m: days = float(m.group(1))
-        m = _re.search(r"(\d+(?:\.\d+)?)\s*hr", raw)
-        if m: hours = float(m.group(1))
-        m = _re.search(r"(\d+(?:\.\d+)?)\s*min", raw)
-        if m: minutes = float(m.group(1))
-        total = days * 24.0 + hours + minutes / 60.0
-        if total <= 0:
-            return raw
-        return f"{total:.1f} hr" if abs(total - round(total)) >= 0.05 else f"{int(round(total))} hr"
-
-    ctx = _ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = _ssl.CERT_NONE
-
-    def _request(method, path, token=None, json_body=None):
-        if token:
-            headers = {
-                "Authorization": f"Bearer {token}", "Accept": "application/json",
-                "X-QCOM-AppName": app_name, "X-QCOM-TokenType": "OAuth",
-                "X-QCOM-ClientType": "Python", "X-QCOM-TracingID": _uuid.uuid4().hex,
-            }
-            body = ""
-            if json_body is not None:
-                headers["Content-Type"] = "application/json"
-                body = _json.dumps(json_body).encode("utf-8")
-        else:
-            headers = {"Authorization": "Basic " + _base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()}
-            body = ""
-        conn = _http_client.HTTPSConnection(host, timeout=180, context=ctx)
-        try:
-            conn.request(method, path, body=body, headers=headers)
-            resp = conn.getresponse()
-            text = resp.read().decode("utf-8", errors="ignore")
-            return resp.status, text
-        finally:
-            conn.close()
-
-    def _data_list(payload):
-        data = payload.get("data") if isinstance(payload, dict) else None
-        if isinstance(data, list): return data
-        if isinstance(data, dict): return [data]
-        return []
-
-    def _fail_all(error, **extra):
-        return {m: {"ok": False, "matched": False, "metaId": m, "taxonomyPath": taxonomy, "metrics": [], "error": error, **extra} for m in unique}
-
-    def _local_axiom_job_summary_metrics():
-        """Prefer exact local Axiom DB rows for selected build IDs.
-
-        The direct Axiom stability report uses a date window and can miss older
-        selected/running builds. The Build Report picker already comes from
-        axiom_job_summary, so use that same table first for hours/devices.
-        """
-        import json as _json_local, re as _re_local
-
-        def _tail(value):
-            text = str(value or '').strip()
-            if not text:
-                return ''
-            parts = [p for p in text.replace('\\\\', '/').replace('\\', '/').split('/') if p]
-            return parts[-1] if parts else text
-
-        def _num(value):
-            if value in (None, ''):
-                return 0.0
-            try:
-                return float(value)
-            except Exception:
-                m = _re_local.search(r'-?\d+(?:\.\d+)?', str(value))
-                return float(m.group(0)) if m else 0.0
-
-        def _chips(value):
-            if value in (None, ''):
-                return []
-            if isinstance(value, (list, tuple, set)):
-                raw = list(value)
-            else:
-                text = str(value or '').strip()
-                try:
-                    parsed = _json_local.loads(text)
-                    raw = parsed if isinstance(parsed, list) else [parsed]
-                except Exception:
-                    raw = _re_local.split(r'[,;\s]+', text)
-            out = []
-            for chip in raw:
-                chip = str(chip or '').strip().strip('"\'')
-                if chip:
-                    out.append(chip)
-            return out
-
-        results = {}
-        conn = get_mysql_connection_db(bu_key=None)
-        if not conn:
-            return results
-        cur = conn.cursor(dictionary=True)
-        try:
-            for meta_id in unique:
-                meta_u = str(meta_id or '').strip().upper()
-                if not meta_u:
-                    continue
-                cur.execute("""
-                    SELECT job_id, build_id, build_name, software_product,
-                           taxonomy_path, team, state, device_count, chip_ids,
-                           submitted_at, started_at, ended_at,
-                           axiom_hours, hours, product_flavor, submitter, site
-                    FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                    WHERE UPPER(COALESCE(build_id, ''))=%s
-                       OR UPPER(COALESCE(build_name, ''))=%s
-                       OR build_name LIKE %s
-                    ORDER BY COALESCE(started_at, submitted_at, ended_at) DESC
-                    LIMIT 500
-                """, (meta_u, meta_u, '%' + str(meta_id).replace('%', '\\%').replace('_', '\\_') + '%'))
-                rows = []
-                for r in cur.fetchall() or []:
-                    build_id = str(r.get('build_id') or '').strip().upper()
-                    build_tail = _tail(r.get('build_name')).upper()
-                    if build_id == meta_u or build_tail == meta_u:
-                        rows.append(r)
-                if not rows:
-                    continue
-                chip_set = set()
-                total_devices = 0
-                total_hours = 0.0
-                latest = rows[0]
-                job_ids = []
-                for r in rows:
-                    if r.get('job_id'):
-                        job_ids.append(str(r.get('job_id')))
-                    chips = _chips(r.get('chip_ids'))
-                    chip_set.update(c.upper() for c in chips if c)
-                    if not chips:
-                        total_devices += int(_num(r.get('device_count')))
-                    total_hours += _num(r.get('hours')) or _num(r.get('axiom_hours'))
-                device_count = len(chip_set) if chip_set else total_devices
-                metric = {
-                    'meta': meta_id,
-                    'runtimeHours': f"{round(total_hours, 1)} hr",
-                    'hours': round(total_hours, 3),
-                    'totalHours': round(total_hours, 3),
-                    'uniqueDevices': device_count,
-                    'deviceCount': device_count,
-                    'crashes': 0,
-                    'jobCount': len(rows),
-                    'jobIds': job_ids,
-                    'state': str(latest.get('state') or ''),
-                    'softwareProduct': str(latest.get('software_product') or ''),
-                    'taxonomyPath': str(latest.get('taxonomy_path') or taxonomy),
-                    'startedAt': str(latest.get('started_at') or ''),
-                    'submittedAt': str(latest.get('submitted_at') or ''),
-                    'source': 'db:axiom_job_summary',
-                }
-                results[meta_id] = {
-                    'ok': True, 'matched': True, 'metaId': meta_id,
-                    'taxonomyPath': metric['taxonomyPath'] or taxonomy,
-                    'source': 'db:axiom_job_summary', 'metrics': [metric],
-                }
-            return results
-        except Exception:
-            return results
-        finally:
-            cur.close(); conn.close()
-
-    local_results = _local_axiom_job_summary_metrics()
-    if local_results and any(v.get('matched') for v in local_results.values()):
-        return {m: local_results.get(m) or {"ok": False, "matched": False, "metaId": m, "taxonomyPath": taxonomy, "metrics": [], "error": "No exact axiom_job_summary row matched requested metaId"} for m in unique}
-
-    st, body = _request("POST", "/ent/oauth/v1/accesstoken?grant_type=client_credentials")
-    if st != 200:
-        return _fail_all(f"Axiom token HTTP {st}: {body[:250]}")
+def _resolve_jira_filter_jql(filter_id: str):
+    """Resolve a JIRA saved filter ID to its underlying JQL."""
+    filter_id = str(filter_id or '').strip()
+    if not filter_id:
+        return ''
     try:
-        token = (_json.loads(body) or {}).get("access_token")
-    except Exception:
-        token = None
-    if not token:
-        return _fail_all("Axiom token response missing access_token")
-
-    report_body = {
-        "reportType": "ByBuilds",
-        "buildInfo": {"buildType": "MetaId", "metaIdBuilds": unique},
-        "taxonomy": taxonomy,
-        "startDate": _default_start_date(),
-        "published": "All",
-        "typesOfCrash": "All",
-        "buildComposition": "All",
-        "softwareImages": [],
-    }
-    st, body = _request("POST", "/axiom/v1/public/stabilityreport", token, report_body)
-    if st not in (200, 201, 202):
-        return _fail_all(f"stabilityreport POST HTTP {st}: {body[:300]}", requestBody=report_body)
-    try:
-        payload = _json.loads(body) or {}
-        report_id = payload.get("reportId") or ((payload.get("data") or {}).get("reportId") if isinstance(payload.get("data"), dict) else None)
-    except Exception:
-        report_id = None
-    if not report_id:
-        return _fail_all("stabilityreport POST did not return reportId", requestBody=report_body, response=body[:300])
-
-    st, body = _request("POST", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances", token, None)
-    if st not in (200, 201, 202):
-        return _fail_all(f"instances POST HTTP {st}: {body[:300]}", reportId=str(report_id), requestBody=report_body)
-    try:
-        payload = _json.loads(body) or {}
-        instance_id = payload.get("instanceId") or ((payload.get("data") or {}).get("instanceId") if isinstance(payload.get("data"), dict) else None)
-    except Exception:
-        instance_id = None
-    if not instance_id:
-        return _fail_all("instances POST did not return instanceId", reportId=str(report_id), response=body[:300])
-
-    poll_seconds = int(_os.getenv("AXIOM_STABILITY_POLL_SECONDS", "120") or "120")
-    interval = max(2, int(_os.getenv("AXIOM_STABILITY_POLL_INTERVAL", "5") or "5"))
-    deadline = _time.time() + max(interval, poll_seconds)
-    instance_status = "InProgress"
-    while _time.time() < deadline:
-        st, body = _request("GET", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances?pageNumber=0&pageSize=50", token)
-        if st == 200:
-            try:
-                instances = _data_list(_json.loads(body))
-            except Exception:
-                instances = []
-            for inst in instances:
-                iid = inst.get("instanceId") or inst.get("id") or inst.get("instance_id")
-                if str(iid) == str(instance_id):
-                    instance_status = str(inst.get("status") or instance_status)
-                    break
-            if instance_status.lower() == "completed":
-                break
-            if instance_status.lower() in ("failed", "error"):
-                return _fail_all(f"Axiom instance status: {instance_status}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
-        _time.sleep(interval)
-
-    if instance_status.lower() != "completed":
-        return _fail_all(f"Axiom instance not completed yet: {instance_status}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
-
-    q = _urlparse.urlencode({"pageNumber": 0, "pageSize": 500})
-    st, body = _request("GET", f"/axiom/v1/public/stabilityreport/{_urlparse.quote(str(report_id), safe='')}/instances/{_urlparse.quote(str(instance_id), safe='')}/metrics?{q}", token)
-    if st != 200:
-        return _fail_all(f"metrics HTTP {st}: {body[:300]}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
-    try:
-        metrics = _data_list(_json.loads(body))
-    except Exception as exc:
-        return _fail_all(f"Unable to parse metrics response: {exc}", reportId=str(report_id), instanceId=str(instance_id), requestBody=report_body)
-
-    by_meta = {}
-    for metric in metrics:
-        key = str(metric.get("meta") or "").strip().upper()
-        if not key:
-            continue
-        enriched = dict(metric)
-        enriched["runtimeHours"] = _runtime_hours_label(metric.get("runtime"))
-        enriched["deviceCount"] = metric.get("uniqueDevices")
-        by_meta.setdefault(key, []).append(enriched)
-
-    results = {}
-    for meta_id in unique:
-        matches = by_meta.get(meta_id.upper(), [])
-        results[meta_id] = {
-            "ok": bool(matches), "matched": bool(matches), "metaId": meta_id,
-            "taxonomyPath": taxonomy, "reportId": str(report_id), "instanceId": str(instance_id),
-            "instanceStatus": instance_status, "requestBody": report_body, "metrics": matches,
-        }
-        if not matches:
-            results[meta_id]["error"] = "No Axiom metric row matched requested metaId"
-    return results
-
-
-@dashboard_bp.route("/api/consolidated_report", methods=["GET", "POST"])
-@login_required
-def api_consolidated_report():
-    """
-    Single endpoint - pass one or more build IDs, get back one complete JSON.
-    Saves result to disk so subsequent loads are instant.
-
-    POST body (JSON):
-      { "builds": ["Build1", "Build2"], "traverse": true, "orbit": true,
-        "target": "aldabra", "force": false }
-
-    GET params:
-      builds=Build1,Build2  traverse=1  orbit=1  target=aldabra  force=0
-    """
-    import time as _time
-
-    # -- parse params ----------------------------------------------------------
-    if request.method == "POST":
-        body      = request.get_json(force=True, silent=True) or {}
-        raw       = body.get("builds", [])
-        traverse  = bool(body.get("traverse", True))
-        do_orbit  = bool(body.get("orbit",    True))
-        target    = (body.get("target") or "").strip()
-        force      = bool(body.get("force",    False))
-        custom_jql = (body.get("custom_jql") or body.get("jql") or "").strip()
-        cache_ttl_minutes = body.get("cache_ttl_minutes") or body.get("cacheTtlMinutes")
-        axiom_taxonomy_path = (body.get("axiom_taxonomy_path") or body.get("taxonomyPath") or body.get("taxonomy_path") or "").strip()
-        include_axiom_metrics = body.get("include_axiom_metrics", True)
-        domain = (body.get("domain") or "").strip().upper()
-        use_domain_tables = bool(body.get("use_domain_tables") or body.get("domain_tables") or body.get("core_deck_domain_tables"))
-    else:
-        raw_str   = (request.args.get("builds") or "").strip()
-        raw       = [b.strip() for b in raw_str.split(",") if b.strip()]
-        traverse  = request.args.get("traverse", "1") != "0"
-        do_orbit  = request.args.get("orbit",    "1") != "0"
-        target    = (request.args.get("target") or "").strip()
-        force      = request.args.get("force",    "0") != "0"
-        custom_jql = (request.args.get("custom_jql") or request.args.get("jql") or "").strip()
-        cache_ttl_minutes = request.args.get("cache_ttl_minutes") or request.args.get("cacheTtlMinutes")
-        axiom_taxonomy_path = (request.args.get("axiom_taxonomy_path") or request.args.get("taxonomyPath") or request.args.get("taxonomy_path") or "").strip()
-        include_axiom_metrics = request.args.get("include_axiom_metrics", "1") != "0"
-        domain = (request.args.get("domain") or "").strip().upper()
-        use_domain_tables = request.args.get("use_domain_tables", "0") != "0"
-
-    if isinstance(raw, str):
-        raw = [b.strip() for b in raw.replace("\n", ",").split(",") if b.strip()]
-    # If user pasted direct JQL only, extract build/meta IDs from summary clauses
-    # so Axiom stability metrics can be fetched for those builds.
-    extracted_from_jql = _extract_axiom_meta_ids_from_jql(custom_jql) if custom_jql else []
-    if not raw and extracted_from_jql:
-        raw = extracted_from_jql[:]
-    if not raw and not custom_jql:
-        return jsonify({"error": "'builds' or 'custom_jql' param required"}), 400
-
-    if use_domain_tables:
-        try:
-            return jsonify(_build_domain_table_report(target, domain, raw))
-        except Exception as e:
-            logger.error(f"[consolidated_report] domain table report failed: {e}", exc_info=True)
-            return jsonify({'error': str(e)}), 500
-
-    try:
-        from config import JIRA_USER, JIRA_PASSWORD
-        if not (str(JIRA_USER or '').strip() and str(JIRA_PASSWORD or '').strip()):
-            return jsonify({
-                'error': 'JIRA credentials missing. Set JIRA_USER and JIRA_PASSWORD in .env, or LDAP_USER and LDAP_PASSWORD aliases.',
-                'missing_credentials': True,
-            }), 500
-    except Exception as e:
-        return jsonify({'error': f'Unable to read JIRA config: {e}', 'missing_credentials': True}), 500
-
-    # -- check static cache unless force=true ---------------------------------
-    # Default cache TTL remains 6 hours for generic Build Report usage.
-    # Current Running Build pages pass cache_ttl_minutes=30 so all users share
-    # one generated report per build/JQL for 30 minutes across page refreshes.
-    try:
-        _ttl_minutes = int(cache_ttl_minutes) if cache_ttl_minutes not in (None, '') else 0
-    except Exception:
-        _ttl_minutes = 0
-    _CACHE_TTL_SECONDS = (_ttl_minutes * 60) if _ttl_minutes > 0 else (6 * 3600)
-
-    cache_path, cache_key = _consolidated_report_path(target, raw, custom_jql or None)
-    if not force and os.path.exists(cache_path):
-        try:
-            _cache_age = time.time() - os.path.getmtime(cache_path)
-            if _cache_age <= _CACHE_TTL_SECONDS:
-                with open(cache_path, encoding='utf-8') as fh:
-                    cached = json.load(fh)
-                meta = cached.setdefault('meta', {})
-                meta['from_cache'] = True
-                meta['cache_ttl_minutes'] = round(_CACHE_TTL_SECONDS / 60)
-                meta['cache_age_seconds'] = round(_cache_age, 1)
-                # Derive generated_at from the cache file's mtime (same clock as
-                # next_auto_refresh_at below) so the "Last generated / Next
-                # trigger" UI badges are always consistent with each other,
-                # regardless of what the original run_consolidated_report call
-                # wrote into meta['generated_at'] (local time, different format).
-                meta['generated_at'] = datetime.utcfromtimestamp(os.path.getmtime(cache_path)).isoformat() + 'Z'
-                meta['next_auto_refresh_at'] = datetime.utcfromtimestamp(os.path.getmtime(cache_path) + _CACHE_TTL_SECONDS).isoformat() + 'Z'
-                logger.info(f"[consolidated_report] serving from cache: {cache_path}")
-                return jsonify(cached)
-            else:
-                logger.info(f"[consolidated_report] cache expired ({_cache_age/3600:.1f}h old), re-running: {cache_path}")
-        except Exception:
-            pass
-
-    # If the same cache key is already running, return the existing job_id so
-    # concurrent users do not start duplicate Jira jobs for the same build/JQL.
-    if not force:
-        running_job = _JOB_CACHE_KEYS.get(cache_key)
-        if running_job and running_job not in _JOB_RESULTS:
-            logger.info(f"[consolidated_report] joining in-flight job {running_job}: {cache_key}")
-            return jsonify({'job_id': running_job, 'from_inflight': True, 'cache_ttl_minutes': round(_CACHE_TTL_SECONDS / 60)})
-        elif running_job:
-            _JOB_CACHE_KEYS.pop(cache_key, None)
-
-    # -- start background job, return job_id for SSE polling -----------------
-    job_id = _uuid.uuid4().hex[:16]
-    if not force:
-        _JOB_CACHE_KEYS[cache_key] = job_id
-
-    def _run_job():
-        import os as _os, sys as _sys
+        import sys as _sys, os as _os
         _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
         if _scripts_dir not in _sys.path:
             _sys.path.insert(0, _scripts_dir)
-        try:
-            from fetch_consolidated_report import (
-                run_consolidated_report, register_progress, unregister_progress
-            )
-            from config import JIRA_PDT_FILTER_ID
-
-            pt = register_progress(job_id)
-            report = run_consolidated_report(
-                build_ids    = raw,
-                filter_id    = JIRA_PDT_FILTER_ID,
-                traverse     = traverse,
-                enrich_orbit = do_orbit,
-                target_name  = target or None,
-                progress     = pt,
-                custom_jql   = custom_jql or None,
-            )
-            if not isinstance(report, dict):
-                raise RuntimeError(f"run_consolidated_report returned {type(report).__name__}; no report was generated")
-
-            def _add_build_id(acc, seen, value):
-                val = str(value or '').strip()
-                if not val:
-                    return
-                # If a path slipped through, keep only the final build folder/name.
-                val = val.replace('\\\\', '/').replace('\\', '/').rstrip('/').split('/')[-1].strip()
-                if not val:
-                    return
-                key = val.upper()
-                if key not in seen:
-                    seen.add(key)
-                    acc.append(val)
-
-            def _build_ids_from_report(rep):
-                found, seen = [], set()
-                for b in (raw or []):
-                    _add_build_id(found, seen, b)
-                for b in (extracted_from_jql or []):
-                    _add_build_id(found, seen, b)
-                for jira in (rep.get('jiras') or []):
-                    if not isinstance(jira, dict):
-                        continue
-                    for fld in ('matched_build', 'meta_build', 'build_id', 'build'):
-                        _add_build_id(found, seen, jira.get(fld))
-                    for comp in (jira.get('software_components') or []):
-                        if isinstance(comp, dict):
-                            _add_build_id(found, seen, comp.get('build_id') or comp.get('image_path') or comp.get('image_name'))
-                return found
-
-            report_build_ids = _build_ids_from_report(report)
-            report_meta = report.setdefault('meta', {})
-            report_meta['build_ids'] = report_build_ids or raw
-            if extracted_from_jql:
-                report_meta['build_ids_extracted_from_jql'] = extracted_from_jql
-            if report_build_ids:
-                report_meta['build_ids_detected_for_axiom'] = report_build_ids
-            if include_axiom_metrics:
-                try:
-                    metrics_build_ids = report_build_ids or raw
-                    metrics = _fetch_axiom_stability_metrics_for_meta_ids(metrics_build_ids, taxonomy_path=axiom_taxonomy_path or None) or {}
-                    if not isinstance(report.get('summary'), dict):
-                        report['summary'] = {}
-                    report['axiom_metrics'] = metrics
-                    report['summary']['axiom_metrics_found'] = sum(1 for v in metrics.values() if isinstance(v, dict) and v.get('matched'))
-                    report['summary']['axiom_metrics_requested'] = len(metrics)
-                except Exception as me:
-                    logger.warning(f"[consolidated_report] Axiom metrics enrichment failed: {me}")
-                    if isinstance(report, dict):
-                        report['axiom_metrics_error'] = str(me)
-            # save to disk
-            try:
-                with open(cache_path, 'w', encoding='utf-8') as fh:
-                    json.dump(report, fh, ensure_ascii=False)
-                logger.info(f"[consolidated_report] saved: {cache_path}")
-            except Exception as se:
-                logger.warning(f"[consolidated_report] cache save failed: {se}")
-
-                        # store result for pickup
-            meta = report.setdefault('meta', {})
-            meta['from_cache'] = False
-            meta['job_id'] = job_id
-            meta['cache_ttl_minutes'] = round(_CACHE_TTL_SECONDS / 60)
-            # Overwrite generated_at with a UTC timestamp (run_consolidated_report
-            # sets it from local time via time.strftime) so it and
-            # next_auto_refresh_at are always computed from the same clock and
-            # stay in sync for the "Last generated / Next trigger" UI badges.
-            _generated_at_dt = datetime.utcnow()
-            meta['generated_at'] = _generated_at_dt.isoformat() + 'Z'
-            meta['next_auto_refresh_at'] = (_generated_at_dt + timedelta(seconds=_CACHE_TTL_SECONDS)).isoformat() + 'Z'
-            _job_results_set(job_id, report)
-
-        except Exception as e:
-            import traceback
-            is_cancel = 'cancel' in str(e).lower()
-            if is_cancel:
-                logger.info(f"[consolidated_report] job {job_id} cancelled: {e}")
-                _job_results_set(job_id, {'cancelled': True, 'error': 'Cancelled by user'})
-            else:
-                logger.error(f"[consolidated_report] job {job_id} error: {e}\n{traceback.format_exc()}")
-                _job_results_set(job_id, {'error': str(e)})
-            try:
-                from fetch_consolidated_report import get_progress
-                pt = get_progress(job_id)
-                if pt and not is_cancel: pt.update(stage='error', message=str(e))
-            except Exception:
-                pass
-        finally:
-            if _JOB_CACHE_KEYS.get(cache_key) == job_id:
-                _JOB_CACHE_KEYS.pop(cache_key, None)
-            # keep progress alive for SSE to read final state
-
-    import threading as _threading
-    t = _threading.Thread(target=_run_job, daemon=True)
-    t.start()
-    return jsonify({'job_id': job_id, 'status': 'running'})
-
-
-
-
-@login_required
-def api_jira_traverse():
-    """
-    Traverse a single JIRA ticket through resolution notes and inward links
-    to find the final ticket (with CR or dead end).
-    Query params:
-      key   - JIRA key to start from e.g. QSTABILITY-1234567
-    """
-    import time as _time
-    key = (request.args.get('key') or '').strip()
-    if not key:
-        return jsonify({'error': 'key param required'}), 400
-    try:
-        import os as _os, sys as _sys
-        _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
-        if _scripts_dir not in _sys.path:
-            _sys.path.insert(0, _scripts_dir)
-        from fetch_jira_by_build import (
-            connect_jira, traverse_to_final_ticket,
-        )
         from config import JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT
-        if not JIRA_USER or not JIRA_PASSWORD:
-            return jsonify({'error': 'JIRA credentials not configured'}), 500
+        from fetch_consolidated_report import connect_jira
         jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
-        result   = traverse_to_final_ticket(jira_obj, key)
-        return jsonify(result)
-    except Exception as e:
-        import traceback
-        logger.error(f'[jira_traverse] {e}\n{traceback.format_exc()}')
-        return jsonify({'error': str(e)}), 500
+        filt = jira_obj.filter(filter_id)
+        return str(getattr(filt, 'jql', '') or '').strip()
+    except Exception as exc:
+        logger.warning('[JIRA FILTER] failed to resolve filter %s: %s', filter_id, exc)
+        return ''
 
 
-    except Exception as e:
-        logger.error(f'[LIVE STATUS VIEW] Error: {e}')
-        return jsonify({'error': str(e)}), 500
 
 
-def _fetch_grouped_cr_jira_context(cursor, target_name, search_value):
-    u_table = fq_table_for_target(target_name, "unique_crs")
-    j_table = fq_table_for_target(target_name, "jiras")
-    o_table = fq_table_for_target(target_name, "openjiras")
-    j_cr_exists = False
-    try:
-        cursor.execute(f"SHOW COLUMNS FROM {j_table} LIKE 'cr'")
-        j_cr_exists = cursor.fetchone() is not None
-    except Exception:
-        pass
-    search_tokens = _normalize_cr_search_tokens(search_value)
-    if not search_tokens:
-        return None
-    where_one = " OR ".join(["cr = %s", "mapped_cr = %s"] * len(search_tokens))
-    params_one = []
-    for token in search_tokens:
-        params_one.extend([token, token])
-    cursor.execute(f"SELECT * FROM {u_table} WHERE {where_one} LIMIT 1", tuple(params_one))
-    first_match = cursor.fetchone()
-    if not first_match:
-        return None
-    canonical_mapped_cr = (first_match.get("mapped_cr") or first_match.get("cr") or "").strip()
-    if not canonical_mapped_cr:
-        canonical_mapped_cr = search_tokens[0]
-    cursor.execute(f"SELECT * FROM {u_table} WHERE mapped_cr = %s ORDER BY cr", (canonical_mapped_cr,))
-    cr_group_rows = cursor.fetchall() or []
-    if not cr_group_rows:
-        cr_group_rows = [first_match]
-    linked_crs = []
-    for row in cr_group_rows:
-        cr_val = str(row.get("cr") or "").strip()
-        if cr_val and cr_val not in linked_crs:
-            linked_crs.append(cr_val)
-    if not linked_crs:
-        fallback_cr = str(first_match.get("cr") or "").strip()
-        if fallback_cr:
-            linked_crs.append(fallback_cr)
-    j_mapped_crs_exists = False
-    try:
-        cursor.execute(f"SHOW COLUMNS FROM {j_table} LIKE 'mapped_crs'")
-        j_mapped_crs_exists = cursor.fetchone() is not None
-    except Exception:
-        pass
-    j_queries = []
-    j_params = []
-    if j_cr_exists:
-        for cr_val in linked_crs:
-            j_queries.append("cr = %s")
-            j_params.append(cr_val)
-            alt = cr_val.replace("CR", "") if cr_val.upper().startswith("CR") else f"CR{cr_val}"
-            j_queries.append("cr = %s")
-            j_params.append(alt)
-    if j_mapped_crs_exists:
-        for cr_val in linked_crs:
-            j_queries.append("mapped_crs LIKE %s")
-            j_params.append(f"%{cr_val}%")
-        j_queries.append("mapped_crs LIKE %s")
-        j_params.append(f"%{canonical_mapped_cr}%")
-    if j_queries:
-        j_where = " OR ".join(j_queries)
-        cursor.execute(f"SELECT * FROM {j_table} WHERE {j_where}", tuple(j_params))
-        j_rows = cursor.fetchall() or []
-    else:
-        j_rows = []
-        o_rows = []
-    if j_rows:
-        tickets = list({str(r.get("stability_ticket") or "").strip() for r in j_rows if r.get("stability_ticket")})
-        if tickets:
-            placeholders = ", ".join(["%s"] * len(tickets))
-            try:
-                # Guard: openjiras may not exist for this target
-                _o_name = o_table.replace("`", "")
-                try:
-                    _o_sch, _o_tbl = _o_name.split(".", 1)
-                    cursor.execute("SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1", (_o_sch, _o_tbl))
-                    _o_exists = cursor.fetchone() is not None
-                except Exception:
-                    _o_exists = True
-                if _o_exists:
-                    cursor.execute(f"SELECT * FROM {o_table} WHERE stability_ticket IN ({placeholders})", tuple(tickets))
-                    o_rows = cursor.fetchall() or []
-            except Exception:
-                pass
-    all_jiras = j_rows + o_rows
-    unique_jiras = []
-    seen_jira_keys = set()
-    for row in all_jiras:
-        key = (
-            str(row.get("stability_ticket") or "").strip(),
-            str(row.get("jira_date") or "").strip(),
-            str(row.get("serial_no") or "").strip(),
-            str(row.get("metabuild") or "").strip(),
-            str(row.get("cr") or "").strip(),
-                )
-        if key in seen_jira_keys:
-            continue
-        seen_jira_keys.add(key)
-        unique_jiras.append(row)
-    # Sort by jira_date DESC so [:45] in template always gives the LATEST 45
-    unique_jiras = sorted(unique_jiras, key=_jira_sort_key, reverse=True)
-    latest_meta_jira = unique_jiras[0] if unique_jiras else None
-    # Latest Meta Seen = metabuild from the most recently reported JIRA row.
-    # Do not use highest meta ID; jira_date decides what was seen latest.
-    latest_meta = (latest_meta_jira.get("metabuild") or latest_meta_jira.get("build_id") or "").strip() if latest_meta_jira else ""
-    latest_meta_rows = [r for r in unique_jiras if str(r.get("metabuild") or r.get("build_id") or "").strip() == latest_meta] if latest_meta else []
-
-    primary_cr_info = first_match
-    devices    = sorted({(r.get("serial_no") or "").strip() for r in unique_jiras if r.get("serial_no")})
-    test_teams = sorted({(r.get("test_team") or "").strip() for r in unique_jiras if r.get("test_team")})
-    mcn_types  = sorted({(r.get("mcn") or "").strip() for r in unique_jiras if r.get("mcn")})
-    jira_instances = sorted({(r.get("stability_ticket") or "").strip() for r in unique_jiras if r.get("stability_ticket")})
-    return {
-        "searched_cr": search_value.strip().upper(),
-        "canonical_mapped_cr": canonical_mapped_cr,
-        "primary_cr_info": primary_cr_info,
-        "cr_group_rows": cr_group_rows,
-        "linked_crs": linked_crs,
-        "cr_jiras": unique_jiras,
-        "latest_meta": latest_meta,
-        "latest_meta_count": len(latest_meta_rows),
-        "latest_meta_jira": latest_meta_jira,
-        "devices": devices,
-        "test_teams": test_teams,
-        "mcn_types": mcn_types,
-        "jira_instances": jira_instances,
-    }
-
-
-# ---------------------------------------------------------------------
-# CR Title Exclude Keywords - save/load per Compute target
-# ---------------------------------------------------------------------
-def _get_cr_title_exclude(target_name):
-    cfg = (_get_target_excel_config(target_name) or {}).get('cr_title_exclude', {})
-    return {
-        'enabled':  bool(cfg.get('enabled', False)),
-        'keywords': [str(k).strip() for k in (cfg.get('keywords') or []) if str(k).strip()],
-    }
-
-@dashboard_bp.route('/api/dashboard/<string:target_name>/cr_title_exclude', methods=['GET'])
+@dashboard_bp.route("/api/build_report/resolve_filter")
 @login_required
-def api_get_cr_title_exclude(target_name):
-    return jsonify({'success': True, **_get_cr_title_exclude(target_name)})
+def api_build_report_resolve_filter():
+    """Resolve a pasted JIRA filter ID/URL (or filter=NNN JQL) to its real saved-filter JQL.
 
-@dashboard_bp.route('/api/dashboard/<string:target_name>/cr_title_exclude', methods=['POST'])
-@login_required
-def api_save_cr_title_exclude(target_name):
-    try:
-        payload  = request.get_json(force=True) or {}
-        enabled  = bool(payload.get('enabled', False))
-        keywords = [str(k).strip() for k in (payload.get('keywords') or []) if str(k).strip()]
-        _update_target_excel_config(target_name, 'cr_title_exclude', {
-            'enabled':  enabled,
-            'keywords': keywords,
-        })
-        return jsonify({'success': True, 'enabled': enabled, 'keywords': keywords})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+    Query params:
+      value = filter ID (e.g. 76897), filter=76897, or a full JIRA filter URL.
 
-# ---------------------------------------------------------------------
-# API: PDT CRs
-# ---------------------------------------------------------------------
-@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_crs")
-@login_required
-def api_pdt_crs(target_name):
-    conn = None
-    cursor = None
-    try:
-        conn = get_mysql_connection_db()
-        cursor = conn.cursor(dictionary=True)
-        u_table = fq_table_for_target(target_name, "unique_crs")
-        cursor.execute(f"SHOW COLUMNS FROM {u_table}")
-        cols = {r["Field"] for r in (cursor.fetchall() or [])}
-
-        def _col(name, alias=None):
-            a = alias or name
-            return f"`{name}` AS `{a}`" if name in cols else f"NULL AS `{a}`"
-
-        def _coalesce_col(names, alias):
-            available = [n for n in names if n in cols]
-            if not available:
-                return f"NULL AS `{alias}`"
-            if len(available) == 1:
-                return f"`{available[0]}` AS `{alias}`"
-            return "COALESCE(" + ", ".join(f"`{n}`" for n in available) + f") AS `{alias}`"
-
-
-
-        last_jira_col = next(
-            (c for c in ("jira_date__last_instance", "qstability__last_instance", "jira_date_last_instance", "jira_date_last") if c in cols),
-            None,
-        )
-        last_jira_sel = f"`{last_jira_col}` AS `jira_date_last`" if last_jira_col else "NULL AS `jira_date_last`"
-
-        select_parts = ", ".join([
-            _col("mapped_cr", "cr_id"),
-            _col("cr_title"),
-            _col("cr_area"),
-            _col("cr_subsystem"),
-            _col("cr_functionality"),
-            _col("cr_occurrence"),
-            _col("cr_age"),
-            _col("cr_status"),
-            _col("image", "cr_si"),
-            _coalesce_col(("built_date", "build_date"), "built_date"),
-            _coalesce_col(("pdt_priority_tag", "pdt_tag", "pdt_priority"), "pdt_priority_tag"),
-            last_jira_sel,
-            _col("cr_category"),
-        ])
-
-        cursor.execute(
-            f"""
-            SELECT {select_parts}
-            FROM {u_table}
-            WHERE (cr_occurrence IS NULL OR LOWER(TRIM(cr_occurrence)) <> 'dup')
-              AND (cr_category   IS NULL OR LOWER(TRIM(cr_category))   <> 'dup')
-              AND (cr_category   IS NULL OR LOWER(TRIM(cr_category)) NOT LIKE '%invalid%')
-            ORDER BY
-                CAST(NULLIF(cr_occurrence, '') AS UNSIGNED) DESC,
-                CAST(NULLIF(cr_age, '') AS UNSIGNED) DESC
-            """
-        )
-        raw_rows = cursor.fetchall() or []
-
-        def _num(v):
-            try:
-                return int(str(v or '').strip())
-            except Exception:
-                return 0
-
-        seen = {}
-
-        for r in raw_rows:
-            cr_id = str(r.get('cr_id') or '').strip()
-            if not cr_id:
-                continue
-            existing = seen.get(cr_id)
-            if existing is None:
-                seen[cr_id] = r
-                continue
-            curr_occ = _num(r.get('cr_occurrence'))
-            prev_occ = _num(existing.get('cr_occurrence'))
-            curr_age = _num(r.get('cr_age'))
-            prev_age = _num(existing.get('cr_age'))
-            if curr_occ > prev_occ or (curr_occ == prev_occ and curr_age > prev_age):
-                seen[cr_id] = r
-
-        rows = sorted(
-            seen.values(),
-            key=lambda x: (_num(x.get('cr_occurrence')), _num(x.get('cr_age'))),
-            reverse=True,
-        )
-
-
-        is_compute_target = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
-        cr_tag_enabled = _is_compute_cr_tag_enabled_target(target_name)
-
-        cr_tag_alias_groups = _load_compute_cr_tag_alias_config() if cr_tag_enabled else []
-        include_cr_tags = cr_tag_enabled and str(request.args.get('include_cr_tags') or '').lower() in ('1', 'true', 'yes')
-
-        cr_tag_cache_rows, cr_tag_cache_updated_at = _load_compute_cr_tag_cache(target_name) if cr_tag_enabled else ({}, None)
-        tags_by_cr = {str(k).replace('CR','').replace('cr','').strip(): (v.get('cr_tags') or []) for k, v in (cr_tag_cache_rows or {}).items() if isinstance(v, dict)}
-
-        if include_cr_tags and rows:
-
-            try:
-                from orbit_client import bulk_get_cr_tags
-                cr_list = []
-                for r in rows:
-                    cr_digits = str(r.get('cr_id') or '').replace('CR', '').replace('cr', '').replace('-', '').strip()
-                    if cr_digits.isdigit() and cr_digits not in cr_list:
-                        cr_list.append(cr_digits)
-                tags_by_cr = bulk_get_cr_tags(cr_list) if cr_list else {}
-            except Exception:
-                logger.warning('[PDT CR TAG] bulk tag fetch failed for %s', target_name, exc_info=True)
-                tags_by_cr = {}
-
-
-        # Resolve the most recent reported JIRA per CR from the mapped JIRA table.
-
-        # unique_crs contains first/last dates, but the actual last JIRA key lives
-        # in the jiras table. Handle both `cr` and comma-separated `mapped_crs`.
-        last_jira_by_cr = {}
-        try:
-            j_table = fq_table_for_target(target_name, "jiras")
-            cursor.execute(f"SHOW COLUMNS FROM {j_table}")
-            j_cols = {r["Field"] for r in (cursor.fetchall() or [])}
-            cr_col = "mapped_crs" if "mapped_crs" in j_cols else ("cr" if "cr" in j_cols else None)
-            if cr_col and "stability_ticket" in j_cols:
-                date_expr = "`jira_date`" if "jira_date" in j_cols else "NULL"
-                cursor.execute(
-                    f"""
-                    SELECT `{cr_col}` AS cr_key, `stability_ticket`, {date_expr} AS jira_date
-                    FROM {j_table}
-                    WHERE `{cr_col}` IS NOT NULL AND TRIM(`{cr_col}`) <> ''
-                    ORDER BY {date_expr} DESC, `stability_ticket` DESC
-                    """
-                )
-                def _cr_keys(raw):
-                    import re as _re
-                    out = []
-                    for part in _re.split(r"[,;\s]+", str(raw or "")):
-                        val = part.strip()
-                        if not val:
-                            continue
-                        compact = val.replace("-", "").upper()
-                        variants = [compact]
-                        if compact.startswith("CR"):
-                            variants.append(compact[2:])
-                        else:
-                            variants.append("CR" + compact)
-                        for item in variants:
-                            if item and item not in out:
-                                out.append(item)
-                    return out
-                for jr in cursor.fetchall() or []:
-                    ticket = str(jr.get("stability_ticket") or "").strip()
-                    if not ticket:
-                        continue
-                    for key in _cr_keys(jr.get("cr_key")):
-                        if key not in last_jira_by_cr:
-                            last_jira_by_cr[key] = {
-                                "last_reported_jira": ticket,
-                                "last_reported_date": jr.get("jira_date") or "",
-                            }
-        except Exception:
-            pass
-        import datetime as _dt
-
-        from email.utils import parsedate
-        MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-        def fmt_date(v):
-            if not v: return ""
-            if isinstance(v, (_dt.date, _dt.datetime)):
-                return f"{v.day} {MONTHS[v.month - 1]} {v.year}"
-            s = str(v).strip()
-            import re
-            if re.match(r'^\d{1,2}\s[A-Za-z]{3}\s\d{4}$', s): return s
-            try:
-                t = parsedate(s)
-                if t: return f"{t[2]} {MONTHS[t[1] - 1]} {t[0]}"
-            except Exception: pass
-            try:
-                date_part = s.split(' ')[0].split('T')[0]
-                parts = date_part.split('-')
-                if len(parts) == 3:
-                    d, m, y = int(parts[2]), int(parts[1]) - 1, parts[0]
-                    if 0 <= m <= 11:
-                        return f"{d} {MONTHS[m]} {y}"
-            except Exception:
-                pass
-            return s
-
-
-        # -- CR Title Exclude (Compute only) ------------------------------
-        if is_compute_target:
-            _excl_cfg = _get_cr_title_exclude(target_name)
-            if _excl_cfg['enabled'] and _excl_cfg['keywords']:
-                _kws = [k.lower() for k in _excl_cfg['keywords']]
-                rows = [
-                    r for r in rows
-                    if not any(kw in str(r.get('cr_title') or '').lower() for kw in _kws)
-                ]
-
-        clean = []
-        for r in rows:
-
-            cr_key_raw = str(r.get("cr_id") or "").replace("-", "").upper()
-            lookup_keys = [cr_key_raw]
-            if cr_key_raw.startswith("CR"):
-                lookup_keys.append(cr_key_raw[2:])
-            elif cr_key_raw:
-                lookup_keys.append("CR" + cr_key_raw)
-            last_info = next((last_jira_by_cr.get(k) for k in lookup_keys if last_jira_by_cr.get(k)), {})
-
-            row = {}
-            for k, v in r.items():
-                if k in ("built_date", "jira_date_last"):
-                    row[k] = fmt_date(v)
-                elif v is None:
-                    row[k] = ""
-                elif isinstance(v, (_dt.date, _dt.datetime)):
-                    row[k] = str(v)
-                else:
-                    row[k] = v
-            row["last_reported_jira"] = last_info.get("last_reported_jira") or ""
-            row["last_reported_date"] = fmt_date(last_info.get("last_reported_date")) or row.get("jira_date_last", "")
-
-            if cr_tag_enabled:
-                cr_digits = str(row.get('cr_id') or '').replace('CR', '').replace('cr', '').replace('-', '').strip()
-                cr_tags = tags_by_cr.get(cr_digits) or tags_by_cr.get('CR' + cr_digits) or []
-                cr_tag_group, cr_tag_alias = _match_compute_cr_tag_aliases(cr_tags, cr_tag_alias_groups)
-                row['cr_tags'] = cr_tags
-                row['cr_tag'] = cr_tag_group
-                row['cr_tag_alias'] = cr_tag_alias
-            clean.append(row)
-
-        return jsonify({"success": True, "rows": clean, "is_compute": is_compute_target, "cr_tag_enabled": cr_tag_enabled, "cr_tags_included": include_cr_tags, "cr_tag_cache_loaded": bool(cr_tag_cache_rows), "cr_tag_cache_updated_at": cr_tag_cache_updated_at, "cr_tag_alias_groups": cr_tag_alias_groups})
-
-
-
-
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e), "rows": []}), 500
-    finally:
-        if cursor: cursor.close()
-        if conn:   conn.close()
-
-
-
-
-# -- PDT CR Software Image Ready Date API -----------------------------------
-@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_si_ready_dates", methods=["POST"])
-@login_required
-def api_pdt_cr_si_ready_dates(target_name):
-    """Return Orbit Software Image ReadyDate values for CR/SI pairs.
-
-    Request body: {items:[{cr:"4574261", si:"LPAICP.FW.1.0"}, ...]}
-    Response: {success:true, rows:{"4574261|LPAICP.FW.1.0":{ready_date:"19 Jun 2026", ...}}}
-    Missing/empty ReadyDate is returned as "NA".
+    Used by the Build Report "JIRA Filter ID / URL / Direct JQL" input so that
+    typing/pasting a filter reference immediately shows the underlying JQL
+    (project/summary/order-by clauses) exactly like the JIRA UI does, instead
+    of the generic "filter = <id> ORDER BY created ASC" placeholder.
     """
-    import re as _re
-    from datetime import datetime as _dt
+    raw = (request.args.get("value") or request.args.get("filter") or "").strip()
+    if not raw:
+        return jsonify({"ok": False, "error": "'value' query param required"}), 400
 
-    def _norm_cr(v):
-        return _re.sub(r"\D", "", str(v or ""))
-
-    def _norm_si(v):
-        return _re.sub(r"[^A-Z0-9]+", "", str(v or "").upper())
-
-    def _fmt_ready(v):
-        if not v:
-            return "NA"
-        s = str(v).strip()
-        if not s:
-            return "NA"
-        for fmt in ("%m/%d/%Y %I:%M:%S %p", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-            try:
-                d = _dt.strptime(s.split('.')[0], fmt)
-                return d.strftime("%d %b %Y")
-            except Exception:
-                pass
-        return s
-
-    try:
-        payload = request.get_json(silent=True) or {}
-        items = payload.get("items") or []
-        if not isinstance(items, list):
-            items = []
-        cleaned = []
-        for item in items[:100]:
-            if not isinstance(item, dict):
-                continue
-            cr = _norm_cr(item.get("cr") or item.get("cr_id"))
-            si = str(item.get("si") or item.get("cr_si") or "").strip()
-            if cr:
-                cleaned.append({"cr": cr, "si": si})
-        if not cleaned:
-            return jsonify({"success": True, "rows": {}})
-
-        unique_crs = sorted({item["cr"] for item in cleaned})
+    filter_id = ""
+    if raw.isdigit():
+        filter_id = raw
+    else:
         try:
-            from orbit_client import bulk_query_cr_software_images
-            cache = bulk_query_cr_software_images(unique_crs, batch_size=100) if unique_crs else {}
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(raw)
+            qs = parse_qs(parsed.query)
+            cand = (qs.get("filter") or qs.get("filterId") or [""])[0]
+            if str(cand).strip().isdigit():
+                filter_id = str(cand).strip()
         except Exception:
-            logger.warning("[PDT CR SI ReadyDate] bulk Orbit SIR query failed; falling back to empty ReadyDate", exc_info=True)
-            cache = {cr: [] for cr in unique_crs}
-
-        out = {}
-
-        for item in cleaned:
-            cr, si = item["cr"], item["si"]
-            key = f"{cr}|{si}"
-            sirs = [x for x in cache.get(cr, []) if isinstance(x, dict)]
-
-            wanted = _norm_si(si)
-            matched = None
-            if wanted:
-                for sir in sirs:
-                    name = str(sir.get("SoftwareImageName") or sir.get("Name") or sir.get("SoftwareImage") or "").strip()
-                    if _norm_si(name) == wanted:
-                        matched = sir
-                        break
-            if matched is None and not wanted and len(sirs) == 1:
-                matched = sirs[0]
-            all_ready = []
-            for sir in sirs:
-                name = str(sir.get("SoftwareImageName") or sir.get("Name") or sir.get("SoftwareImage") or "").strip()
-                all_ready.append({
-                    "software_image": name,
-                    "ready_date": _fmt_ready(sir.get("ReadyDate")),
-                    "raw_ready_date": sir.get("ReadyDate"),
-                })
-            out[key] = {
-                "cr": cr,
-                "si": si,
-                "ready_date": _fmt_ready(matched.get("ReadyDate") if matched else None),
-                "raw_ready_date": matched.get("ReadyDate") if matched else None,
-                "matched_si": str((matched or {}).get("SoftwareImageName") or (matched or {}).get("Name") or ""),
-                "all_ready_dates": all_ready,
-            }
-        return jsonify({"success": True, "rows": out})
-    except Exception as e:
-        logger.warning("[PDT CR SI ReadyDate] failed for target=%s", target_name, exc_info=True)
-        return jsonify({"success": False, "message": str(e), "rows": {}}), 500
-
-
-# -- Open JIRAs API ----------------------------------------------------------
-@dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras")
-
-@login_required
-def api_open_jiras(target_name):
-    """Return open jiras with area bucketing and date range filter."""
-    conn = None; cursor = None
-    try:
-        date_from = (request.args.get("date_from") or "").strip()
-        date_to   = (request.args.get("date_to")   or "").strip()
-
-        conn   = get_mysql_connection_db()
-        cursor = conn.cursor(dictionary=True)
-        # Try fq_table_for_target first; fall back to direct DB search
-        o_table = None
-        try:
-            o_table = fq_table_for_target(target_name, "openjiras")
-        except Exception as _fq_err:
-            pass
-
-        if not o_table:
-            tbl_pattern = target_name.lower().replace('-', '_').replace(' ', '_') + '_openjiras'
-            cursor.execute(
-                "SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES "
-                "WHERE TABLE_NAME = %s LIMIT 1",
-                (tbl_pattern,)
-            )
-            _row = cursor.fetchone()
-            if _row:
-                _s = _row.get('TABLE_SCHEMA') or _row.get('table_schema', '')
-                _n = _row.get('TABLE_NAME')   or _row.get('table_name', '')
-                o_table = f"`{_s}`.`{_n}`"
+            filter_id = ""
+        if not filter_id:
+            import re as _re
+            m = _re.search(r"\bfilter(?:Id)?\s*=\s*(\d+)\b", raw, flags=_re.I)
+            if m:
+                filter_id = m.group(1)
             else:
-                return jsonify({"success": True, "rows": [], "area_summary": [],
-                                "notice": "Open JIRAs table not available for this target."})
+                m = _re.search(r"[?&]filter(?:Id)?=(\d+)", raw, flags=_re.I)
+                if m:
+                    filter_id = m.group(1)
 
-        # Guard: openjiras table may not exist for all targets
-        def _tbl_exists(fq_name):
-            name = fq_name.replace("`", "")
-            try:
-                schema, table = name.split(".", 1)
-            except ValueError:
-                return True
-            cursor.execute(
-                "SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema=%s AND table_name=%s LIMIT 1",
-                (schema, table),
-            )
-            return cursor.fetchone() is not None
+    if not filter_id:
+        return jsonify({"ok": False, "error": "Could not extract a filter ID from " + repr(raw)}), 400
 
-        if not _tbl_exists(o_table):
-            logger.info(f"[OPEN JIRAS API] table missing for target={target_name}, returning empty")
-            return jsonify({"success": True, "rows": [], "area_summary": [],
-                            "notice": "Open JIRAs table not available for this target."})
+    jql = _resolve_jira_filter_jql(filter_id)
+    if not jql:
+        return jsonify({"ok": False, "filter_id": filter_id, "error": "Filter not found or JIRA lookup failed."}), 404
 
-        where_clauses = []
-        params = []
-        if date_from:
-            where_clauses.append("`jira_date` >= %s")
-            params.append(date_from)
-        if date_to:
-            where_clauses.append("`jira_date` <= %s")
-            params.append(date_to + " 23:59:59")
-        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    return jsonify({"ok": True, "filter_id": filter_id, "jql": jql})
 
-        cursor.execute(
-            f"SELECT stability_ticket, jira_date, cr_area, cr_current_ticket, "
-            f"jira_title, jira_category, status, test_team, jira_reporter, "
-            f"metabuild, jira_component "
-            f"FROM {o_table} {where_sql} ORDER BY jira_date DESC",
-            params or None
-        )
-        raw = cursor.fetchall() or []
-
-        import datetime as _dt, re as _re
-        MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-        def fmt_dt(v):
-            if not v: return ""
-            if isinstance(v, (_dt.date, _dt.datetime)):
-                return f"{v.day} {MONTHS[v.month-1]} {v.year}"
-            return str(v)[:10]
-
-        # -- Area bucketing logic ------------------------------------------
-        # Priority: cr_area field ? title keyword match ? jira_category ? 'Other'
-        # Area bucketing logic
-        # Step 1: cr_current_ticket prefix
-        # Step 2: cr_area field from DB
-        # Step 3: jira_title / component / category keyword scan
-        # Step 4: cr_current_ticket empty + no keyword match -> APPS
-        # NOTE: WCNSS/CNSS/CNSSDEBUG/BT/BTFM all -> WLAN. BOOT/XBL/UEFI -> APPS.
-        CR_TICKET_PREFIXES = [
-            ("ADSP",       "ADSP"),
-            ("CDSP",       "CDSP"),
-            ("TZ",         "TZ"),
-            ("MODEM",      "Modem"),
-            ("VIDEO",      "Video"),
-            ("CNSSDEBUG",  "WConnect"),
-            ("CNSS",       "WConnect"),
-            ("WCNSS",      "WConnect"),
-            ("WLAN",       "WConnect"),
-            ("BTFM",       "WConnect"),
-            ("BT",         "WConnect"),
-            ("APPS",       "APPS"),
-        ]
-        AREA_KEYWORDS = {
-            "WConnect": ["wconnect", "wcnss", "cnss", "cnssdebug", "wlan", "wifi", "wi-fi", "btfm", "bluetooth", "wireless"],
-            "Modem":   ["modem", "mpss", "ril", "data call", "lte", "5g", "nr", "ims", "qmi"],
-            "Video":   ["video", "venc", "vdec", "venus", "codec"],
-            "TZ":      ["trustzone", "trust zone", "qsee"],
-            "ADSP":    ["adsp", "audio", "qdsp"],
-            "CDSP":    ["cdsp", "compute dsp"],
-            "Camera":  ["camera", "csiphy", "csid", "ife", "isp"],
-            "Display": ["display", "mdss", "dpu", "dsi", "panel"],
-            "Sensors": ["sensor", "sensors", "ssc", "slpi"],
-            "BOOT":    ["boot", "xbl", "uefi", "abl"],
-            "APPS":    ["apps", "apss", "gcc", "kernel", "android", "framework", "userspace"],
-        }
-
-        def bucket_area(row):
-            cr_ticket = (row.get("cr_current_ticket") or "").strip().upper()
-
-            # Step 1: cr_current_ticket prefix is most reliable
-            if cr_ticket:
-                for prefix, bucket in CR_TICKET_PREFIXES:
-                    if cr_ticket.startswith(prefix):
-                        return bucket
-
-            # Step 2: keyword scan on title + component + category. Do this before
-            # DB cr_area so WCNSS/Modem/Video/TZ titles are not hidden under APPS.
-            title    = (row.get("jira_title")     or "").lower()
-            comp     = (row.get("jira_component")  or "").lower()
-            cat      = (row.get("jira_category")   or "").lower()
-            combined = title + " " + comp + " " + cat
-            for bucket, keywords in AREA_KEYWORDS.items():
-                if any(k in combined for k in keywords):
-                    return bucket
-
-            # Step 3: cr_area field from DB as fallback, normalized to display buckets
-            area = (row.get("cr_area") or "").strip()
-            area_upper = area.upper().replace('-', '_').replace(' ', '_')
-            if area and area.lower() not in ("", "none", "null", "n/a"):
-                if any(t in area_upper for t in ("WCONNECT", "WCNSS", "CNSS", "WLAN", "WIFI", "BT", "BTFM")):
-                    return "WConnect"
-                if "MODEM" in area_upper or area_upper == "MPSS":
-                    return "Modem"
-                if "VIDEO" in area_upper:
-                    return "Video"
-                if area_upper in ("TZ", "TRUSTZONE", "TRUST_ZONE"):
-                    return "TZ"
-                if area_upper in ("APPS", "APSS"):
-                    return "APPS"
-                return area
-
-            # Step 4: unknown open JIRAs should be explicit instead of inflating APPS.
-            return "Other"
-
-
-        rows = []
-        for r in raw:
-            area = bucket_area(r)
-            rows.append({
-                "stability_ticket":  r.get("stability_ticket") or "",
-                "jira_date":         fmt_dt(r.get("jira_date")),
-                "area":              area,
-                "cr_current_ticket": r.get("cr_current_ticket") or "",
-                "jira_title":        r.get("jira_title") or "",
-                "jira_category":     r.get("jira_category") or "",
-                "status":            r.get("status") or "",
-                "test_team":         r.get("test_team") or "",
-                "jira_reporter":     r.get("jira_reporter") or "",
-                "metabuild":         r.get("metabuild") or "",
-            })
-
-        # Area summary
-        from collections import Counter
-        area_counts = Counter(r["area"] for r in rows)
-        area_summary = sorted(
-            [{"area": a, "count": c} for a, c in area_counts.items()],
-            key=lambda x: -x["count"]
-        )
-        area_summary.append({"area": "Total", "count": len(rows)})
-
-            # AUTO-only grouping helpers for the redesigned Open JIRAs tab.
-        bu_key = (get_bu_for_target(target_name) or '').upper()
-        _tgt_upper = str(target_name or '').strip().upper()
-        is_auto_bu = (
-            bu_key in ('AUTO', 'AUTOMOTIVE')
-            or _tgt_upper.startswith('NORD')
-            or 'NORD_' in _tgt_upper
-            or 'NORD.' in _tgt_upper
-        )
-
-        def _crash_type(title):
-            t = (title or '').lower()
-            # Process: contains ProcessDump OR ProcessCrash OR QNX OR Undetermined
-            if any(k in t for k in ('processdump', 'processcrash', 'process_crash', 'qnx', 'undetermined')):
-                return 'Process'
-            # SSR: does NOT contain above AND contains sleep OR ssr
-            if any(k in t for k in ('sleep', 'ssr', 'subsystem restart')):
-                return 'SSR'
-            # System: everything else (no ProcessDump/ProcessCrash/QNX/sleep/ssr/Undetermined)
-            return 'System'
-
-        def _domain(row):
-            hay = ' '.join(str(row.get(k) or '') for k in (
-                'jira_title', 'jira_component', 'jira_category', 'test_team', 'metabuild', 'cr_area'
-            )).upper()
-            # Prefer explicit domain tokens; keep this heuristic conservative.
-            if any(k in hay for k in ('ADAS', 'ADP', 'RIDE', 'VISION', 'CAMERA', 'CVP')):
-                return 'ADAS'
-            if any(k in hay for k in ('FLEX', 'PVM', 'SURROUND', 'PARK', 'VIP')):
-                return 'FLEX'
-            if any(k in hay for k in ('IVI', 'COCKPIT', 'INFOTAINMENT', 'DISPLAY', 'AUDIO')):
-                return 'IVI'
-            # AUTO tickets without explicit ADAS/FLEX tokens are IVI by default.
-            return 'IVI'
-
-        for row in rows:
-            row['crash_type'] = _crash_type(row.get('jira_title', ''))
-            row['domain'] = _domain(row) if is_auto_bu else ''
-
-        crash_type_counts = {}
-        domain_counts = {}
-        domain_crash_counts = {}
-        for row in rows:
-            ct = row['crash_type']
-            crash_type_counts[ct] = crash_type_counts.get(ct, 0) + 1
-            if is_auto_bu:
-                dom = row.get('domain') or 'Unassigned'
-                domain_counts[dom] = domain_counts.get(dom, 0) + 1
-                domain_crash_counts.setdefault(dom, {})[ct] = domain_crash_counts.setdefault(dom, {}).get(ct, 0) + 1
-
-        crash_summary = [{"type": t, "count": c} for t, c in sorted(crash_type_counts.items(), key=lambda x: -x[1])]
-        domain_summary = [
-            {"domain": d, "count": c, "crash_types": domain_crash_counts.get(d, {})}
-            for d, c in sorted(domain_counts.items(), key=lambda x: (x[0] == 'Unassigned', x[0]))
-        ]
-
-        return jsonify({
-            "success": True,
-            "rows": rows,
-            "area_summary": area_summary,
-            "crash_summary": crash_summary,
-            "domain_summary": domain_summary,
-            "is_auto_bu": is_auto_bu,
-        })
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e), "rows": [], "area_summary": []}), 500
-    finally:
-        if cursor: cursor.close()
-        if conn:   conn.close()
-
-
-
-@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_cr_tags/start", methods=["POST"])
-@login_required
-def api_pdt_cr_tags_start(target_name):
-    if not _is_compute_cr_tag_enabled_target(target_name):
-        return jsonify({'success': False, 'message': 'CR TAG fetch is disabled for this target.'}), 403
-    body = request.get_json(force=True) or {}
-    crs = []
-    seen = set()
-    for item in body.get('crs') or []:
-        cr = str(item or '').upper().replace('CR', '').replace('-', '').strip()
-        if cr.isdigit() and cr not in seen:
-            crs.append(cr)
-            seen.add(cr)
-    if not crs:
-        return jsonify({'success': False, 'message': 'No CRs provided.'}), 400
-
-    job_id = uuid.uuid4().hex
-    _PDT_CR_TAG_JOBS[job_id] = {
-        'success': True,
-        'state': 'queued',
-        'done': 0,
-        'total': len(crs),
-        'batch': 0,
-        'rows': {},
-        'message': 'Queued CR TAG fetch...',
-        'updated_at': time.time(),
-    }
-
-    def _run():
-        try:
-            from orbit_client import bulk_query_cr_tags, bulk_get_cr_tags
-            groups = _load_compute_cr_tag_alias_config()
-            def _progress(done, total, batch):
-                job = _PDT_CR_TAG_JOBS.get(job_id) or {}
-                job.update({
-                    'state': 'running',
-                    'done': int(done),
-                    'total': int(total),
-                    'batch': int(batch),
-                    'message': f'Fetching Orbit CR TAGs... {done}/{total} CRs',
-                    'updated_at': time.time(),
-                })
-                _PDT_CR_TAG_JOBS[job_id] = job
-            try:
-                # Estimate from CR count only. Query API batches up to 100 CRs, typically ~8-12s per batch.
-                est_total = max(10, int(((len(crs) + 99) // 100) * 10))
-                job = _PDT_CR_TAG_JOBS.get(job_id) or {}
-                job.update({
-                    'state': 'running',
-                    'done': 0,
-                    'total': len(crs),
-                    'message': f'Fetching {len(crs)} CR TAGs from Orbit. Estimated time: ~{est_total}s.',
-                    'estimated_seconds': est_total,
-                    'updated_at': time.time(),
-                })
-                _PDT_CR_TAG_JOBS[job_id] = job
-                def _progress_est(done, total, batch):
-                    pct_done = float(done) / max(1, total)
-                    remaining = max(0, int(round(est_total * (1 - pct_done))))
-                    job = _PDT_CR_TAG_JOBS.get(job_id) or {}
-                    job.update({
-                        'state': 'running',
-                        'done': int(done),
-                        'total': int(total),
-                        'batch': int(batch),
-                        'message': f'Fetching Orbit CR TAGs... {done}/{total} CRs. ETA ~{remaining}s',
-                        'estimated_seconds': est_total,
-                        'updated_at': time.time(),
-                    })
-                    _PDT_CR_TAG_JOBS[job_id] = job
-                tags_by_cr = bulk_query_cr_tags(crs, batch_size=100, progress_callback=_progress_est)
-
-            except Exception:
-                logger.warning('[PDT CR TAG JOB] query/run failed, using fallback', exc_info=True)
-                tags_by_cr = bulk_get_cr_tags(crs)
-                _progress(len(crs), len(crs), 1)
-
-            rows = {}
-            for cr in crs:
-                tags = tags_by_cr.get(cr) or tags_by_cr.get('CR' + cr) or []
-                group, alias = _match_compute_cr_tag_aliases(tags, groups)
-                rows[cr] = {'cr_tags': tags, 'cr_tag': group, 'cr_tag_alias': alias}
-            cache_payload = _save_compute_cr_tag_cache(target_name, rows)
-            _PDT_CR_TAG_JOBS[job_id].update({
-
-                'state': 'done',
-                'done': len(crs),
-                'total': len(crs),
-                'rows': rows,
-                'cache_path': _compute_cr_tag_cache_path(target_name),
-                'cache_updated_at': cache_payload.get('updated_at'),
-                'message': 'CR TAG fetch completed and saved.',
-                'updated_at': time.time(),
-            })
-
-        except Exception as exc:
-            logger.warning('[PDT CR TAG JOB] failed', exc_info=True)
-            _PDT_CR_TAG_JOBS[job_id].update({
-                'success': False,
-                'state': 'error',
-                'message': str(exc),
-                'updated_at': time.time(),
-            })
-
-    import threading
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({'success': True, 'job_id': job_id, 'total': len(crs)})
-
-
-@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_cr_tags/status/<string:job_id>")
-@login_required
-def api_pdt_cr_tags_status(target_name, job_id):
-    job = _PDT_CR_TAG_JOBS.get(job_id)
-    if not job:
-        return jsonify({'success': False, 'state': 'missing', 'message': 'CR TAG job not found.'}), 404
-    return jsonify(job)
-
-
-@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_tag_aliases", methods=["GET", "POST"])
-@login_required
-def api_compute_cr_tag_aliases(target_name):
-
-    if not _is_compute_cr_tag_enabled_target(target_name):
-        return jsonify({'success': False, 'message': 'CR TAG aliases are disabled for this target.'}), 403
-    if request.method == 'GET':
-        return jsonify({'success': True, 'groups': _load_compute_cr_tag_alias_config()})
-    data = request.get_json(force=True) or {}
-    groups = _save_compute_cr_tag_alias_config(data.get('groups') or [])
-    return jsonify({'success': True, 'groups': groups, 'message': 'CR TAG aliases saved.'})
-
-
-# =============================================================================
-# PDT TAGGING
-#   GET  /api/dashboard/<target>/pdt_tags  - read existing PDT tags via orbit_client
-
-#   POST /api/dashboard/<target>/pdt_tag   - add/remove tags via PDT_Stats.exe subprocess
-# =============================================================================
-
-PDT_STATS_EXE = r"C:\Dropbox\DATA_MINING\PDT_Stats.exe"
-
-
-@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_tags", methods=["GET", "POST"])
-@login_required
-def api_pdt_tags_get(target_name):
-    """
-    Return existing PDT tags on the given CRs.
-    GET  ?crs=1234,5678   (small lists)
-    POST {crs: [1234, 5678]}  (large lists - avoids URL length limit)
-    Response: { tags: ["PDT_P1", ...] }
-    """
-    from orbit_client import bulk_get_cr_tags
-    if request.method == "POST":
-        body    = request.get_json(force=True) or {}
-        cr_list = [str(c).strip() for c in (body.get("crs") or []) if str(c).strip().isdigit()]
-    else:
-        crs_raw = (request.args.get("crs") or "").strip()
-        cr_list = [c.strip() for c in crs_raw.split(",") if c.strip().isdigit()]
-    if not cr_list:
-        return jsonify({"tags": []})
-    # Cap at 200 CRs to avoid overloading Orbit API
-    cr_list = cr_list[:200]
-    try:
-        all_tags_map = bulk_get_cr_tags(cr_list)
-        tags_set = set()
-        for tag_list in all_tags_map.values():
-            for t in tag_list:
-                if t.strip():
-                    tags_set.add(t.strip())
-        all_tags  = sorted(tags_set)
-        pdt_tags  = [t for t in all_tags if "PDT" in t.upper()]
-        return jsonify({"tags": all_tags, "pdt_tags": pdt_tags})
-    except Exception as e:
-        logger.warning(f"[PDT TAGS GET] {e}")
-        return jsonify({"tags": [], "error": str(e)})
-
-
-@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_tag", methods=["POST"])
-@login_required
-def api_pdt_tag_post(target_name):
-    """
-    Add / remove PDT tags on a list of CRs by calling PDT_Stats.exe via subprocess.
-    PDT_Stats.exe handles its own Orbit auth internally.
-
-    Body: { crs: ["4520954", ...], add_tag: "PDT_P1", remove_tags: ["PDT_P2"] }
-    Response: { success: bool, message: str }
-
-    PDT_Stats.exe command:
-      PDT_Stats.exe  CRS="CR111,CR222"  CrTags="PDT_P1"  RemoveCrTags="PDT_P2"
-    """
-    import subprocess, re as _re
-
-    data        = request.get_json(force=True) or {}
-    cr_list     = [str(c).strip() for c in (data.get("crs") or []) if str(c).strip().isdigit()]
-    add_tag     = str(data.get("add_tag") or "").strip()
-    remove_tags = [str(t).strip() for t in (data.get("remove_tags") or []) if str(t).strip()]
-
-    if not cr_list:
-        return jsonify({"success": False, "message": "No valid CR numbers provided."})
-    if not add_tag and not remove_tags:
-        return jsonify({"success": False, "message": "Specify at least one tag to Add or Remove."})
-
-    tag_re = _re.compile(r"^[A-Za-z0-9_]{3,}$")
-    if add_tag and not tag_re.match(add_tag):
-        return jsonify({"success": False, "message": f"Invalid add tag: '{add_tag}'"})
-    for rt in remove_tags:
-        if not tag_re.match(rt):
-            return jsonify({"success": False, "message": f"Invalid remove tag: '{rt}'"})
-
-    # Build CRS= param: PDT_Stats.exe expects "CR1234,CR5678" format
-    crs_param = ",".join("CR" + c for c in cr_list)
-
-    # Build command
-    cmd = [PDT_STATS_EXE, f'CRS="{crs_param}"']
-    if add_tag:
-        cmd.append(f'CrTags="{add_tag}"')
-    if remove_tags:
-        cmd.append(f'RemoveCrTags="{",".join(remove_tags)}"')
-
-    logger.info(f"[PDT TAG] Running: {' '.join(cmd)}")
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            cwd=r"C:\Dropbox\DATA_MINING"
-        )
-        output = (result.stdout or "") + (result.stderr or "")
-        logger.info(f"[PDT TAG] Output: {output[:500]}")
-
-        # PDT_Stats.exe prints "Added tag(s) successfully" / "Removed tag(s) successfully"
-        added_count   = output.count("Added tag(s) successfully")
-        removed_count = output.count("Removed tag(s) successfully")
-
-        if result.returncode != 0 and added_count == 0 and removed_count == 0:
-            return jsonify({"success": False, "message": f"PDT_Stats.exe error: {output[:300]}"})
-
-        parts = []
-        if add_tag:    parts.append(f"'{add_tag}' added to {added_count}/{len(cr_list)} CR(s)")
-        if remove_tags: parts.append(f"{remove_tags} removed from {removed_count}/{len(cr_list)} CR(s)")
-        msg = "  |  ".join(parts) or "Done"
-
-        return jsonify({"success": True, "message": msg})
-
-    except subprocess.TimeoutExpired:
-        return jsonify({"success": False, "message": "PDT_Stats.exe timed out (>120s)"})
-    except FileNotFoundError:
-        return jsonify({"success": False, "message": f"PDT_Stats.exe not found at {PDT_STATS_EXE}"})
-    except Exception as e:
-        logger.error(f"[PDT TAG POST] {e}")
-        return jsonify({"success": False, "message": str(e)})
