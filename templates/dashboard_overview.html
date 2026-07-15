@@ -706,7 +706,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return 'valid';
   }
 
-  function _isStatusActive(r){
+    function _isStatusActive(r){
     var s = String(r.cr_status||r.status||"").trim();
     if(!s) return true;
     // exact match first
@@ -719,6 +719,10 @@ document.addEventListener('DOMContentLoaded', function () {
     return false;
   }
 
+  function _isRowInActiveCategory(r){
+    return !!_activeCrCategories[_rowCategoryGroup(r)];
+  }
+
     function _isRowActive(r){
     var group = _rowCategoryGroup(r);
     if(!_activeCrCategories[group]) return false;
@@ -727,6 +731,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if(group === 'valid' || group === 'invalid') return _isStatusActive(r);
     return true;
   }
+
 
   function _groupLabel(){
     return _crAgeGroup==='subsystem' ? 'Subsystem' : (_crAgeGroup==='func' ? 'Functionality' : 'Area');
@@ -854,7 +859,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var builtMap = {};    // Built/Fix/Ready selected statuses
     var ageMap = {};      // all selected statuses for Average TAT
 
-    (allCrRows||[]).forEach(function(r){
+        (allCrRows||[]).forEach(function(r){
+      if(!_isRowInActiveCategory(r)) return;
+
       var key = _crAgeGroupKey(r);
       if(!totalMap[key]) totalMap[key]={count:0,totalAge:0,ageCount:0};
       totalMap[key].count++;
@@ -870,6 +877,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
             if(_isRowActive(r)){
+
         if(!ageMap[key]) ageMap[key]={totalAge:0,ageCount:0};
         var sa=Number(r.cr_age||0);
         if(sa>0){ ageMap[key].totalAge+=sa; ageMap[key].ageCount++; }
@@ -1142,8 +1150,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var data = _getActiveData();
 
         var activeLabels = _activeStatusLabelsForSelectedCategories();
-    var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
-    var totalOverall = (allCrRows||[]).length;
+        var totalSelected = (allCrRows||[]).filter(_isRowActive).length;
+    var totalOverall = (allCrRows||[]).filter(_isRowInActiveCategory).length;
+
                 var nonBuiltActiveLabels = activeLabels.filter(function(lbl){
       return !_isBuiltFixReadyStatus(lbl, '');
     });
@@ -2054,7 +2063,7 @@ buildHeader(); buildFilters(); applyFilters();
     });
   }
 
-  function _downloadChartPng(blob) {
+    function _downloadChartPng(blob) {
     try {
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');

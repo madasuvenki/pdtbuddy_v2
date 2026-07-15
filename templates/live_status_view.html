@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -1406,9 +1406,12 @@ function crAddBuildFromRow(metaId, buildFull, domain){
   _adasModalClear();
   document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
 
-  // Pre-fill Meta-ID when called from a row
-  if(metaId){
-    document.getElementById('adasModalMetaId').value = String(metaId);
+      // Pre-fill with the full build when available. The MTBF table's
+  // Meta-ID column stores the build identifier; using only the short/group
+  // label can lose trailing flavor/suffix text such as STD.PVM-1.
+  const mtbfBuildValue = String(buildFull || metaId || '').trim();
+  if(mtbfBuildValue){
+    document.getElementById('adasModalMetaId').value = mtbfBuildValue;
   }
 
   // Show the view-selector row so the user can confirm / change the domain
@@ -1437,8 +1440,8 @@ function crAddBuildFromRow(metaId, buildFull, domain){
   }
 
   document.getElementById('adasModal').style.display = 'flex';
-  // Focus hours field if Meta-ID is pre-filled, otherwise focus Meta-ID
-  const focusEl = metaId
+    // Focus hours field if build/meta is pre-filled, otherwise focus Meta-ID
+  const focusEl = mtbfBuildValue
     ? document.getElementById('adasModalHours')
     : document.getElementById('adasModalMetaId');
   if(focusEl) setTimeout(() => focusEl.focus(), 80);
@@ -1899,7 +1902,7 @@ function _crRenderBuildCards(){
         </div>
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px">
-        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534;font-size:10px" onclick="event.stopPropagation();crAddBuildFromRow('${esc(g.meta)}','','${esc(g.domain)}')" title="Add to MTBF"><i class="fas fa-plus"></i></button>
+        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534;font-size:10px" onclick="event.stopPropagation();crAddBuildFromRow('${esc(g.meta)}','${esc(builds[0] || g.meta)}','${esc(g.domain)}')" title="Add to MTBF"><i class="fas fa-plus"></i></button>
         ${isActive ? `<span style="font-size:9px;font-weight:900;color:#6366f1"><i class="fas fa-bolt"></i> Active</span>` : `<span style="font-size:9px;color:#94a3b8">Click to scope</span>`}
       </div>
     </div>`;
@@ -2105,7 +2108,7 @@ function _crCrashType(row){
 function _crJiraKey(j){ return String(j?.final_key || j?.key || j?.stability_ticket || j?.ticket || '').toUpperCase(); }
 
 // CR classification helpers (mirrors build_report_standalone.html)
-const _CR_EQ_PREFIXES = ['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN'];
+const _CR_EQ_PREFIXES = ['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG','ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO','WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'];
 function _isTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
 function _isCrEquiv(k){ const u=String(k||'').toUpperCase(); return _CR_EQ_PREFIXES.some(p=>u.startsWith(p+'-')); }
 

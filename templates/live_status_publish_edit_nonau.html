@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -349,8 +349,8 @@
              </div>
             <div class="tbl-wrap" style="max-height:380px;margin-bottom:14px">
               <table class="tbl">
-                <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
-                <tbody id="crTbody"><tr><td colspan="9" class="empty" style="padding:32px;font-size:14px;color:#64748b;text-align:center"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:10px;color:#a5b4fc"></i><b>Select a build</b> from the left panel to load the CR report.</td></tr></tbody>
+                <thead><tr><th>#</th><th>CR</th><th>Title</th><th>JIRA Count</th><th>Crash Type</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Age</th><th>Resolution / Status</th></tr></thead>
+                <tbody id="crTbody"><tr><td colspan="10" class="empty" style="padding:32px;font-size:14px;color:#64748b;text-align:center"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:10px;color:#a5b4fc"></i><b>Select a build</b> from the left panel to load the CR report.</td></tr></tbody>
               </table>
             </div>
 
@@ -2362,7 +2362,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
   window.brToggleCrashType=function(k){_crashFilters[k]=!_crashFilters[k]; var b=g('brCrashBtn_'+k); if(b){b.style.opacity=_crashFilters[k]?'1':'0.4'; b.style.textDecoration=_crashFilters[k]?'':'line-through';} window.brFilterCrTable();};
   function waitForResult(jobId){return new Promise(function(resolve,reject){var tries=0,t=setInterval(function(){tries++; fetch('/api/consolidated_report/result/'+jobId,{cache:'no-store'}).then(function(r){return r.status===202?null:r.json();}).then(function(d){if(!d){if(tries>120){clearInterval(t);reject(new Error('Timed out waiting for report'));}return;} clearInterval(t); resolve(d);}).catch(function(e){clearInterval(t);reject(e);});},1500);});}
   function crashType(row){var t=[row.crash_type,row.type,row.cr_title,row.title,row.cr_area,row.cr_subsystem].join(' ').toLowerCase(); if(t.indexOf('system')>=0)return 'system'; if(/\bssr\b|subsystem restart/.test(t))return 'ssr'; return 'process';}
-  var CR_EQ_PFX=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG'];
+  var CR_EQ_PFX=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG','ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO','WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'];
   function isCrEquiv(k){var u=String(k||'').toUpperCase(); return CR_EQ_PFX.some(function(p){return u.indexOf(p+'-')===0;});}
   function isTrueCr(k){return /^CR\d{5,9}$/i.test(String(k||'').trim());}
   function stBadge(st){var s=String(st||'').toLowerCase(); var c=s.indexOf('open')>=0||s.indexOf('hold')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':s.indexOf('closed')>=0||s.indexOf('invalid')>=0?'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5':s.indexOf('ready')>=0||s.indexOf('analysis')>=0||s.indexOf('information')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':s.indexOf('fix')>=0||s.indexOf('progress')>=0?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0'; return '<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+c+'">'+esc(st||'--')+'</span>';}
@@ -3196,7 +3196,12 @@ if(!window.ojClear)  window.ojClear  = function(){};
     return String(j.key||j.stability_ticket||j.jira_key||j.final_key||'').toUpperCase();
   }
   function _lspCrashType(row){
-    var t = [row&&row.crash_type, row&&row.type, row&&row.cr_title, row&&row.title, row&&row.cr_area, row&&row.cr_subsystem].join(' ').toLowerCase();
+    var t = [
+      row&&row.crash_type, row&&row.type, row&&row.cr_title, row&&row.title,
+      row&&row.summary, row&&row.final_summary, row&&row.jira_title,
+      row&&row.resolution_notes_text, row&&row.resolution_notes, row&&row.final_resolution_notes,
+      row&&row.cr_area, row&&row.cr_subsystem, row&&row.serial_no, row&&row.mcn_no, row&&row.reporter
+    ].join(' ').toLowerCase();
     if(t.indexOf('system')>=0) return 'System';
     if(/\bssr\b|subsystem restart/.test(t)) return 'SSR';
     return 'Process';
@@ -3212,7 +3217,21 @@ if(!window.ojClear)  window.ojClear  = function(){};
     (row&&row.jiras||[]).forEach(function(j){
       var key = typeof j==='string' ? String(j).toUpperCase() : _lspJiraKeyFromIssue(j);
       if(!key||seen.has(key)) return; seen.add(key);
-      out.push({key:key, title:typeof j==='string'?'':(j.summary||j.jira_title||j.final_summary||''), status:typeof j==='string'?'':(j.status||j.final_status||'')});
+      out.push({
+        key:key,
+        title:typeof j==='string'?'':(j.final_summary||j.summary||j.jira_title||''),
+        final_summary:typeof j==='string'?'':(j.final_summary||''),
+        summary:typeof j==='string'?'':(j.summary||''),
+        status:typeof j==='string'?'':(j.status||j.final_status||''),
+        crash_type:typeof j==='string'?'':(j.crash_type||j.type||''),
+        type:typeof j==='string'?'':(j.type||j.crash_type||''),
+        resolution_notes_text:typeof j==='string'?'':(j.resolution_notes_text||j.resolution_notes||j.final_resolution_notes||''),
+        cr_area:typeof j==='string'?'':(j.cr_area||''),
+        cr_subsystem:typeof j==='string'?'':(j.cr_subsystem||''),
+        serial_no:typeof j==='string'?'':(j.serial_no||j.mcn_no||''),
+        mcn_no:typeof j==='string'?'':(j.mcn_no||''),
+        reporter:typeof j==='string'?'':(j.reporter||'')
+      });
     });
     return out;
   }
@@ -3532,6 +3551,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
         +'<td style="padding:9px 12px">'+crLink+'</td>'
         +'<td style="max-width:380px;padding:9px 12px">'+_esc(r.title||'--')+'</td>'
         +'<td style="text-align:center;padding:9px 12px">'+cntHtml+openBadge+invalidBadge+'</td>'
+        +'<td style="white-space:nowrap;font-size:11px;font-weight:900;padding:9px 12px">'+_esc(_lspCrashTypeSummary(jiraItems,r))+'</td>'
         +'<td style="padding:9px 12px">'+_esc(r.area||'--')+'</td>'
         +'<td style="padding:9px 12px">'+_esc(r.sub||'--')+'</td>'
         +'<td style="padding:9px 12px">'+_esc(r.func||'--')+'</td>'

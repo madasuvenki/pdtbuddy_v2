@@ -163,6 +163,30 @@
 .bu-nav-btn,
 .bu-action-btn { z-index: 32 !important; pointer-events: auto !important; }
 #buContentFrame { position: relative; z-index: 1; }
+.bu-frame-status {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: calc(100vh - 58px);
+  padding: 28px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+  background: linear-gradient(135deg,#f8fafc,#eef2ff);
+}
+.bu-frame-status__box {
+  max-width: 520px;
+  width: 100%;
+  border: 1px solid #c7d2fe;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(37,99,235,.12);
+  padding: 18px 20px;
+  text-align: center;
+}
+.bu-frame-status__box i { color: #4f46e5; }
+.bu-frame-status__actions { margin-top: 12px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
 
 </style>
 {% block shell_extra_css %}{% endblock %}
@@ -333,6 +357,11 @@
             {% block shell_inner_content %}{% endblock %}
           </div>
           {# iframe for BU pages loaded without full page redirect #}
+          <div id="buFrameStatus" class="bu-frame-status" aria-live="polite">
+            <div class="bu-frame-status__box" id="buFrameStatusBox">
+              <i class="fas fa-circle-notch spin"></i> Loading...
+            </div>
+          </div>
           <iframe id="buContentFrame" src="" style="display:none;" title="BU Content" allowfullscreen></iframe>
           
         </div>
@@ -456,8 +485,43 @@
     // ── BU nav buttons → load in iframe (no full page redirect) ──────────────
   const inlineContent = document.getElementById('buInlineContent');
   const frame         = document.getElementById('buContentFrame');
+  const frameStatus   = document.getElementById('buFrameStatus');
+  const frameStatusBox = document.getElementById('buFrameStatusBox');
   const navBtns       = document.querySelectorAll('.bu-nav-btn[data-frame-url]');
   const buildReportBtns = document.querySelectorAll('.bu-nav-btn[data-build-report-url]');
+  let buFrameLoadTimer = null;
+
+  function buSetFrameStatus(html, visible) {
+    if (!frameStatus || !frameStatusBox) return;
+    frameStatusBox.innerHTML = html || '';
+    frameStatus.style.display = visible ? 'flex' : 'none';
+  }
+
+  function buShowBuildReport(btn, options) {
+    options = options || {};
+    const url = btn && btn.dataset ? btn.dataset.buildReportUrl : '';
+    if (!url || !frame || !inlineContent) return false;
+    document.querySelectorAll('.bu-nav-btn.is-active').forEach(function(x){ x.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+    inlineContent.style.display = 'none';
+    frame.style.display = 'block';
+    buSetFrameStatus('<i class="fas fa-circle-notch spin"></i> Loading Build Report...', true);
+    if (buFrameLoadTimer) clearTimeout(buFrameLoadTimer);
+    buFrameLoadTimer = setTimeout(function(){
+      buSetFrameStatus(
+        '<i class="fas fa-triangle-exclamation"></i> Build Report is still loading. If the panel stays blank, open it directly.' +
+        '<div class="bu-frame-status__actions"><a class="bu-action-btn" style="text-decoration:none;display:inline-flex;width:auto;padding:8px 12px" href="' + url + '" target="_top"><i class="fas fa-external-link-alt"></i><span class="bu-action-label">Open Build Report</span></a></div>',
+        true
+      );
+    }, 8000);
+    if (frame.getAttribute('src') !== url || options.forceReload) {
+      frame.src = url;
+    } else {
+      buSetFrameStatus('', false);
+    }
+    try { window.history.replaceState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
+    return true;
+  }
 
       // ── Restore iframe state on page refresh ───────────────────────────────
   // When the user refreshes /cr_overview/embed?frame=build-report the shell
@@ -467,23 +531,10 @@
   const params = new URLSearchParams(window.location.search || '');
   const frameParam = params.get('frame');
   if (frameParam === 'build-report') {
-    // Find the Build Report button and simulate a click to restore the iframe
+    // Legacy iframe URL: Build Report now opens as a standalone full page.
     const brBtn = document.querySelector('.bu-nav-btn[data-build-report-url]');
-    if (brBtn && frame && inlineContent) {
-      const url = brBtn.dataset.buildReportUrl;
-      if (url) {
-        document.querySelectorAll('.bu-nav-btn.is-active').forEach(function(x){ x.classList.remove('is-active'); });
-        brBtn.classList.add('is-active');
-        inlineContent.style.display = 'none';
-        frame.style.display = 'block';
-        frame.src = url;
-        // Keep ?frame=build-report in the URL so next refresh works too
-        try {
-          window.history.replaceState({buildReport:true}, '',
-            {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report');
-        } catch(e) {}
-      }
-    }
+    const brUrl = brBtn && brBtn.dataset ? brBtn.dataset.buildReportUrl : '';
+    if (brUrl) window.top.location.href = brUrl;
   } else if (frameParam) {
     // Unknown frame param — strip it cleanly
     try {
@@ -511,13 +562,7 @@
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       const url = btn.dataset.buildReportUrl;
-      if (!url || !frame || !inlineContent) return;
-      document.querySelectorAll('.bu-nav-btn.is-active').forEach(function(x){ x.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-      inlineContent.style.display = 'none';
-      frame.style.display = 'block';
-      frame.src = url;
-      try { window.history.replaceState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
+      if (url) window.top.location.href = url;
     });
   });
 
@@ -530,6 +575,8 @@
   // This ensures all target dashboards always load with the full target_layout panel
   if (frame) {
     frame.addEventListener('load', function() {
+      if (buFrameLoadTimer) { clearTimeout(buFrameLoadTimer); buFrameLoadTimer = null; }
+      buSetFrameStatus('', false);
       try {
         var iframeUrl = frame.contentWindow.location.href;
         if (iframeUrl && (
