@@ -39,7 +39,16 @@ from live_status_publish_service import (
     _delete_sidecars,
     set_weekly_report_selection,
     _utc_now,
-    _SWPDT_JSON,
+        _SWPDT_JSON,
+)
+
+from live_view_saved_jql_service import (
+    list_tabs as list_saved_jql_tabs,
+    save_tab as save_saved_jql_tab,
+    delete_tab as delete_saved_jql_tab,
+    get_tab as get_saved_jql_tab,
+    get_cached_report as get_saved_jql_cached_report,
+    set_cached_report as set_saved_jql_cached_report,
 )
 
 def _iframe_aware_redirect(url):
@@ -656,6 +665,170 @@ def _get_target_report_job_for_api(target_name):
         return job, None
     return {'id': '', 'status': 'published', 'targets': [target], 'published_rows': [], 'draft_rows': []}, None
 
+
+
+def _saved_jql_domain_or_400(value, target_name: str = ""):
+    """Validate and normalise the domain parameter.
+
+    For Automotive Gen4.5 targets the domain can be ADAS/FLEX/IVI or
+    platform-specific HQX/HGY. HQX and HGY must be accepted directly so
+    Gen4.5 saved JQL tabs, cached reports, and run timers are isolated by
+    platform.
+
+    For NORD_HQX / NORD_HGY and other non-Gen4.5 automotive targets the
+    domain is derived from the target name itself (e.g. 'NORD_HQX') so
+    that each target has its own isolated tab namespace.
+    """
+    domain = str(value or '').strip().upper()
+    # If caller passed a valid Gen4.5 domain/platform, accept it directly.
+    if domain in {'ADAS', 'FLEX', 'IVI', 'HQX', 'HGY'}:
+        return domain, None
+    # For NORD / non-Gen4.5 targets: use the target name as the domain key
+    if target_name:
+        safe = str(target_name).strip().upper().replace(' ', '_')
+        return safe, None
+    return '', ({'ok': False, 'error': 'Domain must be ADAS, FLEX, IVI, HQX, or HGY (or provide a valid target)'}, 400)
+
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/saved_jql_tabs', methods=['GET'])
+@login_required
+def api_live_status_saved_jql_tabs(target_name):
+    if not _can_view_live_status_target(target_name):
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    if not _is_core_deck_target(target_name):
+        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
+    domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
+    if err:
+        return jsonify(err[0]), err[1]
+    tabs = list_saved_jql_tabs(target_name, domain)
+    return jsonify({'ok': True, 'tabs': tabs, 'target': target_name, 'domain': domain})
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/saved_jql_tabs', methods=['POST'])
+@login_required
+def api_live_status_saved_jql_tabs_save(target_name):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    if not _is_core_deck_target(target_name):
+        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
+    payload = request.get_json(silent=True) or {}
+    domain, err = _saved_jql_domain_or_400(payload.get('domain'), target_name)
+    if err:
+        return jsonify(err[0]), err[1]
+    try:
+        row = save_saved_jql_tab(
+            target_name,
+            domain,
+            tab_id=payload.get('id'),
+            name=payload.get('name'),
+            jql=payload.get('jql'),
+            username=getattr(current_user, 'id', 'unknown'),
+        )
+        return jsonify({'ok': True, 'tab': row, 'tabs': list_saved_jql_tabs(target_name, domain)})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/saved_jql_tabs/<tab_id>', methods=['DELETE'])
+@login_required
+def api_live_status_saved_jql_tabs_delete(target_name, tab_id):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    if not _is_core_deck_target(target_name):
+        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
+    domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
+    if err:
+        return jsonify(err[0]), err[1]
+    deleted = delete_saved_jql_tab(target_name, domain, tab_id)
+    return jsonify({'ok': True, 'deleted': bool(deleted), 'tabs': list_saved_jql_tabs(target_name, domain)})
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/saved_jql_tabs/<tab_id>/report', methods=['GET'])
+@login_required
+def api_live_status_saved_jql_tab_report(target_name, tab_id):
+    if not _can_view_live_status_target(target_name):
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    if not _is_core_deck_target(target_name):
+        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
+    domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
+    if err:
+        return jsonify(err[0]), err[1]
+    tab = get_saved_jql_tab(target_name, domain, tab_id)
+    if not tab:
+        return jsonify({'ok': False, 'error': 'Saved tab not found'}), 404
+
+    force = str(request.args.get('force') or '').lower() in ('1', 'true', 'yes')
+
+    # Return valid cache if not forced and not stale
+    if not force:
+        cached = get_saved_jql_cached_report(target_name, domain, tab_id)
+        if cached:
+            cached = dict(cached)
+            cached['ok'] = True
+            cached['from_cache'] = True
+            cached['tab'] = tab
+            return jsonify(cached)
+
+    # No cache (or forced) — execute the JQL now and cache the result
+    jql = str(tab.get('jql') or '').strip()
+    rows_out = []
+    run_error = None
+    if jql:
+        try:
+            import os as _os, sys as _sys
+            _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
+            if _scripts_dir not in _sys.path:
+                _sys.path.insert(0, _scripts_dir)
+            from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
+            from fetch_consolidated_report import connect_jira
+            jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+            start = 0
+            page_size = 100
+            while True:
+                results = jira_obj.search_issues(
+                    jql,
+                    startAt=start,
+                    maxResults=page_size,
+                    fields='summary,status,assignee,priority,created,updated,issuetype'
+                )
+                issues = list(results or [])
+                if not issues:
+                    break
+                for issue in issues:
+                    f = issue.fields
+                    rows_out.append({
+                        'key':        str(issue.key or ''),
+                        'summary':    str(getattr(f, 'summary', '') or ''),
+                        'status':     str(getattr(getattr(f, 'status', None), 'name', '') or ''),
+                        'assignee':   str(getattr(getattr(f, 'assignee', None), 'displayName', '') or ''),
+                        'priority':   str(getattr(getattr(f, 'priority', None), 'name', '') or ''),
+                        'issuetype':  str(getattr(getattr(f, 'issuetype', None), 'name', '') or ''),
+                        'created':    str(getattr(f, 'created', '') or '')[:10],
+                        'updated':    str(getattr(f, 'updated', '') or '')[:10],
+                    })
+                start += len(issues)
+                if start >= getattr(results, 'total', 0):
+                    break
+        except Exception as exc:
+            logger.warning('[SAVED JQL REPORT] JQL execution failed for %s/%s: %s', target_name, tab_id, exc)
+            run_error = str(exc)
+
+    payload = {
+        'tab':        tab,
+        'rows':       rows_out,
+        'count':      len(rows_out),
+        'jql':        jql,
+        'target':     target_name,
+        'domain':     domain,
+        'from_cache': False,
+    }
+    if run_error:
+        payload['run_error'] = run_error
+    stored = set_saved_jql_cached_report(target_name, domain, tab_id, payload)
+    stored['ok'] = True
+    stored['tab'] = tab
+    return jsonify(stored)
 
 
 def _published_jobs_by_bu_context():

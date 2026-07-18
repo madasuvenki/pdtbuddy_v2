@@ -778,9 +778,9 @@ def _auto_gen45_open_jiras_table_payload(target_name: str, fq_table: str) -> Dic
         return {"table": fq_table, "columns": [], "rows": [], "count": 0, "error": str(exc)}
 
 
-def _auto_gen45_open_crs_payload(target_name: str, sp: str) -> Dict[str, Any]:
+def _auto_gen45_open_crs_payload(target_name: str, sp: str, plat_key: str = "") -> Dict[str, Any]:
     cfg = _ensure_page_defaults(target_name)
-    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp, plat_key=plat_key)
     unique_table = sp_cfg.get("unique_crs_table") or ""
     if not unique_table:
         return {"ok": False, "success": False, "message": "No Unique CRs table configured for this SP", "rows": []}
@@ -871,14 +871,14 @@ def _auto_fetch_unique_cr_details_by_keys(target_name: str, unique_table: str, k
     return out
 
 
-def _auto_gen45_weekly_payload(target_name: str, sp: str, from_arg: str = "", to_arg: str = "") -> Dict[str, Any]:
+def _auto_gen45_weekly_payload(target_name: str, sp: str, from_arg: str = "", to_arg: str = "", plat_key: str = "") -> Dict[str, Any]:
     """Weekly report payload for Auto Gen4.5, shaped exactly like the HQX/HGY
     /api/live_status/targets/<target>/weekly_full response so the same
     cr_rows / jira_rows / open_jira_rows / pie_status / pie_area / counts /
     build_area_matrix contract is used everywhere.
     """
     cfg = _ensure_page_defaults(target_name)
-    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp, plat_key=plat_key)
     jiras_table = sp_cfg.get("jiras_table") or sp_cfg.get("target_table") or ""
     open_table = sp_cfg.get("openjiras_table") or ""
     unique_table = sp_cfg.get("unique_crs_table") or ""
@@ -1122,7 +1122,7 @@ def _auto_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, 
     return rows
 
 
-def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: str = "", crash_types: Optional[set] = None, job_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: str = "", crash_types: Optional[set] = None, job_ids: Optional[List[str]] = None, plat_key: str = "") -> Dict[str, Any]:
     """Build-wise report for Auto Gen4.5.
 
     For the Current Axiom Build detail (`selected_build`), match HQX/HGY/WBC:
@@ -1188,10 +1188,10 @@ def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: 
                 "error": str(exc),
             }
 
-    # Old-build Build Report tab still uses configured DB rows for historical
+        # Old-build Build Report tab still uses configured DB rows for historical
     # build lists. This is separate from the Current Axiom Build JQL report.
     cfg = _ensure_page_defaults(target_name)
-    sp_cfg = _auto_gen45_sp_config(cfg, sp)
+    sp_cfg = _auto_gen45_sp_config(cfg, sp, plat_key=plat_key)
     jiras_table = sp_cfg.get("jiras_table") or sp_cfg.get("target_table") or ""
     open_table = sp_cfg.get("openjiras_table") or ""
     if not jiras_table and not open_table:
@@ -1227,10 +1227,14 @@ def _auto_gen45_build_report_payload(target_name: str, sp: str, selected_build: 
 
 
 
-def _auto_gen45_sp_config(cfg: Dict[str, Any], sp: str) -> Dict[str, Any]:
+def _auto_gen45_sp_config(cfg: Dict[str, Any], sp: str, plat_key: str = "") -> Dict[str, Any]:
     sheet_tables = cfg.get("sheet_tables") or {}
     sp_key = str(sp or "").strip()
-    candidates = [sp_key]
+    # Build candidate lookup keys — platform-specific first, then legacy fallback
+    candidates: list = []
+    if plat_key:
+        candidates.append(plat_key)
+    candidates.append(sp_key)
     if sp_key and not sp_key.upper().startswith("SP"):
         candidates.extend([f"SP {sp_key}", f"SP{sp_key}"])
     if sp_key.upper().startswith("SP"):
@@ -1244,33 +1248,24 @@ def _auto_gen45_sp_config(cfg: Dict[str, Any], sp: str) -> Dict[str, Any]:
     return {}
 
 
-def _auto_gen45_sp_db_payload(target_name: str, sp: str) -> Dict[str, Any]:
+def _auto_gen45_sp_db_payload(target_name: str, sp: str, plat_key: str = "") -> Dict[str, Any]:
     target_name = _canonical_target(target_name)
     cfg = _ensure_page_defaults(target_name)
     sp_key = str(sp or "").strip()
-    db_cfg = _auto_gen45_sp_config(cfg, sp_key) if sp_key else {}
+    db_cfg = _auto_gen45_sp_config(cfg, sp_key, plat_key=plat_key) if sp_key else {}
     jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
     open_table = db_cfg.get("openjiras_table") or ""
     unique_table = db_cfg.get("unique_crs_table") or ""
-    target_token = (
-        _auto_target_token_from_table(jiras_table)
-        or _auto_target_token_from_table(open_table)
-        or _auto_target_token_from_table(unique_table)
-    )
-    current = _current_running_builds(
-        target_name, jiras_table,
-        extra_tables=[open_table, unique_table],
-        strict=_is_auto_gen45_target(target_name),
-        target_token=target_token,
-    )
+    # Current page is now JQL/filter driven. Do not query axiom_job_summary here;
+    # callers should use saved/direct JQL to generate consolidated reports.
     return {
         "ok": True,
         "target": target_name,
         "sp": sp_key,
         "db_config": db_cfg,
-        "current_builds": current.get("rows") or [],
-        "source": current.get("source") or "",
-        "axiom_updated_at": current.get("updated_at") or "",
+        "current_builds": [],
+        "source": "jql_only",
+        "axiom_updated_at": "",
         "counts": {
             "total_jiras": _count_from_table(target_name, jiras_table, ["stability_ticket", "jira_id", "ticket"]),
             "open_jiras": _count_from_table(target_name, open_table, ["stability_ticket", "jira_id", "ticket"]),
@@ -1406,7 +1401,10 @@ def api_automotive_live_view_stats_sp_db_data(target_name: str):
     target_name = _canonical_target(target_name)
     if not _is_auto_gen45_target(target_name):
         return jsonify({"ok": False, "error": "SP DB data is Auto Gen4.5 only."}), 404
-    return jsonify(_auto_gen45_sp_db_payload(target_name, str(request.args.get("sp") or "").strip()))
+    sp = str(request.args.get("sp") or "").strip()
+    plat_key = str(request.args.get("plat_key") or "").strip()
+    return jsonify(_auto_gen45_sp_db_payload(target_name, sp, plat_key=plat_key))
+
 
 
 @automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_open_crs_full")
@@ -1416,7 +1414,9 @@ def api_automotive_live_view_stats_sp_open_crs_full(target_name: str):
     if not _is_auto_gen45_target(target_name):
         return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "rows": []}), 404
     try:
-        payload = _auto_gen45_open_crs_payload(target_name, str(request.args.get("sp") or "").strip())
+        sp = str(request.args.get("sp") or "").strip()
+        plat_key = str(request.args.get("plat_key") or "").strip()
+        payload = _auto_gen45_open_crs_payload(target_name, sp, plat_key=plat_key)
         return jsonify(payload), (200 if payload.get("success") else 400)
     except Exception as exc:
         return jsonify({"ok": False, "success": False, "message": str(exc), "rows": []}), 500
@@ -1429,11 +1429,14 @@ def api_automotive_live_view_stats_sp_weekly_report(target_name: str):
     if not _is_auto_gen45_target(target_name):
         return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "rows": []}), 404
     try:
+        sp = str(request.args.get("sp") or "").strip()
+        plat_key = str(request.args.get("plat_key") or "").strip()
         payload = _auto_gen45_weekly_payload(
             target_name,
-            str(request.args.get("sp") or "").strip(),
+            sp,
             str(request.args.get("from") or "").strip(),
             str(request.args.get("to") or "").strip(),
+            plat_key=plat_key,
         )
         return jsonify(payload), (200 if payload.get("success") else 400)
     except Exception as exc:
@@ -1448,6 +1451,7 @@ def api_automotive_live_view_stats_sp_build_wise_report(target_name: str):
         return jsonify({"ok": False, "success": False, "message": "Auto Gen4.5 only", "builds": [], "detail_rows": []}), 404
     try:
         sp = str(request.args.get("sp") or "").strip()
+        plat_key = str(request.args.get("plat_key") or "").strip()
         build = str(request.args.get("build") or "").strip()
         crash_types_raw = str(request.args.get("crash_types") or "system,ssr,process,open_jira")
         crash_types = {c.strip().lower() for c in crash_types_raw.split(",") if c.strip()} or {"system", "ssr", "process", "open_jira"}
@@ -1457,24 +1461,26 @@ def api_automotive_live_view_stats_sp_build_wise_report(target_name: str):
         job_ids_raw = str(request.args.get("job_ids") or "").strip()
         job_ids: List[str] = [j.strip() for j in job_ids_raw.split(",") if j.strip()] if job_ids_raw else []
 
-        # Only the per-build detail report (Current Running Build) is cached
+                # Only the per-build detail report (Current Running Build) is cached
         # for 30 minutes and shared across all users/page-refreshes. The
         # builds-summary call (no `build` param) is cheap and always live.
         if not build:
-            payload = _auto_gen45_build_report_payload(target_name, sp, build, crash_types)
+            payload = _auto_gen45_build_report_payload(target_name, sp, build, crash_types, plat_key=plat_key)
             return jsonify(payload), (200 if payload.get("success") else 400)
 
-        # Include job_ids in cache key so different SPs get separate cached reports
+        # Include job_ids and plat_key in cache key so different SPs/platforms get separate cached reports
         job_ids_key = ",".join(sorted(job_ids)) if job_ids else ""
-        cache_key = f"v3-jql-current|{target_name}|{sp}|{build.lower()}|{','.join(sorted(crash_types))}|{job_ids_key}"
+        cache_key = f"v3-jql-current|{target_name}|{sp}|{plat_key}|{build.lower()}|{','.join(sorted(crash_types))}|{job_ids_key}"
         if force:
             _current_build_report_cache.pop(cache_key, None)
         payload = _cached_current_build_report(
             cache_key,
             _CURRENT_BUILD_REPORT_TTL_SECONDS,
-            lambda: _auto_gen45_build_report_payload(target_name, sp, build, crash_types, job_ids),
+            lambda: _auto_gen45_build_report_payload(target_name, sp, build, crash_types, job_ids, plat_key=plat_key),
         )
         return jsonify(payload), (200 if payload.get("success") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "success": False, "message": str(exc), "builds": [], "detail_rows": []}), 500
     except Exception as exc:
         return jsonify({"ok": False, "success": False, "message": str(exc), "builds": [], "detail_rows": []}), 500
 

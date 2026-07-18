@@ -1,4 +1,4 @@
-{% extends "target_layout.html" %}
+﻿{% extends "target_layout.html" %}
 {% block page_heading %}{{ selected_sheet if is_compute_mtbf and selected_sheet else target_display_name }} â€“ Stability Trend{% endblock %}
 {% block page_content %}
 <style>
@@ -592,7 +592,7 @@
 
 </div><!-- /mx-wrap -->
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/chart.umd.min.js"></script>
 <script>
 (function(){
   const target = {{ target_name|tojson }};
@@ -1024,7 +1024,7 @@ window.mxCopyChart = function(){
         const payload = JSON.stringify({title, fileName, data, metrics, labelMode, is_compute_mtbf: IS_COMPUTE_MTBF});
 
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title.replace(/[<>&]/g,'')}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
+<script src="/static/js/chart.umd.min.js"><\/script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#0f172a;overflow:auto}.bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#111827,#334155);box-shadow:0 4px 20px rgba(15,23,42,.18)}.title{color:#fff;font-size:14px;font-weight:900;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer}.btn:hover{background:rgba(255,255,255,.25)}.hint{font-size:11px;color:#64748b;padding:8px 16px;background:#fff;border-bottom:1px solid #e2e8f0}.wrap{padding:16px;overflow:auto}.canvas-shell{display:inline-block;background:#fff;border-radius:12px;box-shadow:0 4px 22px rgba(15,23,42,.12);padding:10px}canvas{display:block}.badge{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:999px;color:#fff;font-size:11px;font-weight:900;padding:4px 10px;white-space:nowrap}
 </style></head><body>

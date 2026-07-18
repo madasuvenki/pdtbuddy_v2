@@ -14,20 +14,27 @@
     .hero p{margin:0;color:#bfdbfe;font-size:14px;font-weight:600}
     .card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(15,23,42,.06)}
     .card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
+    .section-label{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:10px}
+    .hqx-label{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+    .hgy-label{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7}
     table{width:100%;border-collapse:collapse}
     th,td{padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:13px}
     th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
     tr:last-child td{border-bottom:0}
     a.ep{color:#1d4ed8;font-weight:700;font-size:12px;text-decoration:none}
     a.ep:hover{text-decoration:underline}
+    a.ep-hgy{color:#059669;font-weight:700;font-size:12px;text-decoration:none}
+    a.ep-hgy:hover{text-decoration:underline}
     .api-row{background:#0f172a;border-radius:12px;padding:12px 16px;margin:10px 0;display:flex;align-items:center;gap:10px}
     .api-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:13px;flex:1;word-break:break-all}
-    .get{background:#059669;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;flex-shrink:0}
+    .api-row.hgy code{color:#6ee7b7}
+        .get{background:#059669;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;flex-shrink:0}
     pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font-size:12px;overflow:auto;margin:10px 0 0;line-height:1.6}
     .param{font-size:12px;color:#64748b;margin:8px 0 0}
     .param b{color:#334155}
     .err{color:#dc2626;font-weight:800;font-size:13px}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .divider{border:none;border-top:2px dashed #e2e8f0;margin:20px 0}
     @media(max-width:760px){.grid2{grid-template-columns:1fr}}
   </style>
 </head>
@@ -35,11 +42,14 @@
 <div class="wrap">
   <div class="hero">
     <h1><i class="fas fa-plug"></i> Auto Gen4.5 Public MTBF API</h1>
-    <p>No login required &mdash; CORS enabled. Fetch SP data from the managed Auto Gen4.5 JSON.</p>
+    <p>No login required &mdash; CORS enabled. HQX and HGY are stored in separate JSON files and served via separate endpoints.</p>
   </div>
   {% if load_error %}<div class="card"><p class="err"><i class="fas fa-triangle-exclamation"></i> {{ load_error }}</p></div>{% endif %}
+
+  <!-- HQX SPs -->
   <div class="card">
-    <h2><i class="fas fa-microchip" style="color:#059669"></i> Available SPs</h2>
+    <h2><i class="fas fa-microchip" style="color:#1d4ed8"></i> Available SPs &mdash; HQX</h2>
+    <span class="section-label hqx-label"><i class="fas fa-microchip"></i> HQX Platform</span>
     <table>
       <thead><tr><th>SP</th><th>Program</th><th>Domain</th><th>Rows</th><th>Endpoint</th></tr></thead>
       <tbody>
@@ -52,22 +62,59 @@
           <td><a class="ep" href="{{ base }}/public/auto-gen45/api/sp/{{ item.sp }}" target="_blank">/api/sp/{{ item.sp }}</a></td>
         </tr>
       {% else %}
-        <tr><td colspan="5" style="color:#94a3b8;text-align:center;padding:20px">No SPs loaded.</td></tr>
+        <tr><td colspan="5" style="color:#94a3b8;text-align:center;padding:20px">No HQX SPs loaded.</td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
+
+  <!-- HGY SPs -->
+  <div class="card">
+    <h2><i class="fas fa-leaf" style="color:#059669"></i> Available SPs &mdash; HGY</h2>
+    <span class="section-label hgy-label"><i class="fas fa-leaf"></i> HGY Platform</span>
+    <table>
+      <thead><tr><th>SP</th><th>Program</th><th>Rows</th><th>Endpoint</th></tr></thead>
+      <tbody>
+      {% for item in available_hgy %}
+        <tr>
+          <td><b style="color:#065f46">{{ item.sp }}</b></td>
+          <td style="font-size:12px;color:#475569">{{ item.program }}</td>
+          <td>{{ item.row_count }}</td>
+          <td><a class="ep-hgy" href="{{ base }}/public/auto-gen45/api/hgy/sp/{{ item.sp }}" target="_blank">/api/hgy/sp/{{ item.sp }}</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" style="color:#94a3b8;text-align:center;padding:20px">No HGY builds added yet. Use the <b>Add Build</b> button on the Live View Stats page.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Endpoints -->
   <div class="card">
     <h2><i class="fas fa-code" style="color:#6366f1"></i> Endpoints</h2>
-    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:0 0 4px">API 1 &mdash; List all SPs</p>
+
+    <span class="section-label hqx-label"><i class="fas fa-microchip"></i> HQX &mdash; Read-only (no login required)</span>
+    <p style="font-size:12px;font-weight:800;color:#1d4ed8;margin:8px 0 4px">List all HQX SPs</p>
     <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/sps</code></div>
-    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:12px 0 4px">API 2 &mdash; Get SP rows</p>
+    <p style="font-size:12px;font-weight:800;color:#1d4ed8;margin:12px 0 4px">Get HQX rows for an SP</p>
     <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-    <p class="param"><b>last_n</b> &mdash; number of latest rows (0 = all) &bull; <b>summary</b> &mdash; include summary block (default true)</p>
+    <p class="param"><b>last_n</b> &mdash; latest N rows (0 = all) &bull; <b>summary</b> &mdash; include summary block (default true)</p>
+
+        <hr class="divider">
+
+    <span class="section-label hgy-label"><i class="fas fa-leaf"></i> HGY &mdash; Read-only (no login required)</span>
+    <p style="font-size:12px;font-weight:800;color:#059669;margin:8px 0 4px">List all HGY SPs</p>
+    <div class="api-row hgy"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sps</code></div>
+    <p style="font-size:12px;font-weight:800;color:#059669;margin:12px 0 4px">Get HGY rows for an SP</p>
+    <div class="api-row hgy"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sp/8620?last_n=5&amp;summary=true</code></div>
+    <p class="param"><b>last_n</b> &mdash; latest N rows (0 = all) &bull; <b>summary</b> &mdash; include summary block (default true)</p>
+
   </div>
+
+  <!-- Samples -->
   <div class="grid2">
     <div class="card">
-      <h2><i class="fas fa-list" style="color:#059669"></i> Sample: /api/sps</h2>
+      <h2><i class="fas fa-list" style="color:#1d4ed8"></i> Sample: /api/sps (HQX)</h2>
 <pre>{
   "ok": true,
   "count": 5,
@@ -82,7 +129,23 @@
 }</pre>
     </div>
     <div class="card">
-      <h2><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/sp/8620</h2>
+      <h2><i class="fas fa-leaf" style="color:#059669"></i> Sample: /api/hgy/sps</h2>
+<pre>{
+  "ok": true,
+  "platform": "HGY",
+  "count": 3,
+  "available_sps": [
+    {
+      "sp": "8775",
+      "program": "8775 (Flex)",
+      "platform": "HGY",
+      "row_count": 12
+    }
+  ]
+}</pre>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/sp/8620 (HQX)</h2>
 <pre>{
   "ok": true,
   "sp": "8620 (ADAS)",
@@ -105,7 +168,34 @@
   }
 }</pre>
     </div>
+    <div class="card">
+      <h2><i class="fas fa-leaf" style="color:#059669"></i> Sample: /api/hgy/sp/8775</h2>
+<pre>{
+  "ok": true,
+  "sp": "8775",
+  "platform": "HGY",
+  "row_count": 3,
+  "rows": [
+    {
+      "date": "2026-07-10",
+      "build_s": "SA8775P.HGY.1.0-00045",
+      "hours": 500,
+      "crashes": 20,
+      "mtbf": 25.0
+    }
+  ],
+  "summary": {
+    "row_count": 3,
+    "latest_date": "2026-07-10",
+    "latest_mtbf": 25.0,
+    "total_hours": 1200,
+    "total_crashes": 48
+  }
+}</pre>
+    </div>
   </div>
+
+
 </div>
 </body>
 </html>

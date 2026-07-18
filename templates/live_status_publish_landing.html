@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <!-- live_status_publish_landing ui-version: target-info-panels-v4 -->
 <html lang="en">
 
@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Live Status</title>
-  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='/static/css/fontawesome/all.min.css'">
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
         body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;min-height:100vh;}
@@ -361,8 +361,8 @@
         <div class="ls-group-body">
           <div class="ls-target-grid">
             {% for t in section.targets %}
-              {% if t.special_page|default(false) %}
-              <a class="ls-target-card" href="{{ t.target_url }}" data-target-card
+                            {% if t.special_page|default(false) %}
+              <a class="ls-target-card" href="{{ t.target_url }}" target="_top" data-target-card
                  data-search="{{ (t.name ~ ' ' ~ t.bu_name ~ ' ' ~ t.bu_key ~ ' ' ~ (t.special_desc or ''))|lower|e }}"
                  style="text-decoration:none;">
                 <div class="ls-target-top">
@@ -664,7 +664,12 @@
         var directLink = section.querySelector('a[data-target-card]');
         if (head && directLink) {
           head.style.cursor = 'pointer';
-          head.addEventListener('click', function(){ window.location.href = directLink.getAttribute('href'); });
+          head.addEventListener('click', function(){
+            var url = directLink.getAttribute('href');
+            // Always navigate the top window so the full-page auto_gen45 layout renders correctly
+            if(window.top && window.top !== window){ window.top.location.href = url; }
+            else { window.location.href = url; }
+          });
         }
         return;
       }

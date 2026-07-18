@@ -428,11 +428,16 @@ def public_auto_gen45_docs():
     except Exception as exc:
         available = []
         load_error = str(exc)
+    try:
+        available_hgy = _hgy_read_index()
+    except Exception:
+        available_hgy = []
 
     return render_template(
         "public_auto_gen45_api.html",
         base=base,
         available=available,
+        available_hgy=available_hgy,
         load_error=load_error,
     )
 
@@ -562,3 +567,222 @@ def api_public_auto_gen45_search():
     if request.method == "OPTIONS":
         return "", 204
         return jsonify({"ok": False, "message": "Search endpoint removed."}), 410
+
+
+# =============================================================================
+# HGY — completely separate JSON storage under by_sp/hgy/
+# All existing HQX endpoints above are untouched.
+# External tools that use /public/auto-gen45/api/sp/<sp> are unaffected.
+# =============================================================================
+
+_HGY_SEED_ROWS_BY_SP: Dict[str, List[Dict[str, Any]]] = {
+    "8255": [
+        {"excel_row": 2, "sno": 1, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00009-STD.INT-3", "meta_id": "Meta -9", "hours": 36, "mtbf": 36, "crashes": 1},
+        {"excel_row": 3, "sno": 2, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00012-STD.INT-1", "meta_id": "Meta -10", "hours": 135, "mtbf": 27, "crashes": 5},
+        {"excel_row": 4, "sno": 3, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00013-STD.INT-2", "meta_id": "Meta -13", "hours": 266, "mtbf": 13, "crashes": 20},
+        {"excel_row": 5, "sno": 4, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00014-STD.INT-2", "meta_id": "Meta -14", "hours": 260, "mtbf": 5, "crashes": 53},
+        {"excel_row": 6, "sno": 5, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00015-STD.INT-2", "meta_id": "Meta -15", "hours": 250, "mtbf": 3.8, "crashes": 65},
+        {"excel_row": 7, "sno": 6, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00016-STD.INT-2", "meta_id": "Meta -16", "hours": 130, "mtbf": 8.6, "crashes": 15},
+        {"excel_row": 8, "sno": 7, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00018-STD.INT-2", "meta_id": "Meta -18", "hours": 270, "mtbf": 22.5, "crashes": 12},
+        {"excel_row": 9, "sno": 8, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00019-STD.INT-2", "meta_id": "Meta -19", "hours": 160, "mtbf": 32, "crashes": 5},
+        {"excel_row": 10, "sno": 9, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00020-STD.INT-2", "meta_id": "Meta -20", "hours": 210, "mtbf": 7.8, "crashes": 27},
+        {"excel_row": 11, "sno": 10, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00021-STD.INT-1", "meta_id": "Meta -21", "hours": 230, "mtbf": 38.3, "crashes": 6},
+        {"excel_row": 12, "sno": 11, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00022-STD.INT-1", "meta_id": "Meta -22", "hours": 110, "mtbf": 18.3, "crashes": 12},
+        {"excel_row": 13, "sno": 12, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00023-STD.INT-1", "meta_id": "Meta -23", "hours": 330, "mtbf": 4.3, "crashes": 7},
+        {"excel_row": 14, "sno": 13, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00025-STD.INT-1", "meta_id": "Meta -25", "hours": 240, "mtbf": 48, "crashes": 5},
+    ]
+}
+
+
+def _hgy_seed_rows(sp: str) -> List[Dict[str, Any]]:
+    key = str(sp or "").strip()
+    return [dict(row) for row in _HGY_SEED_ROWS_BY_SP.get(key, [])]
+
+
+def _hgy_dir() -> str:
+    """Root dir for HGY per-SP JSON files: <Gen4.5 dir>/by_sp/hgy/"""
+    return os.path.join(_by_sp_dir(), "hgy")
+
+
+def _hgy_index_path() -> str:
+    return os.path.join(_hgy_dir(), "_index.json")
+
+
+def _hgy_sp_file_path(sp: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(sp or "").strip()).strip("_") or "sp"
+    return os.path.join(_hgy_dir(), f"{slug}.json")
+
+
+def _hgy_read_index() -> List[Dict[str, Any]]:
+    index: List[Dict[str, Any]] = []
+    if os.path.exists(_hgy_index_path()):
+        try:
+            with open(_hgy_index_path(), "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            index = data if isinstance(data, list) else []
+        except Exception:
+            index = []
+    seen = {str(e.get("sp") or "").strip() for e in index}
+    for sp, rows in _HGY_SEED_ROWS_BY_SP.items():
+        if sp not in seen:
+            index.append({"sp": sp, "program": f"SP {sp} HGY", "platform": "HGY", "row_count": len(rows), "seeded": True})
+    return index
+
+
+def _hgy_write_index(index: List[Dict[str, Any]]) -> None:
+    os.makedirs(_hgy_dir(), exist_ok=True)
+    _atomic_write_json(_hgy_index_path(), index)
+
+
+def _hgy_find_entry(index: List[Dict[str, Any]], sp: str) -> Optional[Dict[str, Any]]:
+    q = str(sp or "").strip().lower()
+    if not q:
+        return None
+    for e in index:
+        if str(e.get("sp") or "").lower() == q:
+            return e
+    return None
+
+
+def _hgy_read_sp_rows(sp: str) -> List[Dict[str, Any]]:
+    path = _hgy_sp_file_path(sp)
+    if not os.path.exists(path):
+        return _hgy_seed_rows(sp)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        rows = data.get("rows") if isinstance(data, dict) else data
+        return rows if isinstance(rows, list) else _hgy_seed_rows(sp)
+    except Exception:
+        return _hgy_seed_rows(sp)
+
+
+def _hgy_write_sp_rows(sp: str, rows: List[Dict[str, Any]], program: str = "") -> None:
+    os.makedirs(_hgy_dir(), exist_ok=True)
+    _atomic_write_json(_hgy_sp_file_path(sp), {
+        "sp": sp,
+        "program": program or sp,
+        "platform": "HGY",
+        "rows": rows,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    })
+    # Sync index
+    index = _hgy_read_index()
+    entry = _hgy_find_entry(index, sp)
+    if entry:
+        entry["row_count"] = len(rows)
+    else:
+        index.append({"sp": sp, "program": program or sp, "platform": "HGY", "row_count": len(rows)})
+    _hgy_write_index(index)
+
+
+def _hgy_append_row(sp: str, row: Dict[str, Any], program: str = "") -> Dict[str, Any]:
+    rows = _hgy_read_sp_rows(sp)
+    clean = {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
+
+    def _ints(field: str) -> List[int]:
+        out = []
+        for r in rows:
+            v = str(r.get(field) or "").strip()
+            if v.lstrip("-").isdigit():
+                out.append(int(v))
+        return out
+
+    existing_sno = _ints("sno")
+    existing_excel = _ints("excel_row")
+    next_sno = (max(existing_sno) if existing_sno else len(rows)) + 1
+    next_excel = (max(existing_excel) if existing_excel else next_sno) + 1
+    new_row = {"excel_row": next_excel, "sno": next_sno, **clean}
+    rows.append(new_row)
+    _hgy_write_sp_rows(sp, rows, program)
+    return {
+        "ok": True, "sp": sp, "platform": "HGY",
+        "row": new_row, "row_count": len(rows), "rows": rows,
+        "summary": _program_summary(rows),
+    }
+
+
+def _hgy_replace_rows(sp: str, rows_payload: List[Dict[str, Any]], program: str = "") -> Dict[str, Any]:
+    if not isinstance(rows_payload, list):
+        return {"ok": False, "error": "rows must be a list."}
+    clean = []
+    for item in rows_payload:
+        if not isinstance(item, dict):
+            continue
+        clean.append({k: v for k, v in item.items() if k not in _RESERVED_ROW_KEYS})
+    clean = _renumber_rows(clean)
+    _hgy_write_sp_rows(sp, clean, program)
+    return {
+        "ok": True, "sp": sp, "platform": "HGY",
+        "row_count": len(clean), "rows": clean,
+        "summary": _program_summary(clean),
+    }
+
+
+# --- HGY Public read endpoints (no login required, CORS enabled) -------------
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sps", methods=["GET", "OPTIONS"])
+def api_public_hgy_sps():
+    """List all HGY SPs. Separate from HQX /api/sps — does not affect existing tools."""
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        index = _hgy_read_index()
+        return jsonify({"ok": True, "platform": "HGY", "count": len(index), "available_sps": index})
+    except Exception as exc:
+        return jsonify({"ok": False, "message": str(exc), "available_sps": []}), 500
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>", methods=["GET", "OPTIONS"])
+def api_public_hgy_sp(sp: str):
+    """Get HGY rows for a specific SP."""
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        rows = _hgy_read_sp_rows(sp)
+        last_n = int(request.args.get("last_n") or 0)
+        if last_n > 0:
+            rows = rows[-last_n:]
+        safe_rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
+        resp = {
+            "ok": True, "sp": sp, "platform": "HGY",
+            "row_count": len(safe_rows), "rows": safe_rows,
+        }
+        if _bool_arg("summary", True):
+            resp["summary"] = _program_summary(rows)
+        return jsonify(resp)
+    except Exception as exc:
+        return jsonify({"ok": False, "rows": [], "row_count": 0, "message": str(exc)}), 500
+
+
+# --- HGY Editor endpoints (login required) -----------------------------------
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/add_build", methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_add_build(sp: str):
+    """Append a new HGY build row. Completely separate from HQX add_build."""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    row = payload.get("row") if isinstance(payload.get("row"), dict) else payload
+    program = str(payload.get("program") or "").strip()
+    result = _hgy_append_row(sp, row, program)
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/save_table", methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_save_table(sp: str):
+    """Replace the complete HGY SP table."""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    program = str(payload.get("program") or "").strip()
+    result = _hgy_replace_rows(sp, payload.get("rows"), program)
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+

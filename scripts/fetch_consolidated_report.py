@@ -573,15 +573,13 @@ def build_combined_jql(build_ids, filter_id):
     """
     (summary ~ "BUILD1" OR summary ~ "BUILD2")
     AND filter = <filter_id>
-    AND summary !~ "tombstone"
+    AND (project = "Target Stability" OR project = CHIPMD)
     ORDER BY created ASC
     """
     parts = ' OR '.join(f'summary ~ "{b}"' for b in build_ids)
-    clauses = [f'({parts})']
-    if filter_id:
-        clauses.append(f'filter = {filter_id}')
-    clauses.append('summary !~ "tombstone"')
-    return ' AND '.join(clauses) + ' ORDER BY created ASC'
+    return (
+        f'({parts}) '
+    )
 
 
 
@@ -1780,9 +1778,8 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
 
     jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
 
-            # Step 1 - build JQL
-    # If custom_jql is provided, run it exactly as-is — no modification.
-    # The caller is responsible for including filter/project clauses.
+    # Step 1 - build combined JQL
+    # Step 1 - build JQL (custom_jql overrides auto-built)
     if custom_jql:
         jql = custom_jql.strip()
     else:
@@ -1873,49 +1870,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             )
         enrich_with_orbit(issues_dicts, cr_info_map)
 
-        elapsed = round(time.time() - t0, 2)
-
-    # ── Detect build IDs from JIRA fields when none were explicitly queried ──
-    # When custom_jql is used without build_ids (e.g. filter=115827), each JIRA
-    # still carries the build in meta_build (customfield_10933) and in the
-    # software_components table (pl_id_raw / customfield_26413).  Collect those
-    # so the Axiom Stability Reports client can look up hours/devices.
-    detected_builds: list = []
-    if not build_ids:
-        _seen_builds: set = set()
-        for d in issues_dicts:
-                        # 1. meta_build field (most reliable single-value build string)
-            mb = str(d.get('meta_build') or '').strip()
-            # Extract build ID from UNC/file path if needed
-            if mb and ('\\' in mb or '/' in mb):
-                mb = mb.rstrip('/\\').replace('\\', '/').split('/')[-1].strip()
-            if mb and mb.upper() not in _seen_builds:
-                _seen_builds.add(mb.upper())
-                detected_builds.append(mb)
-            # 2. software_components – look for the Meta Build row
-            for comp in (d.get('software_components') or []):
-                label = str(comp.get('component') or '').strip().lower()
-                img   = str(comp.get('image_name') or '').strip()
-                bid   = str(comp.get('build_id')   or '').strip()
-                                # prefer the explicit build_id (UNC path tail) for Meta Build rows
-                candidate = bid if bid else img
-                if not candidate:
-                    continue
-                # Extract just the build ID from UNC/file paths like:
-                # \\server\share\Glymur\PDT_BUILDS\Glymur.WP.1.0.r0-05213.2-STD.INT-1\
-                # → Glymur.WP.1.0.r0-05213.2-STD.INT-1
-                if '\\' in candidate or '/' in candidate:
-                    import re as _re_path
-                    # strip trailing slashes, take last path component
-                    candidate = candidate.rstrip('/\\').replace('\\', '/').split('/')[-1].strip()
-                if not candidate:
-                    continue
-                if 'meta' in label or 'build' in label:
-                    if candidate.upper() not in _seen_builds:
-                        _seen_builds.add(candidate.upper())
-                        detected_builds.append(candidate)
-        # cap to avoid sending hundreds of unique builds to Axiom
-        detected_builds = detected_builds[:20]
+    elapsed = round(time.time() - t0, 2)
 
     summary = make_summary(build_ids, issues_dicts)
     hierarchical_report = build_hierarchical_report(issues_dicts, cr_info_map)
@@ -1955,20 +1910,19 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             )
         )
 
-        return {
+    return {
         "meta": {
-            "build_ids"                  : build_ids,
-            "build_ids_detected_for_axiom": detected_builds or build_ids or [],
-            "jql"                        : jql,
-            "jira_server"                : JIRA_SERVER_ENDPOINT,
-            "fetch_time_sec"             : elapsed,
-            "total_fetched"              : total,
-            "traversal_done"             : traverse,
-            "orbit_enriched"             : enrich_orbit and bool(cr_info_map),
-            "generated_at"              : time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "target_name"               : target_name,
-            "custom_jql"                : custom_jql or None,
-            "qwinbug_stats"             : qwinbug_stats,
+            "build_ids"       : build_ids,
+            "jql"             : jql,
+            "jira_server"     : JIRA_SERVER_ENDPOINT,
+            "fetch_time_sec"  : elapsed,
+            "total_fetched"   : total,
+            "traversal_done"  : traverse,
+            "orbit_enriched"  : enrich_orbit and bool(cr_info_map),
+            "generated_at"    : time.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "target_name"     : target_name,
+            "custom_jql"      : custom_jql or None,
+            "qwinbug_stats"   : qwinbug_stats,
         },
         "summary"            : summary,
         "cr_index"           : cr_info_map,

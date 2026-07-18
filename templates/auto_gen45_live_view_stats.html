@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{ target_display }} Live View Stats</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <script src="/static/js/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/build_report_common.js') }}"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}
@@ -16,6 +17,20 @@
     .side-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.search{width:100%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);border-radius:12px;color:#fff;padding:10px 11px;outline:none;font-weight:800}.search::placeholder{color:#bfd5f5}
     .mini-btn{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.09);color:#fff;border-radius:12px;padding:9px 11px;font-weight:950;cursor:pointer}.mini-btn:hover{background:rgba(255,255,255,.16)}
     .sp-list{display:flex;flex-direction:column;gap:8px}.sp-item{width:100%;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:15px;padding:11px;text-align:left;cursor:pointer;transition:.15s}.sp-item:hover,.sp-item.active{background:rgba(99,102,241,.32);border-color:#93c5fd;transform:translateY(-1px)}
+    /* HQX / HGY platform toggle */
+    .plat-toggle-row{display:flex;gap:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:12px;overflow:hidden;margin-bottom:14px}
+    .plat-btn{flex:1;padding:9px 0;font-size:12px;font-weight:950;border:none;background:transparent;color:#bfdbfe;cursor:pointer;letter-spacing:.04em;transition:.15s}
+    .plat-btn:hover{background:rgba(255,255,255,.10)}
+    .plat-btn.active-hqx{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;box-shadow:0 2px 10px rgba(37,99,235,.35)}
+    .plat-btn.active-hgy{background:linear-gradient(135deg,#059669,#0d9488);color:#fff;box-shadow:0 2px 10px rgba(5,150,105,.35)}
+    /* Main-area HQX/HGY banner */
+    .plat-banner{display:flex;align-items:center;gap:10px;padding:8px 16px;border-radius:12px;margin-bottom:12px;font-size:12px;font-weight:900}
+    .plat-banner.hqx{background:linear-gradient(90deg,#eff6ff,#eef2ff);border:1.5px solid #a5b4fc;color:#1e3a8a}
+    .plat-banner.hgy{background:linear-gradient(90deg,#ecfdf5,#f0fdf4);border:1.5px solid #6ee7b7;color:#065f46}
+      .ct-system{background:#eff6ff;color:#1d4ed8;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:900;white-space:nowrap}
+      .ct-ssr{background:#fef3c7;color:#92400e;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:900;white-space:nowrap}
+      .ct-process{background:#fce7f3;color:#9d174d;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:900;white-space:nowrap}
+      .ct-open{background:#f5f3ff;color:#6d28d9;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:900;white-space:nowrap}
     .sp-name{font-size:15px;font-weight:1000;color:#fff}.sp-prog{font-size:11px;color:#bfdbfe;margin-top:4px;line-height:1.35;word-break:break-word}.sp-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.tag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:950;background:rgba(219,234,254,.14);color:#dbeafe}.tag.green{background:rgba(34,197,94,.18);color:#bbf7d0}.tag.orange{background:rgba(249,115,22,.20);color:#fed7aa}
     .main{padding:16px 22px 36px;min-width:0}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
     .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:900;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}
@@ -30,10 +45,9 @@
 <div class="shell">
   <aside class="side">
     <div class="brand"><div class="logo"><i class="fas fa-car-side"></i></div><div><b>Automotive 4.5</b><span>All SPs</span></div></div>
-    <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh"><i class="fas fa-rotate"></i></button></div>
+        <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh"><i class="fas fa-rotate"></i></button></div>
     <div id="spList" class="sp-list"><div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div></div>
   </aside>
-
   <main class="main">
     <header class="hero">
       <div>
@@ -41,7 +55,12 @@
         <h1><span id="heroTitle">Automotive 4.5</span> Live View Stats</h1>
         <p id="heroSub">Select an SP from the left. Top tabs mirror Automotive 5 Live Status navigation.</p>
       </div>
-      <div class="hero-actions">
+            <div class="hero-actions">
+                <!-- HQX / HGY platform toggle moved to hero -->
+        <div class="plat-toggle-row" style="margin-bottom:0;border-radius:10px;overflow:hidden;border:1.5px solid #a5b4fc;background:rgba(255,255,255,.7)">
+          <button class="plat-btn active-hqx" id="platBtnHqx" onclick="switchPlat('HQX')" style="padding:7px 16px;font-size:12px;color:#1e3a8a"><i class="fas fa-microchip" style="margin-right:5px"></i>HQX</button>
+          <button class="plat-btn" id="platBtnHgy" onclick="switchPlat('HGY')" style="padding:7px 16px;font-size:12px;color:#065f46"><i class="fas fa-leaf" style="margin-right:5px"></i>HGY</button>
+        </div>
         <span class="badge badge-live"><i class="fas fa-circle" style="font-size:8px"></i> JSON API Active</span>
         <span id="generatedAt" class="badge badge-info">Updated -</span>
         <button class="btn" onclick="goLiveStatusHome()"><i class="fas fa-house"></i> Home</button>
@@ -50,10 +69,9 @@
         <button class="btn btn-primary" onclick="refreshSelected()"><i class="fas fa-rotate"></i> Refresh</button>
       </div>
     </header>
-
     <div class="tabs">
       <button class="tab" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
-      <button class="tab active" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Axiom Builds</button>
+      <button class="tab active" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Builds</button>
       <button class="tab" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>
       <button class="tab" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>
       <button class="tab" id="tab-btn-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope" style="color:#be123c"></i> Open CRs</button>
@@ -61,7 +79,6 @@
       <button class="tab" id="tab-btn-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report (old Builds)</button>
       {% if can_edit %}<button class="tab" id="tab-btn-config" onclick="switchTab('config')"><i class="fas fa-cog" style="color:#f97316"></i> Config</button>{% endif %}
     </div>
-
     <section class="kpis">
       <div class="metric-card" style="border-left-color:#16a34a"><div class="metric-title"><i class="fas fa-table" style="color:#16a34a"></i> Rows</div><div id="kRows" class="metric-value">0</div><div class="metric-sub">SP history rows</div></div>
       <div class="metric-card" style="border-left-color:#6366f1"><div class="metric-title"><i class="fas fa-chart-line" style="color:#6366f1"></i> Latest MTBF</div><div id="kLatestMtbf" class="metric-value">0</div><div class="metric-sub">Published value</div></div>
@@ -70,7 +87,6 @@
       <div class="metric-card" style="border-left-color:#ec4899"><div class="metric-title"><i class="fas fa-calculator" style="color:#ec4899"></i> Overall MTBF</div><div id="kOverallMtbf" class="metric-value">0</div><div class="metric-sub">Hours / crashes</div></div>
       <div class="metric-card" style="border-left-color:#8b5cf6"><div class="metric-title"><i class="fas fa-calendar" style="color:#8b5cf6"></i> Latest Date</div><div id="kDate" class="metric-value" style="font-size:18px">-</div><div id="kBuild" class="metric-sub">-</div></div>
     </section>
-
     <section id="tab-core" class="tab-section">
       <div class="grid2">
         <div class="card">
@@ -86,17 +102,49 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-current" class="tab-section active">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Axiom Builds</h2></div><div class="card-body" id="currentBox"><div class="empty">Select an SP.</div></div></div>
+        <section id="tab-current" class="tab-section active">
+      <!-- Platform banner -->
+      <div id="mainPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="mainPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
+      <div class="card">
+        <div class="card-head">
+          <h2><i class="fas fa-vial" style="color:#16a34a"></i> Current Running Build</h2>
+          <div class="toolbar" style="gap:6px">
+            {% if can_edit %}
+            <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 3px 10px rgba(79,70,229,.3)" onclick="gen45SjqlOpenAdd()">
+              <i class="fas fa-plus"></i> Add JQL Tab
+            </button>
+            {% endif %}
+            <button class="btn" style="font-size:11px;padding:5px 12px" onclick="gen45SjqlLoad()"><i class="fas fa-sync"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="card-body" id="gen45SjqlBox" style="min-height:200px;padding:18px">
+          <div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>
+        </div>
+      </div>
+      <!-- Inline JQL Report Panel -->
+      <div id="gen45-inline-report" style="display:none;margin-top:16px">
+        <div class="card" style="border:2px solid #a5b4fc">
+          <div class="card-head" style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff;border-radius:16px 16px 0 0">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+              <i class="fas fa-bookmark" style="font-size:14px;opacity:.85"></i>
+              <span style="font-size:14px;font-weight:950;color:#fff" id="gen45-inline-report-title">Report</span>
+              <span id="gen45-inline-report-meta" style="font-size:10px;color:rgba(255,255,255,.75);margin-left:6px"></span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="gen45SjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>
+              <button onclick="gen45SjqlCloseReport()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:900"><i class="fas fa-times"></i> Close</button>
+            </div>
+          </div>
+          <div id="gen45-inline-report-body" style="padding:16px 18px"></div>
+        </div>
+      </div>
     </section>
-
     <section id="tab-mtbf" class="tab-section">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap"><canvas id="mtbfChart" height="340"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap"><canvas id="mtbfChart" height="430"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
       <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2>{% if can_edit %}<div class="toolbar"><button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tbl-wrap"><table class="tbl"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
     </section>
-
-    <section id="tab-weekly" class="tab-section">
+        <section id="tab-weekly" class="tab-section">
+      <div id="wkPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="wkPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
       <div class="card">
         <div class="card-head">
           <h2><i class="fas fa-calendar-week" style="color:#6366f1"></i> Weekly Report</h2>
@@ -113,7 +161,6 @@
         <div class="card-body">
           <div id="wkSummaryPills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
           <div id="wkError" style="display:none;color:#dc2626;font-weight:800;margin-bottom:10px"></div>
-
           <div class="card" style="margin-bottom:14px">
             <div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Weekly CR Table <span id="wkCrCount" class="pill"></span></h2>
               <div class="toolbar">
@@ -129,7 +176,6 @@
             </div>
             <div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>Title</th><th>Status</th><th>Occurrences</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>Age</th></tr></thead><tbody id="wkCrTbody"><tr><td colspan="9" class="empty">Select an SP to load the weekly report.</td></tr></tbody></table></div>
           </div>
-
           <div class="card" id="wkOpenJiraSection" style="display:none;margin-bottom:0">
             <div class="card-head"><h2 style="font-size:12px"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs this week <span id="wkOpenJiraBadge" class="pill"></span></h2></div>
             <div class="tbl-wrap" style="max-height:340px"><table class="tbl"><thead><tr><th>#</th><th>JIRA</th><th>Title</th><th>Date</th><th>Build</th></tr></thead><tbody id="wkOpenJiraTbody"></tbody></table></div>
@@ -137,8 +183,8 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-opencrs" class="tab-section">
+        <section id="tab-opencrs" class="tab-section">
+      <div id="ocPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="ocPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
       <div class="card">
         <div class="card-head">
           <h2><i class="fas fa-microscope" style="color:#be123c"></i> Open / Analysis CRs <span id="ocBadge" class="badge badge-warn"></span></h2>
@@ -158,8 +204,8 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-openjiras" class="tab-section">
+        <section id="tab-openjiras" class="tab-section">
+      <div id="ojPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="ojPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
       <div class="card">
         <div class="card-head">
           <h2><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs <span id="ojBadge" class="pill"></span></h2>
@@ -189,8 +235,8 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-buildreport" class="tab-section">
+        <section id="tab-buildreport" class="tab-section">
+      <div id="bwrPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="bwrPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
       <div class="card">
         <div class="card-head">
           <div><h2><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</h2><div class="small-muted">All builds &mdash; latest to oldest. Click a build to see full CR details.</div></div>
@@ -213,8 +259,7 @@
         </div>
       </div>
     </section>
-
-    {% if can_edit %}
+        {% if can_edit %}
     <section id="tab-config" class="tab-section">
       <div class="card">
         <div class="card-head">
@@ -225,12 +270,27 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="hint" style="margin-bottom:14px;">Select tables for the active SP. Each SP can use different JIRAs, Open JIRAs, and Unique/Overall CR tables. After save, Current Running Build / Open CRs / Open JIRAs update from the selected tables.</div>
-          <div class="config-grid">
+          <div class="hint" style="margin-bottom:14px;">Configure tables for the active SP for both <b>HQX</b> and <b>HGY</b> platforms. After save, switching the HQX/HGY toggle on the left will load data from the respective tables.</div>
+          <div class="config-grid" style="margin-bottom:6px">
             <div class="field"><label>Active SP</label><input id="cfgSp" class="input" readonly placeholder="Select SP from left"></div>
-            <div class="field"><label>JIRAs table / Target table</label><select id="cfgJiras" class="input"><option value="">Loading tables...</option></select></div>
-            <div class="field"><label>Open JIRAs table</label><select id="cfgOpenJiras" class="input"><option value="">Loading tables...</option></select></div>
-            <div class="field"><label>Unique CRs / Overall CRs table</label><select id="cfgUniqueCrs" class="input"><option value="">Loading tables...</option></select></div>
+          </div>
+          <!-- HQX config block -->
+          <div style="border:2px solid #a5b4fc;border-radius:14px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(90deg,#eff6ff,#f8fafc)">
+            <div style="font-size:11px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px"><i class="fas fa-microchip" style="margin-right:6px"></i>HQX Tables</div>
+            <div class="config-grid">
+              <div class="field"><label>JIRAs table / Target table</label><select id="cfgJiras" class="input"><option value="">Loading tables...</option></select></div>
+              <div class="field"><label>Open JIRAs table</label><select id="cfgOpenJiras" class="input"><option value="">Loading tables...</option></select></div>
+              <div class="field"><label>Unique CRs / Overall CRs table</label><select id="cfgUniqueCrs" class="input"><option value="">Loading tables...</option></select></div>
+            </div>
+          </div>
+          <!-- HGY config block -->
+          <div style="border:2px solid #6ee7b7;border-radius:14px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(90deg,#ecfdf5,#f8fafc)">
+            <div style="font-size:11px;font-weight:950;color:#065f46;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px"><i class="fas fa-leaf" style="margin-right:6px"></i>HGY Tables</div>
+            <div class="config-grid">
+              <div class="field"><label>JIRAs table / Target table</label><select id="cfgHgyJiras" class="input"><option value="">Loading tables...</option></select></div>
+              <div class="field"><label>Open JIRAs table</label><select id="cfgHgyOpenJiras" class="input"><option value="">Loading tables...</option></select></div>
+              <div class="field"><label>Unique CRs / Overall CRs table</label><select id="cfgHgyUniqueCrs" class="input"><option value="">Loading tables...</option></select></div>
+            </div>
           </div>
           <div id="cfgStatus" class="config-status" style="margin-top:12px;">Not loaded.</div>
           <div id="cfgSavedList" class="small-muted" style="margin-top:12px;"></div>
@@ -240,7 +300,6 @@
     {% endif %}
   </main>
 </div>
-
 <!-- Customize Tabs Modal -->
 <div id="lspCzModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:20px;width:min(420px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden;display:flex;flex-direction:column">
@@ -255,12 +314,20 @@
     </div>
   </div>
 </div>
-
 <!-- Add Build Modal -->
-<div id="addBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+<div   <div id="addBuildModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:20px;width:min(720px,96vw);max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.28);display:flex;flex-direction:column">
-    <div style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0">
-      <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px"><i class="fas fa-plus"></i> Add Build &mdash; SP <span id="addBuildSpLabel"></span></div>
+    <!-- Header -->
+    <div id="addBuildHeader" style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0">
+      <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:10px">
+        <i class="fas fa-plus"></i>
+        Add Build &mdash; SP <span id="addBuildSpLabel"></span>
+        <!-- Platform toggle inside modal -->
+        <div id="addBuildPlatToggle" style="display:flex;border-radius:8px;overflow:hidden;border:1.5px solid rgba(255,255,255,.35);margin-left:6px">
+          <button id="abPlatHqx" onclick="_abSwitchPlat('HQX')" style="padding:4px 13px;font-size:11px;font-weight:900;border:none;cursor:pointer;letter-spacing:.04em;transition:.15s"><i class="fas fa-microchip" style="margin-right:4px"></i>HQX</button>
+          <button id="abPlatHgy" onclick="_abSwitchPlat('HGY')" style="padding:4px 13px;font-size:11px;font-weight:900;border:none;cursor:pointer;letter-spacing:.04em;transition:.15s"><i class="fas fa-leaf" style="margin-right:4px"></i>HGY</button>
+        </div>
+      </div>
       <button onclick="closeAddBuildModal()" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer"><i class="fas fa-times"></i></button>
     </div>
     <div style="padding:16px 20px">
@@ -274,11 +341,10 @@
     </div>
     <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0">
       <button onclick="closeAddBuildModal()" style="padding:8px 16px;border-radius:9px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-weight:800;cursor:pointer">Cancel</button>
-      <button class="btn btn-primary" onclick="addBuildSave()"><i class="fas fa-save"></i> Save Build</button>
+      <button id="addBuildSaveBtn" class="btn btn-primary" onclick="addBuildSave()"><i class="fas fa-save"></i> Save Build</button>
     </div>
   </div>
 </div>
-
 <!-- Edit Complete Table Modal (Gen5 HQX/HGY-style bulk edit) -->
 <div id="editTableModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:20px;width:min(96vw,1400px);max-height:92vh;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.28);display:flex;flex-direction:column">
@@ -299,8 +365,746 @@
     </div>
   </div>
 </div>
-
 <script>
+/* ============================================================
+   SHARED INLINE REPORT RENDERER  (mirrors /build_report UI)
+   Used by: gen45 inline panel  +  lsp inline panel
+   ============================================================ */
+var _JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
+function _irEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);}); }
+function _irStatusBadge(st){
+  var s=String(st||'').toLowerCase();
+  var style=s.indexOf('open')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':
+    s.indexOf('hold')>=0?'background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc':
+    s.indexOf('closed')>=0||s.indexOf('done')>=0||s.indexOf('resolved')>=0?'background:#dcfce7;color:#166534;border:1px solid #86efac':
+    s.indexOf('analysis')>=0||s.indexOf('information')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+    s.indexOf('ready')>=0?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
+    'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+  return st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;'+style+'">'+_irEsc(st)+'</span>':'<span style="color:#94a3b8">--</span>';
+}
+function _irPriorityBadge(p){
+  var s=String(p||'').toLowerCase();
+  var c=s==='p1'||s==='critical'?'#dc2626':s==='p2'||s==='high'?'#f97316':s==='p3'||s==='medium'?'#d97706':s==='p4'||s==='low'?'#16a34a':'#64748b';
+  return p?'<span style="color:'+c+';font-weight:900;font-size:11px">'+_irEsc(p)+'</span>':'<span style="color:#94a3b8">--</span>';
+}
+function _irJiraLink(key){
+  if(!key) return '<span style="color:#94a3b8">--</span>';
+  return '<a style="color:#1d4ed8;font-weight:900;text-decoration:none;white-space:nowrap" href="'+_JIRA_BASE+_irEsc(key)+'" target="_blank" rel="noopener">'+_irEsc(key)+'</a>';
+}
+function _irNormalize(r){
+  /* Takes the raw API response and returns {crRows, mappedRows, openRows, totalJiras} */
+  var crRows=[], mappedRows=[], openRows=[], seenJ={};
+  var CR_EQ=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG',
+    'ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG',
+    'ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT',
+    'QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO',
+    'WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'];
+  function isCrEquiv(k){ return CR_EQ.some(function(p){return String(k||'').toUpperCase().indexOf(p+'-')===0;}); }
+  function isTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
+  function fKey(j){ var t=j.traversal||{}; return String(t.final_key||j.final_key||j.key||j.stability_ticket||'').toUpperCase(); }
+  function fStatus(j){ var t=j.traversal||{}; return String(t.final_status||j.final_status||j.status||''); }
+  function fSummary(j){ var t=j.traversal||{}; return String(t.final_summary||j.final_summary||j.summary||j.jira_title||j.title||''); }
+  function fCr(j){ var t=j.traversal||{}; return String(t.final_cr||j.cr_mapped||j.mapped_cr||j.cr||''); }
+  /* If the API returns flat rows (saved JQL tabs), treat them as openRows directly */
+  if(r.rows && r.rows.length && !r.hierarchical_report){
+    r.rows.forEach(function(row){
+      openRows.push({
+        key: String(row.key||row.id||''),
+        title: String(row.summary||row.title||row.name||''),
+        status: String(row.status||''),
+        priority: String(row.priority||''),
+        type: String(row.issuetype||row.type||''),
+        assignee: String(row.assignee||''),
+        created: String((row.created||'').slice(0,10)),
+        updated: String((row.updated||'').slice(0,10))
+      });
+    });
+    return {crRows:crRows, mappedRows:mappedRows, openRows:openRows, totalJiras:openRows.length, isFlatJql:true};
+  }
+  var hier = r.hierarchical_report || [];
+  /* Fallback: rebuild from flat jiras */
+  if(!hier.length && r.jiras && r.jiras.length){
+    var groups={};
+    r.jiras.forEach(function(j){
+      var cr=fCr(j)||'NO_CR';
+      if(!groups[cr]) groups[cr]=[];
+      groups[cr].push(j);
+    });
+    var ci=r.cr_index||{};
+    hier=Object.keys(groups).map(function(cr){
+      var info=ci[cr]||{};
+      return {cr:cr,cr_count:groups[cr].length,cr_title:info.cr_title||'',cr_status:info.cr_status||'',
+        cr_area:info.cr_area||'',cr_subsystem:info.cr_subsystem||'',cr_function:info.cr_function||'',
+        cr_date:info.cr_date||'',cr_si:info.cr_si||'',jiras:groups[cr]};
+    });
+  }
+  hier.forEach(function(row){
+    var cr=String(row.cr||'').trim();
+    var jiras=row.jiras||[];
+    if(isTrueCr(cr)){
+      crRows.push({cr:cr, title:row.cr_title||'', area:row.cr_area||'', sub:row.cr_subsystem||'',
+        func:row.cr_functionality||row.cr_function||'', date:row.cr_date||'', si:row.cr_si||'',
+        status:row.cr_status||'', count:jiras.length||row.cr_count||1, jiras:jiras});
+    } else if(isCrEquiv(cr)){
+      var first=jiras[0]||{};
+      mappedRows.push({ticket:cr, count:jiras.length||1, title:fSummary(first)||row.title||'',
+        date:String(first.created||'').slice(0,10), status:fStatus(first)||first.status||'',
+        srcKeys:jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean)});
+    } else {
+      var EXCL_RES=new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+      var CLOSED_ST=new Set(['closed','closed_root_cause_not_found','resolved','rejected']);
+      jiras.forEach(function(j){
+        var key=String(j.key||j.stability_ticket||'').toUpperCase();
+        if(!key||seenJ[key]) return;
+        var jSt=String(j.status||'').toLowerCase();
+        var jRes=String(j.resolution||'').toLowerCase();
+        if(jSt==='rejected'||jSt.indexOf('transfer')>=0) return;
+        if(CLOSED_ST.has(jSt)&&EXCL_RES.has(jRes)) return;
+        seenJ[key]=1;
+        openRows.push({key:key, title:j.summary||j.jira_title||fSummary(j)||'',
+          date:String(j.created||'').slice(0,10), status:j.status||fStatus(j)||'',
+          priority:j.priority||'', type:j.issuetype||j.type||''});
+      });
+    }
+  });
+  var s=r.summary||{};
+  var totalJiras=Number(s.total_all_jiras||s.total_jiras||0)||(crRows.reduce(function(a,c){return a+(c.count||0);},0)+openRows.length+mappedRows.length);
+  return {crRows:crRows, mappedRows:mappedRows, openRows:openRows, totalJiras:totalJiras, isFlatJql:false};
+}
+function _irMetricCards(norm, isFlatJql){
+  if(isFlatJql){
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+      '<div style="border:1px solid #dbeafe;border-radius:14px;background:linear-gradient(135deg,#fff,#eff6ff);padding:12px 18px;min-width:110px;box-shadow:0 6px 18px rgba(37,99,235,.08)">'+
+        '<div style="font-size:22px;font-weight:950;color:#1e3a8a;line-height:1">'+norm.openRows.length+'</div>'+
+        '<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:5px">Issues</div>'+
+      '</div></div>';
+  }
+  var cards=[
+    {val:norm.totalJiras, label:'Total JIRAs', style:'border:1px solid #dbeafe;background:linear-gradient(135deg,#fff,#eff6ff)'},
+    {val:norm.crRows.reduce(function(a,c){return a+(c.count||0);},0), label:'Mapped to CRs', style:'border:1px solid #a7f3d0;background:linear-gradient(135deg,#fff,#ecfdf5)'},
+    {val:norm.crRows.length, label:'Unique CRs', style:'border:1px solid #ddd6fe;background:linear-gradient(135deg,#fff,#f5f3ff)'},
+    {val:norm.mappedRows.length, label:'Mapped Tickets', style:'border:1px solid #fde68a;background:linear-gradient(135deg,#fff,#fef9c3)'},
+    {val:norm.openRows.length, label:'Open / Unmapped', style:'border:1px solid #fed7aa;background:linear-gradient(135deg,#fff,#fff7ed)'}
+  ];
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+    cards.map(function(c){
+      return '<div style="'+c.style+';border-radius:14px;padding:12px 18px;min-width:110px;box-shadow:0 6px 18px rgba(37,99,235,.08)">'+
+        '<div style="font-size:22px;font-weight:950;color:#1e3a8a;line-height:1">'+c.val+'</div>'+
+        '<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:5px">'+c.label+'</div>'+
+      '</div>';
+    }).join('')+'</div>';
+}
+function _irTabBar(norm, isFlatJql, uid){
+  if(isFlatJql) return '';
+  var tabs=[
+    {id:'crs',    label:'CRs',          icon:'fa-bug',        count:norm.crRows.length,    color:'#6366f1'},
+    {id:'mapped', label:'Mapped JIRAs', icon:'fa-link',       count:norm.mappedRows.length, color:'#0369a1'},
+    {id:'open',   label:'Open JIRAs',   icon:'fa-ticket-alt', count:norm.openRows.length,  color:'#d97706'}
+  ];
+  return '<div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:14px" id="'+uid+'_tabbar">'+
+    tabs.map(function(t,i){
+      var active=i===0;
+      return '<button onclick="_irSwitchTab(\''+uid+'\',\''+t.id+'\')" id="'+uid+'_tab_'+t.id+'" style="padding:8px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid '+(active?t.color:'transparent')+';background:#fff;color:'+(active?t.color:'#64748b')+';cursor:pointer;margin-bottom:-2px;font-family:inherit">'+
+        '<i class="fas '+t.icon+'" style="margin-right:5px"></i>'+t.label+
+        ' <span id="'+uid+'_badge_'+t.id+'" style="background:'+(active?t.color:'#e2e8f0')+';color:'+(active?'#fff':'#475569')+';border-radius:999px;padding:1px 7px;font-size:10px;margin-left:3px">'+t.count+'</span>'+
+      '</button>';
+    }).join('')+'</div>';
+}
+function _irSwitchTab(uid, name){
+  var colors={crs:'#6366f1', mapped:'#0369a1', open:'#d97706'};
+  ['crs','mapped','open'].forEach(function(t){
+    var pane=document.getElementById(uid+'_pane_'+t);
+    var btn=document.getElementById(uid+'_tab_'+t);
+    var badge=document.getElementById(uid+'_badge_'+t);
+    var active=(t===name);
+    if(pane) pane.style.display=active?'block':'none';
+    if(btn){ btn.style.borderBottomColor=active?colors[t]:'transparent'; btn.style.color=active?colors[t]:'#64748b'; }
+    if(badge){ badge.style.background=active?colors[t]:'#e2e8f0'; badge.style.color=active?'#fff':'#475569'; }
+  });
+}
+function _irTH(label){ return '<th style="position:sticky;top:0;background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff;text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;white-space:nowrap;border-bottom:0">'+_irEsc(label)+'</th>'; }
+function _irTD(content, extra){ return '<td style="padding:9px 10px;border-bottom:1px solid #eef2ff;vertical-align:top;'+(extra||'')+'">'+content+'</td>'; }
+function _irCrTable(crRows, uid){
+  if(!crRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No CRs found.</div>';
+  var searchId=uid+'_cr_search';
+  var html='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
+    '<input id="'+searchId+'" style="height:30px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;min-width:220px" placeholder="Search CR / title / area..." oninput="_irFilterTable(\''+uid+'_cr_tbody\',this.value)">'+
+    '<span style="font-size:11px;color:#64748b;font-weight:700">'+crRows.length+' CR'+(crRows.length===1?'':'s')+'</span>'+
+  '</div>'+
+  '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
+  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  '<thead><tr>'+[_irTH('#'),_irTH('CR-ID'),_irTH('Occurrences'),_irTH('CR Title'),_irTH('Area'),_irTH('SubSystem'),_irTH('Functionality'),_irTH('Date'),_irTH('SI'),_irTH('Status'),_irTH('JIRA Tickets')].join('')+'</tr></thead>'+
+  '<tbody id="'+uid+'_cr_tbody">';
+  crRows.forEach(function(r,i){
+    var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+    var crLink=id?'<a style="color:#4338ca;font-weight:900;text-decoration:none" href="https://orbit/CR/'+_irEsc(id)+'" target="_blank" rel="noopener">'+_irEsc(r.cr)+'</a>':_irEsc(r.cr||'--');
+    var jiraKeys=(r.jiras||[]).map(function(j){return typeof j==='string'?j:String(j.key||j.stability_ticket||'');}).filter(Boolean);
+    var cnt=Number(r.count||jiraKeys.length||0);
+    var jiraCell;
+    if(!jiraKeys.length){ jiraCell='<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>'; }
+    else if(jiraKeys.length<=3){
+      jiraCell='<div style="display:flex;flex-wrap:wrap;gap:3px">'+jiraKeys.map(function(k){return _irJiraLink(k);}).join('')+'</div>';
+    } else {
+      var pills=jiraKeys.slice(0,5).map(function(k){return _irJiraLink(k);}).join(' ');
+      var more=jiraKeys.length>5?'<span style="color:#94a3b8;font-size:10px"> +'+(jiraKeys.length-5)+' more</span>':'';
+      jiraCell='<div><span style="font-weight:950;color:#4f46e5;cursor:pointer" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+cnt+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span><div style="display:none;margin-top:4px;line-height:2">'+pills+more+'</div></div>';
+    }
+    var bg=i%2===0?'#fff':'#f8fafc';
+    html+='<tr style="background:'+bg+'" onmouseover="this.style.background=\'#f5f3ff\'" onmouseout="this.style.background=\''+bg+'\'">'+
+      _irTD(String(i+1),'text-align:center;color:#94a3b8;font-size:11px')+
+      _irTD(crLink,'white-space:nowrap')+
+      _irTD('<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>','text-align:center')+
+      _irTD(_irEsc(r.title||'--'),'max-width:280px;word-break:break-word')+
+      _irTD(_irEsc(r.area||'--'),'white-space:nowrap;font-size:11px')+
+      _irTD(_irEsc(r.sub||'--'),'font-size:11px')+
+      _irTD(_irEsc(r.func||'--'),'font-size:11px')+
+      _irTD(_irEsc(r.date||'--'),'white-space:nowrap;font-size:11px')+
+      _irTD(_irEsc(r.si||'--'),'font-size:11px')+
+      _irTD(_irStatusBadge(r.status))+
+      _irTD(jiraCell,'min-width:160px')+
+    '</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+function _irMappedTable(mappedRows, uid){
+  if(!mappedRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No mapped tickets found.</div>';
+  var html='<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
+  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  '<thead><tr>'+[_irTH('#'),_irTH('JIRA Ticket'),_irTH('Occurrences'),_irTH('Title'),_irTH('Date'),_irTH('Status'),_irTH('Source JIRAs')].join('')+'</tr></thead>'+
+  '<tbody>';
+  mappedRows.forEach(function(r,i){
+    var srcKeys=r.srcKeys||[];
+    var srcCell=srcKeys.length<=3
+      ? srcKeys.map(function(k){return _irJiraLink(k);}).join(' ')
+      : '<span style="font-weight:950;color:#4f46e5;cursor:pointer" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+srcKeys.length+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span><div style="display:none;margin-top:4px;line-height:2">'+srcKeys.slice(0,8).map(function(k){return _irJiraLink(k);}).join(' ')+(srcKeys.length>8?'<span style="color:#94a3b8;font-size:10px"> +'+(srcKeys.length-8)+' more</span>':'')+'</div>';
+    var bg=i%2===0?'#fff':'#f8fafc';
+    html+='<tr style="background:'+bg+'" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+bg+'\'">'+
+      _irTD(String(i+1),'text-align:center;color:#94a3b8;font-size:11px')+
+      _irTD(_irJiraLink(r.ticket),'white-space:nowrap')+
+      _irTD('<span style="font-weight:950;color:#4f46e5">'+_irEsc(r.count||1)+'</span>','text-align:center')+
+      _irTD(_irEsc(r.title||'--'),'max-width:320px;word-break:break-word;font-size:11px')+
+      _irTD(_irEsc(r.date||'--'),'white-space:nowrap;font-size:11px')+
+      _irTD(_irStatusBadge(r.status))+
+      _irTD(srcCell,'min-width:160px')+
+    '</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+function _irOpenTable(openRows, uid, isFlatJql){
+  if(!openRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No issues found.</div>';
+  var searchId=uid+'_open_search';
+  var cols=isFlatJql
+    ? [_irTH('#'),_irTH('Issue'),_irTH('Summary'),_irTH('Status'),_irTH('Priority'),_irTH('Type'),_irTH('Assignee'),_irTH('Created'),_irTH('Updated')]
+    : [_irTH('#'),_irTH('JIRA Ticket'),_irTH('Title'),_irTH('Date'),_irTH('Status'),_irTH('Priority'),_irTH('Type')];
+  var html='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
+    '<input id="'+searchId+'" style="height:30px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;min-width:220px" placeholder="Search JIRA / title / status..." oninput="_irFilterTable(\''+uid+'_open_tbody\',this.value)">'+
+    '<span style="font-size:11px;color:#64748b;font-weight:700">'+openRows.length+' issue'+(openRows.length===1?'':'s')+'</span>'+
+  '</div>'+
+  '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
+  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  '<thead><tr>'+cols.join('')+'</tr></thead>'+
+  '<tbody id="'+uid+'_open_tbody">';
+  openRows.forEach(function(r,i){
+    var bg=i%2===0?'#fff':'#f8fafc';
+    var row;
+    if(isFlatJql){
+      row='<tr style="background:'+bg+'" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+bg+'\'">'+
+        _irTD(String(i+1),'text-align:center;color:#94a3b8;font-size:11px')+
+        _irTD(_irJiraLink(r.key),'white-space:nowrap')+
+        _irTD(_irEsc(r.title||'--'),'max-width:380px;word-break:break-word')+
+        _irTD(_irStatusBadge(r.status))+
+        _irTD(_irPriorityBadge(r.priority))+
+        _irTD(_irEsc(r.type||'--'),'font-size:11px;white-space:nowrap')+
+        _irTD(_irEsc(r.assignee||'--'),'font-size:11px;white-space:nowrap')+
+        _irTD(_irEsc(r.created||'--'),'font-size:11px;white-space:nowrap')+
+        _irTD(_irEsc(r.updated||'--'),'font-size:11px;white-space:nowrap')+
+      '</tr>';
+    } else {
+      row='<tr style="background:'+bg+'" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+bg+'\'">'+
+        _irTD(String(i+1),'text-align:center;color:#94a3b8;font-size:11px')+
+        _irTD(_irJiraLink(r.key),'white-space:nowrap')+
+        _irTD(_irEsc(r.title||'--'),'max-width:380px;word-break:break-word;font-size:11px')+
+        _irTD(_irEsc(r.date||'--'),'font-size:11px;white-space:nowrap')+
+        _irTD(_irStatusBadge(r.status))+
+        _irTD(_irPriorityBadge(r.priority))+
+        _irTD(_irEsc(r.type||'--'),'font-size:11px;white-space:nowrap')+
+      '</tr>';
+    }
+    html+=row;
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+function _irFilterTable(tbodyId, q){
+  var tb=document.getElementById(tbodyId); if(!tb) return;
+  var qq=String(q||'').toLowerCase();
+  Array.prototype.forEach.call(tb.querySelectorAll('tr'),function(tr){
+    tr.style.display=!qq||tr.textContent.toLowerCase().indexOf(qq)>=0?'':'none';
+  });
+}
+/* Main entry point — call this from both _g45RenderReportBody and _renderReport */
+function _irRender(el, r, tab, uid){
+  uid = uid || ('ir_'+Math.random().toString(36).slice(2,7));
+  var jql=(tab&&tab.jql)||r.jql||'';
+  var runErr=r.run_error
+    ? '<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;margin-bottom:12px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><b>JQL Error:</b> '+_irEsc(r.run_error)+'</div>'
+    : '';
+  var jqlBlock=jql
+    ? '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 13px;font-family:Consolas,monospace;font-size:11px;color:#334155;margin-bottom:14px;word-break:break-all;line-height:1.6">'+_irEsc(jql)+'</div>'
+    : '';
+  var norm=_irNormalize(r);
+  var isFlatJql=norm.isFlatJql;
+  var metrics=_irMetricCards(norm, isFlatJql);
+  var tabBar=_irTabBar(norm, isFlatJql, uid);
+  var panes='';
+  if(isFlatJql){
+    panes='<div id="'+uid+'_pane_open">'+_irOpenTable(norm.openRows, uid, true)+'</div>';
+  } else {
+    panes=
+      '<div id="'+uid+'_pane_crs">'+_irCrTable(norm.crRows, uid)+'</div>'+
+      '<div id="'+uid+'_pane_mapped" style="display:none">'+_irMappedTable(norm.mappedRows, uid)+'</div>'+
+      '<div id="'+uid+'_pane_open" style="display:none">'+_irOpenTable(norm.openRows, uid, false)+'</div>';
+  }
+  el.innerHTML = runErr + jqlBlock + metrics + tabBar + panes;
+}
+// ── Platform (HQX / HGY) toggle ────────────────────────────────────────────
+var _activePlat = 'HQX'; // 'HQX' or 'HGY'
+function _hgyPlatKey(sp) {
+  return String(sp || '').trim() + '_hgy';
+}
+function _activePlatKey() {
+  return _activePlat === 'HGY' ? _hgyPlatKey(activeSp) : '';
+}
+function _platCfg(sp) {
+  if (_activePlat === 'HGY') {
+    var key = _hgyPlatKey(sp);
+    var st = config.sheet_tables || {};
+    return st[key] || {};
+  }
+  return spCfg(sp);
+}
+function _cfgHasAny(c){
+  c=c||{};
+  return !!(c.jiras_table||c.target_table||c.openjiras_table||c.unique_crs_table);
+}
+function _hasHgyPlatform(sp){
+  var st=config.sheet_tables||{};
+  var hgyRows=(spPayload&&spPayload._hgy&&Array.isArray(spPayload._hgy.rows))?spPayload._hgy.rows.length:0;
+  return hgyRows>0 || _cfgHasAny(st[_hgyPlatKey(sp)]||{});
+}
+function _hasHqxPlatform(sp){
+  var hqxRows=(spPayload&&Array.isArray(spPayload.rows))?spPayload.rows.length:0;
+  return hqxRows>0 || _cfgHasAny(spCfg(sp));
+}
+function _syncActivePlatForSp(){
+  // Keep the user's selected platform. Even if an SP has only HQX table data,
+  // users may still switch to HGY to run direct/saved HGY JQL reports.
+}
+function _updatePlatUI() {
+    _syncActivePlatForSp();
+  var isHgy = _activePlat === 'HGY';
+  var hqxBtn = document.getElementById('platBtnHqx');
+  var hgyBtn = document.getElementById('platBtnHgy');
+      if (hqxBtn) { hqxBtn.className = 'plat-btn' + (isHgy ? '' : ' active-hqx'); hqxBtn.style.display = ''; }
+  if (hgyBtn) { hgyBtn.className = 'plat-btn' + (isHgy ? ' active-hgy' : ''); hgyBtn.style.display = ''; }
+  // Always show HQX/HGY selector so users can switch domains for direct/saved JQL.
+  var heroToggle = document.querySelector('.hero .plat-toggle-row');
+  if (heroToggle) {
+    heroToggle.style.display = 'flex';
+    heroToggle.style.borderColor = isHgy ? '#6ee7b7' : '#a5b4fc';
+  }
+  // Banners in each tab
+  var label = isHgy ? 'HGY' : 'HQX';
+  var icon  = isHgy ? 'fa-leaf' : 'fa-microchip';
+  var cls   = isHgy ? 'hgy' : 'hqx';
+  var bannerIds = ['mainPlatBanner','wkPlatBanner','ocPlatBanner','ojPlatBanner','bwrPlatBanner'];
+  var textIds   = ['mainPlatBannerText','wkPlatBannerText','ocPlatBannerText','ojPlatBannerText','bwrPlatBannerText'];
+  bannerIds.forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (el) { el.className = 'plat-banner ' + cls; el.querySelector('i').className = 'fas ' + icon; }
+    var tel = document.getElementById(textIds[i]);
+    if (tel) tel.innerHTML = 'Showing <b>' + label + '</b> data for this SP';
+  });
+}
+function switchPlat(plat) {
+  if (_activePlat === plat) return;
+  _activePlat = plat;
+  _updatePlatUI();
+  // Reset ALL live-data caches so every tab reloads with the new platform's tables
+  resetLiveApiTabs();
+  dbPayload = null;
+  // Reload JQL tabs for the new platform domain (HQX vs HGY are separate)
+  _g45Tabs = [];
+  gen45SjqlLoad();
+  if (activeSp) {
+    loadSpDbData().then(function() {
+      renderAll();
+      renderLiveApiTabsForActiveSection();
+    });
+  }
+}
+// ── Gen45 JQL Tabs ──────────────────────────────────────────────────────────
+var _g45Domain = "ADAS", _g45Tabs = [], _g45Timers = {}, _g45TTL = 30*60*1000;
+var _g45ActiveId = null, _g45ActiveDom = null;
+// Domain is always derived from the active platform — never hardcoded
+function _g45ActiveDomain(){
+  return _activePlat === 'HGY' ? 'HGY' : 'HQX';
+}
+// ── Gen4.5 Consolidated JQL Report Renderer ─────────────────────────────────
+// Renders the nord_hgy-style report: large count, JQL box, search, full table
+function _g45RenderConsolidated(el, r, tab){
+  var jql = (tab&&tab.jql)||r.jql||'';
+  var rows = r.rows||[];
+  var count = r.count||rows.length;
+  var fromCache = !!r.from_cache;
+  var genAt = r.generated_at||'';
+  var runErr = r.run_error
+    ? '<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;margin-bottom:12px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><b>JQL Error:</b> '+_irEsc(r.run_error)+'</div>'
+    : '';
+  // JQL display box
+  var jqlBox = jql
+    ? '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px">'
+      +'<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">'
+      +'<span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;margin-top:2px"><i class="fas fa-code"></i> JQL</span>'
+      +'<code style="font-size:11px;color:#1e3a8a;word-break:break-all;flex:1;font-family:Consolas,monospace;line-height:1.6">'+_irEsc(jql)+'</code>'
+      +(CAN_EDIT
+        ? '<button class="btn" style="font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0" onclick="navigator.clipboard.writeText('+JSON.stringify(jql)+').then(function(){var b=this;},function(){})"><i class="fas fa-copy"></i> Copy</button>'
+        : '')
+      +'</div>'
+      +(genAt?'<div style="font-size:10px;color:#94a3b8;margin-top:6px">'+(fromCache?'Cached':'Generated')+': '+_irEsc(genAt.slice(0,19).replace('T',' '))+'</div>':'')
+      +'</div>'
+    : '';
+  // Large count header (matches screenshot: "354 ISSUES")
+  var countHeader =
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">'
+    +'<div style="border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 22px;min-width:110px;box-shadow:0 4px 14px rgba(37,99,235,.10)">'
+    +'<div style="font-size:42px;font-weight:1000;color:#1d4ed8;line-height:1">'+count+'</div>'
+    +'<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#3730a3;margin-top:4px">ISSUES</div>'
+    +'</div>'
+    +(fromCache?'<span style="font-size:11px;color:#64748b;font-weight:700"><i class="fas fa-clock" style="margin-right:4px"></i>Cached result</span>':'')
+    +'</div>';
+  if(!rows.length){
+    el.innerHTML = runErr + jqlBox + countHeader
+      + '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No issues found for this JQL.</div>';
+    return;
+  }
+  // Search bar
+  var uid = 'g45cr_'+Math.random().toString(36).slice(2,6);
+  var searchBar =
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'
+    +'<input id="'+uid+'_search" style="height:32px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 12px;font-size:12px;font-family:inherit;outline:none;min-width:260px;flex:1" '
+    +'placeholder="Search JIRA / title / status..." oninput="_irFilterTable(\"'+uid+'_tbody\",this.value)">'
+    +'<span style="font-size:11px;color:#64748b;font-weight:700">'+count+' issue'+(count===1?'':'s')+'</span>'
+    +'</div>';
+  // Table — same columns as screenshot: #, ISSUE, SUMMARY, STATUS, PRIORITY, TYPE, ASSIGNEE
+  var thead = '<thead><tr>'
+    +_irTH('#')+_irTH('ISSUE')+_irTH('SUMMARY')+_irTH('STATUS')+_irTH('PRIORITY')+_irTH('TYPE')+_irTH('ASSIGNEE')
+    +'</tr></thead>';
+  var tbody = '<tbody id="'+uid+'_tbody">';
+  rows.forEach(function(row, i){
+    var bg = i%2===0?'#fff':'#f8fafc';
+    tbody += '<tr style="background:'+bg+'" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+bg+'\'">';
+    tbody += _irTD(String(i+1),'text-align:center;color:#94a3b8;font-size:11px');
+    tbody += _irTD(_irJiraLink(row.key||row.id||''),'white-space:nowrap;font-weight:900');
+    tbody += _irTD(_irEsc(row.summary||row.title||'--'),'max-width:400px;word-break:break-word;font-size:12px');
+    tbody += _irTD(_irStatusBadge(row.status));
+    tbody += _irTD(_irPriorityBadge(row.priority));
+    tbody += _irTD(_irEsc(row.issuetype||row.type||'--'),'font-size:11px;white-space:nowrap');
+    tbody += _irTD(_irEsc(row.assignee||'--'),'font-size:11px;white-space:nowrap');
+    tbody += '</tr>';
+  });
+  tbody += '</tbody>';
+    var tableHtml =
+    '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07);max-height:520px">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'
+    +thead+tbody
+    +'</table></div>';
+  el.innerHTML = runErr + jqlBox + countHeader + searchBar + tableHtml;
+}
+function _g45ExtractFilterId(value){
+  var raw=String(value||'').trim();
+  if(!raw)return '';
+  try{
+    var u=new URL(raw, window.location.origin);
+    var f=u.searchParams.get('filter')||u.searchParams.get('filterId')||'';
+    if(/^\d+$/.test(String(f).trim()))return String(f).trim();
+  }catch(e){}
+  var m=raw.match(/[?&]filter(?:Id)?=(\d+)/i); if(m)return m[1];
+  m=raw.match(/\bfilter\s*=\s*(\d+)\b/i); if(m)return m[1];
+  m=raw.match(/^\d{3,}$/); if(m)return m[0];
+  return '';
+}
+function _g45NormalizeJql(value){
+  var raw=String(value||'').trim();
+  if(!raw)return '';
+  var fid=_g45ExtractFilterId(raw);
+  if(fid && (/^\d+$/.test(raw)||/\bfilter\s*=\s*\d+\b/i.test(raw)||/[?&]filter(?:Id)?=\d+/i.test(raw))){
+    return 'filter = '+fid+' ORDER BY created ASC';
+  }
+  return raw;
+}
+function _g45DirectJqlValue(){
+  var direct=_g45NormalizeJql((document.getElementById('g45DirectJql')||{}).value||'');
+  if(direct)return direct;
+  var fid=_g45ExtractFilterId((document.getElementById('g45FilterInput')||{}).value||'');
+  return fid?('filter = '+fid+' ORDER BY created ASC'):'';
+}
+function _g45DirectPanelHtml(dom, domColor, domBg, domBorder, domIcon){
+  return '<div style="border:1.5px solid '+domBorder+';background:linear-gradient(135deg,#fff,'+domBg+');border-radius:16px;padding:14px 16px;margin-bottom:14px;box-shadow:0 6px 18px rgba(37,99,235,.08)">'
+    +'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">'
+      +'<div><div style="font-size:13px;font-weight:950;color:#1e3a8a"><i class="fas '+domIcon+'" style="color:'+domColor+'"></i> Current Running Build Report via JQL</div>'
+      +'<div style="font-size:11px;color:#64748b;font-weight:800;margin-top:4px">No Axiom pull here. Paste direct JQL or a JIRA filter ID/URL; the consolidated CR/JIRA report runs for <b>'+dom+'</b>.</div></div>'
+      +'<span style="font-size:10px;font-weight:900;padding:3px 10px;border-radius:999px;background:'+domBg+';color:'+domColor+';border:1px solid '+domBorder+'">'+dom+'</span>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:minmax(220px,.36fr) minmax(320px,1fr);gap:10px">'
+      +'<div><label style="display:block;font-size:10px;font-weight:950;text-transform:uppercase;color:#475569;margin-bottom:5px">JIRA Filter ID / URL</label><input id="g45FilterInput" class="input" style="width:100%;min-width:0" placeholder="346152, filter=346152, or filter URL"></div>'
+      +'<div><label style="display:block;font-size:10px;font-weight:950;text-transform:uppercase;color:#475569;margin-bottom:5px">Direct JQL</label><textarea id="g45DirectJql" style="width:100%;min-height:74px;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 11px;font-family:Consolas,monospace;font-size:12px;resize:vertical" placeholder="Paste JQL here, or use the Filter ID field"></textarea></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" onclick="document.getElementById(\'g45FilterInput\').value=\'\';document.getElementById(\'g45DirectJql\').value=\'\';"><i class="fas fa-eraser"></i> Clear</button><button id="g45DirectRunBtn" class="btn btn-primary" onclick="gen45RunDirectJql()"><i class="fas fa-play"></i> Run Consolidated Report</button></div>'
+    +'<div id="g45DirectStatus" class="small-muted" style="margin-top:8px"></div>'
+  +'</div>';
+}
+function _g45RunConsolidatedJql(jql, opts){
+  opts=opts||{};
+  var payload={builds:[],traverse:true,orbit:true,target:TARGET,force:opts.force!==false,custom_jql:jql,include_axiom_metrics:false,domain:_g45ActiveDomain()};
+  return fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().then(function(d){if(!r.ok||d.error)throw new Error(d.error||d.message||('HTTP '+r.status));return d;});})
+    .then(function(d){
+      if(d.job_id){
+        if(window.BuildReportCommon&&BuildReportCommon.waitForResult)return BuildReportCommon.waitForResult(d.job_id);
+        return new Promise(function(resolve,reject){
+          var tries=0,t=setInterval(function(){tries++;fetch('/api/consolidated_report/result/'+encodeURIComponent(d.job_id),{cache:'no-store'}).then(function(r){return r.status===202?null:r.json();}).then(function(x){if(!x){if(tries>180){clearInterval(t);reject(new Error('Timed out waiting for report'));}return;}clearInterval(t);resolve(x);}).catch(function(e){clearInterval(t);reject(e);});},1500);
+        });
+      }
+      return d;
+    })
+    .then(function(d){if(d&&d.error)throw new Error(d.error);return d;});
+}
+window.gen45RunDirectJql=function(){
+  var jql=_g45DirectJqlValue();
+  if(!jql){alert('Enter direct JQL or a JIRA filter ID/URL first.');return;}
+  var panel=document.getElementById('gen45-inline-report'), body=document.getElementById('gen45-inline-report-body'), title=document.getElementById('gen45-inline-report-title'), meta=document.getElementById('gen45-inline-report-meta'), st=document.getElementById('g45DirectStatus'), btn=document.getElementById('g45DirectRunBtn');
+  if(title)title.innerHTML='<i class="fas fa-code" style="margin-right:6px"></i>Direct JQL Consolidated Report';
+  if(meta)meta.textContent='Running '+_g45ActiveDomain()+' report...';
+  if(body)body.innerHTML='<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running consolidated report from JQL...</span></div>';
+  if(panel){panel.style.display='block';setTimeout(function(){panel.scrollIntoView({behavior:'smooth',block:'start'});},80);}
+  if(st)st.textContent='Running consolidated report...';
+  if(btn)btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running...';
+  _g45RunConsolidatedJql(jql,{force:true}).then(function(rep){
+    if(meta)meta.textContent='Generated: '+String(((rep.meta||{}).generated_at)||new Date().toISOString()).slice(0,19).replace('T',' ');
+    if(st)st.textContent='Done.';
+    if(body)_irRender(body, rep, {name:'Direct JQL',jql:jql});
+  }).catch(function(e){if(st)st.textContent='Error: '+(e.message||e);if(body)body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_irEsc(e.message||String(e))+'</div>';})
+    .finally(function(){if(btn)btn.innerHTML='<i class="fas fa-play"></i> Run Consolidated Report';});
+};
+function gen45SjqlLoad(){
+  var dom = _g45ActiveDomain();
+  var box = document.getElementById('gen45SjqlBox'); if(!box) return;
+  box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
+  fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs?domain='+encodeURIComponent(dom),{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _g45Tabs = d.tabs || [];
+      gen45SjqlRenderCards();
+    }).catch(function(e){ _g45Tabs=[]; gen45SjqlRenderCards(); });
+}
+function gen45SjqlRenderCards(){
+  var box = document.getElementById('gen45SjqlBox'); if(!box) return;
+  var dom = _g45ActiveDomain();
+  var domColor = dom==='HGY' ? '#059669' : '#1d4ed8';
+  var domBg    = dom==='HGY' ? '#ecfdf5' : '#eff6ff';
+  var domBorder= dom==='HGY' ? '#6ee7b7' : '#bfdbfe';
+    var domIcon  = dom==='HGY' ? 'fa-leaf'  : 'fa-microchip';
+  if(!_g45Tabs.length){
+    box.innerHTML = '<div class="empty" style="padding:32px"><i class="fas fa-inbox"></i> No saved JQL tabs for <b>'+dom+'</b>.'+(CAN_EDIT?' Click <b>Add JQL Tab</b> to create a named reusable HQX/HGY JQL card.':'')+'</div>';
+    return;
+  }
+  box.innerHTML = _g45Tabs.map(function(t){
+    var timer  = _g45Timers[t.id] || {};
+    var lastRun = timer.lastRun  || t.last_run || null;
+    var nextRun = timer.nextRun  || null;
+    var running = !!timer.running;
+    var lastRunHtml = lastRun
+      ? '<span style="color:#64748b">Last run: <b>'+_irEsc(String(lastRun).slice(0,19).replace('T',' '))+'</b></span>'
+      : '<span style="color:#94a3b8">Never run</span>';
+    var nextRunHtml = nextRun
+      ? ' &middot; <span style="color:#059669">Next: <b>'+_irEsc(String(nextRun).slice(0,19).replace('T',' '))+'</b></span>'
+      : '';
+    return '<div id="g45card_'+t.id+'" style="border:1.5px solid '+domBorder+';background:linear-gradient(135deg,#fff,'+domBg+');border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 4px 14px rgba(37,99,235,.08);transition:.15s">'
+      // Top row: name + domain badge + action buttons
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            +'<span style="font-size:13px;font-weight:950;color:#1e3a8a">'+_irEsc(t.name)+'</span>'
+            +'<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:'+domBg+';color:'+domColor+';border:1px solid '+domBorder+'"><i class="fas '+domIcon+'" style="margin-right:3px"></i>'+dom+'</span>'
+          +'</div>'
+          +'<div style="font-size:10px;color:#64748b;margin-top:5px;font-family:Consolas,monospace;word-break:break-all;line-height:1.5">'+_irEsc((t.jql||'').slice(0,140))+(t.jql&&t.jql.length>140?'&hellip;':'')+'</div>'
+          // Last run / Next run per card
+          +'<div id="g45timing_'+t.id+'" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">'+lastRunHtml+nextRunHtml+'</div>'
+        +'</div>'
+        // Action buttons
+        +'<div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start">'
+          // Run button — always visible, shows spinner while running
+          +'<button id="g45run_'+t.id+'" onclick="event.stopPropagation();gen45SjqlRunCard(\"'+t.id+'\")" '
+            +'title="Run this JQL now" '
+            +'style="padding:5px 12px;border-radius:8px;border:1.5px solid '+domBorder+';background:'+domBg+';color:'+domColor+';font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px">'
+            +(running
+              ? '<i class="fas fa-circle-notch fa-spin"></i> Running...'
+              : '<i class="fas fa-play"></i> Run')
+          +'</button>'
+          +(CAN_EDIT
+            ? '<button onclick="event.stopPropagation();gen45SjqlEdit(\"'+t.id+'\")" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button>'
+             +'<button onclick="event.stopPropagation();gen45SjqlDelete(\"'+t.id+'\")" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button>'
+            : '')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+// Run a single card's JQL and show result in the inline panel
+function gen45SjqlRunCard(id){
+  var dom = _g45ActiveDomain();
+  var tab = _g45Tabs.find(function(t){return t.id===id;}); if(!tab) return;
+  // Mark card as running
+  if(!_g45Timers[id]) _g45Timers[id] = {};
+  _g45Timers[id].running = true;
+  var runBtn = document.getElementById('g45run_'+id);
+  if(runBtn) runBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Running...';
+  // Open inline panel
+  _g45ActiveId = id; _g45ActiveDom = dom;
+  var panel = document.getElementById('gen45-inline-report');
+  var body  = document.getElementById('gen45-inline-report-body');
+  var title = document.getElementById('gen45-inline-report-title');
+  var meta  = document.getElementById('gen45-inline-report-meta');
+  if(panel) panel.style.display = 'block';
+  if(title) title.innerHTML = '<i class="fas fa-bookmark" style="margin-right:6px"></i>'+_irEsc(tab.name);
+  if(meta)  meta.textContent = 'Running...';
+  if(body)  body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running JQL for <b>'+_irEsc(tab.name)+'</b>...</span></div>';
+  if(panel) setTimeout(function(){ panel.scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
+    _g45RunConsolidatedJql(tab.jql||'', {force:true})
+    .then(function(r){
+      var now = new Date();
+      var genAt   = r.generated_at || now.toISOString();
+      var nextAt  = new Date(now.getTime() + _g45TTL).toISOString();
+      _g45Timers[id].running = false;
+      _g45Timers[id].lastRun = genAt;
+      _g45Timers[id].nextRun = nextAt;
+      // Update card timing row independently
+      var timingEl = document.getElementById('g45timing_'+id);
+      if(timingEl){
+        timingEl.innerHTML =
+          '<span style="color:#64748b">Last run: <b>'+_irEsc(genAt.slice(0,19).replace('T',' '))+'</b></span>'
+          +' &middot; <span style="color:#059669">Next: <b>'+_irEsc(nextAt.slice(0,19).replace('T',' '))+'</b></span>';
+      }
+      // Restore run button
+      var rb = document.getElementById('g45run_'+id);
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
+      // Update panel meta
+      if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+      if(body) _irRender(body, r, tab);
+    }).catch(function(e){
+      _g45Timers[id].running = false;
+      var rb = document.getElementById('g45run_'+id);
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
+      if(body) body.innerHTML = '<div class="empty" style="color:#ef4444">Failed: '+_irEsc(String(e))+'</div>';
+    });
+}
+window.gen45SjqlViewReport = function(id, d){
+  var dom = d || _g45ActiveDomain();
+  _g45ActiveId = id; _g45ActiveDom = dom;
+  var tab = _g45Tabs.find(function(t){return t.id===id;});
+  var panel = document.getElementById('gen45-inline-report');
+  var body  = document.getElementById('gen45-inline-report-body');
+  var title = document.getElementById('gen45-inline-report-title');
+  var meta  = document.getElementById('gen45-inline-report-meta');
+  if(!panel||!body) return;
+  if(title) title.innerHTML = '<i class="fas fa-bookmark" style="margin-right:6px"></i>'+_irEsc(tab?tab.name:'Report');
+  if(meta)  meta.textContent = 'Loading...';
+  body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running JQL query...</span></div>';
+  panel.style.display = 'block';
+  setTimeout(function(){ panel.scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
+    _g45RunConsolidatedJql((tab&&tab.jql)||'', {force:false})
+    .then(function(r){
+      var genAt = r.generated_at || new Date().toISOString();
+      if(!_g45Timers[id]) _g45Timers[id] = {};
+      _g45Timers[id].lastRun = genAt;
+      var timingEl = document.getElementById('g45timing_'+id);
+      if(timingEl){
+        var nextRun = _g45Timers[id].nextRun || '';
+        timingEl.innerHTML = '<span style="color:#64748b">Last run: <b>'+_irEsc(genAt.slice(0,19).replace('T',' '))+'</b></span>'
+          +(nextRun?' &middot; <span style="color:#059669">Next: <b>'+_irEsc(nextRun.slice(0,19).replace('T',' '))+'</b></span>':'');
+      }
+      if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+      _irRender(body, r, tab);
+    }).catch(function(e){ body.innerHTML = '<div class="empty" style="color:#ef4444">Failed: '+_irEsc(String(e))+'</div>'; });
+};
+window.gen45SjqlRunNow = function(){
+  if(!_g45ActiveId) return;
+  gen45SjqlRunCard(_g45ActiveId);
+};
+window.gen45SjqlCloseReport = function(){
+  var p = document.getElementById("gen45-inline-report"); if(p) p.style.display = "none";
+  _g45ActiveId = null;
+};
+window.gen45SjqlOpenAdd = function(){
+  var m = document.getElementById('gen45-sjql-modal'); if(!m) return;
+  var dom = _g45ActiveDomain();
+  document.getElementById('gen45-sjql-edit-id').value = '';
+  document.getElementById('gen45-sjql-inp-name').value = '';
+  document.getElementById('gen45-sjql-inp-jql').value = '';
+  document.getElementById('gen45-sjql-modal-title').textContent = 'Add JQL Tab — '+dom;
+  // Set domain badge in modal
+  var badge = document.getElementById('gen45-sjql-dom-badge');
+  if(badge){ badge.textContent = dom; badge.style.background = dom==='HGY'?'#ecfdf5':'#eff6ff'; badge.style.color = dom==='HGY'?'#065f46':'#1d4ed8'; badge.style.borderColor = dom==='HGY'?'#6ee7b7':'#bfdbfe'; }
+  m.style.display = 'flex';
+};
+window.gen45SjqlCloseModal = function(){
+  var m = document.getElementById("gen45-sjql-modal"); if(m) m.style.display = "none";
+};
+window.gen45SjqlEdit = function(id){
+  var tab = _g45Tabs.find(function(t){return t.id===id;}); if(!tab) return;
+  var m = document.getElementById('gen45-sjql-modal'); if(!m) return;
+  var dom = _g45ActiveDomain();
+  document.getElementById('gen45-sjql-edit-id').value = id;
+  document.getElementById('gen45-sjql-inp-name').value = tab.name || '';
+  document.getElementById('gen45-sjql-inp-jql').value = tab.jql || '';
+  document.getElementById('gen45-sjql-modal-title').textContent = 'Edit JQL Tab — '+dom;
+  var badge = document.getElementById('gen45-sjql-dom-badge');
+  if(badge){ badge.textContent = dom; badge.style.background = dom==='HGY'?'#ecfdf5':'#eff6ff'; badge.style.color = dom==='HGY'?'#065f46':'#1d4ed8'; badge.style.borderColor = dom==='HGY'?'#6ee7b7':'#bfdbfe'; }
+  m.style.display = 'flex';
+};
+window.gen45SjqlSave = function(){
+  var id   = document.getElementById('gen45-sjql-edit-id').value;
+  var name = (document.getElementById('gen45-sjql-inp-name').value||'').trim();
+  var jql  = (document.getElementById('gen45-sjql-inp-jql').value||'').trim();
+  var dom  = _g45ActiveDomain();
+  if(!name||!jql){ alert('Name and JQL are required.'); return; }
+  var payload = {target:TARGET, domain:dom, name:name, jql:jql};
+  if(id) payload.id = id;
+  fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok) throw new Error(d.error||'Save failed');
+      gen45SjqlCloseModal();
+      gen45SjqlLoad();
+    }).catch(function(e){ alert('Save failed: '+e.message); });
+};
+window.gen45SjqlDelete = function(id){
+  if(!confirm("Delete this JQL tab?")) return;
+  var dom = _g45ActiveDomain();
+  fetch("/api/live_status/targets/"+encodeURIComponent(TARGET)+"/saved_jql_tabs/"+encodeURIComponent(id)+"?domain="+encodeURIComponent(dom), {method:"DELETE"})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok) throw new Error(d.error||"Delete failed");
+      gen45SjqlLoad();
+    }).catch(function(e){ alert("Delete failed: "+e.message); });
+};
+// Auto-load JQL tabs when switching to Current tab
+document.addEventListener("tabswitch", function(e){
+  if(e.detail && e.detail.tab === "current") gen45SjqlLoad();
+});
 const PUBLIC_API='/public/auto-gen45/api';
 const TARGET={{ target_name|tojson }};
 const CAN_EDIT={{ can_edit|tojson }};
@@ -309,8 +1113,7 @@ const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
 let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null;
 let config={sheet_tables:{}}, dbTables=[];
 const CURRENT_REPORT_TTL_MS = 30 * 60 * 1000;
-let currentReportCache = {}, currentReportSelectedBuild = ''; 
-
+let currentReportCache = {}, currentReportSelectedBuild = '';
 // --- Customize Tabs (localStorage-backed show/hide) ---
 (function(){
   const STORE_KEY = 'auto_gen45_hidden_tabs';
@@ -377,80 +1180,237 @@ function setText(id,v){const e=document.getElementById(id); if(e)e.textContent=v
 async function getJson(url){const r=await fetch(url,{cache:'no-store'}); const d=await r.json(); if(!d.ok) throw new Error(d.message||d.error||'API failed'); return d;}
 async function postJson(url,payload){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})}); const d=await r.json(); if(!d.ok) throw new Error(d.error||d.message||'Save failed'); return d;}
 function switchTab(tab){
+ document.dispatchEvent(new CustomEvent('tabswitch',{detail:{tab:tab}}));
   if(tab==='config'&&!CAN_EDIT)tab='core';
   const tabsWithKpis=['core','current','mtbf'];
   const kpis=document.querySelector('.kpis');
   if(kpis) kpis.style.display=tabsWithKpis.includes(tab)?'grid':'none';
-
   ['core','current','mtbf','weekly','opencrs','openjiras','buildreport','config'].forEach(t=>{
     document.getElementById('tab-'+t)?.classList.toggle('active',t===tab);
     document.getElementById('tab-btn-'+t)?.classList.toggle('active',t===tab);
   });
-  if(tab==='config') hydrateConfigForm();
-  if(tab==='opencrs') ocLoad(false);
-  if(tab==='openjiras') ojLoad(false);
-  if(tab==='buildreport') bwrLoad(false);
-  if(tab==='weekly') renderWeekly();
-}
+      if(tab==='mtbf'){ renderCharts(); renderTable(); }
+    if(tab==='config') hydrateConfigForm();
+    if(tab==='opencrs') ocLoad(false);
+    if(tab==='openjiras') ojLoad(false);
+    if(tab==='buildreport') bwrLoad(false);
+    if(tab==='weekly') renderWeekly();
+  }
 async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
 function spCfg(sp){const st=config.sheet_tables||{}, key=String(sp||'').trim(), digits=key.replace(/\D+/g,'');const keys=[key,'SP '+key,'SP'+key,digits,'SP '+digits,'SP'+digits].filter(Boolean);for(const k of keys){if(st[k])return st[k];}return {};}
 function renderSpList(){const q=(document.getElementById('spSearch').value||'').toLowerCase();const rows=spList.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q));document.getElementById('spList').innerHTML=rows.length?rows.map(x=>{const cfg=spCfg(x.sp);const has=cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table;return `<button class="sp-item ${String(x.sp)===String(activeSp)?'active':''}" onclick="selectSp('${esc(x.sp)}')"><div class="sp-name">SP ${esc(x.sp)}</div><div class="sp-prog">${esc(x.program)}</div><div class="sp-meta"><span class="tag green">${esc(x.row_count||0)} rows</span>${has?'<span class="tag green"><i class="fas fa-database"></i> DB</span>':'<span class="tag orange">No DB config</span>'}</div></button>`}).join(''):'<div class="empty" style="color:#bfdbfe">No SPs found.</div>';}
-async function selectSp(sp){activeSp=String(sp||'');resetLiveApiTabs();renderSpList();hydrateConfigForm();setText('heroTitle','SP '+activeSp);setText('heroSub','Loading '+activeSp+'...');['currentBox','snapshotBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';});try{spPayload=await getJson(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}?summary=1`);activeProgram=spPayload.resolved_program||activeSp;setText('heroSub',activeProgram);setText('generatedAt','Updated '+String(spPayload.generated_at||'').slice(0,19));await loadSpDbData();renderAll();}catch(e){setText('heroSub',e.message||e);}}
+async function selectSp(sp){activeSp=String(sp||'');resetLiveApiTabs();renderSpList();hydrateConfigForm();setText('heroTitle','SP '+activeSp);setText('heroSub','Loading '+activeSp+'...');['currentBox','gen45SjqlBox','snapshotBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';});try{
+    // Always load HQX sheet data (used for MTBF chart, table, core slides when HQX active)
+    const hqxPromise=getJson(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}?summary=1`);
+    // Load HGY rows separately from the HGY JSON store
+    const hgyPromise=getJson(`${PUBLIC_API}/hgy/sp/${encodeURIComponent(activeSp)}?summary=1`).catch(()=>({ok:false,rows:[],summary:{}}));
+    const [hqxData, hgyData]=await Promise.all([hqxPromise, hgyPromise]);
+    spPayload=hqxData;
+    spPayload._hgy=hgyData;  // stash HGY data on spPayload for access in renderAll
+        activeProgram=spPayload.resolved_program||activeSp;
+    _updatePlatUI();
+    _g45Tabs=[];
+    gen45SjqlLoad();
+    setText('heroSub',activeProgram);
+    setText('generatedAt','Updated '+String(spPayload.generated_at||'').slice(0,19));
+    await loadSpDbData();renderAll();}catch(e){setText('heroSub',e.message||e);}}
 function refreshSelected(){activeSp?selectSp(activeSp):loadSps(true);}
 async function loadConfig(force){try{const cfg=await getJson(`${CFG_API}/config`);let tbl={tables:[]};if(CAN_EDIT){tbl=await getJson(`${CFG_API}/db_tables`);}config=cfg.config||{sheet_tables:{}};config.sheet_tables=config.sheet_tables||{};dbTables=tbl.tables||[];renderTableSelects();hydrateConfigForm();renderSavedConfigList();setText('cfgStatus','Configuration loaded.');renderSpList();}catch(e){setText('cfgStatus','Config load failed: '+(e.message||e));}}
 function optionHtml(kind){let arr=dbTables.filter(t=>!kind||t.kind===kind); if(kind==='unique_crs') arr=dbTables.filter(t=>t.kind==='unique_crs'||t.kind==='overallcrs'); return '<option value="">-- Not configured --</option>'+arr.map(t=>`<option value="${esc(t.fq||t.name)}">${esc(t.label||t.name||t.fq)}</option>`).join('');}
-function renderTableSelects(){const j=document.getElementById('cfgJiras'), o=document.getElementById('cfgOpenJiras'), u=document.getElementById('cfgUniqueCrs'); if(!j)return; j.innerHTML=optionHtml('jiras'); o.innerHTML=optionHtml('openjiras'); u.innerHTML=optionHtml('unique_crs');}
-function hydrateConfigForm(){const sp=String(activeSp||'');const cfg=spCfg(sp);const spInput=document.getElementById('cfgSp');if(spInput)spInput.value=sp?('SP '+sp):''; const set=(id,val)=>{const e=document.getElementById(id);if(e)e.value=val||''}; set('cfgJiras',cfg.jiras_table||cfg.target_table||''); set('cfgOpenJiras',cfg.openjiras_table||''); set('cfgUniqueCrs',cfg.unique_crs_table||'');}
-function renderSavedConfigList(){const el=document.getElementById('cfgSavedList');if(!el)return;const entries=Object.entries(config.sheet_tables||{}).filter(([sp,row])=>row&&(row.jiras_table||row.target_table||row.openjiras_table||row.unique_crs_table));el.innerHTML=entries.length?'<b>Saved SP mappings:</b><br>'+entries.map(([sp,row])=>`SP ${esc(sp)}: JIRAs=${esc(row.jiras_table||row.target_table||'-')} | Open=${esc(row.openjiras_table||'-')} | CR=${esc(row.unique_crs_table||'-')}`).join('<br>'):'No SP table mappings saved yet.';}
+function renderTableSelects(){
+  const j=document.getElementById('cfgJiras'), o=document.getElementById('cfgOpenJiras'), u=document.getElementById('cfgUniqueCrs');
+  if(!j)return;
+  j.innerHTML=optionHtml('jiras'); o.innerHTML=optionHtml('openjiras'); u.innerHTML=optionHtml('unique_crs');
+  // HGY selects
+  const hj=document.getElementById('cfgHgyJiras'), ho=document.getElementById('cfgHgyOpenJiras'), hu=document.getElementById('cfgHgyUniqueCrs');
+  if(hj){hj.innerHTML=optionHtml('jiras'); ho.innerHTML=optionHtml('openjiras'); hu.innerHTML=optionHtml('unique_crs');}
+}
+function hydrateConfigForm(){
+  const sp=String(activeSp||'');
+  const cfg=spCfg(sp);
+  const hgyCfg=(config.sheet_tables||{})[_hgyPlatKey(sp)]||{};
+  const spInput=document.getElementById('cfgSp');
+  if(spInput)spInput.value=sp?('SP '+sp):'';
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.value=val||''};
+  // HQX
+  set('cfgJiras',cfg.jiras_table||cfg.target_table||'');
+  set('cfgOpenJiras',cfg.openjiras_table||'');
+  set('cfgUniqueCrs',cfg.unique_crs_table||'');
+  // HGY
+  set('cfgHgyJiras',hgyCfg.jiras_table||hgyCfg.target_table||'');
+  set('cfgHgyOpenJiras',hgyCfg.openjiras_table||'');
+  set('cfgHgyUniqueCrs',hgyCfg.unique_crs_table||'');
+}
+function renderSavedConfigList(){
+  const el=document.getElementById('cfgSavedList');
+  if(!el)return;
+  const all=config.sheet_tables||{};
+  const entries=Object.entries(all).filter(([sp,row])=>row&&(row.jiras_table||row.target_table||row.openjiras_table||row.unique_crs_table));
+  if(!entries.length){el.innerHTML='No SP table mappings saved yet.';return;}
+  // Group HQX and HGY rows together per SP
+  const spKeys=new Set();
+  entries.forEach(([k])=>{ spKeys.add(k.replace(/_hgy$/i,'')); });
+  let html='<b>Saved SP mappings:</b><br>';
+  spKeys.forEach(sp=>{
+    const hqx=all[sp]||{};
+    const hgy=all[_hgyPlatKey(sp)]||{};
+    html+=`<span style="font-weight:900">SP ${esc(sp)}</span> `;
+    html+=`<span style="color:#1d4ed8">[HQX] JIRAs=${esc(hqx.jiras_table||hqx.target_table||'-')} | Open=${esc(hqx.openjiras_table||'-')} | CR=${esc(hqx.unique_crs_table||'-')}</span>`;
+    if(hgy.jiras_table||hgy.openjiras_table||hgy.unique_crs_table){
+      html+=` &nbsp;<span style="color:#065f46">[HGY] JIRAs=${esc(hgy.jiras_table||hgy.target_table||'-')} | Open=${esc(hgy.openjiras_table||'-')} | CR=${esc(hgy.unique_crs_table||'-')}</span>`;
+    }
+    html+='<br>';
+  });
+  el.innerHTML=html;
+}
 async function saveActiveSpConfig(){
   if(!CAN_EDIT){setText('cfgStatus','Config is editor-only.');return;}
   if(!activeSp){setText('cfgStatus','Select an SP first.');return;}
-  const row={
+  const hqxRow={
     target_table:document.getElementById('cfgJiras').value,
     jiras_table:document.getElementById('cfgJiras').value,
     openjiras_table:document.getElementById('cfgOpenJiras').value,
     unique_crs_table:document.getElementById('cfgUniqueCrs').value
   };
+  const hgyRow={
+    target_table:(document.getElementById('cfgHgyJiras')||{}).value||'',
+    jiras_table:(document.getElementById('cfgHgyJiras')||{}).value||'',
+    openjiras_table:(document.getElementById('cfgHgyOpenJiras')||{}).value||'',
+    unique_crs_table:(document.getElementById('cfgHgyUniqueCrs')||{}).value||''
+  };
   // Deep copy to prevent overwriting other SPs that share the same config object by reference
   const next=JSON.parse(JSON.stringify(config.sheet_tables||{}));
-  next[String(activeSp)]=row;
+  next[String(activeSp)]=hqxRow;
+  next[_hgyPlatKey(activeSp)]=hgyRow;
   setText('cfgStatus','Saving...');
   try{
     const d=await postJson(`${CFG_API}/config`,{sheet_tables:next});
     config=d.config||config;
     config.sheet_tables=config.sheet_tables||{};
     resetLiveApiTabs();
-    setText('cfgStatus','Saved table configuration for SP '+activeSp+'. Refreshing DB sections...');
+    setText('cfgStatus','Saved HQX + HGY table configuration for SP '+activeSp+'. Refreshing DB sections...');
     renderSavedConfigList();
     renderSpList();
     await loadSpDbData();
     renderLiveApiTabsForActiveSection();
   }catch(e){setText('cfgStatus','Save failed: '+(e.message||e));}
 }
-async function loadSpDbData(){dbPayload=null;if(!activeSp)return;try{dbPayload=await getJson(`${CFG_API}/sp_db_data?sp=${encodeURIComponent(activeSp)}`);}catch(e){dbPayload={ok:false,error:e.message||String(e),counts:{},current_builds:[]};}}
-function rows(){return (spPayload&&spPayload.rows)||[]} function latestRow(){const r=rows();return r.length?r[r.length-1]:{};}
+async function loadSpDbData(){
+  dbPayload=null;
+  if(!activeSp)return;
+  try{
+    var platParam = _activePlat==='HGY' ? '&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)) : '';
+    dbPayload=await getJson(`${CFG_API}/sp_db_data?sp=${encodeURIComponent(activeSp)}${platParam}`);
+  }catch(e){
+    dbPayload={ok:false,error:e.message||String(e),counts:{},current_builds:[]};
+  }
+}
+  function rows(){
+    if(_activePlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
+    return (spPayload&&spPayload.rows)||[];
+  } function latestRow(){const r=rows();return r.length?r[r.length-1]:{};}
 function buildLabel(r){return r.build_s||r.builds||r.build||r.meta_id||r.meta||'-';}
 function dateVal(r){return r.date||r.week||r.report_date||'';}
-function renderAll(){const s=spPayload.summary||{}, l=latestRow(), c=(dbPayload&&dbPayload.counts)||{};setText('kRows',s.row_count||rows().length);setText('kLatestMtbf',s.latest_mtbf==null?'0':s.latest_mtbf);setText('kHours',fmt(s.total_hours,1));setText('kCrashes',fmt(c.total_crs||s.total_crashes,0));setText('kOverallMtbf',fmt(s.calculated_overall_mtbf,2));setText('kDate',s.latest_date||dateVal(l)||'-');setText('kBuild',s.latest_build||buildLabel(l));setText('corePill','SP '+activeSp+' &middot; '+(s.row_count||rows().length)+' rows');renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();}
-function renderSnapshot(){const s=spPayload.summary||{}, l=latestRow(), cfg=(dbPayload&&dbPayload.db_config)||{};document.getElementById('snapshotBox').innerHTML=`<div class="build-card"><div class="build-title">${esc(activeProgram)}</div><div class="build-sub">Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div><div class="build-sub">Rows: ${esc(s.row_count||rows().length)} &middot; Total hours: ${esc(fmt(s.total_hours,1))} &middot; DB CRs: ${esc(((dbPayload&&dbPayload.counts)||{}).total_crs||0)} &middot; DB Open JIRAs: ${esc(((dbPayload&&dbPayload.counts)||{}).open_jiras||0)}</div></div><div class="hint" style="margin-top:10px">Configured JIRAs: ${esc(cfg.jiras_table||cfg.target_table||'not set')}<br>Open JIRAs: ${esc(cfg.openjiras_table||'not set')}<br>Unique CRs: ${esc(cfg.unique_crs_table||'not set')}</div>`;}
-function renderCoreSlides(){const s=spPayload.summary||{},l=latestRow();const el=document.getElementById('coreSnapshotRows'),em=document.getElementById('coreEmpty');if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}if(em)em.style.display='none';if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} â€” ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;} }
+function _hgyIsConfigured(){
+  var cfg=_platCfg(activeSp);
+  return !!(cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table);
+}
+  function renderAll(){
+    if(_activePlat==='HGY'){
+      const hs=(spPayload&&spPayload._hgy&&spPayload._hgy.summary)||{};
+      const hl=latestRow();
+      setText('kRows',hs.row_count||rows().length||0);
+      setText('kLatestMtbf',hs.latest_mtbf==null?'0':hs.latest_mtbf);
+      setText('kHours',fmt(hs.total_hours,1));
+      setText('kCrashes',fmt(hs.total_crashes,0));
+      setText('kOverallMtbf',fmt(hs.calculated_overall_mtbf,2));
+      setText('kDate',hs.latest_date||dateVal(hl)||'-');
+      setText('kBuild',hs.latest_build||buildLabel(hl)||'HGY - no rows');
+      setText('corePill','SP '+activeSp+' - HGY - '+(hs.row_count||rows().length||0)+' rows');
+      renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();
+      return;
+      var hgyC=(dbPayload&&dbPayload.counts)||{};
+      var configured=_hgyIsConfigured();
+      if(!configured){
+        setText('kRows','--'); setText('kLatestMtbf','--'); setText('kHours','--');
+        setText('kCrashes','--'); setText('kOverallMtbf','--'); setText('kDate','--');
+        setText('kBuild','HGY not configured — set tables in Config tab');
+      } else {
+        setText('kRows','--'); setText('kLatestMtbf','--'); setText('kHours','--');
+        setText('kCrashes',fmt(hgyC.total_crs||0,0));
+        setText('kOverallMtbf','--'); setText('kDate','--');
+        setText('kBuild','HGY — DB data');
+      }
+    setText('corePill','SP '+activeSp+' · HGY');
+    renderCurrent();
+    renderLiveApiTabsForActiveSection();
+    return;
+  }
+  const s=spPayload.summary||{}, l=latestRow(), c=(dbPayload&&dbPayload.counts)||{};
+  setText('kRows',s.row_count||rows().length);
+  setText('kLatestMtbf',s.latest_mtbf==null?'0':s.latest_mtbf);
+  setText('kHours',fmt(s.total_hours,1));
+  setText('kCrashes',fmt(c.total_crs||s.total_crashes,0));
+  setText('kOverallMtbf',fmt(s.calculated_overall_mtbf,2));
+  setText('kDate',s.latest_date||dateVal(l)||'-');
+  setText('kBuild',s.latest_build||buildLabel(l));
+  setText('corePill','SP '+activeSp+' &middot; '+(s.row_count||rows().length)+' rows');
+  renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();
+}
+  function renderSnapshot(){
+    const cfg=(dbPayload&&dbPayload.db_config)||_platCfg(activeSp)||{};
+    const dbC=(dbPayload&&dbPayload.counts)||{};
+    if(_activePlat==='HGY'){
+      document.getElementById('snapshotBox').innerHTML='<div class="build-card"><div class="build-title">'+esc(activeProgram)+'</div>'
+        +'<div class="build-sub" style="color:#065f46"><i class="fas fa-leaf"></i> HGY platform — DB-sourced data only</div>'
+        +'<div class="build-sub">DB CRs: '+esc(dbC.total_crs||0)+' &middot; DB Open JIRAs: '+esc(dbC.open_jiras||0)+'</div></div>'
+        +'<div class="hint" style="margin-top:10px">Configured JIRAs: '+esc(cfg.jiras_table||cfg.target_table||'not set')+'<br>Open JIRAs: '+esc(cfg.openjiras_table||'not set')+'<br>Unique CRs: '+esc(cfg.unique_crs_table||'not set')+'</div>';
+      return;
+    }
+    const s=spPayload.summary||{}, l=latestRow();
+    document.getElementById('snapshotBox').innerHTML=`<div class="build-card"><div class="build-title">${esc(activeProgram)}</div><div class="build-sub">Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div><div class="build-sub">Rows: ${esc(s.row_count||rows().length)} &middot; Total hours: ${esc(fmt(s.total_hours,1))} &middot; DB CRs: ${esc(dbC.total_crs||0)} &middot; DB Open JIRAs: ${esc(dbC.open_jiras||0)}</div></div><div class="hint" style="margin-top:10px">Configured JIRAs: ${esc(cfg.jiras_table||cfg.target_table||'not set')}<br>Open JIRAs: ${esc(cfg.openjiras_table||'not set')}<br>Unique CRs: ${esc(cfg.unique_crs_table||'not set')}</div>`;
+  }
+function renderCoreSlides(){
+    const el=document.getElementById('coreSnapshotRows'), em=document.getElementById('coreEmpty');
+    if(_activePlat==='HGY'){
+      if(em){em.style.display='block';em.innerHTML='<i class="fas fa-leaf" style="color:#6ee7b7;font-size:20px;margin-bottom:8px"></i><br><b style="color:#065f46">Core Slides summary is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view Core Slides.</span>';}
+      if(el)el.style.display='none';
+      return;
+    }
+    const s=spPayload.summary||{}, l=latestRow();
+    if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}
+    if(em)em.style.display='none';
+    if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} - ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;}
+  }
 function renderCurrent(){
-  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
-    const box=document.getElementById('currentBox');
+  // Current tab is JQL-driven only. Do not pull/display Axiom build rows here.
+  // Direct JQL/filter and saved HQX/HGY JQL tabs generate the consolidated report.
+  gen45SjqlRenderCards();
+  return;
+    const dbRows=(dbPayload&&dbPayload.current_builds)||[];
+  const box=document.getElementById('currentBox')||document.getElementById('gen45SjqlBox');
+  if(!box) return;
+  // HGY with no tables configured → show empty state immediately
+  if(_activePlat==='HGY'&&!_hgyIsConfigured()){
+    box.innerHTML='<div class="empty" style="padding:48px"><i class="fas fa-leaf" style="font-size:28px;color:#6ee7b7;margin-bottom:12px"></i><br><b style="color:#065f46">HGY tables not configured for SP '+esc(activeSp)+'</b><br><span style="color:#64748b;font-size:12px">Go to the <b>Config</b> tab and set the HGY JIRAs / Open JIRAs / Unique CRs tables, then save.</span></div>';
+    return;
+  }
   if(dbRows.length){
     box.innerHTML=`<div class="hint" style="margin-bottom:12px">Axiom builds are read from <b>axiom_job_summary</b>. For Auto Gen4.5, the SP's configured table decides the product flavor scope (for example Lemans / Monaco). Related <b>Running + Aborted</b> Axiom jobs are included, and their job IDs are used in the cross-check JQL.</div>`+
       dbRows.map((r,i)=>{const sc=r.state_counts||{};const stateText=Object.keys(sc).length?Object.keys(sc).map(k=>k+' '+sc[k]).join(' / '):(r.state||'Running');return `<div class="build-card" id="curBuild_${i}" style="cursor:pointer" onclick="showCurrentBuildReport(${i},false)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} &middot; Jobs ${esc(r.job_count||0)} &middot; Devices ${esc(r.device_count||0)} &middot; ${esc(stateText)}</div><div class="build-sub" style="font-size:10px;color:#64748b">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div><button class="btn btn-primary" onclick="event.stopPropagation();showCurrentBuildReport(${i},false)"><i class="fas fa-microscope"></i> Load Report</button></div></div>`}).join('')+
       '<div id="currentReportBox" class="card" style="margin-top:14px;margin-bottom:0"><div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Selected Axiom Build Report</h2><span id="currentReportStatus" class="small-muted">Loading report for the top Axiom build...</span></div><div class="card-body"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading report...</div></div></div>';
-    // Auto-load the report for the first (top) running build - no click required.
-    // The server-side cache (30 min TTL, shared across all users) makes this cheap
-    // on repeated page loads/refreshes.
     showCurrentBuildReport(0,false);
     return;
   }
-  const l=latestRow(), s=spPayload.summary||{};
+  // No Axiom builds found
+  if(_activePlat==='HGY'){
+    box.innerHTML='<div class="empty" style="padding:36px"><i class="fas fa-leaf" style="font-size:22px;color:#6ee7b7;margin-bottom:10px"></i><br><b style="color:#065f46">No current Axiom builds found for HGY</b><br><span style="color:#64748b;font-size:12px">Axiom axiom_job_summary has no running builds matching this SP\'s HGY product flavor.</span></div>';
+    return;
+  }
+  const l=latestRow(), s=(spPayload&&spPayload.summary)||{};
   box.innerHTML=rows().length?`<div class="hint">No current Axiom builds found for the configured table/product flavor. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} &middot; ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} &middot; Crashes ${esc(l.crashes||l.total_crashes||'0')} &middot; MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';
 }
-function _currentReportKey(build){return String(activeSp||'')+'|'+String(build||'').trim().toLowerCase();}
+function _currentReportKey(build){return String(activeSp||'')+'|'+String(_activePlat||'HQX')+'|'+String(build||'').trim().toLowerCase();}
 function _currentCacheAgeText(entry){const mins=Math.max(0,Math.floor((Date.now()-(entry&&entry.loadedAt||Date.now()))/60000));return mins<1?'just now':mins+' min ago';}
 function _fmtDt(v){if(!v)return'-';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString();}
 function copyReportJql(btn){
@@ -461,89 +1421,311 @@ function copyReportJql(btn){
   const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');done();}finally{document.body.removeChild(ta);}};
   if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(fallback);}else{fallback();}
 }
-function _currentReportBody(){const box=document.querySelector('#currentReportBox .card-body');return box||document.getElementById('currentBox');}
+function _currentReportBody(){const box=document.querySelector('#currentReportBox .card-body');return box||document.getElementById('gen45SjqlBox');}
 function _currentReportStatus(msg){setText('currentReportStatus',msg||'');}
-function _currentReportCols(rows){const preferred=['cr','jira','title','cr_count','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','si_last_seen','last_instance','crash_type'];const keys=[];preferred.forEach(k=>{if(rows.some(r=>r&&r[k]!=null)&&!keys.includes(k))keys.push(k);});rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!keys.includes(k))keys.push(k);}));return keys;}
-function renderCurrentBuildReport(build,rowData,fromCache,cacheEntry){
+function _currentReportBuildName(row){
+  return String((row&&(row.build_id||row.build_full||row.build_name||row.meta_id||row.meta))||'').trim();
+}
+function _currentReportCrashTypes(){
+  return ['system','ssr','process','open_jira'];
+}
+function _currentReportUrl(build, row, force){
+  const params=[
+    'sp='+encodeURIComponent(activeSp||''),
+    'build='+encodeURIComponent(build||''),
+    'crash_types='+encodeURIComponent(_currentReportCrashTypes().join(','))
+  ];
+  if(_activePlat==='HGY') params.push('plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)));
+  const jobIds=(row&&row.job_ids)||[];
+  if(jobIds.length) params.push('job_ids='+encodeURIComponent(jobIds.join(',')));
+  if(force) params.push('force=1');
+  return `${CFG_API}/sp_build_wise_report?`+params.join('&');
+}
+function _setCurrentBuildActive(index){
+  Array.prototype.forEach.call(document.querySelectorAll('[id^="curBuild_"]'),function(el){
+    el.style.borderColor='#dbeafe';
+    el.style.background='#f8fbff';
+    el.style.boxShadow='none';
+  });
+  const card=document.getElementById('curBuild_'+index);
+  if(card){
+    card.style.borderColor='#6366f1';
+    card.style.background='linear-gradient(135deg,#fff,#eef2ff)';
+    card.style.boxShadow='0 8px 22px rgba(99,102,241,.16)';
+  }
+}
+function _showCurrentReportLoading(build, force){
   const body=_currentReportBody();
-  const rows=(rowData&&rowData.detail_rows)||[];
+  if(body){
+    body.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> '+(force?'Regenerating':'Loading')+' report for <b>'+esc(build||'-')+'</b>...</div>';
+  }
+  _currentReportStatus((force?'Regenerating':'Loading')+' report...');
+}
+function _showCurrentReportError(build, err){
+  const body=_currentReportBody();
+  const msg=(err&&err.message)||err||'Report failed';
+  if(body){
+    body.innerHTML='<div class="empty" style="color:#dc2626"><i class="fas fa-triangle-exclamation"></i><br><br><b>Failed to load report for '+esc(build||'-')+'</b><br><span class="small-muted" style="color:#b91c1c">'+esc(msg)+'</span><br><br><span class="small-muted">Use the build card Load Report button or Refresh to try again.</span></div>';
+  }
+  _currentReportStatus('Report failed: '+msg);
+}
+function showCurrentBuildReport(index, force){
+  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
+  const i=Number(index)||0;
+  const row=dbRows[i];
+  if(!row){
+    _showCurrentReportError('', 'Current build row not found. Refresh the page and try again.');
+    return;
+  }
+  _setCurrentBuildActive(i);
+  showCurrentBuildReportById(_currentReportBuildName(row), force===true, row);
+}
+function showCurrentBuildReportById(build, force, row){
+  build=String(build||'').trim();
+  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
+  if(!row){
+    row=dbRows.find(function(r){return _currentReportBuildName(r)===build;})||null;
+  }
+  if(!build){
+    _showCurrentReportError('', 'Build id is missing.');
+    return;
+  }
+  const jobIds=(row&&row.job_ids)||[];
+  const cacheKey=_currentReportKey(build)+'|'+jobIds.slice().sort().join(',');
+  const cached=currentReportCache[cacheKey];
+  if(!force&&cached&&(Date.now()-cached.loadedAt)<CURRENT_REPORT_TTL_MS){
+    renderCurrentBuildReport(build, cached.data, true, cached);
+    return;
+  }
+  currentReportSelectedBuild=build;
+  _showCurrentReportLoading(build, force===true);
+  fetch(_currentReportUrl(build, row, force===true), {cache:'no-store'})
+    .then(function(r){return r.json().then(function(d){if(!r.ok||!d.success)throw new Error(d.message||d.error||('HTTP '+r.status));return d;});})
+    .then(function(d){
+      const entry={loadedAt:Date.now(), data:d};
+      currentReportCache[cacheKey]=entry;
+      renderCurrentBuildReport(build, d, false, entry);
+    })
+    .catch(function(e){_showCurrentReportError(build, e);});
+}
+// ── Current Build Consolidated Report ────────────────────────────────────────
+// Mirrors the nord_hgy / live_status_publish layout:
+//   KPI pills → crash-type filter → CRs / Mapped JIRAs / Open JIRAs tabs → table
+// ─────────────────────────────────────────────────────────────────────────────
+var _crReport = { rows:[], filtered:[], tab:'crs', ctFilter:'all' };
+function _crCrashClass(ct){
+  const t=String(ct||'').toLowerCase();
+  if(t==='ssr')    return 'ct-ssr';
+  if(t==='process')return 'ct-process';
+  if(t==='open_jira')return 'ct-open';
+  return 'ct-system';
+}
+function _crCrashLabel(ct){
+  const t=String(ct||'').toLowerCase();
+  if(t==='ssr')return 'SSR';
+  if(t==='process')return 'Process';
+  if(t==='open_jira')return 'Open JIRA';
+  return 'System';
+}
+function _crLinkCr(cr){
+  const v=String(cr||'').trim();
+  if(!v||v==='-')return '-';
+  return `<a href="https://orbit.qualcomm.com/cr/${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:700">${esc(v)}</a>`;
+}
+function _crLinkJira(jira){
+  const v=String(jira||'').trim();
+  if(!v||v==='-')return '-';
+  return `<a href="https://jira.qualcomm.com/jira/browse/${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700">${esc(v)}</a>`;
+}
+function _crApplyFilter(){
+  const ct=_crReport.ctFilter;
+  const tab=_crReport.tab;
+  let rows=_crReport.rows;
+  // crash-type filter
+  if(ct!=='all') rows=rows.filter(r=>String(r.crash_type||'system').toLowerCase()===ct);
+  // tab filter
+  if(tab==='crs')    rows=rows.filter(r=>r.cr&&r.cr!=='-');
+  if(tab==='mapped') rows=rows.filter(r=>r.jira&&r.jira!=='-'&&r.cr&&r.cr!=='-');
+  if(tab==='open')   rows=rows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira');
+  if(tab==='invalid')rows=rows.filter(r=>!r.cr||r.cr==='-');
+  _crReport.filtered=rows;
+}
+function _crSetTab(tab){
+  _crReport.tab=tab;
+  ['crs','mapped','open','invalid'].forEach(t=>{
+    const b=document.getElementById('_crTab_'+t);
+    if(b){
+      const active=t===tab;
+      b.style.borderBottom=active?'3px solid #6366f1':'3px solid transparent';
+      b.style.color=active?'#4f46e5':'#64748b';
+      b.style.fontWeight=active?'900':'700';
+    }
+  });
+  _crRenderTable();
+}
+function _crSetCt(ct){
+  _crReport.ctFilter=ct;
+  ['all','system','ssr','process','open_jira'].forEach(t=>{
+    const b=document.getElementById('_crCt_'+t);
+    if(b){
+      const active=t===ct;
+      b.style.background=active?'#4f46e5':'#f1f5f9';
+      b.style.color=active?'#fff':'#475569';
+    }
+  });
+  _crRenderTable();
+}
+function _crCopyTable(){
+  _crApplyFilter();
+  const rows=_crReport.filtered;
+  if(!rows.length){alert('No rows to copy.');return;}
+  const cols=['cr','jira','title','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','crash_type'];
+  const lines=[cols.join('\t')].concat(rows.map(r=>cols.map(c=>String(r[c]||'-')).join('\t')));
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
+    const b=document.getElementById('_crCopyBtn');
+    if(b){b.textContent='Copied!';setTimeout(()=>{b.innerHTML='<i class="fas fa-copy"></i> Copy CR Table';},1500);}
+  }).catch(()=>alert('Copy failed. Please use Ctrl+A / Ctrl+C on the table.'));
+}
+function _crRenderTable(){
+  _crApplyFilter();
+  const rows=_crReport.filtered;
+  const tbody=document.getElementById('_crTbody');
+  const badge=document.getElementById('_crTabBadge_'+_crReport.tab);
+  if(!tbody)return;
+  // update badge
+  ['crs','mapped','open','invalid'].forEach(t=>{
+    const b=document.getElementById('_crTabBadge_'+t);
+    if(b){
+      let cnt=_crReport.rows;
+      if(t==='crs')    cnt=_crReport.rows.filter(r=>r.cr&&r.cr!=='-');
+      if(t==='mapped') cnt=_crReport.rows.filter(r=>r.jira&&r.jira!=='-'&&r.cr&&r.cr!=='-');
+      if(t==='open')   cnt=_crReport.rows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira');
+      if(t==='invalid')cnt=_crReport.rows.filter(r=>!r.cr||r.cr==='-');
+      b.textContent=Array.isArray(cnt)?cnt.length:cnt.length;
+    }
+  });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="9" class="empty" style="padding:28px">No rows match the current filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map((r,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${_crLinkCr(r.cr)}</td>
+    <td>${_crLinkJira(r.jira)}</td>
+    <td style="max-width:340px;white-space:normal;font-size:12px">${esc(r.title||'-')}</td>
+    <td><span class="${_crCrashClass(r.crash_type)}">${_crCrashLabel(r.crash_type)}</span></td>
+    <td>${esc(r.cr_area||'-')}</td>
+    <td>${esc(r.cr_subsystem||'-')}</td>
+    <td>${esc(r.cr_status||'-')}</td>
+    <td>${esc(r.cr_age||'-')}</td>
+  </tr>`).join('');
+}
+function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
+  const body=_currentReportBody();
+  if(!body)return;
+  const allRows=(rowData&&rowData.detail_rows)||[];
   const buildName=String((rowData&&rowData.build)||build||currentReportSelectedBuild||'');
   const serverCached=!!(rowData&&rowData.from_cache);
-  const age=cacheEntry?(' &middot; cache age '+_currentCacheAgeText(cacheEntry)):'';
-  const totalCrashes=rows.reduce((sum,r)=>sum+Math.max(1,n(r&&r.cr_count)),0);
-  _currentReportStatus((serverCached?'Loaded shared cached report':'Report freshly generated')+age+' &middot; shared across all users, refreshes every 30 min per build');
+  const age=cacheEntry?(' · cache age '+_currentCacheAgeText(cacheEntry)):'';
+  _currentReportStatus((serverCached?'Loaded shared cached report':'Report freshly generated')+age+' · refreshes every 30 min per build');
   currentReportSelectedBuild=buildName;
-  const cols=_currentReportCols(rows);
-  const zeroState=`<div style="border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px">`+
-    `<div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div>`+
-    `<div style="font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px">0</div>`+
-    `<div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this Axiom build</div>`+
-    `<div class="small-muted" style="max-width:720px;margin:0 auto">The load completed successfully, but no matching CR/JIRA rows were found in the configured JIRAs/Open JIRAs tables for this exact build. This is treated as <b>0 crashes</b> for the selected Axiom build.</div>`+
-    `</div>`;
-    // Build JQL string for cross-check display (editor/target-group only).
-  // Product flavor (monaco/lemans) is used only on the backend to scope the
-  // Axiom DB query by SP/table. It is not a DROIDBUG summary field, so do not
-  // add it to JQL.
+  // stash rows
+  _crReport.rows=allRows;
+  _crReport.tab='crs';
+  _crReport.ctFilter='all';
+  // KPI counts
+  const totalJiras=new Set(allRows.map(r=>r.jira).filter(v=>v&&v!=='-')).size;
+  const totalCrs  =new Set(allRows.map(r=>r.cr  ).filter(v=>v&&v!=='-')).size;
+  const openJiras =allRows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira').length;
+  const totalCrashes=allRows.reduce((s,r)=>s+Math.max(1,n(r&&r.cr_count)),0);
+  // JQL box
   const _jobIds=(rowData&&rowData.job_ids)||[];
-  const _jqlBase='project = DROIDBUG AND filter = '+(JIRA_FILTER_ID||'76997');
-  const _jqlBuild=' AND summary ~ "'+buildName+'"';
-  const _jqlScenario=_jobIds.length
-    ? ' AND ('+_jobIds.map(j=>'Scenario ~ "https://axiom.qualcomm.com/#/reports/job/'+j+'"').join(' OR ')+')'
-    : '';
-  const _jqlFull=_jqlBase+_jqlBuild+_jqlScenario;
-  // JQL box: only shown to editors/target-group, not viewers
-  const _jqlBox=CAN_EDIT ? (
-    '<div style="margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em">JQL Used</span>'
-    +'<code id="_jqlCode" style="font-size:10px;color:#1e3a8a;word-break:break-all;flex:1">'+esc(_jqlFull)+'</code>'
-    + '<button class="btn btn-primary" style="font-size:12px;padding:6px 12px;font-weight:950" onclick="copyReportJql(this)"><i class="fas fa-copy"></i> Copy JQL</button>'
-    +(_jobIds.length?'':
-      '<span style="font-size:10px;color:#f59e0b;font-weight:700" title="No Axiom job IDs - report may include JIRAs from other SPs"><i class="fas fa-triangle-exclamation"></i> No job IDs</span>')
-        +'</div></div>'
-  ) : '';
-  const _generatedAt=(rowData&&rowData.generated_at)||(cacheEntry&&cacheEntry.loadedAt?new Date(cacheEntry.loadedAt).toISOString():'');
-  const _nextAt=(rowData&&rowData.next_auto_refresh_at)||(cacheEntry&&cacheEntry.loadedAt?new Date(cacheEntry.loadedAt+CURRENT_REPORT_TTL_MS).toISOString():'');
-  const _timingBox=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px 0">`+
-    `<div style="border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)"><div style="font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-clock"></i> Last Generated</div><div style="font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px">${esc(_fmtDt(_generatedAt))}</div><div class="small-muted" style="font-size:12px;margin-top:4px">${serverCached?'Shared cached report reused':'Fresh report generated now'}</div></div>`+
-    `<div style="border:2px solid #86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(22,163,74,.12)"><div style="font-size:11px;font-weight:1000;color:#166534;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-rotate"></i> Next Auto Refresh / Next Run</div><div style="font-size:22px;font-weight:1000;color:#14532d;margin-top:4px">${esc(_fmtDt(_nextAt))}</div><div style="font-size:12px;font-weight:900;color:#166534;margin-top:4px">Auto refresh interval: 30 minutes per build</div></div>`+
-    `</div>`;
-  body.innerHTML=_jqlBox+_timingBox+`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><b style="color:#1e3a8a;word-break:break-all">${esc(buildName)}</b><div class="small-muted">${serverCached?'Reused shared server-side report.':'Fresh report generated and cached for all users.'} Refreshes automatically every 30 minutes for this build.</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(totalCrashes)} crashes</span><span class="pill">${esc(rows.length)} rows</span><button class="btn" onclick="showCurrentBuildReportById('${esc(buildName)}',true)"><i class="fas fa-rotate"></i> Regenerate</button></div></div>`+
-    (rows.length?`<div class="tbl-wrap" style="max-height:460px"><table class="tbl"><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c.replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:zeroState);
-}
-async function showCurrentBuildReportById(build,force){
-  const idx=((dbPayload&&dbPayload.current_builds)||[]).findIndex(r=>String(r.build_id||r.build_full||'')===String(build));
-  if(idx>=0)return showCurrentBuildReport(idx,force);
-}
-async function showCurrentBuildReport(i,force){
-  const r=((dbPayload&&dbPayload.current_builds)||[])[i]||{};
-  const build=String(r.build_id||r.build_full||'').trim();
-  if(!activeSp||!build)return;
-  currentReportSelectedBuild=build;
-  document.querySelectorAll('[id^="curBuild_"]').forEach(el=>el.style.boxShadow='');
-  const active=document.getElementById('curBuild_'+i); if(active)active.style.boxShadow='0 0 0 3px rgba(99,102,241,.20)';
-  const key=_currentReportKey(build), cached=currentReportCache[key];
-  if(!force&&cached&&(Date.now()-cached.loadedAt)<CURRENT_REPORT_TTL_MS){renderCurrentBuildReport(build,cached.data,true,cached);return;}
-  const body=_currentReportBody();
-  if(body)body.innerHTML=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>Loading report for<br><b>${esc(build)}</b><br><small>Running + Aborted Axiom job IDs are included; reports are cached for 30 minutes.</small></div>`;
-  _currentReportStatus('Loading report...');
-  try{
-    const jobIds=(r.job_ids||[]).join(','); const url=_bwrUrl('build='+encodeURIComponent(build)+(force?'&force=1':'')+(jobIds?'&job_ids='+encodeURIComponent(jobIds):''));
-    if(!url)throw new Error('Configure a JIRAs / Open JIRAs table for this SP first.');
-        const d=await getJson(url);
-    if(d){
-      if(r.job_ids&&r.job_ids.length)d.job_ids=r.job_ids;
-      d.product_flavor=r.product_flavor||'';
-    }
-    currentReportCache[key]={data:d,loadedAt:Date.now()};
-    renderCurrentBuildReport(build,d,!!d.from_cache,currentReportCache[key]);
-  }catch(e){
-    _currentReportStatus('Report failed');
-    if(body)body.innerHTML=`<div class="empty" style="color:#dc2626"><b>${esc(build)}</b><br>${esc(e.message||e)}</div>`;
+  const _jqlFull=(rowData&&rowData.jql)||('project = DROIDBUG AND filter = '+(JIRA_FILTER_ID||'76997')+' AND summary ~ "'+buildName+'"');
+  const _jqlBox=CAN_EDIT?`
+    <div style="margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap"><i class="fas fa-code"></i> JQL QUERY</span>
+        <code id="_jqlCode" style="font-size:11px;color:#1e3a8a;word-break:break-all;flex:1;background:#eff6ff;padding:4px 8px;border-radius:6px">${esc(_jqlFull)}</code>
+        <button class="btn btn-primary" style="font-size:11px;padding:5px 12px;white-space:nowrap" onclick="copyReportJql(this)"><i class="fas fa-copy"></i> Copy JQL</button>
+        ${!_jobIds.length?'<span style="font-size:10px;color:#f59e0b;font-weight:700"><i class="fas fa-triangle-exclamation"></i> No job IDs</span>':''}
+      </div>
+    </div>`:'' ;
+  // KPI pills row
+  const _kpiRow=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:26px;font-weight:1000;color:#1d4ed8">${totalCrashes}</div>
+        <div style="font-size:11px;font-weight:800;color:#3730a3;text-transform:uppercase;letter-spacing:.06em">CRASHES</div>
+      </div>
+      <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:26px;font-weight:1000;color:#7c3aed">${totalJiras}</div>
+        <div style="font-size:11px;font-weight:800;color:#6d28d9;text-transform:uppercase;letter-spacing:.06em">JIRAS</div>
+      </div>
+      <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:26px;font-weight:1000;color:#c2410c">${totalCrs}</div>
+        <div style="font-size:11px;font-weight:800;color:#9a3412;text-transform:uppercase;letter-spacing:.06em">CRS</div>
+      </div>
+      <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:26px;font-weight:1000;color:#9333ea">${openJiras}</div>
+        <div style="font-size:11px;font-weight:800;color:#7e22ce;text-transform:uppercase;letter-spacing:.06em">OPEN JIRAS</div>
+      </div>
+    </div>`;
+  // Crash-type filter buttons
+  const _ctRow=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <span style="font-size:11px;font-weight:800;color:#64748b;margin-right:4px">FILTER:</span>
+      ${['all','system','ssr','process','open_jira'].map(ct=>`
+        <button id="_crCt_${ct}" onclick="_crSetCt('${ct}')"
+          style="padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-size:11px;font-weight:900;
+                 background:${ct==='all'?'#4f46e5':'#f1f5f9'};color:${ct==='all'?'#fff':'#475569'};transition:.15s">
+          ${ct==='all'?'All':ct==='open_jira'?'Open JIRA':ct.charAt(0).toUpperCase()+ct.slice(1)}
+        </button>`).join('')}
+      <button id="_crCopyBtn" onclick="_crCopyTable()" class="btn" style="margin-left:auto;font-size:11px;padding:5px 12px">
+        <i class="fas fa-copy"></i> Copy CR Table
+      </button>
+      <button onclick="showCurrentBuildReportById('${esc(buildName)}',true)" class="btn" style="font-size:11px;padding:5px 12px">
+        <i class="fas fa-rotate"></i> Regenerate
+      </button>
+    </div>`;
+  // Tabs
+  const _tabs=`
+    <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:0">
+      ${[['crs','CRs','#6366f1'],['mapped','Mapped JIRAs','#0369a1'],['open','Open JIRAs','#d97706'],['invalid','Invalid JIRAs','#dc2626']].map(([t,label,col])=>`
+        <button id="_crTab_${t}" onclick="_crSetTab('${t}')"
+          style="padding:8px 16px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid ${t==='crs'?col:'transparent'};
+                 background:#fff;color:${t==='crs'?col:'#64748b'};cursor:pointer;margin-bottom:-2px;font-family:inherit">
+          ${label} <span id="_crTabBadge_${t}" style="background:${t==='crs'?col:'#e2e8f0'};color:${t==='crs'?'#fff':'#475569'};border-radius:999px;padding:1px 7px;font-size:10px;margin-left:3px">0</span>
+        </button>`).join('')}
+    </div>`;
+  // Table
+  const _table=`
+    <div class="tbl-wrap" style="max-height:480px;margin-top:0">
+      <table class="tbl">
+        <thead><tr>
+          <th>#</th><th>CR</th><th>JIRA</th><th>Title</th><th>Type</th>
+          <th>Area</th><th>Subsystem</th><th>Status</th><th>Age</th>
+        </tr></thead>
+        <tbody id="_crTbody"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>`;
+  // Zero state
+  if(!allRows.length){
+    body.innerHTML=_jqlBox+_kpiRow+`
+      <div style="border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:32px;text-align:center">
+        <div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div>
+        <div style="font-size:56px;font-weight:1000;color:#16a34a;margin-bottom:8px">0</div>
+        <div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this Axiom build</div>
+        <div class="small-muted">No matching CR/JIRA rows found in the configured tables for <b>${esc(buildName)}</b>.</div>
+      </div>`;
+    return;
   }
+  body.innerHTML=_jqlBox+_kpiRow+_ctRow+_tabs+_table;
+  // render table with initial state
+  _crRenderTable();
 }
 function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
 function metaId(r){
+  if(r&&(r.meta_id||r.meta))return String(r.meta_id||r.meta).trim();
   const raw=String(rawBuildId(r)||'').trim();
   if(!raw||raw==='-')return'-';
   let m=raw.match(/\.r(\d+)-0*(\d+)(?:\D|$)/i);
@@ -567,7 +1749,29 @@ function chartRows(){
     return a.firstIdx-b.firstIdx;
   }).map(x=>({...x,mtbf:x.crashes?x.hours/x.crashes:x.hours}));
 }
-const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:di===2?1:0});ctx.fillStyle=di===0?'#1e3a8a':(di===1?'#dc2626':'#16a34a');const y=di===0?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
+const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=ds.label==='MTBF';const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
+const mtbfInlineDataTable={id:'mtbfInlineDataTable',afterDraw(chart,args,opts){
+  const t=(opts&&opts.table)||{};
+  const labels=t.labels||[], hours=t.hours||[], mtbf=t.mtbf||[], crashes=t.crashes||[];
+  if(!labels.length)return;
+  const {ctx,chartArea,scales}=chart, x=scales.x;
+  const leftLabelW=74, rowH=20, rows=[{name:'',vals:labels,color:'#fff'},{name:'Hours',vals:hours,color:'#fdba74'},{name:'MTBF',vals:mtbf,color:'#16a34a'},{name:'Crashes',vals:crashes,color:'#dc2626'}];
+  const tableTop=chartArea.bottom+10, tableLeft=chartArea.left-leftLabelW, tableRight=chartArea.right, tableW=tableRight-tableLeft;
+  ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1;ctx.strokeStyle='#d1d5db';
+  for(let r=0;r<rows.length;r++){
+    const y=tableTop+r*rowH;
+    ctx.fillStyle=r===0?'#f8fafc':'#fff';ctx.fillRect(tableLeft,y,tableW,rowH);ctx.strokeRect(tableLeft,y,tableW,rowH);
+    ctx.fillStyle='#334155';ctx.font=r===0?'10px Inter, Segoe UI, Arial':'10px Inter, Segoe UI, Arial';
+    if(rows[r].name){ctx.textAlign='left';ctx.fillStyle=rows[r].color;ctx.fillRect(tableLeft+8,y+9,18,3);ctx.fillStyle='#334155';ctx.fillText(rows[r].name,tableLeft+31,y+rowH/2);ctx.textAlign='center';}
+    ctx.beginPath();ctx.moveTo(tableLeft+leftLabelW,y);ctx.lineTo(tableLeft+leftLabelW,y+rowH);ctx.stroke();
+    for(let i=0;i<labels.length;i++){
+      const xc=x.getPixelForValue(i), prev=i===0?chartArea.left:(x.getPixelForValue(i-1)+xc)/2, next=i===labels.length-1?chartArea.right:(xc+x.getPixelForValue(i+1))/2;
+      ctx.strokeRect(prev,y,next-prev,rowH);
+      ctx.fillStyle=r===0?'#475569':'#111827';ctx.fillText(String(rows[r].vals[i]??''),xc,y+rowH/2);
+    }
+  }
+  ctx.restore();
+}};
 async function copyMtbfChart(){
   const canvas=document.getElementById('mtbfChart');
   if(!canvas||!mtbfChart){ setText('copyChartMsg','Chart not ready.'); return; }
@@ -581,16 +1785,25 @@ async function copyMtbfChart(){
   }
 }
 function renderCharts(){
-  const cr=chartRows();
-  document.getElementById('mtbfEmpty').style.display=cr.length?'none':'block';
-  if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
+    // HGY: MTBF chart is HQX sheet data only — show locked state
+    if(false && _activePlat==='HGY'){
+      const em=document.getElementById('mtbfEmpty');
+      if(em){em.style.display='block';em.innerHTML='<i class="fas fa-leaf" style="color:#6ee7b7;font-size:22px;margin-bottom:10px"></i><br><b style="color:#065f46">MTBF Trend is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view the MTBF chart, or add HGY builds via <b>Add Build</b>.</span>';}
+      if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
+      return;
+    }
+    const cr=chartRows();
+    document.getElementById('mtbfEmpty').style.display=cr.length?'none':'block';
+    if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
   if(!cr.length)return;
   const canvas=document.getElementById('mtbfChart');
-  canvas.style.width=Math.max(1100,cr.length*92)+'px';
-  canvas.width=Math.max(1100,cr.length*92);
-  const labels=cr.map(x=>x.label), hours=cr.map(x=>Number(x.hours.toFixed(2))), crashes=cr.map(x=>Number(x.crashes.toFixed(0))), mtbf=cr.map(x=>Number(x.mtbf.toFixed(2)));
-  const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#a5b4fc',borderColor:'#a5b4fc',borderWidth:0,borderRadius:2,yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'transparent',borderWidth:3,pointRadius:6,pointHoverRadius:8,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:0}]},plugins:[mtbfValueLabels],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:true,text:'Meta ID'},ticks:{autoSkip:false,maxRotation:55,minRotation:35,callback:function(v){const s=this.getLabelForValue(v);return s.length>28?s.slice(0,28)+'â€¦':s;}}},y:{beginAtZero:true,title:{display:true,text:'Hours'},ticks:{color:'#1f4e79'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes / MTBF'}}}}};
-  mtbfChart=new Chart(canvas,cfg);
+  const wrap=canvas.closest('.chart-wrap')||canvas.parentElement;
+    const fullW=Math.max(900,(wrap&&wrap.clientWidth?wrap.clientWidth-24:0),cr.length*70);
+    canvas.style.width=fullW+'px';
+    canvas.width=fullW;
+      const labels=cr.map(x=>x.label), hours=cr.map(x=>Number(x.hours.toFixed(2))), crashes=cr.map(x=>Number(x.crashes.toFixed(0))), mtbf=cr.map(x=>Number(x.mtbf.toFixed(2)));
+          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbf,crashes:crashes}},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:false},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:false},ticks:{color:'#374151'}}}}};
+    mtbfChart=new Chart(canvas,cfg);
 }
 function firstVal(r,keys,fb=''){for(const k of keys){if(r&&r[k]!=null&&String(r[k]).trim()!=='')return r[k];}return fb;}
 function fixedTableColumns(){return[
@@ -606,7 +1819,14 @@ function fixedTableColumns(){return[
   {key:'mtbf',label:'MTBF',val:r=>{const h=n(firstVal(r,['hours','Hours','HOURS','total_hours'])),c=n(firstVal(r,['crashes','Crashes','CRASHES','total_crashes']));return fmt(c?h/c:firstVal(r,['mtbf','MTBF']),2);}},
   {key:'comments',label:'Comments',val:r=>firstVal(r,['comments','Comments','comment','remarks','notes'])}
 ];}
-function renderTable(){const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();const filtered=rows().filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
+  function renderTable(){
+    // HGY: Full SP Table is HQX sheet data only
+    if(false && _activePlat==='HGY'){
+      document.getElementById('tableHead').innerHTML='';
+      document.getElementById('tableBody').innerHTML='<tr><td class="empty" colspan="99" style="padding:36px"><i class="fas fa-leaf" style="color:#6ee7b7;font-size:20px;margin-bottom:8px"></i><br><b style="color:#065f46">Full SP Table is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view historical rows, or use <b>Add Build</b> to add HGY entries.</span></td></tr>';
+      return;
+    }
+    const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();const filtered=rows().filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 // ---------------------------------------------------------------------------
 // Add Build modal â€” appends a new row to this SP's own per-SP JSON file.
 // The form shows every raw column present in the SP's rows (except
@@ -614,77 +1834,142 @@ function renderTable(){const q=(document.getElementById('rowFilter')?.value||'')
 // Columns" can pre-fill every field from any existing row so the user only
 // has to tweak the fields that changed (e.g. date/build/hours/crashes).
 // ---------------------------------------------------------------------------
-const _ADD_BUILD_RESERVED = new Set(['excel_row','sno','s_no']);
-function _addBuildFieldKeys(){
-  const seen=[], have=new Set();
-  const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','mtbf','comments'];
-  preferred.forEach(k=>{ if(rows().some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
-  rows().forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
-  if(!seen.length) preferred.forEach(k=>{ if(!have.has(k)){ have.add(k); seen.push(k); } });
-  return seen;
-}
-function _addBuildLabel(k){return k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
-function openAddBuildModal(){
-  if(!CAN_EDIT)return;
-  if(!activeSp){alert('Select an SP first.');return;}
-  setText('addBuildSpLabel',activeSp);
-  const sel=document.getElementById('addBuildCopySel');
-  const rs=rows();
-  sel.innerHTML='<option value="">-- Copy from existing row (optional) --</option>'+rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
-  const keys=_addBuildFieldKeys();
-  const fieldsEl=document.getElementById('addBuildFields');
-  fieldsEl.innerHTML=keys.map(k=>{
-    const isDate=/^date$/i.test(k);
-    const type=isDate?'date':(['hours','crashes','devices'].includes(k)?'text':'text');
-    return `<div class="field"><label>${esc(_addBuildLabel(k))}</label><input class="input" data-field="${esc(k)}" type="${type}" placeholder="${esc(_addBuildLabel(k))}"></div>`;
-  }).join('');
-  document.getElementById('addBuildMsg').textContent='';
-  document.getElementById('addBuildModal').style.display='flex';
-}
-function closeAddBuildModal(){document.getElementById('addBuildModal').style.display='none';}
-function addBuildCopyFromSelected(){
-  const sel=document.getElementById('addBuildCopySel');
-  const idx=sel.value;
-  if(idx===''){document.getElementById('addBuildMsg').textContent='Select a row above to copy from first.';return;}
-  const r=rows()[Number(idx)]||{};
-  document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
-    const k=inp.getAttribute('data-field');
-    let v=r[k];
-    if(v==null) v='';
-    inp.value=String(v);
-  });
-  document.getElementById('addBuildMsg').textContent='Copied all columns from selected row. Edit the fields that changed (date, build, hours, crashes, etc.) before saving.';
-  document.getElementById('addBuildMsg').style.color='#166534';
-}
-function addBuildClearForm(){
-  document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>inp.value='');
-  document.getElementById('addBuildCopySel').value='';
-  document.getElementById('addBuildMsg').textContent='';
-}
-async function addBuildSave(){
-  if(!activeSp)return;
-  const row={};
-  document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
-    const k=inp.getAttribute('data-field');
-    const v=inp.value.trim();
-    if(v!=='') row[k]=v;
-  });
-  if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
-  const msg=document.getElementById('addBuildMsg');
-  msg.textContent='Saving...'; msg.style.color='#64748b';
-  try{
-    const r=await fetch(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/add_build`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row})});
-    const d=await r.json();
-    if(!d.ok) throw new Error(d.error||d.message||'Save failed');
-    msg.style.color='#166534'; msg.textContent='Build added (S.No '+(d.row&&d.row.sno)+'). Refreshing table...';
-    if(spPayload){spPayload.rows=d.rows||spPayload.rows; spPayload.summary=d.summary||spPayload.summary;}
-    renderAll();
-    setTimeout(closeAddBuildModal,700);
-  }catch(e){
-    msg.style.color='#dc2626'; msg.textContent='Save failed: '+(e.message||e);
+  // ── Add Build modal platform (independent of page-level _activePlat) ──────
+  const _ADD_BUILD_RESERVED = new Set(['excel_row','sno','s_no']);
+  function _addBuildLabel(k){return k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+  var _abPlat = 'HQX'; // 'HQX' or 'HGY' — set when modal opens
+  function _abRows(){
+    // Returns rows for the currently selected modal platform
+    if(_abPlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
+    return (spPayload&&spPayload.rows)||[];
   }
-}
-
+  function _abFieldKeys(){
+    // Use the selected platform's rows for field discovery.
+    // If HGY has no rows yet, fall back to HQX rows so the same columns appear.
+    const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','mtbf','comments'];
+    let src = _abRows();
+    if(!src.length && _abPlat==='HGY') src = (spPayload&&spPayload.rows)||[]; // HQX fallback for field template
+    const seen=[], have=new Set();
+    preferred.forEach(k=>{ if(src.some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
+    src.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
+    if(!seen.length) preferred.forEach(k=>{ if(!have.has(k)){ have.add(k); seen.push(k); } });
+    return seen;
+  }
+  function _abUpdateToggleUI(){
+    const isHgy = _abPlat==='HGY';
+    const hqxBtn = document.getElementById('abPlatHqx');
+    const hgyBtn = document.getElementById('abPlatHgy');
+    const header = document.getElementById('addBuildHeader');
+    const saveBtn = document.getElementById('addBuildSaveBtn');
+    if(hqxBtn){
+      hqxBtn.style.background = isHgy ? 'transparent' : '#fff';
+      hqxBtn.style.color      = isHgy ? 'rgba(255,255,255,.7)' : '#1e3a8a';
+    }
+    if(hgyBtn){
+      hgyBtn.style.background = isHgy ? '#fff' : 'transparent';
+      hgyBtn.style.color      = isHgy ? '#065f46' : 'rgba(255,255,255,.7)';
+    }
+    if(header){
+      header.style.background = isHgy
+        ? 'linear-gradient(135deg,#064e3b,#059669)'
+        : 'linear-gradient(135deg,#1e3a8a,#4f46e5)';
+    }
+    if(saveBtn){
+      saveBtn.style.background = isHgy ? '#059669' : '';
+      saveBtn.style.borderColor = isHgy ? '#059669' : '';
+      saveBtn.innerHTML = isHgy
+        ? '<i class="fas fa-leaf" style="margin-right:5px"></i>Save HGY Build'
+        : '<i class="fas fa-save" style="margin-right:5px"></i>Save HQX Build';
+    }
+  }
+  function _abSwitchPlat(plat){
+    _abPlat = plat;
+    _abUpdateToggleUI();
+    // Refresh copy-from dropdown for the new platform
+    const sel = document.getElementById('addBuildCopySel');
+    const rs = _abRows();
+    sel.innerHTML = '<option value="">-- Copy from existing row (optional) --</option>'
+      + rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
+    // Rebuild fields (same columns, just refreshed)
+    _abRenderFields();
+    document.getElementById('addBuildMsg').textContent = '';
+  }
+  function _abRenderFields(){
+    const keys = _abFieldKeys();
+    document.getElementById('addBuildFields').innerHTML = keys.map(k=>{
+      const isDate = /^date$/i.test(k);
+      return `<div class="field"><label>${esc(_addBuildLabel(k))}</label><input class="input" data-field="${esc(k)}" type="${isDate?'date':'text'}" placeholder="${esc(_addBuildLabel(k))}"></div>`;
+    }).join('');
+  }
+  function openAddBuildModal(){
+    if(!CAN_EDIT)return;
+    if(!activeSp){alert('Select an SP first.');return;}
+    // Default platform = current page platform
+    _abPlat = _activePlat;
+    setText('addBuildSpLabel', activeSp);
+    _abUpdateToggleUI();
+    // Copy-from dropdown
+    const sel = document.getElementById('addBuildCopySel');
+    const rs = _abRows();
+    sel.innerHTML = '<option value="">-- Copy from existing row (optional) --</option>'
+      + rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
+    // Fields
+    _abRenderFields();
+    document.getElementById('addBuildMsg').textContent = '';
+    document.getElementById('addBuildModal').style.display = 'flex';
+  }
+function closeAddBuildModal(){document.getElementById('addBuildModal').style.display='none';}
+  function addBuildCopyFromSelected(){
+    const sel=document.getElementById('addBuildCopySel');
+    const idx=sel.value;
+    if(idx===''){document.getElementById('addBuildMsg').textContent='Select a row above to copy from first.';return;}
+    const r=_abRows()[Number(idx)]||{};
+    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
+      const k=inp.getAttribute('data-field');
+      let v=r[k]; if(v==null) v='';
+      inp.value=String(v);
+    });
+    const msg=document.getElementById('addBuildMsg');
+    msg.style.color='#166534';
+    msg.textContent='Copied from selected row. Edit the fields that changed (date, build, hours, crashes…) before saving.';
+  }
+  function addBuildClearForm(){
+    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>inp.value='');
+    document.getElementById('addBuildCopySel').value='';
+    document.getElementById('addBuildMsg').textContent='';
+  }
+async function addBuildSave(){
+    if(!activeSp)return;
+    const row={};
+    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
+      const k=inp.getAttribute('data-field');
+      const v=inp.value.trim();
+      if(v!=='') row[k]=v;
+    });
+    if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
+    const msg=document.getElementById('addBuildMsg');
+    msg.textContent='Saving to '+_abPlat+'...'; msg.style.color='#64748b';
+    try{
+      const _spApi = _abPlat==='HGY'
+        ? `${PUBLIC_API}/hgy/sp/${encodeURIComponent(activeSp)}/add_build`
+        : `${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/add_build`;
+      const r=await fetch(_spApi,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row,program:activeProgram})});
+      const d=await r.json();
+      if(!d.ok) throw new Error(d.error||d.message||'Save failed');
+      msg.style.color='#166534';
+      msg.textContent=_abPlat+' build added (S.No '+(d.row&&d.row.sno)+'). Refreshing...';
+      if(spPayload){
+        if(_abPlat==='HGY'){ spPayload._hgy=spPayload._hgy||{}; spPayload._hgy.rows=d.rows||spPayload._hgy.rows; spPayload._hgy.summary=d.summary||spPayload._hgy.summary; }
+        else { spPayload.rows=d.rows||spPayload.rows; spPayload.summary=d.summary||spPayload.summary; }
+      }
+      // If the saved platform matches the active page platform, re-render immediately
+      if(_abPlat===_activePlat) renderAll();
+            setTimeout(closeAddBuildModal,700);
+    }catch(e){
+      msg.style.color='#dc2626';
+      msg.textContent='Save failed: '+(e.message||e);
+    }
+  }
 // Complete table editor (single bulk Edit Table flow like Gen5 HQX/HGY)
 let _editTableKeys=[];
 function _editTableKeysFromRows(){
@@ -730,10 +2015,16 @@ async function editTableSave(){
   const edited=editTableCollectRows().filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));
   msg.textContent='Saving complete table...'; msg.style.color='#64748b';
   try{
-    const r=await fetch(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/save_table`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:edited})});
+    const _saveApi = _activePlat==='HGY'
+      ? `${PUBLIC_API}/hgy/sp/${encodeURIComponent(activeSp)}/save_table`
+      : `${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/save_table`;
+    const r=await fetch(_saveApi,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:edited,program:activeProgram})});
     const d=await r.json();
     if(!d.ok) throw new Error(d.error||d.message||'Save failed');
-    if(spPayload){spPayload.rows=d.rows||[]; spPayload.summary=d.summary||spPayload.summary;}
+          if(spPayload){
+        if(_activePlat==='HGY'){ spPayload._hgy=spPayload._hgy||{}; spPayload._hgy.rows=d.rows||[]; spPayload._hgy.summary=d.summary||spPayload._hgy.summary; }
+        else { spPayload.rows=d.rows||[]; spPayload.summary=d.summary||spPayload.summary; }
+      }
     msg.style.color='#166534'; msg.textContent='Saved '+(d.row_count||0)+' rows. Refreshing view...';
     renderAll();
     setTimeout(closeEditTableModal,700);
@@ -758,13 +2049,14 @@ function renderWeekly(force){
   const box=document.getElementById('wkCrTbody');
   const cfg=_activeCfg();
   const {from,to}=_wkDates();
-  if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table)){_empty('wkCrTbody','Configure a JIRAs / Open JIRAs table for this SP to see the Weekly Report.',9);document.getElementById('wkOpenJiraSection').style.display='none';setText('wkSummaryPills','');return;}
+  if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table)){_empty('wkCrTbody','Configure a JIRAs / Open JIRAs table for this SP ('+_activePlat+') to see the Weekly Report.',9);document.getElementById('wkOpenJiraSection').style.display='none';setText('wkSummaryPills','');return;}
   if(_wkReport&&!force){wkFilterCrTable();return;}
   const spn=document.getElementById('wkSpinner'), errEl=document.getElementById('wkError');
   if(spn)spn.style.display='inline';
   if(errEl)errEl.style.display='none';
   _empty('wkCrTbody','Loading weekly report...',9);
-  const url=`${CFG_API}/sp_weekly_report?sp=${encodeURIComponent(activeSp)}&from=${from}&to=${to}`;
+  const platParam=_activePlat==='HGY'?'&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)):'';
+  const url=`${CFG_API}/sp_weekly_report?sp=${encodeURIComponent(activeSp)}&from=${from}&to=${to}${platParam}`;
   fetch(url,{cache:'no-store'}).then(r=>r.json()).then(d=>{
     if(!d.success)throw new Error(d.message||d.error||'Load failed');
     _wkReport=d;
@@ -838,7 +2130,11 @@ function wkRenderOpenJiras(d){
 let _ojLoaded=false, _ojAll=[], _ojFil=[], _ojPg=1;
 let _bwrLoaded=false, _bwrAll, _bwrBuilds=[], _bwrCrashTypes={system:true,ssr:true,process:true,open_jira:true}, _bwrRows={}, _bwrQ='';
 const _PG=100, _CRB='https://orbit/CR/', _JB='https://jira-dc2.qualcomm.com/jira/browse/';
-function _activeCfg(){return (dbPayload&&dbPayload.db_config)||spCfg(activeSp)||{};}
+  function _activeCfg(){
+    // Always derive config from the platform-aware local config store,
+    // not from dbPayload.db_config which may be stale or wrong platform.
+    return _platCfg(activeSp)||{};
+  }
 function _targetFromTable(v) {
     let s = String(v || '').replace(/`/g, '').trim();
     if (!s) return '';
@@ -860,10 +2156,8 @@ function _targetFromTable(v) {
     return s.toLowerCase().replace(/_(openjiras|unique_crs|jiras)$/, '').replace(/_overall_crs$/, '');
 }
 function effectiveLiveTarget(){const c=_activeCfg();return _targetFromTable(c.jiras_table||c.target_table)||_targetFromTable(c.openjiras_table)||_targetFromTable(c.unique_crs_table)||'';}
-
 function resetLiveApiTabs(){_ocLoaded=false;_ocAll=[];_ocFil=[];_ocArea='';_ocLast=null;_ojLoaded=false;_ojAll=[];_ojFil=[];_ojPg=1;_bwrLoaded=false;_bwrAll=null;_bwrBuilds=[];_bwrRows={};_bwrQ='';_wkReport=null;_wkCrRows=[];}
 function renderLiveApiTabsForActiveSection(){const active=document.querySelector('.tab-section.active');if(!active)return;const id=active.id;if(id==='tab-opencrs')ocLoad(false);else if(id==='tab-openjiras')ojLoad(false);else if(id==='tab-buildreport')bwrLoad(false);else if(id==='tab-weekly')renderWeekly();}
-
 function _empty(id,msg,cols){const el=document.getElementById(id);if(el)el.innerHTML=`<tr><td class="empty" colspan="${cols||99}">${esc(msg)}</td></tr>`;}
 function _date10(v){return String(v||'').slice(0,10);} function _crId(v){return (String(v||'').match(/(\d{5,9})/)||[])[1]||'';} function _cr(v){let s=String(v||'').trim();return s?(/^CR/i.test(s)?s:'CR'+s):'';}
 function _typeRank(t){return ({System:1,SSR:2,Process:3})[t||'']||9;}
@@ -873,12 +2167,13 @@ function ocSetStatusFilter(s){const el=document.getElementById('ocStatusSel');if
 function ocClearKpiFilters(){_ocArea='';['ocStatusSel','ocSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});ocFilter();}
 function ocLoad(force){
   const cfg=_activeCfg();
-  if(!activeSp||!cfg.unique_crs_table){_empty('ocTbody','Configure a Unique CRs / Overall CRs table for this SP.',12);return;}
+  if(!activeSp||!cfg.unique_crs_table){_empty('ocTbody','Configure a Unique CRs / Overall CRs table for this SP ('+_activePlat+').',12);return;}
   if(_ocLoaded&&!force){ocFilter();return;}
   const spn=document.getElementById('ocSpinner');
   if(spn)spn.style.display='inline';
   _empty('ocTbody','Loading open / analysis CRs...',12);
-  fetch(`${CFG_API}/sp_open_crs_full?sp=${encodeURIComponent(activeSp)}`,{cache:'no-store'}).then(r=>r.json()).then(d=>{
+  const platParam=_activePlat==='HGY'?'&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)):'';
+  fetch(`${CFG_API}/sp_open_crs_full?sp=${encodeURIComponent(activeSp)}${platParam}`,{cache:'no-store'}).then(r=>r.json()).then(d=>{
     if(!d.success)throw new Error(d.message||d.error||'Failed to load open CRs');
     _ocAll=d.rows||[];
     _ocLoaded=true;
@@ -896,7 +2191,7 @@ function ocKpi(){const el=document.getElementById('ocKpi');if(!el)return;const s
 function ocFilter(){const q=(document.getElementById('ocSearch')?.value||'').toLowerCase(), st=(document.getElementById('ocStatusSel')?.value||'');_ocFil=_ocAll.filter(r=>!(st&&(r.cr_status||'Unknown')!==st)&&!(_ocArea&&(r.cr_area||'Unknown')!==_ocArea)&&!(q&&!JSON.stringify(r).toLowerCase().includes(q)));ocKpi();const b=document.getElementById('ocBadge');if(b)b.textContent=_ocFil.length+' / '+_ocAll.length+' CRs';const tb=document.getElementById('ocTbody');if(!tb)return;if(!_ocFil.length){_empty('ocTbody','No open / analysis CRs match the current filters.',12);return;}tb.innerHTML=_ocFil.map((r,i)=>{const cr=_cr(r.cr_display||r.cr||r.raw_cr),id=_crId(cr),link=id?`<a href="${_CRB}${encodeURIComponent(id)}" target="_blank" style="font-weight:900;color:#4f46e5;text-decoration:none">${esc(cr)}</a>`:esc(cr||'--'),status=String(r.cr_status||'--'),cls=/close/i.test(status)?'#dc2626':'#16a34a',dates=[_date10(r.first_instance),_date10(r.last_instance)].filter(Boolean).join(' ? ');return `<tr><td>${i+1}</td><td>${link}</td><td style="color:${cls};font-weight:800">${esc(status)}</td><td>${esc(_date10(r.first_instance)||'--')}</td><td>${esc(_date10(r.last_instance)||'--')}</td><td>${esc(dates||'--')}</td><td>${esc(r.cr_age||'--')}</td><td>${esc(r.cr_area||'--')}</td><td>${esc(r.cr_subsystem||'--')}</td><td>${esc(r.cr_functionality||'--')}</td><td style="max-width:360px;white-space:normal">${esc(r.latest_cr_notes||'--')}</td><td style="max-width:360px;white-space:normal">${esc(r.cr_title||'--')}</td></tr>`;}).join('');}
 function ojLoad(force){
   const cfg=_activeCfg();
-  if(!cfg.openjiras_table){document.getElementById('ojContent').style.display='none';const e=document.getElementById('ojError');e.style.display='block';e.style.color='#64748b';e.textContent='Configure an Open JIRAs table for this SP.';return;}
+  if(!cfg.openjiras_table){document.getElementById('ojContent').style.display='none';const e=document.getElementById('ojError');e.style.display='block';e.style.color='#64748b';e.textContent='Configure an Open JIRAs table for this SP ('+_activePlat+').';return;}
   if(_ojLoaded&&!force){ojFilter();return;}
   const data=dbPayload&&dbPayload.open_jiras;
   document.getElementById('ojLoading').style.display='block';document.getElementById('ojContent').style.display='none';document.getElementById('ojError').style.display='none';
@@ -922,6 +2217,7 @@ function _bwrUrl(extra){
   const cfg=_activeCfg();
   if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table))return'';
   let p=['sp='+encodeURIComponent(activeSp)];
+  if(_activePlat==='HGY') p.push('plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)));
   const cts=Object.keys(_bwrCrashTypes).filter(k=>_bwrCrashTypes[k]);
   if(cts.length)p.push('crash_types='+encodeURIComponent(cts.join(',')));
   if(extra)p.push(extra);
@@ -984,7 +2280,30 @@ function _crashBadge(ct){const c=_typeColor(ct);return `<span style="background:
 function bwrDetail(body,bid,rs){body.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;"><input class="input" placeholder="Search CR / title..." oninput="bwrSearchDetail('${esc(bid)}',this.value)" style="min-width:220px"><span id="bwrCount_${esc(bid)}" class="pill">${rs.length} rows</span></div><div class="tbl-wrap" style="max-height:400px;overflow:auto;"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>JIRA</th><th>Title</th><th>Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Status</th><th>CR Age</th><th>SI Last Seen</th><th>Last Instance</th><th>Crash Type</th></tr></thead><tbody id="bwrTbody_${esc(bid)}">${bwrTbody(rs)}</tbody></table></div>`;}
 function bwrTbody(rs){if(!rs.length)return'<tr><td colspan="13" class="empty">No CR/JIRA data for this build with current filters.</td></tr>';return rs.map((r,i)=>`<tr><td>${i+1}</td><td style="font-weight:800;color:#4f46e5;">${esc(r.cr)}</td><td style="color:#0369a1;">${esc(r.jira)}</td><td style="max-width:220px;white-space:normal;">${esc(r.title)}</td><td>${esc(r.cr_count)}</td><td>${esc(r.cr_area)}</td><td>${esc(r.cr_subsystem)}</td><td>${esc(r.cr_functionality)}</td><td>${esc(r.cr_status)}</td><td>${esc(r.cr_age)}</td><td>${esc(r.si_last_seen)}</td><td>${esc(r.last_instance)}</td><td>${_crashBadge(r.crash_type)}</td></tr>`).join('');}
 function bwrSearchDetail(bid,q){const all=_bwrRows[bid]||[],qq=String(q||'').toLowerCase(),rs=qq?all.filter(r=>JSON.stringify(r).toLowerCase().includes(qq)):all;const tb=document.getElementById('bwrTbody_'+bid);if(tb)tb.innerHTML=bwrTbody(rs);setText('bwrCount_'+bid,rs.length+' rows');}
-loadSps(false);
+loadSps(false); gen45SjqlLoad(); _updatePlatUI();
 </script>
+<!-- Gen45 Add/Edit JQL Tab Modal -->
+{% if can_edit %}
+<div id="gen45-sjql-modal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:15px;font-weight:950" id="gen45-sjql-modal-title">Add JQL Tab</span>
+        <span id="gen45-sjql-dom-badge" style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8">HQX</span>
+      </div>
+      <button onclick="gen45SjqlCloseModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <input type="hidden" id="gen45-sjql-edit-id">
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Tab Name</label><input id="gen45-sjql-inp-name" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. ADAS Open JIRAs"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">JQL Query</label><textarea id="gen45-sjql-inp-jql" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND ..."></textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="gen45SjqlCloseModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
+        <button onclick="gen45SjqlSave()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 </body>
 </html>
