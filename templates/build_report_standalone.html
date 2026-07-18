@@ -774,18 +774,13 @@ function renderAxiomMetricsHtml(rep){
     return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr';
   }
   function shortBuild(b){
-    // Show last meaningful segment e.g. SecaAU_IVI.LE.1.0-00064-NON_SAFE_STD_PVM.LAGVM-1
-    // -> 00064-NON_SAFE_STD_PVM
     const m=String(b||'').match(/-?(\d{4,6}-[^.]+)/);
     return m?m[1]:String(b||'').slice(-30);
   }
 
-  // Per-build rows: hours + devices (per build, NOT summed across builds)
-  // Devices: use MAX across builds (same lab devices reused across metas)
+  // Per-build raw data
   let maxDevices=0;
-  let totalHours=0;
   let mtbfSum=0, mtbfCount=0;
-
   const buildRows=matched.map(k=>{
     const r=metrics[k]||{};
     const list=Array.isArray(r.metrics)?r.metrics:[];
@@ -795,48 +790,91 @@ function renderAxiomMetricsHtml(rep){
       const d=num(m.deviceCount||m.uniqueDevices||0);
       if(d>bDevices)bDevices=d;
       const mt=hours(m.mtbfHours||m.mtbf||0);
-      if(mt>0){bMtbf=mt;}
+      if(mt>0)bMtbf=mt;
     });
-    totalHours+=bHours;
     if(bDevices>maxDevices)maxDevices=bDevices;
     if(bMtbf>0){mtbfSum+=bMtbf;mtbfCount++;}
     return {build:k,hours:bHours,devices:bDevices,mtbf:bMtbf};
   });
-
   const overallMtbf=mtbfCount?mtbfSum/mtbfCount:0;
+  const rawTotalHours=buildRows.reduce((s,r)=>s+r.hours,0);
 
-  // Header label
-  let html='<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a">'
-    +'<i class="fas fa-chart-line"></i> Axiom Stability Metrics</div>';
+  // Store raw data on window so slider can recalculate live
+  window._brAxiomBuildRows=buildRows;
+  window._brAxiomMaxDevices=maxDevices;
+  window._brAxiomOverallMtbf=overallMtbf;
 
-  // Summary cards: Total Hours | Devices (max, not sum) | MTBF
-  html+='<div class="metric-card warn"><b>'+esc(fmtHours(totalHours))+'</b><span>Total Hours</span></div>';
+  // Build HTML — summary cards use IDs so slider can update them
+  let html='<div style="grid-column:1/-1;margin-top:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
+  html+='<span style="font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-chart-line"></i> Axiom Stability Metrics</span>';
+  // Deduct hours slider
+  html+='<span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;color:#475569">';
+  html+='<i class="fas fa-minus-circle" style="color:#f59e0b"></i> Deduct hrs:';
+  html+='<input id="brAxiomDeductSlider" type="range" min="0" max="40" step="5" value="0" ';
+  html+='style="width:90px;accent-color:#f59e0b;cursor:pointer" ';
+  html+='oninput="brAxiomApplyDeduct(this.value)">';
+  html+='<span id="brAxiomDeductVal" style="min-width:28px;font-weight:900;color:#d97706">0 hr</span>';
+  html+='</span>';
+  html+='</div>';
+
+  // Summary metric cards
+  html+='<div class="metric-card warn" id="brAxiomTotalHoursCard"><b id="brAxiomTotalHours">'+esc(fmtHours(rawTotalHours))+'</b><span>Total Hours</span></div>';
   html+='<div class="metric-card purple"><b>'+esc(maxDevices||0)+'</b>'
     +'<span>Devices <span style="font-size:9px;font-weight:700;opacity:.7">(max per build)</span></span></div>';
-  html+='<div class="metric-card good"><b>'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>';
+  html+='<div class="metric-card good" id="brAxiomMtbfCard"><b id="brAxiomMtbf">'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>';
 
-  // Per-build breakdown (only if >1 build)
-  if(buildRows.length>1){
-    html+='<div style="grid-column:1/-1;margin-top:4px">';
-    html+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
-    html+='<thead><tr style="background:#f1f5f9">';
-    html+='<th style="padding:4px 8px;text-align:left;font-weight:900;color:#475569">Build</th>';
-    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Hours</th>';
-    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Devices</th>';
-    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">MTBF</th>';
-    html+='</tr></thead><tbody>';
-    buildRows.forEach(row=>{
-      html+='<tr style="border-top:1px solid #f1f5f9">';
-      html+='<td style="padding:3px 8px;font-weight:700;color:#1e3a8a;font-family:monospace">'+esc(shortBuild(row.build))+'</td>';
-      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(fmtHours(row.hours))+'</td>';
-      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.devices||'—')+'</td>';
-      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.mtbf?fmtHours(row.mtbf):'—')+'</td>';
-      html+='</tr>';
-    });
-    html+='</tbody></table></div>';
-  }
+  // Per-build breakdown table (always shown, even for 1 build)
+  html+='<div style="grid-column:1/-1;margin-top:4px">';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html+='<thead><tr style="background:#f1f5f9">';
+  html+='<th style="padding:4px 8px;text-align:left;font-weight:900;color:#475569">Build</th>';
+  html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Hours</th>';
+  html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Devices</th>';
+  html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">MTBF</th>';
+  html+='</tr></thead><tbody id="brAxiomBuildTbody">';
+  buildRows.forEach((row,i)=>{
+    html+='<tr style="border-top:1px solid #f1f5f9" id="brAxiomBuildRow_'+i+'">';
+    html+='<td style="padding:3px 8px;font-weight:700;color:#1e3a8a;font-family:monospace">'+esc(shortBuild(row.build))+'</td>';
+    html+='<td style="padding:3px 8px;text-align:right;font-weight:900" id="brAxiomBuildHours_'+i+'">'+esc(fmtHours(row.hours))+'</td>';
+    html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.devices||'—')+'</td>';
+    html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.mtbf?fmtHours(row.mtbf):'—')+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
 
   return html;
+}
+
+// Called live when slider moves — deducts N hours from each build's hours
+function brAxiomApplyDeduct(val){
+  val=Number(val||0);
+  const dv=document.getElementById('brAxiomDeductVal');
+  if(dv)dv.textContent=val?val+' hr':'0 hr';
+
+  function fmtH(h){
+    h=Number(h||0);
+    if(h<=0)return '0 hr';
+    if(h<1)return Math.round(h*60)+' min';
+    return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr';
+  }
+
+  const rows=window._brAxiomBuildRows||[];
+  let newTotal=0;
+  rows.forEach((row,i)=>{
+    const adj=Math.max(0, row.hours - val);
+    newTotal+=adj;
+    const el=document.getElementById('brAxiomBuildHours_'+i);
+    if(el){
+      el.textContent=fmtH(adj);
+      el.style.color=val>0&&adj<row.hours?'#d97706':'';
+    }
+  });
+
+  const th=document.getElementById('brAxiomTotalHours');
+  if(th){
+    th.textContent=fmtH(newTotal);
+    th.style.color=val>0?'#d97706':'';
+  }
 }
 function brFilterAllJiraTable(){
   const q=String((g('brAllJiraSearch')||{}).value||'').toLowerCase();
