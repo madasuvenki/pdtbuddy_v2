@@ -2400,9 +2400,14 @@ def login():
                 session['login_time'] = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
                 session.pop('needs_team_selection', None)
-                session.pop('needs_qgenie_popup', None)
                 session.pop('needs_qgenie_before_team_selection', None)
                 session.pop('viewer_mode', None)
+                if not session.get('qgenie_api_key'):
+                    # Show the QGenie popup on the landing page so a saved browser key
+                    # can be pushed into the Flask session, or the user can enter it.
+                    session['needs_qgenie_popup'] = True
+                else:
+                    session.pop('needs_qgenie_popup', None)
                 session.modified = True
                 return redirect(url_for('bu_selection'))
 
@@ -2522,9 +2527,14 @@ def login():
                 session['login_time'] = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
                 session.pop('needs_team_selection', None)
-                session.pop('needs_qgenie_popup', None)
                 session.pop('needs_qgenie_before_team_selection', None)
                 session.pop('viewer_mode', None)
+                if not session.get('qgenie_api_key'):
+                    # Show the QGenie popup on the landing page so a saved browser key
+                    # can be pushed into the Flask session, or the user can enter it.
+                    session['needs_qgenie_popup'] = True
+                else:
+                    session.pop('needs_qgenie_popup', None)
                 session.modified = True
 
                 return redirect(url_for('bu_selection'))
@@ -6509,7 +6519,10 @@ def api_cr_ai_summary():
         )
 
         if not result.get('ok'):
-            return jsonify({'error': result.get('error'), **result}), 401 if result.get('requires_config') else 503
+            payload = {'error': result.get('error'), **result}
+            if result.get('requires_config'):
+                payload['needs_qgenie_config'] = True
+            return jsonify(payload), 401 if result.get('requires_config') else 503
         return jsonify(result)
 
         # Legacy PDT-table implementation below is intentionally unreachable; retained for rollback.
@@ -8856,10 +8869,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
