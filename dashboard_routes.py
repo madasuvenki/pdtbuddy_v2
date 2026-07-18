@@ -6982,6 +6982,51 @@ def api_consolidated_report():
                 'axiom_taxonomy_path': axiom_taxonomy_path,
             })
 
+            # ── Axiom Stability Metrics ──────────────────────────────────────
+            if include_axiom_metrics and isinstance(report, dict):
+                try:
+                    axiom_builds = (
+                        builds
+                        or meta.get('build_ids_detected_for_axiom')
+                        or meta.get('build_ids')
+                        or []
+                    )
+                    # Last-resort: scan JIRA rows for meta_build field
+                    if not axiom_builds:
+                        _seen: set = set()
+                        _detected: list = []
+                        for jira in (report.get('jiras') or []):
+                            mb = str(jira.get('meta_build') or '').strip()
+                            if mb and ('\\' in mb or '/' in mb):
+                                mb = mb.rstrip('/\\').replace('\\', '/').split('/')[-1].strip()
+                            if mb and mb.upper() not in _seen:
+                                _seen.add(mb.upper())
+                                _detected.append(mb)
+                        axiom_builds = _detected[:20]
+
+                    if isinstance(axiom_builds, str):
+                        import re as _re_axiom
+                        axiom_builds = [b.strip() for b in _re_axiom.split(r'[,;\n]+', axiom_builds) if b.strip()]
+                    else:
+                        axiom_builds = [str(b).strip() for b in (axiom_builds or []) if str(b).strip()]
+
+                    # Store detected builds so UI can auto-fill builds box
+                    if axiom_builds:
+                        meta['build_ids_detected_for_axiom'] = axiom_builds
+
+                    if axiom_builds:
+                        from src.stability_reports_client import fetch_build_stability_metrics
+                        report['axiom_metrics'] = fetch_build_stability_metrics(
+                            axiom_builds,
+                            target=target or meta.get('target_name') or '',
+                            taxonomy_path=axiom_taxonomy_path or '/PDT',
+                        )
+                        meta['axiom_metrics_source'] = 'stability_reports_api'
+                        logger.info('[consolidated_report] axiom metrics fetched for %d build(s)', len(axiom_builds))
+                except Exception as _axiom_exc:
+                    logger.warning('[consolidated_report] axiom metrics skipped: %s', _axiom_exc)
+                    report['axiom_metrics'] = {}
+
             try:
                 with open(cache_path, 'w', encoding='utf-8') as fh:
                     json.dump(report, fh, ensure_ascii=False)
@@ -7285,4 +7330,26 @@ def api_build_report_resolve_filter():
         return jsonify({"ok": False, "filter_id": filter_id, "error": "Filter not found or JIRA lookup failed."}), 404
 
     return jsonify({"ok": True, "filter_id": filter_id, "jql": jql})
+
+
+@dashboard_bp.route("/api/jira/filter_jql")
+@login_required
+def api_jira_filter_jql():
+    """Alias: resolve filter_id to JQL. Called by build_report_standalone.html.
+    Query param: filter_id=346782
+    Returns: {ok, filter_id, jql}
+    """
+    filter_id = str(request.args.get('filter_id') or request.args.get('filter') or '').strip()
+    if not filter_id:
+        return jsonify({'ok': False, 'error': "'filter_id' query param required"}), 400
+    if not filter_id.isdigit():
+        import re as _re
+        m = _re.search(r'\d{4,}', filter_id)
+        filter_id = m.group(0) if m else ''
+    if not filter_id:
+        return jsonify({'ok': False, 'error': 'Invalid filter_id'}), 400
+    jql = _resolve_jira_filter_jql(filter_id)
+    if not jql:
+        return jsonify({'ok': False, 'filter_id': filter_id, 'error': 'Filter not found or JIRA lookup failed.'}), 404
+    return jsonify({'ok': True, 'filter_id': filter_id, 'jql': jql})
 
