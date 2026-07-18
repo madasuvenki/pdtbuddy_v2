@@ -746,7 +746,8 @@ function renderAxiomMetricsHtml(rep){
   const metrics=rep&&rep.axiom_metrics?rep.axiom_metrics:{};
   const keys=Object.keys(metrics||{});
   if(!keys.length) return '';
-  const found=keys.filter(k=>metrics[k]&&metrics[k].matched).length;
+  const matched=keys.filter(k=>metrics[k]&&metrics[k].matched);
+  if(!matched.length) return '';
 
   function num(v){
     if(v==null||v==='')return 0;
@@ -754,19 +755,10 @@ function renderAxiomMetricsHtml(rep){
     const m=String(v).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
     return m?Number(m[0]):0;
   }
-  function firstNumber(obj,names){
-    for(const name of names){
-      if(obj&&obj[name]!=null&&obj[name]!==''){
-        const n=num(obj[name]);
-        if(n>0)return n;
-      }
-    }
-    return 0;
-  }
   function hours(v){
     const text=String(v==null?'':v).toLowerCase().replace(/,/g,' ').trim();
     if(!text)return 0;
-    let total=0, matched=false, m;
+    let total=0,matched=false,m;
     const day=/(-?\d+(?:\.\d+)?)\s*(?:d|day|days)\b/g;
     const hr=/(-?\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/g;
     const min=/(-?\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/g;
@@ -781,46 +773,70 @@ function renderAxiomMetricsHtml(rep){
     if(h<1)return Math.round(h*60)+' min';
     return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr';
   }
-  function reportCrashFallback(){
-    const s=(rep&&rep.summary)||{};
-    const candidates=[
-      s.crash_count,
-      s.total_crashes,
-      s.valid_jiras,
-      (s.total_all_jiras!=null||s.invalid_jiras!=null)?(num(s.total_all_jiras||s.total_jiras)-num(s.invalid_jiras)):0,
-      s.with_cr,
-      s.total_jiras
-    ];
-    for(const c of candidates){
-      const n=Number(c||0);
-      if(n>0)return n;
-    }
-    return 0;
+  function shortBuild(b){
+    // Show last meaningful segment e.g. SecaAU_IVI.LE.1.0-00064-NON_SAFE_STD_PVM.LAGVM-1
+    // -> 00064-NON_SAFE_STD_PVM
+    const m=String(b||'').match(/-?(\d{4,6}-[^.]+)/);
+    return m?m[1]:String(b||'').slice(-30);
   }
 
-  let totalHours=0,totalCrashes=0,totalDevices=0,axiomMtbfHours=0,axiomMtbfCount=0;
-  keys.forEach(k=>{
+  // Per-build rows: hours + devices (per build, NOT summed across builds)
+  // Devices: use MAX across builds (same lab devices reused across metas)
+  let maxDevices=0;
+  let totalHours=0;
+  let mtbfSum=0, mtbfCount=0;
+
+  const buildRows=matched.map(k=>{
     const r=metrics[k]||{};
     const list=Array.isArray(r.metrics)?r.metrics:[];
-    if(!r.matched||!list.length)return;
+    let bHours=0, bDevices=0, bMtbf=0;
     list.forEach(m=>{
-      const h=hours(m.runtimeHours||m.hours||m.totalHours||m.runtime||m.totalRuntime);
-      totalHours+=h;
-      totalCrashes+=firstNumber(m,['crashes','crashCount','totalCrashes','numberOfCrashes','crash_count']);
-      totalDevices+=firstNumber(m,['deviceCount','uniqueDevices','devices','totalDevices','device_count']);
-      const mtbf=hours(m.mtbfHours||m.mtbf||m.MTBF||m.meanTimeBetweenFailures);
-      if(mtbf>0){axiomMtbfHours+=mtbf;axiomMtbfCount++;}
+      bHours+=hours(m.runtimeHours||m.hours||0);
+      const d=num(m.deviceCount||m.uniqueDevices||0);
+      if(d>bDevices)bDevices=d;
+      const mt=hours(m.mtbfHours||m.mtbf||0);
+      if(mt>0){bMtbf=mt;}
     });
+    totalHours+=bHours;
+    if(bDevices>maxDevices)maxDevices=bDevices;
+    if(bMtbf>0){mtbfSum+=bMtbf;mtbfCount++;}
+    return {build:k,hours:bHours,devices:bDevices,mtbf:bMtbf};
   });
-  const reportCrashes=reportCrashFallback();
-  const crashDenominator=totalCrashes>0?totalCrashes:reportCrashes;
-  const overallMtbf=crashDenominator>0?(totalHours/crashDenominator):(axiomMtbfCount?axiomMtbfHours/axiomMtbfCount:0);
-  const crashSource=totalCrashes>0?'Axiom crashes':(reportCrashes>0?'Report valid JIRAs':'No crash count available');
-  return '<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a"><i class="fas fa-chart-line"></i> Axiom Stability Metrics</div>'+
-    '<div class="metric-card warn"><b>'+esc(fmtHours(totalHours))+'</b><span>Total Hours</span></div>'+
-    '<div class="metric-card purple"><b>'+esc(Math.round(totalDevices))+'</b><span>Devices</span></div>'+
-    '<div class="metric-card good"><b>'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>'+
-    '<div class="metric-card"><b>'+esc(crashDenominator||0)+'</b><span>Crash Count ('+esc(crashSource)+')</span></div>';
+
+  const overallMtbf=mtbfCount?mtbfSum/mtbfCount:0;
+
+  // Header label
+  let html='<div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:950;color:#1e3a8a">'
+    +'<i class="fas fa-chart-line"></i> Axiom Stability Metrics</div>';
+
+  // Summary cards: Total Hours | Devices (max, not sum) | MTBF
+  html+='<div class="metric-card warn"><b>'+esc(fmtHours(totalHours))+'</b><span>Total Hours</span></div>';
+  html+='<div class="metric-card purple"><b>'+esc(maxDevices||0)+'</b>'
+    +'<span>Devices <span style="font-size:9px;font-weight:700;opacity:.7">(max per build)</span></span></div>';
+  html+='<div class="metric-card good"><b>'+esc(fmtHours(overallMtbf))+'</b><span>MTBF</span></div>';
+
+  // Per-build breakdown (only if >1 build)
+  if(buildRows.length>1){
+    html+='<div style="grid-column:1/-1;margin-top:4px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html+='<thead><tr style="background:#f1f5f9">';
+    html+='<th style="padding:4px 8px;text-align:left;font-weight:900;color:#475569">Build</th>';
+    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Hours</th>';
+    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">Devices</th>';
+    html+='<th style="padding:4px 8px;text-align:right;font-weight:900;color:#475569">MTBF</th>';
+    html+='</tr></thead><tbody>';
+    buildRows.forEach(row=>{
+      html+='<tr style="border-top:1px solid #f1f5f9">';
+      html+='<td style="padding:3px 8px;font-weight:700;color:#1e3a8a;font-family:monospace">'+esc(shortBuild(row.build))+'</td>';
+      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(fmtHours(row.hours))+'</td>';
+      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.devices||'—')+'</td>';
+      html+='<td style="padding:3px 8px;text-align:right;font-weight:900">'+esc(row.mtbf?fmtHours(row.mtbf):'—')+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+
+  return html;
 }
 function brFilterAllJiraTable(){
   const q=String((g('brAllJiraSearch')||{}).value||'').toLowerCase();
