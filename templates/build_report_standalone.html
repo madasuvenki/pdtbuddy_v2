@@ -136,21 +136,21 @@
             <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
             <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>CR-ID</th><th>Occurrence</th><th>Crash Type</th><th>CR Title</th><th>CR Area</th><th>CR SubSystem</th><th>CR Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="12" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:320px">CR Title</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">CR Date</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">CR Status</th><th style="min-width:160px">JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="12" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
         </div>
         <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
         <div id="brTabPane_mapped" style="display:none">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
             <input id="brMappedSearch" class="mini-input" placeholder="Search ticket / title / status..." oninput="brRenderMappedTab()" style="max-width:260px">
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th><th>JIRA Tickets (Source)</th></tr></thead><tbody id="brMappedRows"></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">JIRA-Ticket</th><th style="white-space:nowrap">Occurrence</th><th style="min-width:320px">Jira Title</th><th style="white-space:nowrap">Jira Date</th><th style="white-space:nowrap">Status</th><th style="min-width:160px">JIRA Tickets (Source)</th></tr></thead><tbody id="brMappedRows"></tbody></table></div>
         </div>
         <!-- Open JIRAs Tab: mirrors PDT Qstability_Tickets sheet (no mapping found) -->
         <div id="brTabPane_open" style="display:none">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
             <input id="brOpenSearch" class="mini-input" placeholder="Search JIRA / title / status..." oninput="brRenderOpenTab()" style="max-width:260px">
           </div>
-                    <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table><thead><tr><th>#</th><th>JIRA-Ticket</th><th>Occurrence</th><th>Jira Title</th><th>Jira Date</th><th>Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">JIRA-Ticket</th><th style="white-space:nowrap">Occurrence</th><th style="min-width:320px">Jira Title</th><th style="white-space:nowrap">Jira Date</th><th style="white-space:nowrap">Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
         </div>
       </div>
       <!-- legacy hidden containers kept for CSV/copy functions -->
@@ -748,12 +748,12 @@ function renderSummaryTable(counts, rep){
   const tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
   const sep='border-top:2px solid #e2e8f0';
 
-  let jiraTable='<div style="grid-column:1/-1">';
+    let jiraTable='<div style="grid-column:1/-1">';
   jiraTable+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
-  jiraTable+='<thead><tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff">';
-  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px">Metric<\/th>';
-  jiraTable+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Count<\/th>';
-  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900">Note<\/th>';
+  jiraTable+='<thead><tr style="background:#1e3a8a;color:#fff">';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px;color:#fff">Metric<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Count<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;color:#fff">Note<\/th>';
   jiraTable+='<\/tr><\/thead><tbody>';
 
   const rows=[
@@ -847,25 +847,24 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   const tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
 
   // ── Axiom table ───────────────────────────────────────────────────────────
-  let html='<div style="grid-column:1/-1;margin-top:10px">';
+    let html='<div style="grid-column:1/-1;margin-top:10px">';
   html+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
 
-  // Header with deduct controls inline
-  html+='<thead><tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff">';
-  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px"><i class="fas fa-chart-line"><\/i> Axiom Stability<\/th>';
-  html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Value<\/th>';
-  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900">';
-  // Deduct controls in header
-  html+='<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700">';
-  html+='<i class="fas fa-minus-circle" style="color:#fcd34d"><\/i>';
-  html+='<span>Deduct hrs/build:<\/span>';
-  html+='<input id="brAxiomDeductSlider" type="range" min="0" max="40" step="5" value="0" ';
-  html+='style="width:75px;accent-color:#fcd34d;cursor:pointer" oninput="brAxiomApplyDeduct()">';
-  html+='<span id="brAxiomDeductVal" style="min-width:28px;font-weight:900;color:#fcd34d">0 hr<\/span>';
-  html+='<span style="margin-left:8px"><i class="fas fa-percent" style="color:#86efac"><\/i><\/span>';
-  html+='<input id="brAxiomDeductPct" type="number" min="0" max="99" step="1" value="" placeholder="%" ';
-  html+='style="width:48px;border:1px solid rgba(255,255,255,.4);border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900;color:#fff;background:rgba(255,255,255,.15)" ';
-  html+='oninput="brAxiomApplyDeduct()">';
+  // Header: dark left col, controls in 3rd col on white bg for visibility
+  html+='<thead><tr style="background:#1e3a8a">';
+  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px;color:#fff"><i class="fas fa-chart-line"><\/i> Axiom Stability<\/th>';
+  html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Value<\/th>';
+  html+='<th style="padding:8px 14px;text-align:left;background:#f8fafc;border-left:2px solid #e2e8f0">';
+  // Deduct controls — slider syncs input, input syncs slider, both show %
+  html+='<span style="display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#1e3a8a">';
+  html+='<i class="fas fa-percent" style="color:#f59e0b"><\/i>';
+  html+='<span style="font-weight:900;color:#92400e">Deduct %:<\/span>';
+  html+='<input id="brAxiomDeductSlider" type="range" min="0" max="100" step="5" value="0" ';
+  html+='style="width:100px;accent-color:#f59e0b;cursor:pointer" oninput="brAxiomApplyDeduct(this.value,\'slider\')">';
+  html+='<span id="brAxiomDeductVal" style="min-width:34px;font-weight:900;color:#d97706;font-size:12px">0%<\/span>';
+  html+='<input id="brAxiomDeductPct" type="number" min="0" max="100" step="1" value="" placeholder="or type %" ';
+  html+='style="width:72px;border:1px solid #d1d5db;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:900;color:#1e3a8a;background:#fff" ';
+  html+='oninput="brAxiomApplyDeduct(this.value,\'input\')">';
   html+='<\/span>';
   html+='<\/th><\/tr><\/thead><tbody>';
 
@@ -898,16 +897,19 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   return html;
 }
 
-// Live updater — reads slider (fixed hrs/build) + % box, recalcs MTBF = adj_hours / crashes
-function brAxiomApplyDeduct(){
-  const sliderEl=document.getElementById('brAxiomDeductSlider');
-  const pctEl   =document.getElementById('brAxiomDeductPct');
-  const deductHr =Number((sliderEl&&sliderEl.value)||0);
-  const deductPct=Math.min(99,Math.max(0,Number((pctEl&&pctEl.value)||0)));
-  const anyDeduct=deductHr>0||deductPct>0;
+// Slider syncs input box and vice-versa; both are %
+// adj = raw_hours * (1 - pct/100)   MTBF = adj_total / crashes
+function brAxiomApplyDeduct(val, src){
+  const pct = Math.min(100, Math.max(0, Number(val)||0));
 
-  const dv=document.getElementById('brAxiomDeductVal');
-  if(dv)dv.textContent=deductHr?deductHr+' hr':'0 hr';
+  const sliderEl = document.getElementById('brAxiomDeductSlider');
+  const pctEl    = document.getElementById('brAxiomDeductPct');
+  const labelEl  = document.getElementById('brAxiomDeductVal');
+
+  // Two-way sync
+  if(src==='slider' && pctEl)  { pctEl.value    = pct>0 ? pct : ''; }
+  if(src==='input'  && sliderEl){ sliderEl.value = Math.round(pct/5)*5; }
+  if(labelEl) labelEl.textContent = pct+'%';
 
   function fmtH(h){
     h=Number(h||0);
@@ -916,31 +918,28 @@ function brAxiomApplyDeduct(){
     return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr';
   }
 
-  const rows=window._brAxiomBuildRows||[];
-  const crashes=Number(window._brAxiomCrashes||0);
-  let newTotalHours=0;
+  const rows    = window._brAxiomBuildRows||[];
+  const crashes = Number(window._brAxiomCrashes||0);
+  const factor  = 1 - pct/100;
+  let newTotal  = 0;
 
   rows.forEach((row,i)=>{
-    // fixed deduct first, then % on remainder
-    let adj=Math.max(0, row.hours - deductHr);
-    if(deductPct>0) adj=Math.max(0, adj*(1-deductPct/100));
-    adj=Math.round(adj*100)/100;
-    newTotalHours+=adj;
-    const hEl=document.getElementById('brAxiomBuildHours_'+i);
+    const adj = Math.round(row.hours * factor * 100) / 100;
+    newTotal += adj;
+    const hEl = document.getElementById('brAxiomBuildHours_'+i);
     if(hEl){
-      hEl.textContent=esc(shortBuildLabel(row.build))+': '+fmtH(adj);
-      hEl.style.color=anyDeduct&&adj<row.hours?'#d97706':'#92400e';
+      hEl.textContent = shortBuildLabel(row.build)+': '+fmtH(adj);
+      hEl.style.color = pct>0 ? '#d97706' : '#92400e';
     }
   });
 
-  // MTBF = total adjusted hours / valid JIRAs (crashes)
-  const newMtbf=crashes>0?newTotalHours/crashes:0;
+  const newMtbf = crashes>0 ? newTotal/crashes : 0;
 
-  const th=document.getElementById('brAxiomTotalHours');
-  if(th){th.textContent=fmtH(newTotalHours);th.style.color=anyDeduct?'#d97706':'#d97706';}
+  const thEl = document.getElementById('brAxiomTotalHours');
+  if(thEl){ thEl.textContent=fmtH(newTotal); thEl.style.color=pct>0?'#d97706':''; }
 
-  const mt=document.getElementById('brAxiomMtbf');
-  if(mt){mt.textContent=newMtbf?fmtH(newMtbf):'—';mt.style.color=anyDeduct?'#d97706':'#166534';}
+  const mtEl = document.getElementById('brAxiomMtbf');
+  if(mtEl){ mtEl.textContent=newMtbf?fmtH(newMtbf):'—'; mtEl.style.color=pct>0?'#d97706':'#166534'; }
 }
 function shortBuildLabel(b){
   const m=String(b||'').match(/-?(\d{4,6}-[^.]+)/);
@@ -1171,7 +1170,7 @@ window.brRenderCrTab=function(){
       '<td style="white-space:nowrap">'+crLink+'</td>'+
       '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(cnt)+'</td>'+
       '<td style="white-space:nowrap;font-size:11px;font-weight:900">'+esc(crashTypeSummary(jiraItems,r))+'</td>'+
-      '<td style="max-width:320px;word-break:break-word">'+esc(r.title||'--')+'</td>'+
+      '<td style="min-width:320px;white-space:normal;word-break:break-word">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.area||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.sub||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.func||'--')+'</td>'+
@@ -1220,7 +1219,7 @@ window.brRenderMappedTab=function(){
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap">'+ticketLink+'</td>'+
       '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td>'+
-      '<td style="max-width:360px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
+      '<td style="min-width:320px;white-space:normal;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
       '<td>'+stBadge+'</td>'+
       '<td style="min-width:160px">'+srcCell+'</td>'+
@@ -1249,12 +1248,12 @@ window.brRenderOpenTab=function(){
     const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
     const invBadge=isInv?'<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 6px;margin-left:4px">invalid</span>':'';
     const resDisplay=r.resolution_notes_text||r.final_resolution||'';
-    const resNote=resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(resDisplay)+'">'+esc(resDisplay.substring(0,60))+(resDisplay.length>60?'\u2026':'')+'</div>':'';
+    const resNote=resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:normal;word-break:break-word" title="'+esc(resDisplay)+'">'+esc(resDisplay)+'</div>':'';
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap"><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a></td>'+
       '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td>'+
-      '<td style="max-width:400px;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
+      '<td style="min-width:320px;white-space:normal;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
       '<td>'+stBadge+invBadge+resNote+'</td>'+
             '</tr>';
