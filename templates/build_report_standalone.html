@@ -411,7 +411,7 @@ function brWatchProgress(jobId){
 async function brRunConsolidatedWithProgress(opts){
     const payload={
     builds:opts.builds||[], traverse:true, orbit:true, target:opts.target||'', force:true,
-    custom_jql:opts.jql||'', include_axiom_metrics:false
+    custom_jql:opts.jql||'', include_axiom_metrics:true, axiom_taxonomy_path:'/PDT'
   };
   brShowProgress('Running Report','Submitting report job...');
   // Show the exact JQL being sent in the progress popup
@@ -941,7 +941,8 @@ function renderReport(rep){
     '<div class="metric-card" style="border-color:#fcd34d;background:linear-gradient(135deg,#fef3c7,#fff)"><b>'+esc(mappedRows.length)+'</b><span>Mapped Tickets</span></div>'+
     brAutomotiveCrashCards(crRows,mappedRows,openRows)+
     '<div class="metric-card warn"><b>'+esc(activeOpenCount)+'</b><span>Open / Unmapped JIRAs</span></div>'+
-        (invalidCount?'<div class="metric-card" style="border-color:#fca5a5;background:linear-gradient(135deg,#fee2e2,#fff)"><b style="color:#b91c1c">'+esc(invalidCount)+'</b><span>Invalid / Closed</span></div>':'');
+        (invalidCount?'<div class="metric-card" style="border-color:#fca5a5;background:linear-gradient(135deg,#fee2e2,#fff)"><b style="color:#b91c1c">'+esc(invalidCount)+'</b><span>Invalid / Closed</span></div>':'')+
+    renderAxiomMetricsHtml(rep||{});
 
   const _axiomBuildIds=window._brAxiomBuildIds||[];
   // Auto-fill builds box with detected build IDs from JIRA Meta Build field
