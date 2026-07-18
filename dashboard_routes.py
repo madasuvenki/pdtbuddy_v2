@@ -6892,6 +6892,51 @@ def _consolidated_body_bool(body, name, default=False, *aliases):
     return default
 
 
+_JIRA_FILTER_JQL_CACHE = {}
+
+
+@dashboard_bp.route("/api/jira/filter_jql", methods=["GET"])
+@login_required
+def api_jira_filter_jql():
+    """Resolve a JIRA saved filter id / filter URL to the actual JQL text."""
+    raw = str(
+        request.args.get('filter_id')
+        or request.args.get('filter')
+        or request.args.get('url')
+        or ''
+    ).strip()
+    import re as _re
+    m = _re.search(r'(?:filter(?:Id)?=|\bfilter\s*=\s*)(\d+)', raw, flags=_re.I)
+    filter_id = m.group(1) if m else (raw if _re.fullmatch(r'\d{3,}', raw or '') else '')
+    if not filter_id:
+        return jsonify({'ok': False, 'error': 'filter_id is required'}), 400
+
+    cache_key = str(filter_id)
+    now = time.time()
+    cached = _JIRA_FILTER_JQL_CACHE.get(cache_key)
+    if cached and now - float(cached.get('ts') or 0) < 300:
+        return jsonify({'ok': True, 'filter_id': filter_id, **cached.get('value', {})})
+
+    try:
+        from jira import JIRA
+        from config import JIRA_SERVER_ENDPOINT, JIRA_USER, JIRA_PASSWORD
+        if not JIRA_USER or not JIRA_PASSWORD:
+            return jsonify({'ok': False, 'error': 'JIRA credentials missing'}), 500
+        jira_obj = JIRA(options={'server': JIRA_SERVER_ENDPOINT, 'verify': False}, basic_auth=(JIRA_USER, JIRA_PASSWORD))
+        filt = jira_obj.filter(filter_id)
+        raw_filter = getattr(filt, 'raw', {}) or {}
+        jql = str(getattr(filt, 'jql', '') or raw_filter.get('jql') or '').strip()
+        name = str(getattr(filt, 'name', '') or raw_filter.get('name') or '').strip()
+        if not jql:
+            return jsonify({'ok': False, 'filter_id': filter_id, 'error': 'JIRA filter did not return JQL'}), 404
+        value = {'jql': jql, 'name': name, 'server': JIRA_SERVER_ENDPOINT}
+        _JIRA_FILTER_JQL_CACHE[cache_key] = {'ts': now, 'value': value}
+        return jsonify({'ok': True, 'filter_id': filter_id, **value})
+    except Exception as exc:
+        logger.warning('[jira_filter_jql] failed to resolve filter %s: %s', filter_id, exc, exc_info=True)
+        return jsonify({'ok': False, 'filter_id': filter_id, 'error': str(exc)}), 500
+
+
 @dashboard_bp.route("/api/consolidated_report", methods=["POST"])
 @login_required
 def api_consolidated_report():
@@ -6925,6 +6970,67 @@ def api_consolidated_report():
     except Exception:
         cache_ttl_minutes = 30
 
+    def _attach_stability_metrics(report):
+        if not include_axiom_metrics or not isinstance(report, dict):
+            return report
+        meta = report.setdefault('meta', {})
+        # Keep the consolidated/JIRA report generation on the existing fast
+        # backup path. Axiom hours/devices are fetched separately from the
+        # Stability Reports API and attached as optional KPI data.
+        try:
+            axiom_builds = (
+                builds
+                or meta.get('build_ids_detected_for_axiom')
+                or meta.get('build_ids')
+                or []
+            )
+            # Last-resort: scan JIRA rows for meta_build / software_components
+            # when the report was run via custom_jql with no explicit build_ids.
+            if not axiom_builds:
+                import re as _re_scan
+                _seen: set = set()
+                _detected: list = []
+                for jira in (report.get('jiras') or []):
+                    mb = str(jira.get('meta_build') or '').strip()
+                    if mb and mb.upper() not in _seen:
+                        _seen.add(mb.upper())
+                        _detected.append(mb)
+                    for comp in (jira.get('software_components') or []):
+                        label = str(comp.get('component') or '').strip().lower()
+                        img   = str(comp.get('image_name') or '').strip()
+                        bid   = str(comp.get('build_id')   or '').strip()
+                        candidate = bid if bid else img
+                        if candidate and ('meta' in label or 'build' in label):
+                            if candidate.upper() not in _seen:
+                                _seen.add(candidate.upper())
+                                _detected.append(candidate)
+                axiom_builds = _detected[:20]
+            if isinstance(axiom_builds, str):
+                import re as _re_axiom
+                axiom_builds = [b.strip() for b in _re_axiom.split(r'[,;\n]+', axiom_builds) if b.strip()]
+            else:
+                axiom_builds = [str(b).strip() for b in (axiom_builds or []) if str(b).strip()]
+            if axiom_builds:
+                # Store detected builds BEFORE Axiom call so UI builds box
+                # always gets populated even if Axiom fetch fails.
+                meta['build_ids_detected_for_axiom'] = axiom_builds
+                try:
+                    from src.stability_reports_client import fetch_build_stability_metrics
+                    report['axiom_metrics'] = fetch_build_stability_metrics(
+                        axiom_builds,
+                        target=target or meta.get('target_name') or '',
+                        taxonomy_path=axiom_taxonomy_path,
+                        report_id=str(body.get('axiom_report_id') or body.get('stability_report_id') or '').strip(),
+                    )
+                    meta['axiom_metrics_source'] = 'stability_reports_api'
+                except Exception as _axiom_fetch_exc:
+                    logger.warning('[consolidated_report] axiom fetch skipped: %s', _axiom_fetch_exc)
+                    report['axiom_metrics'] = {}
+        except Exception as _axiom_exc:
+            logger.warning('[consolidated_report] stability metrics fetch failed: %s', _axiom_exc, exc_info=True)
+            report['axiom_metrics_error'] = str(_axiom_exc)
+        return report
+
     cache_path, cache_key = _consolidated_report_path(target, builds, custom_jql or None)
     if not force and os.path.exists(cache_path):
         try:
@@ -6935,6 +7041,7 @@ def api_consolidated_report():
                 if isinstance(cached, dict):
                     cached.setdefault('meta', {})['from_cache'] = True
                     cached['meta']['cache_age_seconds'] = round(age_seconds, 1)
+                    cached = _attach_stability_metrics(cached)
                     return jsonify(cached)
         except Exception:
             logger.debug('[consolidated_report] cache read failed: %s', cache_path, exc_info=True)
@@ -6981,6 +7088,8 @@ def api_consolidated_report():
                 'include_axiom_metrics': include_axiom_metrics,
                 'axiom_taxonomy_path': axiom_taxonomy_path,
             })
+
+            report = _attach_stability_metrics(report)
 
             try:
                 with open(cache_path, 'w', encoding='utf-8') as fh:
