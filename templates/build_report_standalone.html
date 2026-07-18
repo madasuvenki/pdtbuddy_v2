@@ -751,10 +751,10 @@ function renderSummaryTable(counts, rep){
   let jiraTable='<div style="grid-column:1/-1">';
   jiraTable+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
   jiraTable+='<thead><tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff">';
-  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px">Metric</th>';
-  jiraTable+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Count</th>';
-  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900">Note</th>';
-  jiraTable+='</tr></thead><tbody>';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px">Metric<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Count<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900">Note<\/th>';
+  jiraTable+='<\/tr><\/thead><tbody>';
 
   const rows=[
     {label:'Total JIRAs',          val:counts.totalJiras,     note:'All JIRAs from filter',                          color:'#1e3a8a', bg:''},
@@ -768,13 +768,13 @@ function renderSummaryTable(counts, rep){
     const bg=r.bg?'background:'+r.bg+';':'';
     const border=r.sep?sep:'';
     jiraTable+='<tr style="'+bg+border+'">';
-    jiraTable+='<td style="'+tl+(r.bold?';font-weight:950;color:'+r.color:'')+'">'+(r.bold?'<b>':'')+(r.label)+(r.bold?'</b>':'')+'</td>';
-    jiraTable+='<td style="'+td+';color:'+r.color+'">'+(r.bold?'<b>':'')+esc(r.val||0)+(r.bold?'</b>':'')+'</td>';
-    jiraTable+='<td style="padding:7px 14px;font-size:11px;color:#94a3b8">'+esc(r.note)+'</td>';
-    jiraTable+='</tr>';
+    jiraTable+='<td style="'+tl+(r.bold?';font-weight:950;color:'+r.color:'')+'">'+(r.bold?'<b>':'')+(r.label)+(r.bold?'<\/b>':'')+'<\/td>';
+    jiraTable+='<td style="'+td+';color:'+r.color+'">'+(r.bold?'<b>':'')+esc(r.val||0)+(r.bold?'<\/b>':'')+'<\/td>';
+    jiraTable+='<td style="padding:7px 14px;font-size:11px;color:#94a3b8">'+esc(r.note)+'<\/td>';
+    jiraTable+='<\/tr>';
   });
 
-  jiraTable+='</tbody></table></div>';
+  jiraTable+='<\/tbody><\/table><\/div>';
 
   // ── Row 2: Axiom stability table ──────────────────────────────────────────
   const axiomHtml=renderAxiomMetricsHtml(rep, counts.validJiras);
@@ -852,27 +852,27 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
 
   // Header with deduct controls inline
   html+='<thead><tr style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff">';
-  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px"><i class="fas fa-chart-line"></i> Axiom Stability</th>';
-  html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Value</th>';
+  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px"><i class="fas fa-chart-line"><\/i> Axiom Stability<\/th>';
+  html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900">Value<\/th>';
   html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900">';
   // Deduct controls in header
   html+='<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700">';
-  html+='<i class="fas fa-minus-circle" style="color:#fcd34d"></i>';
-  html+='<span>Deduct hrs/build:</span>';
+  html+='<i class="fas fa-minus-circle" style="color:#fcd34d"><\/i>';
+  html+='<span>Deduct hrs/build:<\/span>';
   html+='<input id="brAxiomDeductSlider" type="range" min="0" max="40" step="5" value="0" ';
   html+='style="width:75px;accent-color:#fcd34d;cursor:pointer" oninput="brAxiomApplyDeduct()">';
-  html+='<span id="brAxiomDeductVal" style="min-width:28px;font-weight:900;color:#fcd34d">0 hr</span>';
-  html+='<span style="margin-left:8px"><i class="fas fa-percent" style="color:#86efac"></i></span>';
+  html+='<span id="brAxiomDeductVal" style="min-width:28px;font-weight:900;color:#fcd34d">0 hr<\/span>';
+  html+='<span style="margin-left:8px"><i class="fas fa-percent" style="color:#86efac"><\/i><\/span>';
   html+='<input id="brAxiomDeductPct" type="number" min="0" max="99" step="1" value="" placeholder="%" ';
   html+='style="width:48px;border:1px solid rgba(255,255,255,.4);border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900;color:#fff;background:rgba(255,255,255,.15)" ';
   html+='oninput="brAxiomApplyDeduct()">';
-  html+='</span>';
-  html+='</th></tr></thead><tbody>';
+  html+='<\/span>';
+  html+='<\/th><\/tr><\/thead><tbody>';
 
   // Summary rows
   const summaryRows=[
     {label:'Total Hours',  id:'brAxiomTotalHours', val:fmtHours(rawTotalHours), color:'#d97706', bg:'#fffbeb',
-     note: buildRows.length>1 ? buildRows.map((r,i)=>'<span id="brAxiomBuildHours_'+i+'" style="font-size:10px;color:#92400e;margin-right:6px">'+esc(shortBuild(r.build))+': '+esc(fmtHours(r.hours))+'</span>').join('') : ''},
+     note: buildRows.length>1 ? buildRows.map((r,i)=>'<span id="brAxiomBuildHours_'+i+'" style="font-size:10px;color:#92400e;margin-right:6px">'+esc(shortBuild(r.build))+': '+esc(fmtHours(r.hours))+'<\/span>').join('') : ''},
     {label:'Devices',      id:'',                  val:maxDevices||0,           color:'#7c3aed', bg:'#faf5ff',
      note:'Max per build (same lab devices reused across metas)'},
     {label:'Valid JIRAs (crashes)', id:'brAxiomCrashesLbl', val:crashes||0,     color:'#b45309', bg:'#fffbeb',
@@ -885,16 +885,16 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
     const bg=r.bg?'background:'+r.bg+';':'';
     const border=r.sep?'border-top:2px solid #e2e8f0;':'';
     html+='<tr style="'+bg+border+'">';
-    html+='<td style="'+tl+(r.bold?';font-weight:950':'')+'">'+(r.bold?'<b>':'')+esc(r.label)+(r.bold?'</b>':'')+'</td>';
+    html+='<td style="'+tl+(r.bold?';font-weight:950':'')+'">'+(r.bold?'<b>':'')+esc(r.label)+(r.bold?'<\/b>':'')+'<\/td>';
     html+='<td style="'+th+';color:'+r.color+'">';
-    if(r.id) html+='<b id="'+r.id+'">'+esc(r.val)+'</b>';
-    else     html+='<b>'+esc(r.val)+'</b>';
-    html+='</td>';
-    html+='<td style="padding:7px 14px;font-size:11px;color:#94a3b8">'+r.note+'</td>';
-    html+='</tr>';
+    if(r.id) html+='<b id="'+r.id+'">'+esc(r.val)+'<\/b>';
+    else     html+='<b>'+esc(r.val)+'<\/b>';
+    html+='<\/td>';
+    html+='<td style="padding:7px 14px;font-size:11px;color:#94a3b8">'+r.note+'<\/td>';
+    html+='<\/tr>';
   });
 
-  html+='</tbody></table></div>';
+  html+='<\/tbody><\/table><\/div>';
   return html;
 }
 
