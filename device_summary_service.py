@@ -14,7 +14,7 @@ _ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # because static/ can be replaced when Buddy is rebuilt/recompiled/redeployed.
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtstats\DB\PDTBuddy'
+    r'\\Sphere\pdtqipl_internal\PDTBuddy'
 )
 _DS_STATIC_DIR      = os.path.join(_PDTBUDDY_DATA_ROOT, 'device_summary_data')
 _DS_CONFIG_PATH     = os.path.join(_PDTBUDDY_DATA_ROOT, 'config', 'target_excel_page_config.json')

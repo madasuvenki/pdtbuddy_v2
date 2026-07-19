@@ -47,7 +47,7 @@ def _saved_jql_dir(target_name: str, domain: str) -> str:
         base = target_live_status_dir(target_name)
     except Exception:
         base = os.path.join(
-            os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy"),
+            os.environ.get("PDTBUDDY_DATA_ROOT", r"\\Sphere\pdtqipl_internal\PDTBuddy"),
             "live_status",
             str(target_name or "unknown"),
         )

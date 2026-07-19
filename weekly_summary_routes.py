@@ -38,7 +38,7 @@ _CONSOLIDATE_SUMMARY_TABLE = 'weekly_sharepoint_consolidate_summary'
 _UNIQUE_CR_RAW_DIR       = r'\\sphere\pdtstats\WeeklyUniqueCRs\RawData'
 _UNIQUE_CR_EXCEL_BASE    = r'\\sphere\pdtstats\WeeklyUniqueCRs'
 _FARM_KPI_DIR            = r'\\sphere\pdtstats\Farm_KPI'
-_SWPDT_JSON_NETWORK      = r'\\sphere\pdtstats\DB\PDTBuddy\SWPDT\qipl_SWPDT_job_summary.json'
+_SWPDT_JSON_NETWORK      = r'\\Sphere\pdtqipl_internal\PDTBuddy\SWPDT\qipl_SWPDT_job_summary.json'
 _SWPDT_JSON_LOCAL        = str(Path(__file__).with_name('qipl_SWPDT_job_summary_local.json'))
 
 # Smart Build Report - per-week Axiom build consolidate (separate from sharepoint consolidate)
@@ -46,11 +46,11 @@ _SP2_BUILD_CONSOLIDATE_TABLE = 'sp2_build_consolidate'
 _SP2_BUILD_TYPE_OVERRIDES_TABLE = 'sp2_build_type_overrides'
 
 # Consolidate report JSON snapshot (one file per week_end, static after save)
-_CONSOLIDATE_JSON_NET   = r'\\sphere\pdtstats\DB\PDTBuddy\consolidate'
+_CONSOLIDATE_JSON_NET   = r'\\Sphere\pdtqipl_internal\PDTBuddy\consolidate'
 _CONSOLIDATE_JSON_LOCAL = str(Path(__file__).parent / 'consolidate_snapshots')
 
 # Consolidate report JSON snapshot (one file per week_end, static after save)
-_CONSOLIDATE_JSON_NET   = r"\\sphere\pdtstats\DB\PDTBuddy\consolidate"
+_CONSOLIDATE_JSON_NET   = r"\\Sphere\pdtqipl_internal\PDTBuddy\consolidate"
 _CONSOLIDATE_JSON_LOCAL = str(Path(__file__).parent / "consolidate_snapshots")
 
 _QIPL_MIN_DATE           = date(2026, 5, 18)

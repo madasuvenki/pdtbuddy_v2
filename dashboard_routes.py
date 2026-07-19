@@ -67,7 +67,7 @@ dashboard_bp = Blueprint("dashboard_bp", __name__)
 # because static/ can be replaced when Buddy is rebuilt/recompiled/redeployed.
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtstats\DB\PDTBuddy'
+    r'\\Sphere\pdtqipl_internal\PDTBuddy'
 )
 _EXCEL_PAGE_CONFIG_PATH = os.path.join(
     _PDTBUDDY_DATA_ROOT,
@@ -1749,7 +1749,7 @@ def _get_pv_hidden_tabs(target_name):
     """Return list of hidden tab keys for a target from the page_visibility config."""
     import json as _json, os as _os
     pv_path = _os.path.join(
-        _os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy'),
+        _os.environ.get('PDTBUDDY_DATA_ROOT', r'\\Sphere\pdtqipl_internal\PDTBuddy'),
         'config', 'page_visibility.json'
     )
     try:
@@ -2757,7 +2757,7 @@ def _load_hwpdt_job_audit_data():
 
     # -- FALLBACK: read from flat JSON files --------------------------------
     logger.info("[HWPDT CHIP DATA] Falling back to HWPDT_job_audit.json")
-    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_job_audit.json"
+    network_path = r"\\Sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_job_audit.json"
     local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_job_audit_local_backup.json")
 
     raw = None
@@ -2842,7 +2842,7 @@ def _load_hwpdt_job_audit_data():
 def _get_projected_parts(target_name: str):
     """Read projected_parts for a target from HWPDT_projected.json (network then local backup)."""
     import json as _json
-    network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_projected.json"
+    network_path = r"\\Sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_projected.json"
     local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_projected_local_backup.json")
     for path in [network_path, local_backup]:
         if os.path.exists(path):
@@ -2869,7 +2869,7 @@ def api_save_hwpdt_projected(target_name):
         if projected < 1:
             return jsonify({"success": False, "message": "projected_parts must be > 0"}), 400
 
-        network_path = r"\\sphere\pdtstats\DB\PDTBuddy\HWPDT\HWPDT_projected.json"
+        network_path = r"\\Sphere\pdtqipl_internal\PDTBuddy\HWPDT\HWPDT_projected.json"
         local_backup = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HWPDT_projected_local_backup.json")
 
         # Read existing
@@ -5361,7 +5361,7 @@ def device_summary_page(target_name):
     import device_summary_service as ds_svc
     # Ensure each BU/target has a managed Excel workbook for direct Add/Edit/Remove.
     # If a user configured a network Excel, this keeps using it; otherwise it creates:
-        # \\sphere\pdtstats\DB\PDTBuddy\managed_excel\<BU>\<TARGET>\Devices\<TARGET>_device_summary.xlsx
+        # \\Sphere\pdtqipl_internal\PDTBuddy\managed_excel\<BU>\<TARGET>\Devices\<TARGET>_device_summary.xlsx
 
     ds_svc.get_or_create_device_excel_config(target_name)
     project_filter = (request.args.get('project') or 'All').strip() or 'All'

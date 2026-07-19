@@ -56,7 +56,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 _DATA_ROOT = os.environ.get(
     "PDTBUDDY_DATA_ROOT",
-    r"\\sphere\pdtstats\DB\PDTBuddy",
+    r"\\Sphere\pdtqipl_internal\PDTBuddy",
 )
 _MTBF_BASE = os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "MTBF")
 _LOCAL_FALLBACK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "adas_mtbf")

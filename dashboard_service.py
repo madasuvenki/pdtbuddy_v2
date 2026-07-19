@@ -78,7 +78,7 @@ def _dt_signature(value):
 def _dashboard_static_root():
     root = os.environ.get(
         "PDTBUDDY_DATA_ROOT",
-        r"\\sphere\pdtstats\DB\PDTBuddy",
+        r"\\Sphere\pdtqipl_internal\PDTBuddy",
     )
     path = os.path.join(root, "cache", "dashboard_static", "mtbf_build_report")
     os.makedirs(path, exist_ok=True)

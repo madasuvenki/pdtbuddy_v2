@@ -172,7 +172,7 @@ CONFIG_DIR = os.path.join(BASE_DIR, "config")
 # ---------------------------------------------------------------------------
 PDTBUDDY_DATA_ROOT = os.environ.get(
     "PDTBUDDY_DATA_ROOT",
-    r"\\sphere\pdtstats\DB\PDTBuddy",
+    r"\\Sphere\pdtqipl_internal\PDTBuddy",
 )
 
 

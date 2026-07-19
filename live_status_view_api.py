@@ -13,14 +13,14 @@ from dashboard_service import build_mtbf_dashboard_payload, ensure_meta_builds_t
 
 live_status_view_api_bp = Blueprint("live_status_view_api_bp", __name__)
 
-_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy")
+_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\Sphere\pdtqipl_internal\PDTBuddy")
 _LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 _EXCLUSIONS_FILE = os.path.join(_DATA_ROOT, "live_status_view", "exclusions.json")
 _LOCAL_EXCLUSIONS_FILE = os.path.join(_LOCAL_ROOT, "live_status_view_exclusions.json")
 
 # ---------------------------------------------------------------------------
 # ADAS MTBF JSON storage helpers
-# Path: \\sphere\pdtstats\DB\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
+# Path: \\Sphere\pdtqipl_internal\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
 # Nord_HQX -> folder Nord_HQX, Nord_HGY -> folder Nord_HGY
 # ---------------------------------------------------------------------------
 _ADAS_MTBF_VIEWS_DEFAULT = ["ADAS", "IVI", "FLEX"]

@@ -670,24 +670,33 @@ def _get_target_report_job_for_api(target_name):
 def _saved_jql_domain_or_400(value, target_name: str = ""):
     """Validate and normalise the domain parameter.
 
-    For Automotive Gen4.5 targets the domain can be ADAS/FLEX/IVI or
-    platform-specific HQX/HGY. HQX and HGY must be accepted directly so
-    Gen4.5 saved JQL tabs, cached reports, and run timers are isolated by
-    platform.
+    Accepts ANY domain that is valid for the target — read from the same
+    mtbf_domains.json that the MTBF Trend page uses.  This means CSP,
+    SAFE-IVI, NONSAFE-IVI, HQX, HGY, ADAS, FLEX, IVI and any custom
+    domain added by the user are all accepted.
 
-    For NORD_HQX / NORD_HGY and other non-Gen4.5 automotive targets the
-    domain is derived from the target name itself (e.g. 'NORD_HQX') so
-    that each target has its own isolated tab namespace.
+    Only falls back to the target-name key if the domain is completely
+    unknown (empty string).
     """
     domain = str(value or '').strip().upper()
-    # If caller passed a valid Gen4.5 domain/platform, accept it directly.
-    if domain in {'ADAS', 'FLEX', 'IVI', 'HQX', 'HGY'}:
+    if not domain:
+        if target_name:
+            safe = str(target_name).strip().upper().replace(' ', '_')
+            return safe, None
+        return '', ({'ok': False, 'error': 'domain parameter is required'}, 400)
+
+    # Accept any non-empty domain string — validation is done by the JS
+    # which only shows domains returned by _get_target_domains().
+    # Sanitise: allow letters, digits, underscore, hyphen only.
+    import re as _re
+    if _re.match(r'^[A-Z0-9_\-]+$', domain):
         return domain, None
-    # For NORD / non-Gen4.5 targets: use the target name as the domain key
+
+    # Fallback for unexpected characters
     if target_name:
         safe = str(target_name).strip().upper().replace(' ', '_')
         return safe, None
-    return '', ({'ok': False, 'error': 'Domain must be ADAS, FLEX, IVI, HQX, or HGY (or provide a valid target)'}, 400)
+    return '', ({'ok': False, 'error': f'Invalid domain: {domain}'}, 400)
 
 
 
@@ -770,59 +779,102 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
             cached['tab'] = tab
             return jsonify(cached)
 
-    # No cache (or forced) — execute the JQL now and cache the result
+    # No cache (or forced) — run the full autogen4.5 consolidated report
     jql = str(tab.get('jql') or '').strip()
-    rows_out = []
+
+    # Crash-type filter from query param (default: all types)
+    _ct_raw = str(request.args.get('crash_types') or '').strip()
+    crash_types = (
+        {c.strip().lower() for c in _ct_raw.split(',') if c.strip()}
+        if _ct_raw else {'system', 'ssr', 'process', 'open_jira'}
+    )
+
     run_error = None
+    payload_extra = {}
+
     if jql:
         try:
             import os as _os, sys as _sys
             _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
             if _scripts_dir not in _sys.path:
                 _sys.path.insert(0, _scripts_dir)
-            from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
-            from fetch_consolidated_report import connect_jira
-            jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
-            start = 0
-            page_size = 100
-            while True:
-                results = jira_obj.search_issues(
-                    jql,
-                    startAt=start,
-                    maxResults=page_size,
-                    fields='summary,status,assignee,priority,created,updated,issuetype'
-                )
-                issues = list(results or [])
-                if not issues:
-                    break
-                for issue in issues:
-                    f = issue.fields
-                    rows_out.append({
-                        'key':        str(issue.key or ''),
-                        'summary':    str(getattr(f, 'summary', '') or ''),
-                        'status':     str(getattr(getattr(f, 'status', None), 'name', '') or ''),
-                        'assignee':   str(getattr(getattr(f, 'assignee', None), 'displayName', '') or ''),
-                        'priority':   str(getattr(getattr(f, 'priority', None), 'name', '') or ''),
-                        'issuetype':  str(getattr(getattr(f, 'issuetype', None), 'name', '') or ''),
-                        'created':    str(getattr(f, 'created', '') or '')[:10],
-                        'updated':    str(getattr(f, 'updated', '') or '')[:10],
-                    })
-                start += len(issues)
-                if start >= getattr(results, 'total', 0):
-                    break
+            from fetch_consolidated_report import run_consolidated_report
+            from automotive_live_view_stats_routes import (
+                _auto_flatten_consolidated_report,
+            )
+
+            raw_report = run_consolidated_report(
+                build_ids=[],
+                filter_id=None,
+                traverse=True,
+                enrich_orbit=True,
+                target_name=target_name,
+                custom_jql=jql,
+            ) or {}
+
+            all_rows = _auto_flatten_consolidated_report(raw_report)
+            detail_rows = [
+                row for row in all_rows
+                if str(row.get('crash_type') or 'system').lower() in crash_types
+            ]
+
+            payload_extra = {
+                'hierarchical_report':   raw_report.get('hierarchical_report') or [],
+                'jiras':                 raw_report.get('jiras') or [],
+                'cr_index':              raw_report.get('cr_index') or {},
+                'summary':               raw_report.get('summary') or {},
+                'detail_rows':           detail_rows,
+                'count':                 len(detail_rows),
+                'total_count':           len(all_rows),
+                'crash_types_used':      sorted(crash_types),
+                'crash_types_available': ['system', 'ssr', 'process', 'open_jira'],
+            }
         except Exception as exc:
-            logger.warning('[SAVED JQL REPORT] JQL execution failed for %s/%s: %s', target_name, tab_id, exc)
+            logger.warning('[SAVED JQL REPORT] consolidated report failed for %s/%s: %s', target_name, tab_id, exc)
             run_error = str(exc)
+            # Fallback: plain JIRA search so the user still gets something
+            try:
+                from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
+                from fetch_consolidated_report import connect_jira
+                jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+                rows_out = []
+                start = 0
+                while True:
+                    results = jira_obj.search_issues(
+                        jql, startAt=start, maxResults=100,
+                        fields='summary,status,assignee,priority,created,updated,issuetype'
+                    )
+                    issues = list(results or [])
+                    if not issues:
+                        break
+                    for issue in issues:
+                        f = issue.fields
+                        rows_out.append({
+                            'key':       str(issue.key or ''),
+                            'summary':   str(getattr(f, 'summary', '') or ''),
+                            'status':    str(getattr(getattr(f, 'status', None), 'name', '') or ''),
+                            'assignee':  str(getattr(getattr(f, 'assignee', None), 'displayName', '') or ''),
+                            'priority':  str(getattr(getattr(f, 'priority', None), 'name', '') or ''),
+                            'issuetype': str(getattr(getattr(f, 'issuetype', None), 'name', '') or ''),
+                            'created':   str(getattr(f, 'created', '') or '')[:10],
+                            'updated':   str(getattr(f, 'updated', '') or '')[:10],
+                        })
+                    start += len(issues)
+                    if start >= getattr(results, 'total', 0):
+                        break
+                payload_extra = {'rows': rows_out, 'count': len(rows_out), 'fallback': True}
+            except Exception as exc2:
+                logger.warning('[SAVED JQL REPORT] fallback search also failed: %s', exc2)
+                payload_extra = {'rows': [], 'count': 0, 'fallback': True}
 
     payload = {
         'tab':        tab,
-        'rows':       rows_out,
-        'count':      len(rows_out),
         'jql':        jql,
         'target':     target_name,
         'domain':     domain,
         'from_cache': False,
     }
+    payload.update(payload_extra)
     if run_error:
         payload['run_error'] = run_error
     stored = set_saved_jql_cached_report(target_name, domain, tab_id, payload)
@@ -2113,6 +2165,24 @@ def view_job(job_id):
 
 
 
+
+def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
+    """Return the actual domain list for this target by reading the same
+    mtbf_domains.json that the MTBF Trend page uses. Falls back to a
+    sensible default only when the file does not exist yet.
+    """
+    if not is_auto_bu:
+        return []
+    try:
+        from live_status_view_api import _get_target_domains
+        domains = _get_target_domains(target_name)
+        if domains:
+            return domains
+    except Exception:
+        pass
+    # Fallback: ADAS/FLEX/IVI until domains file exists
+    return ['ADAS', 'FLEX', 'IVI']
+
 def _render_published_full_page(job, initial_tab='current', suppress_top_redirect=False):
     """
         Render the canonical Live Status page.
@@ -2178,6 +2248,8 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         mtbf_only=(initial_tab == 'mtbf' and _job_type(job) != 'ENG'),
         embedded_core_deck=embedded_core_deck,
         suppress_top_redirect=suppress_top_redirect,
+        # Domains available for this target
+        available_domains=_available_sjql_domains(primary_target, is_auto_bu),
         visible_tabs=visible_tabs,
     )
 

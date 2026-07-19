@@ -4112,7 +4112,7 @@ if(!window.ojClear)  window.ojClear  = function(){};
     while((m=re.exec(jql))!==null) builds.push(m[1]);
     var payload = {
       builds: builds, traverse: true, orbit: true, target: target,
-      force: false, custom_jql: jql, cache_ttl_minutes: 30, include_axiom_metrics: true
+      force: false, custom_jql: jql, cache_ttl_minutes: 30, include_axiom_metrics: false
     };
     fetch('/api/consolidated_report', {
       method: 'POST',

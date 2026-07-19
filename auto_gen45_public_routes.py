@@ -48,7 +48,7 @@ def _add_public_auto_gen45_headers(response):
     return response
 
 
-_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy")
+_DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\Sphere\pdtqipl_internal\PDTBuddy")
 _AUTO_JSON_PATH = os.environ.get(
     "PDTBUDDY_AUTO_JSON_PATH",
     os.path.join(

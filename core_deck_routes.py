@@ -16,8 +16,8 @@ core_deck_bp = Blueprint('core_deck_bp', __name__)
 
 
 
-_LIVE_STATUS_BASE_DIR = r'\\sphere\pdtstats\DB\PDTBuddy\live_status_publish'
-_LEGACY_CORE_DECK_BASE_DIR = r'\\sphere\pdtstats\DB\PDTBuddy\managed_excel'
+_LIVE_STATUS_BASE_DIR = r'\\Sphere\pdtqipl_internal\PDTBuddy\live_status_publish'
+_LEGACY_CORE_DECK_BASE_DIR = r'\\Sphere\pdtqipl_internal\PDTBuddy\managed_excel'
 _STATE_FILE = 'core_deck_state.json'
 _REVISIONS_FILE = 'core_deck_revisions.json'
 _CORE_DECK_FLAVOR_PROGRESS: Dict[str, dict] = {}

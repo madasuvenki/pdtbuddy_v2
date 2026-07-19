@@ -6946,7 +6946,7 @@ from werkzeug.utils import secure_filename
 # Fallback to local static/workspace only if the share is unavailable.
 LOCAL_WORKSPACE_DIR = pathlib.Path('static/workspace')
 try:
-    MANAGED_EXCEL_DIR = pathlib.Path(os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy')) / 'managed_excel'
+    MANAGED_EXCEL_DIR = pathlib.Path(os.environ.get('PDTBUDDY_DATA_ROOT', r'\\Sphere\pdtqipl_internal\PDTBuddy')) / 'managed_excel'
     WORKSPACE_DIR = MANAGED_EXCEL_DIR / 'workspace'
     WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 except Exception:

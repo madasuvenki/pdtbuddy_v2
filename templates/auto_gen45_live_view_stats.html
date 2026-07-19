@@ -565,6 +565,17 @@ function _irSwitchTab(uid, name){
 }
 function _irTH(label){ return '<th style="position:sticky;top:0;background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff;text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;white-space:nowrap;border-bottom:0">'+_irEsc(label)+'</th>'; }
 function _irTD(content, extra){ return '<td style="padding:9px 10px;border-bottom:1px solid #eef2ff;vertical-align:top;'+(extra||'')+'">'+content+'</td>'; }
+function _irSiCell(si){
+  if(!si||si==='--'||si==='null') return '<span style="color:#94a3b8">--</span>';
+  var s=String(si).trim();
+  // If it looks like an image URL or path
+  if(/\.(png|jpg|jpeg|gif|svg|webp)(\?|$)/i.test(s)||s.indexOf('http')===0||s.indexOf('/')===0){
+    return '<img src="'+_irEsc(s)+'" style="max-height:32px;max-width:64px;border-radius:4px;object-fit:contain" '+
+           'onerror="this.style.display=\'none\';this.nextSibling.style.display=\'inline\'" title="'+_irEsc(s)+'">'+
+           '<span style="display:none;font-size:10px;color:#64748b">'+_irEsc(s.split('/').pop())+'</span>';
+  }
+  return '<span style="font-size:11px;color:#334155">'+_irEsc(s)+'</span>';
+}
 function _irCrTable(crRows, uid){
   if(!crRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No CRs found.</div>';
   var searchId=uid+'_cr_search';
@@ -600,7 +611,7 @@ function _irCrTable(crRows, uid){
       _irTD(_irEsc(r.sub||'--'),'font-size:11px')+
       _irTD(_irEsc(r.func||'--'),'font-size:11px')+
       _irTD(_irEsc(r.date||'--'),'white-space:nowrap;font-size:11px')+
-      _irTD(_irEsc(r.si||'--'),'font-size:11px')+
+      _irTD(_irSiCell(r.si),'font-size:11px;text-align:center')+
       _irTD(_irStatusBadge(r.status))+
       _irTD(jiraCell,'min-width:160px')+
     '</tr>';

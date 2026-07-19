@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 _PDTBUDDY_DATA_ROOT = os.environ.get(
     'PDTBUDDY_DATA_ROOT',
-    r'\\sphere\pdtstats\DB\PDTBuddy'
+    r'\\Sphere\pdtqipl_internal\PDTBuddy'
 )
 _LIVE_STATUS_ROOT = os.path.join(_PDTBUDDY_DATA_ROOT, 'live_status_publish')
 _INDEX_FILE       = os.path.join(_LIVE_STATUS_ROOT, 'jobs_index.json') # lightweight listing

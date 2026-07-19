@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import dashboard_common as dc
 from src.utils import get_mysql_connection_db
 
-_DATA_ROOT = os.environ.get('PDTBUDDY_DATA_ROOT', r'\\sphere\pdtstats\DB\PDTBuddy')
+_DATA_ROOT = os.environ.get('PDTBUDDY_DATA_ROOT', r'\\Sphere\pdtqipl_internal\PDTBuddy')
 _MANAGED_EXCEL_ROOT = Path(_DATA_ROOT) / 'managed_excel'
 
 
