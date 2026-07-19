@@ -95,7 +95,7 @@
         <div class="field" style="grid-column:1/-1">
           <label>Builds</label>
           <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql();brQueueFilterJqlResolve('filter')"></textarea>
-          <div class="mode-help">Optional. List build IDs here (one per line) to generate JQL automatically, in addition to or instead of the Filter/JQL fields above.</div>
+          <div class="mode-help">List build IDs here (one per line) to generate JQL <b>and enable Axiom stability metrics (MTBF)</b>. If left blank, builds are auto-detected from JIRA results after first run.</div>
         </div>
 
       </div>
@@ -123,6 +123,7 @@
     <div class="card-b" id="brReportOutputBody">
       <div id="brSummary" class="summary"></div>
       <div id="brMetricCards" class="metric-grid" style="display:none"></div>
+      <div id="brAxiomFetchStatus" style="font-size:12px;font-weight:700;color:#6366f1;margin-top:6px;min-height:20px"></div>
       <!-- Report Tabs (PDT-style: CRs / Mapped JIRAs / Open JIRAs) -->
       <div id="brReportTabs" style="display:none;margin-bottom:0">
         <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:14px">
@@ -757,11 +758,13 @@ function renderSummaryTable(counts, rep){
   jiraTable+='<\/tr><\/thead><tbody>';
 
   const rows=[
-    {label:'Total JIRAs',          val:counts.totalJiras,     note:'All JIRAs from filter',                          color:'#1e3a8a', bg:''},
-    {label:'Open JIRAs (incl. mapped)', val:counts.openInclMapped, note:'Active open + mapped tickets + mapped to CRs', color:'#b45309', bg:'#fffbeb'},
-    {label:'CRs',                  val:counts.crs,            note:'Unique CRs mapped from JIRAs',                   color:'#7c3aed', bg:'#faf5ff'},
-    {label:'Valid JIRAs',          val:counts.validJiras,     note:'Open (active) + Mapped tickets + Mapped to CRs', color:'#166534', bg:'#f0fdf4', bold:true, sep:true},
-    {label:'Invalid / Closed',     val:counts.invalidJiras,   note:'Closed, Won\'t Fix, Not a Bug, etc.',            color:'#b91c1c', bg:'#fff1f2'},
+    {label:'Total JIRAs',                val:counts.totalJiras,     note:'All JIRAs from filter',                              color:'#1e3a8a', bg:''},
+    {label:'Mapped to CRs (occurrences)',val:counts.convertedToCrs, note:'Sum of all JIRA occurrences across all CRs',         color:'#7c3aed', bg:'#faf5ff'},
+    {label:'Mapped Tickets',             val:counts.mappedTickets,   note:'Sum of occurrences across mapped stability tickets', color:'#0369a1', bg:'#eff6ff'},
+    {label:'Open JIRAs',                 val:counts.openInclMapped,  note:'Total − CR occurrences − Mapped occurrences',         color:'#b45309', bg:'#fffbeb', bold:true, sep:true},
+    {label:'CRs (unique)',               val:counts.crs,             note:'Unique CRs mapped from JIRAs',                      color:'#6d28d9', bg:'#f5f3ff'},
+    {label:'Invalid / Closed',           val:counts.invalidJiras,    note:"Closed, Won't Fix, Not a Bug, etc.",                color:'#b91c1c', bg:'#fff1f2'},
+    {label:'Valid JIRAs',                val:counts.validJiras,      note:'Total − Invalid/Closed',                                color:'#166534', bg:'#f0fdf4', bold:true},
   ];
 
   rows.forEach(r=>{
@@ -785,9 +788,32 @@ function renderSummaryTable(counts, rep){
 function renderAxiomMetricsHtml(rep, validJirasOverride){
   const metrics=rep&&rep.axiom_metrics?rep.axiom_metrics:{};
   const keys=Object.keys(metrics||{});
-  if(!keys.length) return '';
+  // No axiom data at all — show hint
+  if(!keys.length){
+    const detectedBuilds=((rep||{}).meta||{}).build_ids_detected_for_axiom||((rep||{}).meta||{}).build_ids||[];
+    const hint=detectedBuilds.length
+      ? '<div style="margin-top:10px;padding:10px 14px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;font-size:12px;color:#92400e">'
+        +'<i class="fas fa-info-circle" style="margin-right:6px;color:#f59e0b"><\/i>'
+        +'<b>Axiom builds detected:<\/b> '+esc(detectedBuilds.slice(0,3).join(', '))+(detectedBuilds.length>3?' +'+( detectedBuilds.length-3)+' more':'')
+        +' &mdash; <button onclick="brFetchAxiomNow()" style="margin-left:8px;padding:3px 12px;border-radius:6px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;font-weight:900;cursor:pointer;font-size:11px"><i class="fas fa-bolt"><\/i> Fetch Axiom Metrics<\/button>'
+        +'<\/div>'
+      : '<div style="margin-top:10px;padding:10px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;color:#64748b">'
+        +'<i class="fas fa-chart-line" style="margin-right:6px"><\/i>'
+        +'Paste build IDs in the <b>Builds<\/b> box above and re-run to see <b>Axiom stability metrics (MTBF)<\/b>.'
+        +'<\/div>';
+    return hint;
+  }
   const matched=keys.filter(k=>metrics[k]&&metrics[k].matched);
-  if(!matched.length) return '';
+  // Keys exist but none matched — show which builds failed
+  if(!matched.length){
+    const failed=keys.map(k=>{
+      const err=String((metrics[k]||{}).error||'no data');
+      return '<li style="margin:2px 0"><code style="font-size:10px">'+esc(k)+'<\/code> &mdash; '+esc(err.slice(0,80))+'<\/li>';
+    }).join('');
+    return '<div style="margin-top:10px;padding:10px 14px;background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;font-size:12px;color:#b91c1c">'
+      +'<i class="fas fa-exclamation-triangle" style="margin-right:6px"><\/i>'
+      +'<b>Axiom metrics unavailable for '+keys.length+' build(s):<\/b><ul style="margin:6px 0 0 16px;padding:0">'+failed+'<\/ul><\/div>';
+  }
 
   function num(v){
     if(v==null||v==='')return 0;
@@ -1057,15 +1083,28 @@ function renderReport(rep){
     const rn=String(r.resolution_notes_text||'').toLowerCase();
     return INVALID_KEYWORDS.some(k=>s.indexOf(k)>=0||fr.indexOf(k)>=0||rn.indexOf(k)>=0);
   }).length || Number(((rep||{}).summary||{}).invalid_jiras||0)||0;
-  const activeOpenCount=openRows.length-invalidCount;
+  const activeOpenCount = openRows.length - invalidCount;
 
-  // Valid JIRAs = open (active) + mapped tickets + mapped to CRs
-  const validJiras = activeOpenCount + mappedRows.length + rows.convertedToCrs;
-  // Open JIRAs including mapped = all non-invalid open + mapped tickets + mapped to CRs
-  const openInclMapped = activeOpenCount + mappedRows.length + rows.convertedToCrs;
+  // Open JIRAs = Total - CR occurrences - Mapped occurrences (not additive)
+  const crOccurrences  = rows.convertedToCrs;
+  const mappedOcc      = mappedRows.reduce((a,m)=>a+(m.count||1),0);
+  const openJiras      = Math.max(0, rows.totalJiras - crOccurrences - mappedOcc);
+  // Valid JIRAs = Total - Invalid/Closed
+  const validJiras     = rows.totalJiras - invalidCount;
+  const openInclMapped = openJiras;
 
   // Store for axiom MTBF denominator
   window._brValidJiras = validJiras;
+  // Store counts for brFetchAxiomNow re-render
+  window._brLastRows = {
+    totalJiras:     rows.totalJiras,
+    openInclMapped: openInclMapped,
+    crs:            crRows.length,
+    validJiras:     validJiras,
+    invalidJiras:   invalidCount,
+    mappedTickets:  mappedRows.length,
+    convertedToCrs: rows.convertedToCrs,
+  };
 
   metricBox.innerHTML = renderSummaryTable({
     totalJiras:      rows.totalJiras,
@@ -1077,10 +1116,16 @@ function renderReport(rep){
     convertedToCrs:  rows.convertedToCrs,
   }, rep||{});
 
-  const _axiomBuildIds=window._brAxiomBuildIds||[];
+    const _axiomBuildIds=window._brAxiomBuildIds||[];
   // Auto-fill builds box with detected build IDs from JIRA Meta Build field
-  if(_axiomBuildIds.length && g('brBuilds') && !String(g('brBuilds').value||'').trim()){
+  const _buildsWereEmpty = !String(g('brBuilds')&&g('brBuilds').value||'').trim();
+  if(_axiomBuildIds.length && g('brBuilds') && _buildsWereEmpty){
     g('brBuilds').value=_axiomBuildIds.join('\n');
+  }
+  // If axiom metrics missing but builds now known — auto-fetch silently
+  const _axiomMissing = !rep.axiom_metrics || !Object.keys(rep.axiom_metrics||{}).length;
+  if(_axiomMissing && _axiomBuildIds.length && _buildsWereEmpty){
+    brFetchAxiomNow(_axiomBuildIds, rep);
   }
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
 
@@ -1440,6 +1485,66 @@ function brCopyReportOutput(btn){
       })]).then(()=>flash(true)).catch(fallback);
     }else fallback();
   }catch(e){fallback();}
+}
+// Fetch axiom metrics for already-rendered report without re-running full JQL
+// Called automatically when builds are detected post-render, or by "Fetch Axiom" button
+async function brFetchAxiomNow(buildIds, existingRep){
+  const builds = buildIds || window._brAxiomBuildIds || buildList();
+  if(!builds.length){
+    alert('No build IDs found. Paste builds in the Builds box above first.');
+    return;
+  }
+  const metricBox = g('brMetricCards');
+  const axiomStatus = document.getElementById('brAxiomFetchStatus');
+  if(axiomStatus) axiomStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Fetching Axiom metrics for '+builds.length+' build(s)...';
+
+  try{
+    const jql = brCurrentRunnableJql() || (g('brJql')&&g('brJql').value) || '';
+    const resp = await fetch('/api/consolidated_report',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        builds: builds,
+        traverse: false,          // skip JIRA traversal — axiom only
+        orbit: false,
+        target: g('brTarget')&&g('brTarget').value||'',
+        force: true,
+        custom_jql: jql,
+        include_axiom_metrics: true,
+        axiom_taxonomy_path: '/PDT',
+        axiom_only: true          // hint to backend
+      })
+    });
+    let data = await resp.json();
+    if(data.job_id){
+      data = await waitForResult(data.job_id);
+    }
+    if(data.error) throw new Error(data.error);
+
+    // Merge axiom_metrics into existing rep and re-render summary
+    const mergedRep = Object.assign({}, existingRep||{}, {
+      axiom_metrics: data.axiom_metrics || data.report&&data.report.axiom_metrics || {}
+    });
+    if(mergedRep.axiom_metrics && Object.keys(mergedRep.axiom_metrics).length){
+      // Re-render just the metric box with axiom data
+      const validJiras = window._brValidJiras || 0;
+      const rows = window._brLastRows || {};
+      metricBox.innerHTML = renderSummaryTable({
+        totalJiras:     rows.totalJiras || 0,
+        openInclMapped: rows.openInclMapped || 0,
+        crs:            rows.crs || 0,
+        validJiras:     validJiras,
+        invalidJiras:   rows.invalidJiras || 0,
+        mappedTickets:  rows.mappedTickets || 0,
+        convertedToCrs: rows.convertedToCrs || 0,
+      }, mergedRep);
+      if(axiomStatus) axiomStatus.innerHTML = '';
+    } else {
+      if(axiomStatus) axiomStatus.innerHTML = '<span style="color:#b91c1c"><i class="fas fa-exclamation-triangle"></i> Axiom returned no data for these builds.</span>';
+    }
+  }catch(e){
+    if(axiomStatus) axiomStatus.innerHTML = '<span style="color:#b91c1c"><i class="fas fa-exclamation-triangle"></i> '+esc(e.message||String(e))+'</span>';
+  }
 }
 async function brRun(){
   const builds=buildList();
