@@ -471,28 +471,165 @@ function _irNormalize(r){
   var totalJiras=Number(s.total_all_jiras||s.total_jiras||0)||(crRows.reduce(function(a,c){return a+(c.count||0);},0)+openRows.length+mappedRows.length);
   return {crRows:crRows, mappedRows:mappedRows, openRows:openRows, totalJiras:totalJiras, isFlatJql:false};
 }
-function _irMetricCards(norm, isFlatJql){
+function _irMetricCards(norm, isFlatJql, rep){
+  rep = rep || {};
+  var INV_KW=['invalid','setup issue','incomplete',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn','closed','cannotduplicate','invalid_dup'];
+  function isInv(r){ var s=(r.status||'').toLowerCase(),fr=(r.final_resolution||'').toLowerCase(),rn=(r.resolution_notes_text||'').toLowerCase(); return INV_KW.some(function(k){return s.indexOf(k)>=0||fr.indexOf(k)>=0||rn.indexOf(k)>=0;}); }
+  var invalidCount = norm.openRows.filter(isInv).length || Number((rep.summary||{}).invalid_jiras||0);
+  var activeOpen   = norm.openRows.length - invalidCount;
+  var validJiras   = activeOpen + norm.mappedRows.length + norm.crRows.reduce(function(a,c){return a+(c.count||0);},0);
+  var openInclMapped = validJiras;
+
   if(isFlatJql){
     return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
-      '<div style="border:1px solid #dbeafe;border-radius:14px;background:linear-gradient(135deg,#fff,#eff6ff);padding:12px 18px;min-width:110px;box-shadow:0 6px 18px rgba(37,99,235,.08)">'+
+      '<div style="border:1px solid #dbeafe;border-radius:14px;background:linear-gradient(135deg,#fff,#eff6ff);padding:12px 18px;min-width:110px">'+
         '<div style="font-size:22px;font-weight:950;color:#1e3a8a;line-height:1">'+norm.openRows.length+'</div>'+
-        '<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:5px">Issues</div>'+
+        '<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:4px">Issues</div>'+
       '</div></div>';
   }
-  var cards=[
-    {val:norm.totalJiras, label:'Total JIRAs', style:'border:1px solid #dbeafe;background:linear-gradient(135deg,#fff,#eff6ff)'},
-    {val:norm.crRows.reduce(function(a,c){return a+(c.count||0);},0), label:'Mapped to CRs', style:'border:1px solid #a7f3d0;background:linear-gradient(135deg,#fff,#ecfdf5)'},
-    {val:norm.crRows.length, label:'Unique CRs', style:'border:1px solid #ddd6fe;background:linear-gradient(135deg,#fff,#f5f3ff)'},
-    {val:norm.mappedRows.length, label:'Mapped Tickets', style:'border:1px solid #fde68a;background:linear-gradient(135deg,#fff,#fef9c3)'},
-    {val:norm.openRows.length, label:'Open / Unmapped', style:'border:1px solid #fed7aa;background:linear-gradient(135deg,#fff,#fff7ed)'}
+
+  // ── JIRA Summary Table ──────────────────────────────────────────────────
+  var tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
+  var tv='padding:7px 14px;font-size:13px;font-weight:900;text-align:right;white-space:nowrap';
+  var tn='padding:7px 14px;font-size:11px;color:#94a3b8';
+  var rows=[
+    {label:'Total JIRAs',               val:norm.totalJiras,    note:'All JIRAs from filter',                          color:'#1e3a8a', bg:''},
+    {label:'Open JIRAs (incl. mapped)', val:openInclMapped,     note:'Active open + mapped tickets + mapped to CRs',   color:'#b45309', bg:'#fffbeb'},
+    {label:'CRs',                       val:norm.crRows.length, note:'Unique CRs mapped from JIRAs',                   color:'#7c3aed', bg:'#faf5ff'},
+    {label:'Valid JIRAs',               val:validJiras,         note:'Open (active) + Mapped + Mapped to CRs',         color:'#166534', bg:'#f0fdf4', bold:true, sep:true},
+    {label:'Invalid / Closed',          val:invalidCount,       note:"Closed, Won't Fix, Not a Bug, etc.",             color:'#b91c1c', bg:'#fff1f2'},
   ];
-  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
-    cards.map(function(c){
-      return '<div style="'+c.style+';border-radius:14px;padding:12px 18px;min-width:110px;box-shadow:0 6px 18px rgba(37,99,235,.08)">'+
-        '<div style="font-size:22px;font-weight:950;color:#1e3a8a;line-height:1">'+c.val+'</div>'+
-        '<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:5px">'+c.label+'</div>'+
-      '</div>';
-    }).join('')+'</div>';
+  var jiraTable='<div style="margin-bottom:12px">';
+  jiraTable+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
+  jiraTable+='<thead><tr style="background:#1e3a8a">';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;color:#fff">Metric<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Count<\/th>';
+  jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;color:#fff">Note<\/th>';
+  jiraTable+='<\/tr><\/thead><tbody>';
+  rows.forEach(function(r){
+    var bg=r.bg?'background:'+r.bg+';':'';
+    var border=r.sep?'border-top:2px solid #e2e8f0;':'';
+    jiraTable+='<tr style="'+bg+border+'">';
+    jiraTable+='<td style="'+tl+(r.bold?';font-weight:950;color:'+r.color:'')+'">'+( r.bold?'<b>':'')+_irEsc(r.label)+(r.bold?'<\/b>':'')+'<\/td>';
+    jiraTable+='<td style="'+tv+';color:'+r.color+'">'+(r.bold?'<b>':'')+_irEsc(r.val||0)+(r.bold?'<\/b>':'')+'<\/td>';
+    jiraTable+='<td style="'+tn+'">'+_irEsc(r.note)+'<\/td>';
+    jiraTable+='<\/tr>';
+  });
+  jiraTable+='<\/tbody><\/table><\/div>';
+
+  // ── Axiom Stability Table ───────────────────────────────────────────────
+  var axiomHtml = _irAxiomTable(rep, validJiras);
+
+  return jiraTable + axiomHtml;
+}
+
+function _irAxiomTable(rep, validJiras){
+  var metrics=(rep&&rep.axiom_metrics)||{};
+  var keys=Object.keys(metrics);
+  var matched=keys.filter(function(k){return metrics[k]&&metrics[k].matched;});
+  if(!matched.length) return '';
+
+  function _h(v){
+    var text=String(v==null?'':v).toLowerCase().replace(/,/g,' ');
+    var total=0,hit=false,m;
+    var day=/(-?\d+(?:\.\d+)?)\s*(?:d|day|days)\b/g;
+    var hr=/(-?\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/g;
+    var mn=/(-?\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/g;
+    while((m=day.exec(text))){total+=Number(m[1])*24;hit=true;}
+    while((m=hr.exec(text))){total+=Number(m[1]);hit=true;}
+    while((m=mn.exec(text))){total+=Number(m[1])/60;hit=true;}
+    if(hit)return Math.round(total*100)/100;
+    m=text.match(/-?\d+(?:\.\d+)?/); return m?Number(m[0]):0;
+  }
+  function _n(v){ if(v==null||v==='')return 0; if(typeof v==='number')return isFinite(v)?v:0; var m=String(v).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/); return m?Number(m[0]):0; }
+  function _fmt(h){ h=Number(h||0); if(h<=0)return '0 hr'; if(h<1)return Math.round(h*60)+' min'; return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr'; }
+  function _sb(b){ var m=String(b||'').match(/-?(\d{4,6}-[^.]+)/); return m?m[1]:String(b||'').slice(-30); }
+
+  var maxDev=0, rawTotal=0;
+  var uid='ax_'+Math.random().toString(36).slice(2,6);
+  var buildRows=matched.map(function(k,i){
+    var r=metrics[k]||{};
+    var list=Array.isArray(r.metrics)?r.metrics:[];
+    var bH=0,bD=0;
+    list.forEach(function(m){ bH+=_h(m.runtimeHours||m.hours||0); var d=_n(m.deviceCount||m.uniqueDevices||0); if(d>bD)bD=d; });
+    if(bD>maxDev)maxDev=bD;
+    rawTotal+=bH;
+    return {build:k,hours:bH,devices:bD,idx:i};
+  });
+  var crashes=Number(validJiras||0);
+  var rawMtbf=crashes>0?rawTotal/crashes:0;
+
+  // Store for live deduct
+  window['_irAxRows_'+uid]=buildRows;
+  window['_irAxCrashes_'+uid]=crashes;
+
+  var tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
+  var tv='padding:7px 14px;font-size:13px;font-weight:900;text-align:right;white-space:nowrap';
+
+  var html='<div style="margin-bottom:12px">';
+  html+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
+  html+='<thead><tr style="background:#1e3a8a">';
+  html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;color:#fff"><i class="fas fa-chart-line"><\/i> Axiom Stability<\/th>';
+  html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Value<\/th>';
+  html+='<th style="padding:8px 14px;text-align:left;background:#f8fafc;border-left:2px solid #e2e8f0">';
+  html+='<span style="display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#1e3a8a">';
+  html+='<i class="fas fa-percent" style="color:#f59e0b"><\/i>';
+  html+='<span style="font-weight:900;color:#92400e">Deduct %:<\/span>';
+  html+='<input type="range" min="0" max="100" step="5" value="0" style="width:90px;accent-color:#f59e0b;cursor:pointer" oninput="_irAxDeduct(\''+uid+'\',this.value,\'slider\')">'
+  html+='<span id="'+uid+'_dlbl" style="min-width:30px;font-weight:900;color:#d97706">0%<\/span>';
+  html+='<input type="number" min="0" max="100" step="1" value="" placeholder="or type %" style="width:72px;border:1px solid #d1d5db;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:900;color:#1e3a8a;background:#fff" oninput="_irAxDeduct(\''+uid+'\',this.value,\'input\')">'
+  html+='<\/span><\/th><\/tr><\/thead><tbody>';
+
+  // Build per-build note spans
+  var bNote=buildRows.length>1
+    ? buildRows.map(function(r){ return '<span id="'+uid+'_bh_'+r.idx+'" style="font-size:10px;color:#92400e;margin-right:6px">'+_irEsc(_sb(r.build))+': '+_irEsc(_fmt(r.hours))+'<\/span>'; }).join('')
+    : '';
+
+  var sRows=[
+    {label:'Total Hours',            id:uid+'_th', val:_fmt(rawTotal),  color:'#d97706', bg:'#fffbeb', note:bNote},
+    {label:'Devices (max/build)',     id:'',        val:maxDev||0,       color:'#7c3aed', bg:'#faf5ff', note:'Same lab devices reused across metas'},
+    {label:'Valid JIRAs (crashes)',   id:'',        val:crashes||0,      color:'#b45309', bg:'#fffbeb', note:'Used as crash denominator for MTBF'},
+    {label:'MTBF = Hours / Crashes', id:uid+'_mt', val:_fmt(rawMtbf),   color:'#166534', bg:'#f0fdf4', bold:true, sep:true, note:'Recalculates live when % adjusted'},
+  ];
+  sRows.forEach(function(r){
+    var bg=r.bg?'background:'+r.bg+';':'';
+    var border=r.sep?'border-top:2px solid #e2e8f0;':'';
+    html+='<tr style="'+bg+border+'">';
+    html+='<td style="'+tl+(r.bold?';font-weight:950':'')+'">'+(r.bold?'<b>':'')+_irEsc(r.label)+(r.bold?'<\/b>':'')+'<\/td>';
+    html+='<td style="'+tv+';color:'+r.color+'">';
+    if(r.id) html+='<b id="'+r.id+'">'+_irEsc(r.val)+'<\/b>';
+    else     html+='<b>'+_irEsc(r.val)+'<\/b>';
+    html+='<\/td>';
+    html+='<td style="padding:7px 14px;font-size:11px;color:#94a3b8">'+r.note+'<\/td>';
+    html+='<\/tr>';
+  });
+  html+='<\/tbody><\/table><\/div>';
+  return html;
+}
+
+function _irAxDeduct(uid, val, src){
+  var pct=Math.min(100,Math.max(0,Number(val)||0));
+  var slEl=document.querySelector('[oninput*="_irAxDeduct(\''+uid+'\'"]:not([type=number])');
+  var inEl=document.querySelector('[oninput*="_irAxDeduct(\''+uid+'\'"]:is([type=number])');
+  var lbEl=document.getElementById(uid+'_dlbl');
+  if(src==='slider'&&inEl) inEl.value=pct>0?pct:'';
+  if(src==='input'&&slEl)  slEl.value=Math.round(pct/5)*5;
+  if(lbEl) lbEl.textContent=pct+'%';
+  function fmtH(h){ h=Number(h||0); if(h<=0)return '0 hr'; if(h<1)return Math.round(h*60)+' min'; return h>=10?Math.round(h*10)/10+' hr':Math.round(h*100)/100+' hr'; }
+  var rows=window['_irAxRows_'+uid]||[];
+  var crashes=Number(window['_irAxCrashes_'+uid]||0);
+  var factor=1-pct/100;
+  var newTotal=0;
+  rows.forEach(function(row){
+    var adj=Math.round(row.hours*factor*100)/100;
+    newTotal+=adj;
+    var hEl=document.getElementById(uid+'_bh_'+row.idx);
+    if(hEl){ hEl.textContent=String(row.build).replace(/.*-(\d{4,6}-[^.]+).*/,'$1')+': '+fmtH(adj); hEl.style.color=pct>0?'#d97706':'#92400e'; }
+  });
+  var thEl=document.getElementById(uid+'_th');
+  if(thEl){ thEl.textContent=fmtH(newTotal); thEl.style.color=pct>0?'#d97706':''; }
+  var mtEl=document.getElementById(uid+'_mt');
+  if(mtEl){ var m=crashes>0?newTotal/crashes:0; mtEl.textContent=m?fmtH(m):'—'; mtEl.style.color=pct>0?'#d97706':'#166534'; }
 }
 function _irTabBar(norm, isFlatJql, uid){
   if(isFlatJql) return '';
@@ -656,7 +793,7 @@ function _irRender(el, r, tab, uid){
     : '';
   var norm=_irNormalize(r);
   var isFlatJql=norm.isFlatJql;
-  var metrics=_irMetricCards(norm, isFlatJql);
+  var metrics=_irMetricCards(norm, isFlatJql, r);
   var tabBar=_irTabBar(norm, isFlatJql, uid);
   var panes='';
   if(isFlatJql){
@@ -868,7 +1005,7 @@ function _g45DirectPanelHtml(dom, domColor, domBg, domBorder, domIcon){
 }
 function _g45RunConsolidatedJql(jql, opts){
   opts=opts||{};
-  var payload={builds:[],traverse:true,orbit:true,target:TARGET,force:opts.force!==false,custom_jql:jql,include_axiom_metrics:false,domain:_g45ActiveDomain()};
+  var payload={builds:[],traverse:true,orbit:true,target:TARGET,force:opts.force!==false,custom_jql:jql,include_axiom_metrics:true,domain:_g45ActiveDomain()};
   return fetch('/api/consolidated_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json().then(function(d){if(!r.ok||d.error)throw new Error(d.error||d.message||('HTTP '+r.status));return d;});})
     .then(function(d){
@@ -1245,1065 +1382,4 @@ function renderSavedConfigList(){
   const el=document.getElementById('cfgSavedList');
   if(!el)return;
   const all=config.sheet_tables||{};
-  const entries=Object.entries(all).filter(([sp,row])=>row&&(row.jiras_table||row.target_table||row.openjiras_table||row.unique_crs_table));
-  if(!entries.length){el.innerHTML='No SP table mappings saved yet.';return;}
-  // Group HQX and HGY rows together per SP
-  const spKeys=new Set();
-  entries.forEach(([k])=>{ spKeys.add(k.replace(/_hgy$/i,'')); });
-  let html='<b>Saved SP mappings:</b><br>';
-  spKeys.forEach(sp=>{
-    const hqx=all[sp]||{};
-    const hgy=all[_hgyPlatKey(sp)]||{};
-    html+=`<span style="font-weight:900">SP ${esc(sp)}</span> `;
-    html+=`<span style="color:#1d4ed8">[HQX] JIRAs=${esc(hqx.jiras_table||hqx.target_table||'-')} | Open=${esc(hqx.openjiras_table||'-')} | CR=${esc(hqx.unique_crs_table||'-')}</span>`;
-    if(hgy.jiras_table||hgy.openjiras_table||hgy.unique_crs_table){
-      html+=` &nbsp;<span style="color:#065f46">[HGY] JIRAs=${esc(hgy.jiras_table||hgy.target_table||'-')} | Open=${esc(hgy.openjiras_table||'-')} | CR=${esc(hgy.unique_crs_table||'-')}</span>`;
-    }
-    html+='<br>';
-  });
-  el.innerHTML=html;
-}
-async function saveActiveSpConfig(){
-  if(!CAN_EDIT){setText('cfgStatus','Config is editor-only.');return;}
-  if(!activeSp){setText('cfgStatus','Select an SP first.');return;}
-  const hqxRow={
-    target_table:document.getElementById('cfgJiras').value,
-    jiras_table:document.getElementById('cfgJiras').value,
-    openjiras_table:document.getElementById('cfgOpenJiras').value,
-    unique_crs_table:document.getElementById('cfgUniqueCrs').value
-  };
-  const hgyRow={
-    target_table:(document.getElementById('cfgHgyJiras')||{}).value||'',
-    jiras_table:(document.getElementById('cfgHgyJiras')||{}).value||'',
-    openjiras_table:(document.getElementById('cfgHgyOpenJiras')||{}).value||'',
-    unique_crs_table:(document.getElementById('cfgHgyUniqueCrs')||{}).value||''
-  };
-  // Deep copy to prevent overwriting other SPs that share the same config object by reference
-  const next=JSON.parse(JSON.stringify(config.sheet_tables||{}));
-  next[String(activeSp)]=hqxRow;
-  next[_hgyPlatKey(activeSp)]=hgyRow;
-  setText('cfgStatus','Saving...');
-  try{
-    const d=await postJson(`${CFG_API}/config`,{sheet_tables:next});
-    config=d.config||config;
-    config.sheet_tables=config.sheet_tables||{};
-    resetLiveApiTabs();
-    setText('cfgStatus','Saved HQX + HGY table configuration for SP '+activeSp+'. Refreshing DB sections...');
-    renderSavedConfigList();
-    renderSpList();
-    await loadSpDbData();
-    renderLiveApiTabsForActiveSection();
-  }catch(e){setText('cfgStatus','Save failed: '+(e.message||e));}
-}
-async function loadSpDbData(){
-  dbPayload=null;
-  if(!activeSp)return;
-  try{
-    var platParam = _activePlat==='HGY' ? '&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)) : '';
-    dbPayload=await getJson(`${CFG_API}/sp_db_data?sp=${encodeURIComponent(activeSp)}${platParam}`);
-  }catch(e){
-    dbPayload={ok:false,error:e.message||String(e),counts:{},current_builds:[]};
-  }
-}
-  function rows(){
-    if(_activePlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
-    return (spPayload&&spPayload.rows)||[];
-  } function latestRow(){const r=rows();return r.length?r[r.length-1]:{};}
-function buildLabel(r){return r.build_s||r.builds||r.build||r.meta_id||r.meta||'-';}
-function dateVal(r){return r.date||r.week||r.report_date||'';}
-function _hgyIsConfigured(){
-  var cfg=_platCfg(activeSp);
-  return !!(cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table);
-}
-  function renderAll(){
-    if(_activePlat==='HGY'){
-      const hs=(spPayload&&spPayload._hgy&&spPayload._hgy.summary)||{};
-      const hl=latestRow();
-      setText('kRows',hs.row_count||rows().length||0);
-      setText('kLatestMtbf',hs.latest_mtbf==null?'0':hs.latest_mtbf);
-      setText('kHours',fmt(hs.total_hours,1));
-      setText('kCrashes',fmt(hs.total_crashes,0));
-      setText('kOverallMtbf',fmt(hs.calculated_overall_mtbf,2));
-      setText('kDate',hs.latest_date||dateVal(hl)||'-');
-      setText('kBuild',hs.latest_build||buildLabel(hl)||'HGY - no rows');
-      setText('corePill','SP '+activeSp+' - HGY - '+(hs.row_count||rows().length||0)+' rows');
-      renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();
-      return;
-      var hgyC=(dbPayload&&dbPayload.counts)||{};
-      var configured=_hgyIsConfigured();
-      if(!configured){
-        setText('kRows','--'); setText('kLatestMtbf','--'); setText('kHours','--');
-        setText('kCrashes','--'); setText('kOverallMtbf','--'); setText('kDate','--');
-        setText('kBuild','HGY not configured — set tables in Config tab');
-      } else {
-        setText('kRows','--'); setText('kLatestMtbf','--'); setText('kHours','--');
-        setText('kCrashes',fmt(hgyC.total_crs||0,0));
-        setText('kOverallMtbf','--'); setText('kDate','--');
-        setText('kBuild','HGY — DB data');
-      }
-    setText('corePill','SP '+activeSp+' · HGY');
-    renderCurrent();
-    renderLiveApiTabsForActiveSection();
-    return;
-  }
-  const s=spPayload.summary||{}, l=latestRow(), c=(dbPayload&&dbPayload.counts)||{};
-  setText('kRows',s.row_count||rows().length);
-  setText('kLatestMtbf',s.latest_mtbf==null?'0':s.latest_mtbf);
-  setText('kHours',fmt(s.total_hours,1));
-  setText('kCrashes',fmt(c.total_crs||s.total_crashes,0));
-  setText('kOverallMtbf',fmt(s.calculated_overall_mtbf,2));
-  setText('kDate',s.latest_date||dateVal(l)||'-');
-  setText('kBuild',s.latest_build||buildLabel(l));
-  setText('corePill','SP '+activeSp+' &middot; '+(s.row_count||rows().length)+' rows');
-  renderCoreSlides();renderSnapshot();renderCurrent();renderCharts();renderTable();renderLiveApiTabsForActiveSection();
-}
-  function renderSnapshot(){
-    const cfg=(dbPayload&&dbPayload.db_config)||_platCfg(activeSp)||{};
-    const dbC=(dbPayload&&dbPayload.counts)||{};
-    if(_activePlat==='HGY'){
-      document.getElementById('snapshotBox').innerHTML='<div class="build-card"><div class="build-title">'+esc(activeProgram)+'</div>'
-        +'<div class="build-sub" style="color:#065f46"><i class="fas fa-leaf"></i> HGY platform — DB-sourced data only</div>'
-        +'<div class="build-sub">DB CRs: '+esc(dbC.total_crs||0)+' &middot; DB Open JIRAs: '+esc(dbC.open_jiras||0)+'</div></div>'
-        +'<div class="hint" style="margin-top:10px">Configured JIRAs: '+esc(cfg.jiras_table||cfg.target_table||'not set')+'<br>Open JIRAs: '+esc(cfg.openjiras_table||'not set')+'<br>Unique CRs: '+esc(cfg.unique_crs_table||'not set')+'</div>';
-      return;
-    }
-    const s=spPayload.summary||{}, l=latestRow();
-    document.getElementById('snapshotBox').innerHTML=`<div class="build-card"><div class="build-title">${esc(activeProgram)}</div><div class="build-sub">Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div><div class="build-sub">Rows: ${esc(s.row_count||rows().length)} &middot; Total hours: ${esc(fmt(s.total_hours,1))} &middot; DB CRs: ${esc(dbC.total_crs||0)} &middot; DB Open JIRAs: ${esc(dbC.open_jiras||0)}</div></div><div class="hint" style="margin-top:10px">Configured JIRAs: ${esc(cfg.jiras_table||cfg.target_table||'not set')}<br>Open JIRAs: ${esc(cfg.openjiras_table||'not set')}<br>Unique CRs: ${esc(cfg.unique_crs_table||'not set')}</div>`;
-  }
-function renderCoreSlides(){
-    const el=document.getElementById('coreSnapshotRows'), em=document.getElementById('coreEmpty');
-    if(_activePlat==='HGY'){
-      if(em){em.style.display='block';em.innerHTML='<i class="fas fa-leaf" style="color:#6ee7b7;font-size:20px;margin-bottom:8px"></i><br><b style="color:#065f46">Core Slides summary is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view Core Slides.</span>';}
-      if(el)el.style.display='none';
-      return;
-    }
-    const s=spPayload.summary||{}, l=latestRow();
-    if(!rows().length){if(em)em.style.display='';if(el)el.style.display='none';return;}
-    if(em)em.style.display='none';
-    if(el){el.style.display='';el.innerHTML=`<div class="build-card"><div class="build-title">SP ${esc(activeSp)} - ${esc(activeProgram)}</div><div class="build-sub">Latest MTBF: <b>${esc(s.latest_mtbf||'NA')}</b> &nbsp;|&nbsp; Latest date: ${esc(s.latest_date||dateVal(l)||'-')}</div><div class="build-sub">Total hours: ${esc(fmt(s.total_hours,1))} &nbsp;|&nbsp; Total crashes: ${esc(fmt(s.total_crashes,0))} &nbsp;|&nbsp; Overall MTBF: ${esc(fmt(s.calculated_overall_mtbf,2))}</div><div class="build-sub">Latest build: ${esc(s.latest_build||buildLabel(l)||'-')}</div></div>`;}
-  }
-function renderCurrent(){
-  // Current tab is JQL-driven only. Do not pull/display Axiom build rows here.
-  // Direct JQL/filter and saved HQX/HGY JQL tabs generate the consolidated report.
-  gen45SjqlRenderCards();
-  return;
-    const dbRows=(dbPayload&&dbPayload.current_builds)||[];
-  const box=document.getElementById('currentBox')||document.getElementById('gen45SjqlBox');
-  if(!box) return;
-  // HGY with no tables configured → show empty state immediately
-  if(_activePlat==='HGY'&&!_hgyIsConfigured()){
-    box.innerHTML='<div class="empty" style="padding:48px"><i class="fas fa-leaf" style="font-size:28px;color:#6ee7b7;margin-bottom:12px"></i><br><b style="color:#065f46">HGY tables not configured for SP '+esc(activeSp)+'</b><br><span style="color:#64748b;font-size:12px">Go to the <b>Config</b> tab and set the HGY JIRAs / Open JIRAs / Unique CRs tables, then save.</span></div>';
-    return;
-  }
-  if(dbRows.length){
-    box.innerHTML=`<div class="hint" style="margin-bottom:12px">Axiom builds are read from <b>axiom_job_summary</b>. For Auto Gen4.5, the SP's configured table decides the product flavor scope (for example Lemans / Monaco). Related <b>Running + Aborted</b> Axiom jobs are included, and their job IDs are used in the cross-check JQL.</div>`+
-      dbRows.map((r,i)=>{const sc=r.state_counts||{};const stateText=Object.keys(sc).length?Object.keys(sc).map(k=>k+' '+sc[k]).join(' / '):(r.state||'Running');return `<div class="build-card" id="curBuild_${i}" style="cursor:pointer" onclick="showCurrentBuildReport(${i},false)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="build-title">${esc(r.build_id||r.build_full||'-')}</div><div class="build-sub">${esc(r.meta_id||'')} &middot; Jobs ${esc(r.job_count||0)} &middot; Devices ${esc(r.device_count||0)} &middot; ${esc(stateText)}</div><div class="build-sub" style="font-size:10px;color:#64748b">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div></div><button class="btn btn-primary" onclick="event.stopPropagation();showCurrentBuildReport(${i},false)"><i class="fas fa-microscope"></i> Load Report</button></div></div>`}).join('')+
-      '<div id="currentReportBox" class="card" style="margin-top:14px;margin-bottom:0"><div class="card-head"><h2 style="font-size:12px"><i class="fas fa-bug" style="color:#7c3aed"></i> Selected Axiom Build Report</h2><span id="currentReportStatus" class="small-muted">Loading report for the top Axiom build...</span></div><div class="card-body"><div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading report...</div></div></div>';
-    showCurrentBuildReport(0,false);
-    return;
-  }
-  // No Axiom builds found
-  if(_activePlat==='HGY'){
-    box.innerHTML='<div class="empty" style="padding:36px"><i class="fas fa-leaf" style="font-size:22px;color:#6ee7b7;margin-bottom:10px"></i><br><b style="color:#065f46">No current Axiom builds found for HGY</b><br><span style="color:#64748b;font-size:12px">Axiom axiom_job_summary has no running builds matching this SP\'s HGY product flavor.</span></div>';
-    return;
-  }
-  const l=latestRow(), s=(spPayload&&spPayload.summary)||{};
-  box.innerHTML=rows().length?`<div class="hint">No current Axiom builds found for the configured table/product flavor. Showing latest published SP row below.</div><div class="build-card"><div class="build-title">${esc(s.latest_build||buildLabel(l))}</div><div class="build-sub">SP ${esc(activeSp)} &middot; ${esc(s.latest_date||dateVal(l))}</div><div class="build-sub">Hours ${esc(l.hours||'0')} &middot; Crashes ${esc(l.crashes||l.total_crashes||'0')} &middot; MTBF ${esc(l.mtbf||s.latest_mtbf||'0')}</div></div>`:'<div class="empty">No rows for this SP.</div>';
-}
-function _currentReportKey(build){return String(activeSp||'')+'|'+String(_activePlat||'HQX')+'|'+String(build||'').trim().toLowerCase();}
-function _currentCacheAgeText(entry){const mins=Math.max(0,Math.floor((Date.now()-(entry&&entry.loadedAt||Date.now()))/60000));return mins<1?'just now':mins+' min ago';}
-function _fmtDt(v){if(!v)return'-';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString();}
-function copyReportJql(btn){
-  const el=document.getElementById('_jqlCode');
-  const text=el?String(el.textContent||''):'';
-  if(!text)return;
-  const done=()=>{if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied';setTimeout(()=>{btn.innerHTML='<i class="fas fa-copy"></i> Copy JQL';},1600);}};
-  const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');done();}finally{document.body.removeChild(ta);}};
-  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(fallback);}else{fallback();}
-}
-function _currentReportBody(){const box=document.querySelector('#currentReportBox .card-body');return box||document.getElementById('gen45SjqlBox');}
-function _currentReportStatus(msg){setText('currentReportStatus',msg||'');}
-function _currentReportBuildName(row){
-  return String((row&&(row.build_id||row.build_full||row.build_name||row.meta_id||row.meta))||'').trim();
-}
-function _currentReportCrashTypes(){
-  return ['system','ssr','process','open_jira'];
-}
-function _currentReportUrl(build, row, force){
-  const params=[
-    'sp='+encodeURIComponent(activeSp||''),
-    'build='+encodeURIComponent(build||''),
-    'crash_types='+encodeURIComponent(_currentReportCrashTypes().join(','))
-  ];
-  if(_activePlat==='HGY') params.push('plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)));
-  const jobIds=(row&&row.job_ids)||[];
-  if(jobIds.length) params.push('job_ids='+encodeURIComponent(jobIds.join(',')));
-  if(force) params.push('force=1');
-  return `${CFG_API}/sp_build_wise_report?`+params.join('&');
-}
-function _setCurrentBuildActive(index){
-  Array.prototype.forEach.call(document.querySelectorAll('[id^="curBuild_"]'),function(el){
-    el.style.borderColor='#dbeafe';
-    el.style.background='#f8fbff';
-    el.style.boxShadow='none';
-  });
-  const card=document.getElementById('curBuild_'+index);
-  if(card){
-    card.style.borderColor='#6366f1';
-    card.style.background='linear-gradient(135deg,#fff,#eef2ff)';
-    card.style.boxShadow='0 8px 22px rgba(99,102,241,.16)';
-  }
-}
-function _showCurrentReportLoading(build, force){
-  const body=_currentReportBody();
-  if(body){
-    body.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> '+(force?'Regenerating':'Loading')+' report for <b>'+esc(build||'-')+'</b>...</div>';
-  }
-  _currentReportStatus((force?'Regenerating':'Loading')+' report...');
-}
-function _showCurrentReportError(build, err){
-  const body=_currentReportBody();
-  const msg=(err&&err.message)||err||'Report failed';
-  if(body){
-    body.innerHTML='<div class="empty" style="color:#dc2626"><i class="fas fa-triangle-exclamation"></i><br><br><b>Failed to load report for '+esc(build||'-')+'</b><br><span class="small-muted" style="color:#b91c1c">'+esc(msg)+'</span><br><br><span class="small-muted">Use the build card Load Report button or Refresh to try again.</span></div>';
-  }
-  _currentReportStatus('Report failed: '+msg);
-}
-function showCurrentBuildReport(index, force){
-  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
-  const i=Number(index)||0;
-  const row=dbRows[i];
-  if(!row){
-    _showCurrentReportError('', 'Current build row not found. Refresh the page and try again.');
-    return;
-  }
-  _setCurrentBuildActive(i);
-  showCurrentBuildReportById(_currentReportBuildName(row), force===true, row);
-}
-function showCurrentBuildReportById(build, force, row){
-  build=String(build||'').trim();
-  const dbRows=(dbPayload&&dbPayload.current_builds)||[];
-  if(!row){
-    row=dbRows.find(function(r){return _currentReportBuildName(r)===build;})||null;
-  }
-  if(!build){
-    _showCurrentReportError('', 'Build id is missing.');
-    return;
-  }
-  const jobIds=(row&&row.job_ids)||[];
-  const cacheKey=_currentReportKey(build)+'|'+jobIds.slice().sort().join(',');
-  const cached=currentReportCache[cacheKey];
-  if(!force&&cached&&(Date.now()-cached.loadedAt)<CURRENT_REPORT_TTL_MS){
-    renderCurrentBuildReport(build, cached.data, true, cached);
-    return;
-  }
-  currentReportSelectedBuild=build;
-  _showCurrentReportLoading(build, force===true);
-  fetch(_currentReportUrl(build, row, force===true), {cache:'no-store'})
-    .then(function(r){return r.json().then(function(d){if(!r.ok||!d.success)throw new Error(d.message||d.error||('HTTP '+r.status));return d;});})
-    .then(function(d){
-      const entry={loadedAt:Date.now(), data:d};
-      currentReportCache[cacheKey]=entry;
-      renderCurrentBuildReport(build, d, false, entry);
-    })
-    .catch(function(e){_showCurrentReportError(build, e);});
-}
-// ── Current Build Consolidated Report ────────────────────────────────────────
-// Mirrors the nord_hgy / live_status_publish layout:
-//   KPI pills → crash-type filter → CRs / Mapped JIRAs / Open JIRAs tabs → table
-// ─────────────────────────────────────────────────────────────────────────────
-var _crReport = { rows:[], filtered:[], tab:'crs', ctFilter:'all' };
-function _crCrashClass(ct){
-  const t=String(ct||'').toLowerCase();
-  if(t==='ssr')    return 'ct-ssr';
-  if(t==='process')return 'ct-process';
-  if(t==='open_jira')return 'ct-open';
-  return 'ct-system';
-}
-function _crCrashLabel(ct){
-  const t=String(ct||'').toLowerCase();
-  if(t==='ssr')return 'SSR';
-  if(t==='process')return 'Process';
-  if(t==='open_jira')return 'Open JIRA';
-  return 'System';
-}
-function _crLinkCr(cr){
-  const v=String(cr||'').trim();
-  if(!v||v==='-')return '-';
-  return `<a href="https://orbit.qualcomm.com/cr/${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:700">${esc(v)}</a>`;
-}
-function _crLinkJira(jira){
-  const v=String(jira||'').trim();
-  if(!v||v==='-')return '-';
-  return `<a href="https://jira.qualcomm.com/jira/browse/${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700">${esc(v)}</a>`;
-}
-function _crApplyFilter(){
-  const ct=_crReport.ctFilter;
-  const tab=_crReport.tab;
-  let rows=_crReport.rows;
-  // crash-type filter
-  if(ct!=='all') rows=rows.filter(r=>String(r.crash_type||'system').toLowerCase()===ct);
-  // tab filter
-  if(tab==='crs')    rows=rows.filter(r=>r.cr&&r.cr!=='-');
-  if(tab==='mapped') rows=rows.filter(r=>r.jira&&r.jira!=='-'&&r.cr&&r.cr!=='-');
-  if(tab==='open')   rows=rows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira');
-  if(tab==='invalid')rows=rows.filter(r=>!r.cr||r.cr==='-');
-  _crReport.filtered=rows;
-}
-function _crSetTab(tab){
-  _crReport.tab=tab;
-  ['crs','mapped','open','invalid'].forEach(t=>{
-    const b=document.getElementById('_crTab_'+t);
-    if(b){
-      const active=t===tab;
-      b.style.borderBottom=active?'3px solid #6366f1':'3px solid transparent';
-      b.style.color=active?'#4f46e5':'#64748b';
-      b.style.fontWeight=active?'900':'700';
-    }
-  });
-  _crRenderTable();
-}
-function _crSetCt(ct){
-  _crReport.ctFilter=ct;
-  ['all','system','ssr','process','open_jira'].forEach(t=>{
-    const b=document.getElementById('_crCt_'+t);
-    if(b){
-      const active=t===ct;
-      b.style.background=active?'#4f46e5':'#f1f5f9';
-      b.style.color=active?'#fff':'#475569';
-    }
-  });
-  _crRenderTable();
-}
-function _crCopyTable(){
-  _crApplyFilter();
-  const rows=_crReport.filtered;
-  if(!rows.length){alert('No rows to copy.');return;}
-  const cols=['cr','jira','title','cr_area','cr_subsystem','cr_functionality','cr_status','cr_age','crash_type'];
-  const lines=[cols.join('\t')].concat(rows.map(r=>cols.map(c=>String(r[c]||'-')).join('\t')));
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
-    const b=document.getElementById('_crCopyBtn');
-    if(b){b.textContent='Copied!';setTimeout(()=>{b.innerHTML='<i class="fas fa-copy"></i> Copy CR Table';},1500);}
-  }).catch(()=>alert('Copy failed. Please use Ctrl+A / Ctrl+C on the table.'));
-}
-function _crRenderTable(){
-  _crApplyFilter();
-  const rows=_crReport.filtered;
-  const tbody=document.getElementById('_crTbody');
-  const badge=document.getElementById('_crTabBadge_'+_crReport.tab);
-  if(!tbody)return;
-  // update badge
-  ['crs','mapped','open','invalid'].forEach(t=>{
-    const b=document.getElementById('_crTabBadge_'+t);
-    if(b){
-      let cnt=_crReport.rows;
-      if(t==='crs')    cnt=_crReport.rows.filter(r=>r.cr&&r.cr!=='-');
-      if(t==='mapped') cnt=_crReport.rows.filter(r=>r.jira&&r.jira!=='-'&&r.cr&&r.cr!=='-');
-      if(t==='open')   cnt=_crReport.rows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira');
-      if(t==='invalid')cnt=_crReport.rows.filter(r=>!r.cr||r.cr==='-');
-      b.textContent=Array.isArray(cnt)?cnt.length:cnt.length;
-    }
-  });
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="9" class="empty" style="padding:28px">No rows match the current filter.</td></tr>';
-    return;
-  }
-  tbody.innerHTML=rows.map((r,i)=>`<tr>
-    <td>${i+1}</td>
-    <td>${_crLinkCr(r.cr)}</td>
-    <td>${_crLinkJira(r.jira)}</td>
-    <td style="max-width:340px;white-space:normal;font-size:12px">${esc(r.title||'-')}</td>
-    <td><span class="${_crCrashClass(r.crash_type)}">${_crCrashLabel(r.crash_type)}</span></td>
-    <td>${esc(r.cr_area||'-')}</td>
-    <td>${esc(r.cr_subsystem||'-')}</td>
-    <td>${esc(r.cr_status||'-')}</td>
-    <td>${esc(r.cr_age||'-')}</td>
-  </tr>`).join('');
-}
-function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
-  const body=_currentReportBody();
-  if(!body)return;
-  const allRows=(rowData&&rowData.detail_rows)||[];
-  const buildName=String((rowData&&rowData.build)||build||currentReportSelectedBuild||'');
-  const serverCached=!!(rowData&&rowData.from_cache);
-  const age=cacheEntry?(' · cache age '+_currentCacheAgeText(cacheEntry)):'';
-  _currentReportStatus((serverCached?'Loaded shared cached report':'Report freshly generated')+age+' · refreshes every 30 min per build');
-  currentReportSelectedBuild=buildName;
-  // stash rows
-  _crReport.rows=allRows;
-  _crReport.tab='crs';
-  _crReport.ctFilter='all';
-  // KPI counts
-  const totalJiras=new Set(allRows.map(r=>r.jira).filter(v=>v&&v!=='-')).size;
-  const totalCrs  =new Set(allRows.map(r=>r.cr  ).filter(v=>v&&v!=='-')).size;
-  const openJiras =allRows.filter(r=>String(r.crash_type||'').toLowerCase()==='open_jira').length;
-  const totalCrashes=allRows.reduce((s,r)=>s+Math.max(1,n(r&&r.cr_count)),0);
-  // JQL box
-  const _jobIds=(rowData&&rowData.job_ids)||[];
-  const _jqlFull=(rowData&&rowData.jql)||('project = DROIDBUG AND filter = '+(JIRA_FILTER_ID||'76997')+' AND summary ~ "'+buildName+'"');
-  const _jqlBox=CAN_EDIT?`
-    <div style="margin-bottom:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap"><i class="fas fa-code"></i> JQL QUERY</span>
-        <code id="_jqlCode" style="font-size:11px;color:#1e3a8a;word-break:break-all;flex:1;background:#eff6ff;padding:4px 8px;border-radius:6px">${esc(_jqlFull)}</code>
-        <button class="btn btn-primary" style="font-size:11px;padding:5px 12px;white-space:nowrap" onclick="copyReportJql(this)"><i class="fas fa-copy"></i> Copy JQL</button>
-        ${!_jobIds.length?'<span style="font-size:10px;color:#f59e0b;font-weight:700"><i class="fas fa-triangle-exclamation"></i> No job IDs</span>':''}
-      </div>
-    </div>`:'' ;
-  // KPI pills row
-  const _kpiRow=`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-      <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 14px;text-align:center">
-        <div style="font-size:26px;font-weight:1000;color:#1d4ed8">${totalCrashes}</div>
-        <div style="font-size:11px;font-weight:800;color:#3730a3;text-transform:uppercase;letter-spacing:.06em">CRASHES</div>
-      </div>
-      <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:12px 14px;text-align:center">
-        <div style="font-size:26px;font-weight:1000;color:#7c3aed">${totalJiras}</div>
-        <div style="font-size:11px;font-weight:800;color:#6d28d9;text-transform:uppercase;letter-spacing:.06em">JIRAS</div>
-      </div>
-      <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px 14px;text-align:center">
-        <div style="font-size:26px;font-weight:1000;color:#c2410c">${totalCrs}</div>
-        <div style="font-size:11px;font-weight:800;color:#9a3412;text-transform:uppercase;letter-spacing:.06em">CRS</div>
-      </div>
-      <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:12px 14px;text-align:center">
-        <div style="font-size:26px;font-weight:1000;color:#9333ea">${openJiras}</div>
-        <div style="font-size:11px;font-weight:800;color:#7e22ce;text-transform:uppercase;letter-spacing:.06em">OPEN JIRAS</div>
-      </div>
-    </div>`;
-  // Crash-type filter buttons
-  const _ctRow=`
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <span style="font-size:11px;font-weight:800;color:#64748b;margin-right:4px">FILTER:</span>
-      ${['all','system','ssr','process','open_jira'].map(ct=>`
-        <button id="_crCt_${ct}" onclick="_crSetCt('${ct}')"
-          style="padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-size:11px;font-weight:900;
-                 background:${ct==='all'?'#4f46e5':'#f1f5f9'};color:${ct==='all'?'#fff':'#475569'};transition:.15s">
-          ${ct==='all'?'All':ct==='open_jira'?'Open JIRA':ct.charAt(0).toUpperCase()+ct.slice(1)}
-        </button>`).join('')}
-      <button id="_crCopyBtn" onclick="_crCopyTable()" class="btn" style="margin-left:auto;font-size:11px;padding:5px 12px">
-        <i class="fas fa-copy"></i> Copy CR Table
-      </button>
-      <button onclick="showCurrentBuildReportById('${esc(buildName)}',true)" class="btn" style="font-size:11px;padding:5px 12px">
-        <i class="fas fa-rotate"></i> Regenerate
-      </button>
-    </div>`;
-  // Tabs
-  const _tabs=`
-    <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:0">
-      ${[['crs','CRs','#6366f1'],['mapped','Mapped JIRAs','#0369a1'],['open','Open JIRAs','#d97706'],['invalid','Invalid JIRAs','#dc2626']].map(([t,label,col])=>`
-        <button id="_crTab_${t}" onclick="_crSetTab('${t}')"
-          style="padding:8px 16px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid ${t==='crs'?col:'transparent'};
-                 background:#fff;color:${t==='crs'?col:'#64748b'};cursor:pointer;margin-bottom:-2px;font-family:inherit">
-          ${label} <span id="_crTabBadge_${t}" style="background:${t==='crs'?col:'#e2e8f0'};color:${t==='crs'?'#fff':'#475569'};border-radius:999px;padding:1px 7px;font-size:10px;margin-left:3px">0</span>
-        </button>`).join('')}
-    </div>`;
-  // Table
-  const _table=`
-    <div class="tbl-wrap" style="max-height:480px;margin-top:0">
-      <table class="tbl">
-        <thead><tr>
-          <th>#</th><th>CR</th><th>JIRA</th><th>Title</th><th>Type</th>
-          <th>Area</th><th>Subsystem</th><th>Status</th><th>Age</th>
-        </tr></thead>
-        <tbody id="_crTbody"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
-      </table>
-    </div>`;
-  // Zero state
-  if(!allRows.length){
-    body.innerHTML=_jqlBox+_kpiRow+`
-      <div style="border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:32px;text-align:center">
-        <div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div>
-        <div style="font-size:56px;font-weight:1000;color:#16a34a;margin-bottom:8px">0</div>
-        <div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">crashes found for this Axiom build</div>
-        <div class="small-muted">No matching CR/JIRA rows found in the configured tables for <b>${esc(buildName)}</b>.</div>
-      </div>`;
-    return;
-  }
-  body.innerHTML=_jqlBox+_kpiRow+_ctRow+_tabs+_table;
-  // render table with initial state
-  _crRenderTable();
-}
-function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
-function metaId(r){
-  if(r&&(r.meta_id||r.meta))return String(r.meta_id||r.meta).trim();
-  const raw=String(rawBuildId(r)||'').trim();
-  if(!raw||raw==='-')return'-';
-  let m=raw.match(/\.r(\d+)-0*(\d+)(?:\D|$)/i);
-  if(m)return `Meta.r${m[1]}-${String(Number(m[2])).padStart(3,'0')}`;
-  m=raw.match(/(?:^|-)0*(\d{1,5})(?:\D|$)/);
-  if(m)return `Meta-${String(Number(m[1])).padStart(4,'0')}`;
-  return raw;
-}
-function chartRows(){
-  const map=new Map();
-  rows().forEach((r,idx)=>{
-    const meta=String(metaId(r)||'-').trim()||'-';
-    if(meta==='-')return;
-    const h=n(r.hours||r.total_hours||r.Hours||r.HOURS), c=n(r.crashes||r.total_crashes||r.CRASHES||r.Crashes);
-    if(!map.has(meta))map.set(meta,{label:meta,hours:0,crashes:0,mtbf:0,firstIdx:idx,firstDate:dateVal(r)||'',rows:0});
-    const x=map.get(meta);x.hours+=h;x.crashes+=c;x.rows++;if(!x.firstDate)x.firstDate=dateVal(r)||'';
-  });
-  return Array.from(map.values()).sort((a,b)=>{
-    const ad=Date.parse(a.firstDate), bd=Date.parse(b.firstDate);
-    if(Number.isFinite(ad)&&Number.isFinite(bd)&&ad!==bd)return ad-bd;
-    return a.firstIdx-b.firstIdx;
-  }).map(x=>({...x,mtbf:x.crashes?x.hours/x.crashes:x.hours}));
-}
-const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=ds.label==='MTBF';const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
-const mtbfInlineDataTable={id:'mtbfInlineDataTable',afterDraw(chart,args,opts){
-  const t=(opts&&opts.table)||{};
-  const labels=t.labels||[], hours=t.hours||[], mtbf=t.mtbf||[], crashes=t.crashes||[];
-  if(!labels.length)return;
-  const {ctx,chartArea,scales}=chart, x=scales.x;
-  const leftLabelW=74, rowH=20, rows=[{name:'',vals:labels,color:'#fff'},{name:'Hours',vals:hours,color:'#fdba74'},{name:'MTBF',vals:mtbf,color:'#16a34a'},{name:'Crashes',vals:crashes,color:'#dc2626'}];
-  const tableTop=chartArea.bottom+10, tableLeft=chartArea.left-leftLabelW, tableRight=chartArea.right, tableW=tableRight-tableLeft;
-  ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1;ctx.strokeStyle='#d1d5db';
-  for(let r=0;r<rows.length;r++){
-    const y=tableTop+r*rowH;
-    ctx.fillStyle=r===0?'#f8fafc':'#fff';ctx.fillRect(tableLeft,y,tableW,rowH);ctx.strokeRect(tableLeft,y,tableW,rowH);
-    ctx.fillStyle='#334155';ctx.font=r===0?'10px Inter, Segoe UI, Arial':'10px Inter, Segoe UI, Arial';
-    if(rows[r].name){ctx.textAlign='left';ctx.fillStyle=rows[r].color;ctx.fillRect(tableLeft+8,y+9,18,3);ctx.fillStyle='#334155';ctx.fillText(rows[r].name,tableLeft+31,y+rowH/2);ctx.textAlign='center';}
-    ctx.beginPath();ctx.moveTo(tableLeft+leftLabelW,y);ctx.lineTo(tableLeft+leftLabelW,y+rowH);ctx.stroke();
-    for(let i=0;i<labels.length;i++){
-      const xc=x.getPixelForValue(i), prev=i===0?chartArea.left:(x.getPixelForValue(i-1)+xc)/2, next=i===labels.length-1?chartArea.right:(xc+x.getPixelForValue(i+1))/2;
-      ctx.strokeRect(prev,y,next-prev,rowH);
-      ctx.fillStyle=r===0?'#475569':'#111827';ctx.fillText(String(rows[r].vals[i]??''),xc,y+rowH/2);
-    }
-  }
-  ctx.restore();
-}};
-async function copyMtbfChart(){
-  const canvas=document.getElementById('mtbfChart');
-  if(!canvas||!mtbfChart){ setText('copyChartMsg','Chart not ready.'); return; }
-  try{
-    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-    await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
-    setText('copyChartMsg','Copied to clipboard.');
-  }catch(e){
-    setText('copyChartMsg','Copy failed. Use right-click -> Copy Image.');
-    console.error('Chart copy failed',e);
-  }
-}
-function renderCharts(){
-    // HGY: MTBF chart is HQX sheet data only — show locked state
-    if(false && _activePlat==='HGY'){
-      const em=document.getElementById('mtbfEmpty');
-      if(em){em.style.display='block';em.innerHTML='<i class="fas fa-leaf" style="color:#6ee7b7;font-size:22px;margin-bottom:10px"></i><br><b style="color:#065f46">MTBF Trend is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view the MTBF chart, or add HGY builds via <b>Add Build</b>.</span>';}
-      if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
-      return;
-    }
-    const cr=chartRows();
-    document.getElementById('mtbfEmpty').style.display=cr.length?'none':'block';
-    if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
-  if(!cr.length)return;
-  const canvas=document.getElementById('mtbfChart');
-  const wrap=canvas.closest('.chart-wrap')||canvas.parentElement;
-    const fullW=Math.max(900,(wrap&&wrap.clientWidth?wrap.clientWidth-24:0),cr.length*70);
-    canvas.style.width=fullW+'px';
-    canvas.width=fullW;
-      const labels=cr.map(x=>x.label), hours=cr.map(x=>Number(x.hours.toFixed(2))), crashes=cr.map(x=>Number(x.crashes.toFixed(0))), mtbf=cr.map(x=>Number(x.mtbf.toFixed(2)));
-          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbf,crashes:crashes}},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:false},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:false},ticks:{color:'#374151'}}}}};
-    mtbfChart=new Chart(canvas,cfg);
-}
-function firstVal(r,keys,fb=''){for(const k of keys){if(r&&r[k]!=null&&String(r[k]).trim()!=='')return r[k];}return fb;}
-function fixedTableColumns(){return[
-  {key:'sno',label:'S.No',val:(r,i)=>i+1},
-  {key:'date',label:'Date',val:r=>firstVal(r,['date','Date','report_date','week'])},
-  {key:'target',label:'Target',val:r=>firstVal(r,['target','target_name','program','software_product'],activeProgram||TARGET)},
-  {key:'meta',label:'Meta ID',val:r=>metaId(r)},
-  {key:'build',label:'Build',val:r=>rawBuildId(r)},
-  {key:'product_flavor',label:'Product Flavor',val:r=>firstVal(r,['product_flavor','productflavor','flavor','deviceName','device_name'])},
-  {key:'devices',label:'Devices',val:r=>firstVal(r,['devices','device_count','deviceCount','device','device_name'])},
-  {key:'hours',label:'Hours',val:r=>fmt(firstVal(r,['hours','Hours','HOURS','total_hours']),1)},
-  {key:'crashes',label:'Crashes',val:r=>fmt(firstVal(r,['crashes','Crashes','CRASHES','total_crashes']),0)},
-  {key:'mtbf',label:'MTBF',val:r=>{const h=n(firstVal(r,['hours','Hours','HOURS','total_hours'])),c=n(firstVal(r,['crashes','Crashes','CRASHES','total_crashes']));return fmt(c?h/c:firstVal(r,['mtbf','MTBF']),2);}},
-  {key:'comments',label:'Comments',val:r=>firstVal(r,['comments','Comments','comment','remarks','notes'])}
-];}
-  function renderTable(){
-    // HGY: Full SP Table is HQX sheet data only
-    if(false && _activePlat==='HGY'){
-      document.getElementById('tableHead').innerHTML='';
-      document.getElementById('tableBody').innerHTML='<tr><td class="empty" colspan="99" style="padding:36px"><i class="fas fa-leaf" style="color:#6ee7b7;font-size:20px;margin-bottom:8px"></i><br><b style="color:#065f46">Full SP Table is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view historical rows, or use <b>Add Build</b> to add HGY entries.</span></td></tr>';
-      return;
-    }
-    const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();const filtered=rows().filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
-// ---------------------------------------------------------------------------
-// Add Build modal â€” appends a new row to this SP's own per-SP JSON file.
-// The form shows every raw column present in the SP's rows (except
-// excel_row/sno, which are always assigned server-side), and "Copy All
-// Columns" can pre-fill every field from any existing row so the user only
-// has to tweak the fields that changed (e.g. date/build/hours/crashes).
-// ---------------------------------------------------------------------------
-  // ── Add Build modal platform (independent of page-level _activePlat) ──────
-  const _ADD_BUILD_RESERVED = new Set(['excel_row','sno','s_no']);
-  function _addBuildLabel(k){return k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
-  var _abPlat = 'HQX'; // 'HQX' or 'HGY' — set when modal opens
-  function _abRows(){
-    // Returns rows for the currently selected modal platform
-    if(_abPlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
-    return (spPayload&&spPayload.rows)||[];
-  }
-  function _abFieldKeys(){
-    // Use the selected platform's rows for field discovery.
-    // If HGY has no rows yet, fall back to HQX rows so the same columns appear.
-    const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','mtbf','comments'];
-    let src = _abRows();
-    if(!src.length && _abPlat==='HGY') src = (spPayload&&spPayload.rows)||[]; // HQX fallback for field template
-    const seen=[], have=new Set();
-    preferred.forEach(k=>{ if(src.some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
-    src.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
-    if(!seen.length) preferred.forEach(k=>{ if(!have.has(k)){ have.add(k); seen.push(k); } });
-    return seen;
-  }
-  function _abUpdateToggleUI(){
-    const isHgy = _abPlat==='HGY';
-    const hqxBtn = document.getElementById('abPlatHqx');
-    const hgyBtn = document.getElementById('abPlatHgy');
-    const header = document.getElementById('addBuildHeader');
-    const saveBtn = document.getElementById('addBuildSaveBtn');
-    if(hqxBtn){
-      hqxBtn.style.background = isHgy ? 'transparent' : '#fff';
-      hqxBtn.style.color      = isHgy ? 'rgba(255,255,255,.7)' : '#1e3a8a';
-    }
-    if(hgyBtn){
-      hgyBtn.style.background = isHgy ? '#fff' : 'transparent';
-      hgyBtn.style.color      = isHgy ? '#065f46' : 'rgba(255,255,255,.7)';
-    }
-    if(header){
-      header.style.background = isHgy
-        ? 'linear-gradient(135deg,#064e3b,#059669)'
-        : 'linear-gradient(135deg,#1e3a8a,#4f46e5)';
-    }
-    if(saveBtn){
-      saveBtn.style.background = isHgy ? '#059669' : '';
-      saveBtn.style.borderColor = isHgy ? '#059669' : '';
-      saveBtn.innerHTML = isHgy
-        ? '<i class="fas fa-leaf" style="margin-right:5px"></i>Save HGY Build'
-        : '<i class="fas fa-save" style="margin-right:5px"></i>Save HQX Build';
-    }
-  }
-  function _abSwitchPlat(plat){
-    _abPlat = plat;
-    _abUpdateToggleUI();
-    // Refresh copy-from dropdown for the new platform
-    const sel = document.getElementById('addBuildCopySel');
-    const rs = _abRows();
-    sel.innerHTML = '<option value="">-- Copy from existing row (optional) --</option>'
-      + rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
-    // Rebuild fields (same columns, just refreshed)
-    _abRenderFields();
-    document.getElementById('addBuildMsg').textContent = '';
-  }
-  function _abRenderFields(){
-    const keys = _abFieldKeys();
-    document.getElementById('addBuildFields').innerHTML = keys.map(k=>{
-      const isDate = /^date$/i.test(k);
-      return `<div class="field"><label>${esc(_addBuildLabel(k))}</label><input class="input" data-field="${esc(k)}" type="${isDate?'date':'text'}" placeholder="${esc(_addBuildLabel(k))}"></div>`;
-    }).join('');
-  }
-  function openAddBuildModal(){
-    if(!CAN_EDIT)return;
-    if(!activeSp){alert('Select an SP first.');return;}
-    // Default platform = current page platform
-    _abPlat = _activePlat;
-    setText('addBuildSpLabel', activeSp);
-    _abUpdateToggleUI();
-    // Copy-from dropdown
-    const sel = document.getElementById('addBuildCopySel');
-    const rs = _abRows();
-    sel.innerHTML = '<option value="">-- Copy from existing row (optional) --</option>'
-      + rs.map((r,i)=>`<option value="${i}">${esc(dateVal(r)||'-')} &middot; ${esc(rawBuildId(r))}</option>`).join('');
-    // Fields
-    _abRenderFields();
-    document.getElementById('addBuildMsg').textContent = '';
-    document.getElementById('addBuildModal').style.display = 'flex';
-  }
-function closeAddBuildModal(){document.getElementById('addBuildModal').style.display='none';}
-  function addBuildCopyFromSelected(){
-    const sel=document.getElementById('addBuildCopySel');
-    const idx=sel.value;
-    if(idx===''){document.getElementById('addBuildMsg').textContent='Select a row above to copy from first.';return;}
-    const r=_abRows()[Number(idx)]||{};
-    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
-      const k=inp.getAttribute('data-field');
-      let v=r[k]; if(v==null) v='';
-      inp.value=String(v);
-    });
-    const msg=document.getElementById('addBuildMsg');
-    msg.style.color='#166534';
-    msg.textContent='Copied from selected row. Edit the fields that changed (date, build, hours, crashes…) before saving.';
-  }
-  function addBuildClearForm(){
-    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>inp.value='');
-    document.getElementById('addBuildCopySel').value='';
-    document.getElementById('addBuildMsg').textContent='';
-  }
-async function addBuildSave(){
-    if(!activeSp)return;
-    const row={};
-    document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
-      const k=inp.getAttribute('data-field');
-      const v=inp.value.trim();
-      if(v!=='') row[k]=v;
-    });
-    if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
-    const msg=document.getElementById('addBuildMsg');
-    msg.textContent='Saving to '+_abPlat+'...'; msg.style.color='#64748b';
-    try{
-      const _spApi = _abPlat==='HGY'
-        ? `${PUBLIC_API}/hgy/sp/${encodeURIComponent(activeSp)}/add_build`
-        : `${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/add_build`;
-      const r=await fetch(_spApi,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row,program:activeProgram})});
-      const d=await r.json();
-      if(!d.ok) throw new Error(d.error||d.message||'Save failed');
-      msg.style.color='#166534';
-      msg.textContent=_abPlat+' build added (S.No '+(d.row&&d.row.sno)+'). Refreshing...';
-      if(spPayload){
-        if(_abPlat==='HGY'){ spPayload._hgy=spPayload._hgy||{}; spPayload._hgy.rows=d.rows||spPayload._hgy.rows; spPayload._hgy.summary=d.summary||spPayload._hgy.summary; }
-        else { spPayload.rows=d.rows||spPayload.rows; spPayload.summary=d.summary||spPayload.summary; }
-      }
-      // If the saved platform matches the active page platform, re-render immediately
-      if(_abPlat===_activePlat) renderAll();
-            setTimeout(closeAddBuildModal,700);
-    }catch(e){
-      msg.style.color='#dc2626';
-      msg.textContent='Save failed: '+(e.message||e);
-    }
-  }
-// Complete table editor (single bulk Edit Table flow like Gen5 HQX/HGY)
-let _editTableKeys=[];
-function _editTableKeysFromRows(){
-  const keys=[], seen=new Set();
-  _addBuildFieldKeys().forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!seen.has(k)){seen.add(k);keys.push(k);} });
-  return keys;
-}
-function openEditTableModal(){
-  if(!CAN_EDIT)return;
-  if(!activeSp){alert('Select an SP first.');return;}
-  setText('editTableSpLabel',activeSp);
-  _editTableKeys=_editTableKeysFromRows();
-  document.getElementById('editTableMsg').textContent='';
-  editTableRender(rows().map(r=>({...r})));
-  document.getElementById('editTableModal').style.display='flex';
-}
-function closeEditTableModal(){document.getElementById('editTableModal').style.display='none';}
-function editTableRender(rs){
-  const box=document.getElementById('editTableBox');
-  if(!_editTableKeys.length)_editTableKeys=['date','build_s','hours','crashes','mtbf','comments'];
-  const head='<tr><th>S.No</th>'+_editTableKeys.map(k=>`<th>${esc(_addBuildLabel(k))}</th>`).join('')+'<th>Delete</th></tr>';
-  const body=rs.length?rs.map((r,i)=>`<tr data-edit-row="${i}"><td style="font-weight:900;color:#64748b">${i+1}</td>`+_editTableKeys.map(k=>`<td><input class="edit-cell" data-field="${esc(k)}" value="${esc(r[k]??'')}"></td>`).join('')+`<td><button class="btn edit-row-delete" onclick="editTableDeleteRow(this)"><i class="fas fa-trash"></i></button></td></tr>`).join(''):'<tr><td class="empty" colspan="99">No rows. Add a blank row.</td></tr>';
-  box.innerHTML=`<table class="edit-table"><thead>${head}</thead><tbody id="editTableBody">${body}</tbody></table>`;
-}
-function editTableCollectRows(){
-  return Array.from(document.querySelectorAll('#editTableBody tr[data-edit-row]')).map(tr=>{
-    const row={};
-    tr.querySelectorAll('[data-field]').forEach(inp=>{ row[inp.getAttribute('data-field')]=inp.value.trim(); });
-    return row;
-  });
-}
-function editTableDeleteRow(btn){
-  if(!confirm('Delete this row from the edited table? It is not saved until you click Save Complete Table.'))return;
-  const rs=editTableCollectRows();
-  const idx=Number(btn.closest('tr').getAttribute('data-edit-row'));
-  rs.splice(idx,1);
-  editTableRender(rs);
-}
-function editTableAddBlankRow(){const rs=editTableCollectRows();rs.push({});editTableRender(rs);}
-function editTableCopyLastRow(){const rs=editTableCollectRows();rs.push(rs.length?{...rs[rs.length-1]}:{});editTableRender(rs);}
-async function editTableSave(){
-  const msg=document.getElementById('editTableMsg');
-  const edited=editTableCollectRows().filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));
-  msg.textContent='Saving complete table...'; msg.style.color='#64748b';
-  try{
-    const _saveApi = _activePlat==='HGY'
-      ? `${PUBLIC_API}/hgy/sp/${encodeURIComponent(activeSp)}/save_table`
-      : `${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}/save_table`;
-    const r=await fetch(_saveApi,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:edited,program:activeProgram})});
-    const d=await r.json();
-    if(!d.ok) throw new Error(d.error||d.message||'Save failed');
-          if(spPayload){
-        if(_activePlat==='HGY'){ spPayload._hgy=spPayload._hgy||{}; spPayload._hgy.rows=d.rows||[]; spPayload._hgy.summary=d.summary||spPayload._hgy.summary; }
-        else { spPayload.rows=d.rows||[]; spPayload.summary=d.summary||spPayload.summary; }
-      }
-    msg.style.color='#166534'; msg.textContent='Saved '+(d.row_count||0)+' rows. Refreshing view...';
-    renderAll();
-    setTimeout(closeEditTableModal,700);
-  }catch(e){msg.style.color='#dc2626'; msg.textContent='Save failed: '+(e.message||e);}
-}
-// ---------------------------------------------------------------------------
-// Weekly Report tab â€” same data contract as HQX/HGY's
-// /api/live_status/targets/<target>/weekly_full (cr_rows / jira_rows /
-// open_jira_rows / pie_status / pie_area / counts / build_area_matrix),
-// sourced from this SP's own configured JIRAs/Open JIRAs/Unique CRs tables.
-// ---------------------------------------------------------------------------
-let _wkReport=null, _wkCrRows=[];
-function _wkDefaultWeek(){const d=new Date();d.setHours(12,0,0,0);const day=d.getDay();const offset=day===0?7:day;const to=new Date(d);to.setDate(d.getDate()-offset);const from=new Date(to);from.setDate(to.getDate()-6);return{from,to};}
-function _wkFmtDate(d){const x=new Date(d);x.setHours(12,0,0,0);return x.toISOString().slice(0,10);}
-function _wkDates(){const def=_wkDefaultWeek();const fromEl=document.getElementById('wkFromDate'),toEl=document.getElementById('wkToDate');if(fromEl&&!fromEl.value)fromEl.value=_wkFmtDate(def.from);if(toEl&&!toEl.value)toEl.value=_wkFmtDate(def.to);const from=fromEl&&fromEl.value?fromEl.value:_wkFmtDate(def.from);const to=toEl&&toEl.value?toEl.value:_wkFmtDate(def.to);setText('wkDateLabel',from+' â†’ '+to);return{from,to};}
-function wkApplyDateRange(){renderWeekly(true);}
-function _wkCrDisplay(v){const s=String(v||'').trim().toUpperCase();if(!s)return'';return s.startsWith('CR')?s:'CR'+s;}
-function _wkCrId(v){return(String(v||'').match(/(\d{5,9})/)||[])[1]||'';}
-function _wkCrLink(v){const cr=_wkCrDisplay(v);const id=_wkCrId(cr);return id?`<a href="${_CRB}${encodeURIComponent(id)}" target="_blank" style="font-weight:900;color:#4f46e5;text-decoration:none">${esc(cr)}</a>`:esc(cr||'--');}
-function _wkJiraLink(v){const k=String(v||'').trim();return k?`<a href="${_JB}${encodeURIComponent(k)}" target="_blank" style="font-weight:800;color:#0369a1;text-decoration:none">${esc(k)}</a>`:'--';}
-function renderWeekly(force){
-  const box=document.getElementById('wkCrTbody');
-  const cfg=_activeCfg();
-  const {from,to}=_wkDates();
-  if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table)){_empty('wkCrTbody','Configure a JIRAs / Open JIRAs table for this SP ('+_activePlat+') to see the Weekly Report.',9);document.getElementById('wkOpenJiraSection').style.display='none';setText('wkSummaryPills','');return;}
-  if(_wkReport&&!force){wkFilterCrTable();return;}
-  const spn=document.getElementById('wkSpinner'), errEl=document.getElementById('wkError');
-  if(spn)spn.style.display='inline';
-  if(errEl)errEl.style.display='none';
-  _empty('wkCrTbody','Loading weekly report...',9);
-  const platParam=_activePlat==='HGY'?'&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)):'';
-  const url=`${CFG_API}/sp_weekly_report?sp=${encodeURIComponent(activeSp)}&from=${from}&to=${to}${platParam}`;
-  fetch(url,{cache:'no-store'}).then(r=>r.json()).then(d=>{
-    if(!d.success)throw new Error(d.message||d.error||'Load failed');
-    _wkReport=d;
-    wkRenderSummary(d);
-    wkBuildCrRows(d);
-    wkFilterCrTable();
-    wkRenderOpenJiras(d);
-  }).catch(e=>{
-    _wkReport=null;
-    _empty('wkCrTbody',e.message||e,9);
-    if(errEl){errEl.style.display='block';errEl.textContent='Error: '+(e.message||e);}
-  }).finally(()=>{if(spn)spn.style.display='none';});
-}
-function wkRenderSummary(d){
-  const c=d.counts||{}, el=document.getElementById('wkSummaryPills');
-  if(!el)return;
-  el.innerHTML=`<span class="pill"><i class="fas fa-database"></i> ${esc(c.overall_crs||0)} Overall CRs</span>`+
-    `<span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(c.total_crs||0)} Weekly CRs</span>`+
-    `<span class="pill"><i class="fas fa-ticket-alt"></i> ${esc(c.total_jiras||0)} JIRAs</span>`+
-    `<span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-door-open"></i> ${esc(c.open_jiras||0)} Open JIRAs</span>`+
-    `<span class="pill" style="background:#f0fdf4;border-color:#86efac;color:#166534"><i class="fas fa-vial"></i> ${esc(c.build_count||0)} Builds</span>`;
-}
-function wkBuildCrRows(d){
-  const jiraRows=[...(d.jira_rows||[]).map(r=>({...r,__wk_open:false})),...(d.open_jira_rows||[]).map(r=>({...r,__wk_open:true}))];
-  const occ={};
-  jiraRows.forEach(r=>{const cr=_wkCrDisplay(r.mapped_cr||r.cr);if(cr)occ[cr]=(occ[cr]||0)+1;});
-  const by={};
-  (d.cr_rows||[]).forEach(r=>{
-    const cr=_wkCrDisplay(r.cr||r.mapped_cr||r.raw_cr);
-    if(!cr)return;
-    by[cr]={cr,title:r.cr_title||'',status:r.cr_status||'',count:Math.max(n(r.occurrence),occ[cr]||0,1),area:r.cr_area||'',sub:r.cr_subsystem||'',func:r.cr_functionality||'',age:r.cr_age||''};
-  });
-  jiraRows.forEach(r=>{
-    const cr=_wkCrDisplay(r.mapped_cr||r.cr);
-    if(!cr||by[cr])return;
-    by[cr]={cr,title:r.jira_title||'',status:'',count:occ[cr]||1,area:'',sub:'',func:'',age:''};
-  });
-  _wkCrRows=Object.values(by);
-}
-function wkFilterCrTable(){
-  let rows=(_wkCrRows||[]).slice();
-  const q=(document.getElementById('wkCrSearch')?.value||'').toLowerCase();
-  if(q)rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-  const sort=(document.getElementById('wkCrSortBy')?.value||'occ_desc');
-  rows.sort((a,b)=>{
-    if(sort==='occ_asc')return n(a.count)-n(b.count);
-    if(sort==='age_desc')return n(b.age)-n(a.age);
-    if(sort==='age_asc')return n(a.age)-n(b.age);
-    if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr),undefined,{numeric:true});
-    return n(b.count)-n(a.count);
-  });
-  const tb=document.getElementById('wkCrTbody');
-  const cnt=document.getElementById('wkCrCount');
-  if(cnt)cnt.textContent=rows.length?`(${rows.length})`:'';
-  if(!tb)return;
-  tb.innerHTML=rows.length?rows.map((r,i)=>`<tr><td>${i+1}</td><td>${_wkCrLink(r.cr)}</td><td style="max-width:320px;white-space:normal">${esc(r.title||'--')}</td><td>${esc(r.status||'--')}</td><td>${esc(r.count||0)}</td><td>${esc(r.area||'--')}</td><td>${esc(r.sub||'--')}</td><td>${esc(r.func||'--')}</td><td>${esc(r.age||'--')}</td></tr>`).join(''):'<tr><td colspan="9" class="empty">No CRs found for the selected week.</td></tr>';
-}
-function wkRenderOpenJiras(d){
-  const sec=document.getElementById('wkOpenJiraSection'), tb=document.getElementById('wkOpenJiraTbody'), badge=document.getElementById('wkOpenJiraBadge');
-  if(!sec||!tb)return;
-  const rows=d.open_jira_rows||[];
-  sec.style.display=rows.length?'block':'none';
-  if(badge)badge.textContent=rows.length;
-  tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${_wkJiraLink(r.stability_ticket)}</td><td style="max-width:320px;white-space:normal">${esc(r.jira_title||'--')}</td><td>${esc(String(r.jira_date||'').slice(0,10))}</td><td style="word-break:break-all">${esc(r.metabuild||'--')}</td></tr>`).join('');
-}
-// ---------------------------------------------------------------------------
-// HGY/HQX-style Live Status tabs for Automotive 4.5 SPs.
-// Auto Gen4.5 uses exact per-SP configured DB tables through Auto-specific APIs
-// so table names are never guessed as generic HQX/HGY target schema names.
-// ---------------------------------------------------------------------------
-let _ojLoaded=false, _ojAll=[], _ojFil=[], _ojPg=1;
-let _bwrLoaded=false, _bwrAll, _bwrBuilds=[], _bwrCrashTypes={system:true,ssr:true,process:true,open_jira:true}, _bwrRows={}, _bwrQ='';
-const _PG=100, _CRB='https://orbit/CR/', _JB='https://jira-dc2.qualcomm.com/jira/browse/';
-  function _activeCfg(){
-    // Always derive config from the platform-aware local config store,
-    // not from dbPayload.db_config which may be stale or wrong platform.
-    return _platCfg(activeSp)||{};
-  }
-function _targetFromTable(v) {
-    let s = String(v || '').replace(/`/g, '').trim();
-    if (!s) return '';
-    if (s.includes('.')) {
-        s = s.split('.').pop();
-    }
-    const parts = s.toLowerCase().split('_');
-    const knownSuffixes = new Set(['openjiras', 'unique', 'crs', 'jiras', 'overall']);
-    const significantPart = parts.find(p => !knownSuffixes.has(p) && !p.endsWith('crs'));
-    if (significantPart) {
-        const numericPart = significantPart.match(/\d+/);
-        if (numericPart) return numericPart[0];
-        return significantPart;
-    }
-    const lastSuffixIndex = parts.findLastIndex(p => knownSuffixes.has(p) || p.endsWith('crs'));
-    if (lastSuffixIndex > 0) {
-        return parts.slice(0, lastSuffixIndex).join('_');
-    }
-    return s.toLowerCase().replace(/_(openjiras|unique_crs|jiras)$/, '').replace(/_overall_crs$/, '');
-}
-function effectiveLiveTarget(){const c=_activeCfg();return _targetFromTable(c.jiras_table||c.target_table)||_targetFromTable(c.openjiras_table)||_targetFromTable(c.unique_crs_table)||'';}
-function resetLiveApiTabs(){_ocLoaded=false;_ocAll=[];_ocFil=[];_ocArea='';_ocLast=null;_ojLoaded=false;_ojAll=[];_ojFil=[];_ojPg=1;_bwrLoaded=false;_bwrAll=null;_bwrBuilds=[];_bwrRows={};_bwrQ='';_wkReport=null;_wkCrRows=[];}
-function renderLiveApiTabsForActiveSection(){const active=document.querySelector('.tab-section.active');if(!active)return;const id=active.id;if(id==='tab-opencrs')ocLoad(false);else if(id==='tab-openjiras')ojLoad(false);else if(id==='tab-buildreport')bwrLoad(false);else if(id==='tab-weekly')renderWeekly();}
-function _empty(id,msg,cols){const el=document.getElementById(id);if(el)el.innerHTML=`<tr><td class="empty" colspan="${cols||99}">${esc(msg)}</td></tr>`;}
-function _date10(v){return String(v||'').slice(0,10);} function _crId(v){return (String(v||'').match(/(\d{5,9})/)||[])[1]||'';} function _cr(v){let s=String(v||'').trim();return s?(/^CR/i.test(s)?s:'CR'+s):'';}
-function _typeRank(t){return ({System:1,SSR:2,Process:3})[t||'']||9;}
-function _areaColor(a){return ({ADSP:'#f59e0b',APPS:'#6366f1',Modem:'#0ea5e9',WConnect:'#10b981',Video:'#8b5cf6',TZ:'#f97316',BOOT:'#64748b'})[a]||'#94a3b8';}
-function _typeColor(t){return ({System:'#dc2626',SSR:'#f59e0b',Process:'#2563eb',open_jira:'#5b21b6'})[t]||'#64748b';}
-function ocSetStatusFilter(s){const el=document.getElementById('ocStatusSel');if(el)el.value=(el.value===s?'':s);ocFilter();} function ocSetAreaFilter(a){_ocArea=(_ocArea===a?'':a);ocFilter();}
-function ocClearKpiFilters(){_ocArea='';['ocStatusSel','ocSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});ocFilter();}
-function ocLoad(force){
-  const cfg=_activeCfg();
-  if(!activeSp||!cfg.unique_crs_table){_empty('ocTbody','Configure a Unique CRs / Overall CRs table for this SP ('+_activePlat+').',12);return;}
-  if(_ocLoaded&&!force){ocFilter();return;}
-  const spn=document.getElementById('ocSpinner');
-  if(spn)spn.style.display='inline';
-  _empty('ocTbody','Loading open / analysis CRs...',12);
-  const platParam=_activePlat==='HGY'?'&plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)):'';
-  fetch(`${CFG_API}/sp_open_crs_full?sp=${encodeURIComponent(activeSp)}${platParam}`,{cache:'no-store'}).then(r=>r.json()).then(d=>{
-    if(!d.success)throw new Error(d.message||d.error||'Failed to load open CRs');
-    _ocAll=d.rows||[];
-    _ocLoaded=true;
-    _ocLast=d;
-    _ocArea='';
-    ocBuildFilters();
-    ocKpi();
-    ocFilter();
-  }).catch(e=>_empty('ocTbody',e.message||e,12)).finally(()=>{
-    if(spn)spn.style.display='none';
-  });
-}
-function ocBuildFilters(){const sel=document.getElementById('ocStatusSel');if(!sel)return;const cur=sel.value, vals=[...new Set(_ocAll.map(r=>r.cr_status||'Unknown'))].filter(Boolean).sort();sel.innerHTML='<option value="">All Status</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');sel.value=vals.includes(cur)?cur:'';}
-function ocKpi(){const el=document.getElementById('ocKpi');if(!el)return;const sc=(_ocLast&&_ocLast.status_counts)||{}, ac=(_ocLast&&_ocLast.area_counts)||{}, st=(document.getElementById('ocStatusSel')||{}).value||'';let h=`<button class="pill" onclick="ocClearKpiFilters()"><i class="fas fa-bug"></i> ${_ocAll.length} unique open/analysis CRs</button>`;Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([k,v])=>h+=`<button class="pill" onclick="ocSetStatusFilter('${esc(k)}')" style="${st===k?'box-shadow:0 0 0 2px rgba(190,18,60,.22)':''}">${esc(k)} <b>${v}</b></button>`);Object.entries(ac).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([k,v])=>h+=`<button class="pill" onclick="ocSetAreaFilter('${esc(k)}')" style="${_ocArea===k?'box-shadow:0 0 0 2px rgba(22,163,74,.22)':''}">${esc(k)} <b>${v}</b></button>`);el.innerHTML=h;}
-function ocFilter(){const q=(document.getElementById('ocSearch')?.value||'').toLowerCase(), st=(document.getElementById('ocStatusSel')?.value||'');_ocFil=_ocAll.filter(r=>!(st&&(r.cr_status||'Unknown')!==st)&&!(_ocArea&&(r.cr_area||'Unknown')!==_ocArea)&&!(q&&!JSON.stringify(r).toLowerCase().includes(q)));ocKpi();const b=document.getElementById('ocBadge');if(b)b.textContent=_ocFil.length+' / '+_ocAll.length+' CRs';const tb=document.getElementById('ocTbody');if(!tb)return;if(!_ocFil.length){_empty('ocTbody','No open / analysis CRs match the current filters.',12);return;}tb.innerHTML=_ocFil.map((r,i)=>{const cr=_cr(r.cr_display||r.cr||r.raw_cr),id=_crId(cr),link=id?`<a href="${_CRB}${encodeURIComponent(id)}" target="_blank" style="font-weight:900;color:#4f46e5;text-decoration:none">${esc(cr)}</a>`:esc(cr||'--'),status=String(r.cr_status||'--'),cls=/close/i.test(status)?'#dc2626':'#16a34a',dates=[_date10(r.first_instance),_date10(r.last_instance)].filter(Boolean).join(' ? ');return `<tr><td>${i+1}</td><td>${link}</td><td style="color:${cls};font-weight:800">${esc(status)}</td><td>${esc(_date10(r.first_instance)||'--')}</td><td>${esc(_date10(r.last_instance)||'--')}</td><td>${esc(dates||'--')}</td><td>${esc(r.cr_age||'--')}</td><td>${esc(r.cr_area||'--')}</td><td>${esc(r.cr_subsystem||'--')}</td><td>${esc(r.cr_functionality||'--')}</td><td style="max-width:360px;white-space:normal">${esc(r.latest_cr_notes||'--')}</td><td style="max-width:360px;white-space:normal">${esc(r.cr_title||'--')}</td></tr>`;}).join('');}
-function ojLoad(force){
-  const cfg=_activeCfg();
-  if(!cfg.openjiras_table){document.getElementById('ojContent').style.display='none';const e=document.getElementById('ojError');e.style.display='block';e.style.color='#64748b';e.textContent='Configure an Open JIRAs table for this SP ('+_activePlat+').';return;}
-  if(_ojLoaded&&!force){ojFilter();return;}
-  const data=dbPayload&&dbPayload.open_jiras;
-  document.getElementById('ojLoading').style.display='block';document.getElementById('ojContent').style.display='none';document.getElementById('ojError').style.display='none';
-  if(!data||data.error){
-    document.getElementById('ojLoading').style.display='none';const el=document.getElementById('ojError');el.style.display='block';el.style.color='#dc2626';el.textContent='Error: '+((data&&data.error)||'No Open JIRAs data loaded. Check config.');
-    return;
-  }
-  document.getElementById('ojLoading').style.display='none';
-  _ojAll=(data.rows||[]);
-  _ojAll.sort((a,b)=>(_typeRank(a.crash_type)-_typeRank(b.crash_type))||String(a.jira_date||'').localeCompare(String(b.jira_date||'')));
-  _ojFil=_ojAll.slice();_ojPg=1;_ojLoaded=true;
-  ojKpi();ojBuildFilters();
-  document.getElementById('ojContent').style.display='block';
-  ojTable();
-}
-function ojKpi(){const el=document.getElementById('ojKpi');if(!el)return;let h=`<div onclick="ojClear()" style="cursor:pointer;padding:8px 14px;border-radius:10px;background:#f0f4ff;border:1px solid #c7d2fe;font-weight:900;font-size:13px;color:#1e3a5f;">Total <span style="color:#4f46e5;">${_ojAll.length}</span></div>`,types={},areas={};_ojAll.forEach(r=>{const t=r.crash_type||'System',a=r.area||'Other';types[t]=(types[t]||0)+1;areas[a]=(areas[a]||0)+1;});Object.entries(types).sort((a,b)=>b[1]-a[1]).forEach(([t,n])=>{const c=_typeColor(t);h+=`<button onclick="ojFilterCrash('${esc(t)}')" style="cursor:pointer;border:1px solid ${c}55;background:${c}12;color:${c};border-radius:999px;padding:7px 11px;font-size:11px;font-weight:900;">${esc(t)} ${n}</button>`;});Object.entries(areas).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([a,n])=>{const c=_areaColor(a);h+=`<button onclick="ojFilterArea('${esc(a)}')" style="cursor:pointer;border:1px solid ${c}55;background:${c}12;color:${c};border-radius:999px;padding:7px 11px;font-size:11px;font-weight:900;">${esc(a)} ${n}</button>`;});el.innerHTML=h;setText('ojBadge',_ojAll.length+' tickets');}
-function ojBuildFilters(){const fill=(id,vals,label)=>{const s=document.getElementById(id);if(s)s.innerHTML=`<option value="">${label}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');};fill('ojCrashSel',[...new Set(_ojAll.map(r=>r.crash_type).filter(Boolean))].sort(),'All Crash Types');fill('ojAreaSel',[...new Set(_ojAll.map(r=>r.area).filter(Boolean))].sort(),'All Areas');fill('ojTeamSel',[...new Set(_ojAll.map(r=>r.test_team).filter(Boolean))].sort(),'All Teams');}
-function ojFilterArea(a){document.getElementById('ojAreaSel').value=a;ojFilter();} function ojFilterCrash(t){document.getElementById('ojCrashSel').value=t;ojFilter();}
-function ojFilter(){const ct=document.getElementById('ojCrashSel')?.value||'',a=document.getElementById('ojAreaSel')?.value||'',tm=document.getElementById('ojTeamSel')?.value||'',q=(document.getElementById('ojSearch')?.value||'').toLowerCase();_ojFil=_ojAll.filter(r=>!(ct&&r.crash_type!==ct)&&!(a&&r.area!==a)&&!(tm&&r.test_team!==tm)&&!(q&&!((r.stability_ticket||'').toLowerCase().includes(q)||(r.jira_title||'').toLowerCase().includes(q)||(r.cr_current_ticket||'').toLowerCase().includes(q))));_ojPg=1;ojTable();}
-function ojClear(){['ojCrashSel','ojAreaSel','ojTeamSel','ojSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});_ojFil=_ojAll.slice();_ojPg=1;ojTable();} function ojPage(dir){const pages=Math.ceil(_ojFil.length/_PG)||1;_ojPg=Math.max(1,Math.min(pages,_ojPg+dir));ojTable();}
-function ojTable(){const tb=document.getElementById('ojTbody');if(!tb)return;const start=(_ojPg-1)*_PG,page=_ojFil.slice(start,start+_PG),pages=Math.ceil(_ojFil.length/_PG)||1;setText('ojPageInfo',_ojFil.length?`Showing ${start+1}-${Math.min(start+_PG,_ojFil.length)} of ${_ojFil.length} (page ${_ojPg}/${pages})`:'0 results');setText('ojBadge',_ojFil.length+' tickets');const prev=document.getElementById('ojPrev'),next=document.getElementById('ojNext');if(prev)prev.disabled=_ojPg<=1;if(next)next.disabled=_ojPg>=pages;if(!page.length){_empty('ojTbody','No tickets match the current filters.',8);return;}tb.innerHTML=page.map((r,i)=>{const ac=_areaColor(r.area),tc=_typeColor(r.crash_type),tu=r.stability_ticket?_JB+encodeURIComponent(r.stability_ticket):'#',cu=r.cr_current_ticket?_JB+encodeURIComponent(r.cr_current_ticket):'#';return `<tr><td>${start+i+1}</td><td><a href="${tu}" target="_blank" style="font-weight:800;color:#4f46e5;text-decoration:none">${esc(r.stability_ticket||'â€”')}</a></td><td>${esc(r.jira_date||'â€”')}</td><td><span style="background:${tc}18;color:${tc};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;">${esc(r.crash_type||'â€”')}</span></td><td><span style="background:${ac}18;color:${ac};border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">${esc(r.area||'â€”')}</span></td><td>${r.cr_current_ticket?`<a href="${cu}" target="_blank" style="font-weight:800;color:#0ea5e9;text-decoration:none">${esc(r.cr_current_ticket)}</a>`:'â€”'}</td><td>${esc(r.test_team||'â€”')}</td><td style="max-width:320px;white-space:normal">${esc(r.jira_title||'â€”')}</td></tr>`;}).join('');}
-function _bwrUrl(extra){
-  const cfg=_activeCfg();
-  if(!activeSp||(!cfg.jiras_table&&!cfg.target_table&&!cfg.openjiras_table))return'';
-  let p=['sp='+encodeURIComponent(activeSp)];
-  if(_activePlat==='HGY') p.push('plat_key='+encodeURIComponent(_hgyPlatKey(activeSp)));
-  const cts=Object.keys(_bwrCrashTypes).filter(k=>_bwrCrashTypes[k]);
-  if(cts.length)p.push('crash_types='+encodeURIComponent(cts.join(',')));
-  if(extra)p.push(extra);
-  return `${CFG_API}/sp_build_wise_report?`+p.join('&');
-}
-function bwrLoad(force){
-  const url=_bwrUrl();
-  if(!url){document.getElementById('bwrBuildsRow').innerHTML='<div class="empty">Configure a JIRAs / Target table for this SP.</div>';return;}
-  if(_bwrLoaded&&!force){bwrRender();return;}
-  setText('bwrStatus','Loading builds...');
-  document.getElementById('bwrBuildsRow').innerHTML='<div style="padding:12px 16px;color:#94a3b8;font-size:12px;">Loading...</div>';
-  fetch(url,{cache:'no-store'}).then(r=>r.json()).then(d=>{
-    if(!d.success)throw new Error(d.message||'Load failed');
-    _bwrBuilds=d.builds||[];
-    const bts=document.querySelectorAll('.bwr-ct-btn');
-    if(bts&&d.crash_types_available){
-        bts.forEach(b=>{
-            const ct=b.id.replace('bwrCT_','');
-            b.style.display=d.crash_types_available.includes(ct)?'':'none';
-        });
-    }
-    _bwrLoaded=true;
-    bwrRender();
-    setText('bwrStatus','');
-  }).catch(e=>setText('bwrStatus','Error: '+(e.message||e)));
-}
-function bwrToggleCT(ct){_bwrCrashTypes[ct]=!_bwrCrashTypes[ct];bwrToggleCrashTypeUI();_bwrRows={};_bwrLoaded=false;bwrLoad(true);}
-function bwrToggleCrashTypeUI(){
-  Object.keys(_bwrCrashTypes).forEach(k=>{
-    const b=document.getElementById('bwrCT_'+k); if(b)b.style.opacity=_bwrCrashTypes[k]?'1':'.35';
-  });
-}
-function bwrFilterBuilds(){_bwrQ=(document.getElementById('bwrBuildSearch')?.value||'').trim().toLowerCase();const c=document.getElementById('bwrBuildSearchClear');if(c)c.style.display=_bwrQ?'':'none';bwrRender();} function bwrClearBuildSearch(){const i=document.getElementById('bwrBuildSearch');if(i)i.value='';_bwrQ='';bwrFilterBuilds();}
-function bwrRender(){
-  const filteredBuilds=(_bwrBuilds||[]).filter(b=>Object.keys(_bwrCrashTypes).filter(k=>_bwrCrashTypes[k]).some(ct=>b[`${ct}_count`]>0));
-  const cont=document.getElementById('bwrBuildsRow'), vis=_bwrQ?filteredBuilds.filter(b=>String(b.build_id||'').toLowerCase().includes(_bwrQ)):filteredBuilds;
-  setText('bwrBuildCount',(_bwrQ?vis.length+' / '+filteredBuilds.length:filteredBuilds.length)+' build(s)');
-  if(!vis.length){cont.innerHTML='<div class="empty">No builds found for selected filters.</div>';return;}
-  cont.innerHTML=vis.map((b,i)=>`<div class="bwr-acc-row" data-bid="${esc(b.build_id)}" style="${i?'border-top:1px solid #e2e8f0;':''}"><div onclick="bwrToggleRow('${esc(b.build_id)}',this)" style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;background:#fff;"><i class="fas fa-chevron-right" style="font-size:10px;color:#94a3b8;width:12px;"></i><span style="font-size:12px;font-weight:900;color:#0f172a;min-width:0;flex:1;word-break:break-all;">${esc(b.build_id)}</span><span style="font-size:12px;font-weight:900;color:#ef4444;">âš  ${b.total_crashes||0} crashes</span><span class="pill">Sys ${b.system_count||0}</span><span class="pill">SSR ${b.ssr_count||0}</span><span class="pill">Proc ${b.process_count||0}</span><span class="pill">OJ ${b.open_jira_count||0}</span><span class="pill">${b.cr_count||0} CRs</span></div><div class="bwr-body" style="display:none;border-top:1px solid #f1f5f9;background:#fafafa;"></div></div>`).join('');
-}
-function bwrToggleRow(bid,head){
-  const row=head.closest('.bwr-acc-row'),body=row.querySelector('.bwr-body'),icon=head.querySelector('i'),open=body.style.display!=='none';
-  document.querySelectorAll('.bwr-body').forEach(x=>x.style.display='none');
-  document.querySelectorAll('.bwr-acc-row i.fa-chevron-down').forEach(i=>i.className='fas fa-chevron-right');
-  if(open){ if(icon)icon.className='fas fa-chevron-right'; return; }
-  body.style.display='block';
-  if(icon)icon.className='fas fa-chevron-down';
-  if((_bwrRows||{})[bid]){bwrDetail(body,bid,(_bwrRows||{})[bid]);return;}
-  body.innerHTML='<div style="padding:12px 16px;color:#94a3b8;"><i class="fas fa-circle-notch fa-spin"></i> Loading CR details...</div>';
-  const url=_bwrUrl('build='+encodeURIComponent(bid));
-  if(!url){body.innerHTML='<div style="padding:12px 16px;color:#dc2626;">Could not determine target from config.</div>';return;}
-  fetch(url,{cache:'no-store'}).then(r=>r.json()).then(d=>{
-    if(!d.success)throw new Error(d.message||'Load failed');
-    if(!_bwrRows)_bwrRows={};
-    _bwrRows[bid]=d.detail_rows||[];
-    bwrDetail(body,bid,_bwrRows[bid]);
-  }).catch(e=>body.innerHTML='<div style="padding:12px 16px;color:#dc2626;">Error: '+esc(e.message||e)+'</div>');
-}
-function _crashBadge(ct){const c=_typeColor(ct);return `<span style="background:${c}18;color:${c};border-radius:4px;padding:1px 6px;font-size:9px;font-weight:900;">${esc(ct||'')}</span>`;}
-function bwrDetail(body,bid,rs){body.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;"><input class="input" placeholder="Search CR / title..." oninput="bwrSearchDetail('${esc(bid)}',this.value)" style="min-width:220px"><span id="bwrCount_${esc(bid)}" class="pill">${rs.length} rows</span></div><div class="tbl-wrap" style="max-height:400px;overflow:auto;"><table class="tbl"><thead><tr><th>#</th><th>CR</th><th>JIRA</th><th>Title</th><th>Count</th><th>Area</th><th>Subsystem</th><th>Functionality</th><th>CR Status</th><th>CR Age</th><th>SI Last Seen</th><th>Last Instance</th><th>Crash Type</th></tr></thead><tbody id="bwrTbody_${esc(bid)}">${bwrTbody(rs)}</tbody></table></div>`;}
-function bwrTbody(rs){if(!rs.length)return'<tr><td colspan="13" class="empty">No CR/JIRA data for this build with current filters.</td></tr>';return rs.map((r,i)=>`<tr><td>${i+1}</td><td style="font-weight:800;color:#4f46e5;">${esc(r.cr)}</td><td style="color:#0369a1;">${esc(r.jira)}</td><td style="max-width:220px;white-space:normal;">${esc(r.title)}</td><td>${esc(r.cr_count)}</td><td>${esc(r.cr_area)}</td><td>${esc(r.cr_subsystem)}</td><td>${esc(r.cr_functionality)}</td><td>${esc(r.cr_status)}</td><td>${esc(r.cr_age)}</td><td>${esc(r.si_last_seen)}</td><td>${esc(r.last_instance)}</td><td>${_crashBadge(r.crash_type)}</td></tr>`).join('');}
-function bwrSearchDetail(bid,q){const all=_bwrRows[bid]||[],qq=String(q||'').toLowerCase(),rs=qq?all.filter(r=>JSON.stringify(r).toLowerCase().includes(qq)):all;const tb=document.getElementById('bwrTbody_'+bid);if(tb)tb.innerHTML=bwrTbody(rs);setText('bwrCount_'+bid,rs.length+' rows');}
-loadSps(false); gen45SjqlLoad(); _updatePlatUI();
-</script>
-<!-- Gen45 Add/Edit JQL Tab Modal -->
-{% if can_edit %}
-<div id="gen45-sjql-modal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:15px;font-weight:950" id="gen45-sjql-modal-title">Add JQL Tab</span>
-        <span id="gen45-sjql-dom-badge" style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8">HQX</span>
-      </div>
-      <button onclick="gen45SjqlCloseModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
-    </div>
-    <div style="padding:20px">
-      <input type="hidden" id="gen45-sjql-edit-id">
-      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Tab Name</label><input id="gen45-sjql-inp-name" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. ADAS Open JIRAs"></div>
-      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">JQL Query</label><textarea id="gen45-sjql-inp-jql" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND ..."></textarea></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px">
-        <button onclick="gen45SjqlCloseModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
-        <button onclick="gen45SjqlSave()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-</body>
-</html>
+  const entries=Object.entries(all).f
