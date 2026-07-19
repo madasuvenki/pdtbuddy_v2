@@ -197,24 +197,31 @@ def _find_report_with_instance(build: str, taxonomy: str, host: str) -> Tuple[st
         logger.warning('[stability] list reports failed: %s', e)
         return ('', '')
 
-    # For each report try GET instances?metaId=build
+        # For each report try GET instances?metaId=build
     for r in reports:
         rid = str(r.get('reportId') or r.get('id') or '').strip()
         if not rid:
             continue
         try:
             idata = axiom_get(
-                f'{BASE}/{_q(rid)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=1',
+                f'{BASE}/{_q(rid)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=5',
                 host=host
             )
             rows = idata.get('data', []) if isinstance(idata, dict) else []
-            if rows:
-                iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
-                if iid:
-                    logger.info('[stability] found reportId=%s instanceId=%s for build=%s', rid, iid, build)
-                    result = (rid, iid)
-                    _cache_set(cache_key, result)
-                    return result
+            # Must verify the instance actually belongs to this build
+            for row in rows:
+                row_meta = str(row.get('meta') or row.get('metaId') or row.get('buildId') or '').strip()
+                iid = str(row.get('instanceId') or row.get('id') or '').strip()
+                if not iid:
+                    continue
+                # Accept if meta matches or if only 1 build was searched
+                if row_meta and build.lower() not in row_meta.lower():
+                    logger.debug('[stability] skip instance %s (meta=%s) for build=%s', iid, row_meta, build)
+                    continue
+                logger.info('[stability] found reportId=%s instanceId=%s for build=%s', rid, iid, build)
+                result = (rid, iid)
+                _cache_set(cache_key, result)
+                return result
         except Exception:
             continue
 
@@ -288,15 +295,32 @@ def _create_report_and_wait(builds: List[str], taxonomy: str, host: str, max_wai
 # ---------------------------------------------------------------------------
 
 def _get_instance_id(report_id: str, meta_id: str, host: str) -> str:
-    """GET instanceId for a given reportId + metaId."""
-    path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(meta_id)}&pageNumber=0&pageSize=1'
+    """GET instanceId for a given reportId + metaId.
+    Verifies the returned instance actually belongs to the requested build.
+    """
+    path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(meta_id)}&pageNumber=0&pageSize=5'
     cache_key = f'stability:instance:{report_id}:{meta_id}'
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
     try:
-        data = _get(path, cache_key=cache_key, host=host)
+        data = axiom_get(path, host=host)
         rows = data.get('data', []) if isinstance(data, dict) else []
-        iid = str(rows[0].get('instanceId') or rows[0].get('id') or '') if rows else ''
+        # Prefer a row whose meta field matches the requested build exactly
+        iid = ''
+        for row in rows:
+            row_meta = str(row.get('meta') or row.get('metaId') or row.get('buildId') or '').strip()
+            row_iid  = str(row.get('instanceId') or row.get('id') or '').strip()
+            if not row_iid:
+                continue
+            if not iid:
+                iid = row_iid          # fallback: first available
+            if row_meta and meta_id.lower() in row_meta.lower():
+                iid = row_iid          # exact match wins
+                break
         if iid:
             logger.info('[stability] instanceId=%s for build=%s', iid, meta_id)
+            _cache_set(cache_key, iid)
         return iid
     except Exception as e:
         logger.warning('[stability] instanceId failed for %s: %s', meta_id, e)
@@ -308,17 +332,39 @@ def _get_instance_id(report_id: str, meta_id: str, host: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_metrics(report_id: str, instance_id: str, meta_id: str, host: str) -> List[dict]:
-    """GET metrics for a given reportId + instanceId."""
+    """GET metrics for a given reportId + instanceId.
+    On HTTP 500 the cache entry is evicted so the next call retries fresh.
+    """
     path = f'{BASE}/{_q(report_id)}/instances/{_q(instance_id)}/metrics?pageNumber=0&pageSize=100'
     cache_key = f'stability:metrics:{report_id}:{instance_id}'
+
+    # Evict stale cache before attempting
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
-        data = _get(path, cache_key=cache_key, host=host)
+        data = axiom_get(path, host=host)          # bypass _get() so we control caching
         rows = data.get('data', []) if isinstance(data, dict) else []
         if not rows and isinstance(data, list):
             rows = [x for x in data if isinstance(x, dict)]
+        if rows:
+            _cache_set(cache_key, rows)             # only cache on success
         return rows
     except Exception as e:
-        logger.warning('[stability] metrics failed for %s: %s', meta_id, e)
+        err_str = str(e)
+        if 'HTTP 500' in err_str or '500' in err_str:
+            # Evict all cache entries for this report+instance so next call retries
+            _CACHE.pop(cache_key, None)
+            _CACHE.pop(f'stability:instance:{report_id}:{meta_id}', None)
+            _CACHE.pop(f'stability:find:{_q("")}:{meta_id}', None)  # broad evict
+            # evict any find-cache that references this report
+            stale = [k for k in list(_CACHE) if meta_id in k or instance_id in k]
+            for k in stale:
+                _CACHE.pop(k, None)
+            logger.warning('[stability] metrics HTTP 500 for %s — cache evicted, will retry next call', meta_id)
+        else:
+            logger.warning('[stability] metrics failed for %s: %s', meta_id, e)
         return []
 
 
@@ -383,7 +429,7 @@ def fetch_build_stability_metrics(
 
     tax = taxonomy_path or os.environ.get('AXIOM_TAXONOMY_PATH_SW', '/PDT')
 
-    # Per build: search existing reports first, POST new one only if needed
+        # Per build: search existing reports first, POST new one only if needed
     for build in selected:
         try:
             # First: search existing reports for this build
@@ -403,6 +449,18 @@ def fetch_build_stability_metrics(
                 continue
 
             raw_metrics = _get_metrics(rid, iid, build, host)
+
+            # Retry once if metrics returned empty (e.g. after HTTP 500 cache eviction)
+            if not raw_metrics:
+                logger.info('[stability] metrics empty for %s — retrying with fresh instance lookup', build)
+                # Evict find-cache so we search again
+                _CACHE.pop(f'stability:find:{tax}:{build}', None)
+                _CACHE.pop(f'stability:instance:{rid}:{build}', None)
+                rid2, iid2 = _find_report_with_instance(build, tax, host)
+                if rid2 and iid2 and (rid2 != rid or iid2 != iid):
+                    raw_metrics = _get_metrics(rid2, iid2, build, host)
+                    rid, iid = rid2, iid2
+
             metrics = [_normalise(m) for m in raw_metrics]
 
             out[build] = {
