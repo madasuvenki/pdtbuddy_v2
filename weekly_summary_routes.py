@@ -7894,7 +7894,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         return _sp2_meta_build_key(bn)
 
 
-        _explicit_qipl_targets = set()
+    _explicit_qipl_targets = set()
     for _er in db_rows:
         _tax = str(_er.get('taxonomy_path') or '').strip().upper()
         if not _tax.startswith('/PDT/QIPL'):
@@ -8683,7 +8683,7 @@ def api_sp2_builds():
     #    Hours are SUMMED, chip_ids are UNIONED (unique devices),
     #    crashes come from crash_map (keyed by build_name, not job_id),
     #    status = running if ANY job for that build is still running.
-        _explicit_qipl_targets = set()
+    _explicit_qipl_targets = set()
     for _er in db_rows:
         _tax = str(_er.get('taxonomy_path') or '').strip().upper()
         if not _tax.startswith('/PDT/QIPL'):
