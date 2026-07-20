@@ -159,6 +159,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
           <col style="width:260px">
           <col style="width:150px">
           <col style="width:150px">
+          <col style="width:150px">
           <col style="width:130px">
           <col style="width:155px">
           <col style="width:110px">
@@ -179,6 +180,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
             <th>Tech Notes / Debug Notes</th>
             <th>JIRA First Instance</th>
             <th>JIRA Last Instance</th>
+            <th>JIRA Last Instance Date</th>
             <th>Area</th>
             <th>CR Creation Date</th>
             <th>CR Status</th>
@@ -188,8 +190,8 @@ window.OCR_TARGET  = {{ target_name | tojson }};
             <th>AI Analysis</th>
           </tr>
         </thead>
-        <tbody id="ocrTbody">
-          <tr><td colspan="16" class="ocr-state">Auto-loading Open / Analysis CRs…</td></tr>
+                <tbody id="ocrTbody">
+          <tr><td colspan="17" class="ocr-state">Auto-loading Open / Analysis CRs…</td></tr>
         </tbody>
       </table>
     </div>
@@ -311,7 +313,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       if (SELECTED_IDS.size) {
         await _fetchAndRender();
       } else {
-        document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="16" class="ocr-state">No Open / Analysis CRs found. Search above to add any target CR manually.</td></tr>';
+        document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="17" class="ocr-state">No Open / Analysis CRs found. Search above to add any target CR manually.</td></tr>';
         document.getElementById('ocrTableCard').classList.add('visible');
       }
     } catch (e) {
@@ -322,7 +324,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
 
     /* ── Shared fetch + render (used by boot AND loadSelectedCRs) ── */
   async function _fetchAndRender() {
-    document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="16" class="ocr-state"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>';
+            document.getElementById('ocrTbody').innerHTML = '<tr><td colspan="17" class="ocr-state"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>';
     document.getElementById('ocrTableCard').classList.add('visible');
     document.getElementById('ocrFilters').style.display = 'flex';
     try {
@@ -353,6 +355,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
           cr_notes:            api.cr_notes           || '',
           jira_first_instance: api.jira_first_instance|| '',
           jira_last_instance:  api.jira_last_instance || '',
+          jira_last_instance_date: api.jira_last_instance_date || api.jira_date__last_instance || '',
           test_teams:          api.test_teams         || '',
           latest_meta:         api.latest_meta        || '',
         };
@@ -362,7 +365,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       populateStatusFilter();
       applyFilters();
     } catch (e) {
-      document.getElementById('ocrTbody').innerHTML = `<tr><td colspan="16" class="ocr-state">Error: ${esc(e.message)}</td></tr>`;
+      document.getElementById('ocrTbody').innerHTML = `<tr><td colspan="17" class="ocr-state">Error: ${esc(e.message)}</td></tr>`;
     }
   }
 
@@ -455,7 +458,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
 
   function renderTable() {
     const tbody = document.getElementById('ocrTbody');
-    if (!TABLE_ROWS.length) { tbody.innerHTML = '<tr><td colspan="16" class="ocr-state">No CRs match the current filters.</td></tr>'; return; }
+    if (!TABLE_ROWS.length) { tbody.innerHTML = '<tr><td colspan="17" class="ocr-state">No CRs match the current filters.</td></tr>'; return; }
     tbody.innerHTML = TABLE_ROWS.map((r, idx) => {
       const note    = NOTES_MAP[r.cr_id] || {};
       const sLow    = (r.cr_status || '').toLowerCase();
@@ -476,6 +479,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
         </td>
         <td>${esc(r.jira_first_instance)}</td>
         <td>${esc(r.jira_last_instance)}</td>
+        <td>${esc(r.jira_last_instance_date)}</td>
         <td><span class="chip chip-other">${esc(r.area)}</span></td>
         <td>${esc(r.cr_creation_date)}</td>
         <td><span class="chip ${chipCls}">${esc(r.cr_status)}</span></td>
@@ -515,6 +519,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       image           : row.seen_in          || '',
       jira_first_instance: row.jira_first_instance || '',
       jira_last_instance : row.jira_last_instance  || '',
+      jira_last_instance_date: row.jira_last_instance_date || '',
       occurrences     : row.occurrences      || ''
     };
 

@@ -113,6 +113,37 @@ def _update_target_excel_config(target_name, page_key, payload):
     return target_cfg[page_key]
 
 
+# ---------------------------------------------------------------------
+# CR Title Exclude Keywords - save/load per Compute target
+# ---------------------------------------------------------------------
+def _get_cr_title_exclude(target_name):
+    cfg = (_get_target_excel_config(target_name) or {}).get('cr_title_exclude', {})
+    return {
+        'enabled':  bool(cfg.get('enabled', False)),
+        'keywords': [str(k).strip() for k in (cfg.get('keywords') or []) if str(k).strip()],
+    }
+
+@dashboard_bp.route('/api/dashboard/<string:target_name>/cr_title_exclude', methods=['GET'])
+@login_required
+def api_get_cr_title_exclude(target_name):
+    return jsonify({'success': True, **_get_cr_title_exclude(target_name)})
+
+@dashboard_bp.route('/api/dashboard/<string:target_name>/cr_title_exclude', methods=['POST'])
+@login_required
+def api_save_cr_title_exclude(target_name):
+    try:
+        payload  = request.get_json(force=True) or {}
+        enabled  = bool(payload.get('enabled', False))
+        keywords = [str(k).strip() for k in (payload.get('keywords') or []) if str(k).strip()]
+        _update_target_excel_config(target_name, 'cr_title_exclude', {
+            'enabled':  enabled,
+            'keywords': keywords,
+        })
+        return jsonify({'success': True, 'enabled': enabled, 'keywords': keywords})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 def _normalize_excel_path(path_value):
     path = str(path_value or '').strip().strip('"').strip("'")
     return os.path.expanduser(path) if path else ''
@@ -419,8 +450,27 @@ def _num_or_blank(v, integer=False):
 
 
 def _mtbf_json_row_from_payload(payload):
-    build = str(payload.get('build') or payload.get('meta_id') or payload.get('build_full') or '').strip()
-    build_full = str(payload.get('build_full') or payload.get('full_build') or build).strip()
+    import re as _re
+
+    def _short_meta(s):
+        """CI_Poros.LA.1.0-00078 -> META-78 | CI_Poros.LA.1.0.r1-00084 -> META-r1-84"""
+        s = str(s or '').strip()
+        if not s:
+            return ''
+        m = _re.search(r'(?:\.(r\d+))?-(0*)(\d+)\s*$', s, _re.I)
+        if m:
+            rsuffix = m.group(1) or ''
+            num = str(int(m.group(3)))
+            return f'META-{rsuffix}-{num}' if rsuffix else f'META-{num}'
+        return s
+
+    build_full = str(payload.get('build_full') or payload.get('full_build') or '').strip()
+    # build = explicit short label if provided, else auto-derive from build_full
+    build_raw  = str(payload.get('build') or payload.get('meta_id') or '').strip()
+    build      = build_raw if build_raw else _short_meta(build_full)
+    # fallback: if still empty, use build_full itself
+    if not build:
+        build = build_full
     return {
         'id': str(payload.get('id') or '').strip() or (_dt.utcnow().strftime('%Y%m%d%H%M%S%f')),
         'build': build,
@@ -4366,15 +4416,25 @@ def target_mtbf_excel_page(target_name):
                 meta_id_bi = _ci(['meta id', 'meta-id', 'metaid', 'meta_id'])
 
                 def _short_build_label(raw):
+                    """Compact META label from any build string.
+                    CI_Poros.LA.1.0-00078      -> META-78
+                    CI_Poros.LA.1.0.r1-00084   -> META-r1-84
+                    Poros.LA.1.0-00054         -> META-54
+                    META-00078                 -> META-78
+                    """
+                    import re as _re
                     s = '' if raw is None else str(raw).strip()
                     if not s:
                         return ''
-                    import re as _re
-                    m = _re.search(r'\b(META-[\w.-]+)', s, _re.I)
+                    # Match optional r-suffix then trailing digits after last '-'
+                    # e.g. ...1.0.r1-00084  or  ...1.0-00078
+                    m = _re.search(r'(?:\.(r\d+))?-(0*)(\d+)\s*$', s, _re.I)
                     if m:
-                        return m.group(1)
-                    if ',' in s:
-                        s = s.split(',')[-1].strip()
+                        rsuffix = m.group(1) or ''   # 'r1' or ''
+                        num     = str(int(m.group(3)))  # strip leading zeros
+                        if rsuffix:
+                            return f'META-{rsuffix}-{num}'
+                        return f'META-{num}'
                     return s
                 for rn in range(2, _ws.max_row + 1):
                     def cv(i):

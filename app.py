@@ -5072,7 +5072,7 @@ def home():
         _excl_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                   'static', 'cr_overview_excluded_targets.json')
         _excluded_tgts = set(_json.load(open(_excl_path, encoding='utf-8')).get('excluded', []))\
-            if os.path.exists(_excl_path) else set()
+    if os.path.exists(_excl_path) else set()
     except Exception:
         _excluded_tgts = set()
 
@@ -6820,15 +6820,15 @@ def get_open_crs(target_name):
         def _col(cols, name, fallback='NULL'):
             return f'u.{name}' if name in cols else fallback
 
-        c_cr_notes  = _col(u_cols, 'cr_notes',                 "''")
-        c_qstab     = _col(u_cols, 'qstability__last_instance', "''")
-        c_jira_date = _col(u_cols, 'jira_date',                "''")
-        c_cr_date   = _col(u_cols, 'cr_date',                  "''")
+        c_cr_notes       = _col(u_cols, 'cr_notes',                 "''")
+        c_qstab          = _col(u_cols, 'qstability__last_instance', "''")
+        c_jira_date      = _col(u_cols, 'jira_date',                "''")
+        c_last_inst_date = _col(u_cols, 'jira_date__last_instance',  "''")
+        c_cr_date        = _col(u_cols, 'cr_date',                  "''")
         c_image     = _col(u_cols, 'image',                    "''")
         c_cr_occ    = _col(u_cols, 'cr_occurrence',            "0")
         c_cr_age    = _col(u_cols, 'cr_age',                   "0")
         c_cr_raw    = 'u.cr' if 'cr' in u_cols else 'u.mapped_cr'
-
         # jiras table columns
         j_cr_col         = 'j.cr'         if 'cr'         in j_cols else None
         j_mapped_crs_col = 'j.mapped_crs' if 'mapped_crs' in j_cols else None
@@ -6836,7 +6836,6 @@ def get_open_crs(target_name):
         j_test_team      = 'j.test_team'  if 'test_team'  in j_cols else 'NULL'
         j_metabuild_col  = 'j.metabuild'  if 'metabuild'  in j_cols else 'NULL'
         j_jira_date_col  = 'j.jira_date'  if 'jira_date'  in j_cols else 'NULL'
-
         # Query 1: unique_crs only (fast, no JOIN).
         # Default: only Open/Analysis status rows. scope=all: complete target CR list.
         where_sql = "1=1" if include_all else (
@@ -6855,8 +6854,9 @@ def get_open_crs(target_name):
                 {c_cr_occ}       AS occurrences,
                 {c_image}        AS seen_in,
                 {c_cr_notes}     AS cr_notes,
-                {c_jira_date}    AS jira_first_instance,
-                {c_qstab}        AS jira_last_instance
+                {c_jira_date}         AS jira_first_instance,
+                {c_qstab}             AS jira_last_instance,
+                {c_last_inst_date}    AS jira_last_instance_date
             FROM {u_table} u
             WHERE {where_sql}
             ORDER BY {c_cr_age} DESC
@@ -8869,10 +8869,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '50'))
-    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
@@ -8893,6 +8893,3 @@ if __name__ == '__main__':
         logger.info("[APP] waitress not found - falling back to Flask dev server.")
         logger.info("[APP] Install waitress for production: pip install waitress")
         app.run(debug=True, host=HOST, port=PORT, use_reloader=True)
-
-
-
