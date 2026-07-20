@@ -5314,6 +5314,125 @@ def api_excel_retry_sync(target_name):
 
 
 
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_crs", methods=["GET"])
+@login_required
+def api_dashboard_pdt_crs(target_name):
+    """Return PDT CR rows for the PDT CRs section table."""
+    try:
+        from dashboard_common import fetch_weekly_crs, get_mysql_connection_db as _gc
+        conn = _gc()
+        if not conn:
+            return jsonify({"success": False, "message": "DB connection failed"}), 500
+        schema = get_schema_for_target(target_name) or "pdt_stats_mobile"
+        try:
+            rows = fetch_weekly_crs(conn, schema, target_name, "all", "all")
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        is_compute_target = (get_bu_for_target(target_name) or "").upper() == "COMPUTE"
+        cr_tag_enabled = _is_compute_cr_tag_enabled_target(target_name)
+        cr_tag_alias_groups = _load_compute_cr_tag_alias_config() if cr_tag_enabled else []
+        return jsonify({
+            "success": True,
+            "rows": rows or [],
+            "cr_tag_alias_groups": cr_tag_alias_groups,
+            "cr_tag_cache_loaded": True,
+        })
+    except Exception as exc:
+        logger.exception("[api_dashboard_pdt_crs] error target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras", methods=["GET"])
+@login_required
+def api_dashboard_open_jiras(target_name):
+    """Return open JIRA rows for the Open JIRAs section table."""
+    try:
+        date_from = (request.args.get("date_from") or "").strip() or None
+        date_to   = (request.args.get("date_to")   or "").strip() or None
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify({"success": False, "message": "DB connection failed"}), 500
+        schema = get_schema_for_target(target_name) or "pdt_stats_mobile"
+        tgt    = target_name.strip("`.").lower().replace("-", "_").replace(" ", "_")
+        open_tbl = f"`{schema}`.`{tgt}_openjiras`"
+        try:
+            cur = conn.cursor(dictionary=True)
+            # Check table exists
+            sch_plain = schema.strip("`")
+            tbl_plain = f"{tgt}_openjiras"
+            cur.execute(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema=%s AND table_name=%s LIMIT 1",
+                (sch_plain, tbl_plain),
+            )
+            if not cur.fetchone():
+                return jsonify({"success": True, "rows": [], "area_summary": [],
+                                "message": "Open JIRAs table not available for this target."})
+            # Get columns
+            cur.execute(f"SHOW COLUMNS FROM {open_tbl}")
+            cols = {r["Field"] for r in (cur.fetchall() or [])}
+            # Build SELECT
+            def _c(name, fallback="NULL"):
+                return f"`{name}`" if name in cols else fallback
+            select_parts = []
+            for col in ("stability_ticket", "cr_current_ticket", "jira_title",
+                        "jira_date", "cr_area", "cr_subsystem", "test_team",
+                        "cr_status", "cr_category", "metabuild", "image",
+                        "cr_occurrence", "cr_age"):
+                select_parts.append(f"{_c(col)} AS `{col}`")
+            if date_from and date_to:
+                cur.execute(
+                    f"SELECT {', '.join(select_parts)} FROM {open_tbl} "
+                    f"WHERE `jira_date` BETWEEN %s AND %s ORDER BY `jira_date` DESC",
+                    (date_from, date_to),
+                )
+            else:
+                cur.execute(
+                    f"SELECT {', '.join(select_parts)} FROM {open_tbl} "
+                    f"ORDER BY `jira_date` DESC"
+                )
+            raw_rows = cur.fetchall() or []
+            # Serialize dates
+            rows = []
+            for r in raw_rows:
+                row = {}
+                for k, v in r.items():
+                    if hasattr(v, "isoformat"):
+                        row[k] = v.isoformat()
+                    else:
+                        row[k] = v
+                rows.append(row)
+            # Build area summary
+            from collections import Counter
+            area_counts = Counter(
+                str(r.get("cr_area") or "Unknown").strip() for r in rows
+            )
+            area_summary = [
+                {"area": a, "count": c}
+                for a, c in sorted(area_counts.items(), key=lambda x: -x[1])
+                if a
+            ]
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except Exception:
+                pass
+        return jsonify({
+            "success": True,
+            "rows": rows,
+            "area_summary": area_summary,
+            "total": len(rows),
+        })
+    except Exception as exc:
+        logger.exception("[api_dashboard_open_jiras] error target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+
 @dashboard_bp.route("/api/browse_files", methods=['POST'])
 @login_required
 def api_browse_files():
