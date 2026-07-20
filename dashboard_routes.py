@@ -5332,12 +5332,34 @@ def api_dashboard_pdt_crs(target_name):
                 conn.close()
             except Exception:
                 pass
+        def _first_value(row, *keys):
+            for key in keys:
+                value = row.get(key)
+                if value is not None and str(value).strip() != "":
+                    return value
+            return ""
+
+        normalized_rows = []
+        for src in (rows or []):
+            row = dict(src or {})
+            cr_id = str(_first_value(row, "cr_id", "mapped_cr", "cr", "cr_raw", "crid", "cr_number")).strip()
+            row["cr_id"] = cr_id
+            row["cr_raw"] = str(_first_value(row, "cr_raw", "cr", "mapped_cr", "cr_id")).strip()
+            row["cr_occurrence"] = _first_value(row, "cr_occurrence", "overall_cr_occurrence", "current_month_occurrence", "total_builds_cr_reported", "occurrences") or 0
+            row["cr_age"] = _first_value(row, "cr_age", "overall_age", "age") or 0
+            row["built_date"] = _first_value(row, "built_date", "cr_date")
+            row["last_reported_date"] = _first_value(row, "last_reported_date", "jira_date__last_instance", "jira_date_last_instance", "last_instance")
+            row["last_reported_jira"] = _first_value(row, "last_reported_jira", "qstability__last_instance", "qstability_last_instance")
+            row["cr_si"] = _first_value(row, "cr_si", "image")
+            normalized_rows.append(row)
+
         is_compute_target = (get_bu_for_target(target_name) or "").upper() == "COMPUTE"
         cr_tag_enabled = _is_compute_cr_tag_enabled_target(target_name)
         cr_tag_alias_groups = _load_compute_cr_tag_alias_config() if cr_tag_enabled else []
+
         return jsonify({
             "success": True,
-            "rows": rows or [],
+            "rows": normalized_rows,
             "cr_tag_alias_groups": cr_tag_alias_groups,
             "cr_tag_cache_loaded": True,
         })
@@ -5346,9 +5368,169 @@ def api_dashboard_pdt_crs(target_name):
         return jsonify({"success": False, "message": str(exc)}), 500
 
 
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_si_ready_dates", methods=["POST"])
+@login_required
+def api_dashboard_cr_si_ready_dates(target_name):
+    """Return Orbit Software Image ReadyDate values for PDT CR/SI pairs.
+
+    The PDT CR page already calls this endpoint for visible rows.  Use Orbit
+    query/run in bulk for speed, then fall back to the direct Orbit
+    /changerequest/{cr}/integrations API for CRs where the bulk query returns
+    no Software Image integration rows.
+    """
+    import re as _re
+    from datetime import datetime as _dt
+
+    def _norm_cr(value):
+        return _re.sub(r"\D", "", str(value or ""))
+
+    def _norm_si(value):
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        # DB values and Orbit SoftwareImageName may differ by punctuation,
+        # separators, suffix text, or path-like wrappers.  Keep an aggressive
+        # comparable token for matching only; return/display original text.
+        return _re.sub(r"[^A-Z0-9]", "", text.upper())
+
+    def _sir_name(sir):
+        return str(
+            (sir or {}).get("SoftwareImageName") or
+            (sir or {}).get("software_image_name") or
+            (sir or {}).get("Name") or
+            (sir or {}).get("SoftwareImage") or
+            (sir or {}).get("ImageName") or
+            (sir or {}).get("si") or
+            (sir or {}).get("image") or
+            ""
+        ).strip()
+
+    def _sir_ready(sir):
+        return (
+            (sir or {}).get("ReadyDate") or
+            (sir or {}).get("ready_date") or
+            (sir or {}).get("readyDate") or
+            (sir or {}).get("ChangeRequestIntegration.ReadyDate") or
+            ""
+        )
+
+    def _fmt_ready(value):
+        if value is None:
+            return "NA"
+        text = str(value).strip()
+        if not text or text.lower() in ("none", "null", "nan", "na", "n/a"):
+            return "NA"
+        # Common Orbit values are ISO-ish; keep already formatted values intact.
+        date_part = text.split("T")[0].split(" ")[0]
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d-%b-%Y", "%d %b %Y"):
+            try:
+                return _dt.strptime(date_part, fmt).strftime("%-d %b %Y")
+            except Exception:
+                try:
+                    return _dt.strptime(date_part, fmt).strftime("%#d %b %Y")
+                except Exception:
+                    pass
+        return text[:10] if len(text) >= 10 and _re.match(r"^\d{4}-\d{2}-\d{2}", text) else text
+
+    def _si_matches(requested_si, orbit_si):
+        req = _norm_si(requested_si)
+        got = _norm_si(orbit_si)
+        if not req or not got:
+            return False
+        return req == got or req in got or got in req
+
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        cleaned = []
+        seen_pairs = set()
+        for item in (body.get("items") or []):
+            cr = _norm_cr((item or {}).get("cr"))
+            si = str((item or {}).get("si") or "").strip()
+            if not cr:
+                continue
+            key = (cr, si)
+            if key in seen_pairs:
+                continue
+            seen_pairs.add(key)
+            cleaned.append({"cr": cr, "si": si})
+
+        if not cleaned:
+            return jsonify({"success": True, "rows": {}})
+
+        unique_crs = sorted({item["cr"] for item in cleaned})
+        cache = {cr: [] for cr in unique_crs}
+        try:
+            from orbit_client import bulk_query_cr_software_images
+            cache.update(bulk_query_cr_software_images(unique_crs, batch_size=100) if unique_crs else {})
+        except Exception:
+            logger.warning("[PDT CR SI ReadyDate] Orbit bulk query/run failed", exc_info=True)
+
+        # Fallback to direct Orbit integrations for CRs where query/run did not
+        # return any SIR rows. This is slower, so only do it for visible/page CRs.
+        missing_crs = [cr for cr in unique_crs if not cache.get(cr)]
+        if missing_crs:
+            try:
+                from orbit_client import fetch_cr_software_images
+                for cr in missing_crs[:75]:
+                    try:
+                        direct_rows = fetch_cr_software_images(cr) or []
+                        if direct_rows:
+                            cache[cr] = direct_rows
+                    except Exception:
+                        logger.debug("[PDT CR SI ReadyDate] direct Orbit fallback failed for CR%s", cr, exc_info=True)
+            except Exception:
+                logger.warning("[PDT CR SI ReadyDate] direct Orbit fallback unavailable", exc_info=True)
+
+        out = {}
+        for item in cleaned:
+            cr, si = item["cr"], item["si"]
+            key = f"{cr}|{si}"
+            sirs = [x for x in (cache.get(cr) or []) if isinstance(x, dict)]
+
+            all_ready = []
+            for sir in sirs:
+                name = _sir_name(sir)
+                all_ready.append({
+                    "software_image": name,
+                    "ready_date": _fmt_ready(_sir_ready(sir)),
+                    "raw_ready_date": _sir_ready(sir),
+                    "built_date": _fmt_ready((sir or {}).get("BuiltDate") or (sir or {}).get("built_date") or ""),
+                    "status": str((sir or {}).get("Status") or ""),
+                })
+
+            matched = None
+            if si:
+                for sir in sirs:
+                    if _si_matches(si, _sir_name(sir)):
+                        matched = sir
+                        break
+
+                        # SI shown in the table comes from our DB only. ReadyDate is used
+            # only when Orbit has a SoftwareImageName matching that DB SI.
+            # If DB SI is blank or no Orbit SI matches, keep ReadyDate as NA.
+
+            out[key] = {
+
+                "cr": cr,
+                "si": si,
+                "ready_date": _fmt_ready(_sir_ready(matched)) if matched else "NA",
+                "raw_ready_date": _sir_ready(matched) if matched else None,
+                "matched_si": _sir_name(matched) if matched else "",
+                "all_ready_dates": all_ready,
+            }
+
+        return jsonify({"success": True, "rows": out})
+    except Exception as exc:
+        logger.warning("[PDT CR SI ReadyDate] failed for target=%s", target_name, exc_info=True)
+        return jsonify({"success": False, "message": str(exc), "rows": {}}), 500
+
+
 @dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras", methods=["GET"])
 @login_required
 def api_dashboard_open_jiras(target_name):
+
     """Return open JIRA rows for the Open JIRAs section table."""
     try:
         date_from = (request.args.get("date_from") or "").strip() or None
@@ -5749,8 +5931,20 @@ def dashboard(target_name, section="dashboard"):
             cursor.execute(f"""
                 SELECT
                     SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('built','undisposed') THEN 1 ELSE 0 END) AS valid_count,
-                    SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('invalid','invalid_dup','nosir') THEN 1 ELSE 0 END) AS invalid_count,
-                    SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'dup' THEN 1 ELSE 0 END) AS dup_count
+                    SUM(CASE
+                          WHEN (
+                              LOWER(TRIM(cr_category)) IN ('dup','invalid_dup')
+                              OR LOWER(TRIM(cr_status)) IN ('dup','duplicate','invalid_dup')
+                              OR LOWER(TRIM(cr_status)) LIKE '%dup%'
+                          ) THEN 0
+                          WHEN LOWER(TRIM(cr_category)) IN ('invalid','nosir')
+                               OR LOWER(TRIM(cr_status)) IN ('invalid','nosir','no sir')
+                          THEN 1 ELSE 0
+                        END) AS invalid_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('dup','invalid_dup')
+                                  OR LOWER(TRIM(cr_status)) IN ('dup','duplicate','invalid_dup')
+                                  OR LOWER(TRIM(cr_status)) LIKE '%dup%'
+                             THEN 1 ELSE 0 END) AS dup_count
                 FROM {tables['u']}
             """)
             _inv_row = cursor.fetchone() or {}

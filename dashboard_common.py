@@ -1554,8 +1554,25 @@ def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
             alias = alias or name
             return f"`{name}` AS `{alias}`" if name in cols else f"NULL AS `{alias}`"
 
-        last_inst_col = 'jira_date__last_instance' if 'jira_date__last_instance' in cols else ('last_instance' if 'last_instance' in cols else 'jira_date')
+        last_inst_col = (
+            'jira_date__last_instance' if 'jira_date__last_instance' in cols else
+            ('jira_date_last_instance' if 'jira_date_last_instance' in cols else
+             ('last_instance' if 'last_instance' in cols else 'jira_date'))
+        )
+        last_jira_col = next((c for c in (
+            'qstability__last_instance',
+            'qstability_last_instance',
+            'jira_last_instance',
+        ) if c in cols), None)
+        last_date_col = next((c for c in (
+            'jira_date__last_instance',
+            'jira_date_last_instance',
+            'last_instance',
+        ) if c in cols), None)
+
         current_month_col = None
+
+
         previous_month_col = None
         for cand in ('cr_____current_month', 'current_month_occurrence', 'current_month_occurrence#', 'current_month_count', 'current_occurrence', 'current_month'):
             if cand in cols:
@@ -1580,12 +1597,19 @@ def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
             _col('cr_area'),
             _col('cr_subsystem'),
             _col('cr_functionality'),
+            _col('image', 'cr_si'),
             _col('built_date', 'cr_date'),
+
             _col('cr_status'),
             _col('cr_category'),
-            _col('jira_date'),
+                        _col('jira_date'),
+            (f"`{last_jira_col}` AS `last_reported_jira`" if last_jira_col else "NULL AS `last_reported_jira`"),
+            (f"`{last_date_col}` AS `last_reported_date`" if last_date_col else "NULL AS `last_reported_date`"),
             f"`{last_inst_col}` AS `last_instance`" if last_inst_col in cols else "NULL AS `last_instance`",
+
+
             (f"`{current_month_col}` AS `current_month_occurrence`" if current_month_col else "NULL AS `current_month_occurrence`"),
+
             (f"`{previous_month_col}` AS `previous_month_occurrence`" if previous_month_col else "NULL AS `previous_month_occurrence`"),
             (f"`{total_builds_col}` AS `total_builds_cr_reported`" if total_builds_col else "NULL AS `total_builds_cr_reported`"),
         ]
