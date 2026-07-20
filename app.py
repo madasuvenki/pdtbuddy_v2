@@ -2071,39 +2071,64 @@ logger.info("[APP] HWPDT scheduler disabled; use update_axiom_job_summary.py/.ex
 def _qipl_csv_scheduler():
     import time as _time
     from datetime import datetime as _dt, date as _date, timedelta as _td
-    _last_run_week = [None]
-    logger.info("[QIPL CSV SCHEDULER] Thread started - fires Monday 08:00 for previous completed week.")
+    # Tracks weeks that have been successfully imported or confirmed already_imported.
+    # Weeks that FAILED are NOT added here so they will be retried next cycle.
+    _done_weeks = set()
+    logger.info("[QIPL CSV SCHEDULER] Thread started - checks every 10 min, retries failed weeks.")
+
+    def _try_import_week(week_start, week_end, label=''):
+        """Attempt import for one week. Returns True if done (success or already imported)."""
+        week_key = week_end.isoformat()
+        if week_key in _done_weeks:
+            return True
+        try:
+            from weekly_summary_routes import _auto_load_qipl_week
+            result = _auto_load_qipl_week(week_start, week_end, username='scheduler')
+            reason = result.get('reason') or ''
+            if result.get('loaded'):
+                logger.info("[QIPL CSV SCHEDULER] %s Imported %d rows for week %s. File: %s",
+                            label, result.get('inserted', 0), week_key,
+                            os.path.basename(result.get('path', '')))
+                _done_weeks.add(week_key)
+                return True
+            elif reason == 'already_imported':
+                logger.info("[QIPL CSV SCHEDULER] %s Week %s already imported.", label, week_key)
+                _done_weeks.add(week_key)
+                return True
+            elif reason == 'no_ready_unimported_source_file':
+                # File not available yet - will retry next cycle
+                logger.debug("[QIPL CSV SCHEDULER] %s No source file yet for week %s - will retry.", label, week_key)
+                return False
+            else:
+                # Failed for another reason - log warning and retry next cycle
+                logger.warning("[QIPL CSV SCHEDULER] %s Week %s not imported - reason: %s | file: %s",
+                               label, week_key,
+                               reason or result.get('message', ''),
+                               os.path.basename(result.get('path', '') or ''))
+                return False
+        except Exception as _ie:
+            logger.error("[QIPL CSV SCHEDULER] %s Import error for week %s: %s", label, week_key, _ie)
+            return False
+
     while True:
         try:
-            now = _dt.now()
-            # Monday = weekday 0, fire between 08:00-08:10
-            if now.weekday() == 0 and now.hour == 8 and now.minute < 10:
-                # Previous completed Mon-Sun week
-                today      = now.date()
-                last_mon   = today - _td(days=7)
-                week_start = last_mon - _td(days=last_mon.weekday())
-                week_end   = week_start + _td(days=6)
-                week_key   = week_end.isoformat()
-                if _last_run_week[0] != week_key:
-                    logger.info("[QIPL CSV SCHEDULER] Auto-importing CSV for week %s - %s", week_start, week_end)
-                    try:
-                        from weekly_summary_routes import _auto_load_qipl_week
-                        result = _auto_load_qipl_week(week_start, week_end, username='scheduler')
-                        if result.get('loaded'):
-                            logger.info("[QIPL CSV SCHEDULER] Imported %d rows for week %s. File: %s",
-                                        result.get('inserted', 0), week_key,
-                                        os.path.basename(result.get('path', '')))
-                        else:
-                            logger.warning("[QIPL CSV SCHEDULER] Not imported - reason: %s | file: %s",
-                                           result.get('reason') or result.get('message', ''),
-                                           os.path.basename(result.get('path', '') or ''))
-                    except Exception as _ie:
-                        logger.error("[QIPL CSV SCHEDULER] Import error: %s", _ie)
-                    # Mark as attempted regardless - avoid retry storm
-                    _last_run_week[0] = week_key
+            from weekly_summary_routes import _list_qipl_source_files, _jira_week
+            # --- Catch-up: scan all available files and import any not yet in DB ---
+            try:
+                all_files = _list_qipl_source_files()
+                for entry in (all_files or []):
+                    fdate = entry.get('file_date')
+                    if not fdate:
+                        continue
+                    file_ws, file_we = _jira_week(fdate)
+                    _try_import_week(file_ws, file_we, label='[CATCHUP]')
+            except Exception as _ce:
+                logger.error("[QIPL CSV SCHEDULER] Catch-up scan error: %s", _ce)
+
         except Exception as _qe:
             logger.error("[QIPL CSV SCHEDULER] Scheduler error: %s", _qe)
         _time.sleep(600)  # check every 10 min
+
 
 try:
     _qipl_csv_thread = threading.Thread(target=_qipl_csv_scheduler, name="qipl-csv-scheduler", daemon=True)
@@ -8869,10 +8894,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

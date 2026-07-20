@@ -693,15 +693,17 @@ document.addEventListener('DOMContentLoaded', function () {
       label.appendChild(cb);
       label.appendChild(document.createTextNode(" "+status));
       setChipState();
-      container.appendChild(label);
+            container.appendChild(label);
     });
   })();
 
-  // â”€â”€ Filter helpers using _activeStatuses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    function _rowCategoryGroup(r){
+
+
+        function _rowCategoryGroup(r){
     var cat = String(r.cr_category||'').trim().toLowerCase();
-    if(cat === 'dup') return 'dup';
-    if(cat === 'invalid' || cat === 'invalid_dup' || cat === 'nosir') return 'invalid';
+    var st = String(r.cr_status||r.status||'').trim().toLowerCase();
+    if(cat === 'dup' || cat === 'invalid_dup' || st === 'dup' || st === 'duplicate' || st === 'invalid_dup' || st.indexOf('dup') >= 0) return 'dup';
+    if(cat === 'invalid' || cat === 'nosir' || st === 'invalid' || st === 'nosir' || st === 'no sir') return 'invalid';
     if(cat === 'built' || cat === 'undisposed') return 'valid';
     return 'valid';
   }
@@ -969,7 +971,7 @@ document.addEventListener('DOMContentLoaded', function () {
         + '<span style="padding:4px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:700;">7-10d: '+totals.b7_10+'</span>'
         + '<span style="padding:4px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;">&gt;10d: '+totals.gt10+'</span>'
         + '<span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Total: <span style="color:#111827;">'+totals.sum+'</span></span>';
-      return;
+            return;
     }
             // Compute 4 buckets live from filtered allCrRows â€” reacts to status filter + unit
     var b0_7=0, b7_14=0, b14_21=0, bOver21=0, bDup=0, bInvalid=0;
@@ -977,9 +979,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var age = Number(r.cr_age||0);
       var st  = String(r.cr_status||'').toLowerCase();
       var cat = String(r.cr_category||'').toLowerCase();
-      var isDup     = st.indexOf('dup')>=0 || cat.indexOf('dup')>=0;
-      var isInvalid = st.indexOf('invalid')>=0 || st.indexOf('nosir')>=0 || cat.indexOf('invalid')>=0;
-      if(isDup||isInvalid){ bDup++; if(isInvalid) bInvalid++; return; }
+            var isDup     = cat === 'dup' || cat === 'invalid_dup' || st === 'dup' || st === 'duplicate' || st === 'invalid_dup' || st.indexOf('dup')>=0;
+      var isInvalid = !isDup && (cat === 'invalid' || cat === 'nosir' || st === 'invalid' || st === 'nosir' || st === 'no sir');
+      if(isDup){ bDup++; return; }
+      if(isInvalid){ bInvalid++; return; }
       if(!_isRowActive(r)) return;
       if(age<=7)       b0_7++;
       else if(age<=14) b7_14++;
@@ -2054,7 +2057,7 @@ buildHeader(); buildFilters(); applyFilters();
             canvas.toBlob(function(blob) {
               if(blob) resolve(blob);
               else reject(new Error('PNG export failed'));
-            }, 'image/png', 1);
+                        }, 'image/png', 1);
           } catch(e) { URL.revokeObjectURL(url); reject(e); }
         };
         img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('SVG image load failed')); };
