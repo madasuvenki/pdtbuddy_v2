@@ -2545,6 +2545,16 @@ def login():
                 print(f"[LOGIN] TARGET_GROUP check error for {username} in '{TARGET_GROUP}': {_tg_err}", flush=True)
                 _in_target_group = False
 
+            # Also treat SD group members as full internal users
+            _in_sd_group = False
+            try:
+                _in_sd_group = is_user_in_group(username, SD_TARGET_GROUP)
+            except Exception as _sd_err:
+                print(f"[LOGIN] SD_TARGET_GROUP check error for {username} in '{SD_TARGET_GROUP}': {_sd_err}", flush=True)
+            if _in_sd_group:
+                print(f"[LOGIN] SD group member detected for {username} -> granting full internal access", flush=True)
+            _in_target_group = _in_target_group or _in_sd_group
+
             # Check dynamic admin
             if username.lower() in _dyn_admins:
                 user = User(id=username, role='admin')
@@ -8941,10 +8951,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
