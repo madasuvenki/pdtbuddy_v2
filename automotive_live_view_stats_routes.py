@@ -1341,11 +1341,14 @@ def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
         return render_template("coming_soon_template.html", title="Auto/WBC Live View Stats", message="This page is enabled for AUTO/WBC style targets."), 404
     if _is_auto_gen45_target(target_name):
         from config import JIRA_PDT_FILTER_ID
+        uid = str(getattr(current_user, "id", "") or "").strip().lower()
+        is_admin = uid in ADMIN_USERS
         return render_template(
             "auto_gen45_live_view_stats.html",
             target_name=target_name,
             target_display="Automotive 4.5",
             can_edit=_target_group_access(),
+            is_admin=is_admin,
             jira_pdt_filter_id=JIRA_PDT_FILTER_ID,
         )
     default_excel = ""

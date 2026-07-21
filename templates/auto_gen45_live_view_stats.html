@@ -1243,6 +1243,7 @@ document.addEventListener("tabswitch", function(e){
 const PUBLIC_API='/public/auto-gen45/api';
 const TARGET={{ target_name|tojson }};
 const CAN_EDIT={{ can_edit|tojson }};
+const IS_ADMIN={{ is_admin|tojson }};
 const JIRA_FILTER_ID={{ jira_pdt_filter_id|tojson }};
 const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
 let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null;
@@ -1339,7 +1340,7 @@ function renderSpList(){
   document.getElementById('spList').innerHTML=rows.length?rows.map(x=>{
     const cfg=spCfg(x.sp);
     const has=cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table;
-    const removeBtn=CAN_EDIT?`<button class="sp-remove-btn" title="Remove SP" onclick="event.stopPropagation();confirmRemoveSp('${esc(x.sp)}','${esc(x.program||x.sp)}')" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#dc2626;border-radius:7px;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;padding:0" aria-label="Remove SP ${esc(x.sp)}"><i class="fas fa-minus"></i></button>`:'';
+    const removeBtn=IS_ADMIN?`<button class="sp-remove-btn" title="Remove SP" onclick="event.stopPropagation();confirmRemoveSp('${esc(x.sp)}','${esc(x.program||x.sp)}')" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#dc2626;border-radius:7px;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;padding:0" aria-label="Remove SP ${esc(x.sp)}"><i class="fas fa-minus"></i></button>`:'';
     return `<button class="sp-item ${String(x.sp)===String(activeSp)?'active':''}" onclick="selectSp('${esc(x.sp)}')" style="position:relative"><div class="sp-name">SP ${esc(x.sp)}</div><div class="sp-prog">${esc(x.program)}</div><div class="sp-meta"><span class="tag green">${esc(x.row_count||0)} rows</span>${has?'<span class="tag green"><i class="fas fa-database"></i> DB</span>':'<span class="tag orange">No DB config</span>'}</div>${removeBtn}</button>`;
   }).join(''):'<div class="empty" style="color:#bfdbfe">No SPs found.</div>';
 }
@@ -2494,7 +2495,7 @@ loadSps(false); gen45SjqlLoad(); _updatePlatUI();
 </div>
 {% endif %}
 
-{% if can_edit %}
+{% if is_admin %}
 <!-- ── Remove SP Modal ──────────────────────────────────────────────────── -->
 <div id="removeSpModal" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:18px;width:min(420px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
