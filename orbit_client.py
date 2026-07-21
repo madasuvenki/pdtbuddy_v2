@@ -42,10 +42,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # Primary source for basic CR details
 ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYTHON2"
 
-# Direct Orbit REST API - uses 'orbit' hostname (resolves to vip-orbithyd-new.qualcomm.com)
+# Direct Orbit REST API - HYD endpoint (orbit-hyd.qualcomm.com = vip-orbithyd-new.qualcomm.com = 10.147.136.30)
 # Auth: Windows SSPI Kerberos with indus@AP.QUALCOMM.COM from orbitauth.txt
-ORBIT_SERVER        = "orbit"
-ORBIT_QUERY_SERVER  = "orbit-sd"   # NOTE: keep as plain str; do NOT use in f-string at module scope
+# NOTE: 'orbit' resolves to 127.0.0.1 (localhost) on this machine - DO NOT USE
+# NOTE: 'orbit-sd' (10.80.82.12) port 443 is refused - DO NOT USE
+ORBIT_SERVER        = "orbit-hyd.qualcomm.com"   # was "orbit" - resolves to 10.147.136.30
+ORBIT_QUERY_SERVER  = "orbit-hyd.qualcomm.com"   # was "orbit-sd" - use same HYD endpoint for query/run
 ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
 ORBIT_QUERY_API_BASE = "https://" + ORBIT_QUERY_SERVER + "/api"
 ORBIT_DIRECT_TIMEOUT = (5, 30)    # connect, read seconds for per-CR REST calls
