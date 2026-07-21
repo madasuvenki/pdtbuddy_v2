@@ -82,7 +82,14 @@ VIEWER_OVERRIDE_USERS = {
 
 
 # --- CONFIGURATION ---
-TARGET_GROUP = "qipl.target.pdt"
+TARGET_GROUP      = "qipl.target.pdt"   # QIPL users  -> orbit-hyd.qualcomm.com
+SD_TARGET_GROUP   = "pdt.sd"            # SD users    -> orbit-sd.qualcomm.com
+
+# Orbit endpoint mapping per group
+# QIPL group  -> HYD endpoint (orbit-hyd.qualcomm.com  = 10.147.136.30)
+# SD group    -> SD  endpoint (orbit-sd.qualcomm.com   = to be confirmed)
+ORBIT_ENDPOINT_QIPL = "orbit-hyd.qualcomm.com"
+ORBIT_ENDPOINT_SD   = "orbit-sd.qualcomm.com"
 
 # ---------------------------------------------------------------------------
 # LIVE_STATUS_VIEWER_GROUP_ACCESS - scoped read-only access for non-editor

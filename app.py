@@ -51,8 +51,9 @@ from src.utils import (
 )
 from config import (
     SECRET_KEY,
-    REPORT_GENERATION_CONFIG,
-    ADMIN_USERS, BYPASS_USERS, USERS_DB_PATH, TARGET_GROUP,
+        REPORT_GENERATION_CONFIG,
+    ADMIN_USERS, BYPASS_USERS, USERS_DB_PATH, TARGET_GROUP, SD_TARGET_GROUP,
+    ORBIT_ENDPOINT_QIPL, ORBIT_ENDPOINT_SD,
     MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MAIN_DATABASE_NAME,  # kept for backward compat
     BU_DATABASE_MAPPING,
         BU_ICONS, QGENIE_TEXT_TO_SQL_MODEL, QGENIE_HIGHLIGHTS_MODEL, QGENIE_HIGHLIGHTS_MODEL_OPTIONS
@@ -410,6 +411,38 @@ def authenticate_ldap_user(username, password):
     except Exception as e:
         logger.info(f"LDAP auth failed for {username}: {e}")
         return False
+
+
+def _set_orbit_session(username: str):
+    """
+    Detect which Orbit endpoint the user should use based on LDAP group membership
+    and store it in the Flask session.
+
+    QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com
+    SD   group (pdt.sd)          -> orbit-sd.qualcomm.com
+    Default (no group match)     -> orbit-hyd.qualcomm.com (QIPL HYD)
+    """
+    try:
+        is_sd   = is_user_in_group(username, SD_TARGET_GROUP)
+    except Exception:
+        is_sd   = False
+    try:
+        is_qipl = is_user_in_group(username, TARGET_GROUP)
+    except Exception:
+        is_qipl = False
+
+    if is_sd and not is_qipl:
+        endpoint = ORBIT_ENDPOINT_SD
+        group    = 'sd'
+    else:
+        # QIPL, admin, or any other user -> HYD endpoint
+        endpoint = ORBIT_ENDPOINT_QIPL
+        group    = 'qipl'
+
+    session['orbit_endpoint'] = endpoint
+    session['orbit_group']    = group
+    session.modified = True
+    print(f"[LOGIN] orbit_endpoint set for {username}: {endpoint} (group={group})", flush=True)
 
 
 
@@ -2419,6 +2452,9 @@ def login():
 
             # Bypass users - land on live_status landing (viewer test mode)
             print(f"[LOGIN] LDAP auth success for: {username}", flush=True)
+
+            # Detect orbit endpoint (QIPL=HYD / SD) and store in session
+            _set_orbit_session(username)
 
             try:
                 _login_target_group = is_user_in_group(username, TARGET_GROUP)
@@ -8905,10 +8941,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
