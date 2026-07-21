@@ -1,4 +1,4 @@
- # ====================================================================================
+﻿ # ====================================================================================
 # IMPORTS
 # ====================================================================================
 import logging
@@ -2071,40 +2071,46 @@ logger.info("[APP] HWPDT scheduler disabled; use update_axiom_job_summary.py/.ex
 def _qipl_csv_scheduler():
     import time as _time
     from datetime import datetime as _dt, date as _date, timedelta as _td
-    # Tracks weeks that have been successfully imported or confirmed already_imported.
-    # Weeks that FAILED are NOT added here so they will be retried next cycle.
+    # Tracks weeks done (success/already_imported) or permanently failed (no_rows_for_selected_week).
+    # Only no_ready_unimported_source_file is retried - file not yet available.
     _done_weeks = set()
-    logger.info("[QIPL CSV SCHEDULER] Thread started - checks every 10 min, retries failed weeks.")
+    _perm_fail_weeks = set()  # permanent failures - no rows in file, never retry
+    logger.info("[QIPL CSV SCHEDULER] Thread started - checks every 10 min.")
 
-    def _try_import_week(week_start, week_end, label=''):
+    def _try_import_week(week_start, week_end, label=""):
         """Attempt import for one week. Returns True if done (success or already imported)."""
         week_key = week_end.isoformat()
-        if week_key in _done_weeks:
+        if week_key in _done_weeks or week_key in _perm_fail_weeks:
             return True
         try:
             from weekly_summary_routes import _auto_load_qipl_week
-            result = _auto_load_qipl_week(week_start, week_end, username='scheduler')
-            reason = result.get('reason') or ''
-            if result.get('loaded'):
+            result = _auto_load_qipl_week(week_start, week_end, username="scheduler")
+            reason = result.get("reason") or ""
+            if result.get("loaded"):
                 logger.info("[QIPL CSV SCHEDULER] %s Imported %d rows for week %s. File: %s",
-                            label, result.get('inserted', 0), week_key,
-                            os.path.basename(result.get('path', '')))
+                            label, result.get("inserted", 0), week_key,
+                            os.path.basename(result.get("path", "")))
                 _done_weeks.add(week_key)
                 return True
-            elif reason == 'already_imported':
+            elif reason == "already_imported":
                 logger.info("[QIPL CSV SCHEDULER] %s Week %s already imported.", label, week_key)
                 _done_weeks.add(week_key)
                 return True
-            elif reason == 'no_ready_unimported_source_file':
-                # File not available yet - will retry next cycle
+            elif reason == "no_ready_unimported_source_file":
                 logger.debug("[QIPL CSV SCHEDULER] %s No source file yet for week %s - will retry.", label, week_key)
                 return False
+            elif reason == "no_rows_for_selected_week":
+                # File has no rows for this week - permanent failure, stop retrying
+                logger.warning("[QIPL CSV SCHEDULER] %s Week %s: no rows in file %s - skipping permanently.",
+                               label, week_key, os.path.basename(result.get("path", "") or ""))
+                _perm_fail_weeks.add(week_key)
+                return True
             else:
-                # Failed for another reason - log warning and retry next cycle
+                # Other failure - log warning and retry next cycle
                 logger.warning("[QIPL CSV SCHEDULER] %s Week %s not imported - reason: %s | file: %s",
                                label, week_key,
-                               reason or result.get('message', ''),
-                               os.path.basename(result.get('path', '') or ''))
+                               reason or result.get("message", ""),
+                               os.path.basename(result.get("path", "") or ""))
                 return False
         except Exception as _ie:
             logger.error("[QIPL CSV SCHEDULER] %s Import error for week %s: %s", label, week_key, _ie)
@@ -2113,15 +2119,20 @@ def _qipl_csv_scheduler():
     while True:
         try:
             from weekly_summary_routes import _list_qipl_source_files, _jira_week
-            # --- Catch-up: scan all available files and import any not yet in DB ---
+            # Catch-up: only try the LATEST file per week (list is newest-first)
             try:
                 all_files = _list_qipl_source_files()
+                seen_weeks = set()
                 for entry in (all_files or []):
-                    fdate = entry.get('file_date')
+                    fdate = entry.get("file_date")
                     if not fdate:
                         continue
                     file_ws, file_we = _jira_week(fdate)
-                    _try_import_week(file_ws, file_we, label='[CATCHUP]')
+                    week_key = file_we.isoformat()
+                    if week_key in seen_weeks:
+                        continue  # already tried newest file for this week
+                    seen_weeks.add(week_key)
+                    _try_import_week(file_ws, file_we, label="[CATCHUP]")
             except Exception as _ce:
                 logger.error("[QIPL CSV SCHEDULER] Catch-up scan error: %s", _ce)
 

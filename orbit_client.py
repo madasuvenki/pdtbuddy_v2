@@ -48,8 +48,8 @@ ORBIT_SERVER        = "orbit"
 ORBIT_QUERY_SERVER  = "orbit-sd"   # NOTE: keep as plain str; do NOT use in f-string at module scope
 ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
 ORBIT_QUERY_API_BASE = "https://" + ORBIT_QUERY_SERVER + "/api"
-ORBIT_DIRECT_TIMEOUT = (5, 30)   # connect, read seconds for per-CR REST calls
-ORBIT_QUERY_TIMEOUT  = (10, 60)  # connect, read seconds for query/run fallback
+ORBIT_DIRECT_TIMEOUT = (5, 30)    # connect, read seconds for per-CR REST calls
+ORBIT_QUERY_TIMEOUT  = (10, 120)  # connect, read seconds for query/run bulk calls (large batches need more time)
 
 
 

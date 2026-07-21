@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import json
 import os
 import re
@@ -6,7 +6,8 @@ from datetime import date, datetime, timedelta
 from glob import glob
 from typing import Any, Dict, List, Tuple
 
-from flask import Blueprint, jsonify, render_template, request
+import io
+from flask import Blueprint, jsonify, render_template, request, send_file
 from flask_login import current_user, login_required
 
 from config import ADMIN_USERS, BU_DATABASE_MAPPING, JIRA_PDT_FILTER_ID, TARGET_GROUP, VIEWER_OVERRIDE_USERS
@@ -113,11 +114,49 @@ def _read_json(path: str, default: Any) -> Any:
         return default
 
 
+
+# ---------------------------------------------------------------------------
+# Friendly label mapping: raw Excel filename stem -> display label
+# ---------------------------------------------------------------------------
+_LABEL_OVERRIDES = {
+    "Kobuk11": "Kobuk.LE.1.1", "Kobuk31": "Kobuk.LE.3.1",
+    "Kobuk_LE11": "Kobuk.LE.1.1", "Kobuk_LE31": "Kobuk.LE.3.1",
+    "Kobuk_Device": "Kobuk.LE.1.0",
+    "Pinnacles_1_0": "Pinnacles.LE.1.0", "Pinnacles_1_2": "Pinnacles.LE.1.2",
+    "Pinnacles_2_0": "Pinnacles.LE.2.0", "Pinnacles_2_2": "Pinnacles.LE.2.2",
+    "Pinnacles_2_3": "Pinnacles.LE.2.3",
+    "Pinnacles.1.0": "Pinnacles.LE.1.0", "Pinnacles.1.2": "Pinnacles.LE.1.2",
+    "Pinnacles.2.0": "Pinnacles.LE.2.0", "Pinnacles.2.2": "Pinnacles.LE.2.2",
+    "Pinnacles.2.3": "Pinnacles.LE.2.3",
+    "Kuno_LE11": "Kuno.LE.1.1", "Kuno_LE_1_1": "Kuno.LE.1.1",
+    "Kuno_LE_1_0": "Kuno.LE.1.0", "Kuno_LE": "Kuno.LE.1.0",
+    "Kuno_TX": "Kuno.TX.1.0",
+    "QMB415_LE": "QMB415.LE.1.0", "QMB415": "QMB415.LA.1.0", "QMB715": "QMB715.LA.1.0",
+    "Tarang10": "Tarang.LE.1.0", "Tarang_LE_1_0": "Tarang.LE.1.0",
+}
+
+
+def _friendly_label(stem: str) -> str:
+    """Convert raw Excel filename stem to human-friendly project label."""
+    for k, v in _LABEL_OVERRIDES.items():
+        if k.lower() == stem.lower():
+            return v
+    m = re.match(r"(?i)^([A-Za-z]+)(\d)(\d)$", stem)
+    if m: return f"{m.group(1).capitalize()}.LE.{m.group(2)}.{m.group(3)}"
+    m = re.match(r"(?i)^([A-Za-z]+)LE(\d)(\d)$", stem)
+    if m: return f"{m.group(1).capitalize()}.LE.{m.group(2)}.{m.group(3)}"
+    m = re.match(r"(?i)^([A-Za-z]+)[_\s]LE(\d)(\d)$", stem)
+    if m: return f"{m.group(1).capitalize()}.LE.{m.group(2)}.{m.group(3)}"
+    m = re.match(r"(?i)^([A-Za-z]+)[_\s](\d)[_\s](\d)$", stem)
+    if m: return f"{m.group(1).capitalize()}.LE.{m.group(2)}.{m.group(3)}"
+    return stem.replace("_", ".")
+
+
 def _target_from_excel(path: str) -> Dict[str, str]:
     base = os.path.basename(path)
     name = re.sub(r"(?i)_Device_Deployment\.(xlsx|xlsm)$", "", base).strip()
-    return {"key": _slug(name), "name": name, "label": name.replace("_", "."), "excel_path": path}
-
+    label = _friendly_label(name)
+    return {"key": _slug(name), "name": name, "label": label, "excel_path": path}
 
 def _find_target_excel(target: Dict[str, str], db_cfg: Dict[str, str] = None) -> str:
     explicit = str((db_cfg or {}).get("excel_path") or target.get("excel_path") or "").strip()
@@ -269,7 +308,7 @@ def _discover_targets(include_hidden: bool = False) -> List[Dict[str, str]]:
         if low in by_key:
             by_key[low].update({
                 "name": row.get("name") or by_key[low].get("name") or target_key,
-                "label": row.get("label") or by_key[low].get("label") or target_key,
+                "label": _friendly_label(row.get("label") or by_key[low].get("label") or target_key),
                 "manual": bool(row.get("manual")),
             })
             continue
@@ -277,7 +316,7 @@ def _discover_targets(include_hidden: bool = False) -> List[Dict[str, str]]:
         by_key[low] = {
             "key": target_key,
             "name": name,
-            "label": str(row.get("label") or name).strip() or name,
+            "label": _friendly_label(str(row.get("label") or name).strip() or name),
             "excel_path": str(row.get("excel_path") or "").strip(),
             "manual": True,
         }
@@ -311,7 +350,7 @@ def _save_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             target_key = _slug(str(key))
             cleaned[target_key] = {
                 "name": str(row.get("name") or row.get("label") or target_key).strip(),
-                "label": str(row.get("label") or row.get("name") or target_key).strip(),
+                "label": _friendly_label(str(row.get("label") or row.get("name") or target_key).strip()),
                 "excel_path": str(row.get("excel_path") or "").strip(),
                 "manual": bool(row.get("manual") or not str(row.get("excel_path") or "").strip()),
                 "jiras_table": str(row.get("jiras_table") or row.get("target_table") or "").strip(),
@@ -673,7 +712,7 @@ def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Di
                 row = {k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in row.items()}
                 row["_source_table"] = source
                 build = str(row.get(build_col) or "").strip() or "Unknown Build"
-                item = grouped.setdefault(build, {"build_id": build, "cr_count": 0, "jira_count": 0, "area": "", "crash_types": {}, "meta_id": _meta_label(build)})
+                row = {k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in row.items() if k not in ("crash_type", "crash_types", "type", "failure_type", "_source_table")}
                 rows_by_build.setdefault(build, []).append(row)
                 cr = str(row.get(cr_col) if cr_col else "").strip()
                 jira = str(row.get(jira_col) if jira_col else "").strip()
@@ -690,7 +729,7 @@ def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Di
         for item in grouped.values():
             item["cr_count"] = len(item.pop("_crs", set()))
             item["jira_count"] = len(item.pop("_jiras", set()))
-            item["row_count"] = len(rows_by_build.get(item["build_id"], []))
+            item.pop("crash_types", None)  # not relevant for JQL-based WBC report
             builds.append(item)
         builds.sort(key=lambda r: r.get("row_count", 0), reverse=True)
         return {"builds": builds[:500], "rows_by_build": rows_by_build, "error": "; ".join(errors)}
@@ -1326,3 +1365,321 @@ def api_wbc_mtbf_save_table(target_key: str):
     rows = (request.get_json(force=True, silent=True) or {}).get("rows") or []
     data = _save_mtbf_chart_rows(target, db_cfg, rows)
     return jsonify({"ok": True, "rows": data.get("chart_rows") or [], "row_count": len(data.get("chart_rows") or []), "excel": data})
+
+
+
+# ---------------------------------------------------------------------------
+# PPT EXPORT - same design as WBC_Report.py build_ppt()
+# ---------------------------------------------------------------------------
+
+def _wbc_build_ppt(target_key: str):
+    """Generate a PowerPoint for the given WBC target using its Excel data."""
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN
+        from pptx.chart.data import ChartData
+        from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+    except ImportError:
+        raise RuntimeError("python-pptx is not installed")
+
+    _NAVY   = RGBColor(0x1b, 0x2d, 0x52)
+    _NAVY2  = RGBColor(0x24, 0x3a, 0x6b)
+    _GOLD   = RGBColor(0xd4, 0xaf, 0x37)
+    _WHITE  = RGBColor(0xff, 0xff, 0xff)
+    _LIGHT  = RGBColor(0xf0, 0xf4, 0xf8)
+    _TEXT2  = RGBColor(0x3d, 0x4f, 0x6e)
+    _BORDER = RGBColor(0xdd, 0xe3, 0xec)
+    _MUTED  = RGBColor(0x90, 0x9b, 0xb8)
+
+    def _add_slide(prs, idx=6):
+        try:
+            layout = prs.slide_layouts[idx]
+        except IndexError:
+            layout = prs.slide_layouts[0]
+        return prs.slides.add_slide(layout)
+
+    def _bg(slide, color):
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = color
+
+    def _rect(slide, l, t, w, h, fc, lc=None, lw=None):
+        shp = slide.shapes.add_shape(1, l, t, w, h)
+        shp.fill.solid()
+        shp.fill.fore_color.rgb = fc
+        if lc:
+            shp.line.color.rgb = lc
+            shp.line.width = lw or Pt(0.75)
+        else:
+            shp.line.fill.background()
+        return shp
+
+    def _txt(slide, l, t, w, h, text, size=11, bold=False, color=None,
+             align=PP_ALIGN.LEFT, wrap=True):
+        box = slide.shapes.add_textbox(l, t, w, h)
+        box.word_wrap = wrap
+        tf = box.text_frame
+        tf.word_wrap = wrap
+        p = tf.paragraphs[0]
+        p.alignment = align
+        run = p.add_run()
+        run.text = str(text or "")
+        run.font.size = Pt(size)
+        run.font.bold = bold
+        run.font.color.rgb = color or _TEXT2
+        return box
+
+    def _header(slide, title, sub, W, H):
+        bar_h = Inches(1.05)
+        _rect(slide, 0, 0, W, bar_h, _NAVY)
+        _rect(slide, 0, bar_h - Pt(3), W, Pt(3), _GOLD)
+        _txt(slide, Inches(0.22), Inches(0.12), W - Inches(2.5), Inches(0.45),
+             title, size=18, bold=True, color=_WHITE)
+        _txt(slide, Inches(0.22), Inches(0.58), W - Inches(2.5), Inches(0.35),
+             sub, size=10, color=_MUTED)
+        _txt(slide, W - Inches(2.3), Inches(0.18), Inches(2.1), Inches(0.35),
+             datetime.now().strftime("%Y-%m-%d %H:%M"), size=9, color=_MUTED,
+             align=PP_ALIGN.RIGHT)
+
+    def _footer(slide, project, W, H):
+        fh = Inches(0.32)
+        _rect(slide, 0, H - fh, W, fh, _NAVY2)
+        _txt(slide, Inches(0.2), H - fh + Pt(4), W * 0.5, fh,
+             f"PDT WBC Stability Dashboard  |  {project}", size=8, color=_MUTED)
+        _txt(slide, W * 0.5, H - fh + Pt(4), W * 0.5, fh,
+             "CONFIDENTIAL - QUALCOMM INTERNAL", size=8, color=_MUTED,
+             align=PP_ALIGN.RIGHT)
+
+    def _kpi_card(slide, l, t, w, h, label, value, accent):
+        _rect(slide, l, t, w, h, _WHITE, _BORDER, Pt(0.75))
+        _rect(slide, l, t, w, Pt(4), accent)
+        _txt(slide, l + Inches(0.1), t + Pt(8), w - Inches(0.2), Inches(0.38),
+             str(value), size=20, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
+        _txt(slide, l + Inches(0.05), t + Inches(0.48), w - Inches(0.1), Inches(0.32),
+             label, size=8, color=_TEXT2, align=PP_ALIGN.CENTER)
+
+    def _table_slide(prs, project, title, sub, columns, rows, max_rows=25):
+        W = prs.slide_width
+        H = prs.slide_height
+        HDR_H  = Inches(1.1)
+        FTR_H  = Inches(0.35)
+        MARGIN = Inches(0.22)
+        TBL_TOP = HDR_H + Inches(0.12)
+        TBL_H   = H - TBL_TOP - FTR_H - Inches(0.08)
+        if not columns:
+            return
+        chunks = [rows[i:i + max_rows] for i in range(0, max(len(rows), 1), max_rows)] if rows else [[]]
+        for pg, chunk in enumerate(chunks):
+            slide = _add_slide(prs)
+            _bg(slide, _LIGHT)
+            sfx = f" (Page {pg+1}/{len(chunks)})" if len(chunks) > 1 else ""
+            _header(slide, title + sfx, sub, W, H)
+            _footer(slide, project, W, H)
+            n_cols = len(columns)
+            avail  = W - MARGIN * 2
+            widths = [avail // n_cols] * n_cols
+            widths[-1] = avail - sum(widths[:-1])
+            tbl = slide.shapes.add_table(
+                1 + max(len(chunk), 1), n_cols, MARGIN, TBL_TOP, avail, TBL_H
+            ).table
+            for ci, cw in enumerate(widths):
+                tbl.columns[ci].width = int(cw)
+            for ci, col in enumerate(columns):
+                cell = tbl.cell(0, ci)
+                cell.text = col.get("title", "") if isinstance(col, dict) else str(col)
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = _NAVY
+                p = cell.text_frame.paragraphs[0]
+                p.alignment = PP_ALIGN.CENTER
+                run = p.runs[0] if p.runs else p.add_run()
+                run.font.bold = True
+                run.font.size = Pt(8)
+                run.font.color.rgb = _WHITE
+            for ri, row in enumerate(chunk):
+                bg = _WHITE if ri % 2 == 0 else RGBColor(0xf8, 0xfa, 0xfc)
+                for ci, col in enumerate(columns):
+                    key = col.get("key", col.get("title", "")) if isinstance(col, dict) else str(col)
+                    val = str(row.get(key, "") or "") if isinstance(row, dict) else ""
+                    cell = tbl.cell(ri + 1, ci)
+                    cell.text = val
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = bg
+                    p = cell.text_frame.paragraphs[0]
+                    p.alignment = PP_ALIGN.LEFT
+                    run = p.runs[0] if p.runs else p.add_run()
+                    run.font.size = Pt(7.5)
+                    run.font.color.rgb = _TEXT2
+
+    # Load data
+    target = _find_target(target_key)
+    if not target:
+        raise ValueError(f"WBC target not found: {target_key}")
+    cfg    = _load_config()
+    db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
+    excel_data  = _load_or_sync_mainline_mtbf(target, db_cfg)
+    chart_rows  = excel_data.get("chart_rows") or []
+    overview    = _load_overview_summary(target["key"])
+    project     = target.get("label") or target.get("name") or target_key
+
+    total_hours   = round(sum(_safe_float(r.get("hours")) for r in chart_rows), 2)
+    total_crashes = sum(_safe_int(r.get("total_crashes") or r.get("crash")) for r in chart_rows)
+    last_row      = chart_rows[-1] if chart_rows else {}
+    current_meta    = str(last_row.get("crm_build_id") or last_row.get("meta_id") or "-")
+    current_mtbf    = str(last_row.get("mtbf") or "-")
+    current_crashes = str(last_row.get("crash") or last_row.get("total_crashes") or "-")
+    current_hours   = str(last_row.get("hours") or "-")
+    current_date    = str(last_row.get("date") or "-")
+
+    prs = Presentation()
+    prs.slide_width  = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+    W = prs.slide_width
+    H = prs.slide_height
+
+    # SLIDE 1 - Cover
+    slide = _add_slide(prs)
+    _bg(slide, _NAVY)
+    _rect(slide, 0, Inches(2.8), W, Pt(5), _GOLD)
+    _txt(slide, Inches(0.8), Inches(1.1), W - Inches(1.6), Inches(1.0),
+         "PDT WBC Stability Dashboard", size=36, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _txt(slide, Inches(0.8), Inches(2.2), W - Inches(1.6), Inches(0.55),
+         project, size=22, color=_GOLD, align=PP_ALIGN.CENTER)
+    _txt(slide, Inches(0.8), Inches(3.05), W - Inches(1.6), Inches(0.45),
+         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+         size=12, color=_MUTED, align=PP_ALIGN.CENTER)
+    _txt(slide, Inches(0.8), Inches(3.55), W - Inches(1.6), Inches(0.38),
+         "CONFIDENTIAL - QUALCOMM INTERNAL",
+         size=10, color=RGBColor(0x70, 0x7b, 0x98), align=PP_ALIGN.CENTER)
+    _rect(slide, 0, H - Inches(0.55), W, Inches(0.55), _NAVY2)
+    _txt(slide, Inches(0.3), H - Inches(0.45), W - Inches(0.6), Inches(0.38),
+         "Qualcomm  |  PDT WBC Stability  |  Executive Report",
+         size=9, color=_MUTED, align=PP_ALIGN.CENTER)
+
+    # SLIDE 2 - KPI Overview
+    slide = _add_slide(prs)
+    _bg(slide, _LIGHT)
+    _header(slide, "Overview - Key Performance Indicators",
+            f"{project}  |  Data as of {datetime.now().strftime('%Y-%m-%d')}", W, H)
+    _footer(slide, project, W, H)
+    kpi_items = [
+        ("Current PDT MTBF",     current_mtbf,         RGBColor(0x1b, 0x2d, 0x52)),
+        ("Current Running Meta", current_meta,         RGBColor(0x0d, 0x9e, 0x6e)),
+        ("Current META Crashes", current_crashes,      RGBColor(0xd4, 0xaf, 0x37)),
+        ("Current META Hours",   current_hours,        RGBColor(0xd9, 0x30, 0x25)),
+        ("Report Date",          current_date,         RGBColor(0x7c, 0x3a, 0xed)),
+        ("Total Builds",         str(len(chart_rows)), RGBColor(0x08, 0x91, 0xb2)),
+        ("Total Hours",          str(total_hours),     RGBColor(0x0d, 0x9e, 0x6e)),
+        ("Total Crashes",        str(total_crashes),   RGBColor(0xd4, 0xaf, 0x37)),
+    ]
+    CARD_W  = Inches(2.8)
+    CARD_H  = Inches(0.95)
+    GAP     = Inches(0.18)
+    COLS    = 4
+    START_X = Inches(0.28)
+    START_Y = Inches(1.22)
+    for idx, (label, value, accent) in enumerate(kpi_items):
+        _kpi_card(slide,
+                  START_X + (idx % COLS) * (CARD_W + GAP),
+                  START_Y + (idx // COLS) * (CARD_H + GAP),
+                  CARD_W, CARD_H, label, value, accent)
+
+    # SLIDE 3 - MTBF Chart
+    if chart_rows:
+        slide = _add_slide(prs)
+        _bg(slide, _LIGHT)
+        _header(slide, "MTBF Trend by Build",
+                f"{project}  |  Hours, Crashes & MTBF per Build", W, H)
+        _footer(slide, project, W, H)
+        HDR_H  = Inches(1.05)
+        FTR_H  = Inches(0.35)
+        MARGIN = Inches(0.28)
+        chart_data = ChartData()
+        chart_data.categories = [str(r.get("crm_build_id") or r.get("meta_id") or "") for r in chart_rows]
+        chart_data.add_series("Hours",   tuple(int(_safe_float(r.get("hours"))) for r in chart_rows))
+        chart_data.add_series("Crashes", tuple(_safe_int(r.get("crash") or r.get("total_crashes")) for r in chart_rows))
+        chart_data.add_series("MTBF",    tuple(int(_safe_float(r.get("mtbf"))) for r in chart_rows))
+        chart_frame = slide.shapes.add_chart(
+            XL_CHART_TYPE.COLUMN_CLUSTERED,
+            MARGIN, HDR_H + Inches(0.15),
+            W - MARGIN * 2, H - HDR_H - FTR_H - Inches(0.25),
+            chart_data
+        )
+        chart = chart_frame.chart
+        chart.has_title = True
+        chart.chart_title.text_frame.text = "MTBF by Build"
+        chart.has_legend = True
+        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.legend.include_in_layout = False
+        for idx, (series, color) in enumerate(zip(chart.series, [
+            RGBColor(0x3b, 0x5b, 0xdb),
+            RGBColor(0xd9, 0x30, 0x25),
+            RGBColor(0xd4, 0xaf, 0x37),
+        ])):
+            series.format.fill.solid()
+            series.format.fill.fore_color.rgb = color
+
+    # SLIDE 4 - Summary & PDT Status
+    slide = _add_slide(prs)
+    _bg(slide, _LIGHT)
+    _header(slide, "Project Summary & PDT Status", project, W, H)
+    _footer(slide, project, W, H)
+    HALF_W  = (W - Inches(0.66)) // 2
+    BOX_TOP = Inches(1.18)
+    BOX_H   = H - BOX_TOP - Inches(0.55)
+    _rect(slide, Inches(0.22), BOX_TOP, HALF_W, BOX_H, _WHITE, _BORDER, Pt(0.75))
+    _rect(slide, Inches(0.22), BOX_TOP, HALF_W, Pt(3), _NAVY)
+    _txt(slide, Inches(0.32), BOX_TOP + Pt(6), HALF_W - Inches(0.2), Inches(0.32),
+         f"{project} Summary", size=11, bold=True, color=_NAVY)
+    _txt(slide, Inches(0.32), BOX_TOP + Inches(0.42), HALF_W - Inches(0.2),
+         BOX_H - Inches(0.55),
+         overview.get("overview") or "No summary entered.",
+         size=9.5, color=_TEXT2, wrap=True)
+    right_x = Inches(0.22) + HALF_W + Inches(0.22)
+    _rect(slide, right_x, BOX_TOP, HALF_W, BOX_H, _WHITE, _BORDER, Pt(0.75))
+    _rect(slide, right_x, BOX_TOP, HALF_W, Pt(3), _GOLD)
+    _txt(slide, right_x + Inches(0.1), BOX_TOP + Pt(6), HALF_W - Inches(0.2), Inches(0.32),
+         f"{project} PDT STATUS", size=11, bold=True, color=_NAVY)
+    _txt(slide, right_x + Inches(0.1), BOX_TOP + Inches(0.42), HALF_W - Inches(0.2),
+         BOX_H - Inches(0.55),
+         overview.get("pdt_status") or overview.get("next_steps") or "No PDT status entered.",
+         size=9.5, color=_TEXT2, wrap=True)
+
+    # SLIDE 5 - MTBF Table
+    if chart_rows:
+        mtbf_cols = [
+            {"title": "S.No",         "key": "s_no"},
+            {"title": "CRM Build ID", "key": "crm_build_id"},
+            {"title": "Date",         "key": "date"},
+            {"title": "Hours+",       "key": "hours"},
+            {"title": "Crash",        "key": "crash"},
+            {"title": "MTBF",         "key": "mtbf"},
+        ]
+        _table_slide(prs, project, "Mainline Build Details - MTBF Table",
+                     f"{project}  |  All Builds", mtbf_cols, chart_rows)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/export_ppt")
+@login_required
+def api_wbc_export_ppt(target_key: str):
+    """Download a PowerPoint for the given WBC target."""
+    try:
+        buf = _wbc_build_ppt(target_key)
+        target = _find_target(target_key)
+        label = (target.get("label") or target.get("name") or target_key).replace(" ", "_")
+        filename = f"WBC_{label}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+    except Exception as exc:
+        import traceback
+        return jsonify({"ok": False, "error": str(exc), "trace": traceback.format_exc()}), 500

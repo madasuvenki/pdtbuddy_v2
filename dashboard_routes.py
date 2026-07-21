@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 logger = logging.getLogger(__name__)
 import traceback
 import uuid
@@ -453,14 +453,22 @@ def _mtbf_json_row_from_payload(payload):
     import re as _re
 
     def _short_meta(s):
-        """CI_Poros.LA.1.0-00078 -> META-78 | CI_Poros.LA.1.0.r1-00084 -> META-r1-84"""
+        """CI_Poros.LA.1.0-00078 -> META-78 | CQ2390.LA.1.0-00111-suffix -> META-111"""
         s = str(s or '').strip()
         if not s:
             return ''
-        m = _re.search(r'(?:\.(r\d+))?-(0*)(\d+)\s*$', s, _re.I)
+        # Already a META label - just normalize leading zeros
+        if s.upper().startswith('META-'):
+            mm = _re.match(r'^META-(?:(r\d+)-)?0*(\d+)$', s, _re.I)
+            if mm:
+                return f'META-{mm.group(1)}-{int(mm.group(2))}' if mm.group(1) else f'META-{int(mm.group(2))}'
+            return s
+        # Extract first zero-padded build number (3+ digits) after optional .rN
+        # e.g. CQ2390.LA.1.0-00111-1007.2B1_changes -> META-111
+        m = _re.search(r'(?:\.(r\d+))?-0*(\d{3,})', s, _re.I)
         if m:
             rsuffix = m.group(1) or ''
-            num = str(int(m.group(3)))
+            num = str(int(m.group(2)))
             return f'META-{rsuffix}-{num}' if rsuffix else f'META-{num}'
         return s
 
@@ -488,8 +496,14 @@ def _mtbf_json_row_from_payload(payload):
 
 
 def _mtbf_json_to_preview_rows(rows, is_compute=False):
+        # Sort rows by date ascending so table always shows oldest→newest
+    def _date_sort_key_p(r):
+        d = str(r.get('date') or '').strip()
+        return d if d else '9999-99-99'
+    rows = sorted(rows or [], key=_date_sort_key_p)
+
     out = []
-    for i, r in enumerate(rows or [], start=1):
+    for i, r in enumerate(rows, start=1):
         common = [
             {'v': str(i), 'rs': 1, 'cs': 1, 'skip': False},
             {'v': str(r.get('build') or ''), 'rs': 1, 'cs': 1, 'skip': False},
@@ -633,8 +647,14 @@ def _migrate_compute_mtbf_excel_to_json_if_needed(target_name, excel_path):
 
 def _mtbf_json_to_chart_data(rows, is_compute=False):
 
+        # Sort rows by date ascending so chart and table always show oldest→newest
+    def _date_sort_key(r):
+        d = str(r.get('date') or '').strip()
+        return d if d else '9999-99-99'
+    rows = sorted(rows or [], key=_date_sort_key)
+
     data = []
-    for r in rows or []:
+    for r in rows:
         build = str(r.get('build') or '').strip()
         if not build:
             continue
@@ -4417,24 +4437,27 @@ def target_mtbf_excel_page(target_name):
 
                 def _short_build_label(raw):
                     """Compact META label from any build string.
-                    CI_Poros.LA.1.0-00078      -> META-78
-                    CI_Poros.LA.1.0.r1-00084   -> META-r1-84
-                    Poros.LA.1.0-00054         -> META-54
-                    META-00078                 -> META-78
+                    CI_Poros.LA.1.0-00078              -> META-78
+                    CI_Poros.LA.1.0.r1-00084           -> META-r1-84
+                    CQ2390.LA.1.0-00111-1007_changes   -> META-111
+                    META-00078                         -> META-78
                     """
                     import re as _re
                     s = '' if raw is None else str(raw).strip()
                     if not s:
                         return ''
-                    # Match optional r-suffix then trailing digits after last '-'
-                    # e.g. ...1.0.r1-00084  or  ...1.0-00078
-                    m = _re.search(r'(?:\.(r\d+))?-(0*)(\d+)\s*$', s, _re.I)
+                    # Already a META label - normalize leading zeros
+                    if s.upper().startswith('META-'):
+                        mm = _re.match(r'^META-(?:(r\d+)-)?0*(\d+)$', s, _re.I)
+                        if mm:
+                            return f'META-{mm.group(1)}-{int(mm.group(2))}' if mm.group(1) else f'META-{int(mm.group(2))}'
+                        return s
+                    # Extract first zero-padded build number (3+ digits) after optional .rN
+                    m = _re.search(r'(?:\.(r\d+))?-0*(\d{3,})', s, _re.I)
                     if m:
-                        rsuffix = m.group(1) or ''   # 'r1' or ''
-                        num     = str(int(m.group(3)))  # strip leading zeros
-                        if rsuffix:
-                            return f'META-{rsuffix}-{num}'
-                        return f'META-{num}'
+                        rsuffix = m.group(1) or ''
+                        num = str(int(m.group(2)))
+                        return f'META-{rsuffix}-{num}' if rsuffix else f'META-{num}'
                     return s
                 for rn in range(2, _ws.max_row + 1):
                     def cv(i):
@@ -5473,11 +5496,14 @@ def api_dashboard_cr_si_ready_dates(target_name):
         if missing_crs:
             try:
                 from orbit_client import fetch_cr_software_images
+                import requests as _req
                 for cr in missing_crs[:75]:
                     try:
                         direct_rows = fetch_cr_software_images(cr) or []
                         if direct_rows:
                             cache[cr] = direct_rows
+                    except _req.exceptions.Timeout:
+                        logger.debug("[PDT CR SI ReadyDate] Orbit timeout for CR%s, skipping", cr)
                     except Exception:
                         logger.debug("[PDT CR SI ReadyDate] direct Orbit fallback failed for CR%s", cr, exc_info=True)
             except Exception:
@@ -5523,87 +5549,160 @@ def api_dashboard_cr_si_ready_dates(target_name):
 
         return jsonify({"success": True, "rows": out})
     except Exception as exc:
+        import requests as _req_exc
+        if isinstance(exc, _req_exc.exceptions.Timeout):
+            logger.warning("[PDT CR SI ReadyDate] Orbit timed out for target=%s", target_name)
+            return jsonify({"success": False, "message": "Orbit request timed out. SI ready dates unavailable.", "rows": {}}), 504
         logger.warning("[PDT CR SI ReadyDate] failed for target=%s", target_name, exc_info=True)
         return jsonify({"success": False, "message": str(exc), "rows": {}}), 500
-
 
 @dashboard_bp.route("/api/dashboard/<string:target_name>/open_jiras", methods=["GET"])
 @login_required
 def api_dashboard_open_jiras(target_name):
+    """Return open JIRA rows for the Open JIRAs section table, with area bucketing from title/ticket."""
+    import datetime as _dt
+    MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-    """Return open JIRA rows for the Open JIRAs section table."""
+    def fmt_dt(v):
+        if not v: return ""
+        if isinstance(v, (_dt.date, _dt.datetime)):
+            return f"{v.day} {MONTHS[v.month-1]} {v.year}"
+        return str(v)[:10]
+
+    # -- Area bucketing: ticket prefix > title keywords > cr_area field > Other --
+    CR_TICKET_PREFIXES = [
+        ("ADSP",       "ADSP"),
+        ("CDSP",       "CDSP"),
+        ("TZ",         "TZ"),
+        ("MODEM",      "Modem"),
+        ("VIDEO",      "Video"),
+        ("CNSSDEBUG",  "WConnect"),
+        ("CNSS",       "WConnect"),
+        ("WCNSS",      "WConnect"),
+        ("WLAN",       "WConnect"),
+        ("BTFM",       "WConnect"),
+        ("BT",         "WConnect"),
+        ("APPS",       "APPS"),
+    ]
+    AREA_KEYWORDS = {
+        "WConnect": ["wconnect", "wcnss", "cnss", "cnssdebug", "wlan", "wifi", "wi-fi", "btfm", "bluetooth", "wireless"],
+        "Modem":    ["modem", "mpss", "ril", "data call", "lte", "5g", "nr", "ims", "qmi"],
+        "Video":    ["video", "venc", "vdec", "venus", "codec"],
+        "TZ":       ["trustzone", "trust zone", "qsee"],
+        "ADSP":     ["adsp", "audio", "qdsp"],
+        "CDSP":     ["cdsp", "compute dsp"],
+        "Camera":   ["camera", "csiphy", "csid", "ife", "isp"],
+        "Display":  ["display", "mdss", "dpu", "dsi", "panel"],
+        "Sensors":  ["sensor", "sensors", "ssc", "slpi"],
+        "BOOT":     ["boot", "xbl", "uefi", "abl"],
+        "APPS":     ["apps", "apss", "gcc", "kernel", "android", "framework", "userspace"],
+    }
+
+    def bucket_area(row):
+        cr_ticket = (row.get("cr_current_ticket") or "").strip().upper()
+        # Step 1: cr_current_ticket prefix
+        if cr_ticket:
+            for prefix, bucket in CR_TICKET_PREFIXES:
+                if cr_ticket.startswith(prefix):
+                    return bucket
+        # Step 2: keyword scan on title + component + category
+        title    = (row.get("jira_title")     or "").lower()
+        comp     = (row.get("jira_component") or "").lower()
+        cat      = (row.get("jira_category")  or "").lower()
+        combined = title + " " + comp + " " + cat
+        for bucket, keywords in AREA_KEYWORDS.items():
+            if any(k in combined for k in keywords):
+                return bucket
+        # Step 3: cr_area field from DB as fallback
+        area = (row.get("cr_area") or "").strip()
+        area_upper = area.upper().replace('-', '_').replace(' ', '_')
+        if area and area.lower() not in ("", "none", "null", "n/a"):
+            if any(t in area_upper for t in ("WCONNECT", "WCNSS", "CNSS", "WLAN", "WIFI", "BT", "BTFM")):
+                return "WConnect"
+            if "MODEM" in area_upper or area_upper == "MPSS":
+                return "Modem"
+            if "VIDEO" in area_upper:
+                return "Video"
+            if area_upper in ("TZ", "TRUSTZONE", "TRUST_ZONE"):
+                return "TZ"
+            if area_upper in ("APPS", "APSS"):
+                return "APPS"
+            return area
+        # Step 4: explicit Other instead of inflating APPS
+        return "Other"
+
+    conn = None; cur = None
     try:
         date_from = (request.args.get("date_from") or "").strip() or None
         date_to   = (request.args.get("date_to")   or "").strip() or None
+
         conn = get_mysql_connection_db()
         if not conn:
             return jsonify({"success": False, "message": "DB connection failed"}), 500
+
         schema = get_schema_for_target(target_name) or "pdt_stats_mobile"
         tgt    = target_name.strip("`.").lower().replace("-", "_").replace(" ", "_")
-        open_tbl = f"`{schema}`.`{tgt}_openjiras`"
-        try:
-            cur = conn.cursor(dictionary=True)
-            # Check table exists
-            sch_plain = schema.strip("`")
-            tbl_plain = f"{tgt}_openjiras"
-            cur.execute(
-                "SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema=%s AND table_name=%s LIMIT 1",
-                (sch_plain, tbl_plain),
-            )
-            if not cur.fetchone():
-                return jsonify({"success": True, "rows": [], "area_summary": [],
-                                "message": "Open JIRAs table not available for this target."})
-            # Get columns
-            cur.execute(f"SHOW COLUMNS FROM {open_tbl}")
-            cols = {r["Field"] for r in (cur.fetchall() or [])}
-            # Build SELECT
-            def _c(name, fallback="NULL"):
-                return f"`{name}`" if name in cols else fallback
-            select_parts = []
-            for col in ("stability_ticket", "cr_current_ticket", "jira_title",
-                        "jira_date", "cr_area", "cr_subsystem", "test_team",
-                        "cr_status", "cr_category", "metabuild", "image",
-                        "cr_occurrence", "cr_age"):
-                select_parts.append(f"{_c(col)} AS `{col}`")
-            if date_from and date_to:
-                cur.execute(
-                    f"SELECT {', '.join(select_parts)} FROM {open_tbl} "
-                    f"WHERE `jira_date` BETWEEN %s AND %s ORDER BY `jira_date` DESC",
-                    (date_from, date_to),
-                )
-            else:
-                cur.execute(
-                    f"SELECT {', '.join(select_parts)} FROM {open_tbl} "
-                    f"ORDER BY `jira_date` DESC"
-                )
-            raw_rows = cur.fetchall() or []
-            # Serialize dates
-            rows = []
-            for r in raw_rows:
-                row = {}
-                for k, v in r.items():
-                    if hasattr(v, "isoformat"):
-                        row[k] = v.isoformat()
-                    else:
-                        row[k] = v
-                rows.append(row)
-            # Build area summary
-            from collections import Counter
-            area_counts = Counter(
-                str(r.get("cr_area") or "Unknown").strip() for r in rows
-            )
-            area_summary = [
-                {"area": a, "count": c}
-                for a, c in sorted(area_counts.items(), key=lambda x: -x[1])
-                if a
-            ]
-        finally:
-            try:
-                cur.close()
-                conn.close()
-            except Exception:
-                pass
+        sch_plain = schema.strip("`")
+        tbl_plain = f"{tgt}_openjiras"
+        open_tbl  = f"`{sch_plain}`.`{tbl_plain}`"
+
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema=%s AND table_name=%s LIMIT 1",
+            (sch_plain, tbl_plain),
+        )
+        if not cur.fetchone():
+            return jsonify({"success": True, "rows": [], "area_summary": [],
+                            "message": "Open JIRAs table not available for this target."})
+
+        # Detect available columns
+        cur.execute(f"SHOW COLUMNS FROM {open_tbl}")
+        cols = {r["Field"] for r in (cur.fetchall() or [])}
+        def _c(name):
+            return f"`{name}`" if name in cols else "NULL"
+
+        select_parts = ", ".join(
+            f"{_c(c)} AS `{c}`"
+            for c in ("stability_ticket", "cr_current_ticket", "jira_title",
+                      "jira_date", "cr_area", "cr_subsystem", "test_team",
+                      "cr_status", "cr_category", "jira_category", "jira_component",
+                      "jira_reporter", "metabuild", "image", "cr_occurrence", "cr_age",
+                      "status")
+        )
+
+        where_clauses, params = [], []
+        if date_from:
+            where_clauses.append("`jira_date` >= %s"); params.append(date_from)
+        if date_to:
+            where_clauses.append("`jira_date` <= %s"); params.append(date_to + " 23:59:59")
+        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        cur.execute(
+            f"SELECT {select_parts} FROM {open_tbl} {where_sql} ORDER BY `jira_date` DESC",
+            params or None
+        )
+        raw = cur.fetchall() or []
+
+        # Build rows with area bucketing
+        rows = []
+        for r in raw:
+            area = bucket_area(r)
+            row = {}
+            for k, v in r.items():
+                row[k] = v.isoformat() if hasattr(v, "isoformat") else v
+            row["area"] = area   # always set normalized area
+            rows.append(row)
+
+        # Area summary
+        from collections import Counter
+        area_counts = Counter(r["area"] for r in rows)
+        area_summary = sorted(
+            [{"area": a, "count": c} for a, c in area_counts.items()],
+            key=lambda x: -x["count"]
+        )
+        area_summary.append({"area": "Total", "count": len(rows)})
+
         return jsonify({
             "success": True,
             "rows": rows,
@@ -5612,9 +5711,13 @@ def api_dashboard_open_jiras(target_name):
         })
     except Exception as exc:
         logger.exception("[api_dashboard_open_jiras] error target=%s", target_name)
-        return jsonify({"success": False, "message": str(exc)}), 500
-
-
+        return jsonify({"success": False, "message": str(exc), "rows": [], "area_summary": []}), 500
+    finally:
+        try:
+            if cur:  cur.close()
+            if conn: conn.close()
+        except Exception:
+            pass
 @dashboard_bp.route("/api/browse_files", methods=['POST'])
 @login_required
 def api_browse_files():

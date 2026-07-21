@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import re
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
 
@@ -705,8 +705,6 @@ def _saved_jql_domain_or_400(value, target_name: str = ""):
 def api_live_status_saved_jql_tabs(target_name):
     if not _can_view_live_status_target(target_name):
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    if not _is_core_deck_target(target_name):
-        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
     domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
     if err:
         return jsonify(err[0]), err[1]
@@ -719,8 +717,6 @@ def api_live_status_saved_jql_tabs(target_name):
 def api_live_status_saved_jql_tabs_save(target_name):
     if not _target_group_access():
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    if not _is_core_deck_target(target_name):
-        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
     payload = request.get_json(silent=True) or {}
     domain, err = _saved_jql_domain_or_400(payload.get('domain'), target_name)
     if err:
@@ -744,8 +740,6 @@ def api_live_status_saved_jql_tabs_save(target_name):
 def api_live_status_saved_jql_tabs_delete(target_name, tab_id):
     if not _target_group_access():
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    if not _is_core_deck_target(target_name):
-        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
     domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
     if err:
         return jsonify(err[0]), err[1]
@@ -758,8 +752,6 @@ def api_live_status_saved_jql_tabs_delete(target_name, tab_id):
 def api_live_status_saved_jql_tab_report(target_name, tab_id):
     if not _can_view_live_status_target(target_name):
         return jsonify({'ok': False, 'error': 'Access denied'}), 403
-    if not _is_core_deck_target(target_name):
-        return jsonify({'ok': False, 'error': 'Saved JQL tabs are automotive only'}), 400
     domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
     if err:
         return jsonify(err[0]), err[1]

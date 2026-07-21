@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -57,7 +57,7 @@
 <div class="shell">
   <aside class="side">
     <div class="brand"><div class="logo"><i class="fas fa-car-side"></i></div><div><b>Automotive 4.5</b><span>All SPs</span></div></div>
-        <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh"><i class="fas fa-rotate"></i></button></div>
+        <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh"><i class="fas fa-rotate"></i></button>{% if can_edit %}<button class="mini-btn" onclick="openAddSpModal()" title="Add SP" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)"><i class="fas fa-plus"></i></button>{% endif %}</div>
     <div id="spList" class="sp-list"><div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div></div>
   </aside>
   <main class="main">
@@ -2418,6 +2418,107 @@ function bwrSearchDetail(bid,q){const all=_bwrRows[bid]||[],qq=String(q||'').toL
 loadSps(false); gen45SjqlLoad(); _updatePlatUI();
 </script>
 <!-- Gen45 Add/Edit JQL Tab Modal -->
+{% if can_edit %}
+<!-- ── Add SP Modal ─────────────────────────────────────────────────────── -->
+<div id="addSpModal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(540px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+      <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-plus-circle"></i><span style="font-size:15px;font-weight:950">Add New SP</span></div>
+      <button onclick="closeAddSpModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">SP Name <span style="color:#dc2626">*</span></label>
+        <input id="addSpName" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. 12, SP12, lemans">
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Enter the SP number or name as it appears in the Excel sheet (e.g. 12 or SP12). Tables are optional — configure later in Config tab.</div>
+      </div>
+      <div style="border:1.5px solid #a5b4fc;border-radius:12px;padding:14px;margin-bottom:12px;background:#f8fafc">
+        <div style="font-size:11px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px"><i class="fas fa-microchip" style="margin-right:5px"></i>HQX Tables <span style="font-weight:700;color:#64748b;text-transform:none;letter-spacing:0">(optional)</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">JIRAs Table</label><select id="addSpHqxJiras" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+          <div><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">Open JIRAs Table</label><select id="addSpHqxOpen" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+          <div style="grid-column:1/-1"><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">Unique CRs Table</label><select id="addSpHqxCrs" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+        </div>
+      </div>
+      <div style="border:1.5px solid #6ee7b7;border-radius:12px;padding:14px;margin-bottom:14px;background:#f0fdf4">
+        <div style="font-size:11px;font-weight:950;color:#065f46;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px"><i class="fas fa-leaf" style="margin-right:5px"></i>HGY Tables <span style="font-weight:700;color:#64748b;text-transform:none;letter-spacing:0">(optional)</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">JIRAs Table</label><select id="addSpHgyJiras" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+          <div><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">Open JIRAs Table</label><select id="addSpHgyOpen" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+          <div style="grid-column:1/-1"><label style="display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:4px">Unique CRs Table</label><select id="addSpHgyCrs" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font:inherit;font-size:12px"></select></div>
+        </div>
+      </div>
+      <div id="addSpMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="closeAddSpModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
+        <button onclick="saveAddSp()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Add SP</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+<script>
+// ── Add SP Modal ─────────────────────────────────────────────────────────────
+function _addSpPopulateSelects(){
+  var none = '<option value="">-- Not configured --</option>';
+  var opts = none + (dbTables||[]).filter(function(t){return t.kind==='jiras'||t.kind==='openjiras'||t.kind==='unique_crs'||t.kind==='overallcrs';})
+    .map(function(t){return '<option value="'+_irEsc(t.fq||t.name)+'">'+_irEsc(t.label||t.name||t.fq)+'</option>';}).join('');
+  var jOpts = none + (dbTables||[]).filter(function(t){return t.kind==='jiras';}).map(function(t){return '<option value="'+_irEsc(t.fq||t.name)+'">'+_irEsc(t.label||t.name||t.fq)+'</option>';}).join('');
+  var oOpts = none + (dbTables||[]).filter(function(t){return t.kind==='openjiras';}).map(function(t){return '<option value="'+_irEsc(t.fq||t.name)+'">'+_irEsc(t.label||t.name||t.fq)+'</option>';}).join('');
+  var cOpts = none + (dbTables||[]).filter(function(t){return t.kind==='unique_crs'||t.kind==='overallcrs';}).map(function(t){return '<option value="'+_irEsc(t.fq||t.name)+'">'+_irEsc(t.label||t.name||t.fq)+'</option>';}).join('');
+  ['addSpHqxJiras','addSpHgyJiras'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML=jOpts;});
+  ['addSpHqxOpen','addSpHgyOpen'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML=oOpts;});
+  ['addSpHqxCrs','addSpHgyCrs'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML=cOpts;});
+}
+function openAddSpModal(){
+  var m = document.getElementById('addSpModal'); if(!m) return;
+  document.getElementById('addSpName').value = '';
+  document.getElementById('addSpMsg').textContent = '';
+  _addSpPopulateSelects();
+  m.style.display = 'flex';
+}
+function closeAddSpModal(){
+  var m = document.getElementById('addSpModal'); if(m) m.style.display = 'none';
+}
+async function saveAddSp(){
+  var spName = (document.getElementById('addSpName').value||'').trim();
+  var msg = document.getElementById('addSpMsg');
+  if(!spName){ if(msg) msg.innerHTML='<span style="color:#dc2626">SP name is required.</span>'; return; }
+  // Build sheet_tables entry
+  var hqxRow = {
+    target_table: document.getElementById('addSpHqxJiras').value,
+    jiras_table:  document.getElementById('addSpHqxJiras').value,
+    openjiras_table: document.getElementById('addSpHqxOpen').value,
+    unique_crs_table: document.getElementById('addSpHqxCrs').value
+  };
+  var hgyRow = {
+    target_table: document.getElementById('addSpHgyJiras').value,
+    jiras_table:  document.getElementById('addSpHgyJiras').value,
+    openjiras_table: document.getElementById('addSpHgyOpen').value,
+    unique_crs_table: document.getElementById('addSpHgyCrs').value
+  };
+  // Merge into existing sheet_tables
+  var next = JSON.parse(JSON.stringify(config.sheet_tables||{}));
+  next[spName] = hqxRow;
+  next[spName+'_hgy'] = hgyRow;
+  if(msg) msg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving...';
+  try {
+    var d = await postJson(CFG_API+'/config', {sheet_tables: next});
+    config = d.config || config;
+    config.sheet_tables = config.sheet_tables || {};
+    closeAddSpModal();
+    renderSavedConfigList();
+    renderSpList();
+    if(msg) msg.textContent = '';
+    // Auto-select the new SP
+    activeSp = spName;
+    renderSpList();
+    hydrateConfigForm();
+  } catch(e) {
+    if(msg) msg.innerHTML = '<span style="color:#dc2626">Save failed: '+_irEsc(e.message||String(e))+'</span>';
+  }
+}
+</script>
 {% if can_edit %}
 <div id="gen45-sjql-modal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">

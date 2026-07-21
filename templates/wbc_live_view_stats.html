@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <script src="/static/js/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f5f7ff;color:#111827;font-size:13px}.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#0b1730,#243b63);color:#dbeafe;padding:16px 12px;position:sticky;top:0;height:100vh;overflow:auto}.brand{display:flex;gap:10px;align-items:center;margin:0 0 24px}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#facc15,#f97316);display:grid;place-items:center;color:#fff;font-weight:1000;box-shadow:0 10px 24px rgba(249,115,22,.22)}.brand b{display:block;color:white;font-size:12px;line-height:1.2}.brand span{font-size:10px;font-weight:800;color:#9fb4d8}.nav{display:grid;gap:8px}.nav button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:12px;padding:11px;text-align:left;font-weight:850;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}.nav button.active,.nav button:hover{background:rgba(99,102,241,.35);border-color:#818cf8;color:#fff}.nav button span{display:flex;align-items:center;gap:8px}.nav button b{min-width:18px;height:18px;border-radius:999px;background:#f8fafc;color:#0f172a;display:inline-grid;place-items:center;font-size:10px}.side-status{position:absolute;bottom:18px;left:14px;right:14px;font-size:10px;color:#a7f3d0;font-weight:800}.main{padding:12px 18px 30px;min-width:0}.topbar{min-height:46px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;margin:-12px -18px 16px;padding:7px 18px;background:#fff;position:sticky;top:0;z-index:5}.project-label{font-size:10px;font-weight:1000;letter-spacing:.08em;color:#64748b;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:6px}.project-label i{font-size:7px;color:#16a34a}.target-tools{display:flex;align-items:center;gap:8px;min-width:180px}.search{width:150px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 10px;font-weight:800;outline:none}.quick-select{border:1px solid #dbe3ef;background:#fff;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:900;color:#334155;max-width:190px}.list{display:flex;gap:8px;overflow:auto;flex:1;padding:2px 0}.item{border:1px solid #e5e7eb;background:#fff;color:#475569;border-radius:999px;padding:7px 11px;text-align:left;cursor:pointer;white-space:nowrap;min-width:max-content;font-size:11px;font-weight:900}.item.active,.item:hover{background:#ecfdf5;border-color:#0f766e;color:#0f766e;box-shadow:0 4px 12px rgba(15,118,110,.12)}.item b{display:inline;color:inherit;font-size:11px}.item .muted{display:none}.meta{display:none}.tag{border-radius:999px;padding:2px 6px;font-size:9px;font-weight:950;background:#eef2ff;color:#475569}.tag.green{background:#dcfce7;color:#166534}.tag.orange{background:#fff7ed;color:#c2410c}.hero{display:none}.eyebrow{font-size:10px;font-weight:1000;letter-spacing:.16em;text-transform:uppercase;color:#bbf7d0;margin-bottom:10px}.hero h1{font-size:24px;margin:0 0 8px;color:#fff}.hero p{margin:0;color:#dbeafe;font-size:12px;max-width:760px;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.hero .actions{position:absolute;right:26px;bottom:18px;z-index:2}.btn{border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}.btn.primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.btn.green{border:0;background:#dcfce7;color:#166534}.tabs{display:none}.tab{border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;padding:10px 16px;font-weight:900;color:#64748b;cursor:pointer}.tab.active{background:white;border-color:#e9d5ff;color:#4c1d95}.section{display:none}.section.active{display:block}.page-title{margin:0 0 14px}.page-title h1{font-size:20px;line-height:1.2;margin:0;color:#1e3a8a;font-weight:1000}.page-title span{font-size:9px;font-weight:1000;letter-spacing:.12em;color:#64748b;text-transform:uppercase}.section-title{font-weight:1000;margin:12px 0 10px;color:#172554}.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:14px}.card{background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid #e0e7ff;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.metric{padding:16px 14px;border-left:0;min-height:110px;position:relative}.metric:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#f97316,#22c55e,#38bdf8)}.metric:nth-child(2):before,.metric:nth-child(3):before,.metric:nth-child(4):before{background:linear-gradient(90deg,#14b8a6,#38bdf8)}.metric:nth-child(5):before{background:linear-gradient(90deg,#f59e0b,#f97316)}.metric:nth-child(6):before{background:linear-gradient(90deg,#fb7185,#a855f7)}.metric .ico{font-size:18px;margin-bottom:14px}.metric .lbl{font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em}.metric .num{font-size:23px;font-weight:1000;color:#0f172a;margin-top:0;word-break:break-word}.head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.body{padding:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}.build{border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;padding:12px}.build b{color:#1e3a8a;word-break:break-all}.muted{font-size:11px;color:#64748b;font-weight:800}.empty{text-align:center;color:#94a3b8;padding:34px}.tblwrap{overflow:auto;max-height:520px}table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}th,td{padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#eef4ff;color:#1e3a8a;text-transform:uppercase;font-size:10px}.config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:10px;font-weight:1000;text-transform:uppercase;color:#475569}.input,select.input{border:1px solid #ddd6fe;border-radius:10px;padding:9px 10px;font-weight:800;background:white;width:100%}.saved{font-size:12px;font-weight:800;color:#64748b;margin-top:12px}.chartbox{height:360px;overflow-x:auto;overflow-y:hidden}.chartbox canvas{max-width:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}.modal.open{display:flex}.modal-box{width:min(980px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.28)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#f8fbff;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.modal-body{padding:16px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#f8fafc;border-top:1px solid #e5e7eb}.edit-table{width:100%;min-width:900px}.edit-cell{width:100%;border:1px solid #dbe3ef;border-radius:8px;padding:7px;font-weight:800}.mini-msg{font-size:12px;font-weight:800;color:#64748b;margin-top:10px}.overview-panels{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.overview-text{white-space:pre-wrap;line-height:1.7;color:#334155;font-weight:750;min-height:150px;border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}.overview-chartbox{height:460px;overflow-x:auto;overflow-y:hidden;background:#fff}.overview-chartbox canvas{max-width:none!important}.overview-chartbox+.empty{font-size:11px}.richbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid #ddd6fe;border-bottom:0;border-radius:10px 10px 0 0;background:#f8fbff;padding:7px}.richbar select,.richbar button{border:1px solid #dbe3ef;background:#fff;border-radius:7px;padding:6px 8px;font-weight:900;color:#334155}.richbar button{min-width:30px;cursor:pointer}.richbar button:hover{background:#eef2ff}.rich-editor{min-height:190px;border:1px solid #ddd6fe;border-radius:0 0 10px 10px;background:#fff;padding:12px;outline:none;overflow:auto;font-weight:750;line-height:1.55;white-space:normal}.rich-editor:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:11px;font-weight:950}.report-time-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px}.report-time-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)}.report-time-card.green{border-color:#86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);box-shadow:0 4px 14px rgba(22,163,74,.12)}.report-time-label{font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em}.report-time-card.green .report-time-label{color:#166534}.report-time-value{font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px}.report-zero{border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px}.report-zero-num{font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px}@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.side-status{position:static;margin-top:16px}.topbar{position:relative;flex-direction:column;align-items:stretch}.target-tools{min-width:0}.search{width:100%}.kpis{grid-template-columns:repeat(2,1fr)}.hero .actions{position:static;margin-top:14px}.hero:after{display:none}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f5f7ff;color:#111827;font-size:13px}.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#0b1730,#243b63);color:#dbeafe;padding:16px 12px;position:sticky;top:0;height:100vh;overflow:auto}.brand{display:flex;gap:10px;align-items:center;margin:0 0 24px}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#facc15,#f97316);display:grid;place-items:center;color:#fff;font-weight:1000;box-shadow:0 10px 24px rgba(249,115,22,.22)}.brand b{display:block;color:white;font-size:12px;line-height:1.2}.brand span{font-size:10px;font-weight:800;color:#9fb4d8}.nav{display:grid;gap:8px}.nav button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:12px;padding:11px;text-align:left;font-weight:850;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}.nav button.active,.nav button:hover{background:rgba(99,102,241,.35);border-color:#818cf8;color:#fff}.nav button span{display:flex;align-items:center;gap:8px}.nav button b{min-width:18px;height:18px;border-radius:999px;background:#f8fafc;color:#0f172a;display:inline-grid;place-items:center;font-size:10px}.side-status{position:absolute;bottom:18px;left:14px;right:14px;font-size:10px;color:#a7f3d0;font-weight:800}.main{padding:12px 18px 30px;min-width:0}.topbar{min-height:46px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;margin:-12px -18px 16px;padding:7px 18px;background:#fff;position:sticky;top:0;z-index:5}.project-label{font-size:10px;font-weight:1000;letter-spacing:.08em;color:#64748b;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:6px}.project-label i{font-size:7px;color:#16a34a}.target-tools{display:flex;align-items:center;gap:8px;min-width:180px}.search{width:150px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 10px;font-weight:800;outline:none}.quick-select{border:1px solid #dbe3ef;background:#fff;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:900;color:#334155;max-width:190px}.list{display:flex;gap:8px;overflow:auto;flex:1;padding:2px 0}.item{border:1px solid #e5e7eb;background:#fff;color:#475569;border-radius:999px;padding:7px 11px;text-align:left;cursor:pointer;white-space:nowrap;min-width:max-content;font-size:11px;font-weight:900}.item.active,.item:hover{background:#ecfdf5;border-color:#0f766e;color:#0f766e;box-shadow:0 4px 12px rgba(15,118,110,.12)}.item b{display:inline;color:inherit;font-size:11px}.item .muted{display:none}.meta{display:none}.tag{border-radius:999px;padding:2px 6px;font-size:9px;font-weight:950;background:#eef2ff;color:#475569}.tag.green{background:#dcfce7;color:#166534}.tag.orange{background:#fff7ed;color:#c2410c}.hero{display:none}.eyebrow{font-size:10px;font-weight:1000;letter-spacing:.16em;text-transform:uppercase;color:#bbf7d0;margin-bottom:10px}.hero h1{font-size:24px;margin:0 0 8px;color:#fff}.hero p{margin:0;color:#dbeafe;font-size:12px;max-width:760px;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.hero .actions{position:absolute;right:26px;bottom:18px;z-index:2}.btn{border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}.btn.primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.btn.green{border:0;background:#dcfce7;color:#166534}.tabs{display:none}.tab{border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;padding:10px 16px;font-weight:900;color:#64748b;cursor:pointer}.tab.active{background:white;border-color:#e9d5ff;color:#4c1d95}.section{display:none}.section.active{display:block}.page-title{margin:0 0 14px}.page-title h1{font-size:20px;line-height:1.2;margin:0;color:#1e3a8a;font-weight:1000}.page-title span{font-size:9px;font-weight:1000;letter-spacing:.12em;color:#64748b;text-transform:uppercase}.section-title{font-weight:1000;margin:12px 0 10px;color:#172554}.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:14px}.card{background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid #e0e7ff;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.metric{padding:16px 14px;border-left:0;min-height:110px;position:relative}.metric:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#f97316,#22c55e,#38bdf8)}.metric:nth-child(2):before,.metric:nth-child(3):before,.metric:nth-child(4):before{background:linear-gradient(90deg,#14b8a6,#38bdf8)}.metric:nth-child(5):before{background:linear-gradient(90deg,#f59e0b,#f97316)}.metric:nth-child(6):before{background:linear-gradient(90deg,#fb7185,#a855f7)}.metric .ico{font-size:18px;margin-bottom:14px}.metric .lbl{font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em}.metric .num{font-size:23px;font-weight:1000;color:#0f172a;margin-top:0;word-break:break-word}.metric.clickable{cursor:pointer;transition:transform .15s,box-shadow .15s}.metric.clickable:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(15,23,42,.14);border-color:#6366f1}.metric.clickable:hover .num{color:#4f46e5}.metric.clickable .lbl::after{content:" ↗";font-size:8px;opacity:.5}.head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.body{padding:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}.build{border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;padding:12px}.build b{color:#1e3a8a;word-break:break-all}.muted{font-size:11px;color:#64748b;font-weight:800}.empty{text-align:center;color:#94a3b8;padding:34px}.tblwrap{overflow:auto;max-height:520px}table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}th,td{padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#eef4ff;color:#1e3a8a;text-transform:uppercase;font-size:10px}.config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:10px;font-weight:1000;text-transform:uppercase;color:#475569}.input,select.input{border:1px solid #ddd6fe;border-radius:10px;padding:9px 10px;font-weight:800;background:white;width:100%}.saved{font-size:12px;font-weight:800;color:#64748b;margin-top:12px}.chartbox{height:360px;overflow-x:auto;overflow-y:hidden}.chartbox canvas{max-width:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}.modal.open{display:flex}.modal-box{width:min(980px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.28)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#f8fbff;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.modal-body{padding:16px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#f8fafc;border-top:1px solid #e5e7eb}.edit-table{width:100%;min-width:900px}.edit-cell{width:100%;border:1px solid #dbe3ef;border-radius:8px;padding:7px;font-weight:800}.mini-msg{font-size:12px;font-weight:800;color:#64748b;margin-top:10px}.overview-panels{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.overview-text{white-space:pre-wrap;line-height:1.7;color:#334155;font-weight:750;min-height:150px;border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}.overview-chartbox{height:460px;overflow-x:auto;overflow-y:hidden;background:#fff}.overview-chartbox canvas{max-width:none!important}.overview-chartbox+.empty{font-size:11px}.richbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid #ddd6fe;border-bottom:0;border-radius:10px 10px 0 0;background:#f8fbff;padding:7px}.richbar select,.richbar button{border:1px solid #dbe3ef;background:#fff;border-radius:7px;padding:6px 8px;font-weight:900;color:#334155}.richbar button{min-width:30px;cursor:pointer}.richbar button:hover{background:#eef2ff}.rich-editor{min-height:190px;border:1px solid #ddd6fe;border-radius:0 0 10px 10px;background:#fff;padding:12px;outline:none;overflow:auto;font-weight:750;line-height:1.55;white-space:normal}.rich-editor:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:11px;font-weight:950}.report-time-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px}.report-time-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)}.report-time-card.green{border-color:#86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);box-shadow:0 4px 14px rgba(22,163,74,.12)}.report-time-label{font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em}.report-time-card.green .report-time-label{color:#166534}.report-time-value{font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px}.report-zero{border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px}.report-zero-num{font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px}@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.side-status{position:static;margin-top:16px}.topbar{position:relative;flex-direction:column;align-items:stretch}.target-tools{min-width:0}.search{width:100%}.kpis{grid-template-columns:repeat(2,1fr)}.hero .actions{position:static;margin-top:14px}.hero:after{display:none}}
   </style>
 </head>
 <body>
@@ -30,7 +30,7 @@
     <div class="topbar">
       <div class="project-label"><i class="fas fa-circle"></i> Active Projects</div>
       <div id="targetList" class="list"><div class="empty" style="padding:6px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div></div>
-      <div class="actions" style="margin-left:auto;white-space:nowrap"><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button>{% if can_edit %}<button class="btn" onclick="openAddTargetModal()"><i class="fas fa-plus"></i> Add Target</button><button class="btn" onclick="openVisibilityModal()"><i class="fas fa-eye"></i> Manage Visibility</button><button class="btn primary" onclick="switchTab('config')"><i class="fas fa-cog"></i> Config</button>{% endif %}</div>
+      <div class="actions" style="margin-left:auto;white-space:nowrap"><button class="btn" id="pptBtn" onclick="downloadPpt()" title="Download PowerPoint"><i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT</button><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button>{% if can_edit %}<button class="btn" onclick="openAddTargetModal()"><i class="fas fa-plus"></i> Add Target</button><button class="btn" onclick="openVisibilityModal()"><i class="fas fa-eye"></i> Manage Visibility</button><button class="btn primary" onclick="switchTab('config')"><i class="fas fa-cog"></i> Config</button>{% endif %}</div>
     </div>
     <div class="page-title"><h1 id="title">WBC Live View Stats</h1><span>Overview</span></div>
     <div class="tabs">
@@ -48,17 +48,17 @@
     <section id="tabOverview" class="section active">
       <div class="section-title"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div class="kpis" id="overviewKpis">
-        <div class="card metric"><div class="ico">📈</div><div id="ovKMtbf" class="num">—</div><div class="lbl">Current PDT MTBF</div></div>
-        <div class="card metric"><div class="ico">🚀</div><div id="ovKMeta" class="num">—</div><div class="lbl">Current Running Meta</div></div>
-        <div class="card metric"><div class="ico">🚀</div><div id="ovKCrashes" class="num">—</div><div class="lbl">Current Meta Crashes</div></div>
-        <div class="card metric"><div class="ico">🛰️</div><div id="ovKRunCnt" class="num">—</div><div class="lbl">Running Builds</div></div>
-        <div class="card metric"><div class="ico">📅</div><div id="ovKDate" class="num">—</div><div class="lbl">Report Date</div></div>
-        <div class="card metric"><div class="ico">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div></div>
-        <div class="card metric"><div class="ico">🔓</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div></div>
-        <div class="card metric"><div class="ico">📁</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div></div>
-        <div class="card metric"><div class="ico">📊</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div></div>
-        <div class="card metric"><div class="ico">📊</div><div id="ovKTotalCrs" class="num">0</div><div class="lbl">Total CRs</div></div>
-        <div class="card metric"><div class="ico">🧾</div><div id="ovKTotalJiras" class="num">0</div><div class="lbl">Total JIRAs</div></div>
+        <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="View MTBF trend"><div class="ico">📈</div><div id="ovKMtbf" class="num">-</div><div class="lbl">Current PDT MTBF</div></div>
+        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">🚀</div><div id="ovKMeta" class="num">-</div><div class="lbl">Current Running Meta</div></div>
+        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">💥</div><div id="ovKCrashes" class="num">-</div><div class="lbl">Current Meta Crashes</div></div>
+        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">🛰️</div><div id="ovKRunCnt" class="num">-</div><div class="lbl">Running Builds</div></div>
+        <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="View MTBF table"><div class="ico">📅</div><div id="ovKDate" class="num">-</div><div class="lbl">Report Date</div></div>
+        <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="View Open JIRAs"><div class="ico">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div></div>
+        <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="View Open CRs"><div class="ico">🔓</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div></div>
+        <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="View Open JIRAs"><div class="ico">📁</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div></div>
+        <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="View Open CRs"><div class="ico">📊</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div></div>
+        <div class="card metric clickable" onclick="navToTab('allcrs',null)" title="View All CRs"><div class="ico">📊</div><div id="ovKTotalCrs" class="num">0</div><div class="lbl">Total CRs</div></div>
+        <div class="card metric clickable" onclick="navToTab('jiras',null)" title="View All JIRAs"><div class="ico">🧾</div><div id="ovKTotalJiras" class="num">0</div><div class="lbl">Total JIRAs</div></div>
       </div>
       <div class="overview-panels">
         <div class="card"><div class="head"><span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="overviewView" class="overview-text"></div></div></div>
@@ -81,8 +81,34 @@
         <div class="card metric"><div class="ico">🧾</div><div id="kTotalJiras" class="num">0</div><div class="lbl">Total JIRAs</div></div>
         <div class="card metric"><div class="ico">🛰️</div><div id="kRunCnt" class="num">0</div><div class="lbl">Running Builds</div></div>
       </div>
-      <div class="card"><div class="head"><span><i class="fas fa-satellite-dish"></i> Current Running Builds</span><span id="source" class="muted"></span></div><div class="body"><div id="builds" class="grid"></div></div></div>
-      <div class="card"><div class="head"><span><i class="fas fa-file-alt"></i> Current Running Build Report</span><span id="runningReportStatus" class="muted"></span></div><div class="body" id="runningReportBox"><div class="empty">Click a running build above to view that build's report.</div></div></div>
+            <div class="card">
+        <div class="head">
+          <span><i class="fas fa-bookmark" style="color:#4f46e5"></i> Current Running Build — Saved JQL Reports</span>
+          <span id="runningReportStatus" class="muted"></span>
+          {% if can_edit %}<button class="btn" onclick="wbcOpenSjqlModal()"><i class="fas fa-plus"></i> Add JQL Tab</button>{% endif %}
+          <button class="btn" onclick="wbcSjqlLoad()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+        <div class="body" id="wbcSjqlCardsBox" style="min-height:120px">
+          <div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>
+        </div>
+      </div>
+      <!-- Inline report panel -->
+      <div id="wbcInlineReport" style="display:none;margin-top:0">
+        <div class="card" style="border:2px solid #a5b4fc">
+          <div class="head" style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff;border-radius:0">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+              <i class="fas fa-bookmark" style="opacity:.85"></i>
+              <span style="font-size:14px;font-weight:950;color:#fff" id="wbcInlineReportTitle">Report</span>
+              <span id="wbcInlineReportMeta" style="font-size:10px;color:rgba(255,255,255,.7);margin-left:4px"></span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="wbcSjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>
+              <button onclick="wbcCloseInlineReport()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:900"><i class="fas fa-times"></i> Close</button>
+            </div>
+          </div>
+          <div id="wbcInlineReportBody" style="padding:16px 18px"></div>
+        </div>
+      </div>
     </section>
     <section id="tabMtbf" class="section"><div class="card"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span><button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox"><canvas id="chart" height="330"></canvas><div id="chartEmpty" class="empty">Reading Mainline_Build_Details Excel once and saving MTBF JSON...</div></div></div><div class="card"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span>{% if can_edit %}<div class="actions"><button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
     <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
@@ -198,15 +224,17 @@ document.addEventListener('focusin',e=>{if(e.target&&e.target.classList&&e.targe
 function richCmd(cmd,val){const id=_activeRichEditor||document.querySelector('.modal.open .rich-editor')?.id;if(id)document.getElementById(id)?.focus();document.execCommand(cmd,false,val||null);}
 async function getJson(url){const r=await fetch(url,{cache:'no-store'});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'API failed');return d;}
 async function postJson(url,p){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p||{})});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'Save failed');return d;}
-function switchTab(tab){['overview','current','mtbf','opencrs','openjiras','builds','allcrs','jiras','excel','config'].forEach(t=>{document.getElementById('tab'+t[0].toUpperCase()+t.slice(1))?.classList.toggle('active',t===tab);document.getElementById('tabBtn'+t[0].toUpperCase()+t.slice(1))?.classList.toggle('active',t===tab);});}
+const TAB_ID_MAP={overview:'tabOverview',current:'tabCurrent',mtbf:'tabMtbf',opencrs:'tabOpencrs',openjiras:'tabOpenjiras',builds:'tabBuilds',allcrs:'tabAllcrs',jiras:'tabJiras',excel:'tabExcel',config:'tabConfig'};
+const TABBTN_ID_MAP={overview:'tabBtnOverview',current:'tabBtnCurrent',mtbf:'tabBtnMtbf',opencrs:'tabBtnOpencrs',openjiras:'tabBtnOpenjiras',builds:'tabBtnBuilds',allcrs:'tabBtnAllcrs',jiras:'tabBtnJiras',excel:'tabBtnExcel',config:'tabBtnConfig'};
+function switchTab(tab){Object.keys(TAB_ID_MAP).forEach(t=>{document.getElementById(TAB_ID_MAP[t])?.classList.toggle('active',t===tab);document.getElementById(TABBTN_ID_MAP[t])?.classList.toggle('active',t===tab);});}
 async function loadTargets(){const d=await getJson(`${API}/targets`);targets=d.targets||[];allTargets=d.all_targets||targets;config=d.config||{targets:{}};renderQuickSelect();renderList();if(!active&&targets[0])selectTarget(targets[0].key);if(CAN_EDIT)loadTables();}
 function cfgFor(k){return (config.targets||{})[k]||{};}
 function renderQuickSelect(){const sel=document.getElementById('quickTarget');if(!sel)return;sel.innerHTML='<option value="">Select...</option>'+targets.map(t=>`<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');if(active)sel.value=active;}
 function renderList(){const q=(document.getElementById('search')?.value||'').toLowerCase();const rows=targets.filter(t=>!q||JSON.stringify(t).toLowerCase().includes(q));document.getElementById('targetList').innerHTML=rows.length?rows.map(t=>`<button class="item ${t.key===active?'active':''}" onclick="selectTarget('${esc(t.key)}')"><b>${esc(t.label)}</b></button>`).join(''):'<div class="empty" style="padding:6px;color:#94a3b8">No WBC workbooks found.</div>';}
-async function selectTarget(k){active=k;renderQuickSelect();renderList();setText('title','Loading '+k+'...');try{payload=await getJson(`${API}/target/${encodeURIComponent(k)}`);renderAll();}catch(e){setText('subtitle',e.message||e);} }
-function renderAll(){const t=payload.target||{}, c=payload.counts||{}, builds=payload.current_builds||[], firstBuild=builds[0]||{}, reportDate=String(payload.axiom_updated_at||'').slice(0,10)||'—', bs=(payload.build_summary||{}).builds||[];setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(c.mtbf,2));setText('kMeta',firstBuild.meta_id||c.running_builds||'—');setText('kRunCnt2',c.running_builds||0);setText('kCrashes',fmt(c.crashes,0));setText('kDate',reportDate);setText('kOpenJiraMeta',c.open_jiras||0);setText('kOverallJira',c.open_jiras||0);setText('kOverallCrs',c.total_crs||0);setText('kTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('kRunCnt',c.running_builds||0);setText('nOverview',fmt(c.mtbf,2));setText('nBuilds',c.running_builds||0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(c.crashes,0));setText('nOpenCrs',((payload.previews||{}).open_crs||{}).count||c.total_crs||0);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source',payload.axiom_updated_at?('Last refresh: '+String(payload.axiom_updated_at).slice(0,19)):'');renderOverviewSummary();renderBuilds();renderRunningBuildReport();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
+async function selectTarget(k){active=k;renderQuickSelect();renderList();setText('title','Loading '+k+'...');try{payload=await getJson(`${API}/target/${encodeURIComponent(k)}`);renderAll();wbcSjqlLoad();}catch(e){setText('subtitle',e.message||e);}}
+function renderAll(){const t=payload.target||{}, c=payload.counts||{}, builds=payload.current_builds||[], firstBuild=builds[0]||{}, reportDate=String(payload.axiom_updated_at||'').slice(0,10)||'—', bs=(payload.build_summary||{}).builds||[];setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(c.mtbf,2));setText('kMeta',firstBuild.meta_id||c.running_builds||'—');setText('kRunCnt2',c.running_builds||0);setText('kCrashes',fmt(c.crashes,0));setText('kDate',reportDate);setText('kOpenJiraMeta',c.open_jiras||0);setText('kOverallJira',c.open_jiras||0);setText('kOverallCrs',c.total_crs||0);setText('kTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('kRunCnt',c.running_builds||0);setText('nOverview',fmt(c.mtbf,2));setText('nBuilds',c.running_builds||0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(c.crashes,0));setText('nOpenCrs',((payload.previews||{}).open_crs||{}).count||c.total_crs||0);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source',payload.axiom_updated_at?('Last refresh: '+String(payload.axiom_updated_at).slice(0,19)):'');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
 const BUILD_COLORS=['#2563eb','#16a34a','#f97316','#7c3aed','#0891b2','#be123c','#ca8a04','#0f766e','#4f46e5','#db2777'];
-function renderBuilds(){const rows=payload.current_builds||[];const box=document.getElementById('builds');if(!box)return;box.innerHTML=rows.length?rows.map((r,i)=>{const color=BUILD_COLORS[i%BUILD_COLORS.length];return `<div class="build" style="cursor:pointer;border:2px solid ${color};border-left:7px solid ${color};box-shadow:0 8px 18px rgba(15,23,42,.08)" onclick="showRunningBuildReport(${i})"><b style="color:${color}">${esc(r.build_id)}</b><div class="muted">${esc(r.meta_id)} • jobs ${esc(r.job_count)} • devices ${esc(r.device_count)}</div><div class="muted">${esc(r.software_product||'')} ${esc(r.product_flavor||'')}</div><div class="muted" style="margin-top:6px;color:${color}"><i class="fas fa-chevron-down"></i> Click to view this build report</div></div>`;}).join(''):'<div class="empty">No current running builds found for this WBC target/table mapping.</div>';}
+function renderBuilds(){} // removed - builds grid replaced by saved JQL cards
 function _normBuildClient(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
 function _buildTokensClient(v){const s=String(v||'').toUpperCase(), n=_normBuildClient(s), out=new Set(n?[n]:[]);(s.match(/\b\d{3,6}\b/g)||[]).forEach(x=>out.add(String(Number(x))));(s.match(/(ROOT[A-Z0-9_.-]+|NON[A-Z0-9_.-]+|TAURIN[A-Z0-9_.-]+|CPFWK[A-Z0-9_.-]+)/g)||[]).forEach(x=>out.add(_normBuildClient(x)));return out;}
 function _buildsMatchClient(a,b){const ak=_normBuildClient(a),bk=_normBuildClient(b);if(!ak||!bk)return false;if(ak===bk||ak.includes(bk)||bk.includes(ak))return true;const at=_buildTokensClient(a),bt=_buildTokensClient(b);let strong=0,total=0;at.forEach(t=>{if(bt.has(t)){total++;if(!/^\d{1,6}$/.test(t))strong++;}});return strong>0||total>=2;}
@@ -217,7 +245,7 @@ function renderFetchedRunningBuildReport(i,rr){const current=(payload.current_bu
 async function loadRunningBuildReport(i,force){const current=(payload.current_builds||[])[i]||{}, bid=String(current.build_id||'');const box=document.getElementById('runningReportBox'), buildTabBox=document.getElementById('buildSummaryBox');if(!active||!bid)return;const loadingHtml=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>${force?'Force running':'Loading'} report for<br><b>${esc(bid)}</b><br><small>Cached reports are reused for 30 minutes.</small></div>`;if(box)box.innerHTML=loadingHtml;if(buildTabBox)buildTabBox.innerHTML=loadingHtml;setText('buildSummaryCount','Loading '+bid+'...');setText('runningReportStatus',force?'Force running report...':'Loading report...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/running_build_report`,{force:!!force,build_id:bid});payload.running_build_report=d.running_build_report||payload.running_build_report||{};payload.build_summary=payload.running_build_report;renderFetchedRunningBuildReport(i,payload.running_build_report);}catch(e){const errHtml=`<div class="empty">Report failed: ${esc(e.message||e)}</div>`;if(box)box.innerHTML=errHtml;if(buildTabBox)buildTabBox.innerHTML=errHtml;setText('buildSummaryCount','Error');}}
 async function forceRunBuildReport(i){return loadRunningBuildReport(i,true);}
 async function showRunningBuildReport(i){return loadRunningBuildReport(i,false);}
-function renderRunningBuildReport(){const rr=(payload&&payload.running_build_report)||{}, box=document.getElementById('runningReportBox');if(!box)return;setText('runningReportStatus',_reportRefreshLabel(rr));if(!(payload.current_builds||[]).length){box.innerHTML='<div class="empty">No running builds, so no running-build report is needed.</div>';return;}box.innerHTML='<div class="empty">Click any running build above to generate/view that build\'s JQL-based CR/JIRA report. Cached for 30 minutes unless Force Run is clicked.</div>';}
+function renderRunningBuildReport(){} // removed - replaced by saved JQL cards
 function renderChart(){const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty');setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));empty.style.display=rows.length?'none':'block';if(!rows.length)empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';if(chart){chart.destroy();chart=null;}if(!rows.length)return;const canvas=document.getElementById('chart');canvas.style.width=Math.max(1000,rows.length*86)+'px';canvas.width=Math.max(1000,rows.length*86);chart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{label:'Hours+',data:rows.map(r=>num(r.hours)),backgroundColor:'#a78bfa',yAxisID:'y'},{label:'crash',data:rows.map(r=>num(r.crash||r.total_crashes)),type:'line',borderColor:'#ef4444',backgroundColor:'#ef4444',pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'},{label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#16a34a',backgroundColor:'#16a34a',pointRadius:5,pointHoverRadius:8,pointStyle:'rectRounded',tension:.25,yAxisID:'y1'}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{mode:'index',intersect:false}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}},x:{ticks:{autoSkip:false,maxRotation:55,minRotation:35}}}}});}
 async function copyChart(){try{const canvas=document.getElementById('chart');const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(e){alert('Copy failed.');}}
 function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, builds=(payload&&payload.current_builds)||[], firstBuild=builds[0]||{}, reportDate=String((payload&&payload.axiom_updated_at)||'').slice(0,10)||'—';setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(c.mtbf,2));setText('ovKMeta',firstBuild.meta_id||c.running_builds||'—');setText('ovKCrashes',fmt(c.crashes,0));setText('ovKRunCnt',c.running_builds||0);setText('ovKDate',reportDate);setText('ovKOpenJira',c.open_jiras||0);setText('ovKOpenCr',((payload.previews||{}).open_crs||{}).count||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
@@ -246,7 +274,7 @@ function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};re
 function renderPreviews(){}
 function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras);document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
-function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Image','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(), out=[];pref.forEach(c=>{if((rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
+const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
 function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows);body.innerHTML=rows.length?`<div class="tblwrap" style="max-height:420px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">No detail rows for this build.</div>';}
 function filterWbcBuildReport(){const q=(document.getElementById('wbcBwrSearch')?.value||'').toLowerCase();document.querySelectorAll('.wbc-bwr-item').forEach(el=>{el.style.display=(!q||String(el.getAttribute('data-text')||'').toLowerCase().includes(q))?'':'none';});}
 function renderBuildSummary(bs){bs=bs||{};const builds=bs.builds||[];_wbcBuildReportRows=bs.rows_by_build||{};setText('buildSummaryCount',(bs.error?('Error: '+bs.error):builds.length+' build(s)'));const box=document.getElementById('buildSummaryBox');if(!box)return;if(!builds.length){box.innerHTML='<div class="empty">Select a current running build from Current Running Builds to load its build report.</div>';return;}box.innerHTML=`<div id="wbcBwrPanel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div><div style="font-size:15px;font-weight:900;color:#0f172a"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div><div class="muted">Same current-running-build report flow as HGY/HQX. Click a build to see full rows.</div></div><button class="btn" onclick="renderBuildSummary(payload.running_build_report||payload.build_summary||{})"><i class="fas fa-rotate"></i> Refresh View</button></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px"><span class="tag">Current Running Builds</span><div style="position:relative;display:flex;align-items:center"><i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none"></i><input id="wbcBwrSearch" class="input" placeholder="Search build e.g. 638..." oninput="filterWbcBuildReport()" style="padding-left:28px;width:240px;font-size:11px"></div><span style="flex:1"></span><span class="muted">${builds.length} build(s)</span></div><div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">${builds.map((b,i)=>{const bid=String(b.build_id||'Unknown Build'), rows=_wbcBuildReportRows[bid]||[], txt=[bid,b.meta_id,b.area,b.cr_count,b.jira_count,b.row_count,b.jql].join(' ');return `<div class="wbc-bwr-item" data-text="${esc(txt)}" style="border-bottom:1px solid #eef2f7;background:#fff"><button type="button" onclick="toggleWbcBuildReport(${i})" style="width:100%;border:0;background:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer"><i id="wbcBwrChev_${i}" class="fas fa-chevron-right wbc-bwr-chev" style="font-size:10px;color:#64748b;transition:.15s"></i><b style="flex:1;color:#0f172a;word-break:break-all">${esc(bid)}</b><span class="tag">${esc(b.row_count||rows.length||0)} rows</span><span class="tag orange">${esc(b.cr_count||0)} CRs</span><span class="tag">${esc(b.jira_count||0)} JIRAs</span></button><div id="wbcBwrBody_${i}" class="wbc-bwr-body" data-build="${esc(bid)}" style="display:none;background:#f8fafc;border-top:1px solid #eef2f7"></div></div>`;}).join('')}</div></div>`;}
@@ -262,7 +290,267 @@ function openVisibilityModal(){if(!CAN_EDIT)return;const hidden=new Set((config.
 function closeVisibilityModal(){document.getElementById('visibilityModal')?.classList.remove('open');}
 async function saveVisibility(){const hidden=[];document.querySelectorAll('#visibilityList .vis-check').forEach(cb=>{if(!cb.checked)hidden.push(cb.getAttribute('data-key'));});setText('visibilityMsg','Saving visibility...');try{const d=await postJson(`${API}/config`,{targets:config.targets||{},hidden_targets:hidden});config=d.config||config;closeVisibilityModal();const old=active;active='';payload=null;await loadTargets();if(old&&targets.some(t=>t.key===old))await selectTarget(old);}catch(e){setText('visibilityMsg','Save failed: '+(e.message||e));}}
 async function syncActive(){if(!active)return;setText('subtitle','Syncing Excel...');const d=await postJson(`${API}/sync`,{target:active});await loadTargets();await selectTarget(active);alert(`Synced ${d.synced.length} target(s). Errors: ${d.errors.length}`);}
+// ── KPI card navigation ──────────────────────────────────────────────────
+function navToTab(tab, anchorId){
+  // Switch to the target tab via side nav
+  const sideMap={overview:0,current:1,mtbf:2,opencrs:3,openjiras:4,builds:5,allcrs:6,jiras:7};
+  const sideBtn=document.querySelectorAll('.nav button')[sideMap[tab]];
+  sideNav(tab, sideBtn||null);
+
+  // Scroll to anchor element after a short delay (tab paint)
+  if(anchorId){
+    setTimeout(()=>{
+      const el=document.getElementById(anchorId);
+      if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+      // Highlight: flash the element
+      if(el){
+        el.style.transition='background .2s';
+        el.style.background='#fef9c3';
+        setTimeout(()=>{ el.style.background=''; },1800);
+      }
+      // For MTBF table: also highlight the last row
+      if(anchorId==='mtbfTableBody'){
+        setTimeout(()=>{
+          const tbody=document.getElementById('mtbfTableBody');
+          if(!tbody) return;
+          const rows=tbody.querySelectorAll('tr');
+          const last=rows[rows.length-1];
+          if(last){
+            last.style.transition='background .2s';
+            last.style.background='#fef08a';
+            last.style.outline='2px solid #f59e0b';
+            last.style.borderRadius='6px';
+            setTimeout(()=>{ last.style.background=''; last.style.outline=''; },2500);
+            last.scrollIntoView({behavior:'smooth',block:'center'});
+          }
+        },350);
+      }
+    },120);
+  }
+}
+
+// ── WBC Saved JQL Tabs ────────────────────────────────────────────────────
+// ── WBC Saved JQL Cards ───────────────────────────────────────────────────
+let _wbcSjqlTabs = [], _wbcSjqlTimers = {}, _wbcSjqlTTL = 30*60*1000;
+let _wbcActiveTabId = null;
+
+async function wbcSjqlLoad(){
+  if(!active) return;
+  const box = document.getElementById('wbcSjqlCardsBox');
+  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
+  try {
+    const d = await getJson(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs?domain=WBC`);
+    _wbcSjqlTabs = d.tabs || [];
+  } catch(e) { _wbcSjqlTabs = []; }
+  wbcSjqlRenderCards();
+}
+
+function wbcSjqlRenderCards(){
+  const box = document.getElementById('wbcSjqlCardsBox');
+  if(!box) return;
+  if(!_wbcSjqlTabs.length){
+    box.innerHTML = '<div class="empty" style="padding:32px"><i class="fas fa-inbox"></i> No saved JQL tabs yet. Click <b>Add JQL Tab</b> to create a named reusable JQL report card.</div>';
+    return;
+  }
+  box.innerHTML = _wbcSjqlTabs.map(t => {
+    const timer    = _wbcSjqlTimers[t.id] || {};
+    const lastRun  = timer.lastRun || null;
+    const nextRun  = timer.nextRun || null;
+    const running  = !!timer.running;
+    const lastHtml = lastRun
+      ? `<span style="color:#64748b">Last run: <b>${esc(String(lastRun).slice(0,19).replace('T',' '))}</b></span>`
+      : '<span style="color:#94a3b8">Never run</span>';
+    const nextHtml = nextRun
+      ? ` &middot; <span style="color:#059669">Next: <b>${esc(String(nextRun).slice(0,19).replace('T',' '))}</b></span>`
+      : '';
+    const safeId   = JSON.stringify(t.id);
+    const safeName = JSON.stringify(t.name||'');
+    const safeJql  = JSON.stringify(t.jql||'');
+    return `<div id="wbccard_${t.id}" style="border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 4px 14px rgba(99,102,241,.08)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:950;color:#1e3a8a">${esc(t.name)}</span>
+            <span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe"><i class="fas fa-bookmark" style="margin-right:3px"></i>WBC</span>
+          </div>
+          <div style="font-size:10px;color:#64748b;margin-top:5px;font-family:Consolas,monospace;word-break:break-all;line-height:1.5">${esc((t.jql||'').slice(0,140))}${t.jql&&t.jql.length>140?'&hellip;':''}</div>
+          <div id="wbctiming_${t.id}" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">${lastHtml}${nextHtml}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start">
+          <button id="wbcrun_${t.id}" onclick="wbcSjqlRunCard(${safeId})" title="Run this JQL now"
+            style="padding:5px 12px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px">
+            ${running ? '<i class="fas fa-circle-notch fa-spin"></i> Running...' : '<i class="fas fa-play"></i> Run'}
+          </button>
+          <button onclick="wbcOpenSjqlModal(${safeId},${safeName},${safeJql})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button>
+          <button onclick="wbcSjqlDelete(${safeId})" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function wbcSjqlRunCard(id){
+  const tab = _wbcSjqlTabs.find(t => t.id === id); if(!tab) return;
+  if(!_wbcSjqlTimers[id]) _wbcSjqlTimers[id] = {};
+  _wbcSjqlTimers[id].running = true;
+  const runBtn = document.getElementById('wbcrun_'+id);
+  if(runBtn) runBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Running...';
+  _wbcActiveTabId = id;
+  const panel = document.getElementById('wbcInlineReport');
+  const body  = document.getElementById('wbcInlineReportBody');
+  const title = document.getElementById('wbcInlineReportTitle');
+  const meta  = document.getElementById('wbcInlineReportMeta');
+  if(panel) panel.style.display = 'block';
+  if(title) title.innerHTML = `<i class="fas fa-bookmark" style="margin-right:6px"></i>${esc(tab.name)}`;
+  if(meta)  meta.textContent = 'Running...';
+  if(body)  body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running JQL report...</span></div>';
+  if(panel) setTimeout(() => panel.scrollIntoView({behavior:'smooth',block:'start'}), 80);
+  fetch(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}/report?domain=WBC&force=1`, {cache:'no-store'})
+    .then(r => r.json())
+    .then(d => {
+      const now    = new Date();
+      const genAt  = d.generated_at || now.toISOString();
+      const nextAt = new Date(now.getTime() + _wbcSjqlTTL).toISOString();
+      _wbcSjqlTimers[id].running = false;
+      _wbcSjqlTimers[id].lastRun = genAt;
+      _wbcSjqlTimers[id].nextRun = nextAt;
+      const timingEl = document.getElementById('wbctiming_'+id);
+      if(timingEl) timingEl.innerHTML =
+        `<span style="color:#64748b">Last run: <b>${esc(genAt.slice(0,19).replace('T',' '))}</b></span>`
+        +` &middot; <span style="color:#059669">Next: <b>${esc(nextAt.slice(0,19).replace('T',' '))}</b></span>`;
+      const rb = document.getElementById('wbcrun_'+id);
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
+      if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+      if(body) _wbcRenderReport(body, d, tab);
+      clearTimeout(_wbcSjqlTimers[id]._timer);
+      _wbcSjqlTimers[id]._timer = setTimeout(() => wbcSjqlRunCard(id), _wbcSjqlTTL);
+    })
+    .catch(e => {
+      _wbcSjqlTimers[id].running = false;
+      const rb = document.getElementById('wbcrun_'+id);
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
+      if(body) body.innerHTML = `<div class="empty" style="color:#ef4444">Failed: ${esc(String(e))}</div>`;
+    });
+}
+
+function _wbcRenderReport(el, d, tab){
+  const jql  = (tab&&tab.jql)||d.jql||'';
+  const rows = d.rows||d.flat_rows||[];
+  const fromCache = !!d.from_cache;
+  const genAt = d.generated_at||'';
+  const runErr = d.run_error
+    ? `<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;margin-bottom:12px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><b>Error:</b> ${esc(d.run_error)}</div>`
+    : '';
+  const jqlBox = jql
+    ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 13px;font-family:Consolas,monospace;font-size:11px;color:#334155;margin-bottom:14px;word-break:break-all;line-height:1.6">${esc(jql)}</div>`
+    : '';
+  const countHdr =
+    `<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">`
+    +`<div style="border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 22px;min-width:110px">`
+    +`<div style="font-size:42px;font-weight:1000;color:#1d4ed8;line-height:1">${rows.length}</div>`
+    +`<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#3730a3;margin-top:4px">ROWS</div>`
+    +`</div>`
+    +(fromCache?'<span style="font-size:11px;color:#64748b;font-weight:700"><i class="fas fa-clock" style="margin-right:4px"></i>Cached</span>':'')
+    +`</div>`;
+  if(!rows.length){
+    el.innerHTML = runErr + jqlBox + countHdr + '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No rows returned for this JQL.</div>';
+    return;
+  }
+  const cols = _wbcCols(rows);
+  const uid  = 'wbcr_'+Math.random().toString(36).slice(2,6);
+  const searchBar =
+    `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">`
+    +`<input id="${uid}_s" style="height:32px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 12px;font-size:12px;font-family:inherit;outline:none;min-width:260px;flex:1" placeholder="Search..." oninput="_wbcFilterTbl('${uid}_tb',this.value)">`
+    +`<span style="font-size:11px;color:#64748b;font-weight:700">${rows.length} row${rows.length===1?'':'s'}</span>`
+    +`</div>`;
+  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody id="${uid}_tb">${rows.map((r,i)=>`<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal;font-size:12px">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  el.innerHTML = runErr + jqlBox + countHdr + searchBar
+    + `<div style="overflow:auto;border:1px solid #c7d2fe;border-radius:14px;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12px">${thead}${tbody}</table></div>`;
+}
+
+function _wbcFilterTbl(tbodyId, q){
+  const tb = document.getElementById(tbodyId); if(!tb) return;
+  const qq = String(q||'').toLowerCase();
+  tb.querySelectorAll('tr').forEach(tr => { tr.style.display = !qq||tr.textContent.toLowerCase().includes(qq)?'':'none'; });
+}
+
+function wbcSjqlRunNow(){ if(_wbcActiveTabId) wbcSjqlRunCard(_wbcActiveTabId); }
+function wbcCloseInlineReport(){
+  const p = document.getElementById('wbcInlineReport'); if(p) p.style.display='none';
+  _wbcActiveTabId = null;
+}
+
+function wbcOpenSjqlModal(id, name, jql){
+  document.getElementById('wbcSjqlEditId').value = id || '';
+  document.getElementById('wbcSjqlInpName').value = name || '';
+  document.getElementById('wbcSjqlInpJql').value = jql || '';
+  document.getElementById('wbcSjqlModalTitle').textContent = id ? 'Edit JQL Tab' : 'Add JQL Tab';
+  document.getElementById('wbcSjqlMsg').textContent = '';
+  document.getElementById('wbcSjqlModal').style.display = 'flex';
+}
+function wbcCloseSjqlModal(){ document.getElementById('wbcSjqlModal').style.display='none'; }
+
+async function wbcSjqlSave(){
+  const id   = document.getElementById('wbcSjqlEditId').value;
+  const name = (document.getElementById('wbcSjqlInpName').value||'').trim();
+  const jql  = (document.getElementById('wbcSjqlInpJql').value||'').trim();
+  const msg  = document.getElementById('wbcSjqlMsg');
+  if(!name||!jql){ if(msg) msg.textContent='Name and JQL are required.'; return; }
+  try {
+    const body = {target: active, domain: 'WBC', name, jql};
+    if(id) body.id = id;
+    const d = await postJson(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs`, body);
+    if(!d.ok) throw new Error(d.error||'Save failed');
+    wbcCloseSjqlModal();
+    await wbcSjqlLoad();
+  } catch(e) { if(msg) msg.textContent = 'Error: '+(e.message||e); }
+}
+
+async function wbcSjqlDelete(id){
+  if(!confirm('Delete this JQL tab?')) return;
+  try {
+    const r = await fetch(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}?domain=WBC`, {method:'DELETE'});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'Delete failed');
+    await wbcSjqlLoad();
+  } catch(e) { alert('Delete failed: '+(e.message||e)); }
+}
+function downloadPpt(){
+  if(!active){alert('Please select a target first.');return;}
+  const btn=document.getElementById('pptBtn');
+  if(btn){btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Generating...';btn.disabled=true;}
+  const url=`${API}/target/${encodeURIComponent(active)}/export_ppt`;
+  const a=document.createElement('a');a.href=url;a.download='';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>{if(btn){btn.innerHTML='<i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT';btn.disabled=false;}},3000);
+}
 loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';});
 </script>
+
+{% if can_edit %}
+<!-- WBC Saved JQL Tab Modal -->
+<div id="wbcSjqlModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+      <span style="font-size:15px;font-weight:950" id="wbcSjqlModalTitle">Add JQL Tab</span>
+      <button onclick="wbcCloseSjqlModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <input type="hidden" id="wbcSjqlEditId">
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Tab Name</label><input id="wbcSjqlInpName" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. Kobuk Open JIRAs"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">JQL Query</label><textarea id="wbcSjqlInpJql" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND summary ~ &quot;Kobuk&quot; AND ..."></textarea></div>
+      <div id="wbcSjqlMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="wbcCloseSjqlModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
+        <button onclick="wbcSjqlSave()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 </body>
 </html>
+
+
+
+

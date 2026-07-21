@@ -566,7 +566,7 @@ def api_public_auto_gen45_delete_build(sp: str):
 def api_public_auto_gen45_search():
     if request.method == "OPTIONS":
         return "", 204
-        return jsonify({"ok": False, "message": "Search endpoint removed."}), 410
+    return jsonify({"ok": False, "message": "Search endpoint removed."}), 410
 
 
 # =============================================================================
