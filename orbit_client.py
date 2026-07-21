@@ -46,10 +46,99 @@ ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYT
 # Auth: Windows SSPI Kerberos with indus@AP.QUALCOMM.COM from orbitauth.txt
 # NOTE: 'orbit' resolves to 127.0.0.1 (localhost) on this machine - DO NOT USE
 # NOTE: 'orbit-sd' (10.80.82.12) port 443 is refused - DO NOT USE
-ORBIT_SERVER        = "orbit-hyd.qualcomm.com"   # was "orbit" - resolves to 10.147.136.30
-ORBIT_QUERY_SERVER  = "orbit-hyd.qualcomm.com"   # was "orbit-sd" - use same HYD endpoint for query/run
+#
+# Per-user endpoint is stored in Flask session['orbit_endpoint'] at login:
+#   QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com  (default)
+#   SD   group (pdt.sd)          -> orbit-sd.qualcomm.com
+#
+# These are the FALLBACK defaults used when no session is available
+# (e.g. background tasks, CLI, non-request context)
+ORBIT_SERVER_QIPL   = "orbit-hyd.qualcomm.com"   # QIPL / default
+ORBIT_SERVER_SD     = "orbit-sd.qualcomm.com"     # SD group
+ORBIT_SERVER        = ORBIT_SERVER_QIPL           # default fallback
+ORBIT_QUERY_SERVER  = ORBIT_SERVER_QIPL           # default fallback
 ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
-ORBIT_QUERY_API_BASE = "https://" + ORBIT_QUERY_SERVER + "/api"
+ORBIT_QUERY_API_BASE = "https://" + ORBIT_SERVER + "/api"
+
+
+def _get_orbit_server() -> str:
+    """
+    Return the correct Orbit server for the current user by checking their
+    LDAP group membership directly - no session involved.
+
+      SD group   (pdt.sd)          -> orbit-sd.qualcomm.com
+      QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com  (default)
+      No request context            -> orbit-hyd.qualcomm.com  (default)
+    """
+    try:
+        from flask import has_request_context
+        from flask_login import current_user
+        if has_request_context() and current_user and current_user.is_authenticated:
+            username = str(getattr(current_user, 'id', '') or '').strip().lower()
+            if username:
+                from config import SD_TARGET_GROUP, TARGET_GROUP, ORBIT_ENDPOINT_SD, ORBIT_ENDPOINT_QIPL
+                from app import is_user_in_group
+                try:
+                    is_sd   = is_user_in_group(username, SD_TARGET_GROUP)
+                    is_qipl = is_user_in_group(username, TARGET_GROUP)
+                    if is_sd and not is_qipl:
+                        return ORBIT_ENDPOINT_SD
+                    else:
+                        return ORBIT_ENDPOINT_QIPL
+                except Exception as e:
+                    logger.debug(f"[orbit_client] group lookup failed for {username}: {e}")
+    except Exception:
+        pass
+    return ORBIT_SERVER_QIPL
+
+
+def _get_orbit_api_base() -> str:
+    return "https://" + _get_orbit_server() + "/api/changerequest"
+
+
+def _get_orbit_query_api_base() -> str:
+    return "https://" + _get_orbit_server() + "/api"
+
+
+def _orbit_post_with_auth(url: str, payload: dict, timeout) -> requests.Response:
+    """
+    POST to an Orbit API endpoint with Kerberos auth, handling server-side
+    redirects correctly.
+
+    orbit-hyd.qualcomm.com redirects: orbit-hyd -> orbit -> orbit-sd
+    requests follows redirects automatically but the Kerberos token is
+    host-specific (SPN = HTTP/<host>) so it becomes invalid after a redirect.
+
+    Strategy:
+      1. Probe with HEAD (no body, no auth) to follow redirects and find final URL.
+      2. Build a fresh Kerberos token for the final host.
+      3. POST directly to the final URL - no further redirects.
+    """
+    import urllib.parse
+
+    # Step 1: follow redirects to find the real endpoint (no auth needed)
+    final_url = url
+    try:
+        probe = requests.head(url, verify=False, allow_redirects=True,
+                              timeout=(5, 10))
+        final_url = probe.url  # requests sets .url to the final URL after redirects
+        if final_url != url:
+            logger.debug(f"[orbit_client] redirect {url} -> {final_url}")
+    except Exception as e:
+        logger.debug(f"[orbit_client] redirect probe failed ({e}), using original URL")
+        final_url = url
+
+    # Step 2: extract hostname from final URL for Kerberos SPN
+    final_host = urllib.parse.urlparse(final_url).hostname or _get_orbit_server()
+
+    # Step 3: build token for the final host and POST directly
+    headers = _make_orbit_headers(final_host)
+    headers['Accept']       = 'application/json'
+    headers['Content-Type'] = 'application/json'
+    resp = requests.post(final_url, headers=headers, json=payload,
+                         timeout=timeout, verify=False,
+                         allow_redirects=False)  # no more redirects
+    return resp
 ORBIT_DIRECT_TIMEOUT = (5, 30)    # connect, read seconds for per-CR REST calls
 ORBIT_QUERY_TIMEOUT  = (10, 120)  # connect, read seconds for query/run bulk calls (large batches need more time)
 
@@ -164,7 +253,7 @@ def _make_orbit_headers(server: str = None) -> dict:
     secur32.AcquireCredentialsHandleW.restype  = ctypes.c_long
     secur32.InitializeSecurityContextW.restype = ctypes.c_long
 
-    server = server or ORBIT_SERVER
+    server = server or _get_orbit_server()
     spn      = f"HTTP/{socket.getfqdn(server)}"
 
     cred     = _SecHandle()
@@ -232,16 +321,8 @@ def _orbit_query_run(cr_numbers: list, fields: list, page_size: int = 5000) -> l
         "Page": 1,
         "PageSize": page_size,
     }
-    headers = _make_orbit_headers(ORBIT_QUERY_SERVER)
-    headers['Accept'] = 'application/json'
-    headers['Content-Type'] = 'application/json'
-    resp = requests.post(
-        f"{ORBIT_QUERY_API_BASE}/query/run",
-        headers=headers,
-        json=payload,
-        timeout=ORBIT_QUERY_TIMEOUT,
-        verify=False,
-    )
+    url  = f"{_get_orbit_query_api_base()}/query/run"
+    resp = _orbit_post_with_auth(url, payload, ORBIT_QUERY_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     if isinstance(data, dict) and 'IsSuccess' in data:
@@ -382,8 +463,8 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         logger.warning(f"[orbit_direct] Kerberos auth failed: {e}")
         return {"found": False, "error": str(e)}
 
-    cr_url   = f"{ORBIT_API_BASE}/{cr_number}/"
-    sirs_url = f"{ORBIT_API_BASE}/{cr_number}/integrations"
+        cr_url   = f"{_get_orbit_api_base()}/{cr_number}/"
+    sirs_url = f"{_get_orbit_api_base()}/{cr_number}/integrations"
 
     try:
                 # Fetch CR details - each call needs a fresh Kerberos token
@@ -700,7 +781,7 @@ def fetch_cr_software_images(cr_number) -> list:
     try:
         headers = _make_orbit_headers()
         headers['Accept'] = 'application/json'
-        url = f"{ORBIT_API_BASE}/{cr}/integrations"
+        url = f"{_get_orbit_api_base()}/{cr}/integrations"
         resp = requests.get(url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
 
         if resp.status_code != 200:
@@ -866,7 +947,7 @@ def get_cr_tags(cr_number: str) -> list:
         # - Try dedicated /tags endpoint first -
         headers = _make_orbit_headers()
         headers['Accept'] = 'application/json'
-        url = f"{ORBIT_API_BASE}/{cr}/tags"
+        url = f"{_get_orbit_api_base()}/{cr}/tags"
         resp = requests.get(url, headers=headers, timeout=15, verify=False)
         if resp.status_code == 200:
             data = resp.json()
@@ -882,7 +963,7 @@ def get_cr_tags(cr_number: str) -> list:
         logger.info(f"[orbit_client] get_cr_tags({cr}): /tags empty/failed (HTTP {resp.status_code}), trying main CR object")
         headers2 = _make_orbit_headers()
         headers2['Accept'] = 'application/json'
-        cr_resp = requests.get(f"{ORBIT_API_BASE}/{cr}/", headers=headers2, timeout=15, verify=False)
+        cr_resp = requests.get(f"{_get_orbit_api_base()}/{cr}/", headers=headers2, timeout=15, verify=False)
         if cr_resp.status_code == 200:
             cr_data = cr_resp.json()
             # Handle both direct response and IsSuccess wrapper
@@ -927,7 +1008,7 @@ def add_cr_tags(cr_number: str, tags: list) -> dict:
         headers = _make_orbit_headers()
         headers['Accept']       = 'application/json'
         headers['Content-Type'] = 'application/json'
-        url = f"{ORBIT_API_BASE}/{cr}/tags"
+        url = f"{_get_orbit_api_base()}/{cr}/tags"
         resp = requests.post(url, headers=headers, json=to_add, timeout=15, verify=False)
         if resp.status_code in (200, 201, 204):
             tags_after = get_cr_tags(cr)
@@ -960,7 +1041,7 @@ def remove_cr_tags(cr_number: str, tags: list) -> dict:
         headers = _make_orbit_headers()
         headers['Accept']       = 'application/json'
         headers['Content-Type'] = 'application/json'
-        url  = f"{ORBIT_API_BASE}/{cr}/tags"
+        url  = f"{_get_orbit_api_base()}/{cr}/tags"
         resp = requests.delete(url, headers=headers, json=to_remove, timeout=15, verify=False)
         if resp.status_code in (200, 204):
             tags_after = get_cr_tags(cr)
@@ -993,7 +1074,7 @@ def remove_cr_tags(cr_number: str, tags: list) -> dict:
         headers = _make_orbit_headers()
         headers['Accept']       = 'application/json'
         headers['Content-Type'] = 'application/json'
-        url  = f"{ORBIT_API_BASE}/{cr}/tags"
+        url  = f"{_get_orbit_api_base()}/{cr}/tags"
         resp = requests.delete(url, headers=headers, json=to_remove, timeout=15, verify=False)
         if resp.status_code in (200, 204):
             tags_after = get_cr_tags(cr)
@@ -1068,11 +1149,8 @@ def bulk_query_cr_software_images(cr_numbers: list, batch_size: int = 100, progr
             "Page": 1,
             "PageSize": 5000,
         }
-        headers = _make_orbit_headers(ORBIT_QUERY_SERVER)
-        headers['Accept'] = 'application/json'
-        headers['Content-Type'] = 'application/json'
-        url = f"{ORBIT_QUERY_API_BASE}/query/run"
-        resp = requests.post(url, headers=headers, json=payload, timeout=ORBIT_QUERY_TIMEOUT, verify=False)
+        url  = f"{_get_orbit_query_api_base()}/query/run"
+        resp = _orbit_post_with_auth(url, payload, ORBIT_QUERY_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and 'IsSuccess' in data:
@@ -1137,11 +1215,8 @@ def bulk_query_cr_tags(cr_numbers: list, batch_size: int = 100, progress_callbac
             "Page": 1,
             "PageSize": 1000,
         }
-        headers = _make_orbit_headers(ORBIT_QUERY_SERVER)
-        headers['Accept'] = 'application/json'
-        headers['Content-Type'] = 'application/json'
-        url = f"{ORBIT_QUERY_API_BASE}/query/run"
-        resp = requests.post(url, headers=headers, json=payload, timeout=ORBIT_QUERY_TIMEOUT, verify=False)
+        url  = f"{_get_orbit_query_api_base()}/query/run"
+        resp = _orbit_post_with_auth(url, payload, ORBIT_QUERY_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and 'IsSuccess' in data:
