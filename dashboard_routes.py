@@ -6638,7 +6638,14 @@ def dashboard(target_name, section="dashboard"):
                 else:
                     cr_quick_summary = {"error": f"JIRA '{search_query}' not found for {target_name}."}
             elif search_query:
-                grouped_ctx = _fetch_grouped_cr_jira_context(cursor, target_name, search_query)
+                try:
+                    grouped_ctx = _fetch_grouped_cr_jira_context(cursor, target_name, search_query)
+                except Exception as _cr_lookup_err:
+                    logger.warning(f"[cr-info] lookup failed for CR '{search_query}' on {target_name}: {_cr_lookup_err}")
+                    grouped_ctx = None
+                    cr_quick_summary = {"error": f"CR '{search_query}' not found in {target_name}."}
+                if grouped_ctx is not None and not grouped_ctx:
+                    cr_quick_summary = {"error": f"CR '{search_query}' not found in {target_name}."}
                 if grouped_ctx:
                     cr_info  = grouped_ctx["primary_cr_info"]
                     cr_jiras = grouped_ctx["cr_jiras"]
