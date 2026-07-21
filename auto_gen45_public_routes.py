@@ -489,6 +489,52 @@ def api_public_auto_gen45_sp(sp: str):
         return jsonify({"ok": False, "rows": [], "row_count": 0}), 500
 
 
+@public_auto_gen45_bp.route("/public/auto-gen45/api/sp/create", methods=["POST", "OPTIONS"])
+@login_required
+def api_public_auto_gen45_create_sp():
+    """Create a new SP entry in the index with an empty rows file.
+
+    Body: { "sp": "12", "program": "SP 12 (lemans)" }  -- program is optional.
+    Editor-only (TARGET_GROUP/admins).
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sp_raw  = str(payload.get("sp") or "").strip()
+    program = str(payload.get("program") or "").strip() or sp_raw
+    if not sp_raw:
+        return jsonify({"ok": False, "error": "sp is required"}), 400
+
+    index = _read_index()
+    # Reject duplicates
+    if _find_sp_index_entry(index, sp_raw):
+        return jsonify({"ok": False, "error": f"SP '{sp_raw}' already exists"}), 409
+
+    digits = "".join(re.findall(r"\d+", sp_raw))
+    slug   = _sp_file_slug(program or sp_raw)
+    entry  = {
+        "sp"       : digits or sp_raw,
+        "program"  : program,
+        "domain"   : "",
+        "row_count": 0,
+        "file"     : f"{slug}.json",
+    }
+    # Write empty SP file
+    _atomic_write_json(_sp_file_path(program or sp_raw, slug), {
+        "sp"        : entry["sp"],
+        "program"   : program,
+        "domain"    : "",
+        "rows"      : [],
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    })
+    index.append(entry)
+    _atomic_write_json(_sp_index_path(), index)
+    return jsonify({"ok": True, "sp": entry["sp"], "program": program,
+                    "entry": entry, "available_sps": index})
+
+
 @public_auto_gen45_bp.route("/public/auto-gen45/api/sp/<string:sp>/add_build", methods=["POST", "OPTIONS"])
 @login_required
 def api_public_auto_gen45_add_build(sp: str):

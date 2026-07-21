@@ -2497,21 +2497,26 @@ async function saveAddSp(){
     openjiras_table: document.getElementById('addSpHgyOpen').value,
     unique_crs_table: document.getElementById('addSpHgyCrs').value
   };
-  // Merge into existing sheet_tables
-  var next = JSON.parse(JSON.stringify(config.sheet_tables||{}));
-  next[spName] = hqxRow;
-  next[spName+'_hgy'] = hgyRow;
-  if(msg) msg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving...';
+  if(msg) msg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creating SP...';
   try {
+    // Step 1: register SP in index so it appears in the sidebar
+    var created = await postJson(PUBLIC_API+'/sp/create', {sp: spName, program: 'SP '+spName});
+    if(!created.ok && created.error && !created.error.includes('already exists')){
+      if(msg) msg.innerHTML = '<span style="color:#dc2626">'+_irEsc(created.error)+'</span>'; return;
+    }
+    // Step 2: save DB table config
+    var next = JSON.parse(JSON.stringify(config.sheet_tables||{}));
+    next[spName] = hqxRow;
+    next[spName+'_hgy'] = hgyRow;
+    if(msg) msg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving config...';
     var d = await postJson(CFG_API+'/config', {sheet_tables: next});
     config = d.config || config;
     config.sheet_tables = config.sheet_tables || {};
     closeAddSpModal();
     renderSavedConfigList();
-    renderSpList();
-    if(msg) msg.textContent = '';
-    // Auto-select the new SP
-    activeSp = spName;
+    // Step 3: reload SP list from server so new SP appears in sidebar
+    await loadSps(true);
+    activeSp = created.sp || spName;
     renderSpList();
     hydrateConfigForm();
   } catch(e) {
