@@ -97,6 +97,39 @@ def _sp_index_path() -> str:
     return os.path.join(_by_sp_dir(), "_index.json")
 
 
+def _audit_log_path() -> str:
+    return os.path.join(_by_sp_dir(), "_audit_log.json")
+
+
+def _write_audit(action: str, sp: str, program: str, actor: str, extra: dict = None) -> None:
+    """Append one audit entry to _audit_log.json."""
+    try:
+        path = _audit_log_path()
+        log: list = []
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    log = json.load(fh)
+                if not isinstance(log, list):
+                    log = []
+            except Exception:
+                log = []
+        entry = {
+            "action"    : action,
+            "sp"        : sp,
+            "program"   : program,
+            "actor"     : actor,
+            "timestamp" : datetime.utcnow().isoformat() + "Z",
+        }
+        if extra:
+            entry.update(extra)
+        log.append(entry)
+        _atomic_write_json(path, log)
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"[auto_gen45] audit log write failed: {e}")
+
+
 def _sp_file_slug(program_key: str) -> str:
     digits = "".join(re.findall(r"\d+", program_key))
     domain_match = re.search(r"\(([^)]+)\)", program_key)
@@ -531,8 +564,56 @@ def api_public_auto_gen45_create_sp():
     })
     index.append(entry)
     _atomic_write_json(_sp_index_path(), index)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _write_audit("create", entry["sp"], program, actor)
     return jsonify({"ok": True, "sp": entry["sp"], "program": program,
                     "entry": entry, "available_sps": index})
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/sp/<string:sp>/remove", methods=["POST", "OPTIONS"])
+@login_required
+def api_public_auto_gen45_remove_sp(sp: str):
+    """Remove an SP from the index and archive its data file.
+
+    The SP JSON file is moved to by_sp/_removed/ (not deleted) so data
+    can be recovered if needed. The removal is recorded in _audit_log.json.
+    Editor-only (TARGET_GROUP/admins).
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+
+    index = _read_index()
+    entry = _find_sp_index_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP '{sp}' not found"}), 404
+
+    actor   = str(getattr(current_user, "id", "") or "").strip()
+    sp_val  = entry.get("sp", sp)
+    program = entry.get("program", sp_val)
+
+    # Archive the SP data file to _removed/ instead of deleting
+    sp_file = _sp_file_path(program, str(entry.get("file") or "").replace(".json", ""))
+    if os.path.exists(sp_file):
+        removed_dir = os.path.join(_by_sp_dir(), "_removed")
+        os.makedirs(removed_dir, exist_ok=True)
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        archive_name = f"{os.path.basename(sp_file).replace('.json', '')}_{ts}_by_{actor}.json"
+        import shutil
+        shutil.move(sp_file, os.path.join(removed_dir, archive_name))
+
+    # Remove from index
+    new_index = [e for e in index if e is not entry]
+    _atomic_write_json(_sp_index_path(), new_index)
+
+    # Write audit log
+    _write_audit("remove", sp_val, program, actor, {
+        "row_count": entry.get("row_count", 0),
+    })
+
+    return jsonify({"ok": True, "sp": sp_val, "program": program,
+                    "removed_by": actor, "available_sps": new_index})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/sp/<string:sp>/add_build", methods=["POST", "OPTIONS"])

@@ -1333,7 +1333,43 @@ function switchTab(tab){
   }
 async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
 function spCfg(sp){const st=config.sheet_tables||{}, key=String(sp||'').trim(), digits=key.replace(/\D+/g,'');const keys=[key,'SP '+key,'SP'+key,digits,'SP '+digits,'SP'+digits].filter(Boolean);for(const k of keys){if(st[k])return st[k];}return {};}
-function renderSpList(){const q=(document.getElementById('spSearch').value||'').toLowerCase();const rows=spList.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q));document.getElementById('spList').innerHTML=rows.length?rows.map(x=>{const cfg=spCfg(x.sp);const has=cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table;return `<button class="sp-item ${String(x.sp)===String(activeSp)?'active':''}" onclick="selectSp('${esc(x.sp)}')"><div class="sp-name">SP ${esc(x.sp)}</div><div class="sp-prog">${esc(x.program)}</div><div class="sp-meta"><span class="tag green">${esc(x.row_count||0)} rows</span>${has?'<span class="tag green"><i class="fas fa-database"></i> DB</span>':'<span class="tag orange">No DB config</span>'}</div></button>`}).join(''):'<div class="empty" style="color:#bfdbfe">No SPs found.</div>';}
+function renderSpList(){
+  const q=(document.getElementById('spSearch').value||'').toLowerCase();
+  const rows=spList.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q));
+  document.getElementById('spList').innerHTML=rows.length?rows.map(x=>{
+    const cfg=spCfg(x.sp);
+    const has=cfg.jiras_table||cfg.target_table||cfg.openjiras_table||cfg.unique_crs_table;
+    const removeBtn=CAN_EDIT?`<button class="sp-remove-btn" title="Remove SP" onclick="event.stopPropagation();confirmRemoveSp('${esc(x.sp)}','${esc(x.program||x.sp)}')" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#dc2626;border-radius:7px;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;padding:0" aria-label="Remove SP ${esc(x.sp)}"><i class="fas fa-minus"></i></button>`:'';
+    return `<button class="sp-item ${String(x.sp)===String(activeSp)?'active':''}" onclick="selectSp('${esc(x.sp)}')" style="position:relative"><div class="sp-name">SP ${esc(x.sp)}</div><div class="sp-prog">${esc(x.program)}</div><div class="sp-meta"><span class="tag green">${esc(x.row_count||0)} rows</span>${has?'<span class="tag green"><i class="fas fa-database"></i> DB</span>':'<span class="tag orange">No DB config</span>'}</div>${removeBtn}</button>`;
+  }).join(''):'<div class="empty" style="color:#bfdbfe">No SPs found.</div>';
+}
+function confirmRemoveSp(sp, program){
+  var m=document.getElementById('removeSpModal');
+  if(!m) return;
+  document.getElementById('removeSpName').textContent='SP '+sp+' — '+program;
+  document.getElementById('removeSpMsg').textContent='';
+  m.dataset.sp=sp;
+  m.style.display='flex';
+}
+function closeRemoveSpModal(){
+  var m=document.getElementById('removeSpModal'); if(m) m.style.display='none';
+}
+async function doRemoveSp(){
+  var m=document.getElementById('removeSpModal'); if(!m) return;
+  var sp=m.dataset.sp||'';
+  var msg=document.getElementById('removeSpMsg');
+  if(!sp) return;
+  if(msg) msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing...';
+  try{
+    var d=await postJson(PUBLIC_API+'/sp/'+encodeURIComponent(sp)+'/remove',{});
+    if(!d.ok){ if(msg) msg.innerHTML='<span style="color:#dc2626">'+_irEsc(d.error||'Remove failed')+'</span>'; return; }
+    closeRemoveSpModal();
+    if(String(activeSp)===String(sp)) activeSp='';
+    await loadSps(true);
+  }catch(e){
+    if(msg) msg.innerHTML='<span style="color:#dc2626">'+_irEsc(e.message||String(e))+'</span>';
+  }
+}
 async function selectSp(sp){activeSp=String(sp||'');resetLiveApiTabs();renderSpList();hydrateConfigForm();setText('heroTitle','SP '+activeSp);setText('heroSub','Loading '+activeSp+'...');['currentBox','gen45SjqlBox','snapshotBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';});try{
     // Always load HQX sheet data (used for MTBF chart, table, core slides when HQX active)
     const hqxPromise=getJson(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}?summary=1`);
@@ -2452,6 +2488,30 @@ loadSps(false); gen45SjqlLoad(); _updatePlatUI();
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button onclick="closeAddSpModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
         <button onclick="saveAddSp()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer"><i class="fas fa-save"></i> Add SP</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if can_edit %}
+<!-- ── Remove SP Modal ──────────────────────────────────────────────────── -->
+<div id="removeSpModal" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(420px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff">
+      <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-trash-alt"></i><span style="font-size:15px;font-weight:950">Remove SP</span></div>
+      <button onclick="closeRemoveSpModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:900;color:#991b1b;margin-bottom:4px"><i class="fas fa-exclamation-triangle"></i> Are you sure?</div>
+        <div id="removeSpName" style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:6px"></div>
+        <div style="font-size:11px;color:#64748b">The SP data will be archived (not permanently deleted) and the removal will be logged with your username.</div>
+      </div>
+      <div id="removeSpMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="closeRemoveSpModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
+        <button onclick="doRemoveSp()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;font-size:13px;font-weight:900;cursor:pointer"><i class="fas fa-trash-alt"></i> Remove SP</button>
       </div>
     </div>
   </div>
