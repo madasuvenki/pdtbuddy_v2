@@ -14,7 +14,7 @@
     .side{background:linear-gradient(180deg,#0f172a,#1e3a8a 58%,#312e81);color:#dbeafe;padding:16px 14px;position:sticky;top:0;height:100vh;overflow:auto;border-right:1px solid rgba(255,255,255,.14)}
     .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}.logo{width:46px;height:46px;border-radius:16px;background:linear-gradient(135deg,#f97316,#ec4899);display:grid;place-items:center;color:#fff;font-weight:1000;box-shadow:0 14px 32px rgba(249,115,22,.28)}
     .brand b{display:block;color:#fff;font-size:15px}.brand span{display:block;color:#bfdbfe;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
-    .side-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.search{width:100%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);border-radius:12px;color:#fff;padding:10px 11px;outline:none;font-weight:800}.search::placeholder{color:#bfd5f5}
+    .side-tools{display:flex;align-items:center;gap:6px;margin:12px 0}.side-tools .search{flex:1;min-width:0}.search{width:100%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);border-radius:12px;color:#fff;padding:10px 11px;outline:none;font-weight:800}.search::placeholder{color:#bfd5f5}
     .mini-btn{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.09);color:#fff;border-radius:12px;padding:9px 11px;font-weight:950;cursor:pointer}.mini-btn:hover{background:rgba(255,255,255,.16)}
     .sp-list{display:flex;flex-direction:column;gap:8px}.sp-item{width:100%;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:15px;padding:11px;text-align:left;cursor:pointer;transition:.15s}.sp-item:hover,.sp-item.active{background:rgba(99,102,241,.32);border-color:#93c5fd;transform:translateY(-1px)}
     /* HQX / HGY platform toggle */
@@ -57,7 +57,7 @@
 <div class="shell">
   <aside class="side">
     <div class="brand"><div class="logo"><i class="fas fa-car-side"></i></div><div><b>Automotive 4.5</b><span>All SPs</span></div></div>
-        <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh"><i class="fas fa-rotate"></i></button>{% if can_edit %}<button class="mini-btn" onclick="openAddSpModal()" title="Add SP" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)"><i class="fas fa-plus"></i></button>{% endif %}</div>
+        <div class="side-tools"><input id="spSearch" class="search" placeholder="Search SP..." oninput="renderSpList()"><button class="mini-btn" onclick="loadSps(true)" title="Refresh" style="background:rgba(99,180,255,.25);border-color:rgba(99,180,255,.5);color:#bfdbfe;flex-shrink:0"><i class="fas fa-rotate"></i> <span style="font-size:10px;font-weight:900">Refresh</span></button>{% if can_edit %}<button class="mini-btn" onclick="openAddSpModal()" title="Add SP" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)"><i class="fas fa-plus"></i></button>{% endif %}</div>
     <div id="spList" class="sp-list"><div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div></div>
   </aside>
   <main class="main">
