@@ -117,29 +117,35 @@ def _get_orbit_query_api_base() -> str:
     return "https://" + _get_orbit_server() + "/api"
 
 
-def _orbit_post_with_auth(url: str, payload: dict, timeout, _redirects_left: int = 3) -> requests.Response:
+def _orbit_request_with_auth(method: str, url: str, timeout, json_payload=None,
+                              _redirects_left: int = 3) -> requests.Response:
     """
-    POST to an Orbit API endpoint with Kerberos auth, following same-scheme
-    redirects to a new host with a freshly-minted Kerberos token for that host.
+    Generic Orbit REST call (GET/POST/DELETE/...) with Kerberos auth, following
+    same-scheme redirects to a new host with a freshly-minted Kerberos token for
+    that host.
 
-    Orbit's query/run endpoint 307-redirects both orbit-hyd.qualcomm.com and
-    orbit-sd.qualcomm.com to the canonical host "orbit" (orbit.qualcomm.com).
-    A Kerberos token is only valid for the SPN of the host it was created for,
-    so we can't just let `requests` auto-follow the redirect (that would reuse
-    the wrong token/headers) - we must re-run _make_orbit_headers() for the new
-    host and re-POST to it ourselves. This mirrors the pattern already used for
-    the two-step CR-detail / SIRs GET calls elsewhere in this file.
+    Orbit redirects (307) MANY endpoints - not just query/run - between
+    orbit-hyd.qualcomm.com, orbit-sd(.qualcomm.com) and the canonical host
+    "orbit" (orbit.qualcomm.com), depending on which host actually owns a given
+    CR/query. A Kerberos token is only valid for the SPN of the host it was
+    created for, so we can't just let `requests` auto-follow the redirect (that
+    would reuse the wrong token/headers, and Orbit would then either 401 or
+    return an empty redirect body that blows up resp.json()). Instead we build
+    a fresh token for whatever host we're about to hit and re-issue the request
+    ourselves each time we get a 3xx, up to a few hops.
     """
     import urllib.parse
 
     host = urllib.parse.urlparse(url).hostname or _get_orbit_server()
     headers = _make_orbit_headers(host)
-    headers['Accept']       = 'application/json'
-    headers['Content-Type'] = 'application/json'
-    resp = requests.post(
+    headers['Accept'] = 'application/json'
+    if json_payload is not None:
+        headers['Content-Type'] = 'application/json'
+    resp = requests.request(
+        method,
         url,
         headers=headers,
-        json=payload,
+        json=json_payload,
         timeout=timeout,
         verify=False,
         allow_redirects=False,
@@ -149,11 +155,18 @@ def _orbit_post_with_auth(url: str, payload: dict, timeout, _redirects_left: int
         if location:
             next_url = urllib.parse.urljoin(url, location)
             logger.info(
-                "[orbit_client] Orbit POST redirected: %s -> %s (following with fresh auth)",
-                url, next_url,
+                "[orbit_client] Orbit %s redirected: %s -> %s (following with fresh auth)",
+                method, url, next_url,
             )
-            return _orbit_post_with_auth(next_url, payload, timeout, _redirects_left - 1)
+            return _orbit_request_with_auth(method, next_url, timeout, json_payload, _redirects_left - 1)
     return resp
+
+
+def _orbit_post_with_auth(url: str, payload: dict, timeout) -> requests.Response:
+    """POST convenience wrapper around _orbit_request_with_auth (kept for
+    existing call sites: _orbit_query_run, bulk_query_cr_software_images,
+    bulk_query_cr_tags)."""
+    return _orbit_request_with_auth('POST', url, timeout, payload)
 
 ORBIT_DIRECT_TIMEOUT = (5, 30)    # connect, read seconds for per-CR REST calls
 ORBIT_QUERY_TIMEOUT  = (10, 120)  # connect, read seconds for query/run bulk calls (large batches need more time)
@@ -363,20 +376,26 @@ def _query_bool(value) -> bool:
 
 def _fetch_via_orbit_query(cr_number: str) -> dict:
     """Fallback CR fetch using Orbit SD /api/query/run when direct Orbit REST is slow/unavailable."""
-    cr = _normalize_cr(cr_number)
+    cr = _normalize_cr(cr_number)    
     try:
+        # NOTE: "Type" and "ParentId" are NOT valid query/run projection columns
+        # on this Orbit instance - including them makes the whole call fail with
+        # HTTP 400 "Column Name: X present in Selected Columns is not supported",
+        # which aborted the entire CR lookup (not just those two fields). Confirmed
+        # by probing every other field individually - only these two 400. Dropped
+        # here; _query_value() below simply returns '' / None for them since the
+        # key won't be present in the row (harmless - Type/ParentId are still
+        # populated when the primary ORBIT_DIRECT GET path succeeds).
         core_fields = [
             {"Name": "ChangeRequestNumber"},
             {"Name": "Title"},
             {"Name": "CreatedOn"},
             {"Name": "Status"},
-            {"Name": "Type"},
             {"Name": "Severity"},
             {"Name": "IsCrash"},
             {"Name": "Priority"},
             {"Name": "Reporter"},
             {"Name": "Assignee"},
-            {"Name": "ParentId"},
             {"Name": "Description"},
             {"Name": "Tags"},
             {"Name": "Duplicates"},
@@ -474,18 +493,13 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
       GET /api/changerequest/{cr}/integrations - SIRs (software images)
         Returns normalised dict with SoftwareImageReleases populated.
     """
-    try:
-        headers = _make_orbit_headers()
-    except Exception as e:
-        logger.warning(f"[orbit_direct] Kerberos auth failed: {e}")
-        return {"found": False, "error": str(e)}
-
     cr_url   = f"{_get_orbit_api_base()}/{cr_number}/"
     sirs_url = f"{_get_orbit_api_base()}/{cr_number}/integrations"
 
     try:
-        # Fetch CR details - each call needs a fresh Kerberos token
-        resp = requests.get(cr_url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False, allow_redirects=False)
+        # Fetch CR details - follows redirects (e.g. orbit-hyd -> orbit -> orbit-sd)
+        # with a fresh Kerberos token per hop
+        resp = _orbit_request_with_auth('GET', cr_url, ORBIT_DIRECT_TIMEOUT)
 
         if resp.status_code == 404:
             logger.info(f"[orbit_direct] CR{cr_number} not found (404)")
@@ -505,11 +519,10 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         if not data:
             return {"found": False, "cr_number": cr_number}
 
-        # Fetch SIRs - needs a fresh token (each token is single-use)
+        # Fetch SIRs - fresh token/redirect-follow per call
         sirs = []
         try:
-            sirs_headers = _make_orbit_headers()   # fresh token
-            sirs_resp = requests.get(sirs_url, headers=sirs_headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False, allow_redirects=False)
+            sirs_resp = _orbit_request_with_auth('GET', sirs_url, ORBIT_DIRECT_TIMEOUT)
 
             if sirs_resp.status_code == 200:
                 sirs_raw = sirs_resp.json()
@@ -798,10 +811,8 @@ def fetch_cr_software_images(cr_number) -> list:
     """
     cr = _normalize_cr(cr_number)
     try:
-        headers = _make_orbit_headers()
-        headers['Accept'] = 'application/json'
         url = f"{_get_orbit_api_base()}/{cr}/integrations"
-        resp = requests.get(url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
+        resp = _orbit_request_with_auth('GET', url, ORBIT_DIRECT_TIMEOUT)
 
         if resp.status_code != 200:
             logger.info(f"[orbit_direct] CR{cr}: integrations returned {resp.status_code}")
@@ -964,10 +975,8 @@ def get_cr_tags(cr_number: str) -> list:
     cr = _normalize_cr(cr_number)
     try:
         # - Try dedicated /tags endpoint first -
-        headers = _make_orbit_headers()
-        headers['Accept'] = 'application/json'
         url = f"{_get_orbit_api_base()}/{cr}/tags"
-        resp = requests.get(url, headers=headers, timeout=15, verify=False)
+        resp = _orbit_request_with_auth('GET', url, 15)
         if resp.status_code == 200:
             data = resp.json()
             tags = []
@@ -980,9 +989,7 @@ def get_cr_tags(cr_number: str) -> list:
                 return tags
         # - Fallback: read Tags from main CR object -
         logger.info(f"[orbit_client] get_cr_tags({cr}): /tags empty/failed (HTTP {resp.status_code}), trying main CR object")
-        headers2 = _make_orbit_headers()
-        headers2['Accept'] = 'application/json'
-        cr_resp = requests.get(f"{_get_orbit_api_base()}/{cr}/", headers=headers2, timeout=15, verify=False)
+        cr_resp = _orbit_request_with_auth('GET', f"{_get_orbit_api_base()}/{cr}/", 15)
         if cr_resp.status_code == 200:
             cr_data = cr_resp.json()
             # Handle both direct response and IsSuccess wrapper
@@ -1024,11 +1031,8 @@ def add_cr_tags(cr_number: str, tags: list) -> dict:
         if not to_add:
             return {'ok': True, 'added': [], 'already_had': already_had,
                     'tags_after': existing, 'skipped': True}
-        headers = _make_orbit_headers()
-        headers['Accept']       = 'application/json'
-        headers['Content-Type'] = 'application/json'
         url = f"{_get_orbit_api_base()}/{cr}/tags"
-        resp = requests.post(url, headers=headers, json=to_add, timeout=15, verify=False)
+        resp = _orbit_request_with_auth('POST', url, 15, to_add)
         if resp.status_code in (200, 201, 204):
             tags_after = get_cr_tags(cr)
             return {'ok': True, 'added': to_add, 'already_had': already_had,
@@ -1057,44 +1061,8 @@ def remove_cr_tags(cr_number: str, tags: list) -> dict:
         if not to_remove:
             return {'ok': True, 'removed': [], 'not_found': not_found,
                     'tags_after': existing, 'skipped': True}
-        headers = _make_orbit_headers()
-        headers['Accept']       = 'application/json'
-        headers['Content-Type'] = 'application/json'
         url  = f"{_get_orbit_api_base()}/{cr}/tags"
-        resp = requests.delete(url, headers=headers, json=to_remove, timeout=15, verify=False)
-        if resp.status_code in (200, 204):
-            tags_after = get_cr_tags(cr)
-            return {'ok': True, 'removed': to_remove, 'not_found': not_found,
-                    'tags_after': tags_after}
-        return {'ok': False, 'error': f'HTTP {resp.status_code}: {resp.text[:200]}'}
-    except Exception as e:
-        logger.warning(f"[orbit_client] remove_cr_tags({cr}) error: {e}")
-        return {'ok': False, 'error': str(e)}
-
-
-def remove_cr_tags(cr_number: str, tags: list) -> dict:
-    """
-    DELETE /api/changerequest/{cr}/tags
-    Removes tags from the CR. Skips tags not already present (GET first).
-    Returns {ok, removed, not_found, tags_after, error}
-    """
-    cr = _normalize_cr(cr_number)
-    tags_clean = [str(t).strip() for t in tags if str(t).strip()]
-    if not tags_clean:
-        return {'ok': False, 'error': 'No tags provided'}
-    try:
-        existing       = get_cr_tags(cr)
-        existing_lower = {t.lower(): t for t in existing}
-        to_remove = [existing_lower[t.lower()] for t in tags_clean if t.lower() in existing_lower]
-        not_found = [t for t in tags_clean if t.lower() not in existing_lower]
-        if not to_remove:
-            return {'ok': True, 'removed': [], 'not_found': not_found,
-                    'tags_after': existing, 'skipped': True}
-        headers = _make_orbit_headers()
-        headers['Accept']       = 'application/json'
-        headers['Content-Type'] = 'application/json'
-        url  = f"{_get_orbit_api_base()}/{cr}/tags"
-        resp = requests.delete(url, headers=headers, json=to_remove, timeout=15, verify=False)
+        resp = _orbit_request_with_auth('DELETE', url, 15, to_remove)
         if resp.status_code in (200, 204):
             tags_after = get_cr_tags(cr)
             return {'ok': True, 'removed': to_remove, 'not_found': not_found,
