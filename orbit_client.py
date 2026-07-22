@@ -44,8 +44,13 @@ ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYT
 
 # Direct Orbit REST API - HYD endpoint (orbit-hyd.qualcomm.com = vip-orbithyd-new.qualcomm.com = 10.147.136.30)
 # Auth: Windows SSPI Kerberos with indus@AP.QUALCOMM.COM from orbitauth.txt
-# NOTE: 'orbit' resolves to 127.0.0.1 (localhost) on this machine - DO NOT USE
-# NOTE: 'orbit-sd' (10.80.82.12) port 443 is refused - DO NOT USE
+#
+# NOTE: both orbit-hyd.qualcomm.com and orbit-sd.qualcomm.com redirect
+# POST /api/query/run (307) to the canonical host "orbit" (= orbit.qualcomm.com,
+# 10.147.136.30). That host IS reachable from this machine - it is NOT
+# 127.0.0.1 (an earlier comment here was wrong/stale). _orbit_post_with_auth()
+# follows that redirect with a fresh Kerberos token for the new host instead
+# of blocking it - see that function for details.
 #
 # Per-user endpoint is stored in Flask session['orbit_endpoint'] at login:
 #   QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com  (default)
@@ -63,13 +68,25 @@ ORBIT_QUERY_API_BASE = "https://" + ORBIT_SERVER + "/api"
 
 def _get_orbit_server() -> str:
     """
-    Return the correct Orbit server for the current user by checking their
-    LDAP group membership directly - no session involved.
+    Return the correct Orbit server for the current user.
 
-      SD group   (pdt.sd)          -> orbit-sd.qualcomm.com
-      QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com  (default)
-      No request context            -> orbit-hyd.qualcomm.com  (default)
+    Priority:
+      1. Flask session['orbit_endpoint'] - set at login by app._set_orbit_session()
+         using real LDAP location / browser timezone / IP first, LDAP group as
+         final fallback. This is the authoritative per-user endpoint.
+      2. LDAP group membership (used only if session is unavailable, e.g. a
+         background task with no request context).
+      3. orbit-hyd.qualcomm.com (default).
     """
+    try:
+        from flask import has_request_context, session as _flask_session
+        if has_request_context():
+            endpoint = (_flask_session.get('orbit_endpoint') or '').strip()
+            if endpoint:
+                return endpoint
+    except Exception:
+        pass
+
     try:
         from flask import has_request_context
         from flask_login import current_user
@@ -100,45 +117,44 @@ def _get_orbit_query_api_base() -> str:
     return "https://" + _get_orbit_server() + "/api"
 
 
-def _orbit_post_with_auth(url: str, payload: dict, timeout) -> requests.Response:
+def _orbit_post_with_auth(url: str, payload: dict, timeout, _redirects_left: int = 3) -> requests.Response:
     """
-    POST to an Orbit API endpoint with Kerberos auth, handling server-side
-    redirects correctly.
+    POST to an Orbit API endpoint with Kerberos auth, following same-scheme
+    redirects to a new host with a freshly-minted Kerberos token for that host.
 
-    orbit-hyd.qualcomm.com redirects: orbit-hyd -> orbit -> orbit-sd
-    requests follows redirects automatically but the Kerberos token is
-    host-specific (SPN = HTTP/<host>) so it becomes invalid after a redirect.
-
-    Strategy:
-      1. Probe with HEAD (no body, no auth) to follow redirects and find final URL.
-      2. Build a fresh Kerberos token for the final host.
-      3. POST directly to the final URL - no further redirects.
+    Orbit's query/run endpoint 307-redirects both orbit-hyd.qualcomm.com and
+    orbit-sd.qualcomm.com to the canonical host "orbit" (orbit.qualcomm.com).
+    A Kerberos token is only valid for the SPN of the host it was created for,
+    so we can't just let `requests` auto-follow the redirect (that would reuse
+    the wrong token/headers) - we must re-run _make_orbit_headers() for the new
+    host and re-POST to it ourselves. This mirrors the pattern already used for
+    the two-step CR-detail / SIRs GET calls elsewhere in this file.
     """
     import urllib.parse
 
-    # Step 1: follow redirects to find the real endpoint (no auth needed)
-    final_url = url
-    try:
-        probe = requests.head(url, verify=False, allow_redirects=True,
-                              timeout=(5, 10))
-        final_url = probe.url  # requests sets .url to the final URL after redirects
-        if final_url != url:
-            logger.debug(f"[orbit_client] redirect {url} -> {final_url}")
-    except Exception as e:
-        logger.debug(f"[orbit_client] redirect probe failed ({e}), using original URL")
-        final_url = url
-
-    # Step 2: extract hostname from final URL for Kerberos SPN
-    final_host = urllib.parse.urlparse(final_url).hostname or _get_orbit_server()
-
-    # Step 3: build token for the final host and POST directly
-    headers = _make_orbit_headers(final_host)
+    host = urllib.parse.urlparse(url).hostname or _get_orbit_server()
+    headers = _make_orbit_headers(host)
     headers['Accept']       = 'application/json'
     headers['Content-Type'] = 'application/json'
-    resp = requests.post(final_url, headers=headers, json=payload,
-                         timeout=timeout, verify=False,
-                         allow_redirects=False)  # no more redirects
+    resp = requests.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=timeout,
+        verify=False,
+        allow_redirects=False,
+    )
+    if 300 <= resp.status_code < 400 and _redirects_left > 0:
+        location = resp.headers.get('Location', '')
+        if location:
+            next_url = urllib.parse.urljoin(url, location)
+            logger.info(
+                "[orbit_client] Orbit POST redirected: %s -> %s (following with fresh auth)",
+                url, next_url,
+            )
+            return _orbit_post_with_auth(next_url, payload, timeout, _redirects_left - 1)
     return resp
+
 ORBIT_DIRECT_TIMEOUT = (5, 30)    # connect, read seconds for per-CR REST calls
 ORBIT_QUERY_TIMEOUT  = (10, 120)  # connect, read seconds for query/run bulk calls (large batches need more time)
 
@@ -443,7 +459,8 @@ def _fetch_via_orbit_query(cr_number: str) -> dict:
         return result
     except Exception as e:
         logger.warning(f"[orbit_query] CR{cr} fetch error: {e}")
-        return {"found": False, "error": str(e)}
+        return {"found": False, "cr_number": cr, "error": str(e)}
+
 
 
 # - Direct Orbit REST fetch -
@@ -455,7 +472,7 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
     Hits two endpoints:
       GET /api/changerequest/{cr}/             - CR details
       GET /api/changerequest/{cr}/integrations - SIRs (software images)
-    Returns normalised dict with SoftwareImageReleases populated.
+        Returns normalised dict with SoftwareImageReleases populated.
     """
     try:
         headers = _make_orbit_headers()
@@ -463,12 +480,13 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         logger.warning(f"[orbit_direct] Kerberos auth failed: {e}")
         return {"found": False, "error": str(e)}
 
-        cr_url   = f"{_get_orbit_api_base()}/{cr_number}/"
+    cr_url   = f"{_get_orbit_api_base()}/{cr_number}/"
     sirs_url = f"{_get_orbit_api_base()}/{cr_number}/integrations"
 
     try:
-                # Fetch CR details - each call needs a fresh Kerberos token
-        resp = requests.get(cr_url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
+        # Fetch CR details - each call needs a fresh Kerberos token
+        resp = requests.get(cr_url, headers=headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False, allow_redirects=False)
+
         if resp.status_code == 404:
             logger.info(f"[orbit_direct] CR{cr_number} not found (404)")
             return {"found": False, "cr_number": cr_number}
@@ -491,7 +509,8 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
         sirs = []
         try:
             sirs_headers = _make_orbit_headers()   # fresh token
-            sirs_resp = requests.get(sirs_url, headers=sirs_headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False)
+            sirs_resp = requests.get(sirs_url, headers=sirs_headers, timeout=ORBIT_DIRECT_TIMEOUT, verify=False, allow_redirects=False)
+
             if sirs_resp.status_code == 200:
                 sirs_raw = sirs_resp.json()
                 if isinstance(sirs_raw, dict) and 'IsSuccess' in sirs_raw:

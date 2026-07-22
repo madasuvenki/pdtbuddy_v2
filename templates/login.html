@@ -62,9 +62,12 @@
         </div>
         {% endif %}
 
-        <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm"
+                <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm"
               autocomplete="on"
               onsubmit="return onLoginSubmit()">
+
+          <!-- Browser timezone, used server-side as a location hint for Orbit endpoint routing -->
+          <input type="hidden" id="browserTimezone" name="browser_timezone" value="">
 
           <!-- Username -->
           <div class="form-group">
@@ -239,6 +242,15 @@ function togglePwd(id, btn) {
 
 
 function onLoginSubmit() {
+  var tzInput = document.getElementById('browserTimezone');
+  if (tzInput) {
+    try {
+      tzInput.value = (window.Intl && Intl.DateTimeFormat)
+        ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+        : '';
+    } catch (e) { tzInput.value = ''; }
+  }
+
   var btn     = document.getElementById('loginBtn');
   var txt     = document.getElementById('loginBtnText');
   var spinner = document.getElementById('loginBtnSpinner');

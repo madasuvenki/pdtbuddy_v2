@@ -415,34 +415,133 @@ def authenticate_ldap_user(username, password):
 
 def _set_orbit_session(username: str):
     """
-    Detect which Orbit endpoint the user should use based on LDAP group membership
-    and store it in the Flask session.
+    Pick the Orbit endpoint by real user location first, then LDAP group fallback.
 
-    QIPL group (qipl.target.pdt) -> orbit-hyd.qualcomm.com
-    SD   group (pdt.sd)          -> orbit-sd.qualcomm.com
-    Default (no group match)     -> orbit-hyd.qualcomm.com (QIPL HYD)
+    Priority:
+      1. LDAP user location/office/country attributes
+      2. Browser timezone posted by the login page (Intl.DateTimeFormat)
+      3. Client IP prefix env overrides (ORBIT_SD_IP_PREFIXES / ORBIT_QIPL_IP_PREFIXES)
+      4. LDAP group fallback (existing behavior)
     """
+    username = (username or "").strip().lower()
+
+    def _ldap_location_text(uid: str) -> str:
+        if not uid:
+            return ""
+        conn = None
+        try:
+            server = Server(host=LDAP_SERVER, port=LDAP_PORT, use_ssl=True, get_info=None, connect_timeout=5)
+            conn = Connection(server, auto_bind=True, receive_timeout=5)
+            safe_uid = escape_filter_chars(uid)
+            conn.search(
+                search_base=LDAP_PEOPLE_DN,
+                search_filter=f"(uid={safe_uid})",
+                search_scope=SUBTREE,
+                attributes=[
+                    "l", "localityName", "physicalDeliveryOfficeName", "ou",
+                    "co", "c", "st", "postalAddress", "description",
+                    "qclocation", "qcLocation", "site", "officeName",
+                ],
+                size_limit=1,
+            )
+            if not conn.entries:
+                return ""
+            attrs = conn.entries[0].entry_attributes_as_dict or {}
+            parts = []
+            for val in attrs.values():
+                if isinstance(val, (list, tuple, set)):
+                    parts.extend(str(v) for v in val if v)
+                elif val:
+                    parts.append(str(val))
+            return " ".join(parts)
+        except Exception as e:
+            logger.info(f"[LOGIN] LDAP location lookup failed for {uid}: {e}")
+            return ""
+        finally:
+            try:
+                if conn:
+                    conn.unbind()
+            except Exception:
+                pass
+
+    def _endpoint_from_text(text: str):
+        t = re.sub(r"[^a-z0-9]+", " ", str(text or "").lower())
+        if not t.strip():
+            return None, ""
+        padded = f" {t} "
+        sd_words = (" san diego ", " sandiego ", " ca ", " california ", " usa ", " us ", " pst ", " pdt ")
+        hyd_words = (" hyderabad ", " hyd ", " qipl ", " india ", " in ", " ist ")
+        if any(w in padded for w in sd_words):
+            return ORBIT_ENDPOINT_SD, "sd"
+        if any(w in padded for w in hyd_words):
+            return ORBIT_ENDPOINT_QIPL, "qipl"
+        return None, ""
+
+    def _endpoint_from_ip(ip_addr: str):
+        ip_addr = str(ip_addr or "").strip()
+        if not ip_addr:
+            return None, ""
+        sd_prefixes = [p.strip() for p in os.environ.get("ORBIT_SD_IP_PREFIXES", "").split(",") if p.strip()]
+        qipl_prefixes = [p.strip() for p in os.environ.get("ORBIT_QIPL_IP_PREFIXES", "").split(",") if p.strip()]
+        if any(ip_addr.startswith(p) for p in sd_prefixes):
+            return ORBIT_ENDPOINT_SD, "sd"
+        if any(ip_addr.startswith(p) for p in qipl_prefixes):
+            return ORBIT_ENDPOINT_QIPL, "qipl"
+        return None, ""
+
     try:
-        is_sd   = is_user_in_group(username, SD_TARGET_GROUP)
+        is_sd = is_user_in_group(username, SD_TARGET_GROUP)
     except Exception:
-        is_sd   = False
+        is_sd = False
     try:
         is_qipl = is_user_in_group(username, TARGET_GROUP)
     except Exception:
         is_qipl = False
 
-    if is_sd and not is_qipl:
-        endpoint = ORBIT_ENDPOINT_SD
-        group    = 'sd'
-    else:
-        # QIPL, admin, or any other user -> HYD endpoint
-        endpoint = ORBIT_ENDPOINT_QIPL
-        group    = 'qipl'
+    ldap_location = _ldap_location_text(username)
+    endpoint, group = _endpoint_from_text(ldap_location)
+    reason = "ldap_location" if endpoint else ""
+
+    browser_tz = ""
+    try:
+        browser_tz = (request.form.get("browser_timezone") or "").strip()
+    except Exception:
+        browser_tz = ""
+    if not endpoint and browser_tz:
+        if browser_tz.startswith("America/"):
+            endpoint, group, reason = ORBIT_ENDPOINT_SD, "sd", "browser_timezone"
+        elif browser_tz.startswith("Asia/"):
+            endpoint, group, reason = ORBIT_ENDPOINT_QIPL, "qipl", "browser_timezone"
+
+    client_ip = ""
+    try:
+        client_ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
+    except Exception:
+        client_ip = ""
+    if not endpoint:
+        endpoint, group = _endpoint_from_ip(client_ip)
+        reason = "ip_prefix" if endpoint else ""
+
+    if not endpoint:
+        if is_sd and not is_qipl:
+            endpoint, group, reason = ORBIT_ENDPOINT_SD, "sd", "ldap_group"
+        else:
+            # QIPL, admin, or any other user -> HYD endpoint (unchanged default)
+            endpoint, group, reason = ORBIT_ENDPOINT_QIPL, "qipl", "ldap_group_or_default"
 
     session['orbit_endpoint'] = endpoint
     session['orbit_group']    = group
+    session['orbit_endpoint_reason'] = reason
+    session['orbit_location_text'] = ldap_location[:300]
+    session['orbit_browser_timezone'] = browser_tz
+    session['orbit_client_ip'] = client_ip
     session.modified = True
-    print(f"[LOGIN] orbit_endpoint set for {username}: {endpoint} (group={group})", flush=True)
+    print(
+        f"[LOGIN] orbit_endpoint set for {username}: {endpoint} "
+        f"(group={group}, reason={reason}, tz={browser_tz!r}, ip={client_ip!r}, "
+        f"ldap_location={ldap_location[:120]!r})",
+        flush=True,
+    )
 
 
 

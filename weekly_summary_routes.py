@@ -3010,6 +3010,119 @@ def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> li
     return padded
 
 
+def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
+    """SQL expression for Smart Build device-hours within the selected week."""
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        ws, we = current_monday_sunday()
+    week_floor = ws.isoformat() + " 00:00:00"
+    week_cap = we.isoformat() + " 23:59:59"
+    return (
+        "CASE"
+        " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
+        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0,"
+        " TIMESTAMPDIFF(SECOND,"
+        " GREATEST(started_at, TIMESTAMP('" + week_floor + "')),"
+        " LEAST(NOW(), TIMESTAMP('" + week_cap + "')))"
+        " ) / 3600.0, 3)"
+        " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
+        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0,"
+        " TIMESTAMPDIFF(SECOND,"
+        " GREATEST(started_at, TIMESTAMP('" + week_floor + "')),"
+        " LEAST(ended_at,      TIMESTAMP('" + week_cap + "')))"
+        " ) / 3600.0, 3)"
+        " ELSE 0 END"
+    )
+
+
+def _sp2_pl_week_hour_cap(device_count, week_start=None, week_end=None) -> float:
+    """Max realistic device-hours for one PL in the selected week.
+
+    Business cap: devices * days * 20 hours/day.
+    For a full Monday-Sunday week this is devices * 7 * 20.
+    """
+    devices = max(int(float(device_count or 0)), 0)
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    days = ((we - ws).days + 1) if ws and we and we >= ws else 7
+    return float(devices * days * 20)
+
+
+def _sp2_capped_pl_hours(hours, device_count, week_start=None, week_end=None) -> float:
+    raw = float(hours or 0)
+    cap = _sp2_pl_week_hour_cap(device_count, week_start, week_end)
+    return round(min(raw, cap), 3)
+
+
+def _cap_sp2_static_snapshot_hours(ws, we) -> int:
+    """Persistently cap Smart Build snapshot hours per Target+PL.
+
+    Cap rule: group_hours <= group_devices * selected_days * 20.
+    When a group exceeds the cap, all build rows in that group are scaled down
+    proportionally so Builds tab totals and Consolidate totals both stay sane.
+    """
+    _ensure_sp2_override_snapshot_columns()
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return 0
+    cur = conn.cursor(dictionary=True)
+    cur2 = None
+    try:
+        cur.execute(f"""
+            SELECT target, pl_id, build_name, device_count, chip_ids, hours
+            FROM `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+            WHERE week_start=%s AND week_end=%s AND hours IS NOT NULL
+        """, (ws.isoformat(), we.isoformat()))
+        groups = {}
+        for r in cur.fetchall() or []:
+            target = str(r.get('target') or '').strip()
+            pl_id = str(r.get('pl_id') or '').strip()
+            key = (target.upper(), pl_id.upper())
+            g = groups.setdefault(key, {'target': target, 'pl_id': pl_id, 'rows': [], 'chips': set(), 'max_dev': 0, 'hours': 0.0})
+            hrs = float(r.get('hours') or 0)
+            g['hours'] += hrs
+            g['max_dev'] = max(g['max_dev'], int(r.get('device_count') or 0))
+            raw = r.get('chip_ids') or '[]'
+            try:
+                chips = json.loads(raw) if isinstance(raw, str) else list(raw or [])
+            except Exception:
+                chips = []
+            g['chips'].update(str(c).strip() for c in chips if str(c).strip())
+            g['rows'].append({'build_name': str(r.get('build_name') or ''), 'pl_id': pl_id, 'hours': hrs})
+
+        cur2 = conn.cursor()
+        updated = 0
+        for g in groups.values():
+            devices = max(int(g.get('max_dev') or 0), len(g.get('chips') or []))
+            cap = _sp2_pl_week_hour_cap(devices, ws, we)
+            total = float(g.get('hours') or 0)
+            if total <= cap + 0.001:
+                continue
+            factor = (cap / total) if total > 0 else 0.0
+            for row in g['rows']:
+                new_hours = round(float(row['hours'] or 0) * factor, 3)
+                cur2.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET hours=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s AND build_name=%s AND pl_id=%s
+                """, (new_hours, ws.isoformat(), we.isoformat(), row['build_name'], row['pl_id']))
+                updated += cur2.rowcount
+        conn.commit()
+        return updated
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return 0
+    finally:
+        try: cur.close()
+        except Exception: pass
+        try:
+            if cur2: cur2.close()
+        except Exception: pass
+        conn.close()
+
+
 def _clear_sp2_static_snapshot(ws, we) -> int:
     """Clear the frozen Smart Build build-row snapshot for one week."""
     _ensure_sp2_override_snapshot_columns()
@@ -5158,21 +5271,7 @@ def _sp2_landing_summary(week_start, week_end):
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                _week_cap = week_end.isoformat() + " 23:59:59"
-                _week_floor = week_start.isoformat() + " 00:00:00"
-                live_h = (
-                    "CASE"
-                    " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND, started_at,"
-                    " LEAST(NOW(), TIMESTAMP('" + _week_cap + "'))) / 3600.0, 3)"
-                    " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND,"
-                    " GREATEST(started_at, TIMESTAMP('" + _week_floor + "')),"
-                    " LEAST(ended_at,      TIMESTAMP('" + _week_cap   + "'))) / 3600.0, 3)"
-                    " ELSE 0 END"
-                )
+                live_h = _sp2_week_bounded_device_hours_sql(week_start, week_end)
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
                            chip_ids, state, device_count, submitter,
@@ -5219,16 +5318,11 @@ def _sp2_landing_summary(week_start, week_end):
         hours    = float(r.get('hours_live') or 0)
         if _raw_dev <= 0 and not chip_ids and hours <= 0.1:
             continue
-        # 20% reduction applies to ALL jobs' hours (not just AUTO submitter).
-        hours = round(hours * 0.80, 3)
-
+        hours = round(hours, 3)
         pl_grp     = _pl_grp(str(r.get('software_product') or '').strip())
         build_id   = str(r.get('build_id') or '').strip()
-        build_name = str(r.get('build_name') or build_id).strip()
-
+        build_name = str(r.get('build_name') or build_id).strip()     
         crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, pl_grp)
-
-
         grp_key = (build_name.upper(), pl_grp.upper())
         if grp_key not in grouped:
             grouped[grp_key] = {'hours': 0.0, 'chips': set(), 'crashes': 0}
@@ -7353,21 +7447,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
     cur = conn.cursor(dictionary=True)
     cur2 = None
     try:
-        _week_cap = we.isoformat() + " 23:59:59"
-        _week_floor = ws.isoformat() + " 00:00:00"
-        live_h = (
-            "CASE"
-            " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-            " THEN ROUND(device_count *"
-            " TIMESTAMPDIFF(SECOND, started_at,"
-            " LEAST(NOW(), TIMESTAMP('" + _week_cap + "'))) / 3600.0, 3)"
-            " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-            " THEN ROUND(device_count *"
-            " TIMESTAMPDIFF(SECOND,"
-            " GREATEST(started_at, TIMESTAMP('" + _week_floor + "')),"
-            " LEAST(ended_at,      TIMESTAMP('" + _week_cap   + "'))) / 3600.0, 3)"
-            " ELSE 0 END"
-        )
+        live_h = _sp2_week_bounded_device_hours_sql(ws, we)
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
                    taxonomy_path, team, city_team, state, device_count, chip_ids, submitted_at, ended_at,
@@ -7422,7 +7502,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
             chips = _sp2_parse_chip_ids(chips if _device_eligible else [], _raw_dev, target or pl_id)
             _raw_hrs_actual = float(r.get('hours_live') or 0)
             # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
-            _raw_hrs = round(_raw_hrs_actual * 0.80, 3)
+            _raw_hrs = round(_raw_hrs_actual, 3)
             if _raw_dev_actual <= 0 and not chips and _raw_hrs_actual <= 0.1:
                 continue
             build_id = str(r.get('build_id') or '').strip()
@@ -7587,14 +7667,11 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
             chips = json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
         except Exception:
             chips = []
-        # Device pool is target-level and includes all builds. Later we split
-        # each target's unique devices across its PLs by CRM hours so the
-        # Consolidate total matches the Builds tab total device count.
-        g['chip_ids_set'].update(str(c).strip() for c in chips if str(c).strip())
-        g['device_count_sum'] = max(g['device_count_sum'], int(r.get('device_count') or 0), len(g['chip_ids_set']))
-        # Consolidate metrics are CRM-only: Eng rows remain in the snapshot but
-        # do not contribute builds/hours/crashes to the Consolidate report.
+                # Consolidate metrics are CRM-only: Eng rows remain in the Builds tab
+        # snapshot but do not contribute builds/devices/hours/crashes here.
         if bt == 'CRM':
+            g['chip_ids_set'].update(str(c).strip() for c in chips if str(c).strip())
+            g['device_count_sum'] = max(g['device_count_sum'], int(r.get('device_count') or 0), len(g['chip_ids_set']))
             if build_name:
                 g['build_names'].add(_sp2_meta_build_key(build_name).upper())
             g['hours'] += float(r.get('hours') or 0)
@@ -7672,6 +7749,30 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
                 _assigned += 1
             device_count_by_key.update(_base)
 
+        # Consolidate device count must never exceed the Builds tab global
+        # unique-device count. A device can appear under multiple targets, so
+        # target-level splits are reduced globally after per-target allocation.
+        _global_chips = set()
+        for _g in grouped.values():
+            _global_chips.update(_g.get('chip_ids_set') or set())
+        _global_limit = len(_global_chips)
+        _assigned_total = sum(int(v or 0) for v in device_count_by_key.values())
+        if _global_limit >= 0 and _assigned_total > _global_limit:
+            _reduce_keys = sorted(
+                list(device_count_by_key.keys()),
+                key=lambda k: (int(device_count_by_key.get(k, 0)), float(grouped[k].get('hours') or 0)),
+                reverse=True,
+            )
+            _idx = 0
+            while _assigned_total > _global_limit and _reduce_keys:
+                _rk = _reduce_keys[_idx % len(_reduce_keys)]
+                if int(device_count_by_key.get(_rk, 0)) > 0:
+                    device_count_by_key[_rk] = int(device_count_by_key.get(_rk, 0)) - 1
+                    _assigned_total -= 1
+                _idx += 1
+                if _idx > 100000:
+                    break
+
         for key in order:
             g = grouped[key]
             votes = g['bt_votes']
@@ -7726,7 +7827,7 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
                     updated_at=CURRENT_TIMESTAMP
             """, (ws.isoformat(), we.isoformat(), g['target'], g['pl_id'],
                   f"__consolidated__{g['target']}__{g['pl_id']}", build_type,
-                  round(g['hours'], 3), int(g['crashes'] or 0),
+                                    _sp2_capped_pl_hours(g['hours'], device_count_by_key.get(key, 0), ws, we), int(g['crashes'] or 0),
                   int(device_count_by_key.get(key, 0)), json.dumps(chip_ids),
                   bu, timelines, pdt_status, _ucr_count_for_sharepoint_pair(ucr_counts, g['target'], g['pl_id']),
                   len(g['build_names']), username))
@@ -7754,6 +7855,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
     _ensure_sp2_build_consolidate_table()
     _ensure_sp2_override_snapshot_columns()
     _seed_sp2_build_type_overrides_from_axiom(ws, we, username)
+    _cap_sp2_static_snapshot_hours(ws, we)
     if _build_and_save_sp2_consolidate_from_static(ws, we, username):
         return
 
@@ -7766,21 +7868,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                _week_cap = we.isoformat() + " 23:59:59"
-                _week_floor = ws.isoformat() + " 00:00:00"
-                live_h = (
-                    "CASE"
-                    " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND, started_at,"
-                    " LEAST(NOW(), TIMESTAMP('" + _week_cap + "'))) / 3600.0, 3)"
-                    " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND,"
-                    " GREATEST(started_at, TIMESTAMP('" + _week_floor + "')),"
-                    " LEAST(ended_at,      TIMESTAMP('" + _week_cap   + "'))) / 3600.0, 3)"
-                    " ELSE 0 END"
-                )
+                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
                 cur.execute(f"""
                                         SELECT job_id, build_id, build_name, software_product,
                            taxonomy_path, team, city_team, state, device_count, chip_ids, submitter,
@@ -7934,10 +8022,11 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         build_name = str(r.get('build_name') or build_id).strip()
                 # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
         hours      = float(r.get('hours_live') or 0)
-        hours = round(hours * 0.80, 3)
+        hours = round(hours, 3)
         chip_ids = _sp2_parse_chip_ids(chip_ids if _metric_eligible else [], r.get('device_count') if _metric_eligible else 0, target or pl_grp)
 
                 
+        
         crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, pl_grp)
 
         # Per-build CRM/Eng override
@@ -7959,13 +8048,13 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
             group_order.append(grp_key)
 
         g = grouped[grp_key]
-        g['build_names'].add(_meta_build_key(build_name).upper())  # deduplicate by meta key
         g['bt_votes'][bt if bt in ('CRM', 'Eng') else 'CRM'] += 1
-        # Devices (chip_ids) counted for ALL builds -------? they are physical hardware.
-        # Hours and crashes are CRM-only (Eng builds excluded from those metrics).
-        g['chip_ids_set'].update(chip_ids)
+        # Consolidate is CRM-only: Eng builds remain visible on Builds tab but
+        # do not contribute builds/devices/hours/crashes to Consolidate.
         if bt == 'Eng':
             continue
+        g['build_names'].add(_meta_build_key(build_name).upper())  # deduplicate by meta key
+        g['chip_ids_set'].update(chip_ids)
         g['hours']       += hours
         g['crashes']     += crashes
         import logging as _log_grp
@@ -8233,6 +8322,30 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                         _remainder    += 1
             _group_dev_count.update(_floored)
 
+        # Consolidate device count must not exceed Builds tab global unique
+        # devices. Reduce the per-PL counts globally because the same physical
+        # device can appear under multiple target buckets.
+        _global_chips2 = set()
+        for _g in grouped.values():
+            _global_chips2.update(_g.get('chip_ids_set') or set())
+        _global_limit2 = len(_global_chips2)
+        _assigned_total2 = sum(int(v or 0) for v in _group_dev_count.values())
+        if _global_limit2 >= 0 and _assigned_total2 > _global_limit2:
+            _reduce_keys2 = sorted(
+                list(_group_dev_count.keys()),
+                key=lambda k: (int(_group_dev_count.get(k, 0)), float(grouped[k].get('hours') or 0)),
+                reverse=True,
+            )
+            _idx2 = 0
+            while _assigned_total2 > _global_limit2 and _reduce_keys2:
+                _rk2 = _reduce_keys2[_idx2 % len(_reduce_keys2)]
+                if int(_group_dev_count.get(_rk2, 0)) > 0:
+                    _group_dev_count[_rk2] = int(_group_dev_count.get(_rk2, 0)) - 1
+                    _assigned_total2 -= 1
+                _idx2 += 1
+                if _idx2 > 100000:
+                    break
+
         for g in grouped.values():
             _gk2     = (g['target'].upper(), g['pl_id'].upper())
             chip_ids = sorted(g['chip_ids_set'])  # kept for chip_ids JSON column
@@ -8261,8 +8374,8 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                 ws.isoformat(), we.isoformat(),
                 g['target'], g['pl_id'],
                 f"__consolidated__{g['target']}__{g['pl_id']}",
-                g['build_type'],
-                round(g['hours'], 3),
+                                g['build_type'],
+                _sp2_capped_pl_hours(g['hours'], _dev_cnt, ws, we),
                 g['crashes'],
                 _dev_cnt,
                 json.dumps(chip_ids),
@@ -8453,6 +8566,7 @@ def api_sp2_admin_force_refresh_week():
     deleted_builds = _clear_sp2_static_snapshot(ws, we)
     deleted_consolidate = _clear_sp2_consolidate_snapshot(ws, we)
     inserted_builds = _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    capped_build_rows = _cap_sp2_static_snapshot_hours(ws, we)
     _build_and_save_sp2_consolidate_from_static(ws, we, _current_user_identifier())
 
     static_rows = _load_sp2_static_build_rows(ws, we)
@@ -8465,6 +8579,7 @@ def api_sp2_admin_force_refresh_week():
         deleted_build_snapshot_rows=deleted_builds,
         deleted_consolidate_rows=deleted_consolidate,
         inserted_or_updated_build_rows=inserted_builds,
+        capped_build_rows=capped_build_rows,
         build_rows=len(static_rows or []),
         consolidate_rows=len(consolidate_rows or []),
         consolidate_device_count=sum(int(r.get('device_count') or 0) for r in (consolidate_rows or [])),
@@ -8496,6 +8611,7 @@ def api_sp2_builds():
     if str(request.args.get('force') or '').strip() in ('1', 'true', 'yes'):
         _clear_sp2_static_snapshot(ws, we)
     _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    _cap_sp2_static_snapshot_hours(ws, we)
     static_rows = _load_sp2_static_build_rows(ws, we)
     if static_rows:
         dash_map_static = _fetch_dashboard_status_map()
@@ -8572,21 +8688,7 @@ def api_sp2_builds():
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                _week_cap = we.isoformat() + " 23:59:59"
-                _week_floor = ws.isoformat() + " 00:00:00"
-                live_h = (
-                    "CASE"
-                    " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND, started_at,"
-                    " LEAST(NOW(), TIMESTAMP('" + _week_cap + "'))) / 3600.0, 3)"
-                    " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-                    " THEN ROUND(device_count *"
-                    " TIMESTAMPDIFF(SECOND,"
-                    " GREATEST(started_at, TIMESTAMP('" + _week_floor + "')),"
-                    " LEAST(ended_at,      TIMESTAMP('" + _week_cap   + "'))) / 3600.0, 3)"
-                    " ELSE 0 END"
-                )
+                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
                     taxonomy_path, team, city_team, state, device_count, chip_ids,
@@ -8732,7 +8834,7 @@ def api_sp2_builds():
         build_name = str(r.get('build_name') or build_id).strip()
                 # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
         hours      = _raw_hrs_actual
-        hours = round(hours * 0.80, 3)
+        hours = round(hours, 3)
 
         state      = str(r.get('state') or '').lower()
         is_running = state in ('running', 'jobsetup')

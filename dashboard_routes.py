@@ -6636,16 +6636,16 @@ def dashboard(target_name, section="dashboard"):
                             }
 
                 else:
-                    cr_quick_summary = {"error": f"JIRA '{search_query}' not found for {target_name}."}
+                    cr_quick_summary = {"error": "CR not found in this Target."}
             elif search_query:
                 try:
                     grouped_ctx = _fetch_grouped_cr_jira_context(cursor, target_name, search_query)
                 except Exception as _cr_lookup_err:
                     logger.warning(f"[cr-info] lookup failed for CR '{search_query}' on {target_name}: {_cr_lookup_err}")
                     grouped_ctx = None
-                    cr_quick_summary = {"error": f"CR '{search_query}' not found in {target_name}."}
-                if grouped_ctx is not None and not grouped_ctx:
-                    cr_quick_summary = {"error": f"CR '{search_query}' not found in {target_name}."}
+                    cr_quick_summary = {"error": "CR not found in this Target."}
+                if not grouped_ctx:
+                    cr_quick_summary = {"error": "CR not found in this Target."}
                 if grouped_ctx:
                     cr_info  = grouped_ctx["primary_cr_info"]
                     cr_jiras = grouped_ctx["cr_jiras"]
@@ -6909,6 +6909,167 @@ def _normalize_cr_search_tokens(search_value):
         if v and v not in vals:
             vals.append(v)
     return vals
+
+
+def _fetch_grouped_cr_jira_context(cursor, target_name, search_query):
+    """
+    Resolve a searched CR number / mapped-CR to its full "family" context for
+    the CR Info page:
+      - the seed row from unique_crs matching the searched CR or mapped_cr
+      - every sibling row sharing the same mapped_cr  (cr_group_rows)
+      - every matching JIRA row from jiras + openjiras (cr_jiras)
+
+    Returns None when the CR truly does not exist for this target, otherwise a
+    dict with the keys consumed by the "cr-info" route + cr_info.html:
+        primary_cr_info, cr_jiras, latest_meta_jira, cr_group_rows,
+        jira_instances, devices, test_teams, mcn_types, latest_meta,
+        latest_meta_count, linked_crs, searched_cr, canonical_mapped_cr
+    """
+    raw = (search_query or "").strip().upper()
+    if not raw:
+        return None
+    cr_bare     = raw.replace("CR", "").strip()
+    cr_prefixed = f"CR{cr_bare}" if cr_bare else raw
+
+    try:
+        u_table = fq_table_for_target(target_name, "unique_crs")
+    except Exception:
+        return None
+
+    # -- seed row: the exact CR / mapped_cr the user searched for --
+    cursor.execute(
+        f"SELECT * FROM {u_table} WHERE cr IN (%s,%s) OR mapped_cr IN (%s,%s) LIMIT 1",
+        (cr_bare, cr_prefixed, cr_bare, cr_prefixed),
+    )
+    seed = cursor.fetchone()
+    if not seed:
+        return None
+
+    canonical_mapped_cr = str(seed.get("mapped_cr") or "").strip() or str(seed.get("cr") or "").strip()
+
+    cr_group_rows = []
+    if canonical_mapped_cr:
+        cursor.execute(
+            f"SELECT * FROM {u_table} WHERE mapped_cr = %s ORDER BY cr",
+            (canonical_mapped_cr,),
+        )
+        cr_group_rows = cursor.fetchall() or []
+    if not cr_group_rows:
+        cr_group_rows = [seed]
+
+    linked_crs = sorted({
+        str(r.get("cr") or "").strip()
+        for r in cr_group_rows
+        if str(r.get("cr") or "").strip()
+    })
+    # Always include the searched tokens too, even if the searched value was
+    # the mapped_cr itself and not literally present as a `cr` row.
+    for tok in (cr_bare, cr_prefixed):
+        if tok and tok not in linked_crs:
+            linked_crs.append(tok)
+    linked_crs = sorted(set(linked_crs))
+
+    # -- jiras + openjiras: match by cr column and/or mapped_crs LIKE --
+    j_table = o_table = None
+    try:
+        j_table = fq_table_for_target(target_name, "jiras")
+    except Exception:
+        pass
+    try:
+        o_table = fq_table_for_target(target_name, "openjiras")
+    except Exception:
+        pass
+
+    def _table_exists(fq_name):
+        if not fq_name:
+            return False
+        name = fq_name.replace("`", "")
+        try:
+            schema, table = name.split(".", 1)
+        except ValueError:
+            return True
+        try:
+            cursor.execute(
+                "SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1",
+                (schema, table),
+            )
+            return cursor.fetchone() is not None
+        except Exception:
+            return False
+
+    def _table_columns(fq_name):
+        try:
+            cursor.execute(f"SHOW COLUMNS FROM {fq_name}")
+            return {c["Field"] for c in (cursor.fetchall() or [])}
+        except Exception:
+            return set()
+
+    cr_jiras = []
+    for tbl in (j_table, o_table):
+        if not tbl or not _table_exists(tbl):
+            continue
+        cols = _table_columns(tbl)
+        clauses, params = [], []
+        if "cr" in cols:
+            for cr_val in linked_crs:
+                clauses.append("cr = %s")
+                params.append(cr_val)
+        if "mapped_crs" in cols:
+            for cr_val in linked_crs:
+                clauses.append("mapped_crs LIKE %s")
+                params.append(f"%{cr_val}%")
+            if canonical_mapped_cr:
+                clauses.append("mapped_crs LIKE %s")
+                params.append(f"%{canonical_mapped_cr}%")
+        if "mapped_cr" in cols:
+            for cr_val in linked_crs:
+                clauses.append("mapped_cr = %s")
+                params.append(cr_val)
+        if not clauses:
+            continue
+        where = " OR ".join(clauses)
+        try:
+            cursor.execute(f"SELECT * FROM {tbl} WHERE {where}", tuple(params))
+            cr_jiras.extend(cursor.fetchall() or [])
+        except Exception as e:
+            logger.debug(f"[cr-info] grouped jira fetch failed on {tbl}: {e}")
+
+    # de-dup (jiras/openjiras could theoretically overlap) and sort newest first
+    seen_tickets, deduped = set(), []
+    for r in cr_jiras:
+        key = str(r.get("stability_ticket") or r.get("id") or id(r))
+        if key in seen_tickets:
+            continue
+        seen_tickets.add(key)
+        deduped.append(r)
+    cr_jiras = sorted(deduped, key=_jira_sort_key, reverse=True)
+
+    latest_meta_jira = cr_jiras[0] if cr_jiras else {}
+    latest_meta = str(latest_meta_jira.get("metabuild") or latest_meta_jira.get("build_id") or "").strip()
+    latest_meta_count = sum(
+        1 for r in cr_jiras
+        if str(r.get("metabuild") or r.get("build_id") or "").strip() == latest_meta
+    ) if latest_meta else 0
+
+    devices    = sorted({(r.get("serial_no") or "").strip() for r in cr_jiras if (r.get("serial_no") or "").strip()})
+    test_teams = sorted({(r.get("test_team") or "").strip() for r in cr_jiras if (r.get("test_team") or "").strip()})
+    mcn_types  = sorted({(r.get("mcn") or "").strip() for r in cr_jiras if (r.get("mcn") or "").strip()})
+
+    return {
+        "primary_cr_info":     seed,
+        "cr_jiras":            cr_jiras,
+        "latest_meta_jira":    latest_meta_jira,
+        "cr_group_rows":       cr_group_rows,
+        "jira_instances":      cr_jiras,
+        "devices":             devices,
+        "test_teams":          test_teams,
+        "mcn_types":           mcn_types,
+        "latest_meta":         latest_meta,
+        "latest_meta_count":   latest_meta_count,
+        "linked_crs":          linked_crs,
+        "searched_cr":         str(seed.get("cr") or search_query or "").strip(),
+        "canonical_mapped_cr": canonical_mapped_cr,
+    }
 
 
 def _cr_info_valid_number(value):
