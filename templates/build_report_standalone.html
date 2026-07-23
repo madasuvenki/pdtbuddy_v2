@@ -110,13 +110,8 @@
     <div class="card-h">
       <h2><i class="fas fa-chart-bar"></i> Report Output</h2>
       <div class="toolbar">
-        <button id="brCopyCrBtn" class="btn btn-good" type="button" onclick="brCopyCrTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy CR Table</button>
-        <button id="brCsvCrBtn" class="btn" type="button" onclick="brDownloadCrCsv()" style="display:none"><i class="fas fa-file-csv"></i> CR CSV</button>
-        <button id="brCopyJiraBtn" class="btn btn-good" type="button" onclick="brCopyJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy Open JIRAs</button>
-        <button id="brCsvJiraBtn" class="btn" type="button" onclick="brDownloadJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> JIRA CSV</button>
-        <button id="brCsvAllJiraBtn" class="btn" type="button" onclick="brDownloadAllJiraCsv()" style="display:none"><i class="fas fa-file-csv"></i> All JIRAs CSV</button>
-        <button id="brCopyAllJiraBtn" class="btn btn-good" type="button" onclick="brCopyAllJiraTable(this)" style="display:none"><i class="fas fa-copy"></i> Copy All JIRAs</button>
-        <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Full Report</button>
+                <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Clear Report</button>
+        <button id="brExcelBtn" class="btn btn-good" type="button" onclick="brDownloadExcel(this)" style="display:none"><i class="fas fa-file-excel"></i> Excel V3</button>
         <div id="brCounts" class="toolbar"></div>
       </div>
     </div>
@@ -137,7 +132,7 @@
             <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
             <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:320px">CR Title</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">CR Date</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">CR Status</th><th style="min-width:160px">JIRA Tickets</th></tr></thead><tbody id="brCrRows"><tr><td colspan="12" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">CR Priority</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:320px">CR Title</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">Created Date</th><th style="white-space:nowrap">Built Date</th><th style="white-space:nowrap">CR Age</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">CR Status</th></tr></thead><tbody id="brCrRows"><tr><td colspan="14" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
         </div>
         <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
         <div id="brTabPane_mapped" style="display:none">
@@ -355,7 +350,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="12" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -631,9 +626,9 @@ function normalize(rep){
       return {
         cr:key,
         cr_count:groups[key].length,
-        cr_title:info.cr_title||'', cr_status:info.cr_status||'', cr_si:info.cr_si||'',
+        cr_title:info.cr_title||'', cr_status:info.cr_status||'', cr_priority:info.cr_priority||'', cr_si:info.cr_si||'',
         cr_area:info.cr_area||'', cr_subsystem:info.cr_subsystem||'',
-        cr_function:info.cr_function||'', cr_date:info.cr_date||'',
+                cr_function:info.cr_function||'', cr_date:info.cr_date||'', cr_built_date:info.cr_built_date||'', cr_age:info.cr_age||'',
         jiras:groups[key].map(j=>Object.assign({},j,{final_key:brFinalKeyOf(j),final_status:brFinalStatusOf(j),final_resolution:brFinalResolutionOf(j),final_summary:brFinalSummaryOf(j),resolution_notes_text:(brTraversalOf(j).resolution_notes_text||j.resolution_notes_text||j.resolution_notes||'')}))
       };
     });
@@ -652,8 +647,8 @@ function normalize(rep){
       crRows.push({
         cr, title:r.cr_title||r.title||'',
         area:r.cr_area||r.area||'', sub:r.cr_subsystem||r.subsystem||'',
-        func:r.cr_functionality||r.cr_function||r.functionality||'',
-                date:r.cr_date||'', si:r.cr_si||r.cr_image||'', status:r.cr_status||r.status||'',
+                func:r.cr_functionality||r.cr_function||r.functionality||'',
+                date:r.cr_date||'', built_date:r.cr_built_date||r.built_date||'', age:r.cr_age||r.age||'', priority:r.cr_priority||r.priority||'', si:r.cr_si||r.cr_image||'', status:r.cr_status||r.status||'',
         count:cnt, jiras
       });
     } else if(isCrEquiv(cr)){
@@ -708,7 +703,7 @@ function normalize(rep){
       const c=Number(r.jira_count||1)||1;
       convertedToCrs+=c;
       crRows.push({cr:r.mapped_cr||r.cr,title:r.cr_title||'',area:r.cr_area||'',
-        sub:r.cr_subsystem||'',func:r.cr_functionality||'',date:'',si:'',
+        sub:r.cr_subsystem||'',func:r.cr_functionality||'',date:r.cr_date||'',built_date:r.cr_built_date||r.built_date||'',age:r.cr_age||r.age||'',priority:r.cr_priority||r.priority||'',si:'',
         status:r.cr_status||'',count:c,jiras:r.jiras||[]});
     });
   }
@@ -732,6 +727,28 @@ function normalize(rep){
     mapping_type:'Unmapped',type:'',count:1}));
 
   return {crRows,mappedRows,openRows,jiraRows,allJiraRows,totalJiras,convertedToCrs};
+}
+function brDateOnly(value){return String(value||'').trim().slice(0,10);}
+function brComputeCrAge(createdDate,builtDate,status){
+  const startRaw=brDateOnly(createdDate);
+  if(!startRaw)return '';
+  const start=new Date(startRaw+'T00:00:00');
+  if(Number.isNaN(start.getTime()))return '';
+  const statusText=String(status||'').trim().toLowerCase().replace(/\s+/g,'');
+  let end=null;
+  if(statusText==='built'&&brDateOnly(builtDate)){
+    end=new Date(brDateOnly(builtDate)+'T00:00:00');
+  }
+  if(!end||Number.isNaN(end.getTime()))end=new Date();
+  return Math.max(0,Math.floor((end-start)/86400000));
+}
+function brCrAge(row){
+  if(row&&row.age!==undefined&&row.age!==null&&String(row.age).trim()!=='')return row.age;
+  return brComputeCrAge(row&&row.date,row&&row.built_date,row&&row.status);
+}
+function brDisplayCrAge(row){
+  const age=brCrAge(row);
+  return (age===undefined||age===null||String(age).trim()==='')?'--':age;
 }
 function formatStandardTime(value){
   const raw=String(value||'').trim();
@@ -1067,10 +1084,8 @@ function renderReport(rep){
   window._brAxiomBuildIds=((rep||{}).meta||{}).build_ids_detected_for_axiom||((rep||{}).meta||{}).build_ids||[];
 
   // Show/hide action buttons
-  ['brCopyReportBtn','brCopyCrBtn','brCsvCrBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
-  const allBtn=g('brCsvAllJiraBtn'); if(allBtn)allBtn.style.display='none';
-  const copyAllBtn=g('brCopyAllJiraBtn'); if(copyAllBtn)copyAllBtn.style.display='none';
-  ['brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display=openRows.length?'inline-flex':'none';});
+    ['brCopyReportBtn','brExcelBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
+  ['brCopyCrBtn','brCsvCrBtn','brCsvAllJiraBtn','brCopyAllJiraBtn','brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});
 
     // Metric cards
   const metricBox=g('brMetricCards');
@@ -1172,14 +1187,14 @@ window.brRenderCrTab=function(){
   const crRows=window._brCrRows||[];
   const q=String((g('brCrSearch')||{}).value||'').toLowerCase();
   const sort=(g('brCrSort')||{}).value||'occ_desc';
-  let rows=crRows.filter(r=>!q||[r.cr,r.title,r.area,r.sub,r.func,r.status].join(' ').toLowerCase().indexOf(q)>=0);
+  let rows=crRows.filter(r=>!q||[r.cr,r.title,r.area,r.sub,r.func,r.priority,r.status].join(' ').toLowerCase().indexOf(q)>=0);
   rows.sort((a,b)=>{
     if(sort==='occ_asc')return (a.count||0)-(b.count||0);
     if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr));
     return (b.count||0)-(a.count||0);
   });
   const tb=g('brCrRows'); if(!tb)return;
-  if(!rows.length){tb.innerHTML='<tr><td colspan="12" class="empty">No CRs found.</td></tr>';return;}
+    if(!rows.length){tb.innerHTML='<tr><td colspan="14" class="empty">No CRs found.</td></tr>';return;}
   tb.innerHTML=rows.map((r,i)=>{
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
     const crLink=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':esc(r.cr||'--');
@@ -1191,38 +1206,27 @@ window.brRenderCrTab=function(){
       stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534;border:1px solid #86efac':
       'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
     const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
-    // JIRA Tickets cell: expandable pills
-    const jiraItems=brJiraItemsForCr(r);
+        const jiraItems=brJiraItemsForCr(r);
     const jiraKeys=jiraItems.map(x=>x.key).filter(Boolean);
     const cnt=Number(r.count||jiraKeys.length||0);
-    let jiraCell;
-    if(!jiraKeys.length){
-      jiraCell='<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';
-    } else if(jiraKeys.length<=3){
-      jiraCell='<div style="display:flex;flex-wrap:wrap;gap:3px">'+
-        jiraKeys.map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;white-space:nowrap" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('')+
-        '</div>';
-    } else {
-      const pills=jiraKeys.slice(0,5).map(k=>'<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener">'+esc(k)+'</a>').join('');
-      const more=jiraKeys.length>5?'<span style="color:#94a3b8;font-size:10px"> +'+(jiraKeys.length-5)+' more</span>':'';
-      jiraCell='<div>'+
-        '<span style="font-weight:950;color:#4f46e5;cursor:pointer;white-space:nowrap" onclick="(function(s){s.nextElementSibling.style.display=s.nextElementSibling.style.display===\'none\'?\'block\':\'none\';})(this)">'+esc(cnt)+' <i class="fas fa-chevron-down" style="font-size:9px"></i></span>'+
-        '<div style="display:none;margin-top:4px;line-height:1.9">'+pills+more+'</div>'+
-        '</div>';
-    }
+    const occCell=jiraKeys.length
+      ? '<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open linked JIRAs in JIRA">'+esc(cnt)+'</a>'
+      : '<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>'; 
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
-      '<td style="white-space:nowrap">'+crLink+'</td>'+
-      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(cnt)+'</td>'+
+            '<td style="white-space:nowrap">'+crLink+'</td>'+
+      '<td style="text-align:center">'+occCell+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#7c2d12">'+esc(r.priority||'--')+'</td>'+ 
       '<td style="white-space:nowrap;font-size:11px;font-weight:900">'+esc(crashTypeSummary(jiraItems,r))+'</td>'+
       '<td style="min-width:320px;white-space:normal;word-break:break-word">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.area||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.sub||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.func||'--')+'</td>'+
-      '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
-      '<td style="font-size:11px">'+esc(r.si||'--')+'</td>'+
+            '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.date)||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.built_date)||'--')+'</td>'+
+            '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#334155">'+esc(brDisplayCrAge(r))+'</td>'+
+            '<td style="font-size:11px">'+esc(r.si||'--')+'</td>'+
       '<td>'+stBadge+'</td>'+
-      '<td style="min-width:180px">'+jiraCell+'</td>'+
       '</tr>';
   }).join('');
 };
@@ -1296,8 +1300,8 @@ window.brRenderOpenTab=function(){
     const resNote=resDisplay?'<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:normal;word-break:break-word" title="'+esc(resDisplay)+'">'+esc(resDisplay)+'</div>':'';
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
-      '<td style="white-space:nowrap"><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a></td>'+
-      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.count||1)+'</td>'+
+            '<td style="white-space:nowrap"><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a></td>'+
+      '<td style="text-align:center"><a class="br-count-link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener" title="Open JIRA">'+esc(r.count||1)+'</a></td>'+
       '<td style="min-width:320px;white-space:normal;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
       '<td>'+stBadge+invBadge+resNote+'</td>'+
@@ -1393,8 +1397,8 @@ function brDownloadCsv(filename, headers, rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
 }
 function brDownloadCrCsv(){
-  const headers=['#','CR','CR URL','JIRA Title','JIRA Count','Mapped JIRAs URL','Crash Type','Final Resolution / CR Status','CR Age','Area','Subsystem','Function'];
-  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'Final Resolution / CR Status':r.resolution||r.status||'','CR Age':r.age||'','Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
+        const headers=['#','CR','CR URL','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','Final Resolution / CR Status','Created Date','Built Date','CR Age','Area','Subsystem','Function'];
+  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'Final Resolution / CR Status':r.resolution||r.status||'','Created Date':brDateOnly(r.date),'Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
   brDownloadCsv('build_report_cr_summary.csv',headers,rows);
 }
 function brDownloadJiraCsv(){
@@ -1406,6 +1410,35 @@ function brDownloadAllJiraCsv(){
   const headers=['#','JIRA','JIRA URL','Title','Reporter','Project','Build','Mapped CR','Crash Type','Status','Final Status','Final Resolution','Resolution Notes','Traversal Path','Mapping Type','Hops','Created'];
   const rows=(brLastAllJiraRows||[]).map((r,i)=>({'#':i+1,'JIRA':r.key||'','JIRA URL':r.key?JIRA_BASE+r.key:'','Title':r.title||'','Reporter':r.reporter||'','Project':r.project||'','Build':r.build||'','Mapped CR':r.cr||'','Crash Type':r.type||'','Status':r.status||'','Final Status':r.final_status||'','Final Resolution':r.final_resolution||'','Resolution Notes':r.resolution_notes||'','Traversal Path':r.chain||'','Mapping Type':r.mapping_type||'','Hops':r.hop_count||0,'Created':r.created||''}));
   brDownloadCsv('build_report_all_jiras_full.csv',headers,rows);
+}
+function brExcelPayloadRows(){
+  const crRows=(window._brCrRows||[]).map(r=>{
+    const items=brJiraItemsForCr(r);
+    const jiraKeys=items.map(x=>x.key).filter(Boolean);
+    return {cr:r.cr||'',occurrence:Number(r.count||jiraKeys.length||0),priority:r.priority||'',crash_type:crashTypeSummary(items,r),title:r.title||'',area:r.area||'',sub:r.sub||'',func:r.func||'',date:brDateOnly(r.date),built_date:brDateOnly(r.built_date),age:brDisplayCrAge(r),si:r.si||'',status:r.status||'',jira_keys:jiraKeys};
+  });
+  const mappedRows=(window._brMappedRows||[]).map(r=>({ticket:r.ticket||'',occurrence:Number(r.count||1),title:r.title||'',date:r.date||'',status:r.status||'',src_keys:r.srcKeys||[]}));
+  const openRows=(window._brOpenRows||[]).map(r=>({key:r.key||'',occurrence:Number(r.count||1),title:r.title||'',date:r.date||'',status:r.status||'',final_resolution:r.final_resolution||'',resolution_notes_text:r.resolution_notes_text||''}));
+  return {cr_summary:crRows,mapped_tickets:mappedRows,qstability_tickets:openRows};
+}
+async function brDownloadExcel(btn){
+  const sheets=brExcelPayloadRows();
+  if(!sheets.cr_summary.length&&!sheets.mapped_tickets.length&&!sheets.qstability_tickets.length){alert('Run the report first.');return;}
+  const old=btn&&btn.innerHTML;
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Excel...';}
+  try{
+    const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const resp=await fetch('/api/build_report/export_excel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:'build_report_v3_'+stamp+'.xlsx',sheets:sheets})});
+    if(!resp.ok){let msg='Excel export failed';try{const d=await resp.json();msg=d.error||msg;}catch(e){}throw new Error(msg);}
+    const blob=await resp.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='build_report_v3_'+stamp+'.xlsx';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
+    brFlashButton(btn,true,'Excel Ready');
+  }catch(e){alert(e.message||e);brFlashButton(btn,false);}
+  finally{if(btn){setTimeout(()=>{btn.disabled=false;if(old)btn.innerHTML=old;},1200);}}
 }
 function brCopyAllJiraTable(btn){brCopyHtmlTable(g('brAllJiraTable'),btn);}
 function brCopyReportOutput(btn){
@@ -1486,6 +1519,75 @@ function brCopyReportOutput(btn){
     }else fallback();
   }catch(e){fallback();}
 }
+function brBuildCleanReportHtml(){
+  const counts=window._brLastRows||{};
+  const crRows=window._brCrRows||[];
+  const mappedRows=window._brMappedRows||[];
+  const openRows=window._brOpenRows||[];
+  const axRows=window._brAxiomBuildRows||[];
+  const axHoursEl=g('brAxiomTotalHours'), axMtbfEl=g('brAxiomMtbf');
+  const generated=(g('brSummary')&&g('brSummary').innerText)||('Generated: '+formatStandardTime(''));
+  const css={
+    wrap:'font-family:Segoe UI,Arial,sans-serif;color:#172033;background:#ffffff;padding:14px;max-width:1200px;',
+    title:'font-size:20px;font-weight:900;color:#172554;margin:0 0 2px;',
+    sub:'font-size:11px;color:#64748b;margin:0 0 10px;',
+    h:'font-size:14px;font-weight:900;color:#172554;margin:14px 0 6px;',
+    table:'border-collapse:collapse;width:100%;font-family:Segoe UI,Arial,sans-serif;font-size:12px;background:#fff;margin:0 0 12px;border:1px solid #cbd5e1;',
+    th:'background:#1e3a8a;color:#fff;text-align:left;padding:7px 9px;border:1px solid #cbd5e1;font-size:11px;font-weight:900;',
+    td:'padding:7px 9px;border:1px solid #cbd5e1;vertical-align:top;color:#172033;',
+    num:'text-align:right;font-weight:900;color:#172554;',
+    link:'color:#1d4ed8;text-decoration:underline;font-weight:800;'
+  };
+  function link(url,text){return url?'<a href="'+esc(url)+'" style="'+css.link+'">'+esc(text||url)+'</a>':esc(text||'');}
+  function table(headers,rows){
+    if(!rows.length)return '';
+    return '<table style="'+css.table+'"><thead><tr>'+headers.map(h=>'<th style="'+css.th+'">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
+  }
+  function td(v,extra){return '<td style="'+css.td+(extra||'')+'">'+(v==null?'':v)+'</td>';}
+  const summaryRows=[
+    ['Total JIRAs',counts.totalJiras||0,'All JIRAs from filter'],
+    ['Mapped to CRs (occurrences)',counts.convertedToCrs||0,'Sum of all JIRA occurrences across all CRs'],
+    ['Mapped Tickets',counts.mappedTickets||0,'Sum of occurrences across mapped stability tickets'],
+    ['Open JIRAs',counts.openInclMapped||0,'Total - CR occurrences - Mapped occurrences'],
+    ['CRs (unique)',counts.crs||0,'Unique CRs mapped from JIRAs'],
+    ['Invalid / Closed',counts.invalidJiras||0,"Closed, Won't Fix, Not a Bug, etc."],
+    ['Valid JIRAs',counts.validJiras||window._brValidJiras||0,'Total - Invalid/Closed']
+  ].map(r=>'<tr>'+td(esc(r[0]))+td(esc(r[1]),'text-align:right;font-weight:900;')+td(esc(r[2]))+'</tr>');
+  let html='<div style="'+css.wrap+'"><div style="'+css.title+'">PDT Buddy - Build Report</div><div style="'+css.sub+'">Consolidated JIRA / CR Summary &nbsp; | &nbsp; '+esc(generated.replace(/\s+/g,' ').trim())+'</div>';
+  html+='<div style="'+css.h+'">Summary</div>'+table(['Metric','Count','Note'],summaryRows);
+  if(axRows.length||axHoursEl||axMtbfEl){
+    const axRowsHtml=[
+      ['Total Hours',axHoursEl?axHoursEl.textContent:'--'],
+      ['Devices',window._brAxiomMaxDevices||'--'],
+      ['Valid JIRAs (crashes)',window._brAxiomCrashes||window._brValidJiras||0],
+      ['MTBF = Hours / Crashes',axMtbfEl?axMtbfEl.textContent:'--']
+    ].map(r=>'<tr>'+td(esc(r[0]))+td(esc(r[1]),'text-align:right;font-weight:900;')+'</tr>');
+    html+='<div style="'+css.h+'">Axiom Stability</div>'+table(['Metric','Value'],axRowsHtml);
+  }
+  const crHtml=crRows.map((r,i)=>{
+    const keys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);
+    const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+    return '<tr>'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.built_date)))+td(esc(brDisplayCrAge(r)))+td(esc(r.si||''))+td(esc(r.status||''))+'</tr>'; 
+  });
+  html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','CR Area','CR SubSystem','CR Functionality','Created Date','Built Date','CR Age','CR SI','CR Status'],crHtml);
+  const mappedHtml=mappedRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.ticket?JIRA_BASE+r.ticket:'',r.ticket||''))+td(esc(r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc(r.status||''))+td(esc((r.srcKeys||[]).join(', ')))+'</tr>');
+  if(mappedHtml.length)html+='<div style="'+css.h+'">Mapped JIRAs</div>'+table(['#','JIRA-Ticket','Occurrence','Jira Title','Jira Date','Status','JIRA Tickets (Source)'],mappedHtml);
+  const openHtml=openRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.key?JIRA_BASE+r.key:'',r.key||''))+td(link(r.key?JIRA_BASE+r.key:'',r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc([r.status,r.final_resolution,r.resolution_notes_text].filter(Boolean).join(' - ')))+'</tr>');
+  if(openHtml.length)html+='<div style="'+css.h+'">Open JIRAs</div>'+table(['#','JIRA-Ticket','Occurrence','Jira Title','Jira Date','Status'],openHtml);
+  return html+'</div>';
+}
+function brCopyReportOutput(btn){
+  if(!(window._brCrRows||[]).length&&!(window._brMappedRows||[]).length&&!(window._brOpenRows||[]).length){alert('Run the report first.');return;}
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'+brBuildCleanReportHtml()+'</body></html>';
+  const tmp=document.createElement('div');tmp.innerHTML=html;
+  const plain=(tmp.innerText||tmp.textContent||'').trim();
+  function fallback(){try{const d=document.createElement('div');d.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;';d.innerHTML=html;document.body.appendChild(d);const r=document.createRange();r.selectNodeContents(d);const s=window.getSelection();s.removeAllRanges();s.addRange(r);const ok=document.execCommand('copy');s.removeAllRanges();document.body.removeChild(d);brFlashButton(btn,ok,'Copied');}catch(e){brFlashButton(btn,false);}}
+  try{
+    if(typeof ClipboardItem!=='undefined'&&navigator.clipboard&&navigator.clipboard.write){
+      navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]).then(()=>brFlashButton(btn,true,'Copied')).catch(fallback);
+    }else fallback();
+  }catch(e){fallback();}
+}
 // Fetch axiom metrics for already-rendered report without re-running full JQL
 // Called automatically when builds are detected post-render, or by "Fetch Axiom" button
 async function brFetchAxiomNow(buildIds, existingRep){
@@ -1562,15 +1664,15 @@ async function brRun(){
 
   if(g('brJql')&&!String(g('brJql').value||'').trim())g('brJql').value=activeJql;
   if(g('brOpenJira')){g('brOpenJira').href=jiraUrl(activeJql);g('brOpenJira').style.display=activeJql?'inline-flex':'none'}
-  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
+  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
   try{
     await brCheckJiraReady();
-    g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
+    g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
     const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||''});
     renderReport(data);
     g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
     brHideProgress(1800);
-  }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="10" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
+  }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="14" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
   finally{g('brSpinner').style.display='none'}
 }
 document.addEventListener('DOMContentLoaded',()=>{brPopulateBus();brShowBuildContextMessage();});

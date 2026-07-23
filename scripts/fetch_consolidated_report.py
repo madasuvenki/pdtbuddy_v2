@@ -215,12 +215,19 @@ def _parse_date(value):
         return None
 
 
-def _compute_cr_age(cr_date, end_date=None):
-    """Return CR age in days, using built/end date when available, otherwise today."""
+def _compute_cr_age(cr_date, built_date=None, status=None):
+    """Return CR age in days.
+
+    Built CRs age from CR created date to built date. All other statuses age
+    from CR created date to today.
+    """
     start = _parse_date(cr_date)
     if not start:
         return ''
-    end = _parse_date(end_date) or date.today()
+    status_text = _safe(status).lower().replace(' ', '')
+    end = _parse_date(built_date) if status_text == 'built' else None
+    if not end:
+        end = date.today()
     try:
         return max((end - start).days, 0)
     except Exception:
@@ -671,11 +678,12 @@ def issue_to_dict(issue, queried_builds=None):
         },
 
         # - Orbit CR info (filled in later) -
-        "cr_info": {
+            "cr_info": {
             "cr_number"   : "",
             "cr_title"    : "",
             "cr_date"     : "",
             "cr_status"   : "",
+            "cr_priority" : "",
             "cr_si"       : "",
             "cr_area"     : "",
             "cr_subsystem": "",
@@ -1279,12 +1287,13 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_title'     : _g('Title', 'cr_title', 'title'),
                 'cr_date'      : _g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10],
                 'cr_status'    : best_status or _g('Status', 'cr_status', 'status'),
+                'cr_priority'  : _g('Priority', 'priority', 'cr_priority', 'PdtPriority', 'PDTPriority'),
                 'cr_si'        : best_si or 'NoSIR',
                 'cr_area'      : area,
                 'cr_subsystem' : sub,
                 'cr_function'  : func,
-                'cr_built_date': best_built,
-                'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built),
+                                'cr_built_date': best_built,
+                'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built, best_status or _g('Status', 'cr_status', 'status')),
                 'image_matched': image_matched,
                 'source'       : 'orbit',
 
@@ -1418,6 +1427,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
             'cr_count'       : cr_count,
             'cr_title'       : cr_data.get('cr_title',  ''),
             'cr_status'      : cr_data.get('cr_status', ''),
+            'cr_priority'    : cr_data.get('cr_priority', ''),
             'cr_image'       : cr_data.get('cr_si',     ''),
             'cr_image_matched': cr_data.get('image_matched', False),
             'cr_source'      : cr_data.get('source', 'orbit'),
@@ -1426,7 +1436,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
             'cr_function'    : cr_data.get('cr_function', ''),
                         'cr_built_date'  : cr_data.get('cr_built_date', ''),
             'cr_date'        : cr_data.get('cr_date', ''),
-            'cr_age'         : cr_data.get('cr_age', '') or _compute_cr_age(cr_data.get('cr_date', ''), cr_data.get('cr_built_date', '')),
+            'cr_age'         : cr_data.get('cr_age', '') or _compute_cr_age(cr_data.get('cr_date', ''), cr_data.get('cr_built_date', ''), cr_data.get('cr_status', '')),
             'jiras'          : [],
 
         }
@@ -1627,6 +1637,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
 
         title_col  = _pick('cr_title', 'title')
         status_col = _pick('cr_status', 'status', 'cr_category')
+        priority_col = _pick('cr_priority', 'priority', 'pdt_priority', 'cr_pdt_priority')
         image_col  = _pick('image', 'cr_si', 'si', 'software_image', 'software_image_name')
         area_col   = _pick('cr_area', 'area', 'tech_area', 'technical_area')
         sub_col    = _pick('cr_subsystem', 'cr_sub_system', 'subsystem', 'sub_system')
@@ -1638,7 +1649,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
 
         # build SELECT
         select_cols = list(lookup_cols)
-        for c in [title_col, status_col, image_col, area_col, sub_col, func_col, built_col, date_col, age_col]:
+        for c in [title_col, status_col, priority_col, image_col, area_col, sub_col, func_col, built_col, date_col, age_col]:
 
             if c and c not in select_cols:
                 select_cols.append(c)
@@ -1721,13 +1732,14 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
                 'canonical_cr' : canonical_key,
                 'cr_title'     : str(row.get(title_col,  '') or '') if title_col  else '',
                 'cr_status'    : str(row.get(status_col, '') or '') if status_col else '',
+                'cr_priority'  : str(row.get(priority_col, '') or '') if priority_col else '',
                 'cr_si'        : cr_si_raw,
                 'cr_area'      : str(row.get(area_col,   '') or '') if area_col   else '',
                 'cr_subsystem' : str(row.get(sub_col,    '') or '') if sub_col    else '',
                 'cr_function'  : str(row.get(func_col,   '') or '') if func_col   else '',
                                 'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
                 'cr_date'      : str(row.get(date_col,   '') or '') if date_col   else '',
-                'cr_age'       : str(row.get(age_col,    '') or '') if age_col else _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else ''),
+                'cr_age'       : _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else '', str(row.get(status_col, '') or '') if status_col else ''),
                 'image_matched': image_matched,   # True = image found in JIRA's pl_id_raw
 
                 'source'       : 'unique_crs',

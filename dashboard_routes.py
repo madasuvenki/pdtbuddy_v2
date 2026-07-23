@@ -7875,6 +7875,187 @@ def api_consolidated_report_save():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+def _br_export_text(value):
+    text = str(value if value is not None else '').strip()
+    return text
+
+
+def _br_export_issue_keys(values):
+    import re as _re
+    keys = []
+    seen = set()
+    candidates = values if isinstance(values, (list, tuple, set)) else [values]
+    for item in candidates:
+        if isinstance(item, dict):
+            item = item.get('key') or item.get('stability_ticket') or item.get('jira') or item.get('ticket') or ''
+        for match in _re.findall(r'\b[A-Z][A-Z0-9]+-\d+\b', str(item or '').upper()):
+            if match not in seen:
+                seen.add(match)
+                keys.append(match)
+    return keys
+
+
+def _br_export_jira_issues_url(keys):
+    from urllib.parse import quote
+    keys = _br_export_issue_keys(keys)[:50]
+    if not keys:
+        return ''
+    return 'https://jira-dc2.qualcomm.com/jira/issues/?jql=' + quote('key in (' + ','.join(keys) + ') ORDER BY created DESC')
+
+
+@dashboard_bp.route("/api/build_report/export_excel", methods=["POST"])
+@login_required
+def api_build_report_export_excel():
+    """Download the currently rendered Build Report as a V3-style Excel workbook."""
+    body = request.get_json(force=True, silent=True) or {}
+    sheets = body.get('sheets') if isinstance(body.get('sheets'), dict) else {}
+    cr_rows = sheets.get('cr_summary') or sheets.get('CR_Summary') or []
+    mapped_rows = sheets.get('mapped_tickets') or sheets.get('Mapped_Tickets') or []
+    open_rows = sheets.get('qstability_tickets') or sheets.get('Qstability_Tickets') or []
+    if not any(isinstance(v, list) and v for v in (cr_rows, mapped_rows, open_rows)):
+        return jsonify({'ok': False, 'error': 'No rendered report rows to export.'}), 400
+
+    try:
+        from io import BytesIO
+        import re as _re
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': f'Excel export dependency missing: {exc}'}), 500
+
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    header_fill = PatternFill('solid', fgColor='1E3A8A')
+    header_font = Font(color='FFFFFF', bold=True)
+    link_font = Font(color='0563C1', underline='single')
+    thin = Side(style='thin', color='D9E2F3')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    wrap = Alignment(vertical='top', wrap_text=True)
+    center = Alignment(horizontal='center', vertical='top', wrap_text=True)
+
+    def _safe_sheet(title):
+        ws = wb.create_sheet(title[:31])
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = 'A1:A1'
+        return ws
+
+    def _write_headers(ws, headers):
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center
+            cell.border = border
+        ws.auto_filter.ref = f'A1:{get_column_letter(len(headers))}1'
+
+    def _style_body(ws):
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.border = border
+                cell.alignment = center if cell.column in (1, 3) else wrap
+        for col in range(1, ws.max_column + 1):
+            letter = get_column_letter(col)
+            max_len = 10
+            for cell in ws[letter]:
+                max_len = max(max_len, min(60, len(str(cell.value or '')) + 2))
+            ws.column_dimensions[letter].width = max_len
+
+    def _set_link(cell, url):
+        if url:
+            cell.hyperlink = url
+            cell.font = link_font
+
+    def _cr_url(cr_value):
+        match = _re.search(r'(\d{5,9})', str(cr_value or ''))
+        return f'https://orbit/CR/{match.group(1)}' if match else ''
+
+    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status']
+    ws = _safe_sheet('CR_Summary')
+    _write_headers(ws, cr_headers)
+    for idx, row in enumerate(cr_rows if isinstance(cr_rows, list) else [], start=1):
+        if not isinstance(row, dict):
+            continue
+        keys = _br_export_issue_keys(row.get('jira_keys') or row.get('jiras') or row.get('JIRA Tickets') or row.get('jira_tickets'))
+        count = row.get('occurrence', row.get('count', len(keys) or ''))
+        values = [
+            idx,
+            _br_export_text(row.get('cr') or row.get('CR-ID')),
+            count,
+            _br_export_text(row.get('priority') or row.get('cr_priority') or row.get('CR Priority')),
+            _br_export_text(row.get('crash_type') or row.get('Crash Type')),
+            _br_export_text(row.get('title') or row.get('CR Title')),
+            _br_export_text(row.get('area') or row.get('CR Area')),
+            _br_export_text(row.get('sub') or row.get('subsystem') or row.get('CR SubSystem')),
+            _br_export_text(row.get('func') or row.get('functionality') or row.get('CR Functionality')),
+            _br_export_text(row.get('date') or row.get('created_date') or row.get('Created Date') or row.get('CR Date')),
+            _br_export_text(row.get('built_date') or row.get('Built Date')),
+            _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
+            _br_export_text(row.get('si') or row.get('CR SI')),
+            _br_export_text(row.get('status') or row.get('CR Status')),
+        ]
+        ws.append(values)
+        excel_row = ws.max_row
+        _set_link(ws.cell(excel_row, 2), _cr_url(values[1]))
+        _set_link(ws.cell(excel_row, 3), _br_export_jira_issues_url(keys))
+    _style_body(ws)
+
+    mapped_headers = ['#', 'JIRA-Ticket', 'Occurrence', 'Jira Title', 'Jira Date', 'Status', 'JIRA Tickets (Source)']
+    ws = _safe_sheet('Mapped_Tickets')
+    _write_headers(ws, mapped_headers)
+    for idx, row in enumerate(mapped_rows if isinstance(mapped_rows, list) else [], start=1):
+        if not isinstance(row, dict):
+            continue
+        ticket = _br_export_text(row.get('ticket') or row.get('JIRA-Ticket'))
+        keys = _br_export_issue_keys(row.get('src_keys') or row.get('srcKeys') or row.get('jira_keys') or row.get('JIRA Tickets (Source)'))
+        values = [idx, ticket, row.get('occurrence', row.get('count', len(keys) or 1)), _br_export_text(row.get('title') or row.get('Jira Title')), _br_export_text(row.get('date') or row.get('Jira Date')), _br_export_text(row.get('status') or row.get('Status')), ', '.join(keys)]
+        ws.append(values)
+        excel_row = ws.max_row
+        _set_link(ws.cell(excel_row, 2), f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else '')
+        _set_link(ws.cell(excel_row, 3), _br_export_jira_issues_url(keys))
+    _style_body(ws)
+
+    open_headers = ['#', 'JIRA-Ticket', 'Occurrence', 'Jira Title', 'Jira Date', 'Status']
+    ws = _safe_sheet('Qstability_Tickets')
+    _write_headers(ws, open_headers)
+    for idx, row in enumerate(open_rows if isinstance(open_rows, list) else [], start=1):
+        if not isinstance(row, dict):
+            continue
+        ticket = _br_export_text(row.get('key') or row.get('ticket') or row.get('JIRA-Ticket'))
+        status = _br_export_text(row.get('status') or row.get('Status'))
+        note = _br_export_text(row.get('resolution_notes_text') or row.get('final_resolution'))
+        values = [
+            idx,
+            ticket,
+            row.get('occurrence', row.get('count', 1)),
+            _br_export_text(row.get('title') or row.get('Jira Title')),
+            _br_export_text(row.get('date') or row.get('Jira Date')),
+            (status + (f' - {note}' if note else '')).strip(),
+        ]
+        ws.append(values)
+        excel_row = ws.max_row
+        jira_url = f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else ''
+        _set_link(ws.cell(excel_row, 2), jira_url)
+        _set_link(ws.cell(excel_row, 3), jira_url)
+    _style_body(ws)
+
+    raw_filename = str(body.get('filename') or 'build_report_v3.xlsx')
+    filename = secure_filename(raw_filename) or 'build_report_v3.xlsx'
+    if not filename.lower().endswith('.xlsx'):
+        filename += '.xlsx'
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
 @dashboard_bp.route("/api/consolidated_report/status")
 @login_required
 def api_consolidated_report_status():
