@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 logger = logging.getLogger(__name__)
 import traceback
 import uuid
@@ -6028,42 +6028,49 @@ def dashboard(target_name, section="dashboard"):
                                                                 # Open / Analysis / Other counts for undisposed CRs (for pie)
         undisp_status_counts = fetch_undisposed_status_counts(cursor, tables["u"])
 
-        # Category breakdown from cr_category:
-        # Valid = built + undisposed, Invalid = invalid variants, Dup = dup.
+        # Category breakdown - based ONLY on cr_category (3 non-valid values):
+        #   invalid     -> Invalid count only
+        #   invalid_dup -> Dup count only  (a dup that is also invalid)
+        #   dup         -> Dup count only
+        # cr_status is NOT used here - it caused double-counting when
+        # cr_status='invalid' but cr_category='invalid_dup'.
         try:
             cursor.execute(f"""
                 SELECT
-                    SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('built','undisposed') THEN 1 ELSE 0 END) AS valid_count,
-                    SUM(CASE
-                          WHEN (
-                              LOWER(TRIM(cr_category)) IN ('dup','invalid_dup')
-                              OR LOWER(TRIM(cr_status)) IN ('dup','duplicate','invalid_dup')
-                              OR LOWER(TRIM(cr_status)) LIKE '%dup%'
-                          ) THEN 0
-                          WHEN LOWER(TRIM(cr_category)) IN ('invalid','nosir')
-                               OR LOWER(TRIM(cr_status)) IN ('invalid','nosir','no sir')
-                          THEN 1 ELSE 0
-                        END) AS invalid_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('built','undisposed')
+                             THEN 1 ELSE 0 END) AS valid_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'invalid'
+                             THEN 1 ELSE 0 END) AS invalid_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'invalid_dup'
+                             THEN 1 ELSE 0 END) AS invalid_dup_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'dup'
+                             THEN 1 ELSE 0 END) AS dup_only_count,
                     SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('dup','invalid_dup')
-                                  OR LOWER(TRIM(cr_status)) IN ('dup','duplicate','invalid_dup')
-                                  OR LOWER(TRIM(cr_status)) LIKE '%dup%'
                              THEN 1 ELSE 0 END) AS dup_count
                 FROM {tables['u']}
             """)
             _inv_row = cursor.fetchone() or {}
-            cr_valid_count   = int(_inv_row.get('valid_count') or 0)
-            cr_invalid_count = int(_inv_row.get('invalid_count') or 0)
-            cr_dup_count     = int(_inv_row.get('dup_count') or 0)
-            glance['cr_valid_count'] = cr_valid_count
-            glance['cr_invalid_count'] = cr_invalid_count
-            glance['cr_dup_count'] = cr_dup_count
+            cr_valid_count       = int(_inv_row.get('valid_count')       or 0)
+            cr_invalid_count     = int(_inv_row.get('invalid_count')     or 0)
+            cr_invalid_dup_count = int(_inv_row.get('invalid_dup_count') or 0)
+            cr_dup_only_count    = int(_inv_row.get('dup_only_count')    or 0)
+            cr_dup_count         = int(_inv_row.get('dup_count')         or 0)
+            glance['cr_valid_count']       = cr_valid_count
+            glance['cr_invalid_count']     = cr_invalid_count
+            glance['cr_invalid_dup_count'] = cr_invalid_dup_count
+            glance['cr_dup_only_count']    = cr_dup_only_count
+            glance['cr_dup_count']         = cr_dup_count
         except Exception:
-            cr_valid_count   = 0
-            cr_invalid_count = 0
-            cr_dup_count     = 0
-            glance['cr_valid_count'] = 0
-            glance['cr_invalid_count'] = 0
-            glance['cr_dup_count'] = 0
+            cr_valid_count       = 0
+            cr_invalid_count     = 0
+            cr_invalid_dup_count = 0
+            cr_dup_only_count    = 0
+            cr_dup_count         = 0
+            glance['cr_valid_count']       = 0
+            glance['cr_invalid_count']     = 0
+            glance['cr_invalid_dup_count'] = 0
+            glance['cr_dup_only_count']    = 0
+            glance['cr_dup_count']         = 0
 
         # ALL CR rows (built + undisposed) with cr_status for dynamic checkbox filter
         try:
