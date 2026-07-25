@@ -7536,7 +7536,123 @@ def _consolidated_body_bool(body, name, default=False, *aliases):
     return default
 
 
+def _fetch_axiom_unique_devices_from_job_summary(builds, taxonomy_path='/PDT'):
+    """Return true cross-build unique device count from axiom_job_summary chip_ids.
+
+    Build Report uses Axiom public API for hours/runtime. This helper is only for
+    device count because public API uniqueDevices is per build row and can
+    double-count reused lab devices across multiple selected builds.
+    """
+    import json as _json
+    import re as _re
+    from dashboard_common import get_mysql_connection_db as _get_db
+
+    selected = [str(b or '').strip() for b in (builds or []) if str(b or '').strip()]
+    if not selected:
+        return {'source': 'db:axiom_job_summary', 'deviceCount': 0, 'uniqueDevices': 0, 'matched_builds': 0}
+
+    def _tail(value):
+        text = str(value or '').strip().replace('\\', '/')
+        return text.rstrip('/').split('/')[-1]
+
+    def _tokens(build):
+        tail = _tail(build)
+        vals = [build, tail]
+        m = _re.search(r'([A-Za-z0-9_.]+-\d{3,6}(?:\.\d+)?-[A-Za-z0-9_.-]+)', tail)
+        if m:
+            vals.append(m.group(1))
+        return [v for v in dict.fromkeys(str(v or '').strip() for v in vals) if v]
+
+    searchable_cols = ('build_name', 'build_id', 'software_product', 'product_flavor')
+    build_tokens = {b: _tokens(b) for b in selected}
+    where_parts = []
+    params = []
+    for toks in build_tokens.values():
+        for tok in toks:
+            where_parts.append('(' + ' OR '.join([f'`{col}` LIKE %s' for col in searchable_cols]) + ')')
+            params.extend([f'%{tok}%'] * len(searchable_cols))
+
+    tax = str(taxonomy_path or '/PDT').strip() or '/PDT'
+    tax_like = tax.rstrip('%')
+    if not tax_like.endswith('%'):
+        tax_like = tax_like.rstrip('/') + '%'
+
+    sql = f"""
+        SELECT job_id, build_id, build_name, software_product, product_flavor,
+               device_count, chip_ids
+        FROM `pdt_stats_dashboard`.`axiom_job_summary`
+        WHERE taxonomy_path LIKE %s
+          AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
+          AND taxonomy_path NOT LIKE '/PDT/China%'
+          AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+          AND ({' OR '.join(where_parts) if where_parts else '1=0'})
+        ORDER BY submitted_at DESC
+        LIMIT 5000
+    """
+
+    conn = cur = None
+    try:
+        conn = _get_db(bu_key=None)
+        if not conn:
+            return {'source': 'db:axiom_job_summary', 'deviceCount': 0, 'uniqueDevices': 0, 'matched_builds': 0, 'error': 'DB unavailable'}
+        cur = conn.cursor(dictionary=True)
+        cur.execute(sql, tuple([tax_like] + params))
+        rows = cur.fetchall() or []
+
+        all_chips = set()
+        matched_builds = set()
+        fallback_total = 0
+        for build, toks in build_tokens.items():
+            toks_l = [t.lower() for t in toks]
+            build_chips = set()
+            max_device_count = 0
+            for row in rows:
+                hay = ' '.join(str(row.get(c) or '') for c in searchable_cols).lower()
+                if not any(t in hay for t in toks_l):
+                    continue
+                matched_builds.add(build)
+                try:
+                    max_device_count = max(max_device_count, int(row.get('device_count') or 0))
+                except Exception:
+                    pass
+                raw_chips = row.get('chip_ids') or []
+                if isinstance(raw_chips, str):
+                    try:
+                        raw_chips = _json.loads(raw_chips) if raw_chips.strip() else []
+                    except Exception:
+                        raw_chips = [c.strip() for c in raw_chips.replace(';', ',').split(',') if c.strip()]
+                if isinstance(raw_chips, (list, tuple, set)):
+                    for chip in raw_chips:
+                        chip = str(chip or '').strip()
+                        if chip:
+                            build_chips.add(chip)
+            if build_chips:
+                all_chips.update(build_chips)
+            else:
+                fallback_total += max_device_count
+
+        device_count = len(all_chips) + fallback_total
+        return {
+            'source': 'db:axiom_job_summary',
+            'deviceCount': device_count,
+            'uniqueDevices': device_count,
+            'matched_builds': len(matched_builds),
+        }
+    except Exception as exc:
+        logger.warning('[consolidated_report] axiom_job_summary device count failed: %s', exc)
+        return {'source': 'db:axiom_job_summary', 'deviceCount': 0, 'uniqueDevices': 0, 'matched_builds': 0, 'error': str(exc)}
+    finally:
+        try:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
 @dashboard_bp.route("/api/consolidated_report", methods=["POST"])
+
 @login_required
 def api_consolidated_report():
     """Start a background consolidated Build Report job."""
@@ -7665,8 +7781,20 @@ def api_consolidated_report():
                             target=target or meta.get('target_name') or '',
                             taxonomy_path=axiom_taxonomy_path or '/PDT',
                         )
+                        # Hours/runtime stay from Axiom public API. Devices are
+                        # overridden from DB as a true cross-build union of chip_ids.
+                        report['axiom_device_summary'] = _fetch_axiom_unique_devices_from_job_summary(
+                            axiom_builds,
+                            taxonomy_path=axiom_taxonomy_path or '/PDT',
+                        )
                         meta['axiom_metrics_source'] = 'stability_reports_api'
-                        logger.info('[consolidated_report] axiom metrics fetched for %d build(s)', len(axiom_builds))
+                        meta['axiom_devices_source'] = 'db:axiom_job_summary'
+                        logger.info(
+                            '[consolidated_report] axiom metrics fetched for %d build(s); db_unique_devices=%s',
+                            len(axiom_builds),
+                            report.get('axiom_device_summary', {}).get('uniqueDevices'),
+                        )
+
                 except Exception as _axiom_exc:
                     logger.warning('[consolidated_report] axiom metrics skipped: %s', _axiom_exc)
                     report['axiom_metrics'] = {}

@@ -285,9 +285,11 @@ def _create_report_and_wait(builds: List[str], taxonomy: str, host: str, max_wai
         except Exception as e:
             logger.debug('[stability] poll attempt failed: %s', e)
 
-    logger.warning('[stability] reportId=%s not ready after %ds', rid, max_wait)
+        log_fn = logger.info if max_wait <= 5 else logger.warning
+    log_fn('[stability] reportId=%s not ready after %ds; continuing with instance creation/poll', rid, max_wait)
     _cache_set(cache_key, rid)  # cache anyway, may be usable later
     return rid
+
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +431,77 @@ def fetch_build_stability_metrics(
 
     tax = taxonomy_path or os.environ.get('AXIOM_TAXONOMY_PATH_SW', '/PDT')
 
-        # Per build: search existing reports first, POST new one only if needed
+    # Correct public API flow for multiple builds:
+    # 1) POST one ByBuilds report containing all metaIdBuilds
+    # 2) POST one report instance
+    # 3) poll that instance until Completed
+    # 4) GET metrics once and split rows by meta/build field
+    try:
+        rid = report_id or _create_report_and_wait(selected, tax, host, max_wait=5)
+        if not rid:
+            return {b: {'matched': False, 'metrics': [], 'error': 'No reportId', 'source': 'stability_reports_api'} for b in selected}
+
+        instance_cache_key = f'stability:instance:multi:{rid}'
+        iid = _cache_get(instance_cache_key)
+        if not iid:
+            created = _post(f'{BASE}/{_q(rid)}/instances', {}, host=host)
+            if isinstance(created, dict):
+                iid = str(created.get('instanceId') or created.get('id') or '').strip()
+                if not iid and isinstance(created.get('data'), list) and created['data']:
+                    iid = str(created['data'][0].get('instanceId') or created['data'][0].get('id') or '').strip()
+            if not iid:
+                # Fallback: latest listed instance if create response shape differs.
+                idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
+                rows = idata.get('data', []) if isinstance(idata, dict) else []
+                if rows:
+                    iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
+            if iid:
+                _cache_set(instance_cache_key, iid)
+
+        if not iid:
+            return {b: {'matched': False, 'report_id': rid, 'metrics': [], 'error': 'No instanceId', 'source': 'stability_reports_api'} for b in selected}
+
+        deadline = time.time() + int(os.environ.get('AXIOM_STABILITY_INSTANCE_WAIT_SECONDS', '120') or 120)
+        while time.time() < deadline:
+            try:
+                st = axiom_get(f'{BASE}/{_q(rid)}/instances/{_q(iid)}', host=host)
+                status = str((st or {}).get('status') or (st or {}).get('state') or '').strip()
+                if not status or status.lower() == 'completed':
+                    break
+                if status.lower() == 'failed':
+                    logger.warning('[stability] instance failed reportId=%s instanceId=%s response=%s', rid, iid, str(st)[:300])
+                    break
+            except Exception as exc:
+                logger.debug('[stability] instance status poll failed: %s', exc)
+            time.sleep(5)
+
+        raw_metrics = _get_metrics(rid, iid, '', host)
+        out = {b: {'matched': False, 'report_id': rid, 'instance_id': iid, 'metrics': [], 'source': 'stability_reports_api'} for b in selected}
+
+        def _row_key(row: dict) -> str:
+            return str(
+                row.get('meta') or row.get('build') or row.get('buildLabel') or
+                row.get('genericBuildLabel') or row.get('additionalBuildLabel') or ''
+            ).strip()
+
+        for build in selected:
+            build_l = build.lower()
+            matched_rows = []
+            for row in raw_metrics:
+                key = _row_key(row).lower()
+                if not key or build_l in key or key in build_l:
+                    matched_rows.append(row)
+            metrics = [_normalise(m) for m in matched_rows]
+            out[build].update({'matched': bool(metrics), 'metrics': metrics})
+            if not metrics:
+                out[build]['error'] = 'No metric row matched this build'
+        return out
+    except Exception as exc:
+        logger.warning('[stability] multi-build metrics failed: %s', exc)
+        return {b: {'matched': False, 'metrics': [], 'error': str(exc), 'source': 'stability_reports_api'} for b in selected}
+
+    # Per build: search existing reports first, POST new one only if needed
+
     for build in selected:
         try:
             # First: search existing reports for this build

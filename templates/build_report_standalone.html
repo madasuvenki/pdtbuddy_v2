@@ -861,9 +861,13 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
     return m?m[1]:String(b||'').slice(-30);
   }
 
-  // Per-build raw data
+    // Per-build raw data. Hours come from Axiom public API metrics.
+  // Device count is optionally overridden below from axiom_job_summary chip_ids
+  // so multiple selected builds do not double-count reused devices.
   let maxDevices=0, rawTotalHours=0;
+  const deviceSummary=(rep&&rep.axiom_device_summary)||{};
   const buildRows=matched.map(k=>{
+
     const r=metrics[k]||{};
     const list=Array.isArray(r.metrics)?r.metrics:[];
     let bHours=0, bDevices=0;
@@ -873,11 +877,14 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
       if(d>bDevices)bDevices=d;
     });
     if(bDevices>maxDevices)maxDevices=bDevices;
-    rawTotalHours+=bHours;
+        rawTotalHours+=bHours;
     return {build:k, hours:bHours, devices:bDevices};
   });
+  const dbDeviceCount=num(deviceSummary.uniqueDevices||deviceSummary.deviceCount||0);
+  if(dbDeviceCount>0) maxDevices=dbDeviceCount;
 
   // crashes = valid JIRAs (passed in from report counts)
+
   const crashes = Number(validJirasOverride||window._brValidJiras||0);
   const rawMtbf = crashes>0 ? rawTotalHours/crashes : 0;
 
@@ -915,8 +922,9 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   const summaryRows=[
     {label:'Total Hours',  id:'brAxiomTotalHours', val:fmtHours(rawTotalHours), color:'#d97706', bg:'#fffbeb',
      note: buildRows.length>1 ? buildRows.map((r,i)=>'<span id="brAxiomBuildHours_'+i+'" style="font-size:10px;color:#92400e;margin-right:6px">'+esc(shortBuild(r.build))+': '+esc(fmtHours(r.hours))+'<\/span>').join('') : ''},
-    {label:'Devices',      id:'',                  val:maxDevices||0,           color:'#7c3aed', bg:'#faf5ff',
-     note:'Max per build (same lab devices reused across metas)'},
+        {label:'Devices',      id:'',                  val:maxDevices||0,           color:'#7c3aed', bg:'#faf5ff',
+     note: dbDeviceCount>0 ? 'Unique chip_ids across selected builds from axiom_job_summary' : 'Max per build from Axiom API'},
+
     {label:'Valid JIRAs (crashes)', id:'brAxiomCrashesLbl', val:crashes||0,     color:'#b45309', bg:'#fffbeb',
      note:'Open (active) + Mapped + Mapped to CRs — used as crash denominator'},
     {label:'MTBF = Hours / Crashes', id:'brAxiomMtbf', val:fmtHours(rawMtbf),  color:'#166534', bg:'#f0fdf4', bold:true, sep:true,
