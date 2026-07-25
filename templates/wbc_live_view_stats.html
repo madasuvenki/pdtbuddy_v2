@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -7,7 +7,26 @@
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <script src="/static/js/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f5f7ff;color:#111827;font-size:13px}.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#0b1730,#243b63);color:#dbeafe;padding:16px 12px;position:sticky;top:0;height:100vh;overflow:auto}.brand{display:flex;gap:10px;align-items:center;margin:0 0 24px}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#facc15,#f97316);display:grid;place-items:center;color:#fff;font-weight:1000;box-shadow:0 10px 24px rgba(249,115,22,.22)}.brand b{display:block;color:white;font-size:12px;line-height:1.2}.brand span{font-size:10px;font-weight:800;color:#9fb4d8}.nav{display:grid;gap:8px}.nav button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:12px;padding:11px;text-align:left;font-weight:850;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}.nav button.active,.nav button:hover{background:rgba(99,102,241,.35);border-color:#818cf8;color:#fff}.nav button span{display:flex;align-items:center;gap:8px}.nav button b{min-width:18px;height:18px;border-radius:999px;background:#f8fafc;color:#0f172a;display:inline-grid;place-items:center;font-size:10px}.side-status{position:absolute;bottom:18px;left:14px;right:14px;font-size:10px;color:#a7f3d0;font-weight:800}.main{padding:12px 18px 30px;min-width:0}.topbar{min-height:46px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;margin:-12px -18px 16px;padding:7px 18px;background:#fff;position:sticky;top:0;z-index:5}.project-label{font-size:10px;font-weight:1000;letter-spacing:.08em;color:#64748b;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:6px}.project-label i{font-size:7px;color:#16a34a}.target-tools{display:flex;align-items:center;gap:8px;min-width:180px}.search{width:150px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 10px;font-weight:800;outline:none}.quick-select{border:1px solid #dbe3ef;background:#fff;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:900;color:#334155;max-width:190px}.list{display:flex;gap:8px;overflow:auto;flex:1;padding:2px 0}.item{border:1px solid #e5e7eb;background:#fff;color:#475569;border-radius:999px;padding:7px 11px;text-align:left;cursor:pointer;white-space:nowrap;min-width:max-content;font-size:11px;font-weight:900}.item.active,.item:hover{background:#ecfdf5;border-color:#0f766e;color:#0f766e;box-shadow:0 4px 12px rgba(15,118,110,.12)}.item b{display:inline;color:inherit;font-size:11px}.item .muted{display:none}.meta{display:none}.tag{border-radius:999px;padding:2px 6px;font-size:9px;font-weight:950;background:#eef2ff;color:#475569}.tag.green{background:#dcfce7;color:#166534}.tag.orange{background:#fff7ed;color:#c2410c}.hero{display:none}.eyebrow{font-size:10px;font-weight:1000;letter-spacing:.16em;text-transform:uppercase;color:#bbf7d0;margin-bottom:10px}.hero h1{font-size:24px;margin:0 0 8px;color:#fff}.hero p{margin:0;color:#dbeafe;font-size:12px;max-width:760px;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.hero .actions{position:absolute;right:26px;bottom:18px;z-index:2}.btn{border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}.btn.primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.btn.green{border:0;background:#dcfce7;color:#166534}.tabs{display:none}.tab{border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;padding:10px 16px;font-weight:900;color:#64748b;cursor:pointer}.tab.active{background:white;border-color:#e9d5ff;color:#4c1d95}.section{display:none}.section.active{display:block}.page-title{margin:0 0 14px}.page-title h1{font-size:20px;line-height:1.2;margin:0;color:#1e3a8a;font-weight:1000}.page-title span{font-size:9px;font-weight:1000;letter-spacing:.12em;color:#64748b;text-transform:uppercase}.section-title{font-weight:1000;margin:12px 0 10px;color:#172554}.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:14px}.card{background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid #e0e7ff;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.metric{padding:16px 14px;border-left:0;min-height:110px;position:relative}.metric:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#f97316,#22c55e,#38bdf8)}.metric:nth-child(2):before,.metric:nth-child(3):before,.metric:nth-child(4):before{background:linear-gradient(90deg,#14b8a6,#38bdf8)}.metric:nth-child(5):before{background:linear-gradient(90deg,#f59e0b,#f97316)}.metric:nth-child(6):before{background:linear-gradient(90deg,#fb7185,#a855f7)}.metric .ico{font-size:18px;margin-bottom:14px}.metric .lbl{font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em}.metric .num{font-size:23px;font-weight:1000;color:#0f172a;margin-top:0;word-break:break-word}.metric.clickable{cursor:pointer;transition:transform .15s,box-shadow .15s}.metric.clickable:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(15,23,42,.14);border-color:#6366f1}.metric.clickable:hover .num{color:#4f46e5}.metric.clickable .lbl::after{content:" ↗";font-size:8px;opacity:.5}.head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.body{padding:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}.build{border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;padding:12px}.build b{color:#1e3a8a;word-break:break-all}.muted{font-size:11px;color:#64748b;font-weight:800}.empty{text-align:center;color:#94a3b8;padding:34px}.tblwrap{overflow:auto;max-height:520px}table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}th,td{padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#eef4ff;color:#1e3a8a;text-transform:uppercase;font-size:10px}.config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:10px;font-weight:1000;text-transform:uppercase;color:#475569}.input,select.input{border:1px solid #ddd6fe;border-radius:10px;padding:9px 10px;font-weight:800;background:white;width:100%}.saved{font-size:12px;font-weight:800;color:#64748b;margin-top:12px}.chartbox{height:360px;overflow-x:auto;overflow-y:hidden}.chartbox canvas{max-width:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}.modal.open{display:flex}.modal-box{width:min(980px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.28)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#f8fbff;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.modal-body{padding:16px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#f8fafc;border-top:1px solid #e5e7eb}.edit-table{width:100%;min-width:900px}.edit-cell{width:100%;border:1px solid #dbe3ef;border-radius:8px;padding:7px;font-weight:800}.mini-msg{font-size:12px;font-weight:800;color:#64748b;margin-top:10px}.overview-panels{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.overview-text{white-space:pre-wrap;line-height:1.7;color:#334155;font-weight:750;min-height:150px;border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}.overview-chartbox{height:460px;overflow-x:auto;overflow-y:hidden;background:#fff}.overview-chartbox canvas{max-width:none!important}.overview-chartbox+.empty{font-size:11px}.richbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid #ddd6fe;border-bottom:0;border-radius:10px 10px 0 0;background:#f8fbff;padding:7px}.richbar select,.richbar button{border:1px solid #dbe3ef;background:#fff;border-radius:7px;padding:6px 8px;font-weight:900;color:#334155}.richbar button{min-width:30px;cursor:pointer}.richbar button:hover{background:#eef2ff}.rich-editor{min-height:190px;border:1px solid #ddd6fe;border-radius:0 0 10px 10px;background:#fff;padding:12px;outline:none;overflow:auto;font-weight:750;line-height:1.55;white-space:normal}.rich-editor:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:11px;font-weight:950}.report-time-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px}.report-time-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)}.report-time-card.green{border-color:#86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);box-shadow:0 4px 14px rgba(22,163,74,.12)}.report-time-label{font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em}.report-time-card.green .report-time-label{color:#166534}.report-time-value{font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px}.report-zero{border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px}.report-zero-num{font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px}@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.side-status{position:static;margin-top:16px}.topbar{position:relative;flex-direction:column;align-items:stretch}.target-tools{min-width:0}.search{width:100%}.kpis{grid-template-columns:repeat(2,1fr)}.hero .actions{position:static;margin-top:14px}.hero:after{display:none}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f5f7ff;color:#111827;font-size:13px}.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}.side{background:linear-gradient(180deg,#0b1730,#243b63);color:#dbeafe;padding:16px 12px;position:sticky;top:0;height:100vh;overflow:auto}.brand{display:flex;gap:10px;align-items:center;margin:0 0 24px}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#facc15,#f97316);display:grid;place-items:center;color:#fff;font-weight:1000;box-shadow:0 10px 24px rgba(249,115,22,.22)}.brand b{display:block;color:white;font-size:12px;line-height:1.2}.brand span{font-size:10px;font-weight:800;color:#9fb4d8}    .nav{display:grid;gap:8px}.nav button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbeafe;border-radius:12px;padding:11px;text-align:left;font-weight:850;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}.nav button.active,.nav button:hover{background:rgba(99,102,241,.35);border-color:#818cf8;color:#fff}.nav button span{display:flex;align-items:center;gap:8px}.nav button b{min-width:18px;height:18px;border-radius:999px;background:#f8fafc;color:#0f172a;display:inline-grid;place-items:center;font-size:10px}.nav-group{margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14)}.nav-label{font-size:9px;font-weight:1000;letter-spacing:.12em;text-transform:uppercase;color:#93c5fd;margin:0 3px 8px}.nav button.premium-tab{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(99,102,241,.18));border-color:rgba(199,210,254,.28);box-shadow:inset 3px 0 0 rgba(212,175,55,.9)}.nav button.premium-tab:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.12) 48%,transparent 70%);transform:translateX(-120%);transition:.45s}.nav button.premium-tab:hover:after{transform:translateX(120%)}.nav button.premium-tab.active{background:linear-gradient(135deg,rgba(30,58,138,.84),rgba(79,70,229,.72));border-color:#d4af37;box-shadow:inset 3px 0 0 #facc15,0 8px 22px rgba(15,23,42,.22)}.nav button.premium-tab b{background:linear-gradient(135deg,#fff7ed,#fef3c7);color:#92400e}.side-bottom{position:absolute;left:14px;right:14px;bottom:18px;display:grid;gap:8px}.side-admin-actions{display:grid;gap:7px}.side-admin-actions button{width:100%;justify-content:flex-start}.side-status{font-size:10px;color:#a7f3d0;font-weight:800}.main{padding:12px 18px 30px;min-width:0}.topbar{min-height:46px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;margin:-12px -18px 16px;padding:7px 18px;background:#fff;position:sticky;top:0;z-index:5}.project-label{font-size:10px;font-weight:1000;letter-spacing:.08em;color:#64748b;text-transform:uppercase;white-space:nowrap;display:flex;align-items:center;gap:6px}.project-label i{font-size:7px;color:#16a34a}.target-tools{display:flex;align-items:center;gap:8px;min-width:180px}.search{width:150px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 10px;font-weight:800;outline:none}.quick-select{border:1px solid #dbe3ef;background:#fff;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:900;color:#334155;max-width:190px}.list{display:flex;gap:8px;overflow:auto;flex:1;padding:2px 0}.item{border:1px solid #e5e7eb;background:#fff;color:#475569;border-radius:999px;padding:7px 11px;text-align:left;cursor:pointer;white-space:nowrap;min-width:max-content;font-size:11px;font-weight:900}.item.active,.item:hover{background:#ecfdf5;border-color:#0f766e;color:#0f766e;box-shadow:0 4px 12px rgba(15,118,110,.12)}.item b{display:inline;color:inherit;font-size:11px}.item .muted{display:none}.meta{display:none}.tag{border-radius:999px;padding:2px 6px;font-size:9px;font-weight:950;background:#eef2ff;color:#475569}.tag.green{background:#dcfce7;color:#166534}.tag.orange{background:#fff7ed;color:#c2410c}.hero{display:none}.eyebrow{font-size:10px;font-weight:1000;letter-spacing:.16em;text-transform:uppercase;color:#bbf7d0;margin-bottom:10px}.hero h1{font-size:24px;margin:0 0 8px;color:#fff}.hero p{margin:0;color:#dbeafe;font-size:12px;max-width:760px;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.hero .actions{position:absolute;right:26px;bottom:18px;z-index:2}.btn{border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}.btn.primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff}.btn.green{border:0;background:#dcfce7;color:#166534}.tabs{display:none}.tab{border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;padding:10px 16px;font-weight:900;color:#64748b;cursor:pointer}.tab.active{background:white;border-color:#e9d5ff;color:#4c1d95}.section{display:none}.section.active{display:block}.page-title{margin:0 0 14px}.page-title h1{font-size:20px;line-height:1.2;margin:0;color:#1e3a8a;font-weight:1000}.page-title span{font-size:9px;font-weight:1000;letter-spacing:.12em;color:#64748b;text-transform:uppercase}.section-title{font-weight:1000;margin:12px 0 10px;color:#172554}.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:14px}.card{background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid #e0e7ff;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.metric{padding:16px 14px;border-left:0;min-height:110px;position:relative}.metric:before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#f97316,#22c55e,#38bdf8)}.metric:nth-child(2):before,.metric:nth-child(3):before,.metric:nth-child(4):before{background:linear-gradient(90deg,#14b8a6,#38bdf8)}.metric:nth-child(5):before{background:linear-gradient(90deg,#f59e0b,#f97316)}.metric:nth-child(6):before{background:linear-gradient(90deg,#fb7185,#a855f7)}.metric .ico{font-size:18px;margin-bottom:14px}.metric .lbl{font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em}.metric .num{font-size:23px;font-weight:1000;color:#0f172a;margin-top:0;word-break:break-word}.metric.clickable{cursor:pointer;transition:transform .15s,box-shadow .15s}.metric.clickable:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(15,23,42,.14);border-color:#6366f1}.metric.clickable:hover .num{color:#4f46e5}.metric.clickable .lbl::after{content:" ↗";font-size:8px;opacity:.5}.head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.body{padding:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}.build{border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;padding:12px}.build b{color:#1e3a8a;word-break:break-all}.muted{font-size:11px;color:#64748b;font-weight:800}.empty{text-align:center;color:#94a3b8;padding:34px}.tblwrap{overflow:auto;max-height:520px}table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}th,td{padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#eef4ff;color:#1e3a8a;text-transform:uppercase;font-size:10px}.config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:10px;font-weight:1000;text-transform:uppercase;color:#475569}.input,select.input{border:1px solid #ddd6fe;border-radius:10px;padding:9px 10px;font-weight:800;background:white;width:100%}.saved{font-size:12px;font-weight:800;color:#64748b;margin-top:12px}.chartbox{height:360px;overflow-x:auto;overflow-y:hidden}.chartbox canvas{max-width:none!important}.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}.modal.open{display:flex}.modal-box{width:min(980px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.28)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#f8fbff;border-bottom:1px solid #e5e7eb;font-weight:1000;color:#172554}.modal-body{padding:16px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;background:#f8fafc;border-top:1px solid #e5e7eb}.edit-table{width:100%;min-width:900px}.edit-cell{width:100%;border:1px solid #dbe3ef;border-radius:8px;padding:7px;font-weight:800}.mini-msg{font-size:12px;font-weight:800;color:#64748b;margin-top:10px}.overview-panels{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.overview-text{white-space:pre-wrap;line-height:1.7;color:#334155;font-weight:750;min-height:150px;border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}.overview-chartbox{height:460px;overflow-x:auto;overflow-y:hidden;background:#fff}.overview-chartbox canvas{max-width:none!important}.overview-chartbox+.empty{font-size:11px}.richbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:1px solid #ddd6fe;border-bottom:0;border-radius:10px 10px 0 0;background:#f8fbff;padding:7px}.richbar select,.richbar button{border:1px solid #dbe3ef;background:#fff;border-radius:7px;padding:6px 8px;font-weight:900;color:#334155}.richbar button{min-width:30px;cursor:pointer}.richbar button:hover{background:#eef2ff}.rich-editor{min-height:190px;border:1px solid #ddd6fe;border-radius:0 0 10px 10px;background:#fff;padding:12px;outline:none;overflow:auto;font-weight:750;line-height:1.55;white-space:normal}.rich-editor:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12)}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:11px;font-weight:950}.report-time-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 14px}.report-time-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 16px;box-shadow:0 4px 14px rgba(37,99,235,.10)}.report-time-card.green{border-color:#86efac;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);box-shadow:0 4px 14px rgba(22,163,74,.12)}.report-time-label{font-size:11px;font-weight:1000;color:#1d4ed8;text-transform:uppercase;letter-spacing:.08em}.report-time-card.green .report-time-label{color:#166534}.report-time-value{font-size:20px;font-weight:1000;color:#0f172a;margin-top:4px}.report-zero{border:1.5px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:16px;padding:26px;text-align:center;margin-top:6px}.report-zero-num{font-size:56px;line-height:1;font-weight:1000;color:#16a34a;margin-bottom:8px}.overview-panels{gap:10px}.overview-panels .card,.overview-chart-card{margin-bottom:8px}.overview-text{min-height:118px;max-height:148px;overflow:auto;padding:10px;line-height:1.45;font-size:12px}.overview-panels .body{padding:10px}.overview-chartbox{height:300px;overflow-x:hidden}.overview-chartbox canvas{width:100%!important;max-width:100%!important}.main{padding-bottom:14px}.page-title{margin-bottom:8px}.page-title h1{font-size:17px}.topbar{min-height:40px;margin-bottom:10px}.head{padding:9px 12px}/* WBC premium portal skin aligned with the reference Stability Dashboard Hub */:root{--wbc-bg:#0f172a;--wbc-card:#1e293b;--wbc-side:#111827;--wbc-line:#334155;--wbc-accent:#3b82f6;--wbc-muted:#94a3b8;--wbc-text:#f8fafc;--wbc-green:#10b981;--wbc-warn:#f59e0b;--wbc-red:#ef4444}body{background:var(--wbc-bg)!important;color:var(--wbc-text)!important}.shell{grid-template-columns:260px minmax(0,1fr)!important}.side{background:var(--wbc-side)!important;border-right:1px solid var(--wbc-line);padding:0!important}.brand{height:64px;margin:0!important;padding:16px 20px;border-bottom:1px solid var(--wbc-line)}.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#60a5fa);box-shadow:none}.brand b{font-size:13px}.brand span{color:var(--wbc-muted);font-size:10px}.nav{gap:0;margin-top:16px}.nav button{border:0;border-left:3px solid transparent;border-radius:0;background:transparent;color:var(--wbc-muted);padding:12px 18px;font-weight:800}.nav button.active,.nav button:hover,.nav button.premium-tab.active,.nav button.premium-tab:hover{background:rgba(59,130,246,.10)!important;border-left-color:var(--wbc-accent)!important;border-top-color:transparent!important;border-right-color:transparent!important;border-bottom-color:transparent!important;color:#fff!important;box-shadow:none!important}.nav button.premium-tab{background:transparent!important;border-color:transparent!important;border-left:3px solid transparent!important;box-shadow:none!important}.nav button.premium-tab:after{display:none}.nav button b,.badge-count{background:var(--wbc-accent)!important;color:#fff!important;border-radius:10px;min-width:24px;height:19px;font-size:10px}.nav-group{border-top:1px solid var(--wbc-line);padding-top:12px;margin-top:12px}.nav-label{color:#60a5fa;margin-left:20px}.side-bottom{position:static;margin:18px 12px}.side-status{padding:10px 8px;color:#a7f3d0}.side-admin-actions .btn{background:#0f172a;color:#cbd5e1;border-color:#334155}.main{background:var(--wbc-bg);padding:24px 30px 34px!important}.topbar{position:relative;background:var(--wbc-card)!important;border:1px solid var(--wbc-line)!important;border-radius:12px!important;margin:0 0 20px!important;padding:14px 18px!important;box-shadow:none;top:auto}.project-label,.muted{color:var(--wbc-muted)!important}.item{background:#0f172a!important;border-color:var(--wbc-line)!important;color:#cbd5e1!important;border-radius:8px}.item.active,.item:hover{background:rgba(59,130,246,.16)!important;border-color:var(--wbc-accent)!important;color:#fff!important;box-shadow:none}.btn{background:#0f172a;color:#e2e8f0;border-color:#334155;border-radius:8px}.btn:hover{border-color:#60a5fa;color:#fff}.btn.primary{background:linear-gradient(135deg,#2563eb,#3b82f6)!important}.btn.green{background:rgba(16,185,129,.16);color:#86efac;border:1px solid rgba(16,185,129,.35)}.page-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px}.page-title h1{color:#fff!important;font-size:20px}.page-title span{color:var(--wbc-muted)!important}.tabs{display:flex!important;gap:6px;flex-wrap:wrap;background:var(--wbc-card);border:1px solid var(--wbc-line);border-radius:12px;padding:8px;margin-bottom:18px}.tab{border:1px solid transparent!important;border-radius:8px!important;color:var(--wbc-muted)!important;background:transparent!important;padding:9px 13px}.tab:hover,.tab.active{background:rgba(59,130,246,.14)!important;border-color:rgba(59,130,246,.55)!important;color:#fff!important}.section-title{color:#e2e8f0}.card{background:var(--wbc-card)!important;border:1px solid var(--wbc-line)!important;border-radius:12px!important;box-shadow:none!important}.metric{background:var(--wbc-card)!important}.metric .num{color:#fff!important}.metric .lbl{color:var(--wbc-muted)!important}.metric.clickable:hover{border-color:var(--wbc-accent)!important;transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.18)!important}.head{background:#111827!important;border-bottom:1px solid var(--wbc-line)!important;color:#f8fafc!important;border-radius:12px 12px 0 0}.body{color:#e2e8f0}.overview-text,.rich-editor,.input,select.input,.edit-cell{background:#0f172a!important;border-color:#334155!important;color:#f8fafc!important}.overview-text{color:#e2e8f0!important}.input::placeholder{color:#64748b}.tblwrap{border-color:#334155!important;background:#0f172a!important}table{color:#f8fafc}th{background:#111827!important;color:#94a3b8!important;border-bottom:1px solid #334155!important}td{border-bottom:1px solid #334155!important;color:#e2e8f0}tr:hover td{background:rgba(59,130,246,.06)}.pill,.tag{background:rgba(59,130,246,.14)!important;border:1px solid rgba(59,130,246,.35)!important;color:#bfdbfe!important}.tag.green{background:rgba(16,185,129,.14)!important;border-color:rgba(16,185,129,.35)!important;color:#bbf7d0!important}.tag.orange{background:rgba(245,158,11,.14)!important;border-color:rgba(245,158,11,.35)!important;color:#fde68a!important}.tag-bwr{background:unset!important;border:unset!important;color:unset!important}.table-filterbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;background:#111827;border:1px solid #334155;border-radius:12px;padding:10px 12px}.table-filterbar .input{height:34px;font-size:12px;max-width:340px}.filter-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid rgba(59,130,246,.55);background:rgba(59,130,246,.15);color:#bfdbfe;font-size:12px;font-weight:900;cursor:pointer}.filter-btn:hover{background:rgba(59,130,246,.25);color:#fff}.modal-box{background:var(--wbc-card)!important;border:1px solid var(--wbc-line)}.modal-head,.modal-actions{background:#111827!important;border-color:#334155!important;color:#fff!important}.richbar{background:#111827;border-color:#334155}.richbar select,.richbar button{background:#0f172a;color:#e2e8f0;border-color:#334155}@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.shell{grid-template-columns:1fr!important}.side{position:relative;height:auto}.side-bottom{position:static;margin-top:16px}.topbar{position:relative;flex-direction:column;align-items:stretch}.target-tools{min-width:0}.search{width:100%}.kpis{grid-template-columns:repeat(2,1fr)}.hero .actions{position:static;margin-top:14px}.hero:after{display:none}}
+  </style>
+  <style>
+    /* Keep the left navigation dark, but restore the main dashboard to the light premium theme. */
+    body{background:#f4f7ff!important;color:#111827!important}
+    .main{background:linear-gradient(180deg,#f7f9ff 0%,#eef4ff 100%)!important;color:#111827!important}
+    .topbar{background:rgba(255,255,255,.94)!important;border:1px solid #dbeafe!important;box-shadow:0 10px 28px rgba(30,58,138,.08)!important}
+    .page-title h1{color:#1e3a8a!important}.page-title span{color:#64748b!important}
+    /* Top tab row duplicates the left-side navigation, so keep only the sidebar nav. */
+    .tabs{display:none!important}
+    .section-title{color:#172554!important}
+    .card{background:linear-gradient(135deg,#ffffff,#f8fbff)!important;border:1px solid #dbeafe!important;box-shadow:0 10px 28px rgba(15,23,42,.08)!important}
+    .metric{background:linear-gradient(135deg,#ffffff,#f8fbff)!important}.metric .num{color:#0f172a!important}.metric .lbl{color:#64748b!important}
+    .head{background:#f8fbff!important;border-bottom:1px solid #e5e7eb!important;color:#172554!important}
+    .body{color:#334155!important}.muted,.project-label{color:#64748b!important}
+    .overview-text,.rich-editor,.input,select.input,.edit-cell{background:#ffffff!important;border-color:#dbeafe!important;color:#334155!important}
+    .tblwrap{background:#ffffff!important;border-color:#dbeafe!important}table{color:#334155!important}th{background:#eef4ff!important;color:#1e3a8a!important;border-bottom:1px solid #dbeafe!important}td{color:#334155!important;border-bottom:1px solid #f1f5f9!important}tr:hover td{background:#f8fbff!important}
+    .table-filterbar{background:#f8fbff!important;border-color:#dbeafe!important}.filter-btn{background:#eff6ff!important;color:#1d4ed8!important;border-color:#bfdbfe!important}
+    .item{background:#ffffff!important;border-color:#dbeafe!important;color:#334155!important}.item.active,.item:hover{background:#ecfdf5!important;border-color:#0f766e!important;color:#0f766e!important;box-shadow:0 4px 12px rgba(15,118,110,.12)!important}
+    .btn{background:#ffffff!important;color:#334155!important;border-color:#dbe3ef!important}.btn.primary{background:linear-gradient(135deg,#2563eb,#7c3aed)!important;color:#fff!important}.btn.green{background:#dcfce7!important;color:#166534!important;border-color:#bbf7d0!important}
   </style>
 </head>
 <body>
@@ -17,20 +36,32 @@
     <div class="nav">
       <button class="active" onclick="sideNav('overview', this)"><span><i class="fas fa-chart-pie"></i> Overview</span><b id="nSummary">—</b></button>
       <button onclick="sideNav('current', this)"><span><i class="fas fa-satellite-dish"></i> Current Running Builds</span><b id="nBuilds">0</b></button>
-      <button onclick="sideNav('mtbf', this)"><span><i class="fas fa-chart-line"></i> MTBF</span><b id="nOverview">-</b></button>
-      <button onclick="sideNav('opencrs', this)"><span><i class="fas fa-folder"></i> Open CRs</span><b id="nOpenCrs">0</b></button>
-      <button onclick="sideNav('openjiras', this)"><span><i class="fas fa-lock-open"></i> Open JIRAs</span><b id="nOpenJiras">0</b></button>
+            <button onclick="sideNav('mtbf', this)"><span><i class="fas fa-chart-line"></i> MTBF</span><b id="nOverview">-</b></button>
       <button onclick="sideNav('builds', this)"><span><i class="fas fa-file-alt"></i> Build Report</span><b id="nBuildDetails">0</b></button>
-      <button onclick="sideNav('allcrs', this)"><span><i class="fas fa-chart-bar"></i> All CRs</span><b id="nOverallCrs">0</b></button>
-      <button onclick="sideNav('jiras', this)"><span><i class="fas fa-clipboard-list"></i> All JIRAs</span><b id="nOverallJiras">0</b></button>
+      <div class="nav-group">
+        <div class="nav-label">Issue Intelligence</div>
+        <button class="premium-tab" onclick="sideNav('openjiras', this)"><span><i class="fas fa-ticket-alt" style="color:#c4b5fd"></i> Open JIRAs</span><b id="nOpenJiras">0</b></button>
+        <button class="premium-tab" onclick="sideNav('jiras', this)"><span><i class="fas fa-clipboard-list" style="color:#93c5fd"></i> JIRAs</span><b id="nOverallJiras">0</b></button>
+        <button class="premium-tab" onclick="sideNav('allcrs', this)"><span><i class="fas fa-gem" style="color:#facc15"></i> All CRs</span><b id="nOverallCrs">0</b></button>
+        <button class="premium-tab" onclick="sideNav('opencrs', this)"><span><i class="fas fa-folder-open" style="color:#fdba74"></i> Open CRs</span><b id="nOpenCrs">0</b></button>
+      </div>
+        </div>
+    <div class="side-bottom">
+      {% if can_edit %}
+      <div class="side-admin-actions">
+        <button class="btn" onclick="openAddTargetModal()"><i class="fas fa-plus"></i> Add Target</button>
+        <button class="btn" onclick="openVisibilityModal()"><i class="fas fa-eye"></i> Manage Visibility</button>
+        <button class="btn primary" onclick="sideNav('config', this)"><i class="fas fa-cog"></i> Config</button>
+      </div>
+      {% endif %}
+      <div class="side-status"><i class="fas fa-circle"></i> Real-Time Monitoring Active</div>
     </div>
-    <div class="side-status"><i class="fas fa-circle"></i> Real-Time Monitoring Active</div>
   </aside>
   <main class="main">
     <div class="topbar">
       <div class="project-label"><i class="fas fa-circle"></i> Active Projects</div>
       <div id="targetList" class="list"><div class="empty" style="padding:6px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div></div>
-      <div class="actions" style="margin-left:auto;white-space:nowrap"><button class="btn" id="pptBtn" onclick="downloadPpt()" title="Download PowerPoint"><i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT</button><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button>{% if can_edit %}<button class="btn" onclick="openAddTargetModal()"><i class="fas fa-plus"></i> Add Target</button><button class="btn" onclick="openVisibilityModal()"><i class="fas fa-eye"></i> Manage Visibility</button><button class="btn primary" onclick="switchTab('config')"><i class="fas fa-cog"></i> Config</button>{% endif %}</div>
+      <div class="actions" style="margin-left:auto;white-space:nowrap"><button class="btn" id="pptBtn" onclick="downloadPpt()" title="Download PowerPoint"><i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT</button><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button></div>
     </div>
     <div class="page-title"><h1 id="title">WBC Live View Stats</h1><span>Overview</span></div>
     <div class="tabs">
@@ -47,45 +78,112 @@
     </div>
     <section id="tabOverview" class="section active">
       <div class="section-title"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
-      <div class="kpis" id="overviewKpis">
-        <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="View MTBF trend"><div class="ico">📈</div><div id="ovKMtbf" class="num">-</div><div class="lbl">Current PDT MTBF</div></div>
-        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">🚀</div><div id="ovKMeta" class="num">-</div><div class="lbl">Current Running Meta</div></div>
-        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">💥</div><div id="ovKCrashes" class="num">-</div><div class="lbl">Current Meta Crashes</div></div>
-        <div class="card metric clickable" onclick="navToTab('current','builds')" title="View Current Running Builds"><div class="ico">🛰️</div><div id="ovKRunCnt" class="num">-</div><div class="lbl">Running Builds</div></div>
-        <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="View MTBF table"><div class="ico">📅</div><div id="ovKDate" class="num">-</div><div class="lbl">Report Date</div></div>
-        <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="View Open JIRAs"><div class="ico">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div></div>
-        <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="View Open CRs"><div class="ico">🔓</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div></div>
-        <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="View Open JIRAs"><div class="ico">📁</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div></div>
-        <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="View Open CRs"><div class="ico">📊</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div></div>
-        <div class="card metric clickable" onclick="navToTab('allcrs',null)" title="View All CRs"><div class="ico">📊</div><div id="ovKTotalCrs" class="num">0</div><div class="lbl">Total CRs</div></div>
-        <div class="card metric clickable" onclick="navToTab('jiras',null)" title="View All JIRAs"><div class="ico">🧾</div><div id="ovKTotalJiras" class="num">0</div><div class="lbl">Total JIRAs</div></div>
+      <div id="overviewKpis" style="display:flex;flex-direction:column;gap:10px">
+
+        <!-- ── ROW 1 : Latest MTBF | MTBF Build | Hours | Crashes ── -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+
+          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Open MTBF trend table" style="border-top:3px solid #2563eb">
+            <div class="ico">📈</div>
+            <div id="ovKMtbf" class="num" style="color:#2563eb">-</div>
+            <div class="lbl">Latest MTBF</div>
+            <div id="ovKDate" style="font-size:10px;color:#94a3b8;margin-top:2px">-</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Build that produced this MTBF" style="border-top:3px solid #0891b2">
+            <div class="ico">🏗️</div>
+            <div id="ovKMtbfBuild" class="num" style="color:#0891b2;font-size:12px;word-break:break-all">-</div>
+            <div class="lbl">MTBF Build</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="PDT hours for this build" style="border-top:3px solid #16a34a">
+            <div class="ico">⏱️</div>
+            <div id="ovKHours" class="num" style="color:#16a34a">-</div>
+            <div class="lbl">Hours</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Crashes for this build" style="border-top:3px solid #dc2626">
+            <div class="ico">💥</div>
+            <div id="ovKCrashes" class="num" style="color:#dc2626">-</div>
+            <div class="lbl">Crashes</div>
+          </div>
+
+        </div>
+
+        <!-- ── ROW 2 : Running Builds | Total JIRAs | Valid JIRAs | CRs ── -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+
+          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="View current running builds" style="border-top:3px solid #7c3aed">
+            <div class="ico">🛰️</div>
+            <div id="ovKRunCnt" class="num" style="color:#7c3aed">-</div>
+            <div class="lbl">Running Builds</div>
+            <div id="ovKMeta" style="font-size:10px;color:#94a3b8;margin-top:2px;word-break:break-all">-</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="All JIRAs returned by the running build report" style="border-top:3px solid #475569">
+            <div class="ico">📄</div>
+            <div id="ovKTotalJirasBuild" class="num" style="color:#475569">0</div>
+            <div class="lbl">Total JIRAs (Build)</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="Valid JIRAs only — invalid / withdrawn excluded" style="border-top:3px solid #16a34a">
+            <div class="ico">✅</div>
+            <div id="ovKOpenJira" class="num" style="color:#16a34a">0</div>
+            <div class="lbl">Valid JIRAs</div>
+            <div id="ovKInvalidNote" style="font-size:10px;color:#b91c1c;font-weight:900;margin-top:2px"></div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="Unique valid Orbit CRs from running build" style="border-top:3px solid #6366f1">
+            <div class="ico">🐛</div>
+            <div id="ovKOpenCr" class="num" style="color:#6366f1">0</div>
+            <div class="lbl">CRs (Unique, Valid)</div>
+          </div>
+
+        </div>
+
+        <!-- ── ROW 3 : Total Open CRs | Total Open JIRAs | Total CRs | Total JIRAs ── -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+
+          <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="Open CRs table" style="border-top:3px solid #0369a1">
+            <div class="ico">🔓</div>
+            <div id="ovKOverallCrs" class="num" style="color:#0369a1">0</div>
+            <div class="lbl">Total Open CRs</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="Open JIRAs table" style="border-top:3px solid #b45309">
+            <div class="ico">📁</div>
+            <div id="ovKOverallJiras" class="num" style="color:#b45309">0</div>
+            <div class="lbl">Total Open JIRAs</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('allcrs',null)" title="All CRs table" style="border-top:3px solid #7c3aed">
+            <div class="ico">📊</div>
+            <div id="ovKTotalCrs" class="num" style="color:#7c3aed">0</div>
+            <div class="lbl">Total CRs</div>
+          </div>
+
+          <div class="card metric clickable" onclick="navToTab('jiras',null)" title="All JIRAs table" style="border-top:3px solid #475569">
+            <div class="ico">🧾</div>
+            <div id="ovKTotalJiras" class="num" style="color:#475569">0</div>
+            <div class="lbl">Total JIRAs</div>
+          </div>
+
+        </div>
+
       </div>
       <div class="overview-panels">
         <div class="card"><div class="head"><span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="overviewView" class="overview-text"></div></div></div>
         <div class="card"><div class="head"><span><i class="fas fa-info-circle"></i> <span id="ovPdtHeader">PDT STATUS</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('pdt')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="pdtStatusView" class="overview-text"></div><div id="overviewSaved" class="muted" style="margin-top:8px"></div></div></div>
       </div>
-      <div class="card"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox"><canvas id="overviewChart" height="420"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
+      <div class="card overview-chart-card"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
-      <div class="section-title"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
-      <div class="kpis">
-        <div class="card metric"><div class="ico">📈</div><div id="kMtbf" class="num">—</div><div class="lbl">Current PDT MTBF</div></div>
-        <div class="card metric"><div class="ico">🚀</div><div id="kMeta" class="num">—</div><div class="lbl">Current Running Meta</div></div>
-        <div class="card metric"><div class="ico">🚀</div><div id="kCrashes" class="num">—</div><div class="lbl">Current Meta Crashes</div></div>
-        <div class="card metric"><div class="ico">🛰️</div><div id="kRunCnt2" class="num">—</div><div class="lbl">Running Builds</div></div>
-        <div class="card metric"><div class="ico">📅</div><div id="kDate" class="num">—</div><div class="lbl">Report Date</div></div>
-        <div class="card metric"><div class="ico">📋</div><div id="kOpenJiraMeta" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div></div>
-        <div class="card metric"><div class="ico">🔓</div><div id="kOverallJira" class="num">0</div><div class="lbl">Overall Open JIRAs</div></div>
-        <div class="card metric"><div class="ico">📁</div><div id="kOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div></div>
-        <div class="card metric"><div class="ico">📊</div><div id="kTotalCrs" class="num">0</div><div class="lbl">Total CRs</div></div>
-        <div class="card metric"><div class="ico">🧾</div><div id="kTotalJiras" class="num">0</div><div class="lbl">Total JIRAs</div></div>
-        <div class="card metric"><div class="ico">🛰️</div><div id="kRunCnt" class="num">0</div><div class="lbl">Running Builds</div></div>
-      </div>
-            <div class="card">
+            <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> Saved JQL Current Running Build Reports</div>
+      <div class="card">
         <div class="head">
           <span><i class="fas fa-bookmark" style="color:#4f46e5"></i> Current Running Build — Saved JQL Reports</span>
           <span id="runningReportStatus" class="muted"></span>
-          {% if can_edit %}<button class="btn" onclick="wbcOpenSjqlModal()"><i class="fas fa-plus"></i> Add JQL Tab</button>{% endif %}
+          {% if can_edit %}<button class="btn" onclick="wbcOpenSjqlModal()"><i class="fas fa-plus"></i> Add Saved JQL Row</button>{% endif %}
           <button class="btn" onclick="wbcSjqlLoad()"><i class="fas fa-sync"></i> Refresh</button>
         </div>
         <div class="body" id="wbcSjqlCardsBox" style="min-height:120px">
@@ -111,12 +209,12 @@
       </div>
     </section>
     <section id="tabMtbf" class="section"><div class="card"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span><button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox"><canvas id="chart" height="330"></canvas><div id="chartEmpty" class="empty">Reading Mainline_Build_Details Excel once and saving MTBF JSON...</div></div></div><div class="card"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span>{% if can_edit %}<div class="actions"><button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
-    <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
-    <section id="tabOpenjiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-lock-open"></i> Open JIRAs</span><span id="openJirasCount" class="muted"></span></div><div class="body" id="openJirasBox"></div></div></section>
+        <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
+    <section id="tabOpenjiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</span><span id="openJirasCount" class="muted"></span></div><div class="body" id="openJirasBox"></div></div></section>
     <section id="tabBuilds" class="section"><div class="card"><div class="head"><span><i class="fas fa-file-alt"></i> Build Report</span><span id="buildSummaryCount" class="muted"></span></div><div class="body" id="buildSummaryBox"></div></div></section>
-    <section id="tabAllcrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-chart-bar"></i> All CRs / Unique CRs</span><span id="allCrsCount" class="muted"></span></div><div class="body" id="allCrsBox"></div></div></section>
-    <section id="tabJiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-clipboard-list"></i> All JIRAs</span><span id="allJirasCount" class="muted"></span></div><div class="body" id="allJirasBox"></div></div></section>
-    <section id="tabExcel" class="section"><div class="card"><div class="head"><span>Synced Excel Table</span><input id="filter" class="input" style="max-width:240px" placeholder="Filter rows" oninput="renderExcel()"></div><div class="tblwrap"><table><thead id="excelHead"></thead><tbody id="excelBody"></tbody></table></div></div></section>
+    <section id="tabAllcrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-gem" style="color:#d4af37"></i> All CRs</span><span id="allCrsCount" class="muted"></span></div><div class="body" id="allCrsBox"></div></div></section>
+    <section id="tabJiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-clipboard-list" style="color:#2563eb"></i> JIRAs</span><span id="allJirasCount" class="muted"></span></div><div class="body" id="allJirasBox"></div></div></section>
+    <section id="tabExcel" class="section"><div class="card"><div class="head"><span>Synced Excel Table</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="filter" class="input" style="max-width:260px;height:34px" placeholder="Search synced rows" oninput="renderExcel()"><button class="filter-btn" onclick="renderExcel();document.getElementById('filter')?.focus()"><i class="fas fa-filter"></i> Filter</button></div></div><div class="tblwrap"><table><thead id="excelHead"></thead><tbody id="excelBody"></tbody></table></div></div></section>
     {% if can_edit %}
     <section id="tabConfig" class="section"><div class="card"><div class="head"><span>Per-WBC Target DB Configuration</span><button class="btn primary" onclick="saveConfig()"><i class="fas fa-save"></i> Save Config</button></div><div class="body"><div class="config-grid"><div class="field"><label>Active WBC Target</label><input id="cfgTarget" class="input" readonly></div><div class="field"><label>JIRAs Table</label><select id="cfgJiras" class="input"></select></div><div class="field"><label>Open JIRAs Table</label><select id="cfgOpen" class="input"></select></div><div class="field"><label>Unique CRs Table</label><select id="cfgUnique" class="input"></select></div><div class="field"><label>Overall CRs Table</label><select id="cfgOverall" class="input"></select></div></div><div id="cfgMsg" class="saved">Load a target to configure DB tables.</div></div></div></section>
     {% endif %}
@@ -232,7 +330,9 @@ function cfgFor(k){return (config.targets||{})[k]||{};}
 function renderQuickSelect(){const sel=document.getElementById('quickTarget');if(!sel)return;sel.innerHTML='<option value="">Select...</option>'+targets.map(t=>`<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');if(active)sel.value=active;}
 function renderList(){const q=(document.getElementById('search')?.value||'').toLowerCase();const rows=targets.filter(t=>!q||JSON.stringify(t).toLowerCase().includes(q));document.getElementById('targetList').innerHTML=rows.length?rows.map(t=>`<button class="item ${t.key===active?'active':''}" onclick="selectTarget('${esc(t.key)}')"><b>${esc(t.label)}</b></button>`).join(''):'<div class="empty" style="padding:6px;color:#94a3b8">No WBC workbooks found.</div>';}
 async function selectTarget(k){active=k;renderQuickSelect();renderList();setText('title','Loading '+k+'...');try{payload=await getJson(`${API}/target/${encodeURIComponent(k)}`);renderAll();wbcSjqlLoad();}catch(e){setText('subtitle',e.message||e);}}
-function renderAll(){const t=payload.target||{}, c=payload.counts||{}, builds=payload.current_builds||[], firstBuild=builds[0]||{}, reportDate=String(payload.axiom_updated_at||'').slice(0,10)||'—', bs=(payload.build_summary||{}).builds||[];setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(c.mtbf,2));setText('kMeta',firstBuild.meta_id||c.running_builds||'—');setText('kRunCnt2',c.running_builds||0);setText('kCrashes',fmt(c.crashes,0));setText('kDate',reportDate);setText('kOpenJiraMeta',c.open_jiras||0);setText('kOverallJira',c.open_jiras||0);setText('kOverallCrs',c.total_crs||0);setText('kTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('kRunCnt',c.running_builds||0);setText('nOverview',fmt(c.mtbf,2));setText('nBuilds',c.running_builds||0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(c.crashes,0));setText('nOpenCrs',((payload.previews||{}).open_crs||{}).count||c.total_crs||0);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source',payload.axiom_updated_at?('Last refresh: '+String(payload.axiom_updated_at).slice(0,19)):'');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
+function _latestMtbfRow(){const rows=((payload&&payload.excel&&payload.excel.chart_rows)||[]);return rows.length?rows[rows.length-1]:{};}
+function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,invalid:0});}
+function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
 const BUILD_COLORS=['#2563eb','#16a34a','#f97316','#7c3aed','#0891b2','#be123c','#ca8a04','#0f766e','#4f46e5','#db2777'];
 function renderBuilds(){} // removed - builds grid replaced by saved JQL cards
 function _normBuildClient(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
@@ -248,11 +348,11 @@ async function showRunningBuildReport(i){return loadRunningBuildReport(i,false);
 function renderRunningBuildReport(){} // removed - replaced by saved JQL cards
 function renderChart(){const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty');setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));empty.style.display=rows.length?'none':'block';if(!rows.length)empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';if(chart){chart.destroy();chart=null;}if(!rows.length)return;const canvas=document.getElementById('chart');canvas.style.width=Math.max(1000,rows.length*86)+'px';canvas.width=Math.max(1000,rows.length*86);chart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{label:'Hours+',data:rows.map(r=>num(r.hours)),backgroundColor:'#a78bfa',yAxisID:'y'},{label:'crash',data:rows.map(r=>num(r.crash||r.total_crashes)),type:'line',borderColor:'#ef4444',backgroundColor:'#ef4444',pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'},{label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#16a34a',backgroundColor:'#16a34a',pointRadius:5,pointHoverRadius:8,pointStyle:'rectRounded',tension:.25,yAxisID:'y1'}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{mode:'index',intersect:false}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}},x:{ticks:{autoSkip:false,maxRotation:55,minRotation:35}}}}});}
 async function copyChart(){try{const canvas=document.getElementById('chart');const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(e){alert('Copy failed.');}}
-function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, builds=(payload&&payload.current_builds)||[], firstBuild=builds[0]||{}, reportDate=String((payload&&payload.axiom_updated_at)||'').slice(0,10)||'—';setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(c.mtbf,2));setText('ovKMeta',firstBuild.meta_id||c.running_builds||'—');setText('ovKCrashes',fmt(c.crashes,0));setText('ovKRunCnt',c.running_builds||0);setText('ovKDate',reportDate);setText('ovKOpenJira',c.open_jiras||0);setText('ovKOpenCr',((payload.previews||{}).open_crs||{}).count||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
+function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.jiras||0);setText('ovKOpenCr',jql.crs||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
 function openOverviewEditModal(focus){if(!CAN_EDIT)return;renderOverviewSummary();setText('ovSummaryMsg','');setText('ovPdtMsg','');if(focus==='pdt'){document.getElementById('pdtEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovPdtStatus')?.focus(),50);}else{document.getElementById('summaryEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovOverview')?.focus(),50);}}
 function closeOverviewEditModal(){document.getElementById('summaryEditModal')?.classList.remove('open');document.getElementById('pdtEditModal')?.classList.remove('open');}
 async function saveOverviewSummary(which){if(!active)return;const overview_html=editorHtml('ovOverview'), pdt_status_html=editorHtml('ovPdtStatus');const body={engineer:document.getElementById('ovEngineer')?.value||'',summary_title:document.getElementById('ovTitle')?.value||'',overview:editorText('ovOverview'),overview_html:overview_html,highlights:document.getElementById('ovHighlights')?.value||'',highlights_html:'',risks:document.getElementById('ovHighlights')?.value||'',pdt_status:editorText('ovPdtStatus'),pdt_status_html:pdt_status_html,next_steps:document.getElementById('ovNext')?.value||'',next_steps_html:''};const msgId=which==='pdt'?'ovPdtMsg':'ovSummaryMsg';setText(msgId,'Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/overview_summary`,body);payload.overview_summary=d.overview_summary||body;renderOverviewSummary();setText(msgId,'Saved.');setTimeout(closeOverviewEditModal,450);}catch(e){setText(msgId,'Save failed: '+(e.message||e));}}
-function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;canvas.style.width=Math.max(1120,rows.length*42)+'px';canvas.width=Math.max(1120,rows.length*42);overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:1,barThickness:8,maxBarThickness:8,categoryPercentage:.55,barPercentage:.55,yAxisID:'y'},{type:'line',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),borderColor:'#dc2626',backgroundColor:'#dc2626',borderWidth:1.6,pointRadius:2.8,pointHoverRadius:6,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y1'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:1.8,pointRadius:3,pointHoverRadius:6,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:10,right:14,left:4,bottom:78}},plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,font:{size:10}}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:12,weight:'bold'}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:62,minRotation:62,color:'#0f172a',font:{size:10,weight:'700'},padding:8,callback:function(v){const s=this.getLabelForValue(v);return s.length>28?s.slice(0,28)+'…':s;}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:10}},ticks:{font:{size:9}}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:10}},ticks:{font:{size:9},color:'#b88a00'}}}}});}
+function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:1,barThickness:6,maxBarThickness:6,categoryPercentage:.34,barPercentage:.42,yAxisID:'y'},{type:'line',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),borderColor:'#dc2626',backgroundColor:'#dc2626',borderWidth:1.4,pointRadius:2.4,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y1'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:1.6,pointRadius:2.6,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:6,right:8,left:2,bottom:46}},plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,font:{size:9},padding:8}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:11,weight:'bold'},padding:{top:2,bottom:4}},tooltip:{mode:'index',intersect:false}},scales:{x:{offset:false,grid:{display:false},ticks:{autoSkip:false,maxRotation:58,minRotation:58,color:'#0f172a',font:{size:8,weight:'700'},padding:4,callback:function(v){const s=this.getLabelForValue(v);return s.length>20?s.slice(0,20)+'…':s;}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:9}},ticks:{font:{size:8}}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9}},ticks:{font:{size:8},color:'#b88a00'}}}}});}
 function mtbfRows(){return ((payload&&payload.excel&&payload.excel.chart_rows)||[]).map((r,i)=>({...r,s_no:r.s_no||i+1}));}
 const MTBF_COLS=[['s_no','S.No'],['crm_build_id','CRM Build ID'],['date','Date'],['hours','Hours+'],['crash','crash'],['mtbf','MTBF']];
 function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;h.innerHTML='<tr>'+MTBF_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')+'</tr>';b.innerHTML=rows.length?rows.map(r=>'<tr>'+MTBF_COLS.map(c=>`<td>${esc(r[c[0]]??'')}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
@@ -271,56 +371,74 @@ async function saveMtbfEditTable(){const rows=collectMtbfEditRows().filter(r=>Ob
 function renderExcel(){const ex=payload.excel||{}, headers=ex.headers||[], rows=ex.rows||[], q=(document.getElementById('filter')?.value||'').toLowerCase();const f=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));document.getElementById('excelHead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':'';document.getElementById('excelBody').innerHTML=f.length?f.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No synced Excel rows. Click Sync Target Excel.</td></tr>';}
 const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
 const CR_BASE   = 'https://orbit/CR/';
-const _JIRA_COLS = new Set(['stability_ticket','jira','jira_id','jira_key','ticket','key','jira_ticket','open_jira','jira_number']);
-const _CR_COLS   = new Set(['mapped_cr','cr','cr_id','crid','cr_number','cr_current_ticket','change_request','changerequest']);
+const _JIRA_COLS = new Set(['stability_ticket','jira','jira_id','jira_key','ticket','key','jira_ticket','open_jira','jira_number','final_ticket','final_key','source_jira','jira__key','issue','issue_key']);
+const _CR_COLS   = new Set(['mapped_cr','mapped_crs','cr','cr_id','crid','cr_number','cr_current_ticket','change_request','changerequest','cr_key','cr_ticket','crs','all_crs','unique_crs']);
+
+function _premiumLink(url, text, kind){
+  const color = kind === 'cr' ? '#6d28d9' : '#1d4ed8';
+  const bg = kind === 'cr' ? 'linear-gradient(135deg,#faf5ff,#fff7ed)' : 'linear-gradient(135deg,#eff6ff,#eef2ff)';
+  const bd = kind === 'cr' ? '#ddd6fe' : '#bfdbfe';
+  return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;margin:1px 4px 1px 0;padding:2px 7px;border-radius:999px;border:1px solid ${bd};background:${bg};color:${color};font-weight:950;font-size:11px;text-decoration:none;white-space:nowrap;box-shadow:0 1px 4px rgba(15,23,42,.06)"><i class="fas fa-external-link-alt" style="font-size:8px"></i>${esc(text)}</a>`;
+}
+function _extractJiraKeys(v){return String(v||'').match(/\b[A-Z][A-Z0-9]+-\d+\b/gi)||[];}
+function _extractCrTokens(v){return String(v||'').match(/\b(?:CR\s*[-:]?\s*)?\d{5,9}\b/gi)||[];}
 
 function _cellHtml(col, val){
   const v = String(val == null ? '' : val).trim();
   if(!v || v === '--' || v === 'None') return esc(v||'--');
-  const colL = col.toLowerCase().replace(/[\s\-]/g,'_');
+  const colL = col.toLowerCase().replace(/[\s\-]/g,'_').replace(/_+/g,'_');
+  const isTitleCol = /(^|_)(title|summary|description|subject|name)(_|$)/.test(colL);
 
-  // JIRA hyperlink
-  if(_JIRA_COLS.has(colL)){
-    // may be comma/space separated list
-    const keys = v.split(/[\s,;]+/).filter(k => /^[A-Z][A-Z0-9]+-\d+$/i.test(k));
-    if(keys.length === 1)
-      return `<a href="${JIRA_BASE}${esc(keys[0])}" target="_blank" style="color:#1d4ed8;font-weight:900;text-decoration:none;white-space:nowrap"><i class="fas fa-external-link-alt" style="font-size:9px;margin-right:3px"></i>${esc(keys[0])}</a>`;
-    if(keys.length > 1)
-      return keys.map(k=>`<a href="${JIRA_BASE}${esc(k)}" target="_blank" style="color:#1d4ed8;font-weight:900;font-size:11px;text-decoration:none;display:inline-block;margin:1px 3px 1px 0;white-space:nowrap"><i class="fas fa-external-link-alt" style="font-size:8px;margin-right:2px"></i>${esc(k)}</a>`).join('');
-    // fallback: plain value but still try if it looks like a JIRA key
-    if(/^[A-Z][A-Z0-9]+-\d+$/i.test(v))
-      return `<a href="${JIRA_BASE}${esc(v)}" target="_blank" style="color:#1d4ed8;font-weight:900;text-decoration:none;white-space:nowrap"><i class="fas fa-external-link-alt" style="font-size:9px;margin-right:3px"></i>${esc(v)}</a>`;
+  // Do not hyperlink title/summary text. Open JIRA titles can contain values like WKK-1,
+  // but only ticket/id columns should be clickable.
+  if(isTitleCol) return esc(v);
+
+  const jiraKeys = _extractJiraKeys(v);
+  const crTokens = _extractCrTokens(v);
+
+  // JIRA hyperlink: link only explicit ticket/id columns, plus non-title cells that are pure JIRA keys.
+  if(_JIRA_COLS.has(colL) || (/^[A-Z][A-Z0-9]+-\d+$/i.test(v) && jiraKeys.length)){
+    if(jiraKeys.length) return jiraKeys.map(k=>_premiumLink(JIRA_BASE+encodeURIComponent(k), k, 'jira')).join('');
   }
 
-  // CR / Orbit hyperlink
+  // CR / Orbit hyperlink: link only explicit CR/ticket/id columns, never CR title/summary columns.
   if(_CR_COLS.has(colL)){
-    const crNum = (v.match(/(\d{5,9})/)||[])[1] || '';
-    if(crNum)
-      return `<a href="${CR_BASE}${esc(crNum)}" target="_blank" style="color:#7c3aed;font-weight:900;text-decoration:none;white-space:nowrap"><i class="fas fa-external-link-alt" style="font-size:9px;margin-right:3px"></i>${esc(v)}</a>`;
+    if(crTokens.length){
+      return crTokens.map(tok=>{
+        const crNum=(String(tok).match(/\d{5,9}/)||[])[0];
+        const label=/^CR/i.test(String(tok).trim())?String(tok).replace(/\s+/g,''):('CR'+crNum);
+        return _premiumLink(CR_BASE+encodeURIComponent(crNum), label, 'cr');
+      }).join('');
+    }
   }
 
   return esc(v);
 }
 
-function tableHtml(x){
+function _normColName(c){return String(c||'').toLowerCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'');}
+const _OPEN_JIRA_HIDE_COLS = new Set(['cr_date','cr_area','cr_subsystem','cr_functionality','cr_status','cr_si','cr_title']);
+function tableHtml(x, opts){
   x = x || {};
-  const cols = x.columns || [];
+  opts = opts || {};
+  const cols = (x.columns || []).filter(c => !(opts.hideCols||new Set()).has(_normColName(c)));
   const rows = x.rows || [];
-  const head = cols.map(c=>`<th>${esc(c)}</th>`).join('');
+  const uid = 'tbl_'+Math.random().toString(36).slice(2,7);
+  const head = cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('');
   const body = rows.length
-    ? rows.map(r=>'<tr>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')+'</tr>').join('')
+    ? rows.map((r,i)=>'<tr><td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')+'</tr>').join('')
     : '<tr><td class="empty" colspan="99">No data/config.</td></tr>';
-  return `<div class="tblwrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const search = rows.length ? `<div class="table-filterbar"><button class="filter-btn" onclick="_wbcFilterTbl('${uid}',document.getElementById('${uid}_filter')?.value||'');document.getElementById('${uid}_filter')?.focus()"><i class="fas fa-filter"></i> Filter</button><input id="${uid}_filter" class="input" placeholder="Search table..." oninput="_wbcFilterTbl('${uid}',this.value)"><span class="pill">${rows.length} row${rows.length===1?'':'s'}</span></div>` : '';
+  return `${search}<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${head}</tr></thead><tbody id="${uid}">${body}</tbody></table></div>`;
 }
 
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
-function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras);document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
+function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
 function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows);body.innerHTML=rows.length?`<div class="tblwrap" style="max-height:420px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">No detail rows for this build.</div>';}
 function filterWbcBuildReport(){const q=(document.getElementById('wbcBwrSearch')?.value||'').toLowerCase();document.querySelectorAll('.wbc-bwr-item').forEach(el=>{el.style.display=(!q||String(el.getAttribute('data-text')||'').toLowerCase().includes(q))?'':'none';});}
-function renderBuildSummary(bs){bs=bs||{};const builds=bs.builds||[];_wbcBuildReportRows=bs.rows_by_build||{};setText('buildSummaryCount',(bs.error?('Error: '+bs.error):builds.length+' build(s)'));const box=document.getElementById('buildSummaryBox');if(!box)return;if(!builds.length){box.innerHTML='<div class="empty">Select a current running build from Current Running Builds to load its build report.</div>';return;}box.innerHTML=`<div id="wbcBwrPanel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div><div style="font-size:15px;font-weight:900;color:#0f172a"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div><div class="muted">Same current-running-build report flow as HGY/HQX. Click a build to see full rows.</div></div><button class="btn" onclick="renderBuildSummary(payload.running_build_report||payload.build_summary||{})"><i class="fas fa-rotate"></i> Refresh View</button></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px"><span class="tag">Current Running Builds</span><div style="position:relative;display:flex;align-items:center"><i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none"></i><input id="wbcBwrSearch" class="input" placeholder="Search build e.g. 638..." oninput="filterWbcBuildReport()" style="padding-left:28px;width:240px;font-size:11px"></div><span style="flex:1"></span><span class="muted">${builds.length} build(s)</span></div><div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">${builds.map((b,i)=>{const bid=String(b.build_id||'Unknown Build'), rows=_wbcBuildReportRows[bid]||[], txt=[bid,b.meta_id,b.area,b.cr_count,b.jira_count,b.row_count,b.jql].join(' ');return `<div class="wbc-bwr-item" data-text="${esc(txt)}" style="border-bottom:1px solid #eef2f7;background:#fff"><button type="button" onclick="toggleWbcBuildReport(${i})" style="width:100%;border:0;background:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer"><i id="wbcBwrChev_${i}" class="fas fa-chevron-right wbc-bwr-chev" style="font-size:10px;color:#64748b;transition:.15s"></i><b style="flex:1;color:#0f172a;word-break:break-all">${esc(bid)}</b><span class="tag">${esc(b.row_count||rows.length||0)} rows</span><span class="tag orange">${esc(b.cr_count||0)} CRs</span><span class="tag">${esc(b.jira_count||0)} JIRAs</span></button><div id="wbcBwrBody_${i}" class="wbc-bwr-body" data-build="${esc(bid)}" style="display:none;background:#f8fafc;border-top:1px solid #eef2f7"></div></div>`;}).join('')}</div></div>`;}
+function renderBuildSummary(bs){bs=bs||{};const builds=bs.builds||[];_wbcBuildReportRows=bs.rows_by_build||{};setText('buildSummaryCount',(bs.error?('Error: '+bs.error):builds.length+' build(s)'));const box=document.getElementById('buildSummaryBox');if(!box)return;if(!builds.length){box.innerHTML=`<div class="empty">${esc(bs.error||'No build-wise report rows found from configured JIRAs/Open JIRAs tables.')}</div>`;return;}box.innerHTML=`<div id="wbcBwrPanel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div><div style="font-size:15px;font-weight:900;color:#0f172a"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div><div class="muted">WBC Build-wise Consolidated Report. Click a build to expand and see full rows.</div></div></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px"><span class="tag">All Builds</span><div style="position:relative;display:flex;align-items:center"><i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none"></i><input id="wbcBwrSearch" class="input" placeholder="Search build / CR / JIRA..." oninput="filterWbcBuildReport()" style="padding-left:28px;width:260px;font-size:11px"></div><span style="flex:1"></span><span class="muted">${builds.length} build(s)</span></div><div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">${builds.map((b,i)=>{const bid=String(b.build_id||'Unknown Build'), rows=_wbcBuildReportRows[bid]||[], txt=[bid,b.meta_id,b.area,b.cr_count,b.jira_count,b.open_jira_count,b.row_count,b.last_seen].join(' ');return `<div class="wbc-bwr-item" data-text="${esc(txt)}" style="border-bottom:1px solid #eef2f7;background:#fff"><button type="button" onclick="toggleWbcBuildReport(${i})" style="width:100%;border:0;background:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer"><i id="wbcBwrChev_${i}" class="fas fa-chevron-right wbc-bwr-chev" style="font-size:10px;color:#64748b;transition:.15s"></i><b style="flex:1;color:#0f172a;word-break:break-all">${esc(bid)}</b><span class="tag">${esc(b.row_count||rows.length||0)} rows</span><span class="tag" style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e">${esc(b.cr_count||0)} CRs</span><span class="tag" style="background:#ede9fe;border:1px solid #c4b5fd;color:#3730a3">${esc(b.jira_count||0)} JIRAs</span><span class="tag" style="background:#dcfce7;border:1px solid #86efac;color:#14532d">${esc(b.open_jira_count||0)} Open</span></button><div id="wbcBwrBody_${i}" class="wbc-bwr-body" data-build="${esc(bid)}" style="display:none;background:#f8fafc;border-top:1px solid #eef2f7"></div></div>`;}).join('')}</div></div>`;}
 async function loadTables(){if(!CAN_EDIT)return;try{const d=await getJson(`${API}/db_tables`);tables=d.tables||[];renderSelects();hydrateConfig();}catch(e){setText('cfgMsg','DB tables load failed: '+(e.message||e));}}
 function opts(kind){let arr=tables.filter(t=>t.kind===kind);if(kind==='unique_crs')arr=tables.filter(t=>t.kind==='unique_crs'||t.kind==='overallcrs');return '<option value="">-- Not configured --</option>'+arr.map(t=>`<option value="${esc(t.fq)}">${esc(t.label)}</option>`).join('');}
 function renderSelects(){if(!CAN_EDIT)return;document.getElementById('cfgJiras').innerHTML=opts('jiras');document.getElementById('cfgOpen').innerHTML=opts('openjiras');document.getElementById('cfgUnique').innerHTML=opts('unique_crs');document.getElementById('cfgOverall').innerHTML=opts('overallcrs');['addTargetJiras','addTargetOpen','addTargetUnique','addTargetOverall'].forEach(id=>{const e=document.getElementById(id);if(!e)return;if(id==='addTargetJiras')e.innerHTML=opts('jiras');if(id==='addTargetOpen')e.innerHTML=opts('openjiras');if(id==='addTargetUnique')e.innerHTML=opts('unique_crs');if(id==='addTargetOverall')e.innerHTML=opts('overallcrs');});}
@@ -335,9 +453,8 @@ async function saveVisibility(){const hidden=[];document.querySelectorAll('#visi
 async function syncActive(){if(!active)return;setText('subtitle','Syncing Excel...');const d=await postJson(`${API}/sync`,{target:active});await loadTargets();await selectTarget(active);alert(`Synced ${d.synced.length} target(s). Errors: ${d.errors.length}`);}
 // ── KPI card navigation ──────────────────────────────────────────────────
 function navToTab(tab, anchorId){
-  // Switch to the target tab via side nav
-  const sideMap={overview:0,current:1,mtbf:2,opencrs:3,openjiras:4,builds:5,allcrs:6,jiras:7};
-  const sideBtn=document.querySelectorAll('.nav button')[sideMap[tab]];
+    // Switch to the target tab via side nav
+  const sideBtn=document.querySelector(`.nav button[onclick*="'${tab}'"]`);
   sideNav(tab, sideBtn||null);
 
   // Scroll to anchor element after a short delay (tab paint)
@@ -376,68 +493,145 @@ function navToTab(tab, anchorId){
 // ── WBC Saved JQL Cards ───────────────────────────────────────────────────
 let _wbcSjqlTabs = [], _wbcSjqlTimers = {}, _wbcSjqlTTL = 30*60*1000;
 let _wbcActiveTabId = null;
+function _wbcParseTime(v){const d=new Date(v||'');return Number.isNaN(d.getTime())?null:d;}
+function _wbcDisplayTime(v){const d=_wbcParseTime(v);return d?d.toLocaleString():(v?String(v).replace('T',' ').slice(0,19):'');}
+function _wbcDomId(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]/g,'_');}
+function _wbcTabCacheState(t){const timer=_wbcSjqlTimers[t.id]||{};return {lastRun:timer.lastRun||t.last_run_at||t.generated_at||'',nextRun:timer.nextRun||t.next_run_at||t.next_auto_refresh_at||'',running:!!timer.running,stale:!!t.cached_report_stale,hasCached:!!t.has_cached_report,rowCount:t.cached_row_count||0,crCount:t.cached_cr_count||0,jiraCount:t.cached_jira_count||0};}
+function _wbcScheduleAutoRun(t, spreadMs){
+  if(!t||!t.id) return;
+  if(!_wbcSjqlTimers[t.id]) _wbcSjqlTimers[t.id]={};
+  clearTimeout(_wbcSjqlTimers[t.id]._timer);
+  const st=_wbcTabCacheState(t), next=_wbcParseTime(st.nextRun);
+  if(!st.hasCached) return;
+  const delay = next ? Math.max(1000, next.getTime()-Date.now()) : 1000;
+  const dueDelay = st.stale || delay<=1000 ? (spreadMs||1000) : delay;
+  _wbcSjqlTimers[t.id]._timer=setTimeout(()=>wbcSjqlRunCard(t.id,true), dueDelay);
+}
+
+function _wbcBuildIdFromJqlTab(tab){
+  if(tab && tab.build_id) return String(tab.build_id||'');
+  const text = String(((tab&&tab.resolved_jql)||'')+' '+((tab&&tab.jql)||'')+' '+((tab&&tab.name)||''));
+  const patterns = [
+    /\b[A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b/i,
+    /\b[A-Z][A-Z0-9_.-]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b/i,
+    /\b(?:META|BUILD)[-_ ]?0*([0-9]{3,6})\b/i
+  ];
+  for(const re of patterns){const m=text.match(re);if(m)return m[0];}
+  const quoted = [...text.matchAll(/"([^"]{6,120})"/g)].map(m=>m[1]).find(v=>/[0-9]{3,6}/.test(v)&&/[A-Za-z]/.test(v));
+  return quoted || '';
+}
+function updateRunningJqlCount(count){
+  const builds = Array.from(new Set((_wbcSjqlTabs||[]).map(_wbcBuildIdFromJqlTab).filter(Boolean)));
+  const n = builds.length || (Number.isFinite(Number(count)) ? Number(count) : 0);
+  const firstBuild = builds[0] || '—';
+    const jql = _currentSavedJqlCounts();
+  setText('ovKMeta', firstBuild);
+  setText('kMeta', firstBuild);
+  setText('ovKRunCnt', n);
+  setText('kRunCnt2', n);
+  setText('kRunCnt', n);
+  setText('nBuilds', n);
+    // Row 2 hero cards — from saved JQL report
+  setText('ovKOpenJira',        jql.jiras || 0);  // Valid JIRAs
+  setText('ovKOpenCr',          jql.crs   || 0);  // Unique valid CRs
+  setText('ovKTotalJirasBuild', jql.rows  || 0);  // Total JIRAs (all rows)
+  setText('kOpenJiraMeta',      jql.jiras || 0);
+  // Invalid sub-note under Valid JIRAs card
+  const invNoteEl = document.getElementById('ovKInvalidNote');
+  if(invNoteEl) invNoteEl.textContent = jql.invalid > 0 ? (jql.invalid + ' invalid excl.') : '';
+}
+
 
 async function wbcSjqlLoad(){
   if(!active) return;
   const box = document.getElementById('wbcSjqlCardsBox');
-  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
+  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>'; 
   try {
-    const d = await getJson(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs?domain=WBC`);
+    const d = await getJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`);
     _wbcSjqlTabs = d.tabs || [];
   } catch(e) { _wbcSjqlTabs = []; }
+    updateRunningJqlCount(_wbcSjqlTabs.length);
+  _wbcSjqlTabs.forEach((t,i)=>_wbcScheduleAutoRun(t, 1500 + i*3500));
   wbcSjqlRenderCards();
+  // Auto-show the first tab's report on page load (cached or not)
+  if(_wbcSjqlTabs.length && !_wbcActiveTabId){
+    const firstTab = _wbcSjqlTabs[0];
+    const st = _wbcTabCacheState(firstTab);
+    if(st.hasCached && !st.stale){
+      // Already fresh cached — show immediately without re-running
+      setTimeout(()=>wbcSjqlRunCard(firstTab.id, false), 400);
+    } else {
+      // No cache or stale — run now to fetch fresh report
+      setTimeout(()=>wbcSjqlRunCard(firstTab.id, true), 600);
+    }
+  }
 }
+
 
 function wbcSjqlRenderCards(){
   const box = document.getElementById('wbcSjqlCardsBox');
   if(!box) return;
   if(!_wbcSjqlTabs.length){
-    box.innerHTML = '<div class="empty" style="padding:32px"><i class="fas fa-inbox"></i> No saved JQL tabs yet. Click <b>Add JQL Tab</b> to create a named reusable JQL report card.</div>';
+    box.innerHTML = '<div class="empty" style="padding:32px"><i class="fas fa-inbox"></i> No saved JQL rows yet. Click <b>Add Saved JQL Row</b> to enter a Build ID and either a JIRA filter ID or full JQL.</div>'; 
     return;
   }
-  box.innerHTML = _wbcSjqlTabs.map(t => {
-    const timer    = _wbcSjqlTimers[t.id] || {};
-    const lastRun  = timer.lastRun || null;
-    const nextRun  = timer.nextRun || null;
-    const running  = !!timer.running;
+  box.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="font-size:12px;font-weight:950;color:#172554"><i class="fas fa-list" style="color:#4f46e5"></i> ${_wbcSjqlTabs.length} saved JQL row${_wbcSjqlTabs.length===1?'':'s'}</div>
+    <div class="muted">Each saved item is shown row-by-row as <b>Build ID</b> then <b>JQL Saved</b>.</div>
+  </div>` + _wbcSjqlTabs.map(t => {
+        const state    = _wbcTabCacheState(t);
+    const lastRun  = state.lastRun || null;
+    const nextRun  = state.nextRun || null;
+    const running  = !!state.running;
     const lastHtml = lastRun
-      ? `<span style="color:#64748b">Last run: <b>${esc(String(lastRun).slice(0,19).replace('T',' '))}</b></span>`
+      ? `<span style="color:#94a3b8">Last run: <b>${esc(_wbcDisplayTime(lastRun))}</b></span>`
       : '<span style="color:#94a3b8">Never run</span>';
     const nextHtml = nextRun
-      ? ` &middot; <span style="color:#059669">Next: <b>${esc(String(nextRun).slice(0,19).replace('T',' '))}</b></span>`
-      : '';
-    const safeId   = JSON.stringify(t.id);
-    const safeName = JSON.stringify(t.name||'');
-    const safeJql  = JSON.stringify(t.jql||'');
-    return `<div id="wbccard_${t.id}" style="border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 4px 14px rgba(99,102,241,.08)">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:13px;font-weight:950;color:#1e3a8a">${esc(t.name)}</span>
-            <span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe"><i class="fas fa-bookmark" style="margin-right:3px"></i>WBC</span>
-          </div>
-          <div style="font-size:10px;color:#64748b;margin-top:5px;font-family:Consolas,monospace;word-break:break-all;line-height:1.5">${esc((t.jql||'').slice(0,140))}${t.jql&&t.jql.length>140?'&hellip;':''}</div>
-          <div id="wbctiming_${t.id}" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">${lastHtml}${nextHtml}</div>
+      ? ` &middot; <span style="color:${state.stale?'#f59e0b':'#34d399'}">Next auto refresh: <b>${esc(_wbcDisplayTime(nextRun))}${state.stale?' (due)':''}</b></span>`
+            : '';
+    const countsHtml = state.hasCached ? ` &middot; <span style="color:#93c5fd">Cached: <b>${esc(state.rowCount)}</b> rows, <b>${esc(state.crCount)}</b> CRs, <b>${esc(state.jiraCount)}</b> JIRAs</span>` : '';
+
+        const idAttr   = esc(t.id);
+    const domId    = _wbcDomId(t.id);
+    const buildId  = _wbcBuildIdFromJqlTab(t) || t.name || 'Build ID not found';
+    const savedJql = t.jql || '';
+    const displayJql = savedJql || t.resolved_jql || '';
+    const filterBadge = t.filter_id ? `<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;border:1px solid #86efac">JIRA filter ${esc(t.filter_id)}${t.filter_resolved?' resolved':''}</span>` : '';
+    return `<div id="wbccard_${esc(domId)}" style="border:1.5px solid #334155;background:#1e293b;border-radius:14px;margin-bottom:10px;box-shadow:none;overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(190px,280px) minmax(0,1fr) auto;gap:0;align-items:stretch">
+        <div style="padding:13px 14px;background:#111827;border-right:1px solid #334155">
+          <div style="font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Build ID</div>
+          <div style="font-size:13px;font-weight:1000;color:#bfdbfe;word-break:break-all">${esc(buildId)}</div>
+          <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap"><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe"><i class="fas fa-bookmark" style="margin-right:3px"></i>WBC</span>${filterBadge}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start">
-          <button id="wbcrun_${t.id}" onclick="wbcSjqlRunCard(${safeId})" title="Run this JQL now"
+        <div style="padding:13px 14px;min-width:0">
+          <div style="font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">JQL Saved</div>
+          <div style="font-size:10px;color:#e2e8f0;font-family:Consolas,monospace;word-break:break-all;line-height:1.5;background:#0f172a;border:1px solid #334155;border-radius:9px;padding:7px 9px">${esc(displayJql.slice(0,220))}${displayJql.length>220?'&hellip;':''}</div>
+                                        <div id="wbctiming_${esc(domId)}" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">${lastHtml}${nextHtml}${countsHtml}</div>
+
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start;padding:13px 14px;border-left:1px solid #334155;background:#111827">
+                    <button id="wbcrun_${esc(domId)}" data-id="${idAttr}" onclick="wbcSjqlRunCard(this.dataset.id,true)" title="Force run this JQL now"
+
             style="padding:5px 12px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px">
-            ${running ? '<i class="fas fa-circle-notch fa-spin"></i> Running...' : '<i class="fas fa-play"></i> Run'}
+                        ${running ? '<i class="fas fa-circle-notch fa-spin"></i> Running...' : '<i class="fas fa-play"></i> Run Now'}
+
           </button>
-          <button onclick="wbcOpenSjqlModal(${safeId},${safeName},${safeJql})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button>
-          <button onclick="wbcSjqlDelete(${safeId})" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button>
+          <button data-id="${idAttr}" data-name="${esc(buildId)}" data-jql="${esc(savedJql)}" onclick="wbcOpenSjqlModal(this.dataset.id,this.dataset.name,this.dataset.jql)" style="padding:5px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button>
+          <button data-id="${idAttr}" onclick="wbcSjqlDelete(this.dataset.id)" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function wbcSjqlRunCard(id){
+function wbcSjqlRunCard(id, force){
   const tab = _wbcSjqlTabs.find(t => t.id === id); if(!tab) return;
   if(!_wbcSjqlTimers[id]) _wbcSjqlTimers[id] = {};
   _wbcSjqlTimers[id].running = true;
-  const runBtn = document.getElementById('wbcrun_'+id);
+    const runBtn = document.getElementById('wbcrun_'+_wbcDomId(id));
   if(runBtn) runBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Running...';
+
   _wbcActiveTabId = id;
   const panel = document.getElementById('wbcInlineReport');
   const body  = document.getElementById('wbcInlineReportBody');
@@ -448,102 +642,194 @@ function wbcSjqlRunCard(id){
   if(meta)  meta.textContent = 'Running...';
   if(body)  body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running JQL report...</span></div>';
   if(panel) setTimeout(() => panel.scrollIntoView({behavior:'smooth',block:'start'}), 80);
-  fetch(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}/report?domain=WBC&force=1`, {cache:'no-store'})
+    fetch(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}/report${force?'?force=1':''}`, {cache:'no-store'})
+
     .then(r => r.json())
     .then(d => {
-      const now    = new Date();
-      const genAt  = d.generated_at || now.toISOString();
-      const nextAt = new Date(now.getTime() + _wbcSjqlTTL).toISOString();
+            const now    = new Date();
+      const genAt  = d.generated_at || d.last_run_at || now.toISOString();
+      const nextAt = d.next_run_at || d.next_auto_refresh_at || new Date(now.getTime() + _wbcSjqlTTL).toISOString();
       _wbcSjqlTimers[id].running = false;
       _wbcSjqlTimers[id].lastRun = genAt;
       _wbcSjqlTimers[id].nextRun = nextAt;
-      const timingEl = document.getElementById('wbctiming_'+id);
+      const tabIndex=_wbcSjqlTabs.findIndex(t=>t.id===id);
+      if(tabIndex>=0){
+        _wbcSjqlTabs[tabIndex]={..._wbcSjqlTabs[tabIndex],has_cached_report:true,cached_report_stale:false,last_run_at:genAt,next_run_at:nextAt,
+        cached_row_count:  d.row_count||((d.rows||d.flat_rows||[]).length),
+        cached_cr_count:   d.valid_cr_count   !== undefined ? d.valid_cr_count   : (d.cr_count   || 0),
+        cached_jira_count: d.valid_jira_count !== undefined ? d.valid_jira_count : (d.jira_count || 0),
+        cached_invalid_count: d.invalid_count || 0
+      };
+      }
+      const timingEl = document.getElementById('wbctiming_'+_wbcDomId(id));
       if(timingEl) timingEl.innerHTML =
-        `<span style="color:#64748b">Last run: <b>${esc(genAt.slice(0,19).replace('T',' '))}</b></span>`
-        +` &middot; <span style="color:#059669">Next: <b>${esc(nextAt.slice(0,19).replace('T',' '))}</b></span>`;
-      const rb = document.getElementById('wbcrun_'+id);
-      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
-      if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+        `<span style="color:#94a3b8">Last run: <b>${esc(_wbcDisplayTime(genAt))}</b></span>`
+        +` &middot; <span style="color:#34d399">Next auto refresh: <b>${esc(_wbcDisplayTime(nextAt))}</b></span>`
+        +` &middot; <span style="color:#93c5fd">Cached: <b>${esc(d.row_count||((d.rows||d.flat_rows||[]).length))}</b> rows, <b>${esc(d.cr_count||0)}</b> CRs, <b>${esc(d.jira_count||0)}</b> JIRAs</span>`;
+            const rb = document.getElementById('wbcrun_'+_wbcDomId(id));
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
+      if(meta) meta.textContent = 'Last run: '+_wbcDisplayTime(genAt);
       if(body) _wbcRenderReport(body, d, tab);
-      clearTimeout(_wbcSjqlTimers[id]._timer);
-      _wbcSjqlTimers[id]._timer = setTimeout(() => wbcSjqlRunCard(id), _wbcSjqlTTL);
+      _wbcScheduleAutoRun(_wbcSjqlTabs[tabIndex>=0?tabIndex:0]||tab, 0);
+
     })
     .catch(e => {
       _wbcSjqlTimers[id].running = false;
-      const rb = document.getElementById('wbcrun_'+id);
-      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run';
+            const rb = document.getElementById('wbcrun_'+_wbcDomId(id));
+      if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
+
       if(body) body.innerHTML = `<div class="empty" style="color:#ef4444">Failed: ${esc(String(e))}</div>`;
     });
 }
 
+const _WBC_CR_EQUIV = new Set(['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG','ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO','WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST']);
+function _wbcIsTrueCr(v){return /^CR\d{5,9}$/i.test(String(v||'').trim());}
+function _wbcIsCrEquiv(v){const u=String(v||'').trim().toUpperCase();const p=u.includes('-')?u.split('-')[0]:'';return !!(p&&_WBC_CR_EQUIV.has(p));}
+function _wbcRowType(r){const rt=String(r['Row Type']||'').trim();if(rt==='cr'||rt==='mapped_jira'||rt==='open')return rt;const cr=String(r.CR||'').trim();if(_wbcIsTrueCr(cr))return 'cr';if(_wbcIsCrEquiv(cr))return 'mapped_jira';return 'open';}
+function _wbcIssueKey(row){return String((row&&row.JIRA)||(row&&row.jira)||(row&&row.stability_ticket)||(row&&row.jira_id)||(row&&row.key)||'').trim().toUpperCase();}
+function _wbcCrKey(row){return String((row&&row.CR)||(row&&row.cr)||(row&&row.mapped_cr)||(row&&row.cr_id)||'').trim();}
+function _wbcUniqueBy(rows, keyFn){const out=[], seen=new Set();(rows||[]).forEach(r=>{const k=String(keyFn(r)||'').trim();if(!k||seen.has(k))return;seen.add(k);out.push(r);});return out;}
+function _wbcReportTableHtml(rows, cols, uid){
+  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody id="${uid}">${rows.length?rows.map((r,i)=>{const inv=_isInvalidRow(r);const bg=inv?"background:#fff1f2":i%2?"background:#f8fafc":"";return `<tr style="${bg}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}${inv?"<br><span style=\"background:#fca5a5;color:#7f1d1d;border-radius:3px;font-size:8px;font-weight:900;padding:0 3px\">INV</span>":""}</td>${cols.map(c=>`<td style="max-width:320px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join("")}</tr>`;}).join(''):'<tr><td colspan="99" class="empty">No rows.</td></tr>'}</tbody>`;
+  return `<div style="overflow:auto;border:1px solid #c7d2fe;border-radius:14px;max-height:520px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:auto">${thead}${tbody}</table></div>`;
+}
+function _wbcSwitchReportTab(uid, tab){
+  ['crs','mapped','open','all'].forEach(t=>{
+    const pane=document.getElementById(`${uid}_${t}`), btn=document.getElementById(`${uid}_btn_${t}`), badge=document.getElementById(`${uid}_badge_${t}`);
+    const active=t===tab;
+    if(pane)pane.style.display=active?'block':'none';
+    if(btn){btn.style.borderBottomColor=active?'#6366f1':'transparent';btn.style.color=active?'#6366f1':'#64748b';btn.style.fontWeight=active?'950':'800';}
+    if(badge){badge.style.background=active?'#6366f1':'#e2e8f0';badge.style.color=active?'#fff':'#475569';}
+  });
+}
+// Invalid resolution keywords - exact/substring match against all resolution fields
+const _WBC_INV_KW=['won\'t fix','wont fix','cannot reproduce','not a bug','no sir','nosir','not applicable','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup','setup issue','setup_issue','incomplete ram dump','similar substring','substring found'];
+// Word-boundary keywords (avoid 'invalid' matching 'valid' etc.)
+const _WBC_INV_WORD=['invalid','incomplete','rejected'];
+function _isInvalidRow(r){
+  // Collect ALL resolution-related fields including raw JIRA Resolution
+  const hay=[
+    r['JIRA Resolution'], r['Final Resolution'], r['Final Status'],
+    r['JIRA Status'], r['Resolution Notes'], r['CR Status']
+  ].join(' ').toLowerCase();
+  if(_WBC_INV_KW.some(k=>hay.includes(k))) return true;
+  // Word-boundary check for short keywords
+  if(_WBC_INV_WORD.some(k=>new RegExp('\\b'+k+'\\b').test(hay))) return true;
+  return false;
+}
 function _wbcRenderReport(el, d, tab){
-  const jql  = (tab&&tab.jql)||d.jql||'';
+  const jql  = d.jql || d.resolved_jql || (tab&&tab.resolved_jql) || (tab&&tab.jql) || '';
   const rows = d.rows||d.flat_rows||[];
   const fromCache = !!d.from_cache;
   const genAt = d.generated_at||'';
+  const buildId = d.build_id || _wbcBuildIdFromJqlTab(tab) || (tab&&tab.name) || '';
   const runErr = d.run_error
     ? `<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;margin-bottom:12px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><b>Error:</b> ${esc(d.run_error)}</div>`
     : '';
   const jqlBox = jql
-    ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 13px;font-family:Consolas,monospace;font-size:11px;color:#334155;margin-bottom:14px;word-break:break-all;line-height:1.6">${esc(jql)}</div>`
+    ? `<div style="border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:10px 12px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:10px;font-weight:1000;color:#475569;text-transform:uppercase;letter-spacing:.05em">JQL Used</span><code id="wbcCurrentJqlCode" style="font-size:10px;color:#1e3a8a;word-break:break-all;flex:1">${esc(jql)}</code><button class="btn primary" style="font-size:11px;padding:6px 10px" onclick="wbcCopyReportJql(this,'wbcCurrentJqlCode')"><i class="fas fa-copy"></i> Copy JQL</button></div></div>`
     : '';
-  const countHdr =
-    `<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">`
-    +`<div style="border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:14px;padding:14px 22px;min-width:110px">`
-    +`<div style="font-size:42px;font-weight:1000;color:#1d4ed8;line-height:1">${rows.length}</div>`
-    +`<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#3730a3;margin-top:4px">ROWS</div>`
-    +`</div>`
-    +(fromCache?'<span style="font-size:11px;color:#64748b;font-weight:700"><i class="fas fa-clock" style="margin-right:4px"></i>Cached</span>':'')
-    +`</div>`;
+  // Classify rows into 4 buckets using Row Type (server-supplied) or client-side detection
+  // Build one representative row per CR, aggregating JIRA count from all rows
+  const _crAllRows     = rows.filter(r=>_wbcRowType(r)==='cr');
+  const _mappedAllRows = rows.filter(r=>_wbcRowType(r)==='mapped_jira');
+  const _openAllRows   = rows.filter(r=>_wbcRowType(r)==='open');
+  // Group by CR key and pick the first row as representative, inject CR Count
+  function _groupByCr(allRows, keyFn){
+    const map=new Map(), countMap=new Map();
+    allRows.forEach(r=>{
+      const k=String(keyFn(r)||'').trim(); if(!k) return;
+      countMap.set(k,(countMap.get(k)||0)+1);
+      if(!map.has(k)) map.set(k,Object.assign({},r));
+    });
+    return Array.from(map.values()).map(r=>{
+      const k=String(keyFn(r)||'').trim();
+      return Object.assign({},r,{'CR Count': countMap.get(k)||1});
+    });
+  }
+  const crRows     = _groupByCr(_crAllRows,     r=>_wbcCrKey(r));
+  const mappedRows = _groupByCr(_mappedAllRows, r=>_wbcCrKey(r)||_wbcIssueKey(r));
+  const openRows   = _wbcUniqueBy(_openAllRows, _wbcIssueKey);
+  // Counts: unique CRs/mapped-tickets (not JIRA occurrences)
+  const crCount     = crRows.length;
+  const mappedCount = mappedRows.length;
+  const openCount   = openRows.length;
+  const rowCount    = Number(d.row_count || rows.length || 0);
+  const _allClassifiedRows=[..._crAllRows,..._mappedAllRows,..._openAllRows];
+  const invalidRows=_wbcUniqueBy(_allClassifiedRows.filter(_isInvalidRow),r=>_wbcIssueKey(r)||_wbcCrKey(r));
+  const invalidCount=invalidRows.length;
+  const summaryTable = `<div style="margin-bottom:12px"><table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07);table-layout:auto"><thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px;color:#fff">Metric</th><th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Count</th><th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;color:#fff">Note</th></tr></thead><tbody><tr><td style="padding:7px 14px;font-size:12px;font-weight:700;color:#475569">Current Running Build</td><td style="padding:7px 14px;font-size:13px;font-weight:900;text-align:right;color:#1e3a8a">${esc(buildId||'-')}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">Saved JQL based report; Axiom hours are not used.</td></tr><tr style="background:#faf5ff"><td style="padding:7px 14px;font-size:12px;font-weight:700;color:#475569">Mapped to CRs</td><td style="padding:7px 14px;font-size:13px;font-weight:900;text-align:right;color:#7c3aed">${esc(crCount)}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">Unique Orbit CRs — each row = 1 CR, CR Count = JIRAs mapped to it</td></tr><tr style="background:#fffbeb"><td style="padding:7px 14px;font-size:12px;font-weight:700;color:#475569">Mapped JIRAs (WPST etc.)</td><td style="padding:7px 14px;font-size:13px;font-weight:900;text-align:right;color:#b45309">${esc(mappedCount)}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">WPST / QSTABILITY / CHIPMD etc. acting as CR &mdash; includes Final Ticket &amp; Resolution</td></tr><tr style="background:#eff6ff"><td style="padding:7px 14px;font-size:12px;font-weight:700;color:#475569">Open / Unmapped JIRAs</td><td style="padding:7px 14px;font-size:13px;font-weight:900;text-align:right;color:#0369a1">${esc(openCount)}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">JIRAs with no CR or CR-equivalent mapping yet</td></tr><tr style="background:#fff1f2"><td style="padding:7px 14px;font-size:12px;font-weight:700;color:#b91c1c">Invalid JIRAs</td><td style="padding:7px 14px;font-size:13px;font-weight:900;text-align:right;color:#b91c1c">${esc(invalidCount)}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">Withdrawn / Won't Fix / Cannot Reproduce / Invalid etc. across CRs, WPST &amp; Open JIRAs</td></tr><tr style="background:#fffbeb;border-top:2px solid #e2e8f0"><td style="padding:7px 14px;font-size:12px;font-weight:950;color:#b45309">Total Detail Rows</td><td style="padding:7px 14px;font-size:13px;font-weight:950;text-align:right;color:#b45309">${esc(rowCount)}</td><td style="padding:7px 14px;font-size:11px;color:#94a3b8">All rows returned by the consolidated report</td></tr></tbody></table></div>`;
+  const timeCards = `<div class="report-time-grid"><div class="report-time-card"><div class="report-time-label"><i class="fas fa-clock"></i> Last Generated</div><div class="report-time-value">${esc(_wbcDisplayTime(genAt)||'-')}</div><div class="muted" style="margin-top:4px">${fromCache?'Shared cached report reused':'Fresh report generated and cached'}</div></div><div class="report-time-card green"><div class="report-time-label"><i class="fas fa-rotate"></i> Next Auto Refresh / Next Run</div><div class="report-time-value">${esc(_wbcDisplayTime(d.next_run_at||d.next_auto_refresh_at)||'-')}</div><div style="font-size:12px;font-weight:900;color:#166534;margin-top:4px">Auto refresh interval: 30 minutes per saved JQL</div></div></div>`;
   if(!rows.length){
-    el.innerHTML = runErr + jqlBox + countHdr + '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No rows returned for this JQL.</div>';
+    el.innerHTML = runErr + jqlBox + timeCards + summaryTable + '<div class="report-zero"><div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div><div class="report-zero-num">0</div><div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">CR/JIRA rows found for this current running build</div><div class="muted" style="max-width:720px;margin:0 auto">The report completed successfully, but no matching consolidated CR/JIRA rows were returned for this saved JQL.</div></div>';
     return;
   }
-  const cols = _wbcCols(rows);
   const uid  = 'wbcr_'+Math.random().toString(36).slice(2,6);
-  const searchBar =
-    `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">`
-    +`<input id="${uid}_s" style="height:32px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 12px;font-size:12px;font-family:inherit;outline:none;min-width:260px;flex:1" placeholder="Search..." oninput="_wbcFilterTbl('${uid}_tb',this.value)">`
-    +`<span style="font-size:11px;color:#64748b;font-weight:700">${rows.length} row${rows.length===1?'':'s'}</span>`
+  // Column sets per tab - only include columns that actually exist in the data
+  const crCols     = ['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created'].filter(c=>crRows.some(r=>r[c]!==undefined)||rows.some(r=>r[c]!==undefined));
+  const mappedCols = ['CR','CR Count','JIRA','JIRA Title','JIRA Status','JIRA Resolution','Final Ticket','Final Status','Final Resolution','Mapping Type','Resolution Notes','Created'].filter(c=>mappedRows.some(r=>r[c]!==undefined)||rows.some(r=>r[c]!==undefined));
+  const openCols   = ['JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Final Resolution','Resolution Notes','Created'].filter(c=>rows.some(r=>r[c]!==undefined));
+  const allCols    = _wbcCols(rows);
+  const tabBar = `<div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin:12px 0 14px;background:#fff;border-radius:8px 8px 0 0">`
+    +`<button id="${uid}_btn_crs"    onclick="_wbcSwitchReportTab('${uid}','crs')"    style="padding:9px 18px;font-size:12px;font-weight:950;border:none;border-bottom:3px solid #6366f1;background:#fff;color:#6366f1;cursor:pointer;margin-bottom:-2px"><i class="fas fa-bug"></i> CRs <span id="${uid}_badge_crs"    style="background:#6366f1;color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">${crCount}</span>${_crAllRows.filter(_isInvalidRow).length?`<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:1px 6px;font-size:9px;font-weight:900;margin-left:3px">inv ${_crAllRows.filter(_isInvalidRow).length}</span>`:''}</button>`
+    +`<button id="${uid}_btn_mapped" onclick="_wbcSwitchReportTab('${uid}','mapped')" style="padding:9px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-link"></i> Mapped JIRAs <span style="font-size:9px;color:#b45309;font-weight:900">(WPST etc.)</span> <span id="${uid}_badge_mapped" style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">${mappedCount}</span>${_mappedAllRows.filter(_isInvalidRow).length?`<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:1px 6px;font-size:9px;font-weight:900;margin-left:3px">inv ${_mappedAllRows.filter(_isInvalidRow).length}</span>`:''}</button>`
+    +`<button id="${uid}_btn_open"   onclick="_wbcSwitchReportTab('${uid}','open')"   style="padding:9px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-lock-open"></i> Open / Unmapped <span id="${uid}_badge_open"   style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">${openCount}</span>${_openAllRows.filter(_isInvalidRow).length?`<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:1px 6px;font-size:9px;font-weight:900;margin-left:3px">inv ${_openAllRows.filter(_isInvalidRow).length}</span>`:''}</button>`
+    +`<button id="${uid}_btn_all"    onclick="_wbcSwitchReportTab('${uid}','all')"    style="padding:9px 18px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:#fff;color:#64748b;cursor:pointer;margin-bottom:-2px"><i class="fas fa-table"></i> All Rows <span id="${uid}_badge_all"    style="background:#e2e8f0;color:#475569;border-radius:999px;padding:1px 7px;font-size:10px;margin-left:4px">${rowCount}</span></button>`
     +`</div>`;
-  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead>`;
-  const tbody = `<tbody id="${uid}_tb">${rows.map((r,i)=>`<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody>`;
-  el.innerHTML = runErr + jqlBox + countHdr + searchBar
-    + `<div style="overflow:auto;border:1px solid #c7d2fe;border-radius:14px;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12px">${thead}${tbody}</table></div>`;
+  const searchBar = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><input id="${uid}_s" style="height:32px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 12px;font-size:12px;font-family:inherit;outline:none;min-width:260px;flex:1" placeholder="Search active table..." oninput="['${uid}_crs_tb','${uid}_mapped_tb','${uid}_open_tb','${uid}_all_tb'].forEach(x=>_wbcFilterTbl(x,this.value))"><span style="font-size:11px;color:#64748b;font-weight:700">Consolidated report for current running build</span></div>`;
+  el.innerHTML = runErr + jqlBox + timeCards + summaryTable + tabBar + searchBar
+    + `<div id="${uid}_crs">${_wbcReportTableHtml(crRows,    crCols.length?crCols:allCols,    uid+'_crs_tb')}</div>`
+    + `<div id="${uid}_mapped" style="display:none">${_wbcReportTableHtml(mappedRows, mappedCols.length?mappedCols:allCols, uid+'_mapped_tb')}</div>`
+    + `<div id="${uid}_open"   style="display:none">${_wbcReportTableHtml(openRows,   openCols.length?openCols:allCols,    uid+'_open_tb')}</div>`
+    + `<div id="${uid}_all"    style="display:none">${_wbcReportTableHtml(rows,       allCols,                             uid+'_all_tb')}</div>`;
 }
-
 function _wbcFilterTbl(tbodyId, q){
   const tb = document.getElementById(tbodyId); if(!tb) return;
   const qq = String(q||'').toLowerCase();
   tb.querySelectorAll('tr').forEach(tr => { tr.style.display = !qq||tr.textContent.toLowerCase().includes(qq)?'':'none'; });
 }
 
-function wbcSjqlRunNow(){ if(_wbcActiveTabId) wbcSjqlRunCard(_wbcActiveTabId); }
+function wbcSjqlRunNow(){ if(_wbcActiveTabId) wbcSjqlRunCard(_wbcActiveTabId,true); }
+
 function wbcCloseInlineReport(){
   const p = document.getElementById('wbcInlineReport'); if(p) p.style.display='none';
   _wbcActiveTabId = null;
 }
 
+function _wbcFilterIdFromText(v){
+  const s=String(v||'').trim();
+  if(/^\d+$/.test(s)) return s;
+  const m=s.match(/^\s*filter(?:Id)?\s*=\s*(\d+)/i) || s.match(/[?&]filter(?:Id)?=(\d+)/i);
+  return m?m[1]:'';
+}
 function wbcOpenSjqlModal(id, name, jql){
+  const filterId = _wbcFilterIdFromText(jql || '');
   document.getElementById('wbcSjqlEditId').value = id || '';
-  document.getElementById('wbcSjqlInpName').value = name || '';
-  document.getElementById('wbcSjqlInpJql').value = jql || '';
-  document.getElementById('wbcSjqlModalTitle').textContent = id ? 'Edit JQL Tab' : 'Add JQL Tab';
-  document.getElementById('wbcSjqlMsg').textContent = '';
+  document.getElementById('wbcSjqlInpBuildId').value = name || '';
+  document.getElementById('wbcSjqlInpFilterId').value = filterId || '';
+  document.getElementById('wbcSjqlInpJql').value = filterId ? '' : (jql || '');
+  document.getElementById('wbcSjqlModalTitle').textContent = id ? 'Edit Saved JQL Row' : 'Add Saved JQL Row';
+  document.getElementById('wbcSjqlMsg').textContent = 'Build ID is required. Provide either Filter ID or full JQL.';
   document.getElementById('wbcSjqlModal').style.display = 'flex';
 }
 function wbcCloseSjqlModal(){ document.getElementById('wbcSjqlModal').style.display='none'; }
 
 async function wbcSjqlSave(){
   const id   = document.getElementById('wbcSjqlEditId').value;
-  const name = (document.getElementById('wbcSjqlInpName').value||'').trim();
-  const jql  = (document.getElementById('wbcSjqlInpJql').value||'').trim();
+  const name = (document.getElementById('wbcSjqlInpBuildId').value||'').trim();
+  const filterIdRaw = (document.getElementById('wbcSjqlInpFilterId').value||'').trim();
+  const fullJql  = (document.getElementById('wbcSjqlInpJql').value||'').trim();
   const msg  = document.getElementById('wbcSjqlMsg');
-  if(!name||!jql){ if(msg) msg.textContent='Name and JQL are required.'; return; }
+  const filterId = _wbcFilterIdFromText(filterIdRaw);
+  if(!name){ if(msg) msg.textContent='Build ID is required.'; return; }
+  if(filterIdRaw && !filterId){ if(msg) msg.textContent='Filter ID must be numeric, or paste a Jira filter URL containing filter=12345.'; return; }
+  if(!filterId && !fullJql){ if(msg) msg.textContent='Provide either Filter ID or full JQL.'; return; }
+  const jql = filterId ? ('filter = '+filterId) : fullJql;
   try {
     const body = {target: active, domain: 'WBC', name, jql};
     if(id) body.id = id;
-    const d = await postJson(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs`, body);
+    const d = await postJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`, body);
     if(!d.ok) throw new Error(d.error||'Save failed');
     wbcCloseSjqlModal();
     await wbcSjqlLoad();
@@ -553,7 +839,7 @@ async function wbcSjqlSave(){
 async function wbcSjqlDelete(id){
   if(!confirm('Delete this JQL tab?')) return;
   try {
-    const r = await fetch(`/api/live_status/targets/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}?domain=WBC`, {method:'DELETE'});
+    const r = await fetch(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}`, {method:'DELETE'});
     const d = await r.json();
     if(!d.ok) throw new Error(d.error||'Delete failed');
     await wbcSjqlLoad();
@@ -573,16 +859,18 @@ loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div cl
 {% if can_edit %}
 <!-- WBC Saved JQL Tab Modal -->
 <div id="wbcSjqlModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:min(520px,96vw);box-shadow:0 28px 80px rgba(0,0,0,.35);overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
-      <span style="font-size:15px;font-weight:950" id="wbcSjqlModalTitle">Add JQL Tab</span>
+      <span style="font-size:15px;font-weight:950" id="wbcSjqlModalTitle">Add Saved JQL Row</span>
       <button onclick="wbcCloseSjqlModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
     </div>
-    <div style="padding:20px">
+        <div style="padding:20px">
       <input type="hidden" id="wbcSjqlEditId">
-      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Tab Name</label><input id="wbcSjqlInpName" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. Kobuk Open JIRAs"></div>
-      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">JQL Query</label><textarea id="wbcSjqlInpJql" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND summary ~ &quot;Kobuk&quot; AND ..."></textarea></div>
-      <div id="wbcSjqlMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Build ID</label><input id="wbcSjqlInpBuildId" style="width:100%;border:1.5px solid #334155;background:#0f172a;color:#f8fafc;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. Kobuk.LE.1.1-89957-ME... or Current Meta"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">JIRA Filter ID <span style="color:#94a3b8;text-transform:none">(preferred)</span></label><input id="wbcSjqlInpFilterId" style="width:100%;border:1.5px solid #334155;background:#0f172a;color:#f8fafc;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. 346782 or Jira filter URL"></div>
+      <div style="margin:2px 0 12px;text-align:center;font-size:11px;font-weight:1000;color:#94a3b8;text-transform:uppercase">OR</div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Full JQL Query</label><textarea id="wbcSjqlInpJql" style="width:100%;border:1.5px solid #334155;background:#0f172a;color:#f8fafc;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND summary ~ &quot;Kobuk&quot; AND ..."></textarea></div>
+      <div id="wbcSjqlMsg" style="font-size:12px;color:#64748b;margin-bottom:10px">Build ID is required. Provide either Filter ID or full JQL.</div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button onclick="wbcCloseSjqlModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
         <button onclick="wbcSjqlSave()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer">Save</button>

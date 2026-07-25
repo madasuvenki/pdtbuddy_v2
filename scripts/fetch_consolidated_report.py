@@ -1021,9 +1021,12 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
             if best_result:
                 return best_result
 
-            # Step 5: dead end - return raw resolution notes as display text
-            resolnote = _resolution_notes_without_check(issue)
-            return '', key, status, resolnote or resolution
+            # Step 5: dead end - return the actual JIRA resolution field.
+            # resolution_notes_text (CF text like "NA; Wiring issue on kobuk") is
+            # stored separately in _build_resolution_notes_text(); it must NOT
+            # overwrite final_resolution which must always be the real JIRA
+            # resolution value (e.g. "Invalid", "Fixed", "Won't Fix").
+            return '', key, status, resolution
         start_issue = _fetch_one(start_key)
         final_cr, final_key, final_status, final_resolution = _process_issue(start_issue, 0)
 

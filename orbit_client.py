@@ -283,13 +283,25 @@ def _make_orbit_headers(server: str = None) -> dict:
     secur32.InitializeSecurityContextW.restype = ctypes.c_long
 
     server = server or _get_orbit_server()
-    spn      = f"HTTP/{socket.getfqdn(server)}"
+                # 0x80090303 = SEC_E_NO_CREDENTIALS
+    # orbit-hyd.qualcomm.com resolves to 10.147.136.30 but the Kerberos SPN
+    # is registered as HTTP/orbit.qualcomm.com (canonical), NOT orbit-hyd.
+    # Confirmed by testing all SPNs: only HTTP/orbit.qualcomm.com and
+    # HTTP/orbit return a valid token (0x90312 SEC_I_CONTINUE_NEEDED).
+    # Build candidates: canonical orbit names first, then server-specific fallbacks.
+    _domain_suffix = '.'.join(server.split('.')[1:])  # e.g. 'qualcomm.com'
+    spn_candidates = list(dict.fromkeys([
+        "HTTP/orbit.qualcomm.com",                    # canonical — always works
+        "HTTP/orbit",                                 # short canonical
+        f"HTTP/orbit.{_domain_suffix}" if _domain_suffix else None,  # orbit.<domain>
+        f"HTTP/{server}",                             # as-given: orbit-hyd.qualcomm.com
+        f"HTTP/{socket.getfqdn(server)}",             # FQDN-resolved
+        f"HTTP/{server.split('.')[0]}",               # short: orbit-hyd
+    ]))
+    spn_candidates = [s for s in spn_candidates if s]  # remove None
 
     cred     = _SecHandle()
-    ctx_h    = _SecHandle()
     expiry   = (ctypes.c_ulong * 2)()
-    out_arr  = (_SecBuffer * 1)(_SecBuffer(0, 2, None))
-    out_desc = _SecBufferDesc(0, 1, out_arr)
     ctx_attr = ctypes.c_ulong(0)
 
     rc = secur32.AcquireCredentialsHandleW(
@@ -301,18 +313,30 @@ def _make_orbit_headers(server: str = None) -> dict:
     if rc != 0:
         raise RuntimeError(f"AcquireCredentials failed: 0x{rc & 0xFFFFFFFF:08X}")
 
-    rc2 = secur32.InitializeSecurityContextW(
-        ctypes.byref(cred), None, ctypes.c_wchar_p(spn),
-        0x00000112, 0, 16, None, 0,
-        ctypes.byref(ctx_h), ctypes.byref(out_desc),
-        ctypes.byref(ctx_attr), ctypes.byref(expiry)
-    )
-    if rc2 & 0xFFFFFFFF not in (0, 0x00090312):
-        raise RuntimeError(f"InitSecContext failed: 0x{rc2 & 0xFFFFFFFF:08X}")
+    last_rc2 = 0
+    token = None
+    for spn in spn_candidates:
+        # Reset output buffer and context handle for each attempt
+        out_arr  = (_SecBuffer * 1)(_SecBuffer(0, 2, None))
+        out_desc = _SecBufferDesc(0, 1, out_arr)
+        ctx_attr = ctypes.c_ulong(0)
+        ctx_h    = _SecHandle()
+        rc2 = secur32.InitializeSecurityContextW(
+            ctypes.byref(cred), None, ctypes.c_wchar_p(spn),
+            0x00000112, 0, 16, None, 0,
+            ctypes.byref(ctx_h), ctypes.byref(out_desc),
+            ctypes.byref(ctx_attr), ctypes.byref(expiry)
+        )
+        last_rc2 = rc2
+        if rc2 & 0xFFFFFFFF in (0, 0x00090312):
+            token_bytes = (ctypes.c_byte * out_arr[0].cbBuffer).from_address(out_arr[0].pvBuffer)
+            token = base64.b64encode(bytes(token_bytes)).decode('ascii')
+            logger.info(f"[orbit_direct] Kerberos SSPI token OK (len={len(token)}, spn={spn})")
+            break
+        logger.debug(f"[orbit_direct] SPN {spn!r} failed: 0x{rc2 & 0xFFFFFFFF:08X}")
 
-    token_bytes = (ctypes.c_byte * out_arr[0].cbBuffer).from_address(out_arr[0].pvBuffer)
-    token = base64.b64encode(bytes(token_bytes)).decode('ascii')
-    logger.info(f"[orbit_direct] Kerberos SSPI token OK (len={len(token)}, spn={spn})")
+    if token is None:
+        raise RuntimeError(f"InitSecContext failed: 0x{last_rc2 & 0xFFFFFFFF:08X} (tried SPNs: {spn_candidates})")
 
     return {
         "Authorization"    : f"Negotiate {token}",

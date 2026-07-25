@@ -1,10 +1,11 @@
-﻿import hashlib
+import hashlib
 import json
 import os
 import re
 from datetime import date, datetime, timedelta
 from glob import glob
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 
 import io
 from flask import Blueprint, jsonify, render_template, request, send_file
@@ -92,6 +93,82 @@ def _running_build_jql_cache_path(target_key: str, build_id: str) -> str:
     return os.path.join(folder, f"{key}.json")
 
 
+def _wbc_saved_jql_domain() -> str:
+    return "WBC"
+
+
+def _wbc_saved_jql_filter_id(value: Any) -> str:
+    """Extract JIRA saved-filter ID from ID, filter=ID JQL, or JIRA filter URL."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.isdigit():
+        return text
+    try:
+        from urllib.parse import parse_qs, urlparse
+        qs = parse_qs(urlparse(text).query or "")
+        for key in ("filter", "filterId"):
+            val = str((qs.get(key) or [""])[0]).strip()
+            if val.isdigit():
+                return val
+    except Exception:
+        pass
+    match = re.match(r"^\s*filter(?:Id)?\s*=\s*(\d+)\s*(?:ORDER\s+BY\s+.+)?$", text, flags=re.I)
+    if match:
+        return match.group(1)
+    match = re.search(r"[?&]filter(?:Id)?=(\d+)", text, flags=re.I)
+    return match.group(1) if match else ""
+
+
+def _wbc_resolve_jira_filter_jql(filter_id: str) -> str:
+    """Resolve a saved JIRA filter ID inside WBC only, so WBC never uses stale saved-filter text."""
+    filter_id = str(filter_id or "").strip()
+    if not filter_id:
+        return ""
+    import sys as _sys
+    scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+    if scripts_dir not in _sys.path:
+        _sys.path.insert(0, scripts_dir)
+    from config import JIRA_PASSWORD, JIRA_SERVER_ENDPOINT, JIRA_USER
+    from fetch_consolidated_report import connect_jira
+    jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+    filt = jira_obj.filter(filter_id)
+    return str(getattr(filt, "jql", "") or "").strip()
+
+
+def _wbc_resolve_saved_jql(raw_jql: Any) -> Tuple[str, str, bool, str]:
+    """Return (effective_jql, filter_id, resolved, error)."""
+    raw = str(raw_jql or "").strip()
+    filter_id = _wbc_saved_jql_filter_id(raw)
+    if not filter_id:
+        return raw, "", False, ""
+    try:
+        latest = _wbc_resolve_jira_filter_jql(filter_id)
+        if latest:
+            return latest, filter_id, True, ""
+        return raw, filter_id, False, "Filter lookup returned empty JQL"
+    except Exception as exc:
+        return raw, filter_id, False, str(exc)
+
+
+def _wbc_extract_build_id_from_jql(value: Any) -> str:
+    text = str(value or "")
+    patterns = [
+        r"\b[A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b",
+        r"\b[A-Z][A-Z0-9_.-]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b",
+        r"\b(?:META|BUILD)[-_ ]?0*([0-9]{3,6})\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.I)
+        if match:
+            return match.group(0)
+    quoted = re.findall(r'"([^"\r\n]{6,160})"', text)
+    return next((q for q in quoted if re.search(r"\d{3,6}", q) and re.search(r"[A-Za-z]", q)), "")
+
+
+
+
+
 def _json_default(value: Any) -> str:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
@@ -99,11 +176,39 @@ def _json_default(value: Any) -> str:
 
 
 def _write_json(path: str, payload: Any) -> None:
+    import time as _time
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False, default=_json_default)
-    os.replace(tmp, path)
+    # os.replace() can fail on Windows network shares (WinError 5 / WinError 32)
+    # when the destination is locked by antivirus, indexer, or a share-level lock.
+    # Strategy: retry up to 3x with back-off → delete-then-rename → direct overwrite.
+    last_err = None
+    for attempt in range(3):
+        try:
+            os.replace(tmp, path)
+            last_err = None
+            break
+        except OSError as exc:
+            last_err = exc
+            _time.sleep(0.05 * (attempt + 1))   # 50 ms, 100 ms, 150 ms
+    if last_err is not None:
+        logger.warning("[wbc] os.replace failed (%s); trying delete+rename", last_err)
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+            os.rename(tmp, path)
+        except OSError as exc2:
+            logger.warning("[wbc] delete+rename failed (%s); direct-write fallback", exc2)
+            try:
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(payload, fh, indent=2, ensure_ascii=False, default=_json_default)
+            finally:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
 
 def _read_json(path: str, default: Any) -> Any:
@@ -672,7 +777,17 @@ def _builds_match(a: Any, b: Any) -> bool:
 
 
 def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Dict[str, Any]:
-    sources = [s for s in [jiras_table, openjiras_table] if str(s or "").strip()]
+    """Build-wise consolidated report for WBC, matching the HGY/HQX tab flow.
+
+    This report is intentionally table-based and covers all historical builds in
+    the configured JIRAs/Open JIRAs tables. It is separate from Current Running
+    Builds, which uses Axiom/saved JQL cards.
+    """
+    source_defs = [
+        ("JIRAs", str(jiras_table or "").strip()),
+        ("Open JIRAs", str(openjiras_table or "").strip()),
+    ]
+    sources = [(label, table) for label, table in source_defs if table]
     if not sources:
         return {"builds": [], "rows_by_build": {}, "error": "No JIRAs/Open JIRAs table configured"}
     conn = get_mysql_connection_db(database_name=_WBC_SCHEMA) or get_mysql_connection_db(bu_key=None)
@@ -683,56 +798,76 @@ def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Di
         grouped: Dict[str, Dict[str, Any]] = {}
         rows_by_build: Dict[str, List[Dict[str, Any]]] = {}
         errors: List[str] = []
-        for source in sources:
+        for source_label, source in sources:
             cols = _table_cols(cur, source)
             if not cols:
                 errors.append(f"Table not found: {source}")
                 continue
-            build_col = _first_col(cols, ["metabuild", "MetaBuild", "meta_build", "build", "build_id", "build_name", "builds", "si_last_seen", "last_instance"])
+            build_col = _first_col(cols, ["metabuild", "MetaBuild", "meta_build", "build_id", "build_name", "build", "builds", "CRM Build ID", "Meta-ID"])
             jira_col = _first_col(cols, ["stability_ticket", "jira", "jira_id", "jira_key", "ticket", "key"])
-            cr_col = _first_col(cols, ["mapped_cr", "cr", "cr_id", "crid", "cr_number", "cr_current_ticket", "Change Request"])
+            cr_col = _first_col(cols, ["mapped_cr", "mapped_crs", "cr", "cr_id", "crid", "cr_number", "cr_current_ticket", "Change Request"])
             title_col = _first_col(cols, ["jira_title", "title", "summary", "cr_title"])
             area_col = _first_col(cols, ["cr_area", "area", "technology_area", "ChangeRequestParticipant.Area"])
-            type_col = _first_col(cols, ["crash_type", "type", "failure_type"])
-            date_col = _first_col(cols, ["jira_date", "last_instance", "si_last_seen", "updated", "created"])
+            status_col = _first_col(cols, ["cr_status", "jira_status", "status", "state"])
+            date_col = _first_col(cols, ["jira_date", "last_instance", "si_last_seen", "updated", "created", "created_date"])
             if not build_col:
                 errors.append(f"No build/metabuild column in {source}")
                 continue
-            selected = [c for c in [build_col, jira_col, cr_col, title_col, area_col, type_col, date_col] if c]
-            for col in cols[:22]:
+            selected = [c for c in [build_col, jira_col, cr_col, title_col, area_col, status_col, date_col] if c]
+            for col in cols[:24]:
                 if col not in selected:
                     selected.append(col)
             schema, table = _split_table(source)
             order_sql = f" ORDER BY `{date_col}` DESC" if date_col else ""
             cur.execute(
-                f"SELECT {', '.join('`'+c+'`' for c in selected[:24])} FROM {_bt(schema, table)} "
-                f"WHERE `{build_col}` IS NOT NULL AND TRIM(`{build_col}`)<>''{order_sql} LIMIT 30000"
+                f"SELECT {', '.join('`'+c+'`' for c in selected[:26])} FROM {_bt(schema, table)} "
+                f"WHERE `{build_col}` IS NOT NULL AND TRIM(`{build_col}`)<>''{order_sql} LIMIT 50000"
             )
             for row in cur.fetchall() or []:
                 row = {k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in row.items()}
-                row["_source_table"] = source
                 build = str(row.get(build_col) or "").strip() or "Unknown Build"
-                row = {k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in row.items() if k not in ("crash_type", "crash_types", "type", "failure_type", "_source_table")}
-                rows_by_build.setdefault(build, []).append(row)
+                item = grouped.setdefault(build, {
+                    "build_id": build,
+                    "meta_id": _meta_label(build),
+                    "row_count": 0,
+                    "open_jira_count": 0,
+                    "area": "",
+                    "last_seen": "",
+                    "_crs": set(),
+                    "_jiras": set(),
+                })
+                clean_row = {k: v for k, v in row.items() if k not in ("crash_type", "crash_types", "type", "failure_type", "_source_table")}
+                clean_row.setdefault("Source", source_label)
+                rows_by_build.setdefault(build, []).append(clean_row)
+                item["row_count"] += 1
+                if source == openjiras_table:
+                    item["open_jira_count"] += 1
                 cr = str(row.get(cr_col) if cr_col else "").strip()
                 jira = str(row.get(jira_col) if jira_col else "").strip()
                 if cr:
-                    item.setdefault("_crs", set()).add(cr)
+                    item["_crs"].add(cr)
                 if jira:
-                    item.setdefault("_jiras", set()).add(jira)
+                    item["_jiras"].add(jira)
                 area = str(row.get(area_col) if area_col else "").strip()
                 if area and not item.get("area"):
                     item["area"] = area
-                typ = str(row.get(type_col) if type_col else "").strip() or ("Open JIRA" if source == openjiras_table else "Other")
-                item["crash_types"][typ] = item["crash_types"].get(typ, 0) + 1
+                seen = str(row.get(date_col) if date_col else "").strip()
+                if seen and seen > str(item.get("last_seen") or ""):
+                    item["last_seen"] = seen
         builds = []
         for item in grouped.values():
             item["cr_count"] = len(item.pop("_crs", set()))
             item["jira_count"] = len(item.pop("_jiras", set()))
-            item.pop("crash_types", None)  # not relevant for JQL-based WBC report
+            item["total_count"] = item.get("row_count", 0)
             builds.append(item)
-        builds.sort(key=lambda r: r.get("row_count", 0), reverse=True)
-        return {"builds": builds[:500], "rows_by_build": rows_by_build, "error": "; ".join(errors)}
+        builds.sort(key=lambda r: (str(r.get("last_seen") or ""), _safe_int(r.get("row_count"))), reverse=True)
+        return {
+            "ok": True,
+            "source": "Configured WBC JIRAs/Open JIRAs tables",
+            "builds": builds[:500],
+            "rows_by_build": rows_by_build,
+            "error": "; ".join(errors),
+        }
     except Exception as exc:
         return {"builds": [], "rows_by_build": {}, "error": str(exc)}
     finally:
@@ -740,6 +875,7 @@ def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Di
             cur.close(); conn.close()
         except Exception:
             pass
+
 
 
 def _preview_rows(fq_table: str, limit: int = 100) -> Dict[str, Any]:
@@ -765,6 +901,42 @@ def _preview_rows(fq_table: str, limit: int = 100) -> Dict[str, Any]:
             cur.close(); conn.close()
         except Exception:
             pass
+
+
+def _wbc_pdt_key(target: Dict[str, str]) -> str:
+    """
+    Return the PDT TARGETS_CONFIG key for a WBC target so that
+    live_view_saved_jql_service can resolve the correct BU and write
+    cache files to the right path instead of UNKNOWN_BU.
+
+    Strategy (first match wins):
+      1. target['pdt_key']  - explicitly set in wbc_config.json
+      2. Fuzzy match: find a TARGETS_CONFIG key whose slug matches the
+         WBC target key (e.g. 'Kobuk11' -> 'Kobuk.LE.1.1')
+      3. Fall back to the WBC key itself (may still produce UNKNOWN_BU
+         if not in TARGETS_CONFIG, but that is the existing behaviour).
+    """
+    wbc_key = str(target.get("key") or "").strip()
+    # 1. Explicit override
+    if target.get("pdt_key"):
+        return str(target["pdt_key"]).strip()
+    # 2. Fuzzy: normalise both sides and compare
+    try:
+        from dashboard_common import get_targets_config
+        targets_cfg = get_targets_config() or {}
+        wbc_slug = _slug(wbc_key).lower()
+        for pdt_key in targets_cfg:
+            if _slug(pdt_key).lower() == wbc_slug:
+                return pdt_key
+        # Also try label match (e.g. 'Kobuk.LE.1.1' label contains 'Kobuk')
+        label = str(target.get("label") or target.get("name") or "").lower()
+        for pdt_key in targets_cfg:
+            if _slug(pdt_key).lower() in label or label.startswith(_slug(pdt_key).lower()):
+                return pdt_key
+    except Exception:
+        pass
+    # 3. Fall back
+    return wbc_key
 
 
 def _find_target(target_key: str) -> Dict[str, str]:
@@ -879,13 +1051,100 @@ def _parse_iso_dt(value: Any) -> datetime:
         return datetime.min
 
 
+def _wbc_saved_jql_cache_meta(cached: Dict[str, Any]) -> Dict[str, Any]:
+    """Return normalized cache timing/count metadata for a saved-JQL report."""
+    cached = cached if isinstance(cached, dict) else {}
+    ttl = timedelta(minutes=30)
+    generated_at = _parse_iso_dt(cached.get("generated_at"))
+    now = datetime.utcnow()
+    next_run = generated_at + ttl if generated_at != datetime.min else datetime.min
+    expired = bool(generated_at != datetime.min and now >= next_run)
+    rows = cached.get("rows") or cached.get("flat_rows") or []
+    return {
+        "has_cached_report": bool(cached),
+        "cached_report_stale": expired,
+        "last_run_at": cached.get("generated_at") or "",
+        "next_run_at": next_run.isoformat() + "Z" if next_run != datetime.min else "",
+        "cache_ttl_minutes": 30,
+        "cached_row_count": _safe_int(cached.get("row_count", len(rows))) if cached else 0,
+        "cached_cr_count": _safe_int(cached.get("cr_count")) if cached else 0,
+        "cached_jira_count": _safe_int(cached.get("jira_count")) if cached else 0,
+        "cache_status": "stale" if expired else ("cached" if cached else "not_run"),
+    }
+    return rows
+
+
+
+# ---------------------------------------------------------------------------
+# CR / JIRA classification helpers
+# Mirrors the CR_EQ list used in auto_gen45_live_view_stats.html and
+# live_status_publish_edit_nonau.html so WBC uses the same logic everywhere.
+# ---------------------------------------------------------------------------
+# Invalid resolution keywords — mirrors _WBC_INV_KW in the frontend
+_INVALID_KEYWORDS = [
+    "invalid", "incomplete", "rejected", "won't fix", "wont fix",
+    "cannot reproduce", "not a bug", "no sir", "nosir", "not applicable",
+    "obsolete", "postponed", "withdrawn", "cannotduplicate", "invalid_dup",
+    "setup issue", "setup_issue", "incomplete ram dump",
+    "similar substring", "substring found",
+]
+
+
+def _is_invalid_row(r: Dict[str, Any]) -> bool:
+    """Return True if a flattened row has an invalid resolution/status.
+    Checks JIRA Resolution, Final Resolution, Final Status, JIRA Status,
+    Resolution Notes and CR Status — same fields as _isInvalidRow() in JS.
+    """
+    hay = " ".join([
+        str(r.get("JIRA Resolution") or ""),
+        str(r.get("Final Resolution") or ""),
+        str(r.get("Final Status") or ""),
+        str(r.get("JIRA Status") or ""),
+        str(r.get("Resolution Notes") or ""),
+        str(r.get("CR Status") or ""),
+    ]).lower()
+    return any(kw in hay for kw in _INVALID_KEYWORDS)
+
+
+_CR_EQUIV_PREFIXES = {
+    "ADSPIMAGE", "CNSSDEBUG", "CHIPMD", "ADSPBUG", "CNSS", "WLAN", "QWINBUG",
+    "ARAST", "AVATAR", "AVATARWPAP", "BAGHEERAST", "BLAUNCH", "DINOSTABLE", "DROIDBUG",
+    "ELANSTABLE", "FORINO", "FRODOST", "FUSIONT", "FUSNFOURST", "JINGALA", "QNPSTBLT",
+    "QSTABILITY", "TORINOST", "WAVEAPOLLO", "WCNSTABLE", "WPARAGORN", "WPFRODO",
+    "WRSTABLE", "UIBUG", "RMASLT", "SCSTABLE", "AISW", "WPST",
+}
+
+
+def _is_true_cr(value: str) -> bool:
+    """Return True if value is a real Orbit CR number (CR followed by 5-9 digits)."""
+    return bool(re.match(r"^CR\d{5,9}$", str(value or "").strip(), re.I))
+
+
+def _is_cr_equiv(value: str) -> bool:
+    """Return True if value is a JIRA key from a CR-equivalent project (e.g. WPST-1234)."""
+    upper = str(value or "").strip().upper()
+    project = upper.split("-")[0] if "-" in upper else ""
+    return bool(project and project in _CR_EQUIV_PREFIXES)
+
+
+def _row_type(cr: str) -> str:
+    """Classify a CR/mapped-ticket value into 'cr', 'mapped_jira', or 'open'."""
+    if _is_true_cr(cr):
+        return "cr"
+    if _is_cr_equiv(cr):
+        return "mapped_jira"
+    return "open"
+
+
 def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for cr_row in (report.get("hierarchical_report") or []):
         cr = cr_row.get("cr") or "NO_CR"
+        rtype = _row_type(cr)
         jiras = cr_row.get("jiras") or []
         if not jiras:
             rows.append({
+                "Row Type": rtype,
                 "CR": cr,
                 "CR Title": cr_row.get("cr_title") or "",
                 "CR Status": cr_row.get("cr_status") or "",
@@ -895,10 +1154,17 @@ def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, A
                 "JIRA": "",
                 "JIRA Title": "",
                 "JIRA Status": "",
+                "Final Ticket": "",
+                "Final Status": "",
+                "Final Resolution": "",
+                "Mapping Type": "",
+                "Resolution Notes": "",
             })
             continue
         for jira in jiras:
+            trav = jira.get("traversal") or {}
             rows.append({
+                "Row Type": rtype,
                 "CR": cr,
                 "CR Count": cr_row.get("cr_count") or len(jiras),
                 "CR Title": cr_row.get("cr_title") or "",
@@ -908,10 +1174,14 @@ def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, A
                 "CR Subsystem": cr_row.get("cr_subsystem") or "",
                 "CR Function": cr_row.get("cr_function") or "",
                 "JIRA": jira.get("key") or "",
-                "JIRA Title": jira.get("title") or "",
+                "JIRA Title": jira.get("title") or jira.get("summary") or "",
                 "JIRA Status": jira.get("status") or "",
-                "Final Ticket": jira.get("final_key") or "",
-                "Final Status": jira.get("final_status") or "",
+                "JIRA Resolution": jira.get("resolution") or "",
+                "Final Ticket": jira.get("final_key") or trav.get("final_key") or "",
+                "Final Status": jira.get("final_status") or trav.get("final_status") or "",
+                "Final Resolution": jira.get("final_resolution") or trav.get("final_resolution") or "",
+                "Mapping Type": trav.get("mapping_type") or "",
+                "Resolution Notes": jira.get("resolution_notes_text") or trav.get("resolution_notes_text") or "",
                 "Created": jira.get("created") or "",
                 "Serial No": jira.get("serial_no") or "",
                 "Matched Build": jira.get("matched_build") or "",
@@ -920,19 +1190,25 @@ def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, A
         for jira in (report.get("jiras") or []):
             trav = jira.get("traversal") or {}
             info = jira.get("cr_info") or {}
+            cr = trav.get("final_cr") or jira.get("cr_mapped") or "NO_CR"
             rows.append({
-                "CR": trav.get("final_cr") or jira.get("cr_mapped") or "NO_CR",
+                "Row Type": _row_type(cr),
+                "CR": cr,
                 "CR Title": info.get("cr_title") or "",
                 "CR Status": info.get("cr_status") or "",
                 "CR Area": info.get("cr_area") or "",
-                "JIRA": jira.get("key") or "",
-                "JIRA Title": jira.get("summary") or "",
+                                "JIRA": jira.get("key") or "",
+                "JIRA Title": jira.get("summary") or jira.get("title") or "",
                 "JIRA Status": jira.get("status") or "",
-                "Final Ticket": trav.get("final_key") or "",
+                "JIRA Resolution": jira.get("resolution") or "",
+                "Final Ticket": trav.get("final_key") or jira.get("final_key") or "",
+                "Final Status": trav.get("final_status") or jira.get("final_status") or "",
+                "Final Resolution": trav.get("final_resolution") or jira.get("final_resolution") or "",
+                "Mapping Type": trav.get("mapping_type") or "",
+                "Resolution Notes": jira.get("resolution_notes_text") or trav.get("resolution_notes_text") or "",
                 "Matched Build": jira.get("matched_build") or "",
             })
     return rows
-
 
 def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: bool = False) -> Dict[str, Any]:
     build = _build_tail(build_id)
@@ -964,8 +1240,16 @@ def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: boo
             custom_jql=jql,
         )
         flat_rows = _wbc_flatten_consolidated_report(raw_report)
-        crs = {str(r.get("CR") or "").strip() for r in flat_rows if str(r.get("CR") or "").strip() and str(r.get("CR") or "").strip() != "NO_CR"}
-        jiras = {str(r.get("JIRA") or "").strip() for r in flat_rows if str(r.get("JIRA") or "").strip()}
+        valid_rows   = [r for r in flat_rows if not _is_invalid_row(r)]
+        crs          = {str(r.get("CR") or "").strip() for r in flat_rows if _is_true_cr(str(r.get("CR") or ""))}
+        mapped_jiras = {str(r.get("CR") or "").strip() for r in flat_rows if _is_cr_equiv(str(r.get("CR") or ""))}
+        open_jiras   = {str(r.get("JIRA") or "").strip() for r in flat_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+        all_jiras    = {str(r.get("JIRA") or "").strip() for r in flat_rows if str(r.get("JIRA") or "").strip()}
+        # Valid-only counts (exclude invalid/withdrawn/won't-fix rows) — used for hero cards
+        valid_crs          = {str(r.get("CR") or "").strip() for r in valid_rows if _is_true_cr(str(r.get("CR") or ""))}
+        valid_mapped_jiras = {str(r.get("CR") or "").strip() for r in valid_rows if _is_cr_equiv(str(r.get("CR") or ""))}
+        valid_open_jiras   = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+        valid_all_jiras    = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("JIRA") or "").strip()}
         report = {
             "ok": True,
             "build_id": build,
@@ -976,8 +1260,15 @@ def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: boo
             "source": "JIRA JQL consolidated report",
             "jql": jql,
             "cr_count": len(crs),
-            "jira_count": len(jiras),
+            "mapped_jira_count": len(mapped_jiras),
+            "open_jira_count": len(open_jiras),
+            "jira_count": len(all_jiras),
             "row_count": len(flat_rows),
+            "valid_cr_count": len(valid_crs),
+            "valid_mapped_jira_count": len(valid_mapped_jiras),
+            "valid_open_jira_count": len(valid_open_jiras),
+            "valid_jira_count": len(valid_all_jiras),
+            "invalid_count": len(flat_rows) - len(valid_rows),
             "rows": flat_rows,
             "summary": raw_report.get("summary") or {},
             "meta": raw_report.get("meta") or {},
@@ -1110,13 +1401,16 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
     chart_rows = data.get("chart_rows") or []
     hours = round(sum(_safe_float(r.get("hours")) for r in chart_rows), 2)
     crashes = sum(_safe_int(r.get("total_crashes")) for r in chart_rows)
-    current = _current_running_builds(target, db_cfg)
+    current = {"rows": [], "updated_at": "", "source": "saved_jql_tabs"}
+
     unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
-    # HGY/HQX-style current build report: initial page load only lists current
-    # running builds. The consolidated report is generated for a selected build
-    # by /running_build_report?build_id=... (Force Run uses force=true).
-    running_build_report = _empty_running_build_report(current) if not force_running_report else _running_build_report(target, db_cfg, current, {}, force=True)
+    build_summary = _build_summary_from_jiras(db_cfg.get("jiras_table") or db_cfg.get("target_table") or "", db_cfg.get("openjiras_table") or "")
+    # Current Running Builds is driven by the saved JQL cards in the UI.
+    # Do not use Axiom for WBC dashboard summary/current-meta values.
+    running_build_report = _empty_running_build_report(current)
+
     return {
+
         "ok": True,
         "target": target,
         "db_config": db_cfg,
@@ -1141,11 +1435,10 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
             "open_crs": _preview_rows_filtered(unique_table, 100, open_cr_only=True),
             "all_crs": _preview_rows_filtered(unique_table, 150),
             "crs": _preview_rows_filtered(unique_table, 150),
-        },
-        # Keep build_summary as an alias for the UI tab, but point it at the
-        # JQL-based report so the Build Report tab cannot show DB-table rows.
-        "build_summary": running_build_report,
+                },
+        "build_summary": build_summary,
         "running_build_report": running_build_report,
+
         "overview_summary": _load_overview_summary(target["key"]),
     }
 
@@ -1275,6 +1568,179 @@ def api_wbc_target(target_key: str):
     return jsonify(payload), (200 if payload.get("ok") else 404)
 
 
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs", methods=["GET"])
+@login_required
+def api_wbc_saved_jql_tabs(target_key: str):
+    target = _find_target(target_key)
+    if not target:
+        return jsonify({"ok": False, "error": "WBC target not found"}), 404
+    from live_view_saved_jql_service import get_cached_report_raw, list_tabs
+    tabs = []
+
+    for tab in list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain()):
+        row = dict(tab)
+        resolved_jql, filter_id, resolved, err = _wbc_resolve_saved_jql(row.get("jql"))
+        cached = get_cached_report_raw(_wbc_pdt_key(target), _wbc_saved_jql_domain(), row.get("id")) or {}
+        row["raw_jql"] = row.get("jql") or ""
+        row["resolved_jql"] = resolved_jql
+        row["filter_id"] = filter_id
+        row["filter_resolved"] = resolved
+        row["filter_error"] = err
+        row["build_id"] = _wbc_extract_build_id_from_jql(resolved_jql or row.get("jql") or row.get("name")) or row.get("name") or ""
+        row.update(_wbc_saved_jql_cache_meta(cached))
+        tabs.append(row)
+    return jsonify({"ok": True, "target": target, "domain": _wbc_saved_jql_domain(), "tabs": tabs})
+
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs", methods=["POST"])
+@login_required
+def api_wbc_saved_jql_tabs_save(target_key: str):
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    target = _find_target(target_key)
+    if not target:
+        return jsonify({"ok": False, "error": "WBC target not found"}), 404
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        from live_view_saved_jql_service import list_tabs, save_tab
+        username = str(getattr(current_user, "id", "") or getattr(current_user, "username", "") or "unknown")
+        tab = save_tab(
+            target["key"],
+            _wbc_saved_jql_domain(),
+            tab_id=str(payload.get("id") or "").strip() or None,
+            name=str(payload.get("name") or "").strip(),
+            jql=str(payload.get("jql") or "").strip(),
+            username=username,
+        )
+        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain())})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs/<tab_id>", methods=["DELETE"])
+@login_required
+def api_wbc_saved_jql_tabs_delete(target_key: str, tab_id: str):
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    target = _find_target(target_key)
+    if not target:
+        return jsonify({"ok": False, "error": "WBC target not found"}), 404
+    from live_view_saved_jql_service import delete_tab, list_tabs
+    deleted = delete_tab(target["key"], _wbc_saved_jql_domain(), tab_id)
+    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain())})
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs/<tab_id>/report", methods=["GET", "POST"])
+@login_required
+def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
+    target = _find_target(target_key)
+    if not target:
+        return jsonify({"ok": False, "error": "WBC target not found"}), 404
+    force = str(request.args.get("force") or "").lower() in ("1", "true", "yes", "y")
+    from live_view_saved_jql_service import get_cached_report, get_tab, set_cached_report
+    tab = get_tab(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id)
+    if not tab:
+        return jsonify({"ok": False, "error": "Saved JQL tab not found"}), 404
+    raw_jql = str(tab.get("jql") or "").strip()
+    jql, filter_id, resolved, resolve_error = _wbc_resolve_saved_jql(raw_jql)
+    if not jql:
+        return jsonify({"ok": False, "error": "Saved JQL is empty", "tab": tab}), 400
+    if not force:
+        cached = get_cached_report(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id)
+        cached_jql = str((cached or {}).get("resolved_jql") or (cached or {}).get("jql") or "")
+        if cached and cached_jql == jql:
+            cached = dict(cached)
+            cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql, "raw_jql": raw_jql, "filter_id": filter_id, "filter_resolved": resolved})
+            cached.update(_wbc_saved_jql_cache_meta(cached))
+            return jsonify(cached)
+
+
+    now = datetime.utcnow()
+
+    try:
+        import sys as _sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        if scripts_dir not in _sys.path:
+            _sys.path.insert(0, scripts_dir)
+        from fetch_consolidated_report import run_consolidated_report
+        build_id = _wbc_extract_build_id_from_jql(jql) or _wbc_extract_build_id_from_jql(tab.get("name"))
+        raw_report = run_consolidated_report(
+            build_ids=[build_id] if build_id else [],
+            filter_id=filter_id or JIRA_PDT_FILTER_ID,
+            traverse=True,
+            enrich_orbit=True,
+            target_name=target.get("key") or target.get("name") or None,
+            custom_jql=jql,
+        )
+        rows = _wbc_flatten_consolidated_report(raw_report)
+        valid_rows   = [r for r in rows if not _is_invalid_row(r)]
+        crs          = {str(r.get("CR") or "").strip() for r in rows if _is_true_cr(str(r.get("CR") or ""))}
+        mapped_jiras = {str(r.get("CR") or "").strip() for r in rows if _is_cr_equiv(str(r.get("CR") or ""))}
+        open_jiras   = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+        all_jiras    = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("JIRA") or "").strip()}
+        # Valid-only counts (exclude invalid/withdrawn/won't-fix rows) — used for hero cards
+        valid_crs          = {str(r.get("CR") or "").strip() for r in valid_rows if _is_true_cr(str(r.get("CR") or ""))}
+        valid_mapped_jiras = {str(r.get("CR") or "").strip() for r in valid_rows if _is_cr_equiv(str(r.get("CR") or ""))}
+        valid_open_jiras   = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+        valid_all_jiras    = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("JIRA") or "").strip()}
+        report = {
+            "ok": True,
+
+            "tab": tab,
+            "target": target,
+            "generated_at": now.isoformat() + "Z",
+            "cache_status": "generated" if not force else "force_generated",
+            "from_cache": False,
+            "source": "WBC Saved JQL consolidated report",
+            "jql": jql,
+            "raw_jql": raw_jql,
+            "resolved_jql": jql,
+            "filter_id": filter_id,
+            "filter_resolved": resolved,
+            "filter_error": resolve_error,
+            "build_id": build_id,
+            "rows": rows,
+            "flat_rows": rows,
+            "row_count": len(rows),
+            "cr_count": len(crs),
+            "mapped_jira_count": len(mapped_jiras),
+            "open_jira_count": len(open_jiras),
+            "jira_count": len(all_jiras),
+            "valid_cr_count": len(valid_crs),
+            "valid_mapped_jira_count": len(valid_mapped_jiras),
+            "valid_open_jira_count": len(valid_open_jiras),
+            "valid_jira_count": len(valid_all_jiras),
+            "invalid_count": len(rows) - len(valid_rows),
+            "summary": raw_report.get("summary") or {},
+            "meta": raw_report.get("meta") or {},
+        }
+        stored = set_cached_report(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id, report)
+        report["generated_at"] = stored.get("generated_at") or report["generated_at"]
+        report.update(_wbc_saved_jql_cache_meta(report))
+        return jsonify(report)
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "tab": tab,
+            "generated_at": now.isoformat() + "Z",
+            "source": "WBC Saved JQL consolidated report",
+            "jql": jql,
+            "raw_jql": raw_jql,
+            "resolved_jql": jql,
+            "filter_id": filter_id,
+            "filter_resolved": resolved,
+            "filter_error": resolve_error,
+            "run_error": str(exc),
+            "rows": [],
+            "flat_rows": [],
+        }), 500
+
+
+
+
+
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/running_build_report", methods=["GET", "POST"])
 @login_required
 def api_wbc_running_build_report(target_key: str):
@@ -1373,291 +1839,347 @@ def api_wbc_mtbf_save_table(target_key: str):
 # ---------------------------------------------------------------------------
 
 def _wbc_build_ppt(target_key: str):
-    """Generate a PowerPoint for the given WBC target using its Excel data."""
+    """Generate a PowerPoint for the given WBC target from the same data used by the UI."""
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
-        from pptx.enum.text import PP_ALIGN
-        from pptx.chart.data import ChartData
-        from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
     except ImportError:
         raise RuntimeError("python-pptx is not installed")
 
-    _NAVY   = RGBColor(0x1b, 0x2d, 0x52)
-    _NAVY2  = RGBColor(0x24, 0x3a, 0x6b)
-    _GOLD   = RGBColor(0xd4, 0xaf, 0x37)
-    _WHITE  = RGBColor(0xff, 0xff, 0xff)
-    _LIGHT  = RGBColor(0xf0, 0xf4, 0xf8)
-    _TEXT2  = RGBColor(0x3d, 0x4f, 0x6e)
-    _BORDER = RGBColor(0xdd, 0xe3, 0xec)
-    _MUTED  = RGBColor(0x90, 0x9b, 0xb8)
+    BLUE = RGBColor(0x1f, 0x5f, 0x91)
+    BLUE_DARK = RGBColor(0x1a, 0x4f, 0x7b)
+    WHITE = RGBColor(0xff, 0xff, 0xff)
+    BLACK = RGBColor(0x00, 0x00, 0x00)
+    TEAL = RGBColor(0x15, 0x60, 0x82)
+    LIGHT = RGBColor(0xee, 0xf5, 0xff)
+    ROW = RGBColor(0xe9, 0xed, 0xf3)
+    ROW_ALT = RGBColor(0xf7, 0xf2, 0xf6)
+    BORDER = RGBColor(0xd6, 0xde, 0xea)
+    GOLD = RGBColor(0xc7, 0x8b, 0x12)
+    RED = RGBColor(0xd9, 0x30, 0x25)
 
-    def _add_slide(prs, idx=6):
-        try:
-            layout = prs.slide_layouts[idx]
-        except IndexError:
-            layout = prs.slide_layouts[0]
-        return prs.slides.add_slide(layout)
+    def _in(value):
+        return Inches(float(value))
 
-    def _bg(slide, color):
-        fill = slide.background.fill
-        fill.solid()
-        fill.fore_color.rgb = color
+    def _plain(value, max_chars=None):
+        text = re.sub(r"<[^>]+>", " ", str(value or ""))
+        text = re.sub(r"&nbsp;", " ", text)
+        text = re.sub(r"&amp;", "&", text)
+        text = re.sub(r"&lt;", "<", text)
+        text = re.sub(r"&gt;", ">", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if max_chars and len(text) > max_chars:
+            return text[: max_chars - 1].rstrip() + "…"
+        return text
 
-    def _rect(slide, l, t, w, h, fc, lc=None, lw=None):
-        shp = slide.shapes.add_shape(1, l, t, w, h)
-        shp.fill.solid()
-        shp.fill.fore_color.rgb = fc
+    def _fmt(value):
+        if isinstance(value, float):
+            return f"{value:,.2f}".rstrip("0").rstrip(".")
+        return str(value if value not in (None, "") else "-")
+
+    def _add_slide(prs):
+        return prs.slides.add_slide(prs.slide_layouts[6])
+
+    def _rect(slide, x, y, w, h, fc, lc=None, lw=0.5):
+        shape = slide.shapes.add_shape(1, _in(x), _in(y), _in(w), _in(h))
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fc
         if lc:
-            shp.line.color.rgb = lc
-            shp.line.width = lw or Pt(0.75)
+            shape.line.color.rgb = lc
+            shape.line.width = Pt(lw)
         else:
-            shp.line.fill.background()
-        return shp
+            shape.line.fill.background()
+        return shape
 
-    def _txt(slide, l, t, w, h, text, size=11, bold=False, color=None,
-             align=PP_ALIGN.LEFT, wrap=True):
-        box = slide.shapes.add_textbox(l, t, w, h)
-        box.word_wrap = wrap
+    def _text(slide, x, y, w, h, text, size=8, bold=False, color=BLACK, align=PP_ALIGN.LEFT):
+        box = slide.shapes.add_textbox(_in(x), _in(y), _in(w), _in(h))
         tf = box.text_frame
-        tf.word_wrap = wrap
+        tf.clear()
+        tf.word_wrap = True
+        tf.margin_left = Pt(2)
+        tf.margin_right = Pt(2)
+        tf.margin_top = Pt(0)
+        tf.margin_bottom = Pt(0)
         p = tf.paragraphs[0]
         p.alignment = align
-        run = p.add_run()
-        run.text = str(text or "")
-        run.font.size = Pt(size)
-        run.font.bold = bold
-        run.font.color.rgb = color or _TEXT2
+        r = p.add_run()
+        r.text = _plain(text)
+        r.font.name = "Arial"
+        r.font.size = Pt(size)
+        r.font.bold = bold
+        r.font.color.rgb = color
         return box
 
-    def _header(slide, title, sub, W, H):
-        bar_h = Inches(1.05)
-        _rect(slide, 0, 0, W, bar_h, _NAVY)
-        _rect(slide, 0, bar_h - Pt(3), W, Pt(3), _GOLD)
-        _txt(slide, Inches(0.22), Inches(0.12), W - Inches(2.5), Inches(0.45),
-             title, size=18, bold=True, color=_WHITE)
-        _txt(slide, Inches(0.22), Inches(0.58), W - Inches(2.5), Inches(0.35),
-             sub, size=10, color=_MUTED)
-        _txt(slide, W - Inches(2.3), Inches(0.18), Inches(2.1), Inches(0.35),
-             datetime.now().strftime("%Y-%m-%d %H:%M"), size=9, color=_MUTED,
-             align=PP_ALIGN.RIGHT)
+    def _cell(cell, text, size=6, bold=False, color=BLACK, bg=None, align=PP_ALIGN.CENTER):
+        if bg:
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = bg
+        cell.text = ""
+        tf = cell.text_frame
+        tf.clear()
+        tf.word_wrap = True
+        tf.margin_left = Pt(1.5)
+        tf.margin_right = Pt(1.5)
+        tf.margin_top = Pt(0)
+        tf.margin_bottom = Pt(0)
+        try:
+            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+        except Exception:
+            pass
+        p = tf.paragraphs[0]
+        p.alignment = align
+        r = p.add_run()
+        r.text = _plain(text, 260)
+        r.font.name = "Arial"
+        r.font.size = Pt(size)
+        r.font.bold = bold
+        r.font.color.rgb = color
 
-    def _footer(slide, project, W, H):
-        fh = Inches(0.32)
-        _rect(slide, 0, H - fh, W, fh, _NAVY2)
-        _txt(slide, Inches(0.2), H - fh + Pt(4), W * 0.5, fh,
-             f"PDT WBC Stability Dashboard  |  {project}", size=8, color=_MUTED)
-        _txt(slide, W * 0.5, H - fh + Pt(4), W * 0.5, fh,
-             "CONFIDENTIAL - QUALCOMM INTERNAL", size=8, color=_MUTED,
-             align=PP_ALIGN.RIGHT)
+    def _table(slide, x, y, w, h, headers, rows, widths=None, font_size=5.8, title_cols=None, max_text=180):
+        title_cols = set(title_cols or [])
+        rows = rows or []
+        n_cols = max(1, len(headers))
+        n_rows = max(1, len(rows)) + 1
+        shape = slide.shapes.add_table(n_rows, n_cols, _in(x), _in(y), _in(w), _in(h))
+        tbl = shape.table
+        widths = widths or [1] * n_cols
+        total = float(sum(widths) or 1)
+        for i, width in enumerate(widths[:n_cols]):
+            tbl.columns[i].width = int(_in(w) * (width / total))
+        for ci, header in enumerate(headers):
+            _cell(tbl.cell(0, ci), header, size=max(font_size, 5.2), bold=True, color=WHITE, bg=BLUE)
+        if rows:
+            for ri, row in enumerate(rows, start=1):
+                bg = ROW if ri % 2 else ROW_ALT
+                for ci in range(n_cols):
+                    value = row[ci] if isinstance(row, (list, tuple)) and ci < len(row) else ""
+                    _cell(tbl.cell(ri, ci), _plain(value, max_text), size=font_size, bg=bg,
+                          align=PP_ALIGN.LEFT if ci in title_cols else PP_ALIGN.CENTER)
+        else:
+            for ci in range(n_cols):
+                _cell(tbl.cell(1, ci), "No Data" if ci == 0 else "", size=font_size, bg=ROW)
+        return tbl
 
-    def _kpi_card(slide, l, t, w, h, label, value, accent):
-        _rect(slide, l, t, w, h, _WHITE, _BORDER, Pt(0.75))
-        _rect(slide, l, t, w, Pt(4), accent)
-        _txt(slide, l + Inches(0.1), t + Pt(8), w - Inches(0.2), Inches(0.38),
-             str(value), size=20, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
-        _txt(slide, l + Inches(0.05), t + Inches(0.48), w - Inches(0.1), Inches(0.32),
-             label, size=8, color=_TEXT2, align=PP_ALIGN.CENTER)
+    def _section(slide, x, y, title, w=2.4):
+        return _text(slide, x, y, w, 0.2, title, size=8.2, bold=True, color=TEAL)
 
-    def _table_slide(prs, project, title, sub, columns, rows, max_rows=25):
-        W = prs.slide_width
-        H = prs.slide_height
-        HDR_H  = Inches(1.1)
-        FTR_H  = Inches(0.35)
-        MARGIN = Inches(0.22)
-        TBL_TOP = HDR_H + Inches(0.12)
-        TBL_H   = H - TBL_TOP - FTR_H - Inches(0.08)
-        if not columns:
-            return
-        chunks = [rows[i:i + max_rows] for i in range(0, max(len(rows), 1), max_rows)] if rows else [[]]
-        for pg, chunk in enumerate(chunks):
-            slide = _add_slide(prs)
-            _bg(slide, _LIGHT)
-            sfx = f" (Page {pg+1}/{len(chunks)})" if len(chunks) > 1 else ""
-            _header(slide, title + sfx, sub, W, H)
-            _footer(slide, project, W, H)
-            n_cols = len(columns)
-            avail  = W - MARGIN * 2
-            widths = [avail // n_cols] * n_cols
-            widths[-1] = avail - sum(widths[:-1])
-            tbl = slide.shapes.add_table(
-                1 + max(len(chunk), 1), n_cols, MARGIN, TBL_TOP, avail, TBL_H
-            ).table
-            for ci, cw in enumerate(widths):
-                tbl.columns[ci].width = int(cw)
-            for ci, col in enumerate(columns):
-                cell = tbl.cell(0, ci)
-                cell.text = col.get("title", "") if isinstance(col, dict) else str(col)
-                cell.fill.solid()
-                cell.fill.fore_color.rgb = _NAVY
-                p = cell.text_frame.paragraphs[0]
-                p.alignment = PP_ALIGN.CENTER
-                run = p.runs[0] if p.runs else p.add_run()
-                run.font.bold = True
-                run.font.size = Pt(8)
-                run.font.color.rgb = _WHITE
-            for ri, row in enumerate(chunk):
-                bg = _WHITE if ri % 2 == 0 else RGBColor(0xf8, 0xfa, 0xfc)
-                for ci, col in enumerate(columns):
-                    key = col.get("key", col.get("title", "")) if isinstance(col, dict) else str(col)
-                    val = str(row.get(key, "") or "") if isinstance(row, dict) else ""
-                    cell = tbl.cell(ri + 1, ci)
-                    cell.text = val
-                    cell.fill.solid()
-                    cell.fill.fore_color.rgb = bg
-                    p = cell.text_frame.paragraphs[0]
-                    p.alignment = PP_ALIGN.LEFT
-                    run = p.runs[0] if p.runs else p.add_run()
-                    run.font.size = Pt(7.5)
-                    run.font.color.rgb = _TEXT2
+    def _kpi(slide, x, y, w, h, label, value):
+        _rect(slide, x, y, w, h, BLUE, BLUE)
+        _text(slide, x + 0.03, y + 0.05, w - 0.06, 0.16, label, size=6.6, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+        _text(slide, x + 0.03, y + 0.29, w - 0.06, 0.2, value, size=7.5, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
 
-    # Load data
+    def _preview_table_rows(preview, preferred, limit):
+        preview = preview or {}
+        columns = list(preview.get("columns") or [])
+        rows = list(preview.get("rows") or [])[:limit]
+        if not columns and rows:
+            columns = list(rows[0].keys())
+        selected = []
+        normalized = {_norm(c): c for c in columns}
+        for aliases in preferred:
+            found = next((normalized.get(_norm(a)) for a in aliases if normalized.get(_norm(a))), "")
+            if found and found not in selected:
+                selected.append(found)
+        for col in columns:
+            if col not in selected and len(selected) < len(preferred):
+                selected.append(col)
+        return selected, [[r.get(c, "") for c in selected] for r in rows]
+
+    def _current_jql_summary(target_key):
+        tabs, report_rows = [], []
+        try:
+            from live_view_saved_jql_service import get_cached_report, list_tabs
+            for tab in list_tabs(target_key, _wbc_saved_jql_domain()):
+                row = dict(tab)
+                resolved_jql, filter_id, resolved, err = _wbc_resolve_saved_jql(row.get("jql"))
+                build_id = _wbc_extract_build_id_from_jql(resolved_jql or row.get("jql") or row.get("name")) or row.get("name") or "-"
+                cached = get_cached_report(target_key, _wbc_saved_jql_domain(), row.get("id")) or {}
+                cached_rows = cached.get("rows") or cached.get("flat_rows") or []
+                tabs.append({
+                    "build_id": build_id,
+                    "jql": resolved_jql or row.get("jql") or "",
+                    "row_count": cached.get("row_count", len(cached_rows)) if cached else "-",
+                    "cr_count": cached.get("cr_count", "-") if cached else "-",
+                    "jira_count": cached.get("jira_count", "-") if cached else "-",
+                    "generated_at": str(cached.get("generated_at") or "")[:19],
+                })
+                if cached_rows:
+                    report_rows.extend(cached_rows[:25])
+        except Exception:
+            pass
+        return tabs, report_rows
+
     target = _find_target(target_key)
     if not target:
         raise ValueError(f"WBC target not found: {target_key}")
-    cfg    = _load_config()
+    cfg = _load_config()
     db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
-    excel_data  = _load_or_sync_mainline_mtbf(target, db_cfg)
-    chart_rows  = excel_data.get("chart_rows") or []
-    overview    = _load_overview_summary(target["key"])
-    project     = target.get("label") or target.get("name") or target_key
+    data = _target_payload(target["key"])
+    if not data.get("ok"):
+        raise ValueError(data.get("error") or f"WBC target not found: {target_key}")
 
-    total_hours   = round(sum(_safe_float(r.get("hours")) for r in chart_rows), 2)
-    total_crashes = sum(_safe_int(r.get("total_crashes") or r.get("crash")) for r in chart_rows)
-    last_row      = chart_rows[-1] if chart_rows else {}
-    current_meta    = str(last_row.get("crm_build_id") or last_row.get("meta_id") or "-")
-    current_mtbf    = str(last_row.get("mtbf") or "-")
-    current_crashes = str(last_row.get("crash") or last_row.get("total_crashes") or "-")
-    current_hours   = str(last_row.get("hours") or "-")
-    current_date    = str(last_row.get("date") or "-")
+    project = target.get("label") or target.get("name") or target_key
+    chart_rows = (data.get("excel") or {}).get("chart_rows") or []
+    overview = data.get("overview_summary") or {}
+    counts = data.get("counts") or {}
+    previews = data.get("previews") or {}
+    jql_tabs, cached_report_rows = _current_jql_summary(target["key"])
+    last_row = chart_rows[-1] if chart_rows else {}
+    first_jql = jql_tabs[0] if jql_tabs else {}
+    current_meta = first_jql.get("build_id") or last_row.get("crm_build_id") or last_row.get("meta_id") or "-"
+    current_mtbf = _fmt(last_row.get("mtbf") or counts.get("mtbf"))
+    current_crashes = _fmt(first_jql.get("cr_count") if first_jql else (last_row.get("crash") or last_row.get("total_crashes")))
+    current_hours = _fmt(last_row.get("hours"))
+    report_date = str(last_row.get("date") or datetime.now().date())[:10]
+    open_cr_count = (previews.get("open_crs") or {}).get("count") or 0
 
     prs = Presentation()
-    prs.slide_width  = Inches(13.33)
+    prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
-    W = prs.slide_width
-    H = prs.slide_height
 
-    # SLIDE 1 - Cover
+    # Slide 1: portal-like overview/status slide.
     slide = _add_slide(prs)
-    _bg(slide, _NAVY)
-    _rect(slide, 0, Inches(2.8), W, Pt(5), _GOLD)
-    _txt(slide, Inches(0.8), Inches(1.1), W - Inches(1.6), Inches(1.0),
-         "PDT WBC Stability Dashboard", size=36, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    _txt(slide, Inches(0.8), Inches(2.2), W - Inches(1.6), Inches(0.55),
-         project, size=22, color=_GOLD, align=PP_ALIGN.CENTER)
-    _txt(slide, Inches(0.8), Inches(3.05), W - Inches(1.6), Inches(0.45),
-         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-         size=12, color=_MUTED, align=PP_ALIGN.CENTER)
-    _txt(slide, Inches(0.8), Inches(3.55), W - Inches(1.6), Inches(0.38),
-         "CONFIDENTIAL - QUALCOMM INTERNAL",
-         size=10, color=RGBColor(0x70, 0x7b, 0x98), align=PP_ALIGN.CENTER)
-    _rect(slide, 0, H - Inches(0.55), W, Inches(0.55), _NAVY2)
-    _txt(slide, Inches(0.3), H - Inches(0.45), W - Inches(0.6), Inches(0.38),
-         "Qualcomm  |  PDT WBC Stability  |  Executive Report",
-         size=9, color=_MUTED, align=PP_ALIGN.CENTER)
-
-    # SLIDE 2 - KPI Overview
-    slide = _add_slide(prs)
-    _bg(slide, _LIGHT)
-    _header(slide, "Overview - Key Performance Indicators",
-            f"{project}  |  Data as of {datetime.now().strftime('%Y-%m-%d')}", W, H)
-    _footer(slide, project, W, H)
-    kpi_items = [
-        ("Current PDT MTBF",     current_mtbf,         RGBColor(0x1b, 0x2d, 0x52)),
-        ("Current Running Meta", current_meta,         RGBColor(0x0d, 0x9e, 0x6e)),
-        ("Current META Crashes", current_crashes,      RGBColor(0xd4, 0xaf, 0x37)),
-        ("Current META Hours",   current_hours,        RGBColor(0xd9, 0x30, 0x25)),
-        ("Report Date",          current_date,         RGBColor(0x7c, 0x3a, 0xed)),
-        ("Total Builds",         str(len(chart_rows)), RGBColor(0x08, 0x91, 0xb2)),
-        ("Total Hours",          str(total_hours),     RGBColor(0x0d, 0x9e, 0x6e)),
-        ("Total Crashes",        str(total_crashes),   RGBColor(0xd4, 0xaf, 0x37)),
+    _text(slide, 0.16, 0.08, 5.9, 0.28, f"Current Meta: {current_meta}", size=12, bold=True)
+    _text(slide, 6.48, 0.05, 6.55, 0.15, f"PDT WBC Stability Dashboard : {project}", size=5.0)
+    _table(slide, 0.20, 0.58, 6.00, 0.78,
+           [f"Date: {report_date}", f"{project} PDT Status", ""],
+           [["Target", "OEM", "Project Timelines"], [project, "-", _plain(overview.get("pdt_status") or overview.get("next_steps") or "-", 95)]],
+           widths=[1.6, 1.0, 3.4], font_size=5.8, max_text=110)
+    kpis = [
+        ("Current PDT\nMTBF", current_mtbf),
+        ("Current Running\nMeta", current_meta),
+        ("Current META\nCrashes", current_crashes),
+        ("Current META\nHours", current_hours),
+        ("Running\nBuilds", str(len(jql_tabs))),
+        ("Open Jira\nCurrent Meta", _fmt(counts.get("open_jiras"))),
+        ("Open CR\nCurrent Meta", _fmt(open_cr_count)),
+        ("Total\nCRs", _fmt(counts.get("total_crs"))),
     ]
-    CARD_W  = Inches(2.8)
-    CARD_H  = Inches(0.95)
-    GAP     = Inches(0.18)
-    COLS    = 4
-    START_X = Inches(0.28)
-    START_Y = Inches(1.22)
-    for idx, (label, value, accent) in enumerate(kpi_items):
-        _kpi_card(slide,
-                  START_X + (idx % COLS) * (CARD_W + GAP),
-                  START_Y + (idx // COLS) * (CARD_H + GAP),
-                  CARD_W, CARD_H, label, value, accent)
+    for idx, (label, value) in enumerate(kpis[:8]):
+        _kpi(slide, 0.20 + (idx % 4) * 1.51, 1.55 + (idx // 4) * 0.62, 1.44, 0.52, label, _plain(value, 28))
 
-    # SLIDE 3 - MTBF Chart
+    _section(slide, 0.30, 2.85, "Key Updates", w=1.2)
+    _text(slide, 0.32, 3.15, 5.82, 1.02, overview.get("overview") or overview.get("summary_title") or "No summary entered.", size=6.7)
+    _section(slide, 0.30, 4.48, "MTBF Chart", w=1.2)
+    recent_mtbf = chart_rows[-3:] if chart_rows else []
+    _table(slide, 0.32, 4.86, 5.88, 0.68,
+           ["Team", "Meta", "Total Hours", "Total Crashes", "MTBF"],
+           [["PDT", r.get("crm_build_id") or r.get("meta_id"), _fmt(r.get("hours")), _fmt(r.get("crash") or r.get("total_crashes")), _fmt(r.get("mtbf"))] for r in recent_mtbf],
+           widths=[0.7, 1.8, 1.05, 1.05, 0.75], font_size=5.8, max_text=80)
+    _section(slide, 0.30, 5.78, "Weekly Stability Stats (SW PDT)", w=2.6)
+    _table(slide, 0.32, 6.14, 5.90, 0.82,
+           ["Team", "Builds Tested", "Total Hours", "Total Crashes"],
+           [["PDT", str(len(chart_rows)), _fmt(counts.get("hours")), _fmt(counts.get("crashes"))]],
+           widths=[1.0, 2.1, 1.5, 1.4], font_size=5.7)
+    _rect(slide, 6.38, 0.15, 0.01, 7.12, BORDER, BORDER)
+    _section(slide, 6.50, 0.50, "Saved JQL / Current Running Builds", w=2.8)
+    _table(slide, 6.55, 0.86, 6.45, 1.55,
+           ["S.No.", "Build ID", "CRs", "JIRAs", "Rows", "Last Run"],
+           [[str(i), r.get("build_id"), _fmt(r.get("cr_count")), _fmt(r.get("jira_count")), _fmt(r.get("row_count")), r.get("generated_at") or "-"] for i, r in enumerate(jql_tabs[:5], start=1)],
+           widths=[0.45, 2.6, 0.55, 0.55, 0.55, 1.75], font_size=4.9, title_cols={1}, max_text=80)
+    _section(slide, 6.50, 2.70, "Open CR Details", w=1.6)
+    cr_cols, cr_rows = _preview_table_rows(previews.get("open_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"]], 5)
+    _table(slide, 6.55, 3.04, 6.45, 2.30,
+           [c.replace("_", " ") for c in cr_cols], cr_rows,
+           widths=[0.95, 3.1, 1.0, 0.95][:len(cr_cols)], font_size=4.7, title_cols={1}, max_text=120)
+    _section(slide, 6.50, 5.73, "Open JIRA Details", w=1.55)
+    jira_cols, jira_rows = _preview_table_rows(previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 2)
+    _table(slide, 6.55, 6.08, 6.45, 0.88,
+           [c.replace("_", " ") for c in jira_cols], jira_rows,
+           widths=[1.0, 3.3, 0.8, 0.9][:len(jira_cols)], font_size=4.5, title_cols={1}, max_text=120)
+
+    # Slide 2: custom MTBF trend chart.
+    slide = _add_slide(prs)
+    _rect(slide, 0, 0, 13.33, 7.5, LIGHT)
+    _text(slide, 0.22, 0.14, 3.0, 0.22, "MTBF Trend by Build", size=8, bold=True)
+    _rect(slide, 0.18, 0.44, 12.95, 6.78, WHITE, RGBColor(0xe8, 0xee, 0xf6), 0.5)
+    if chart_rows:
+        max_points = 42
+        rows = chart_rows[-max_points:]
+        cats = [str(r.get("crm_build_id") or r.get("meta_id") or "") for r in rows]
+        hours = [_safe_float(r.get("hours")) for r in rows]
+        crashes = [_safe_float(r.get("crash") or r.get("total_crashes")) for r in rows]
+        mtbf = [_safe_float(r.get("mtbf")) for r in rows]
+        left, top, width, height = 0.90, 0.92, 11.35, 4.85
+        bottom = top + height
+        n = max(1, len(rows))
+        h_max = max([1.0] + hours + crashes)
+        m_max = max([1.0] + mtbf)
+        h_max = (int(h_max / 500) + 1) * 500 if h_max > 500 else max(10, (int(h_max / 10) + 1) * 10)
+        m_max = (int(m_max / 200) + 1) * 200 if m_max > 200 else max(10, (int(m_max / 10) + 1) * 10)
+        _text(slide, left, 0.58, width, 0.20, "MTBF by Build", size=7.4, bold=True, align=PP_ALIGN.CENTER)
+        for i in range(6):
+            y = bottom - (height * i / 5.0)
+            _rect(slide, left, y, width, 0.004, RGBColor(0xee, 0xf1, 0xf5), RGBColor(0xee, 0xf1, 0xf5))
+            _text(slide, left - 0.48, y - 0.06, 0.38, 0.12, int(h_max * i / 5.0), size=4.5, color=RGBColor(0x61, 0x6f, 0x82), align=PP_ALIGN.RIGHT)
+            _text(slide, left + width + 0.08, y - 0.06, 0.38, 0.12, int(m_max * i / 5.0), size=4.5, color=GOLD)
+        step = width / n
+        bar_w = min(0.09, step * 0.38)
+        points = []
+        for i, cat in enumerate(cats):
+            cx = left + step * (i + 0.5)
+            bh = 0 if h_max <= 0 else height * (hours[i] / h_max)
+            _rect(slide, cx - bar_w / 2, bottom - bh, bar_w, max(0.015, bh), RGBColor(0x3b, 0x5b, 0xdb))
+            ch = 0 if h_max <= 0 else height * (crashes[i] / h_max)
+            dot = slide.shapes.add_shape(9, _in(cx - 0.025), _in(bottom - ch - 0.025), _in(0.05), _in(0.05))
+            dot.fill.solid(); dot.fill.fore_color.rgb = RED; dot.line.fill.background()
+            mh = 0 if m_max <= 0 else height * (mtbf[i] / m_max)
+            points.append((cx, bottom - mh))
+        for p1, p2 in zip(points, points[1:]):
+            line = slide.shapes.add_connector(1, _in(p1[0]), _in(p1[1]), _in(p2[0]), _in(p2[1]))
+            line.line.color.rgb = GOLD; line.line.width = Pt(1.05)
+        for x, y in points:
+            marker = slide.shapes.add_shape(9, _in(x - 0.025), _in(y - 0.025), _in(0.05), _in(0.05))
+            marker.fill.solid(); marker.fill.fore_color.rgb = GOLD; marker.line.color.rgb = WHITE; marker.line.width = Pt(0.35)
+        label_step = max(1, int((n + 17) / 18))
+        for i, cat in enumerate(cats):
+            if i % label_step != 0 and i != n - 1:
+                continue
+            lab = _text(slide, left + step * (i + 0.5) - 0.28, bottom + 0.08, 0.56, 0.45, _plain(cat, 28), size=3.6, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.RIGHT)
+            lab.rotation = 315
+        _text(slide, 5.55, 6.66, 2.3, 0.2, "● Hours    ● Crashes    ● MTBF", size=5.0, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.CENTER)
+    else:
+        _text(slide, 0.60, 1.30, 11.8, 0.5, "No MTBF chart data available.", size=13, bold=True, color=TEAL, align=PP_ALIGN.CENTER)
+
+    # Detail slides from the current UI datasets.
+    detail_specs = [
+        ("Open CRs", previews.get("open_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"], ["cr_age", "age"]], 18),
+        ("Open JIRAs", previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
+        ("All CRs", previews.get("all_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"]], 18),
+        ("JIRAs", previews.get("jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
+    ]
+    for title, preview, preferred, limit in detail_specs:
+        cols, rows = _preview_table_rows(preview, preferred, limit)
+        if not cols and not rows:
+            continue
+        slide = _add_slide(prs)
+        _text(slide, 0.30, 0.28, 4.8, 0.25, f"{title} - {project}", size=11, bold=True, color=TEAL)
+        _table(slide, 0.28, 0.78, 12.78, 6.15, [c.replace("_", " ") for c in cols], rows,
+               font_size=4.8, title_cols={1}, max_text=150)
+
+    if cached_report_rows:
+        cols = []
+        preferred = ["CR", "CR Title", "CR Status", "CR Area", "JIRA", "JIRA Title", "JIRA Status", "Final Ticket"]
+        for col in preferred:
+            if any(col in r for r in cached_report_rows):
+                cols.append(col)
+        for col in list(cached_report_rows[0].keys()):
+            if col not in cols and len(cols) < 8:
+                cols.append(col)
+        slide = _add_slide(prs)
+        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Saved JQL Cached Report - {project}", size=11, bold=True, color=TEAL)
+        _table(slide, 0.28, 0.78, 12.78, 6.15, cols, [[r.get(c, "") for c in cols] for r in cached_report_rows[:18]],
+               font_size=4.5, title_cols={1, 5}, max_text=150)
+
     if chart_rows:
         slide = _add_slide(prs)
-        _bg(slide, _LIGHT)
-        _header(slide, "MTBF Trend by Build",
-                f"{project}  |  Hours, Crashes & MTBF per Build", W, H)
-        _footer(slide, project, W, H)
-        HDR_H  = Inches(1.05)
-        FTR_H  = Inches(0.35)
-        MARGIN = Inches(0.28)
-        chart_data = ChartData()
-        chart_data.categories = [str(r.get("crm_build_id") or r.get("meta_id") or "") for r in chart_rows]
-        chart_data.add_series("Hours",   tuple(int(_safe_float(r.get("hours"))) for r in chart_rows))
-        chart_data.add_series("Crashes", tuple(_safe_int(r.get("crash") or r.get("total_crashes")) for r in chart_rows))
-        chart_data.add_series("MTBF",    tuple(int(_safe_float(r.get("mtbf"))) for r in chart_rows))
-        chart_frame = slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED,
-            MARGIN, HDR_H + Inches(0.15),
-            W - MARGIN * 2, H - HDR_H - FTR_H - Inches(0.25),
-            chart_data
-        )
-        chart = chart_frame.chart
-        chart.has_title = True
-        chart.chart_title.text_frame.text = "MTBF by Build"
-        chart.has_legend = True
-        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
-        chart.legend.include_in_layout = False
-        for idx, (series, color) in enumerate(zip(chart.series, [
-            RGBColor(0x3b, 0x5b, 0xdb),
-            RGBColor(0xd9, 0x30, 0x25),
-            RGBColor(0xd4, 0xaf, 0x37),
-        ])):
-            series.format.fill.solid()
-            series.format.fill.fore_color.rgb = color
-
-    # SLIDE 4 - Summary & PDT Status
-    slide = _add_slide(prs)
-    _bg(slide, _LIGHT)
-    _header(slide, "Project Summary & PDT Status", project, W, H)
-    _footer(slide, project, W, H)
-    HALF_W  = (W - Inches(0.66)) // 2
-    BOX_TOP = Inches(1.18)
-    BOX_H   = H - BOX_TOP - Inches(0.55)
-    _rect(slide, Inches(0.22), BOX_TOP, HALF_W, BOX_H, _WHITE, _BORDER, Pt(0.75))
-    _rect(slide, Inches(0.22), BOX_TOP, HALF_W, Pt(3), _NAVY)
-    _txt(slide, Inches(0.32), BOX_TOP + Pt(6), HALF_W - Inches(0.2), Inches(0.32),
-         f"{project} Summary", size=11, bold=True, color=_NAVY)
-    _txt(slide, Inches(0.32), BOX_TOP + Inches(0.42), HALF_W - Inches(0.2),
-         BOX_H - Inches(0.55),
-         overview.get("overview") or "No summary entered.",
-         size=9.5, color=_TEXT2, wrap=True)
-    right_x = Inches(0.22) + HALF_W + Inches(0.22)
-    _rect(slide, right_x, BOX_TOP, HALF_W, BOX_H, _WHITE, _BORDER, Pt(0.75))
-    _rect(slide, right_x, BOX_TOP, HALF_W, Pt(3), _GOLD)
-    _txt(slide, right_x + Inches(0.1), BOX_TOP + Pt(6), HALF_W - Inches(0.2), Inches(0.32),
-         f"{project} PDT STATUS", size=11, bold=True, color=_NAVY)
-    _txt(slide, right_x + Inches(0.1), BOX_TOP + Inches(0.42), HALF_W - Inches(0.2),
-         BOX_H - Inches(0.55),
-         overview.get("pdt_status") or overview.get("next_steps") or "No PDT status entered.",
-         size=9.5, color=_TEXT2, wrap=True)
-
-    # SLIDE 5 - MTBF Table
-    if chart_rows:
-        mtbf_cols = [
-            {"title": "S.No",         "key": "s_no"},
-            {"title": "CRM Build ID", "key": "crm_build_id"},
-            {"title": "Date",         "key": "date"},
-            {"title": "Hours+",       "key": "hours"},
-            {"title": "Crash",        "key": "crash"},
-            {"title": "MTBF",         "key": "mtbf"},
-        ]
-        _table_slide(prs, project, "Mainline Build Details - MTBF Table",
-                     f"{project}  |  All Builds", mtbf_cols, chart_rows)
+        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Mainline Build Details - {project}", size=11, bold=True, color=TEAL)
+        _table(slide, 0.28, 0.78, 12.78, 6.15,
+               ["S.No", "CRM Build ID", "Date", "Hours+", "Crash", "MTBF"],
+               [[r.get("s_no"), r.get("crm_build_id") or r.get("meta_id"), r.get("date"), _fmt(r.get("hours")), _fmt(r.get("crash") or r.get("total_crashes")), _fmt(r.get("mtbf"))] for r in chart_rows[-24:]],
+               widths=[0.45, 3.4, 1.0, 1.0, 1.0, 1.0], font_size=5.4, title_cols={1}, max_text=120)
 
     buf = io.BytesIO()
     prs.save(buf)

@@ -7669,6 +7669,14 @@ def api_consolidated_report():
 
     target = str(body.get('target') or body.get('target_name') or '').strip()
     custom_jql = str(body.get('custom_jql') or body.get('jql') or '').strip()
+    custom_jql_filter_id = _jira_filter_id_from_jql(custom_jql)
+    custom_jql_original = custom_jql
+    if custom_jql_filter_id:
+        # A saved-filter ID/URL must always run against the latest JQL from JIRA,
+        # not stale text that may have been saved/cached in PDTBuddy.
+        resolved_jql = _resolve_jira_filter_jql(custom_jql_filter_id)
+        if resolved_jql:
+            custom_jql = resolved_jql
     domain = str(body.get('domain') or '').strip()
     use_domain_tables = _consolidated_body_bool(body, 'use_domain_tables', False)
     force = _consolidated_body_bool(body, 'force', False)
@@ -7735,6 +7743,9 @@ def api_consolidated_report():
 
             meta = report.setdefault('meta', {}) if isinstance(report, dict) else {}
             meta.update({
+                'custom_jql_original': custom_jql_original,
+                'custom_jql_filter_id': custom_jql_filter_id,
+                'custom_jql_resolved': bool(custom_jql_filter_id and custom_jql != custom_jql_original),
                 'job_id': job_id,
                 'target_name': target or meta.get('target_name'),
                 'custom_jql': custom_jql or meta.get('custom_jql'),
@@ -8204,12 +8215,27 @@ def api_consolidated_report_status():
 
 
 def _jira_filter_id_from_jql(jql: str):
-    """Return the saved-filter ID when JQL is just a filter reference."""
+    """Return the saved-filter ID when input is an ID, filter=ID, or JIRA filter URL."""
     import re as _re
     text = str(jql or '').strip()
     if not text:
         return ''
-    match = _re.match(r'^\s*filter\s*=\s*(\d+)\s*(?:ORDER\s+BY\s+.+)?$', text, flags=_re.I)
+    if text.isdigit():
+        return text
+    try:
+        from urllib.parse import parse_qs, urlparse
+        parsed = urlparse(text)
+        qs = parse_qs(parsed.query or '')
+        for key in ('filter', 'filterId'):
+            val = (qs.get(key) or [''])[0]
+            if str(val).strip().isdigit():
+                return str(val).strip()
+    except Exception:
+        pass
+    match = _re.match(r'^\s*filter(?:Id)?\s*=\s*(\d+)\s*(?:ORDER\s+BY\s+.+)?$', text, flags=_re.I)
+    if match:
+        return match.group(1)
+    match = _re.search(r'[?&]filter(?:Id)?=(\d+)', text, flags=_re.I)
     return match.group(1) if match else ''
 
 

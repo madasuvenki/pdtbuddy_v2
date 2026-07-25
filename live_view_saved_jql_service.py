@@ -182,9 +182,15 @@ def delete_tab(target_name: str, domain: str, tab_id: str) -> bool:
     return True
 
 
+def get_cached_report_raw(target_name: str, domain: str, tab_id: str) -> Optional[Dict[str, Any]]:
+    """Return the cached report for a tab without applying the 30-minute TTL."""
+    data = _read_json(_cache_path(target_name, domain, tab_id), None)
+    return data if isinstance(data, dict) else None
+
+
 def get_cached_report(target_name: str, domain: str, tab_id: str) -> Optional[Dict[str, Any]]:
     """Return the cached report for a tab, or None if not cached / stale."""
-    data = _read_json(_cache_path(target_name, domain, tab_id), None)
+    data = get_cached_report_raw(target_name, domain, tab_id)
     if not isinstance(data, dict):
         return None
     # TTL: 30 minutes
@@ -199,6 +205,7 @@ def get_cached_report(target_name: str, domain: str, tab_id: str) -> Optional[Di
     except Exception:
         pass
     return data
+
 
 
 def set_cached_report(
