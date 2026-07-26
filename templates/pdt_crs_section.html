@@ -99,7 +99,7 @@
 
 
 
-/* ── Column dropdown filters ── */
+/* ΓöÇΓöÇ Column dropdown filters ΓöÇΓöÇ */
 .pcr-col-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   background:linear-gradient(135deg,#ffffff,#f0f4ff);border:1px solid rgba(148,163,184,.35);
   border-radius:16px;padding:10px 16px;margin-bottom:16px;
@@ -175,7 +175,7 @@
           <div class="pcr-load-title" id="pcrLoadTitle">Loading PDT CRs</div>
           <div class="pcr-load-text" id="pcrLoadText">Starting...</div>
         </div>
-        <button id="pcrLoadClose" onclick="document.getElementById('pcrLoadModal').style.display='none'" style="display:none;border:none;background:#f1f5f9;color:#64748b;border-radius:999px;width:28px;height:28px;cursor:pointer;font-weight:900;">×</button>
+        <button id="pcrLoadClose" onclick="document.getElementById('pcrLoadModal').style.display='none'" style="display:none;border:none;background:#f1f5f9;color:#64748b;border-radius:999px;width:28px;height:28px;cursor:pointer;font-weight:900;">&times;</button>
       </div>
       <div class="pcr-load-track">
         <div id="pcrLoadIndeterminate" class="pcr-load-bar"></div>
@@ -205,20 +205,20 @@
 
   <div class="pcr-kpi-row">
 
-    <!-- Total — click to reset filter -->
-    <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#6366f1,#0ea5e9);"
-         onclick="pcrKpiFilter('')" id="kpiCardTotal" title="Show all CRs">
-      <span class="pcr-kpi-icon">&#128203;</span>
-      <div class="pcr-kpi-val" id="kpiTotal">-</div>
-      <div class="pcr-kpi-lbl">Total CRs</div>
-      <div class="pcr-kpi-hint">click to show all</div>
+    <!-- Total ΓÇö click to reset filter -->
+    <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#16a34a,#15803d);"
+         onclick="pcrKpiFilter('')" id="kpiCardTotal" title="Valid CRs (built + undisposed)">
+      <span class="pcr-kpi-icon">&#9989;</span>
+      <div class="pcr-kpi-val" id="kpiTotal" style="color:#15803d;">-</div>
+      <div class="pcr-kpi-lbl">Valid CRs</div>
+      <div class="pcr-kpi-hint">built + undisposed</div>
     </div>
 
-    <!-- Status Breakdown -->
+    <!-- Status Breakdown (valid CRs only) -->
     <div class="pcr-kpi" style="--acc:linear-gradient(90deg,#6366f1,#8b5cf6);flex:2;min-width:260px;">
       <span class="pcr-kpi-icon">&#128202;</span>
       <div id="kpiStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;">-</div>
-      <div class="pcr-kpi-lbl" style="margin-top:8px;">CR Status Breakdown</div>
+      <div class="pcr-kpi-lbl" style="margin-top:8px;">CR Status Breakdown <span style="font-size:9px;color:#94a3b8;">(valid CRs only)</span></div>
     </div>
 
     <!-- Areas -->
@@ -228,14 +228,14 @@
       <div class="pcr-kpi-lbl">CR Areas</div>
     </div>
 
-    <!-- Avg Age — info only -->
+    <!-- Avg Age ΓÇö info only -->
     <div class="pcr-kpi" style="--acc:linear-gradient(90deg,#f97316,#ea580c);">
       <span class="pcr-kpi-icon">&#9201;</span>
       <div class="pcr-kpi-val" style="color:#ea580c;" id="kpiAvgAge">-</div>
       <div class="pcr-kpi-lbl">Avg Age (days)</div>
     </div>
 
-    <!-- CRs > 40 days — click to filter -->
+    <!-- CRs > 40 days ΓÇö click to filter -->
     <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#dc2626,#b91c1c);"
          onclick="pcrKpiFilter('old40')" id="kpiCardOld" title="Filter: CRs older than 40 days">
       <span class="pcr-kpi-icon">&#128680;</span>
@@ -530,18 +530,18 @@
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:22px;">🏷️</span>
+        <span style="font-size:22px;">&#127991;</span>
         <span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px;">PDT Tag Operation</span>
       </div>
       <button onclick="document.getElementById('pcrTagModal').style.display='none'"
-              style="background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;">✕</button>
+              style="background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;">&times;</button>
     </div>
 
     <!-- Active filter summary bar -->
     <div id="pcrModalFilterBar" style="background:#f0f4ff;border-bottom:1px solid #e0e7ff;padding:8px 20px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex-shrink:0;">
       <span style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Active Filters:</span>
       <span id="pcrModalFilterTags" style="display:flex;flex-wrap:wrap;gap:5px;"></span>
-      <span id="pcrModalFilterNone" style="font-size:11px;color:#94a3b8;font-style:italic;">None — showing all CRs</span>
+      <span id="pcrModalFilterNone" style="font-size:11px;color:#94a3b8;font-style:italic;">None &mdash; showing all CRs</span>
     </div>
 
     <!-- Body (scrollable) -->
@@ -562,7 +562,7 @@
         </div>
         <!-- Search box -->
         <div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">
-          <input id="pcrPickerSearch" type="text" placeholder="🔍  Search CR number or title..."
+          <input id="pcrPickerSearch" type="text" placeholder="Search CR number or title..."
                  oninput="pcrPickerFilter(this.value)"
                  style="width:100%;border:1px solid #e2e8f0;border-radius:7px;padding:7px 12px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
@@ -593,7 +593,7 @@
         <div style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;">
           <span style="background:#10b981;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">C</span>
           <span style="font-weight:600;color:#1e293b;font-size:13px;">Add Tag</span>
-          <span style="color:#94a3b8;font-size:11px;">(optional — leave blank to skip)</span>
+          <span style="color:#94a3b8;font-size:11px;">(optional &mdash; leave blank to skip)</span>
         </div>
         <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
           <input id="pcrTagAddInput" type="text" placeholder="Type any tag name e.g. PDT_P1, MY_CUSTOM_TAG..."
@@ -616,7 +616,7 @@
         <div style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;">
           <span style="background:#ef4444;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">D</span>
           <span style="font-weight:600;color:#1e293b;font-size:13px;">Remove Tags</span>
-          <span style="color:#94a3b8;font-size:11px;">(optional — comma-separated)</span>
+          <span style="color:#94a3b8;font-size:11px;">(optional &mdash; comma-separated)</span>
         </div>
         <div style="padding:12px 14px;">
           <input id="pcrTagRemoveInput" type="text" placeholder="e.g. PDT_P1, PDT_AU_STAB"
@@ -667,7 +667,7 @@
   <div style="background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.22);width:min(760px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
     <div style="background:linear-gradient(135deg,#0891b2,#0e7490);padding:16px 22px;display:flex;align-items:center;justify-content:space-between;color:#fff;">
       <b><i class="fas fa-tags"></i> Compute CR TAG Aliases</b>
-      <button onclick="pcrCloseAliasModal()" style="background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;">×</button>
+      <button onclick="pcrCloseAliasModal()" style="background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;">&times;</button>
     </div>
         <div style="padding:16px 20px;display:grid;grid-template-columns:220px 1fr;gap:14px;min-height:390px;">
       <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#f8fafc;display:flex;flex-direction:column;">
@@ -869,7 +869,7 @@
 
 
 
-  // ── Dropdown open/close ──────────────────────────────────────────────────
+  // ΓöÇΓöÇ Dropdown open/close ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrDdToggle = function(key){
     const panel = document.getElementById('dd-panel-'+key);
     const btn   = document.getElementById('dd-btn-'+key);
@@ -885,7 +885,7 @@
     }
   });
 
-  // ── Build checkbox list ──────────────────────────────────────────────────
+  // ΓöÇΓöÇ Build checkbox list ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       function buildDdList(key, rows, preserveSelection=false){
         const field = { area:'cr_area', subsystem:'cr_subsystem', functionality:'cr_functionality', status:'cr_status', crtag:'cr_tag' }[key];
 
@@ -952,7 +952,7 @@
     }
   }
 
-  // ── KPI card click ───────────────────────────────────────────────────────
+  // ΓöÇΓöÇ KPI card click ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrKpiFilter = function(type){
     activeKpi = (activeKpi === type) ? '' : type;
     ['kpiCardTotal','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
@@ -962,23 +962,30 @@
     pcrApply();
   };
 
-  // ── KPI counts ───────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ KPI counts ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   function renderKpi(rows){
-    const total = rows.length;
-    const areas = new Set(rows.map(r=>r.cr_area||'').filter(Boolean)).size;
-    const ages  = rows.map(r=>numVal(r.cr_age)).filter(n=>n>0);
-    const avgAge= ages.length ? Math.round(ages.reduce((a,b)=>a+b,0)/ages.length) : 0;
-    const old40 = ages.filter(n=>n>40).length;
+    // Split by cr_category: valid=built/undisposed, invalid=invalid, dup=dup/invalid_dup
+    const _cat = r => (r.cr_category||'').trim().toLowerCase();
+    const validRows   = rows.filter(r => { const c=_cat(r); return c==='built'||c==='undisposed'; });
+    const invalidRows = rows.filter(r => _cat(r)==='invalid');
+    const dupRows     = rows.filter(r => { const c=_cat(r); return c==='dup'||c==='invalid_dup'; });
+    const total   = validRows.length;
+    const invalid = invalidRows.length;
+    const dup     = dupRows.length;
+    const areas   = new Set(validRows.map(r=>r.cr_area||'').filter(Boolean)).size;
+    const ages    = validRows.map(r=>numVal(r.cr_age)).filter(n=>n>0);
+    const avgAge  = ages.length ? Math.round(ages.reduce((a,b)=>a+b,0)/ages.length) : 0;
+    const old40   = ages.filter(n=>n>40).length;
+    // Status breakdown from VALID CRs only (built + undisposed)
     const statusCounts = {};
-    rows.forEach(r=>{ const s=(r.cr_status||'').trim(); if(s) statusCounts[s]=(statusCounts[s]||0)+1; });
-    const statusOrder = ['Open','Analysis','Fix','Ready','Built','Withdrawn','CannotDuplicate','NoSIR','NotApplicable','Postponed','Obsolete','Closed'];
+    validRows.forEach(r=>{ const s=(r.cr_status||'').trim(); if(s) statusCounts[s]=(statusCounts[s]||0)+1; });
+    const statusOrder = ['Open','Analysis','Fix','Ready','Built'];
     const SPC = {
-      open:{bg:'#eff6ff',color:'#1d4ed8',border:'#bfdbfe'},analysis:{bg:'#f5f3ff',color:'#6d28d9',border:'#ddd6fe'},
-      fix:{bg:'#fff7ed',color:'#c2410c',border:'#fed7aa'},ready:{bg:'#f0fdf4',color:'#15803d',border:'#bbf7d0'},
-      built:{bg:'#dcfce7',color:'#15803d',border:'#86efac'},withdrawn:{bg:'#fef3c7',color:'#92400e',border:'#fcd34d'},
-      cannotduplicate:{bg:'#fef9c3',color:'#713f12',border:'#fde047'},nosir:{bg:'#fff7ed',color:'#c2410c',border:'#fdba74'},
-      notapplicable:{bg:'#f8fafc',color:'#64748b',border:'#e2e8f0'},postponed:{bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},
-      obsolete:{bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},closed:{bg:'#f1f5f9',color:'#475569',border:'#cbd5e1'},
+      open:{bg:'#eff6ff',color:'#1d4ed8',border:'#bfdbfe'},
+      analysis:{bg:'#f5f3ff',color:'#6d28d9',border:'#ddd6fe'},
+      fix:{bg:'#fff7ed',color:'#c2410c',border:'#fed7aa'},
+      ready:{bg:'#f0fdf4',color:'#15803d',border:'#bbf7d0'},
+      built:{bg:'#dcfce7',color:'#15803d',border:'#86efac'},
     };
     const allStatuses = [...new Set([...statusOrder,...Object.keys(statusCounts)])].filter(s=>statusCounts[s]>0);
     const pills = allStatuses.map(st=>{
@@ -987,13 +994,13 @@
       return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:${c.bg};color:${c.color};border:1px solid ${c.border};white-space:nowrap;">${st} <b>${statusCounts[st]}</b></span>`;
     }).join('');
     document.getElementById('kpiStatusBreakdown').innerHTML = pills||'-';
-    document.getElementById('kpiTotal').textContent  = total;
-    document.getElementById('kpiAreas').textContent  = areas;
-    document.getElementById('kpiAvgAge').textContent = avgAge;
-    document.getElementById('kpiOld').textContent    = old40;
+    document.getElementById('kpiTotal').textContent   = total;
+    document.getElementById('kpiAreas').textContent   = areas;
+    document.getElementById('kpiAvgAge').textContent  = avgAge;
+    document.getElementById('kpiOld').textContent     = old40;
   }
 
-  // ── Sort ─────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Sort ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrSort = function(col){
     if(sortCol===col){ sortAsc=!sortAsc; }
     else{ sortCol=col; sortAsc=(col!=='cr_occurrence'&&col!=='cr_age'); }
@@ -1014,7 +1021,7 @@
     });
   }
 
-  // ── Apply all filters ────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Apply all filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrApply = function(){
     const minHits   = parseInt((document.querySelector('input[name="hitsRadio"]:checked')||{}).value||'0',10)||0;
     const pdtTagFlt = (document.querySelector('input[name="pdttagRadio"]:checked')||{}).value||'';
@@ -1055,7 +1062,7 @@
     applySort(); currentPage=1; renderTable(); renderKpi(filtered);
   };
 
-  // ── Clear all ────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Clear all ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrClear = function(){
     activeKpi = '';
     ['hitsRadio','pdttagRadio','ageRadio'].forEach(name=>{
@@ -1074,7 +1081,7 @@
         pcrApply();
   };
 
-  // ── Render table ─────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Render table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   function renderTable(){
     const tbody = document.getElementById('pcrTableBody');
     const start = (currentPage-1)*PAGE_SIZE;
@@ -1285,7 +1292,7 @@
   }
   window.pcrRefreshCrTags = pcrStartCrTagProgress;
 
-  // ── Load data ────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Load data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     async function loadData(){
 
@@ -1300,7 +1307,7 @@
       allRows = (data.rows||[]).map(pcrEnsureCrId).filter(r=>{
         const occ=(r.cr_occurrence||'').toString().trim().toLowerCase();
         const cat=(r.cr_category||'').toString().trim().toLowerCase();
-        // Exclude dup and invalid_dup - these are duplicate entries, not real CRs
+        // Exclude dup and invalid_dup - duplicate entries, not real analysis CRs
         // Keep 'invalid' - real CRs marked invalid, still shown for visibility
         return occ!=='dup' && cat!=='dup' && cat!=='invalid_dup';
       });
@@ -1329,7 +1336,7 @@
     }
   }
 
-  // ── CR Title Exclude (Compute only) ────────────────────────────────────
+  // ΓöÇΓöÇ CR Title Exclude (Compute only) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   let _excludeEnabled  = false;
   let _excludeKeywords = [];
 
@@ -1382,7 +1389,7 @@
       const ta = document.getElementById('pcrExcludeKeywords');
       if(cb) cb.checked = _excludeEnabled;
       if(ta) ta.value  = (d.keywords||[]).join('\n');
-      // Always call pcrApply — if allRows is empty it's a no-op;
+      // Always call pcrApply ΓÇö if allRows is empty it's a no-op;
       // if loadData already finished it will re-render with exclude applied.
       pcrApply();
     }catch(e){ /* silent */ }
@@ -1399,7 +1406,7 @@
   if(IS_COMPUTE_TARGET) pcrExcludeLoad();
   loadData();
 
-  /* ── PDT Tagging Modal ── */
+  /* ΓöÇΓöÇ PDT Tagging Modal ΓöÇΓöÇ */
   (function(){
     // inject chip style
     const s=document.createElement('style');
@@ -1409,7 +1416,7 @@
 
   let _pcrTagCrs = [];
 
-  // ── CR Picker helpers ────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ CR Picker helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   let _pcrAllPickerCrs = [];   // [{cr, title}, ...] full list for picker
   let _pcrPickedCrs    = new Set();  // currently selected CR numbers (digits)
 
@@ -1485,7 +1492,7 @@
     if(el) el.textContent = _pcrPickedCrs.size + ' selected';
   }
 
-  // ── Build active-filter summary chips for modal ─────────────────────────────
+  // ΓöÇΓöÇ Build active-filter summary chips for modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   function _pcrBuildFilterSummary(){
     const chips = [];
 
@@ -1553,7 +1560,7 @@
       title: String(r.cr_title||r.title||'').slice(0,60)
     })).filter(x => x.cr);
 
-    // Default: none selected — user picks which CRs to tag
+    // Default: none selected ΓÇö user picks which CRs to tag
     _pcrPickedCrs = new Set();
 
     // Reset UI
@@ -1649,4 +1656,221 @@
     const removeTags = document.getElementById('pcrTagRemoveInput').value.split(',').map(t=>t.trim()).filter(Boolean);
     const validMsg   = document.getElementById('pcrTagValidMsg');
     const applyBtn   = document.getElementById('pcrTagApplyBtn');
-    validMsg.text
+    validMsg.textContent = '';
+    if(!addTag && !removeTags.length){
+      validMsg.textContent = 'Specify at least one tag to Add or Remove.';
+      return;
+    }
+        const tagRe = /^[A-Za-z0-9_]{3,}$/;
+    if(addTag && !tagRe.test(addTag)){
+      validMsg.textContent = 'Add tag invalid - use letters, numbers, underscore only (min 3 chars).';
+      return;
+    }
+    for(const rt of removeTags){
+      if(!tagRe.test(rt)){
+        validMsg.textContent = 'Remove tag invalid: "'+rt+'"';
+        return;
+      }
+    }
+    if(!_pcrPickedCrs.size){
+      validMsg.textContent = 'No CRs selected in Section A.';
+      return;
+    }
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Applying...';
+    applyBtn.style.background = '#94a3b8';
+    validMsg.textContent = '';
+    (async function(){
+      try{
+        const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/pdt_tag', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({crs:[..._pcrPickedCrs], add_tag:addTag, remove_tags:removeTags})
+        });
+        const data = await resp.json();
+        if(data.success){
+          validMsg.style.color = '#16a34a';
+          validMsg.textContent = 'Done! ' + (data.message || _pcrPickedCrs.size+' CR(s) updated.');
+          applyBtn.textContent = 'Done';
+          applyBtn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+          applyBtn.disabled = false;
+          setTimeout(function(){ document.getElementById('pcrTagModal').style.display='none'; }, 1500);
+        } else {
+          validMsg.style.color = '#dc2626';
+          validMsg.textContent = 'Failed: ' + (data.message || 'Operation failed.');
+          applyBtn.disabled = false;
+          applyBtn.textContent = 'Apply';
+          applyBtn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+        }
+      } catch(e){
+        validMsg.style.color = '#dc2626';
+        validMsg.textContent = 'Network error: ' + e.message;
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Apply';
+        applyBtn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+      }
+    })();
+  };
+
+  function pcrDisplayPdtTag(r){
+    const tag = String((r||{}).pdt_priority_tag||'').trim();
+    if(tag && tag.toLowerCase() !== 'none' && tag.toLowerCase() !== 'na') return tag;
+    return numVal((r||{}).cr_occurrence)>10 ? 'PDT_P1' : '';
+  }
+
+  window.pcrExportExcel = function(){
+    const rows = filtered.length ? filtered : allRows;
+    if(!rows.length){ alert('No data to export.'); return; }
+    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date','Build Date']
+      .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
+      .concat(['PDT Tag','Last Reported Date','Last Reported JIRA']);
+    const htmlRows = rows.map((r,idx) => '<tr>'+headers.map(col => {
+      let val = '';
+      if(col==='#') val = String(idx+1);
+      else if(col==='CR ID') val = pcrCrId(r) ? 'CR'+pcrCrId(r).replace(/^CR/i,'') : '';
+      else if(col==='Title') val = r.cr_title || '';
+      else if(col==='Area') val = r.cr_area || '';
+      else if(col==='Subsystem') val = r.cr_subsystem || '';
+      else if(col==='Functionality') val = r.cr_functionality || '';
+      else if(col==='JIRA Hits') val = String(numVal(r.cr_occurrence)||0);
+      else if(col==='Age (days)') val = numVal(r.cr_age)>0 ? String(numVal(r.cr_age)) : '';
+      else if(col==='Status') val = r.cr_status || '';
+      else if(col==='SI') val = r.cr_si || '';
+      else if(col==='Ready Date') val = r.si_ready_date || 'NA';
+      else if(col==='Build Date') val = dateOnly(r.built_date)||'';
+      else if(col==='CR TAG') val = r.cr_tag || '';
+      else if(col==='CR TAG Alias') val = r.cr_tag_alias || '';
+      else if(col==='PDT Tag') val = pcrDisplayPdtTag(r);
+      else if(col==='Last Reported Date') val = dateOnly(r.last_reported_date||r.jira_date_last)||'';
+      else if(col==='Last Reported JIRA') val = r.last_reported_jira||'';
+      return '<td>'+esc(val)+'</td>';
+    }).join('')+'</tr>').join('');
+    const html = '<html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+htmlRows+'</tbody></table></body></html>';
+    const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = String(TARGET||'target').replace(/[^a-z0-9_-]+/ig,'_')+'_pdt_crs.xls';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  };
+
+    window.pcrCopyOutlook = async function(){
+    const rows = filtered.length ? filtered : allRows;
+    if(!rows.length){ alert('No data to copy.'); return; }
+    const btn = document.getElementById('pcrCopyBtn');
+    const origHtml = btn ? btn.innerHTML : '';
+    if(btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Copying...';
+
+    // Truncate text to max chars - Outlook only respects text length, not CSS overflow
+    const trunc = (v, max) => { const s = String(v==null?'':v).trim(); return s.length > max ? s.slice(0,max)+'ΓÇª' : (s||'--'); };
+
+    // Column definitions: [header, width-px, field-or-fn, maxChars]
+    const cols = [
+      { h:'#',                  w:30,  fn:(r,i)=>i+1,                                                    max:4  },
+      { h:'CR ID',              w:72,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:12 },
+      { h:'Title',              w:300, fn:(r)=>r.cr_title||'',                                            max:60 },
+      { h:'Area',               w:70,  fn:(r)=>r.cr_area||'',                                             max:14 },
+      { h:'Subsystem',          w:90,  fn:(r)=>r.cr_subsystem||'',                                        max:18 },
+      { h:'Functionality',      w:90,  fn:(r)=>r.cr_functionality||r.cr_function||'',                     max:18 },
+      { h:'Hits',               w:36,  fn:(r)=>numVal(r.cr_occurrence)||0,                                max:5  },
+      { h:'Age',                w:36,  fn:(r)=>r.cr_age!=null?r.cr_age+'d':'',                            max:5  },
+      { h:'Status',             w:80,  fn:(r)=>r.cr_status||'',                                           max:16 },
+      { h:'SI',                 w:80,  fn:(r)=>r.cr_si||'',                                               max:16 },
+      { h:'Ready Date',         w:82,  fn:(r)=>r.si_ready_date||'',                                       max:12 },
+      { h:'Build Date',         w:82,  fn:(r)=>r.built_date||r.build_date||'',                            max:12 },
+      { h:'PDT Tag',            w:70,  fn:(r)=>r.pdt_tag||'',                                             max:12 },
+      { h:'Last Reported Date', w:100, fn:(r)=>r.last_reported_date||'',                                  max:16 },
+      { h:'Last Reported JIRA', w:110, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
+    ];
+
+    // Build HTML table ΓÇö use width attribute (Outlook respects this) + plain truncated text
+    const thHtml = cols.map(c=>
+      `<th width="${c.w}" style="background:#1e3a8a;color:#fff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #3b5bdb;white-space:nowrap">${c.h}</th>`
+    ).join('');
+
+    const rowsHtml = rows.map((r,idx)=>{
+      const bg = idx%2===0 ? '#ffffff' : '#f8fafc';
+      const crIdRaw = pcrCrId(r) ? String(pcrCrId(r)).replace(/^CR/i,'') : '';
+      const crId    = crIdRaw ? 'CR'+crIdRaw : '';
+      const crUrl   = crIdRaw ? `https://orbit/CR/${crIdRaw}` : '';
+      const jiraKey = String(r.last_reported_jira||'').trim();
+
+      // Status color
+      const st = String(r.cr_status||'').toLowerCase();
+      const stBg    = st.includes('open')?'#fef9c3':st.includes('analysis')?'#ede9fe':st.includes('built')?'#dcfce7':st.includes('fix')?'#fff7ed':'#f1f5f9';
+      const stColor = st.includes('open')?'#854d0e':st.includes('analysis')?'#5b21b6':st.includes('built')?'#166534':st.includes('fix')?'#c2410c':'#475569';
+
+      const cells = cols.map((c,ci)=>{
+        const tdStyle = `padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;vertical-align:middle;background:${bg};`;
+        // Special cells with links or color
+        if(ci===1){
+          // CR ID ΓÇö hyperlink
+          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#1d4ed8;font-weight:900;text-decoration:none">${crId}</a>` : (crId||'--');
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+        }
+        if(ci===8){
+          // Status ΓÇö colored badge
+          const badge = r.cr_status ? `<span style="background:${stBg};color:${stColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:900">${trunc(r.cr_status,16)}</span>` : '--';
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${badge}</td>`;
+        }
+        if(ci===14){
+          // Last Reported JIRA ΓÇö hyperlink
+          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#0ea5e9;font-weight:900;text-decoration:none">${jiraKey}</a>` : '--';
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+        }
+        // Standard cell ΓÇö plain truncated text
+        const val = c.fn(r, idx);
+        const txt = trunc(val, c.max);
+        const align = (ci===0||ci===6||ci===7) ? 'text-align:center;' : '';
+        const color = ci===0 ? 'color:#94a3b8;' : ci===6 ? 'color:#4f46e5;font-weight:900;' : '';
+        return `<td width="${c.w}" style="${tdStyle}${align}${color}white-space:nowrap">${esc(txt)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    const fullHtml = `<html><body><table width="1200" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:fixed"><thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+
+    // TSV fallback (plain text for non-Outlook paste)
+    const tsvHeader = cols.map(c=>c.h).join('\t');
+    const tsvRows = rows.map((r,idx)=>cols.map((c,ci)=>{
+      if(ci===0) return idx+1;
+      return String(c.fn(r,idx)||'').replace(/\t|\n|\r/g,' ');
+    }).join('\t'));
+    const tsv = [tsvHeader].concat(tsvRows).join('\n');
+
+    const done = ok => {
+      if(btn){
+        btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied!' : '<i class="fas fa-exclamation-triangle"></i> Copy failed';
+        setTimeout(()=>{ btn.innerHTML = origHtml; }, 2000);
+      }
+    };
+
+    // 1. Rich HTML (Chrome/Edge Clipboard API)
+    try{
+      if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([fullHtml], {type:'text/html'}),
+          'text/plain': new Blob([tsv],      {type:'text/plain'})
+        })]);
+        done(true); return;
+      }
+    }catch(e){}
+
+    // 2. Plain TSV via writeText
+    try{ await navigator.clipboard.writeText(tsv); done(true); return; }catch(e){}
+
+    // 3. execCommand fallback (HTTP / older browsers)
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = tsv;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(true);
+    }catch(e2){ done(false); }
+  };
+})();
+</script>
+{% endblock %}
+

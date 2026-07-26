@@ -8339,3 +8339,140 @@ def api_jira_filter_jql():
         return jsonify({'ok': False, 'filter_id': filter_id, 'error': 'Filter not found or JIRA lookup failed.'}), 404
     return jsonify({'ok': True, 'filter_id': filter_id, 'jql': jql})
 
+
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_tag_aliases", methods=["GET", "POST"])
+@login_required
+def api_compute_cr_tag_aliases(target_name):
+
+    if not _is_compute_cr_tag_enabled_target(target_name):
+        return jsonify({'success': False, 'message': 'CR TAG aliases are disabled for this target.'}), 403
+    if request.method == 'GET':
+        return jsonify({'success': True, 'groups': _load_compute_cr_tag_alias_config()})
+    data = request.get_json(force=True) or {}
+    groups = _save_compute_cr_tag_alias_config(data.get('groups') or [])
+    return jsonify({'success': True, 'groups': groups, 'message': 'CR TAG aliases saved.'})
+
+
+# =============================================================================
+# PDT TAGGING
+#   GET  /api/dashboard/<target>/pdt_tags  - read existing PDT tags via orbit_client
+
+#   POST /api/dashboard/<target>/pdt_tag   - add/remove tags via PDT_Stats.exe subprocess
+# =============================================================================
+
+PDT_STATS_EXE = r"C:\Dropbox\DATA_MINING\PDT_Stats.exe"
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_tags", methods=["GET", "POST"])
+@login_required
+def api_pdt_tags_get(target_name):
+    """
+    Return existing PDT tags on the given CRs.
+    GET  ?crs=1234,5678   (small lists)
+    POST {crs: [1234, 5678]}  (large lists � avoids URL length limit)
+    Response: { tags: ["PDT_P1", ...] }
+    """
+    from orbit_client import bulk_get_cr_tags
+    if request.method == "POST":
+        body    = request.get_json(force=True) or {}
+        cr_list = [str(c).strip() for c in (body.get("crs") or []) if str(c).strip().isdigit()]
+    else:
+        crs_raw = (request.args.get("crs") or "").strip()
+        cr_list = [c.strip() for c in crs_raw.split(",") if c.strip().isdigit()]
+    if not cr_list:
+        return jsonify({"tags": []})
+    # Cap at 200 CRs to avoid overloading Orbit API
+    cr_list = cr_list[:200]
+    try:
+        all_tags_map = bulk_get_cr_tags(cr_list)
+        tags_set = set()
+        for tag_list in all_tags_map.values():
+            for t in tag_list:
+                if t.strip():
+                    tags_set.add(t.strip())
+        all_tags  = sorted(tags_set)
+        pdt_tags  = [t for t in all_tags if "PDT" in t.upper()]
+        return jsonify({"tags": all_tags, "pdt_tags": pdt_tags})
+    except Exception as e:
+        logger.warning(f"[PDT TAGS GET] {e}")
+        return jsonify({"tags": [], "error": str(e)})
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/pdt_tag", methods=["POST"])
+@login_required
+def api_pdt_tag_post(target_name):
+    """
+    Add / remove PDT tags on a list of CRs by calling PDT_Stats.exe via subprocess.
+    PDT_Stats.exe handles its own Orbit auth internally.
+
+    Body: { crs: ["4520954", ...], add_tag: "PDT_P1", remove_tags: ["PDT_P2"] }
+    Response: { success: bool, message: str }
+
+    PDT_Stats.exe command:
+      PDT_Stats.exe  CRS="CR111,CR222"  CrTags="PDT_P1"  RemoveCrTags="PDT_P2"
+    """
+    import subprocess, re as _re
+
+    data        = request.get_json(force=True) or {}
+    cr_list     = [str(c).strip() for c in (data.get("crs") or []) if str(c).strip().isdigit()]
+    add_tag     = str(data.get("add_tag") or "").strip()
+    remove_tags = [str(t).strip() for t in (data.get("remove_tags") or []) if str(t).strip()]
+
+    if not cr_list:
+        return jsonify({"success": False, "message": "No valid CR numbers provided."})
+    if not add_tag and not remove_tags:
+        return jsonify({"success": False, "message": "Specify at least one tag to Add or Remove."})
+
+    tag_re = _re.compile(r"^[A-Za-z0-9_]{3,}$")
+    if add_tag and not tag_re.match(add_tag):
+        return jsonify({"success": False, "message": f"Invalid add tag: '{add_tag}'"})
+    for rt in remove_tags:
+        if not tag_re.match(rt):
+            return jsonify({"success": False, "message": f"Invalid remove tag: '{rt}'"})
+
+    # Build CRS= param: PDT_Stats.exe expects "CR1234,CR5678" format
+    crs_param = ",".join("CR" + c for c in cr_list)
+
+    # Build command
+    cmd = [PDT_STATS_EXE, f'CRS="{crs_param}"']
+    if add_tag:
+        cmd.append(f'CrTags="{add_tag}"')
+    if remove_tags:
+        cmd.append(f'RemoveCrTags="{",".join(remove_tags)}"')
+
+    logger.info(f"[PDT TAG] Running: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=r"C:\Dropbox\DATA_MINING"
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        logger.info(f"[PDT TAG] Output: {output[:500]}")
+
+        # PDT_Stats.exe prints "Added tag(s) successfully" / "Removed tag(s) successfully"
+        added_count   = output.count("Added tag(s) successfully")
+        removed_count = output.count("Removed tag(s) successfully")
+
+        if result.returncode != 0 and added_count == 0 and removed_count == 0:
+            return jsonify({"success": False, "message": f"PDT_Stats.exe error: {output[:300]}"})
+
+        parts = []
+        if add_tag:    parts.append(f"'{add_tag}' added to {added_count}/{len(cr_list)} CR(s)")
+        if remove_tags: parts.append(f"{remove_tags} removed from {removed_count}/{len(cr_list)} CR(s)")
+        msg = "  |  ".join(parts) or "Done"
+
+        return jsonify({"success": True, "message": msg})
+
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "message": "PDT_Stats.exe timed out (>120s)"})
+    except FileNotFoundError:
+        return jsonify({"success": False, "message": f"PDT_Stats.exe not found at {PDT_STATS_EXE}"})
+    except Exception as e:
+        logger.error(f"[PDT TAG POST] {e}")
+        return jsonify({"success": False, "message": str(e)})

@@ -980,8 +980,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var age = Number(r.cr_age||0);
       var st  = String(r.cr_status||'').toLowerCase();
       var cat = String(r.cr_category||'').toLowerCase();
-            var isDup     = cat === 'dup' || cat === 'invalid_dup' || st === 'dup' || st === 'duplicate' || st === 'invalid_dup' || st.indexOf('dup')>=0;
-      var isInvalid = !isDup && (cat === 'invalid' || cat === 'nosir' || st === 'invalid' || st === 'nosir' || st === 'no sir');
+            // Use cr_category only — 3 exact values
+      var isDup     = cat === 'dup' || cat === 'invalid_dup';
+      var isInvalid = cat === 'invalid';
       if(isDup){ bDup++; return; }
       if(isInvalid){ bInvalid++; return; }
       if(!_isRowActive(r)) return;
