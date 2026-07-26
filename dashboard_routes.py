@@ -499,7 +499,12 @@ def _mtbf_json_to_preview_rows(rows, is_compute=False):
         # Sort rows by date ascending so table always shows oldest→newest
     def _date_sort_key_p(r):
         d = str(r.get('date') or '').strip()
-        return d if d else '9999-99-99'
+        if not d: return '9999-99-99'
+        from datetime import datetime as _dtp
+        for fmt in ('%m/%d/%Y','%Y-%m-%d','%d/%m/%Y','%m-%d-%Y','%d-%m-%Y'):
+            try: return _dtp.strptime(d, fmt).strftime('%Y-%m-%d')
+            except ValueError: pass
+        return d
     rows = sorted(rows or [], key=_date_sort_key_p)
 
     out = []
@@ -650,7 +655,12 @@ def _mtbf_json_to_chart_data(rows, is_compute=False):
         # Sort rows by date ascending so chart and table always show oldest→newest
     def _date_sort_key(r):
         d = str(r.get('date') or '').strip()
-        return d if d else '9999-99-99'
+        if not d: return '9999-99-99'
+        from datetime import datetime as _dtc
+        for fmt in ('%m/%d/%Y','%Y-%m-%d','%d/%m/%Y','%m-%d-%Y','%d-%m-%Y'):
+            try: return _dtc.strptime(d, fmt).strftime('%Y-%m-%d')
+            except ValueError: pass
+        return d
     rows = sorted(rows or [], key=_date_sort_key)
 
     data = []
