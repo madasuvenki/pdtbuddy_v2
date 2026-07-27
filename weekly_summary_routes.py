@@ -7138,8 +7138,6 @@ def api_monthly_report_data():
 
     # 2. Build rows (stability trend)
     build_rows   = _monthly_fetch_build_rows(bu, date_from, date_to)
-    trend        = _monthly_build_stability_trend(build_rows)
-
     # 3. Per-target CR/JIRA data from live tables
     target_data  = _monthly_fetch_all_targets(bu, date_from, date_to, include_hwpdt)
 
@@ -7164,6 +7162,15 @@ def api_monthly_report_data():
         'total_targets':         len(status_table),
     }
 
+    # 8. Overall PDT WBC Target-wise Test Status table
+    #    Devices/Hours/Builds from axiom_job_summary (date-range filtered)
+    #    CRs from overall_crs (PDT reported); crashes = total_jiras+open_jiras; unmapped = open_jiras
+    sel_targets_raw = request.args.get('targets', '').strip()
+    sel_target_set  = {t.strip() for t in sel_targets_raw.split(',') if t.strip()} if sel_targets_raw else set()
+    overall_status  = _monthly_build_overall_status(
+        bu, date_from, date_to, status_table, cr_summary, sel_target_set
+    )
+
     return jsonify({
         'success':            True,
         'bu':                 bu,
@@ -7171,7 +7178,7 @@ def api_monthly_report_data():
         'date_to':            date_to.isoformat(),
         'include_hwpdt':      include_hwpdt,
         'status_table':       status_table,
-        'trend':              trend,
+                'overall_status':     overall_status,
         'pdt_crs':            cr_summary['pdt_crs'],
         'overall_crs':        cr_summary['overall_crs'],
         'unique_overall':     cr_summary['unique_overall'],
@@ -7183,13 +7190,420 @@ def api_monthly_report_data():
 
 
 # ------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?
-# SHAREPOINT 2 -------? Smart Build Report (auto-populated, no manual entry)
-# ------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?
-
 
 # ---------------------------------------------------------------------------
-# Smart Build Report -- sp2_build_consolidate helpers
+# MONTHLY REPORT — Overall PDT WBC Target-wise Test Status helpers
 # ---------------------------------------------------------------------------
+
+def _monthly_get_bu_targets(bu: str) -> list:
+    """
+    Query dashboard_status for the given BU.
+    Returns list of dicts: {target_name, sp_name, db_name, is_active}
+    Excludes rows where sp_name is NULL / empty / 'N/A'.
+    """
+    result = []
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return result
+        cur = conn.cursor(dictionary=True)
+        try:
+            params = []
+            bu_clause = ''
+            if bu and bu != 'ALL':
+                bu_clause = 'AND UPPER(bu) = %s'
+                params.append(bu.upper())
+            cur.execute(f"""
+                SELECT target_name, target_display, sp_name, db_name, is_active, bu
+                FROM `pdt_stats_dashboard`.`dashboard_status`
+                WHERE sp_name IS NOT NULL
+                  AND sp_name != ''
+                  AND sp_name != 'N/A'
+                  {bu_clause}
+                ORDER BY target_name
+            """, params)
+            for row in (cur.fetchall() or []):
+                result.append({
+                    'target_name':    str(row.get('target_name')    or ''),
+                    'target_display': str(row.get('target_display') or ''),
+                    'sp_name':        str(row.get('sp_name')        or ''),
+                    'db_name':        str(row.get('db_name')        or ''),
+                    'is_active':      bool(row.get('is_active')),
+                    'bu':             str(row.get('bu')             or ''),
+                })
+        finally:
+            cur.close()
+            conn.close()
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_monthly_get_bu_targets] error: %s', exc
+        )
+    return result
+
+
+def _monthly_fetch_target_stats(
+    schema: str, db_name: str, sp_name: str,
+    date_from_s: str, date_to_s: str
+) -> dict:
+    """
+    Fetch all stats for ONE target within the date range.
+
+    Column sources:
+      total_jiras  -> COUNT(*)                    from {db_name}_jiras
+                      WHERE jira_date in range
+      open_jiras   -> COUNT(*)                    from {db_name}_openjiras
+                      WHERE jira_date in range
+      total_crs    -> COUNT(DISTINCT mapped_crs)  from {db_name}_jiras
+                      WHERE jira_date in range
+                      (each individual target's own mapped CRs)
+      unique_crs   -> COUNT(DISTINCT crid)        from {base}_overallcrs
+                      WHERE date in range
+                      AND reported_team IN ('PDT_Reported','PDT_Unique')
+                      (unique CRs from the shared overall CR table)
+      devices      -> MAX(device_count)           from axiom_job_summary
+                      WHERE build_name IN (metabuilds from jiras)
+      builds       -> COUNT(DISTINCT build_name)  from axiom_job_summary
+      hours        -> SUM(hours)                  from axiom_job_summary
+
+    base derivation: everything before first platform segment
+      kobuk_le_1_1   -> kobuk   -> kobuk_overallcrs
+      kuno_tx_1_0    -> kuno    -> kuno_overallcrs
+      pinnacles_le_1_0 -> pinnacles -> pinnacles_overallcrs (may not exist -> 0)
+    """
+    result = {
+        'total_jiras':  0,
+        'open_jiras':   0,
+        'total_crs':    0,
+        'unique_crs':   0,
+        'devices':      0,
+        'builds':       0,
+        'hours':        0.0,
+        'metabuilds':   [],
+    }
+
+    # Derive base name for overallcrs table
+    _PLATFORM_SEGS = {'le', 'la', 'tx', 'wp', 'xr', 'iot', 'auto', 'mdm'}
+    parts = db_name.split('_')
+    base_parts = []
+    for p in parts:
+        if p.lower() in _PLATFORM_SEGS:
+            break
+        base_parts.append(p)
+    base_name = '_'.join(base_parts) if base_parts else parts[0]
+
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return result
+        cur = conn.cursor(dictionary=True)
+
+        def tbl(suffix):
+            return f'`{schema}`.`{db_name}_{suffix}`'
+
+        def base_tbl(suffix):
+            return f'`{schema}`.`{db_name.split("_")[0]}_{suffix}`'
+
+
+        def tbl_exists(t):
+            return _tbl_exists_cur(cur, t)
+
+        try:
+            # ── 1. jiras: total JIRA count + metabuilds + total_crs ──────
+            if tbl_exists(tbl('jiras')):
+                # total_jiras
+                cur.execute(f"""
+                    SELECT COUNT(*) AS cnt
+                    FROM {tbl('jiras')}
+                    WHERE DATE(jira_date) >= %s
+                      AND DATE(jira_date) <= %s
+                """, (date_from_s, date_to_s))
+                result['total_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
+
+                # total_crs = COUNT(DISTINCT mapped_crs) per this pl_id's jiras
+                cur.execute(f"""
+                    SELECT COUNT(DISTINCT mapped_crs) AS cnt
+                    FROM {tbl('jiras')}
+                    WHERE DATE(jira_date) >= %s
+                      AND DATE(jira_date) <= %s
+                      AND mapped_crs IS NOT NULL
+                      AND mapped_crs != ''
+                      AND mapped_crs != 'None'
+                """, (date_from_s, date_to_s))
+                result['total_crs'] = int((cur.fetchone() or {}).get('cnt') or 0)
+
+                # distinct metabuilds for axiom lookup
+                cur.execute(f"""
+                    SELECT DISTINCT metabuild
+                    FROM {tbl('jiras')}
+                    WHERE DATE(jira_date) >= %s
+                      AND DATE(jira_date) <= %s
+                      AND metabuild IS NOT NULL
+                      AND metabuild != ''
+                """, (date_from_s, date_to_s))
+                result['metabuilds'] = [
+                    str(row['metabuild']).strip()
+                    for row in (cur.fetchall() or [])
+                    if row.get('metabuild')
+                ]
+
+            # ── 2. openjiras: open JIRA count ────────────────────────────
+            if tbl_exists(tbl('openjiras')):
+                cur.execute(f"""
+                    SELECT COUNT(*) AS cnt
+                    FROM {tbl('openjiras')}
+                    WHERE DATE(jira_date) >= %s
+                      AND DATE(jira_date) <= %s
+                """, (date_from_s, date_to_s))
+                result['open_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
+
+            # ── 3. Total CRs + Unique CRs ────────────────────────────
+            #
+            # [total_crs]  = CRs from jiras in range that exist in unique_crs
+            #                WHERE cr_occurrence != 'Dup'
+            #   Step A: get DISTINCT mapped_crs from {db_name}_jiras in range
+            #   Step B: COUNT(DISTINCT cr) from {db_name}_unique_crs
+            #           WHERE (cr OR mapped_cr) IN (Step A) AND cr_occurrence != 'Dup'
+            #
+            # [unique_crs] = PDT-reported CRs from {base}_overallcrs
+            #                WHERE crid IN (mapped_crs from Step A)
+            #                AND reported_team IN ('PDT_Reported','PDT_Unique')
+            #                (no date filter on overallcrs — overallcrs.date is CR
+            #                 first-reported date, not jira date)
+
+            # Step A: distinct mapped_crs from jiras in range
+            # (already fetched above as result['metabuilds'] step, reuse jiras query)
+            mapped_crs_rows = []
+            if tbl_exists(tbl('jiras')):
+                cur.execute(f"""
+                    SELECT DISTINCT mapped_crs
+                    FROM {tbl('jiras')}
+                    WHERE DATE(jira_date) >= %s
+                      AND DATE(jira_date) <= %s
+                      AND mapped_crs IS NOT NULL
+                      AND mapped_crs != ''
+                      AND mapped_crs != 'None'
+                """, (date_from_s, date_to_s))
+                mapped_crs_rows = [r['mapped_crs'] for r in (cur.fetchall() or [])]
+
+            if mapped_crs_rows:
+                ph_cr = ','.join(['%s'] * len(mapped_crs_rows))
+
+                # Step B: total_crs — unique_crs WHERE occurrence != 'Dup' AND excl Invalid+Dup
+                if tbl_exists(tbl('unique_crs')):
+                    cur.execute(f"""
+                        SELECT COUNT(DISTINCT cr) AS total
+                        FROM {tbl('unique_crs')}
+                        WHERE (cr IN ({ph_cr}) OR mapped_cr IN ({ph_cr}))
+                          AND cr_occurrence != 'Dup'
+                          AND cr_category NOT IN ('Invalid','Dup')
+                    """, mapped_crs_rows + mapped_crs_rows)
+                    result['total_crs'] = int((cur.fetchone() or {}).get('total') or 0)
+
+                # unique_crs — overallcrs CR list → unique_crs per target (matches tbl2_unique)
+                ov_tbl = base_tbl('overallcrs')
+                if tbl_exists(ov_tbl) and tbl_exists(tbl('unique_crs')):
+                    cur.execute(f"""
+                        SELECT DISTINCT crid FROM {ov_tbl}
+                        WHERE DATE(date) >= %s AND DATE(date) <= %s
+                          AND reported_team IN ('PDT_Reported','PDT_Unique')
+                    """, (date_from_s, date_to_s))
+                    ov_cr_list = [r['crid'] for r in (cur.fetchall() or [])]
+                    if ov_cr_list:
+                        ph_ov = ','.join(['%s'] * len(ov_cr_list))
+                        cur.execute(f"""
+                            SELECT COUNT(DISTINCT cr) AS unique_cnt
+                            FROM {tbl('unique_crs')}
+                            WHERE (cr IN ({ph_ov}) OR mapped_cr IN ({ph_ov}))
+                              AND cr_occurrence != 'Dup'
+                              AND cr_category NOT IN ('Invalid','Dup')
+                                                """, ov_cr_list * 2)
+                        result['unique_crs'] = int((cur.fetchone() or {}).get('unique_cnt') or 0)
+        finally:
+            cur.close()
+            conn.close()
+
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_monthly_fetch_target_stats] %s/%s error: %s', schema, db_name, exc
+        )
+
+    # ── 4. axiom: devices / builds / hours from metabuilds ───────────────
+    metabuilds = result['metabuilds']
+    if metabuilds:
+        import json as _json
+        try:
+            conn2 = get_mysql_connection_db(bu_key=None)
+            if conn2:
+                cur2 = conn2.cursor(dictionary=True)
+                try:
+                    ph = ','.join(['%s'] * len(metabuilds))
+                    cur2.execute(f"""
+                        SELECT build_name, device_count, chip_ids, hours
+                        FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                        WHERE build_name IN ({ph})
+                          AND team IN ('QIPL','PDT','SD','CH')
+                          AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%%'
+                    """, metabuilds)
+                    ax_rows = cur2.fetchall() or []
+                finally:
+                    cur2.close()
+                    conn2.close()
+
+                max_devices = 0
+                total_hours = 0.0
+                seen_builds = set()
+
+                for row in ax_rows:
+                    dc = int(row.get('device_count') or 0)
+                    chips_raw = row.get('chip_ids') or '[]'
+                    if isinstance(chips_raw, str):
+                        try:
+                            chips = _json.loads(chips_raw)
+                        except Exception:
+                            chips = []
+                    else:
+                        chips = chips_raw if isinstance(chips_raw, list) else []
+                    dc = max(dc, len(chips))
+                    max_devices = max(max_devices, dc)
+
+                    bn = str(row.get('build_name') or '').strip().upper()
+                    if bn:
+                        seen_builds.add(bn)
+
+                    h = row.get('hours')
+                    if h is not None:
+                        try:
+                            total_hours += float(h)
+                        except Exception:
+                            pass
+
+                result['devices'] = max_devices
+                result['builds']  = len(seen_builds)
+                result['hours']   = round(total_hours, 1)
+
+        except Exception as exc:
+            import logging as _log
+            _log.getLogger('weekly_summary_routes').warning(
+                '[_monthly_fetch_target_stats] axiom error for %s: %s', db_name, exc
+            )
+
+    return result
+
+
+def _monthly_build_overall_status(
+    bu: str, date_from, date_to,
+    status_table: list, cr_summary: dict,
+    sel_target_set: set
+) -> list:
+    """
+    Build the Overall PDT WBC Target-wise Test Status rows.
+
+    Flow:
+      1. dashboard_status  -> all BU targets (target_name, sp_name, db_name)
+      2. Apply target filter (user-selected checkboxes)
+      3. Per target: query {db_name}_jiras / _openjiras / _unique_crs for date range
+      4. Per target: query axiom_job_summary WHERE build_name IN (metabuilds from jiras)
+      5. Assemble row
+
+    Column mapping:
+      PL ID                                <- sp_name  (e.g. Kobuk.LE.1.1)
+      No. of devices                       <- axiom max device_count
+      No. of Builds                        <- axiom distinct build_name count
+      Total Hours                          <- axiom sum hours
+      Total CRs reported by PDT            <- unique_crs total rows in date range
+      Unique CRs reported by PDT           <- unique_crs distinct mapped_cr
+      Total Crashes Reported by PDT        <- total_jiras + open_jiras
+      Total Unmapped JIRAs Reported by PDT <- open_jiras
+    """
+    date_from_s = date_from.isoformat() if hasattr(date_from, 'isoformat') else str(date_from)
+    date_to_s   = date_to.isoformat()   if hasattr(date_to,   'isoformat') else str(date_to)
+
+    # ── Step 1: get all BU targets ─────────────────────────────────────────
+    bu_targets = _monthly_get_bu_targets(bu)
+    if not bu_targets:
+        return []
+
+    # ── Step 2: apply target filter ────────────────────────────────────────
+    sel_up = {t.strip().upper() for t in sel_target_set} if sel_target_set else set()
+    if sel_up:
+        filtered = []
+        for t in bu_targets:
+            sp_up  = t['sp_name'].upper()
+            tgt_up = t['target_name'].upper()
+            parts  = [p for p in sp_up.split('.') if p]
+            pfx    = '.'.join(parts[:2]) if len(parts) >= 2 else sp_up
+            if any(
+                sp_up == s or tgt_up == s or pfx == s
+                or sp_up.startswith(s + '.') or s.startswith(sp_up + '.')
+                for s in sel_up
+            ):
+                filtered.append(t)
+        bu_targets = filtered
+
+    if not bu_targets:
+        return []
+
+    # ── Step 3+4: fetch stats per target ───────────────────────────────────
+    schema = _get_schema_for_bu(bu)
+    if not schema:
+        # fallback: derive from BU_DATABASE_MAPPING
+        try:
+            schema = BU_DATABASE_MAPPING.get(bu.upper(), '')
+        except Exception:
+            schema = ''
+
+    rows = []
+    for tgt in bu_targets:
+        sp_name = tgt['sp_name']
+        db_name = tgt['db_name']
+        display = tgt.get('target_display') or sp_name
+
+        stats = _monthly_fetch_target_stats(
+            schema, db_name, sp_name, date_from_s, date_to_s
+        )
+
+        crashes        = stats['total_jiras'] + stats['open_jiras']
+        unmapped_jiras = stats['open_jiras']
+
+        rows.append({
+            'target':         display,
+            'pl_id':          sp_name,
+            'devices':        stats['devices'],
+            'builds':         stats['builds'],
+            'hours':          stats['hours'],
+            'total_crs':      stats['total_crs'],
+            'unique_crs':     stats['unique_crs'],
+            'crashes':        crashes,
+            'unmapped_jiras': unmapped_jiras,
+        })
+
+    rows.sort(key=lambda r: str(r.get('pl_id') or '').lower())
+    return rows
+
+
+@weekly_summary_bp.route('/api/monthly-report/targets')
+@login_required
+def api_monthly_report_targets():
+    """
+    Return the list of targets for a given BU from dashboard_status.
+    Checkbox value = sp_name (exact axiom_job_summary.software_product key).
+
+    Query params:  bu  (e.g. 'WBC', 'LA')
+    Response:      { targets: [{key, label}] }
+    """
+    bu = (request.args.get('bu') or '').strip().upper()
+    if not bu or bu == 'ALL':
+        return jsonify(targets=[])
+
+    bu_targets = _monthly_get_bu_targets(bu)
+    targets = [
+        {'key': t['sp_name'], 'label': t['sp_name']}
+        for t in bu_targets
+        if t.get('sp_name') and t['sp_name'] != 'N/A'
+    ]
+    return jsonify(targets=targets)
 
 
 def _sp2_meta_build_key(bn: str) -> str:
@@ -8527,6 +8941,420 @@ def _fetch_sp2_consolidate(ws, we, crm_only: bool = True) -> list:
         return []
     finally:
         cur.close(); conn.close()
+
+
+# ---------------------------------------------------------------------------
+# MONTHLY REPORT — WBC Detail sections (QIPLPDT-10905)
+# Sections rendered after the Overall Status table:
+#   1. MTBF Trend per target  (Hours bars + MTBF line vs Builds from Axiom)
+#   2. PDT CRs vs Unique CRs comparison bar chart (per target family)
+#   3. Subsystem occurrence bar charts (Total + Unique, per target)
+#   4. PDT Unique CR table + PDT Reported CR table (per target)
+# ---------------------------------------------------------------------------
+
+def _wbc_mtbf_trend(schema: str, bu_targets: list,
+                    date_from_s: str, date_to_s: str) -> dict:
+    """
+    Read MTBF trend from the same JSON files used by the WBC Live View page.
+    Source : managed_excel/WBC/LIVE_VIEW_STATS/mtbf_{target}_Mainline_Build_Details.json
+    Returns FULL history (no date filter) — chart_rows keyed by sp_name.
+    Each row: { build_label, date, hours, crashes, mtbf }
+    """
+    result = {}
+    try:
+        # Import helpers from wbc_live_view_stats_routes
+        from wbc_live_view_stats_routes import (
+            _discover_targets,
+            _load_or_sync_mainline_mtbf,
+            _load_config as _wbc_load_config,
+            _safe_float,
+            _safe_int,
+        )
+
+        cfg      = _wbc_load_config()
+        wbc_tgts = _discover_targets()          # all targets from live view
+        # build lookup: sp_name (e.g. "Kobuk.LE.1.1") -> wbc target dict
+        sp_to_wbc = {}
+        for wt in wbc_tgts:
+            label = str(wt.get('label') or wt.get('name') or '').strip()
+            if label:
+                sp_to_wbc[label] = wt
+
+        for tgt in bu_targets:
+            sp_name = tgt['sp_name']
+            wt = sp_to_wbc.get(sp_name)
+            if not wt:
+                continue
+            db_cfg     = (cfg.get('targets') or {}).get(wt['key'], {})
+            data       = _load_or_sync_mainline_mtbf(wt, db_cfg)
+            chart_rows = data.get('chart_rows') or []
+            if not chart_rows:
+                continue
+
+            rows = []
+            for r in chart_rows:
+                build  = str(r.get('crm_build_id') or r.get('meta_id') or '').strip()
+                if not build:
+                    continue
+                hours   = round(_safe_float(r.get('hours')), 1)
+                crashes = _safe_int(r.get('crash') if r.get('crash') not in (None, '') else r.get('total_crashes'))
+                mtbf    = round(_safe_float(r.get('mtbf')), 1)
+                if not mtbf and hours and crashes:
+                    mtbf = round(hours / crashes, 1)
+                rows.append({
+                    'build_label': build,
+                    'date':        str(r.get('date') or '')[:10],
+                    'hours':       hours,
+                    'crashes':     crashes,
+                    'mtbf':        mtbf,
+                })
+
+            if rows:
+                result[sp_name] = rows
+
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_wbc_mtbf_trend] error: %s', exc)
+
+    return result
+def _wbc_cr_comparison(schema: str, bu_targets: list,
+                        date_from_s: str, date_to_s: str) -> list:
+    """
+    PDT Overall & Unique CRs comparison bar chart — per target FAMILY.
+
+    Grouping : first word of db_name
+               kobuk_le_1_1 / kobuk_l_3_1 / kobuk_le_1_0  -> kobuk
+               kuno_le_1_0  / kuno_le_1_1 / kuno_tx_1_0   -> kuno
+               pinnacles_le_1_0 / pinnacles_le_2_3 ...     -> pinnacles
+
+    Source   : {base}_overallcrs  WHERE DATE(date) in range
+      Overall PDT CRs = COUNT(*)                  (all reported_team rows)
+      Unique CRs      = COUNT(DISTINCT crid)
+                        WHERE reported_team IN ('PDT_Reported','PDT_Unique')
+
+    Returns list of {family, total_pdt_crs, unique_crs}
+    sorted by family name, only families where table exists.
+    """
+    # group by first word of db_name
+    seen = {}
+    for tgt in bu_targets:
+        base = tgt['db_name'].split('_')[0]          # kobuk, kuno, pinnacles …
+        display = tgt['sp_name'].split('.')[0]        # Kobuk, Kuno, Pinnacles …
+        if base not in seen:
+            seen[base] = display
+
+    result = []
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return result
+        cur = conn.cursor(dictionary=True)
+
+        for base, display in sorted(seen.items()):
+            ov_tbl = f'`{schema}`.`{base}_overallcrs`'
+            if not _tbl_exists_cur(cur, ov_tbl):
+                continue
+            cur.execute(f"""
+                SELECT
+                    COUNT(*) AS total_all,
+                    COUNT(DISTINCT CASE
+                        WHEN reported_team IN ('PDT_Reported','PDT_Unique')
+                        THEN crid END) AS pdt_unique
+                FROM {ov_tbl}
+                WHERE DATE(date) >= %s AND DATE(date) <= %s
+            """, (date_from_s, date_to_s))
+            r = cur.fetchone() or {}
+            result.append({
+                'family':        display,
+                'total_pdt_crs': int(r.get('total_all')  or 0),
+                'unique_crs':    int(r.get('pdt_unique')  or 0),
+            })
+
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_wbc_cr_comparison] error: %s', exc)
+
+    return result
+
+
+def _wbc_subsystem_charts(schema: str, bu_targets: list,
+                           date_from_s: str, date_to_s: str) -> dict:
+    """
+    Subsystem occurrence bar chart data per target.
+    Source: {base}_overallcrs WHERE reported_team IN ('PDT_Reported','PDT_Unique')
+
+    Returns dict keyed by sp_name:
+      {
+        total:  [{subs, count}]   sorted desc
+        unique: [{subs, count}]   sorted desc
+      }
+    """
+    _PLATFORM_SEGS = {'le', 'la', 'tx', 'wp', 'xr', 'iot', 'auto', 'mdm'}
+
+    def _base(db_name):
+        parts = db_name.split('_')
+        bp = []
+        for p in parts:
+            if p.lower() in _PLATFORM_SEGS:
+                break
+            bp.append(p)
+        return '_'.join(bp) if bp else parts[0]
+
+    result = {}
+    seen_bases = {}
+    for tgt in bu_targets:
+        b = _base(tgt['db_name'])
+        if b not in seen_bases:
+            seen_bases[b] = []
+        seen_bases[b].append(tgt['sp_name'])
+
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return result
+        cur = conn.cursor(dictionary=True)
+
+        for base, sp_names in seen_bases.items():
+            ov_tbl = f'`{schema}`.`{base}_overallcrs`'
+            if not _tbl_exists_cur(cur, ov_tbl):
+                continue
+            cur.execute(f"""
+                SELECT subs,
+                       COUNT(*) total_cnt,
+                       COUNT(DISTINCT crid) unique_cnt
+                FROM {ov_tbl}
+                WHERE DATE(date) >= %s AND DATE(date) <= %s
+                  AND reported_team IN ('PDT_Reported','PDT_Unique')
+                  AND subs IS NOT NULL AND subs != ''
+                GROUP BY subs
+                ORDER BY total_cnt DESC
+            """, (date_from_s, date_to_s))
+            rows = cur.fetchall() or []
+            chart = {
+                'total':  [{'subs': r['subs'], 'count': int(r['total_cnt'])}  for r in rows],
+                'unique': sorted(
+                    [{'subs': r['subs'], 'count': int(r['unique_cnt'])} for r in rows],
+                    key=lambda x: -x['count']
+                ),
+            }
+            # Assign to all sp_names sharing this base
+            for sp in sp_names:
+                result[sp] = chart
+
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_wbc_subsystem_charts] error: %s', exc)
+
+    return result
+
+
+def _wbc_cr_tables(schema: str, bu_targets: list,
+                   date_from_s: str, date_to_s: str) -> dict:
+    """
+    Build order:
+      TABLE 2 first  — PDT WBC Unique CRs reported by PDT
+        Step A : DISTINCT crids from {base}_overallcrs
+                 WHERE reported_team IN (PDT_Reported, PDT_Unique)
+                 AND DATE(date) in range
+        Step B : look up in {db_name}_unique_crs
+                 WHERE (cr OR mapped_cr) IN (Step A list)
+                 AND cr_occurrence != 'Dup'
+                 AND cr_category NOT IN ('Invalid','Dup')
+
+      TABLE 3 second — PDT WBC Total CRs reported by PDT
+        Step A : DISTINCT mapped_crs from {db_name}_jiras in range
+        Step B : look up in {db_name}_unique_crs
+                 WHERE (cr OR mapped_cr) IN (Step A list)
+                 AND cr_occurrence != 'Dup'
+                 AND cr_category NOT IN ('Invalid','Dup')
+
+      TABLE 1 last   — Overall Status counts
+        unique_crs_count = len(TABLE 2 rows)   per target
+        total_crs_count  = len(TABLE 3 rows)   per target
+        (counts now always match the detail tables)
+
+    Returns dict keyed by sp_name:
+      { tbl2_unique: [...], tbl3_total: [...] }
+    """
+    result = {}
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return result
+        cur = conn.cursor(dictionary=True)
+
+        # ── Pre-build TABLE 2: overallcrs CR list per family ─────────
+        family_ov_cr_list = {}   # base -> [crid, ...]
+        seen_bases = set()
+        for tgt in bu_targets:
+            base = tgt['db_name'].split('_')[0]
+            if base in seen_bases:
+                continue
+            seen_bases.add(base)
+            ov_tbl = f'`{schema}`.`{base}_overallcrs`'
+            if not _tbl_exists_cur(cur, ov_tbl):
+                family_ov_cr_list[base] = []
+                continue
+            cur.execute(f"""
+                SELECT DISTINCT crid
+                FROM {ov_tbl}
+                WHERE DATE(date) >= %s AND DATE(date) <= %s
+                  AND reported_team IN ('PDT_Reported','PDT_Unique')
+            """, (date_from_s, date_to_s))
+            family_ov_cr_list[base] = [r['crid'] for r in (cur.fetchall() or [])]
+
+        # ── Per target ────────────────────────────────────────────────
+        for tgt in bu_targets:
+            sp_name  = tgt['sp_name']
+            db_name  = tgt['db_name']
+            base     = db_name.split('_')[0]
+            ucrs_tbl = f'`{schema}`.`{db_name}_unique_crs`'
+            entry    = {'tbl2_unique': [], 'tbl3_total': []}
+
+            # ── TABLE 2: overallcrs CR list → unique_crs details ─────
+            ov_cr_list = family_ov_cr_list.get(base, [])
+            if ov_cr_list and _tbl_exists_cur(cur, ucrs_tbl):
+                ph = ','.join(['%s'] * len(ov_cr_list))
+                cur.execute(f"""
+                    SELECT cr, cr_occurrence, jira_date,
+                           cr_area, cr_subsystem, cr_functionality,
+                           cr_title, image, cr_status, cr_category
+                    FROM {ucrs_tbl}
+                    WHERE (cr IN ({ph}) OR mapped_cr IN ({ph}))
+                      AND cr_occurrence != 'Dup'
+                      AND cr_category NOT IN ('Invalid','Dup')
+                    ORDER BY jira_date
+                """, ov_cr_list * 2)
+                for r in (cur.fetchall() or []):
+                    entry['tbl2_unique'].append({
+                        'program':          sp_name,
+                        'cr_id':            str(r.get('cr')               or ''),
+                        'instances':        str(r.get('cr_occurrence')    or ''),
+                        'cr_date':          str(r.get('jira_date')        or '')[:10],
+                        'cr_area':          str(r.get('cr_area')          or ''),
+                        'cr_subsystem':     str(r.get('cr_subsystem')     or ''),
+                        'cr_functionality': str(r.get('cr_functionality') or ''),
+                        'cr_title':         str(r.get('cr_title')         or ''),
+                        'image':            str(r.get('image')            or ''),
+                        'cr_status':        str(r.get('cr_status')        or ''),
+                    })
+
+            # ── TABLE 3: jiras mapped_crs → unique_crs details ───────
+            jiras_tbl = f'`{schema}`.`{db_name}_jiras`'
+            if _tbl_exists_cur(cur, jiras_tbl) and _tbl_exists_cur(cur, ucrs_tbl):
+                cur.execute(f"""
+                    SELECT DISTINCT mapped_crs
+                    FROM {jiras_tbl}
+                    WHERE DATE(jira_date) >= %s AND DATE(jira_date) <= %s
+                      AND mapped_crs IS NOT NULL
+                      AND mapped_crs != '' AND mapped_crs != 'None'
+                """, (date_from_s, date_to_s))
+                mapped_crs = [r['mapped_crs'] for r in (cur.fetchall() or [])]
+
+                if mapped_crs:
+                    ph = ','.join(['%s'] * len(mapped_crs))
+                    cur.execute(f"""
+                        SELECT cr, cr_occurrence, jira_date,
+                               cr_area, cr_subsystem, cr_functionality,
+                               cr_title, image, cr_status, cr_category
+                        FROM {ucrs_tbl}
+                        WHERE (cr IN ({ph}) OR mapped_cr IN ({ph}))
+                          AND cr_occurrence != 'Dup'
+                          AND cr_category NOT IN ('Invalid','Dup')
+                        ORDER BY jira_date
+                    """, mapped_crs * 2)
+                    for r in (cur.fetchall() or []):
+                        entry['tbl3_total'].append({
+                            'program':          sp_name,
+                            'cr_id':            str(r.get('cr')               or ''),
+                            'instances':        str(r.get('cr_occurrence')    or ''),
+                            'cr_date':          str(r.get('jira_date')        or '')[:10],
+                            'cr_area':          str(r.get('cr_area')          or ''),
+                            'cr_subsystem':     str(r.get('cr_subsystem')     or ''),
+                            'cr_functionality': str(r.get('cr_functionality') or ''),
+                            'cr_title':         str(r.get('cr_title')         or ''),
+                            'image':            str(r.get('image')            or ''),
+                            'cr_status':        str(r.get('cr_status')        or ''),
+                        })
+
+            result[sp_name] = entry
+
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning(
+            '[_wbc_cr_tables] error: %s', exc)
+
+    return result
+
+@weekly_summary_bp.route('/api/monthly-report/wbc-detail')
+@login_required
+def api_monthly_report_wbc_detail():
+    """
+    Return WBC-specific detail sections for the monthly report.
+    Called after the main /api/monthly-report/data response is rendered.
+
+    Query params: bu, date_from, date_to, targets (optional comma-separated)
+
+    Response:
+    {
+      success,
+      mtbf_trend:      {sp_name: [{build_label, hours, crashes, mtbf}]},
+      cr_comparison:   [{family, total_pdt_crs, unique_crs}],
+      subsystem_charts:{sp_name: {total:[{subs,count}], unique:[{subs,count}]}},
+      cr_tables:       {sp_name: {unique_crs:[...], reported_crs:[...]}},
+    }
+    """
+    bu            = (request.args.get('bu') or 'ALL').upper()
+    date_from, date_to = _monthly_date_range_from_request()
+    date_from_s   = date_from.isoformat()
+    date_to_s     = date_to.isoformat()
+
+    sel_targets_raw = request.args.get('targets', '').strip()
+    sel_target_set  = {t.strip().upper() for t in sel_targets_raw.split(',') if t.strip()} \
+                      if sel_targets_raw else set()
+
+    # Get BU targets from dashboard_status
+    bu_targets = _monthly_get_bu_targets(bu)
+
+    # Apply target filter
+    if sel_target_set:
+        filtered = []
+        for t in bu_targets:
+            sp_up = t['sp_name'].upper()
+            parts = [p for p in sp_up.split('.') if p]
+            pfx   = '.'.join(parts[:2]) if len(parts) >= 2 else sp_up
+            if any(sp_up == s or pfx == s or sp_up.startswith(s + '.') or s.startswith(sp_up + '.')
+                   for s in sel_target_set):
+                filtered.append(t)
+        bu_targets = filtered
+
+    schema = _get_schema_for_bu(bu)
+    if not schema:
+        try:
+            schema = BU_DATABASE_MAPPING.get(bu, '')
+        except Exception:
+            schema = ''
+
+    mtbf_trend       = _wbc_mtbf_trend(schema, bu_targets, date_from_s, date_to_s)
+    cr_tables        = _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s)
+
+    return jsonify({
+        'success':          True,
+        'bu':               bu,
+        'date_from':        date_from_s,
+        'date_to':          date_to_s,
+        'mtbf_trend':       mtbf_trend,
+        'cr_tables':        cr_tables,
+    })
 
 @weekly_summary_bp.route('/weekly-report/smart-build-report')
 @login_required

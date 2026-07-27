@@ -7,8 +7,143 @@
   function fmt(n) { n = Number(n || 0); return isFinite(n) ? n.toLocaleString() : '0'; }
   function fmtF(n, d) { n = Number(n || 0); return isFinite(n) ? n.toFixed(d == null ? 1 : d) : '0'; }
 
-  /* ── state ── */
-  var state = { data: null };
+    /* ── state ── */
+  var state = { data: null, allTargets: [] };
+
+  /* ── Page loading overlay ── */
+  window.mrShowOverlay = function(msg) {
+    var o = $('mrPageOverlay');
+    var m = $('mrOverlayMsg');
+    if (m && msg) m.textContent = msg;
+    if (o) o.style.display = 'flex';
+  };
+  window.mrHideOverlay = function() {
+    var o = $('mrPageOverlay');
+    if (o) o.style.display = 'none';
+  };
+
+  /* ================================================================
+     TARGET MULTI-SELECT DROPDOWN
+     Populated when BU changes via /api/monthly-report/targets?bu=
+     ================================================================ */
+  var _tgtOpen = false;
+
+  function tgtTrigger()  { return $('mrTgtTrigger'); }
+  function tgtDropdown() { return $('mrTgtDropdown'); }
+  function tgtList()     { return $('mrTgtList'); }
+  function tgtLabel()    { return $('mrTgtLabel'); }
+  function tgtCount()    { return $('mrTgtCount'); }
+
+  function tgtOpen() {
+    _tgtOpen = true;
+    tgtDropdown().style.display = 'block';
+    tgtTrigger().classList.add('open');
+    var si = $('mrTgtSearch'); if (si) { si.value = ''; tgtFilterItems(''); si.focus(); }
+  }
+  function tgtClose() {
+    _tgtOpen = false;
+    tgtDropdown().style.display = 'none';
+    tgtTrigger().classList.remove('open');
+  }
+
+  function tgtFilterItems(q) {
+    q = (q || '').toLowerCase();
+    var items = tgtList().querySelectorAll('.mr-tgt-item');
+    items.forEach(function (el) {
+      var lbl = (el.getAttribute('data-label') || '').toLowerCase();
+      el.classList.toggle('hidden', q.length > 0 && lbl.indexOf(q) < 0);
+    });
+  }
+
+  function tgtGetChecked() {
+    var boxes = tgtList().querySelectorAll('input[type=checkbox]');
+    var out = [];
+    boxes.forEach(function (cb) { if (cb.checked) out.push(cb.value); });
+    return out;
+  }
+
+  function tgtUpdateLabel() {
+    var checked = tgtGetChecked();
+    var total   = tgtList().querySelectorAll('.mr-tgt-item').length;
+    var lbl = tgtLabel(), cnt = tgtCount();
+    if (!total) { lbl.textContent = 'All targets'; cnt.textContent = ''; return; }
+    if (checked.length === 0 || checked.length === total) {
+      lbl.textContent = 'All targets (' + total + ')';
+      cnt.textContent = '';
+    } else {
+      lbl.textContent = checked.length + ' of ' + total + ' selected';
+      cnt.textContent = '(' + checked.length + ')';
+    }
+  }
+
+  function tgtBuildList(targets) {
+    /* targets = [{key, label}] */
+    state.allTargets = targets || [];
+    var list = tgtList();
+    if (!targets || !targets.length) {
+      list.innerHTML = '<div class="mr-tgt-empty">No targets found for this BU</div>';
+      tgtUpdateLabel();
+      return;
+    }
+    var html = '';
+    targets.forEach(function (t) {
+      html += '<label class="mr-tgt-item" data-label="' + esc((t.label || t.key).toLowerCase()) + '">';
+      html += '<input type="checkbox" value="' + esc(t.key) + '" checked>';
+      html += esc(t.label || t.key);
+      html += '</label>';
+    });
+    list.innerHTML = html;
+    list.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+      cb.addEventListener('change', tgtUpdateLabel);
+    });
+    tgtUpdateLabel();
+  }
+
+  function tgtLoadForBu(bu) {
+    if (!bu || bu === 'ALL') {
+      tgtList().innerHTML = '<div class="mr-tgt-empty">Select a specific BU to filter targets</div>';
+      state.allTargets = [];
+      tgtUpdateLabel();
+      return;
+    }
+    tgtList().innerHTML = '<div class="mr-tgt-empty"><i class="fas fa-circle-notch" style="animation:mr-spin .7s linear infinite;"></i> Loading…</div>';
+    fetch('/api/monthly-report/targets?bu=' + encodeURIComponent(bu))
+      .then(function (r) { return r.json(); })
+      .then(function (d) { tgtBuildList(d.targets || []); })
+      .catch(function () {
+        tgtList().innerHTML = '<div class="mr-tgt-empty">Failed to load targets</div>';
+      });
+  }
+
+  /* Wire up dropdown events */
+  document.addEventListener('DOMContentLoaded', function () {
+    var trigger = tgtTrigger();
+    if (trigger) {
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        _tgtOpen ? tgtClose() : tgtOpen();
+      });
+      trigger.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _tgtOpen ? tgtClose() : tgtOpen(); }
+        if (e.key === 'Escape') tgtClose();
+      });
+    }
+    document.addEventListener('click', function (e) {
+      if (_tgtOpen && !($('mrTgtWrap') && $('mrTgtWrap').contains(e.target))) tgtClose();
+    });
+    var si = $('mrTgtSearch');
+    if (si) si.addEventListener('input', function () { tgtFilterItems(this.value); });
+    var sa = $('mrTgtSelAll');
+    if (sa) sa.addEventListener('click', function () {
+      tgtList().querySelectorAll('input[type=checkbox]').forEach(function (cb) { cb.checked = true; });
+      tgtUpdateLabel();
+    });
+    var ca = $('mrTgtClearAll');
+    if (ca) ca.addEventListener('click', function () {
+      tgtList().querySelectorAll('input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
+      tgtUpdateLabel();
+    });
+  });
 
   /* ================================================================
      PURE SVG CHART ENGINE  — zero external dependencies
@@ -262,110 +397,138 @@
   /* ────────────────────────────────────────────────────────────────
      svgTrendChart  — bars (hours, left y) + line (MTBF, right y)
   ──────────────────────────────────────────────────────────────── */
-  function svgTrendChart(el, opts) {
+    function svgTrendChart(el, opts) {
     el.innerHTML = '';
     var cats  = opts.cats  || [];
     var bars  = opts.bars  || [];
     var line  = opts.line  || [];
     var title = opts.title || '';
-    var H     = opts.height || 280;
-    var PAD   = { top: 38, right: 62, bottom: 76, left: 54 };
+    var H     = opts.height || 300;
 
-    var barW = Math.max(14, Math.min(34, Math.floor(600 / Math.max(cats.length, 1)) - 8));
-    var W    = Math.max(cats.length * (barW + 8) + PAD.left + PAD.right, 360);
+    if (!cats.length) { el.innerHTML = '<div class="mr-empty">No data</div>'; return; }
+
+    /* ── auto-size: fill container width ── */
+    var containerW = el.offsetWidth || el.parentElement && el.parentElement.offsetWidth || 900;
+    containerW = Math.max(containerW, 420);
+
+    /* label length → bottom padding */
+    var maxLabelLen = cats.reduce(function(m,c){ return Math.max(m, String(c||'').length); }, 0);
+    var bottomPad   = Math.min(160, Math.max(80, maxLabelLen * 5.2));
+    var PAD = { top: 42, right: 68, bottom: bottomPad, left: 58 };
+
+    /* bar width: fill full width evenly, min 8 max 48 */
+    var plotW = containerW - PAD.left - PAD.right;
+    var barW  = Math.max(8, Math.min(48, Math.floor(plotW / cats.length) - 6));
+    /* if bars are very narrow, widen the whole chart */
+    var W = Math.max(containerW, cats.length * (barW + 6) + PAD.left + PAD.right);
+    plotW = W - PAD.left - PAD.right;
+    /* recalc barW to fill plotW evenly */
+    barW = Math.max(8, Math.floor(plotW / cats.length) - 6);
+    var gap  = Math.floor((plotW - cats.length * barW) / cats.length);
+    var step = barW + gap;
+
     var totalH = H + PAD.top + PAD.bottom;
 
-    var maxBar  = Math.max.apply(null, bars.concat([0])) || 1;
+    var maxBar   = Math.max.apply(null, bars.concat([0])) || 1;
     var barTicks = niceTicks(maxBar, 5);
     var yMaxBar  = barTicks[barTicks.length - 1];
 
-    var lineVals = line.filter(function (v) { return v != null; });
-    var maxLine  = Math.max.apply(null, lineVals.concat([0])) || 1;
+    var lineVals  = line.filter(function(v){ return v != null; });
+    var maxLine   = Math.max.apply(null, lineVals.concat([0])) || 1;
     var lineTicks = niceTicks(maxLine, 5);
     var yMaxLine  = lineTicks[lineTicks.length - 1];
 
-    var svg = svgEl('svg', { width: W, height: totalH, style: 'display:block;overflow:visible;font-family:inherit;' });
+    /* SVG with viewBox so it scales to container */
+    var svg = svgEl('svg', {
+      viewBox: '0 0 ' + W + ' ' + totalH,
+      preserveAspectRatio: 'xMinYMid meet',
+      style: 'display:block;width:100%;height:auto;overflow:visible;font-family:inherit;'
+    });
     el.appendChild(svg);
 
     /* title */
-    if (title) svgTxt(svg, PAD.left + (W - PAD.left - PAD.right) / 2, 20, title,
-      { 'text-anchor': 'middle', 'font-size': '11', 'font-weight': '900', fill: '#1e293b' });
+    if (title) svgTxt(svg, PAD.left + plotW / 2, 22, title,
+      { 'text-anchor':'middle','font-size':'12','font-weight':'900', fill:'#1e293b' });
 
-    /* left y-axis (hours) */
-    barTicks.forEach(function (v) {
+    /* grid + left y-axis (hours) */
+    barTicks.forEach(function(v){
       var y = PAD.top + H - (v / yMaxBar) * H;
-      svg.appendChild(svgEl('line', { x1: PAD.left, y1: y, x2: W - PAD.right, y2: y,
-        stroke: v === 0 ? '#94a3b8' : '#e2e8f0', 'stroke-width': v === 0 ? 1.5 : 1 }));
-      svgTxt(svg, PAD.left - 5, y + 3, v % 1 === 0 ? String(v) : fmtF(v, 1),
-        { 'text-anchor': 'end', 'font-size': '9', fill: '#64748b' });
+      svg.appendChild(svgEl('line', { x1:PAD.left, y1:y, x2:W-PAD.right, y2:y,
+        stroke: v===0?'#94a3b8':'#e2e8f0', 'stroke-width': v===0?1.5:1 }));
+      svgTxt(svg, PAD.left-5, y+3, v%1===0?String(v):fmtF(v,1),
+        { 'text-anchor':'end','font-size':'9', fill:'#64748b' });
     });
-    var ylL = svgEl('text', { transform: 'rotate(-90)', x: -(PAD.top + H / 2), y: 14,
-      'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#64748b' });
+    var ylL = svgEl('text', { transform:'rotate(-90)', x:-(PAD.top+H/2), y:15,
+      'text-anchor':'middle','font-size':'9','font-weight':'700', fill:'#64748b' });
     ylL.textContent = 'Hours'; svg.appendChild(ylL);
 
     /* right y-axis (MTBF) */
     if (lineVals.length) {
-      lineTicks.forEach(function (v) {
+      lineTicks.forEach(function(v){
         var y = PAD.top + H - (v / yMaxLine) * H;
-        svgTxt(svg, W - PAD.right + 5, y + 3, v % 1 === 0 ? String(v) : fmtF(v, 1),
-          { 'text-anchor': 'start', 'font-size': '9', fill: '#f59e0b' });
+        svgTxt(svg, W-PAD.right+5, y+3, v%1===0?String(v):fmtF(v,1),
+          { 'text-anchor':'start','font-size':'9', fill:'#f59e0b' });
       });
-      var ylR = svgEl('text', { transform: 'rotate(90)', x: PAD.top + H / 2, y: -(W - PAD.right + 46),
-        'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#f59e0b' });
+      var ylR = svgEl('text', { transform:'rotate(90)', x:PAD.top+H/2, y:-(W-PAD.right+50),
+        'text-anchor':'middle','font-size':'9','font-weight':'700', fill:'#f59e0b' });
       ylR.textContent = 'MTBF'; svg.appendChild(ylR);
     }
 
-    /* bars */
-    cats.forEach(function (cat, i) {
+    /* bars + x-labels */
+    cats.forEach(function(cat, i){
       var val = bars[i] || 0;
       var bh  = Math.max((val / yMaxBar) * H, 0);
-      var x   = PAD.left + i * (barW + 8) + 4;
+      var cx  = PAD.left + i * step + barW / 2;
+      var x   = PAD.left + i * step;
       var y   = PAD.top + H - bh;
       var mtbfVal = line[i];
-      var rect = svgEl('rect', { x: x, y: y, width: barW, height: bh,
-        fill: '#1e3a5f', rx: 2, opacity: '0.85', style: 'cursor:pointer;transition:opacity .12s;' });
-      rect.addEventListener('mouseenter', function (e) {
-        rect.setAttribute('opacity', '1');
-        showTip(e, '<b>' + esc(cat) + '</b>\nHours: <b>' + fmtF(val, 1) + '</b>'
-          + (mtbfVal != null ? '\nMTBF: <b>' + fmtF(mtbfVal, 1) + '</b>' : ''));
+
+      var rect = svgEl('rect', { x:x, y:y, width:barW, height:bh,
+        fill:'#1e3a5f', rx:2, opacity:'0.85', style:'cursor:pointer;transition:opacity .12s;' });
+      rect.addEventListener('mouseenter', function(e){
+        rect.setAttribute('opacity','1');
+        showTip(e, '<b>'+esc(cat)+'</b>\nHours: <b>'+fmtF(val,1)+'</b>'
+          +(mtbfVal!=null?'\nMTBF: <b>'+fmtF(mtbfVal,1)+'</b>':''));
       });
       rect.addEventListener('mousemove', moveTip);
-      rect.addEventListener('mouseleave', function () { rect.setAttribute('opacity', '0.85'); hideTip(); });
+      rect.addEventListener('mouseleave', function(){ rect.setAttribute('opacity','0.85'); hideTip(); });
       svg.appendChild(rect);
 
-      /* x label */
+      /* x-label: full text, rotated -55deg, anchored at bar centre */
+      var labelFontSize = Math.max(7, Math.min(9, Math.floor(step * 0.55)));
       var lbl = svgEl('text', {
-        transform: 'rotate(-40,' + (x + barW / 2) + ',' + (PAD.top + H + 9) + ')',
-        x: x + barW / 2, y: PAD.top + H + 9,
-        'text-anchor': 'end', 'font-size': '8', 'font-weight': '700', fill: '#475569'
+        transform: 'rotate(-55,' + cx + ',' + (PAD.top+H+8) + ')',
+        x: cx, y: PAD.top+H+8,
+        'text-anchor':'end', 'font-size': String(labelFontSize),
+        'font-weight':'600', fill:'#475569'
       });
-      lbl.textContent = cat.length > 18 ? cat.slice(0, 17) + '\u2026' : cat;
+      lbl.textContent = String(cat || '');
       svg.appendChild(lbl);
     });
 
     /* MTBF line + dots */
     if (lineVals.length) {
       var pts = [];
-      cats.forEach(function (cat, i) {
+      cats.forEach(function(cat, i){
         var v = line[i];
         if (v == null) return;
         pts.push({
-          cx: PAD.left + i * (barW + 8) + 4 + barW / 2,
+          cx: PAD.left + i * step + barW / 2,
           cy: PAD.top + H - (v / yMaxLine) * H,
           v: v, cat: cat
         });
       });
-      for (var i = 0; i < pts.length - 1; i++) {
+      for (var pi = 0; pi < pts.length-1; pi++) {
         svg.appendChild(svgEl('line', {
-          x1: pts[i].cx, y1: pts[i].cy, x2: pts[i + 1].cx, y2: pts[i + 1].cy,
-          stroke: '#f59e0b', 'stroke-width': 2.5
+          x1:pts[pi].cx, y1:pts[pi].cy, x2:pts[pi+1].cx, y2:pts[pi+1].cy,
+          stroke:'#f59e0b', 'stroke-width':2.5
         }));
       }
-      pts.forEach(function (p) {
-        var dot = svgEl('circle', { cx: p.cx, cy: p.cy, r: 4,
-          fill: '#f59e0b', stroke: '#fff', 'stroke-width': 1.5, style: 'cursor:pointer;' });
-        dot.addEventListener('mouseenter', function (e) {
-          showTip(e, '<b>' + esc(p.cat) + '</b>\nMTBF: <b>' + fmtF(p.v, 1) + '</b>');
+      pts.forEach(function(p){
+        var dot = svgEl('circle', { cx:p.cx, cy:p.cy, r:4,
+          fill:'#f59e0b', stroke:'#fff', 'stroke-width':1.5, style:'cursor:pointer;' });
+        dot.addEventListener('mouseenter', function(e){
+          showTip(e, '<b>'+esc(p.cat)+'</b>\nMTBF: <b>'+fmtF(p.v,1)+'</b>');
         });
         dot.addEventListener('mousemove', moveTip);
         dot.addEventListener('mouseleave', hideTip);
@@ -375,47 +538,63 @@
 
     /* baseline */
     svg.appendChild(svgEl('line', {
-      x1: PAD.left, y1: PAD.top + H, x2: W - PAD.right, y2: PAD.top + H,
-      stroke: '#94a3b8', 'stroke-width': 1.5
+      x1:PAD.left, y1:PAD.top+H, x2:W-PAD.right, y2:PAD.top+H,
+      stroke:'#94a3b8', 'stroke-width':1.5
     }));
 
     /* legend */
     var lx = PAD.left, ly = totalH - 10;
-    svg.appendChild(svgEl('rect', { x: lx, y: ly - 9, width: 11, height: 9, fill: '#1e3a5f', rx: 2 }));
-    svgTxt(svg, lx + 14, ly, 'Hours', { 'font-size': '9', 'font-weight': '800', fill: '#475569' });
+    svg.appendChild(svgEl('rect', { x:lx, y:ly-9, width:11, height:9, fill:'#1e3a5f', rx:2 }));
+    svgTxt(svg, lx+14, ly, 'Hours', { 'font-size':'9','font-weight':'800', fill:'#475569' });
     if (lineVals.length) {
       lx += 52;
-      svg.appendChild(svgEl('line', { x1: lx, y1: ly - 4, x2: lx + 12, y2: ly - 4, stroke: '#f59e0b', 'stroke-width': 2.5 }));
-      svg.appendChild(svgEl('circle', { cx: lx + 6, cy: ly - 4, r: 3, fill: '#f59e0b' }));
-      svgTxt(svg, lx + 17, ly, 'MTBF', { 'font-size': '9', 'font-weight': '800', fill: '#475569' });
+      svg.appendChild(svgEl('line', { x1:lx, y1:ly-4, x2:lx+12, y2:ly-4, stroke:'#f59e0b','stroke-width':2.5 }));
+      svg.appendChild(svgEl('circle', { cx:lx+6, cy:ly-4, r:3, fill:'#f59e0b' }));
+      svgTxt(svg, lx+17, ly, 'MTBF', { 'font-size':'9','font-weight':'800', fill:'#475569' });
     }
   }
-  /* ================================================================
+    /* ================================================================
      END SVG CHART ENGINE
      ================================================================ */
 
-  /* ── Quick presets ── */
-  $('mrPreset').addEventListener('change', function () {
-    var p = this.value; if (!p) return;
-    var today = new Date(), y = today.getFullYear(), m = today.getMonth();
-    var from, to;
-    if (p === 'last_month') { var lm = new Date(y, m, 0); from = new Date(lm.getFullYear(), lm.getMonth(), 1); to = lm; }
-    else if (p === 'last_3m') { from = new Date(y, m - 3, 1); to = new Date(y, m, 0); }
-    else if (p === 'last_6m') { from = new Date(y, m - 6, 1); to = new Date(y, m, 0); }
-    else if (p === 'this_year') { from = new Date(y, 0, 1); to = today; }
-    if (from && to) {
-      $('mrDateFrom').value = from.toISOString().slice(0, 10);
-      $('mrDateTo').value = to.toISOString().slice(0, 10);
-    }
-  });
+  /* ── Wire up all UI events inside DOMContentLoaded ── */
+  document.addEventListener('DOMContentLoaded', function () {
 
-  /* ── HWPDT toggle style ── */
-  $('mrHwpdtChk').addEventListener('change', function () {
-    $('mrHwpdtToggle').classList.toggle('active', this.checked);
-  });
+    /* BU change → reload target list */
+    if ($('mrBuSel')) $('mrBuSel').addEventListener('change', function () {
+      tgtLoadForBu(this.value);
+    });
 
-  /* ── Generate ── */
-  $('mrGenerateBtn').addEventListener('click', generateReport);
+    /* Quick presets */
+    if ($('mrPreset')) $('mrPreset').addEventListener('change', function () {
+      var p = this.value; if (!p) return;
+      var today = new Date(), y = today.getFullYear(), m = today.getMonth();
+      var from, to;
+      if (p === 'last_month') { var lm = new Date(y, m, 0); from = new Date(lm.getFullYear(), lm.getMonth(), 1); to = lm; }
+      else if (p === 'last_3m') { from = new Date(y, m - 3, 1); to = new Date(y, m, 0); }
+      else if (p === 'last_6m') { from = new Date(y, m - 6, 1); to = new Date(y, m, 0); }
+      else if (p === 'this_year') { from = new Date(y, 0, 1); to = today; }
+      if (from && to) {
+        $('mrDateFrom').value = from.toISOString().slice(0, 10);
+        $('mrDateTo').value = to.toISOString().slice(0, 10);
+      }
+    });
+
+    /* HWPDT toggle style */
+    if ($('mrHwpdtChk')) $('mrHwpdtChk').addEventListener('change', function () {
+      $('mrHwpdtToggle').classList.toggle('active', this.checked);
+    });
+
+    /* Generate button */
+    if ($('mrGenerateBtn')) $('mrGenerateBtn').addEventListener('click', generateReport);
+
+    /* Export button */
+    if ($('mrExportBtn')) $('mrExportBtn').addEventListener('click', function () {
+      var d = state.data; if (!d) { alert('Generate the report first.'); return; }
+      window.dlCsv('pdt', this);
+    });
+
+  }); /* end DOMContentLoaded */
 
   function generateReport() {
     var bu   = ($('mrBuSel').value || 'ALL');
@@ -424,45 +603,158 @@
     var incl = $('mrHwpdtChk').checked ? '1' : '0';
     if (!df || !dt) { alert('Please select a date range.'); return; }
 
-    var c = $('mrContent');
-    c.innerHTML = '<div class="mr-loading"><div class="mr-spinner"></div> Loading report data\u2026</div>';
+    /* show full-page loading overlay */
+    if (window.mrShowOverlay) mrShowOverlay('Fetching report data…');
+
+    /* Collect selected targets — checkbox value = sp_name e.g. "Kobuk.LE.1.1" */
+    var checked = tgtGetChecked();
+    var total   = tgtList().querySelectorAll('.mr-tgt-item').length;
+    /* If none checked OR all checked → send empty (= no filter = all targets) */
+    var selTgts = (checked.length > 0 && checked.length < total) ? checked : [];
+
+        var c = $('mrContent');
+    c.innerHTML = '<div class="mr-loading"><div class="mr-spinner"></div> Loading report data…</div>';
 
     var qs = 'bu=' + encodeURIComponent(bu)
       + '&date_from=' + encodeURIComponent(df)
       + '&date_to='   + encodeURIComponent(dt)
       + '&include_hwpdt=' + incl;
+    if (selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
 
     fetch('/api/monthly-report/data?' + qs)
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (!d.success) {
+                if (!d.success) {
+          if (window.mrHideOverlay) mrHideOverlay();
           c.innerHTML = '<div class="mr-empty"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Failed to load data.</div>';
           return;
         }
-        state.data = d;
+                state.data = d;
+        /* Render main sections immediately — page is usable now */
         renderAll(d);
+        /* Hide overlay as soon as main content is visible */
+        if (window.mrHideOverlay) mrHideOverlay();
+        /* WBC detail sections load async in background — no spinner shown */
+        triggerWbcDetail();
       })
-      .catch(function (e) { c.innerHTML = '<div class="mr-empty">Error: ' + esc(e.message) + '</div>'; });
+      .catch(function (e) {
+        if (window.mrHideOverlay) mrHideOverlay();
+        c.innerHTML = '<div class="mr-empty">Error: ' + esc(e.message) + '</div>';
+      });
   }
 
   /* ── Render all sections ── */
   function renderAll(d) {
     var c = $('mrContent'); c.innerHTML = '';
     c.appendChild(buildKpi(d));
-    if (Object.keys(d.trend || {}).length)                              c.appendChild(buildTrend(d));
+    if ((d.overall_status || []).length) c.appendChild(buildOverallStatus(d));
     if ((d.pdt_area_chart     && (d.pdt_area_chart.overall     || []).length)) c.appendChild(buildArea(d, 'pdt'));
     if ((d.overall_area_chart && (d.overall_area_chart.overall || []).length)) c.appendChild(buildArea(d, 'overall'));
-    if ((d.by_target     || []).length)  c.appendChild(buildTgtSummary(d));
-    if ((d.status_table  || []).length)  c.appendChild(buildStatus(d));
-    if ((d.pdt_crs       || []).length)  c.appendChild(buildCrSec(d, 'pdt'));
+            if ((d.pdt_crs       || []).length)  c.appendChild(buildCrSec(d, 'pdt'));
     if ((d.overall_crs   || []).length)  c.appendChild(buildCrSec(d, 'overall'));
 
-    /* SVG charts render synchronously — draw immediately after DOM is ready */
-    renderTrend(d, Object.keys(d.trend || {})[0] || '');
+    /* SVG charts render synchronously */
     renderArea(d, 'pdt',     'ALL');
     renderArea(d, 'overall', 'ALL');
-    renderTgt(d);
   }
+
+  /* ── WBC Detail sections (QIPLPDT-10905) ── */
+  function triggerWbcDetail() {
+    var bu      = ($('mrBuSel') && $('mrBuSel').value) || '';
+    var df      = ($('mrDateFrom') && $('mrDateFrom').value) || '';
+    var dt      = ($('mrDateTo')   && $('mrDateTo').value)   || '';
+    var checked = tgtGetChecked();
+    var total   = tgtList().querySelectorAll('.mr-tgt-item').length;
+    var selTgts = (checked.length > 0 && checked.length < total) ? checked : [];
+    if ((bu.toUpperCase() === 'WBC') && df && dt) {
+      fetchWbcDetail(bu, df, dt, selTgts);
+    }
+  }
+
+  /* ================================================================
+     OVERALL PDT WBC TARGET-WISE TEST STATUS TABLE
+     Columns: S.No | PL ID | No. of Devices | No. of Builds | Total Hours
+              | Total CRs reported by PDT | Unique CRs reported by PDT
+              | Total Crashes Reported by PDT | Total Unmapped JIRAs Reported by PDT
+     ================================================================ */
+  function buildOverallStatus(d) {
+    var rows = d.overall_status || [];
+    var bu   = d.bu || '';
+    var sec  = mkSec('mrOverallStatusSec',
+      '<i class="fas fa-table"></i> Overall PDT ' + esc(bu) + ' Target-wise Test Status',
+      fmt(rows.length) + ' targets');
+    sec.querySelector('.mr-section-actions').innerHTML =
+      '<button class="mr-copy-btn" onclick="copyTable(\'mrOvStatusTbl\',this)"><i class="fas fa-copy"></i> Copy</button>'
+      + '<button class="mr-copy-btn" onclick="dlOverallStatusCsv(this)"><i class="fas fa-download"></i> CSV</button>';
+
+    var tD  = rows.reduce(function (a, r) { return a + Number(r.devices        || 0); }, 0);
+    var tB  = rows.reduce(function (a, r) { return a + Number(r.builds         || 0); }, 0);
+    var tH  = rows.reduce(function (a, r) { return a + Number(r.hours          || 0); }, 0);
+    var tTC = rows.reduce(function (a, r) { return a + Number(r.total_crs      || 0); }, 0);
+    var tUC = rows.reduce(function (a, r) { return a + Number(r.unique_crs     || 0); }, 0);
+    var tCR = rows.reduce(function (a, r) { return a + Number(r.crashes        || 0); }, 0);
+    var tUJ = rows.reduce(function (a, r) { return a + Number(r.unmapped_jiras || 0); }, 0);
+
+    var html = '<div class="mr-ovtbl-wrap"><table class="mr-ovtbl" id="mrOvStatusTbl">'
+      + '<thead>'
+            + '<tr class="mr-ovtbl-hdr">'
+      + '<th>S.No</th><th>PL ID</th><th>No. of devices</th><th>No. of Builds</th><th>Total Hours</th>'
+      + '<th>Total CRs reported by PDT</th><th>Unique CRs reported by PDT</th>'
+      + '<th>Total Crashes Reported by PDT</th><th>Total Unmapped JIRAs Reported by PDT</th>'
+      + '</tr></thead><tbody>';
+
+    rows.forEach(function (r, i) {
+      html += '<tr>'
+        + '<td>' + (i + 1) + '</td>'
+        + '<td><b>' + esc(r.pl_id || r.target) + '</b>'
+        + (r.target && r.pl_id && r.target !== r.pl_id
+            ? '<br><small style="color:#94a3b8;font-size:9px;">' + esc(r.target) + '</small>' : '')
+        + '</td>'
+        + '<td>' + fmt(r.devices)        + '</td>'
+        + '<td>' + fmt(r.builds)         + '</td>'
+        + '<td>' + fmtF(r.hours, 0)      + '</td>'
+        + '<td>' + fmt(r.total_crs)      + '</td>'
+        + '<td>' + fmt(r.unique_crs)     + '</td>'
+        + '<td>' + fmt(r.crashes)        + '</td>'
+        + '<td>' + fmt(r.unmapped_jiras) + '</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr>'
+      + '<td colspan="2"><b>Total</b></td>'
+      + '<td>' + fmt(tD)     + '</td>'
+      + '<td>' + fmt(tB)     + '</td>'
+      + '<td>' + fmtF(tH, 0) + '</td>'
+      + '<td>' + fmt(tTC)    + '</td>'
+      + '<td>' + fmt(tUC)    + '</td>'
+      + '<td>' + fmt(tCR)    + '</td>'
+      + '<td>' + fmt(tUJ)    + '</td>'
+      + '</tr></tfoot></table></div>';
+
+    sec.querySelector('.mr-section-body').innerHTML = html;
+    return sec;
+  }
+
+  window.dlOverallStatusCsv = function (btn) {
+    var d = state.data; if (!d || !(d.overall_status || []).length) { flashBtn(btn, false); return; }
+    var rows = d.overall_status;
+    var hdrs = ['S.No','PL ID','No. of Devices','No. of Builds','Total Hours',
+                'Total CRs reported by PDT','Unique CRs reported by PDT',
+                'Total Crashes Reported by PDT','Total Unmapped JIRAs Reported by PDT'];
+    var csv = [hdrs.join(',')].concat(rows.map(function (r, i) {
+      return [i + 1, r.pl_id || r.target, r.devices, r.builds,
+              Math.round(r.hours || 0), r.total_crs, r.unique_crs,
+              r.crashes, r.unmapped_jiras]
+        .map(function (v) { v = String(v == null ? '' : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; })
+        .join(',');
+    })).join('\r\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    var url  = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'overall_status_' + (d.date_from || '') + '_' + (d.date_to || '') + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+    flashBtn(btn, true);
+  };
 
   /* ── KPI section ── */
   function buildKpi(d) {
@@ -496,45 +788,6 @@
       + '<div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
       + hw + '&nbsp;&nbsp;' + ov_note + '</div>';
     return sec;
-  }
-
-  /* ── Stability Trend ── */
-  function buildTrend(d) {
-    var targets = Object.keys(d.trend || {}).sort();
-    var sec = mkSec('mrTrendSec', '<i class="fas fa-chart-line"></i> Stability Trend (MTBF)', targets.length + ' targets');
-    var body = sec.querySelector('.mr-section-body');
-    var tabs = document.createElement('div'); tabs.className = 'mr-trend-sel'; tabs.id = 'mrTrendTabs';
-    targets.forEach(function (t, i) {
-      var btn = document.createElement('button');
-      btn.className = 'mr-trend-tab' + (i === 0 ? ' active' : '');
-      btn.textContent = t; btn.setAttribute('data-target', t);
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('#mrTrendTabs .mr-trend-tab').forEach(function (b) {
-          b.classList.toggle('active', b.getAttribute('data-target') === t);
-        });
-        renderTrend(d, t);
-      });
-      tabs.appendChild(btn);
-    });
-    body.appendChild(tabs);
-    var wrap = document.createElement('div'); wrap.className = 'mr-chart-wrap';
-    wrap.innerHTML = '<div id="mrTrendChart" class="mr-chart-inner"></div>'
-      + '<div class="mr-chart-note">MTBF not plotted for builds with no crashes</div>';
-    body.appendChild(wrap);
-    return sec;
-  }
-
-  function renderTrend(d, target) {
-    if (!target || !d.trend) return;
-    var rows = d.trend[target] || [], el = $('mrTrendChart'); if (!el) return;
-    if (!rows.length) { el.innerHTML = '<div class="mr-empty">No build data for ' + esc(target) + '</div>'; return; }
-    svgTrendChart(el, {
-      cats:   rows.map(function (r) { return r.build_label || r.week_end || ''; }),
-      bars:   rows.map(function (r) { return Number(r.hours || 0); }),
-      line:   rows.map(function (r) { return r.mtbf != null ? Number(r.mtbf) : null; }),
-      title:  'PDT Stability Trend \u2014 ' + target,
-      height: 280
-    });
   }
 
   /* ── Area chart section ── */
@@ -598,82 +851,8 @@
     });
   }
 
-  /* ── Target-wise CR/JIRA summary chart ── */
-  function buildTgtSummary(d) {
-    var sec = mkSec('mrTgtSec',
-      '<i class="fas fa-layer-group"></i> PDT CRs, Overall PDT CRs &amp; JIRAs \u2014 Target Wise',
-      fmt((d.by_target || []).length) + ' targets');
-    var wrap = document.createElement('div'); wrap.className = 'mr-chart-wrap';
-    wrap.innerHTML = '<div id="mrTgtChart" class="mr-chart-inner"></div>';
-    sec.querySelector('.mr-section-body').appendChild(wrap);
-    return sec;
-  }
+    /* ── Test status table (kept for reference, not rendered) ── */
 
-  function renderTgt(d) {
-    var el = $('mrTgtChart'); if (!el || !(d.by_target || []).length) return;
-    var rows = d.by_target;
-    svgGroupedBarChart(el, {
-      cats: rows.map(function (r) { return r.target; }),
-      series: [
-        { name: 'PDT CRs',         color: '#1e3a5f', data: rows.map(function (r) { return r.total_pdt_crs; }) },
-        { name: 'Unique PDT CRs',  color: '#93c5fd', data: rows.map(function (r) { return r.unique_pdt_crs; }) },
-        { name: 'Overall PDT CRs', color: '#0f766e', data: rows.map(function (r) { return r.overall_enabled ? r.overall_cr_count : null; }) },
-        { name: 'Total JIRAs',     color: '#f59e0b', data: rows.map(function (r) { return r.total_jiras; }) },
-        { name: 'Open JIRAs',      color: '#ef4444', data: rows.map(function (r) { return r.open_jiras; }) }
-      ],
-      title:  'PDT CRs, Overall PDT CRs & JIRAs per Target',
-      height: 300
-    });
-  }
-
-  /* ── Test status table ── */
-  function buildStatus(d) {
-    var rows = d.status_table || [];
-    var sec  = mkSec('mrStatusSec', '<i class="fas fa-table"></i> PDT WBC Target-wise Test Status', fmt(rows.length) + ' targets');
-    sec.querySelector('.mr-section-actions').innerHTML =
-      '<button class="mr-copy-btn" onclick="copyTable(\'mrStatusTbl\',this)"><i class="fas fa-copy"></i> Copy</button>';
-    var tH  = rows.reduce(function (a, r) { return a + Number(r.hours          || 0); }, 0);
-    var tC  = rows.reduce(function (a, r) { return a + Number(r.crashes        || 0); }, 0);
-    var tB  = rows.reduce(function (a, r) { return a + Number(r.builds         || 0); }, 0);
-    var tD  = rows.reduce(function (a, r) { return a + Number(r.devices        || 0); }, 0);
-    var tPC = rows.reduce(function (a, r) { return a + Number(r.total_pdt_crs  || 0); }, 0);
-    var tUC = rows.reduce(function (a, r) { return a + Number(r.unique_pdt_crs || 0); }, 0);
-    var tTJ = rows.reduce(function (a, r) { return a + Number(r.total_jiras    || 0); }, 0);
-    var tOJ = rows.reduce(function (a, r) { return a + Number(r.open_jiras     || 0); }, 0);
-    var tOC = rows.reduce(function (a, r) { return a + Number(r.overall_cr_count || 0); }, 0);
-    var html = '<div class="mr-table-wrap"><table class="mr-table" id="mrStatusTbl">'
-      + '<thead><tr><th>S.No</th><th>PL ID</th><th>Devices</th><th>Builds</th><th>Hours</th>'
-      + '<th>PDT CRs</th><th>Unique PDT CRs</th><th>Overall PDT CRs</th>'
-      + '<th>Total JIRAs</th><th>Open JIRAs</th><th>Crashes</th></tr></thead><tbody>';
-    rows.forEach(function (r, i) {
-      var ovCell = r.overall_enabled
-        ? fmt(r.overall_cr_count)
-        : '<span style="color:#94a3b8;font-size:10px;font-style:italic;">Not enabled</span>';
-      html += '<tr>'
-        + '<td>' + (i + 1) + '</td>'
-        + '<td><b>' + esc(r.pl_id || r.target) + '</b>'
-        + (r.target && r.pl_id && r.target !== r.pl_id
-            ? '<br><small style="color:#94a3b8;font-size:9px;">' + esc(r.target) + '</small>' : '')
-        + '</td>'
-        + '<td>' + fmt(r.devices)        + '</td>'
-        + '<td>' + fmt(r.builds)         + '</td>'
-        + '<td>' + fmtF(r.hours, 1)      + '</td>'
-        + '<td>' + fmt(r.total_pdt_crs)  + '</td>'
-        + '<td>' + fmt(r.unique_pdt_crs) + '</td>'
-        + '<td>' + ovCell                + '</td>'
-        + '<td>' + fmt(r.total_jiras)    + '</td>'
-        + '<td>' + fmt(r.open_jiras)     + '</td>'
-        + '<td>' + fmt(r.crashes)        + '</td>'
-        + '</tr>';
-    });
-    html += '</tbody><tfoot><tr><td colspan="2">Total</td>'
-      + '<td>' + fmt(tD)    + '</td><td>' + fmt(tB)    + '</td><td>' + fmtF(tH, 1) + '</td>'
-      + '<td>' + fmt(tPC)   + '</td><td>' + fmt(tUC)   + '</td><td>' + fmt(tOC)    + '</td>'
-      + '<td>' + fmt(tTJ)   + '</td><td>' + fmt(tOJ)   + '</td><td>' + fmt(tC)     + '</td>'
-      + '</tr></tfoot></table></div>';
-    sec.querySelector('.mr-section-body').innerHTML = html;
-    return sec;
-  }
 
   /* ── CR Detail table ── */
   function buildCrSec(d, kind) {
@@ -827,12 +1006,6 @@
     flashBtn(btn, true);
   };
 
-  /* ── Export all ── */
-  $('mrExportBtn').addEventListener('click', function () {
-    var d = state.data; if (!d) { alert('Generate the report first.'); return; }
-    window.dlCsv('pdt', this);
-  });
-
   /* ── Flash button ── */
   function flashBtn(btn, ok) {
     if (!btn) return;
@@ -865,4 +1038,261 @@
     if (head) head.classList.toggle('collapsed', col);
   };
 
+    /* ================================================================
+     WBC DETAIL SECTIONS  (QIPLPDT-10905)
+     1. MTBF Trend per target  (Hours bars + MTBF line vs Builds)
+     2. PDT CR tables (Total + Unique per target)
+     ================================================================ */
+
+  function fetchWbcDetail(bu, df, dt, selTgts) {
+    var qs = 'bu=' + encodeURIComponent(bu)
+           + '&date_from=' + encodeURIComponent(df)
+           + '&date_to='   + encodeURIComponent(dt);
+    if (selTgts && selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
+    fetch('/api/monthly-report/wbc-detail?' + qs)
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d.success) return;
+        var c = $('mrContent');
+        if (!c) return;
+
+                        /* ── Flat CR tables right after Overall Status table ── */
+        var overallSec = document.getElementById('mrOverallStatusSec');
+        if (overallSec && Object.keys(d.cr_tables || {}).length) {
+                    /* Display order on page:
+             Table 1 — PDT WBC Total CRs reported by PDT  (tbl3_total:  jiras→unique_crs)
+             Table 2 — PDT WBC Unique CRs reported by PDT (tbl2_unique: overallcrs→unique_crs)
+             Table 3 — Overall PDT WBC Target-wise Test Status (already above = overallSec)
+             insertAdjacentElement('afterend') reverses, so insert Table2 first then Table1 */
+          var flatTotal  = buildFlatCrTable(d, 'tbl3_total',  'PDT WBC Total CRs reported by PDT',  '#1e3a5f', 'mrFlatTotalSec');
+          var flatUnique = buildFlatCrTable(d, 'tbl2_unique', 'PDT WBC Unique CRs reported by PDT', '#0f766e', 'mrFlatUniqueSec');
+          overallSec.insertAdjacentElement('afterend', flatUnique);
+          overallSec.insertAdjacentElement('afterend', flatTotal);
+        }
+
+                /* Section 1: MTBF Trend per target */
+        if (Object.keys(d.mtbf_trend || {}).length) c.appendChild(buildWbcMtbfTrend(d));
+        /* Section 2: CR tables (Total + Unique) */
+        if (Object.keys(d.cr_tables || {}).length) c.appendChild(buildCrTables(d));
+                /* render first MTBF target chart — delay so container is visible */
+        var firstTgt = Object.keys(d.mtbf_trend || {})[0] || '';
+        if (firstTgt) setTimeout(function(){ renderWbcMtbf(d, firstTgt); }, 60);
+      })
+      .catch(function(e){ console.warn('WBC detail fetch error:', e); });
+  }
+
+  /* ── Flat combined CR table (all targets merged, no tabs) ──
+     kind = 'unique_crs'   → PDT WBC Unique CRs reported
+     kind = 'reported_crs' → PDT WBC Total Reported CRs
+  ── */
+  function buildFlatCrTable(d, kind, titleText, accentColor, secId) {
+    /* Flatten all targets into one list */
+    var allRows = [];
+    var seenCr  = {};
+    var tables  = d.cr_tables || {};
+    Object.keys(tables).sort().forEach(function(sp) {
+      var rows = tables[sp][kind] || [];
+      rows.forEach(function(r) {
+        /* dedupe by cr_id across targets */
+        var key = r.cr_id + '|' + sp;
+        if (!seenCr[key]) {
+          seenCr[key] = true;
+          allRows.push(r);
+        }
+      });
+    });
+
+                /* total_crs  = Table1: overallcrs rows  → has 'team' col                        */
+    /* unique_crs = Table2: unique_crs rows  → has 'cr_title', NO cr_category shown  */
+        /* both tbl3_total and tbl2_unique have same columns (from unique_crs) */
+    var cols = ['program','cr_id','instances','cr_date','cr_area','cr_subsystem','cr_functionality','cr_title','image','cr_status'];
+    var hdrs = ['Program','CR-ID','Instances','CR Date','CR Area','CR SubSystem','CR Functionality','CR Title','Image','CR Status'];
+
+    var sec  = mkSec(secId,
+      '<i class="fas fa-list-ul"></i> ' + esc(titleText),
+      fmt(allRows.length) + ' CRs');
+    sec.querySelector('.mr-section-actions').innerHTML =
+      '<button class="mr-copy-btn" onclick="copyTable(\'' + secId + 'Tbl\',this)"><i class="fas fa-copy"></i> Copy</button>';
+
+        /* build table */
+    var html = '<div class="mr-ovtbl-wrap"><table class="mr-ovtbl" id="' + secId + 'Tbl">';
+    html += '<thead>';
+    html += '<tr class="mr-ovtbl-title"><th colspan="' + (cols.length + 1) + '" style="background:' + accentColor + '">' + esc(titleText) + ' (' + fmt(allRows.length) + ' CRs)</th></tr>';
+    html += '<tr class="mr-ovtbl-hdr"><th>S.No</th>';
+    hdrs.forEach(function(h) { html += '<th>' + esc(h) + '</th>'; });
+    html += '</tr></thead><tbody>';
+
+    if (!allRows.length) {
+      html += '<tr><td colspan="' + (cols.length + 1) + '" style="text-align:center;color:#94a3b8;padding:14px">No data</td></tr>';
+    } else {
+      allRows.forEach(function(r, i) {
+        html += '<tr><td>' + (i + 1) + '</td>';
+        cols.forEach(function(c) {
+          var val = esc(String(r[c] || ''));
+          if (c === 'cr_id' && val) {
+            val = '<b><a href="https://orbit/cr/' + val.replace(/^CR-?/i,'') +
+                  '" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:none;">' + val + '</a></b>';
+          } else if (c === 'cr_status' && val) {
+            val = badge(r[c]);
+          }
+          html += '<td>' + val + '</td>';
+        });
+        html += '</tr>';
+      });
+    }
+    html += '</tbody></table></div>';
+    sec.querySelector('.mr-section-body').innerHTML = html;
+    return sec;
+  }
+
+  
+
+
+    /* ── Section 1: MTBF Trend (from Live View JSON — full history, no date filter) ── */
+  function buildWbcMtbfTrend(d) {
+    var targets = Object.keys(d.mtbf_trend || {}).sort();
+    var sec = mkSec('mrWbcMtbfSec',
+      '<i class="fas fa-chart-line"></i> Stability Trend (MTBF)',
+      targets.length + ' targets');
+    var body = sec.querySelector('.mr-section-body');
+
+    var tabs = document.createElement('div'); tabs.className = 'mr-trend-sel'; tabs.id = 'mrWbcMtbfTabs';
+    targets.forEach(function(t, i){
+      var btn = document.createElement('button');
+      btn.className = 'mr-trend-tab' + (i===0?' active':'');
+      btn.textContent = t; btn.setAttribute('data-target', t);
+            btn.addEventListener('click', function(){
+        document.querySelectorAll('#mrWbcMtbfTabs .mr-trend-tab').forEach(function(b){
+          b.classList.toggle('active', b.getAttribute('data-target')===t);
+        });
+        setTimeout(function(){ renderWbcMtbf(d, t); }, 30);
+      });
+      tabs.appendChild(btn);
+    });
+    body.appendChild(tabs);
+
+        /* chart */
+    var wrap = document.createElement('div'); wrap.className = 'mr-chart-wrap';
+    wrap.style.cssText = 'width:100%;overflow-x:auto;';
+    wrap.innerHTML = '<div id="mrWbcMtbfChart" class="mr-chart-inner" style="min-height:320px;width:100%;"></div>';
+    body.appendChild(wrap);
+
+    /* MTBF table */
+    var tblWrap = document.createElement('div');
+    tblWrap.id = 'mrWbcMtbfTblWrap';
+    tblWrap.style.cssText = 'margin-top:14px;overflow-x:auto';
+    body.appendChild(tblWrap);
+
+    return sec;
+  }
+
+  function renderWbcMtbf(d, target) {
+    var el = document.getElementById('mrWbcMtbfChart'); if (!el) return;
+    var rows = (d.mtbf_trend || {})[target] || [];
+    if (!rows.length) { el.innerHTML = '<div class="mr-empty">No MTBF data for ' + esc(target) + '</div>'; return; }
+    svgTrendChart(el, {
+      cats:   rows.map(function(r){ return r.build_label || ''; }),
+      bars:   rows.map(function(r){ return Number(r.hours   || 0); }),
+      line:   rows.map(function(r){ return r.mtbf != null ? Number(r.mtbf) : null; }),
+      title:  'MTBF Trend \u2014 ' + target + ' (Full History)',
+      height: 300,
+    });
+    /* render table below chart */
+    var tw = document.getElementById('mrWbcMtbfTblWrap'); if (!tw) return;
+    var hdrs = ['S.No','Build / Meta','Date','Hours','Crashes','MTBF'];
+    var html = '<table class="mr-ovtbl" style="width:100%;font-size:11px">'
+      + '<thead><tr>' + hdrs.map(function(h){ return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead>'
+      + '<tbody>';
+    rows.forEach(function(r, i){
+      html += '<tr>'
+        + '<td>' + (i+1) + '</td>'
+        + '<td style="text-align:left">' + esc(r.build_label || '') + '</td>'
+        + '<td>' + esc(r.date || '') + '</td>'
+        + '<td>' + fmtF(r.hours, 1) + '</td>'
+        + '<td>' + fmt(r.crashes) + '</td>'
+        + '<td><b>' + fmtF(r.mtbf, 1) + '</b></td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    tw.innerHTML = html;
+  }
+
+  /* ── Section 4: CR Tables (Unique + Reported) ── */
+  function buildCrTables(d) {
+    var targets = Object.keys(d.cr_tables || {}).sort();
+    var sec = mkSec('mrCrTblSec',
+      '<i class="fas fa-table"></i> PDT CR Details',
+      targets.length + ' targets');
+    var body = sec.querySelector('.mr-section-body');
+
+    /* target tabs */
+    var tabs = document.createElement('div'); tabs.className = 'mr-trend-sel'; tabs.id = 'mrCrTblTabs';
+    targets.forEach(function(t, i){
+      var btn = document.createElement('button');
+      btn.className = 'mr-trend-tab' + (i===0?' active':'');
+      btn.textContent = t; btn.setAttribute('data-target', t);
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('#mrCrTblTabs .mr-trend-tab').forEach(function(b){
+          b.classList.toggle('active', b.getAttribute('data-target')===t);
+        });
+        renderCrTables(d, t);
+      });
+      tabs.appendChild(btn);
+    });
+    body.appendChild(tabs);
+
+    var tblWrap = document.createElement('div'); tblWrap.id = 'mrCrTblBody';
+    body.appendChild(tblWrap);
+
+        setTimeout(function(){ renderCrTables(d, targets[0]||''); }, 50);
+    return sec;
+  }
+
+  var _CR_COLS = ['program','cr_id','instances','cr_date','cr_area','cr_subsystem','cr_functionality','image','cr_status'];
+  var _CR_HDRS = ['Program','CR-ID','Instances','CR Date','CR Area','CR SubSystem','CR Functionality','Image','CR Status'];
+
+  function renderCrTables(d, target) {
+    var wrap = document.getElementById('mrCrTblBody'); if (!wrap) return;
+                var entry = (d.cr_tables || {})[target] || {};
+    var t1Rows = entry.tbl3_total  || [];   /* Table 1: jiras→unique_crs excl Invalid+Dup */
+    var t2Rows = entry.tbl2_unique || [];   /* Table 2: overallcrs→unique_crs excl Invalid+Dup */
+    wrap.innerHTML = '';
+
+    /* ── Table 1: PDT WBC Total CRs reported by PDT ── */
+    var h1 = document.createElement('h4');
+    h1.style.cssText = 'margin:14px 0 6px;color:#1e3a5f;font-size:12px;font-weight:800;border-left:3px solid #1e3a5f;padding-left:8px';
+    h1.textContent = 'PDT WBC Total CRs reported by PDT (' + t1Rows.length + ')';
+    wrap.appendChild(h1);
+    wrap.appendChild(makeCrTable(t1Rows, _CR_COLS, _CR_HDRS));
+
+    /* ── Table 2: PDT WBC Unique CRs reported by PDT ── */
+    var h2 = document.createElement('h4');
+    h2.style.cssText = 'margin:18px 0 6px;color:#0f766e;font-size:12px;font-weight:800;border-left:3px solid #0f766e;padding-left:8px';
+    h2.textContent = 'PDT WBC Unique CRs reported by PDT (' + t2Rows.length + ')';
+    wrap.appendChild(h2);
+    wrap.appendChild(makeCrTable(t2Rows, _CR_COLS, _CR_HDRS));
+  }
+
+  function makeCrTable(rows, cols, hdrs) {
+    var tbl = document.createElement('table');
+    tbl.className = 'mr-ovtbl'; tbl.style.width='100%';
+    var thead = '<thead><tr>' + hdrs.map(function(h){ return '<th>'+esc(h)+'</th>'; }).join('') + '</tr></thead>';
+    var tbody = '<tbody>';
+    if (!rows.length) {
+      tbody += '<tr><td colspan="'+cols.length+'" style="text-align:center;color:#94a3b8;padding:12px">No data</td></tr>';
+    } else {
+      rows.forEach(function(r){
+        tbody += '<tr>';
+        cols.forEach(function(c){
+          tbody += '<td>' + esc(String(r[c]||'')) + '</td>';
+        });
+        tbody += '</tr>';
+      });
+    }
+    tbody += '</tbody>';
+            tbl.innerHTML = thead + tbody;
+    return tbl;
+  }
+
 })();
+
