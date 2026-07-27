@@ -448,12 +448,12 @@ def _find_existing_single_target_job(target_name, job_type='CRM'):
     return matches[0]
 
 
-def _normal_live_status_tab(value, default='current'):
+def _normal_live_status_tab(value, default='mtbf'):
     tab = str(value or '').strip().lower()
     return tab if tab in {'core', 'current', 'mtbf', 'weekly', 'opencrs', 'openjiras', 'buildreport'} else default
 
 
-def _requested_live_status_tab(default='current'):
+def _requested_live_status_tab(default='mtbf'):
     return _normal_live_status_tab(request.args.get('tab') or request.args.get('initial_tab'), default=default)
 
 
@@ -474,7 +474,7 @@ def _render_current_report_editor(job, initial_tab=None):
     """Editors use live_status_publish_edit.html (the single canonical template)
     with can_edit=True, giving the full rich UI plus Save / Publish controls.
     """
-    default_tab = 'core' if _is_core_deck_target((job.get('targets') or [''])[0]) else 'current'
+    default_tab = 'mtbf'
     return _render_published_full_page(job, initial_tab=_normal_live_status_tab(initial_tab, default_tab), suppress_top_redirect=True)
 
 
@@ -1031,7 +1031,7 @@ def _render_target_status_page(target_name, initial_tab=None):
     if canonical_target and canonical_target in targets and (not targets or targets[0] != canonical_target):
         job = dict(job)
         job['targets'] = [canonical_target] + [t for t in targets if t != canonical_target]
-    return _render_published_full_page(job, initial_tab or _requested_live_status_tab('current'))
+    return _render_published_full_page(job, initial_tab or _requested_live_status_tab('mtbf'))
 
 
 @live_status_publish_bp.route('/pdt/<target_name>/ext_status')
@@ -1779,7 +1779,7 @@ def landing():
     requested_target = (request.args.get('target') or request.args.get('target_name') or '').strip()
     if requested_target:
 
-        requested_tab = _requested_live_status_tab('current')
+        requested_tab = _requested_live_status_tab('mtbf')
         if _target_group_access():
             return redirect(_canonical_target_edit_url(requested_target, tab=requested_tab))
         if not _can_view_live_status_target(requested_target):
@@ -2082,7 +2082,7 @@ def live_status_target_by_bu(bu_key, target_name, initial_tab_path=None):
         Viewers use the same URL for the published read-only report.
     """
 
-    initial_tab = _normal_live_status_tab(initial_tab_path, _requested_live_status_tab('current'))
+    initial_tab = _normal_live_status_tab(initial_tab_path, _requested_live_status_tab('mtbf'))
     if current_user.is_authenticated and _target_group_access():
 
         # Editors always get the edit workspace - draft or published.
@@ -2182,10 +2182,8 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     """
 
     primary_target = (job.get('targets') or [''])[0]
-    initial_tab = _normal_live_status_tab(initial_tab, 'current')
+    initial_tab = _normal_live_status_tab(initial_tab, 'mtbf')
 
-    if _is_core_deck_target(primary_target) and initial_tab == 'current' and _job_type(job) != 'ENG':
-        initial_tab = 'core'
     embedded_core_deck = str(request.args.get('embed') or '').lower() in ('1', 'true', 'yes') and initial_tab == 'core'
 
     can_edit = current_user.is_authenticated and _target_group_access()

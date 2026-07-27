@@ -1988,7 +1988,7 @@ function fixedTableColumns(){return[
   {key:'devices',label:'Devices',val:r=>firstVal(r,['devices','device_count','deviceCount','device','device_name'])},
   {key:'hours',label:'Hours',val:r=>fmt(firstVal(r,['hours','Hours','HOURS','total_hours']),1)},
   {key:'crashes',label:'Crashes',val:r=>fmt(firstVal(r,['crashes','Crashes','CRASHES','total_crashes']),0)},
-  {key:'mtbf',label:'MTBF',val:r=>{const h=n(firstVal(r,['hours','Hours','HOURS','total_hours'])),c=n(firstVal(r,['crashes','Crashes','CRASHES','total_crashes']));return fmt(c?h/c:firstVal(r,['mtbf','MTBF']),2);}},
+  {key:'mtbf',label:'MTBF',val:r=>{const v=firstVal(r,['mtbf','MTBF']);return (v===null||v===undefined||String(v).trim()===''||String(v).trim()==='-')?'-':fmt(v,2);}},
   {key:'comments',label:'Comments',val:r=>firstVal(r,['comments','Comments','comment','remarks','notes'])}
 ];}
   function renderTable(){
@@ -2119,6 +2119,8 @@ async function addBuildSave(){
       if(v!=='') row[k]=v;
     });
     if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
+    // If MTBF was left blank, store '-' explicitly -- never auto-calculate from hours/crashes
+    if(!row.mtbf && row.mtbf!==0) row.mtbf='-';
     const msg=document.getElementById('addBuildMsg');
     msg.textContent='Saving to '+_abPlat+'...'; msg.style.color='#64748b';
     try{
@@ -2146,7 +2148,7 @@ async function addBuildSave(){
 let _editTableKeys=[];
 function _editTableKeysFromRows(){
   const keys=[], seen=new Set();
-  _addBuildFieldKeys().forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!seen.has(k)){seen.add(k);keys.push(k);} });
+  _abFieldKeys().forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!seen.has(k)){seen.add(k);keys.push(k);} });
   return keys;
 }
 function openEditTableModal(){

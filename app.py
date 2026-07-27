@@ -136,7 +136,7 @@ from auto_gen5_public_routes import public_auto_gen5_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
-APP_VERSION = "v2.6"
+APP_VERSION = "v2.7"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
