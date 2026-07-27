@@ -1063,61 +1063,156 @@ def _auto_gen45_current_jql(build: str, job_ids: Optional[List[str]] = None) -> 
     return " AND ".join(parts)
 
 
+def _auto_is_dup_category(value: Any) -> bool:
+    """Return True if cr_category or cr_status indicates a duplicate CR."""
+    text = re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+    return text in {"dup", "duplicate", "duplicates", "cannotduplicate", "invaliddup"}
+
+
+def _auto_resolve_parent_cr(cr: str, cr_index: Dict[str, Any]) -> str:
+    """Given a duplicate CR number, find its parent/canonical CR from cr_index.
+
+    The cr_index (from run_consolidated_report) maps every raw CR alias to its
+    canonical entry. The canonical entry carries 'canonical_cr' pointing to the
+    parent. We also check DuplicateChangeRequests / ParentId from the raw Orbit
+    data stored in cr_index.
+    """
+    if not cr or not cr_index:
+        return ""
+    cr_key = cr if cr.upper().startswith("CR") else f"CR{re.sub(r'[^0-9]', '', cr)}"
+    entry = cr_index.get(cr_key) or cr_index.get(cr) or {}
+    # canonical_cr is set by fetch_consolidated_report when a dup is rewritten
+    canonical = str(entry.get("canonical_cr") or entry.get("cr_number") or "").strip()
+    if canonical and canonical != cr_key:
+        return canonical
+    return ""
+
+
 def _auto_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
+    # cr_index: { 'CR1234567': { cr_title, cr_status, cr_area, cr_subsystem,
+    #             cr_function, cr_si, cr_age, cr_built_date, cr_date,
+    #             canonical_cr, assignee_uid, ... } }
+    cr_index: Dict[str, Any] = report.get("cr_index") or {}
+
+    def _parent_details(parent_cr_key: str) -> Dict[str, Any]:
+        """Return cr_index entry for the parent CR, or empty dict."""
+        if not parent_cr_key:
+            return {}
+        return cr_index.get(parent_cr_key) or cr_index.get(parent_cr_key.replace("CR", "")) or {}
+
+    def _detect_dup_and_parent(cr_val: str, cr_category_raw: str, cr_status_raw: str) -> tuple:
+        """Return (is_dup: bool, parent_cr: str).
+
+        Duplicate detection order:
+          1. cr_category field (dup / duplicate / cannotduplicate / invaliddup)
+          2. cr_status text contains 'cannotduplicate'
+          3. cr_index canonical_cr rewrite (fetch_consolidated_report already
+             resolved the dup to its parent; if canonical_cr != cr, it was a dup)
+        Parent CR resolution order:
+          1. cr_index canonical_cr for this CR
+          2. cr_index entry's own cr_number if different from cr_val
+        """
+        is_dup = _auto_is_dup_category(cr_category_raw) or _auto_is_dup_category(cr_status_raw)
+        parent_cr = ""
+        if cr_val and cr_val not in ("-", "NO_CR"):
+            parent_cr = _auto_resolve_parent_cr(cr_val, cr_index)
+            if parent_cr:
+                is_dup = True
+        return is_dup, parent_cr
+
+    def _build_row_fields(cr_val: str, cr_row_or_info: Dict[str, Any],
+                          is_dup: bool, parent_cr: str) -> Dict[str, Any]:
+        """Build the common CR detail fields for one output row.
+
+        When the CR is a duplicate, ALL detail fields (status, area, subsystem,
+        functionality, SI image, age, assignee) are taken from the PARENT CR's
+        cr_index entry so the table always shows the canonical/parent CR info.
+        The duplicate CR number itself is still shown in the CR column so the
+        user can see which CR was reported, but every detail column reflects
+        the parent.
+        """
+        if is_dup and parent_cr:
+            src = _parent_details(parent_cr)
+        else:
+            src = cr_row_or_info
+
+        # Assignee: orbit returns AssigneeUid / assignee_uid / cr_assignee
+        assignee = str(
+            src.get("cr_assignee") or src.get("assignee_uid") or
+            src.get("AssigneeUid") or src.get("assignee") or
+            cr_row_or_info.get("cr_assignee") or cr_row_or_info.get("assignee_uid") or ""
+        ).strip()
+
+        return {
+            "cr_area":        str(src.get("cr_area")     or "-"),
+            "cr_subsystem":   str(src.get("cr_subsystem") or "-"),
+            "cr_functionality": str(src.get("cr_function") or src.get("cr_functionality") or "-"),
+            "cr_status":      str(src.get("cr_status")   or "-"),
+            "cr_age":         str(src.get("cr_age")      or "-"),
+            "si_last_seen":   str(src.get("cr_si")       or src.get("cr_image") or "-"),
+            "cr_assignee":    assignee,
+        }
+
     for cr_row in (report.get("hierarchical_report") or []):
         cr = cr_row.get("cr") or "NO_CR"
         jiras = cr_row.get("jiras") or []
+        raw_category = str(cr_row.get("cr_category") or "").strip()
+        raw_status   = str(cr_row.get("cr_status")   or "").strip()
+        is_dup, parent_cr = _detect_dup_and_parent(cr, raw_category, raw_status)
+        fields = _build_row_fields(cr, cr_row, is_dup, parent_cr)
+
         if not jiras:
             rows.append({
-                "cr": cr if cr != "NO_CR" else "-",
-                "jira": "-",
-                "title": cr_row.get("cr_title") or "-",
-                "cr_count": cr_row.get("cr_count") or 1,
-                "cr_area": cr_row.get("cr_area") or "-",
-                "cr_subsystem": cr_row.get("cr_subsystem") or "-",
-                "cr_functionality": cr_row.get("cr_function") or "-",
-                "cr_status": cr_row.get("cr_status") or "-",
-                "cr_age": cr_row.get("cr_age") or "-",
-                "si_last_seen": cr_row.get("cr_image") or "-",
-                "last_instance": cr_row.get("last_seen") or "-",
-                "crash_type": _auto_crash_type(cr_row.get("cr_title")),
+                "cr":             cr if cr != "NO_CR" else "-",
+                "jira":           "-",
+                "title":          cr_row.get("cr_title") or "-",
+                "cr_count":       cr_row.get("cr_count") or 1,
+                "cr_category":    raw_category or "-",
+                "is_dup":         is_dup,
+                "parent_cr":      parent_cr,
+                "last_instance":  cr_row.get("last_seen") or "-",
+                "crash_type":     _auto_crash_type(cr_row.get("cr_title")),
+                **fields,
             })
             continue
         for jira in jiras:
             title = jira.get("title") or jira.get("summary") or cr_row.get("cr_title") or "-"
             rows.append({
-                "cr": cr if cr != "NO_CR" else "-",
-                "jira": jira.get("key") or jira.get("jira") or jira.get("stability_ticket") or "-",
-                "title": title,
-                "cr_count": 1,
-                "cr_area": cr_row.get("cr_area") or "-",
-                "cr_subsystem": cr_row.get("cr_subsystem") or "-",
-                "cr_functionality": cr_row.get("cr_function") or "-",
-                "cr_status": cr_row.get("cr_status") or jira.get("status") or "-",
-                "cr_age": cr_row.get("cr_age") or "-",
-                "si_last_seen": cr_row.get("cr_image") or "-",
-                "last_instance": jira.get("created") or jira.get("updated") or "-",
-                "crash_type": _auto_crash_type(title),
+                "cr":             cr if cr != "NO_CR" else "-",
+                "jira":           jira.get("key") or jira.get("jira") or jira.get("stability_ticket") or "-",
+                "title":          title,
+                "cr_count":       1,
+                "cr_category":    raw_category or "-",
+                "is_dup":         is_dup,
+                "parent_cr":      parent_cr,
+                "last_instance":  jira.get("created") or jira.get("updated") or "-",
+                "crash_type":     _auto_crash_type(title),
+                **fields,
             })
+
     if not rows:
+        # Fallback: flat jiras list (no hierarchical_report)
         for jira in (report.get("jiras") or []):
             title = jira.get("summary") or jira.get("title") or "-"
             traversal = jira.get("traversal") or {}
             info = jira.get("cr_info") or {}
+            cr_val = traversal.get("final_cr") or jira.get("cr_mapped") or "-"
+            raw_category = str(info.get("cr_category") or "").strip()
+            raw_status   = str(info.get("cr_status")   or "").strip()
+            is_dup, parent_cr = _detect_dup_and_parent(cr_val, raw_category, raw_status)
+            fields = _build_row_fields(cr_val, info, is_dup, parent_cr)
             rows.append({
-                "cr": traversal.get("final_cr") or jira.get("cr_mapped") or "-",
-                "jira": jira.get("key") or "-",
-                "title": title,
-                "cr_count": 1,
-                "cr_area": info.get("cr_area") or "-",
-                "cr_subsystem": info.get("cr_subsystem") or "-",
-                "cr_functionality": info.get("cr_function") or "-",
-                "cr_status": info.get("cr_status") or jira.get("status") or "-",
-                "cr_age": info.get("cr_age") or "-",
-                "si_last_seen": info.get("cr_image") or "-",
+                "cr":            cr_val,
+                "jira":          jira.get("key") or "-",
+                "title":         title,
+                "cr_count":      1,
+                "cr_category":   raw_category or "-",
+                "is_dup":        is_dup,
+                "parent_cr":     parent_cr,
                 "last_instance": jira.get("created") or "-",
-                "crash_type": _auto_crash_type(title),
+                "crash_type":    _auto_crash_type(title),
+                **fields,
             })
     return rows
 
