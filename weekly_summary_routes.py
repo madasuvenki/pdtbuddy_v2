@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import tempfile
 import csv as _csv_mod
@@ -99,8 +99,11 @@ def _load_swpdt_json_payload() -> tuple[dict, str]:
                        submitted_at, started_at, ended_at,
                        axiom_hours, hours, product_flavor, submitter, site
                 FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                WHERE team IN ('QIPL','PDT','SD','CH')
+                WHERE taxonomy_path LIKE '/PDT%'
                   AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
+                  AND taxonomy_path NOT LIKE '/PDT/China%'
+                  AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                  AND COALESCE(city_team, 'QIPL') = 'QIPL'
                 ORDER BY submitted_at DESC
             """)
             rows = cur.fetchall() or []
@@ -205,6 +208,13 @@ def _flatten_swpdt_build_entries(payload: dict) -> list:
         if not isinstance(item, dict):
             continue
         build_id = str(item.get('build_id') or item.get('build') or item.get('meta_build') or '').strip()
+        # Skip non-QIPL rows (SD / China / HW) that may have leaked through
+        _tax = str(item.get('taxonomy_path') or '').strip().upper()
+        if _tax and (not _tax.startswith('/PDT') or _tax.startswith('/PDT/QIPL/HW') or _tax.startswith('/PDT/CHINA') or _tax.startswith('/PDT/SANDIEGO')):
+            continue
+        _city = str(item.get('city_team') or 'QIPL').strip().upper()
+        if _city and _city != 'QIPL':
+            continue
         if not build_id:
             continue
         submitted = str(item.get('submitted') or item.get('submitted_at') or item.get('created_at') or item.get('start_time') or '').strip()
@@ -3020,18 +3030,14 @@ def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
     week_cap = we.isoformat() + " 23:59:59"
     return (
         "CASE"
+        " WHEN state = 'Completed' AND started_at IS NOT NULL AND ended_at IS NOT NULL"
+        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0, TIMESTAMPDIFF(SECOND,"
+        " GREATEST(started_at, TIMESTAMP('" + week_floor + "'))"
+        ", LEAST(ended_at, TIMESTAMP('" + week_cap + "')))) / 3600.0, 3)"
         " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0,"
-        " TIMESTAMPDIFF(SECOND,"
-        " GREATEST(started_at, TIMESTAMP('" + week_floor + "')),"
-        " LEAST(NOW(), TIMESTAMP('" + week_cap + "')))"
-        " ) / 3600.0, 3)"
-        " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0,"
-        " TIMESTAMPDIFF(SECOND,"
-        " GREATEST(started_at, TIMESTAMP('" + week_floor + "')),"
-        " LEAST(ended_at,      TIMESTAMP('" + week_cap + "')))"
-        " ) / 3600.0, 3)"
+        " AND started_at >= TIMESTAMP('" + week_floor + "')"
+        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0, TIMESTAMPDIFF(SECOND,"
+        " started_at, LEAST(NOW(), TIMESTAMP('" + week_cap + "')))) / 3600.0, 3)"
         " ELSE 0 END"
     )
 
@@ -8085,7 +8091,7 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
         # snapshot but do not contribute builds/devices/hours/crashes here.
         if bt == 'CRM':
             g['chip_ids_set'].update(str(c).strip() for c in chips if str(c).strip())
-            g['device_count_sum'] = max(g['device_count_sum'], int(r.get('device_count') or 0), len(g['chip_ids_set']))
+            g['device_count_sum'] = len(g['chip_ids_set'])
             if build_name:
                 g['build_names'].add(_sp2_meta_build_key(build_name).upper())
             g['hours'] += float(r.get('hours') or 0)
