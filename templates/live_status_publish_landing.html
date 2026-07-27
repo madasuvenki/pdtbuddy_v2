@@ -308,11 +308,10 @@
       <div class="ls-viewer-count" id="lsViewerSearchCount">Published targets</div>
     </div>
         {% for section in viewer_bu_sections %}
-            {% set bku = section.bu_key|upper %}
+        {% set bku = section.bu_key|upper %}
       {% set bname = section.bu_name|upper %}
-      {% set bu_display = (section.bu_name or section.bu_key)|replace('_', ' ')|upper %}
-
       {% set is_special = section.special_page|default(false) %}
+            {% set bu_display = 'AUTOMOTIVE GEN 5' if (not is_special and (bku in ['AUTO', 'AUTOMOTIVE'] or bname == 'AUTOMOTIVE')) else ((section.bu_name or section.bu_key)|replace('_', ' ')|upper) %}
             {% set bu_icon = (section.targets[0].special_icon if (is_special and section.targets) else none) or ('fa-car' if ('AUTO' in bku or 'AUTO' in bname) else ('fa-route' if ('NORD' in bku or 'NORD' in bname) else ('fa-wifi' if ('IOT' in bku or 'IOT' in bname) else ('fa-mobile-alt' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('fa-server' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('fa-calendar-week' if ('WEEKLY' in bku or 'QIPL' in bku) else ('fa-network-wired' if ('WBC' in bku or 'TELEMATICS' in bku) else ('fa-memory' if ('HW' in bku or 'HWPDT' in bku) else ('fa-wand-magic-sparkles' if ('AI' in bku or 'GENIE' in bku) else 'fa-shield-alt')))))))))  %}
       {% set bu_accent = 'acc-auto45' if ('AUTO_GEN45' in bku or '4.5' in bname) else ('acc-wbc' if ('WBC' in bku or 'TELEMATICS' in bku) else ('acc-auto' if ('AUTO' in bku or 'AUTO' in bname) else ('acc-nord' if ('NORD' in bku or 'NORD' in bname) else ('acc-iot' if ('IOT' in bku or 'IOT' in bname) else ('acc-mobile' if ('MOBILE' in bku or 'MOBILE' in bname or 'WEAR' in bku or 'WEAR' in bname) else ('acc-compute' if ('COMPUTE' in bku or 'COMPUTE' in bname) else ('acc-weekly' if ('WEEKLY' in bku or 'QIPL' in bku) else ('acc-hw' if ('HW' in bku or 'HWPDT' in bku) else ('acc-ai' if ('AI' in bku or 'GENIE' in bku) else ''))))))))) %}
       {# Special cards (Automotive 4.5 / WBC) navigate directly on click and have

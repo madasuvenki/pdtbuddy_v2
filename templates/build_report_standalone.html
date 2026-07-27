@@ -132,7 +132,7 @@
             <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
             <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">CR Priority</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:320px">CR Title</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">Created Date</th><th style="white-space:nowrap">Built Date</th><th style="white-space:nowrap">CR Age</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">CR Status</th></tr></thead><tbody id="brCrRows"><tr><td colspan="14" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">CR Priority</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:280px">CR Title</th><th style="white-space:nowrap">Parent CR</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">CR Status</th><th style="white-space:nowrap">CR Age</th><th style="white-space:nowrap">Assignee</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">Created Date</th><th style="white-space:nowrap">Ready Date</th><th style="white-space:nowrap">Built Date</th></tr></thead><tbody id="brCrRows"><tr><td colspan="17" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
         </div>
         <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
         <div id="brTabPane_mapped" style="display:none">
@@ -350,7 +350,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -638,17 +638,58 @@ function normalize(rep){
     const jiras=r.jiras||[];
     totalJiras+=jiras.length||0;
 
-    const cr=String(r.cr||'').trim();
+                    const cr=String(r.cr||'').trim();
+    // raw_final_cr is the original duplicate CR before backend canonical rewrite.
+    // Use it only to display the duplicate CR row + parent CR link; details still come from parent.
+    let rawDupCr='';
+    (jiras||[]).some(j=>{
+      const full=(rep.jiras||[]).find(x=>String(x.key||'')===String(j.key||''))||{};
+      const raw=String(((full.traversal||{}).raw_final_cr)||'').trim();
+      if(raw&&raw!==cr){rawDupCr=raw;return true;}
+      return false;
+    });
+    // Duplicate detection from cr_index
+    const crIndexEntry=(rep.cr_index||{})[rawDupCr]||(rep.cr_index||{})[cr]||{};
+    const rawCat=String(r.cr_category||crIndexEntry.cr_category||'');
 
-    if(isTrueCr(cr)){
+    const _dupCats=new Set(['dup','duplicate','duplicates','cannotduplicate','invaliddup']);
+    function _normCat(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+        // Parent CR: canonical_cr / parent_cr on this cr_index entry means this CR is a duplicate.
+    // If parent is not found, keep Parent CR blank/None and do not invent one.
+        const canonicalCr=String(crIndexEntry.canonical_cr||crIndexEntry.parent_cr||'').trim();
+    const parentCr=rawDupCr?cr:((canonicalCr&&canonicalCr!==cr)?canonicalCr:'');
+    const displayCr=rawDupCr||cr;
+    const isDupCr=!!parentCr||_dupCats.has(_normCat(rawCat))||_dupCats.has(_normCat(r.cr_status||crIndexEntry.cr_status||''));
+
+    if(isTrueCr(cr)||isTrueCr(displayCr)){
+
       // ── CR_Summary sheet row ──────────────────────────────────────────────
       const cnt=jiras.length||r.cr_count||r.jira_count||1;
       convertedToCrs+=Number(cnt)||0;
+      // For dup CRs, pull all detail fields from the parent cr_index entry.
+      // For normal CRs, use this CR's own cr_index entry.
+            const detailSrc=(isDupCr&&parentCr)?((rep.cr_index||{})[parentCr]||crIndexEntry):((rep.cr_index||{})[cr]||crIndexEntry);
+
+      const crAssignee=String(
+        detailSrc.AssigneeUid||detailSrc.assignee_uid||detailSrc.cr_assignee||detailSrc.assignee||
+        crIndexEntry.AssigneeUid||crIndexEntry.assignee_uid||crIndexEntry.cr_assignee||
+        r.cr_assignee||''
+      ).trim();
       crRows.push({
-        cr, title:r.cr_title||r.title||'',
-        area:r.cr_area||r.area||'', sub:r.cr_subsystem||r.subsystem||'',
-                func:r.cr_functionality||r.cr_function||r.functionality||'',
-                date:r.cr_date||'', built_date:r.cr_built_date||r.built_date||'', age:r.cr_age||r.age||'', priority:r.cr_priority||r.priority||'', si:r.cr_si||r.cr_image||'', status:r.cr_status||r.status||'',
+                cr:displayCr, title:detailSrc.cr_title||r.cr_title||r.title||'',
+
+        area:detailSrc.cr_area||r.cr_area||r.area||'',
+        sub:detailSrc.cr_subsystem||r.cr_subsystem||r.subsystem||'',
+        func:detailSrc.cr_function||detailSrc.cr_functionality||r.cr_functionality||r.cr_function||r.functionality||'',
+                date:detailSrc.cr_date||r.cr_date||'',
+        ready_date:detailSrc.cr_ready_date||r.cr_ready_date||r.ready_date||'',
+        built_date:detailSrc.cr_built_date||r.cr_built_date||r.built_date||'',
+        age:detailSrc.cr_age||r.cr_age||r.age||'',
+
+        priority:detailSrc.cr_priority||r.cr_priority||r.priority||'',
+        si:detailSrc.cr_si||detailSrc.cr_image||r.cr_si||r.cr_image||'',
+        status:detailSrc.cr_status||r.cr_status||r.status||'',
+        is_dup:isDupCr, parent_cr:parentCr, cr_assignee:crAssignee,
         count:cnt, jiras
       });
     } else if(isCrEquiv(cr)){
@@ -1202,39 +1243,58 @@ window.brRenderCrTab=function(){
     return (b.count||0)-(a.count||0);
   });
   const tb=g('brCrRows'); if(!tb)return;
-    if(!rows.length){tb.innerHTML='<tr><td colspan="14" class="empty">No CRs found.</td></tr>';return;}
+        if(!rows.length){tb.innerHTML='<tr><td colspan="17" class="empty">No CRs found.</td></tr>';return;}
+    // Helper: render parent CR cell (link + status + area + SI + assignee from parent)
+
+  function _brParentCrCell(r){
+    // Parent CR column: show only the parent CR link.
+    // All detail columns already show parent data from the backend.
+    if(!r.is_dup)return '<span style="color:#94a3b8;font-size:11px">—</span>';
+    const pid=String(r.parent_cr||'').trim();
+    if(!pid)return '<span style="color:#94a3b8;font-size:11px">—</span>';
+    const pidNum=(pid.match(/(\d{5,9})/)||[])[1]||'';
+    return pidNum
+      ?'<a class="link" style="font-weight:900;color:#b45309;white-space:nowrap" href="https://orbit/CR/'+esc(pidNum)+'" target="_blank" rel="noopener">'+esc(pid)+'</a>'
+      :'<span style="font-weight:800;color:#b45309">'+esc(pid)+'</span>';
+  }
   tb.innerHTML=rows.map((r,i)=>{
+    const isDup=!!(r.is_dup);
+    const rowBg=isDup?'background:#fffbeb;':'';
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
-    const crLink=id?'<a class="link" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':esc(r.cr||'--');
-    // CR Status badge
+    const crColor=isDup?'#b45309':'#4338ca';
+    const crLink=id?'<a class="link" style="font-weight:900;color:'+crColor+';white-space:nowrap" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':'<span style="font-weight:800;color:'+crColor+'">'+esc(r.cr||'--')+'</span>';
+    // CR Status badge — for dup rows, status is already from parent
     const st=String(r.status||'');
     const stLow=st.toLowerCase();
-    const stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
-      stLow==='fix'||stLow==='inprogress'?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
-      stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534;border:1px solid #86efac':
+    const stColor=      stLow==='analysis'||stLow.includes('open')?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+      stLow==='fix'||stLow==='inprogress'||stLow.includes('close')?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
+      stLow==='built'?'background:#dcfce7;color:#166534;border:1px solid #86efac':
       'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
     const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
-        const jiraItems=brJiraItemsForCr(r);
+    const jiraItems=brJiraItemsForCr(r);
     const jiraKeys=jiraItems.map(x=>x.key).filter(Boolean);
     const cnt=Number(r.count||jiraKeys.length||0);
     const occCell=jiraKeys.length
       ? '<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open linked JIRAs in JIRA">'+esc(cnt)+'</a>'
-      : '<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>'; 
-    return '<tr>'+
+      : '<span style="font-weight:950;color:#4f46e5">'+esc(cnt)+'</span>';
+    return '<tr style="'+rowBg+'">'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
-            '<td style="white-space:nowrap">'+crLink+'</td>'+
+      '<td style="white-space:nowrap">'+crLink+'</td>'+
       '<td style="text-align:center">'+occCell+'</td>'+
-      '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#7c2d12">'+esc(r.priority||'--')+'</td>'+ 
+      '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#7c2d12">'+esc(r.priority||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px;font-weight:900">'+esc(crashTypeSummary(jiraItems,r))+'</td>'+
-      '<td style="min-width:320px;white-space:normal;word-break:break-word">'+esc(r.title||'--')+'</td>'+
+      '<td style="min-width:280px;white-space:normal;word-break:break-word">'+esc(r.title||'--')+'</td>'+
+      '<td style="min-width:150px">'+_brParentCrCell(r)+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(r.area||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.sub||'--')+'</td>'+
       '<td style="font-size:11px">'+esc(r.func||'--')+'</td>'+
-            '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.date)||'--')+'</td>'+
+      '<td style="min-width:110px">'+stBadge+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#334155">'+esc(brDisplayCrAge(r))+'</td>'+
+      '<td style="font-size:11px;color:#475569">'+esc(r.cr_assignee||'--')+'</td>'+
+      '<td style="font-size:11px">'+esc(r.si&&r.si!=='NoSIR'?r.si:'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.date)||'--')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.ready_date)||'None')+'</td>'+ 
       '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.built_date)||'--')+'</td>'+
-            '<td style="white-space:nowrap;font-size:11px;font-weight:900;color:#334155">'+esc(brDisplayCrAge(r))+'</td>'+
-            '<td style="font-size:11px">'+esc(r.si||'--')+'</td>'+
-      '<td>'+stBadge+'</td>'+
       '</tr>';
   }).join('');
 };
@@ -1405,8 +1465,8 @@ function brDownloadCsv(filename, headers, rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
 }
 function brDownloadCrCsv(){
-        const headers=['#','CR','CR URL','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','Final Resolution / CR Status','Created Date','Built Date','CR Age','Area','Subsystem','Function'];
-  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'Final Resolution / CR Status':r.resolution||r.status||'','Created Date':brDateOnly(r.date),'Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||''};});
+                const headers=['#','CR','CR URL','Is Duplicate','Parent CR','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','CR Status','Created Date','Ready Date','Built Date','CR Age','Area','Subsystem','Function','Assignee','CR SI'];
+  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','Is Duplicate':r.is_dup?'Yes':'No','Parent CR':r.parent_cr||'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'CR Status':r.status||'','Created Date':brDateOnly(r.date),'Ready Date':brDateOnly(r.ready_date)||'None','Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||'','Assignee':r.cr_assignee||'','CR SI':r.si&&r.si!=='NoSIR'?r.si:''};});
   brDownloadCsv('build_report_cr_summary.csv',headers,rows);
 }
 function brDownloadJiraCsv(){
@@ -1423,7 +1483,7 @@ function brExcelPayloadRows(){
   const crRows=(window._brCrRows||[]).map(r=>{
     const items=brJiraItemsForCr(r);
     const jiraKeys=items.map(x=>x.key).filter(Boolean);
-    return {cr:r.cr||'',occurrence:Number(r.count||jiraKeys.length||0),priority:r.priority||'',crash_type:crashTypeSummary(items,r),title:r.title||'',area:r.area||'',sub:r.sub||'',func:r.func||'',date:brDateOnly(r.date),built_date:brDateOnly(r.built_date),age:brDisplayCrAge(r),si:r.si||'',status:r.status||'',jira_keys:jiraKeys};
+    return {cr:r.cr||'',occurrence:Number(r.count||jiraKeys.length||0),priority:r.priority||'',crash_type:crashTypeSummary(items,r),title:r.title||'',area:r.area||'',sub:r.sub||'',func:r.func||'',date:brDateOnly(r.date),ready_date:brDateOnly(r.ready_date)||'None',built_date:brDateOnly(r.built_date),age:brDisplayCrAge(r),si:r.si&&r.si!=='NoSIR'?r.si:'',status:r.status||'',is_dup:!!(r.is_dup),parent_cr:r.parent_cr||'',cr_assignee:r.cr_assignee||'',jira_keys:jiraKeys};
   });
   const mappedRows=(window._brMappedRows||[]).map(r=>({ticket:r.ticket||'',occurrence:Number(r.count||1),title:r.title||'',date:r.date||'',status:r.status||'',src_keys:r.srcKeys||[]}));
   const openRows=(window._brOpenRows||[]).map(r=>({key:r.key||'',occurrence:Number(r.count||1),title:r.title||'',date:r.date||'',status:r.status||'',final_resolution:r.final_resolution||'',resolution_notes_text:r.resolution_notes_text||''}));
@@ -1572,12 +1632,20 @@ function brBuildCleanReportHtml(){
     ].map(r=>'<tr>'+td(esc(r[0]))+td(esc(r[1]),'text-align:right;font-weight:900;')+'</tr>');
     html+='<div style="'+css.h+'">Axiom Stability</div>'+table(['Metric','Value'],axRowsHtml);
   }
-  const crHtml=crRows.map((r,i)=>{
+    const crHtml=crRows.map((r,i)=>{
     const keys=brJiraItemsForCr(r).map(x=>x.key).filter(Boolean);
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
-    return '<tr>'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.built_date)))+td(esc(brDisplayCrAge(r)))+td(esc(r.si||''))+td(esc(r.status||''))+'</tr>'; 
+    const isDup=!!(r.is_dup);
+    const rowStyle=isDup?'background:#fffbeb;':'';
+    const dupCell=isDup
+      ?'<span style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:900">&#9888; Dup</span>'
+      :'<span style="color:#94a3b8">&#8212;</span>';
+    const parentCell=isDup&&r.parent_cr
+      ?(function(){const pn=(String(r.parent_cr||'').match(/(\d{5,9})/)||[])[1]||'';return pn?link('https://orbit/CR/'+pn,r.parent_cr):esc(r.parent_cr);})()
+      :'<span style="color:#94a3b8">&#8212;</span>';
+    return '<tr style="'+rowStyle+'">'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(dupCell)+td(parentCell)+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(r.status||''))+td(esc(brDisplayCrAge(r)))+td(esc(r.cr_assignee||''))+td(esc(r.si&&r.si!=='NoSIR'?r.si:''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.ready_date)||'None'))+td(esc(brDateOnly(r.built_date)))+'</tr>';
   });
-  html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','CR Area','CR SubSystem','CR Functionality','Created Date','Built Date','CR Age','CR SI','CR Status'],crHtml);
+  html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','Dup?','Parent CR','CR Area','CR SubSystem','CR Functionality','CR Status','CR Age','Assignee','CR SI','Created Date','Ready Date','Built Date'],crHtml);
   const mappedHtml=mappedRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.ticket?JIRA_BASE+r.ticket:'',r.ticket||''))+td(esc(r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc(r.status||''))+td(esc((r.srcKeys||[]).join(', ')))+'</tr>');
   if(mappedHtml.length)html+='<div style="'+css.h+'">Mapped JIRAs</div>'+table(['#','JIRA-Ticket','Occurrence','Jira Title','Jira Date','Status','JIRA Tickets (Source)'],mappedHtml);
   const openHtml=openRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.key?JIRA_BASE+r.key:'',r.key||''))+td(link(r.key?JIRA_BASE+r.key:'',r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc([r.status,r.final_resolution,r.resolution_notes_text].filter(Boolean).join(' - ')))+'</tr>');
@@ -1672,15 +1740,15 @@ async function brRun(){
 
   if(g('brJql')&&!String(g('brJql').value||'').trim())g('brJql').value=activeJql;
   if(g('brOpenJira')){g('brOpenJira').href=jiraUrl(activeJql);g('brOpenJira').style.display=activeJql?'inline-flex':'none'}
-  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
-  try{
-    await brCheckJiraReady();
-    g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="14" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
-    const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||''});
-    renderReport(data);
-    g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
-    brHideProgress(1800);
-  }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="14" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
+  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
+    try{
+      await brCheckJiraReady();
+      g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
+      const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||''});
+      renderReport(data);
+      g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
+      brHideProgress(1800);
+    }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="17" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
   finally{g('brSpinner').style.display='none'}
 }
 document.addEventListener('DOMContentLoaded',()=>{brPopulateBus();brShowBuildContextMessage();});

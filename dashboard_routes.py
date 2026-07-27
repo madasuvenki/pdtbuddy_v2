@@ -5694,7 +5694,25 @@ def api_dashboard_open_jiras(target_name):
         )
         raw = cur.fetchall() or []
 
-        # Build rows with area bucketing
+        def infer_auto_domain(row):
+            text = " ".join(str(row.get(k) or "") for k in ("target", "pl_id", "metabuild", "jira_title", "labels", "scenario")).upper()
+            if "_ADAS." in text or " ADAS" in text or "ADAS_" in text or "PVM_ADAS" in text:
+                return "ADAS"
+            if "_FLEX." in text or " FLEX" in text or "FLEX_" in text or "LAGVM" in text:
+                return "FLEX"
+            return "IVI"
+
+        def infer_crash_type(row):
+            text = " ".join(str(row.get(k) or "") for k in ("jira_title", "issue_tag", "labels", "scenario")).lower()
+            if "processdump" in text or "process crash" in text or "process_crash" in text or "qnx_process" in text:
+                return "Process"
+            if "ssr" in text or "subsystem restart" in text:
+                return "SSR"
+            return "System"
+
+        is_auto_bu = (get_bu_for_target(target_name) or "").upper() == "AUTO"
+
+        # Build rows with area/domain bucketing
         rows = []
         for r in raw:
             area = bucket_area(r)
@@ -5702,6 +5720,9 @@ def api_dashboard_open_jiras(target_name):
             for k, v in r.items():
                 row[k] = v.isoformat() if hasattr(v, "isoformat") else v
             row["area"] = area   # always set normalized area
+            if is_auto_bu:
+                row["domain"] = infer_auto_domain(row)
+                row["crash_type"] = infer_crash_type(row)
             rows.append(row)
 
         # Area summary
@@ -5717,6 +5738,9 @@ def api_dashboard_open_jiras(target_name):
             "success": True,
             "rows": rows,
             "area_summary": area_summary,
+            "domain_summary": [{"domain": d, "count": Counter(r.get("domain") or "IVI" for r in rows).get(d, 0)} for d in ("ADAS", "FLEX", "IVI") if Counter(r.get("domain") or "IVI" for r in rows).get(d, 0)] if is_auto_bu else [],
+            "crash_summary": [{"crash_type": k, "count": v} for k, v in Counter(r.get("crash_type") or "System" for r in rows).most_common()] if is_auto_bu else [],
+            "is_auto_bu": is_auto_bu,
             "total": len(rows),
         })
     except Exception as exc:

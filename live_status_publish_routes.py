@@ -1890,15 +1890,15 @@ def landing():
     ]
 
     if _show_auto_gen45_section:
-        # Automotive 4.5 card
+        # Automotive Gen 4.5 card
         viewer_bu_sections.insert(0, {
             'bu_key': 'AUTO_GEN45',
-            'bu_name': 'Automotive 4.5',
+            'bu_name': 'Automotive Gen 4.5',
             'special_page': True,
             'targets': [{
-                'name': 'Automotive 4.5',
+                'name': 'Automotive Gen 4.5',
                 'bu_key': 'AUTO_GEN45',
-                'bu_name': 'Automotive 4.5',
+                'bu_name': 'Automotive Gen 4.5',
                 'target_url': url_for('automotive_live_view_stats_bp.automotive_live_view_stats_page', target_name='4.8.9.0'),
                 'token': '',
                 'published_at': '',
@@ -1906,7 +1906,7 @@ def landing():
                 'published_by': '',
                 'job_type': 'CRM',
                 'meta_count': 0,
-                'job_name': 'Automotive 4.5 Live View Stats',
+                'job_name': 'Automotive Gen 4.5 Live View Stats',
                 'status': 'published',
                 'job_id': '',
                 'special_page': True,
@@ -3177,11 +3177,16 @@ def api_published_open_crs_full(job_id=None, target_name=None):
         status_expr, status_col = _sel(['cr_status', 'status', 'final_status'], 'cr_status')
         cat_expr_sel, cat_col = _sel(['cr_category', 'category', 'CR Category'], 'cr_category')
         age_expr, age_col = _sel(['cr_age', 'overall_age', 'age'], 'cr_age')
+        created_expr, created_col = _sel(['cr_date', 'created_date', 'date_added__created', 'created', 'created_on'], 'cr_created_date')
         first_expr, first_col = _sel(['first_seen_date', 'first_seen', 'jira_date__first_instance', 'jira_date', 'created_date', 'cr_date', 'built_date'], 'first_instance')
         last_expr, last_col = _sel(['last_seen_date', 'last_seen', 'jira_date__last_instance', 'last_instance', 'updated_date', 'jira_date'], 'last_instance')
         notes_expr, notes_col = _sel(['latest_cr_notes', 'latest_notes', 'latest_comment', 'latest_comments', 'analysis', 'debug_notes', 'cr_notes', 'notes', 'comment'], 'latest_cr_notes')
         occ_expr, occ_col = _sel(['cr_occurrence', 'overall_cr_occurrence', 'jira_count', 'cr_____current_month', 'current_month_occurrence'], 'occurrence')
         priority_expr, priority_col = _sel(['cr_priority', 'priority', 'severity', 'Severity'], 'priority')
+        assignee_expr, assignee_col = _sel(['cr_assignee', 'assignee', 'owner', 'assigned_to', 'ChangeRequest.Assignee', 'cr_created_by', 'created_by'], 'cr_assignee')
+        built_expr, built_col = _sel(['built_date', 'builtdate', 'cr_built_date', 'closed_date', 'resolved_date', 'fix_built_date'], 'built_date')
+        si_expr, si_col = _sel(['si_image', 'SI Image', 'simage', 'si_last_seen', 'last_seen_image', 'build_image', 'cr_si_image', 'image', 'cr_image', 'si'], 'si_image')
+        domain_expr, domain_col = _sel(['domain', 'Domain', 'cr_domain', 'crash_domain', 'software_domain', 'platform_domain', 'sub_domain'], 'domain')
         if not cr_col:
             return jsonify({'success': True, 'target': target, 'rows': [], 'message': 'No CR column found'})
 
@@ -3195,7 +3200,7 @@ def api_published_open_crs_full(job_id=None, target_name=None):
         if not status_col:
             return jsonify({'success': True, 'target': target, 'rows': [], 'message': 'No CR status column found'})
         where.append(f"{_sql_norm(status_col)} IN ('open','analysis','inanalysis')")
-        select_sql = ', '.join([cr_expr, raw_expr, title_expr, area_expr, sub_expr, func_expr, status_expr, cat_expr_sel, age_expr, first_expr, last_expr, notes_expr, occ_expr, priority_expr])
+        select_sql = ', '.join([cr_expr, raw_expr, title_expr, area_expr, sub_expr, func_expr, status_expr, cat_expr_sel, age_expr, created_expr, first_expr, last_expr, notes_expr, occ_expr, priority_expr, assignee_expr, built_expr, si_expr, domain_expr])
         order_col = last_col or first_col or cr_col
         cur.execute(f"SELECT {select_sql} FROM {tbl} WHERE {' AND '.join(where)} ORDER BY `{order_col}` DESC LIMIT 5000")
         raw_rows = cur.fetchall() or []
@@ -3210,17 +3215,35 @@ def api_published_open_crs_full(job_id=None, target_name=None):
             return m.group(1) if m else re.sub(r'[^A-Z0-9]+', '', str(v or '').upper())
 
         def _domain_for(row):
-            text = ' '.join(str(row.get(k) or '') for k in ('cr_area', 'cr_subsystem', 'cr_functionality', 'cr_title', 'latest_cr_notes')).upper()
+            explicit = str(row.get('domain') or '').strip().upper()
+            if explicit in {'ADAS', 'FLEX', 'IVI'}:
+                return explicit
+            text = ' '.join(str(row.get(k) or '') for k in ('domain', 'cr_area', 'cr_subsystem', 'cr_functionality', 'cr_title', 'latest_cr_notes', 'si_image')).upper()
             if any(x in text for x in ('ADAS', 'ADP', 'RIDE', 'VISION', 'CAMERA')):
                 return 'ADAS'
             if 'FLEX' in text or re.search(r'\bFLE\b', text):
                 return 'FLEX'
+            # Automotive Gen5 rows are primarily ADAS/FLEX/IVI. When the source
+            # table does not carry an explicit domain marker, keep the row under
+            # IVI rather than returning an empty/null domain so the Open CRs tab
+            # is never blank solely because domain inference failed.
             return 'IVI' if _is_core_deck_target(target) else ''
 
         seen = {}
         allowed_statuses = {'open', 'analysis', 'inanalysis'}
         for r in raw_rows:
             row = {k: _ser(v) for k, v in dict(r).items()}
+            if str(row.get('cr_age') or '').strip().upper() in {'', '-', 'NA', 'N/A', 'NONE', 'NULL'}:
+                try:
+                    # CR Age is age from CR created date to current date for open/analysis CRs.
+                    start_raw = str(row.get('cr_created_date') or row.get('cr_date') or '').strip()[:10]
+                    start_dt = _datetime.fromisoformat(start_raw).date() if start_raw else None
+                    if start_dt:
+                        row['cr_age'] = str(max(0, (_datetime.now().date() - start_dt).days))
+                    else:
+                        row['cr_age'] = ''
+                except Exception:
+                    row['cr_age'] = ''
             if re.sub(r'[^a-z0-9]+', '', str(row.get('cr_status') or '').lower()) not in allowed_statuses:
                 continue
             key = _cr_key(row.get('cr') or row.get('raw_cr'))

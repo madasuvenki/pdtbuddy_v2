@@ -1227,9 +1227,10 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                     or data.get('Integrations') or [])
 
 
-            best_si = best_status = best_built = ''
+            best_si = best_status = best_built = best_ready = ''
             image_matched = False
             matched_sir = None
+
 
             if sirs:
                 def _sir_image(x):
@@ -1247,7 +1248,15 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                         x.get('BuildDate') or x.get('built_date') or ''
                     ).strip()[:10]
 
+                def _sir_ready(x):
+                    return str(
+                        x.get('ReadyDate') or x.get('ready') or
+                        x.get('ReadyOn') or x.get('ReadyOnDate') or
+                        x.get('ready_date') or x.get('readyDate') or ''
+                    ).strip()[:10]
+
                 # Sort: matching SI first, then by status priority
+
                 best = sorted(
                     sirs,
                     key=lambda x: (
@@ -1259,7 +1268,9 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 best_si      = _sir_image(matched_sir)
                 best_status  = _sir_status(matched_sir)
                 best_built   = _sir_built(matched_sir)
+                best_ready   = _sir_ready(matched_sir)
                 image_matched = _image_matches(best_si, jira_images)
+
 
                 if image_matched:
                     pass
@@ -1296,11 +1307,18 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_subsystem' : sub,
                 'cr_function'  : func,
                                 'cr_built_date': best_built,
+                'cr_ready_date': best_ready or _g('ReadyDate', 'ReadyOn', 'ready_date', 'readyDate')[:10],
                 'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built, best_status or _g('Status', 'cr_status', 'status')),
+
+                'AssigneeUid'  : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
+                'assignee_uid' : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
+                'parent_cr'    : ('CR' + _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr').upper().replace('CR', '').strip()) if _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr') else '',
+                'cr_category'  : _g('Category', 'cr_category', 'Status'),
                 'image_matched': image_matched,
                 'source'       : 'orbit',
 
             }
+
         except Exception as e:
             return cr_num, None
 
@@ -1437,8 +1455,10 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
             'cr_area'        : cr_data.get('cr_area',   ''),
             'cr_subsystem'   : cr_data.get('cr_subsystem', ''),
             'cr_function'    : cr_data.get('cr_function', ''),
-                        'cr_built_date'  : cr_data.get('cr_built_date', ''),
+                                    'cr_built_date'  : cr_data.get('cr_built_date', ''),
+            'cr_ready_date'  : cr_data.get('cr_ready_date', ''),
             'cr_date'        : cr_data.get('cr_date', ''),
+
             'cr_age'         : cr_data.get('cr_age', '') or _compute_cr_age(cr_data.get('cr_date', ''), cr_data.get('cr_built_date', ''), cr_data.get('cr_status', '')),
             'jiras'          : [],
 
@@ -1646,14 +1666,18 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
         sub_col    = _pick('cr_subsystem', 'cr_sub_system', 'subsystem', 'sub_system')
         func_col   = _pick('cr_functionality', 'cr_function', 'functionality', 'function')
         built_col  = _pick('built_date', 'cr_built_date', 'build_date')
+        ready_col  = _pick('ready_date', 'cr_ready_date', 'ready_on')
         date_col   = _pick('cr_date', 'created_date', 'created_on', 'jira_date')
+
         age_col    = _pick('cr_age', 'age', 'overall_age')
+        assignee_col = _pick('assignee_uid', 'assignee', 'cr_assignee', 'owner', 'cr_owner')
+        parent_col = _pick('parent_cr', 'parent_id', 'parentid', 'canonical_cr')
+        category_col = _pick('cr_category', 'category')
 
 
         # build SELECT
         select_cols = list(lookup_cols)
-        for c in [title_col, status_col, priority_col, image_col, area_col, sub_col, func_col, built_col, date_col, age_col]:
-
+        for c in [title_col, status_col, priority_col, image_col, area_col, sub_col, func_col, built_col, ready_col, date_col, age_col, assignee_col, parent_col, category_col]:
             if c and c not in select_cols:
                 select_cols.append(c)
 
@@ -1740,13 +1764,20 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
                 'cr_area'      : str(row.get(area_col,   '') or '') if area_col   else '',
                 'cr_subsystem' : str(row.get(sub_col,    '') or '') if sub_col    else '',
                 'cr_function'  : str(row.get(func_col,   '') or '') if func_col   else '',
-                                'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
+                                                'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
+                'cr_ready_date': str(row.get(ready_col,  '') or '') if ready_col  else '',
                 'cr_date'      : str(row.get(date_col,   '') or '') if date_col   else '',
-                'cr_age'       : _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else '', str(row.get(status_col, '') or '') if status_col else ''),
+
+                                'cr_age'       : (str(row.get(age_col, '') or '') if age_col else '') or _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else '', str(row.get(status_col, '') or '') if status_col else ''),
+                'assignee_uid' : str(row.get(assignee_col, '') or '') if assignee_col else '',
+                'AssigneeUid'  : str(row.get(assignee_col, '') or '') if assignee_col else '',
+                'parent_cr'    : ('CR' + str(row.get(parent_col, '') or '').upper().replace('CR', '').strip()) if parent_col and str(row.get(parent_col, '') or '').strip() else '',
+                'cr_category'  : str(row.get(category_col, '') or '') if category_col else '',
                 'image_matched': image_matched,   # True = image found in JIRA's pl_id_raw
 
                 'source'       : 'unique_crs',
             }
+
 
             # Store under canonical mapped CR and under every raw alias found in DB.
             # This lets a JIRA that directly references a duplicate CR still resolve to
@@ -1858,23 +1889,43 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             )
             cr_info_map.update(orbit_map)
 
+        # If Orbit/DB says a CR is duplicate and provides a parent, fetch the
+        # parent CR details too. The UI should show the duplicate CR number in
+        # the CR column, but all detail columns (status/age/assignee/SI/etc.)
+        # must come from the parent CR.
+        parent_crs = []
+        for info in (cr_info_map or {}).values():
+            parent = (info or {}).get('parent_cr') or ''
+            if parent and parent not in cr_info_map:
+                parent_crs.append(parent)
+        parent_crs = list(dict.fromkeys(parent_crs))
+        if enrich_orbit and parent_crs:
+            parent_map = fetch_cr_info_from_orbit(parent_crs, issues_dicts=issues_dicts)
+            cr_info_map.update(parent_map or {})
 
-        # If DB lookup resolved a duplicate/raw CR to a canonical mapped_cr,
+
+        # If DB/Orbit lookup resolved a duplicate/raw CR to a canonical mapped_cr,
+
         # rewrite each JIRA traversal before grouping the hierarchy.
-
         for d in issues_dicts:
             current_cr = d.get('traversal', {}).get('final_cr') or d.get('cr_mapped', '')
-            canonical_cr = (cr_info_map.get(current_cr, {}) or {}).get('canonical_cr') or (cr_info_map.get(current_cr, {}) or {}).get('cr_number')
+
+            info_for_current = cr_info_map.get(current_cr, {}) or {}
+            canonical_cr = info_for_current.get('canonical_cr') or info_for_current.get('parent_cr') or info_for_current.get('cr_number')
             if canonical_cr and current_cr and canonical_cr != current_cr:
                 d.setdefault('traversal', {})['raw_final_cr'] = current_cr
                 d['traversal']['final_cr'] = canonical_cr
+                # Keep the raw duplicate CR as a public alias in cr_index.
+                # Standalone Build Report uses this to show Parent CR and to
+                # pull all detail fields from the canonical/parent CR.
+                if current_cr in cr_info_map:
+                    cr_info_map[current_cr]['canonical_cr'] = canonical_cr
+                    cr_info_map[current_cr]['parent_cr'] = canonical_cr
 
-        # Keep only canonical CR keys for the public cr_index where possible.
-        canonical_map = {}
-        for key, info in (cr_info_map or {}).items():
-            canonical_key = (info or {}).get('canonical_cr') or (info or {}).get('cr_number') or key
-            canonical_map[canonical_key] = info
-        cr_info_map = canonical_map or cr_info_map
+        # Preserve alias keys in public cr_index. Do NOT collapse to only
+        # canonical keys; the UI needs raw duplicate CR keys like CR4487163
+        # so Parent CR can be resolved without relying on JIRA traversal.
+
 
         if progress:
             progress.update(
