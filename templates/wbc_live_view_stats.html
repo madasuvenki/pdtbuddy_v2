@@ -822,18 +822,46 @@ async function wbcSjqlSave(){
   const fullJql  = (document.getElementById('wbcSjqlInpJql').value||'').trim();
   const msg  = document.getElementById('wbcSjqlMsg');
   const filterId = _wbcFilterIdFromText(filterIdRaw);
-  if(!name){ if(msg) msg.textContent='Build ID is required.'; return; }
-  if(filterIdRaw && !filterId){ if(msg) msg.textContent='Filter ID must be numeric, or paste a Jira filter URL containing filter=12345.'; return; }
-  if(!filterId && !fullJql){ if(msg) msg.textContent='Provide either Filter ID or full JQL.'; return; }
-  const jql = filterId ? ('filter = '+filterId) : fullJql;
-  try {
-    const body = {target: active, domain: 'WBC', name, jql};
-    if(id) body.id = id;
-    const d = await postJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`, body);
-    if(!d.ok) throw new Error(d.error||'Save failed');
-    wbcCloseSjqlModal();
-    await wbcSjqlLoad();
-  } catch(e) { if(msg) msg.textContent = 'Error: '+(e.message||e); }
+      if(!name){ if(msg) msg.textContent='Build ID is required.'; return; }
+    if(filterIdRaw && !filterId){ if(msg) msg.textContent='Filter ID must be numeric, or paste a Jira filter URL containing filter=12345.'; return; }
+    if(!filterId && !fullJql){ if(msg) msg.textContent='Provide either Filter ID or full JQL.'; return; }
+    // If a filter ID was given, resolve it to actual JQL before saving
+    // so the saved row contains real runnable JQL, not just "filter = NNN".
+    let resolvedJql = fullJql;
+    const saveBtn = document.querySelector('#wbcSjqlModal button[onclick="wbcSjqlSave()"]');
+    if(filterId){
+      if(msg){ msg.style.color='#2563eb'; msg.textContent='Resolving JIRA filter '+filterId+' to actual JQL...'; }
+      if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='Resolving...'; }
+      try{
+        const r = await fetch('/api/jira/filter_jql?filter_id='+encodeURIComponent(filterId),{cache:'no-store'});
+        const rd = await r.json();
+        if(rd.ok && rd.jql){
+          resolvedJql = String(rd.jql).trim();
+          const jqlEl = document.getElementById('wbcSjqlInpJql');
+          if(jqlEl) jqlEl.value = resolvedJql;
+          if(msg){ msg.style.color='#059669'; msg.textContent='Filter '+filterId+' resolved ✔ Saving...'; }
+        } else {
+          // Resolution failed — fall back to filter = NNN; backend will retry at run time
+          resolvedJql = 'filter = '+filterId;
+          if(msg){ msg.style.color='#d97706'; msg.textContent='Could not resolve filter ('+(rd&&rd.error||'unknown')+') — saving as filter reference.'; }
+        }
+      } catch(e2){
+        resolvedJql = 'filter = '+filterId;
+        if(msg){ msg.style.color='#d97706'; msg.textContent='Filter resolve failed ('+e2.message+') — saving as filter reference.'; }
+      } finally {
+        if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent='Save'; }
+      }
+    }
+    if(!resolvedJql){ if(msg){ msg.style.color='#dc2626'; msg.textContent='JQL is empty after resolution. Provide a valid filter or JQL.'; } return; }
+    try {
+      if(msg){ msg.style.color='#2563eb'; msg.textContent='Saving...'; }
+      const body = {target: active, domain: 'WBC', name, jql: resolvedJql};
+      if(id) body.id = id;
+      const d = await postJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`, body);
+      if(!d.ok) throw new Error(d.error||'Save failed');
+      wbcCloseSjqlModal();
+      await wbcSjqlLoad();
+    } catch(e) { if(msg){ msg.style.color='#dc2626'; msg.textContent = 'Error: '+(e.message||e); } }
 }
 
 async function wbcSjqlDelete(id){
