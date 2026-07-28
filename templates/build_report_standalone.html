@@ -87,20 +87,20 @@
         </div>
         <div class="field">
           <label>Direct JQL</label>
-          <textarea id="brJql" placeholder="Paste direct JQL here, paste filter=346152 / a JIRA filter URL, or list builds below to generate JQL automatically" oninput="brQueueFilterJqlResolve('direct')"></textarea>
+          <textarea id="brJql" placeholder="Paste direct JQL here, paste filter=346152 / a JIRA filter URL, or list builds below to generate JQL automatically" oninput="brQueueFilterJqlResolve('direct');brUpdateRunBtn()"></textarea>
           <div class="mode-help">Priority: Direct JQL / pasted filter URL → Filter ID field → builds below.</div>
         </div>
       </div>
       <div class="grid" style="margin-top:12px">
         <div class="field" style="grid-column:1/-1">
           <label>Builds</label>
-          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql();brQueueFilterJqlResolve('filter')"></textarea>
+          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn()"></textarea>
           <div class="mode-help">List build IDs here (one per line) to generate JQL <b>and enable Axiom stability metrics (MTBF)</b>. If left blank, builds are auto-detected from JIRA results after first run.</div>
         </div>
 
       </div>
             <div class="toolbar" style="margin-top:8px;justify-content:flex-end">
-        <button class="btn btn-primary" onclick="brRun()"><i class="fas fa-play"></i> Run Query</button>
+        <button id="brRunBtn" class="btn btn-primary" onclick="brRun()" style="display:none"><i class="fas fa-play"></i> Run Query</button>
       </div>
       <div id="brStatus" class="muted" style="margin-top:10px"></div>
     </div>
@@ -146,7 +146,7 @@
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
             <input id="brOpenSearch" class="mini-input" placeholder="Search JIRA / title / status..." oninput="brRenderOpenTab()" style="max-width:260px">
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">JIRA-Ticket</th><th style="white-space:nowrap">Occurrence</th><th style="min-width:320px">Jira Title</th><th style="white-space:nowrap">Jira Date</th><th style="white-space:nowrap">Status</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">JIRA-Ticket</th><th style="white-space:nowrap">Occurrence</th><th style="min-width:320px">Jira Title</th><th style="white-space:nowrap">Jira Date</th><th style="white-space:nowrap">Status</th><th style="min-width:180px">Resolution Notes</th></tr></thead><tbody id="brOpenRows"></tbody></table></div>
         </div>
       </div>
       <!-- legacy hidden containers kept for CSV/copy functions -->
@@ -218,6 +218,29 @@ function brComposeJqlWithResolvedFilter(filterJql){
   const buildPart=builds.map(b=>'summary ~ "'+String(b||'').replace(/"/g,'\\"')+'"').join(' OR ');
   return '('+buildPart+') AND ('+base+') AND summary !~ "tombstone" ORDER BY created ASC';
 }
+      function brJqlIsValid(jqlRaw){
+    // Returns true only if the JQL box contains a real, runnable JQL string.
+    const raw = String(jqlRaw||'').trim();
+    if(!raw) return false;
+    // Accept filter = NNN or filter URL pasted directly into JQL box
+    if(brLooksLikeOnlyFilterInput(raw)) return false; // filter alone is not yet resolved
+    // Must be at least 10 chars
+    if(raw.length < 10) return false;
+    // Must contain at least one real JQL field/operator
+    const jqlPattern = /\b(project|summary|status|assignee|reporter|issuetype|priority|created|updated|component|fixVersion|labels|text|issue|key)\s*[=!~<>]|\bAND\b|\bOR\b|\bORDER\s+BY\b/i;
+    return jqlPattern.test(raw);
+  }
+  function brUpdateRunBtn(){
+    // Only show Run button when the JQL box has a fully resolved, valid JQL
+    // OR at least one build ID is present (builds auto-generate JQL).
+    const jqlRaw = String((g('brJql')&&g('brJql').value)||'').trim();
+    const hasValidJql = brJqlIsValid(jqlRaw);
+    const hasBuilds   = !!(buildList().length);
+    const ok = hasValidJql || hasBuilds;
+    const btn = g('brRunBtn');
+    if(!btn) return;
+    btn.style.display = ok ? 'inline-flex' : 'none';
+  }
 function brQueueFilterJqlResolve(source){
   clearTimeout(brFilterResolveTimer);
   brFilterResolveTimer=setTimeout(()=>brResolveFilterJqlNow({source:source||'auto'}),1000);
@@ -248,12 +271,13 @@ async function brResolveFilterJqlNow(opts){
       resolved=String(d.jql||'').trim();
       brResolvedFilterJqlById[fid]=resolved;
     }
-    if(seq!==brFilterResolveSeq)return '';
+        if(seq!==brFilterResolveSeq)return '';
     const expanded=brComposeJqlWithResolvedFilter(resolved);
     if(expanded&&g('brJql'))g('brJql').value=expanded;
     const open=g('brOpenJira');
     if(open&&expanded){open.href=jiraUrl(expanded);open.style.display='inline-flex';}
     if(!opts.silent&&g('brStatus')){g('brStatus').className='muted status-ok';g('brStatus').textContent='Resolved filter '+fid+' to actual JQL.';}
+    brUpdateRunBtn(); // show Run button now that JQL box has valid resolved JQL
     return expanded;
   }catch(e){
     if(!opts.silent&&g('brStatus')){g('brStatus').className='muted status-bad';g('brStatus').textContent='Filter resolve failed: '+(e.message||e);}
@@ -705,12 +729,14 @@ function normalize(rep){
         status:brFinalStatusOf(firstJ)||firstJ.status||'',
         srcKeys
       });
-        } else if(cr==='NO_CR'||!cr){
+          } else if(cr==='NO_CR'||!cr){
       // ── Qstability_Tickets sheet rows ─────────────────────────────────────
-      // Mirror PDT_StatsConstants.py: exclude closed tickets with junk resolutions
-      // and always-exclude rejected/transferred tickets (same as _cr_report_funcs.js)
+      // Mirror PDT_StatsConstants.py: exclude only truly junk closed tickets.
+      // Keep all Open / OnHold / InProgress tickets unconditionally.
       const _EXCL_RES  = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
-      const _CLOSED_ST = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
+      // Only filter out tickets that are BOTH closed AND have a junk resolution.
+      // Do NOT filter 'closed' alone — a closed ticket with a real resolution is valid.
+      const _HARD_CLOSED_ST = new Set(['closed_root_cause_not_found','closed_root_cause_cr_found','rejected']);
       jiras.forEach(j=>{
         const key=String(j.key||j.stability_ticket||'').toUpperCase();
         if(!key||seenJ[key])return;
@@ -720,13 +746,15 @@ function normalize(rep){
         // Always skip rejected and transferred tickets
         if(jSt==='rejected') return;
         if(jSt.indexOf('transfer')>=0) return;
-        // Skip closed tickets with invalid/junk resolutions
-        if(_CLOSED_ST.has(jSt)&&(_EXCL_RES.has(jRes)||_EXCL_RES.has(jFRes))) return;
+        // Skip hard-closed tickets with invalid/junk resolutions
+        if(_HARD_CLOSED_ST.has(jSt)&&(_EXCL_RES.has(jRes)||_EXCL_RES.has(jFRes))) return;
+        // Skip 'closed' tickets only when resolution is explicitly junk
+        if(jSt==='closed'&&(_EXCL_RES.has(jRes)&&_EXCL_RES.has(jFRes))) return;
         seenJ[key]=1;
         openRows.push({
           key,
           count:1,
-                    title:j.summary||j.jira_title||brFinalSummaryOf(j)||'',
+          title:j.summary||j.jira_title||brFinalSummaryOf(j)||'',
           date:String(j.created||'').slice(0,10),
           status:j.status||brFinalStatusOf(j)||'',
           final_resolution:brFinalResolutionOf(j)||j.resolution||'',
@@ -1193,7 +1221,7 @@ function renderReport(rep){
   }
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
 
-  // Show tabs
+    // Show tabs
   const tabs=g('brReportTabs'); if(tabs)tabs.style.display='block';
 
   // Update tab badges
@@ -1207,12 +1235,16 @@ function renderReport(rep){
   setBadge('mapped',mappedRows.length,false);
   setBadge('open',openRows.length,false);
 
-  // Render active tab (CRs by default)
-  brSwitchTab('crs');
+  // Render active tab (CRs by default).
+  // Only switch to CRs tab on first render; preserve user's current tab on axiom re-renders.
+  const _currentTab=window._brActiveTab||'crs';
+  window._brActiveTab='crs'; // reset to CRs on each full report render
+  brSwitchTab(_currentTab==='crs'?'crs':_currentTab);
 }
 
 /* ── Tab switcher ─────────────────────────────────────────────────────────── */
 window.brSwitchTab=function(name){
+  window._brActiveTab=name; // track active tab so re-renders preserve selection
   ['crs','mapped','open'].forEach(t=>{
     const pane=g('brTabPane_'+t), btn=g('brTab_'+t), badge=g('brTabBadge_'+t);
     const active=(t===name);
@@ -1246,12 +1278,11 @@ window.brRenderCrTab=function(){
         if(!rows.length){tb.innerHTML='<tr><td colspan="17" class="empty">No CRs found.</td></tr>';return;}
     // Helper: render parent CR cell (link + status + area + SI + assignee from parent)
 
-  function _brParentCrCell(r){
+      function _brParentCrCell(r){
     // Parent CR column: show only the parent CR link.
     // All detail columns already show parent data from the backend.
-    if(!r.is_dup)return '<span style="color:#94a3b8;font-size:11px">—</span>';
     const pid=String(r.parent_cr||'').trim();
-    if(!pid)return '<span style="color:#94a3b8;font-size:11px">—</span>';
+    if(!r.is_dup||!pid)return '<span style="color:#94a3b8;font-size:11px">None</span>';
     const pidNum=(pid.match(/(\d{5,9})/)||[])[1]||'';
     return pidNum
       ?'<a class="link" style="font-weight:900;color:#b45309;white-space:nowrap" href="https://orbit/CR/'+esc(pidNum)+'" target="_blank" rel="noopener">'+esc(pid)+'</a>'
@@ -1350,7 +1381,7 @@ window.brRenderOpenTab=function(){
   const q=String((g('brOpenSearch')||{}).value||'').toLowerCase();
   const filtered=rows.filter(r=>!q||[r.key,r.title,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0);
   const tb=g('brOpenRows'); if(!tb)return;
-  if(!filtered.length){tb.innerHTML='<tr><td colspan="6" class="empty">No open/unmapped JIRAs found.</td></tr>';return;}
+  if(!filtered.length){tb.innerHTML='<tr><td colspan="7" class="empty">No open/unmapped JIRAs found.</td></tr>';return;}
   const _INV_OPEN=['invalid','setup issue','incomplete','incomplete ram dump',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn','cannotduplicate','invalid_dup'];
   tb.innerHTML=filtered.map((r,i)=>{
     const st=String(r.status||'');
@@ -1370,10 +1401,11 @@ window.brRenderOpenTab=function(){
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
             '<td style="white-space:nowrap"><a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a></td>'+
       '<td style="text-align:center"><a class="br-count-link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener" title="Open JIRA">'+esc(r.count||1)+'</a></td>'+
-      '<td style="min-width:320px;white-space:normal;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
-      '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
-      '<td>'+stBadge+invBadge+resNote+'</td>'+
-            '</tr>';
+              '<td style="min-width:320px;white-space:normal;word-break:break-word;font-size:11px">'+esc(r.title||'--')+'</td>'+
+        '<td style="white-space:nowrap;font-size:11px">'+esc(r.date||'--')+'</td>'+
+        '<td style="white-space:nowrap">'+stBadge+invBadge+'</td>'+
+        '<td style="font-size:11px;color:#64748b;max-width:220px;white-space:normal;word-break:break-word">'+esc(resDisplay||'')+'</td>'+
+        '</tr>';
   }).join('');
 };
 
@@ -1466,7 +1498,7 @@ function brDownloadCsv(filename, headers, rows){
 }
 function brDownloadCrCsv(){
                 const headers=['#','CR','CR URL','Is Duplicate','Parent CR','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','CR Status','Created Date','Ready Date','Built Date','CR Age','Area','Subsystem','Function','Assignee','CR SI'];
-  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','Is Duplicate':r.is_dup?'Yes':'No','Parent CR':r.parent_cr||'','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'CR Status':r.status||'','Created Date':brDateOnly(r.date),'Ready Date':brDateOnly(r.ready_date)||'None','Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||'','Assignee':r.cr_assignee||'','CR SI':r.si&&r.si!=='NoSIR'?r.si:''};});
+  const rows=(brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','Is Duplicate':r.is_dup?'Yes':'No','Parent CR':r.parent_cr||'None','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'CR Status':r.status||'','Created Date':brDateOnly(r.date),'Ready Date':brDateOnly(r.ready_date)||'None','Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||'','Assignee':r.cr_assignee||'','CR SI':r.si&&r.si!=='NoSIR'?r.si:''};});
   brDownloadCsv('build_report_cr_summary.csv',headers,rows);
 }
 function brDownloadJiraCsv(){
@@ -1641,8 +1673,8 @@ function brBuildCleanReportHtml(){
       ?'<span style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:900">&#9888; Dup</span>'
       :'<span style="color:#94a3b8">&#8212;</span>';
     const parentCell=isDup&&r.parent_cr
-      ?(function(){const pn=(String(r.parent_cr||'').match(/(\d{5,9})/)||[])[1]||'';return pn?link('https://orbit/CR/'+pn,r.parent_cr):esc(r.parent_cr);})()
-      :'<span style="color:#94a3b8">&#8212;</span>';
+            ?(function(){const pn=(String(r.parent_cr||'').match(/(\d{5,9})/)||[])[1]||'';return pn?link('https://orbit/CR/'+pn,r.parent_cr):esc(r.parent_cr);})()
+      :'None';
     return '<tr style="'+rowStyle+'">'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(dupCell)+td(parentCell)+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(r.status||''))+td(esc(brDisplayCrAge(r)))+td(esc(r.cr_assignee||''))+td(esc(r.si&&r.si!=='NoSIR'?r.si:''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.ready_date)||'None'))+td(esc(brDateOnly(r.built_date)))+'</tr>';
   });
   html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','Dup?','Parent CR','CR Area','CR SubSystem','CR Functionality','CR Status','CR Age','Assignee','CR SI','Created Date','Ready Date','Built Date'],crHtml);
@@ -1718,23 +1750,32 @@ async function brFetchAxiomNow(buildIds, existingRep){
       }, mergedRep);
       if(axiomStatus) axiomStatus.innerHTML = '';
     } else {
-      if(axiomStatus) axiomStatus.innerHTML = '<span style="color:#b91c1c"><i class="fas fa-exclamation-triangle"></i> Axiom returned no data for these builds.</span>';
+            if(axiomStatus) axiomStatus.innerHTML = '<span style="color:#b91c1c"><i class="fas fa-exclamation-triangle"></i> Axiom returned no data for these builds.</span>';
     }
   }catch(e){
     if(axiomStatus) axiomStatus.innerHTML = '<span style="color:#b91c1c"><i class="fas fa-exclamation-triangle"></i> '+esc(e.message||String(e))+'</span>';
   }
+  // After axiom re-render, restore the tab the user was on (don't jump back to CRs)
+  const _savedTab=window._brActiveTab;
+  if(_savedTab && _savedTab!=='crs') brSwitchTab(_savedTab);
 }
 async function brRun(){
   const builds=buildList();
   const directJql=brNormalizeJqlInput(g('brJql').value||'');
   const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);
-    if(!directJql&&!filterOnly&&!builds.length){alert('Enter builds, paste direct JQL, or provide a JIRA filter ID/URL first.');return;}
+  if(!directJql&&!filterOnly&&!builds.length){alert('Enter builds, paste direct JQL, or provide a JIRA filter ID/URL first.');return;}
 
+  // Always try to resolve filter → real JQL before running.
+  // If resolution fails, fall back to 'filter = NNN' syntax which JIRA also accepts.
   if(filterOnly || brLooksLikeOnlyFilterInput(g('brJql').value||'')){
     const expanded=await brResolveFilterJqlNow({source:filterOnly?'filter':'direct',silent:true});
-    if(expanded)g('brJql').value=expanded;
+    if(expanded) g('brJql').value=expanded;
+    else if(filterOnly && !brNormalizeJqlInput(g('brJql').value||'')){
+      // Resolution failed — use raw filter = NNN syntax as fallback
+      g('brJql').value='filter = '+filterOnly+' ORDER BY created ASC';
+    }
   }
-    if(!brNormalizeJqlInput(g('brJql').value||'')) brGenerateJql();
+  if(!brNormalizeJqlInput(g('brJql').value||'')) brGenerateJql();
   const activeJql=brCurrentRunnableJql();
   if(!activeJql){alert('Unable to build a runnable JQL. Please check builds/filter/JQL input.');return;}
 
