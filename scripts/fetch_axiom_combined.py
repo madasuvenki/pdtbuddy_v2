@@ -275,21 +275,67 @@ def _add_index_if_missing(cursor, table: str, index_name: str, columns_sql: str)
         logger.info("[DB] Added index %s.%s", table, index_name)
 
 
-def _derive_city_team(taxonomy_path: str) -> str:
-    """
-    Derive the physical-location bucket (city_team) from a job's taxonomy_path.
+# ---------------------------------------------------------------------------
+# QIPL sites: Hyderabad lab servers only
+# All other sites (wig, sundae, chipwich, grilled, etc.) are NOT QIPL
+# ---------------------------------------------------------------------------
+_QIPL_SITES = frozenset({
+    'crmhyd',    # Hyderabad - primary QIPL lab
+    'anusat',    # Hyderabad - QIPL lab
+    'swayam',    # Hyderabad - QIPL lab
+    'range',     # Hyderabad - QIPL lab
+    'lab15864',  # Hyderabad - QIPL lab PC
+    'lab6644',   # Hyderabad - QIPL lab PC
+    'lab6898',   # Hyderabad - QIPL lab PC
+    'stellar',   # Hyderabad - QIPL lab
+    'hope',      # Hyderabad - QIPL lab
+})
 
-    Confirmed via Axiom Device resources (location field, city segment):
-      - San Diego devices    -> taxonomy /PDT/SanDiego*  -> 'SD'
-      - Beijing/Shanghai     -> taxonomy /PDT/China*      -> 'CHINA'
-      - Hyderabad + everyone else (incl. /PDT/QIPL*, bare /PDT) -> 'QIPL'
+_SD_SITES = frozenset({
+    'snowcone',  # San Diego
+    'sundae',    # San Diego
+    'jerry',     # San Diego
+    'chipwich',  # San Diego
+})
+
+
+def _derive_city_team(taxonomy_path: str, site: str = '') -> str:
     """
-    tax = str(taxonomy_path or '').strip().upper()
+    Derive the physical-location bucket (city_team) from site (build path server)
+    and taxonomy_path.
+
+    Priority:
+      1. taxonomy_path /PDT/SanDiego* or /PDT/China* -> SD / CHINA (explicit)
+      2. site in _QIPL_SITES  -> QIPL  (Hyderabad servers)
+      3. site in _SD_SITES    -> SD    (San Diego servers)
+      4. site known non-QIPL  -> CHINA (Beijing/Shanghai servers)
+      5. fallback taxonomy /PDT/QIPL* -> QIPL
+      6. default             -> CHINA  (unknown bare /PDT jobs are mostly China)
+    """
+    tax  = str(taxonomy_path or '').strip().upper()
+    site = str(site or '').strip().lower()
+
+    # Explicit taxonomy overrides
     if '/SANDIEGO' in tax:
         return 'SD'
     if '/CHINA' in tax:
         return 'CHINA'
-    return 'QIPL'
+
+    # Site-based (most reliable)
+    if site in _QIPL_SITES:
+        return 'QIPL'
+    if site in _SD_SITES:
+        return 'SD'
+
+    # Any other known site not in QIPL/SD -> CHINA
+    if site and site not in _QIPL_SITES and site not in _SD_SITES:
+        return 'CHINA'
+
+    # Fallback to taxonomy
+    if '/QIPL' in tax:
+        return 'QIPL'
+
+    return 'CHINA'
 
 
 def _parse_site(build_id: str) -> str:
@@ -524,10 +570,11 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
             chip_json  = json.dumps(chips if isinstance(chips, list) else list(chips))
             team       = str(b.get('team') or 'PDT').strip()
             tax        = str(b.get('taxonomy_path') or '/PDT').strip()
-            city_team  = _derive_city_team(tax)
+            # build_id and site MUST be derived before city_team (site is used by _derive_city_team)
             build_id   = str(b.get('build_id') or b.get('build') or '').strip()
             build_name = _parse_build_name(build_id) or None
             site       = _parse_site(build_id) or None
+            city_team  = _derive_city_team(tax, site or '')
             ex_pl      = int(b.get('executed_playlists') or b.get('executedPlaylistsCount') or 0)
             dev_count  = int(b.get('device_count') or len(chips))
             # started_at: use started_at field, fallback to submitted if null

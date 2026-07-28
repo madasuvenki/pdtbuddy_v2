@@ -103,7 +103,8 @@ def _load_swpdt_json_payload() -> tuple[dict, str]:
                   AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                   AND taxonomy_path NOT LIKE '/PDT/China%'
                   AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                  AND COALESCE(city_team, 'QIPL') = 'QIPL'
+                  AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
                 ORDER BY submitted_at DESC
             """)
             rows = cur.fetchall() or []
@@ -2988,17 +2989,16 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
 
 
 def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> list:
-    """Return chip IDs, padding with target-scoped synthetic device slots.
+    """Return real chip IDs only - no synthetic padding.
 
-    Some Axiom rows (e.g. SA510M.LE.1.0-style builds) report a real
-    device_count of many devices but only populate chip_ids with 1-2 chipset
-    identifiers (not one entry per physical device). Trusting len(chip_ids)
-    alone in that case silently undercounts devices, so device_count is
-    treated as the floor.
+    device_count is kept as a parameter for backward compatibility but is no
+    longer used to pad the list.  Synthetic __TARGET_DEVICE_NNN slots were
+    inflating the total unique-device count on the Smart Build report because
+    the same synthetic IDs were being unioned into all_chips across builds.
 
-    Important: fallback_key should be the target, not job/build name. The same
-    physical devices often run multiple PLs under one target; target-scoped
-    synthetic slots let target-level unique-device counts dedupe across PLs.
+    True unique device count = len(chip_ids) after union across all jobs for a
+    build.  If chip_ids is empty but device_count > 0, the caller uses
+    device_count directly (see api_sp2_builds grouping logic).
     """
     if isinstance(chips_raw, str):
         try:
@@ -3007,46 +3007,70 @@ def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> li
             chips = []
     else:
         chips = list(chips_raw) if chips_raw else []
-    chips = sorted(dict.fromkeys(str(c).strip() for c in chips if str(c).strip()))
-    dev_count = _safe_int(device_count) or 0
-    if len(chips) >= dev_count:
-        return chips
-    if dev_count <= 0:
-        return chips
-    prefix = str(fallback_key or 'unknown').strip().upper().replace(' ', '_')
-    padded = list(chips)
-    for idx in range(1, dev_count - len(chips) + 1):
-        padded.append(f'__{prefix}_DEVICE_{idx:03d}')
-    return padded
+    # Return only real, non-empty chip IDs - deduplicated and sorted
+    # Strip any legacy synthetic __PREFIX_DEVICE_NNN entries that may exist in DB
+    return sorted(dict.fromkeys(
+        str(c).strip() for c in chips
+        if str(c).strip() and not str(c).strip().startswith('__')
+    ))
 
 
 def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
-    """SQL expression for Smart Build device-hours within the selected week."""
+    """SQL expression for RAW device-hours within the selected week.
+
+    Returns: device_count * clipped_duration_hours  (raw)
+
+    Cap is applied in Python: min(raw_group_hours, devices * days * 20)
+    No 0.80 reduction — 20h/day cap is the only constraint.
+
+    All durations are clipped to [week_floor, week_cap] so cross-week jobs
+    only contribute the portion that fell inside this week.
+
+    States handled:
+      Completed / Aborted + ended_at known :
+          duration = LEAST(ended_at, week_cap) - GREATEST(started_at, week_floor)
+      Completed / Aborted + ended_at NULL   :
+          duration = week_cap - GREATEST(started_at, week_floor)
+          (poller missed end time - group cap prevents inflation)
+      Running / JobSetup :
+          duration = LEAST(NOW(), week_cap) - GREATEST(started_at, week_floor)
+    """
     ws = _safe_date(week_start)
     we = _safe_date(week_end)
     if not ws or not we:
         ws, we = current_monday_sunday()
     week_floor = ws.isoformat() + " 00:00:00"
-    week_cap = we.isoformat() + " 23:59:59"
+    week_cap   = we.isoformat() + " 23:59:59"
+    # Use GREATEST(device_count, JSON_LENGTH(chip_ids)) so builds where
+    # device_count=0 but chip_ids has real entries still get correct hours.
+    dev = "GREATEST(COALESCE(device_count,0), JSON_LENGTH(COALESCE(chip_ids,'[]')))"
     return (
         "CASE"
-        " WHEN state = 'Completed' AND started_at IS NOT NULL AND ended_at IS NOT NULL"
-        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0, TIMESTAMPDIFF(SECOND,"
+        # 1. Completed/Aborted with ended_at: clip both ends to week window
+        " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NOT NULL"
+        " THEN ROUND(" + dev + " * GREATEST(0, TIMESTAMPDIFF(SECOND,"
         " GREATEST(started_at, TIMESTAMP('" + week_floor + "'))"
-        ", LEAST(ended_at, TIMESTAMP('" + week_cap + "')))) / 3600.0, 3)"
+        ", LEAST(ended_at,     TIMESTAMP('" + week_cap   + "')))) / 3600.0, 3)"
+        # 2. Completed/Aborted with ended_at NULL: clip start to week_floor, end to week_cap
+        " WHEN state IN ('Completed','Aborted') AND started_at IS NOT NULL AND ended_at IS NULL"
+        " THEN ROUND(" + dev + " * GREATEST(0, TIMESTAMPDIFF(SECOND,"
+        " GREATEST(started_at, TIMESTAMP('" + week_floor + "'))"
+        ", TIMESTAMP('" + week_cap + "'))) / 3600.0, 3)"
+        # 3. Running/JobSetup: from max(started_at, week_floor) to min(NOW(), week_cap)
         " WHEN state IN ('Running','JobSetup') AND started_at IS NOT NULL"
-        " AND started_at >= TIMESTAMP('" + week_floor + "')"
-        " THEN ROUND(COALESCE(device_count,0) * GREATEST(0, TIMESTAMPDIFF(SECOND,"
-        " started_at, LEAST(NOW(), TIMESTAMP('" + week_cap + "')))) / 3600.0, 3)"
+        " THEN ROUND(" + dev + " * GREATEST(0, TIMESTAMPDIFF(SECOND,"
+        " GREATEST(started_at, TIMESTAMP('" + week_floor + "'))"
+        ", LEAST(NOW(),        TIMESTAMP('" + week_cap   + "')))) / 3600.0, 3)"
         " ELSE 0 END"
     )
 
 
 def _sp2_pl_week_hour_cap(device_count, week_start=None, week_end=None) -> float:
-    """Max realistic device-hours for one PL in the selected week.
+    """Max device-hours cap for one PL in the selected week.
 
-    Business cap: devices * days * 20 hours/day.
-    For a full Monday-Sunday week this is devices * 7 * 20.
+    Cap = devices * days * 20 h/day.
+    For a full Monday-Sunday week: devices * 7 * 20 = devices * 140.
+    No additional reduction applied.
     """
     devices = max(int(float(device_count or 0)), 0)
     ws = _safe_date(week_start)
@@ -3056,8 +3080,14 @@ def _sp2_pl_week_hour_cap(device_count, week_start=None, week_end=None) -> float
 
 
 def _sp2_capped_pl_hours(hours, device_count, week_start=None, week_end=None) -> float:
+    """Cap device-hours at devices * days * 20h/day. No further reduction.
+    If device_count=0, return raw hours uncapped (no devices to cap against).
+    """
     raw = float(hours or 0)
-    cap = _sp2_pl_week_hour_cap(device_count, week_start, week_end)
+    devices = max(int(float(device_count or 0)), 0)
+    if devices <= 0:
+        return round(raw, 3)   # no device info - keep raw hours
+    cap = _sp2_pl_week_hour_cap(devices, week_start, week_end)
     return round(min(raw, cap), 3)
 
 
@@ -3103,7 +3133,8 @@ def _cap_sp2_static_snapshot_hours(ws, we) -> int:
             devices = max(int(g.get('max_dev') or 0), len(g.get('chips') or []))
             cap = _sp2_pl_week_hour_cap(devices, ws, we)
             total = float(g.get('hours') or 0)
-            if total <= cap + 0.001:
+            # If devices=0 we cannot cap meaningfully - skip to preserve hours
+            if devices <= 0 or total <= cap + 0.001:
                 continue
             factor = (cap / total) if total > 0 else 0.0
             for row in g['rows']:
@@ -5287,7 +5318,8 @@ def _sp2_landing_summary(week_start, week_end):
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                      AND COALESCE(city_team, 'QIPL')='QIPL'
+                      AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                 """, (week_end.isoformat(), week_start.isoformat()))
@@ -7198,7 +7230,7 @@ def api_monthly_report_data():
 # ------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?------?
 
 # ---------------------------------------------------------------------------
-# MONTHLY REPORT — Overall PDT WBC Target-wise Test Status helpers
+# MONTHLY REPORT â€” Overall PDT WBC Target-wise Test Status helpers
 # ---------------------------------------------------------------------------
 
 def _monthly_get_bu_targets(bu: str) -> list:
@@ -7315,7 +7347,7 @@ def _monthly_fetch_target_stats(
             return _tbl_exists_cur(cur, t)
 
         try:
-            # ── 1. jiras: total JIRA count + metabuilds + total_crs ──────
+            # â”€â”€ 1. jiras: total JIRA count + metabuilds + total_crs â”€â”€â”€â”€â”€â”€
             if tbl_exists(tbl('jiras')):
                 # total_jiras
                 cur.execute(f"""
@@ -7353,7 +7385,7 @@ def _monthly_fetch_target_stats(
                     if row.get('metabuild')
                 ]
 
-            # ── 2. openjiras: open JIRA count ────────────────────────────
+            # â”€â”€ 2. openjiras: open JIRA count â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if tbl_exists(tbl('openjiras')):
                 cur.execute(f"""
                     SELECT COUNT(*) AS cnt
@@ -7363,7 +7395,7 @@ def _monthly_fetch_target_stats(
                 """, (date_from_s, date_to_s))
                 result['open_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-            # ── 3. Total CRs + Unique CRs ────────────────────────────
+            # â”€â”€ 3. Total CRs + Unique CRs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             #
             # [total_crs]  = CRs from jiras in range that exist in unique_crs
             #                WHERE cr_occurrence != 'Dup'
@@ -7374,7 +7406,7 @@ def _monthly_fetch_target_stats(
             # [unique_crs] = PDT-reported CRs from {base}_overallcrs
             #                WHERE crid IN (mapped_crs from Step A)
             #                AND reported_team IN ('PDT_Reported','PDT_Unique')
-            #                (no date filter on overallcrs — overallcrs.date is CR
+            #                (no date filter on overallcrs â€” overallcrs.date is CR
             #                 first-reported date, not jira date)
 
             # Step A: distinct mapped_crs from jiras in range
@@ -7395,7 +7427,7 @@ def _monthly_fetch_target_stats(
             if mapped_crs_rows:
                 ph_cr = ','.join(['%s'] * len(mapped_crs_rows))
 
-                # Step B: total_crs — unique_crs WHERE occurrence != 'Dup' AND excl Invalid+Dup
+                # Step B: total_crs â€” unique_crs WHERE occurrence != 'Dup' AND excl Invalid+Dup
                 if tbl_exists(tbl('unique_crs')):
                     cur.execute(f"""
                         SELECT COUNT(DISTINCT cr) AS total
@@ -7406,7 +7438,7 @@ def _monthly_fetch_target_stats(
                     """, mapped_crs_rows + mapped_crs_rows)
                     result['total_crs'] = int((cur.fetchone() or {}).get('total') or 0)
 
-                # unique_crs — overallcrs CR list → unique_crs per target (matches tbl2_unique)
+                # unique_crs â€” overallcrs CR list â†’ unique_crs per target (matches tbl2_unique)
                 ov_tbl = base_tbl('overallcrs')
                 if tbl_exists(ov_tbl) and tbl_exists(tbl('unique_crs')):
                     cur.execute(f"""
@@ -7435,7 +7467,7 @@ def _monthly_fetch_target_stats(
             '[_monthly_fetch_target_stats] %s/%s error: %s', schema, db_name, exc
         )
 
-    # ── 4. axiom: devices / builds / hours from metabuilds ───────────────
+    # â”€â”€ 4. axiom: devices / builds / hours from metabuilds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     metabuilds = result['metabuilds']
     if metabuilds:
         import json as _json
@@ -7526,12 +7558,12 @@ def _monthly_build_overall_status(
     date_from_s = date_from.isoformat() if hasattr(date_from, 'isoformat') else str(date_from)
     date_to_s   = date_to.isoformat()   if hasattr(date_to,   'isoformat') else str(date_to)
 
-    # ── Step 1: get all BU targets ─────────────────────────────────────────
+    # â”€â”€ Step 1: get all BU targets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     bu_targets = _monthly_get_bu_targets(bu)
     if not bu_targets:
         return []
 
-    # ── Step 2: apply target filter ────────────────────────────────────────
+    # â”€â”€ Step 2: apply target filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     sel_up = {t.strip().upper() for t in sel_target_set} if sel_target_set else set()
     if sel_up:
         filtered = []
@@ -7551,7 +7583,7 @@ def _monthly_build_overall_status(
     if not bu_targets:
         return []
 
-    # ── Step 3+4: fetch stats per target ───────────────────────────────────
+    # â”€â”€ Step 3+4: fetch stats per target â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     schema = _get_schema_for_bu(bu)
     if not schema:
         # fallback: derive from BU_DATABASE_MAPPING
@@ -7871,13 +7903,14 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
                    taxonomy_path, team, city_team, state, device_count, chip_ids, submitted_at, ended_at,
-                   submitter, ({live_h}) AS hours_live
+                submitter, ({live_h}) AS hours_live
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                                                    WHERE taxonomy_path LIKE '/PDT%'
+            WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
+                      AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
             ORDER BY submitted_at
@@ -7909,14 +7942,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
             _source_tax = str(r.get('taxonomy_path') or '').strip()
             _source_team = str(r.get('team') or '').strip().upper()
             _tax_u = _source_tax.upper()
-            _device_eligible = (
-                _tax_u.startswith('/PDT/QIPL')
-                or (
-                    _tax_u == '/PDT'
-                    and _target_key not in _explicit_qipl_targets
-                    and (str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL')
-                )
-            )
+            _device_eligible = True  # all rows in this query are QIPL city
             _raw_dev_actual = int(r.get('device_count') or 0)
             _raw_dev = _raw_dev_actual if _device_eligible else 0
             chips = _sp2_parse_chip_ids(chips if _device_eligible else [], _raw_dev, target or pl_id)
@@ -8137,23 +8163,91 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
                         break
             target_bu_map[_tu] = _normalize_bu(_bu)
 
-        # Device distribution: use each target's unique device pool and split it
-        # across that target's PL rows by CRM hours. This preserves totals:
-        # sum(consolidate.device_count) == Builds tab total unique devices.
+                # â”€â”€ Step 1: build BU-level chip union so cross-target duplicates
+        # (e.g. SA8797P.HGY and SA8797P_FLEX.HGY share physical boards) are
+        # counted only once per BU.  We resolve each target's BU now using the
+        # same priority chain used later when writing rows.
+        _bu_chip_union = {}   # bu_key -> set of all chip_ids in that BU
+        _key_bu_map   = {}    # key -> resolved bu string
+        for _tu, _keys in target_keys.items():
+            _first = grouped[_keys[0]]
+            _resolved_bu = _normalize_bu(
+                saved_bu.get((_tu, ''))
+                or str(_first.get('bu') or '').strip()
+                or previous_bu_map.get((_tu, ''))
+                or str((_match_dashboard_with_fallback(_first['target'], dash_map) or {}).get('bu') or '').strip()
+            ) or 'Unknown'
+            for _key in _keys:
+                _key_bu_map[_key] = _resolved_bu
+            _bu_chip_union.setdefault(_resolved_bu, set())
+            for _key in _keys:
+                _bu_chip_union[_resolved_bu].update(grouped[_key].get('chip_ids_set') or set())
+
+        # â”€â”€ Step 2: per-target device allocation.
+        # True unique devices for a target = chips in that target's union that
+        # are NOT shared with any other target in the same BU (exclusive chips)
+        # PLUS a proportional share of the shared chips based on hours.
         device_count_by_key = {}
         for _tu, _keys in target_keys.items():
-            _chips = set()
-            _total_hours = 0.0
+            # Union of chip_ids across all PLs of this target
+            _tgt_chips = set()
             for _key in _keys:
-                _chips.update(grouped[_key].get('chip_ids_set') or set())
-                _total_hours += float(grouped[_key].get('hours') or 0)
-            _total_devices = len(_chips)
+                _tgt_chips.update(grouped[_key].get('chip_ids_set') or set())
+            if not _tgt_chips:
+                for _key in _keys:
+                    device_count_by_key[_key] = 0
+                continue
+
+            # Find chips shared with other targets in the same BU
+            _bu_key = _key_bu_map.get(_keys[0], 'Unknown')
+            _all_bu_targets_chips = set()
+            for _other_tu, _other_keys in target_keys.items():
+                if _other_tu == _tu:
+                    continue
+                if _key_bu_map.get(_other_keys[0], 'Unknown') != _bu_key:
+                    continue
+                for _ok in _other_keys:
+                    _all_bu_targets_chips.update(grouped[_ok].get('chip_ids_set') or set())
+
+            _exclusive_chips = _tgt_chips - _all_bu_targets_chips
+            _shared_chips    = _tgt_chips & _all_bu_targets_chips
+
+            # For shared chips: allocate proportionally by hours across all
+            # targets in this BU that also use those chips
+            _shared_alloc = 0.0
+            if _shared_chips:
+                # Sum hours of all BU targets that touch each shared chip
+                _chip_total_hrs = {}
+                for _c in _shared_chips:
+                    _hrs_sum = 0.0
+                    for _other_tu2, _other_keys2 in target_keys.items():
+                        if _key_bu_map.get(_other_keys2[0], 'Unknown') != _bu_key:
+                            continue
+                        _other_chips = set()
+                        for _ok2 in _other_keys2:
+                            _other_chips.update(grouped[_ok2].get('chip_ids_set') or set())
+                        if _c in _other_chips:
+                            _hrs_sum += sum(float(grouped[_k2].get('hours') or 0) for _k2 in _other_keys2)
+                    _chip_total_hrs[_c] = _hrs_sum
+                _tgt_hrs = sum(float(grouped[_k].get('hours') or 0) for _k in _keys)
+                for _c in _shared_chips:
+                    _denom = _chip_total_hrs.get(_c, 0)
+                    _shared_alloc += (_tgt_hrs / _denom) if _denom > 0 else (1.0 / max(1, len(
+                        [1 for _otu, _oks in target_keys.items()
+                         if _key_bu_map.get(_oks[0], 'Unknown') == _bu_key
+                         and any(_c in (grouped[_ok3].get('chip_ids_set') or set()) for _ok3 in _oks)]
+                    )))
+
+            _total_devices = len(_exclusive_chips) + _shared_alloc
+
+            # â”€â”€ Step 3: split _total_devices across PLs of this target by hours
+            _total_hours = sum(float(grouped[_k].get('hours') or 0) for _k in _keys)
             if _total_devices <= 0:
                 for _key in _keys:
                     device_count_by_key[_key] = 0
                 continue
             if len(_keys) == 1:
-                device_count_by_key[_keys[0]] = _total_devices
+                device_count_by_key[_keys[0]] = int(round(_total_devices))
                 continue
             if _total_hours > 0:
                 _raw = {_key: (_total_devices * float(grouped[_key].get('hours') or 0) / _total_hours) for _key in _keys}
@@ -8161,23 +8255,30 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
                 _raw = {_key: (_total_devices / len(_keys)) for _key in _keys}
             _base = {_key: int(_raw[_key]) for _key in _keys}
             _assigned = sum(_base.values())
+            _target_int = int(round(_total_devices))
             _remainders = sorted(_keys, key=lambda k: (_raw[k] - int(_raw[k]), float(grouped[k].get('hours') or 0)), reverse=True)
             for _key in _remainders:
-                if _assigned >= _total_devices:
+                if _assigned >= _target_int:
                     break
                 _base[_key] += 1
                 _assigned += 1
+            # trim if rounding pushed over
+            for _key in _remainders:
+                if _assigned <= _target_int:
+                    break
+                if _base[_key] > 0:
+                    _base[_key] -= 1
+                    _assigned -= 1
             device_count_by_key.update(_base)
 
-        # Consolidate device count must never exceed the Builds tab global
-        # unique-device count. A device can appear under multiple targets, so
-        # target-level splits are reduced globally after per-target allocation.
+        # â”€â”€ Step 4: global sanity cap â€” total must not exceed truly unique
+        # chip_ids across the entire week (cross-BU dedup).
         _global_chips = set()
         for _g in grouped.values():
             _global_chips.update(_g.get('chip_ids_set') or set())
         _global_limit = len(_global_chips)
         _assigned_total = sum(int(v or 0) for v in device_count_by_key.values())
-        if _global_limit >= 0 and _assigned_total > _global_limit:
+        if _assigned_total > _global_limit:
             _reduce_keys = sorted(
                 list(device_count_by_key.keys()),
                 key=lambda k: (int(device_count_by_key.get(k, 0)), float(grouped[k].get('hours') or 0)),
@@ -8298,7 +8399,8 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
+                                                                  AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                 """, (we.isoformat(), ws.isoformat()))
@@ -8950,7 +9052,7 @@ def _fetch_sp2_consolidate(ws, we, crm_only: bool = True) -> list:
 
 
 # ---------------------------------------------------------------------------
-# MONTHLY REPORT — WBC Detail sections (QIPLPDT-10905)
+# MONTHLY REPORT â€” WBC Detail sections (QIPLPDT-10905)
 # Sections rendered after the Overall Status table:
 #   1. MTBF Trend per target  (Hours bars + MTBF line vs Builds from Axiom)
 #   2. PDT CRs vs Unique CRs comparison bar chart (per target family)
@@ -8963,7 +9065,7 @@ def _wbc_mtbf_trend(schema: str, bu_targets: list,
     """
     Read MTBF trend from the same JSON files used by the WBC Live View page.
     Source : managed_excel/WBC/LIVE_VIEW_STATS/mtbf_{target}_Mainline_Build_Details.json
-    Returns FULL history (no date filter) — chart_rows keyed by sp_name.
+    Returns FULL history (no date filter) â€” chart_rows keyed by sp_name.
     Each row: { build_label, date, hours, crashes, mtbf }
     """
     result = {}
@@ -9027,7 +9129,7 @@ def _wbc_mtbf_trend(schema: str, bu_targets: list,
 def _wbc_cr_comparison(schema: str, bu_targets: list,
                         date_from_s: str, date_to_s: str) -> list:
     """
-    PDT Overall & Unique CRs comparison bar chart — per target FAMILY.
+    PDT Overall & Unique CRs comparison bar chart â€” per target FAMILY.
 
     Grouping : first word of db_name
                kobuk_le_1_1 / kobuk_l_3_1 / kobuk_le_1_0  -> kobuk
@@ -9045,8 +9147,8 @@ def _wbc_cr_comparison(schema: str, bu_targets: list,
     # group by first word of db_name
     seen = {}
     for tgt in bu_targets:
-        base = tgt['db_name'].split('_')[0]          # kobuk, kuno, pinnacles …
-        display = tgt['sp_name'].split('.')[0]        # Kobuk, Kuno, Pinnacles …
+        base = tgt['db_name'].split('_')[0]          # kobuk, kuno, pinnacles â€¦
+        display = tgt['sp_name'].split('.')[0]        # Kobuk, Kuno, Pinnacles â€¦
         if base not in seen:
             seen[base] = display
 
@@ -9165,7 +9267,7 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
                    date_from_s: str, date_to_s: str) -> dict:
     """
     Build order:
-      TABLE 2 first  — PDT WBC Unique CRs reported by PDT
+      TABLE 2 first  â€” PDT WBC Unique CRs reported by PDT
         Step A : DISTINCT crids from {base}_overallcrs
                  WHERE reported_team IN (PDT_Reported, PDT_Unique)
                  AND DATE(date) in range
@@ -9174,14 +9276,14 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
                  AND cr_occurrence != 'Dup'
                  AND cr_category NOT IN ('Invalid','Dup')
 
-      TABLE 3 second — PDT WBC Total CRs reported by PDT
+      TABLE 3 second â€” PDT WBC Total CRs reported by PDT
         Step A : DISTINCT mapped_crs from {db_name}_jiras in range
         Step B : look up in {db_name}_unique_crs
                  WHERE (cr OR mapped_cr) IN (Step A list)
                  AND cr_occurrence != 'Dup'
                  AND cr_category NOT IN ('Invalid','Dup')
 
-      TABLE 1 last   — Overall Status counts
+      TABLE 1 last   â€” Overall Status counts
         unique_crs_count = len(TABLE 2 rows)   per target
         total_crs_count  = len(TABLE 3 rows)   per target
         (counts now always match the detail tables)
@@ -9196,7 +9298,7 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
             return result
         cur = conn.cursor(dictionary=True)
 
-        # ── Pre-build TABLE 2: overallcrs CR list per family ─────────
+        # â”€â”€ Pre-build TABLE 2: overallcrs CR list per family â”€â”€â”€â”€â”€â”€â”€â”€â”€
         family_ov_cr_list = {}   # base -> [crid, ...]
         seen_bases = set()
         for tgt in bu_targets:
@@ -9216,7 +9318,7 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
             """, (date_from_s, date_to_s))
             family_ov_cr_list[base] = [r['crid'] for r in (cur.fetchall() or [])]
 
-        # ── Per target ────────────────────────────────────────────────
+        # â”€â”€ Per target â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         for tgt in bu_targets:
             sp_name  = tgt['sp_name']
             db_name  = tgt['db_name']
@@ -9224,7 +9326,7 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
             ucrs_tbl = f'`{schema}`.`{db_name}_unique_crs`'
             entry    = {'tbl2_unique': [], 'tbl3_total': []}
 
-            # ── TABLE 2: overallcrs CR list → unique_crs details ─────
+            # â”€â”€ TABLE 2: overallcrs CR list â†’ unique_crs details â”€â”€â”€â”€â”€
             ov_cr_list = family_ov_cr_list.get(base, [])
             if ov_cr_list and _tbl_exists_cur(cur, ucrs_tbl):
                 ph = ','.join(['%s'] * len(ov_cr_list))
@@ -9252,7 +9354,7 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
                         'cr_status':        str(r.get('cr_status')        or ''),
                     })
 
-            # ── TABLE 3: jiras mapped_crs → unique_crs details ───────
+            # â”€â”€ TABLE 3: jiras mapped_crs â†’ unique_crs details â”€â”€â”€â”€â”€â”€â”€
             jiras_tbl = f'`{schema}`.`{db_name}_jiras`'
             if _tbl_exists_cur(cur, jiras_tbl) and _tbl_exists_cur(cur, ucrs_tbl):
                 cur.execute(f"""
@@ -9405,6 +9507,15 @@ def api_sp2_admin_force_refresh_week():
 
     static_rows = _load_sp2_static_build_rows(ws, we)
     consolidate_rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
+    # True unique device count = union of all chip_ids across consolidate rows
+    _force_chip_union = set()
+    for _cr in (consolidate_rows or []):
+        try:
+            import json as _j
+            _chips = _j.loads(_cr.get('chip_ids') or '[]') if isinstance(_cr.get('chip_ids'), str) else list(_cr.get('chip_ids') or [])
+            _force_chip_union.update(str(c).strip() for c in _chips if str(c).strip())
+        except Exception:
+            pass
     return jsonify(
         success=True,
         message='Force refreshed from axiom_job_summary',
@@ -9416,7 +9527,7 @@ def api_sp2_admin_force_refresh_week():
         capped_build_rows=capped_build_rows,
         build_rows=len(static_rows or []),
         consolidate_rows=len(consolidate_rows or []),
-        consolidate_device_count=sum(int(r.get('device_count') or 0) for r in (consolidate_rows or [])),
+        consolidate_device_count=len(_force_chip_union),
     )
 
 
@@ -9507,11 +9618,30 @@ def api_sp2_builds():
                 'bu':           row_bu,
                 'meta_id':      _sp2_meta_build_key(str(r.get('build_name') or r.get('build_id') or '')),
                 'run_count':    len(job_ids) or 1,
-            })
+                        })
         out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
         bu_opts = {str(o.get('key') or '').strip() for o in _sp_bu_options() if str(o.get('key') or '').strip()}
         bu_opts.update({b['bu'] for b in out if b['bu']})
-        return jsonify(success=True, builds=out, total_devices=len(all_chips),
+        # True unique devices = union of chip_ids from consolidate table (covers all targets/PLs)
+        _true_chips = set()
+        try:
+            _tc = get_mysql_connection_db(bu_key=None)
+            if _tc:
+                _tcc = _tc.cursor(dictionary=True)
+                _tcc.execute(
+                    f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
+                    (ws.isoformat(), we.isoformat()))
+                for _tr in (_tcc.fetchall() or []):
+                    try:
+                        _tc_chips = json.loads(_tr.get('chip_ids') or '[]') if isinstance(_tr.get('chip_ids'), str) else list(_tr.get('chip_ids') or [])
+                        _true_chips.update(str(c).strip() for c in _tc_chips if str(c).strip())
+                    except Exception:
+                        pass
+                _tcc.close(); _tc.close()
+        except Exception:
+            pass
+        _total_devices = len(_true_chips) if _true_chips else len(all_chips)
+        return jsonify(success=True, builds=out, total_devices=_total_devices,
                        bu_list=sorted(bu_opts),
                        week_start=ws.isoformat(), week_end=we.isoformat(), static=True)
 
@@ -9534,7 +9664,8 @@ def api_sp2_builds():
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
                       AND taxonomy_path NOT LIKE '/PDT/China%'
                       AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                                                                  AND COALESCE(city_team, 'QIPL')='QIPL'
+                                                                  AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                     ORDER BY submitted_at DESC
@@ -9708,7 +9839,9 @@ def api_sp2_builds():
         acc['hours']        += hours
         chip_ids = _sp2_parse_chip_ids(chip_ids if _device_eligible else [], _raw_dev, target or pl_grp)
         acc['chip_ids_set'].update(str(c).strip() for c in chip_ids if str(c).strip())
-        acc['device_count']  = max(int(acc.get('device_count') or 0), _raw_dev)
+        # device_count: track the max raw_dev seen across jobs as a floor
+        # Final device_count = max(len(chip_ids_union), max_raw_dev) - resolved at output
+        acc['device_count']  = max(int(acc.get('device_count') or 0), _raw_dev if _device_eligible else 0)
         all_chips.update(chip_ids)
         if is_running:
             acc['is_running'] = True
@@ -9725,8 +9858,12 @@ def api_sp2_builds():
         build_id   = acc['build_id']
         crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, acc.get('pl_id'))
 
-
         chip_ids_sorted = sorted(acc.pop('chip_ids_set'))
+        # True device count: union of real chip IDs is primary;
+        # fall back to max raw device_count if chip_ids are sparse/missing
+        true_dev_count = max(len(chip_ids_sorted), int(acc.get('device_count') or 0))
+                # Cap hours: device_count * days * 20 h/day
+        capped_hours = _sp2_capped_pl_hours(acc['hours'], true_dev_count, ws, we)
         out.append({
             'job_ids':      acc['job_ids'],
             'job_id':       acc['job_id'],
@@ -9738,8 +9875,8 @@ def api_sp2_builds():
             'submitted':    acc['submitted'],
             'completed_at': acc['completed_at'],
             'status':       'running' if acc['is_running'] else 'completed',
-            'hours':        round(acc['hours'], 3),
-            'device_count': max(len(chip_ids_sorted), int(acc.get('device_count') or 0)),
+            'hours':        capped_hours,
+            'device_count': true_dev_count,
             'chip_ids':     chip_ids_sorted,
             'crashes':      crashes,
             'build_type':   acc['build_type'],
@@ -9754,7 +9891,26 @@ def api_sp2_builds():
     bu_list = sorted(bu_opts)
 
     out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
-    return jsonify(success=True, builds=out, total_devices=len(all_chips),
+    # True unique devices = union of chip_ids from consolidate table
+    _true_chips2 = set()
+    try:
+        _tc2 = get_mysql_connection_db(bu_key=None)
+        if _tc2:
+            _tcc2 = _tc2.cursor(dictionary=True)
+            _tcc2.execute(
+                f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
+                (ws.isoformat(), we.isoformat()))
+            for _tr2 in (_tcc2.fetchall() or []):
+                try:
+                    _tc2_chips = json.loads(_tr2.get('chip_ids') or '[]') if isinstance(_tr2.get('chip_ids'), str) else list(_tr2.get('chip_ids') or [])
+                    _true_chips2.update(str(c).strip() for c in _tc2_chips if str(c).strip())
+                except Exception:
+                    pass
+            _tcc2.close(); _tc2.close()
+    except Exception:
+        pass
+    _total_devices2 = len(_true_chips2) if _true_chips2 else len(all_chips)
+    return jsonify(success=True, builds=out, total_devices=_total_devices2,
                    bu_list=bu_list,
                    week_start=ws.isoformat(), week_end=we.isoformat())
 
@@ -9826,6 +9982,142 @@ def api_sp2_consolidate():
     return jsonify(success=True, rows=rows, week_end=we.isoformat())
 
 
+@weekly_summary_bp.route('/api/sp2/active_devices')
+@login_required
+def api_sp2_active_devices():
+    """BU-wise active device table using truly unique chip_ids per BU/target.
+
+    For each BU -> target, we take the UNION of chip_ids across all PL rows
+    (deduplicating devices that ran multiple SPs on the same physical board).
+    The per-target device count is then the size of that union minus chips
+    already counted by a higher-hours target in the same BU (proportional share).
+    Grand total = union of all chip_ids across the entire week.
+    """
+    import json as _json
+    from collections import defaultdict as _dd
+
+    ws_arg = request.args.get('week_start', '').strip()
+    we_arg = request.args.get('week_end', '').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not we:
+        _, we = _selected_week_from_request()
+    if not ws:
+        ws = we - timedelta(days=6)
+
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, message='DB unavailable'), 503
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(bu),''), 'Unknown') AS bu,
+                COALESCE(NULLIF(TRIM(target),''),
+                         NULLIF(TRIM(pl_id),''), 'Unknown') AS target,
+                chip_ids,
+                total_hours
+            FROM pdt_stats_dashboard.sp2_build_consolidate
+            WHERE week_start=%s AND week_end=%s
+            ORDER BY bu, target
+        """, (ws.isoformat(), we.isoformat()))
+        db_rows = cur.fetchall() or []
+    finally:
+        cur.close(); conn.close()
+
+    # â”€â”€ build bu -> target -> chip_set and hours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    bu_tgt_chips = _dd(lambda: _dd(set))   # bu -> target -> set of chip_ids
+    bu_tgt_hours = _dd(lambda: _dd(float)) # bu -> target -> total hours
+
+    for r in db_rows:
+        bu  = str(r.get('bu')     or 'Unknown').strip() or 'Unknown'
+        tgt = str(r.get('target') or 'Unknown').strip() or 'Unknown'
+        hrs = float(r.get('total_hours') or 0)
+        bu_tgt_hours[bu][tgt] += hrs
+        chips_raw = r.get('chip_ids') or '[]'
+        try:
+            chips = _json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
+        except Exception:
+            chips = []
+        for c in chips:
+            c = str(c).strip()
+            if c:
+                bu_tgt_chips[bu][tgt].add(c)
+
+    # â”€â”€ compute per-target truly unique devices (cross-target dedup) â”€â”€â”€â”€â”€â”€
+    # For each target: exclusive chips + proportional share of chips shared
+    # with other targets in the same BU.
+    bu_rows   = []   # list of {bu, target, devices, bu_total (filled later)}
+    bu_totals = {}   # bu -> truly unique count (union)
+    grand_union = set()
+
+    for bu in sorted(bu_tgt_chips.keys()):
+        tgt_map = bu_tgt_chips[bu]
+        targets = sorted(tgt_map.keys())
+
+        # BU-level union for grand total
+        bu_union = set()
+        for chips in tgt_map.values():
+            bu_union.update(chips)
+        bu_totals[bu] = len(bu_union)
+        grand_union.update(bu_union)
+
+        # Per-target allocation
+        # chip -> set of targets in this BU that use it
+        chip_to_tgts = _dd(set)
+        for tgt, chips in tgt_map.items():
+            for c in chips:
+                chip_to_tgts[c].add(tgt)
+
+        tgt_devices = {}
+        for tgt in targets:
+            chips = tgt_map[tgt]
+            exclusive = sum(1 for c in chips if len(chip_to_tgts[c]) == 1)
+            shared_chips = [c for c in chips if len(chip_to_tgts[c]) > 1]
+            # proportional share of each shared chip by hours
+            shared_alloc = 0.0
+            tgt_hrs = bu_tgt_hours[bu][tgt]
+            for c in shared_chips:
+                sharing_tgts = chip_to_tgts[c]
+                total_hrs = sum(bu_tgt_hours[bu][t] for t in sharing_tgts)
+                if total_hrs > 0:
+                    shared_alloc += tgt_hrs / total_hrs
+                else:
+                    shared_alloc += 1.0 / len(sharing_tgts)
+            tgt_devices[tgt] = exclusive + shared_alloc
+
+        # Integer allocation preserving BU total
+        raw_sum = sum(tgt_devices.values())
+        bu_total_int = bu_totals[bu]
+        if raw_sum > 0:
+            scale = bu_total_int / raw_sum
+        else:
+            scale = 1.0
+        base   = {t: int(v * scale) for t, v in tgt_devices.items()}
+        remain = bu_total_int - sum(base.values())
+        for t in sorted(targets, key=lambda t: -(tgt_devices[t] * scale - int(tgt_devices[t] * scale))):
+            if remain <= 0:
+                break
+            base[t] += 1
+            remain  -= 1
+
+        for tgt in targets:
+            bu_rows.append({'bu': bu, 'target': tgt, 'devices': base[tgt]})
+
+    # â”€â”€ attach bu_total to each row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    for row in bu_rows:
+        row['bu_total'] = bu_totals[row['bu']]
+
+    return jsonify(
+        success=True,
+        rows=bu_rows,
+        bu_totals=[{'bu': bu, 'total': tot} for bu, tot in sorted(bu_totals.items())],
+        grand_total=len(grand_union),
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
+    )
+
+
 @weekly_summary_bp.route('/api/sp2/stability_health')
 @login_required
 def api_sp2_stability_health():
@@ -9878,9 +10170,19 @@ def api_sp2_stability_health():
             finally:
                 cur.close(); conn.close()
 
-        hrs     = sum(float(r.get('total_hours')   or 0) for r in rows)
+                hrs     = sum(float(r.get('total_hours')   or 0) for r in rows)
         crashes = sum(float(r.get('total_crashes') or 0) for r in rows)
-        dev     = sum(float(r.get('device_count')  or 0) for r in rows)
+        # True unique devices = union of chip_ids across all consolidate rows
+        # (avoids double-counting devices that ran multiple SPs in the same week)
+        _stab_chip_union = set()
+        for _sr in rows:
+            try:
+                import json as _sj
+                _sc = _sj.loads(_sr.get('chip_ids') or '[]') if isinstance(_sr.get('chip_ids'), str) else list(_sr.get('chip_ids') or [])
+                _stab_chip_union.update(str(c).strip() for c in _sc if str(c).strip())
+            except Exception:
+                pass
+        dev = float(len(_stab_chip_union)) if _stab_chip_union else sum(float(r.get('device_count') or 0) for r in rows)
 
         # Distinct CR count is sourced from weekly_qipl_data, not from the
         # SharePoint consolidate unique_crs column.
