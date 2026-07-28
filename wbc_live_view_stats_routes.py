@@ -1605,15 +1605,16 @@ def api_wbc_saved_jql_tabs_save(target_key: str):
     try:
         from live_view_saved_jql_service import list_tabs, save_tab
         username = str(getattr(current_user, "id", "") or getattr(current_user, "username", "") or "unknown")
+        pdt_key = _wbc_pdt_key(target)
         tab = save_tab(
-            target["key"],
+            pdt_key,
             _wbc_saved_jql_domain(),
             tab_id=str(payload.get("id") or "").strip() or None,
             name=str(payload.get("name") or "").strip(),
             jql=str(payload.get("jql") or "").strip(),
             username=username,
         )
-        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain())})
+        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(pdt_key, _wbc_saved_jql_domain())})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
@@ -1627,8 +1628,9 @@ def api_wbc_saved_jql_tabs_delete(target_key: str, tab_id: str):
     if not target:
         return jsonify({"ok": False, "error": "WBC target not found"}), 404
     from live_view_saved_jql_service import delete_tab, list_tabs
-    deleted = delete_tab(target["key"], _wbc_saved_jql_domain(), tab_id)
-    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain())})
+        pdt_key = _wbc_pdt_key(target)
+    deleted = delete_tab(pdt_key, _wbc_saved_jql_domain(), tab_id)
+    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(pdt_key, _wbc_saved_jql_domain())})
 
 
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs/<tab_id>/report", methods=["GET", "POST"])
@@ -2120,88 +2122,4 @@ def _wbc_build_ppt(target_key: str):
         points = []
         for i, cat in enumerate(cats):
             cx = left + step * (i + 0.5)
-            bh = 0 if h_max <= 0 else height * (hours[i] / h_max)
-            _rect(slide, cx - bar_w / 2, bottom - bh, bar_w, max(0.015, bh), RGBColor(0x3b, 0x5b, 0xdb))
-            ch = 0 if h_max <= 0 else height * (crashes[i] / h_max)
-            dot = slide.shapes.add_shape(9, _in(cx - 0.025), _in(bottom - ch - 0.025), _in(0.05), _in(0.05))
-            dot.fill.solid(); dot.fill.fore_color.rgb = RED; dot.line.fill.background()
-            mh = 0 if m_max <= 0 else height * (mtbf[i] / m_max)
-            points.append((cx, bottom - mh))
-        for p1, p2 in zip(points, points[1:]):
-            line = slide.shapes.add_connector(1, _in(p1[0]), _in(p1[1]), _in(p2[0]), _in(p2[1]))
-            line.line.color.rgb = GOLD; line.line.width = Pt(1.05)
-        for x, y in points:
-            marker = slide.shapes.add_shape(9, _in(x - 0.025), _in(y - 0.025), _in(0.05), _in(0.05))
-            marker.fill.solid(); marker.fill.fore_color.rgb = GOLD; marker.line.color.rgb = WHITE; marker.line.width = Pt(0.35)
-        label_step = max(1, int((n + 17) / 18))
-        for i, cat in enumerate(cats):
-            if i % label_step != 0 and i != n - 1:
-                continue
-            lab = _text(slide, left + step * (i + 0.5) - 0.28, bottom + 0.08, 0.56, 0.45, _plain(cat, 28), size=3.6, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.RIGHT)
-            lab.rotation = 315
-        _text(slide, 5.55, 6.66, 2.3, 0.2, "● Hours    ● Crashes    ● MTBF", size=5.0, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.CENTER)
-    else:
-        _text(slide, 0.60, 1.30, 11.8, 0.5, "No MTBF chart data available.", size=13, bold=True, color=TEAL, align=PP_ALIGN.CENTER)
-
-    # Detail slides from the current UI datasets.
-    detail_specs = [
-        ("Open CRs", previews.get("open_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"], ["cr_age", "age"]], 18),
-        ("Open JIRAs", previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
-        ("All CRs", previews.get("all_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"]], 18),
-        ("JIRAs", previews.get("jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
-    ]
-    for title, preview, preferred, limit in detail_specs:
-        cols, rows = _preview_table_rows(preview, preferred, limit)
-        if not cols and not rows:
-            continue
-        slide = _add_slide(prs)
-        _text(slide, 0.30, 0.28, 4.8, 0.25, f"{title} - {project}", size=11, bold=True, color=TEAL)
-        _table(slide, 0.28, 0.78, 12.78, 6.15, [c.replace("_", " ") for c in cols], rows,
-               font_size=4.8, title_cols={1}, max_text=150)
-
-    if cached_report_rows:
-        cols = []
-        preferred = ["CR", "CR Title", "CR Status", "CR Area", "JIRA", "JIRA Title", "JIRA Status", "Final Ticket"]
-        for col in preferred:
-            if any(col in r for r in cached_report_rows):
-                cols.append(col)
-        for col in list(cached_report_rows[0].keys()):
-            if col not in cols and len(cols) < 8:
-                cols.append(col)
-        slide = _add_slide(prs)
-        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Saved JQL Cached Report - {project}", size=11, bold=True, color=TEAL)
-        _table(slide, 0.28, 0.78, 12.78, 6.15, cols, [[r.get(c, "") for c in cols] for r in cached_report_rows[:18]],
-               font_size=4.5, title_cols={1, 5}, max_text=150)
-
-    if chart_rows:
-        slide = _add_slide(prs)
-        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Mainline Build Details - {project}", size=11, bold=True, color=TEAL)
-        _table(slide, 0.28, 0.78, 12.78, 6.15,
-               ["S.No", "CRM Build ID", "Date", "Hours+", "Crash", "MTBF"],
-               [[r.get("s_no"), r.get("crm_build_id") or r.get("meta_id"), r.get("date"), _fmt(r.get("hours")), _fmt(r.get("crash") or r.get("total_crashes")), _fmt(r.get("mtbf"))] for r in chart_rows[-24:]],
-               widths=[0.45, 3.4, 1.0, 1.0, 1.0, 1.0], font_size=5.4, title_cols={1}, max_text=120)
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
-
-
-@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/export_ppt")
-@login_required
-def api_wbc_export_ppt(target_key: str):
-    """Download a PowerPoint for the given WBC target."""
-    try:
-        buf = _wbc_build_ppt(target_key)
-        target = _find_target(target_key)
-        label = (target.get("label") or target.get("name") or target_key).replace(" ", "_")
-        filename = f"WBC_{label}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"
-        return send_file(
-            buf,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        )
-    except Exception as exc:
-        import traceback
-        return jsonify({"ok": False, "error": str(exc), "trace": traceback.format_exc()}), 500
+            bh = 0 if h_max <= 0 else height * (hours
