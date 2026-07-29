@@ -534,7 +534,7 @@
     // Legacy iframe URL: Build Report now opens as a standalone full page.
     const brBtn = document.querySelector('.bu-nav-btn[data-build-report-url]');
     const brUrl = brBtn && brBtn.dataset ? brBtn.dataset.buildReportUrl : '';
-    if (brUrl) window.top.location.href = brUrl;
+    if (brUrl) window.open(brUrl, '_blank', 'noopener');
   } else if (frameParam) {
     // Unknown frame param — strip it cleanly
     try {
@@ -562,7 +562,7 @@
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       const url = btn.dataset.buildReportUrl;
-      if (url) window.top.location.href = url;
+              if (url) window.open(url, '_blank', 'noopener');
     });
   });
 

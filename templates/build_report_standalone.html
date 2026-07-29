@@ -82,7 +82,7 @@
       <div class="grid" style="margin-top:0">
                 <div class="field">
           <label>JIRA Filter ID / URL / Direct JQL</label>
-          <input id="brFilterInput" placeholder="Optional: 346152, filter=346152, or JIRA filter URL" oninput="brGenerateJql();brQueueFilterJqlResolve('filter')">
+                      <input id="brFilterInput" placeholder="Optional: 346152, filter=346152, or JIRA filter URL" oninput="brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn()">
           <div class="mode-help">Use a saved JIRA filter, for example <b>filter=346152</b>, or a full filter URL. Leave blank and use the Direct JQL box on the right if you prefer to paste JQL directly.</div>
         </div>
         <div class="field">
@@ -201,11 +201,17 @@ function brCurrentRunnableJql(){
 }
 let brFilterResolveTimer=null, brFilterResolveSeq=0;
 const brResolvedFilterJqlById={};
-function brLooksLikeOnlyFilterInput(value){
-  const raw=String(value||'').trim();
-  if(!raw)return false;
-  return /^\d{3,}$/.test(raw)||/\bfilter\s*=\s*\d+\b/i.test(raw)||/[?&]filter(?:Id)?=\d+/i.test(raw);
-}
+  function brLooksLikeOnlyFilterInput(value){
+    // Returns true ONLY when the entire string is a bare filter reference.
+    // A compound JQL like "filter = 7097 AND project = QSTABILITY ..." must
+    // NOT match — it is valid runnable JQL, not a filter-only stub.
+    const raw=String(value||'').trim();
+    if(!raw)return false;
+    if(/^\d{3,}$/.test(raw)) return true;                          // plain number
+    if(/[?&]filter(?:Id)?=\d+/i.test(raw)) return true;           // URL with filter param
+    if(/^filter\s*=\s*\d+\s*$/i.test(raw)) return true;           // "filter = NNN" alone
+    return false;
+  }
 function brStripOrderBy(jql){return String(jql||'').replace(/\s+ORDER\s+BY\s+[\s\S]*$/i,'').trim();}
 function brComposeJqlWithResolvedFilter(filterJql){
   const base=brStripOrderBy(filterJql);
@@ -218,25 +224,31 @@ function brComposeJqlWithResolvedFilter(filterJql){
   const buildPart=builds.map(b=>'summary ~ "'+String(b||'').replace(/"/g,'\\"')+'"').join(' OR ');
   return '('+buildPart+') AND ('+base+') AND summary !~ "tombstone" ORDER BY created ASC';
 }
-      function brJqlIsValid(jqlRaw){
-    // Returns true only if the JQL box contains a real, runnable JQL string.
-    const raw = String(jqlRaw||'').trim();
-    if(!raw) return false;
-    // Accept filter = NNN or filter URL pasted directly into JQL box
-    if(brLooksLikeOnlyFilterInput(raw)) return false; // filter alone is not yet resolved
-    // Must be at least 10 chars
-    if(raw.length < 10) return false;
-    // Must contain at least one real JQL field/operator
-    const jqlPattern = /\b(project|summary|status|assignee|reporter|issuetype|priority|created|updated|component|fixVersion|labels|text|issue|key)\s*[=!~<>]|\bAND\b|\bOR\b|\bORDER\s+BY\b/i;
-    return jqlPattern.test(raw);
-  }
-  function brUpdateRunBtn(){
-    // Only show Run button when the JQL box has a fully resolved, valid JQL
-    // OR at least one build ID is present (builds auto-generate JQL).
-    const jqlRaw = String((g('brJql')&&g('brJql').value)||'').trim();
-    const hasValidJql = brJqlIsValid(jqlRaw);
-    const hasBuilds   = !!(buildList().length);
-    const ok = hasValidJql || hasBuilds;
+            function brJqlIsValid(jqlRaw){
+      // Returns true when the JQL box contains a real, runnable JQL string.
+      const raw = String(jqlRaw||'').trim();
+      if(!raw) return false;
+      // Bare filter stub (not yet resolved) — not runnable alone
+      if(brLooksLikeOnlyFilterInput(raw)) return false;
+      // Must be at least 10 chars
+      if(raw.length < 10) return false;
+      // Must contain at least one real JQL field/operator.
+      // NOTE: "filter" is a valid JQL field so compound JQL like
+      // "filter = 7097 AND project = QSTABILITY ..." must pass.
+      const jqlPattern = /\b(filter|project|summary|status|assignee|reporter|issuetype|priority|created|updated|component|fixVersion|labels|text|issue|key)\s*[=!~<>]|\bAND\b|\bOR\b|\bORDER\s+BY\b/i;
+      return jqlPattern.test(raw);
+    }
+    function brUpdateRunBtn(){
+    // Show Run button when:
+    //  1. JQL box has valid runnable JQL, OR
+    //  2. Builds textarea has content, OR
+    //  3. Filter ID/URL field has a recognisable filter reference
+    const jqlRaw    = String((g('brJql')&&g('brJql').value)||'').trim();
+    const filterRaw = String((g('brFilterInput')&&g('brFilterInput').value)||'').trim();
+    const hasValidJql    = brJqlIsValid(jqlRaw);
+    const hasBuilds      = !!(buildList().length);
+    const hasFilterInput = !!(brExtractFilterId(filterRaw) || brLooksLikeOnlyFilterInput(jqlRaw));
+    const ok = hasValidJql || hasBuilds || hasFilterInput;
     const btn = g('brRunBtn');
     if(!btn) return;
     btn.style.display = ok ? 'inline-flex' : 'none';
@@ -1792,7 +1804,16 @@ async function brRun(){
     }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="17" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
   finally{g('brSpinner').style.display='none'}
 }
-document.addEventListener('DOMContentLoaded',()=>{brPopulateBus();brShowBuildContextMessage();});
+document.addEventListener('DOMContentLoaded',()=>{
+  brPopulateBus();
+  brShowBuildContextMessage();
+  brUpdateRunBtn();
+  // If JQL/filter already has content on load, show Run button immediately
+  const jqlEl=g('brJql');
+  if(jqlEl&&String(jqlEl.value||'').trim()) brUpdateRunBtn();
+  const filterEl=g('brFilterInput');
+  if(filterEl&&String(filterEl.value||'').trim()){brUpdateRunBtn();brQueueFilterJqlResolve('filter');}
+});
 </script>
 <div id="brProgressBox" class="br-progress-window">
   <div class="br-progress-h">
