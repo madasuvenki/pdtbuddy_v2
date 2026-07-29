@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDT Buddy Architecture — Outputs</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root{--ink:#0f172a;--line:#334155;--blue:#2563eb;--green:#16a34a;--orange:#f97316;--purple:#7c3aed;--cyan:#0891b2;--rose:#e11d48;--amber:#b45309}
+    *{box-sizing:border-box}body{margin:0;background:#fff;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+    .page{min-height:100vh;padding:18px;background:radial-gradient(circle at 50% 0,#eef6ff,#fff 58%);display:flex;justify-content:center}
+    .board{width:min(1580px,100%);background:#fff;border:1px solid #e2e8f0;box-shadow:0 24px 70px rgba(15,23,42,.12);padding:18px;overflow:auto;position:relative}
+    .canvas{position:relative;width:1520px;height:980px;border:1px solid #edf2f7;background:linear-gradient(rgba(148,163,184,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.10) 1px,transparent 1px),#fff;background-size:22px 22px;overflow:hidden}
+    .actions{position:absolute;right:26px;top:20px;z-index:30}.btn{border:1px solid #dbeafe;background:#fff;color:#1e3a8a;border-radius:999px;padding:8px 12px;font-weight:900;font-size:12px;text-decoration:none;box-shadow:0 8px 18px rgba(15,23,42,.08);cursor:pointer}
+    .heading{position:absolute;left:26px;top:14px;right:26px;text-align:center;z-index:20}.heading h1{margin:0;font-size:28px;letter-spacing:-.03em}.heading p{margin:5px 0 0;font-size:12px;color:#64748b;font-weight:750}
+
+    .circle{position:absolute;width:96px;height:96px;border-radius:50%;border:2.5px solid #111827;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:8;background:#fff;box-shadow:0 8px 16px rgba(15,23,42,.10)}
+    .circle i{font-size:22px;margin-bottom:3px}.circle b{font-size:12.5px;font-weight:900}.circle span{font-size:9px;color:#64748b;font-weight:800}
+    .circle.jira i{color:#2563eb}.circle.orbit i{color:#e11d48}.circle.axiom i{color:#0891b2}
+
+    .stats-title{position:absolute;left:185px;top:66px;width:270px;text-align:center;font-weight:950;font-size:15px;color:#9a3412;z-index:9}
+    .stats-box{position:absolute;left:185px;top:96px;width:270px;height:610px;border:2px solid #f97316;border-radius:16px;background:#fff7ed;z-index:4}
+    .csv-pill{position:absolute;left:210px;top:126px;width:220px;height:52px;border:2px solid #9a3412;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#9a3412;z-index:9}
+    .map-box{position:absolute;left:205px;top:208px;width:230px;height:210px;border:1.5px dashed #c2410c;border-radius:10px;z-index:7;padding:10px;background:#fffaf3}
+    .map-box h4{margin:0 0 6px;font-size:11px;color:#9a3412;text-transform:uppercase;letter-spacing:.04em}.map-box p{margin:3px 0;font-size:10.6px;color:#7c2d12;line-height:1.28}
+    .db-pill{position:absolute;left:210px;top:462px;width:220px;height:72px;border:2px solid #166534;border-radius:12px;background:#ecfdf5;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9;text-align:center}.db-pill b{font-size:13px;color:#166534}.db-pill span{font-size:10px;color:#166534;font-weight:700;line-height:1.25}
+    .ingest-note{position:absolute;left:205px;top:555px;width:230px;border:1px solid #fed7aa;background:#fff;border-radius:10px;padding:9px;z-index:8;font-size:10px;color:#7c2d12;line-height:1.3;font-weight:700}
+
+    .pdtbuddy-title{position:absolute;left:500px;top:66px;width:980px;text-align:center;font-weight:950;font-size:16px;color:#1e3a8a;z-index:9}
+    .pdtbuddy-box{position:absolute;left:500px;top:96px;width:980px;height:830px;border:2.5px solid #1e3a8a;border-radius:18px;background:#eff6ff;z-index:3}
+    .section-title{position:absolute;z-index:9;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.05em;color:#1e3a8a;background:#dbeafe;border:1px solid #bfdbfe;border-radius:999px;padding:5px 10px}
+
+    .quad{position:absolute;z-index:7;border-radius:12px;padding:10px;background:#fff;border:1.5px solid #c7d2fe;box-shadow:0 8px 18px rgba(15,23,42,.06)}
+    .quad h4{margin:0 0 6px;font-size:11.8px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.035em}.quad p{margin:2px 0;font-size:10.2px;color:#475569;line-height:1.28}.quad ul{margin:4px 0 0 14px;padding:0}.quad li{font-size:9.8px;line-height:1.25;color:#475569;margin:1px 0}
+    .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}.chip{border-radius:999px;padding:3px 7px;font-size:9px;font-weight:850;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af}.chip.g{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.chip.o{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.chip.p{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.chip.c{background:#ecfeff;border-color:#a5f3fc;color:#155e75}.chip.r{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+
+    .q-build{left:535px;top:132px;width:205px;height:128px}.q-daily{left:760px;top:132px;width:220px;height:128px}.q-live{left:1000px;top:132px;width:250px;height:128px}
+    .q-weekly{left:535px;top:305px;width:285px;height:160px}.q-monthly{left:840px;top:305px;width:285px;height:160px}.q-public{left:1145px;top:305px;width:285px;height:160px}
+    .q-target{left:535px;top:515px;width:285px;height:150px}.q-crov{left:840px;top:515px;width:285px;height:150px}.q-apis{left:1145px;top:515px;width:285px;height:150px}
+    .q-ui{left:535px;top:720px;width:895px;height:150px}.cr-nested{position:absolute;left:560px;top:778px;width:280px;height:78px;border:1.5px dashed #7c3aed;border-radius:10px;background:#f5f3ff;padding:7px 9px;z-index:9}.cr-nested h5{margin:0 0 3px;font-size:10px;color:#6d28d9;text-transform:uppercase}.cr-nested p{margin:1px 0;font-size:9.6px;color:#5b21b6;line-height:1.25}
+    .ui-list{position:absolute;left:865px;top:778px;width:530px;z-index:9;display:flex;gap:7px;flex-wrap:wrap}.ui-item{font-size:9.6px;font-weight:850;color:#1e3a8a;background:#fff;border:1px solid #bfdbfe;border-radius:999px;padding:5px 8px}
+
+    .external-box{position:absolute;left:1282px;top:126px;width:165px;height:135px;border:2px solid #0891b2;border-radius:14px;background:#ecfeff;z-index:8;padding:10px;text-align:center}.external-box h4{margin:0 0 5px;font-size:11px;color:#155e75;text-transform:uppercase}.external-box p{font-size:9.5px;line-height:1.25;color:#155e75;margin:2px 0;font-weight:750}
+    .feedback-circle{position:absolute;left:1365px;top:760px;width:70px;height:70px;border-radius:50%;border:2.5px solid #e11d48;display:flex;align-items:center;justify-content:center;font-weight:950;color:#e11d48;font-size:13px;background:#fff1f2;z-index:10}.fb-label{position:absolute;left:1360px;top:835px;width:100px;font-size:10.5px;font-weight:900;color:#be123c;text-align:center;z-index:9}
+
+    svg{position:absolute;inset:0;pointer-events:none;z-index:5}.arrow{stroke:var(--line);stroke-width:2.4;fill:none;marker-end:url(#arrow)}.arrow.orange{stroke:#f97316}.arrow.blue{stroke:#2563eb}.arrow.rose{stroke:#e11d48}.arrow.cyan{stroke:#0891b2}.arrow.green{stroke:#16a34a}.arrow.purple{stroke:#7c3aed}.arrow.dash{stroke-dasharray:6 6}.label{position:absolute;z-index:6;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 9px;font-size:9.6px;font-weight:900;color:#475569;box-shadow:0 5px 10px rgba(15,23,42,.06)}
+    .legend{width:1520px;margin-top:10px;border:1px solid #e2e8f0;background:#fff;border-radius:4px;padding:8px 12px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-size:10.3px;color:#475569;font-weight:800}.lg{display:inline-flex;align-items:center;gap:5px}.sw{width:18px;height:11px;border-radius:2px}
+    @media(max-width:900px){.page{justify-content:flex-start;padding:8px}.board{padding:8px}.actions{display:none}}
+    @media print{.page{padding:0;background:#fff}.board{box-shadow:none;border:0}.actions{display:none}.canvas,.legend{transform:scale(.58);transform-origin:top left}.board{height:620px;overflow:hidden}}
+  </style>
+</head>
+<body>
+<div class="page"><div class="board">
+  <div class="actions"><button class="btn" onclick="window.print()"><i class="fas fa-file-pdf"></i> Save PDF</button></div>
+  <div class="canvas">
+    <div class="heading"><h1>PDT Buddy Architecture</h1><p>Sources → PDT Stats mapping → PDT Buddy DB → Daily / Weekly / Monthly / Live View / Public MTBF APIs → UI Features + feedback</p></div>
+
+    <div class="circle jira" style="left:32px;top:132px"><i class="fab fa-jira"></i><b>JIRA</b><span>filter/JQL</span></div>
+    <div class="circle orbit" style="left:32px;top:340px"><i class="fas fa-sitemap"></i><b>Orbit</b><span>CR details</span></div>
+    <div class="circle axiom" style="left:32px;top:548px"><i class="fas fa-server"></i><b>Axiom</b><span>jobs/hours</span></div>
+
+    <div class="stats-title">PDT Stats (upstream tool)</div><div class="stats-box"></div><div class="csv-pill">CSV / Excel</div>
+    <div class="map-box"><h4>Workbook / upstream mapping</h4><p>• JIRAs, openJiras, Closed_JIRAs</p><p>• CRs / Unique CRs / OverallCrs</p><p>• JIRA hopping / CR mapping already resolved</p><p>• CrInfo merge + reported-team classification</p><p>• Target/site fields already available in imported data</p></div>
+    <div class="db-pill"><b>PDT Buddy DB</b><span>MySQL per-target tables<br>+ Axiom cache + weekly data</span></div>
+    <div class="ingest-note">Ingest updates target tables and keeps history/audit logs. DB is the common source for dashboard, CR overview, weekly cards, and live view enrichment.</div>
+
+    <div class="pdtbuddy-title">PDT Buddy — outputs we provide</div><div class="pdtbuddy-box"></div>
+    <div class="section-title" style="left:525px;top:104px">Current / Daily</div><div class="section-title" style="left:525px;top:277px">Periodic reports</div><div class="section-title" style="left:525px;top:487px">Analytics + APIs</div><div class="section-title" style="left:525px;top:692px">UI Features</div>
+
+    <div class="quad q-build"><h4><i class="fas fa-bolt"></i> Build Report</h4><ul><li>Live JQL by build ID / saved filter</li><li>JIRA → CR traversal</li><li>Mapped CR + open JIRA tables</li><li>Serial / MCN / build columns</li></ul><div class="chips"><span class="chip p">live JQL</span><span class="chip">instant report</span></div></div>
+    <div class="quad q-daily"><h4><i class="fas fa-calendar-day"></i> Daily / Target-site Data</h4><ul><li>Target-wise data already present</li><li>QIPL / SD / CH site buckets</li><li>Daily CR age/status/open/mapped views</li><li>Latest target health from DB</li></ul><div class="chips"><span class="chip g">target-wise</span><span class="chip o">site-wise</span></div></div>
+    <div class="quad q-live"><h4><i class="fas fa-satellite-dish"></i> Live View points</h4><ul><li>Running builds per BU/target/domain</li><li>Device count from chip_ids</li><li>Axiom hours / job count</li><li>Published public-token live status</li></ul><div class="chips"><span class="chip c">external users</span><span class="chip">Axiom cache</span></div></div>
+
+    <div class="external-box"><h4>External consumers</h4><p>Automation</p><p>Dashboards</p><p>Management status</p><p>Other tools</p></div>
+
+    <div class="quad q-weekly"><h4><i class="fas fa-calendar-week"></i> Weekly-wise details</h4><ul><li>Weekly CR Age / CR TAT import</li><li>Weekly CR Pie / status distribution</li><li>Smart Build report using Axiom jobs</li><li>Weekly Unique CR report</li><li>Weekly Farm Testing report</li><li>Scheduler: Monday run + QIPL CSV import</li></ul><div class="chips"><span class="chip o">Mon–Sun</span><span class="chip g">QIPL cards</span><span class="chip p">CSV audit</span></div></div>
+    <div class="quad q-monthly"><h4><i class="fas fa-calendar-alt"></i> Monthly-wise data</h4><ul><li>Monthly trend / roll-up from daily + weekly data</li><li>CR aging trend and status movement</li><li>MTBF trend over month</li><li>Target/site health summary</li><li>Usage analytics supports daily / weekly / monthly periods</li></ul><div class="chips"><span class="chip p">monthly trend</span><span class="chip">roll-up</span></div></div>
+    <div class="quad q-public"><h4><i class="fas fa-plug"></i> Public MTBF APIs</h4><ul><li>/public/auto-gen5/api/domains</li><li>/public/auto-gen5/api/domain/&lt;domain&gt;</li><li>/public/auto-gen45/api/sps</li><li>/public/auto-gen45/api/sp/&lt;sp&gt;</li><li>MCP: get_mtbf_trend / chart / summary / all_views</li></ul><div class="chips"><span class="chip c">CORS</span><span class="chip r">no login for GET</span></div></div>
+
+    <div class="quad q-target"><h4><i class="fas fa-chart-bar"></i> By-target Analytics</h4><ul><li>MTBF chart and table</li><li>CR Age / CR Status</li><li>Open vs mapped CR/JIRA drilldown</li><li>HW/SW PDT split where available</li></ul><div class="chips"><span class="chip g">dashboard</span><span class="chip o">drilldown</span></div></div>
+    <div class="quad q-crov"><h4><i class="fas fa-search"></i> CR Overview</h4><ul><li>Cross-BU / cross-target CR search</li><li>Age buckets and site buckets</li><li>Area / subsystem / functionality filters</li><li>Pivot-style summary + detail rows</li></ul><div class="chips"><span class="chip p">cross-BU</span><span class="chip g">QIPL/SD/CH</span></div></div>
+    <div class="quad q-apis"><h4><i class="fas fa-code"></i> Internal API points</h4><ul><li>/api/cr_overview and /cr_rows</li><li>/api/live_status_view/&lt;target&gt;/running_builds_db</li><li>/api/live_status_view/&lt;target&gt;/adas_mtbf</li><li>/api/build_report/running_builds</li><li>/api/consolidated_report</li></ul><div class="chips"><span class="chip">JSON</span><span class="chip c">charts</span></div></div>
+
+    <div class="quad q-ui"><h4><i class="fas fa-desktop"></i> UI Features</h4><p>Everything PDTBuddy renders to users: target dashboard, CR analytics, live status, build report, weekly/monthly reports, and external/public views.</p></div>
+    <div class="cr-nested"><h5>CR Overview in UI</h5><p>Current CR Overview page lives under UI Features and uses the same CR overview API/service.</p></div>
+    <div class="ui-list"><span class="ui-item">Dashboard</span><span class="ui-item">CR Overview</span><span class="ui-item">Build Report</span><span class="ui-item">Live Status</span><span class="ui-item">Live View Stats</span><span class="ui-item">Weekly QIPL</span><span class="ui-item">Monthly roll-up</span><span class="ui-item">Public MTBF docs/API pages</span></div>
+
+    <div class="feedback-circle">★</div><div class="fb-label">User feedback<br>star rating</div>
+
+    <svg viewBox="0 0 1520 980" preserveAspectRatio="none">
+      <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#334155"/></marker></defs>
+      <path class="arrow orange" d="M128 168 C150 168 165 160 185 158"/><path class="arrow purple" d="M128 154 C350 58 780 62 620 132"/>
+      <path class="arrow rose" d="M128 376 C150 355 168 320 205 305"/><path class="arrow dash rose" d="M128 382 C440 470 780 420 872 515"/>
+      <path class="arrow cyan" d="M128 585 C165 555 185 520 210 500"/><path class="arrow dash cyan" d="M128 598 C380 735 850 630 1080 210"/>
+      <path class="arrow orange" d="M320 178 V208"/><path class="arrow orange" d="M320 418 V462"/>
+      <path class="arrow green" d="M430 498 C480 400 500 220 535 190"/><path class="arrow green" d="M430 500 C500 500 520 560 535 590"/><path class="arrow green" d="M430 505 C500 620 520 750 535 790"/>
+      <path class="arrow blue" d="M1250 198 C1270 198 1275 198 1282 198"/><path class="arrow blue" d="M1288 370 C1260 340 1210 330 1180 305"/><path class="arrow blue" d="M1288 390 C1260 450 1220 500 1200 515"/>
+      <path class="arrow rose" d="M1430 795 C1455 795 1460 795 1365 795"/>
+    </svg>
+    <div class="label" style="left:145px;top:142px">Filter</div><div class="label" style="left:450px;top:88px">API live JQL</div><div class="label" style="left:136px;top:332px">API CR enrich</div><div class="label" style="left:136px;top:528px">Axiom jobs / chip fetch</div><div class="label" style="left:455px;top:468px">Ingest → DB</div><div class="label" style="left:1258px;top:276px">PDTBuddy outputs</div>
+  </div>
+  <div class="legend"><span class="lg"><span class="sw" style="background:#fff7ed"></span>PDT Stats upstream mapping</span><span class="lg"><span class="sw" style="background:#ecfdf5"></span>PDT Buddy DB</span><span class="lg"><span class="sw" style="background:#eff6ff"></span>PDT Buddy outputs</span><span class="lg"><span class="sw" style="background:#ecfeff"></span>external API consumers</span><span class="lg">solid = main data flow · dashed = fallback/cache/API reuse</span></div>
+</div></div>
+</body>
+</html>

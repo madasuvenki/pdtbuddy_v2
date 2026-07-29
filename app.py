@@ -8893,9 +8893,32 @@ def dashboard_help():
     return render_template("dashboard_help.html")
 
 
+@app.route("/dashboard/docs")
+@login_required
+def dashboard_docs():
+    return render_template("dashboard_docs.html")
+
+
+@app.route("/architecture")
+@app.route("/dashboard/architecture")
+@login_required
+def architecture_visual():
+    return render_template("architecture_outputs_v2.html")
+
+
+@app.route("/cr_overview/help")
+@login_required
+def cr_overview_help():
+    return render_template("cr_overview_help.html")
+
+
+
+
+
 @app.route("/api/qgenie/configure", methods=["POST"])
 @login_required
 def qgenie_configure():
+
     try:
         if not QGENIE_SDK_AVAILABLE:
             return jsonify({
@@ -9050,10 +9073,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

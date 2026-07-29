@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CR Overview — Help & Docs</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --indigo: #6366f1;
+      --indigo-dark: #4338ca;
+      --indigo-bg: #eef2ff;
+      --teal: #0d9488;
+      --teal-bg: #f0fdfa;
+      --card-bg: #fff;
+      --page-bg: #f8fafc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+      background: var(--page-bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .help-header {
+      background: linear-gradient(135deg, #1e293b 0%, #312e81 60%, #4338ca 100%);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(15,23,42,.25);
+    }
+    .help-header__left { display: flex; align-items: center; gap: 14px; }
+    .help-header__icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: rgba(99,102,241,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #a5b4fc; flex-shrink: 0;
+    }
+    .help-header__title { font-size: 18px; font-weight: 900; color: #f8fafc; line-height: 1.2; }
+    .help-header__sub { font-size: 11px; color: #94a3b8; margin-top: 2px; font-weight: 500; }
+    .help-header__back {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 18px; border-radius: 999px;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      color: #e2e8f0; font-size: 12px; font-weight: 800;
+      text-decoration: none; cursor: pointer;
+      transition: background .15s;
+    }
+    .help-header__back:hover { background: rgba(255,255,255,.22); color: #fff; }
+
+    /* ── Tab bar ── */
+    .help-tabs {
+      background: #fff;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      gap: 0;
+      padding: 0 32px;
+      position: sticky;
+      top: 82px;
+      z-index: 99;
+      box-shadow: 0 2px 8px rgba(15,23,42,.06);
+    }
+    .help-tab-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 22px;
+      border: none; background: transparent;
+      font-size: 13px; font-weight: 800; color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s, background .15s;
+      white-space: nowrap;
+    }
+    .help-tab-btn i { font-size: 14px; }
+    .help-tab-btn:hover { color: var(--indigo); background: var(--indigo-bg); }
+    .help-tab-btn.active {
+      color: var(--indigo);
+      border-bottom-color: var(--indigo);
+      background: var(--indigo-bg);
+    }
+
+    /* ── Content wrapper ── */
+    .help-body { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+
+    /* ── Tab panels ── */
+    .help-panel { display: none; animation: fadeIn .25s ease; }
+    .help-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* ── Section cards ── */
+    .help-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(15,23,42,.05);
+    }
+    .help-section__head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      background: linear-gradient(135deg, #f8faff, #f1f5ff);
+      border-bottom: 1px solid transparent;
+      transition: background .15s;
+      gap: 12px;
+    }
+    .help-section__head:hover { background: linear-gradient(135deg, #eef2ff, #e8edff); }
+    .help-section__head.open { border-bottom-color: var(--border); }
+    .help-section__title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; font-weight: 900; color: var(--ink);
+    }
+    .help-section__title i {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: var(--indigo-bg); color: var(--indigo);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .help-section__chevron {
+      color: var(--muted); font-size: 12px;
+      transition: transform .2s;
+      flex-shrink: 0;
+    }
+    .help-section__head.open .help-section__chevron { transform: rotate(180deg); }
+    .help-section__body { display: none; padding: 20px 22px 22px; }
+    .help-section__body.open { display: block; }
+
+    /* ── Content typography ── */
+    .help-p { font-size: 13px; color: #475569; line-height: 1.75; margin-bottom: 12px; }
+    .help-p:last-child { margin-bottom: 0; }
+    .help-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .help-card {
+      background: #f8faff;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .help-card__title {
+      font-size: 12px; font-weight: 900; color: var(--indigo-dark);
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .help-card__body { font-size: 11.5px; color: #64748b; line-height: 1.65; }
+
+    /* ── Step list ── */
+    .help-steps { list-style: none; padding: 0; margin: 0 0 12px; }
+    .help-steps li {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 13px; color: #475569; line-height: 1.6;
+    }
+    .help-steps li:last-child { border-bottom: none; }
+    .help-step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--indigo); color: #fff;
+      font-size: 11px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── API table ── */
+    .help-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+    .help-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12px;
+    }
+    .help-table th {
+      background: #f1f5f9; color: #334155;
+      font-weight: 900; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .04em;
+      padding: 9px 12px; text-align: left;
+      border-bottom: 2px solid var(--border);
+    }
+    .help-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #475569; vertical-align: top;
+    }
+    .help-table tr:last-child td { border-bottom: none; }
+    .help-table tr:hover td { background: #f8faff; }
+    .help-code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #f1f5f9; color: #0f172a;
+      padding: 2px 7px; border-radius: 5px;
+      font-size: 11px; font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ── Badge chips ── */
+    .help-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 10px; font-weight: 800;
+      white-space: nowrap;
+    }
+    .help-badge--blue  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .help-badge--green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .help-badge--purple{ background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .help-badge--amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .help-badge--teal  { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+
+    /* ── Architecture diagram boxes ── */
+    .arch-flow {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center; margin-bottom: 16px;
+    }
+    .arch-node {
+      background: #fff; border: 1.5px solid #c7d2fe;
+      border-radius: 12px; padding: 10px 14px;
+      font-size: 12px; font-weight: 800; color: #1e293b;
+      display: flex; align-items: center; gap: 7px;
+      box-shadow: 0 2px 8px rgba(15,23,42,.06);
+    }
+    .arch-node i { color: var(--indigo); font-size: 13px; }
+    .arch-arrow { color: #94a3b8; font-size: 16px; font-weight: 900; }
+
+    /* ── Tip box ── */
+    .help-tip {
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 12px; color: #166534; line-height: 1.65;
+      margin-bottom: 12px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .help-tip i { color: #16a34a; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+    .help-warn {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 12px; color: #92400e; line-height: 1.65;
+      margin-bottom: 12px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .help-warn i { color: #d97706; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .help-header { padding: 14px 16px; }
+      .help-tabs { padding: 0 8px; }
+      .help-tab-btn { padding: 12px 12px; font-size: 12px; }
+      .help-body { padding: 16px 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <div class="help-header">
+    <div class="help-header__left">
+      <div class="help-header__icon"><i class="fas fa-chart-bar"></i></div>
+      <div>
+        <div class="help-header__title">CR Overview — Help &amp; Docs</div>
+        <div class="help-header__sub">Support guide, filter reference, and system architecture</div>
+      </div>
+    </div>
+    <a href="/cr_overview/embed" class="help-header__back">
+      <i class="fas fa-arrow-left"></i> Back to CR Overview
+    </a>
+  </div>
+
+  <!-- ── Tab bar ── -->
+  <div class="help-tabs">
+    <button class="help-tab-btn active" data-tab="support">
+      <i class="fas fa-question-circle"></i> Support
+    </button>
+    <button class="help-tab-btn" data-tab="architecture">
+      <i class="fas fa-sitemap"></i> Architecture
+    </button>
+  </div>
+
+  <!-- ── Body ── -->
+  <div class="help-body">
+
+    <!-- ════════════════════════════════════════════
+         SUPPORT TAB
+    ════════════════════════════════════════════ -->
+    <div class="help-panel active" id="panel-support">
+
+      <!-- What is this page -->
+      <div class="help-section">
+        <div class="help-section__head open" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-info-circle"></i>
+            What is CR Overview?
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body open">
+          <p class="help-p">
+            <strong>CR Age Overview</strong> is a cross-BU dashboard for Change Requests (CRs). It gives you a unified view of CR age, status, site distribution, and area breakdown across all Business Units and targets — all in one place.
+          </p>
+          <div class="help-grid">
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-layer-group"></i> BU Summary</div>
+              <div class="help-card__body">Per-BU cards showing CR counts by status. Click a BU card to drill into its targets.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-map-marker-alt"></i> Site Distribution</div>
+              <div class="help-card__body">QIPL, SD, CH site cards showing how CRs are distributed across test sites.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-chart-bar"></i> Main Chart</div>
+              <div class="help-card__body">CR distribution by your selected dimension (Area, BU, Status, Functionality, Subsystem).</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-table"></i> CR Detail Table</div>
+              <div class="help-card__body">Paginated, sortable rows of individual CRs with age, status, site, and JIRA info.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters guide -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-filter"></i>
+            Using the Filters
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr>
+                  <th>Filter</th>
+                  <th>What it does</th>
+                  <th>Tips</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Business Unit</strong></td>
+                  <td>Narrows all charts, cards and tables to a single BU or shows all BUs together.</td>
+                  <td>Select <span class="help-code">All BUs</span> for a cross-BU view.</td>
+                </tr>
+                <tr>
+                  <td><strong>Date Range</strong></td>
+                  <td>Filters CRs by their JIRA date. Presets: Last 3/6/9/12 months, by year, or custom range.</td>
+                  <td>Use <em>All Time</em> (default) to see the full history.</td>
+                </tr>
+                <tr>
+                  <td><strong>NoSIR</strong></td>
+                  <td>Toggles the NoSIR CR category. The badge shows the count of NoSIR CRs.</td>
+                  <td>Click once to enter NoSIR mode; click again to exit.</td>
+                </tr>
+                <tr>
+                  <td><strong>Invalid</strong></td>
+                  <td>Toggles the Invalid CR category. The badge shows the count of Invalid CRs.</td>
+                  <td>Mutually exclusive with NoSIR mode.</td>
+                </tr>
+                <tr>
+                  <td><strong>CR Status</strong></td>
+                  <td>Multi-select checkbox list. Choose only the statuses you want to see.</td>
+                  <td>Use <em>All</em> / <em>None</em> buttons to quickly select or clear all statuses.</td>
+                </tr>
+                <tr>
+                  <td><strong>View (Dimension)</strong></td>
+                  <td>Controls how the main chart and breakdown table group CRs: BU, Area, Functionality, Subsystem, or Status.</td>
+                  <td>Switch to <em>Area</em> to see which CR areas have the most open CRs.</td>
+                </tr>
+                <tr>
+                  <td><strong>Age Unit</strong></td>
+                  <td>Switches age display between Days and Weeks across all charts and tables.</td>
+                  <td>Use Weeks for long-running programmes to reduce visual noise.</td>
+                </tr>
+                <tr>
+                  <td><strong>Target</strong></td>
+                  <td>Multi-select dropdown to filter to one or more specific targets within the selected BU.</td>
+                  <td>Use the search box inside the dropdown to find targets quickly.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="help-tip">
+            <i class="fas fa-lightbulb"></i>
+            <span>All filters work together — changing any filter instantly refreshes every chart, card and table on the page.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts guide -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-chart-bar"></i>
+            Understanding the Charts
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <ul class="help-steps">
+            <li>
+              <div class="help-step-num">1</div>
+              <div><strong>Main CR Distribution Chart</strong> — Stacked bar chart grouped by your selected dimension. Each bar segment represents a CR status. <em>Click any bar</em> to open the Area → Target drill-down panel below.</div>
+            </li>
+            <li>
+              <div class="help-step-num">2</div>
+              <div><strong>CR Age by Status</strong> — Shows average CR age per status bucket. Helps identify which statuses have the oldest CRs. The dots below the chart show age count distribution.</div>
+            </li>
+            <li>
+              <div class="help-step-num">3</div>
+              <div><strong>Occurrence / Breakdown Table</strong> — Pivot table showing CR counts per dimension value and status. Use the <em>Copy Table</em> button to paste into Excel.</div>
+            </li>
+            <li>
+              <div class="help-step-num">4</div>
+              <div><strong>Expand button</strong> — Each chart has an <span class="help-badge help-badge--green"><i class="fas fa-expand-alt"></i> Expand</span> button that opens a full-page modal with a larger chart and data table. Use Prev / Next to slide between charts.</div>
+            </li>
+          </ul>
+          <div class="help-tip">
+            <i class="fas fa-lightbulb"></i>
+            <span>Click any bar in the main chart to open the <strong>Area → Target Breakdown</strong> drill-down panel, which shows per-target CR counts and site distribution for that area.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail table guide -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-table"></i>
+            CR Detail Table
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <p class="help-p">The CR Detail table shows individual CR rows with full metadata. It is paginated and sortable.</p>
+          <div class="help-grid">
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-sort-amount-down"></i> Sort options</div>
+              <div class="help-card__body">Age (Days/Weeks) high→low or low→high, Site A→Z, JIRA Date new→old, Occurrence high→low, and more.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-list-ol"></i> Rows per page</div>
+              <div class="help-card__body">Choose 40, 100, or 200 rows per page. Click <em>Load Rows</em> after changing settings.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-copy"></i> Copy Table</div>
+              <div class="help-card__body">Copies the visible rows as a tab-separated table — paste directly into Excel or Google Sheets.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-filter"></i> Status filter</div>
+              <div class="help-card__body">The detail table respects the CR Status checkbox filter above. Change statuses and click <em>Load Rows</em> to refresh.</div>
+            </div>
+          </div>
+          <div class="help-warn">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>The detail table does <strong>not</strong> auto-refresh when you change filters — click <strong>Load Rows</strong> to apply the latest filter settings.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drill-down guide -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-search-plus"></i>
+            Drill-down Panels
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <ul class="help-steps">
+            <li>
+              <div class="help-step-num">1</div>
+              <div><strong>Area → Target Breakdown</strong> — Click any bar in the main chart. A panel appears below showing which targets contribute to that area, with a per-target bar chart and site distribution cards.</div>
+            </li>
+            <li>
+              <div class="help-step-num">2</div>
+              <div><strong>Site Detail Panel</strong> — Click any site card (QIPL, SD, CH). A panel appears showing site-specific KPIs, a breakdown table, and CR detail rows for that site.</div>
+            </li>
+            <li>
+              <div class="help-step-num">3</div>
+              <div><strong>Closing panels</strong> — Use the <em>Close</em> or <em>Clear Site</em> button on each panel, or click a different bar/site to switch the drill-down.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tips & Tricks -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-magic"></i>
+            Tips &amp; Tricks
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <ul class="help-steps">
+            <li><div class="help-step-num">★</div><div>Use <strong>Expand All / Collapse All</strong> buttons in the filter bar to quickly show or hide all page sections.</div></li>
+            <li><div class="help-step-num">★</div><div>The <strong>Reset</strong> button clears all filters back to defaults (All BUs, All Time, All Statuses).</div></li>
+            <li><div class="help-step-num">★</div><div>Switch the <strong>View</strong> dimension to <em>Status</em> to see a status-by-status breakdown in the main chart.</div></li>
+            <li><div class="help-step-num">★</div><div>Use the <strong>Target</strong> multi-select to compare a specific set of targets side-by-side.</div></li>
+            <li><div class="help-step-num">★</div><div>The <strong>Dive into BUs</strong> button on each BU card opens the full BU workspace with per-target dashboards.</div></li>
+            <li><div class="help-step-num">★</div><div>Data is cached for ~30 minutes per target. If you need fresh data, ask an admin to clear the cache from the Admin panel.</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Troubleshooting -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-wrench"></i>
+            Troubleshooting
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Problem</th><th>Likely cause</th><th>Fix</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>No data / empty charts</td>
+                  <td>Filters are too restrictive, or no CRs match the selected date range and status.</td>
+                  <td>Click <strong>Reset</strong> to clear all filters and reload.</td>
+                </tr>
+                <tr>
+                  <td>Stale data</td>
+                  <td>CR data is cached for ~30 minutes.</td>
+                  <td>Wait for the cache to expire, or ask an admin to clear it via <span class="help-code">/admin/cr_overview/clear_cache</span>.</td>
+                </tr>
+                <tr>
+                  <td>Detail table not updating</td>
+                  <td>The detail table requires a manual refresh.</td>
+                  <td>Click the <strong>Load Rows</strong> button after changing filters.</td>
+                </tr>
+                <tr>
+                  <td>Target missing from dropdown</td>
+                  <td>Target may be excluded by an admin, or not yet ingested.</td>
+                  <td>Ask an admin to check the <em>Manage Targets</em> panel (gear icon, admin only).</td>
+                </tr>
+                <tr>
+                  <td>Chart not rendering</td>
+                  <td>Highcharts library failed to load.</td>
+                  <td>Hard-refresh the page (<span class="help-code">Ctrl+Shift+R</span>) to reload all scripts.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-support -->
+
+
+    <!-- ════════════════════════════════════════════
+         ARCHITECTURE TAB
+    ════════════════════════════════════════════ -->
+    <div class="help-panel" id="panel-architecture">
+
+      <!-- System overview -->
+      <div class="help-section">
+        <div class="help-section__head open" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-project-diagram"></i>
+            System Overview
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body open">
+          <p class="help-p">CR Overview reads directly from the <strong>PDT Buddy MySQL database</strong> — no Excel ingestion needed at query time. The service layer aggregates data from <span class="help-code">unique_crs</span> and <span class="help-code">jiras</span> tables across all BU schemas.</p>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fas fa-database"></i> unique_crs table</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-cogs"></i> cr_overview_service.py</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-memory"></i> 30-min cache</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-code"></i> REST API</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-desktop"></i> CR Overview UI</div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fas fa-table"></i> jiras table</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-cogs"></i> cr_overview_service.py</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-chart-bar"></i> JIRA counts / age</div>
+          </div>
+          <div class="help-tip">
+            <i class="fas fa-info-circle"></i>
+            <span>The service uses <strong>per-target locks</strong> to prevent duplicate DB fetches when multiple users load the page simultaneously. Only one DB query runs per target per cache window.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data sources -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-database"></i>
+            Data Sources
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Table</th><th>Schema</th><th>Key columns</th><th>Used for</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="help-code">unique_crs</span></td>
+                  <td>Per-BU (e.g. <span class="help-code">pdt_stats_mobile</span>)</td>
+                  <td>cr_number, cr_status, cr_area, cr_subsystem, cr_functionality, site, age_days, target_name</td>
+                  <td>All CR counts, age calculations, dimension grouping, site distribution</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">jiras</span></td>
+                  <td>Per-target</td>
+                  <td>stability_ticket, jira_date, cr_number, metabuild</td>
+                  <td>JIRA occurrence counts, last JIRA date, JIRA-to-CR mapping</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">dashboard_status</span></td>
+                  <td><span class="help-code">pdt_stats_dashboard</span></td>
+                  <td>target_name, bu, is_active, display_name</td>
+                  <td>Target list, BU membership, active/inactive status</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service layer -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-cogs"></i>
+            Service Layer — <span style="font-family:monospace;font-size:12px;">src/cr_overview_service.py</span>
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Function</th><th>Purpose</th><th>Cache</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="help-code">fetch_cr_overview_data()</span></td>
+                  <td>Main summary: hero KPIs, BU cards, site cards, chart data, pivot table. Accepts all filter params.</td>
+                  <td>30 min per filter key</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">fetch_cr_rows()</span></td>
+                  <td>Paginated detail rows with sorting. Returns CR-level data for the detail table.</td>
+                  <td>Not cached (paginated)</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">fetch_area_target_breakdown()</span></td>
+                  <td>Per-target CR counts for a selected dimension value. Powers the drill-down panel.</td>
+                  <td>30 min per filter key</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">clear_cache()</span></td>
+                  <td>Evicts all cached entries. Called after excluded-targets changes or by admin.</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">warmup_cache()</span></td>
+                  <td>Pre-populates cache for all active targets on server start.</td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- API endpoints -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-code"></i>
+            API Endpoints
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-table-wrap">
+            <table class="help-table">
+              <thead>
+                <tr><th>Endpoint</th><th>Method</th><th>Key params</th><th>Returns</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="help-code">/api/cr_overview</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span></td>
+                  <td>bu, target, dim, status_filter, site, date_from, date_to, flt_*</td>
+                  <td>Hero KPIs, BU cards, site cards, chart data, pivot table</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/api/cr_overview/cr_rows</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span></td>
+                  <td>bu, target, dim, dim_val, category, sort, page, per_page, site</td>
+                  <td>Paginated CR detail rows</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/api/cr_overview/area_targets</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span></td>
+                  <td>area, dim, bu, target, site, date_from, date_to</td>
+                  <td>Per-target CR counts for a dimension value (drill-down)</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/api/cr_overview/targets</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span></td>
+                  <td>bu</td>
+                  <td>Active target list for a BU</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/api/cr_overview/excluded_targets</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span> <span class="help-badge help-badge--green">POST</span></td>
+                  <td>—</td>
+                  <td>GET: excluded target list. POST: save new exclusion list</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/admin/cr_overview/clear_cache</span></td>
+                  <td><span class="help-badge help-badge--amber">POST</span></td>
+                  <td>—</td>
+                  <td>Admin only: evict all CR overview cache entries</td>
+                </tr>
+                <tr>
+                  <td><span class="help-code">/admin/cr_overview/cache_stats</span></td>
+                  <td><span class="help-badge help-badge--blue">GET</span></td>
+                  <td>—</td>
+                  <td>Admin only: live cache entry metadata</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="help-tip">
+            <i class="fas fa-info-circle"></i>
+            <span>All endpoints require login. The <span class="help-code">targets</span> param supports multi-target: <span class="help-code">?targets=T1,T2,T3</span> — this overrides the single <span class="help-code">target</span> param.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frontend architecture -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-desktop"></i>
+            Frontend Architecture
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <div class="help-grid">
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-file-code"></i> cr_overview_v2.js</div>
+              <div class="help-card__body">Main JS module. Manages state, API calls, chart rendering (Highcharts), table rendering, filter wiring, and drill-down panels.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-palette"></i> cr_overview_v2.css</div>
+              <div class="help-card__body">All styles for the CR Overview page: hero, filters, BU cards, site cards, charts, tables, drill-down panels, and modals.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-chart-bar"></i> Highcharts v12</div>
+              <div class="help-card__body">Used for all bar charts, stacked charts, and the CR Age by Status chart. Loaded locally with CDN fallback.</div>
+            </div>
+            <div class="help-card">
+              <div class="help-card__title"><i class="fas fa-memory"></i> State object</div>
+              <div class="help-card__body">A single <span class="help-code">state</span> object tracks current filters, loaded data, active drill-down, pagination, and chart instances.</div>
+            </div>
+          </div>
+          <p class="help-p">The page uses a <strong>single-page pattern</strong>: all filter changes trigger a new API call to <span class="help-code">/api/cr_overview</span>, and the response is used to re-render all sections without a full page reload.</p>
+        </div>
+      </div>
+
+      <!-- Cache strategy -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-memory"></i>
+            Cache Strategy
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <ul class="help-steps">
+            <li>
+              <div class="help-step-num">1</div>
+              <div><strong>Per-filter cache key</strong> — Each unique combination of (bu, target, dim, status_filter, site, date_from, date_to, flt_*) gets its own cache entry.</div>
+            </li>
+            <li>
+              <div class="help-step-num">2</div>
+              <div><strong>30-minute TTL</strong> — Cache entries expire after 30 minutes. The next request after expiry triggers a fresh DB query.</div>
+            </li>
+            <li>
+              <div class="help-step-num">3</div>
+              <div><strong>Per-target locks</strong> — A threading lock per target prevents duplicate DB queries when multiple users request the same target simultaneously.</div>
+            </li>
+            <li>
+              <div class="help-step-num">4</div>
+              <div><strong>Manual bust</strong> — Admins can call <span class="help-code">POST /admin/cr_overview/clear_cache</span> to evict all entries immediately. This also happens automatically when excluded targets are saved.</div>
+            </li>
+            <li>
+              <div class="help-step-num">5</div>
+              <div><strong>Warmup</strong> — On server start, <span class="help-code">warmup_cache()</span> pre-populates the cache for all active targets so the first user request is fast.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Full architecture link -->
+      <div class="help-section">
+        <div class="help-section__head" onclick="toggleSection(this)">
+          <div class="help-section__title">
+            <i class="fas fa-external-link-alt"></i>
+            Full System Architecture Diagram
+          </div>
+          <i class="fas fa-chevron-down help-section__chevron"></i>
+        </div>
+        <div class="help-section__body">
+          <p class="help-p">The full PDT Buddy system architecture diagram shows all data sources, ingestion pipelines, API surfaces, and UI features in one view.</p>
+          <a href="/dashboard/architecture" target="_blank" rel="noopener noreferrer"
+             style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(99,102,241,.3);transition:filter .15s;"
+             onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+            <i class="fas fa-project-diagram"></i> Open Full Architecture Diagram
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /panel-architecture -->
+
+  </div><!-- /help-body -->
+
+  <script>
+    // ── Tab switching ──
+    document.querySelectorAll('.help-tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tab = this.getAttribute('data-tab');
+
+        // Update tab buttons
+        document.querySelectorAll('.help-tab-btn').forEach(function(b) {
+          b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        });
+
+        // Show/hide panels
+        document.querySelectorAll('.help-panel').forEach(function(p) {
+          p.classList.toggle('active', p.id === 'panel-' + tab);
+        });
+
+        // Auto-open first section in newly shown panel
+        var panel = document.getElementById('panel-' + tab);
+        if (panel) {
+          var firstHead = panel.querySelector('.help-section__head');
+          if (firstHead && !firstHead.classList.contains('open')) {
+            toggleSection(firstHead);
+          }
+        }
+      });
+    });
+
+    // ── Collapsible sections ──
+    function toggleSection(head) {
+      var isOpen = head.classList.contains('open');
+      head.classList.toggle('open', !isOpen);
+      var body = head.nextElementSibling;
+      if (body) body.classList.toggle('open', !isOpen);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDT Buddy — Docs</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --indigo: #6366f1;
+      --indigo-dark: #4338ca;
+      --indigo-bg: #eef2ff;
+      --teal: #0d9488;
+      --teal-bg: #f0fdfa;
+      --page-bg: #f8fafc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+      background: var(--page-bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .docs-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0f172a 100%);
+      padding: 22px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 24px rgba(15,23,42,.35);
+    }
+    .docs-header__left { display: flex; align-items: center; gap: 14px; }
+    .docs-header__icon {
+      width: 44px; height: 44px; border-radius: 13px;
+      background: rgba(99,102,241,.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: #a5b4fc; flex-shrink: 0;
+      border: 1px solid rgba(99,102,241,.4);
+    }
+    .docs-header__title { font-size: 20px; font-weight: 900; color: #f8fafc; line-height: 1.2; }
+    .docs-header__sub { font-size: 11px; color: #94a3b8; margin-top: 3px; font-weight: 500; }
+    .docs-header__back {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 20px; border-radius: 999px;
+      background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.18);
+      color: #e2e8f0; font-size: 12px; font-weight: 800;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .docs-header__back:hover { background: rgba(255,255,255,.20); color: #fff; }
+
+    /* ── Tab bar ── */
+    .docs-tabs {
+      background: #fff;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      padding: 0 36px;
+      gap: 0;
+      position: sticky;
+      top: 88px;
+      z-index: 99;
+      box-shadow: 0 2px 10px rgba(15,23,42,.06);
+      overflow-x: auto;
+    }
+    .docs-tab-btn {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 15px 26px;
+      border: none; background: transparent;
+      font-size: 13px; font-weight: 800; color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s, background .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .docs-tab-btn i { font-size: 15px; }
+    .docs-tab-btn:hover { color: var(--indigo); background: var(--indigo-bg); }
+    .docs-tab-btn.active {
+      color: var(--indigo);
+      border-bottom-color: var(--indigo);
+      background: var(--indigo-bg);
+    }
+
+    /* ── Body ── */
+    .docs-body { max-width: 1140px; margin: 0 auto; padding: 36px 28px 72px; }
+
+    /* ── Panels ── */
+    .docs-panel { display: none; animation: fadeIn .22s ease; }
+    .docs-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    /* ── Section cards ── */
+    .docs-section {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      margin-bottom: 18px;
+      overflow: hidden;
+      box-shadow: 0 2px 14px rgba(15,23,42,.05);
+    }
+    .docs-section__head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 22px;
+      cursor: pointer; user-select: none;
+      background: linear-gradient(135deg, #f8faff, #f1f5ff);
+      border-bottom: 1px solid transparent;
+      transition: background .15s;
+      gap: 12px;
+    }
+    .docs-section__head:hover { background: linear-gradient(135deg, #eef2ff, #e8edff); }
+    .docs-section__head.open { border-bottom-color: var(--border); }
+    .docs-section__title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; font-weight: 900; color: var(--ink);
+    }
+    .docs-section__title i {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--indigo-bg); color: var(--indigo);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .docs-section__chevron { color: var(--muted); font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+    .docs-section__head.open .docs-section__chevron { transform: rotate(180deg); }
+    .docs-section__body { display: none; padding: 22px 24px 24px; }
+    .docs-section__body.open { display: block; }
+
+    /* ── Typography ── */
+    .docs-p { font-size: 13px; color: #475569; line-height: 1.75; margin-bottom: 12px; }
+    .docs-p:last-child { margin-bottom: 0; }
+
+    /* ── Grid cards ── */
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .docs-card {
+      background: #f8faff; border: 1px solid #dbeafe;
+      border-radius: 13px; padding: 14px 16px;
+    }
+    .docs-card__title {
+      font-size: 12px; font-weight: 900; color: var(--indigo-dark);
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .docs-card__body { font-size: 11.5px; color: #64748b; line-height: 1.65; }
+
+    /* ── Steps ── */
+    .docs-steps { list-style: none; padding: 0; margin: 0 0 12px; }
+    .docs-steps li {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+      font-size: 13px; color: #475569; line-height: 1.6;
+    }
+    .docs-steps li:last-child { border-bottom: none; }
+    .docs-step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--indigo); color: #fff;
+      font-size: 11px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── Table ── */
+    .docs-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+    .docs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .docs-table th {
+      background: #f1f5f9; color: #334155;
+      font-weight: 900; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .04em; padding: 9px 12px; text-align: left;
+      border-bottom: 2px solid var(--border);
+    }
+    .docs-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+    .docs-table tr:last-child td { border-bottom: none; }
+    .docs-table tr:hover td { background: #f8faff; }
+    .docs-code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #f1f5f9; color: #0f172a;
+      padding: 2px 7px; border-radius: 5px;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+
+    /* ── Badges ── */
+    .docs-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 10px; font-weight: 800; white-space: nowrap;
+    }
+    .docs-badge--blue   { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .docs-badge--green  { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .docs-badge--purple { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .docs-badge--amber  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .docs-badge--teal   { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+    .docs-badge--red    { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+    /* ── Tip / Warn ── */
+    .docs-tip {
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 12px; color: #166534; line-height: 1.65;
+      margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .docs-tip i { color: #16a34a; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+    .docs-warn {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 12px; color: #92400e; line-height: 1.65;
+      margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .docs-warn i { color: #d97706; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+    /* ── Architecture flow ── */
+    .arch-flow {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center; margin-bottom: 16px;
+    }
+    .arch-node {
+      background: #fff; border: 1.5px solid #c7d2fe;
+      border-radius: 12px; padding: 10px 14px;
+      font-size: 12px; font-weight: 800; color: #1e293b;
+      display: flex; align-items: center; gap: 7px;
+      box-shadow: 0 2px 8px rgba(15,23,42,.06);
+    }
+    .arch-node i { color: var(--indigo); font-size: 13px; }
+    .arch-arrow { color: #94a3b8; font-size: 18px; font-weight: 900; }
+
+    /* ── Raise Ticket form area ── */
+    .ticket-hero {
+      background: linear-gradient(135deg, #1e293b, #312e81);
+      border-radius: 18px; padding: 28px 28px 24px;
+      margin-bottom: 20px; color: #f8fafc;
+    }
+    .ticket-hero__title { font-size: 18px; font-weight: 900; margin-bottom: 6px; }
+    .ticket-hero__sub { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+    .ticket-btn {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 12px 26px; border-radius: 999px;
+      font-size: 13px; font-weight: 900;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: filter .15s, transform .15s;
+      margin-top: 16px;
+    }
+    .ticket-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .ticket-btn--primary {
+      background: linear-gradient(135deg, #6366f1, #4338ca);
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(99,102,241,.35);
+    }
+    .ticket-btn--secondary {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.22);
+      color: #e2e8f0;
+    }
+    .ticket-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .ticket-info-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 13px; padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(15,23,42,.04);
+    }
+    .ticket-info-card__label {
+      font-size: 10px; font-weight: 900; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); margin-bottom: 6px;
+    }
+    .ticket-info-card__val {
+      font-size: 13px; font-weight: 800; color: var(--ink);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .ticket-info-card__val i { color: var(--indigo); }
+
+    @media (max-width: 640px) {
+      .docs-header { padding: 14px 16px; }
+      .docs-tabs { padding: 0 8px; }
+      .docs-tab-btn { padding: 12px 14px; font-size: 12px; }
+      .docs-body { padding: 16px 12px 48px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <div class="docs-header">
+    <div class="docs-header__left">
+      <div class="docs-header__icon"><i class="fas fa-book"></i></div>
+      <div>
+        <div class="docs-header__title">PDT Buddy — Docs</div>
+        <div class="docs-header__sub">Help &amp; Support · Architecture · Raise a Ticket</div>
+      </div>
+    </div>
+    <a href="/cr_overview/embed" class="docs-header__back">
+      <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  <!-- ── Tab bar ── -->
+  <div class="docs-tabs">
+    <button class="docs-tab-btn active" data-tab="support">
+      <i class="fas fa-question-circle"></i> Help &amp; Support
+    </button>
+    <button class="docs-tab-btn" data-tab="architecture">
+      <i class="fas fa-sitemap"></i> Architecture
+    </button>
+    <button class="docs-tab-btn" data-tab="ticket">
+      <i class="fas fa-ticket-alt"></i> Raise a Ticket
+    </button>
+  </div>
+
+  <!-- ── Body ── -->
+  <div class="docs-body">
+
+    <!-- ══════════════════════════════════════════
+         HELP & SUPPORT TAB
+    ══════════════════════════════════════════ -->
+    <div class="docs-panel active" id="panel-support">
+
+      <!-- What is PDT Buddy -->
+      <div class="docs-section">
+        <div class="docs-section__head open" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-info-circle"></i> What is PDT Buddy?</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body open">
+          <p class="docs-p"><strong>PDT Buddy</strong> is a cross-BU engineering dashboard for Change Requests, JIRAs, MTBF, build reports, live status, and weekly/monthly analytics. It aggregates data from PDT Stats, Orbit, JIRA, and Axiom into a single unified view.</p>
+          <div class="docs-grid">
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-chart-bar"></i> CR Overview</div><div class="docs-card__body">Cross-BU CR age, status, site distribution and area breakdown. Click bars to drill down into targets.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-tachometer-alt"></i> Target Dashboard</div><div class="docs-card__body">Per-target MTBF, CR age, open/mapped CRs, JIRA counts, and build health in one view.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-satellite-dish"></i> Live Status</div><div class="docs-card__body">Real-time running builds, device counts, Axiom hours, and published public-token status reports.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-calendar-week"></i> Weekly Reports</div><div class="docs-card__body">Weekly CR age, CR TAT, unique CR report, farm testing, and smart build report using Axiom jobs.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-bolt"></i> Build Report</div><div class="docs-card__body">Live JQL by build ID, JIRA→CR traversal, mapped CR and open JIRA tables with serial/MCN columns.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-robot"></i> PDT Buddy AI</div><div class="docs-card__body">Ask the chatbot about any CR, status, build, or JIRA. Auto-loads CR info panel when a CR number is detected.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CR Overview guide -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-chart-bar"></i> CR Overview — Filters &amp; Charts</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead><tr><th>Filter</th><th>What it does</th><th>Tip</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Business Unit</strong></td><td>Narrows all charts, cards and tables to a single BU or shows all BUs together.</td><td>Select <span class="docs-code">All BUs</span> for a cross-BU view.</td></tr>
+                <tr><td><strong>Date Range</strong></td><td>Filters CRs by JIRA date. Presets: Last 3/6/9/12 months, by year, or custom range.</td><td>Use <em>All Time</em> (default) to see the full history.</td></tr>
+                <tr><td><strong>NoSIR / Dup / Invalid</strong></td><td>Toggle special CR categories. Badge shows the count for each.</td><td>Mutually exclusive — only one mode active at a time.</td></tr>
+                <tr><td><strong>CR Status</strong></td><td>Multi-select checkbox list. Choose only the statuses you want.</td><td>Use <em>All / None</em> buttons to quickly select or clear.</td></tr>
+                <tr><td><strong>View (Dimension)</strong></td><td>Groups the main chart and breakdown table by: BU, Area, Functionality, Subsystem, or Status.</td><td>Switch to <em>Area</em> to see which CR areas have the most open CRs.</td></tr>
+                <tr><td><strong>Age Unit</strong></td><td>Switches age display between Days and Weeks across all charts and tables.</td><td>Use Weeks for long-running programmes.</td></tr>
+                <tr><td><strong>Target</strong></td><td>Multi-select dropdown to filter to specific targets within the selected BU.</td><td>Use the search box inside the dropdown to find targets quickly.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="docs-tip"><i class="fas fa-lightbulb"></i><span><strong>Click any bar</strong> in the main chart to open the Area → Target drill-down panel. Click any site card (QIPL, SD, CH) to open the Site Detail panel.</span></div>
+        </div>
+      </div>
+
+      <!-- Navigation guide -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-compass"></i> Navigating PDT Buddy</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <ul class="docs-steps">
+            <li><div class="docs-step-num">1</div><div><strong>Left sidebar</strong> — Lists all BUs and targets. Click a BU to expand its targets. Click a target to open its full dashboard.</div></li>
+            <li><div class="docs-step-num">2</div><div><strong>Top bar — BU / Target selector</strong> — Quick-jump to any target dashboard directly from the top bar. Select BU → Target → click <em>Go</em>.</div></li>
+            <li><div class="docs-step-num">3</div><div><strong>Target Delta</strong> — Opens the Target Delta Studio to compare two targets side-by-side.</div></li>
+            <li><div class="docs-step-num">4</div><div><strong>Publish Report / View</strong> — Publish a live status report or view previously published reports and join groups.</div></li>
+            <li><div class="docs-step-num">5</div><div><strong>PDT Buddy AI (robot icon)</strong> — Opens the AI chatbot. Ask about any CR number, status, build, or JIRA. The CR Info tab auto-loads when a CR is detected.</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Detail table guide -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-table"></i> CR Detail Table &amp; Drill-downs</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-grid">
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-sort-amount-down"></i> Sort options</div><div class="docs-card__body">Age (Days/Weeks) high→low or low→high, Site A→Z, JIRA Date new→old, Occurrence high→low.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-list-ol"></i> Rows per page</div><div class="docs-card__body">Choose 40, 100, or 200 rows. Click <em>Load Rows</em> after changing settings.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-copy"></i> Copy Table</div><div class="docs-card__body">Copies visible rows as tab-separated — paste directly into Excel or Google Sheets.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-search-plus"></i> Drill-down panels</div><div class="docs-card__body">Click a chart bar → Area→Target panel. Click a site card → Site Detail panel with per-site KPIs and rows.</div></div>
+          </div>
+          <div class="docs-warn"><i class="fas fa-exclamation-triangle"></i><span>The detail table does <strong>not</strong> auto-refresh when filters change — click <strong>Load Rows</strong> to apply the latest filter settings.</span></div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-magic"></i> Tips &amp; Tricks</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <ul class="docs-steps">
+            <li><div class="docs-step-num">★</div><div>Use <strong>Expand All / Collapse All</strong> in the filter bar to quickly show or hide all page sections.</div></li>
+            <li><div class="docs-step-num">★</div><div>The <strong>Reset</strong> button clears all filters back to defaults (All BUs, All Time, All Statuses).</div></li>
+            <li><div class="docs-step-num">★</div><div>Switch the <strong>View</strong> dimension to <em>Status</em> to see a status-by-status breakdown in the main chart.</div></li>
+            <li><div class="docs-step-num">★</div><div>Use the <strong>Target</strong> multi-select to compare a specific set of targets side-by-side.</div></li>
+            <li><div class="docs-step-num">★</div><div>Data is cached for ~30 minutes per target. If you need fresh data, ask an admin to clear the cache.</div></li>
+            <li><div class="docs-step-num">★</div><div>Hard-refresh (<span class="docs-code">Ctrl+Shift+R</span>) if charts are not rendering — this reloads all scripts including Highcharts.</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Troubleshooting -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-wrench"></i> Troubleshooting</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead><tr><th>Problem</th><th>Likely cause</th><th>Fix</th></tr></thead>
+              <tbody>
+                <tr><td>No data / empty charts</td><td>Filters too restrictive or no CRs match the selected range and status.</td><td>Click <strong>Reset</strong> to clear all filters.</td></tr>
+                <tr><td>Stale data</td><td>CR data is cached for ~30 minutes.</td><td>Wait for cache to expire, or ask an admin to clear it.</td></tr>
+                <tr><td>Detail table not updating</td><td>Detail table requires a manual refresh.</td><td>Click <strong>Load Rows</strong> after changing filters.</td></tr>
+                <tr><td>Target missing from dropdown</td><td>Target may be excluded by admin or not yet ingested.</td><td>Ask an admin to check the <em>Manage Targets</em> panel.</td></tr>
+                <tr><td>Chart not rendering</td><td>Highcharts library failed to load.</td><td>Hard-refresh the page (<span class="docs-code">Ctrl+Shift+R</span>).</td></tr>
+                <tr><td>Login / access issues</td><td>Session expired or insufficient privileges.</td><td>Log out and log back in. If issue persists, raise a ticket.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-support -->
+
+
+    <!-- ══════════════════════════════════════════
+         ARCHITECTURE TAB
+    ══════════════════════════════════════════ -->
+    <div class="docs-panel" id="panel-architecture">
+
+      <!-- System overview -->
+      <div class="docs-section">
+        <div class="docs-section__head open" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-project-diagram"></i> System Overview</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body open">
+          <p class="docs-p"><strong>PDT Buddy</strong> reads from a MySQL database populated by the PDT Stats upstream tool. The service layer aggregates data from per-target tables and exposes REST APIs consumed by the frontend.</p>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fas fa-file-excel"></i> PDT Stats / Excel</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-cogs"></i> Ingestion Engine</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-database"></i> MySQL DB</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-code"></i> REST APIs</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-desktop"></i> PDT Buddy UI</div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fab fa-jira"></i> JIRA (JQL)</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-bolt"></i> Build Report API</div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fas fa-sitemap"></i> Orbit (CR details)</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-search"></i> CR Insight Panel</div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-node"><i class="fas fa-server"></i> Axiom (jobs/hours)</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node"><i class="fas fa-satellite-dish"></i> Live Status / MTBF</div>
+          </div>
+          <a href="/dashboard/architecture" target="_blank" rel="noopener noreferrer"
+             style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:999px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(99,102,241,.3);margin-top:8px;transition:filter .15s;"
+             onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+            <i class="fas fa-external-link-alt"></i> Open Full Architecture Diagram
+          </a>
+        </div>
+      </div>
+
+      <!-- Data sources -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-database"></i> Data Sources</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead><tr><th>Source</th><th>Tables / Schema</th><th>Used for</th></tr></thead>
+              <tbody>
+                <tr><td><strong>PDT Stats / Excel</strong></td><td><span class="docs-code">unique_crs</span>, <span class="docs-code">jiras</span>, <span class="docs-code">crs</span> — per-target schema</td><td>CR counts, age, status, site, JIRA mapping, MTBF</td></tr>
+                <tr><td><strong>JIRA (live JQL)</strong></td><td>REST API — no local table</td><td>Build report: live JIRA fetch by build ID or saved filter</td></tr>
+                <tr><td><strong>Orbit</strong></td><td>REST API — no local table</td><td>CR Insight panel: full CR metadata, linked CRs, build history</td></tr>
+                <tr><td><strong>Axiom</strong></td><td><span class="docs-code">axiom_cache</span> table</td><td>Live status: running builds, device count, job hours</td></tr>
+                <tr><td><strong>Dashboard Config</strong></td><td><span class="docs-code">dashboard_status</span> — central schema</td><td>Target list, BU membership, milestones (ES/FC/CS/CS1), active/inactive</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key services -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-cogs"></i> Key Service Modules</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead><tr><th>Module</th><th>Purpose</th><th>Cache</th></tr></thead>
+              <tbody>
+                <tr><td><span class="docs-code">cr_overview_service.py</span></td><td>Cross-BU CR summary, drill-down, paginated rows. Per-target locks prevent duplicate DB queries.</td><td>30 min per filter key</td></tr>
+                <tr><td><span class="docs-code">dashboard_service.py</span></td><td>Per-target dashboard data: MTBF, CR age, open/mapped CRs, JIRA counts.</td><td>Per-target TTL</td></tr>
+                <tr><td><span class="docs-code">live_status_service.py</span></td><td>Running builds, device count, Axiom hours, published status reports.</td><td>Axiom cache table</td></tr>
+                <tr><td><span class="docs-code">build_report_service.py</span></td><td>Live JIRA fetch by build ID, JIRA→CR traversal, mapped CR tables.</td><td>Not cached (live)</td></tr>
+                <tr><td><span class="docs-code">chatbot_service.py</span></td><td>AI chatbot: CR lookup, JIRA lookup, Orbit CR enrichment, session history.</td><td>Session-scoped</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- API endpoints -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-code"></i> Key API Endpoints</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead><tr><th>Endpoint</th><th>Method</th><th>Returns</th></tr></thead>
+              <tbody>
+                <tr><td><span class="docs-code">/api/cr_overview</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Hero KPIs, BU cards, site cards, chart data, pivot table</td></tr>
+                <tr><td><span class="docs-code">/api/cr_overview/cr_rows</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Paginated CR detail rows</td></tr>
+                <tr><td><span class="docs-code">/api/cr_overview/area_targets</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Per-target CR counts for drill-down</td></tr>
+                <tr><td><span class="docs-code">/api/live_status_view/&lt;target&gt;/running_builds_db</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Running builds from Axiom cache</td></tr>
+                <tr><td><span class="docs-code">/api/build_report/running_builds</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Live JIRA fetch for build report</td></tr>
+                <tr><td><span class="docs-code">/api/consolidated_report</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>JIRA/CR consolidated report data</td></tr>
+                <tr><td><span class="docs-code">/public/auto-gen5/api/domains</span></td><td><span class="docs-badge docs-badge--green">PUBLIC</span></td><td>Public MTBF domain list (no login)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="docs-tip"><i class="fas fa-info-circle"></i><span>All non-public endpoints require login. Public MTBF endpoints support CORS and require no authentication for GET requests.</span></div>
+        </div>
+      </div>
+
+      <!-- Frontend -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-desktop"></i> Frontend Stack</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="docs-grid">
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-chart-bar"></i> Highcharts v12</div><div class="docs-card__body">All bar charts, stacked charts, MTBF trend charts. Loaded locally with CDN fallback.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-file-code"></i> Vanilla JS modules</div><div class="docs-card__body">Each page has its own JS module (e.g. <span class="docs-code">cr_overview_v2.js</span>). No framework — pure DOM + fetch API.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-palette"></i> CSS per page</div><div class="docs-card__body">Each major page has its own CSS file. Global styles in <span class="docs-code">base.css</span> and <span class="docs-code">style.css</span>.</div></div>
+            <div class="docs-card"><div class="docs-card__title"><i class="fas fa-server"></i> Flask + Jinja2</div><div class="docs-card__body">Python Flask backend with Jinja2 templates. MySQL via SQLAlchemy. Login via Flask-Login.</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-architecture -->
+
+
+    <!-- ══════════════════════════════════════════
+         RAISE A TICKET TAB
+    ══════════════════════════════════════════ -->
+    <div class="docs-panel" id="panel-ticket">
+
+      <div class="ticket-hero">
+        <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(99,102,241,.25);border:1px solid rgba(99,102,241,.4);border-radius:999px;padding:3px 12px;font-size:10px;font-weight:800;color:#a5b4fc;margin-bottom:10px;"><i class="fas fa-ticket-alt"></i> QAFAST Ticketing</div>
+        <div class="ticket-hero__title">Raise a Support Ticket</div>
+        <div class="ticket-hero__sub">Found a bug, need a new feature, or have a data issue? Raise a JIRA ticket directly in the QAFAST project and the PDT Buddy team will pick it up.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="/admin/raise_ticket" target="_blank" rel="noopener noreferrer" class="ticket-btn ticket-btn--primary">
+            <i class="fas fa-external-link-alt"></i> Open Ticket Form
+          </a>
+        </div>
+      </div>
+
+      <!-- What to include -->
+      <div class="docs-section">
+        <div class="docs-section__head open" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-clipboard-list"></i> What to Include in Your Ticket</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body open">
+          <ul class="docs-steps">
+            <li><div class="docs-step-num">1</div><div><strong>Summary</strong> — One-line description of the issue or request. Be specific: e.g. <em>"CR Overview — MOBILE BU site cards show 0 for SD site"</em>.</div></li>
+            <li><div class="docs-step-num">2</div><div><strong>Steps to reproduce</strong> — Exact steps: which page, which filters, what you clicked, what you expected vs what happened.</div></li>
+            <li><div class="docs-step-num">3</div><div><strong>Target / BU</strong> — Which target or BU is affected. Include the target key if known (e.g. <span class="docs-code">nord_hgy</span>).</div></li>
+            <li><div class="docs-step-num">4</div><div><strong>Screenshot or URL</strong> — Attach a screenshot or paste the full URL from your browser address bar.</div></li>
+            <li><div class="docs-step-num">5</div><div><strong>Priority</strong> — Is this blocking your work (High) or a nice-to-have improvement (Low)?</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Ticket types -->
+      <div class="docs-section">
+        <div class="docs-section__head" onclick="toggleSection(this)">
+          <div class="docs-section__title"><i class="fas fa-tags"></i> Ticket Types</div>
+          <i class="fas fa-chevron-down docs-section__chevron"></i>
+        </div>
+        <div class="docs-section__body">
+          <div class="ticket-info-grid">
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">Bug</div>
+              <div class="ticket-info-card__val"><i class="fas fa-bug"></i> Something is broken or showing wrong data</div>
+            </div>
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">Feature Request</div>
+              <div class="ticket-info-card__val"><i class="fas fa-lightbulb"></i> New chart, filter, or page you'd like added</div>
+            </div>
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">Data Issue</div>
+              <div class="ticket-info-card__val"><i class="fas fa-database"></i> CR counts, JIRA counts, or MTBF values look wrong</div>
+            </div>
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">Access Request</div>
+              <div class="ticket-info-card__val"><i class="fas fa-user-plus"></i> Need access for a new user or team</div>
+            </div>
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">New Target</div>
+              <div class="ticket-info-card__val"><i class="fas fa-plus-circle"></i> Onboard a new target or BU into PDT Buddy</div>
+            </div>
+            <div class="ticket-info-card">
+              <div class="ticket-info-card__label">Performance</div>
+              <div class="ticket-info-card__val"><i class="fas fa-tachometer-alt"></i> Page is slow or timing out</div>
+            </div>
+          </div>
+          <div class="docs-tip"><i class="fas fa-info-circle"></i><span>For urgent production issues, also ping the PDT Buddy team directly on the team Slack channel after raising the ticket.</span></div>
+        </div>
+      </div>
+
+    </div><!-- /panel-ticket -->
+
+  </div><!-- /docs-body -->
+
+  <script>
+    // ── Tab switching ──
+    document.querySelectorAll('.docs-tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tab = this.getAttribute('data-tab');
+
+        document.querySelectorAll('.docs-tab-btn').forEach(function(b) {
+          b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        });
+        document.querySelectorAll('.docs-panel').forEach(function(p) {
+          p.classList.toggle('active', p.id === 'panel-' + tab);
+        });
+
+        // Auto-open first section in newly shown panel
+        var panel = document.getElementById('panel-' + tab);
+        if (panel) {
+          var firstHead = panel.querySelector('.docs-section__head');
+          if (firstHead && !firstHead.classList.contains('open')) {
+            toggleSection(firstHead);
+          }
+        }
+      });
+    });
+
+    // ── Collapsible sections ──
+    function toggleSection(head) {
+      var isOpen = head.classList.contains('open');
+      head.classList.toggle('open', !isOpen);
+      var body = head.nextElementSibling;
+      if (body) body.classList.toggle('open', !isOpen);
+    }
+  </script>
+</body>
+</html>
