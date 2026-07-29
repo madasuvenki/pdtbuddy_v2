@@ -1924,6 +1924,10 @@ function chartRows(){
     return a.firstIdx-b.firstIdx;
   }).map(x=>({...x,mtbf:x.crashes?x.hours/x.crashes:x.hours}));
 }
+function chartRowsFiltered(){
+  // Chart only: skip entries where MTBF is 0 or null (no valid data to plot)
+  return chartRows().filter(x=>x.mtbf&&Number.isFinite(x.mtbf)&&x.mtbf>0);
+}
 const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=ds.label==='MTBF';const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
 const mtbfInlineDataTable={id:'mtbfInlineDataTable',afterDraw(chart,args,opts){
   const t=(opts&&opts.table)||{};
@@ -1967,7 +1971,7 @@ function renderCharts(){
       if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
       return;
     }
-    const cr=chartRows();
+    const cr=chartRowsFiltered();
     document.getElementById('mtbfEmpty').style.display=cr.length?'none':'block';
     if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
   if(!cr.length)return;
@@ -2001,7 +2005,13 @@ function fixedTableColumns(){return[
       document.getElementById('tableBody').innerHTML='<tr><td class="empty" colspan="99" style="padding:36px"><i class="fas fa-leaf" style="color:#6ee7b7;font-size:20px;margin-bottom:8px"></i><br><b style="color:#065f46">Full SP Table is HQX data only</b><br><span style="font-size:12px;color:#64748b">Switch to HQX to view historical rows, or use <b>Add Build</b> to add HGY entries.</span></td></tr>';
       return;
     }
-    const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();const filtered=rows().filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
+    const q=(document.getElementById('rowFilter')?.value||'').toLowerCase();
+
+    // Sort rows: latest date first
+
+    const _sortedRows=[...rows()].sort((a,b)=>{const da=Date.parse(dateVal(a)||''),db=Date.parse(dateVal(b)||'');return(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)?db-da:0;});
+
+    const filtered=_sortedRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 // ---------------------------------------------------------------------------
 // Add Build modal â€” appends a new row to this SP's own per-SP JSON file.
 // The form shows every raw column present in the SP's rows (except
