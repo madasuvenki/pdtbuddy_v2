@@ -141,9 +141,27 @@
       box-shadow:0 0 0 1px rgba(255,248,220,.14), 0 0 22px rgba(245,158,11,.28), 0 0 34px rgba(252,211,77,.14);
     }
     .topbar-compare-pill--explore i{color:#fff7cc;}
-    .topbar-compare-pill--explore:hover{
+        .topbar-compare-pill--explore:hover{
       color:#fff;
       box-shadow:0 14px 30px rgba(245,158,11,.38), 0 0 0 4px rgba(252,211,77,.14), 0 0 28px rgba(252,211,77,.18);
+    }
+
+                /* ── Docs pill ── */
+    .topbar-docs-pill{
+      background:rgba(13,148,136,0.16);
+      color:#0f766e;
+      border:1px solid rgba(13,148,136,0.32);
+      box-shadow:0 2px 12px rgba(13,148,136,.10), inset 0 1px 0 rgba(255,255,255,.70), inset 0 -1px 0 rgba(13,148,136,.10);
+      backdrop-filter:blur(12px) saturate(1.6);
+      -webkit-backdrop-filter:blur(12px) saturate(1.6);
+      font-weight:900;
+      text-decoration:none;
+    }
+    .topbar-docs-pill i{color:#0d9488;}
+    .topbar-docs-pill:hover{
+      background:rgba(13,148,136,0.26);
+      color:#115e59;
+      box-shadow:0 4px 18px rgba(13,148,136,.18), inset 0 1px 0 rgba(255,255,255,.80);
     }
     body { overflow-y: auto; }
     /* Do NOT lock body scroll when chat opens — only the dock is fixed-positioned */
@@ -841,12 +859,15 @@ body:has(.bu-simple-page) .app-bg-gradient {
     </div>
     {% endif %}
 
-    {# ── Compare + Explore pills ── #}
+        {# ── Compare + Docs pills ── #}
         {% if current_user.is_authenticated %}
     <div class="topbar-center">
       <a href="{{ url_for('cr_compare_bp.target_compare_page') }}" class="topbar-compare-pill topbar-compare-pill--compare" title="Target Delta Studio" target="_blank" rel="noopener noreferrer">
         <i class="fas fa-columns"></i><span>Target Delta</span>
       </a>
+                                                <a href="{{ url_for('dashboard_docs') }}" target="_blank" rel="noopener noreferrer" class="topbar-compare-pill topbar-docs-pill" title="Help, Architecture &amp; Raise Ticket">
+          <i class="fas fa-book"></i><span>Docs</span>
+        </a>
     </div>
     {% endif %}
 
@@ -926,6 +947,9 @@ body:has(.bu-simple-page) .app-bg-gradient {
     </div>
   </div>
 </div>
+
+
+
 
 {# Background wrapper for all content #}
 <div class="app-bg-shell">
@@ -1913,139 +1937,4 @@ body:has(.bu-simple-page) .app-bg-gradient {
       if ((el.getAttribute('target') || '').toLowerCase() === '_blank') return;
       if (el.id === 'openChatBtn' || el.id === 'sendBtn') return;
       if (el.closest('#chatDock') || el.closest('#adminModal') || el.closest('#milestonePickerModal')) return;
-      if (el.closest('#ratingPopup') || el.closest('#crInsightPanel')) return;
-
-      var href = el.getAttribute('href') || '';
-      var opensNavigation = false;
-
-      if (href) {
-        opensNavigation = href.indexOf('/dashboard/') === 0
-          || href.indexOf('/bu-selection') === 0
-          || href.indexOf('/target-selection') === 0
-          || href.indexOf('/auto_hierarchy') === 0
-          || href.indexOf('/mdm_hierarchy') === 0
-          || href.indexOf('/wbc_hierarchy') === 0
-          || href === '/';
-      }
-
-      if (!opensNavigation && el.id === 'global_target_go') {
-        opensNavigation = true;
-      }
-
-      if (!opensNavigation && (el.classList.contains('tsel-card') || el.classList.contains('td-nav-item') || el.classList.contains('ah-overall-btn') || el.classList.contains('ah-tgt-card') || el.classList.contains('mdm-overall-btn') || el.classList.contains('mdm-sp-card') || el.classList.contains('wbc-overall-btn') || el.classList.contains('wbc-sp-card') || el.classList.contains('bu-open-btn'))) {
-        opensNavigation = true;
-      }
-
-            if (opensNavigation) {
-        window.showGlobalNavLoading('Opening in progress...', 'Please wait while the next page loads.');
-      }
-    }, true);
-
-    document.addEventListener('auxclick', function (event) {
-      // Middle-click should never leave a loading overlay on the current tab.
-      if (event.button === 1) window.hideGlobalNavLoading();
-    }, true);
-
-    window.addEventListener('pageshow', function () {
-      window.hideGlobalNavLoading();
-    });
-  });
-})();
-</script>
-
-<!-- Live clock — COMMENTED OUT, re-enable by restoring the script tag
-<script>
-(function () {
-
-  const liveDateEl = document.getElementById("liveDate");
-  const hoursEl = document.getElementById("hours");
-  const minutesEl = document.getElementById("minutes");
-  const secondsEl = document.getElementById("seconds");
-  if (!liveDateEl || !hoursEl || !minutesEl || !secondsEl) return;
-  let prevHours = "", prevMinutes = "", prevSeconds = "";
-  function pad(value) { return String(value).padStart(2, "0"); }
-  function formatDate(now) {
-    const day = now.getDate();
-    const month = now.toLocaleString("en-GB", { month: "short" });
-    const year = now.getFullYear();
-    return `${day} ${month} ${year}`;
-  }
-  function animateFlip(el, newValue) {
-    if (el.textContent === newValue) return;
-    el.classList.remove("flip-tick");
-    void el.offsetWidth;
-    el.textContent = newValue;
-    el.classList.add("flip-tick");
-  }
-  function updateClock() {
-    const now = new Date();
-    const hh = pad(now.getHours());
-    const mm = pad(now.getMinutes());
-    const ss = pad(now.getSeconds());
-    liveDateEl.textContent = formatDate(now);
-    if (prevHours !== hh) { animateFlip(hoursEl, hh); prevHours = hh; }
-    if (prevMinutes !== mm) { animateFlip(minutesEl, mm); prevMinutes = mm; }
-    if (prevSeconds !== ss) { animateFlip(secondsEl, ss); prevSeconds = ss; }
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
-})();
-</script>
--->
-
-<!-- Mermaid -->
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (window.mermaid) {
-    mermaid.initialize({
-      startOnLoad: true,
-      securityLevel: "loose",
-      theme: "base",
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: "basis",
-        nodeSpacing: 25,
-        rankSpacing: 45
-      },
-      themeVariables: {
-        fontSize: "13px",
-        primaryColor: "#f7f9ff",
-        primaryTextColor: "#1f2a44",
-        primaryBorderColor: "#6c63ff",
-        lineColor: "#9aa4c7",
-        secondaryColor: "#eef2ff",
-        tertiaryColor: "#f5f7ff"
-      }
-    });
-  }
-});
-</script>
-
-{% if current_user.is_authenticated and current_user.role == 'admin' %}
-<script src="{{ url_for('static', filename='js/admin.js') }}?v={{ cache_buster }}"></script>
-{% endif %}
-
-{% if current_user.is_authenticated %}
-<!-- Global Feedback Popup — minimal fallback, shared by sidebar Feedback buttons -->
-<div id="ratingPopup" style="display:none;position:fixed;top:68px;right:20px;z-index:9900;width:340px;background:linear-gradient(135deg,#1e293b,#312e81);border-radius:16px;box-shadow:0 8px 32px rgba(15,23,42,.35);padding:20px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-    <div style="font-size:13px;font-weight:800;color:#f8fafc;">&#11088; Rate this tool</div>
-    <button type="button" id="ratingPopupClose" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:13px;">&#x2715;</button>
-  </div>
-  <div style="font-size:11px;color:#cbd5e1;margin-bottom:14px;line-height:1.5;">Thanks for your feedback. Please use your standard feedback channel if the detailed rating form is unavailable.</div>
-  <button type="button" id="ratingPopupOk" style="width:100%;padding:9px 12px;border:none;border-radius:999px;background:#6366f1;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">OK, got it</button>
-</div>
-<script>
-(function(){
-  var p=document.getElementById("ratingPopup");
-  var c=document.getElementById("ratingPopupClose");
-  var ok=document.getElementById("ratingPopupOk");
-  if(c) c.onclick=function(){ if(p) p.style.display="none"; };
-  if(ok) ok.onclick=function(){ if(p) p.style.display="none"; };
-})();
-</script>
-{% endif %}
-</body>
-</html>
+      if (el.closest('#rating

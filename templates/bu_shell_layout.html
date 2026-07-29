@@ -143,6 +143,8 @@
   align-items: stretch;
 }
 
+
+
 /* Force sidebar/nav hit area above any overlapping layers from shared CSS */
 #buShell,
 #buDetailPanel,
@@ -324,24 +326,13 @@
           </button>
           {% endif %}
 
-          {% if current_user.is_authenticated %}
-          <a href="{{ url_for('admin_raise_ticket') }}" class="bu-action-btn bu-action-btn--ticket" title="Raise Ticket">
-            <i class="fas fa-ticket-alt"></i>
-            <span class="bu-action-label">Raise Ticket</span>
-          </a>
-          {% endif %}
-
                     <button type="button" id="themeToggleBtn" class="bu-action-btn bu-action-btn--theme" title="Toggle Dark / Light mode">
             <i class="fas fa-moon" id="themeToggleIcon"></i>
             <span class="bu-action-label" id="themeToggleLabel">Dark Mode</span>
           </button>
 
-          <a href="/dashboard/help" target="_blank" class="bu-action-btn" title="Help &amp; User Guide" style="text-decoration:none;">
-            <i class="fas fa-question-circle" style="color:#6366f1;"></i>
-            <span class="bu-action-label">Help</span>
-          </a>
-
           {% if current_user.is_authenticated %}
+
           <a href="{{ url_for('logout') }}" class="bu-action-btn bu-action-btn--logout" title="Logout">
             <i class="fas fa-sign-out-alt"></i>
             <span class="bu-action-label">Logout</span>

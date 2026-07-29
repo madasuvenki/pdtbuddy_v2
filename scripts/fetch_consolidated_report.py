@@ -1296,6 +1296,13 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 func = _g('FunctionalityName', 'Functionality', 'cr_function')
 
 
+                        # Fetch CR Notes from Orbit /notes endpoint
+            cr_notes = ''
+            try:
+                cr_notes = oc.fetch_cr_notes(cr_num)
+            except Exception:
+                pass
+
             return cr_num, {
                 'cr_number'    : cr_key,
                 'cr_title'     : _g('Title', 'cr_title', 'title'),
@@ -1306,17 +1313,16 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_area'      : area,
                 'cr_subsystem' : sub,
                 'cr_function'  : func,
-                                'cr_built_date': best_built,
+                'cr_built_date': best_built,
                 'cr_ready_date': best_ready or _g('ReadyDate', 'ReadyOn', 'ready_date', 'readyDate')[:10],
                 'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built, best_status or _g('Status', 'cr_status', 'status')),
-
                 'AssigneeUid'  : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
                 'assignee_uid' : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
                 'parent_cr'    : ('CR' + _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr').upper().replace('CR', '').strip()) if _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr') else '',
                 'cr_category'  : _g('Category', 'cr_category', 'Status'),
                 'image_matched': image_matched,
+                'cr_notes'     : cr_notes,
                 'source'       : 'orbit',
-
             }
 
         except Exception as e:

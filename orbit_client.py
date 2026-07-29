@@ -826,6 +826,29 @@ def _fetch_linked_via_mcp(cr_number: str) -> list:
 
 # - Public API -
 
+def fetch_cr_notes(cr_number: str) -> str:
+    """
+    Fetch the Notes tab text for a CR from Orbit.
+    Endpoint: GET /api/changerequest/{cr}/notes
+    Returns the Content.Text string, or '' if not found.
+    """
+    cr = _normalize_cr(cr_number)
+    try:
+        url = f"{_get_orbit_api_base()}/{cr}/notes"
+        resp = _orbit_request_with_auth('GET', url, ORBIT_DIRECT_TIMEOUT)
+        if resp.status_code == 200:
+            data = resp.json()
+            content = data.get('Content') or {}
+            text = str(content.get('Text') or '').strip()
+            logger.info(f"[orbit_client] fetch_cr_notes({cr}): {len(text)} chars")
+            return text
+        logger.info(f"[orbit_client] fetch_cr_notes({cr}): HTTP {resp.status_code}")
+        return ''
+    except Exception as e:
+        logger.warning(f"[orbit_client] fetch_cr_notes({cr}) error: {e}")
+        return ''
+
+
 def fetch_cr_software_images(cr_number) -> list:
     """Fetch Software Image integrations for a CR directly from Orbit.
 

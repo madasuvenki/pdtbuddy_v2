@@ -1,17 +1,18 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Build Report</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="{{ url_for('static', filename='js/build_report_common.js') }}"></script>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;table-layout:fixed}th{position:sticky;top:0;background:#f1f5ff;color:#4338ca;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;overflow-wrap:break-word;word-break:break-word}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:360px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fafc 46%,#f5f3ff);color:#0f172a;min-height:100vh}.wrap{padding:16px}.hero{border:1px solid #bfdbfe;border-radius:20px;background:linear-gradient(135deg,#fff,#eff6ff 50%,#f5f3ff);box-shadow:0 18px 42px rgba(37,99,235,.12);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.eyebrow{font-size:10px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:#4f46e5}.hero h1{margin:4px 0 0;font-size:24px;color:#1e3a8a;letter-spacing:-.04em}.muted{color:#64748b;font-size:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}.card-h{padding:12px 16px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8fafc,#eef2ff);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-h h2{margin:0;font-size:13px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em;display:flex;gap:8px;align-items:center}.card-b{padding:14px 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field label{display:block;font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}select,input,textarea{width:100%;border:1.5px solid #dbe4f0;border-radius:12px;padding:9px 11px;font:inherit;font-size:12px;outline:none;background:#fff}textarea{min-height:92px;font-family:Consolas,monospace;resize:vertical}select:focus,input:focus,textarea:focus{border-color:#818cf8;box-shadow:0 0 0 4px rgba(99,102,241,.12)}.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:11px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 10px 18px rgba(79,70,229,.2)}.btn-good{border:0;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:5px 10px;font-size:11px;font-weight:900}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.empty{text-align:center;padding:34px;color:#94a3b8}.tbl-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;table-layout:fixed}th{position:sticky;top:0;background:linear-gradient(135deg,#1e3a8a,#2563eb 60%,#4338ca);color:#fff;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;overflow-wrap:break-word;word-break:break-word}tr:hover td{background:#f8fbff}.link{color:#1d4ed8;font-weight:900;text-decoration:none}.link:hover{text-decoration:underline}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.mode-help{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px}.status-ok{color:#059669}.status-bad{color:#dc2626}.check-row{display:flex;gap:8px;flex-wrap:wrap}.check-pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #dbeafe;background:#f8fbff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:950;color:#1e3a8a;cursor:pointer}.check-pill input{width:auto;margin:0;accent-color:#2563eb}.build-picker{margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fbff;overflow:hidden}.build-picker-h{padding:9px 11px;background:#eef6ff;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.build-picker-b{max-height:360px;overflow:auto;padding:7px}.build-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:8px;border-bottom:1px solid #eef2f7;font-size:11px}.build-item:last-child{border-bottom:none}.build-item input{width:auto;margin-top:2px}.build-name{font-weight:950;color:#0f172a;word-break:break-word}.build-meta{color:#64748b;margin-top:2px}.mini-input{height:30px!important;border-radius:9px!important;padding:5px 9px!important;max-width:220px}.context-panel{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.modal{background:#fff;border-radius:18px;box-shadow:0 22px 60px rgba(15,23,42,.28);border:1px solid #dbeafe;max-width:520px;width:100%;overflow:hidden}.modal-h{padding:13px 16px;background:linear-gradient(90deg,#eff6ff,#f5f3ff);display:flex;justify-content:space-between;align-items:center}.modal-h h3{margin:0;font-size:14px;color:#1e3a8a}.modal-b{padding:14px 16px;font-size:12px}.detail-row{display:grid;grid-template-columns:130px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #eef2f7}.detail-row b{color:#475569;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin:0 0 14px}.metric-card{border:1px solid #dbeafe;border-radius:16px;background:linear-gradient(135deg,#ffffff,#eff6ff);padding:12px 14px;box-shadow:0 10px 24px rgba(37,99,235,.08)}.metric-card b{display:block;font-size:24px;line-height:1;color:#1e3a8a;letter-spacing:-.04em}.metric-card span{display:block;margin-top:6px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#64748b}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#bbf7d0}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed);border-color:#fed7aa}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff);border-color:#ddd6fe}.jira-links{display:flex;gap:5px;flex-wrap:wrap;max-width:360px}.jira-chip{display:inline-flex;align-items:center;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:950;text-decoration:none}.jira-chip:hover{background:#dbeafe;text-decoration:none}@media(max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.grid,.context-panel{grid-template-columns:1fr}.wrap{padding:10px}.hero h1{font-size:20px}.metric-grid{grid-template-columns:1fr}}
   </style>
   <style>
     :root{--br-ink:#172033;--br-navy:#172554;--br-indigo:#4f46e5;--br-violet:#7c3aed;--br-fuchsia:#c026d3;--br-cyan:#0891b2;--br-emerald:#059669;--br-amber:#d97706;--br-gold:#b45309;--br-line:rgba(99,102,241,.18);--br-shadow:0 18px 55px rgba(23,37,84,.13)}
     body{background:radial-gradient(circle at 8% -4%,rgba(124,58,237,.18),transparent 30%),radial-gradient(circle at 96% 0%,rgba(8,145,178,.16),transparent 28%),linear-gradient(135deg,#f8fafc 0%,#f1f5ff 45%,#faf5ff 100%);color:var(--br-ink)}
-    .wrap{padding:18px;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0))}.hero{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(238,242,255,.9) 48%,rgba(250,245,255,.96));box-shadow:var(--br-shadow)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(79,70,229,.12),transparent 42%,rgba(217,119,6,.10));pointer-events:none}.hero:after{content:"";position:absolute;right:-70px;top:-80px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(192,38,211,.18),transparent 68%)}.eyebrow{color:var(--br-violet)}.hero h1{color:var(--br-navy);text-shadow:0 1px 0 #fff}.card{border:1px solid rgba(199,210,254,.68);background:rgba(255,255,255,.92);box-shadow:var(--br-shadow);backdrop-filter:blur(10px)}.card-h{background:linear-gradient(90deg,#eef2ff,#faf5ff 58%,#fff7ed);border-bottom:1px solid rgba(199,210,254,.55)}.card-h h2{color:var(--br-navy)}.card-h h2 i,.cri-card-title i{color:var(--br-violet)}select,input,textarea{border-color:#d8def8;background:linear-gradient(180deg,#fff,#fbfdff)}select:focus,input:focus,textarea:focus{border-color:var(--br-violet);box-shadow:0 0 0 4px rgba(124,58,237,.12)}.btn{border-color:#d8def8;background:linear-gradient(135deg,#fff,#f8fafc);color:#334155;box-shadow:0 5px 14px rgba(23,37,84,.05)}.btn-primary{background:linear-gradient(135deg,var(--br-indigo),var(--br-violet) 55%,var(--br-fuchsia));box-shadow:0 12px 24px rgba(124,58,237,.26)}.btn-good{background:linear-gradient(135deg,var(--br-emerald),#14b8a6);box-shadow:0 12px 22px rgba(5,150,105,.18)}.pill{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-color:#c7d2fe;color:#4338ca;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.pill.good{background:linear-gradient(135deg,#ecfdf5,#ccfbf1);border-color:#99f6e4;color:#047857}.pill.warn{background:linear-gradient(135deg,#fff7ed,#fef3c7);border-color:#fed7aa;color:#b45309}.check-pill{border-color:#c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);color:#3730a3}.build-picker{border-color:#d8def8;background:linear-gradient(135deg,#fbfdff,#f8f7ff);box-shadow:inset 0 1px 0 #fff}.build-picker-h{background:linear-gradient(90deg,#eef2ff,#ecfeff);border-bottom-color:#dbeafe}.tbl-wrap{border-color:rgba(199,210,254,.78);box-shadow:0 10px 28px rgba(23,37,84,.07)}th{background:linear-gradient(135deg,var(--br-navy),var(--br-indigo) 58%,var(--br-violet));color:#fff;border-bottom:0}td{border-bottom-color:#eef2ff}tr:hover td{background:#fbfaff}.link{color:#4338ca}.metric-card{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,#fff,#eef2ff);box-shadow:0 14px 32px rgba(79,70,229,.10)}.metric-card:after{content:"";position:absolute;right:-35px;top:-45px;width:110px;height:110px;border-radius:50%;background:rgba(79,70,229,.12)}.metric-card b{color:var(--br-navy)}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5 70%,#ccfbf1);border-color:#a7f3d0}.metric-card.good b{color:#047857}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff 70%,#ede9fe);border-color:#ddd6fe}.metric-card.purple b{color:#6d28d9}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed 70%,#fef3c7);border-color:#fed7aa}.metric-card.warn b{color:#b45309}.status-ok{color:#047857}.status-bad{color:#be123c}
+    .wrap{padding:18px;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0))}.hero{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(238,242,255,.9) 48%,rgba(250,245,255,.96));box-shadow:var(--br-shadow)}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(79,70,229,.12),transparent 42%,rgba(217,119,6,.10));pointer-events:none}.hero:after{content:"";position:absolute;right:-70px;top:-80px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(192,38,211,.18),transparent 68%)}.eyebrow{color:var(--br-violet)}.hero h1{color:var(--br-navy);text-shadow:0 1px 0 #fff}.card{border:1px solid rgba(199,210,254,.68);background:rgba(255,255,255,.92);box-shadow:var(--br-shadow);backdrop-filter:blur(10px)}.card-h{background:linear-gradient(90deg,#eef2ff,#faf5ff 58%,#fff7ed);border-bottom:1px solid rgba(199,210,254,.55)}.card-h h2{color:var(--br-navy)}.card-h h2 i,.cri-card-title i{color:var(--br-violet)}select,input,textarea{border-color:#d8def8;background:linear-gradient(180deg,#fff,#fbfdff)}select:focus,input:focus,textarea:focus{border-color:var(--br-violet);box-shadow:0 0 0 4px rgba(124,58,237,.12)}.btn{border-color:#d8def8;background:linear-gradient(135deg,#fff,#f8fafc);color:#334155;box-shadow:0 5px 14px rgba(23,37,84,.05)}.btn-primary{background:linear-gradient(135deg,var(--br-indigo),var(--br-violet) 55%,var(--br-fuchsia));box-shadow:0 12px 24px rgba(124,58,237,.26)}.btn-good{background:linear-gradient(135deg,var(--br-emerald),#14b8a6);box-shadow:0 12px 22px rgba(5,150,105,.18)}.pill{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-color:#c7d2fe;color:#4338ca;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}.pill.good{background:linear-gradient(135deg,#ecfdf5,#ccfbf1);border-color:#99f6e4;color:#047857}.pill.warn{background:linear-gradient(135deg,#fff7ed,#fef3c7);border-color:#fed7aa;color:#b45309}.check-pill{border-color:#c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);color:#3730a3}.build-picker{border-color:#d8def8;background:linear-gradient(135deg,#fbfdff,#f8f7ff);box-shadow:inset 0 1px 0 #fff}.build-picker-h{background:linear-gradient(90deg,#eef2ff,#ecfeff);border-bottom-color:#dbeafe}.tbl-wrap{border-color:rgba(199,210,254,.78);box-shadow:0 10px 28px rgba(23,37,84,.07)}th{background:linear-gradient(135deg,var(--br-navy),var(--br-indigo) 58%,var(--br-violet));color:#fff;border-bottom:0;text-shadow:0 1px 2px rgba(0,0,0,.18);}td{border-bottom-color:#eef2ff}tr:hover td{background:#fbfaff}.link{color:#4338ca}.metric-card{position:relative;overflow:hidden;border:1px solid rgba(199,210,254,.78);background:linear-gradient(135deg,#fff,#eef2ff);box-shadow:0 14px 32px rgba(79,70,229,.10)}.metric-card:after{content:"";position:absolute;right:-35px;top:-45px;width:110px;height:110px;border-radius:50%;background:rgba(79,70,229,.12)}.metric-card b{color:var(--br-navy)}.metric-card.good{background:linear-gradient(135deg,#fff,#ecfdf5 70%,#ccfbf1);border-color:#a7f3d0}.metric-card.good b{color:#047857}.metric-card.purple{background:linear-gradient(135deg,#fff,#f5f3ff 70%,#ede9fe);border-color:#ddd6fe}.metric-card.purple b{color:#6d28d9}.metric-card.warn{background:linear-gradient(135deg,#fff,#fff7ed 70%,#fef3c7);border-color:#fed7aa}.metric-card.warn b{color:#b45309}.status-ok{color:#047857}.status-bad{color:#be123c}
     .br-count-link{display:inline-flex;align-items:center;gap:4px;border:1px solid #c4b5fd;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4f46e5;border-radius:999px;font-size:12px;font-weight:950;text-decoration:none;cursor:pointer;padding:3px 10px;font-family:inherit;box-shadow:0 6px 14px rgba(79,70,229,.10)}.br-count-link:hover{color:#fff;background:linear-gradient(135deg,var(--br-indigo),var(--br-violet));border-color:transparent}.br-jira-modal{max-width:920px;width:min(920px,96vw);max-height:88vh;display:flex;flex-direction:column}.br-jira-modal .modal-b{overflow:auto}.br-jira-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin-bottom:12px}.br-jira-stat{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:9px 10px}.br-jira-stat b{display:block;color:#1e3a8a;font-size:18px}.br-jira-stat span{display:block;color:#64748b;font-size:10px;font-weight:900;text-transform:uppercase}.br-jira-modal table{font-size:12px}.br-jira-modal th{position:sticky;top:0;z-index:1}.br-modal-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.br-modal-search{height:30px;max-width:260px;border-radius:9px;padding:5px 9px}
     .br-progress-window{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 36px));z-index:120;display:none;border:1px solid rgba(196,181,253,.9);border-radius:18px;background:linear-gradient(135deg,#ffffff,#eef2ff 70%,#faf5ff);box-shadow:0 24px 70px rgba(30,41,59,.28);overflow:hidden}.br-progress-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid #ddd6fe;background:linear-gradient(90deg,#eef2ff,#f5f3ff)}.br-progress-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:950;color:#312e81;text-transform:uppercase;letter-spacing:.04em}.br-progress-b{padding:13px 14px}.br-progress-msg{font-size:12px;font-weight:850;color:#1e293b;line-height:1.35;min-height:34px}.br-progress-meta{display:flex;justify-content:space-between;gap:10px;margin:9px 0 7px;color:#64748b;font-size:11px;font-weight:900}.br-progress-track{height:10px;background:#e0e7ff;border-radius:999px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(15,23,42,.12)}.br-progress-fill{height:100%;width:6%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#7c3aed,#c026d3);transition:width .25s ease}.br-progress-log{margin-top:9px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.72);border:1px solid #e0e7ff;color:#475569;font-size:10px;line-height:1.35;max-height:72px;overflow:auto;white-space:pre-wrap}.br-progress-window.done .br-progress-fill{background:linear-gradient(90deg,#059669,#10b981)}.br-progress-window.err .br-progress-fill{background:linear-gradient(90deg,#dc2626,#f97316)}
   </style>
@@ -25,11 +26,7 @@
       <div class="muted">Generate JQL from builds or paste direct JQL, then run the consolidated JIRA/CR report.</div>
     </div>
     <div class="toolbar">
-      <button class="btn" type="button" onclick="brGoBack()" title="Back"><i class="fas fa-arrow-left"></i> Back</button>
-      <button class="btn" type="button" onclick="brGoHome()" title="Home"><i class="fas fa-house"></i> Home</button>
-      <button class="btn" type="button" onclick="brCloseReport()" title="Close Build Report"><i class="fas fa-times"></i> Close</button>
-      <span class="pill"><i class="fas fa-code"></i> JQL Runner</span>
-      <span class="pill good"><i class="fas fa-layer-group"></i> Consolidated Report</span>
+            <button class="btn" type="button" onclick="window.close()" title="Close tab"><i class="fas fa-times"></i> Close</button>
     </div>
   </div>
 
@@ -82,19 +79,19 @@
       <div class="grid" style="margin-top:0">
                 <div class="field">
           <label>JIRA Filter ID / URL / Direct JQL</label>
-                      <input id="brFilterInput" placeholder="Optional: 346152, filter=346152, or JIRA filter URL" oninput="brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn()">
+                      <input id="brFilterInput" placeholder="Optional: 346152, filter=346152, or JIRA filter URL" oninput="if(typeof brGenerateJql==='function'){brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn();}">
           <div class="mode-help">Use a saved JIRA filter, for example <b>filter=346152</b>, or a full filter URL. Leave blank and use the Direct JQL box on the right if you prefer to paste JQL directly.</div>
         </div>
         <div class="field">
           <label>Direct JQL</label>
           <textarea id="brJql" placeholder="Paste direct JQL here, paste filter=346152 / a JIRA filter URL, or list builds below to generate JQL automatically" oninput="brQueueFilterJqlResolve('direct');brUpdateRunBtn()"></textarea>
-          <div class="mode-help">Priority: Direct JQL / pasted filter URL → Filter ID field → builds below.</div>
+          <div class="mode-help">Priority: Direct JQL / pasted filter URL ΓåÆ Filter ID field ΓåÆ builds below.</div>
         </div>
       </div>
       <div class="grid" style="margin-top:12px">
         <div class="field" style="grid-column:1/-1">
           <label>Builds</label>
-          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn()"></textarea>
+          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="if(typeof brGenerateJql==='function'){brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn();}"></textarea>
           <div class="mode-help">List build IDs here (one per line) to generate JQL <b>and enable Axiom stability metrics (MTBF)</b>. If left blank, builds are auto-detected from JIRA results after first run.</div>
         </div>
 
@@ -132,7 +129,7 @@
             <input id="brCrSearch" class="mini-input" placeholder="Search CR / title / area..." oninput="brRenderCrTab()" style="max-width:260px">
             <select id="brCrSort" onchange="brRenderCrTab()" style="font-size:11px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px"><option value="occ_desc">Most Occurrences</option><option value="occ_asc">Least Occurrences</option><option value="cr_asc">CR ID</option></select>
           </div>
-          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">CR Priority</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:280px">CR Title</th><th style="white-space:nowrap">Parent CR</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">CR Status</th><th style="white-space:nowrap">CR Age</th><th style="white-space:nowrap">Assignee</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">Created Date</th><th style="white-space:nowrap">Ready Date</th><th style="white-space:nowrap">Built Date</th></tr></thead><tbody id="brCrRows"><tr><td colspan="17" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
+          <div class="tbl-wrap" style="max-height:600px;overflow:auto"><table style="width:100%;table-layout:auto"><thead><tr><th style="white-space:nowrap">#</th><th style="white-space:nowrap">CR-ID</th><th style="white-space:nowrap">Occurrence</th><th style="white-space:nowrap">CR Priority</th><th style="white-space:nowrap">Crash Type</th><th style="min-width:280px">CR Title</th><th style="white-space:nowrap">Parent CR</th><th style="white-space:nowrap">CR Area</th><th style="white-space:nowrap">CR SubSystem</th><th style="white-space:nowrap">CR Functionality</th><th style="white-space:nowrap">CR Status</th><th style="white-space:nowrap">CR Age</th><th style="white-space:nowrap">Assignee</th><th style="white-space:nowrap">CR SI</th><th style="white-space:nowrap">Created Date</th><th style="white-space:nowrap">Ready Date</th><th style="white-space:nowrap">Built Date</th><th style="min-width:220px">CR Notes (Latest)</th></tr></thead><tbody id="brCrRows"><tr><td colspan="18" class="empty">Enter builds or JQL and click Run Query.</td></tr></tbody></table></div>
         </div>
         <!-- Mapped JIRAs Tab: mirrors PDT Mapped_Tickets sheet (ADSPIMAGE/CNSSDEBUG/QSTABILITY hops) -->
         <div id="brTabPane_mapped" style="display:none">
@@ -156,7 +153,6 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/build_report_common.js') }}"></script>
 <script>
 const JIRA_FILTER_ID = {{ jira_pdt_filter_id|tojson }};
 const BR_TARGET_OPTIONS = {{ target_options|tojson }};
@@ -204,7 +200,7 @@ const brResolvedFilterJqlById={};
   function brLooksLikeOnlyFilterInput(value){
     // Returns true ONLY when the entire string is a bare filter reference.
     // A compound JQL like "filter = 7097 AND project = QSTABILITY ..." must
-    // NOT match — it is valid runnable JQL, not a filter-only stub.
+    // NOT match ΓÇö it is valid runnable JQL, not a filter-only stub.
     const raw=String(value||'').trim();
     if(!raw)return false;
     if(/^\d{3,}$/.test(raw)) return true;                          // plain number
@@ -228,7 +224,7 @@ function brComposeJqlWithResolvedFilter(filterJql){
       // Returns true when the JQL box contains a real, runnable JQL string.
       const raw = String(jqlRaw||'').trim();
       if(!raw) return false;
-      // Bare filter stub (not yet resolved) — not runnable alone
+      // Bare filter stub (not yet resolved) ΓÇö not runnable alone
       if(brLooksLikeOnlyFilterInput(raw)) return false;
       // Must be at least 10 chars
       if(raw.length < 10) return false;
@@ -337,7 +333,7 @@ function brAxiomSummary(d){
   if(ts)parts.push('Axiom DB: '+formatStandardTime(ts));
   if(d.active_total!=null)parts.push((d.active_total||0)+' active');
   if(d.matched_before_limit!=null)parts.push((d.matched_before_limit||0)+' target matches');
-  return parts.join(' • ');
+  return parts.join(' ΓÇó ');
 }
 function brQueueRunningBuildsLoad(){
   clearTimeout(brBuildLoadTimer);
@@ -358,7 +354,7 @@ async function brLoadRunningBuilds(){
     if(!d.ok) throw new Error(d.error||'Failed to load running builds');
     const meta=g('brAxiomMeta');if(meta){meta.textContent=brAxiomSummary(d);meta.setAttribute('data-base',meta.textContent);}
     if(!d.builds||!d.builds.length){box.innerHTML='<div class="empty" style="padding:16px">No running builds found for this target in the Axiom DB table.</div>';return;}
-    box.innerHTML='<div class="mode-help" style="padding:6px 8px;color:#4338ca;font-weight:900">Showing '+esc(d.builds.length)+' builds. Use Select All to select every loaded/search-filtered build, including items below the scroll.</div>'+d.builds.map((b,i)=>'<label class="build-item"><input type="checkbox" value="'+esc(b.build)+'" onchange="brUpdateRunningSelectionCount()"><div><div class="build-name">'+esc(b.build)+'</div><div class="build-meta">'+esc([b.software_product,b.state,b.team,b.site,b.started_at].filter(Boolean).join(' • '))+'</div></div><span class="pill">'+esc(b.device_count||0)+' Devices</span></label>').join('');
+    box.innerHTML='<div class="mode-help" style="padding:6px 8px;color:#4338ca;font-weight:900">Showing '+esc(d.builds.length)+' builds. Use Select All to select every loaded/search-filtered build, including items below the scroll.</div>'+d.builds.map((b,i)=>'<label class="build-item"><input type="checkbox" value="'+esc(b.build)+'" onchange="brUpdateRunningSelectionCount()"><div><div class="build-name">'+esc(b.build)+'</div><div class="build-meta">'+esc([b.software_product,b.state,b.team,b.site,b.started_at].filter(Boolean).join(' ΓÇó '))+'</div></div><span class="pill">'+esc(b.device_count||0)+' Devices</span></label>').join('');
     brUpdateRunningSelectionCount();
   }catch(e){box.innerHTML='<div class="empty" style="padding:16px;color:#dc2626">'+esc(e.message||e)+'</div>'}
 }
@@ -367,9 +363,9 @@ function brUpdateRunningSelectionCount(){
   const checked=document.querySelectorAll('#brRunningBuilds input[type="checkbox"]:checked').length;
   const meta=g('brAxiomMeta');
   if(meta){
-    const base=meta.getAttribute('data-base')||meta.textContent.split(' • Selected:')[0]||'';
+    const base=meta.getAttribute('data-base')||meta.textContent.split(' ΓÇó Selected:')[0]||'';
     if(!meta.getAttribute('data-base'))meta.setAttribute('data-base',base);
-    meta.textContent=base+(total?(' • Selected: '+checked+'/'+total):'');
+    meta.textContent=base+(total?(' ΓÇó Selected: '+checked+'/'+total):'');
   }
 }
 function brSelectAllRunningBuilds(checked){
@@ -386,7 +382,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
+function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="18" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -421,7 +417,7 @@ function brUpdateProgress(snap){
   g('brProgressPct').textContent=pct+'%';
   g('brProgressFill').style.width=Math.max(6,pct)+'%';
   const log=Array.isArray(snap.log)?snap.log.join('\n'):(snap.log||'');
-  g('brProgressLog').textContent=log||('Stage: '+stage+' • elapsed '+brProgressElapsed());
+  g('brProgressLog').textContent=log||('Stage: '+stage+' ΓÇó elapsed '+brProgressElapsed());
 }
 function brHideProgress(delay){
   if(brProgressSource){try{brProgressSource.close();}catch(e){} brProgressSource=null;}
@@ -463,7 +459,7 @@ async function brRunConsolidatedWithProgress(opts){
   return data;
 }
 async function brCheckJiraReady(){return BuildReportCommon.checkJiraReady()}
-// ── Automotive BU detection ─────────────────────────────────────────────────
+// ΓöÇΓöÇ Automotive BU detection ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // brAutoIsAutomotive: null=unknown, true=yes, false=no
 // Set by: BU selector, JQL auto-detect, or user popup answer
 var brAutoIsAutomotive = null;
@@ -509,7 +505,7 @@ function brIsAutomotiveBu(){
   const detected=_detectAutoFromJql(jql);
   if(detected===true)  return true;
   if(detected===false) return false;
-  // 4. Unknown — return false (popup will be shown before renderReport)
+  // 4. Unknown ΓÇö return false (popup will be shown before renderReport)
   return false;
 }
 
@@ -699,7 +695,7 @@ function normalize(rep){
 
     if(isTrueCr(cr)||isTrueCr(displayCr)){
 
-      // ── CR_Summary sheet row ──────────────────────────────────────────────
+      // ΓöÇΓöÇ CR_Summary sheet row ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       const cnt=jiras.length||r.cr_count||r.jira_count||1;
       convertedToCrs+=Number(cnt)||0;
       // For dup CRs, pull all detail fields from the parent cr_index entry.
@@ -725,11 +721,12 @@ function normalize(rep){
         priority:detailSrc.cr_priority||r.cr_priority||r.priority||'',
         si:detailSrc.cr_si||detailSrc.cr_image||r.cr_si||r.cr_image||'',
         status:detailSrc.cr_status||r.cr_status||r.status||'',
-        is_dup:isDupCr, parent_cr:parentCr, cr_assignee:crAssignee,
+                is_dup:isDupCr, parent_cr:parentCr, cr_assignee:crAssignee,
+        cr_notes:detailSrc.cr_notes||crIndexEntry.cr_notes||r.cr_notes||'',
         count:cnt, jiras
       });
     } else if(isCrEquiv(cr)){
-      // ── Mapped_Tickets sheet row (ADSPIMAGE etc.) ─────────────────────────
+      // ΓöÇΓöÇ Mapped_Tickets sheet row (ADSPIMAGE etc.) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // One row per unique final ticket, listing source QSTABILITYs
       const srcKeys=jiras.map(j=>String(j.key||j.stability_ticket||'')).filter(Boolean);
       const firstJ=jiras[0]||{};
@@ -742,12 +739,12 @@ function normalize(rep){
         srcKeys
       });
           } else if(cr==='NO_CR'||!cr){
-      // ── Qstability_Tickets sheet rows ─────────────────────────────────────
+      // ΓöÇΓöÇ Qstability_Tickets sheet rows ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // Mirror PDT_StatsConstants.py: exclude only truly junk closed tickets.
       // Keep all Open / OnHold / InProgress tickets unconditionally.
       const _EXCL_RES  = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
       // Only filter out tickets that are BOTH closed AND have a junk resolution.
-      // Do NOT filter 'closed' alone — a closed ticket with a real resolution is valid.
+      // Do NOT filter 'closed' alone ΓÇö a closed ticket with a real resolution is valid.
       const _HARD_CLOSED_ST = new Set(['closed_root_cause_not_found','closed_root_cause_cr_found','rejected']);
       jiras.forEach(j=>{
         const key=String(j.key||j.stability_ticket||'').toUpperCase();
@@ -776,7 +773,7 @@ function normalize(rep){
     }
   });
 
-    // (raw jiras array — no separate push needed; allJiraRows built from hier above)
+    // (raw jiras array ΓÇö no separate push needed; allJiraRows built from hier above)
 
   // Legacy fallbacks
   if(rep.cr_rows&&rep.cr_rows.length&&!crRows.length){
@@ -842,7 +839,7 @@ function formatStandardTime(value){
   return raw.replace('T',' ').replace(/Z$/,'');
 }
 function renderSummaryTable(counts, rep){
-  // ── Row 1: JIRA counts table ──────────────────────────────────────────────
+  // ΓöÇΓöÇ Row 1: JIRA counts table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const td='padding:7px 14px;font-size:13px;font-weight:900;text-align:right;white-space:nowrap';
   const tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
   const sep='border-top:2px solid #e2e8f0';
@@ -859,10 +856,10 @@ function renderSummaryTable(counts, rep){
     {label:'Total JIRAs',                val:counts.totalJiras,     note:'All JIRAs from filter',                              color:'#1e3a8a', bg:''},
     {label:'Mapped to CRs (occurrences)',val:counts.convertedToCrs, note:'Sum of all JIRA occurrences across all CRs',         color:'#7c3aed', bg:'#faf5ff'},
     {label:'Mapped Tickets',             val:counts.mappedTickets,   note:'Sum of occurrences across mapped stability tickets', color:'#0369a1', bg:'#eff6ff'},
-    {label:'Open JIRAs',                 val:counts.openInclMapped,  note:'Total − CR occurrences − Mapped occurrences',         color:'#b45309', bg:'#fffbeb', bold:true, sep:true},
+    {label:'Open JIRAs',                 val:counts.openInclMapped,  note:'Total ΓêÆ CR occurrences ΓêÆ Mapped occurrences',         color:'#b45309', bg:'#fffbeb', bold:true, sep:true},
     {label:'CRs (unique)',               val:counts.crs,             note:'Unique CRs mapped from JIRAs',                      color:'#6d28d9', bg:'#f5f3ff'},
     {label:'Invalid / Closed',           val:counts.invalidJiras,    note:"Closed, Won't Fix, Not a Bug, etc.",                color:'#b91c1c', bg:'#fff1f2'},
-    {label:'Valid JIRAs',                val:counts.validJiras,      note:'Total − Invalid/Closed',                                color:'#166534', bg:'#f0fdf4', bold:true},
+    {label:'Valid JIRAs',                val:counts.validJiras,      note:'Total ΓêÆ Invalid/Closed',                                color:'#166534', bg:'#f0fdf4', bold:true},
   ];
 
   rows.forEach(r=>{
@@ -877,7 +874,7 @@ function renderSummaryTable(counts, rep){
 
   jiraTable+='<\/tbody><\/table><\/div>';
 
-  // ── Row 2: Axiom stability table ──────────────────────────────────────────
+  // ΓöÇΓöÇ Row 2: Axiom stability table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const axiomHtml=renderAxiomMetricsHtml(rep, counts.validJiras);
 
   return jiraTable + axiomHtml;
@@ -886,7 +883,7 @@ function renderSummaryTable(counts, rep){
 function renderAxiomMetricsHtml(rep, validJirasOverride){
   const metrics=rep&&rep.axiom_metrics?rep.axiom_metrics:{};
   const keys=Object.keys(metrics||{});
-  // No axiom data at all — show hint
+  // No axiom data at all ΓÇö show hint
   if(!keys.length){
     const detectedBuilds=((rep||{}).meta||{}).build_ids_detected_for_axiom||((rep||{}).meta||{}).build_ids||[];
     const hint=detectedBuilds.length
@@ -902,7 +899,7 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
     return hint;
   }
   const matched=keys.filter(k=>metrics[k]&&metrics[k].matched);
-  // Keys exist but none matched — show which builds failed
+  // Keys exist but none matched ΓÇö show which builds failed
   if(!matched.length){
     const failed=keys.map(k=>{
       const err=String((metrics[k]||{}).error||'no data');
@@ -977,7 +974,7 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   const th='padding:7px 14px;font-size:13px;font-weight:900;text-align:right;white-space:nowrap';
   const tl='padding:7px 14px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap';
 
-  // ── Axiom table ───────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Axiom table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     let html='<div style="grid-column:1/-1;margin-top:10px">';
   html+='<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)">';
 
@@ -986,7 +983,7 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   html+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weight:900;letter-spacing:.5px;color:#fff"><i class="fas fa-chart-line"><\/i> Axiom Stability<\/th>';
   html+='<th style="padding:8px 14px;text-align:right;font-size:12px;font-weight:900;color:#fff">Value<\/th>';
   html+='<th style="padding:8px 14px;text-align:left;background:#f8fafc;border-left:2px solid #e2e8f0">';
-  // Deduct controls — slider syncs input, input syncs slider, both show %
+  // Deduct controls ΓÇö slider syncs input, input syncs slider, both show %
   html+='<span style="display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#1e3a8a">';
   html+='<i class="fas fa-percent" style="color:#f59e0b"><\/i>';
   html+='<span style="font-weight:900;color:#92400e">Deduct %:<\/span>';
@@ -1007,7 +1004,7 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
      note: dbDeviceCount>0 ? 'Unique chip_ids across selected builds from axiom_job_summary' : 'Max per build from Axiom API'},
 
     {label:'Valid JIRAs (crashes)', id:'brAxiomCrashesLbl', val:crashes||0,     color:'#b45309', bg:'#fffbeb',
-     note:'Open (active) + Mapped + Mapped to CRs — used as crash denominator'},
+     note:'Open (active) + Mapped + Mapped to CRs ΓÇö used as crash denominator'},
     {label:'MTBF = Hours / Crashes', id:'brAxiomMtbf', val:fmtHours(rawMtbf),  color:'#166534', bg:'#f0fdf4', bold:true, sep:true,
      note:'Recalculates live when hours are adjusted above'},
   ];
@@ -1071,7 +1068,7 @@ function brAxiomApplyDeduct(val, src){
   if(thEl){ thEl.textContent=fmtH(newTotal); thEl.style.color=pct>0?'#d97706':''; }
 
   const mtEl = document.getElementById('brAxiomMtbf');
-  if(mtEl){ mtEl.textContent=newMtbf?fmtH(newMtbf):'—'; mtEl.style.color=pct>0?'#d97706':'#166534'; }
+  if(mtEl){ mtEl.textContent=newMtbf?fmtH(newMtbf):'ΓÇö'; mtEl.style.color=pct>0?'#d97706':'#166534'; }
 }
 function shortBuildLabel(b){
   const m=String(b||'').match(/-?(\d{4,6}-[^.]+)/);
@@ -1118,13 +1115,13 @@ function renderAllJiraTable(rows){
   tbody.innerHTML=brAllJiraRawData.map((r,i)=>{
     const jiraLink='<a class="link" href="'+JIRA_BASE+esc(r.key)+'" target="_blank" rel="noopener">'+esc(r.key)+'</a>';
     const crNum=String(r.cr||'').replace(/^CR/i,'');
-    const crHtml=r.cr?'<a class="link" href="https://orbit/CR/'+esc(crNum)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':'<span style="color:#94a3b8">—</span>';
-    const chainArr=r.chain?r.chain.split(' → ').map(k=>k.trim()).filter(Boolean):[];
+    const crHtml=r.cr?'<a class="link" href="https://orbit/CR/'+esc(crNum)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':'<span style="color:#94a3b8">ΓÇö</span>';
+    const chainArr=r.chain?r.chain.split(' ΓåÆ ').map(k=>k.trim()).filter(Boolean):[];
     let chainHtml='';
     if(chainArr.length>1){
       chainHtml='<div class="jira-links" style="flex-wrap:wrap;gap:3px">'+chainArr.map((k,hi)=>{
         const isLast=hi===chainArr.length-1;
-        return '<a class="jira-chip" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener" style="'+(isLast?'background:#dcfce7;border-color:#86efac;color:#166534;':'')+'">'+esc(k)+'</a>'+(hi<chainArr.length-1?'<span style="color:#94a3b8;font-size:9px;padding:0 1px">→</span>':'');
+        return '<a class="jira-chip" href="'+JIRA_BASE+esc(k)+'" target="_blank" rel="noopener" style="'+(isLast?'background:#dcfce7;border-color:#86efac;color:#166534;':'')+'">'+esc(k)+'</a>'+(hi<chainArr.length-1?'<span style="color:#94a3b8;font-size:9px;padding:0 1px">ΓåÆ</span>':'');
       }).join('')+'</div>';
     } else if(chainArr.length===1){
       chainHtml='<a class="jira-chip" href="'+JIRA_BASE+esc(chainArr[0])+'" target="_blank" rel="noopener">'+esc(chainArr[0])+'</a>';
@@ -1132,22 +1129,22 @@ function renderAllJiraTable(rows){
     const st=String(r.final_status||r.status||'').toLowerCase();
     const stColor=st.indexOf('closed')>=0||st.indexOf('done')>=0?'#166534':st.indexOf('open')>=0?'#b45309':'#1e3a8a';
     const stBg=st.indexOf('closed')>=0||st.indexOf('done')>=0?'#dcfce7':st.indexOf('open')>=0?'#fff7ed':'#eff6ff';
-    const stBadge='<span style="background:'+stBg+';color:'+stColor+';border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">'+esc(r.final_status||r.status||'—')+'</span>';
+    const stBadge='<span style="background:'+stBg+';color:'+stColor+';border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">'+esc(r.final_status||r.status||'ΓÇö')+'</span>';
     const mt=String(r.mapping_type||'');
     const mtColor=mt==='CRMapped'||mt==='QWINBUGCR'?'#166534':mt==='Unmapped'?'#b45309':'#4338ca';
     const mtBg=mt==='CRMapped'||mt==='QWINBUGCR'?'#dcfce7':mt==='Unmapped'?'#fff7ed':'#eff6ff';
     const mtBadge=mt?'<span style="background:'+mtBg+';color:'+mtColor+';border-radius:999px;padding:2px 7px;font-size:9px;font-weight:900;margin-left:4px">'+esc(mt)+'</span>':'';
-    const resNotes=(r.resolution_notes_text||r.resolution_notes)?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.resolution_notes_text||r.resolution_notes)+'">'+(function(){var t=r.resolution_notes_text||r.resolution_notes||'';return esc(t.substring(0,80))+(t.length>80?'…':'');})()+'</div>':'';
+    const resNotes=(r.resolution_notes_text||r.resolution_notes)?'<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.resolution_notes_text||r.resolution_notes)+'">'+(function(){var t=r.resolution_notes_text||r.resolution_notes||'';return esc(t.substring(0,80))+(t.length>80?'ΓÇª':'');})()+'</div>':'';
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap">'+jiraLink+'</td>'+
-      '<td style="max-width:360px;font-size:11px">'+esc(r.title||'—')+'</td>'+
-      '<td style="white-space:nowrap;font-size:11px;color:#475569">'+esc(r.reporter||'—')+'</td>'+
-      '<td style="white-space:nowrap;font-size:11px">'+esc(r.type||'—')+'</td>'+
+      '<td style="max-width:360px;font-size:11px">'+esc(r.title||'ΓÇö')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;color:#475569">'+esc(r.reporter||'ΓÇö')+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px">'+esc(r.type||'ΓÇö')+'</td>'+
       '<td>'+stBadge+'</td>'+
       '<td style="white-space:nowrap">'+crHtml+mtBadge+'</td>'+
       '<td style="min-width:160px">'+chainHtml+'</td>'+
-      '<td style="font-size:11px;max-width:180px">'+esc(r.resolution_notes_text||r.final_resolution||'—')+'</td>'+
+      '<td style="font-size:11px;max-width:180px">'+esc(r.resolution_notes_text||r.final_resolution||'ΓÇö')+'</td>'+
       '<td>'+resNotes+'</td>'+
     '</tr>';
   }).join('');
@@ -1226,7 +1223,7 @@ function renderReport(rep){
   if(_axiomBuildIds.length && g('brBuilds') && _buildsWereEmpty){
     g('brBuilds').value=_axiomBuildIds.join('\n');
   }
-  // If axiom metrics missing but builds now known — auto-fetch silently
+  // If axiom metrics missing but builds now known ΓÇö auto-fetch silently
   const _axiomMissing = !rep.axiom_metrics || !Object.keys(rep.axiom_metrics||{}).length;
   if(_axiomMissing && _axiomBuildIds.length && _buildsWereEmpty){
     brFetchAxiomNow(_axiomBuildIds, rep);
@@ -1254,7 +1251,7 @@ function renderReport(rep){
   brSwitchTab(_currentTab==='crs'?'crs':_currentTab);
 }
 
-/* ── Tab switcher ─────────────────────────────────────────────────────────── */
+/* ΓöÇΓöÇ Tab switcher ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
 window.brSwitchTab=function(name){
   window._brActiveTab=name; // track active tab so re-renders preserve selection
   ['crs','mapped','open'].forEach(t=>{
@@ -1275,7 +1272,7 @@ window.brSwitchTab=function(name){
   if(name==='open')   brRenderOpenTab();
 };
 
-/* ── CRs Tab render (PDT CR_Summary) ─────────────────────────────────────── */
+/* ΓöÇΓöÇ CRs Tab render (PDT CR_Summary) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
 window.brRenderCrTab=function(){
   const crRows=window._brCrRows||[];
   const q=String((g('brCrSearch')||{}).value||'').toLowerCase();
@@ -1287,7 +1284,7 @@ window.brRenderCrTab=function(){
     return (b.count||0)-(a.count||0);
   });
   const tb=g('brCrRows'); if(!tb)return;
-        if(!rows.length){tb.innerHTML='<tr><td colspan="17" class="empty">No CRs found.</td></tr>';return;}
+        if(!rows.length){tb.innerHTML='<tr><td colspan="18" class="empty">No CRs found.</td></tr>';return;}
     // Helper: render parent CR cell (link + status + area + SI + assignee from parent)
 
       function _brParentCrCell(r){
@@ -1306,7 +1303,7 @@ window.brRenderCrTab=function(){
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
     const crColor=isDup?'#b45309':'#4338ca';
     const crLink=id?'<a class="link" style="font-weight:900;color:'+crColor+';white-space:nowrap" href="https://orbit/CR/'+esc(id)+'" target="_blank" rel="noopener">'+esc(r.cr)+'</a>':'<span style="font-weight:800;color:'+crColor+'">'+esc(r.cr||'--')+'</span>';
-    // CR Status badge — for dup rows, status is already from parent
+    // CR Status badge ΓÇö for dup rows, status is already from parent
     const st=String(r.status||'');
     const stLow=st.toLowerCase();
     const stColor=      stLow==='analysis'||stLow.includes('open')?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
@@ -1314,8 +1311,10 @@ window.brRenderCrTab=function(){
       stLow==='built'?'background:#dcfce7;color:#166534;border:1px solid #86efac':
       'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
     const stBadge=st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 7px;'+stColor+'">'+esc(st)+'</span>':'--';
-    const jiraItems=brJiraItemsForCr(r);
+        const jiraItems=brJiraItemsForCr(r);
     const jiraKeys=jiraItems.map(x=>x.key).filter(Boolean);
+    // CR Notes: from Orbit cr_index (latest_cr_notes), stored on row during normalize()
+    const latestNote=String(r.cr_notes||'').trim();
     const cnt=Number(r.count||jiraKeys.length||0);
     const occCell=jiraKeys.length
       ? '<a class="br-count-link" href="'+jiraKeysUrl(jiraKeys)+'" target="_blank" rel="noopener" title="Open linked JIRAs in JIRA">'+esc(cnt)+'</a>'
@@ -1338,11 +1337,14 @@ window.brRenderCrTab=function(){
       '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.date)||'--')+'</td>'+
       '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.ready_date)||'None')+'</td>'+ 
       '<td style="white-space:nowrap;font-size:11px">'+esc(brDateOnly(r.built_date)||'--')+'</td>'+
+      '<td style="min-width:220px;max-width:340px;font-size:11px;color:#1e293b;white-space:normal;word-break:break-word;line-height:1.55">'+
+        (latestNote?'<span title="'+esc(latestNote)+'" style="display:block">'+esc(latestNote.length>200?latestNote.slice(0,200)+'…':latestNote)+'</span>':'<span style="color:#cbd5e1;font-size:10px">No notes</span>')+
+      '</td>'+
       '</tr>';
   }).join('');
 };
 
-/* ── Mapped JIRAs Tab render (PDT Mapped_Tickets) ─────────────────────────── */
+/* ΓöÇΓöÇ Mapped JIRAs Tab render (PDT Mapped_Tickets) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
 window.brRenderMappedTab=function(){
   const rows=window._brMappedRows||[];
   const q=String((g('brMappedSearch')||{}).value||'').toLowerCase();
@@ -1387,7 +1389,7 @@ window.brRenderMappedTab=function(){
   }).join('');
 };
 
-/* ── Open JIRAs Tab render (PDT Qstability_Tickets) ──────────────────────── */
+/* ΓöÇΓöÇ Open JIRAs Tab render (PDT Qstability_Tickets) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
 window.brRenderOpenTab=function(){
   const rows=window._brOpenRows||[];
   const q=String((g('brOpenSearch')||{}).value||'').toLowerCase();
@@ -1727,7 +1729,7 @@ async function brFetchAxiomNow(buildIds, existingRep){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         builds: builds,
-        traverse: false,          // skip JIRA traversal — axiom only
+        traverse: false,          // skip JIRA traversal ΓÇö axiom only
         orbit: false,
         target: g('brTarget')&&g('brTarget').value||'',
         force: true,
@@ -1777,13 +1779,13 @@ async function brRun(){
   const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);
   if(!directJql&&!filterOnly&&!builds.length){alert('Enter builds, paste direct JQL, or provide a JIRA filter ID/URL first.');return;}
 
-  // Always try to resolve filter → real JQL before running.
+  // Always try to resolve filter ΓåÆ real JQL before running.
   // If resolution fails, fall back to 'filter = NNN' syntax which JIRA also accepts.
   if(filterOnly || brLooksLikeOnlyFilterInput(g('brJql').value||'')){
     const expanded=await brResolveFilterJqlNow({source:filterOnly?'filter':'direct',silent:true});
     if(expanded) g('brJql').value=expanded;
     else if(filterOnly && !brNormalizeJqlInput(g('brJql').value||'')){
-      // Resolution failed — use raw filter = NNN syntax as fallback
+      // Resolution failed ΓÇö use raw filter = NNN syntax as fallback
       g('brJql').value='filter = '+filterOnly+' ORDER BY created ASC';
     }
   }

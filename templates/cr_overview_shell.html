@@ -35,31 +35,6 @@ window.CRV2_BU_TARGETS = {
 };
 </script>
 
-{# ── Help overlay ── #}
-<div id="crHelpOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9850;backdrop-filter:blur(4px);overflow-y:auto;">
-  <div style="max-width:720px;margin:20px auto 28px;background:#fff;border-radius:16px;box-shadow:0 18px 48px rgba(15,23,42,.24);overflow:hidden;">
-    <div style="background:linear-gradient(120deg,#eff6ff 0%,#e0f2fe 40%,#ecfdf5 100%);padding:16px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(199,210,254,0.55);">
-      <div>
-        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.12);border:1px solid #c7d2fe;border-radius:999px;padding:2px 8px;font-size:9px;font-weight:800;color:#4338ca;margin-bottom:6px;"><i class="fas fa-chart-bar"></i> CR Overview</div>
-        <div style="font-size:16px;font-weight:900;color:#172554;margin-bottom:2px;">How to Use CR Age Overview</div>
-        <div style="font-size:10px;color:#64748b;">Everything you need to understand and navigate this page</div>
-      </div>
-      <button type="button" id="crHelpClose" style="background:rgba(99,102,241,.10);border:1px solid #c7d2fe;color:#4338ca;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:14px;flex-shrink:0;margin-top:2px;">&#x2715;</button>
-    </div>
-    <div style="padding:18px 20px 20px;font-family:system-ui,sans-serif;">
-      <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:800;color:#3730a3;margin-bottom:6px;"><i class="fas fa-info-circle" style="margin-right:5px;"></i>What is this page?</div>
-        <p style="font-size:11px;color:#475569;line-height:1.55;margin:0;">CR Age Overview is a cross-BU dashboard for Change Requests. Use the top filters to control BU, Target, Date Range, CR Status, View and Age Unit. Every chart, card and table below follows those filters.</p>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#6366f1;margin-bottom:4px;">Business Unit / Target</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Select a BU or Target to narrow the entire page.</div></div>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#8b5cf6;margin-bottom:4px;">CR Status</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Choose only the statuses you want. All sections update together.</div></div>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#0ea5e9;margin-bottom:4px;">Main Chart</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Click any bar to open target/site drilldown and matching CR details.</div></div>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;color:#10b981;margin-bottom:4px;">Left Panel</div><div style="font-size:11px;color:#64748b;line-height:1.5;">Use the BU rail on the left to navigate to any BU workspace.</div></div>
-      </div>
-    </div>
-  </div>
-</div>
 
 {# ── Main CR Overview shell ── #}
 <div class="crv2-shell crv2-shell--embedded">
@@ -157,7 +132,6 @@ window.CRV2_BU_TARGETS = {
     <div class="crv2-top-actions">
       <button type="button" id="crv2ExpandAllSections" class="crv2-top-chip crv2-top-chip--section"><i class="fas fa-plus-square"></i> Expand All</button>
       <button type="button" id="crv2CollapseAllSections" class="crv2-top-chip crv2-top-chip--section"><i class="fas fa-minus-square"></i> Collapse All</button>
-      <button type="button" id="crv2HelpBtn" class="crv2-top-chip crv2-top-chip--help"><i class="fas fa-question-circle"></i> Help</button>
 
       {% if current_user.is_authenticated and current_user.role == 'admin' %}
       <button type="button" id="crv2TargetsBtn" class="crv2-top-chip"><i class="fas fa-sliders-h"></i> Manage Targets</button>
