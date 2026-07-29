@@ -151,7 +151,8 @@
         </div>
       </div>
     </section>
-    <section id="tab-mtbf" class="tab-section">
+        <section id="tab-mtbf" class="tab-section">
+      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
       <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2>{% if can_edit %}<div class="toolbar"><button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tbl-wrap"><table class="tbl"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
     </section>
         <section id="tab-weekly" class="tab-section">
@@ -1909,6 +1910,7 @@ function metaId(r){
   return raw;
 }
 function chartRows(){
+  const includeZero=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
   const map=new Map();
   rows().forEach((r,idx)=>{
     const meta=String(metaId(r)||'-').trim()||'-';
@@ -1930,12 +1932,16 @@ function chartRows(){
     const ad=Date.parse(a.firstDate), bd=Date.parse(b.firstDate);
     if(Number.isFinite(ad)&&Number.isFinite(bd)&&ad!==bd)return ad-bd;
     return a.firstIdx-b.firstIdx;
-  }).map(x=>{
-    // mtbf = null means: bar shows (hours/crashes visible) but MTBF line point is hidden
+  }).reduce((acc,x)=>{
     const computedMtbf=x.crashes>0?x.hours/x.crashes:null;
-    const mtbf=(x.allZeroMtbf||!computedMtbf||!Number.isFinite(computedMtbf))?null:computedMtbf;
-    return {...x,mtbf};
-  });
+    const isZeroMtbf=x.allZeroMtbf||!computedMtbf||!Number.isFinite(computedMtbf);
+    // Unchecked: skip zero-MTBF entries entirely (no bar, no line point)
+    if(isZeroMtbf&&!includeZero)return acc;
+    // Checked: include but set mtbf=0 so line shows at zero
+    const mtbf=isZeroMtbf?0:computedMtbf;
+    acc.push({...x,mtbf});
+    return acc;
+  },[]);
 }
 const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=ds.label==='MTBF';const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
 const mtbfInlineDataTable={id:'mtbfInlineDataTable',afterDraw(chart,args,opts){
@@ -1981,17 +1987,22 @@ function renderCharts(){
       if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
       return;
     }
-    const cr=chartRows();
-    document.getElementById('mtbfEmpty').style.display=cr.length?'none':'block';
+        const cr=chartRows();
+    const _mtbfEmpty=document.getElementById('mtbfEmpty');
+    if(_mtbfEmpty)_mtbfEmpty.style.display=cr.length?'none':'block';
     if(mtbfChart){mtbfChart.destroy();mtbfChart=null;}
   if(!cr.length)return;
   const canvas=document.getElementById('mtbfChart');
+  if(!canvas)return;
   const wrap=canvas.closest('.chart-wrap')||canvas.parentElement;
     const fullW=Math.max(900,(wrap&&wrap.clientWidth?wrap.clientWidth-24:0),cr.length*70);
     canvas.style.width=fullW+'px';
     canvas.width=fullW;
       const labels=cr.map(x=>x.label), hours=cr.map(x=>Number(x.hours.toFixed(2))), crashes=cr.map(x=>Number(x.crashes.toFixed(0))), mtbf=cr.map(x=>x.mtbf==null?null:Number(x.mtbf.toFixed(2)));
-          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1,spanGaps:false},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbf,crashes:crashes}},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:false},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:false},ticks:{color:'#374151'}}}}};
+      // inline table: show 0 or '-' for null MTBF
+      const mtbfTableVals=mtbf.map(v=>v==null?'-':v);
+          const includeZeroChecked=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
+          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1,spanGaps:includeZeroChecked},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},title:{display:true,text:'MTBF Trend — Hours (bars) | MTBF (green line) | Crashes (red line)',color:'#1e3a8a',font:{size:13,weight:'900',family:'Inter,Segoe UI,Arial,sans-serif'},padding:{top:4,bottom:10}},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbfTableVals,crashes:crashes}},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:true,text:'Hours',color:'#c2410c',font:{size:11,weight:'900'}},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF / Crashes',color:'#374151',font:{size:11,weight:'900'}},ticks:{color:'#374151'}}}}};
     mtbfChart=new Chart(canvas,cfg);
 }
 function firstVal(r,keys,fb=''){for(const k of keys){if(r&&r[k]!=null&&String(r[k]).trim()!=='')return r[k];}return fb;}
