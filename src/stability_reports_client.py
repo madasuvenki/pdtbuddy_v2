@@ -444,36 +444,33 @@ def fetch_build_stability_metrics(
         instance_cache_key = f'stability:instance:multi:{rid}'
         iid = _cache_get(instance_cache_key)
         if not iid:
-            created = _post(f'{BASE}/{_q(rid)}/instances', {}, host=host)
-            if isinstance(created, dict):
-                iid = str(created.get('instanceId') or created.get('id') or '').strip()
-                if not iid and isinstance(created.get('data'), list) and created['data']:
-                    iid = str(created['data'][0].get('instanceId') or created['data'][0].get('id') or '').strip()
+            # Always GET the existing instance from the report.
+            # POSTing a new instance creates a fresh unprocessed one that
+            # returns 404 on the metrics endpoint until Axiom processes it.
+            # The report created by _create_report_and_wait() already has
+            # a ready instance — just fetch it.
+            idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
+            rows = idata.get('data', []) if isinstance(idata, dict) else []
+            if rows:
+                iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
             if not iid:
-                # Fallback: latest listed instance if create response shape differs.
-                idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
-                rows = idata.get('data', []) if isinstance(idata, dict) else []
-                if rows:
-                    iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
+                # Report not ready yet — poll briefly for the instance to appear
+                deadline_inst = time.time() + int(os.environ.get('AXIOM_STABILITY_INSTANCE_WAIT_SECONDS', '60') or 60)
+                while time.time() < deadline_inst and not iid:
+                    time.sleep(5)
+                    try:
+                        idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
+                        rows = idata.get('data', []) if isinstance(idata, dict) else []
+                        if rows:
+                            iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
+                    except Exception as _pe:
+                        logger.debug('[stability] instance poll failed: %s', _pe)
             if iid:
                 _cache_set(instance_cache_key, iid)
+                logger.info('[stability] using existing instanceId=%s for reportId=%s', iid, rid)
 
         if not iid:
             return {b: {'matched': False, 'report_id': rid, 'metrics': [], 'error': 'No instanceId', 'source': 'stability_reports_api'} for b in selected}
-
-        deadline = time.time() + int(os.environ.get('AXIOM_STABILITY_INSTANCE_WAIT_SECONDS', '120') or 120)
-        while time.time() < deadline:
-            try:
-                st = axiom_get(f'{BASE}/{_q(rid)}/instances/{_q(iid)}', host=host)
-                status = str((st or {}).get('status') or (st or {}).get('state') or '').strip()
-                if not status or status.lower() == 'completed':
-                    break
-                if status.lower() == 'failed':
-                    logger.warning('[stability] instance failed reportId=%s instanceId=%s response=%s', rid, iid, str(st)[:300])
-                    break
-            except Exception as exc:
-                logger.debug('[stability] instance status poll failed: %s', exc)
-            time.sleep(5)
 
         raw_metrics = _get_metrics(rid, iid, '', host)
         out = {b: {'matched': False, 'report_id': rid, 'instance_id': iid, 'metrics': [], 'source': 'stability_reports_api'} for b in selected}
