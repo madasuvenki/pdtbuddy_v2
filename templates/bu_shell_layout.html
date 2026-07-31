@@ -620,8 +620,8 @@
         });
   }
 
-  // ── Admin modal close ─────────────────────────────────────────────────────
-  (function() {
+    // ── Admin modal close ─────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
     function closeAdminModal() {
       var m = document.getElementById('adminModal');
       if (!m) return;
@@ -634,7 +634,7 @@
     if (overlay) overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeAdminModal();
     });
-  })();
+  });
 
   // ── Theme toggle ──────────────────────────────────────────────────────────
   const themeBtn   = document.getElementById('themeToggleBtn');
