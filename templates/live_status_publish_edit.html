@@ -143,28 +143,11 @@
   </div>
   {% endif %}
   {% if not embedded_core_deck %}
-  <header class="hero">
+  <header class="hero" {% if suppress_top_redirect %}id="lspHeroHeader" style="display:none"{% else %}id="lspHeroHeader"{% endif %}>
     <div>
       <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Published {{ (job.job_type or 'CRM')|upper }} Live Status</div>
       <h1>{{ (job.name or "Live Status")|upper }}</h1>
       <p><strong>{{ primary_target|upper }}</strong> &nbsp; Published: <span id="publishedHeaderTime" data-raw="{{ job.published_at or '' }}">{{ job.published_at or '--' }}</span> by <strong>{{ job.published_by or '-' }}</strong> &nbsp; Latest update: <span id="updatedHeaderTime" data-raw="{{ job.updated_at or '' }}">{{ job.updated_at or '--' }}</span>{% if job.active_viewers %} &nbsp; Active viewers: <strong>{{ job.active_viewers|length }}</strong>{% endif %}</p>
-      {% if sp_siblings and sp_siblings|length > 1 %}
-      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em">SP</span>
-        {% for sp in sp_siblings %}
-          <a href="{{ sp.url }}"
-             style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:900;text-decoration:none;transition:all .15s;
-                    {% if sp.active %}
-                    background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border:2px solid #3b82f6;box-shadow:0 2px 8px rgba(37,99,235,.3);
-                    {% else %}
-                    background:#f1f5f9;color:#334155;border:2px solid #e2e8f0;
-                    {% endif %}"
-             title="Switch to SP {{ sp.cpl }}">
-            <i class="fas fa-layer-group" style="font-size:9px"></i> {{ sp.cpl }}
-          </a>
-        {% endfor %}
-      </div>
-      {% endif %}
     </div>
                 <div class="hero-actions">
       {% if job.status == 'published' %}
@@ -184,6 +167,18 @@
       <button class="btn" id="lspPublicApiBtn" type="button" onclick="lspTogglePublicApiPanel()" style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;border:none;font-weight:900;box-shadow:0 6px 16px rgba(79,70,229,.24);"><i class="fas fa-plug"></i> Public API</button>
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+      {% if sp_siblings and sp_siblings|length > 1 %}
+      <div style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px 3px 8px;background:rgba(255,255,255,.55);border:1.5px solid #e2e8f0;border-radius:12px;backdrop-filter:blur(4px);">
+        <span style="font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-right:3px">SP</span>
+        {% for sp in sp_siblings %}
+          <a href="{{ sp.url }}" title="Switch to SP {{ sp.cpl }}"
+             style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900;text-decoration:none;transition:all .15s;white-space:nowrap;
+             {% if sp.active %}background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border:2px solid #3b82f6;box-shadow:0 2px 8px rgba(37,99,235,.28);{% else %}background:#f8fafc;color:#475569;border:2px solid #e2e8f0;{% endif %}">
+            {{ sp.cpl }}
+          </a>
+        {% endfor %}
+      </div>
+      {% endif %}
       <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
       <button onclick="lspOpenCustomizeTabs()" title="Show/hide tabs" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
@@ -1180,6 +1175,14 @@ jira_filter_id: {{ jira_pdt_filter_id|tojson }},
 saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
 landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
+// Show hero header after page initialises (hidden on first load to avoid FOUC in iframe)
+document.addEventListener("DOMContentLoaded", function(){
+  var h = document.getElementById("lspHeroHeader");
+  if (!h) return;
+  // If inside iframe, keep hidden; otherwise always show
+  try { if (window.self === window.top) { h.style.display = ""; } }
+  catch(e) { /* cross-origin: keep hidden */ }
+});
 // =======================================================================
 // Current Running Build DB table -- Add Build, detail modal, publish, 15-min JQL
 // =======================================================================
