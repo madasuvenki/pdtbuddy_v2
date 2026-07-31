@@ -84,12 +84,16 @@ VIEWER_OVERRIDE_USERS = {
 # --- CONFIGURATION ---
 TARGET_GROUP      = "qipl.target.pdt"   # QIPL users  -> orbit-hyd.qualcomm.com
 SD_TARGET_GROUP   = "pdt.sd"            # SD users    -> orbit-sd.qualcomm.com
+CH_TARGET_GROUP   = "pdt.china.all"     # China users -> orbit-ch.qualcomm.com
+CH_STABILITY_GROUP = "pdt.china.stability.all"  # China stability sub-group
 
 # Orbit endpoint mapping per group
 # QIPL group  -> HYD endpoint (orbit-hyd.qualcomm.com  = 10.147.136.30)
-# SD group    -> SD  endpoint (orbit-sd.qualcomm.com   = to be confirmed)
+# SD group    -> SD  endpoint (orbit-sd.qualcomm.com)
+# China group -> CH  endpoint (orbit-ch.qualcomm.com)
 ORBIT_ENDPOINT_QIPL = "orbit-hyd.qualcomm.com"
 ORBIT_ENDPOINT_SD   = "orbit-sd.qualcomm.com"
+ORBIT_ENDPOINT_CH   = "orbit-ch.qualcomm.com"
 
 # ---------------------------------------------------------------------------
 # LIVE_STATUS_VIEWER_GROUP_ACCESS - scoped read-only access for non-editor

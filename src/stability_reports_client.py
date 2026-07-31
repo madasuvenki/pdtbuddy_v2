@@ -1,10 +1,9 @@
 """
+
 stability_reports_client.py
 ===========================
 Client for the Axiom Stability Reports API.
-
 Correct flow (POST to create report, then GET instances + metrics):
-
   Step 1: POST /axiom/v1/public/stabilityreport
           body: {
             "reportType": "ByBuilds",
@@ -17,22 +16,20 @@ Correct flow (POST to create report, then GET instances + metrics):
             "softwareImages": []
           }
           -> reportId
-
   Step 2: GET /axiom/v1/public/stabilityreport/{reportId}/instances
           ?metaId={build}&pageNumber=0&pageSize=1
           -> instanceId
-
   Step 3: GET /axiom/v1/public/stabilityreport/{reportId}/instances/{instanceId}/metrics
           -> runtime (converted to hours), crashes, mtbf, uniqueDevices
-
 Environment knobs:
     AXIOM_API_HOST                    default: api-int.qualcomm.com
     AXIOM_TAXONOMY_PATH_SW            default: /PDT
     AXIOM_STABILITY_CACHE_TTL_SECONDS default: 900
     AXIOM_STABILITY_START_DATE        default: 90 days ago
-"""
-from __future__ import annotations
 
+"""
+
+from __future__ import annotations
 import json
 import logging
 import os
@@ -40,64 +37,76 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-
 from src.axiom_client import AXIOM_API_HOST, axiom_get, get_cached_token, _ssl_context, _tracing_id
-
 logger = logging.getLogger(__name__)
-
 _CACHE: Dict[str, Tuple[float, Any]] = {}
-
 BASE = '/axiom/v1/public/stabilityreport'
 
-
 # ---------------------------------------------------------------------------
+
 # Cache helpers
+
 # ---------------------------------------------------------------------------
 
 def _cache_ttl() -> int:
+
     try:
+
         return max(0, int(os.environ.get('AXIOM_STABILITY_CACHE_TTL_SECONDS', '900') or 900))
+
     except Exception:
+
         return 900
 
-
 def _cache_get(key: str) -> Any:
+
     ttl = _cache_ttl()
     if ttl <= 0:
+
         return None
+
     hit = _CACHE.get(key)
     if not hit:
+
         return None
+
     ts, value = hit
     if time.time() - ts > ttl:
         _CACHE.pop(key, None)
-        return None
-    return value
 
+        return None
+
+    return value
 
 def _cache_set(key: str, value: Any) -> Any:
+
     if _cache_ttl() > 0:
         _CACHE[key] = (time.time(), value)
+
     return value
 
-
 def _q(s: str) -> str:
+
     return urllib.parse.quote(str(s), safe='')
 
-
 # ---------------------------------------------------------------------------
+
 # HTTP helpers
+
 # ---------------------------------------------------------------------------
 
 def _get(path: str, cache_key: Optional[str] = None, host: str = AXIOM_API_HOST) -> Any:
+
     key = cache_key or f'GET:{path}'
     cached = _cache_get(key)
     if cached is not None:
+
         return cached
+
     return _cache_set(key, axiom_get(path, host=host))
 
-
 def _post(path: str, payload: dict, host: str = AXIOM_API_HOST) -> Any:
+
     import http.client
     token = get_cached_token(host=host)
     headers = {
@@ -111,33 +120,49 @@ def _post(path: str, payload: dict, host: str = AXIOM_API_HOST) -> Any:
     }
     body = json.dumps(payload).encode('utf-8')
     conn = http.client.HTTPSConnection(host, context=_ssl_context(), timeout=120)
+
     try:
+
         conn.request('POST', path, body=body, headers=headers)
         resp = conn.getresponse()
         raw = resp.read()
         status = resp.status
+
     finally:
+
         conn.close()
     if status not in (200, 201, 202):
         raise RuntimeError(f'Stability API POST {path} HTTP {status}: {raw[:300]!r}')
     if not raw:
+
         return {}
+
     try:
+
         return json.loads(raw.decode('utf-8'))
+
     except Exception:
+
         return {'raw': raw.decode('utf-8', errors='ignore')}
 
-
 # ---------------------------------------------------------------------------
+
 # Hours / number parsers
+
 # ---------------------------------------------------------------------------
 
 def _hours(value: Any) -> float:
+
     """Parse '8 day 21 hr 55 min' or plain number into float hours."""
+
     if value in (None, ''):
+
         return 0.0
+
     if isinstance(value, (int, float)):
+
         return float(value)
+
     import re
     text = str(value).lower().replace(',', ' ')
     total = 0.0
@@ -151,50 +176,72 @@ def _hours(value: Any) -> float:
             total += float(m.group(1)) * mult
             matched = True
     if matched:
+
         return round(total, 2)
+
     m2 = re.search(r'-?\d+(?:\.\d+)?', text)
+
     return float(m2.group(0)) if m2 else 0.0
 
-
 def _num(value: Any) -> float:
+
     if value in (None, ''):
+
         return 0.0
+
     if isinstance(value, (int, float)):
+
         return float(value)
+
     import re
     m = re.search(r'-?\d+(?:\.\d+)?', str(value).replace(',', ''))
+
     return float(m.group(0)) if m else 0.0
 
-
 # ---------------------------------------------------------------------------
-# Step 1 — POST to create/get report
+
+# Step 1 ??? POST to create/get report
+
 # ---------------------------------------------------------------------------
 
 def _default_start_date() -> str:
+
     configured = os.environ.get('AXIOM_STABILITY_START_DATE', '').strip()
     if configured:
+
         return configured
+
     # API max look-back is 28 days
     dt = datetime.now(timezone.utc) - timedelta(days=27)
+
     return dt.strftime('%Y-%m-%dT00:00:00.000Z')
 
-
 def _find_report_with_instance(build: str, taxonomy: str, host: str) -> Tuple[str, str]:
+
     """
+
     Search existing reports for one that already has an instance for this build.
     Returns (reportId, instanceId) or ('', '').
+
     """
+
     cache_key = f'stability:find:{taxonomy}:{build}'
     cached = _cache_get(cache_key)
     if cached:
+
         return cached
 
     # List all reports
+
     try:
+
         data = axiom_get(f'{BASE}?taxonomyPath={_q(taxonomy)}&pageNumber=0&pageSize=100', host=host)
         reports = data.get('data', []) if isinstance(data, dict) else []
+
     except Exception as e:
+
         logger.warning('[stability] list reports failed: %s', e)
+
         return ('', '')
 
         # For each report try GET instances?metaId=build
@@ -202,7 +249,9 @@ def _find_report_with_instance(build: str, taxonomy: str, host: str) -> Tuple[st
         rid = str(r.get('reportId') or r.get('id') or '').strip()
         if not rid:
             continue
+
         try:
+
             idata = axiom_get(
                 f'{BASE}/{_q(rid)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=5',
                 host=host
@@ -221,21 +270,28 @@ def _find_report_with_instance(build: str, taxonomy: str, host: str) -> Tuple[st
                 logger.info('[stability] found reportId=%s instanceId=%s for build=%s', rid, iid, build)
                 result = (rid, iid)
                 _cache_set(cache_key, result)
+
                 return result
+
         except Exception:
+
             continue
 
     return ('', '')
 
-
 def _create_report_and_wait(builds: List[str], taxonomy: str, host: str, max_wait: int = 60) -> str:
+
     """
+
     POST to create a ByBuilds stability report, then poll instances until ready.
     Returns reportId or '' on failure.
+
     """
+
     cache_key = f'stability:report:{taxonomy}:{"|".join(sorted(builds))}'
     cached = _cache_get(cache_key)
     if cached:
+
         return cached
 
     payload = {
@@ -253,7 +309,6 @@ def _create_report_and_wait(builds: List[str], taxonomy: str, host: str, max_wai
     }
     logger.info('[stability] POST report for builds=%s taxonomy=%s', builds, taxonomy)
     result = _post(BASE, payload, host=host)
-
     rid = ''
     if isinstance(result, dict):
         rid = str(result.get('reportId') or result.get('id') or '').strip()
@@ -261,51 +316,55 @@ def _create_report_and_wait(builds: List[str], taxonomy: str, host: str, max_wai
             rows = result.get('data', [])
             if rows and isinstance(rows, list):
                 rid = str(rows[0].get('reportId') or rows[0].get('id') or '').strip()
-
     if not rid:
         logger.warning('[stability] No reportId in POST response: %s', str(result)[:300])
+
         return ''
 
-    logger.info('[stability] POST created reportId=%s, polling for instances...', rid)
+    logger.info('[stability] POST created reportId=%s, waiting 5s then checking instance...', rid)
+    # Per API doc: wait 5s after POST before first instance check
+    time.sleep(5)
+    try:
+        idata = axiom_get(
+            f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1',
+            host=host
+        )
+        rows = idata.get('data', []) if isinstance(idata, dict) else []
+        if rows:
+            logger.info('[stability] reportId=%s instance ready on first check', rid)
+            _cache_set(cache_key, rid)
+            return rid
+    except Exception as e:
+        logger.debug('[stability] instance check failed: %s', e)
 
-    # Poll: try GET instances until data appears (report processing is async)
-    deadline = time.time() + max_wait
-    while time.time() < deadline:
-        time.sleep(5)
-        try:
-            idata = axiom_get(
-                f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1',
-                host=host
-            )
-            rows = idata.get('data', []) if isinstance(idata, dict) else []
-            if rows:
-                logger.info('[stability] reportId=%s is ready (%d instances)', rid, len(rows))
-                _cache_set(cache_key, rid)
-                return rid
-        except Exception as e:
-            logger.debug('[stability] poll attempt failed: %s', e)
-
-        log_fn = logger.info if max_wait <= 5 else logger.warning
-    log_fn('[stability] reportId=%s not ready after %ds; continuing with instance creation/poll', rid, max_wait)
-    _cache_set(cache_key, rid)  # cache anyway, may be usable later
+    # Instance not ready yet - caller will poll further
+    logger.info('[stability] reportId=%s instance not ready after 5s, returning rid for caller to poll', rid)
+    _cache_set(cache_key, rid)
     return rid
 
-
-
 # ---------------------------------------------------------------------------
-# Step 2 — GET instanceId
+
+# Step 2 ??? GET instanceId
+
 # ---------------------------------------------------------------------------
 
 def _get_instance_id(report_id: str, meta_id: str, host: str) -> str:
+
     """GET instanceId for a given reportId + metaId.
+
     Verifies the returned instance actually belongs to the requested build.
+
     """
+
     path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(meta_id)}&pageNumber=0&pageSize=5'
     cache_key = f'stability:instance:{report_id}:{meta_id}'
     cached = _cache_get(cache_key)
     if cached:
+
         return cached
+
     try:
+
         data = axiom_get(path, host=host)
         rows = data.get('data', []) if isinstance(data, dict) else []
         # Prefer a row whose meta field matches the requested build exactly
@@ -323,37 +382,50 @@ def _get_instance_id(report_id: str, meta_id: str, host: str) -> str:
         if iid:
             logger.info('[stability] instanceId=%s for build=%s', iid, meta_id)
             _cache_set(cache_key, iid)
+
         return iid
+
     except Exception as e:
+
         logger.warning('[stability] instanceId failed for %s: %s', meta_id, e)
+
         return ''
 
-
 # ---------------------------------------------------------------------------
-# Step 3 — GET metrics
+
+# Step 3 ??? GET metrics
+
 # ---------------------------------------------------------------------------
 
 def _get_metrics(report_id: str, instance_id: str, meta_id: str, host: str) -> List[dict]:
+
     """GET metrics for a given reportId + instanceId.
+
     On HTTP 500 the cache entry is evicted so the next call retries fresh.
+
     """
+
     path = f'{BASE}/{_q(report_id)}/instances/{_q(instance_id)}/metrics?pageNumber=0&pageSize=100'
     cache_key = f'stability:metrics:{report_id}:{instance_id}'
-
     # Evict stale cache before attempting
     cached = _cache_get(cache_key)
     if cached is not None:
+
         return cached
 
     try:
+
         data = axiom_get(path, host=host)          # bypass _get() so we control caching
         rows = data.get('data', []) if isinstance(data, dict) else []
         if not rows and isinstance(data, list):
             rows = [x for x in data if isinstance(x, dict)]
         if rows:
             _cache_set(cache_key, rows)             # only cache on success
+
         return rows
+
     except Exception as e:
+
         err_str = str(e)
         if 'HTTP 500' in err_str or '500' in err_str:
             # Evict all cache entries for this report+instance so next call retries
@@ -364,14 +436,18 @@ def _get_metrics(report_id: str, instance_id: str, meta_id: str, host: str) -> L
             stale = [k for k in list(_CACHE) if meta_id in k or instance_id in k]
             for k in stale:
                 _CACHE.pop(k, None)
-            logger.warning('[stability] metrics HTTP 500 for %s — cache evicted, will retry next call', meta_id)
+            logger.warning('[stability] metrics HTTP 500 for %s ??? cache evicted, will retry next call', meta_id)
+
         else:
+
             logger.warning('[stability] metrics failed for %s: %s', meta_id, e)
+
         return []
 
-
 def _normalise(raw: dict) -> dict:
+
     """Normalise raw metric row. Runtime always returned as float hours."""
+
     runtime_hours = _hours(
         raw.get('runtime') or raw.get('runtimeHours') or
         raw.get('totalHours') or raw.get('hours') or 0
@@ -385,7 +461,9 @@ def _normalise(raw: dict) -> dict:
     mtbf_hours = _hours(
         raw.get('mtbf') or raw.get('mtbfHours') or raw.get('MTBF') or 0
     )
+
     return {
+
         'runtimeHours': runtime_hours,
         'hours':        runtime_hours,
         'deviceCount':  device_count,
@@ -394,21 +472,24 @@ def _normalise(raw: dict) -> dict:
         'raw':          raw,
     }
 
-
 # ---------------------------------------------------------------------------
+
 # Public API
+
 # ---------------------------------------------------------------------------
 
 def fetch_build_stability_metrics(
+
     builds: Iterable[str],
     target: str = '',
     taxonomy_path: str = '',
     report_id: str = '',
     host: str = AXIOM_API_HOST,
 ) -> Dict[str, dict]:
-    """
-    Fetch stability metrics for each build.
 
+    """
+
+    Fetch stability metrics for each build.
     Returns dict keyed by build ID:
     {
         "SecaAU_IVI.LE.1.0-00064-...": {
@@ -423,7 +504,9 @@ def fetch_build_stability_metrics(
             }]
         }
     }
+
     """
+
     selected = [str(b or '').strip() for b in (builds or []) if str(b or '').strip()]
     out: Dict[str, dict] = {}
     if not selected:
@@ -431,107 +514,38 @@ def fetch_build_stability_metrics(
 
     tax = taxonomy_path or os.environ.get('AXIOM_TAXONOMY_PATH_SW', '/PDT')
 
-    # Correct public API flow for multiple builds:
-    # 1) POST one ByBuilds report containing all metaIdBuilds
-    # 2) POST one report instance
-    # 3) poll that instance until Completed
-    # 4) GET metrics once and split rows by meta/build field
-    try:
-        rid = report_id or _create_report_and_wait(selected, tax, host, max_wait=5)
-        if not rid:
-            return {b: {'matched': False, 'metrics': [], 'error': 'No reportId', 'source': 'stability_reports_api'} for b in selected}
-
-        instance_cache_key = f'stability:instance:multi:{rid}'
-        iid = _cache_get(instance_cache_key)
-        if not iid:
-            # Always GET the existing instance from the report.
-            # POSTing a new instance creates a fresh unprocessed one that
-            # returns 404 on the metrics endpoint until Axiom processes it.
-            # The report created by _create_report_and_wait() already has
-            # a ready instance — just fetch it.
-            idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
-            rows = idata.get('data', []) if isinstance(idata, dict) else []
-            if rows:
-                iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
-            if not iid:
-                # Report not ready yet — poll briefly for the instance to appear
-                deadline_inst = time.time() + int(os.environ.get('AXIOM_STABILITY_INSTANCE_WAIT_SECONDS', '60') or 60)
-                while time.time() < deadline_inst and not iid:
-                    time.sleep(5)
-                    try:
-                        idata = axiom_get(f'{BASE}/{_q(rid)}/instances?pageNumber=0&pageSize=1', host=host)
-                        rows = idata.get('data', []) if isinstance(idata, dict) else []
-                        if rows:
-                            iid = str(rows[0].get('instanceId') or rows[0].get('id') or '').strip()
-                    except Exception as _pe:
-                        logger.debug('[stability] instance poll failed: %s', _pe)
-            if iid:
-                _cache_set(instance_cache_key, iid)
-                logger.info('[stability] using existing instanceId=%s for reportId=%s', iid, rid)
-
-        if not iid:
-            return {b: {'matched': False, 'report_id': rid, 'metrics': [], 'error': 'No instanceId', 'source': 'stability_reports_api'} for b in selected}
-
-        raw_metrics = _get_metrics(rid, iid, '', host)
-        out = {b: {'matched': False, 'report_id': rid, 'instance_id': iid, 'metrics': [], 'source': 'stability_reports_api'} for b in selected}
-
-        def _row_key(row: dict) -> str:
-            return str(
-                row.get('meta') or row.get('build') or row.get('buildLabel') or
-                row.get('genericBuildLabel') or row.get('additionalBuildLabel') or ''
-            ).strip()
-
-        for build in selected:
-            build_l = build.lower()
-            matched_rows = []
-            for row in raw_metrics:
-                key = _row_key(row).lower()
-                if not key or build_l in key or key in build_l:
-                    matched_rows.append(row)
-            metrics = [_normalise(m) for m in matched_rows]
-            out[build].update({'matched': bool(metrics), 'metrics': metrics})
-            if not metrics:
-                out[build]['error'] = 'No metric row matched this build'
-        return out
-    except Exception as exc:
-        logger.warning('[stability] multi-build metrics failed: %s', exc)
-        return {b: {'matched': False, 'metrics': [], 'error': str(exc), 'source': 'stability_reports_api'} for b in selected}
-
-    # Per build: search existing reports first, POST new one only if needed
-
     for build in selected:
         try:
-            # First: search existing reports for this build
-            rid, iid = _find_report_with_instance(build, tax, host)
-
-            # If not found in existing reports, POST a new one and wait
-            if not rid or not iid:
-                rid = _create_report_and_wait(selected, tax, host)
-                if rid:
-                    iid = _get_instance_id(rid, build, host)
-
+            # ----------------------------------------------------------
+            # Step 1: POST a ByBuilds report for this single build
+            # ----------------------------------------------------------
+            rid = report_id or _create_report_and_wait([build], tax, host, max_wait=30)
             if not rid:
-                out[build] = {'matched': False, 'metrics': [], 'error': 'No report found or created'}
+                out[build] = {'matched': False, 'metrics': [], 'error': 'No reportId',
+                              'source': 'stability_reports_api'}
                 continue
+
+            # ----------------------------------------------------------
+            # Step 2: GET the instanceId for THIS build specifically
+            #         Each build has its own instance — use metaId filter
+            # ----------------------------------------------------------
+            iid = _get_instance_id(rid, build, host)
             if not iid:
-                out[build] = {'matched': False, 'report_id': rid, 'metrics': [], 'error': 'No instanceId found'}
+                # Poll once more after 10s - if still empty the build is not in Axiom
+                time.sleep(10)
+                iid = _get_instance_id(rid, build, host)
+
+            if not iid:
+                logger.warning('[stability] no instanceId for build=%s reportId=%s', build, rid)
+                out[build] = {'matched': False, 'report_id': rid, 'metrics': [],
+                              'error': 'No instanceId', 'source': 'stability_reports_api'}
                 continue
 
+            # ----------------------------------------------------------
+            # Step 3: GET metrics for this build's instance
+            # ----------------------------------------------------------
             raw_metrics = _get_metrics(rid, iid, build, host)
-
-            # Retry once if metrics returned empty (e.g. after HTTP 500 cache eviction)
-            if not raw_metrics:
-                logger.info('[stability] metrics empty for %s — retrying with fresh instance lookup', build)
-                # Evict find-cache so we search again
-                _CACHE.pop(f'stability:find:{tax}:{build}', None)
-                _CACHE.pop(f'stability:instance:{rid}:{build}', None)
-                rid2, iid2 = _find_report_with_instance(build, tax, host)
-                if rid2 and iid2 and (rid2 != rid or iid2 != iid):
-                    raw_metrics = _get_metrics(rid2, iid2, build, host)
-                    rid, iid = rid2, iid2
-
             metrics = [_normalise(m) for m in raw_metrics]
-
             out[build] = {
                 'matched':     bool(metrics),
                 'report_id':   rid,
@@ -541,12 +555,17 @@ def fetch_build_stability_metrics(
             }
             if metrics:
                 m0 = metrics[0]
-                logger.info(
-                    '[stability] build=%s  hours=%.1f  devices=%d  crashes=%d  mtbf=%.2fh',
-                    build, m0['runtimeHours'], m0['deviceCount'], m0['crashes'], m0['mtbfHours']
-                )
+                logger.info('[stability] build=%s hours=%.1f devices=%d crashes=%d mtbf=%.2fh',
+                            build, m0['runtimeHours'], m0['deviceCount'],
+                            m0['crashes'], m0['mtbfHours'])
+            else:
+                out[build]['error'] = 'No metrics returned for this instance'
+                logger.warning('[stability] no metrics for build=%s instanceId=%s', build, iid)
+
         except Exception as exc:
-            logger.warning('[stability] metrics failed for build=%s: %s', build, exc)
-            out[build] = {'matched': False, 'metrics': [], 'error': str(exc), 'source': 'stability_reports_api'}
+            logger.warning('[stability] failed for build=%s: %s', build, exc)
+            out[build] = {'matched': False, 'metrics': [], 'error': str(exc),
+                          'source': 'stability_reports_api'}
 
     return out
+

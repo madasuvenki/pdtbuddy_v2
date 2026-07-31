@@ -60,6 +60,7 @@ ORBIT_CR_SOURCE = "ORBIT_DIRECT"         # "ORBIT_DIRECT" | "ONEVIEW_MCP" | "PYT
 # (e.g. background tasks, CLI, non-request context)
 ORBIT_SERVER_QIPL   = "orbit-hyd.qualcomm.com"   # QIPL / default
 ORBIT_SERVER_SD     = "orbit-sd.qualcomm.com"     # SD group
+ORBIT_SERVER_CH     = "orbit-ch.qualcomm.com"     # China group
 ORBIT_SERVER        = ORBIT_SERVER_QIPL           # default fallback
 ORBIT_QUERY_SERVER  = ORBIT_SERVER_QIPL           # default fallback
 ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
@@ -77,7 +78,7 @@ def _get_orbit_server() -> str:
       2. LDAP group membership (used only if session is unavailable, e.g. a
          background task with no request context).
       3. orbit-hyd.qualcomm.com (default).
-    """
+        """
     try:
         from flask import has_request_context, session as _flask_session
         if has_request_context():
@@ -93,11 +94,15 @@ def _get_orbit_server() -> str:
         if has_request_context() and current_user and current_user.is_authenticated:
             username = str(getattr(current_user, 'id', '') or '').strip().lower()
             if username:
-                from config import SD_TARGET_GROUP, TARGET_GROUP, ORBIT_ENDPOINT_SD, ORBIT_ENDPOINT_QIPL
+                from config import SD_TARGET_GROUP, CH_TARGET_GROUP, TARGET_GROUP, \
+                                   ORBIT_ENDPOINT_SD, ORBIT_ENDPOINT_QIPL, ORBIT_ENDPOINT_CH
                 from app import is_user_in_group
                 try:
                     is_sd   = is_user_in_group(username, SD_TARGET_GROUP)
+                    is_ch   = is_user_in_group(username, CH_TARGET_GROUP)
                     is_qipl = is_user_in_group(username, TARGET_GROUP)
+                    if is_ch and not is_qipl and not is_sd:
+                        return ORBIT_ENDPOINT_CH
                     if is_sd and not is_qipl:
                         return ORBIT_ENDPOINT_SD
                     else:

@@ -57,11 +57,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # -
 # CONSTANTS
 # -
-JIRA_ISSUES_INTERVAL  = 100
+JIRA_ISSUES_INTERVAL  = 50   # page size per parallel bucket
 MAX_RESULTS_DEFAULT   = 99999
+JIRA_FETCH_LIMIT      = 6000  # hard cap: refuse to run if JIRA count exceeds this
 MAX_CRS_QUERY_COUNT   = 100
 TRAVERSAL_WORKERS     = 10   # parallel threads for traversal
 ORBIT_WORKERS         = 8    # parallel threads for Orbit CR fetch
+JIRA_FETCH_WORKERS    = 8    # parallel threads for initial JIRA page fetch
 
 SEARCH_FIELDS = (
     "summary,status,created,resolution,reporter,issuelinks,"
@@ -158,7 +160,21 @@ class ProgressTracker:
             }
 
 
-# Global registry: job_id - ProgressTracker
+class LimitExhausted(RuntimeError):
+    """Raised when the JIRA result count exceeds JIRA_FETCH_LIMIT.
+    Carries .total so callers can surface the exact count to the user.
+    """
+    def __init__(self, total: int, limit: int):
+        self.total = total
+        self.limit = limit
+        super().__init__(
+            f'Query returned {total:,} JIRAs which exceeds the {limit:,} limit. '
+            f'Please narrow your JQL or reduce the number of builds.'
+        )
+
+
+
+# Global registry: job_id -> ProgressTracker
 _PROGRESS_REGISTRY: dict = {}
 _PROGRESS_LOCK = threading.Lock()
 
@@ -526,37 +542,133 @@ def parse_software_components(pl_id_raw):
 # JIRA CONNECTION & QUERY
 # =============================================================================
 
+# Per-request JIRA HTTP timeout (seconds).  Prevents background threads from
+# hanging indefinitely on a slow/unresponsive JIRA server, which would block
+# the _run_job thread and cause ERR_CONNECTION_RESET on the polling client.
+JIRA_HTTP_TIMEOUT = int(os.environ.get('JIRA_HTTP_TIMEOUT', '60'))
+
+
 def connect_jira(user, password, server):
     if not user or not password:
         raise RuntimeError("JIRA credentials missing.")
-    obj = JIRA(options={"server": server, "verify": False}, basic_auth=(user, password))
+    obj = JIRA(
+        options={"server": server, "verify": False},
+        basic_auth=(user, password),
+        timeout=JIRA_HTTP_TIMEOUT,
+    )
     return obj
 
 
 def run_query(jira_obj, jql, max_results=MAX_RESULTS_DEFAULT, progress=None):
-    issues   = []
-    start_at = 0
-    while True:
+    """
+    Parallel JIRA fetch:
+      1. Count total matching issues (maxResults=0, instant).
+      2. If count > JIRA_FETCH_LIMIT raise LimitExhausted immediately.
+      3. Split into 50-issue buckets.
+      4. Fire all bucket fetches in parallel (JIRA_FETCH_WORKERS threads,
+         each with its own JIRA connection).
+      5. Merge results in startAt order and return.
+    Falls back to sequential paging if the count call fails.
+    """
+    # --- Step 1: get total count ---
+    total_available = 0
+    try:
+        count_result = jira_obj.search_issues(jql, startAt=0, maxResults=0, fields='summary')
+        total_available = getattr(count_result, 'total', 0) or 0
+    except Exception:
+        total_available = 0
+
+    # --- Step 2: hard limit check ---
+    if total_available > JIRA_FETCH_LIMIT:
+        logger.warning('[run_query] LIMIT EXHAUSTED: total=%d > limit=%d  jql=%s',
+                       total_available, JIRA_FETCH_LIMIT, jql[:120])
+        if progress:
+            progress.update(
+                stage='limit_exhausted',
+                total=total_available,
+                done=0,
+                message=(
+                    f'Query matched {total_available:,} JIRAs — exceeds the {JIRA_FETCH_LIMIT:,} limit. '
+                    f'Please narrow your JQL or reduce the number of builds.'
+                )
+            )
+        raise LimitExhausted(total_available, JIRA_FETCH_LIMIT)
+
+    if total_available == 0:
+        # Fallback: sequential fetch (handles count-call failures)
+        issues   = []
+        start_at = 0
+        while True:
+            try:
+                page = jira_obj.search_issues(
+                    jql, startAt=start_at,
+                    maxResults=JIRA_ISSUES_INTERVAL,
+                    fields=SEARCH_FIELDS,
+                )
+            except Exception:
+                break
+            if not page:
+                break
+            issues   += page
+            start_at += JIRA_ISSUES_INTERVAL
+            if progress:
+                progress.update(stage='fetch', done=len(issues),
+                                message=f'Fetching JIRAs... {len(issues)} so far')
+            if len(page) < JIRA_ISSUES_INTERVAL or len(issues) >= max_results:
+                break
+        return issues
+
+    fetch_count = min(total_available, max_results)
+    if progress:
+        progress.update(stage='fetch', total=fetch_count, done=0,
+                        message=f'Found {total_available:,} JIRAs — fetching in parallel ({JIRA_ISSUES_INTERVAL}/bucket)...')
+
+    # --- Step 3: build bucket offsets ---
+    offsets = list(range(0, fetch_count, JIRA_ISSUES_INTERVAL))
+    logger.info('[run_query] total=%d fetch=%d buckets=%d workers=%d',
+                total_available, fetch_count, len(offsets), JIRA_FETCH_WORKERS)
+
+    # --- Step 4: parallel fetch ---
+    fetched_lock = threading.Lock()
+    fetched_count = [0]
+    bucket_results = {}  # startAt -> list[issue]
+
+    def _fetch_bucket(start_at):
+        """Each bucket gets its own JIRA connection to avoid contention."""
+        conn = JIRA(
+            options={'server': JIRA_SERVER_ENDPOINT, 'verify': False},
+            basic_auth=(JIRA_USER, JIRA_PASSWORD),
+            timeout=JIRA_HTTP_TIMEOUT,
+        )
         try:
-            page = jira_obj.search_issues(
+            page = conn.search_issues(
                 jql, startAt=start_at,
                 maxResults=JIRA_ISSUES_INTERVAL,
                 fields=SEARCH_FIELDS,
             )
+            return start_at, list(page) if page else []
         except Exception as e:
-            break
-        if not page:
-            break
-        issues   += page
-        start_at += JIRA_ISSUES_INTERVAL
-        if progress:
-            progress.update(
-                stage='fetch',
-                done=len(issues),
-                message=f'Fetching JIRAs... {len(issues)} so far'
-            )
-        if len(page) < JIRA_ISSUES_INTERVAL or len(issues) >= max_results:
-            break
+            logger.warning('[run_query] bucket startAt=%d failed: %s', start_at, e)
+            return start_at, []
+
+    with ThreadPoolExecutor(max_workers=JIRA_FETCH_WORKERS) as pool:
+        futures = {pool.submit(_fetch_bucket, off): off for off in offsets}
+        for fut in as_completed(futures):
+            start_at, page = fut.result()
+            bucket_results[start_at] = page
+            with fetched_lock:
+                fetched_count[0] += len(page)
+                done = fetched_count[0]
+            if progress:
+                progress.update(stage='fetch', done=done,
+                                message=f'Fetching JIRAs... {done:,}/{fetch_count:,}')
+
+    # --- Step 5: merge in order ---
+    issues = []
+    for off in offsets:
+        issues.extend(bucket_results.get(off, []))
+
+    logger.info('[run_query] parallel fetch complete: %d issues returned', len(issues))
     return issues
 
 
@@ -753,7 +865,8 @@ def traverse_all_jiras(jira_obj, issues_dicts, max_hops=10, progress=None):
         """Each worker thread gets its own JIRA connection."""
         return JIRA(
             options={'server': JIRA_SERVER_ENDPOINT, 'verify': False},
-            basic_auth=(JIRA_USER, JIRA_PASSWORD)
+            basic_auth=(JIRA_USER, JIRA_PASSWORD),
+            timeout=JIRA_HTTP_TIMEOUT,
         )
 
     def _cached_fetch(jira_conn, keys):
@@ -1837,11 +1950,38 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
     else:
         jql = build_combined_jql(build_ids, filter_id)
 
-    # Step 2 - fetch all JIRAs
+        # Step 2 - fetch all JIRAs
     if progress:
         progress.update(stage='fetch', message=f'Fetching JIRAs for {len(build_ids)} build(s)...')
 
-    issues       = run_query(jira_obj, jql, progress=progress)
+    try:
+        issues = run_query(jira_obj, jql, progress=progress)
+    except LimitExhausted as le:
+        if progress:
+            progress.update(
+                stage='limit_exhausted',
+                total=le.total,
+                done=0,
+                message=str(le)
+            )
+        return {
+            'meta': {
+                'build_ids'   : build_ids,
+                'jql'         : jql,
+                'jira_server' : JIRA_SERVER_ENDPOINT,
+                'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                'target_name' : target_name,
+                'custom_jql'  : custom_jql or None,
+            },
+            'limit_exhausted' : True,
+            'limit'           : le.limit,
+            'total_available' : le.total,
+            'error'           : str(le),
+            'summary'         : {'total_jiras': 0},
+            'hierarchical_report': [],
+            'jiras'           : [],
+            'cr_index'        : {},
+        }
     issues_dicts = [issue_to_dict(i, queried_builds=build_ids) for i in issues]
     total        = len(issues_dicts)
 

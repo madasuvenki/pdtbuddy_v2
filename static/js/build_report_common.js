@@ -35,8 +35,8 @@
 
   function waitForResult(jobId, options){
     options = options || {};
-    var intervalMs = options.intervalMs || 1500;
-    var maxTries = options.maxTries || 180;
+    var intervalMs = options.intervalMs || 3000;  // poll every 3s
+    var maxTries = options.maxTries || 0;         // 0 = no timeout, poll until result arrives
     return new Promise(function(resolve, reject){
       var tries = 0;
       var timer = setInterval(function(){
@@ -45,7 +45,8 @@
           .then(function(r){ return r.status === 202 ? null : r.json(); })
           .then(function(data){
             if(!data){
-              if(tries > maxTries){ clearInterval(timer); reject(new Error('Timed out waiting for report')); }
+              // maxTries=0 means no timeout — keep polling until result arrives
+              if(maxTries > 0 && tries > maxTries){ clearInterval(timer); reject(new Error('Timed out waiting for report')); }
               return;
             }
             clearInterval(timer);

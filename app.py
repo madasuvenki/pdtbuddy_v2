@@ -51,9 +51,9 @@ from src.utils import (
 )
 from config import (
     SECRET_KEY,
-        REPORT_GENERATION_CONFIG,
-    ADMIN_USERS, BYPASS_USERS, USERS_DB_PATH, TARGET_GROUP, SD_TARGET_GROUP,
-    ORBIT_ENDPOINT_QIPL, ORBIT_ENDPOINT_SD,
+    REPORT_GENERATION_CONFIG,
+    ADMIN_USERS, BYPASS_USERS, USERS_DB_PATH, TARGET_GROUP, SD_TARGET_GROUP, CH_TARGET_GROUP, CH_STABILITY_GROUP,
+    ORBIT_ENDPOINT_QIPL, ORBIT_ENDPOINT_SD, ORBIT_ENDPOINT_CH,
     MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MAIN_DATABASE_NAME,  # kept for backward compat
     BU_DATABASE_MAPPING,
         BU_ICONS, QGENIE_TEXT_TO_SQL_MODEL, QGENIE_HIGHLIGHTS_MODEL, QGENIE_HIGHLIGHTS_MODEL_OPTIONS
@@ -469,12 +469,15 @@ def _set_orbit_session(username: str):
         if not t.strip():
             return None, ""
         padded = f" {t} "
-        sd_words = (" san diego ", " sandiego ", " ca ", " california ", " usa ", " us ", " pst ", " pdt ")
+        sd_words  = (" san diego ", " sandiego ", " ca ", " california ", " usa ", " us ", " pst ", " pdt ")
         hyd_words = (" hyderabad ", " hyd ", " qipl ", " india ", " in ", " ist ")
+        ch_words  = (" china ", " shanghai ", " beijing ", " shenzhen ", " cst ", " chn ")
         if any(w in padded for w in sd_words):
             return ORBIT_ENDPOINT_SD, "sd"
         if any(w in padded for w in hyd_words):
             return ORBIT_ENDPOINT_QIPL, "qipl"
+        if any(w in padded for w in ch_words):
+            return ORBIT_ENDPOINT_CH, "ch"
         return None, ""
 
     def _endpoint_from_ip(ip_addr: str):
@@ -487,6 +490,9 @@ def _set_orbit_session(username: str):
             return ORBIT_ENDPOINT_SD, "sd"
         if any(ip_addr.startswith(p) for p in qipl_prefixes):
             return ORBIT_ENDPOINT_QIPL, "qipl"
+        ch_prefixes = [p.strip() for p in os.environ.get("ORBIT_CH_IP_PREFIXES", "").split(",") if p.strip()]
+        if any(ip_addr.startswith(p) for p in ch_prefixes):
+            return ORBIT_ENDPOINT_CH, "ch"
         return None, ""
 
     try:
@@ -497,6 +503,10 @@ def _set_orbit_session(username: str):
         is_qipl = is_user_in_group(username, TARGET_GROUP)
     except Exception:
         is_qipl = False
+    try:
+        is_ch = is_user_in_group(username, CH_TARGET_GROUP)
+    except Exception:
+        is_ch = False
 
     ldap_location = _ldap_location_text(username)
     endpoint, group = _endpoint_from_text(ldap_location)
@@ -510,9 +520,11 @@ def _set_orbit_session(username: str):
     if not endpoint and browser_tz:
         if browser_tz.startswith("America/"):
             endpoint, group, reason = ORBIT_ENDPOINT_SD, "sd", "browser_timezone"
+        elif browser_tz in ("Asia/Shanghai", "Asia/Chongqing", "Asia/Harbin",
+                             "Asia/Chungking", "Asia/Hong_Kong", "Asia/Macau"):
+            endpoint, group, reason = ORBIT_ENDPOINT_CH, "ch", "browser_timezone"
         elif browser_tz.startswith("Asia/"):
             endpoint, group, reason = ORBIT_ENDPOINT_QIPL, "qipl", "browser_timezone"
-
     client_ip = ""
     try:
         client_ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
@@ -523,12 +535,13 @@ def _set_orbit_session(username: str):
         reason = "ip_prefix" if endpoint else ""
 
     if not endpoint:
-        if is_sd and not is_qipl:
+        if is_ch and not is_qipl and not is_sd:
+            endpoint, group, reason = ORBIT_ENDPOINT_CH, "ch", "ldap_group"
+        elif is_sd and not is_qipl:
             endpoint, group, reason = ORBIT_ENDPOINT_SD, "sd", "ldap_group"
         else:
             # QIPL, admin, or any other user -> HYD endpoint (unchanged default)
             endpoint, group, reason = ORBIT_ENDPOINT_QIPL, "qipl", "ldap_group_or_default"
-
     session['orbit_endpoint'] = endpoint
     session['orbit_group']    = group
     session['orbit_endpoint_reason'] = reason
@@ -3315,7 +3328,7 @@ def report_worker(cmd, prefix, out_dir, task_id):
                 stderr=subprocess.PIPE,
                 text=True
             )
-            stdout, stderr = process.communicate(timeout=600)  # 10 minute timeout
+            stdout, stderr = process.communicate()  # no timeout - run until complete
 
 
             if process.returncode != 0:
@@ -7783,24 +7796,11 @@ def check_report_status(task_id):
         status = task.get("status")
         progress = task.get("progress", "Processing...")
 
-        # 5-minute timeout on processing tasks
-        if status == "processing":
-            start_time = task.get("start_time")
-            if start_time:
-                elapsed = time.time() - start_time
-                if elapsed > 5 * 60:
-                    logger.warning(f" Task '{task_id}' timed out after {elapsed:.1f}s.")
-                    task["status"] = "error"
-                    task["message"] = "Report generation was terminated after 5 minutes due to timeout."
-                    return jsonify({
-                        "status": "error",
-                        "message": task["message"]
-                    })
-
-            return jsonify({
-                "status": "processing",
-                "progress": progress
-            })
+                # No timeout enforced — report runs until complete regardless of duration.
+        return jsonify({
+            "status": "processing",
+            "progress": progress
+        })
 
         if status == "completed":
             return jsonify({
@@ -9088,8 +9088,8 @@ if __name__ == '__main__':
             app,
             host=HOST,
             port=PORT,
-            threads=95,                  # handle up to 45 concurrent requests
-            channel_timeout=120,        # 2-min requesclst timeout
+                        threads=95,                  # handle up to 45 concurrent requests
+            channel_timeout=0,          # no timeout - long-running reports allowed
             cleanup_interval=30,
             connection_limit=200,
         )

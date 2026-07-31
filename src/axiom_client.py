@@ -147,6 +147,12 @@ _TOKEN_CACHE: Dict[str, Any] = {
     "expires_at": 0.0,
 }
 
+# Default HTTP timeout for all Axiom API calls (seconds).
+# Prevents background threads from hanging indefinitely when the
+# Axiom server is slow or unreachable, which would cause Flask
+# worker death and ERR_CONNECTION_RESET on the polling client.
+AXIOM_HTTP_TIMEOUT: int = int(os.getenv("AXIOM_HTTP_TIMEOUT", "30"))
+
 # ---------------------------------------------------------------------------
 # SSL helper
 # ---------------------------------------------------------------------------
@@ -194,7 +200,7 @@ def fetch_access_token(
     _require_credentials(resolved_id, resolved_secret)
 
     logger.info("Fetching new Axiom OAuth access token ---")
-    conn = http.client.HTTPSConnection(host, context=_ssl_context())
+    conn = http.client.HTTPSConnection(host, context=_ssl_context(), timeout=AXIOM_HTTP_TIMEOUT)
     try:
         conn.request(
             "POST",
@@ -294,7 +300,7 @@ def axiom_get(
 
     logger.debug("GET %s%s  (tracing=%s)", host, path, tracing)
 
-    conn = http.client.HTTPSConnection(host, context=_ssl_context())
+    conn = http.client.HTTPSConnection(host, context=_ssl_context(), timeout=AXIOM_HTTP_TIMEOUT)
     try:
         conn.request("GET", path, body="", headers=headers)
         resp = conn.getresponse()
@@ -313,6 +319,86 @@ def axiom_get(
     except json.JSONDecodeError as exc:
         raise RuntimeError(
             f"Axiom API returned non-JSON for path '{path}': {raw[:300]!r}"
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Public Axiom API host (separate from internal api-int.qualcomm.com)
+# ---------------------------------------------------------------------------
+
+AXIOM_PUBLIC_API_HOST: str = os.getenv("AXIOM_PUBLIC_API_HOST", "publicapi-axiom.qualcomm.com")
+
+
+def axiom_post(
+    path: str,
+    body: Any,
+    host: str = AXIOM_API_HOST,
+    extra_headers: Optional[Dict[str, str]] = None,
+) -> Any:
+    """
+    Perform an authenticated POST request against the Axiom API.
+
+    Args:
+        path:          URL path including query string.
+        body:          Request body (will be JSON-serialised).
+        host:          API hostname (default: AXIOM_API_HOST).
+        extra_headers: Optional additional headers to merge.
+
+    Returns:
+        Parsed JSON response (dict or list).
+
+    Raises:
+        RuntimeError: on HTTP errors or JSON parse failures.
+    """
+    if AXIOM_FETCH_DISABLED:
+        logger.info("[AXIOM DISABLED] POST skipped: %s", path)
+        return {}
+
+    # OAuth token endpoint only exists on the internal API host (api-int.qualcomm.com).
+    # Always fetch the token from AXIOM_API_HOST regardless of which host the POST
+    # request itself is sent to (e.g. publicapi-axiom.qualcomm.com).
+    token_host = os.getenv("AXIOM_API_HOST", AXIOM_API_HOST)
+    token = get_cached_token(host=token_host)
+    tracing = _tracing_id()
+    body_bytes = json.dumps(body, ensure_ascii=False).encode("utf-8")
+
+    headers: Dict[str, str] = {
+        "X-QCOM-TracingID": tracing,
+        "X-QCOM-AppName": os.getenv("AXIOM_APP_NAME", "PDTDashboard"),
+        "X-QCOM-TokenType": "OAuth",
+        "X-QCOM-ClientType": "Python",
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Content-Length": str(len(body_bytes)),
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+
+    logger.debug("POST %s%s  (tracing=%s)", host, path, tracing)
+
+    conn = http.client.HTTPSConnection(host, context=_ssl_context(), timeout=AXIOM_HTTP_TIMEOUT)
+    try:
+        conn.request("POST", path, body=body_bytes, headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        status = resp.status
+    finally:
+        conn.close()
+
+    if status not in (200, 201, 202, 206):
+        raise RuntimeError(
+            f"Axiom API POST returned HTTP {status} for path '{path}': {raw[:300]!r}"
+        )
+
+    if not raw or not raw.strip():
+        return {}
+
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Axiom API POST returned non-JSON for path '{path}': {raw[:300]!r}"
         ) from exc
 
 

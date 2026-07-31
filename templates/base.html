@@ -1279,17 +1279,40 @@ body:has(.bu-simple-page) .app-bg-gradient {
       .admin-tab-panel.active { display:block !important; }
       .admin-spacer { height:14px; }
     </style>
+    <script>
+    /* Inline tab switcher — works on ALL pages regardless of admin.js load order */
+    function _adminShowPanel(panelId, clickedBtn) {
+      /* hide all panels */
+      document.querySelectorAll('.admin-tab-panel').forEach(function(el){
+        el.classList.remove('active');
+      });
+      /* show selected */
+      var panel = document.getElementById(panelId);
+      if (panel) panel.classList.add('active');
+      /* highlight clicked card, reset others */
+      document.querySelectorAll('.admin-tabbar .admin-card').forEach(function(btn){
+        btn.style.outline   = '';
+        btn.style.boxShadow = '';
+        btn.style.transform = '';
+      });
+      if (clickedBtn) {
+        clickedBtn.style.outline   = '3px solid rgba(255,255,255,0.9)';
+        clickedBtn.style.boxShadow = '0 0 0 6px rgba(255,255,255,0.18)';
+        clickedBtn.style.transform = 'scale(1.04)';
+      }
+    }
+    </script>
 
-        <div class="admin-tabbar">
-      <button type="button" id="adminTabAddTarget" class="admin-card card-blue" style="flex:1; min-width:160px;">
+                <div class="admin-tabbar">
+      <button type="button" id="adminTabAddTarget" class="admin-card card-blue" style="flex:1; min-width:160px;" onclick="_adminShowPanel('admin_section_add_target', this)">
         <div class="card-title"><i class="fas fa-plus-circle"></i> Add / Update Target</div>
         <div class="card-desc">Target details, SP name, and ingest setup.</div>
       </button>
-      <button type="button" id="adminTabResyncMilestones" class="admin-card card-green" style="flex:1; min-width:160px;">
+      <button type="button" id="adminTabResyncMilestones" class="admin-card card-green" style="flex:1; min-width:160px;" onclick="_adminShowPanel('admin_section_resync_milestones', this)">
         <div class="card-title"><i class="fas fa-rotate"></i> Milestone Save / Sync</div>
         <div class="card-desc">Fetch, edit, save ES/FC/CS/CS1 for a selected target.</div>
       </button>
-                  <button type="button" id="adminTabRemoveTarget" class="admin-card card-amber" style="flex:1; min-width:160px;">
+                  <button type="button" id="adminTabRemoveTarget" class="admin-card card-amber" style="flex:1; min-width:160px;" onclick="_adminShowPanel('admin_section_remove_target', this)">
         <div class="card-title"><i class="fas fa-trash"></i> Full Resync / Remove</div>
         <div class="card-desc">Resync all data or remove a target from DB.</div>
       </button>

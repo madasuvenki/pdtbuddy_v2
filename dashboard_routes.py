@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 logger = logging.getLogger(__name__)
 import traceback
 import uuid
@@ -7764,7 +7764,7 @@ def api_consolidated_report():
                 _sys.path.insert(0, _scripts_dir)
 
             from config import JIRA_PDT_FILTER_ID
-            from fetch_consolidated_report import register_progress, unregister_progress, run_consolidated_report
+            from fetch_consolidated_report import register_progress, unregister_progress, run_consolidated_report, LimitExhausted
 
             progress = register_progress(job_id)
             progress.update(stage='queued', total=1, done=0, message='Report job queued...')
@@ -7794,62 +7794,113 @@ def api_consolidated_report():
                 'axiom_taxonomy_path': axiom_taxonomy_path,
             })
 
-            # ── Axiom Stability Metrics ──────────────────────────────────────
+            # ── Axiom Stability Metrics ────────────────────────────────
+            # Fetched SEQUENTIALLY (one build at a time).
+            # Starts as soon as builds are known - does not wait for CR pipeline.
+            # If Axiom is unreachable the report still returns with
+            # meta.axiom_status = "unreachable" / "timeout" / "error"
             if include_axiom_metrics and isinstance(report, dict):
-                try:
-                    axiom_builds = (
-                        builds
-                        or meta.get('build_ids_detected_for_axiom')
+                _tax = axiom_taxonomy_path or '/PDT'
+                # Resolve build list: explicit > meta > scan JIRA matched_build
+                axiom_builds = list(builds) if builds else []
+                if not axiom_builds:
+                    axiom_builds = list(
+                        meta.get('build_ids_detected_for_axiom')
                         or meta.get('build_ids')
                         or []
                     )
-                    # Last-resort: scan JIRA rows for meta_build field
-                    if not axiom_builds:
-                        _seen: set = set()
-                        _detected: list = []
-                        for jira in (report.get('jiras') or []):
-                            mb = str(jira.get('meta_build') or '').strip()
-                            if mb and ('\\' in mb or '/' in mb):
-                                mb = mb.rstrip('/\\').replace('\\', '/').split('/')[-1].strip()
-                            if mb and mb.upper() not in _seen:
-                                _seen.add(mb.upper())
-                                _detected.append(mb)
-                        axiom_builds = _detected[:20]
+                if not axiom_builds:
+                    _seen_ax: set = set()
+                    for _jira in (report.get('jiras') or []):
+                        _mb = str(_jira.get('matched_build') or _jira.get('meta_build') or '').strip()
+                        if _mb and _mb.upper() not in _seen_ax:
+                            _seen_ax.add(_mb.upper())
+                            axiom_builds.append(_mb)
+                    axiom_builds = axiom_builds[:20]
+                    # Strip UNC/share path - Axiom needs only the build ID
+                    # e.g. \\server\share\SecaAU_IVI.LE.1.0-00070 -> SecaAU_IVI.LE.1.0-00070
+                    import re as _re_unc
+                    def _strip_unc(b):
+                        b = str(b or '').strip()
+                        # Replace any backslash (single or double) with forward slash
+                        b = _re_unc.sub(r'[\\/]+', '/', b)
+                        return b.rstrip('/').split('/')[-1].strip() if '/' in b else b
+                    axiom_builds = [_strip_unc(b) for b in axiom_builds if _strip_unc(b)]
+                if axiom_builds:
+                    meta['build_ids_detected_for_axiom'] = axiom_builds
 
-                    if isinstance(axiom_builds, str):
-                        import re as _re_axiom
-                        axiom_builds = [b.strip() for b in _re_axiom.split(r'[,;\n]+', axiom_builds) if b.strip()]
-                    else:
-                        axiom_builds = [str(b).strip() for b in (axiom_builds or []) if str(b).strip()]
+                if axiom_builds:
+                    from src.stability_reports_client import fetch_build_stability_metrics
+                    import concurrent.futures as _cf
+                    # Fetch each build individually - Axiom rejects batches where
+                    # any single build is not in its build table (HTTP 400).
+                    _PER_BUILD_TIMEOUT = int(os.environ.get('AXIOM_PER_BUILD_TIMEOUT', '180'))
+                    _ax_metrics: dict = {}
+                    _ax_errors:  list = []
+                    _ax_status        = 'ok'
 
-                    # Store detected builds so UI can auto-fill builds box
-                    if axiom_builds:
-                        meta['build_ids_detected_for_axiom'] = axiom_builds
+                    for _ab in axiom_builds:
+                        if progress and progress.is_cancelled():
+                            break
+                        if progress:
+                            progress.update(message='Fetching Axiom metrics for %s...' % _ab)
+                        try:
+                            with _cf.ThreadPoolExecutor(max_workers=1) as _ax_pool:
+                                _ax_fut = _ax_pool.submit(
+                                    fetch_build_stability_metrics,
+                                    [_ab], '', _tax, '',
+                                )
+                                try:
+                                    _result_map = _ax_fut.result(timeout=_PER_BUILD_TIMEOUT)
+                                    _result = (_result_map or {}).get(_ab) or {}
+                                    _ax_metrics[_ab] = _result
+                                    if not _result.get('matched'):
+                                        _err = _result.get('error') or 'no data'
+                                        _ax_errors.append('%s: %s' % (_ab, _err))
+                                        logger.warning('[consolidated_report] axiom no match build=%s: %s', _ab, _err)
+                                    else:
+                                        logger.info('[consolidated_report] axiom OK build=%s', _ab)
+                                except _cf.TimeoutError:
+                                    _ax_metrics[_ab] = {
+                                        'matched': False, 'metrics': [], 'build': _ab,
+                                        'error': 'Timed out after %ds' % _PER_BUILD_TIMEOUT,
+                                        'source': 'stability_reports_api',
+                                    }
+                                    _ax_errors.append('%s: timed out' % _ab)
+                                    _ax_status = 'timeout'
+                                    logger.warning('[consolidated_report] axiom timeout build=%s', _ab)
+                        except Exception as _ax_exc:
+                            _err_msg = str(_ax_exc)
+                            _ax_metrics[_ab] = {
+                                'matched': False, 'metrics': [], 'build': _ab,
+                                'error': _err_msg, 'source': 'stability_reports_api',
+                            }
+                            _ax_errors.append('%s: %s' % (_ab, _err_msg))
+                            if any(k in _err_msg.lower() for k in
+                                   ('connection', 'timeout', 'refused', 'unreachable',
+                                    'network', 'ssl', 'certificate', 'getaddrinfo')):
+                                _ax_status = 'unreachable'
+                            elif _ax_status == 'ok':
+                                _ax_status = 'error'
+                            logger.warning('[consolidated_report] axiom error: %s', _err_msg)
 
-                    if axiom_builds:
-                        from src.stability_reports_client import fetch_build_stability_metrics
-                        report['axiom_metrics'] = fetch_build_stability_metrics(
-                            axiom_builds,
-                            target=target or meta.get('target_name') or '',
-                            taxonomy_path=axiom_taxonomy_path or '/PDT',
-                        )
-                        # Hours/runtime stay from Axiom public API. Devices are
-                        # overridden from DB as a true cross-build union of chip_ids.
+                    report['axiom_metrics'] = _ax_metrics
+                    meta['axiom_metrics_source'] = 'stability_reports_api'
+                    meta['axiom_status']  = _ax_status
+                    meta['axiom_errors']  = _ax_errors
+                    _matched = sum(1 for v in _ax_metrics.values() if v.get('matched'))
+                    logger.info('[consolidated_report] axiom done: %d/%d matched  status=%s',
+                                _matched, len(axiom_builds), _ax_status)
+
+                    try:
                         report['axiom_device_summary'] = _fetch_axiom_unique_devices_from_job_summary(
-                            axiom_builds,
-                            taxonomy_path=axiom_taxonomy_path or '/PDT',
+                            axiom_builds, taxonomy_path=_tax,
                         )
-                        meta['axiom_metrics_source'] = 'stability_reports_api'
                         meta['axiom_devices_source'] = 'db:axiom_job_summary'
-                        logger.info(
-                            '[consolidated_report] axiom metrics fetched for %d build(s); db_unique_devices=%s',
-                            len(axiom_builds),
-                            report.get('axiom_device_summary', {}).get('uniqueDevices'),
-                        )
+                    except Exception as _dev_exc:
+                        logger.warning('[consolidated_report] device summary failed: %s', _dev_exc)
+                        report['axiom_device_summary'] = {}
 
-                except Exception as _axiom_exc:
-                    logger.warning('[consolidated_report] axiom metrics skipped: %s', _axiom_exc)
-                    report['axiom_metrics'] = {}
 
             try:
                 with open(cache_path, 'w', encoding='utf-8') as fh:
@@ -7860,6 +7911,26 @@ def api_consolidated_report():
             _job_results_set(job_id, report)
             if progress:
                 progress.update(stage='done', total=1, done=1, message='Report complete.')
+        except LimitExhausted as le:
+            # limit_exhausted is NOT a crash - return 200 with structured payload
+            logger.warning('[consolidated_report] job %s limit_exhausted: total=%d limit=%d', job_id, le.total, le.limit)
+            _job_results_set(job_id, {
+                'job_id'          : job_id,
+                'limit_exhausted' : True,
+                'limit'           : le.limit,
+                'total_available' : le.total,
+                'error'           : str(le),
+                'meta'            : {'build_ids': builds, 'jql': custom_jql or ''},
+                'summary'         : {'total_jiras': 0},
+                'hierarchical_report': [],
+                'jiras'           : [],
+                'cr_index'        : {},
+            })
+            try:
+                if progress:
+                    progress.update(stage='limit_exhausted', total=le.total, done=0, message=str(le))
+            except Exception:
+                pass
         except Exception as exc:
             logger.error('[consolidated_report] job %s failed: %s\n%s', job_id, exc, traceback.format_exc())
             _job_results_set(job_id, {'error': str(exc), 'job_id': job_id})
@@ -7906,7 +7977,7 @@ def api_consolidated_report_progress(job_id):
             return
 
         last_done = -1
-        deadline  = time.time() + 600   # 10 min max
+        # No deadline - stream runs until job finishes regardless of duration
         # -- Startup grace period ------------------------------------------
         # The background job thread (see api_consolidated_report -> _run_job)
         # only calls register_progress(job_id) AFTER importing
@@ -7922,7 +7993,7 @@ def api_consolidated_report_progress(job_id):
         # with SSE connect) before a tracker was even created.
         _NOT_FOUND_GRACE_SECONDS = 20
         _not_found_since = None
-        while time.time() < deadline:
+        while True:  # no deadline - run until job done/error/cancelled
             pt = get_progress(job_id)
             if pt is None:
                 if job_id in _JOB_RESULTS:
@@ -7990,10 +8061,12 @@ def api_consolidated_report_result(job_id):
     report = _JOB_RESULTS.get(job_id)
     if report is None:
         return jsonify({'status': 'pending'}), 202
-    if 'error' in report:
+    # limit_exhausted is a 200 response - NOT a 500. JS reads limit_exhausted:true.
+    if report.get('limit_exhausted'):
+        return jsonify(report), 200
+    if 'error' in report and not report.get('limit_exhausted'):
         return jsonify(report), 500
     return jsonify(report)
-
 
 @dashboard_bp.route("/api/consolidated_report/load", methods=["GET", "POST"])
 @login_required
