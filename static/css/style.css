@@ -563,6 +563,7 @@ tbody tr:hover {
     line-height: 1;
     padding: 0;
     margin: 0;
+    z-index: 10;
 }
 
 .modal-close-btn:hover,
