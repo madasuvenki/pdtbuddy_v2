@@ -617,8 +617,24 @@
         adminModal.style.display = 'flex';
         adminModal.classList.add('visible');
       }
-    });
+        });
   }
+
+  // ── Admin modal close ─────────────────────────────────────────────────────
+  (function() {
+    function closeAdminModal() {
+      var m = document.getElementById('adminModal');
+      if (!m) return;
+      m.classList.remove('visible');
+      setTimeout(function() { m.style.display = 'none'; }, 200);
+    }
+    var xBtn = document.getElementById('closeAdminModalXBtn');
+    if (xBtn) xBtn.addEventListener('click', closeAdminModal);
+    var overlay = document.getElementById('adminModal');
+    if (overlay) overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeAdminModal();
+    });
+  })();
 
   // ── Theme toggle ──────────────────────────────────────────────────────────
   const themeBtn   = document.getElementById('themeToggleBtn');
