@@ -4526,13 +4526,14 @@ return { total: total, mtbf: mtbf };
 var _domColors = { ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669' };
 var _domBg     = { ADAS:'#eff6ff', FLEX:'#f5f3ff', IVI:'#f0fdf4' };
 function _styleToolbarDomBtns(){
-['ADAS','FLEX','IVI'].forEach(function(d){
+(_adasAllDomains.length ? _adasAllDomains : ['ADAS','FLEX','IVI']).forEach(function(d){
 var btn = document.getElementById('adasDomBtn_'+d);
 if(!btn) return;
 var on = d === _adasView;
-btn.style.background    = on ? _domColors[d] : '#fff';
-btn.style.color         = on ? '#fff'         : '#64748b';
-btn.style.borderColor   = on ? _domColors[d] : '#e2e8f0';
+var col = _domColors[d] || '#6366f1';
+btn.style.background    = on ? col   : '#fff';
+btn.style.color         = on ? '#fff' : '#64748b';
+btn.style.borderColor   = on ? col   : '#e2e8f0';
 btn.style.boxShadow     = on ? '0 2px 8px rgba(0,0,0,.15)' : 'none';
 });
 }
