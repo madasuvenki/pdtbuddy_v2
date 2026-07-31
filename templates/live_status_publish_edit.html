@@ -133,6 +133,23 @@
       <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Published {{ (job.job_type or 'CRM')|upper }} Live Status</div>
       <h1>{{ (job.name or "Live Status")|upper }}</h1>
       <p><strong>{{ primary_target|upper }}</strong> &nbsp; Published: <span id="publishedHeaderTime" data-raw="{{ job.published_at or '' }}">{{ job.published_at or '--' }}</span> by <strong>{{ job.published_by or '-' }}</strong> &nbsp; Latest update: <span id="updatedHeaderTime" data-raw="{{ job.updated_at or '' }}">{{ job.updated_at or '--' }}</span>{% if job.active_viewers %} &nbsp; Active viewers: <strong>{{ job.active_viewers|length }}</strong>{% endif %}</p>
+      {% if sp_siblings and sp_siblings|length > 1 %}
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em">SP</span>
+        {% for sp in sp_siblings %}
+          <a href="{{ sp.url }}"
+             style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:900;text-decoration:none;transition:all .15s;
+                    {% if sp.active %}
+                    background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border:2px solid #3b82f6;box-shadow:0 2px 8px rgba(37,99,235,.3);
+                    {% else %}
+                    background:#f1f5f9;color:#334155;border:2px solid #e2e8f0;
+                    {% endif %}"
+             title="Switch to SP {{ sp.cpl }}">
+            <i class="fas fa-layer-group" style="font-size:9px"></i> {{ sp.cpl }}
+          </a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
                 <div class="hero-actions">
       {% if job.status == 'published' %}

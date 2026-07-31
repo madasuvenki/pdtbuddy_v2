@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import re
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
 
@@ -2175,6 +2175,48 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
     # Fallback: ADAS/FLEX/IVI until domains file exists
     return ['ADAS', 'FLEX', 'IVI']
 
+def _get_sp_siblings(primary_target: str) -> list:
+    """Return sibling SP targets for the same program+family (e.g. nord_hgy).
+    Each entry: {target_name, cpl, bu_key, url, active}
+    Ordered by cpl ascending so buttons appear 5.1.7.0 -> 5.1.9.0.
+    """
+    try:
+        import re as _re
+        from dashboard_common import get_mysql_connection_db
+        bu = (get_bu_for_target(primary_target) or 'AUTO').upper()
+        conn = get_mysql_connection_db(bu_key=bu)
+        cur  = conn.cursor(dictionary=True)
+        # Derive family prefix: nord_hgy_adas_5_1_7_0 -> nord_hgy
+        prefix = _re.sub(r'_([a-z]+)_[0-9_]+$', '', primary_target.lower())
+        cur.execute(
+            "SELECT target_name, cpl, bu FROM pdt_stats_dashboard.dashboard_status "
+            "WHERE target_name LIKE %s AND cpl IS NOT NULL AND is_active=1 "
+            "ORDER BY cpl ASC",
+            (prefix + '%',)
+        )
+        rows = cur.fetchall()
+        conn.close()
+        seen_cpl = set()
+        out = []
+        for r in rows:
+            cpl = str(r.get('cpl') or '').strip()
+            tgt = str(r.get('target_name') or '').strip()
+            if not cpl or cpl in seen_cpl:
+                continue
+            seen_cpl.add(cpl)
+            bu_key = (get_bu_for_target(tgt) or bu).upper()
+            out.append({
+                'target_name': tgt,
+                'cpl': cpl,
+                'bu_key': bu_key,
+                'url': '/live_status_view/{}/{}'.format(bu_key, tgt),
+                'active': tgt.lower() == primary_target.lower(),
+            })
+        return out
+    except Exception:
+        return []
+
+
 def _render_published_full_page(job, initial_tab='current', suppress_top_redirect=False):
     """
         Render the canonical Live Status page.
@@ -2241,6 +2283,7 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         # Domains available for this target
         available_domains=_available_sjql_domains(primary_target, is_auto_bu),
         visible_tabs=visible_tabs,
+        sp_siblings=_get_sp_siblings(primary_target) if is_auto_bu else [],
     )
 
 
