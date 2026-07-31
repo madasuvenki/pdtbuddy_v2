@@ -118,6 +118,21 @@
   @media(max-width:900px){.lsp-api-version-card{grid-template-columns:1fr}.lsp-api-actions{justify-content:flex-start}.lsp-api-endpoint code{white-space:normal}}
   .adas-bulk-inp:focus { border-color: #6366f1 !important; outline: none; }
   </style>
+  <script>
+  // Hide the hero header when this page is loaded inside an iframe
+  // (e.g. inside bu_shell_layout.html) to avoid duplicate topbars
+  (function(){
+    try {
+      if (window.self !== window.top) {
+        document.documentElement.classList.add("in-iframe");
+      }
+    } catch(e) { /* cross-origin */ }
+  })();
+  </script>
+  <style>
+  html.in-iframe .hero { display: none !important; }
+  html.in-iframe .tabs { margin-top: 0 !important; }
+  </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
 <div class="shell" {% if embedded_core_deck %}style="padding:0;background:#fff;"{% endif %}>

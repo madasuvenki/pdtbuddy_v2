@@ -2176,9 +2176,10 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
     return ['ADAS', 'FLEX', 'IVI']
 
 def _get_sp_siblings(primary_target: str) -> list:
-    """Return sibling SP targets for the same program+family (e.g. nord_hgy).
-    Each entry: {target_name, cpl, bu_key, url, active}
+    """Return one button per SP version for the same program+family (e.g. nord_hgy).
+    Each entry: {cpl, url, active}
     Ordered by cpl ascending so buttons appear 5.1.7.0 -> 5.1.9.0.
+    The URL points to the first published live-status target for that SP.
     """
     try:
         import re as _re
@@ -2187,30 +2188,43 @@ def _get_sp_siblings(primary_target: str) -> list:
         conn = get_mysql_connection_db(bu_key=bu)
         cur  = conn.cursor(dictionary=True)
         # Derive family prefix: nord_hgy_adas_5_1_7_0 -> nord_hgy
+        # Strip trailing _<domain>_<sp_digits> pattern
         prefix = _re.sub(r'_([a-z]+)_[0-9_]+$', '', primary_target.lower())
         cur.execute(
-            "SELECT target_name, cpl, bu FROM pdt_stats_dashboard.dashboard_status "
+            "SELECT target_name, cpl FROM pdt_stats_dashboard.dashboard_status "
             "WHERE target_name LIKE %s AND cpl IS NOT NULL AND is_active=1 "
-            "ORDER BY cpl ASC",
+            "ORDER BY cpl ASC, target_name ASC",
             (prefix + '%',)
         )
         rows = cur.fetchall()
         conn.close()
-        seen_cpl = set()
-        out = []
+
+        # Group by cpl — pick the first target per SP as the canonical URL
+        seen_cpl = {}
         for r in rows:
             cpl = str(r.get('cpl') or '').strip()
             tgt = str(r.get('target_name') or '').strip()
-            if not cpl or cpl in seen_cpl:
+            if not cpl or not tgt:
                 continue
-            seen_cpl.add(cpl)
-            bu_key = (get_bu_for_target(tgt) or bu).upper()
+            if cpl not in seen_cpl:
+                seen_cpl[cpl] = tgt  # first target for this SP
+
+        if len(seen_cpl) < 2:
+            return []  # only show buttons when there are 2+ SPs
+
+        out = []
+        for cpl, tgt in seen_cpl.items():
+            bu_key = bu
+            # Check if primary_target belongs to this SP
+            is_active = (
+                primary_target.lower() == tgt.lower() or
+                primary_target.lower().startswith(prefix + '_') and
+                primary_target.lower().endswith('_' + cpl.replace('.', '_'))
+            )
             out.append({
-                'target_name': tgt,
                 'cpl': cpl,
-                'bu_key': bu_key,
                 'url': '/live_status_view/{}/{}'.format(bu_key, tgt),
-                'active': tgt.lower() == primary_target.lower(),
+                'active': is_active,
             })
         return out
     except Exception:
