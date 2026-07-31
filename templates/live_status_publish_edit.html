@@ -118,21 +118,6 @@
   @media(max-width:900px){.lsp-api-version-card{grid-template-columns:1fr}.lsp-api-actions{justify-content:flex-start}.lsp-api-endpoint code{white-space:normal}}
   .adas-bulk-inp:focus { border-color: #6366f1 !important; outline: none; }
   </style>
-  <script>
-  // Hide the hero header when this page is loaded inside an iframe
-  // (e.g. inside bu_shell_layout.html) to avoid duplicate topbars
-  (function(){
-    try {
-      if (window.self !== window.top) {
-        document.documentElement.classList.add("in-iframe");
-      }
-    } catch(e) { /* cross-origin */ }
-  })();
-  </script>
-  <style>
-  html.in-iframe .hero { display: none !important; }
-  html.in-iframe .tabs { margin-top: 0 !important; }
-  </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
 <div class="shell" {% if embedded_core_deck %}style="padding:0;background:#fff;"{% endif %}>
@@ -143,7 +128,7 @@
   </div>
   {% endif %}
   {% if not embedded_core_deck %}
-  <header class="hero" {% if suppress_top_redirect %}id="lspHeroHeader" style="display:none"{% else %}id="lspHeroHeader"{% endif %}>
+  <header class="hero" id="lspHeroHeader">
     <div>
       <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Published {{ (job.job_type or 'CRM')|upper }} Live Status</div>
       <h1>{{ (job.name or "Live Status")|upper }}</h1>
@@ -1225,14 +1210,6 @@ saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
 sp_siblings: {{ (sp_siblings or [])|tojson }},
 landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
-// Show hero header after page initialises (hidden on first load to avoid FOUC in iframe)
-document.addEventListener("DOMContentLoaded", function(){
-  var h = document.getElementById("lspHeroHeader");
-  if (!h) return;
-  // If inside iframe, keep hidden; otherwise always show
-  try { if (window.self === window.top) { h.style.display = ""; } }
-  catch(e) { /* cross-origin: keep hidden */ }
-});
 // =======================================================================
 // Current Running Build DB table -- Add Build, detail modal, publish, 15-min JQL
 // =======================================================================
