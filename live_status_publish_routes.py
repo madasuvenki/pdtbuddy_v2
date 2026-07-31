@@ -2177,9 +2177,16 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
 
 def _get_sp_siblings(primary_target: str) -> list:
     """Return one button per SP version for the same program+family (e.g. nord_hgy).
-    Each entry: {cpl, url, active}
+    Each entry: {cpl, url, active, has_job}
     Ordered by cpl ascending so buttons appear 5.1.7.0 -> 5.1.9.0.
-    The URL points to the first published live-status target for that SP.
+
+    URL resolution priority per SP:
+      1. The overall/family target for that SP (target_name == prefix, cpl == sp)
+         e.g. nord_hgy with cpl=5.1.9.0 if it exists
+      2. First domain target alphabetically (e.g. nord_hgy_flex_5_1_9_0)
+
+    active = True when primary_target's own cpl matches this SP's cpl,
+             OR primary_target IS the canonical target for this SP.
     """
     try:
         import re as _re
@@ -2188,7 +2195,6 @@ def _get_sp_siblings(primary_target: str) -> list:
         conn = get_mysql_connection_db(bu_key=bu)
         cur  = conn.cursor(dictionary=True)
         # Derive family prefix: nord_hgy_adas_5_1_7_0 -> nord_hgy
-        # Strip trailing _<domain>_<sp_digits> pattern
         prefix = _re.sub(r'_([a-z]+)_[0-9_]+$', '', primary_target.lower())
         cur.execute(
             "SELECT target_name, cpl FROM pdt_stats_dashboard.dashboard_status "
@@ -2199,32 +2205,56 @@ def _get_sp_siblings(primary_target: str) -> list:
         rows = cur.fetchall()
         conn.close()
 
-        # Group by cpl — pick the first target per SP as the canonical URL
-        seen_cpl = {}
+        # Get current target's own cpl from DB
+        conn2 = get_mysql_connection_db(bu_key=bu)
+        cur2  = conn2.cursor(dictionary=True)
+        cur2.execute(
+            "SELECT cpl FROM pdt_stats_dashboard.dashboard_status "
+            "WHERE target_name=%s LIMIT 1",
+            (primary_target,)
+        )
+        own_row = cur2.fetchone()
+        conn2.close()
+        own_cpl = str((own_row or {}).get('cpl') or '').strip()
+
+        # Group by cpl — prefer overall/family target, else first domain target
+        seen_cpl = {}   # cpl -> target_name
         for r in rows:
             cpl = str(r.get('cpl') or '').strip()
             tgt = str(r.get('target_name') or '').strip()
             if not cpl or not tgt:
                 continue
             if cpl not in seen_cpl:
-                seen_cpl[cpl] = tgt  # first target for this SP
+                seen_cpl[cpl] = tgt          # first seen (alphabetical)
+            # Prefer the overall/family target (no domain suffix)
+            # e.g. nord_hgy_5_1_9_0 over nord_hgy_flex_5_1_9_0
+            sp_slug = cpl.replace('.', '_')
+            if tgt == prefix + '_' + sp_slug:
+                seen_cpl[cpl] = tgt          # exact overall target wins
 
         if len(seen_cpl) < 2:
             return []  # only show buttons when there are 2+ SPs
 
+        # Check which targets have a published/draft live-status job
+        all_jobs = list_jobs()
+        targets_with_jobs = {
+            str(t) for j in all_jobs
+            for t in (j.get('targets') or [])
+        }
+
         out = []
         for cpl, tgt in seen_cpl.items():
-            bu_key = bu
-            # Check if primary_target belongs to this SP
+            has_job = tgt in targets_with_jobs
+            # active when current page's SP matches
             is_active = (
-                primary_target.lower() == tgt.lower() or
-                primary_target.lower().startswith(prefix + '_') and
-                primary_target.lower().endswith('_' + cpl.replace('.', '_'))
+                own_cpl == cpl or
+                primary_target.lower() == tgt.lower()
             )
             out.append({
-                'cpl': cpl,
-                'url': '/live_status_view/{}/{}'.format(bu_key, tgt),
-                'active': is_active,
+                'cpl':     cpl,
+                'url':     '/live_status_view/{}/{}'.format(bu, tgt),
+                'active':  is_active,
+                'has_job': has_job,
             })
         return out
     except Exception:
