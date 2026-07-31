@@ -1003,6 +1003,11 @@ if(document.getElementById('tab-buildreport').classList.contains('active')) bwrL
       <button onclick="lspCloseTopConfig()" style="background:rgba(255,255,255,.2);border:0;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
     </div>
     <div style="padding:20px">
+    <!-- SP Version Switcher -->
+    <div id="lspCfgSpBar" style="display:none;align-items:center;gap:6px;padding:10px 20px 0;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">Switch SP</span>
+      <div id="lspCfgSpBtns" style="display:inline-flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
       <!-- AUTO BU: Domain selector -->
       <div id="lspTopCfgDomainSection">
         <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px"><i class="fas fa-car"></i> Default Domain (Automotive)</div>
@@ -1048,6 +1053,28 @@ if(document.getElementById('tab-buildreport').classList.contains('active')) bwrL
 </div>
 <script>
 // -- Top Config Modal ----------------------------------------------------------
+// SP switcher helper — renders pill buttons in Config + Customize modals
+function _lspRenderSpBar(barId, btnsId){
+  var bar  = document.getElementById(barId);
+  var btns = document.getElementById(btnsId);
+  if(!bar || !btns) return;
+  var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
+  if(siblings.length < 2){ bar.style.display="none"; return; }
+  bar.style.display = "flex";
+  btns.innerHTML = siblings.map(function(sp){
+    var active = !!sp.active;
+    var bg  = active ? "linear-gradient(135deg,#1d4ed8,#4f46e5)" : "#f1f5f9";
+    var col = active ? "#fff" : "#334155";
+    var bdr = active ? "2px solid #3b82f6" : "2px solid #e2e8f0";
+    var shd = active ? "0 2px 8px rgba(37,99,235,.28)" : "none";
+    return '<a href="'+sp.url+'" title="Switch to SP '+sp.cpl+'"'
+      + ' style="display:inline-flex;align-items:center;padding:3px 11px;'
+      + 'border-radius:999px;font-size:11px;font-weight:900;text-decoration:none;'
+      + 'background:'+bg+';color:'+col+';border:'+bdr+';box-shadow:'+shd+'">'
+      + sp.cpl + '</a>';
+  }).join("");
+}
+
 window.lspOpenTopConfig = function(){
 var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
 // AUTO BU: use the full Core Deck Config modal (per-domain table config + overall CR table)
@@ -1093,6 +1120,7 @@ return '<option value="' + t.fq + '"' + sel + '>' + (t.label || t.fq) + '</optio
 if(ovSel) ovSel.innerHTML = '<option value="">-- Could not load tables --</option>';
 if(tgtSel) tgtSel.innerHTML = '<option value="">-- Could not load tables --</option>';
 });
+_lspRenderSpBar('lspCfgSpBar','lspCfgSpBtns');
 modal.style.display = 'flex';
 };
 window.lspCloseTopConfig = function(){
@@ -1173,6 +1201,7 @@ available_domains: {{ (available_domains or [])|tojson }},
 persisted_jql: {{ (job.current_report_jql or '')|tojson }},
 jira_filter_id: {{ jira_pdt_filter_id|tojson }},
 saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
+sp_siblings: {{ (sp_siblings or [])|tojson }},
 landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
 // Show hero header after page initialises (hidden on first load to avoid FOUC in iframe)
@@ -5356,6 +5385,11 @@ window.adasLoadData(false);
       <div style="color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px"><i class="fas fa-sliders-h"></i> Customize Tabs</div>
       <button onclick="lspCloseCustomizeTabs()" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer"><i class="fas fa-times"></i></button>
     </div>
+    <!-- SP Version Switcher -->
+    <div id="lspCzSpBar" style="display:none;align-items:center;gap:6px;padding:10px 20px 4px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">Switch SP</span>
+      <div id="lspCzSpBtns" style="display:inline-flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
     <div style="padding:16px 20px;display:flex;flex-direction:column;gap:7px" id="lspCzRows"></div>
     <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px">
       <span id="lspCzMsg" style="font-size:11px;font-weight:700;flex:1;align-self:center"></span>
@@ -5454,6 +5488,7 @@ if(msg){ msg.textContent = '? Saved'; msg.style.color='#16a34a'; setTimeout(func
 window.lspOpenCustomizeTabs = function(){
 _renderRows(_getHidden());
 var modal = document.getElementById('lspCzModal');
+_lspRenderSpBar('lspCzSpBar','lspCzSpBtns');
 if(modal) modal.style.display='flex';
 };
 window.lspCloseCustomizeTabs = function(){
