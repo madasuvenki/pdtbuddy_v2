@@ -223,6 +223,8 @@
           </select>
         </div>
         <div style="width:1px;height:22px;background:#e2e8f0;flex-shrink:0"></div>
+        <div style="display:flex;align-items:center;gap:6px" id="adasSpSelectorWrap"><label style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">SP</label><select id="adasSpSelect" onchange="adasSwitchSp()" style="border:1.5px solid #a5b4fc;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:#4338ca;background:#eef2ff;outline:none"><option value="">All (Base)</option></select></div>
+        <div style="width:1px;height:22px;background:#e2e8f0;flex-shrink:0"></div>
         <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-filter"></i> Show</span>
         <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
         <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
@@ -1116,6 +1118,34 @@ let _adasRows      = [];    // all rows for current view
 let _adasChart     = null;  // Chart.js instance
 let _adasView      = 'ADAS'; // current view: ADAS / IVI / FLEX — each has its own JSON
 let _adasSp        = (new URLSearchParams(window.location.search)).get('sp') || ''; // active SP CPL e.g. 5.7.7.0
+let _adasSpList=[];
+async function _adasLoadSpList(){
+  try{
+    var r=await fetch('/api/live_status_view/'+encodeURIComponent(TARGET)+'/sp_list');
+    var d=await r.json();
+    if(!d.ok)return;
+    _adasSpList=d.sp_list||[];
+    var sel=document.getElementById('adasSpSelect');
+    var wrap=document.getElementById('adasSpSelectorWrap');
+    if(!sel)return;
+    sel.innerHTML='<option value="">All (Base)</option>';
+    _adasSpList.forEach(function(sp){
+      var lbl=sp.cpl?('SP '+sp.cpl):(sp.display_name||sp.sp_name);
+      var o=document.createElement('option');
+      o.value=sp.cpl||sp.sp_name;
+      o.textContent=lbl;
+      if(o.value===_adasSp)o.selected=true;
+      sel.appendChild(o);
+    });
+    if(wrap)wrap.style.display=(_adasSpList.length>0)?'flex':'none';
+  }catch(e){console.warn('[SP list]',e);}
+}
+function adasSwitchSp(){
+  var sel=document.getElementById('adasSpSelect');
+  _adasSp=sel?sel.value:'';
+  adasLoadData(true);
+}
+
 let _adasNFilter   = 10;    // default: Last 10
 let _adasCrashTypes = ['system','ssr','process']; // which crash types count toward Total Crashes
 let _adasTableRows = [];    // rows shown in table after search
@@ -1403,6 +1433,7 @@ function crAddBuildFromRow(metaId, buildFull, domain){
 
   // Reload ADAS MTBF data for the resolved domain so table/chart stay in sync
   adasLoadData(false);
+_adasLoadSpList();
 
   // Open the shared modal
   document.getElementById('adasModalTitle').textContent = 'Add MTBF Build';
