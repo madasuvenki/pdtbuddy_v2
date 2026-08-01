@@ -1,133 +1,538 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Auto Gen5 Public MTBF API</title><link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+﻿<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auto Gen5 Public MTBF API</title>
+<link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
-.wrap{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
-.hero{border-radius:24px;padding:30px;background:linear-gradient(135deg,#0f172a,#1d4ed8 60%,#7c3aed);color:#fff;margin-bottom:20px}
-.hero h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
-.hero p{margin:0;color:#bfdbfe;font-size:14px;font-weight:600}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(15,23,42,.06)}
-.card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
-.tgt-label{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
-.hqx{background:#dbeafe;color:#1e40af}.hgy{background:#ede9fe;color:#5b21b6}
-table{width:100%;border-collapse:collapse}
-th,td{padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:13px}
-th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
-tr:last-child td{border-bottom:0}
-a.ep{color:#1d4ed8;font-weight:700;font-size:12px;text-decoration:none}
-a.ep:hover{text-decoration:underline}
-.api-row{background:#0f172a;border-radius:12px;padding:12px 16px;margin:10px 0;display:flex;align-items:center;gap:10px}
-.api-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:13px;flex:1;word-break:break-all}
-.get{background:#059669;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;flex-shrink:0}
-pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font-size:12px;overflow:auto;margin:10px 0 0;line-height:1.6}
-.param{font-size:12px;color:#64748b;margin:8px 0 0}.param b{color:#334155}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 20px 80px}
+.hero{border-radius:20px;padding:28px 32px;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#7c3aed 100%);color:#fff;margin-bottom:20px}
+.hero h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
+.hero p{color:#bfdbfe;font-size:13px;font-weight:600}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 22px;margin-bottom:16px;box-shadow:0 2px 12px rgba(15,23,42,.06)}
+.card-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:760px){.grid2{grid-template-columns:1fr}}
-</style></head>
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.tgt{display:inline-block;padding:2px 10px;border-radius:6px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.hqx{background:#dbeafe;color:#1e40af}
+.hgy{background:#ede9fe;color:#5b21b6}
+table{width:100%;border-collapse:collapse}
+th{background:#f8fafc;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;padding:8px 10px;border-bottom:2px solid #e2e8f0;text-align:left}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12.5px;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:#fafbff}
+.mtbf-val{font-weight:900;color:#059669;font-size:13px}
+.meta-cell{font-size:11px;color:#475569;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep-link{color:#1d4ed8;font-weight:700;font-size:11.5px;text-decoration:none;white-space:nowrap}
+.ep-link:hover{text-decoration:underline}
+.sp-pill{display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;font-size:11px;font-weight:800;padding:1px 8px}
+.no-data{color:#94a3b8;font-size:12px;padding:14px 0;text-align:center}
+.badge{display:inline-block;border-radius:5px;font-size:10px;font-weight:900;padding:1px 7px;vertical-align:middle;margin-left:5px}
+.badge-new{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.badge-v2{background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd}
+.ep-block{margin:6px 0}
+.ep-row{background:#0f172a;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.ep-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:12px;flex:1;word-break:break-all;line-height:1.5}
+.method{font-size:9px;font-weight:900;padding:3px 7px;border-radius:4px;flex-shrink:0;letter-spacing:.04em}
+.m-get{background:#059669;color:#fff}
+.m-new{background:#7c3aed;color:#fff}
+.ep-desc{font-size:11.5px;color:#64748b;margin:4px 0 0 4px}
+.sec{font-size:10px;font-weight:900;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 6px;display:flex;align-items:center;gap:6px}
+.sec::after{content:'';flex:1;height:1px;background:#e0e7ff}
+.code-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+@media(max-width:800px){.code-wrap{grid-template-columns:1fr}}
+.code-block{background:#0f172a;border-radius:12px;overflow:hidden}
+.code-header{background:#1e293b;padding:8px 14px;font-size:11px;font-weight:700;color:#94a3b8;display:flex;align-items:center;justify-content:space-between}
+.code-header span{color:#38bdf8;font-family:Consolas,monospace;font-size:11px}
+pre{padding:14px;font-size:11.5px;color:#e2e8f0;font-family:Consolas,monospace;line-height:1.65;overflow:auto;margin:0}
+.k{color:#7dd3fc}.s{color:#86efac}.n{color:#fbbf24}.b{color:#f472b6}.c{color:#64748b}
+.param-table{width:100%;border-collapse:collapse;margin-top:10px}
+.param-table th{background:#f0f4ff;color:#3730a3;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:2px solid #e0e7ff;text-align:left}
+.param-table td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.param-table tr:last-child td{border-bottom:0}
+.p-name{font-family:Consolas,monospace;font-weight:700;color:#1e3a8a}
+.p-type{color:#7c3aed;font-size:10px;font-weight:700}
+.p-opt{color:#94a3b8;font-size:10px}
+.highlight-row{background:#fffbeb!important}
+.highlight-row td{border-left:3px solid #f59e0b}
+</style>
+</head>
 <body><div class="wrap">
-  <div class="hero">
-    <h1><i class="fas fa-chart-line"></i> Auto Gen5 Public MTBF API</h1>
-    <p>No login required &mdash; CORS enabled. Fetch MTBF domain data for Nord HQX and Nord HGY targets.</p>
+
+<div class="hero">
+  <h1><i class="fas fa-chart-line"></i> Auto Gen5 Public MTBF API</h1>
+  <p>No login required &mdash; CORS enabled &mdash; SP-scoped MTBF data for Nord HQX &amp; Nord HGY &mdash; 8 endpoints</p>
+  <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:11px;color:#93c5fd;font-weight:700">Access URLs:</span>
+    <code style="background:rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;font-size:12px">https://pdt-buddy.qualcomm.com/public/auto-gen5</code>
+    <span style="color:#93c5fd;font-size:11px">or (VPN/internal)</span>
+    <code style="background:rgba(255,255,255,.12);color:#fbbf24;padding:3px 10px;border-radius:6px;font-size:12px">{{ base_ip }}/public/auto-gen5</code>
   </div>
-  <div class="grid2">
-    <div class="card">
-      <h2><i class="fas fa-table" style="color:#1e40af"></i> Nord HQX Domains</h2>
-      <span class="tgt-label hqx">target=nord_hqx</span>
-      <table>
-        <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Latest Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
-        <tbody>
-        {% for d in hqx_domains %}
-          <tr>
-            <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
-            <td>{{ d.row_count }}</td>
-            <td style="font-size:11px;color:#475569">{{ d.latest_meta_id }}</td>
-            <td style="font-size:12px">{{ d.latest_date }}</td>
-            <td><b style="color:#059669">{{ d.latest_mtbf }}</b></td>
-            <td><a class="ep" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hqx" target="_blank">/api/domain/{{ d.domain }}</a></td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" style="color:#94a3b8;text-align:center;padding:16px">No domains found.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="card">
-      <h2><i class="fas fa-table" style="color:#5b21b6"></i> Nord HGY Domains</h2>
-      <span class="tgt-label hgy">target=nord_hgy</span>
-      <table>
-        <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Latest Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
-        <tbody>
-        {% for d in hgy_domains %}
-          <tr>
-            <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
-            <td>{{ d.row_count }}</td>
-            <td style="font-size:11px;color:#475569">{{ d.latest_meta_id }}</td>
-            <td style="font-size:12px">{{ d.latest_date }}</td>
-            <td><b style="color:#059669">{{ d.latest_mtbf }}</b></td>
-            <td><a class="ep" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hgy" target="_blank">/api/domain/{{ d.domain }}</a></td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" style="color:#94a3b8;text-align:center;padding:16px">No domains found.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
+</div>
+
+<!-- BASE DOMAIN TABLES -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-table" style="color:#1e40af"></i> Nord HQX &mdash; Base Domains</div>
+    <span class="tgt hqx">target=nord_hqx</span>
+    <table>
+      <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
+      <tbody>
+      {% for d in hqx_domains %}
+        <tr>
+          <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
+          <td style="color:#475569">{{ d.row_count }}</td>
+          <td class="meta-cell" title="{{ d.latest_meta_id }}">{{ d.latest_meta_id }}</td>
+          <td style="font-size:11px;white-space:nowrap">{{ d.latest_date }}</td>
+          <td><span class="mtbf-val">{{ d.latest_mtbf }}</span></td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hqx" target="_blank">/api/domain/{{ d.domain }}</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="no-data">No domains found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
   <div class="card">
-    <h2><i class="fas fa-code" style="color:#6366f1"></i> Endpoints</h2>
-    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:0 0 4px">API 1 &mdash; List domains for a target</p>
-    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div>
-    <p style="font-size:12px;font-weight:800;color:#6366f1;margin:12px 0 4px">API 2 &mdash; Get rows for a domain</p>
-    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
-    <p class="param"><b>target</b> &mdash; nord_hqx or nord_hgy &bull; <b>last_n</b> &mdash; latest N rows (0=all) &bull; <b>summary</b> &mdash; include summary (default true)</p>
+    <div class="card-title"><i class="fas fa-table" style="color:#5b21b6"></i> Nord HGY &mdash; Base Domains</div>
+    <span class="tgt hgy">target=nord_hgy</span>
+    <table>
+      <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
+      <tbody>
+      {% for d in hgy_domains %}
+        <tr>
+          <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
+          <td style="color:#475569">{{ d.row_count }}</td>
+          <td class="meta-cell" title="{{ d.latest_meta_id }}">{{ d.latest_meta_id }}</td>
+          <td style="font-size:11px;white-space:nowrap">{{ d.latest_date }}</td>
+          <td><span class="mtbf-val">{{ d.latest_mtbf }}</span></td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hgy" target="_blank">/api/domain/{{ d.domain }}</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="no-data">No domains found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
-  <div class="grid2">
-    <div class="card">
-      <h2><i class="fas fa-list" style="color:#059669"></i> Sample: /api/domains</h2>
-<pre>{
-  "ok": true,
-  "target": "nord_hqx",
-  "count": 3,
-  "domains": [
-    {
-      "domain": "ADAS",
-      "row_count": 21,
-      "latest_date": "2026-07-10",
-      "latest_meta_id": "SA8797P.HQX.5.7.7.0-00704-",
-      "latest_mtbf": 3.0
-    }
-  ]
-}</pre>
+</div>
+
+<!-- SP-SCOPED TABLES -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-layer-group" style="color:#1e40af"></i> Nord HQX &mdash; SP-Scoped Data</div>
+    <span class="tgt hqx">target=nord_hqx</span>
+    {% if hqx_sps %}
+    <table>
+      <thead><tr><th>SP (CPL)</th><th>Domains</th><th>Rows</th><th>Latest MTBF</th><th>Endpoint</th></tr></thead>
+      <tbody>
+      {% for sp in hqx_sps %}
+        {% for dd in sp.get('domain_details', []) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details', [sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hqx" target="_blank">/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td><span class="sp-pill">{{ sp.cpl }}</span></td>
+          <td style="font-size:11.5px;color:#334155">{{ sp.domains | join(', ') }}</td>
+          <td>&mdash;</td><td>&mdash;</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}?target=nord_hqx" target="_blank">/api/sp/{{ sp.cpl }}</a></td>
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="no-data">No SP-scoped data files found yet.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-layer-group" style="color:#5b21b6"></i> Nord HGY &mdash; SP-Scoped Data</div>
+    <span class="tgt hgy">target=nord_hgy</span>
+    {% if hgy_sps %}
+    <table>
+      <thead><tr><th>SP (CPL)</th><th>Domains</th><th>Rows</th><th>Latest MTBF</th><th>Endpoint</th></tr></thead>
+      <tbody>
+      {% for sp in hgy_sps %}
+        {% for dd in sp.get('domain_details', []) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details', [sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hgy" target="_blank">/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td><span class="sp-pill">{{ sp.cpl }}</span></td>
+          <td style="font-size:11.5px;color:#334155">{{ sp.domains | join(', ') }}</td>
+          <td>&mdash;</td><td>&mdash;</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}?target=nord_hgy" target="_blank">/api/sp/{{ sp.cpl }}</a></td>
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="no-data">No SP-scoped data files found yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ALL ENDPOINTS -->
+<div class="card">
+  <div class="card-title"><i class="fas fa-plug" style="color:#6366f1"></i> All Endpoints <span class="badge badge-v2">v2 &mdash; Aug 2026</span></div>
+
+  <div class="sec">&#9312; Base endpoints &mdash; no SP filter</div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div>
+    <div class="ep-desc">List all domains for a target with row count, latest meta, latest MTBF</div>
+  </div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5</code></div>
+    <div class="ep-desc">Get rows for one domain &mdash; optionally limit to last N rows</div>
+  </div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/search?target=nord_hqx&amp;domain=ADAS&amp;q=00734&amp;limit=10</code></div>
+    <div class="ep-desc">Free-text search across rows in one or all domains</div>
+  </div>
+
+    <div class="sec">&#9313; SP-dedicated endpoints</div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sps?target=nord_hgy</code></div>
+    <div class="ep-desc">List all SPs that have data files &mdash; with per-domain row counts &amp; latest MTBF</div>
+  </div>
+  <div class="ep-block" style="border-left:3px solid #f59e0b;padding-left:8px;border-radius:4px">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.7.7.0/domain/ADAS?target=nord_hqx</code></div>
+    <div class="ep-desc" style="color:#92400e;font-weight:700">&#9733; HQX SP 5.7.7.0 &mdash; ADAS domain MTBF rows</div>
+  </div>
+  <div class="ep-block" style="border-left:3px solid #f59e0b;padding-left:8px;border-radius:4px">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.1.7.0/domain/ADAS?target=nord_hgy</code></div>
+    <div class="ep-desc" style="color:#92400e;font-weight:700">&#9733; HGY SP 5.1.7.0 &mdash; ADAS domain MTBF rows</div>
+  </div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.7.7.0?target=nord_hqx</code></div>
+    <div class="ep-desc">All domains + rows for HQX SP 5.7.7.0 in one call</div>
+  </div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/all?target=nord_hqx&amp;last_n=5</code></div>
+    <div class="ep-desc">Everything in one call &mdash; base domains + all SP domains</div>
+  </div>
+
+    <div class="sec">&#9314; ?sp= filter on existing endpoints</div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;sp=5.7.7.0&amp;last_n=5</code></div>
+    <div class="ep-desc">HQX SP-scoped rows via existing domain endpoint using ?sp= param</div>
+  </div>
+  <div class="ep-block">
+    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hgy&amp;sp=5.1.7.0&amp;last_n=5</code></div>
+    <div class="ep-desc">HGY SP-scoped rows via existing domain endpoint using ?sp= param</div>
+  </div>
+
+  <div class="sec">Query parameters</div>
+  <table class="param-table">
+    <thead><tr><th>Param</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td class="p-name">target</td><td class="p-type">string</td><td class="p-opt">optional</td><td><code>nord_hqx</code> (default) or <code>nord_hgy</code></td></tr>
+      <tr style="background:#fffbeb"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td class="p-opt">optional</td><td>SP CPL like <code>5.1.7.0</code> or compact key <code>5170</code> &mdash; scopes data to that SP&rsquo;s JSON file</td></tr>
+      <tr><td class="p-name">domain</td><td class="p-type">string</td><td class="p-opt">optional</td><td><code>ADAS</code>, <code>FLEX</code>, <code>IVI</code>, <code>CSP</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code></td></tr>
+      <tr><td class="p-name">last_n</td><td class="p-type">integer</td><td class="p-opt">optional</td><td>Return only the latest N rows. <code>0</code> = all (default)</td></tr>
+      <tr><td class="p-name">summary</td><td class="p-type">bool</td><td class="p-opt">optional</td><td>Include summary block. Default <code>true</code></td></tr>
+      <tr><td class="p-name">q</td><td class="p-type">string</td><td class="p-opt">optional</td><td>Free-text search query (search endpoint only)</td></tr>
+      <tr><td class="p-name">limit</td><td class="p-type">integer</td><td class="p-opt">optional</td><td>Max search results. Default <code>50</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- JSON EXAMPLES -->
+<div class="card">
+  <div class="card-title"><i class="fas fa-code" style="color:#6366f1"></i> Request &amp; Response Examples</div>
+
+    <!-- HOW TO GET SP DOMAIN MTBF -->
+  <div class="sec" style="color:#92400e">&#9733; How to get SP domain MTBF data (HQX 5.7.7.0 &amp; HGY 5.1.7.0)</div>
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f">
+    <b>Endpoint:</b> <code style="background:#fef3c7;padding:2px 6px;border-radius:4px">/api/sp/&lt;cpl&gt;/domain/&lt;domain&gt;?target=&lt;target&gt;</code><br>
+    &bull; <b>HQX SP 5.7.7.0:</b> <code>target=nord_hqx&amp;sp=5.7.7.0</code> &mdash; domains: <code>ADAS</code>, <code>FLEX</code>, <code>IVI</code><br>
+    &bull; <b>HGY SP 5.1.7.0:</b> <code>target=nord_hgy&amp;sp=5.1.7.0</code> &mdash; domains: <code>ADAS</code>, <code>CSP</code>, <code>FLEX</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code><br>
+    &bull; <b>HGY SP 5.1.9.0:</b> <code>target=nord_hgy&amp;sp=5.1.9.0</code> &mdash; domains: <code>ADAS</code>, <code>FLEX</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code><br>
+    &bull; CPL (<code>5.7.7.0</code>) and compact key (<code>5770</code>) both work &bull; Add <code>?last_n=5</code> to limit rows
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-block">
+      <div class="code-header">HQX &mdash; SP 5.7.7.0 ADAS<span>GET /api/sp/5.7.7.0/domain/ADAS?target=nord_hqx</span></div>
+<pre><span class="c"># Hostname</span>
+curl "https://pdt-buddy.qualcomm.com\
+  /public/auto-gen5/api/sp/5.7.7.0\
+  /domain/ADAS?target=nord_hqx"
+
+<span class="c"># IP fallback (VPN/internal)</span>
+curl "{{ base_ip }}\
+  /public/auto-gen5/api/sp/5770\
+  /domain/ADAS?target=nord_hqx&amp;last_n=3"</pre>
     </div>
-    <div class="card">
-      <h2><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/domain/ADAS</h2>
+    <div class="code-block">
+      <div class="code-header">Response<span>200 OK &mdash; HQX SP 5.7.7.0 ADAS</span></div>
 <pre>{
-  "ok": true,
-  "target": "nord_hqx",
-  "domain": "ADAS",
-  "row_count": 5,
-  "rows": [
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"target"</span>: <span class="s">"nord_hqx"</span>,
+  <span class="k">"sp"</span>: <span class="s">"5.7.7.0"</span>,
+  <span class="k">"sp_key"</span>: <span class="s">"5770"</span>,
+  <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+  <span class="k">"row_count"</span>: <span class="n">27</span>,
+  <span class="k">"rows"</span>: [
     {
-      "s_no": 21,
-      "date": "2026-07-10",
-      "meta_id": "SA8797P.HQX.5.7.7.0-00704-",
-      "hours": 270,
-      "system_crashes": 65,
-      "ssr_crashes": 0,
-      "process_crashes": 24,
-      "total_crashes": 89,
-      "mtbf": 3.0
+      <span class="k">"s_no"</span>: <span class="n">26</span>,
+      <span class="k">"date"</span>: <span class="s">"2026-07-27"</span>,
+      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0-00734-STD.PVM-1"</span>,
+      <span class="k">"hours"</span>: <span class="n">410</span>,
+      <span class="k">"system_crashes"</span>: <span class="n">77</span>,
+      <span class="k">"ssr_crashes"</span>: <span class="n">0</span>,
+      <span class="k">"process_crashes"</span>: <span class="n">178</span>,
+      <span class="k">"total_crashes"</span>: <span class="n">255</span>,
+      <span class="k">"mtbf"</span>: <span class="n">1.6</span>
+    },
+    {
+      <span class="k">"s_no"</span>: <span class="n">27</span>,
+      <span class="k">"date"</span>: <span class="s">"2026-07-31"</span>,
+      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0.r1-00076-STD.PVM-1"</span>,
+      <span class="k">"hours"</span>: <span class="n">460</span>,
+      <span class="k">"system_crashes"</span>: <span class="n">544</span>,
+      <span class="k">"ssr_crashes"</span>: <span class="n">1316</span>,
+      <span class="k">"process_crashes"</span>: <span class="n">64</span>,
+      <span class="k">"total_crashes"</span>: <span class="n">1924</span>,
+      <span class="k">"mtbf"</span>: <span class="n">0.2</span>
     }
   ],
-  "summary": {
-    "domain": "ADAS",
-    "row_count": 21,
-    "latest_date": "2026-07-10",
-    "latest_meta_id": "SA8797P.HQX.5.7.7.0-00704-",
-    "latest_mtbf": 3.0
+  <span class="k">"summary"</span>: {
+    <span class="k">"cpl"</span>: <span class="s">"5.7.7.0"</span>,
+    <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+    <span class="k">"row_count"</span>: <span class="n">27</span>,
+    <span class="k">"latest_date"</span>: <span class="s">"2026-07-31"</span>,
+    <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span>,
+    <span class="k">"updated_at"</span>: <span class="s">"2026-07-31T09:36:14Z"</span>
   }
 }</pre>
     </div>
   </div>
+
+  <!-- LIST ALL SPs -->
+  <div class="sec">&#9312; GET /api/sps &mdash; discover what SPs exist</div>
+  <div class="code-wrap">
+    <div class="code-block">
+      <div class="code-header">Request<span>GET /api/sps?target=nord_hgy</span></div>
+<pre>curl "https://pdt-buddy.qualcomm.com\
+  /public/auto-gen5/api/sps\
+  ?target=nord_hgy"
+
+<span class="c"># Use this first to see which SPs
+# and domains have data.</span></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Response<span>200 OK</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"target"</span>: <span class="s">"nord_hgy"</span>,
+  <span class="k">"count"</span>: <span class="n">2</span>,
+  <span class="k">"sps"</span>: [
+    {
+      <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>,
+      <span class="k">"sp_key"</span>: <span class="s">"5170"</span>,
+      <span class="k">"domains"</span>: [<span class="s">"ADAS"</span>,<span class="s">"CSP"</span>,<span class="s">"FLEX"</span>,<span class="s">"NONSAFE-IVI"</span>,<span class="s">"SAFE-IVI"</span>],
+      <span class="k">"domain_count"</span>: <span class="n">5</span>,
+      <span class="k">"domain_details"</span>: [
+        {
+          <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>,
+          <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+          <span class="k">"row_count"</span>: <span class="n">8</span>,
+          <span class="k">"latest_date"</span>: <span class="s">"2026-06-26"</span>,
+          <span class="k">"latest_meta_id"</span>: <span class="s">"SA8797P_ADAS.HGY.5.1.7.0.r1-00243-STD.PVM-1"</span>,
+          <span class="k">"latest_mtbf"</span>: <span class="n">29.0</span>,
+          <span class="k">"updated_at"</span>: <span class="s">"2026-08-01T10:42:46Z"</span>
+        },
+        { <span class="k">"domain"</span>: <span class="s">"CSP"</span>, <span class="k">"row_count"</span>: <span class="n">13</span>, <span class="k">"latest_mtbf"</span>: <span class="n">9.9</span> },
+        { <span class="k">"domain"</span>: <span class="s">"FLEX"</span>, <span class="k">"row_count"</span>: <span class="n">8</span>, <span class="k">"latest_mtbf"</span>: <span class="n">1.1</span> },
+        { <span class="k">"domain"</span>: <span class="s">"NONSAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">26</span>, <span class="k">"latest_mtbf"</span>: <span class="n">0.5</span> },
+        { <span class="k">"domain"</span>: <span class="s">"SAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">7</span>, <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span> }
+      ]
+    },
+    {
+      <span class="k">"cpl"</span>: <span class="s">"5.1.9.0"</span>,
+      <span class="k">"sp_key"</span>: <span class="s">"5190"</span>,
+      <span class="k">"domains"</span>: [<span class="s">"ADAS"</span>,<span class="s">"FLEX"</span>,<span class="s">"NONSAFE-IVI"</span>,<span class="s">"SAFE-IVI"</span>],
+      <span class="k">"domain_count"</span>: <span class="n">4</span>
+    }
+  ]
+}</pre>
+    </div>
+  </div>
+
+  <!-- GET ALL SP DOMAINS AT ONCE -->
+  <div class="sec">&#9313; GET /api/sp/5.1.7.0 &mdash; all domains for one SP</div>
+  <div class="code-wrap">
+    <div class="code-block">
+      <div class="code-header">Request<span>GET /api/sp/5.1.7.0?target=nord_hgy</span></div>
+<pre>curl "https://pdt-buddy.qualcomm.com\
+  /public/auto-gen5/api/sp/5.1.7.0\
+  ?target=nord_hgy"
+
+<span class="c"># Returns all 5 domains in one response.
+# Add ?domain=ADAS to filter one domain.
+# Add ?last_n=3 to limit rows per domain.</span></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Response<span>200 OK</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"target"</span>: <span class="s">"nord_hgy"</span>,
+  <span class="k">"sp"</span>: <span class="s">"5.1.7.0"</span>,
+  <span class="k">"sp_key"</span>: <span class="s">"5170"</span>,
+  <span class="k">"domain_count"</span>: <span class="n">5</span>,
+  <span class="k">"domains"</span>: [
+    {
+      <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+      <span class="k">"row_count"</span>: <span class="n">8</span>,
+      <span class="k">"rows"</span>: [ <span class="c">/* 8 rows */</span> ],
+      <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">29.0</span>, <span class="k">"row_count"</span>: <span class="n">8</span> }
+    },
+    {
+      <span class="k">"domain"</span>: <span class="s">"CSP"</span>,
+      <span class="k">"row_count"</span>: <span class="n">13</span>,
+      <span class="k">"rows"</span>: [ <span class="c">/* 13 rows */</span> ],
+      <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">9.9</span>, <span class="k">"row_count"</span>: <span class="n">13</span> }
+    },
+    { <span class="k">"domain"</span>: <span class="s">"FLEX"</span>, <span class="k">"row_count"</span>: <span class="n">8</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">1.1</span> } },
+    { <span class="k">"domain"</span>: <span class="s">"NONSAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">26</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.5</span> } },
+    { <span class="k">"domain"</span>: <span class="s">"SAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">7</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span> } }
+  ]
+}</pre>
+    </div>
+  </div>
+
+  <!-- BASE DOMAIN -->
+  <div class="sec">&#9314; GET /api/domain/ADAS &mdash; base (no SP) domain rows</div>
+  <div class="code-wrap">
+    <div class="code-block">
+      <div class="code-header">Request<span>GET /api/domain/ADAS?target=nord_hqx&amp;last_n=2</span></div>
+<pre>curl "https://pdt-buddy.qualcomm.com\
+  /public/auto-gen5/api/domain/ADAS\
+  ?target=nord_hqx&amp;last_n=2"
+
+<span class="c"># Base domain (no SP filter).
+# Returns combined data across all SPs.</span></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Response<span>200 OK</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"target"</span>: <span class="s">"nord_hqx"</span>,
+  <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+  <span class="k">"row_count"</span>: <span class="n">2</span>,
+  <span class="k">"rows"</span>: [
+    {
+      <span class="k">"s_no"</span>: <span class="n">26</span>,
+      <span class="k">"date"</span>: <span class="s">"2026-07-27"</span>,
+      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0-00734-STD.PVM-1"</span>,
+      <span class="k">"hours"</span>: <span class="n">410</span>,
+      <span class="k">"system_crashes"</span>: <span class="n">77</span>,
+      <span class="k">"ssr_crashes"</span>: <span class="n">0</span>,
+      <span class="k">"process_crashes"</span>: <span class="n">178</span>,
+      <span class="k">"total_crashes"</span>: <span class="n">255</span>,
+      <span class="k">"mtbf"</span>: <span class="n">1.6</span>
+    },
+    {
+      <span class="k">"s_no"</span>: <span class="n">27</span>,
+      <span class="k">"date"</span>: <span class="s">"2026-07-31"</span>,
+      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0.r1-00076-STD.PVM-1"</span>,
+      <span class="k">"hours"</span>: <span class="n">460</span>,
+      <span class="k">"system_crashes"</span>: <span class="n">544</span>,
+      <span class="k">"ssr_crashes"</span>: <span class="n">1316</span>,
+      <span class="k">"process_crashes"</span>: <span class="n">64</span>,
+      <span class="k">"total_crashes"</span>: <span class="n">1924</span>,
+      <span class="k">"mtbf"</span>: <span class="n">0.2</span>
+    }
+  ],
+  <span class="k">"summary"</span>: {
+    <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
+    <span class="k">"row_count"</span>: <span class="n">27</span>,
+    <span class="k">"latest_date"</span>: <span class="s">"2026-07-31"</span>,
+    <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span>,
+    <span class="k">"updated_at"</span>: <span class="s">"2026-07-31T09:36:14Z"</span>
+  }
+}</pre>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="sec">&#9315; Error responses</div>
+  <div class="code-wrap">
+    <div class="code-block">
+      <div class="code-header">SP not found<span>404</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">false</span>,
+  <span class="k">"message"</span>: <span class="s">"SP '5.2.0.0' (key: 5200)
+    not found for target 'nord_hgy'."</span>,
+  <span class="k">"requested_sp"</span>: <span class="s">"5.2.0.0"</span>,
+  <span class="k">"available_sps"</span>: [
+    { <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>, <span class="k">"sp_key"</span>: <span class="s">"5170"</span> },
+    { <span class="k">"cpl"</span>: <span class="s">"5.1.9.0"</span>, <span class="k">"sp_key"</span>: <span class="s">"5190"</span> }
+  ]
+}</pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Domain not found<span>404</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">false</span>,
+  <span class="k">"message"</span>: <span class="s">"Domain 'XYZ' not available
+    for target 'nord_hqx'."</span>,
+  <span class="k">"available_domains"</span>: [
+    <span class="s">"ADAS"</span>, <span class="s">"FLEX"</span>, <span class="s">"IVI"</span>
+  ],
+  <span class="k">"rows"</span>: [],
+  <span class="k">"row_count"</span>: <span class="n">0</span>
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- FIELD REFERENCE -->
+<div class="card">
+  <div class="card-title"><i class="fas fa-list-alt" style="color:#0891b2"></i> Response Field Reference</div>
+  <div class="sec">Row fields</div>
+  <table class="param-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Example</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td class="p-name">s_no</td><td class="p-type">int</td><td><code>8</code></td><td>Row sequence number</td></tr>
+      <tr><td class="p-name">date</td><td class="p-type">string</td><td><code>"2026-06-26"</code></td><td>Test date (YYYY-MM-DD)</td></tr>
+      <tr><td class="p-name">meta_id</td><td class="p-type">string</td><td><code>"SA8797P_ADAS.HGY.5.1.7.0.r1-00243-STD.PVM-1"</code></td><td>Full build / META identifier</td></tr>
+      <tr><td class="p-name">hours</td><td class="p-type">float</td><td><code>58.0</code></td><td>Total test hours</td></tr>
+      <tr><td class="p-name">system_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>System crash count</td></tr>
+      <tr><td class="p-name">ssr_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>SSR crash count</td></tr>
+      <tr><td class="p-name">process_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>Process crash count</td></tr>
+      <tr><td class="p-name">total_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>Sum of all crash types</td></tr>
+      <tr><td class="p-name">mtbf</td><td class="p-type">float</td><td><code>29.0</code></td><td>Mean Time Between Failures (hours)</td></tr>
+      <tr><td class="p-name">crash_types</td><td class="p-type">array</td><td><code>["system","ssr","process"]</code></td><td>Which crash types were counted</td></tr>
+      <tr><td class="p-name">id</td><td class="p-type">string</td><td><code>"20260707125924619647"</code></td><td>Unique row identifier</td></tr>
+      <tr><td class="p-name">domain</td><td class="p-type">string</td><td><code>"ADAS"</code></td><td>Domain this row belongs to</td></tr>
+      <tr style="background:#f0fdf4"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td><code>"5.1.7.0"</code></td><td>SP CPL &mdash; present in SP-endpoint responses only</td></tr>
+      <tr style="background:#f0fdf4"><td class="p-name">sp_key <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td><code>"5170"</code></td><td>Compact SP key &mdash; present in SP-endpoint responses only</td></tr>
+    </tbody>
+  </table>
+  <div class="sec">Summary block fields</div>
+  <table class="param-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td class="p-name">domain</td><td class="p-type">string</td><td>Domain name</td></tr>
+      <tr><td class="p-name">row_count</td><td class="p-type">int</td><td>Total rows in the full file (not filtered by last_n)</td></tr>
+      <tr><td class="p-name">latest_date</td><td class="p-type">string</td><td>Date of the most recent row</td></tr>
+      <tr><td class="p-name">latest_meta_id</td><td class="p-type">string</td><td>Meta ID of the most recent row</td></tr>
+      <tr><td class="p-name">latest_mtbf</td><td class="p-type">float</td><td>MTBF of the most recent row</td></tr>
+      <tr><td class="p-name">updated_at</td><td class="p-type">ISO 8601</td><td>UTC timestamp of last save &mdash; use for cache invalidation</td></tr>
+      <tr style="background:#f0fdf4"><td class="p-name">cpl <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td>SP CPL &mdash; present in SP-endpoint summary blocks only</td></tr>
+    </tbody>
+  </table>
+</div>
+
 </div></body></html>
