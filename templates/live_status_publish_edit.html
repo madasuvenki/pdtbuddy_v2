@@ -1298,7 +1298,7 @@ function _lspRenderSpBar(barId, btnsId){
   var btns = document.getElementById(btnsId);
   if(!bar || !btns) return;
   var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
-  if(siblings.length < 2){ bar.style.display='none'; return; }
+  if(siblings.length < 1){ bar.style.display='none'; return; }  // show even 1 SP (HQX)
   bar.style.display = 'flex';
   var activeCpl = window._activeSp || (window.LSP_DATA && window.LSP_DATA.active_sp_cpl) || '';
   var configs   = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
@@ -6282,7 +6282,7 @@ var bar  = document.getElementById('lspCzSpBar');
 var btns = document.getElementById('lspCzSpBtns');
 if(!bar || !btns) return;
 var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
-if(siblings.length < 2){ bar.style.display='none'; return; }
+if(siblings.length < 1){ bar.style.display='none'; return; }  // show even 1 SP (HQX)
 bar.style.display = 'flex';
 var configs = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
 btns.innerHTML = siblings.map(function(sp){

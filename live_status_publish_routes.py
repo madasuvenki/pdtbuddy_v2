@@ -2263,7 +2263,33 @@ def _get_sp_siblings(primary_target: str) -> list:
                 targets_by_cpl[own_cpl].insert(0, primary_target)
             preferred_by_cpl.setdefault(own_cpl, primary_target)
 
-        if len(targets_by_cpl) < 2:
+        # Filesystem fallback for HQX (no dashboard_status CPL rows)
+        # Scan mtbf_*_<key>.json to discover SPs e.g. mtbf_adas_5770.json -> 5.7.7.0
+        fs_cpls = {}  # populated below if DB had no CPL rows
+        if not targets_by_cpl:
+            try:
+                import os as _os
+                from live_status_view_api import _adas_mtbf_folder as _mtbf_folder
+                folder = _mtbf_folder(primary_target)
+                for fname in _os.listdir(folder):
+                    m = _re.match(r'^mtbf_[a-z\-]+_(\d{4,8})\.json$', fname)
+                    if m:
+                        sp_k = m.group(1)
+                        d = sp_k.ljust(4, '0')[:4]
+                        cpl = d[0]+'.'+d[1]+'.'+d[2]+'.'+d[3]
+                        fs_cpls[cpl] = primary_target
+                for cpl in sorted(fs_cpls):
+                    targets_by_cpl.setdefault(cpl, [primary_target])
+                    preferred_by_cpl.setdefault(cpl, primary_target)
+                if fs_cpls and not own_cpl:
+                    own_cpl = sorted(fs_cpls.keys())[0]
+            except Exception:
+                pass
+
+        # Allow 1 SP when discovered from filesystem (HQX has only 5.7.7.0 currently)
+        # Require 2+ only when coming from DB (HGY has 5.1.7.0 + 5.1.9.0)
+        _min_sps = 1 if fs_cpls else 2
+        if len(targets_by_cpl) < _min_sps:
             return []
 
         # job_targets: any CRM job (active OR revoked/published) so we can
