@@ -1298,7 +1298,10 @@ function _lspRenderSpBar(barId, btnsId){
   var btns = document.getElementById(btnsId);
   if(!bar || !btns) return;
   var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
-  if(siblings.length < 1){ bar.style.display='none'; return; }  // show even 1 SP (HQX)
+  var _canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
+  var _isAuto  = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+  // Always show bar for AUTO BU editors so Add SP is accessible even with 0 siblings
+  if(siblings.length < 1 && !(_canEdit && _isAuto)){ bar.style.display='none'; return; }
   bar.style.display = 'flex';
   var activeCpl = window._activeSp || (window.LSP_DATA && window.LSP_DATA.active_sp_cpl) || '';
   var configs   = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
@@ -6282,7 +6285,9 @@ var bar  = document.getElementById('lspCzSpBar');
 var btns = document.getElementById('lspCzSpBtns');
 if(!bar || !btns) return;
 var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
-if(siblings.length < 1){ bar.style.display='none'; return; }  // show even 1 SP (HQX)
+var _canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
+var _isAuto  = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+if(siblings.length < 1 && !(_canEdit && _isAuto)){ bar.style.display='none'; return; }
 bar.style.display = 'flex';
 var configs = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
 btns.innerHTML = siblings.map(function(sp){
