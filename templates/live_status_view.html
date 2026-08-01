@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -161,6 +161,7 @@
       <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding-top:6px;flex-shrink:0">
+      <a id="lsvSpPageBtn" href="/live_status_view/AUTO/{{ target_name }}/sp" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #a5b4fc;background:linear-gradient(135deg,#eef2ff,#fdf4ff);color:#4338ca;font-weight:900;font-size:12px;text-decoration:none" title="View SP-level MTBF breakdown"><i class="fas fa-layer-group"></i> SP MTBF View</a>
       <button id="lsvCustomizeBtn" onclick="lsvOpenCustomize()"
         style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.12);transition:all .15s">
         <i class="fas fa-sliders-h"></i> Customize Tabs
@@ -1114,6 +1115,7 @@ const ADAS_API_BASE = `/api/live_status_view/${encodeURIComponent(TARGET)}/adas_
 let _adasRows      = [];    // all rows for current view
 let _adasChart     = null;  // Chart.js instance
 let _adasView      = 'ADAS'; // current view: ADAS / IVI / FLEX — each has its own JSON
+let _adasSp        = (new URLSearchParams(window.location.search)).get('sp') || ''; // active SP CPL e.g. 5.7.7.0
 let _adasNFilter   = 10;    // default: Last 10
 let _adasCrashTypes = ['system','ssr','process']; // which crash types count toward Total Crashes
 let _adasTableRows = [];    // rows shown in table after search
@@ -1155,7 +1157,8 @@ async function adasLoadData(force){
   if(sp)  sp.style.display = 'inline';
   if(msg) msg.textContent  = '';
   try{
-    const res  = await fetch(`${ADAS_API_BASE}?view=${encodeURIComponent(_adasView)}`);
+    const _spParam = _adasSp ? ('&sp=' + encodeURIComponent(_adasSp)) : '';
+    const res  = await fetch(`${ADAS_API_BASE}?view=${encodeURIComponent(_adasView)}${_spParam}`);
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'Failed to load ADAS MTBF data');
     _adasRows = data.rows || [];
@@ -1529,6 +1532,7 @@ async function adasSaveModal(){
   const payload = {
     id:              rowId || undefined,
     view:            _adasView,
+    sp:              _adasSp || undefined,
     meta_id:         metaId,
     date:            document.getElementById('adasModalDate').value    || '',
     hours:           document.getElementById('adasModalHours').value   || '',
@@ -1561,7 +1565,7 @@ async function adasSaveModal(){
 async function adasDeleteRow(rowId){
   if(!confirm('Delete this MTBF row?')) return;
   try{
-    const res  = await fetch(`${ADAS_API_BASE}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:rowId, view:_adasView }) });
+    const res  = await fetch(`${ADAS_API_BASE}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:rowId, view:_adasView, sp: _adasSp || undefined }) });
     const data = await res.json();
     if(!data.ok) throw new Error(data.error || 'Delete failed');
     _adasRows = data.rows || [];
