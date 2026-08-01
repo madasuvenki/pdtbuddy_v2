@@ -1034,6 +1034,35 @@ def _render_target_status_page(target_name, initial_tab=None):
     return _render_published_full_page(job, initial_tab or _requested_live_status_tab('mtbf'))
 
 
+
+@live_status_publish_bp.route('/live_status_view/AUTO/<target_name>/sp')
+@live_status_publish_bp.route('/live_status_view/auto/<target_name>/sp')
+@login_required
+def live_status_view_sp_page(target_name):
+    """SP-aware MTBF page for Auto Gen5 targets (nord_hqx / nord_hgy)."""
+    target_name = str(target_name or '').strip()
+    if not target_name:
+        return redirect(url_for('live_status_publish_bp.landing'))
+    if not (current_user.is_authenticated and (
+        _target_group_access() or _can_view_live_status_target(target_name)
+    )):
+        return render_template(
+            'coming_soon_template.html',
+            title='Live Status SP',
+            message='You do not have access to this page.'
+        ), 403
+    from dashboard_common import get_target_info as _gti
+    info = _gti(target_name) or {}
+    display_name = str(info.get('display_name') or target_name).upper()
+    can_edit = current_user.is_authenticated and _target_group_access()
+    return render_template(
+        'live_status_view_sp.html',
+        target_name=target_name,
+        display_name=display_name,
+        can_edit=can_edit,
+    )
+
+
 @live_status_publish_bp.route('/pdt/<target_name>/ext_status')
 
 @live_status_publish_bp.route('/pdt/<target_name>/ext-status')
@@ -2176,90 +2205,125 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
     return ['ADAS', 'FLEX', 'IVI']
 
 def _get_sp_siblings(primary_target: str) -> list:
-    """Return one button per SP version for the same program+family (e.g. nord_hgy).
-    Each entry: {cpl, url, active, has_job}
-    Ordered by cpl ascending so buttons appear 5.1.7.0 -> 5.1.9.0.
+    """Return SP switcher entries for the current NORD/AUTO target family.
 
-    URL resolution priority per SP:
-      1. The overall/family target for that SP (target_name == prefix, cpl == sp)
-         e.g. nord_hgy with cpl=5.1.9.0 if it exists
-      2. First domain target alphabetically (e.g. nord_hgy_flex_5_1_9_0)
-
-    active = True when primary_target's own cpl matches this SP's cpl,
-             OR primary_target IS the canonical target for this SP.
+    The URL must point to the actual Live Status job target. If we link to a
+    dashboard_status target that has no job, editors are redirected to the
+    landing page; therefore a sibling is clickable only when an active CRM job
+    exists for one of that SP's candidate targets.
     """
     try:
         import re as _re
         from dashboard_common import get_mysql_connection_db
+
+        primary_target = str(primary_target or '').strip()
+        if not primary_target:
+            return []
         bu = (get_bu_for_target(primary_target) or 'AUTO').upper()
-        conn = get_mysql_connection_db(bu_key=bu)
-        cur  = conn.cursor(dictionary=True)
-        # Derive family prefix: nord_hgy_adas_5_1_7_0 -> nord_hgy
         prefix = _re.sub(r'_([a-z]+)_[0-9_]+$', '', primary_target.lower())
+
+        conn = get_mysql_connection_db(bu_key=bu)
+        if not conn:
+            return []
+        cur = conn.cursor(dictionary=True)
         cur.execute(
             "SELECT target_name, cpl FROM pdt_stats_dashboard.dashboard_status "
             "WHERE target_name LIKE %s AND cpl IS NOT NULL AND is_active=1 "
             "ORDER BY cpl ASC, target_name ASC",
             (prefix + '%',)
         )
-        rows = cur.fetchall()
-        conn.close()
+        rows = cur.fetchall() or []
 
-        # Get current target's own cpl from DB
-        conn2 = get_mysql_connection_db(bu_key=bu)
-        cur2  = conn2.cursor(dictionary=True)
-        cur2.execute(
+        cur.execute(
             "SELECT cpl FROM pdt_stats_dashboard.dashboard_status "
             "WHERE target_name=%s LIMIT 1",
             (primary_target,)
         )
-        own_row = cur2.fetchone()
-        conn2.close()
-        own_cpl = str((own_row or {}).get('cpl') or '').strip()
+        own_row = cur.fetchone() or {}
+        conn.close()
+        own_cpl = str(own_row.get('cpl') or '').strip()
 
-        # Group by cpl — prefer overall/family target, else first domain target
-        seen_cpl = {}   # cpl -> target_name
+        targets_by_cpl = {}
+        preferred_by_cpl = {}
         for r in rows:
             cpl = str(r.get('cpl') or '').strip()
             tgt = str(r.get('target_name') or '').strip()
             if not cpl or not tgt:
                 continue
-            if cpl not in seen_cpl:
-                seen_cpl[cpl] = tgt          # first seen (alphabetical)
-            # Prefer the overall/family target (no domain suffix)
-            # e.g. nord_hgy_5_1_9_0 over nord_hgy_flex_5_1_9_0
-            sp_slug = cpl.replace('.', '_')
-            if tgt == prefix + '_' + sp_slug:
-                seen_cpl[cpl] = tgt          # exact overall target wins
+            targets_by_cpl.setdefault(cpl, [])
+            if tgt not in targets_by_cpl[cpl]:
+                targets_by_cpl[cpl].append(tgt)
+            preferred_by_cpl.setdefault(cpl, tgt)
+            if tgt.lower() == prefix + '_' + cpl.replace('.', '_'):
+                preferred_by_cpl[cpl] = tgt
 
-        if len(seen_cpl) < 2:
-            return []  # only show buttons when there are 2+ SPs
+        if own_cpl:
+            targets_by_cpl.setdefault(own_cpl, [])
+            if primary_target not in targets_by_cpl[own_cpl]:
+                targets_by_cpl[own_cpl].insert(0, primary_target)
+            preferred_by_cpl.setdefault(own_cpl, primary_target)
 
-        # Check which targets have a published/draft live-status job
-        all_jobs = list_jobs()
-        targets_with_jobs = {
-            str(t) for j in all_jobs
-            for t in (j.get('targets') or [])
-        }
+        if len(targets_by_cpl) < 2:
+            return []
+
+        # job_targets: any CRM job (active OR revoked/published) so we can
+        # build a URL for every SP that ever had a job.
+        # active_job_targets: only active jobs (used to decide is_active).
+        job_targets = {}
+        active_job_targets = {}
+        for job in list_jobs():
+            if _job_type(job) != 'CRM':
+                continue
+            for t in (job.get('targets') or []):
+                t = str(t or '').strip()
+                if not t:
+                    continue
+                job_targets.setdefault(t.lower(), t)
+                if _is_active_job(job):
+                    active_job_targets.setdefault(t.lower(), t)
+        # Always include primary_target itself as a known job target
+        job_targets.setdefault(primary_target.lower(), primary_target)
+        active_job_targets.setdefault(primary_target.lower(), primary_target)
 
         out = []
-        for cpl, tgt in seen_cpl.items():
-            has_job = tgt in targets_with_jobs
-            # active when current page's SP matches
+        for idx, cpl in enumerate(targets_by_cpl.keys()):
+            candidates = targets_by_cpl.get(cpl) or []
+            candidate_lowers = {t.lower() for t in candidates}
+
+            # Use any job (incl. revoked) for URL; active-only for is_active
+            job_target = next((job_targets.get(t.lower()) for t in candidates if job_targets.get(t.lower())), '')
+            if not job_target:
+                slug = cpl.replace('.', '_')
+                job_target = next((real for low, real in job_targets.items() if low.startswith(prefix) and slug in low), '')
+
+            active_target = next((active_job_targets.get(t.lower()) for t in candidates if active_job_targets.get(t.lower())), '')
+            if not active_target:
+                slug = cpl.replace('.', '_')
+                active_target = next((real for low, real in active_job_targets.items() if low.startswith(prefix) and slug in low), '')
+
             is_active = (
-                own_cpl == cpl or
-                primary_target.lower() == tgt.lower()
+                own_cpl == cpl
+                or primary_target.lower() in candidate_lowers
+                or bool(active_target and primary_target.lower() == active_target.lower())
             )
+            if is_active and not job_target:
+                job_target = primary_target
+
+            route_bu = (get_bu_for_target(job_target) or bu or 'AUTO').upper() if job_target else bu
+            url = '' if is_active else ('/live_status_view/{}/{}'.format(route_bu, job_target) if job_target else '')
+
             out.append({
-                'cpl':     cpl,
-                'url':     '/live_status_view/{}/{}'.format(bu, tgt),
-                'active':  is_active,
-                'has_job': has_job,
+                'cpl': cpl,
+                'target': job_target or preferred_by_cpl.get(cpl, ''),
+                'url': url,
+                'active': is_active,
+                'has_job': bool(job_target),
+                'color_idx': idx % 6,
             })
         return out
     except Exception:
+        logger.exception('[LIVE STATUS SP] failed to build SP siblings for %s', primary_target)
         return []
-
 
 def _render_published_full_page(job, initial_tab='current', suppress_top_redirect=False):
     """
@@ -2268,7 +2332,9 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     """
 
     primary_target = (job.get('targets') or [''])[0]
-    initial_tab = _normal_live_status_tab(initial_tab, 'mtbf')
+    # Default to 'core' for AUTO BU, 'current' for ENG, 'mtbf' otherwise
+    _default_tab = 'core' if _is_core_deck_target(primary_target) else 'mtbf'
+    initial_tab = _normal_live_status_tab(initial_tab, _default_tab)
 
     embedded_core_deck = str(request.args.get('embed') or '').lower() in ('1', 'true', 'yes') and initial_tab == 'core'
 
@@ -2317,17 +2383,16 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
         is_compute_mtbf=is_compute_mtbf,
         is_auto_bu=is_auto_bu,
         is_eng_job=_job_type(job) == 'ENG',
-                can_edit=can_edit,
+        can_edit=can_edit,
         initial_tab=initial_tab,
-
-
-        mtbf_only=(initial_tab == 'mtbf' and _job_type(job) != 'ENG'),
+        mtbf_only=False,  # tab visibility controlled client-side via Customize Tabs
         embedded_core_deck=embedded_core_deck,
         suppress_top_redirect=suppress_top_redirect,
         # Domains available for this target
         available_domains=_available_sjql_domains(primary_target, is_auto_bu),
         visible_tabs=visible_tabs,
         sp_siblings=_get_sp_siblings(primary_target) if is_auto_bu else [],
+        sp_configs=job.get('sp_configs') or {},
     )
 
 
@@ -3232,9 +3297,28 @@ def api_published_open_crs_full(job_id=None, target_name=None):
             cur.execute('SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1', (schema, table_name))
             return cur.fetchone() is not None
 
-        table_name = f'{prefix}_unique_crs'
-        if not _tbl_exists(table_name):
-            return jsonify({'success': True, 'target': target, 'rows': [], 'message': f'Table not found: {schema}.{table_name}'})
+        # SP-aware table selection: use sp_configs if sp param provided
+        sp_param = str(request.args.get('sp') or '').strip()
+        domain_low = (domain_filter or 'ADAS').lower()
+        sp_cfg = {}
+        if sp_param:
+            sp_cfg = ((job.get('sp_configs') or {}).get(sp_param) or {})
+        # Build candidate table list - when SP is given, NEVER fall back to default table
+        table_candidates = []
+        if sp_cfg.get(domain_low + '_uniq_table'):
+            # sp_configs stores fully-qualified: pdt_stats_auto.nord_hgy_flex_5_1_9_0_unique_crs
+            fq = sp_cfg[domain_low + '_uniq_table']
+            table_candidates.append(fq.split('.')[-1])
+        if not sp_param:
+            # No SP - use domain-specific then default fallback
+            if domain_filter: table_candidates.append(f'{prefix}_{domain_filter.lower()}_unique_crs')
+            table_candidates.append(f'{prefix}_unique_crs')
+        elif not table_candidates:
+            # SP given but no table in sp_configs - try pattern-based name only
+            table_candidates.append(f'{prefix}_{domain_low}_{sp_param.replace(".","_")}_unique_crs')
+        table_name = next((t for t in table_candidates if _tbl_exists(t)), None)
+        if not table_name:
+            return jsonify({'success': True, 'target': target, 'rows': [], 'message': 'No unique_crs table found'})
         tbl = f'`{schema}`.`{table_name}`'
         cur.execute(f'SHOW COLUMNS FROM {tbl}')
         cols = {r.get('Field') for r in (cur.fetchall() or []) if r.get('Field')}
@@ -3989,6 +4073,148 @@ def _get_job_file_for_target(target_name: str):
     return best_job, best_path
 
 
+# ---------------------------------------------------------------------------
+# SP Config API  — get and save per-SP table config inside the job JSON
+# ---------------------------------------------------------------------------
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/sp_configs', methods=['GET'])
+@login_required
+def api_get_sp_configs(target_name):
+    job, _ = _get_job_file_for_target(target_name)
+    if not job:
+        return jsonify({'ok': False, 'error': 'No job found'}), 404
+    sp_configs = job.get('sp_configs') or {}
+    sp_siblings = _get_sp_siblings(target_name)
+    return jsonify({'ok': True, 'sp_configs': sp_configs, 'sp_siblings': sp_siblings})
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/sp_tables', methods=['GET'])
+@login_required
+def api_get_sp_tables(target_name):
+    """Return all DB tables for this target grouped by SP and domain.
+    Pattern: <prefix>_<domain>_<sp_slug>_<suffix>
+    e.g. nord_hgy_adas_5_1_7_0_crs, nord_hgy_flex_5_1_9_0_openjiras
+    """
+    import re as _re
+    from dashboard_common import get_mysql_connection_db
+    target = str(target_name or '').strip().lower()
+    if not target:
+        return jsonify({'ok': False, 'error': 'target required'}), 400
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify({'ok': False, 'error': 'DB connection failed'}), 500
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES '
+            'WHERE TABLE_NAME LIKE %s ORDER BY TABLE_SCHEMA, TABLE_NAME',
+            (target.replace('_', r'\_') + '%',)
+        )
+        all_tables = [(r[0], r[1]) for r in (cur.fetchall() or [])]
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        logger.exception('[SP TABLES] %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    # Suffixes we care about per domain
+    # IMPORTANT: longer suffixes first - 'unique_crs' ends with 'crs', 'closed_jiras' ends with 'jiras'
+    SUFFIXES = ['unique_crs', 'closed_jiras', 'openjiras', 'crs', 'jiras']
+    DOMAINS  = ['adas', 'flex', 'ivi']
+
+    # Group tables: result[sp_cpl][domain][suffix] = 'schema.table'
+    result = {}
+    for schema, tname in all_tables:
+        tl = tname.lower()
+        # Match pattern: <target>_<domain>_<sp_slug>_<suffix>
+        # e.g. nord_hgy_adas_5_1_7_0_crs
+        for dom in DOMAINS:
+            dom_prefix = target + '_' + dom + '_'
+            if not tl.startswith(dom_prefix):
+                continue
+            rest = tl[len(dom_prefix):]  # e.g. '5_1_7_0_crs'
+            for suf in SUFFIXES:
+                if rest.endswith('_' + suf):
+                    sp_slug = rest[: -(len(suf) + 1)]  # e.g. '5_1_7_0'
+                    sp_cpl  = sp_slug.replace('_', '.')  # e.g. '5.1.7.0'
+                    fq = schema + '.' + tname
+                    result.setdefault(sp_cpl, {}).setdefault(dom.upper(), {})[suf] = fq
+                    break
+
+    return jsonify({'ok': True, 'tables': result, 'target': target_name})
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/add_sp', methods=['POST'])
+@login_required
+def api_add_sp(target_name):
+    """Insert a new SP (cpl) row into dashboard_status for this target."""
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    payload = request.get_json(silent=True) or {}
+    cpl = str(payload.get('cpl') or '').strip()
+    import re as _re
+    if not cpl or not _re.match(r'^\d+\.\d+\.\d+\.\d+$', cpl):
+        return jsonify({'ok': False, 'error': 'Invalid CPL format. Use e.g. 5.1.9.0'}), 400
+    target = str(target_name or '').strip()
+    if not target:
+        return jsonify({'ok': False, 'error': 'target required'}), 400
+    try:
+        from dashboard_common import get_mysql_connection_db
+        bu = (get_bu_for_target(target) or 'AUTO').upper()
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify({'ok': False, 'error': 'DB connection failed'}), 500
+        cur = conn.cursor()
+        # Check if already exists
+        cur.execute(
+            'SELECT id FROM pdt_stats_dashboard.dashboard_status '
+            'WHERE target_name=%s AND cpl=%s LIMIT 1',
+            (target, cpl)
+        )
+        existing = cur.fetchone()
+        if existing:
+            # Re-activate if inactive
+            cur.execute(
+                'UPDATE pdt_stats_dashboard.dashboard_status '
+                'SET is_active=1 WHERE target_name=%s AND cpl=%s',
+                (target, cpl)
+            )
+            conn.commit()
+            cur.close(); conn.close()
+            return jsonify({'ok': True, 'cpl': cpl, 'action': 'reactivated'})
+        # Insert new row
+        cur.execute(
+            'INSERT INTO pdt_stats_dashboard.dashboard_status '
+            '(target_name, cpl, bu, is_active) VALUES (%s, %s, %s, 1)',
+            (target, cpl, bu)
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        logger.info('[ADD SP] %s added cpl=%s to target=%s', getattr(current_user,'id','?'), cpl, target)
+        return jsonify({'ok': True, 'cpl': cpl, 'action': 'inserted'})
+    except Exception as exc:
+        logger.exception('[ADD SP] %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/sp_configs', methods=['POST'])
+@login_required
+def api_save_sp_configs(target_name):
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    job, _ = _get_job_file_for_target(target_name)
+    if not job:
+        return jsonify({'ok': False, 'error': 'No job found'}), 404
+    payload = request.get_json(silent=True) or {}
+    sp_configs = payload.get('sp_configs') or {}
+    if not isinstance(sp_configs, dict):
+        return jsonify({'ok': False, 'error': 'sp_configs must be a dict'}), 400
+    from live_status_publish_service import save_job_meta
+    saved = save_job_meta(job['id'], {'sp_configs': sp_configs})
+    if not saved:
+        return jsonify({'ok': False, 'error': 'Save failed'}), 500
+    return jsonify({'ok': True, 'sp_configs': saved.get('sp_configs') or {}})
+
+
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/save', methods=['POST'])
 @login_required
 def api_save_job(target_name):
@@ -4107,6 +4333,7 @@ def api_build_wise_report(target_name):
 
     selected_build = (request.args.get('build') or '').strip()
     domain_filter  = (request.args.get('domain') or '').strip().upper()
+    sp_filter      = (request.args.get('sp') or '').strip()          # e.g. 5.1.9.0
     ct_raw         = (request.args.get('crash_types') or 'system,ssr,process,open_jira').strip()
     crash_types    = {c.strip().lower() for c in ct_raw.split(',') if c.strip()} or {'system','ssr','process','open_jira'}
 
@@ -4119,9 +4346,54 @@ def api_build_wise_report(target_name):
 
     sc  = schema.strip('`')
     tgt = target.strip('`.')
-    jiras_tbl  = f'`{sc}`.`{tgt}_jiras`'
-    open_tbl   = f'`{sc}`.`{tgt}_openjiras`'
-    unique_tbl = f'`{sc}`.`{tgt}_unique_crs`'
+
+        # SP-aware table selection: use sp_configs tables when sp param provided
+    def _sp_tables(sp, domain, sc, tgt):
+        """Return list of (jiras_tbl, open_tbl, unique_tbl) tuples for the given SP+domain.
+        When domain is empty (All), returns tables for every configured domain.
+        """
+        if not sp:
+            # No SP - use default tables (all domains mixed)
+            return [(f'`{sc}`.`{tgt}_jiras`',
+                     f'`{sc}`.`{tgt}_openjiras`',
+                     f'`{sc}`.`{tgt}_unique_crs`')]
+        sp_cfg = ((job.get('sp_configs') or {}).get(sp) or {})
+        if not domain:
+            # All domains - collect every domain that has tables configured
+            seen, result = set(), []
+            for dom_key in ['adas', 'flex', 'ivi', 'csp', 'safe-ivi', 'nonsafe-ivi']:
+                j_fq = sp_cfg.get(dom_key + '_jiras_table', '')
+                o_fq = sp_cfg.get(dom_key + '_openjiras_table', '')
+                u_fq = sp_cfg.get(dom_key + '_uniq_table', '')
+                if j_fq or o_fq:
+                    j_tbl = f'`{sc}`.`{j_fq.split(".")[-1]}`' if j_fq else f'`{sc}`.`{tgt}_{dom_key}_{sp.replace(".","_")}_jiras`'
+                    o_tbl = f'`{sc}`.`{o_fq.split(".")[-1]}`' if o_fq else f'`{sc}`.`{tgt}_{dom_key}_{sp.replace(".","_")}_openjiras`'
+                    u_tbl = f'`{sc}`.`{u_fq.split(".")[-1]}`' if u_fq else f'`{sc}`.`{tgt}_{dom_key}_{sp.replace(".","_")}_unique_crs`'
+                    key = j_tbl
+                    if key not in seen:
+                        seen.add(key)
+                        result.append((j_tbl, o_tbl, u_tbl))
+            if result:
+                return result
+            # No sp_configs entries - fall back to default tables
+            return [(f'`{sc}`.`{tgt}_jiras`',
+                     f'`{sc}`.`{tgt}_openjiras`',
+                     f'`{sc}`.`{tgt}_unique_crs`')]
+        # Specific domain requested
+        dom_low = domain.lower()
+        def _tbl(key, fallback):
+            fq = sp_cfg.get(dom_low + key, '')
+            if fq:
+                return f'`{sc}`.`{fq.split(".")[-1]}`'
+            sp_slug = sp.replace('.', '_')
+            return f'`{sc}`.`{tgt}_{dom_low}_{sp_slug}{fallback}`'
+        return [(_tbl('_jiras_table', '_jiras'),
+                 _tbl('_openjiras_table', '_openjiras'),
+                 _tbl('_uniq_table', '_unique_crs'))]
+
+    table_sets = _sp_tables(sp_filter, domain_filter, sc, tgt)
+    # Primary tables (first set) used for unique_crs lookup
+    jiras_tbl, open_tbl, unique_tbl = table_sets[0]
 
     cur = conn.cursor(dictionary=True)
 
@@ -4257,40 +4529,41 @@ def api_build_wise_report(target_name):
         all_jira_rows  = []   # from jiras table
         all_open_rows  = []   # from openjiras table
 
-        for tbl, store, source in [(jiras_tbl, 'jira', 'jira'), (open_tbl, 'openjira', 'openjira')]:
-            if not _tbl_exists(tbl):
-                continue
-            cols   = _table_cols(tbl)
-            sel    = [c for c in base_cols + extra_cr_cols if c in cols]
-            if not sel:
-                continue
-            mb_col = next((c for c in ('metabuild','MetaBuild','meta_build') if c in cols), None)
-            if not mb_col:
-                continue
-            try:
-                if selected_build:
-                    tail = _norm_build(selected_build)
-                    cur.execute(
-                        f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
-                        f'WHERE `{mb_col}` LIKE %s ORDER BY jira_date DESC LIMIT 5000',
-                        (f'%{tail}%',)
-                    )
-                else:
-                    cur.execute(
-                        f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
-                        f'ORDER BY jira_date DESC LIMIT 30000'
-                    )
-                for row in _ser_rows(cur.fetchall() or []):
-                    row['_source']     = source
-                    row['_build']      = _norm_build(row.get(mb_col) or '')
-                    row['_crash_type'] = 'open_jira' if source == 'openjira' else _crash_type_from_title(row.get('jira_title') or '')
-                    row['_domain_raw'] = str(row.get('application_domain') or '').strip().upper()
-                    if source == 'jira':
-                        all_jira_rows.append(row)
+        for jiras_tbl, open_tbl, unique_tbl in table_sets:
+            for tbl, store, source in [(jiras_tbl, 'jira', 'jira'), (open_tbl, 'openjira', 'openjira')]:
+                if not _tbl_exists(tbl):
+                    continue
+                cols   = _table_cols(tbl)
+                sel    = [c for c in base_cols + extra_cr_cols if c in cols]
+                if not sel:
+                    continue
+                mb_col = next((c for c in ('metabuild','MetaBuild','meta_build') if c in cols), None)
+                if not mb_col:
+                    continue
+                try:
+                    if selected_build:
+                        tail = _norm_build(selected_build)
+                        cur.execute(
+                            f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
+                            f'WHERE `{mb_col}` LIKE %s ORDER BY jira_date DESC LIMIT 5000',
+                            (f'%{tail}%',)
+                        )
                     else:
-                        all_open_rows.append(row)
-            except Exception as e:
-                logger.warning('[BUILD_WISE] %s error: %s', tbl, e)
+                        cur.execute(
+                            f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
+                            f'ORDER BY jira_date DESC LIMIT 30000'
+                        )
+                    for row in _ser_rows(cur.fetchall() or []):
+                        row['_source']     = source
+                        row['_build']      = _norm_build(row.get(mb_col) or '')
+                        row['_crash_type'] = 'open_jira' if source == 'openjira' else _crash_type_from_title(row.get('jira_title') or '')
+                        row['_domain_raw'] = str(row.get('application_domain') or '').strip().upper()
+                        if source == 'jira':
+                            all_jira_rows.append(row)
+                        else:
+                            all_open_rows.append(row)
+                except Exception as e:
+                    logger.warning('[BUILD_WISE] %s error: %s', tbl, e)
 
         all_rows = all_jira_rows + all_open_rows
 

@@ -2190,6 +2190,156 @@ def core_deck_overallcrs_tables():
     return jsonify({'ok': True, 'target': requested_target, 'tables': results})
 
 
+def _config_table_family_tokens(target_name: str) -> list:
+    """Specific program tokens used to scope config tables (HGY vs HQX, etc.)."""
+    info = dc.get_target_info(target_name) or {}
+    tokens = []
+    for raw in (target_name, info.get('db_prefix'), info.get('db_name'), info.get('target_display'), info.get('display_name'), info.get('sp_name'), info.get('program')):
+        text = _safe_str(raw).lower()
+        for part in re.split(r'[^a-z0-9]+', text):
+            if 2 < len(part) <= 8 and not part.isdigit() and part not in {'nord', 'pdt', 'auto', 'core', 'deck', 'sa8297p', 'sa8797p', 'sa8650p', 'sa8775p'}:
+                if part not in tokens:
+                    tokens.append(part)
+    preferred = [t for t in tokens if re.fullmatch(r'h[a-z0-9]{2,5}', t)]
+    return preferred or tokens[:3]
+
+
+
+
+def _config_table_sp_tokens(target_name: str) -> list:
+    """Return selected-SP tokens used only for ranking/filtering Config choices.
+
+    Examples: cpl=5.1.7.0 -> 5_1_7_0, 5170, 5.1.7.0.
+    The table query still falls back to family tokens, but these tokens make the
+    selected SP's tables appear first and let the UI hide old-SP target names.
+    """
+    target = _safe_str(target_name)
+    info = dc.get_target_info(target) or {}
+    raw_values = [
+        target,
+        info.get('db_prefix'), info.get('db_name'), info.get('target_display'),
+        info.get('display_name'), info.get('sp_name'), info.get('program'), info.get('cpl'),
+    ]
+    try:
+        schema = _safe_str(dc.get_schema_for_target(target)).strip('`') or 'pdt_stats_auto'
+        conn = dc.get_mysql_connection_db(database_name=schema)
+        if conn:
+            cur = conn.cursor(dictionary=True)
+            try:
+                cur.execute(
+                    "SELECT cpl, sp_name, target_display, db_name FROM pdt_stats_dashboard.dashboard_status "
+                    "WHERE LOWER(target_name)=LOWER(%s) LIMIT 1",
+                    (target,)
+                )
+                row = cur.fetchone() or {}
+                raw_values.extend([row.get('cpl'), row.get('sp_name'), row.get('target_display'), row.get('db_name')])
+            finally:
+                try:
+                    cur.close(); conn.close()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    tokens = []
+    for raw in raw_values:
+        text = _safe_str(raw).lower()
+        if not text:
+            continue
+        for m in re.finditer(r'\d+(?:[._-]\d+){2,4}', text):
+            val = m.group(0).strip('._-')
+            forms = {val, val.replace('.', '_').replace('-', '_'), val.replace('_', '.').replace('-', '.'), re.sub(r'[^0-9]', '', val)}
+            for form in forms:
+                if form and form not in tokens:
+                    tokens.append(form)
+    return tokens
+
+def _config_table_kind(table_name: str) -> str:
+    low = _safe_str(table_name).lower()
+    compact = re.sub(r'[^a-z0-9]+', '', low)
+    if ('overall' in compact and 'cr' in compact) or low.endswith(('overallcrs', 'overall_crs')):
+        return 'overallcrs'
+    if any(x in compact for x in ('openjiras', 'openjira', 'jopen')) or 'open_jira' in low or 'open_jiras' in low:
+        return 'openjiras'
+    if 'jira' in compact or low.endswith('_jiras') or low.endswith('_jira'):
+        if 'closed' not in compact:
+            return 'jiras'
+    return ''
+
+
+@core_deck_bp.route('/api/core_deck/config_tables')
+@login_required
+def core_deck_config_tables():
+    """Return HGY/HQX-scoped table options for page Config."""
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    requested_target = _safe_str(request.args.get('target'))
+    if not requested_target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+
+    schema = _safe_str(dc.get_schema_for_target(requested_target)).strip('`') or 'pdt_stats_auto'
+    tokens = _config_table_family_tokens(requested_target)
+    sp_tokens = _config_table_sp_tokens(requested_target)
+    search_tokens = list(dict.fromkeys((tokens or []) + (sp_tokens or []))) or tokens
+    buckets = {'jiras': [], 'openjiras': [], 'overallcrs': []}
+    seen = set()
+    conn = dc.get_mysql_connection_db(database_name=schema)
+    if conn:
+        cur = conn.cursor(dictionary=True)
+
+        try:
+            like_parts = []
+            params = [schema]
+            for token in search_tokens:
+                like_parts.append('LOWER(table_name) LIKE %s')
+                params.append(f'%{token.lower()}%')
+            token_sql = ' OR '.join(like_parts) if like_parts else '1=1'
+            cur.execute(
+                f"""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema=%s
+                  AND ({token_sql})
+                  AND (
+                    LOWER(table_name) LIKE '%%jira%%'
+                    OR LOWER(table_name) LIKE '%%jopen%%'
+                    OR LOWER(table_name) LIKE '%%overall%%cr%%'
+                  )
+                ORDER BY table_name
+                LIMIT 1000
+                """,
+                tuple(params),
+            )
+            for row in cur.fetchall() or []:
+                table = _safe_str(row.get('table_name'))
+                kind = _config_table_kind(table)
+                if not kind:
+                    continue
+                fq = f'{schema}.{table}'
+                if fq.lower() in seen:
+                    continue
+                seen.add(fq.lower())
+                buckets[kind].append({'fq': fq, 'schema': schema, 'table': table, 'label': fq})
+        except Exception as exc:
+            return jsonify({'ok': False, 'error': str(exc), 'target': requested_target, 'family_tokens': tokens, 'tables': buckets}), 500
+        finally:
+            try:
+                cur.close(); conn.close()
+            except Exception:
+                pass
+
+    def _sort_key(item):
+        low = (item.get('table') or '').lower()
+        compact = re.sub(r'[^a-z0-9]+', '', low)
+        sp_score = 0 if any(t and (t.lower() in low or re.sub(r'[^a-z0-9]+', '', t.lower()) in compact) for t in sp_tokens) else 1
+        fam_score = 0 if any(re.search(r'(^|_)' + re.escape(t) + r'(_|$)', low) or t in low for t in tokens) else 1
+        return (sp_score, fam_score, low)
+
+    for key in buckets:
+        buckets[key].sort(key=_sort_key)
+    return jsonify({'ok': True, 'target': requested_target, 'schema': schema, 'family_tokens': tokens, 'sp_tokens': sp_tokens, 'tables': buckets})
+
+
 @core_deck_bp.route('/api/core_deck/build_options')
 @login_required
 def core_deck_build_options():

@@ -5653,10 +5653,35 @@ def api_dashboard_open_jiras(target_name):
         schema = get_schema_for_target(target_name) or "pdt_stats_mobile"
         tgt    = target_name.strip("`.").lower().replace("-", "_").replace(" ", "_")
         sch_plain = schema.strip("`")
-        tbl_plain = f"{tgt}_openjiras"
+        # SP-aware table selection
+        sp_param   = (request.args.get('sp') or '').strip()
+        dom_param  = (request.args.get('domain') or '').strip().upper()
+        dom_low    = dom_param.lower() if dom_param else 'adas'
+        sp_cfg     = {}
+        if sp_param:
+            from live_status_publish_service import list_jobs as _lj
+            _job = next((j for j in (_lj() or []) if tgt in [str(t).lower() for t in (j.get('targets') or [])]), {})
+            sp_cfg = ((_job.get('sp_configs') or {}).get(sp_param) or {})
+        # Build candidate table list - when SP is given, NEVER fall back to default table
+        tbl_candidates = []
+        if sp_cfg.get(dom_low + '_openjiras_table'):
+            fq = sp_cfg[dom_low + '_openjiras_table']
+            tbl_candidates.append(fq.split('.')[-1])
+        if not sp_param:
+            if dom_param: tbl_candidates.append(f'{tgt}_{dom_low}_openjiras')
+            tbl_candidates.append(f'{tgt}_openjiras')
+        elif not tbl_candidates:
+            tbl_candidates.append(f'{tgt}_{dom_low}_{sp_param.replace(".","_")}_openjiras')
+        cur = conn.cursor(dictionary=True)
+        def _tbl_ok(t):
+            cur.execute('SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1', (sch_plain, t))
+            return bool(cur.fetchone())
+        tbl_plain = next((t for t in tbl_candidates if _tbl_ok(t)), None)
+        if not tbl_plain:
+            return jsonify({"success": True, "rows": [], "area_summary": [],
+                            "message": "Open JIRAs table not available for this target."})
         open_tbl  = f"`{sch_plain}`.`{tbl_plain}`"
 
-        cur = conn.cursor(dictionary=True)
         cur.execute(
             "SELECT 1 FROM information_schema.tables "
             "WHERE table_schema=%s AND table_name=%s LIMIT 1",

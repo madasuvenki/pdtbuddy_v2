@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+  <title>{{ display_name }} — SP MTBF</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}
+    .shell{padding:16px 22px 60px}
+
+    /* ── Hero ── */
+    .hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#fff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18);margin-bottom:14px;flex-wrap:wrap}
+    .hero-left .eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}
+    .hero-left h1{font-size:22px;color:#1e3a8a;font-weight:950}
+    .hero-left p{font-size:12px;color:#64748b;margin-top:3px}
+    .hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none}
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}
+    .btn-green{border:0;color:#fff;background:linear-gradient(135deg,#059669,#0d9488)}
+    .btn-red{border:0;color:#fff;background:linear-gradient(135deg,#dc2626,#b91c1c)}
+
+    /* ── SP Switcher ── */
+    .sp-switcher{background:#fff;border:2px solid #a5b4fc;border-radius:18px;padding:14px 18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(99,102,241,.10)}
+    .sp-switcher-title{font-size:11px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+    .sp-btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .sp-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;border:2px solid #c7d2fe;background:#fff;color:#1e3a8a;transition:all .15s;font-family:inherit}
+    .sp-btn:hover{border-color:#6366f1;background:#eef2ff}
+    .sp-btn.active{background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border-color:#6366f1;box-shadow:0 6px 18px rgba(37,99,235,.28)}
+    .sp-btn.c0{--ac:#1d4ed8} .sp-btn.c1{--ac:#7c3aed} .sp-btn.c2{--ac:#0e7490}
+    .sp-btn.c3{--ac:#c2410c} .sp-btn.c4{--ac:#be185d} .sp-btn.c5{--ac:#15803d}
+    .sp-add-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:999px;border:2px dashed #a5b4fc;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit}
+    .sp-add-btn:hover{background:#e0e7ff;border-color:#6366f1}
+    .sp-loading{font-size:12px;color:#94a3b8;font-style:italic}
+
+    /* ── Domain tabs ── */
+    .domain-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+    .dom-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 16px;border-radius:999px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;transition:all .15s}
+    .dom-btn:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
+    .dom-btn.active{background:#4f46e5;color:#fff;border-color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,.25)}
+    .flt-btn{padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;transition:all .15s}
+    .flt-btn:hover{border-color:#6366f1;color:#4f46e5}
+    .flt-btn.active{background:#eef2ff;color:#4f46e5;border-color:#6366f1}
+
+    /* ── Card ── */
+    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}
+    .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}
+    .card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}
+    .card-body{padding:16px 18px}
+    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+    /* ── Chart ── */
+    .chart-wrap{overflow-x:auto;padding:12px;min-height:340px}
+    .chart-wrap canvas{display:block;height:320px}
+
+    /* ── Table ── */
+    .tbl-wrap{overflow:auto;width:100%}
+    table.tbl{width:100%;border-collapse:collapse;font-size:12px}
+    table.tbl th{padding:10px 12px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap;position:sticky;top:0;z-index:2}
+    table.tbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}
+    table.tbl tr:hover td{background:#f8fbff}
+    .empty{text-align:center;padding:42px;color:#94a3b8}
+    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:4px 10px;font-size:11px;font-weight:850;color:#1e2f55}
+    .spin{animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Crash type checkboxes ── */
+    .ct-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-bottom:1px solid #e0e7ff}
+    .ct-lbl{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;cursor:pointer;border:1.5px solid;border-radius:8px;padding:4px 10px;background:#fff}
+    .ct-sys{color:#dc2626;border-color:#fca5a5}
+    .ct-ssr{color:#d97706;border-color:#fcd34d}
+    .ct-proc{color:#7c3aed;border-color:#c4b5fd}
+
+    /* ── Bulk Edit Modal ── */
+    .modal-backdrop{display:none;position:fixed;inset:0;z-index:3000;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:20px;overflow:auto}
+    .modal-backdrop.open{display:flex}
+    .modal-card{width:min(1100px,98vw);background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(15,23,42,.35);display:flex;flex-direction:column;max-height:calc(100vh - 40px);overflow:hidden}
+    .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;background:linear-gradient(135deg,#0f172a,#1e3a8a);flex-shrink:0}
+    .modal-head-title{font-size:15px;font-weight:950;color:#fff}
+    .modal-head-sub{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px}
+    .modal-body{overflow:auto;flex:1}
+    .modal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 22px;border-top:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0;flex-wrap:wrap}
+    .bulk-tbl{width:100%;min-width:860px;border-collapse:collapse;font-size:12px}
+    .bulk-tbl th{padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:linear-gradient(180deg,#f0f4ff,#f8fafc);position:sticky;top:0;z-index:5}
+    .bulk-tbl td{padding:4px 6px;border-bottom:1px solid #f1f5f9}
+    .bulk-inp{width:100%;height:30px;border:1.5px solid #e2e8f0;border-radius:7px;padding:0 8px;font-family:inherit;font-size:12px;outline:none}
+    .bulk-inp:focus{border-color:#6366f1;background:#f5f3ff}
+
+    /* ── Add SP modal ── */
+    .sp-modal-backdrop{display:none;position:fixed;inset:0;z-index:4000;background:rgba(15,23,42,.55);align-items:center;justify-content:center}
+    .sp-modal-backdrop.open{display:flex}
+    .sp-modal-card{background:#fff;border-radius:16px;width:min(420px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden}
+    .sp-modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff}
+    .sp-modal-body{padding:18px}
+    .form-row{margin-bottom:12px}
+    .form-lbl{font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;display:block}
+    .form-inp{width:100%;height:36px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:13px;outline:none}
+    .form-inp:focus{border-color:#a5b4fc;background:#f5f3ff}
+
+    /* ── No SP selected state ── */
+    .no-sp-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px;color:#94a3b8}
+    .no-sp-state i{font-size:48px;opacity:.25}
+    .no-sp-state p{font-size:14px;font-weight:700}
+
+    /* ── Status message ── */
+    #statusMsg{font-size:12px;font-weight:800;min-height:18px}
+    .msg-ok{color:#059669} .msg-err{color:#dc2626} .msg-info{color:#4338ca}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Hero ── -->
+  <header class="hero">
+    <div class="hero-left">
+      <div class="eyebrow"><i class="fas fa-car"></i> Auto Gen5 — SP MTBF</div>
+      <h1 id="heroTitle">{{ display_name }}</h1>
+      <p id="heroSub">Select an SP below to view and edit its MTBF data</p>
+    </div>
+    <div class="hero-actions">
+      <a class="btn" href="/live_status_view/AUTO/{{ target_name }}"><i class="fas fa-arrow-left"></i> Back to Live Status</a>
+      <a class="btn" href="/live_status_view"><i class="fas fa-house"></i> All Reports</a>
+      <span id="statusMsg" class="msg-info"></span>
+    </div>
+  </header>
+
+  <!-- ── SP Switcher ── -->
+  <div class="sp-switcher">
+    <div class="sp-switcher-title">
+      <i class="fas fa-layer-group"></i> Select SP
+      <span id="spLoadSpinner" style="display:none"><i class="fas fa-circle-notch spin" style="color:#6366f1"></i></span>
+    </div>
+    <div class="sp-btn-row" id="spBtnRow">
+      <span class="sp-loading">Loading SP list…</span>
+    </div>
+  </div>
+
+  <!-- ── Main content (hidden until SP selected) ── -->
+  <div id="mainContent" style="display:none">
+
+    <!-- Domain + filter bar -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">Domain</span>
+      <div class="domain-bar" id="domainBar" style="margin-bottom:0"></div>
+      <span style="width:1px;height:20px;background:#e2e8f0"></span>
+      <button class="flt-btn" data-n="5"  onclick="setFilter(5,this)">Last 5</button>
+      <button class="flt-btn active" data-n="10" onclick="setFilter(10,this)">Last 10</button>
+      <button class="flt-btn" data-n="20" onclick="setFilter(20,this)">Last 20</button>
+      <button class="flt-btn" data-n="0"  onclick="setFilter(0,this)">All</button>
+      <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
+      <span id="mtbfMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
+    </div>
+
+    <!-- MTBF Chart card -->
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend — <span id="chartSpLabel">—</span></h2>
+        <div class="mini-toolbar">
+          <button class="btn" onclick="copyChart()"><i class="fas fa-image"></i> Copy Chart</button>
+          <button class="btn" onclick="refreshData()"><i class="fas fa-rotate"></i> Refresh</button>
+        </div>
+      </div>
+      <!-- Crash type checkboxes -->
+      <div class="ct-bar">
+        <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-bug"></i> Include in Total Crashes</span>
+        <label class="ct-lbl ct-sys"><input type="checkbox" id="ck_system" checked onchange="onCrashTypeChange()"> System</label>
+        <label class="ct-lbl ct-ssr"><input type="checkbox" id="ck_ssr"    checked onchange="onCrashTypeChange()"> SSR</label>
+        <label class="ct-lbl ct-proc"><input type="checkbox" id="ck_process" checked onchange="onCrashTypeChange()"> Process</label>
+        <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly — does not modify saved data</span>
+      </div>
+      <div class="chart-wrap"><canvas id="mtbfCanvas"></canvas><div id="mtbfEmpty" class="empty" style="display:none">No MTBF data for this SP / domain.</div></div>
+    </div>
+
+    <!-- MTBF Table card -->
+    <div class="card">
+      <div class="card-head">
+        <h2><i class="fas fa-table" style="color:#059669"></i> MTBF Build Table — <span id="tableSpLabel">—</span></h2>
+        <div class="mini-toolbar">
+          <input id="tableSearch" placeholder="Search meta / build…" oninput="filterTable()"
+                 style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px;min-width:180px">
+          <span id="tableCount" class="pill"></span>
+          <button class="btn" onclick="copyTable()"><i class="fas fa-copy"></i> Copy</button>
+          {% if can_edit %}
+          <button class="btn btn-primary" onclick="openBulkEdit()"><i class="fas fa-table-cells"></i> Edit Table</button>
+          {% endif %}
+        </div>
+      </div>
+      <div style="overflow:auto;max-height:calc(100vh - 220px)">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="text-align:center;width:44px">S.No.</th>
+              <th>Date</th>
+              <th>Build ID / Meta-ID</th>
+              <th style="text-align:right">Hours</th>
+              <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5">System</th>
+              <th style="text-align:center;color:#d97706;background:#fffbeb">SSR</th>
+              <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5">Process</th>
+              <th style="text-align:center">Total Crashes</th>
+              <th style="text-align:center">MTBF</th>
+            </tr>
+          </thead>
+          <tbody id="mtbfTbody">
+            <tr><td colspan="9" class="empty">Select an SP to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /mainContent -->
+
+  <!-- No SP selected placeholder -->
+  <div id="noSpState" class="no-sp-state">
+    <i class="fas fa-layer-group"></i>
+    <p>Select an SP above to view its MTBF data</p>
+    <p style="font-size:12px">Each SP has its own independent MTBF table per domain (ADAS / FLEX / IVI)</p>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ══════════════════════════════════════════════════════════
+     Bulk Edit Modal
+══════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="bulkModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <div class="modal-head-title"><i class="fas fa-table-cells"></i> Edit MTBF Table — <span id="bulkModalLabel">—</span></div>
+        <div class="modal-head-sub">Edit all rows inline · Tab to move · Click <strong style="color:#86efac">Save All</strong> to persist</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-green" onclick="bulkAddRow()"><i class="fas fa-plus"></i> Add Row</button>
+        <button class="btn btn-primary" id="bulkSaveBtn" onclick="bulkSaveAll()"><i class="fas fa-save"></i> Save All</button>
+        <button class="btn" onclick="closeBulkEdit()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff"><i class="fas fa-times"></i> Close</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:800;color:#64748b"><i class="fas fa-circle-info" style="color:#6366f1"></i> Click any cell to edit · Delete row with <i class="fas fa-trash" style="color:#dc2626"></i></span>
+      <span id="bulkRowCount" class="pill"></span>
+      <span id="bulkMsg" style="font-size:12px;font-weight:800"></span>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <table class="bulk-tbl">
+        <thead>
+          <tr>
+            <th style="width:44px;text-align:center">#</th>
+            <th>Date</th><th>Meta-ID</th>
+            <th style="text-align:right">Hours</th>
+            <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5">System</th>
+            <th style="text-align:center;color:#d97706;background:#fffbeb">SSR</th>
+            <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5">Process</th>
+            <th style="text-align:center">Total Crashes</th>
+            <th style="text-align:center">MTBF</th>
+            <th style="width:44px"></th>
+          </tr>
+        </thead>
+        <tbody id="bulkBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     Add SP Modal
+══════════════════════════════════════════════════════════ -->
+<div class="sp-modal-backdrop" id="addSpModal">
+  <div class="sp-modal-card">
+    <div class="sp-modal-head">
+      <span style="font-size:14px;font-weight:950"><i class="fas fa-plus-circle"></i> Add SP</span>
+      <button onclick="closeAddSpModal()" style="background:rgba(255,255,255,.2);border:0;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="sp-modal-body">
+      <div class="form-row">
+        <label class="form-lbl">SP Name <span style="color:#dc2626">*</span></label>
+        <input class="form-inp" id="addSpName" placeholder="e.g. SA8797P.HQX.5.7.7.0" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label class="form-lbl">CPL / Version (optional)</label>
+        <input class="form-inp" id="addSpCpl" placeholder="e.g. 5.7.7.0" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn" onclick="closeAddSpModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmAddSp()"><i class="fas fa-check"></i> Add SP</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   State
+══════════════════════════════════════════════════════════ */
+const TARGET   = {{ target_name | tojson }};
+const CAN_EDIT = {{ 'true' if can_edit else 'false' }};
+const API      = '/api/live_status_view/' + encodeURIComponent(TARGET);
+
+let spList      = [];          // [{sp_name, cpl, display_name, slug}, …]
+let activeSp    = null;        // currently selected sp_name
+let activeDomain = 'ADAS';
+let domains     = ['ADAS', 'FLEX', 'IVI'];
+let nFilter     = 10;
+let allRows     = [];          // full rows for active SP+domain
+let filteredRows = [];
+let chart       = null;
+let bulkRows    = [];          // rows in bulk edit modal
+
+/* ══════════════════════════════════════════════════════════
+   Helpers
+══════════════════════════════════════════════════════════ */
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+function setStatus(msg, cls){ const el=document.getElementById('statusMsg'); el.textContent=msg; el.className=cls||'msg-info'; }
+function setMsg(id, msg, cls){ const el=document.getElementById(id); if(el){el.textContent=msg; el.className=cls||'msg-info';} }
+
+function crashTypes(){
+  const t=[];
+  if(document.getElementById('ck_system').checked)  t.push('system');
+  if(document.getElementById('ck_ssr').checked)     t.push('ssr');
+  if(document.getElementById('ck_process').checked) t.push('process');
+  return t;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SP List — load from API
+══════════════════════════════════════════════════════════ */
+function loadSpList(){
+  document.getElementById('spLoadSpinner').style.display='';
+  fetch(API + '/sp_list')
+    .then(r=>r.json())
+    .then(d=>{
+      document.getElementById('spLoadSpinner').style.display='none';
+      if(!d.ok){ setStatus('SP list error: '+(d.error||'unknown'),'msg-err'); return; }
+      spList = d.sp_list || [];
+      renderSpButtons();
+    })
+    .catch(e=>{ document.getElementById('spLoadSpinner').style.display='none'; setStatus('Network error: '+e,'msg-err'); });
+}
+
+const SP_COLORS = ['c0','c1','c2','c3','c4','c5'];
+
+function renderSpButtons(){
+  const row = document.getElementById('spBtnRow');
+  if(!spList.length){ row.innerHTML='<span class="sp-loading">No SPs found for this target.</span>'; return; }
+  let html = spList.map((sp,i)=>{
+    const label = sp.cpl ? 'SP '+sp.cpl : (sp.display_name || sp.sp_name);
+    const cls   = SP_COLORS[i % SP_COLORS.length];
+    const active = activeSp === sp.sp_name ? ' active' : '';
+    return `<button class="sp-btn ${cls}${active}" onclick="selectSp(${JSON.stringify(sp.sp_name)})" title="${esc(sp.sp_name)}">`
+          +`<i class="fas fa-layer-group" style="font-size:11px"></i> ${esc(label)}</button>`;
+  }).join('');
+  if(CAN_EDIT){
+    html += `<button class="sp-add-btn" onclick="openAddSpModal()"><i class="fas fa-plus"></i> Add SP</button>`;
+  }
+  row.innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Select SP
+══════════════════════════════════════════════════════════ */
+function selectSp(spName){
+  activeSp = spName;
+  renderSpButtons();
+  // Update labels
+  const sp = spList.find(s=>s.sp_name===spName) || {display_name: spName};
+  const label = sp.cpl ? 'SP '+sp.cpl+' — '+sp.sp_name : sp.display_name || sp.sp_name;
+  document.getElementById('chartSpLabel').textContent = label;
+  document.getElementById('tableSpLabel').textContent = label;
+  document.getElementById('heroSub').textContent = 'SP: ' + label;
+  // Load domains then data
+  loadDomains();
+}
+
+/* ══════════════════════════════════════════════════════════
+   Domains
+══════════════════════════════════════════════════════════ */
+function loadDomains(){
+  fetch(API + '/adas_mtbf/domains')
+    .then(r=>r.json())
+    .then(d=>{
+      domains = (d.ok && d.domains && d.domains.length) ? d.domains : ['ADAS','FLEX','IVI'];
+      if(!domains.includes(activeDomain)) activeDomain = domains[0];
+      renderDomainBar();
+      loadMtbf();
+    })
+    .catch(()=>{ domains=['ADAS','FLEX','IVI']; renderDomainBar(); loadMtbf(); });
+}
+
+const DOM_ICONS = {ADAS:'fa-car', FLEX:'fa-microchip', IVI:'fa-display'};
+
+function renderDomainBar(){
+  const bar = document.getElementById('domainBar');
+  bar.innerHTML = domains.map(d=>{
+    const icon = DOM_ICONS[d] || 'fa-circle';
+    const active = d===activeDomain ? ' active' : '';
+    return `<button class="dom-btn${active}" onclick="setDomain('${esc(d)}')">`
+          +`<i class="fas ${icon}"></i> ${esc(d)}</button>`;
+  }).join('');
+}
+
+function setDomain(d){
+  activeDomain = d;
+  renderDomainBar();
+  loadMtbf();
+}
+
+/* ══════════════════════════════════════════════════════════
+   Filter (last N)
+══════════════════════════════════════════════════════════ */
+function setFilter(n, btn){
+  nFilter = n;
+  document.querySelectorAll('.flt-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderChart();
+  renderTable();
+}
+
+/* ══════════════════════════════════════════════════════════
+   Load MTBF data for active SP + domain
+══════════════════════════════════════════════════════════ */
+function loadMtbf(){
+  if(!activeSp){ return; }
+  document.getElementById('mtbfSpinner').style.display='';
+  setMsg('mtbfMsg','Loading…','msg-info');
+  const ct = crashTypes().join(',');
+  const url = API+'/sp_mtbf?sp_name='+encodeURIComponent(activeSp)
+             +'&domain='+encodeURIComponent(activeDomain)
+             +'&crash_types='+encodeURIComponent(ct);
+  fetch(url)
+    .then(r=>r.json())
+    .then(d=>{
+      document.getElementById('mtbfSpinner').style.display='none';
+      if(!d.ok){ setMsg('mtbfMsg','Error: '+(d.error||'unknown'),'msg-err'); return; }
+      allRows = d.rows || [];
+      setMsg('mtbfMsg', allRows.length ? allRows.length+' rows' : 'No data yet', allRows.length?'msg-ok':'msg-info');
+      document.getElementById('mainContent').style.display='';
+      document.getElementById('noSpState').style.display='none';
+      renderChart();
+      renderTable();
+    })
+    .catch(e=>{ document.getElementById('mtbfSpinner').style.display='none'; setMsg('mtbfMsg','Network error','msg-err'); });
+}
+
+function refreshData(){ loadMtbf(); }
+
+function onCrashTypeChange(){ loadMtbf(); }
+
+/* ══════════════════════════════════════════════════════════
+   Chart
+══════════════════════════════════════════════════════════ */
+function getDisplayRows(){
+  const rows = nFilter > 0 ? allRows.slice(-nFilter) : allRows;
+  return rows;
+}
+
+function computeChartData(rows){
+  const ct = crashTypes();
+  return rows.map(r=>{
+    const sys  = parseInt(r.system_crashes||0);
+    const ssr  = parseInt(r.ssr_crashes||0);
+    const proc = parseInt(r.process_crashes||0);
+    let total  = 0;
+    if(ct.includes('system'))  total+=sys;
+    if(ct.includes('ssr'))     total+=ssr;
+    if(ct.includes('process')) total+=proc;
+    const hours = parseFloat(r.hours||0);
+    const mtbf  = total>0 && hours>0 ? Math.round(hours/total*100)/100 : parseFloat(r.mtbf||0);
+    return {label: r.meta_id||r.build_id||'', mtbf, hours, total};
+  });
+}
+
+function renderChart(){
+  const rows = getDisplayRows();
+  const data = computeChartData(rows);
+  const canvas = document.getElementById('mtbfCanvas');
+  const empty  = document.getElementById('mtbfEmpty');
+  if(!data.length){ canvas.style.display='none'; empty.style.display=''; if(chart){chart.destroy();chart=null;} return; }
+  canvas.style.display=''; empty.style.display='none';
+  const labels = data.map(d=>d.label);
+  const mtbfs  = data.map(d=>d.mtbf);
+  const hours  = data.map(d=>d.hours);
+  if(chart){ chart.destroy(); }
+  chart = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'line', label:'MTBF (hrs)', data:mtbfs, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,.12)',
+         borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#6366f1', tension:.35, yAxisID:'yMtbf', order:1},
+        {type:'bar',  label:'Hours',      data:hours,  backgroundColor:'rgba(16,185,129,.25)', borderColor:'#10b981',
+         borderWidth:1.5, yAxisID:'yHours', order:2},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'top'}, tooltip:{mode:'index',intersect:false}},
+      scales:{
+        yMtbf:{type:'linear',position:'left',title:{display:true,text:'MTBF (hrs)',color:'#6366f1'},grid:{color:'rgba(99,102,241,.08)'}},
+        yHours:{type:'linear',position:'right',title:{display:true,text:'Hours',color:'#10b981'},grid:{drawOnChartArea:false}},
+        x:{ticks:{maxRotation:45,font:{size:10}}}
+      }
+    }
+  });
+}
+
+function copyChart(){
+  const canvas = document.getElementById('mtbfCanvas');
+  canvas.toBlob(blob=>{
+    try{ navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); setStatus('Chart copied!','msg-ok'); }
+    catch(e){ setStatus('Copy not supported in this browser','msg-err'); }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   Table
+══════════════════════════════════════════════════════════ */
+function filterTable(){
+  const q = (document.getElementById('tableSearch').value||'').toLowerCase();
+  filteredRows = q ? allRows.filter(r=>(r.meta_id||r.build_id||'').toLowerCase().includes(q)) : allRows;
+  renderTable();
+}
+
+function renderTable(){
+  const rows = nFilter>0 ? (filteredRows.length?filteredRows:allRows).slice(-nFilter) : (filteredRows.length?filteredRows:allRows);
+  filteredRows = filteredRows.length ? filteredRows : allRows;
+  const ct = crashTypes();
+  const tbody = document.getElementById('mtbfTbody');
+  document.getElementById('tableCount').textContent = rows.length+' rows';
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="empty">No data for this SP / domain.</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r,i)=>{
+    const sys  = parseInt(r.system_crashes||0);
+    const ssr  = parseInt(r.ssr_crashes||0);
+    const proc = parseInt(r.process_crashes||0);
+    let total  = 0;
+    if(ct.includes('system'))  total+=sys;
+    if(ct.includes('ssr'))     total+=ssr;
+    if(ct.includes('process')) total+=proc;
+    const hours = parseFloat(r.hours||0);
+    const mtbf  = total>0&&hours>0 ? (Math.round(hours/total*100)/100) : parseFloat(r.mtbf||0);
+    return `<tr>
+      <td style="text-align:center;color:#94a3b8">${i+1}</td>
+      <td>${esc(r.date||'')}</td>
+      <td style="font-weight:800;color:#1e3a8a;word-break:break-all">${esc(r.meta_id||r.build_id||'')}</td>
+      <td style="text-align:right">${hours||''}</td>
+      <td style="text-align:center;color:#dc2626;background:#fff8f8">${sys||''}</td>
+      <td style="text-align:center;color:#d97706;background:#fffdf0">${ssr||''}</td>
+      <td style="text-align:center;color:#7c3aed;background:#fdf8ff">${proc||''}</td>
+      <td style="text-align:center;font-weight:900">${total||''}</td>
+      <td style="text-align:center;font-weight:950;color:#059669">${mtbf||''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function copyTable(){
+  const rows = nFilter>0 ? allRows.slice(-nFilter) : allRows;
+  const header = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+  const lines  = [header.join('\t')];
+  rows.forEach((r,i)=>{
+    lines.push([i+1, r.date||'', r.meta_id||r.build_id||'', r.hours||'',
+                r.system_crashes||'', r.ssr_crashes||'', r.process_crashes||'',
+                r.total_crashes||'', r.mtbf||''].join('\t'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>setStatus('Table copied!','msg-ok'));
+}
+
+/* ══════════════════════════════════════════════════════════
+   Bulk Edit Modal
+══════════════════════════════════════════════════════════ */
+function openBulkEdit(){
+  if(!activeSp){ setStatus('Select an SP first','msg-err'); return; }
+  bulkRows = allRows.map(r=>Object.assign({},r));
+  renderBulkTable();
+  const sp = spList.find(s=>s.sp_name===activeSp)||{display_name:activeSp};
+  const label = (sp.cpl?'SP '+sp.cpl+' — ':'')+activeSp+' / '+activeDomain;
+  document.getElementById('bulkModalLabel').textContent = label;
+  document.getElementById('bulkModal').classList.add('open');
+}
+
+function closeBulkEdit(){
+  document.getElementById('bulkModal').classList.remove('open');
+}
+
+function renderBulkTable(){
+  document.getElementById('bulkRowCount').textContent = bulkRows.length+' rows';
+  const tbody = document.getElementById('bulkBody');
+  if(!bulkRows.length){ tbody.innerHTML='<tr><td colspan="10" class="empty">No rows yet. Click Add Row.</td></tr>'; return; }
+  tbody.innerHTML = bulkRows.map((r,i)=>`
+    <tr id="brow_${i}">
+      <td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>
+      <td><input class="bulk-inp" value="${esc(r.date||'')}" oninput="bulkRows[${i}].date=this.value" placeholder="YYYY-MM-DD"></td>
+      <td><input class="bulk-inp" value="${esc(r.meta_id||r.build_id||'')}" oninput="bulkRows[${i}].meta_id=this.value" placeholder="Build / Meta-ID"></td>
+      <td><input class="bulk-inp" type="number" step="0.1" value="${r.hours||''}" oninput="bulkRows[${i}].hours=this.value" style="text-align:right" placeholder="0"></td>
+      <td style="background:#fff8f8"><input class="bulk-inp" type="number" value="${r.system_crashes||''}" oninput="bulkRows[${i}].system_crashes=this.value;bulkAutoCalc(${i})" style="text-align:center;color:#dc2626" placeholder="0"></td>
+      <td style="background:#fffdf0"><input class="bulk-inp" type="number" value="${r.ssr_crashes||''}" oninput="bulkRows[${i}].ssr_crashes=this.value;bulkAutoCalc(${i})" style="text-align:center;color:#d97706" placeholder="0"></td>
+      <td style="background:#fdf8ff"><input class="bulk-inp" type="number" value="${r.process_crashes||''}" oninput="bulkRows[${i}].process_crashes=this.value;bulkAutoCalc(${i})" style="text-align:center;color:#7c3aed" placeholder="0"></td>
+      <td><input class="bulk-inp" type="number" id="btotal_${i}" value="${r.total_crashes||''}" oninput="bulkRows[${i}].total_crashes=this.value" style="text-align:center;font-weight:900" placeholder="auto"></td>
+      <td><input class="bulk-inp" type="number" step="0.01" id="bmtbf_${i}" value="${r.mtbf||''}" oninput="bulkRows[${i}].mtbf=this.value" style="text-align:center;color:#059669;font-weight:900" placeholder="auto"></td>
+      <td style="text-align:center"><button onclick="bulkDeleteRow(${i})" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:13px"><i class="fas fa-trash"></i></button></td>
+    </tr>`).join('');
+}
+
+function bulkAutoCalc(i){
+  const r = bulkRows[i];
+  const sys  = parseInt(r.system_crashes||0);
+  const ssr  = parseInt(r.ssr_crashes||0);
+  const proc = parseInt(r.process_crashes||0);
+  const total = sys+ssr+proc;
+  r.total_crashes = total;
+  const te = document.getElementById('btotal_'+i);
+  if(te) te.value = total||'';
+  const hours = parseFloat(r.hours||0);
+  if(total>0 && hours>0){
+    const mtbf = Math.round(hours/total*100)/100;
+    r.mtbf = mtbf;
+    const me = document.getElementById('bmtbf_'+i);
+    if(me) me.value = mtbf;
+  }
+}
+
+function bulkAddRow(){
+  bulkRows.push({id:'', date:'', meta_id:'', hours:'', system_crashes:'', ssr_crashes:'', process_crashes:'', total_crashes:'', mtbf:''});
+  renderBulkTable();
+  // Scroll to bottom
+  const tbody = document.getElementById('bulkBody');
+  tbody.lastElementChild && tbody.lastElementChild.scrollIntoView({behavior:'smooth'});
+}
+
+function bulkDeleteRow(i){
+  bulkRows.splice(i,1);
+  renderBulkTable();
+}
+
+function bulkSaveAll(){
+  if(!activeSp){ setMsg('bulkMsg','No SP selected','msg-err'); return; }
+  const btn = document.getElementById('bulkSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving…';
+  setMsg('bulkMsg','Saving…','msg-info');
+  fetch(API+'/sp_mtbf/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      sp_name: activeSp,
+      domain:  activeDomain,
+      rows:    bulkRows,
+      crash_types: crashTypes(),
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save All';
+    if(!d.ok){ setMsg('bulkMsg','Error: '+(d.error||'unknown'),'msg-err'); return; }
+    setMsg('bulkMsg',d.message||'Saved!','msg-ok');
+    allRows = d.rows || [];
+    renderChart(); renderTable();
+    setStatus('Saved '+allRows.length+' rows for '+activeSp+' / '+activeDomain,'msg-ok');
+  })
+  .catch(e=>{ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save All'; setMsg('bulkMsg','Network error','msg-err'); });
+}
+
+/* ══════════════════════════════════════════════════════════
+   Add SP Modal
+══════════════════════════════════════════════════════════ */
+function openAddSpModal(){
+  document.getElementById('addSpName').value='';
+  document.getElementById('addSpCpl').value='';
+  document.getElementById('addSpModal').classList.add('open');
+  setTimeout(()=>document.getElementById('addSpName').focus(),100);
+}
+
+function closeAddSpModal(){
+  document.getElementById('addSpModal').classList.remove('open');
+}
+
+function confirmAddSp(){
+  const spName = (document.getElementById('addSpName').value||'').trim();
+  const cpl    = (document.getElementById('addSpCpl').value||'').trim();
+  if(!spName){ document.getElementById('addSpName').focus(); return; }
+  // Add to local list if not already present
+  if(!spList.find(s=>s.sp_name===spName)){
+    spList.push({
+      sp_name: spName,
+      cpl: cpl,
+      target_name: TARGET,
+      display_name: cpl ? 'SP '+cpl : spName,
+      slug: spName.toUpperCase().replace(/[^A-Z0-9]+/g,'_').slice(0,40),
+    });
+  }
+  closeAddSpModal();
+  renderSpButtons();
+  selectSp(spName);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Init
+══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function(){
+  loadSpList();
+});
+</script>
+</body>
+</html>

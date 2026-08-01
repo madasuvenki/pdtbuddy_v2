@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px;border-left:5px solid #6366f1}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}    .tab-section{display:none}.tab-section.active{display:block}#tab-current.active{display:flex;flex-direction:column}    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
+    *{box-sizing:border-box;margin:0;padding:0} body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#eef2ff 0%,#ecfdf5 30%,#fdf4ff 60%,#fff7ed 100%);color:#0f172a;min-height:100vh;font-size:14px}.shell{padding:16px 22px 60px;border-left:5px solid #6366f1}.hero{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 22px;border-radius:18px;background:linear-gradient(135deg,#ffffff 0%,#eef2ff 35%,#ecfdf5 65%,#fdf4ff 100%);border:2px solid #6366f1;box-shadow:0 8px 32px rgba(99,102,241,.18),0 -2px 0 0 #10b981 inset,0 2px 0 0 #f59e0b inset;margin-bottom:14px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:4px}.hero h1{font-size:22px;color:#1e3a8a;font-weight:950}.hero p{font-size:12px;color:#64748b;margin-top:3px}.hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.lsp-sp-hero-switcher{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-width:300px;max-width:520px;flex:1;padding:10px 16px;border-radius:18px;background:linear-gradient(135deg,#fff,#eff6ff 45%,#ecfeff);border:2px solid #93c5fd;box-shadow:0 8px 26px rgba(37,99,235,.18)}.lsp-sp-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.08em}.lsp-sp-buttons{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}.lsp-sp-btn{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:8px 18px;border-radius:999px;font-size:15px;font-weight:1000;text-decoration:none;white-space:nowrap;transition:all .16s;border:2px solid #bfdbfe;background:#fff;color:#1e3a8a;box-shadow:0 3px 10px rgba(37,99,235,.10)}.lsp-sp-btn:hover{transform:translateY(-1px);border-color:#60a5fa;box-shadow:0 8px 18px rgba(37,99,235,.18)}.lsp-sp-btn.active{background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border-color:#60a5fa;box-shadow:0 8px 20px rgba(37,99,235,.32)}.lsp-sp-btn.disabled{background:#f1f5f9;color:#94a3b8;border-style:dashed;box-shadow:none}.lsp-sp-note{font-size:11px;font-weight:850;color:#64748b;text-align:center}.lsp-config-sp-chip{display:inline-flex;align-items:center;margin-left:4px;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.24);border:1px solid rgba(255,255,255,.42);font-size:10px;font-weight:950}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;text-decoration:none;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn-primary{border:0;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed 60%,#ec4899)}.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}.badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}.badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.badge-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin:8px 0 14px;flex-wrap:wrap}.tab{padding:10px 22px;border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0;background:transparent;color:#64748b;font-weight:850;cursor:pointer;font-family:inherit}.tab:hover{background:#f0f4ff;color:#4338ca}.tab.active{background:#fff;color:#1e3a8a;border-color:#e2e8f0;box-shadow:0 -4px 12px rgba(37,99,235,.08)}    .tab-section{display:none}.tab-section.active{display:block}#tab-current.active{display:flex;flex-direction:column}    .card{background:#fff;border:2px solid #a5b4fc;border-radius:18px;box-shadow:0 4px 22px rgba(99,102,241,.13);overflow:hidden;margin-bottom:16px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#eef2ff,#ecfdf5,#fdf4ff)}.card-head h2{font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.05em;font-weight:950;display:flex;gap:8px;align-items:center}.card-body{padding:16px 18px}.tbl-wrap{overflow:auto;width:100%}table.tbl{width:max-content;min-width:100%;border-collapse:collapse}table.tbl th{padding:11px 13px;background:linear-gradient(180deg,#f0f4ff,#f8fafc);border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}table.tbl td{padding:11px 13px;border-bottom:1px solid #f1f5f9;color:#1e293b;vertical-align:top}table.tbl tr:hover td{background:#f8fbff}.empty{text-align:center;padding:42px!important;color:#94a3b8}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#eef4ff;border:1px solid #c7d7ff;padding:5px 11px;font-size:11px;font-weight:850;color:#1e2f55}.pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.linkBtn{color:#1d4ed8;font-weight:900;text-decoration:none}.linkBtn:hover{text-decoration:underline}.search-row{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa}.search-row input{flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 11px;font-family:inherit}.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.build-line{font-weight:750;color:#1e3a8a;min-width:320px;max-width:620px;white-space:normal;overflow-wrap:anywhere}.meta-cell{font-weight:950;color:#1e3a8a;white-space:nowrap}.muted{color:#94a3b8}.cr-built{background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-ready{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.cr-closed{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}.chart-wrap{overflow-x:auto;padding:12px}.mtbf-chart-wrap{height:380px;min-height:380px;overflow-x:auto;overflow-y:hidden}.mtbf-chart-wrap canvas{max-width:none!important}button[onclick^="adasEditorOpenAddModal"],button[onclick^="adasEditorEdit"],button[onclick^="adasEditorDelete"],button[onclick^="_adasEdSave"],button[onclick^="_adasEdDelete"]{display:none!important}    .mini-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mini-toolbar select{height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 8px;font-family:inherit}
     /* -- Current Running Build Ã¯Â¿Â½ light left nav panel -- */
     .lsp-current-layout{display:grid;grid-template-columns:280px minmax(0,1fr);height:calc(100vh - 220px);min-height:520px;border-radius:0 0 18px 18px;overflow:hidden}
     .lsp-nav{background:linear-gradient(180deg,#ecfdf5,#f0fdf4 60%,#f8fafc);border-right:2px solid #6ee7b7;display:flex;flex-direction:column;overflow:hidden;height:100%}
@@ -117,6 +117,20 @@
   .lsp-api-note{margin:0 16px 16px;font-size:11px;font-weight:750;color:#64748b;line-height:1.5;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 12px;}
   @media(max-width:900px){.lsp-api-version-card{grid-template-columns:1fr}.lsp-api-actions{justify-content:flex-start}.lsp-api-endpoint code{white-space:normal}}
   .adas-bulk-inp:focus { border-color: #6366f1 !important; outline: none; }
+  
+    /* lsp-big-sp-switcher-safe-override */
+    .lsp-sp-hero-switcher{min-width:360px;border-color:#38bdf8;background:linear-gradient(135deg,#ffffff,#ecfeff 42%,#eef2ff);}
+    .lsp-sp-title{color:#075985;}
+    .lsp-sp-btn{border-width:2px;min-width:92px;justify-content:center;}
+    .lsp-sp-btn.current{background:linear-gradient(135deg,#16a34a,#0f766e)!important;color:#fff!important;border-color:#86efac!important;box-shadow:0 10px 24px rgba(22,163,74,.32)!important;cursor:default;}
+    .lsp-sp-btn.alt-0:not(.current):not(.disabled){background:#eff6ff;color:#1d4ed8;border-color:#60a5fa;}
+    .lsp-sp-btn.alt-1:not(.current):not(.disabled){background:#f5f3ff;color:#6d28d9;border-color:#a78bfa;}
+    .lsp-sp-btn.alt-2:not(.current):not(.disabled){background:#ecfeff;color:#0e7490;border-color:#22d3ee;}
+    .lsp-sp-btn.alt-3:not(.current):not(.disabled){background:#fff7ed;color:#c2410c;border-color:#fb923c;}
+    .lsp-sp-btn.alt-4:not(.current):not(.disabled){background:#fdf2f8;color:#be185d;border-color:#f472b6;}
+    .lsp-sp-btn.alt-5:not(.current):not(.disabled){background:#f0fdf4;color:#15803d;border-color:#4ade80;}
+    .lsp-sp-btn.disabled{background:#f1f5f9!important;color:#94a3b8!important;border-color:#cbd5e1!important;border-style:dashed!important;cursor:not-allowed!important;box-shadow:none!important;}
+
   </style>
 </head>
 <body {% if embedded_core_deck %}style="background:#fff;min-height:auto;"{% endif %}>
@@ -133,7 +147,16 @@
       <div class="eyebrow"><i class="fas fa-satellite-dish"></i> Published {{ (job.job_type or 'CRM')|upper }} Live Status</div>
       <h1>{{ (job.name or "Live Status")|upper }}</h1>
       <p><strong>{{ primary_target|upper }}</strong> &nbsp; Published: <span id="publishedHeaderTime" data-raw="{{ job.published_at or '' }}">{{ job.published_at or '--' }}</span> by <strong>{{ job.published_by or '-' }}</strong> &nbsp; Latest update: <span id="updatedHeaderTime" data-raw="{{ job.updated_at or '' }}">{{ job.updated_at or '--' }}</span>{% if job.active_viewers %} &nbsp; Active viewers: <strong>{{ job.active_viewers|length }}</strong>{% endif %}</p>
+        </div>
+    {% if is_auto_bu %}
+    <div class="lsp-sp-hero-switcher" id="lspBigSpSwitcher" style="display:none">
+      <div class="lsp-sp-title"><i class="fas fa-layer-group"></i><span>Select SP</span></div>
+      <div class="lsp-sp-buttons" id="lspBigSpBtns"></div>
+      {% if can_edit %}
+      <button onclick="lspOpenAddSpModal()" title="Add a new SP" style="margin-left:6px;padding:4px 10px;border-radius:999px;border:2px dashed #94a3b8;background:transparent;color:#64748b;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap"><i class="fas fa-plus"></i> Add SP</button>
+      {% endif %}
     </div>
+    {% endif %}
                 <div class="hero-actions">
       {% if job.status == 'published' %}
         <span class="badge badge-live"><i class="fas fa-circle" style="font-size:8px"></i> LIVE</span>
@@ -152,35 +175,57 @@
       <button class="btn" id="lspPublicApiBtn" type="button" onclick="lspTogglePublicApiPanel()" style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;border:none;font-weight:900;box-shadow:0 6px 16px rgba(79,70,229,.24);"><i class="fas fa-plug"></i> Public API</button>
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
-      {% if sp_siblings and sp_siblings|length > 1 %}
-      <div style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px 3px 8px;background:rgba(255,255,255,.55);border:1.5px solid #e2e8f0;border-radius:12px;backdrop-filter:blur(4px);">
-        <span style="font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-right:3px">SP</span>
-        {% for sp in sp_siblings %}
-          {% if sp.has_job %}
-            <a href="{{ sp.url }}" title="SP {{ sp.cpl }}"
-               style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;
-                      font-size:11px;font-weight:900;text-decoration:none;transition:all .15s;
-                      white-space:nowrap;
-                      {% if sp.active %}background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;border:2px solid #3b82f6;box-shadow:0 2px 8px rgba(37,99,235,.28);
-                      {% else %}background:#f8fafc;color:#475569;border:2px solid #e2e8f0;{% endif %}">
-              {{ sp.cpl }}
-            </a>
-          {% else %}
-            <span title="SP {{ sp.cpl }} — no live status yet"
-                  style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;
-                         font-size:11px;font-weight:900;white-space:nowrap;
-                         background:#f1f5f9;color:#94a3b8;border:2px dashed #e2e8f0;cursor:default;">
-              {{ sp.cpl }}
-            </span>
-          {% endif %}
-        {% endfor %}
-      </div>
-      {% endif %}
-      <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
+      <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables for the selected SP/page" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config{% if sp_siblings and sp_siblings|length > 1 %}<span class="lsp-config-sp-chip">{% for sp in sp_siblings %}{% if sp.active %}SP {{ sp.cpl }}{% endif %}{% endfor %}</span>{% endif %}</button>
       <button onclick="lspOpenCustomizeTabs()" title="Show/hide tabs" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
+
+<!-- Add SP Modal -->
+<div id="lspAddSpModal" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,23,42,.65);align-items:center;justify-content:center;overflow:auto">
+  <div style="background:#fff;border-radius:18px;width:min(640px,97vw);max-height:92vh;overflow:auto;box-shadow:0 28px 80px rgba(15,23,42,.35);margin:auto">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);border-radius:18px 18px 0 0">
+      <div>
+        <div style="font-size:14px;font-weight:950;color:#fff"><i class="fas fa-plus-circle"></i> Add New SP</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">Register a new SP version and assign its DB tables</div>
+      </div>
+      <button onclick="lspCloseAddSpModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px">
+      <!-- Step 1: CPL -->
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">SP CPL Version</label>
+        <input id="lspAddSpCplInput" type="text" placeholder="e.g. 5.1.9.0" oninput="lspAddSpOnCplChange()"
+          style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 12px;font-size:13px;font-family:inherit;box-sizing:border-box">
+        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Format: major.minor.patch.build (e.g. 5.1.9.0)</div>
+      </div>
+      <!-- Step 2: Domains -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Domains for this SP</div>
+        <div style="font-size:10px;color:#64748b;margin-bottom:8px">Select which domains this SP supports. If a domain is missing, click <strong>+ Add Domain</strong>.</div>
+        <div id="lspAddSpDomainList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <button onclick="lspAddSpShowAddDomain()" style="padding:4px 12px;border-radius:999px;border:2px dashed #94a3b8;background:transparent;color:#64748b;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-plus"></i> Add Domain</button>
+        <div id="lspAddSpNewDomainRow" style="display:none;margin-top:8px;display:none">
+          <input id="lspAddSpNewDomainInput" type="text" placeholder="e.g. CSP or SAFE-IVI"
+            style="height:32px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;font-family:inherit;width:160px">
+          <button onclick="lspAddSpConfirmDomain()" style="margin-left:6px;padding:4px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-size:11px;font-weight:900;cursor:pointer">Add</button>
+        </div>
+      </div>
+      <!-- Step 3: Tables per domain -->
+      <div id="lspAddSpTablesSection">
+        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Assign DB Tables</div>
+        <div id="lspAddSpTablesDomTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+        <div id="lspAddSpTablesFields"></div>
+      </div>
+      <div id="lspAddSpMsg" style="font-size:12px;font-weight:800;min-height:18px;margin:10px 0"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="lspCloseAddSpModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 18px;font-weight:800;cursor:pointer;font-family:inherit">Cancel</button>
+        <button onclick="lspDoAddSp()" style="border:0;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-radius:10px;padding:8px 18px;font-weight:900;cursor:pointer;font-family:inherit"><i class="fas fa-plus"></i> Add SP &amp; Save Config</button>
+      </div>
+    </div>
+  </div>
+</div>
   <section class="lsp-public-api-panel" id="lspPublicApiPanel" aria-label="Public API details">
     <div class="lsp-public-api-head">
       <div>
@@ -241,12 +286,12 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
         {% if can_edit %}<button class="tab" id="tab-btn-new-core-slide" onclick="newCoreSlideDeck();return false;" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-color:#2563eb;"><i class="fas fa-plus"></i> New Core Slide</button>{% endif %}
     <button class="tab {{ 'active' if initial_tab == 'core' else '' }}" id="tab-btn-core" onclick="switchTab('core')"><i class="fas fa-layer-group" style="color:#6366f1"></i> Core Slides</button>
     {% endif %}
-        {% if not mtbf_only and 'current' in visible_tabs %}
+    {% if 'current' in visible_tabs %}
         <button class="tab {{ 'active' if initial_tab == 'current' else '' }}" id="tab-btn-current" onclick="switchTab('current')"><i class="fas fa-circle" style="color:#16a34a;font-size:9px"></i> Current Running Build</button>
     {% endif %}
     {% if 'mtbf' in visible_tabs %}<button class="tab {{ 'active' if mtbf_only or initial_tab == 'mtbf' else '' }}" id="tab-btn-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>{% endif %}
     {% if not is_eng_job %}
-                                {% if not mtbf_only and 'weekly' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'weekly' else '' }}" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>{% endif %}
+                                {% if 'weekly' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'weekly' else '' }}" id="tab-btn-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>{% endif %}
     {% endif %}
     {% if not is_eng_job and 'opencrs' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'opencrs' else '' }}" id="tab-btn-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope" style="color:#be123c"></i> Open CRs</button>{% endif %}
     {% if not is_eng_job and 'openjiras' in visible_tabs %}<button class="tab {{ 'active' if initial_tab == 'openjiras' else '' }}" id="tab-btn-openjiras" onclick="switchTab('openjiras')"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</button>{% endif %}
@@ -401,7 +446,7 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
   </section>
   {% endif %}
   {% if 'current' in visible_tabs %}
-        <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'current' else '' }}" style="height:calc(100vh - 140px);min-height:560px;flex-direction:column">
+        <section id="tab-current" class="tab-section {{ 'active' if not embedded_core_deck and initial_tab == 'current' else '' }}" style="height:calc(100vh - 140px);min-height:560px;flex-direction:column">
         {% if is_auto_bu %}
     <!-- JIRA Processing Popup -->
     <div id="lspJiraPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);align-items:center;justify-content:center">
@@ -494,7 +539,7 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
   </section>
   {% endif %}
   {% if 'mtbf' in visible_tabs %}
-        <section id="tab-mtbf" class="tab-section {{ 'active' if not embedded_core_deck and (mtbf_only or initial_tab == 'mtbf') else '' }}">
+        <section id="tab-mtbf" class="tab-section {{ 'active' if not embedded_core_deck and initial_tab == 'mtbf' else '' }}">
     <div class="card">
       <div class="card-head">
         <h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2>
@@ -509,8 +554,11 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
           <span style="width:1px;height:20px;background:#e2e8f0"></span>
           <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
           <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
-          <button class="adas-flt-btn" data-n="20" onclick="adasSetFilter(20,this)">Last 20</button>
+                    <button class="adas-flt-btn" data-n="20" onclick="adasSetFilter(20,this)">Last 20</button>
           <button class="adas-flt-btn" data-n="0" onclick="adasSetFilter(0,this)">All</button>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:5px 10px;cursor:pointer" title="Show rows whose saved MTBF is 0 in the trend chart">
+            <input id="mtbfIncludeZero" type="checkbox" onchange="mtbfToggleIncludeZero(this)" style="margin:0"> Include MTBF=0
+          </label>
           <span id="mtbfSpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span>
           <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
                     {% if can_edit %}
@@ -563,12 +611,13 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
               <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5">System</th>
               <th style="text-align:center;color:#d97706;background:#fffbeb">SSR</th>
               <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5">Process</th>
-              <th style="text-align:center">Total Crashes</th>
+                            <th style="text-align:center">Total Crashes</th>
               <th style="text-align:center">MTBF</th>
+              <th style="text-align:left">Comments</th>
             </tr>
           </thead>
           <tbody id="mtbfTableBody" id="adasTableBody">
-            <tr><td colspan="9" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch spin"></i> Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -608,8 +657,9 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
               <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#dc2626;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#fff1f2;border-left:2px solid #fca5a5;">System</th>
               <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#d97706;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#fffbeb;">SSR</th>
               <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#7c3aed;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;background:#faf5ff;border-right:2px solid #fca5a5;">Process</th>
-              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;">Total Crashes</th>
+                            <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#4338ca;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;">Total Crashes</th>
               <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#059669;font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:center;">MTBF</th>
+              <th style="padding:10px 8px;border-bottom:2px solid #e2e8f0;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Comments</th>
               <th style="width:44px;padding:10px 8px;border-bottom:2px solid #e2e8f0;text-align:center;"></th>
             </tr>
           </thead>
@@ -621,7 +671,7 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
       </section>
   {% endif %}
   {% if 'weekly' in visible_tabs %}
-  <section id="tab-weekly" class="tab-section {{ 'active' if not embedded_core_deck and not mtbf_only and initial_tab == 'weekly' else '' }}">
+  <section id="tab-weekly" class="tab-section {{ 'active' if not embedded_core_deck and initial_tab == 'weekly' else '' }}">
     <div class="card">
             <div class="card-head"><h2><i class="fas fa-calendar-week" style="color:#6366f1"></i> Weekly Report</h2><div class="mini-toolbar"><span style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Week</span><input type="date" id="wkFromDate" class="compact-input" onchange="wkApplyDateRange()"><span class="muted" style="font-size:11px;font-weight:800">to</span><input type="date" id="wkToDate" class="compact-input" onchange="wkApplyDateRange()"><button class="btn btn-primary" onclick="wkApplyDateRange()"><i class="fas fa-calendar-check"></i> Apply</button><span id="weeklyDateLabel" class="muted"></span><span id="weeklySpinner" style="display:none;color:#6d28d9"><i class="fas fa-circle-notch spin"></i></span></div></div>
       <div class="card-body">
@@ -782,6 +832,7 @@ function bwrApiUrl(extra){
 var url = '/api/live_status/targets/' + encodeURIComponent(TARGET) + '/build_wise_report';
 var params = [];
 if(IS_AUTO && bwrDomain) params.push('domain=' + encodeURIComponent(bwrDomain));
+if(window._activeSp) params.push('sp=' + encodeURIComponent(window._activeSp));
 if(IS_AUTO){
 var cts = Object.keys(bwrCrashTypes).filter(function(k){ return bwrCrashTypes[k]; });
 if(cts.length) params.push('crash_types=' + encodeURIComponent(cts.join(',')));
@@ -1048,45 +1099,438 @@ if(document.getElementById('tab-buildreport').classList.contains('active')) bwrL
     </div>
   </div>
 </div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     SP Config Modal  (AUTO BU only)
+     Lets editors assign DB tables per SP per domain.
+     Opened by Config button when is_auto_bu=true.
+═══════════════════════════════════════════════════════════════════ -->
+<div id="lspSpCfgModal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(15,23,42,.65);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;width:min(700px,97vw);max-height:92vh;overflow:auto;box-shadow:0 28px 80px rgba(15,23,42,.35)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#0f172a,#1e3a8a);border-radius:18px 18px 0 0">
+      <div>
+        <div style="font-size:14px;font-weight:950;color:#fff"><i class="fas fa-cog"></i> SP Config</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">Assign DB tables per SP &amp; domain.</div>
+      </div>
+      <button onclick="lspCloseSpConfigModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:13px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px">
+      <div style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Select SP to configure</div>
+      <div id="lspSpCfgTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px"></div>
+      <div id="lspSpCfgFields">
+        <div style="background:#eff6ff;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:900;color:#1d4ed8;margin-bottom:8px"><i class="fas fa-car"></i> ADAS</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">JIRAs Table</div><select id="lspSpCfgAdasJiras" style="width:100%;height:32px;border:1.5px solid #bfdbfe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Open JIRAs Table</div><select id="lspSpCfgAdasOpenjiras" style="width:100%;height:32px;border:1.5px solid #bfdbfe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Unique CRs Table</div><select id="lspSpCfgAdasUniq" style="width:100%;height:32px;border:1.5px solid #bfdbfe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+          </div>
+        </div>
+        <div style="background:#f5f3ff;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:900;color:#7c3aed;margin-bottom:8px"><i class="fas fa-microchip"></i> FLEX</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">JIRAs Table</div><select id="lspSpCfgFlexJiras" style="width:100%;height:32px;border:1.5px solid #ddd6fe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Open JIRAs Table</div><select id="lspSpCfgFlexOpenjiras" style="width:100%;height:32px;border:1.5px solid #ddd6fe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Unique CRs Table</div><select id="lspSpCfgFlexUniq" style="width:100%;height:32px;border:1.5px solid #ddd6fe;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+          </div>
+        </div>
+        <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:900;color:#059669;margin-bottom:8px"><i class="fas fa-display"></i> IVI</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">JIRAs Table</div><select id="lspSpCfgIviJiras" style="width:100%;height:32px;border:1.5px solid #bbf7d0;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Open JIRAs Table</div><select id="lspSpCfgIviOpenjiras" style="width:100%;height:32px;border:1.5px solid #bbf7d0;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+            <div><div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">Unique CRs Table</div><select id="lspSpCfgIviUniq" style="width:100%;height:32px;border:1.5px solid #bbf7d0;border-radius:7px;padding:0 8px;font-size:11px;font-family:inherit"><option value="">-- None --</option></select></div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:14px">Each SP reads its own domain tables for Open CRs, Open JIRAs, Core Slides and MTBF tabs.</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="lspSpCfgMsg" style="font-size:12px;font-weight:800"></span>
+        <div style="display:flex;gap:8px">
+          <button onclick="lspCloseSpConfigModal()" style="border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;padding:8px 18px;font-weight:800;cursor:pointer;font-family:inherit">Cancel</button>
+          <button onclick="lspSaveSpConfig()" style="border:0;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-radius:10px;padding:8px 18px;font-weight:900;cursor:pointer;font-family:inherit"><i class="fas fa-save"></i> Save Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // -- Top Config Modal ----------------------------------------------------------
-// SP switcher helper — renders pill buttons in Config + Customize modals
+// ── SP switcher state ──────────────────────────────────────────────────────
+window._activeSp = (window.LSP_DATA && window.LSP_DATA.active_sp_cpl) || '';
+
+// Switch active SP: update state, re-render all SP bars, reload all tabs
+// Returns { sp, domain, cfg } for the currently active SP + domain
+window.lspGetActiveSpContext = function(){
+  var sp  = window._activeSp || '';
+  var cfg = ((window.LSP_DATA && window.LSP_DATA.sp_configs) || {})[sp] || {};
+  // Derive domain from SP config: use first domain that has tables configured
+  // This ensures e.g. SP 5.1.9.0 (only FLEX tables) sends domain=FLEX not ADAS
+  var domain = (window._lspNavDomain || 'ADAS').toUpperCase();
+  if(sp && cfg){
+    var domOrder = ['ADAS','FLEX','IVI','CSP','SAFE-IVI','NONSAFE-IVI'];
+    // Check if current domain has tables in this SP config
+    var curDomLow = domain.toLowerCase();
+    var curHasTables = !!(cfg[curDomLow+'_jiras_table'] || cfg[curDomLow+'_openjiras_table'] || cfg[curDomLow+'_uniq_table']);
+    if(!curHasTables){
+      // Fall back to first domain that has any table configured
+      for(var _di=0; _di<domOrder.length; _di++){
+        var _d = domOrder[_di]; var _dl = _d.toLowerCase();
+        if(cfg[_dl+'_jiras_table'] || cfg[_dl+'_openjiras_table'] || cfg[_dl+'_uniq_table']){
+          domain = _d; break;
+        }
+      }
+    }
+  }
+  return { sp: sp, domain: domain, cfg: cfg };
+};
+
+window.lspGetActiveSpConfig = function(){
+  return window.lspGetActiveSpContext().cfg;
+};
+
+// Reload Open CRs tab with current SP + domain
+window.lspReloadOpenCrs = function(){
+  var ctx = window.lspGetActiveSpContext();
+  if(typeof window.ocLoad === 'function'){
+    // patch ocLoad URL to include sp + domain params
+    window._lspSpOverride = { sp: ctx.sp, domain: ctx.domain };
+    window.ocLoad(true);
+  }
+};
+
+// Reload Open JIRAs tab with current SP + domain
+window.lspReloadOpenJiras = function(){
+  var ctx = window.lspGetActiveSpContext();
+  if(typeof window.ojLoad === 'function'){
+    window._lspSpOverride = { sp: ctx.sp, domain: ctx.domain };
+    window.ojLoad();
+  }
+};
+
+// Reload Core Slides / MTBF with current SP domain - NO tab switching
+window.refreshCoreDeckConfiguredTables = function(){
+  var ctx = window.lspGetActiveSpContext();
+  var dom = ctx.domain || 'ADAS';
+  // Only switch MTBF domain view - do NOT call ocSetDomain (triggers switchTab)
+  if(typeof window._lspSetMtbfDomain === 'function') window._lspSetMtbfDomain(dom);
+};
+
+window.lspSwitchSp = function(cpl){
+  window._activeSp = String(cpl || '');
+  // Re-render all SP bars
+  [['lspBigSpSwitcher','lspBigSpBtns'],['lspCfgSpBar','lspCfgSpBtns'],['lspCzSpBar','lspCzSpBtns']].forEach(function(p){
+    _lspRenderSpBar(p[0], p[1]);
+  });
+  var ctx    = window.lspGetActiveSpContext();
+  var curDom = ctx.domain;
+  var cfg    = ctx.cfg;
+  var domLow = curDom.toLowerCase();
+  // Store active table refs
+  window._lspActiveJirasTable     = cfg[domLow+'_jiras_table']     || '';
+  window._lspActiveOpenjirasTable = cfg[domLow+'_openjiras_table'] || '';
+  window._lspActiveUniqTable      = cfg[domLow+'_uniq_table']      || '';
+  // Update _lspTargetCrsTable so running_builds_db uses the right SP jiras table
+  if(cfg[domLow+'_jiras_table'])     window._lspTargetCrsTable = cfg[domLow+'_jiras_table'];
+  else if(cfg[domLow+'_openjiras_table']) window._lspTargetCrsTable = cfg[domLow+'_openjiras_table'];
+  // Set SP override BEFORE reloading so all fetch calls pick it up
+  window._lspSpOverride = { sp: cpl, domain: curDom };
+  // ---- Reset all lazy-load flags so every tab re-fetches on next open ----
+  window._lspSpLoaded = {};   // generic per-tab loaded cache
+  if(typeof window._loaded !== 'undefined') window._loaded = false;   // Open CRs
+  if(typeof window._ojLoaded !== 'undefined') window._ojLoaded = false; // Open JIRAs
+  // Clear cached rows so force-reload actually fires
+  window._rbRows = [];
+  // ---- Detect currently active tab and reload it immediately ----
+  function _activeTabId(){
+    var tabs = ['tab-opencrs','tab-openjiras','tab-mtbf','tab-current','tab-buildreport','tab-weekly'];
+    for(var _i=0; _i<tabs.length; _i++){
+      var el = document.getElementById(tabs[_i]);
+      if(el && el.classList.contains('active')) return tabs[_i];
+    }
+    return '';
+  }
+  var activeTab = _activeTabId();
+  // Reload the currently visible tab immediately
+  if(activeTab === 'tab-opencrs'){
+    window.lspReloadOpenCrs();
+  } else if(activeTab === 'tab-openjiras'){
+    window.lspReloadOpenJiras();
+  } else if(activeTab === 'tab-mtbf'){
+    if(typeof window.adasLoadData === 'function') window.adasLoadData(true);
+  } else if(activeTab === 'tab-current'){
+    window._rbRows = [];
+    if(typeof window.loadRunningBuildsDb === 'function'){
+      var _rbp2 = window.loadRunningBuildsDb();
+      // guard: loadRunningBuildsDb may return undefined on error
+    } else if(typeof window.lspEnsureRunningBuildsLoaded === 'function') window.lspEnsureRunningBuildsLoaded(true);
+  } else if(activeTab === 'tab-buildreport'){
+    window._rbRows = [];
+    // Immediately refresh build list with new SP
+    if(typeof window.bwrLoad === 'function') window.bwrLoad();
+    if(typeof window.brRefreshBuilds === 'function'){
+      var _brp = window.brRefreshBuilds();
+      // brRefreshBuilds is async - always returns Promise, safe to ignore
+    } else if(typeof window._lspResetBuildReport === 'function') window._lspResetBuildReport();
+  }
+  // ---- Background reload all other tabs (they will re-fetch when opened) ----
+  if(activeTab !== 'tab-opencrs')   window.lspReloadOpenCrs();
+  if(activeTab !== 'tab-openjiras') window.lspReloadOpenJiras();
+  if(activeTab !== 'tab-mtbf')      { if(typeof window.adasLoadData === 'function') window.adasLoadData(true); }
+  if(activeTab !== 'tab-current' && activeTab !== 'tab-buildreport'){
+    if(typeof window.loadRunningBuildsDb === 'function'){
+      var _rbp = window.loadRunningBuildsDb();
+      if(_rbp && typeof _rbp.then === 'function') _rbp.then(function(){
+        if(typeof window._lspResetBuildReport === 'function') window._lspResetBuildReport();
+      }).catch(function(){});
+    } else if(typeof window.lspEnsureRunningBuildsLoaded === 'function') window.lspEnsureRunningBuildsLoaded(true);
+  }
+  // Re-apply tab visibility for the new SP
+  if(typeof window._lspApplySpTabVisibility === 'function') window._lspApplySpTabVisibility();
+  var msg = document.getElementById('jobStatusMessage');
+  if(msg){ msg.textContent='SP '+cpl+' ['+curDom+']'; msg.style.color='#2563eb';
+    setTimeout(function(){ msg.textContent=''; }, 2000); }
+};
+
+// SP switcher helper - renders pill buttons (client-side switch, no page nav)
 function _lspRenderSpBar(barId, btnsId){
   var bar  = document.getElementById(barId);
   var btns = document.getElementById(btnsId);
   if(!bar || !btns) return;
   var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
-  if(siblings.length < 2){ bar.style.display="none"; return; }
-  bar.style.display = "flex";
+  if(siblings.length < 2){ bar.style.display='none'; return; }
+  bar.style.display = 'flex';
+  var activeCpl = window._activeSp || (window.LSP_DATA && window.LSP_DATA.active_sp_cpl) || '';
+  var configs   = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
   btns.innerHTML = siblings.map(function(sp){
-    var active  = !!sp.active;
-    var hasJob  = !!sp.has_job;
-    if(!hasJob){
-      return '<span title="SP '+sp.cpl+' — no live status yet"'
-        + ' style="display:inline-flex;align-items:center;padding:3px 11px;'
-        + 'border-radius:999px;font-size:11px;font-weight:900;white-space:nowrap;'
-        + 'background:#f1f5f9;color:#94a3b8;border:2px dashed #e2e8f0;cursor:default;">'
-        + sp.cpl + '</span>';
-    }
-    var bg  = active ? "linear-gradient(135deg,#1d4ed8,#4f46e5)" : "#f8fafc";
-    var col = active ? "#fff" : "#475569";
-    var bdr = active ? "2px solid #3b82f6" : "2px solid #e2e8f0";
-    var shd = active ? "0 2px 8px rgba(37,99,235,.28)" : "none";
-    return '<a href="'+sp.url+'" title="SP '+sp.cpl+'"'
-      + ' style="display:inline-flex;align-items:center;padding:3px 11px;'
-      + 'border-radius:999px;font-size:11px;font-weight:900;text-decoration:none;'
-      + 'white-space:nowrap;transition:all .15s;'
-      + 'background:'+bg+';color:'+col+';border:'+bdr+';box-shadow:'+shd+'">'
-      + sp.cpl + '</a>';
-  }).join("");
+    var isActive = (sp.cpl === activeCpl);
+    var hasCfg   = !!(configs[sp.cpl] && (configs[sp.cpl].adas_jiras_table || configs[sp.cpl].flex_jiras_table || configs[sp.cpl].ivi_jiras_table || configs[sp.cpl].adas_uniq_table));
+    var bg  = isActive ? 'linear-gradient(135deg,#1d4ed8,#4f46e5)' : (hasCfg ? '#f0fdf4' : '#f8fafc');
+    var col = isActive ? '#fff' : (hasCfg ? '#15803d' : '#475569');
+    var bdr = isActive ? '2px solid #3b82f6' : (hasCfg ? '2px solid #86efac' : '2px solid #e2e8f0');
+    var shd = isActive ? '0 2px 8px rgba(37,99,235,.28)' : 'none';
+    var dot = hasCfg && !isActive ? '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;margin-right:4px;display:inline-block"></span>' : '';
+    var title = 'SP ' + sp.cpl + (hasCfg ? ' (configured)' : ' (no config yet)') + ' - click to switch';
+    // Use data-cpl to avoid double-quote collision inside onclick="..."
+    return '<button data-cpl="' + sp.cpl + '" class="lsp-sp-btn" title="' + title + '"'
+      + ' style="display:inline-flex;align-items:center;padding:4px 13px;border-radius:999px;font-size:11px;font-weight:900;'
+      + 'white-space:nowrap;transition:all .15s;cursor:pointer;font-family:inherit;'
+      + 'background:' + bg + ';color:' + col + ';border:' + bdr + ';box-shadow:' + shd + '">'
+      + dot + sp.cpl + '</button>';
+  }).join('');
+  // Attach click handlers via data-cpl - no inline quote issues
+  btns.querySelectorAll('.lsp-sp-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ window.lspSwitchSp(this.dataset.cpl); });
+  });
 }
+
+// ── Add SP Modal ─────────────────────────────────────────────────────────
+var _addSpDomains   = [];   // domains selected for new SP
+var _addSpEditDom   = '';   // domain tab currently shown in table section
+var _addSpAllTables = {};   // { ADAS:{crs,openjiras,unique_crs}, ... } from DB
+var _addSpCfg       = {};   // { ADAS:{crs_table,jiras_table,uniq_table}, ... }
+
+window.lspOpenAddSpModal = function(){
+  _addSpDomains = (window.LSP_DATA && window.LSP_DATA.available_domains
+    ? window.LSP_DATA.available_domains.slice()
+    : ['ADAS','FLEX','IVI']);
+  _addSpEditDom = _addSpDomains[0] || 'ADAS';
+  _addSpAllTables = {};
+  _addSpCfg = {};
+  var m = document.getElementById('lspAddSpModal');
+  if(m) m.style.display = 'flex';
+  var inp = document.getElementById('lspAddSpCplInput');
+  if(inp){ inp.value = ''; inp.focus(); }
+  var msg = document.getElementById('lspAddSpMsg');
+  if(msg) msg.textContent = '';
+  _addSpRenderDomains();
+  _addSpRenderTableTabs();
+};
+
+window.lspCloseAddSpModal = function(){
+  var m = document.getElementById('lspAddSpModal');
+  if(m) m.style.display = 'none';
+};
+
+window.lspAddSpOnCplChange = function(){
+  var cpl = (document.getElementById('lspAddSpCplInput')||{value:''}).value.trim();
+  if(!/^\d+\.\d+\.\d+\.\d+$/.test(cpl)) return;
+  // Fetch available tables for this CPL from DB
+  var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || '';
+  fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/sp_tables')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _addSpAllTables = (d.tables && d.tables[cpl]) || {};
+      // Auto-fill selects with the only available table per slot
+      _addSpDomains.forEach(function(dom){
+        var dt = _addSpAllTables[dom] || {};
+        _addSpCfg[dom] = _addSpCfg[dom] || {};
+        if(dt.jiras)      _addSpCfg[dom].jiras_table      = dt.jiras;
+        if(dt.openjiras)  _addSpCfg[dom].openjiras_table  = dt.openjiras;
+        if(dt.unique_crs) _addSpCfg[dom].uniq_table       = dt.unique_crs;
+      });
+      _addSpRenderTableTabs();
+    })
+    .catch(function(){});
+};
+
+function _addSpRenderDomains(){
+  var el = document.getElementById('lspAddSpDomainList');
+  if(!el) return;
+  var DOM_COLOR = {ADAS:'#2563eb',FLEX:'#7c3aed',IVI:'#059669',CSP:'#0891b2'};
+  el.innerHTML = _addSpDomains.map(function(d){
+    var col = DOM_COLOR[d] || '#6366f1';
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;'
+      +'background:'+col+';color:#fff;font-size:11px;font-weight:900">'
+      +d
+      +'<button data-rm="'+d+'" class="lsp-rm-dom" style="background:none;border:0;color:rgba(255,255,255,.8);cursor:pointer;padding:0;font-size:11px;line-height:1">&times;</button>'
+      +'</span>';
+  }).join('');
+  el.querySelectorAll('.lsp-rm-dom').forEach(function(b){
+    b.addEventListener('click',function(){ window._addSpRemoveDomain(this.dataset.rm); });
+  });
+}
+
+window._addSpRemoveDomain = function(d){
+  _addSpDomains = _addSpDomains.filter(function(x){return x!==d;});
+  if(_addSpEditDom===d) _addSpEditDom = _addSpDomains[0]||'';
+  _addSpRenderDomains();
+  _addSpRenderTableTabs();
+};
+
+window.lspAddSpShowAddDomain = function(){
+  var row = document.getElementById('lspAddSpNewDomainRow');
+  if(row){ row.style.display='flex'; }
+  var inp = document.getElementById('lspAddSpNewDomainInput');
+  if(inp){ inp.value=''; inp.focus(); }
+};
+
+window.lspAddSpConfirmDomain = function(){
+  var inp = document.getElementById('lspAddSpNewDomainInput');
+  var d = (inp ? inp.value : '').trim().toUpperCase();
+  if(!d) return;
+  if(_addSpDomains.indexOf(d)<0) _addSpDomains.push(d);
+  if(!_addSpEditDom) _addSpEditDom = d;
+  var row = document.getElementById('lspAddSpNewDomainRow');
+  if(row) row.style.display='none';
+  _addSpRenderDomains();
+  _addSpRenderTableTabs();
+};
+
+function _addSpRenderTableTabs(){
+  var tabsEl   = document.getElementById('lspAddSpTablesDomTabs');
+  var fieldsEl = document.getElementById('lspAddSpTablesFields');
+  if(!tabsEl || !fieldsEl) return;
+  if(!_addSpDomains.length){
+    tabsEl.innerHTML = '';
+    fieldsEl.innerHTML = '<div style="color:#94a3b8;font-size:12px">No domains selected.</div>';
+    return;
+  }
+  if(!_addSpEditDom || _addSpDomains.indexOf(_addSpEditDom)<0) _addSpEditDom = _addSpDomains[0];
+  var DOM_COLOR = {ADAS:'#2563eb',FLEX:'#7c3aed',IVI:'#059669',CSP:'#0891b2'};
+  // Render domain tabs
+  tabsEl.innerHTML = _addSpDomains.map(function(d){
+    var active = (d === _addSpEditDom);
+    var col = DOM_COLOR[d] || '#6366f1';
+    var bg  = active ? col : '#f8fafc';
+    var fc  = active ? '#fff' : '#475569';
+    var bdr = active ? ('2px solid '+col) : '2px solid #e2e8f0';
+    return '<button data-dt="' + d + '" class="lsp-dt-tab" style="padding:5px 14px;border-radius:999px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;background:' + bg + ';color:' + fc + ';border:' + bdr + '">' + d + '</button>';
+  }).join('');
+  tabsEl.querySelectorAll('.lsp-dt-tab').forEach(function(b){
+    b.addEventListener('click', function(){ window._addSpSelectDomTab(this.dataset.dt); });
+  });
+  // Render 3 selects for current domain
+  var dom = _addSpEditDom;
+  var dt  = _addSpAllTables[dom] || {};
+  var cfg = _addSpCfg[dom] || {};
+  function mkSel(elId, label, sufKey, savedVal){
+    var fq  = dt[sufKey] || '';
+    var lbl = fq ? fq.split('.').pop() : '';
+    var opts = '<option value="">-- None --</option>';
+    if(fq) opts += '<option value="' + fq + '"' + (savedVal === fq ? ' selected' : '') + '>' + lbl + '</option>';
+    var warn = fq ? '' : '<div style="font-size:10px;color:#f59e0b;margin-top:2px"><i class="fas fa-triangle-exclamation"></i> No table found in DB for this SP/domain</div>';
+    return '<div style="margin-bottom:10px">'
+      + '<div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:3px">' + label + '</div>'
+      + '<select id="' + elId + '" data-dom="' + dom + '" data-suf="' + sufKey + '" class="lsp-sp-sel"'
+      + ' style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;font-family:inherit">'
+      + opts + '</select>' + warn + '</div>';
+  }
+  fieldsEl.innerHTML = mkSel('lspAddSpJiras_'  + dom, 'JIRAs Table',      'jiras',      cfg.jiras_table)
+                     + mkSel('lspAddSpOj_'     + dom, 'Open JIRAs Table', 'openjiras',  cfg.openjiras_table)
+                     + mkSel('lspAddSpUniq_'   + dom, 'Unique CRs Table', 'unique_crs', cfg.uniq_table);
+  fieldsEl.querySelectorAll('.lsp-sp-sel').forEach(function(sel){
+    sel.addEventListener('change', function(){
+      window._addSpSaveSel(this.dataset.dom, this.dataset.suf, this.value);
+    });
+  });
+}
+
+window._addSpSelectDomTab = function(d){
+  _addSpEditDom = d;
+  _addSpRenderTableTabs();
+};
+
+window._addSpSaveSel = function(dom, sufKey, val){
+  _addSpCfg[dom] = _addSpCfg[dom] || {};
+  var keyMap = {jiras:'jiras_table', openjiras:'openjiras_table', unique_crs:'uniq_table', crs:'crs_table'};
+  _addSpCfg[dom][keyMap[sufKey]] = val;
+};
+
+window.lspDoAddSp = function(){
+  var inp = document.getElementById('lspAddSpCplInput');
+  var msg = document.getElementById('lspAddSpMsg');
+  var cpl = (inp ? inp.value : '').trim();
+  if(!cpl){ if(msg){msg.textContent='Please enter a CPL version';msg.style.color='#dc2626';} return; }
+  if(!/^\d+\.\d+\.\d+\.\d+$/.test(cpl)){
+    if(msg){msg.textContent='Format must be like 5.1.9.0';msg.style.color='#dc2626';} return;
+  }
+  if(!_addSpDomains.length){
+    if(msg){msg.textContent='Add at least one domain';msg.style.color='#dc2626';} return;
+  }
+  var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || '';
+  if(msg){msg.textContent='Saving...';msg.style.color='#6366f1';}
+  // Build sp_config entry for this new SP
+  var newCfg = {};
+  _addSpDomains.forEach(function(dom){
+    var c = _addSpCfg[dom] || {};
+    var dl = dom.toLowerCase();
+    if(c.jiras_table)     newCfg[dl+'_jiras_table']     = c.jiras_table;
+    if(c.openjiras_table) newCfg[dl+'_openjiras_table'] = c.openjiras_table;
+    if(c.uniq_table)      newCfg[dl+'_uniq_table']      = c.uniq_table;
+  });
+  // Step 1: register SP in dashboard_status
+  fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/add_sp', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cpl:cpl, domains:_addSpDomains})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(!d.ok) throw new Error(d.error||'Add SP failed');
+    // Step 2: save sp_configs with new SP entry
+    var sp_configs = Object.assign({}, (window.LSP_DATA && window.LSP_DATA.sp_configs)||{});
+    sp_configs[cpl] = newCfg;
+    return fetch('/api/live_status/targets/'+encodeURIComponent(target)+'/sp_configs', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sp_configs:sp_configs})
+    }).then(function(r){return r.json();});
+  })
+  .then(function(d){
+    if(!d.ok) throw new Error(d.error||'Save config failed');
+    if(msg){msg.textContent='SP '+cpl+' added! Reloading...';msg.style.color='#059669';}
+    setTimeout(function(){ window.location.reload(); }, 1200);
+  })
+  .catch(function(e){
+    if(msg){msg.textContent='Error: '+e.message;msg.style.color='#dc2626';}
+  });
+};
 
 window.lspOpenTopConfig = function(){
 var IS_AUTO = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
-// AUTO BU: use the full Core Deck Config modal (per-domain table config + overall CR table)
-if(IS_AUTO && typeof window.openCoreDeckConfigModal === 'function'){
-window.openCoreDeckConfigModal();
-return;
+// AUTO BU: open SP Config modal (per-SP table config)
+if(IS_AUTO){
+  lspOpenSpConfigModal();
+  return;
 }
 // Non-AUTO BU: use our simpler modal (overall CR table + target CR table)
 var modal = document.getElementById('lspTopCfgModal');
@@ -1179,6 +1623,140 @@ lspCloseTopConfig();
 var msg = document.getElementById('jobStatusMessage');
 if(msg){ msg.textContent = 'Config applied.'; msg.style.color = '#16a34a'; setTimeout(function(){ msg.textContent = ''; }, 2500); }
 };
+
+// ── SP Config Modal JS ────────────────────────────────────────────────────
+var _lspSpCfgEditingSp = "";
+var _lspSpCfgAllTables = {};
+
+function lspOpenSpConfigModal(){
+  var modal = document.getElementById("lspSpCfgModal");
+  if(!modal) return;
+  modal.style.display = "flex";
+  var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || "";
+  var msgEl = document.getElementById("lspSpCfgMsg");
+  if(msgEl){ msgEl.textContent = "Loading tables..."; msgEl.style.color = "#6366f1"; }
+  fetch("/api/live_status/targets/" + encodeURIComponent(target) + "/sp_tables")
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _lspSpCfgAllTables = d.tables || {};
+      if(msgEl) msgEl.textContent = "";
+      _lspSpCfgRenderTabs();
+    })
+    .catch(function(){
+      _lspSpCfgAllTables = {};
+      if(msgEl){ msgEl.textContent = "Could not load tables"; msgEl.style.color = "#dc2626"; }
+      _lspSpCfgRenderTabs();
+    });
+}
+
+function lspCloseSpConfigModal(){
+  var modal = document.getElementById("lspSpCfgModal");
+  if(modal) modal.style.display = "none";
+}
+
+function _lspSpCfgRenderTabs(){
+  var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
+  var tabsEl   = document.getElementById("lspSpCfgTabs");
+  if(!tabsEl) return;
+  if(!siblings.length){
+    tabsEl.innerHTML = '<span style="color:#94a3b8;font-size:12px">No SPs found.</span>';
+    return;
+  }
+  if(!_lspSpCfgEditingSp) _lspSpCfgEditingSp = window._activeSp || siblings[0].cpl || "";
+  tabsEl.innerHTML = siblings.map(function(sp){
+    var active = sp.cpl === _lspSpCfgEditingSp;
+    var bg  = active ? "linear-gradient(135deg,#1d4ed8,#4f46e5)" : "#f8fafc";
+    var col = active ? "#fff" : "#475569";
+    var bdr = active ? "2px solid #3b82f6" : "2px solid #e2e8f0";
+    return '<button onclick="_lspSpCfgSelectSp(this.dataset.cpl)" data-cpl="' + sp.cpl + '"'
+      + ' style="padding:6px 16px;border-radius:999px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;'
+      + 'background:' + bg + ';color:' + col + ';border:' + bdr + '">SP ' + sp.cpl + '</button>';
+  }).join("");
+  _lspSpCfgPopulateSelects();
+}
+
+function _lspSpCfgSelectSp(cpl){
+  _lspSpCfgEditingSp = cpl;
+  _lspSpCfgRenderTabs();
+}
+
+function _lspSpCfgPopulateSelects(){
+  var configs  = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
+  var saved    = configs[_lspSpCfgEditingSp] || {};
+  var spTables = _lspSpCfgAllTables[_lspSpCfgEditingSp] || {};
+  // fields: id=select element, dom=domain key, suf=API suffix, key=saved config key
+  var fields = [
+    { id:"lspSpCfgAdasJiras",     dom:"ADAS", suf:"jiras",      key:"adas_jiras_table"     },
+    { id:"lspSpCfgAdasOpenjiras", dom:"ADAS", suf:"openjiras",  key:"adas_openjiras_table" },
+    { id:"lspSpCfgAdasUniq",      dom:"ADAS", suf:"unique_crs", key:"adas_uniq_table"      },
+    { id:"lspSpCfgFlexJiras",     dom:"FLEX", suf:"jiras",      key:"flex_jiras_table"     },
+    { id:"lspSpCfgFlexOpenjiras", dom:"FLEX", suf:"openjiras",  key:"flex_openjiras_table" },
+    { id:"lspSpCfgFlexUniq",      dom:"FLEX", suf:"unique_crs", key:"flex_uniq_table"      },
+    { id:"lspSpCfgIviJiras",      dom:"IVI",  suf:"jiras",      key:"ivi_jiras_table"      },
+    { id:"lspSpCfgIviOpenjiras",  dom:"IVI",  suf:"openjiras",  key:"ivi_openjiras_table"  },
+    { id:"lspSpCfgIviUniq",       dom:"IVI",  suf:"unique_crs", key:"ivi_uniq_table"       }
+  ];
+  fields.forEach(function(f){
+    var sel = document.getElementById(f.id);
+    if(!sel) return;
+    var domTables = spTables[f.dom] || {};
+    var opts = ['<option value="">-- None --</option>'];
+    // Primary: exact suffix match
+    if(domTables[f.suf]){
+      var fq = domTables[f.suf];
+      opts.push('<option value="'+fq+'">'+fq.split('.').pop()+'</option>');
+    }
+    // Secondary: all other tables for this domain
+    Object.keys(domTables).forEach(function(s){
+      var fq = domTables[s];
+      if(s !== f.suf && fq) opts.push('<option value="'+fq+'">'+fq.split('.').pop()+'</option>');
+    });
+    sel.innerHTML = opts.join('');
+    if(saved[f.key]) sel.value = saved[f.key];
+  });
+}
+
+function lspSaveSpConfig(){
+  var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || "";
+  if(!target || !_lspSpCfgEditingSp) return;
+  var g = function(id){ return (document.getElementById(id)||{}).value || ""; };
+  var cfg = {
+    adas_jiras_table:     g("lspSpCfgAdasJiras"),
+    adas_openjiras_table: g("lspSpCfgAdasOpenjiras"),
+    adas_uniq_table:      g("lspSpCfgAdasUniq"),
+    flex_jiras_table:     g("lspSpCfgFlexJiras"),
+    flex_openjiras_table: g("lspSpCfgFlexOpenjiras"),
+    flex_uniq_table:      g("lspSpCfgFlexUniq"),
+    ivi_jiras_table:      g("lspSpCfgIviJiras"),
+    ivi_openjiras_table:  g("lspSpCfgIviOpenjiras"),
+    ivi_uniq_table:       g("lspSpCfgIviUniq")
+  };
+  var sp_configs = Object.assign({}, (window.LSP_DATA && window.LSP_DATA.sp_configs) || {});
+  sp_configs[_lspSpCfgEditingSp] = cfg;
+  var msgEl = document.getElementById("lspSpCfgMsg");
+  if(msgEl){ msgEl.textContent = "Saving..."; msgEl.style.color = "#6366f1"; }
+  fetch("/api/live_status/targets/" + encodeURIComponent(target) + "/sp_configs", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({sp_configs: sp_configs})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.ok){
+      if(window.LSP_DATA) window.LSP_DATA.sp_configs = d.sp_configs || sp_configs;
+      if(msgEl){ msgEl.textContent = "Saved!"; msgEl.style.color = "#059669";
+        setTimeout(function(){ msgEl.textContent = ""; }, 2000); }
+      [["lspBigSpSwitcher","lspBigSpBtns"],["lspCfgSpBar","lspCfgSpBtns"],["lspCzSpBar","lspCzSpBtns"]].forEach(function(p){
+        _lspRenderSpBar(p[0], p[1]);
+      });
+    } else {
+      if(msgEl){ msgEl.textContent = "Error: "+(d.error||"unknown"); msgEl.style.color = "#dc2626"; }
+    }
+  })
+  .catch(function(){
+    if(msgEl){ msgEl.textContent = "Network error"; msgEl.style.color = "#dc2626"; }
+  });
+}
 </script>
 </div>
 <script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260627_no_qwinbug"></script>
@@ -1208,6 +1786,8 @@ persisted_jql: {{ (job.current_report_jql or '')|tojson }},
 jira_filter_id: {{ jira_pdt_filter_id|tojson }},
 saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
 sp_siblings: {{ (sp_siblings or [])|tojson }},
+active_sp_cpl: {{ ((sp_siblings or [])|selectattr('active')|map(attribute='cpl')|list|first|default((sp_siblings or [{'cpl':''}])[0].cpl))|tojson }},
+sp_configs: {{ (sp_configs or {})|tojson }},
 landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
 };
 // =======================================================================
@@ -1342,7 +1922,9 @@ var st=document.getElementById('rbDbStatus');
 if(st) st.textContent='Loading DB...';
 var _rbTbl=window._lspTargetCrsTable||window._lspOverallCrsTable||'';
 var _rbTblQs=_rbTbl?'&target_table='+encodeURIComponent(_rbTbl):'';
-return fetch(RB_API+'?_='+Date.now()+_rbTblQs)
+var _rbSpQs=(window._activeSp?'&sp='+encodeURIComponent(window._activeSp):'');
+var _rbDomQs=(window._lspNavDomain?'&domain='+encodeURIComponent(window._lspNavDomain):'');
+return fetch(RB_API+'?_='+Date.now()+_rbTblQs+_rbSpQs+_rbDomQs)
 .then(function(r){return r.json();})
 .then(function(d){
 if(!d.ok) throw new Error(d.error||'Failed');
@@ -2392,8 +2974,8 @@ list.push({build:build, meta:meta||metaFromBuild(build)||tail(build), domain:dom
 async function fetchAutoBuilds(){
 var out=[], seen={};
 function addMetaRows(rows){(rows||[]).forEach(function(m){var dom=String(m.deck_type||m.domain||'').toUpperCase()||guessDomain(m); if(dom!==_domain)return; var meta=m.meta_id||m.alias||''; (m.build_ids||m.builds||[]).forEach(function(b){addBuild(out,seen,b,meta,dom,'Core Deck');}); (m.flavor_builds||[]).forEach(function(f){addBuild(out,seen,f&&f.build_id,meta,dom,'Core Deck');});});}
-try{var r=await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET),{cache:'no-store'});var d=await r.json().catch(function(){return {};});addMetaRows((d.state&&d.state.selected_metas)||((d.state&&d.state.saved_preview&&d.state.saved_preview.selected_metas)||[]));}catch(e){}
-try{var r2=await fetch('/api/core_deck/metas?target='+encodeURIComponent(TARGET)+'&limit=500',{cache:'no-store'});var d2=await r2.json().catch(function(){return {};});if(d2.ok)addMetaRows(d2.metas||[]);}catch(e){}
+try{var r=await fetch('/api/core_deck/public_state?target='+encodeURIComponent(TARGET)+(window._activeSp?'&sp='+encodeURIComponent(window._activeSp):''),{cache:'no-store'});var d=await r.json().catch(function(){return {};});addMetaRows((d.state&&d.state.selected_metas)||((d.state&&d.state.saved_preview&&d.state.saved_preview.selected_metas)||[]));}catch(e){}
+try{var r2=await fetch('/api/core_deck/metas?target='+encodeURIComponent(TARGET)+'&limit=500'+(window._activeSp?'&sp='+encodeURIComponent(window._activeSp):''),{cache:'no-store'});var d2=await r2.json().catch(function(){return {};});if(d2.ok)addMetaRows(d2.metas||[]);}catch(e){}
 return out;
 }
 async function buildAvailableBuilds(){
@@ -2401,7 +2983,7 @@ var out=[], seen={};
 if(IS_AUTO){out=(await fetchAutoBuilds()); seen={}; out.forEach(function(x){seen[String(x.build).toUpperCase()]=true;});}
 var rows=[].concat(D.all_rows||[],D.running_rows||[]);
 rows.forEach(function(r){
-var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;
+var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return; var _spF=window._activeSp?String(window._activeSp).replace(/\./g,'_'):''; if(_spF){var _bid=String(r.build_full||r.build_id||r.meta_id||''); if(_bid.indexOf(window._activeSp)<0&&_bid.indexOf(_spF)<0)return;}
 var meta=r.meta_id||r.display_build||'';
 var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];
 builds.forEach(function(b){addBuild(out,seen,b,meta,IS_AUTO?dom:'',r.run_status||r.source||'Live Status');});
@@ -2433,6 +3015,14 @@ window.brRenderBuildTable=renderBuildTable;
 window.brToggleBuildFromTable=function(b,on){if(on)_selected.add(b);else _selected.delete(b);renderChips();};
 window.brSetDomain=async function(d){if(!IS_AUTO)return; _domain=String(d||'ADAS').toUpperCase(); styleDomain(); _selected.clear(); await window.brRefreshBuilds();};
 window.brRefreshBuilds=async function(){var cnt=g('brBuildCount'), row=g('brBuildChipsRow'), tb=g('brBuildTableTbody'); if(cnt)cnt.textContent='Loading...'; if(row)row.innerHTML='<span class="muted" style="font-size:12px"><i class="fas fa-circle-notch spin"></i> Loading searchable builds...</span>'; if(tb)tb.innerHTML='<tr><td colspan="6" class="empty"><i class="fas fa-circle-notch spin"></i> Loading '+(IS_AUTO?esc(_domain):'')+' meta builds...</td></tr>'; _allBuilds=await buildAvailableBuilds(); _modalBuilds=_allBuilds.slice(); _selected=new Set(Array.from(_selected).filter(function(b){return _allBuilds.some(function(x){return x.build===b;});})); renderChips(); if(!_allBuilds.length&&row)row.innerHTML='<span class="muted" style="font-size:12px">No builds found for this '+(IS_AUTO?_domain:'target')+'.</span>';};
+// Reset build report when SP switches - clears stale selection and re-fetches with new SP
+window._lspResetBuildReport = function(){
+  if(typeof _selected !== 'undefined') _selected.clear();
+  if(typeof _allBuilds !== 'undefined') _allBuilds.length = 0;
+  // Use brRefreshBuilds so fetchAutoBuilds re-runs with new _activeSp
+  if(typeof window.brRefreshBuilds === 'function') window.brRefreshBuilds();
+  else if(typeof window.brInit === 'function') window.brInit();
+};
 window.brInit=function(){styleDomain(); if(!_selected.size){  var _pubBuilds=[];  [].concat(D.all_rows||[],D.running_rows||[]).forEach(function(r){    var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;    var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];    builds.forEach(function(b){if(b)_pubBuilds.push(String(b));});  });  _pubBuilds.forEach(function(b){_selected.add(b);});}if(!_allBuilds.length){  var _preBuilds=[];  [].concat(D.all_rows||[],D.running_rows||[]).forEach(function(r){    var dom=guessDomain(r||{}); if(IS_AUTO&&dom!==_domain)return;    var meta=r.meta_id||r.display_build||'';    var builds=(Array.isArray(r.merged_builds)&&r.merged_builds.length)?r.merged_builds:[r.build_full||r.build_id||r.display_build||r.meta_id];    builds.forEach(function(b){if(b){_allBuilds.push({build:String(b),meta:meta,domain:IS_AUTO?dom:'',source:'Live Status'});}});  });  _modalBuilds=_allBuilds.slice();}renderChips();};
 window.brOpenAddBuildModal=async function(){var m=g('brAddBuildModal'), q=g('brBuildSearchModal'); if(q)q.value=''; styleDomain(); if(m)m.style.display='flex'; if(!_allBuilds.length)await window.brRefreshBuilds(); window.brRenderModalList();};
 window.brCloseAddBuildModal=function(){var m=g('brAddBuildModal'); if(m)m.style.display='none';};
@@ -2593,6 +3183,7 @@ var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();if(!tgt)r
 var sp=_g('ocSpinner');if(sp)sp.style.display='inline';
 var tb=_g('ocTbody');if(tb)tb.innerHTML='<tr><td colspan="12" class="empty"><i class="fas fa-circle-notch spin"></i> Loading open CRs...</td></tr>';
 var qs=[];if(_domain)qs.push('domain='+encodeURIComponent(_domain));
+var _spOvr=window._lspSpOverride||{};if(_spOvr.sp)qs.push('sp='+encodeURIComponent(_spOvr.sp));if(_spOvr.domain&&!_domain)qs.push('domain='+encodeURIComponent(_spOvr.domain));
 fetch('/api/live_status/targets/'+encodeURIComponent(tgt)+'/open_crs_full'+(qs.length?'?'+qs.join('&'):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
 if(!d.success)throw new Error(d.message||'Failed to load open CRs');
 _all=d.rows||[];_loaded=true;_lastData=d;_area='';_buildFilters();_kpi();ocFilter();
@@ -2645,6 +3236,9 @@ var url='/api/dashboard/'+encodeURIComponent(tgt)+'/open_jiras';
 var p=[];
 if(from)p.push('date_from='+encodeURIComponent(from));
 if(to)p.push('date_to='+encodeURIComponent(to));
+var _ojSpOvr=window._lspSpOverride||{};
+if(_ojSpOvr.sp)p.push('sp='+encodeURIComponent(_ojSpOvr.sp));
+if(_ojSpOvr.domain)p.push('domain='+encodeURIComponent(_ojSpOvr.domain));
 if(p.length)url+='?'+p.join('&');
 fetch(url).then(function(r){return r.json();}).then(function(d){
 _g('ojLoading').style.display='none';
@@ -2849,7 +3443,17 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')bsClose();})
 // LSP NAV Ã¯Â¿Â½ dark left panel for Current Running Build tab
 // =======================================================================
 (function(){
-var _lspNavDomain = window._lspNavDomain = 'ADAS';
+var _lspNavDomain = window._lspNavDomain = (function(){
+  // Default to first domain that has config for the active SP
+  var sp  = window._activeSp || '';
+  var cfg = (window.LSP_DATA && window.LSP_DATA.sp_configs && window.LSP_DATA.sp_configs[sp]) || {};
+  var doms = (window.LSP_DATA && window.LSP_DATA.available_domains) || ['ADAS','FLEX','IVI'];
+  for(var i=0;i<doms.length;i++){
+    var d = doms[i].toLowerCase();
+    if(cfg[d+'_crs_table'] || cfg[d+'_jiras_table']) return doms[i];
+  }
+  return doms[0] || 'ADAS';
+})();
 var _lspSoloMeta  = null;
 function _esc(v){var d=document.createElement('div');d.textContent=String(v==null?'':v);return d.innerHTML;}
 /* ---- Build groups from LIVE_RUNNING_ROWS + _rbRows + _rbSaved ---- */
@@ -4284,7 +4888,9 @@ if(st) st.textContent = 'Loading DB...';
 var target = (window.LSP_DATA&&window.LSP_DATA.primary_target)||'';
 var _rbTbl2=window._lspTargetCrsTable||window._lspOverallCrsTable||'';
 var _rbTblQs2=_rbTbl2?'&target_table='+encodeURIComponent(_rbTbl2):'';
-return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_builds_db?_='+Date.now()+_rbTblQs2, {cache:'no-store'})
+var _rbSpQs2=(window._activeSp?'&sp='+encodeURIComponent(window._activeSp):'');
+var _rbDomQs2=(window._lspNavDomain?'&domain='+encodeURIComponent(window._lspNavDomain):'');
+return fetch('/api/live_status_view/'+encodeURIComponent(target)+'/running_builds_db?_='+Date.now()+_rbTblQs2+_rbSpQs2+_rbDomQs2, {cache:'no-store'})
 .then(function(r){return r.json();})
 .then(function(d){
 if(!d.ok) throw new Error(d.error||'Failed to load running builds');
@@ -4521,27 +5127,31 @@ lspCloseCfg();
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div>
             <label style="font-size:10px;font-weight:800;color:#dc2626;display:block;margin-bottom:3px">System</label>
-            <input type="number" id="adasModalSystem" min="0" placeholder="0" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+            <input type="number" id="adasModalSystem" min="0" placeholder="0" style="width:100%;border:1.5px solid #fca5a5;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
           </div>
           <div>
             <label style="font-size:10px;font-weight:800;color:#d97706;display:block;margin-bottom:3px">SSR</label>
-            <input type="number" id="adasModalSsr" min="0" placeholder="0" style="width:100%;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+            <input type="number" id="adasModalSsr" min="0" placeholder="0" style="width:100%;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
           </div>
           <div>
             <label style="font-size:10px;font-weight:800;color:#7c3aed;display:block;margin-bottom:3px">Process</label>
-            <input type="number" id="adasModalProcess" min="0" placeholder="0" style="width:100%;border:1.5px solid #c4b5fd;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box" oninput="adasAutoMtbf()">
+            <input type="number" id="adasModalProcess" min="0" placeholder="0" style="width:100%;border:1.5px solid #c4b5fd;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box">
           </div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
           <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
-          <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc;box-sizing:border-box" oninput="adasAutoMtbf()">
+          <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc;box-sizing:border-box">
         </div>
         <div>
           <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">MTBF <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(auto-calc)</span></label>
-          <input type="number" id="adasModalMtbf" min="0" step="0.01" placeholder="auto" style="width:100%;border:1.5px solid #a7f3d0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#059669;outline:none;box-sizing:border-box">
+                    <input type="number" id="adasModalMtbf" min="0" step="0.01" placeholder="auto" style="width:100%;border:1.5px solid #a7f3d0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#059669;outline:none;box-sizing:border-box">
         </div>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Comments</label>
+        <textarea id="adasModalComments" rows="2" placeholder="Notes / comments..." style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;box-sizing:border-box;resize:vertical"></textarea>
       </div>
       <div id="adasModalMsg" style="font-size:11px;font-weight:700;min-height:16px"></div>
     </div>
@@ -4560,6 +5170,8 @@ var _adasView      = 'ADAS';    // active domain
 var _adasNFilter   = 10;        // Last N filter
 var _adasCrashTypes = ['system','ssr','process'];
 var _adasTableRows = [];        // rows currently shown in table (after search)
+var _adasLoadedSp  = '';        // SP that was active when data was last loaded
+window._mtbfIncludeZero = false;
 /* --- helpers ------------------------------------------------- */
 function _esc(v){ var d=document.createElement('div'); d.textContent=String(v==null?'':v); return d.innerHTML; }
 function _adasGetCrashTypes(){
@@ -4569,6 +5181,10 @@ if(document.querySelector('#ck_ssr input')     && document.querySelector('#ck_ss
 if(document.querySelector('#ck_process input') && document.querySelector('#ck_process input').checked) types.push('process');
 return types.length ? types : ['system','ssr','process'];
 }
+function _adasActiveSp(){ return (window._activeSp || window._mtbfActiveSp || '').toString().trim(); }
+// Return the SP that was used when the current _adasRows were loaded.
+// This ensures edit/delete/save always target the correct JSON file on the server.
+function _adasCurrentSp(){ return _adasLoadedSp || _adasActiveSp(); }
 function _adasEffective(r, crashTypes){
 var sys  = Number(r.system_crashes  || 0);
 var ssr  = Number(r.ssr_crashes     || 0);
@@ -4579,9 +5195,10 @@ if(crashTypes.indexOf('ssr')     >= 0) total += ssr;
 if(crashTypes.indexOf('process') >= 0) total += proc;
 if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
 var hours = Number(r.hours || 0);
+var hasStoredMtbf = r.mtbf !== undefined && r.mtbf !== null && String(r.mtbf) !== '';
 var storedMtbf = Number(r.mtbf || 0);
 var allChecked = crashTypes.indexOf('system')>=0 && crashTypes.indexOf('ssr')>=0 && crashTypes.indexOf('process')>=0;
-var mtbf = allChecked && storedMtbf > 0 ? storedMtbf : (total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : storedMtbf);
+var mtbf = allChecked && hasStoredMtbf ? storedMtbf : (total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : storedMtbf);
 return { total: total, mtbf: mtbf };
 }
 /* --- domain button styling ----------------------------------- */
@@ -4664,7 +5281,7 @@ _adasTableRows = filtered;
 var countEl = document.getElementById('mtbfTableCount');
 if(countEl) countEl.textContent = filtered.length + ' rows';
 if(!filtered.length){
-body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:22px;display:block;margin-bottom:8px;opacity:.4"></i>No MTBF rows yet. Click <strong>Edit Table</strong> to add data.</td></tr>';
+body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:22px;display:block;margin-bottom:8px;opacity:.4"></i>No MTBF rows yet. Click <strong>Edit Table</strong> to add data.</td></tr>';
 return;
 }
 body.innerHTML = filtered.map(function(r, i){
@@ -4688,6 +5305,7 @@ return '<tr>'
 +'<td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;'+procDim+'">'+_esc(proc)+'</td>'
 +'<td style="text-align:center;font-weight:900">'+(eff.total>0?eff.total:'-')+'</td>'
 +'<td style="text-align:center">'+mtbfBadge+'</td>'
++'<td style="max-width:220px;white-space:normal;word-break:break-word;color:#475569">'+_esc(r.comments||r.comment||'')+'</td>'
 +'</tr>';
 }).join('');
 }
@@ -4708,6 +5326,10 @@ if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
 };
 /* --- filter / copy ------------------------------------------- */
 window.adasFilterTable = function(){ _adasRenderTable(_adasRows, _adasCrashTypes); };
+window.mtbfToggleIncludeZero = function(cb){
+window._mtbfIncludeZero = !!(cb && cb.checked);
+if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+};
 window.adasSetFilter = function(n, btn){
 _adasNFilter = n;
 window._adasNFilter = n;  // expose for renderMtbfTrend
@@ -4719,10 +5341,10 @@ if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
 window.adasCopyTable = function(){
 var rows = _adasTableRows.length ? _adasTableRows : _adasRows;
 if(!rows.length){ alert('No rows to copy.'); return; }
-var headers = ['S.No.','Date','Build ID / Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+var headers = ['S.No.','Date','Build ID / Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF','Comments'];
 var lines = [headers.join('\t')];
 rows.forEach(function(r){
-lines.push([r.s_no,r.date,(r.build_id||r.meta_id),r.hours,r.system_crashes,r.ssr_crashes,r.process_crashes,r.total_crashes,r.mtbf]
+lines.push([r.s_no,r.date,(r.build_id||r.meta_id),r.hours,r.system_crashes,r.ssr_crashes,r.process_crashes,r.total_crashes,r.mtbf,(r.comments||r.comment||'')]
 .map(function(v){ return v==null||v===''?'':String(v); }).join('\t'));
 });
 navigator.clipboard.writeText(lines.join('\n'))
@@ -4733,9 +5355,9 @@ navigator.clipboard.writeText(lines.join('\n'))
 function _adasModalClear(){
 ['adasModalRowId','adasModalMetaId','adasModalHours',
 'adasModalSystem','adasModalSsr','adasModalProcess',
-'adasModalTotal','adasModalMtbf'].forEach(function(id){
+'adasModalTotal','adasModalMtbf','adasModalComments'].forEach(function(id){
 var el = document.getElementById(id);
-if(el){ el.value=''; delete el.dataset.manualEdit; delete el.dataset.domain; }
+if(el){ el.value=''; delete el.dataset.manualEdit; delete el.dataset.domain; delete el.dataset.manualMtbf; }
 });
 var msg = document.getElementById('adasModalMsg');
 if(msg) msg.textContent = '';
@@ -4743,7 +5365,9 @@ if(msg) msg.textContent = '';
 /* --- open Add modal ------------------------------------------ */
 window.adasOpenAddModal = function(){
 _adasModalClear();
-document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add MTBF Build';
+var _sp = _adasActiveSp();
+var _spLabel = _sp ? ' &mdash; SP <span style="background:rgba(255,255,255,.22);border-radius:6px;padding:1px 8px;font-size:12px;letter-spacing:.04em">' + _sp + '</span>' : '';
+document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add MTBF Build' + _spLabel;
 document.getElementById('adasModalDate').value = new Date().toISOString().slice(0,10);
 _adasRebuildModalDomBtns(_adasView);  // rebuild with all domains incl. custom
 _styleModalDomBtns(_adasView);
@@ -4778,7 +5402,9 @@ row = _adasRows[tableIdx];
 }
 if(!row){ alert('Row not found. Please refresh and try again.'); return; }
 _adasModalClear();
-document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit MTBF Build';
+var _editSp = _adasCurrentSp();
+var _editSpLabel = _editSp ? ' &mdash; SP <span style="background:rgba(255,255,255,.22);border-radius:6px;padding:1px 8px;font-size:12px;letter-spacing:.04em">' + _editSp + '</span>' : '';
+document.getElementById('adasModalTitle').innerHTML = '<i class="fas fa-pen"></i> Edit MTBF Build' + _editSpLabel;
 var rowDomain = row.mode || row.domain || _adasView;
 _adasRebuildModalDomBtns(rowDomain);  // rebuild with all domains incl. custom
 _styleModalDomBtns(rowDomain);
@@ -4793,6 +5419,7 @@ set('adasModalSsr',     row.ssr_crashes);
 set('adasModalProcess', row.process_crashes);
 set('adasModalTotal',   row.total_crashes);
 set('adasModalMtbf',    row.mtbf);
+set('adasModalComments', row.comments || row.comment || '');
 document.getElementById('adasModal').style.display = 'flex';
 };
 window.adasCloseModal = function(){
@@ -4823,13 +5450,14 @@ if(!tbody) return;
 var countEl = document.getElementById('adasBulkRowCount');
 if(countEl) countEl.textContent = _bulkEditRows.length + ' row' + (_bulkEditRows.length===1?'':'s');
 if(!_bulkEditRows.length){
-tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>No rows yet. Click <strong>Add Row</strong> to start.</td></tr>';
+tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>No rows yet. Click <strong>Add Row</strong> to start.</td></tr>';
 return;
 }
-var inp = function(field, val, type, align, extra){
+var inp = function(field, val, type, align, extra, manualMtbf){
 type = type || 'text';
 var style = 'width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;'+(align?'text-align:'+align+';':'')+(extra||'');
-return '<input type="'+type+'" data-field="'+field+'" value="'+_esc(val!=null&&val!==''?val:'')+'" class="adas-bulk-inp" style="'+style+'" oninput="_adasBulkAutoCalc(this)">';
+var manualAttr = manualMtbf ? ' data-manual-mtbf="1"' : '';
+return '<input type="'+type+'" data-field="'+field+'" value="'+_esc(val!=null&&val!==''?val:'')+'" class="adas-bulk-inp" style="'+style+'" oninput="_adasBulkAutoCalc(this)"'+manualAttr+'>';
 };
 tbody.innerHTML = _bulkEditRows.map(function(r, i){
 var bg = i%2===0 ? '#fff' : '#f8fafc';
@@ -4842,7 +5470,8 @@ return '<tr data-row="'+i+'" style="background:'+bg+';border-bottom:1px solid #f
 +'<td style="padding:6px 8px;background:#fffdf0;">'+inp('ssr_crashes', r.ssr_crashes, 'number', 'center', 'min-width:70px;color:#d97706;')+'</td>'
 +'<td style="padding:6px 8px;background:#fdf8ff;border-right:2px solid #fca5a5;">'+inp('process_crashes', r.process_crashes, 'number', 'center', 'min-width:70px;color:#7c3aed;')+'</td>'
 +'<td style="padding:6px 8px;">'+inp('total_crashes', r.total_crashes, 'number', 'center', 'min-width:80px;font-weight:900;')+'</td>'
-+'<td style="padding:6px 8px;">'+inp('mtbf', r.mtbf, 'number', 'center', 'min-width:80px;font-weight:900;color:#059669;')+'</td>'
++'<td style="padding:6px 8px;">'+inp('mtbf', r.mtbf, 'number', 'center', 'min-width:80px;font-weight:900;color:#059669;', !!r.manual_mtbf)+'</td>'
++'<td style="padding:6px 8px;">'+inp('comments', r.comments || r.comment || '', 'text', '', 'min-width:160px;color:#475569;')+'</td>'
 +'<td style="padding:6px 8px;text-align:center;"><button onclick="_adasBulkDeleteRow('+i+')" title="Delete row" style="border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer;"><i class="fas fa-trash"></i></button></td>'
 +'</tr>';
 }).join('');
@@ -4861,23 +5490,41 @@ var tr = el.closest('tr[data-row]');
 if(!tr) return;
 var idx = parseInt(tr.getAttribute('data-row'), 10);
 if(isNaN(idx) || !_bulkEditRows[idx]) return;
-_bulkEditRows[idx][el.getAttribute('data-field')] = el.value;
+var field = el.getAttribute('data-field');
+_bulkEditRows[idx][field] = el.value;
 var r = _bulkEditRows[idx];
-var sys  = Number(r.system_crashes  || 0);
-var ssr  = Number(r.ssr_crashes     || 0);
-var proc = Number(r.process_crashes || 0);
+// If user edits MTBF directly, mark it as manual so auto-calc won't overwrite it
+if(field === 'mtbf'){
+el.dataset.manualMtbf = '1';
+r.manual_mtbf = el.value !== '' ? 1 : 0;
+}
+// If user clears MTBF, remove manual flag so auto-calc resumes
+if(field === 'mtbf' && el.value === ''){
+delete el.dataset.manualMtbf;
+r.manual_mtbf = 0;
+}
+var sys  = Number(tr.querySelector('[data-field="system_crashes"]').value  || 0);
+var ssr  = Number(tr.querySelector('[data-field="ssr_crashes"]').value     || 0);
+var proc = Number(tr.querySelector('[data-field="process_crashes"]').value || 0);
 var autoTotal = sys + ssr + proc;
+// Always auto-sum Total Crashes from crash fields (unless user directly edited total)
 var totalEl = tr.querySelector('[data-field="total_crashes"]');
-if(totalEl && (!totalEl.value || totalEl === el)){
-totalEl.value = autoTotal || '';
+if(totalEl && field !== 'total_crashes'){
+totalEl.value = autoTotal > 0 ? autoTotal : (totalEl.value || '');
+r.total_crashes = totalEl.value;
+} else if(totalEl){
 r.total_crashes = totalEl.value;
 }
-var hours = Number(r.hours || 0);
+var hours = Number(tr.querySelector('[data-field="hours"]').value || 0);
 var total = Number((totalEl && totalEl.value) || autoTotal);
 var mtbfEl = tr.querySelector('[data-field="mtbf"]');
-if(mtbfEl && hours > 0 && total > 0 && (!mtbfEl.value || mtbfEl === el)){
+// Auto-calc MTBF only when not manually set by user
+if(mtbfEl && !mtbfEl.dataset.manualMtbf && field !== 'mtbf'){
+if(hours > 0 && total > 0){
 mtbfEl.value = Math.round((hours / total) * 10) / 10;
 r.mtbf = mtbfEl.value;
+r.manual_mtbf = 0;
+}
 }
 };
 window.adasBulkAddRow = function(){
@@ -4885,7 +5532,7 @@ _bulkEditRows.push({
 id: '', s_no: _bulkEditRows.length + 1,
 date: new Date().toISOString().slice(0,10),
 meta_id: '', hours: '', system_crashes: '', ssr_crashes: '',
-process_crashes: '', total_crashes: '', mtbf: ''
+process_crashes: '', total_crashes: '', mtbf: '', comments: ''
 });
 _adasBulkRender();
 var tbody = document.getElementById('adasBulkBody');
@@ -4914,6 +5561,9 @@ if(isNaN(idx) || !_bulkEditRows[idx]) return;
 tr.querySelectorAll('[data-field]').forEach(function(el){
 _bulkEditRows[idx][el.getAttribute('data-field')] = el.value;
 });
+// Capture manual_mtbf flag from MTBF input
+var mtbfEl = tr.querySelector('[data-field="mtbf"]');
+if(mtbfEl) _bulkEditRows[idx].manual_mtbf = mtbfEl.dataset.manualMtbf ? 1 : 0;
 });
 return _bulkEditRows;
 }
@@ -4935,10 +5585,12 @@ for(var i=0; i<rows.length; i++){
 var r = rows[i];
 var payload = {
 view: _bulkEditDomain, id: r.id || undefined,
+sp: _adasCurrentSp() || undefined,
 meta_id: String(r.meta_id||'').trim(), date: String(r.date||'').trim(),
 hours: r.hours, system_crashes: r.system_crashes,
 ssr_crashes: r.ssr_crashes, process_crashes: r.process_crashes,
 total_crashes: r.total_crashes, mtbf: r.mtbf,
+comments: r.comments || '',
 };
 var endpoint = r.id ? (ADAS_API_BASE+'/edit') : (ADAS_API_BASE+'/add');
 var res = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
@@ -4955,7 +5607,7 @@ if(msg){ msg.textContent='Row '+(i+1)+' failed: '+(data.error||'unknown'); msg.s
 var keepIds = new Set(rows.map(function(r){ return String(r.id||''); }).filter(Boolean));
 var toDelete = (_adasRows||[]).filter(function(r){ return r.id && !keepIds.has(String(r.id)); });
 for(var j=0; j<toDelete.length; j++){
-var delRes = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:toDelete[j].id, view:_bulkEditDomain})});
+var delRes = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:toDelete[j].id, view:_bulkEditDomain, sp:_adasCurrentSp() || undefined})});
 var delData = await delRes.json();
 if(delData.ok && delData.rows) _adasRows = delData.rows;
 }
@@ -4980,16 +5632,21 @@ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save All
 }
 };
 /* --- auto-calc MTBF in modal --------------------------------- */
-window.adasAutoMtbf = function(){
+window.adasAutoMtbf = function(triggeredByField){
 var sys  = Number(document.getElementById('adasModalSystem').value  || 0);
 var ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
 var proc = Number(document.getElementById('adasModalProcess').value || 0);
 var autoTotal = sys + ssr + proc;
 var totalEl = document.getElementById('adasModalTotal');
-if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
+// Always auto-sum total from crash fields (unless user directly typed in total)
+if(totalEl && triggeredByField !== 'total'){
+totalEl.value = autoTotal > 0 ? autoTotal : (totalEl.value || '');
+delete totalEl.dataset.manualEdit;
+}
 var hours = Number(document.getElementById('adasModalHours').value || 0);
 var totalCrashes = Number((totalEl&&totalEl.value) || autoTotal);
 var mtbfEl = document.getElementById('adasModalMtbf');
+// Auto-calc MTBF only when user has NOT manually edited it
 if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && totalCrashes > 0)
 mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
 };
@@ -5011,10 +5668,12 @@ if(!dateVal){ if(msg){msg.textContent='Date is required.';msg.style.color='#dc26
 if(!metaId){ if(msg){msg.textContent='Meta-ID is required.';msg.style.color='#dc2626';} return; }
 if(!hoursVal){ if(msg){msg.textContent='Hours is required.';msg.style.color='#dc2626';} return; }
 if(!totalVal){ if(msg){msg.textContent='Total Crashes is required.';msg.style.color='#dc2626';} return; }
-if(!mtbfVal){ if(msg){msg.textContent='MTBF is required.';msg.style.color='#dc2626';} return; }
+if(mtbfVal === ''){ if(msg){msg.textContent='MTBF is required.';msg.style.color='#dc2626';} return; }
+var mtbfManual = !!(document.getElementById('adasModalMtbf') && document.getElementById('adasModalMtbf').dataset.manualEdit);
 var payload = {
 id:              rowId || undefined,
 view:            domain,
+sp:              _adasCurrentSp() || undefined,
 meta_id:         metaId,
 date:            dateVal,
 hours:           hoursVal,
@@ -5023,6 +5682,8 @@ ssr_crashes:     (document.getElementById('adasModalSsr')||{}).value     || '',
 process_crashes: (document.getElementById('adasModalProcess')||{}).value || '',
 total_crashes:   totalVal,
 mtbf:            mtbfVal,
+manual_mtbf:     mtbfManual ? 1 : 0,
+comments:        (document.getElementById('adasModalComments')||{}).value || '',
 };
 var btn = document.getElementById('adasModalSaveBtn');
 if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Saving...'; }
@@ -5082,7 +5743,7 @@ await _adasDoDelete(realId, metaId);
 };
 async function _adasDoDelete(realId, metaId){
 try{
-var res  = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:realId, view:_adasView})});
+var res  = await fetch(ADAS_API_BASE+'/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:realId, view:_adasView, sp:_adasCurrentSp() || undefined})});
 var data = await res.json();
 if(!data.ok) throw new Error(data.error||'Delete failed');
 _adasRows = data.rows || [];
@@ -5104,15 +5765,34 @@ _styleToolbarDomBtns();
 window.adasLoadData(true);
 };
 /* --- load data from API -------------------------------------- */
+// Switch MTBF domain without triggering new-core-slide
+window._lspSetMtbfDomain = function(domain){
+  var d = String(domain||'ADAS').toUpperCase();
+  // Use correct button ID: adasDomBtn_ADAS / adasDomBtn_FLEX / adasDomBtn_IVI
+  var btn = document.getElementById('adasDomBtn_'+d);
+  if(btn && typeof btn.click === 'function'){
+    // Prevent click from triggering any tab switch side-effects
+    btn.click();
+    return;
+  }
+  // Fallback: directly call adasLoadData with the domain view
+  if(typeof window.adasLoadData === 'function') window.adasLoadData(true);
+};
+
 window.adasLoadData = async function(force){
 var sp  = document.getElementById('mtbfSpinner');
 var msg = document.getElementById('adasMsg');
 if(sp)  sp.style.display = 'inline';
 if(msg) msg.textContent  = '';
 try{
-var res  = await fetch(ADAS_API_BASE + '?view=' + encodeURIComponent(_adasView));
+var _activeSpName = _adasActiveSp();
+var zeroCb = document.getElementById('mtbfIncludeZero');
+if(zeroCb) window._mtbfIncludeZero = !!zeroCb.checked;
+var _mtbfSpQs = _activeSpName ? '&sp='+encodeURIComponent(_activeSpName) : '';
+var res  = await fetch(ADAS_API_BASE + '?view=' + encodeURIComponent(_adasView) + _mtbfSpQs);
 var data = await res.json();
 if(!data.ok) throw new Error(data.error||'Failed to load MTBF data');
+_adasLoadedSp = _activeSpName; // track which SP this data belongs to
 _adasRows = data.rows || [];
 _adasCrashTypes = _adasGetCrashTypes();
 // Feed rows into chart pipeline so renderMtbfTrend picks up correct domain
@@ -5359,15 +6039,32 @@ adasSetDomain(d.domains[0]);
 var totalEl = document.getElementById('adasModalTotal');
 var mtbfEl  = document.getElementById('adasModalMtbf');
 var hoursEl = document.getElementById('adasModalHours');
-if(totalEl) totalEl.addEventListener('input', function(){
-this.dataset.manualEdit = '1';
-var hours = Number((hoursEl&&hoursEl.value)||0);
-var total = Number(this.value||0);
-if(mtbfEl && !mtbfEl.dataset.manualEdit && hours>0 && total>0)
-mtbfEl.value = Math.round((hours/total)*10)/10;
+var sysEl   = document.getElementById('adasModalSystem');
+var ssrEl   = document.getElementById('adasModalSsr');
+var procEl  = document.getElementById('adasModalProcess');
+// Crash fields → auto-sum total → auto-calc MTBF (if not manually set)
+[sysEl, ssrEl, procEl].forEach(function(el){
+  if(el) el.addEventListener('input', function(){ window.adasAutoMtbf('crash'); });
 });
-if(mtbfEl)  mtbfEl.addEventListener('input', function(){ this.dataset.manualEdit='1'; });
-if(hoursEl) hoursEl.addEventListener('input', window.adasAutoMtbf);
+// Hours → auto-calc MTBF (if not manually set)
+if(hoursEl) hoursEl.addEventListener('input', function(){ window.adasAutoMtbf('hours'); });
+// Total manually edited → mark as manual, recalc MTBF from new total
+if(totalEl) totalEl.addEventListener('input', function(){
+  this.dataset.manualEdit = '1';
+  var hours = Number((hoursEl&&hoursEl.value)||0);
+  var total = Number(this.value||0);
+  if(mtbfEl && !mtbfEl.dataset.manualEdit && hours>0 && total>0)
+    mtbfEl.value = Math.round((hours/total)*10)/10;
+});
+// MTBF manually edited → lock it; if cleared → unlock auto-calc
+if(mtbfEl) mtbfEl.addEventListener('input', function(){
+  if(this.value !== ''){
+    this.dataset.manualEdit = '1';
+  } else {
+    delete this.dataset.manualEdit;
+    window.adasAutoMtbf('mtbf_cleared');
+  }
+});
 // Close modal on backdrop click
 var modal = document.getElementById('adasModal');
 if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) adasCloseModal(); });
@@ -5399,59 +6096,134 @@ window.adasLoadData(false);
 /* Customize Tabs - client-side show/hide, saved to localStorage */
 (function(){
 var JOB_ID = (window.LSP_CONFIG && LSP_CONFIG.job_id) ? String(LSP_CONFIG.job_id) : 'lsp';
-var STORE_KEY = 'lsp_hidden_tabs:' + JOB_ID;
-// Gen5 safety: Current Running Build and MTBF are core live-view tabs.
-// Do not let old/new Customize Tabs localStorage hide them.
-var PROTECTED_TABS = {'tab-current': true, 'tab-mtbf': true};
+// _czSp: SP being edited in the modal (independent of global _activeSp)
+var _czSp = null;
+// SP-specific key: use _czSp when modal is open, else global _activeSp
+function _storeKey(sp){ return 'lsp_hidden_tabs:' + JOB_ID + ':' + (sp || _czSp || window._activeSp || 'default'); }
+// On load: clear stale localStorage keys to prevent old hidden-tab data from persisting
+(function _clearStaleKeys(){
+try{
+var oldKey = 'lsp_hidden_tabs:' + JOB_ID;
+if(localStorage.getItem(oldKey) !== null) localStorage.removeItem(oldKey);
+// Also clear all SP-specific keys that have no _set marker (never explicitly saved by user)
+var toRemove = [];
+for(var k=0; k<localStorage.length; k++){
+var key = localStorage.key(k);
+if(key && key.indexOf('lsp_hidden_tabs:'+JOB_ID+':') === 0 && key.indexOf('_set') === -1){
+if(!localStorage.getItem(key+'_set')){
+toRemove.push(key);
+}
+}
+}
+toRemove.forEach(function(k){ localStorage.removeItem(k); });
+// One-time migration: ensure Core + Current are visible by default even if older
+// saved keys explicitly hid them during previous broken Customize Tabs behavior.
+var migKey = 'lsp_hidden_tabs_migrated_core_current:' + JOB_ID;
+if(!localStorage.getItem(migKey)){
+  var keys = [];
+  for(var m=0; m<localStorage.length; m++){
+    var mk = localStorage.key(m);
+    if(mk && mk.indexOf('lsp_hidden_tabs:'+JOB_ID+':') === 0 && mk.indexOf('_set') === -1) keys.push(mk);
+  }
+  keys.forEach(function(mk){
+    try{
+      var arr = JSON.parse(localStorage.getItem(mk)||'[]');
+      if(Array.isArray(arr)){
+        arr = arr.filter(function(id){ return id !== 'tab-core' && id !== 'tab-current'; });
+        localStorage.setItem(mk, JSON.stringify(arr));
+      }
+    }catch(e){}
+  });
+  localStorage.setItem(migKey, '1');
+}
+}catch(e){}
+})();
+// All tabs are user-configurable - none are permanently locked
+var PROTECTED_TABS = {};
+// Core and Current tabs are always visible by default - stale localStorage cannot hide them
+var DEFAULT_VISIBLE = {'tab-core': true, 'tab-current': true};
+// All tabs definition - must match tab-btn-* and section id="tab-*" in the HTML
+var ALL_TABS = [
+  {id:'tab-core',        btn:'tab-btn-core',        label:'Core Slides',              icon:'fa-layer-group'},
+  {id:'tab-current',     btn:'tab-btn-current',      label:'Current Running Build',    icon:'fa-circle'},
+  {id:'tab-mtbf',        btn:'tab-btn-mtbf',         label:'MTBF Trend',               icon:'fa-chart-line'},
+  {id:'tab-weekly',      btn:'tab-btn-weekly',       label:'Weekly Report',            icon:'fa-calendar-week'},
+  {id:'tab-opencrs',     btn:'tab-btn-opencrs',      label:'Open CRs',                 icon:'fa-microscope'},
+  {id:'tab-openjiras',   btn:'tab-btn-openjiras',    label:'Open JIRAs',               icon:'fa-ticket-alt'},
+  {id:'tab-buildreport', btn:'tab-btn-buildreport',  label:'Build Report (old Builds)',icon:'fa-file-alt'}
+];
 function _normalizeHidden(arr){
 return (Array.isArray(arr)?arr:[]).filter(function(id){ return !PROTECTED_TABS[id]; });
 }
-var ALL_TABS = [
-{id:'tab-core',       btn:'tab-btn-core',       label:'Core Slides',               icon:'fa-layer-group'},
-{id:'tab-current',    btn:'tab-btn-current',     label:'Current Running Build',     icon:'fa-circle'},
-{id:'tab-mtbf',       btn:'tab-btn-mtbf',        label:'MTBF Trend',                icon:'fa-chart-line'},
-{id:'tab-weekly',     btn:'tab-btn-weekly',      label:'Weekly Report',             icon:'fa-calendar-week'},
-{id:'tab-opencrs',    btn:'tab-btn-opencrs',     label:'Open CRs',                  icon:'fa-microscope'},
-{id:'tab-openjiras',  btn:'tab-btn-openjiras',   label:'Open JIRAs',                icon:'fa-ticket-alt'},
-{id:'tab-buildreport',btn:'tab-btn-buildreport', label:'Build Report (old Builds)', icon:'fa-file-alt'},
-];
-function _getHidden(){
+function _getHidden(sp){
 try{
-var raw = JSON.parse(localStorage.getItem(STORE_KEY)||'[]');
+var raw = JSON.parse(localStorage.getItem(_storeKey(sp))||'[]');
 var cleaned = _normalizeHidden(raw);
-if(JSON.stringify(raw)!==JSON.stringify(cleaned)) _setHidden(cleaned);
+// Only strip DEFAULT_VISIBLE tabs if user has never explicitly saved this SP key
+var userSet = localStorage.getItem(_storeKey(sp)+'_set');
+if(!userSet){
+cleaned = cleaned.filter(function(id){ return !DEFAULT_VISIBLE[id]; });
+}
+if(JSON.stringify(raw)!==JSON.stringify(cleaned)) _setHidden(cleaned, sp);
 return cleaned;
 }catch(e){ return []; }
 }
-function _setHidden(arr){
-try{ localStorage.setItem(STORE_KEY, JSON.stringify(_normalizeHidden(arr))); }catch(e){}
+function _setHidden(arr, sp){
+try{
+localStorage.setItem(_storeKey(sp), JSON.stringify(_normalizeHidden(arr)));
+localStorage.setItem(_storeKey(sp)+'_set', '1');
+}catch(e){}
 }
 function _applyHidden(hidden){
 hidden = _normalizeHidden(hidden);
+// Never hide a tab whose section already has 'active' class (server-rendered initial tab)
+hidden = hidden.filter(function(id){
+var sec = document.getElementById(id);
+return !(sec && sec.classList.contains('active'));
+});
+// Find currently active tab BEFORE making changes
+var currentActive = null;
+ALL_TABS.forEach(function(t){
+var sec = document.getElementById(t.id);
+if(sec && sec.classList.contains('active')) currentActive = t.id;
+});
+var anyVisible = false;
 ALL_TABS.forEach(function(t){
 var hide = hidden.indexOf(t.id) !== -1;
 var btn = document.getElementById(t.btn);
 var sec = document.getElementById(t.id);
+// Show/hide the tab button
 if(btn) btn.style.display = hide ? 'none' : '';
-if(sec && hide && sec.classList.contains('active')){
+if(sec){
+if(hide){
+// Hiding: if this tab is active, remove active and switch to first visible
+if(sec.classList.contains('active')){
 sec.classList.remove('active');
+if(btn) btn.classList.remove('active');
 var firstVisible = ALL_TABS.find(function(x){
 return hidden.indexOf(x.id)===-1 && document.getElementById(x.id);
 });
-if(firstVisible){
-var targetName = String(firstVisible.id||'').replace(/^tab-/, '');
-if(typeof window.switchTab === 'function'){
-window.switchTab(targetName);
-}else{
-var fs = document.getElementById(firstVisible.id);
-if(fs) fs.classList.add('active');
-var fb = document.getElementById(firstVisible.btn);
-if(fb) fb.classList.add('active');
+if(firstVisible && typeof window.switchTab === 'function'){
+window.switchTab(String(firstVisible.id||'').replace(/^tab-/, ''));
 }
+}
+} else {
+// Showing: track if any visible tab is active
+if(sec.classList.contains('active')) anyVisible = true;
 }
 }
 });
+// If no tab is currently active (e.g. the active tab was just hidden
+// and switchTab wasn't called, or SP switch changed hidden set),
+// activate the first visible tab
+if(!anyVisible && typeof window.switchTab === 'function'){
+var firstVis = ALL_TABS.find(function(x){
+return hidden.indexOf(x.id)===-1 && document.getElementById(x.id);
+});
+if(firstVis) window.switchTab(String(firstVis.id||'').replace(/^tab-/, ''));
 }
+}
+
 function _renderRows(hidden){
 var container = document.getElementById('lspCzRows');
 if(!container) return;
@@ -5471,24 +6243,70 @@ container.innerHTML = html;
 }
 window.lspCzToggle = function(cb){
 var tabId = cb.dataset.tabId;
-var hidden = _getHidden();
+var hidden = _getHidden(_czSp);
 if(cb.checked){
 hidden = hidden.filter(function(x){ return x !== tabId; });
+_setHidden(hidden, _czSp);
+// Only apply to live UI if editing current SP
+if(!_czSp || _czSp === window._activeSp){
+_applyHidden(hidden);
+if(typeof window.switchTab === 'function'){
+window.switchTab(String(tabId||'').replace(/^tab-/, ''));
+}
+}
 } else {
 if(hidden.indexOf(tabId) === -1) hidden.push(tabId);
-}
-_setHidden(hidden);
+_setHidden(hidden, _czSp);
+if(!_czSp || _czSp === window._activeSp){
 _applyHidden(hidden);
+}
+}
 _renderRows(hidden);
 var msg = document.getElementById('lspCzMsg');
-if(msg){ msg.textContent = '? Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
+if(msg){ msg.textContent = '✓ Saved'; msg.style.color='#16a34a'; setTimeout(function(){ msg.textContent=''; },2000); }
 };
+// Expose so lspSwitchSp can re-apply tab visibility per SP
+window._lspApplySpTabVisibility = function(){ _applyHidden(_getHidden()); };
 window.lspOpenCustomizeTabs = function(){
-_renderRows(_getHidden());
+// Set modal SP to current active SP
+_czSp = window._activeSp || null;
+// Render SP bar with modal-only switcher (does NOT call lspSwitchSp)
+_lspRenderCzSpBar();
+_renderRows(_getHidden(_czSp));
 var modal = document.getElementById('lspCzModal');
-_lspRenderSpBar('lspCzSpBar','lspCzSpBtns');
 if(modal) modal.style.display='flex';
 };
+// Modal-only SP switcher - only changes which SP's settings are shown
+function _lspRenderCzSpBar(){
+var bar  = document.getElementById('lspCzSpBar');
+var btns = document.getElementById('lspCzSpBtns');
+if(!bar || !btns) return;
+var siblings = (window.LSP_DATA && window.LSP_DATA.sp_siblings) || [];
+if(siblings.length < 2){ bar.style.display='none'; return; }
+bar.style.display = 'flex';
+var configs = (window.LSP_DATA && window.LSP_DATA.sp_configs) || {};
+btns.innerHTML = siblings.map(function(sp){
+var isActive = (sp.cpl === (_czSp || window._activeSp));
+var hasCfg   = !!(configs[sp.cpl]);
+var bg  = isActive ? 'linear-gradient(135deg,#1d4ed8,#4f46e5)' : (hasCfg ? '#f0fdf4' : '#f8fafc');
+var col = isActive ? '#fff' : (hasCfg ? '#15803d' : '#475569');
+var bdr = isActive ? '2px solid #3b82f6' : (hasCfg ? '2px solid #86efac' : '2px solid #e2e8f0');
+var dot = hasCfg && !isActive ? '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;margin-right:4px;display:inline-block"></span>' : '';
+return '<button data-cpl="'+sp.cpl+'" class="lsp-cz-sp-btn"'
++' style="display:inline-flex;align-items:center;padding:4px 13px;border-radius:999px;font-size:11px;font-weight:900;'
++'white-space:nowrap;cursor:pointer;font-family:inherit;'
++'background:'+bg+';color:'+col+';border:'+bdr+'">'
++dot+sp.cpl+'</button>';
+}).join('');
+btns.querySelectorAll('.lsp-cz-sp-btn').forEach(function(btn){
+btn.addEventListener('click', function(){
+// Only switch modal view - do NOT call lspSwitchSp
+_czSp = this.dataset.cpl;
+_lspRenderCzSpBar();
+_renderRows(_getHidden(_czSp));
+});
+});
+}
 window.lspCloseCustomizeTabs = function(){
 var modal = document.getElementById('lspCzModal');
 if(modal) modal.style.display='none';
@@ -5497,8 +6315,16 @@ document.addEventListener('click', function(e){
 var modal = document.getElementById('lspCzModal');
 if(modal && e.target === modal) modal.style.display='none';
 });
-document.addEventListener('DOMContentLoaded', function(){ _applyHidden(_getHidden()); });
+document.addEventListener('DOMContentLoaded', function(){
+// Ensure _activeSp is set from LSP_DATA before applying hidden tabs
+if(!window._activeSp && window.LSP_DATA && LSP_DATA.active_sp_cpl){
+window._activeSp = String(LSP_DATA.active_sp_cpl);
+}
 _applyHidden(_getHidden());
+});
+// Also apply immediately (DOM already built by Jinja at this point)
+// but defer to next tick so _activeSp is guaranteed set
+setTimeout(function(){ _applyHidden(_getHidden()); }, 0);
 })();
 </script>
 <!-- Add Custom Domain Modal -->

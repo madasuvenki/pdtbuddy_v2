@@ -9074,7 +9074,7 @@ if __name__ == '__main__':
     _start_mcp_server_thread()
 
     # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    # PORT = int(os.environ.get('BUDDY_PORT', '50'))
     HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     PORT = int(os.environ.get('BUDDY_PORT', '500'))
 

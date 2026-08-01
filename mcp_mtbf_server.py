@@ -134,7 +134,11 @@ def _num(v: Any) -> float:
 
 
 def _rows_to_chart(rows: List[Dict], crash_types: Optional[List[str]] = None) -> List[Dict]:
-    """Convert raw MTBF rows to chart-ready series."""
+    """Convert raw MTBF rows to chart-ready series.
+
+    Respects manual_mtbf=1: if the user locked an MTBF value in the editor,
+    that saved value is used directly and never recomputed from hours/crashes.
+    """
     if crash_types is None:
         crash_types = ["system", "ssr", "process"]
     out = []
@@ -142,20 +146,25 @@ def _rows_to_chart(rows: List[Dict], crash_types: Optional[List[str]] = None) ->
         meta_id = str(r.get("meta_id") or "").strip()
         if not meta_id:
             continue
-        hours = _num(r.get("hours"))
-        sys_c = int(_num(r.get("system_crashes")))
-        ssr_c = int(_num(r.get("ssr_crashes")))
+        hours  = _num(r.get("hours"))
+        sys_c  = int(_num(r.get("system_crashes")))
+        ssr_c  = int(_num(r.get("ssr_crashes")))
         proc_c = int(_num(r.get("process_crashes")))
         total_c = 0
-        if "system" in crash_types:
-            total_c += sys_c
-        if "ssr" in crash_types:
-            total_c += ssr_c
-        if "process" in crash_types:
-            total_c += proc_c
-        mtbf = _num(r.get("mtbf"))
-        if not mtbf and hours and total_c:
+        if "system"  in crash_types: total_c += sys_c
+        if "ssr"     in crash_types: total_c += ssr_c
+        if "process" in crash_types: total_c += proc_c
+        manual_mtbf = bool(int(r.get("manual_mtbf") or 0))
+        saved_mtbf  = r.get("mtbf")
+        if manual_mtbf and saved_mtbf not in (None, ""):
+            # User-locked: always use the saved value
+            mtbf = _num(saved_mtbf)
+        elif saved_mtbf not in (None, ""):
+            mtbf = _num(saved_mtbf)
+        elif hours and total_c:
             mtbf = round(hours / total_c, 2)
+        else:
+            mtbf = 0.0
         out.append({
             "meta_id":         meta_id,
             "date":            str(r.get("date") or ""),
@@ -165,6 +174,7 @@ def _rows_to_chart(rows: List[Dict], crash_types: Optional[List[str]] = None) ->
             "process_crashes": proc_c,
             "crashes":         total_c,
             "mtbf":            round(mtbf, 2),
+            "manual_mtbf":     1 if manual_mtbf else 0,
             "s_no":            int(_num(r.get("s_no"))),
         })
     return out

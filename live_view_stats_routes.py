@@ -94,6 +94,7 @@ def _load_config(target_name: str) -> Dict[str, Any]:
     cfg.setdefault("excel_path", "")
     cfg.setdefault("excel_root", _DEFAULT_EXCEL_ROOT)
     cfg.setdefault("sheet_tables", {})
+    cfg.setdefault("sp_names", [])
     cfg.setdefault("updated_at", "")
     return cfg
 
@@ -117,10 +118,70 @@ def _save_config(target_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
                 "unique_crs_table": str(row.get("unique_crs_table") or "").strip(),
             }
         cfg["sheet_tables"] = cleaned
+    # sp_names: explicit ordered list of SP names for Nord HQX/HGY-style pages
+    if isinstance(payload.get("sp_names"), list):
+        cfg["sp_names"] = [str(s).strip() for s in payload["sp_names"] if str(s).strip()]
     cfg["target"] = target_name
     cfg["updated_at"] = datetime.utcnow().isoformat() + "Z"
     _atomic_write_json(_config_path(target_name), cfg)
     return cfg
+
+
+def _is_admin_user() -> bool:
+    """Return True if the current user is an admin or TARGET_GROUP editor."""
+    try:
+        from flask_login import current_user as _cu
+        from config import ADMIN_USERS, TARGET_GROUP
+        uid = str(getattr(_cu, "id", "") or "").strip().lower()
+        if uid in ADMIN_USERS:
+            return True
+        try:
+            import app as _app
+            return bool(_app.is_user_in_group(uid, TARGET_GROUP))
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+
+def _get_sp_names(target_name: str) -> List[str]:
+    """Return the ordered SP name list for a target (Nord HQX/HGY-style pages)."""
+    cfg = _load_config(target_name)
+    return list(cfg.get("sp_names") or [])
+
+
+def _add_sp_name(target_name: str, sp_name: str) -> List[str]:
+    """Append a new SP name to the target's sp_names list. No-op if already present."""
+    sp_name = str(sp_name or "").strip()
+    if not sp_name:
+        raise ValueError("SP name cannot be empty.")
+    if len(sp_name) > 80:
+        raise ValueError("SP name must be 80 characters or fewer.")
+    cfg = _load_config(target_name)
+    names: List[str] = list(cfg.get("sp_names") or [])
+    if sp_name in names:
+        return names  # already exists
+    names.append(sp_name)
+    cfg["sp_names"] = names
+    cfg["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    _atomic_write_json(_config_path(target_name), cfg)
+    return names
+
+
+def _remove_sp_name(target_name: str, sp_name: str) -> List[str]:
+    """Remove an SP name from the target's sp_names list."""
+    sp_name = str(sp_name or "").strip()
+    if not sp_name:
+        raise ValueError("SP name cannot be empty.")
+    cfg = _load_config(target_name)
+    names: List[str] = list(cfg.get("sp_names") or [])
+    if sp_name not in names:
+        raise ValueError(f"SP '{sp_name}' not found.")
+    names = [n for n in names if n != sp_name]
+    cfg["sp_names"] = names
+    cfg["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    _atomic_write_json(_config_path(target_name), cfg)
+    return names
 
 
 def _norm_header(value: Any) -> str:
@@ -333,11 +394,17 @@ def _db_table_options(target_name: str) -> List[Dict[str, str]]:
 def live_view_stats_page(target_name: str):
     if not _is_auto_target(target_name):
         return render_template("coming_soon_template.html", title="Live View Stats", message="Live View Stats is available for AUTO targets only."), 404
+        # Nord HQX/HGY pages use the same Live View Stats UI, with an admin-managed
+    # SP-name list layered on top of the existing synced workbook sheet list.
+    slug = str(target_name or "").strip().upper().replace(".", "_")
+    is_nord_sp_managed = slug in {"NORD_HQX", "NORD_HGY"} or "NORD_HQX" in slug or "NORD_HGY" in slug
     return render_template(
         "live_view_stats.html",
         target_name=target_name,
         target_display=get_display_name_for_target(target_name) or target_name,
         default_excel_root=_DEFAULT_EXCEL_ROOT,
+        is_admin=_is_admin_user(),
+        is_nord_sp_managed=is_nord_sp_managed,
     )
 
 
@@ -424,6 +491,75 @@ def api_live_view_stats_sheets(target_name: str):
     cfg = _load_config(target_name)
     index = _read_json(_index_path(target_name), {"target": target_name, "sheets": []})
     return jsonify({"ok": True, "config": cfg, "index": index})
+
+
+# ---------------------------------------------------------------------------
+# SP name management endpoints  (Nord HQX/HGY flexible SP list)
+# ---------------------------------------------------------------------------
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/sp_names", methods=["GET"])
+@login_required
+def api_live_view_stats_sp_names_get(target_name: str):
+    """Return the current SP name list for a target."""
+    try:
+        names = _get_sp_names(target_name)
+        return jsonify({"ok": True, "target": target_name, "sp_names": names})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/sp_names/add", methods=["POST"])
+@login_required
+def api_live_view_stats_sp_names_add(target_name: str):
+    """Admin-only: add a new SP name to the target's list."""
+    if not _is_admin_user():
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sp_name = str(payload.get("sp_name") or "").strip()
+    try:
+        names = _add_sp_name(target_name, sp_name)
+        return jsonify({"ok": True, "target": target_name, "sp_names": names,
+                        "message": f"SP '{sp_name}' added."})
+    except ValueError as ve:
+        return jsonify({"ok": False, "error": str(ve)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/sp_names/remove", methods=["POST"])
+@login_required
+def api_live_view_stats_sp_names_remove(target_name: str):
+    """Admin-only: remove an SP name from the target's list."""
+    if not _is_admin_user():
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sp_name = str(payload.get("sp_name") or "").strip()
+    try:
+        names = _remove_sp_name(target_name, sp_name)
+        return jsonify({"ok": True, "target": target_name, "sp_names": names,
+                        "message": f"SP '{sp_name}' removed."})
+    except ValueError as ve:
+        return jsonify({"ok": False, "error": str(ve)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/sp_names/reorder", methods=["POST"])
+@login_required
+def api_live_view_stats_sp_names_reorder(target_name: str):
+    """Admin-only: replace the full ordered SP name list."""
+    if not _is_admin_user():
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sp_names = payload.get("sp_names")
+    if not isinstance(sp_names, list):
+        return jsonify({"ok": False, "error": "sp_names must be a list."}), 400
+    try:
+        cfg = _save_config(target_name, {"sp_names": sp_names})
+        return jsonify({"ok": True, "target": target_name, "sp_names": cfg.get("sp_names") or [],
+                        "message": "SP list reordered."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/sheet/<path:sheet_name>", methods=["GET"])

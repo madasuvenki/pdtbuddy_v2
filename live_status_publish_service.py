@@ -914,6 +914,12 @@ def save_job_meta(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, An
         'test_eng_comments':        updates.get('test_eng_comments',        job.get('test_eng_comments', '')),
         'updated_at': _utc_now(),
     })
+    # Persist SP configs when provided
+    if 'sp_configs' in updates:
+        existing = job.get('sp_configs') or {}
+        incoming = updates['sp_configs'] or {}
+        existing.update(incoming)
+        job['sp_configs'] = existing
     job['targets_display'] = ', '.join(job.get('targets') or [])
     _write_job_file(job, refresh_index=True)
     return job

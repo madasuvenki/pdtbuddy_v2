@@ -349,7 +349,7 @@ def api_public_auto_gen5_domain(domain: str):
                 "rows":             [],
                 "row_count":        0,
             }), 404
-                sp_k = _sp_key(sp) if sp else ""
+        sp_k = _sp_key(sp) if sp else ""
         data = _sp_load(target_name, resolved, sp) if sp_k else _load_adas_mtbf(target_name, resolved)
         rows = [_public_row(r, resolved) for r in _sort_adas_rows_by_date(data.get("rows") or [])]
         last_n = int(request.args.get("last_n") or 0)
@@ -471,7 +471,7 @@ def api_public_auto_gen5_sp(sp: str):
                 "requested_sp": sp,
                 "available_sps": [{"cpl": e["cpl"], "sp_key": e["sp_key"], "domains": e["domains"]} for e in all_sps],
             }), 404
-                domains_to_fetch = [domain_filter] if domain_filter else sp_entry["domains"]
+        domains_to_fetch = [domain_filter] if domain_filter else sp_entry["domains"]
         result_domains: List[Dict[str, Any]] = []
         for dom in domains_to_fetch:
             try:
@@ -522,7 +522,7 @@ def api_public_auto_gen5_sp_domain(sp: str, domain: str):
                 "rows":             [],
                 "row_count":        0,
             }), 404
-                data = _sp_load(target_name, resolved, sp_cpl)
+        data = _sp_load(target_name, resolved, sp_cpl)
         rows = _sort_adas_rows_by_date(data.get("rows") or [])
         if last_n > 0:
             rows = rows[-last_n:]
@@ -568,7 +568,7 @@ def api_public_auto_gen5_all():
                 entry["summary"] = _domain_summary(target_name, dom)
             base_domains.append(entry)
         sp_domains = []
-                for sp_entry in _discover_sps_for_target(target_name):
+        for sp_entry in _discover_sps_for_target(target_name):
             sp_cpl = sp_entry["cpl"]
             for dom in sp_entry["domains"]:
                 try:
