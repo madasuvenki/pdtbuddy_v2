@@ -69,52 +69,6 @@ pre{padding:14px;font-size:11.5px;color:#e2e8f0;font-family:Consolas,monospace;l
   </div>
 </div>
 
-<!-- BASE DOMAIN TABLES -->
-<div class="grid2">
-  <div class="card">
-    <div class="card-title"><i class="fas fa-table" style="color:#1e40af"></i> Nord HQX &mdash; Base Domains</div>
-    <span class="tgt hqx">target=nord_hqx</span>
-    <table>
-      <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
-      <tbody>
-      {% for d in hqx_domains %}
-        <tr>
-          <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
-          <td style="color:#475569">{{ d.row_count }}</td>
-          <td class="meta-cell" title="{{ d.latest_meta_id }}">{{ d.latest_meta_id }}</td>
-          <td style="font-size:11px;white-space:nowrap">{{ d.latest_date }}</td>
-          <td><span class="mtbf-val">{{ d.latest_mtbf }}</span></td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hqx" target="_blank">/api/domain/{{ d.domain }}</a></td>
-        </tr>
-      {% else %}
-        <tr><td colspan="6" class="no-data">No domains found.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="card">
-    <div class="card-title"><i class="fas fa-table" style="color:#5b21b6"></i> Nord HGY &mdash; Base Domains</div>
-    <span class="tgt hgy">target=nord_hgy</span>
-    <table>
-      <thead><tr><th>Domain</th><th>Rows</th><th>Latest Meta</th><th>Date</th><th>MTBF</th><th>Endpoint</th></tr></thead>
-      <tbody>
-      {% for d in hgy_domains %}
-        <tr>
-          <td><b style="color:#1e3a8a">{{ d.domain }}</b></td>
-          <td style="color:#475569">{{ d.row_count }}</td>
-          <td class="meta-cell" title="{{ d.latest_meta_id }}">{{ d.latest_meta_id }}</td>
-          <td style="font-size:11px;white-space:nowrap">{{ d.latest_date }}</td>
-          <td><span class="mtbf-val">{{ d.latest_mtbf }}</span></td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/domain/{{ d.domain }}?target=nord_hgy" target="_blank">/api/domain/{{ d.domain }}</a></td>
-        </tr>
-      {% else %}
-        <tr><td colspan="6" class="no-data">No domains found.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
 <!-- SP-SCOPED TABLES -->
 <div class="grid2">
   <div class="card">
@@ -185,21 +139,7 @@ pre{padding:14px;font-size:11.5px;color:#e2e8f0;font-family:Consolas,monospace;l
 <div class="card">
   <div class="card-title"><i class="fas fa-plug" style="color:#6366f1"></i> All Endpoints <span class="badge badge-v2">v2 &mdash; Aug 2026</span></div>
 
-  <div class="sec">&#9312; Base endpoints &mdash; no SP filter</div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div>
-    <div class="ep-desc">List all domains for a target with row count, latest meta, latest MTBF</div>
-  </div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5</code></div>
-    <div class="ep-desc">Get rows for one domain &mdash; optionally limit to last N rows</div>
-  </div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/search?target=nord_hqx&amp;domain=ADAS&amp;q=00734&amp;limit=10</code></div>
-    <div class="ep-desc">Free-text search across rows in one or all domains</div>
-  </div>
-
-    <div class="sec">&#9313; SP-dedicated endpoints</div>
+    <div class="sec">SP-dedicated endpoints</div>
   <div class="ep-block">
     <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sps?target=nord_hgy</code></div>
     <div class="ep-desc">List all SPs that have data files &mdash; with per-domain row counts &amp; latest MTBF</div>
@@ -219,16 +159,6 @@ pre{padding:14px;font-size:11.5px;color:#e2e8f0;font-family:Consolas,monospace;l
   <div class="ep-block">
     <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/all?target=nord_hqx&amp;last_n=5</code></div>
     <div class="ep-desc">Everything in one call &mdash; base domains + all SP domains</div>
-  </div>
-
-    <div class="sec">&#9314; ?sp= filter on existing endpoints</div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;sp=5.7.7.0&amp;last_n=5</code></div>
-    <div class="ep-desc">HQX SP-scoped rows via existing domain endpoint using ?sp= param</div>
-  </div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/domain/ADAS?target=nord_hgy&amp;sp=5.1.7.0&amp;last_n=5</code></div>
-    <div class="ep-desc">HGY SP-scoped rows via existing domain endpoint using ?sp= param</div>
   </div>
 
   <div class="sec">Query parameters</div>
@@ -407,60 +337,6 @@ curl "{{ base_ip }}\
     { <span class="k">"domain"</span>: <span class="s">"NONSAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">26</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.5</span> } },
     { <span class="k">"domain"</span>: <span class="s">"SAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">7</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span> } }
   ]
-}</pre>
-    </div>
-  </div>
-
-  <!-- BASE DOMAIN -->
-  <div class="sec">&#9314; GET /api/domain/ADAS &mdash; base (no SP) domain rows</div>
-  <div class="code-wrap">
-    <div class="code-block">
-      <div class="code-header">Request<span>GET /api/domain/ADAS?target=nord_hqx&amp;last_n=2</span></div>
-<pre>curl "https://pdt-buddy.qualcomm.com\
-  /public/auto-gen5/api/domain/ADAS\
-  ?target=nord_hqx&amp;last_n=2"
-
-<span class="c"># Base domain (no SP filter).
-# Returns combined data across all SPs.</span></pre>
-    </div>
-    <div class="code-block">
-      <div class="code-header">Response<span>200 OK</span></div>
-<pre>{
-  <span class="k">"ok"</span>: <span class="b">true</span>,
-  <span class="k">"target"</span>: <span class="s">"nord_hqx"</span>,
-  <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-  <span class="k">"row_count"</span>: <span class="n">2</span>,
-  <span class="k">"rows"</span>: [
-    {
-      <span class="k">"s_no"</span>: <span class="n">26</span>,
-      <span class="k">"date"</span>: <span class="s">"2026-07-27"</span>,
-      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0-00734-STD.PVM-1"</span>,
-      <span class="k">"hours"</span>: <span class="n">410</span>,
-      <span class="k">"system_crashes"</span>: <span class="n">77</span>,
-      <span class="k">"ssr_crashes"</span>: <span class="n">0</span>,
-      <span class="k">"process_crashes"</span>: <span class="n">178</span>,
-      <span class="k">"total_crashes"</span>: <span class="n">255</span>,
-      <span class="k">"mtbf"</span>: <span class="n">1.6</span>
-    },
-    {
-      <span class="k">"s_no"</span>: <span class="n">27</span>,
-      <span class="k">"date"</span>: <span class="s">"2026-07-31"</span>,
-      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0.r1-00076-STD.PVM-1"</span>,
-      <span class="k">"hours"</span>: <span class="n">460</span>,
-      <span class="k">"system_crashes"</span>: <span class="n">544</span>,
-      <span class="k">"ssr_crashes"</span>: <span class="n">1316</span>,
-      <span class="k">"process_crashes"</span>: <span class="n">64</span>,
-      <span class="k">"total_crashes"</span>: <span class="n">1924</span>,
-      <span class="k">"mtbf"</span>: <span class="n">0.2</span>
-    }
-  ],
-  <span class="k">"summary"</span>: {
-    <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-    <span class="k">"row_count"</span>: <span class="n">27</span>,
-    <span class="k">"latest_date"</span>: <span class="s">"2026-07-31"</span>,
-    <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span>,
-    <span class="k">"updated_at"</span>: <span class="s">"2026-07-31T09:36:14Z"</span>
-  }
 }</pre>
     </div>
   </div>
