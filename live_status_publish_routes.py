@@ -2263,6 +2263,15 @@ def _get_sp_siblings(primary_target: str) -> list:
                 targets_by_cpl[own_cpl].insert(0, primary_target)
             preferred_by_cpl.setdefault(own_cpl, primary_target)
 
+        # HQX fix: DB has domain targets (nord_hqx_adas_5_7_7_0 etc) but
+        # nord_hqx itself has no cpl row -> own_cpl is empty.
+        # Derive own_cpl from DB rows and add primary_target to candidates.
+        if not own_cpl and targets_by_cpl:
+            own_cpl = sorted(targets_by_cpl.keys())[0]
+        if own_cpl and primary_target not in targets_by_cpl.get(own_cpl, []):
+            targets_by_cpl.setdefault(own_cpl, []).insert(0, primary_target)
+            preferred_by_cpl.setdefault(own_cpl, primary_target)
+
         # Filesystem fallback for HQX (no dashboard_status CPL rows)
         # Scan mtbf_*_<key>.json to discover SPs e.g. mtbf_adas_5770.json -> 5.7.7.0
         fs_cpls = {}  # populated below if DB had no CPL rows
@@ -2286,9 +2295,9 @@ def _get_sp_siblings(primary_target: str) -> list:
             except Exception:
                 pass
 
-        # Allow 1 SP when discovered from filesystem (HQX has only 5.7.7.0 currently)
-        # Require 2+ only when coming from DB (HGY has 5.1.7.0 + 5.1.9.0)
-        _min_sps = 1 if fs_cpls else 2
+        # Show SP bar when only 1 unique CPL exists (HQX: only 5.7.7.0)
+        # Require 2+ only when multiple CPLs from DB (HGY: 5.1.7.0 + 5.1.9.0)
+        _min_sps = 1 if (fs_cpls or len(targets_by_cpl) == 1) else 2
         if len(targets_by_cpl) < _min_sps:
             return []
 

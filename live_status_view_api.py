@@ -69,7 +69,8 @@ def _write_domains_file(target_name: str, custom: List[str], hidden: List[str]) 
 def _get_target_domains(target_name: str) -> List[str]:
     """Return ordered domain list for target. Starts with default ADAS/IVI/FLEX
     domains (unless the user has hidden/deleted one of them), followed by any
-    custom domains added by the user."""
+    custom domains added by the user OR discovered from SP JSON files.
+    e.g. mtbf_safe-ivi_5170.json -> SAFE-IVI auto-added for HGY."""
     cfg = _read_domains_file(target_name)
     custom = cfg["domains"]
     hidden = set(cfg["hidden"])
@@ -78,6 +79,19 @@ def _get_target_domains(target_name: str) -> List[str]:
     for d in custom:
         if d not in merged and d not in hidden:
             merged.append(d)
+    # Auto-discover domains from SP JSON files in the MTBF folder
+    # e.g. mtbf_safe-ivi_5170.json -> SAFE-IVI, mtbf_csp_5170.json -> CSP
+    try:
+        folder = _adas_mtbf_folder(target_name)
+        sp_pattern = re.compile(r'^mtbf_([a-z0-9_\-]+)_\d{4,8}\.json$', re.IGNORECASE)
+        for fname in os.listdir(folder):
+            m = sp_pattern.match(fname)
+            if m:
+                dom = m.group(1).upper()
+                if dom not in merged and dom not in hidden:
+                    merged.append(dom)
+    except Exception:
+        pass
     # Safety net: never return a fully empty domain list (would break
     # downstream code that assumes allowed[0] exists). This only triggers
     # if the user has hidden every single domain, defaults included.

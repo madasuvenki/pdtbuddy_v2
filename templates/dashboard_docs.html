@@ -547,6 +547,81 @@
           <i class="fas fa-chevron-down docs-section__chevron"></i>
         </div>
         <div class="docs-section__body">
+
+          <!-- Public API highlight -->
+          <div class="docs-tip" style="background:#f0fdf4;border-color:#86efac;margin-bottom:14px">
+            <i class="fas fa-globe" style="color:#059669"></i>
+            <span><b>Public MTBF API</b> &mdash; No login required, CORS enabled, shareable with external tools.<br>
+            Full docs: <a href="/public/auto-gen5" target="_blank" style="color:#1d4ed8;font-weight:700">/public/auto-gen5</a></span>
+          </div>
+
+          <!-- Public API table -->
+          <div style="font-size:11px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">&#9670; Public MTBF API (no auth &mdash; share with other tools)</div>
+          <div class="docs-table-wrap" style="margin-bottom:16px">
+            <table class="docs-table">
+              <thead><tr><th>Endpoint</th><th>Method</th><th>Params</th><th>Returns</th></tr></thead>
+              <tbody>
+                <tr style="background:#f0fdf4">
+                  <td><span class="docs-code">/public/auto-gen5/api/sps</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hgy</code></td>
+                  <td>All SPs with domains, row counts &amp; latest MTBF</td>
+                </tr>
+                <tr>
+                  <td><span class="docs-code">/public/auto-gen5/api/sp/&lt;cpl&gt;</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hgy&amp;last_n=5</code></td>
+                  <td>All domains + rows for one SP (e.g. <code>5.1.7.0</code> or <code>5170</code>)</td>
+                </tr>
+                <tr style="background:#f0fdf4">
+                  <td><span class="docs-code">/public/auto-gen5/api/sp/&lt;cpl&gt;/domain/&lt;domain&gt;</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hqx&amp;last_n=10</code></td>
+                  <td>Rows for one SP + one domain (e.g. SP <code>5770</code> domain <code>ADAS</code>)</td>
+                </tr>
+                <tr>
+                  <td><span class="docs-code">/public/auto-gen5/api/domains</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hqx</code></td>
+                  <td>Domain list with row counts &amp; latest MTBF per domain</td>
+                </tr>
+                <tr style="background:#f0fdf4">
+                  <td><span class="docs-code">/public/auto-gen5/api/domain/&lt;domain&gt;</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hgy&amp;sp=5170</code></td>
+                  <td>All rows for one domain, optionally SP-scoped</td>
+                </tr>
+                <tr>
+                  <td><span class="docs-code">/public/auto-gen5/api/search</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hgy&amp;q=00085&amp;domain=ADAS</code></td>
+                  <td>Free-text search across all builds</td>
+                </tr>
+                <tr style="background:#f0fdf4">
+                  <td><span class="docs-code">/public/auto-gen5/api/all</span></td>
+                  <td><span class="docs-badge docs-badge--green">PUBLIC</span></td>
+                  <td><code>?target=nord_hqx&amp;last_n=5</code></td>
+                  <td>Everything in one call &mdash; base + all SP domains</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SP Key reference -->
+          <div style="font-size:11px;font-weight:900;color:#6366f1;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">&#9670; SP Key Reference</div>
+          <div class="docs-table-wrap" style="margin-bottom:16px">
+            <table class="docs-table">
+              <thead><tr><th>Target</th><th>CPL</th><th>SP Key (compact)</th><th>Domains</th></tr></thead>
+              <tbody>
+                <tr><td><b>Nord HQX</b></td><td><code>5.7.7.0</code></td><td><code>5770</code></td><td>ADAS, FLEX, IVI</td></tr>
+                <tr style="background:#f5f3ff"><td><b>Nord HGY</b></td><td><code>5.1.7.0</code></td><td><code>5170</code></td><td>ADAS, CSP, FLEX, NONSAFE-IVI, SAFE-IVI</td></tr>
+                <tr><td><b>Nord HGY</b></td><td><code>5.1.9.0</code></td><td><code>5190</code></td><td>ADAS, FLEX, NONSAFE-IVI, SAFE-IVI</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Internal API table -->
+          <div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">&#9670; Internal APIs (login required)</div>
           <div class="docs-table-wrap">
             <table class="docs-table">
               <thead><tr><th>Endpoint</th><th>Method</th><th>Returns</th></tr></thead>
@@ -557,11 +632,10 @@
                 <tr><td><span class="docs-code">/api/live_status_view/&lt;target&gt;/running_builds_db</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Running builds from Axiom cache</td></tr>
                 <tr><td><span class="docs-code">/api/build_report/running_builds</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Live JIRA fetch for build report</td></tr>
                 <tr><td><span class="docs-code">/api/consolidated_report</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>JIRA/CR consolidated report data</td></tr>
-                <tr><td><span class="docs-code">/public/auto-gen5/api/domains</span></td><td><span class="docs-badge docs-badge--green">PUBLIC</span></td><td>Public MTBF domain list (no login)</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="docs-tip"><i class="fas fa-info-circle"></i><span>All non-public endpoints require login. Public MTBF endpoints support CORS and require no authentication for GET requests.</span></div>
+          <div class="docs-tip" style="margin-top:10px"><i class="fas fa-info-circle"></i><span>Internal endpoints require login. Public API supports CORS &mdash; no auth needed for GET requests.</span></div>
         </div>
       </div>
 
