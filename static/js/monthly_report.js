@@ -248,19 +248,50 @@
       }
     });
 
-    /* Re-render WBC flat tables if present */
+            /* Re-render WBC flat tables if present */
     if (state.wbcData) {
-      var flatTotal  = $('mrFlatTotalSec');
-      var flatUnique = $('mrFlatUniqueSec');
-      var overallSec = $('mrOverallStatusSec');
-      if (overallSec && Object.keys(state.wbcData.cr_tables || {}).length) {
-        if (flatTotal)  flatTotal.remove();
-        if (flatUnique) flatUnique.remove();
-        var newFlatTotal  = buildFlatCrTable(state.wbcData, 'tbl3_total',  'PDT WBC Total CRs reported by PDT',  '#1e3a5f', 'mrFlatTotalSec');
-        var newFlatUnique = buildFlatCrTable(state.wbcData, 'tbl2_unique', 'PDT WBC Unique CRs reported by PDT', '#0f766e', 'mrFlatUniqueSec');
-        overallSec.insertAdjacentElement('afterend', newFlatUnique);
-        overallSec.insertAdjacentElement('afterend', newFlatTotal);
-      }
+      /* Re-filter flat tables in-place (faster than full rebuild) */
+      var tables = state.wbcData.cr_tables || {};
+      ['mrFlatTotalSec|tbl3_total', 'mrFlatUniqueSec|tbl2_unique'].forEach(function(pair) {
+        var parts  = pair.split('|');
+        var secId  = parts[0];
+        var kind   = parts[1];
+        var sec    = $(secId); if (!sec) return;
+        /* re-flatten + re-filter */
+        var allRows = [];
+        var seenCr  = {};
+        Object.keys(tables).sort().forEach(function(sp) {
+          var rows = filterCrRows(tables[sp][kind] || []);
+          rows.forEach(function(r) {
+            var key = (r.cr_id || '') + '|' + sp;
+            if (!seenCr[key]) { seenCr[key] = true; allRows.push(r); }
+          });
+        });
+        /* update tbody */
+        var tblId = secId + 'Tbl';
+        var tbl   = $(tblId);
+        if (tbl) {
+          var tbody = tbl.querySelector('tbody');
+          if (tbody) {
+            var cols = ['program','cr_id','instances','cr_date','cr_area','cr_subsystem','cr_functionality','cr_title','image','cr_status'];
+            if (!allRows.length) {
+              tbody.innerHTML = '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;color:#94a3b8;padding:14px">No data</td></tr>';
+            } else {
+              tbody.innerHTML = allRows.map(function(r, i) {
+                return '<tr><td>' + (i+1) + '</td>' + cols.map(function(c) {
+                  var val = esc(String(r[c] || ''));
+                  if (c === 'cr_id' && val) val = '<b><a href="https://orbit/cr/' + val.replace(/^CR-?/i,'') + '" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:none;">' + val + '</a></b>';
+                  else if (c === 'cr_status' && val) val = badge(r[c]);
+                  return '<td>' + val + '</td>';
+                }).join('') + '</tr>';
+              }).join('');
+            }
+          }
+          /* update subtitle count */
+          var sub = sec.querySelector('.mr-section-sub');
+          if (sub) sub.textContent = fmt(allRows.length) + ' CRs';
+        }
+      });
       /* Re-render per-target CR tables */
       var crTblBody = $('mrCrTblBody');
       if (crTblBody) {
@@ -319,28 +350,26 @@
         if (cat2 === 'invalid') return false;
       }
 
-      /* ── Site filter ──
-         Shape A: test_team field e.g. 'PDT_QIPL_SWPDT', 'PDT_SD_SWPDT', 'PDT_CH_SWPDT'
-         Shape B: program field e.g. 'Kobuk.LE.1.1' — no site info, pass through
-         Area chart rows: no site info, pass through */
+            /* ── Site filter ──
+         pdt_site_unique field: 'PDT_QIPL_Unique', 'PDT_CH_Unique', 'PDT_SD_Unique', 'DupCR', 'NA'
+         test_team fallback:    'PDT_QIPL_SWPDT', 'PDT_SD_SWPDT', 'PDT_CH_SWPDT'
+         overall_crs rows have no site info — pass through */
       if (!allSites && sites.length) {
-        var team = String(r.test_team || '').trim().toUpperCase();
-        if (team) {
-          /* Derive site from test_team:
-             PDT_QIPL_*  -> QIPL
-             PDT_SD_*    -> SD
-             PDT_CH_*    -> CH
-             anything else -> pass through (don't filter unknown sites) */
-          var rowSite = '';
-          if (team.indexOf('_QIPL_') >= 0 || team === 'PDT_QIPL' || team.indexOf('QIPL') === 0) {
-            rowSite = 'QIPL';
-          } else if (team.indexOf('_SD_') >= 0 || team === 'PDT_SD') {
-            rowSite = 'SD';
-          } else if (team.indexOf('_CH_') >= 0 || team === 'PDT_CH') {
-            rowSite = 'CH';
-          }
-          if (rowSite && sites.indexOf(rowSite) < 0) return false;
-        }
+        var siteVal = String(r.pdt_site_unique || '').trim().toUpperCase();
+        var team    = String(r.test_team       || '').trim().toUpperCase();
+        var rowSite = '';
+
+        /* derive from pdt_site_unique first (most reliable) */
+        if      (siteVal.indexOf('QIPL') >= 0) rowSite = 'QIPL';
+        else if (siteVal.indexOf('_CH_') >= 0 || siteVal === 'PDT_CH_UNIQUE') rowSite = 'CH';
+        else if (siteVal.indexOf('_SD_') >= 0 || siteVal === 'PDT_SD_UNIQUE') rowSite = 'SD';
+        /* fallback: derive from test_team */
+        else if (team.indexOf('_QIPL_') >= 0 || team === 'PDT_QIPL') rowSite = 'QIPL';
+        else if (team.indexOf('_SD_')   >= 0 || team === 'PDT_SD')   rowSite = 'SD';
+        else if (team.indexOf('_CH_')   >= 0 || team === 'PDT_CH')   rowSite = 'CH';
+
+        /* only filter if we could determine a site; unknown = pass through */
+        if (rowSite && sites.indexOf(rowSite) < 0) return false;
       }
 
       return true;

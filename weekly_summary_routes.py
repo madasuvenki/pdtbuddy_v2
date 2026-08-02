@@ -6710,7 +6710,8 @@ def _monthly_fetch_target_cr_data(
                         {_sel('jira_count', '0')}    AS jira_count,
                         {_sel('image')},
                         {_sel('cr_age', '0')}        AS cr_age,
-                        {_sel('test_team', "'SWPDT'")} AS test_team
+                        {_sel('test_team', "'SWPDT'")} AS test_team,
+                        {_sel('pdt_site_unique', "''")}
                     FROM {u_table}
                     WHERE mapped_cr IS NOT NULL
                       AND TRIM(mapped_cr) <> ''
