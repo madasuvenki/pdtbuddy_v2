@@ -6617,6 +6617,7 @@ def _monthly_fetch_target_cr_data(
     conn, bu: str, target: str, pl_id: str,
     date_from_s: str, date_to_s: str,
     include_hwpdt: bool = False,
+    fetch_overall: bool = True,
 ) -> dict:
     """
     Fetch all CR/JIRA metrics for ONE pl_id within the date range.
@@ -6645,8 +6646,10 @@ def _monthly_fetch_target_cr_data(
     if not schema:
         return {}
 
-    db_prefix    = _pl_id_to_db_prefix(pl_id)
-    base_prefix  = _target_to_base(target)
+    db_prefix   = _pl_id_to_db_prefix(pl_id)          # e.g. kobuk_le_1_1
+    # base_prefix from sp_name (pl_id) first segment — most reliable
+    # e.g. 'Kobuk.LE.1.1' -> 'kobuk',  'Amboseli.LE.1.2' -> 'amboseli'
+    base_prefix = pl_id.split('.')[0].lower() if '.' in pl_id else _target_to_base(target)
 
     result = {
         'target':          target,
@@ -6725,82 +6728,77 @@ def _monthly_fetch_target_cr_data(
                 result['error'] = f'unique_crs: {e}'
 
         # ----?-------?--- 2. overall_crs - PDT Reported CRs ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
-        # Try: {base}_overallcrs  (e.g. kobuk_overallcrs)
-        # Also try: {db_prefix}_overall_crs as fallback
-        o_table = None
-        for candidate in [
-            f'`{schema}`.`{base_prefix}_overallcrs`',
-            f'`{schema}`.`{db_prefix}_overall_crs`',
-            f'`{schema}`.`{db_prefix}_overallcrs`',
-        ]:
-            if _tbl_exists_cur(cur, candidate):
-                o_table = candidate
-                break
+                        # overall_crs: shared base table (e.g. kobuk_overallcrs).
+        # Columns: crid, date, area, subs, func, si, status, count,
+        #          serial, host, label, scenario, reported_team, seen_in_targets
+        # PDT rows = reported_team IN ('PDT_Unique','PDT_Reported')
+        # Only fetch for the FIRST pl_id of each base target to avoid
+        # duplicating the same rows across Kobuk.LE.1.1, Kobuk.LE.2.0, etc.
+        if fetch_overall:
+            o_table = None
+            for candidate in [
+                f'`{schema}`.`{base_prefix}_overallcrs`',
+                f'`{schema}`.`{db_prefix}_overall_crs`',
+                f'`{schema}`.`{db_prefix}_overallcrs`',
+            ]:
+                if _tbl_exists_cur(cur, candidate):
+                    o_table = candidate
+                    break
 
-        if o_table:
-            result['overall_enabled'] = True
-            try:
-                cur.execute(f'SHOW COLUMNS FROM {o_table}')
-                o_cols = frozenset(r['Field'].lower() for r in (cur.fetchall() or []))
+            if o_table:
+                result['overall_enabled'] = True
+                try:
+                    cur.execute(f'SHOW COLUMNS FROM {o_table}')
+                    o_cols = frozenset(r['Field'].lower() for r in (cur.fetchall() or []))
 
-                # Column name mapping: overallcrs uses different names
-                # crid -> mapped_cr, date -> jira_date, subs -> cr_subsystem,
-                # func -> cr_functionality, reported_team -> test_team, count -> cr_occurrence
-                def _ocol(preferred, *fallbacks, alias=None, default="''"):
-                    for c in (preferred,) + fallbacks:
-                        if c.lower() in o_cols:
-                            a = alias or preferred
-                            return f'`{c}` AS `{a}`' if c != a else f'`{c}`'
-                    a = alias or preferred
-                    return f'{default} AS `{a}`'
+                                        # CR id column: crid preferred, fallback mapped_cr
+                    cr_col = next((c for c in ('crid', 'mapped_cr', 'cr_id') if c in o_cols), None)
+                    if not cr_col:
+                        result['overall_enabled'] = False
+                    else:
+                        # helper: select col if exists else default
+                        def _oc(col, alias=None, default="''"):
+                            a = alias or col
+                            return f'`{col}` AS `{a}`' if col in o_cols else f'{default} AS `{a}`'
 
-                # Determine date column for filtering
-                date_col = next((c for c in ('jira_date', 'date', 'cr_date') if c in o_cols), None)
-                o_date_clause = ''
-                o_date_params = []
-                if date_col:
-                    o_date_clause = f' AND `{date_col}` >= %s AND `{date_col}` <= %s'
-                    o_date_params = [date_from_s, date_to_s]
+                        # NO date filter — overallcrs is a cumulative table,
+                        # not time-sliced. Fetch all PDT rows.
+                        cur.execute(f"""
+                            SELECT
+                                `{cr_col}`          AS mapped_cr,
+                                {_oc('date',            alias='cr_date',        default='NULL')},
+                                {_oc('area',            alias='cr_area')},
+                                {_oc('subs',            alias='cr_subsystem')},
+                                {_oc('func',            alias='cr_functionality')},
+                                {_oc('status',          alias='cr_status')},
+                                {_oc('count',           alias='cr_occurrence',  default='1')},
+                                {_oc('label',           alias='cr_title')},
+                                {_oc('reported_team',   alias='test_team')},
+                                {_oc('seen_in_targets', alias='image')}
+                            FROM {o_table}
+                            WHERE `{cr_col}` IS NOT NULL
+                              AND TRIM(`{cr_col}`) <> ''
+                              AND reported_team IN ('PDT_Unique', 'PDT_Reported')
+                        """)
+                        for r in (cur.fetchall() or []):
+                            row = dict(r)
+                            row['target_name'] = pl_id
+                            for k, v in list(row.items()):
+                                if hasattr(v, 'isoformat'):
+                                    row[k] = v.isoformat()[:10]
+                            result['overall_crs'].append(row)
 
-                # CR id column
-                cr_col = 'crid' if 'crid' in o_cols else ('mapped_cr' if 'mapped_cr' in o_cols else None)
-                if not cr_col:
+                        seen = set()
+                        for r in result['overall_crs']:
+                            k = str(r.get('mapped_cr') or '').strip()
+                            if k:
+                                seen.add(k)
+                        result['unique_cr_count'] = len(seen)
+                except Exception as e:
                     result['overall_enabled'] = False
-                else:
-                    cur.execute(f"""
-                        SELECT
-                            `{cr_col}` AS mapped_cr,
-                            {_ocol('cr_status', 'status',   alias='cr_status')},
-                            {_ocol('cr_area',   'area',     alias='cr_area')},
-                            {_ocol('cr_subsystem', 'subs',  alias='cr_subsystem')},
-                            {_ocol('cr_functionality', 'func', alias='cr_functionality')},
-                            {_ocol('cr_occurrence', 'count', alias='cr_occurrence', default='0')},
-                            {_ocol('cr_title', 'label',     alias='cr_title')},
-                            {_ocol('cr_date', 'date', 'jira_date', alias='cr_date', default='NULL')},
-                            {_ocol('jira_date', 'date',     alias='jira_date', default='NULL')},
-                            {_ocol('reported_team', 'test_team', alias='test_team')}
-                        FROM {o_table}
-                        WHERE `{cr_col}` IS NOT NULL
-                          AND TRIM(`{cr_col}`) <> ''
-                          {o_date_clause}
-                    """, o_date_params)
-                    for r in (cur.fetchall() or []):
-                        row = dict(r)
-                        row['target_name'] = pl_id
-                        for k, v in list(row.items()):
-                            if hasattr(v, 'isoformat'):
-                                row[k] = v.isoformat()[:10]
-                        result['overall_crs'].append(row)
+                    result['error'] = (result['error'] or '') + f' | overall_crs: {e}'
 
-                    seen = set()
-                    for r in result['overall_crs']:
-                        k = str(r.get('mapped_cr') or '').strip()
-                        if k:
-                            seen.add(k)
-                    result['unique_cr_count'] = len(seen)
-            except Exception as e:
-                result['overall_enabled'] = False
-                result['error'] = (result['error'] or '') + f' | overall_crs: {e}'
+
 
         # ----?-------?--- 3. jiras - total JIRAs ----?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?-------?---
         j_table = f'`{schema}`.`{db_prefix}_jiras`'
@@ -6855,11 +6853,16 @@ def _monthly_fetch_all_targets(
     bu: str, date_from, date_to, include_hwpdt: bool = False
 ) -> list:
     """
-    Fetch CR/JIRA data for all pl_ids in the consolidate table for the selected BU.
-    Uses pl_id -> db_prefix mapping (dots to underscores).
+    Fetch CR/JIRA data for all targets in the BU.
+    Single pipeline: dashboard_status -> sp_name (pl_id) + target_name + bu
+    -> _monthly_fetch_target_cr_data per target.
+
+    overall_crs comes from a shared base table (e.g. kobuk_overallcrs)
+    shared across all pl_ids of the same base target.  We fetch it for
+    EVERY pl_id but deduplicate in _monthly_build_cr_summary.
     """
-    consolidate = _monthly_fetch_consolidate(bu, date_from, date_to)
-    if not consolidate:
+    bu_targets = _monthly_get_bu_targets(bu)
+    if not bu_targets:
         return []
 
     conn = get_mysql_connection_db(bu_key=None)
@@ -6870,78 +6873,35 @@ def _monthly_fetch_all_targets(
     date_to_s   = date_to.isoformat()
     results     = []
     seen_pl_ids = set()
+    seen_base   = set()   # base target already had overall_crs fetched
 
-    for row in consolidate:
-        pl_id  = str(row.get('pl_id')  or '').strip()
-        target = str(row.get('target') or '').strip()
-        bu_row = str(row.get('bu')     or bu).strip().upper()
+    for tgt in bu_targets:
+        pl_id  = str(tgt.get('sp_name')     or '').strip()   # e.g. Kobuk.LE.1.1
+        target = str(tgt.get('target_name') or '').strip()   # e.g. kobuk_le_1_1
+        bu_row = str(tgt.get('bu')          or bu).strip().upper()
         if not pl_id or pl_id in seen_pl_ids:
             continue
         seen_pl_ids.add(pl_id)
+
+        # base derived from sp_name (dot-separated) e.g. 'kobuk' from 'Kobuk.LE.1.1'
+        base = pl_id.split('.')[0].lower()
+        fetch_overall = base not in seen_base
+
         try:
             data = _monthly_fetch_target_cr_data(
                 conn, bu_row, target, pl_id,
-                date_from_s, date_to_s, include_hwpdt
+                date_from_s, date_to_s, include_hwpdt,
+                fetch_overall=fetch_overall
             )
             if data:
-                results.append(data)
-        except Exception:
-            continue
-
-    try:
-        conn.close()
-    except Exception:
-        pass
-
-    return results
-
-
-def _monthly_fetch_all_targets(
-    bu: str, date_from, date_to, include_hwpdt: bool = False
-) -> list:
-    """
-    Fetch CR/JIRA data for all targets in the selected BU.
-    Returns list of per-target dicts from _monthly_fetch_target_cr_data.
-    """
-    try:
-        from dashboard_common import get_targets_config, get_business_units
-    except Exception:
-        return []
-
-    try:
-        bus     = get_business_units() or {}
-        tgt_cfg = get_targets_config() or {}
-        if bu and bu != 'ALL':
-            bu_up   = bu.upper()
-            bu_info = bus.get(bu_up) or {}
-            targets = list(bu_info.get('targets') or [])
-            if not targets:
-                targets = [
-                    k for k, v in tgt_cfg.items()
-                    if str((v or {}).get('bu', '')).upper() == bu_up
-                ]
-        else:
-            targets = list(tgt_cfg.keys())
-    except Exception:
-        return []
-
-    if not targets:
-        return []
-
-    conn = get_mysql_connection_db(bu_key=None)
-    if not conn:
-        return []
-
-    date_from_s = date_from.isoformat()
-    date_to_s   = date_to.isoformat()
-    results     = []
-
-    for target_name in targets:
-        try:
-            data = _monthly_fetch_target_cr_data(
-                conn, target_name, date_from_s, date_to_s, include_hwpdt
-            )
-            if data:
+                # only mark base as seen if overall was actually fetched
+                if fetch_overall and data.get('overall_enabled'):
+                    seen_base.add(base)
+                elif fetch_overall and not data.get('overall_enabled'):
+                    # table doesn't exist for this base — don't block others
+                    pass
+                else:
+                    seen_base.add(base)
                 results.append(data)
         except Exception:
             continue
@@ -6956,93 +6916,135 @@ def _monthly_fetch_all_targets(
 
 def _monthly_build_status_table(consolidate_rows: list, target_data: list) -> list:
     """
-    Build the 'PDT WBC Target-wise Test Status' table.
-    Merges consolidate summary (hours/builds/devices/crashes/mtbf)
-    with live CR/JIRA counts from target_data.
-
-    Columns:
-      S.No | PL ID | No. of Devices | No. of Builds | Total Hours
-      | Total CRs by PDT | Unique CRs by PDT | Total Crashes
-      | Total JIRAs | Open JIRAs | Overall PDT CRs (enabled/not)
+    Build status table rows from target_data (live CR/JIRA counts).
+    Merges consolidate summary (hours/builds/devices) where available.
+    target_data is now the authoritative source of targets.
     """
-    # Build lookup from target_data keyed by target_name
-    td_map = {d['pl_id']: d for d in (target_data or []) if d.get('pl_id')}
+    # consolidate lookup: pl_id -> row (for hours/builds/devices)
+    con_map = {}
+    for r in (consolidate_rows or []):
+        key = str(r.get('pl_id') or r.get('target') or '').strip()
+        if key:
+            con_map[key] = r
 
-    # Build base rows from consolidate
     rows = []
-    for r in consolidate_rows:
-        tgt  = str(r.get('target') or '')
-        pl_id_key = str(r.get('pl_id') or tgt)
-        td   = td_map.get(pl_id_key) or td_map.get(tgt) or {}
-        pdt_crs     = td.get('pdt_crs') or []
+    for td in (target_data or []):
+        pl_id       = str(td.get('pl_id')   or '').strip()
+        target      = str(td.get('target')  or '').strip()
+        bu_val      = str(td.get('bu')      or '').strip()
+        pdt_crs     = td.get('pdt_crs')     or []
         overall_crs = td.get('overall_crs') or []
         overall_en  = td.get('overall_enabled', False)
 
-        # unique PDT CRs = distinct mapped_cr from unique_crs
         seen_pdt = set()
         for cr in pdt_crs:
             k = str(cr.get('mapped_cr') or '').strip()
             if k:
                 seen_pdt.add(k)
 
+        # merge consolidate hours/builds/devices if available
+        con = con_map.get(pl_id) or con_map.get(target) or {}
+
         rows.append({
-            'pl_id':            str(r.get('pl_id') or r.get('target') or ''),
-            'target':           tgt,
-            'bu':               str(r.get('bu') or ''),
-            'devices':          int(float(r.get('number_of_devices') or 0)),
-            'builds':           int(float(r.get('number_of_builds') or 0)),
-            'hours':            round(float(r.get('total_hours') or 0), 1),
-            'crashes':          int(float(r.get('total_crashes') or 0)),
-            'mtbf':             round(float(r.get('mtbf') or 0), 2),
-            'pdt_test_status':  str(r.get('pdt_test_status') or ''),
-            'timelines':        str(r.get('timelines') or ''),
-            # CR/JIRA counts from live tables
+            'pl_id':            pl_id,
+            'target':           target,
+            'bu':               bu_val,
+            'devices':          int(float(con.get('number_of_devices') or 0)),
+            'builds':           int(float(con.get('number_of_builds')  or 0)),
+            'hours':            round(float(con.get('total_hours')      or 0), 1),
+            'crashes':          int(float(con.get('total_crashes')      or 0)),
+            'mtbf':             round(float(con.get('mtbf')             or 0), 2),
+            'pdt_test_status':  str(con.get('pdt_test_status') or ''),
+            'timelines':        str(con.get('timelines')       or ''),
             'total_pdt_crs':    len(pdt_crs),
             'unique_pdt_crs':   len(seen_pdt),
-            'total_jiras':      td.get('total_jiras', 0),
-            'open_jiras':       td.get('open_jiras', 0),
-            # overall_crs (PDT Reported column)
+            'total_jiras':      td.get('total_jiras',    0),
+            'open_jiras':       td.get('open_jiras',     0),
             'overall_cr_count': td.get('unique_cr_count', 0),
             'overall_enabled':  overall_en,
         })
+
     return rows
 
 
 def _monthly_build_cr_summary(target_data: list) -> dict:
     """
-    Build aggregated CR summary across all targets:
-      - pdt_crs:     all rows from unique_crs (flat list)
-      - overall_crs: all rows from overall_crs (flat list)
-      - by_target:   per-target summary dict
+    Build aggregated CR summary across all targets.
+
+    by_target groups by BASE target name (first segment of pl_id):
+      Kobuk.LE.1.1 + Kobuk.LE.2.0 + Kobuk.LE.3.0  ->  'Kobuk'
+      Pinnacles.LE.1.0 + Pinnacles.LE.2.3          ->  'Pinnacles'
+
+    This matches the screenshot: one bar per target family, not per pl_id.
     """
     all_pdt     = []
     all_overall = []
-    by_target   = []
+    # keyed by base_target name
+    base_map    = {}   # base_name -> {total_pdt_crs, unique_pdt_crs, overall_cr_count,
+                       #               overall_enabled, total_jiras, open_jiras,
+                       #               seen_pdt (set), seen_overall (set)}
 
     for td in (target_data or []):
-        tgt         = td.get('pl_id') or td.get('target', '')
-        pdt_crs     = td.get('pdt_crs') or []
+        pl_id       = str(td.get('pl_id') or td.get('target') or '')
+        # base = first segment e.g. 'Kobuk' from 'Kobuk.LE.1.1'
+        base        = pl_id.split('.')[0].strip() or pl_id
+        pdt_crs     = td.get('pdt_crs')     or []
         overall_crs = td.get('overall_crs') or []
         overall_en  = td.get('overall_enabled', False)
 
-        seen_pdt = set()
+        # tag each CR row with base target name so JS charts group correctly
         for cr in pdt_crs:
-            k = str(cr.get('mapped_cr') or '').strip()
-            if k:
-                seen_pdt.add(k)
+            cr['target_name'] = base
+        for cr in overall_crs:
+            cr['target_name'] = base
 
         all_pdt.extend(pdt_crs)
         all_overall.extend(overall_crs)
 
+        if base not in base_map:
+            base_map[base] = {
+                'seen_pdt':     set(),
+                'seen_overall': set(),
+                'total_pdt_crs':    0,
+                'overall_cr_count': 0,
+                'overall_enabled':  False,
+                'total_jiras':      0,
+                'open_jiras':       0,
+            }
+        bm = base_map[base]
+
+        # accumulate pdt unique CRs
+        for cr in pdt_crs:
+            k = str(cr.get('mapped_cr') or '').strip()
+            if k:
+                bm['seen_pdt'].add(k)
+        bm['total_pdt_crs']    += len(pdt_crs)
+
+        # accumulate overall unique CRs (only from the pl_id that fetched them)
+        for cr in overall_crs:
+            k = str(cr.get('mapped_cr') or '').strip()
+            if k:
+                bm['seen_overall'].add(k)
+        if overall_en:
+            bm['overall_enabled'] = True
+        bm['overall_cr_count']  = len(bm['seen_overall'])
+
+        bm['total_jiras']  += td.get('total_jiras', 0)
+        bm['open_jiras']   += td.get('open_jiras',  0)
+
+    # build by_target list sorted by total_pdt_crs desc
+    by_target = []
+    for base, bm in base_map.items():
         by_target.append({
-            'target':           tgt,
-            'total_pdt_crs':    len(pdt_crs),
-            'unique_pdt_crs':   len(seen_pdt),
-            'overall_cr_count': td.get('unique_cr_count', 0),
-            'overall_enabled':  overall_en,
-            'total_jiras':      td.get('total_jiras', 0),
-            'open_jiras':       td.get('open_jiras', 0),
+            'target':           base,
+            'total_pdt_crs':    bm['total_pdt_crs'],
+            'unique_pdt_crs':   len(bm['seen_pdt']),
+            'overall_cr_count': bm['overall_cr_count'],
+            'overall_enabled':  bm['overall_enabled'],
+            'total_jiras':      bm['total_jiras'],
+            'open_jiras':       bm['open_jiras'],
         })
+    by_target.sort(key=lambda x: -x['total_pdt_crs'])
 
     # Deduplicate overall for unique count
     seen_overall = set()
@@ -7057,9 +7059,8 @@ def _monthly_build_cr_summary(target_data: list) -> dict:
         'pdt_crs':        all_pdt,
         'overall_crs':    all_overall,
         'unique_overall': unique_overall,
-        'by_target':      sorted(by_target, key=lambda x: -x['total_pdt_crs']),
+        'by_target':      by_target,
     }
-
 
 def _monthly_build_area_chart(cr_rows: list) -> dict:
     """Build CR-area bar chart data: overall + per-target."""
@@ -7169,7 +7170,11 @@ def api_monthly_report_data():
     """
     bu            = (request.args.get('bu') or 'ALL').upper()
     date_from, date_to = _monthly_date_range_from_request()
-    include_hwpdt = request.args.get('include_hwpdt', '0') == '1'
+    include_hwpdt   = request.args.get('include_hwpdt',   '0') == '1'
+    include_dup     = request.args.get('include_dup',     '0') == '1'
+    include_invalid = request.args.get('include_invalid', '0') == '1'
+    sites_raw       = request.args.get('sites', '').strip()
+    sites           = [s.strip().upper() for s in sites_raw.split(',') if s.strip()] if sites_raw else []
 
     # 1. Consolidate summary (hours/builds/devices/crashes from sharepoint tables)
     consolidate  = _monthly_fetch_consolidate(bu, date_from, date_to)
@@ -7189,15 +7194,16 @@ def api_monthly_report_data():
     pdt_area_chart     = _monthly_build_area_chart(cr_summary['pdt_crs'])
     overall_area_chart = _monthly_build_area_chart(cr_summary['overall_crs'])
 
-    # 7. Totals
+        # 7. Totals — use cr_summary as authoritative source (comes from live target_data,
+    #    not consolidate, so it's always populated even when sharepoint data is absent)
     totals = {
-        'total_pdt_crs':         sum(r.get('total_pdt_crs', 0)   for r in status_table),
-        'unique_pdt_crs':        sum(r.get('unique_pdt_crs', 0)  for r in status_table),
-        'total_jiras':           sum(r.get('total_jiras', 0)     for r in status_table),
-        'open_jiras':            sum(r.get('open_jiras', 0)      for r in status_table),
-        'overall_cr_count':      sum(r.get('overall_cr_count', 0) for r in status_table),
-        'targets_with_overall':  sum(1 for r in status_table if r.get('overall_enabled')),
-        'total_targets':         len(status_table),
+        'total_pdt_crs':        len(cr_summary['pdt_crs']),
+        'unique_pdt_crs':       sum(r.get('unique_pdt_crs', 0)   for r in cr_summary['by_target']),
+        'total_jiras':          sum(r.get('total_jiras', 0)      for r in cr_summary['by_target']),
+        'open_jiras':           sum(r.get('open_jiras', 0)       for r in cr_summary['by_target']),
+        'overall_cr_count':     len(cr_summary['overall_crs']),
+        'targets_with_overall': sum(1 for r in cr_summary['by_target'] if r.get('overall_enabled')),
+        'total_targets':        len(cr_summary['by_target']),
     }
 
     # 8. Overall PDT WBC Target-wise Test Status table
@@ -7215,6 +7221,9 @@ def api_monthly_report_data():
         'date_from':          date_from.isoformat(),
         'date_to':            date_to.isoformat(),
         'include_hwpdt':      include_hwpdt,
+        'include_dup':        include_dup,
+        'include_invalid':    include_invalid,
+        'sites':              sites,
         'status_table':       status_table,
                 'overall_status':     overall_status,
         'pdt_crs':            cr_summary['pdt_crs'],
@@ -9263,34 +9272,15 @@ def _wbc_subsystem_charts(schema: str, bu_targets: list,
     return result
 
 
-def _wbc_cr_tables(schema: str, bu_targets: list,
-                   date_from_s: str, date_to_s: str) -> dict:
-    """
-    Build order:
-      TABLE 2 first  â€” PDT WBC Unique CRs reported by PDT
-        Step A : DISTINCT crids from {base}_overallcrs
-                 WHERE reported_team IN (PDT_Reported, PDT_Unique)
-                 AND DATE(date) in range
-        Step B : look up in {db_name}_unique_crs
-                 WHERE (cr OR mapped_cr) IN (Step A list)
-                 AND cr_occurrence != 'Dup'
-                 AND cr_category NOT IN ('Invalid','Dup')
+def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
+                   include_dup=False, include_invalid=False, sites=None):
+    """Build CR tables with optional Dup/Invalid/Site filters."""
+    dup_clause = "" if include_dup else "AND cr_occurrence != 'Dup'"
+    excl_cats = []
+    if not include_dup:     excl_cats.append("'Dup'")
+    if not include_invalid: excl_cats.append("'Invalid'")
+    cat_clause = ("AND cr_category NOT IN (" + ",".join(excl_cats) + ")") if excl_cats else ""
 
-      TABLE 3 second â€” PDT WBC Total CRs reported by PDT
-        Step A : DISTINCT mapped_crs from {db_name}_jiras in range
-        Step B : look up in {db_name}_unique_crs
-                 WHERE (cr OR mapped_cr) IN (Step A list)
-                 AND cr_occurrence != 'Dup'
-                 AND cr_category NOT IN ('Invalid','Dup')
-
-      TABLE 1 last   â€” Overall Status counts
-        unique_crs_count = len(TABLE 2 rows)   per target
-        total_crs_count  = len(TABLE 3 rows)   per target
-        (counts now always match the detail tables)
-
-    Returns dict keyed by sp_name:
-      { tbl2_unique: [...], tbl3_total: [...] }
-    """
     result = {}
     try:
         conn = get_mysql_connection_db(bu_key=None)
@@ -9298,98 +9288,90 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
             return result
         cur = conn.cursor(dictionary=True)
 
-        # â”€â”€ Pre-build TABLE 2: overallcrs CR list per family â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        family_ov_cr_list = {}   # base -> [crid, ...]
+        family_ov_cr_list = {}
         seen_bases = set()
         for tgt in bu_targets:
-            base = tgt['db_name'].split('_')[0]
+            base = tgt["db_name"].split("_")[0]
             if base in seen_bases:
                 continue
             seen_bases.add(base)
-            ov_tbl = f'`{schema}`.`{base}_overallcrs`'
+            ov_tbl = "`%s`.`%s_overallcrs`" % (schema, base)
             if not _tbl_exists_cur(cur, ov_tbl):
                 family_ov_cr_list[base] = []
                 continue
-            cur.execute(f"""
-                SELECT DISTINCT crid
-                FROM {ov_tbl}
-                WHERE DATE(date) >= %s AND DATE(date) <= %s
-                  AND reported_team IN ('PDT_Reported','PDT_Unique')
-            """, (date_from_s, date_to_s))
-            family_ov_cr_list[base] = [r['crid'] for r in (cur.fetchall() or [])]
+            cur.execute(
+                "SELECT DISTINCT crid FROM " + ov_tbl +
+                " WHERE DATE(date) >= %s AND DATE(date) <= %s"
+                " AND reported_team IN ('PDT_Reported','PDT_Unique')",
+                (date_from_s, date_to_s))
+            family_ov_cr_list[base] = [r["crid"] for r in (cur.fetchall() or [])]
 
-        # â”€â”€ Per target â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         for tgt in bu_targets:
-            sp_name  = tgt['sp_name']
-            db_name  = tgt['db_name']
-            base     = db_name.split('_')[0]
-            ucrs_tbl = f'`{schema}`.`{db_name}_unique_crs`'
-            entry    = {'tbl2_unique': [], 'tbl3_total': []}
+            sp_name  = tgt["sp_name"]
+            db_name  = tgt["db_name"]
+            base     = db_name.split("_")[0]
+            ucrs_tbl = "`%s`.`%s_unique_crs`" % (schema, db_name)
+            entry    = {"tbl2_unique": [], "tbl3_total": []}
 
-            # â”€â”€ TABLE 2: overallcrs CR list â†’ unique_crs details â”€â”€â”€â”€â”€
             ov_cr_list = family_ov_cr_list.get(base, [])
             if ov_cr_list and _tbl_exists_cur(cur, ucrs_tbl):
-                ph = ','.join(['%s'] * len(ov_cr_list))
-                cur.execute(f"""
-                    SELECT cr, cr_occurrence, jira_date,
-                           cr_area, cr_subsystem, cr_functionality,
-                           cr_title, image, cr_status, cr_category
-                    FROM {ucrs_tbl}
-                    WHERE (cr IN ({ph}) OR mapped_cr IN ({ph}))
-                      AND cr_occurrence != 'Dup'
-                      AND cr_category NOT IN ('Invalid','Dup')
-                    ORDER BY jira_date
-                """, ov_cr_list * 2)
+                ph = ",".join(["%s"] * len(ov_cr_list))
+                sql = (
+                    "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
+                    " cr_functionality, cr_title, image, cr_status, cr_category"
+                    " FROM " + ucrs_tbl +
+                    " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
+                    " " + dup_clause + " " + cat_clause +
+                    " ORDER BY jira_date"
+                )
+                cur.execute(sql, ov_cr_list * 2)
                 for r in (cur.fetchall() or []):
-                    entry['tbl2_unique'].append({
-                        'program':          sp_name,
-                        'cr_id':            str(r.get('cr')               or ''),
-                        'instances':        str(r.get('cr_occurrence')    or ''),
-                        'cr_date':          str(r.get('jira_date')        or '')[:10],
-                        'cr_area':          str(r.get('cr_area')          or ''),
-                        'cr_subsystem':     str(r.get('cr_subsystem')     or ''),
-                        'cr_functionality': str(r.get('cr_functionality') or ''),
-                        'cr_title':         str(r.get('cr_title')         or ''),
-                        'image':            str(r.get('image')            or ''),
-                        'cr_status':        str(r.get('cr_status')        or ''),
+                    entry["tbl2_unique"].append({
+                        "program":          sp_name,
+                        "cr_id":            str(r.get("cr")               or ""),
+                        "instances":        str(r.get("cr_occurrence")    or ""),
+                        "cr_date":          str(r.get("jira_date")        or "")[:10],
+                        "cr_area":          str(r.get("cr_area")          or ""),
+                        "cr_subsystem":     str(r.get("cr_subsystem")     or ""),
+                        "cr_functionality": str(r.get("cr_functionality") or ""),
+                        "cr_title":         str(r.get("cr_title")         or ""),
+                        "image":            str(r.get("image")            or ""),
+                        "cr_status":        str(r.get("cr_status")        or ""),
+                        "cr_category":      str(r.get("cr_category")      or ""),
                     })
 
-            # â”€â”€ TABLE 3: jiras mapped_crs â†’ unique_crs details â”€â”€â”€â”€â”€â”€â”€
-            jiras_tbl = f'`{schema}`.`{db_name}_jiras`'
+            jiras_tbl = "`%s`.`%s_jiras`" % (schema, db_name)
             if _tbl_exists_cur(cur, jiras_tbl) and _tbl_exists_cur(cur, ucrs_tbl):
-                cur.execute(f"""
-                    SELECT DISTINCT mapped_crs
-                    FROM {jiras_tbl}
-                    WHERE DATE(jira_date) >= %s AND DATE(jira_date) <= %s
-                      AND mapped_crs IS NOT NULL
-                      AND mapped_crs != '' AND mapped_crs != 'None'
-                """, (date_from_s, date_to_s))
-                mapped_crs = [r['mapped_crs'] for r in (cur.fetchall() or [])]
-
+                cur.execute(
+                    "SELECT DISTINCT mapped_crs FROM " + jiras_tbl +
+                    " WHERE DATE(jira_date) >= %s AND DATE(jira_date) <= %s"
+                    " AND mapped_crs IS NOT NULL AND mapped_crs != '' AND mapped_crs != 'None'",
+                    (date_from_s, date_to_s))
+                mapped_crs = [r["mapped_crs"] for r in (cur.fetchall() or [])]
                 if mapped_crs:
-                    ph = ','.join(['%s'] * len(mapped_crs))
-                    cur.execute(f"""
-                        SELECT cr, cr_occurrence, jira_date,
-                               cr_area, cr_subsystem, cr_functionality,
-                               cr_title, image, cr_status, cr_category
-                        FROM {ucrs_tbl}
-                        WHERE (cr IN ({ph}) OR mapped_cr IN ({ph}))
-                          AND cr_occurrence != 'Dup'
-                          AND cr_category NOT IN ('Invalid','Dup')
-                        ORDER BY jira_date
-                    """, mapped_crs * 2)
+                    ph = ",".join(["%s"] * len(mapped_crs))
+                    sql = (
+                        "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
+                        " cr_functionality, cr_title, image, cr_status, cr_category"
+                        " FROM " + ucrs_tbl +
+                        " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
+                        " " + dup_clause + " " + cat_clause +
+                        " ORDER BY jira_date"
+                    )
+                    cur.execute(sql, mapped_crs * 2)
                     for r in (cur.fetchall() or []):
-                        entry['tbl3_total'].append({
-                            'program':          sp_name,
-                            'cr_id':            str(r.get('cr')               or ''),
-                            'instances':        str(r.get('cr_occurrence')    or ''),
-                            'cr_date':          str(r.get('jira_date')        or '')[:10],
-                            'cr_area':          str(r.get('cr_area')          or ''),
-                            'cr_subsystem':     str(r.get('cr_subsystem')     or ''),
-                            'cr_functionality': str(r.get('cr_functionality') or ''),
-                            'cr_title':         str(r.get('cr_title')         or ''),
-                            'image':            str(r.get('image')            or ''),
-                            'cr_status':        str(r.get('cr_status')        or ''),
+                        entry["tbl3_total"].append({
+                            "program":          sp_name,
+                            "cr_id":            str(r.get("cr")               or ""),
+                            "instances":        str(r.get("cr_occurrence")    or ""),
+                            "cr_date":          str(r.get("jira_date")        or "")[:10],
+                            "cr_area":          str(r.get("cr_area")          or ""),
+                            "cr_subsystem":     str(r.get("cr_subsystem")     or ""),
+                            "cr_functionality": str(r.get("cr_functionality") or ""),
+                            "cr_title":         str(r.get("cr_title")         or ""),
+                            "image":            str(r.get("image")            or ""),
+                            "cr_status":        str(r.get("cr_status")        or ""),
+                            "cr_category":      str(r.get("cr_category")      or ""),
                         })
 
             result[sp_name] = entry
@@ -9398,42 +9380,30 @@ def _wbc_cr_tables(schema: str, bu_targets: list,
         conn.close()
     except Exception as exc:
         import logging as _log
-        _log.getLogger('weekly_summary_routes').warning(
-            '[_wbc_cr_tables] error: %s', exc)
+        _log.getLogger("weekly_summary_routes").warning("[_wbc_cr_tables] error: %s", exc)
 
     return result
+
+
 
 @weekly_summary_bp.route('/api/monthly-report/wbc-detail')
 @login_required
 def api_monthly_report_wbc_detail():
-    """
-    Return WBC-specific detail sections for the monthly report.
-    Called after the main /api/monthly-report/data response is rendered.
-
-    Query params: bu, date_from, date_to, targets (optional comma-separated)
-
-    Response:
-    {
-      success,
-      mtbf_trend:      {sp_name: [{build_label, hours, crashes, mtbf}]},
-      cr_comparison:   [{family, total_pdt_crs, unique_crs}],
-      subsystem_charts:{sp_name: {total:[{subs,count}], unique:[{subs,count}]}},
-      cr_tables:       {sp_name: {unique_crs:[...], reported_crs:[...]}},
-    }
-    """
+    """WBC detail sections: MTBF trend + CR tables with Dup/Invalid/Site filters."""
     bu            = (request.args.get('bu') or 'ALL').upper()
     date_from, date_to = _monthly_date_range_from_request()
     date_from_s   = date_from.isoformat()
     date_to_s     = date_to.isoformat()
+    include_dup     = request.args.get('include_dup',     '0') == '1'
+    include_invalid = request.args.get('include_invalid', '0') == '1'
+    sites_raw       = request.args.get('sites', '').strip()
+    sites           = [s.strip().upper() for s in sites_raw.split(',') if s.strip()] if sites_raw else []
 
     sel_targets_raw = request.args.get('targets', '').strip()
     sel_target_set  = {t.strip().upper() for t in sel_targets_raw.split(',') if t.strip()} \
                       if sel_targets_raw else set()
 
-    # Get BU targets from dashboard_status
     bu_targets = _monthly_get_bu_targets(bu)
-
-    # Apply target filter
     if sel_target_set:
         filtered = []
         for t in bu_targets:
@@ -9452,1325 +9422,23 @@ def api_monthly_report_wbc_detail():
         except Exception:
             schema = ''
 
-    mtbf_trend       = _wbc_mtbf_trend(schema, bu_targets, date_from_s, date_to_s)
-    cr_tables        = _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s)
+    mtbf_trend = _wbc_mtbf_trend(schema, bu_targets, date_from_s, date_to_s)
+    cr_tables  = _wbc_cr_tables(
+        schema, bu_targets, date_from_s, date_to_s,
+        include_dup=include_dup,
+        include_invalid=include_invalid,
+        sites=sites,
+    )
 
     return jsonify({
         'success':          True,
         'bu':               bu,
         'date_from':        date_from_s,
         'date_to':          date_to_s,
+        'include_dup':      include_dup,
+        'include_invalid':  include_invalid,
+        'sites':            sites,
         'mtbf_trend':       mtbf_trend,
         'cr_tables':        cr_tables,
     })
-
-@weekly_summary_bp.route('/weekly-report/smart-build-report')
-@login_required
-def sharepoint2_page():
-    """Smart Build Report page - fully auto-populated from Axiom DB."""
-    sel_start, sel_end = _selected_week_from_request()
-    week_ranges = _week_ranges_for_templates()
-    try:
-        from dashboard_routes import _build_bu_shell_context
-        shell_ctx = _build_bu_shell_context('WEEKLY_QIPL_REPORTS')
-    except Exception:
-        shell_ctx = {'active_bu_key': 'WEEKLY_QIPL_REPORTS', 'bu_list': [],
-                     'BU_ICONS': {}, 'shell_title': 'Smart Build Report'}
-    shell_ctx['shell_title'] = 'Smart Build Report'
-    return render_template(
-        'sharepoint2.html',
-        sel_start=sel_start,
-                sel_end=sel_end,
-        week_ranges=week_ranges,
-        is_sp2_admin=_is_sp2_admin_user(),
-        **shell_ctx,
-    )
-
-
-@weekly_summary_bp.route('/api/sp2/admin_force_refresh_week', methods=['POST'])
-@login_required
-def api_sp2_admin_force_refresh_week():
-    """Admin-only hard refresh: clear cached Smart Build week and rebuild from DB."""
-    if not _is_sp2_admin_user():
-        return jsonify(success=False, message='Admin only'), 403
-    data = request.get_json(silent=True) or {}
-    ws = _safe_date(data.get('week_start') or request.form.get('week_start') or request.args.get('week_start'))
-    we = _safe_date(data.get('week_end') or request.form.get('week_end') or request.args.get('week_end'))
-    if not ws or not we:
-        return jsonify(success=False, message='Invalid week'), 400
-
-    deleted_builds = _clear_sp2_static_snapshot(ws, we)
-    deleted_consolidate = _clear_sp2_consolidate_snapshot(ws, we)
-    inserted_builds = _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
-    capped_build_rows = _cap_sp2_static_snapshot_hours(ws, we)
-    _build_and_save_sp2_consolidate_from_static(ws, we, _current_user_identifier())
-
-    static_rows = _load_sp2_static_build_rows(ws, we)
-    consolidate_rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
-    # True unique device count = union of all chip_ids across consolidate rows
-    _force_chip_union = set()
-    for _cr in (consolidate_rows or []):
-        try:
-            import json as _j
-            _chips = _j.loads(_cr.get('chip_ids') or '[]') if isinstance(_cr.get('chip_ids'), str) else list(_cr.get('chip_ids') or [])
-            _force_chip_union.update(str(c).strip() for c in _chips if str(c).strip())
-        except Exception:
-            pass
-    return jsonify(
-        success=True,
-        message='Force refreshed from axiom_job_summary',
-        week_start=ws.isoformat(),
-        week_end=we.isoformat(),
-        deleted_build_snapshot_rows=deleted_builds,
-        deleted_consolidate_rows=deleted_consolidate,
-        inserted_or_updated_build_rows=inserted_builds,
-        capped_build_rows=capped_build_rows,
-        build_rows=len(static_rows or []),
-        consolidate_rows=len(consolidate_rows or []),
-        consolidate_device_count=len(_force_chip_union),
-    )
-
-
-@weekly_summary_bp.route('/api/sp2/builds')
-@login_required
-def api_sp2_builds():
-    """Return /PDT/QIPL Axiom builds for the selected week.
-
-    Grouping: same build_name + pl_id are merged into one row.
-    Hours summed, chip_ids unioned (unique devices), crashes summed.
-    Each row has build_type (CRM/Eng) that the user can toggle per row.
-    Hours are week-bounded: running builds capped at week_end Sunday 23:59:59.
-    Crashes from weekly_qipl_data (same CSV as CR Pie / CR Age).
-    """
-    import re as _re
-    ws_arg = request.args.get('week_start', '').strip()
-    we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not ws or not we:
-        ws, we = _selected_week_from_request()
-
-    # Static mode: once the weekly CSV is present, seed/read frozen build rows
-    # from sp2_build_type_overrides. User edits update this table, so page
-    # refreshes do not recalculate/overwrite hours or crashes from CSV/Axiom.
-    if str(request.args.get('force') or '').strip() in ('1', 'true', 'yes'):
-        _clear_sp2_static_snapshot(ws, we)
-    _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
-    _cap_sp2_static_snapshot_hours(ws, we)
-    static_rows = _load_sp2_static_build_rows(ws, we)
-    if static_rows:
-        dash_map_static = _fetch_dashboard_status_map()
-        # Build target->bu lookup from sp2_build_consolidate (user-saved target-level BU)
-        _cons_bu_map = {}
-        try:
-            _cconn = get_mysql_connection_db(bu_key=None)
-            if _cconn:
-                _ccur = _cconn.cursor(dictionary=True)
-                _ccur.execute(f"""
-                    SELECT DISTINCT target, bu
-                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                    WHERE week_start=%s AND week_end=%s
-                      AND bu IS NOT NULL AND bu != ''
-                """, (ws.isoformat(), we.isoformat()))
-                for _cr in (_ccur.fetchall() or []):
-                    if _cr.get('target') and _cr.get('bu'):
-                        _cons_bu_map[str(_cr['target']).strip()] = str(_cr['bu']).strip()
-                _ccur.close(); _cconn.close()
-        except Exception:
-            pass
-        out = []
-        all_chips = set()
-        for r in static_rows:
-            chips_raw = r.get('chip_ids') or '[]'
-            try:
-                chip_ids = json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
-            except Exception:
-                chip_ids = []
-            chip_ids = sorted(str(c).strip() for c in chip_ids if str(c).strip())
-            all_chips.update(chip_ids)
-            target = str(r.get('target') or '').strip() or (_swpdt_target_from_product(r.get('pl_id')) or '')
-            pl_id = str(r.get('pl_id') or '').strip()
-            dash = _match_dashboard_with_fallback(target, dash_map_static) or _match_dashboard_with_fallback(pl_id, dash_map_static) or {}
-            # BU priority: 1) consolidate target-level (user saved)  2) row-level  3) dashboard_status
-            row_bu = _cons_bu_map.get(target) or str(r.get('bu') or dash.get('bu') or '').strip()
-            job_ids_raw = r.get('job_ids') or '[]'
-            try:
-                job_ids = json.loads(job_ids_raw) if isinstance(job_ids_raw, str) else list(job_ids_raw or [])
-            except Exception:
-                job_ids = []
-            state = str(r.get('state') or '').lower()
-            out.append({
-                'job_ids':      job_ids,
-                'job_id':       job_ids[0] if job_ids else '',
-                'target':       target,
-                'pl_id':        pl_id,
-                'pl_id_exact':  pl_id,
-                'build_id':     str(r.get('build_id') or ''),
-                'build_name':   str(r.get('build_name') or r.get('build_id') or ''),
-                'submitted':    str(r.get('submitted_at') or '')[:10],
-                'completed_at': str(r.get('completed_at') or '')[:10],
-                'status':       'running' if state in ('running', 'jobsetup') else 'completed',
-                'hours':        round(float(r.get('hours') or 0), 3),
-                'device_count': max(len(chip_ids), int(r.get('device_count') or 0)),
-                'chip_ids':     chip_ids,
-                'crashes':      int(r.get('total_crashes') or 0),
-                'build_type':   str(r.get('build_type') or 'CRM'),
-                'bu':           row_bu,
-                'meta_id':      _sp2_meta_build_key(str(r.get('build_name') or r.get('build_id') or '')),
-                'run_count':    len(job_ids) or 1,
-                        })
-        out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
-        bu_opts = {str(o.get('key') or '').strip() for o in _sp_bu_options() if str(o.get('key') or '').strip()}
-        bu_opts.update({b['bu'] for b in out if b['bu']})
-        # True unique devices = union of chip_ids from consolidate table (covers all targets/PLs)
-        _true_chips = set()
-        try:
-            _tc = get_mysql_connection_db(bu_key=None)
-            if _tc:
-                _tcc = _tc.cursor(dictionary=True)
-                _tcc.execute(
-                    f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
-                    (ws.isoformat(), we.isoformat()))
-                for _tr in (_tcc.fetchall() or []):
-                    try:
-                        _tc_chips = json.loads(_tr.get('chip_ids') or '[]') if isinstance(_tr.get('chip_ids'), str) else list(_tr.get('chip_ids') or [])
-                        _true_chips.update(str(c).strip() for c in _tc_chips if str(c).strip())
-                    except Exception:
-                        pass
-                _tcc.close(); _tc.close()
-        except Exception:
-            pass
-        _total_devices = len(_true_chips) if _true_chips else len(all_chips)
-        return jsonify(success=True, builds=out, total_devices=_total_devices,
-                       bu_list=sorted(bu_opts),
-                       week_start=ws.isoformat(), week_end=we.isoformat(), static=True)
-
-    # 1. Query axiom_job_summary
-    db_rows = []
-    try:
-        conn = get_mysql_connection_db(bu_key=None)
-        if conn:
-            cur = conn.cursor(dictionary=True)
-            try:
-                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
-                cur.execute(f"""
-                    SELECT job_id, build_id, build_name, software_product,
-                    taxonomy_path, team, city_team, state, device_count, chip_ids,
-                           submitted_at, started_at, ended_at,
-                           ({live_h}) AS hours_live,
-                           product_flavor, submitter, site
-                    FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                                                            WHERE taxonomy_path LIKE '/PDT%'
-                      AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
-                      AND taxonomy_path NOT LIKE '/PDT/China%'
-                      AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
-                                                                  AND city_team = 'QIPL'
-                      AND team != 'HWPDT'
-                      AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
-                      AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
-                    ORDER BY submitted_at DESC
-                """, (we.isoformat(), ws.isoformat()))
-                db_rows = cur.fetchall() or []
-            finally:
-                cur.close(); conn.close()
-    except Exception as _exc:
-        import logging as _log
-        _log.getLogger('weekly_summary_routes').warning('[SP2 BUILDS] DB read failed: %s', _exc)
-
-    if not db_rows:
-        return jsonify(success=True, builds=[], total_devices=0,
-                       week_start=ws.isoformat(), week_end=we.isoformat())
-
-        # 2. Week + PL bounded crash map from weekly_qipl_data.
-    crash_map = _sp2_weekly_crash_map(ws, we)
-
-
-    # 3. Load saved build_type overrides from sp2_build_type_overrides
-    #    (sp2_build_consolidate only holds sentinel rows, not per-build overrides)
-    build_type_map = {}
-    try:
-        _ensure_sp2_build_type_overrides_table()
-        conn3 = get_mysql_connection_db(bu_key=None)
-        if conn3:
-            cur3 = conn3.cursor(dictionary=True)
-            try:
-                cur3.execute(f"""
-                    SELECT build_name, pl_id, build_type
-                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    WHERE week_start=%s AND week_end=%s
-                """, (ws.isoformat(), we.isoformat()))
-                for row in cur3.fetchall() or []:
-                    k = (str(row.get('build_name') or '').strip().upper(),
-                         str(row.get('pl_id') or '').strip().upper())
-                    build_type_map[k] = str(row.get('build_type') or 'CRM')
-            except Exception:
-                pass
-            finally:
-                cur3.close(); conn3.close()
-    except Exception:
-        pass
-
-        # 4. Normalise + GROUP by (meta_build_key, pl_group)
-    # 4. Normalise each DB row into a flat build entry.
-    #    Builds tab shows ALL individual builds with full names (no grouping).
-    #    Consolidate tab uses _build_and_save_sp2_consolidate which groups by meta_key.
-    import re as _re2
-    def _pl_group(sp):
-        return _re.sub(r'\.r\d+$', '', str(sp or ''), flags=_re.IGNORECASE)
-
-    # Load dashboard_status for BU lookup per target
-    _dash_map_builds = _fetch_dashboard_status_map()
-
-    # Load saved BU overrides keyed by target_upper -> bu
-    _bu_override_map = {}
-    try:
-        _ensure_sp2_build_consolidate_table()
-        _bo_conn = get_mysql_connection_db(bu_key=None)
-        if _bo_conn:
-            _bo_cur = _bo_conn.cursor(dictionary=True)
-            try:
-                _bo_cur.execute(f"""
-                    SELECT target, bu
-                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                    WHERE week_start=%s AND week_end=%s
-                      AND bu IS NOT NULL AND bu != ''
-                    ORDER BY updated_at DESC
-                """, (ws.isoformat(), we.isoformat()))
-                for _bo_row in (_bo_cur.fetchall() or []):
-                    _tgt_key = str(_bo_row.get('target') or '').strip().upper()
-                    if _tgt_key and _tgt_key not in _bu_override_map:
-                        _bu_override_map[_tgt_key] = str(_bo_row.get('bu') or '').strip()
-            finally:
-                _bo_cur.close(); _bo_conn.close()
-    except Exception:
-        pass
-
-    # 5. Group by (build_name, pl_id) so duplicate Axiom job runs for the
-    #    same build are merged into one row.
-    #    Hours are SUMMED, chip_ids are UNIONED (unique devices),
-    #    crashes come from crash_map (keyed by build_name, not job_id),
-    #    status = running if ANY job for that build is still running.
-    _explicit_qipl_targets = set()
-    for _er in db_rows:
-        _tax = str(_er.get('taxonomy_path') or '').strip().upper()
-        if not _tax.startswith('/PDT/QIPL'):
-            continue
-        _pl = _pl_group(str(_er.get('software_product') or '').strip())
-        _tgt = (_swpdt_target_from_product(_pl) or _pl).upper()
-        if int(_er.get('device_count') or 0) > 0:
-            _explicit_qipl_targets.add(_tgt)
-
-    grouped = {}   # key: (build_name_upper, pl_grp_upper) -> accumulator dict
-    all_chips = set()
-
-    for r in db_rows:
-        chips_raw = r.get('chip_ids') or '[]'
-        if isinstance(chips_raw, str):
-            try:
-                chip_ids = json.loads(chips_raw)
-            except Exception:
-                chip_ids = []
-        else:
-            chip_ids = list(chips_raw) if chips_raw else []
-
-        # Skip ghost/auto jobs: no devices assigned AND negligible hours.
-                # These are Axiom bookkeeping rows (device_count=0, chip_ids=[],
-        # hours<=0.1) that inflate the build count without real execution.
-        _raw_dev_actual = int(r.get('device_count') or 0)
-        _raw_hrs_actual = float(r.get('hours_live') or 0)
-        if _raw_dev_actual <= 0 and not chip_ids and _raw_hrs_actual <= 0.1:
-            continue
-
-        pl_id      = str(r.get('software_product') or '').strip()
-        pl_grp     = _pl_group(pl_id)
-        target     = _swpdt_target_from_product(pl_grp) or pl_grp
-        _target_key = str(target or '').upper()
-        _source_tax = str(r.get('taxonomy_path') or '').strip().upper()
-        _device_eligible = (
-            _source_tax.startswith('/PDT/QIPL')
-            or (
-                _source_tax == '/PDT'
-                and _target_key not in _explicit_qipl_targets
-                and str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL'
-            )
-        )
-        _raw_dev = _raw_dev_actual if _device_eligible else 0
-        build_id   = str(r.get('build_id') or '').strip()
-        build_name = str(r.get('build_name') or build_id).strip()
-                # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
-        hours      = _raw_hrs_actual
-        hours = round(hours, 3)
-
-        state      = str(r.get('state') or '').lower()
-        is_running = state in ('running', 'jobsetup')
-        job_id     = str(r.get('job_id') or '')
-        submitted  = str(r.get('submitted_at') or '')[:10]
-        completed  = str(r.get('ended_at') or '')[:10]
-
-        grp_key = (build_name.upper(), pl_grp.upper())
-        if grp_key not in grouped:
-            # BU: saved override first, then dashboard_status
-            _dash = _match_dashboard(target, _dash_map_builds) or {}
-            _bu   = (_bu_override_map.get(target.upper())
-                     or str(_dash.get('bu') or '').strip())
-            bt    = build_type_map.get((build_name.upper(), pl_grp.upper()), 'CRM')
-            grouped[grp_key] = {
-                'job_ids':      [],
-                'job_id':       job_id,   # first job_id (representative)
-                'target':       target,
-                'pl_id':        pl_grp,
-                'pl_id_exact':  pl_id,
-                'build_id':     build_id,
-                'build_name':   build_name,
-                'submitted':    submitted,
-                'completed_at': completed,
-                'is_running':   False,
-                'hours':        0.0,
-                'chip_ids_set': set(),
-                'device_count': 0,
-                'crashes':      0,        # filled after loop
-                'build_type':   bt,
-                'bu':           _bu,
-                'meta_id':      _sp2_meta_build_key(build_name),
-                                    }
-
-        acc = grouped[grp_key]
-        acc['job_ids'].append(job_id)
-        acc['hours']        += hours
-        chip_ids = _sp2_parse_chip_ids(chip_ids if _device_eligible else [], _raw_dev, target or pl_grp)
-        acc['chip_ids_set'].update(str(c).strip() for c in chip_ids if str(c).strip())
-        # device_count: track the max raw_dev seen across jobs as a floor
-        # Final device_count = max(len(chip_ids_union), max_raw_dev) - resolved at output
-        acc['device_count']  = max(int(acc.get('device_count') or 0), _raw_dev if _device_eligible else 0)
-        all_chips.update(chip_ids)
-        if is_running:
-            acc['is_running'] = True
-        # keep earliest submitted, latest completed
-        if submitted and (not acc['submitted'] or submitted < acc['submitted']):
-            acc['submitted'] = submitted
-        if completed and completed > acc.get('completed_at', ''):
-            acc['completed_at'] = completed
-
-    # Resolve crashes per unique build_name and finalise output list
-    out = []
-    for acc in grouped.values():
-        build_name = acc['build_name']
-        build_id   = acc['build_id']
-        crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, acc.get('pl_id'))
-
-        chip_ids_sorted = sorted(acc.pop('chip_ids_set'))
-        # True device count: union of real chip IDs is primary;
-        # fall back to max raw device_count if chip_ids are sparse/missing
-        true_dev_count = max(len(chip_ids_sorted), int(acc.get('device_count') or 0))
-                # Cap hours: device_count * days * 20 h/day
-        capped_hours = _sp2_capped_pl_hours(acc['hours'], true_dev_count, ws, we)
-        out.append({
-            'job_ids':      acc['job_ids'],
-            'job_id':       acc['job_id'],
-            'target':       acc['target'],
-            'pl_id':        acc['pl_id'],
-            'pl_id_exact':  acc['pl_id_exact'],
-            'build_id':     acc['build_id'],
-            'build_name':   build_name,
-            'submitted':    acc['submitted'],
-            'completed_at': acc['completed_at'],
-            'status':       'running' if acc['is_running'] else 'completed',
-            'hours':        capped_hours,
-            'device_count': true_dev_count,
-            'chip_ids':     chip_ids_sorted,
-            'crashes':      crashes,
-            'build_type':   acc['build_type'],
-            'bu':           acc['bu'],
-            'meta_id':      acc['meta_id'],
-            'run_count':    len(acc['job_ids']),   # how many Axiom jobs ran for this build
-        })
-
-    # Collect BU list for dropdown
-    bu_opts = {str(o.get('key') or '').strip() for o in _sp_bu_options() if str(o.get('key') or '').strip()}
-    bu_opts.update({b['bu'] for b in out if b['bu']})
-    bu_list = sorted(bu_opts)
-
-    out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
-    # True unique devices = union of chip_ids from consolidate table
-    _true_chips2 = set()
-    try:
-        _tc2 = get_mysql_connection_db(bu_key=None)
-        if _tc2:
-            _tcc2 = _tc2.cursor(dictionary=True)
-            _tcc2.execute(
-                f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
-                (ws.isoformat(), we.isoformat()))
-            for _tr2 in (_tcc2.fetchall() or []):
-                try:
-                    _tc2_chips = json.loads(_tr2.get('chip_ids') or '[]') if isinstance(_tr2.get('chip_ids'), str) else list(_tr2.get('chip_ids') or [])
-                    _true_chips2.update(str(c).strip() for c in _tc2_chips if str(c).strip())
-                except Exception:
-                    pass
-            _tcc2.close(); _tc2.close()
-    except Exception:
-        pass
-    _total_devices2 = len(_true_chips2) if _true_chips2 else len(all_chips)
-    return jsonify(success=True, builds=out, total_devices=_total_devices2,
-                   bu_list=bu_list,
-                   week_start=ws.isoformat(), week_end=we.isoformat())
-
-
-@weekly_summary_bp.route('/api/sp2/debug_consolidate')
-@login_required
-def api_sp2_debug_consolidate():
-    ws_arg = request.args.get('week_start','').strip()
-    we_arg = request.args.get('week_end','').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we: _, we = _selected_week_from_request()
-    if not ws: ws = we - timedelta(days=6)
-    result = {'week_start': ws.isoformat(), 'week_end': we.isoformat()}
-    try:
-        conn = get_mysql_connection_db(bu_key=None)
-        if not conn:
-            return jsonify({'error':'no db connection'})
-        cur = conn.cursor(dictionary=True)
-        try:
-            # A: total QIPL rows (no date filter)
-            cur.execute("SELECT COUNT(*) as c FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL'")
-            result['A_total_qipl'] = int((cur.fetchone() or {}).get('c') or 0)
-            # B: date range in table
-            cur.execute("SELECT MIN(DATE(submitted_at)) mn, MAX(DATE(submitted_at)) mx FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL'")
-            r = cur.fetchone() or {}
-            result['B_date_range'] = {'min': str(r.get('mn') or ''), 'max': str(r.get('mx') or '')}
-            # C: count for requested week
-            cur.execute("""
-                SELECT COUNT(*) as c
-                FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                WHERE taxonomy_path='/PDT/QIPL'
-                  AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
-                  AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
-            """, (we.isoformat(), ws.isoformat()))
-            result['C_count_for_week'] = int((cur.fetchone() or {}).get('c') or 0)
-            # D: latest 5 rows
-            cur.execute("SELECT software_product, build_name, DATE(submitted_at) sub FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL' ORDER BY submitted_at DESC LIMIT 5")
-            result['D_latest_5'] = [{k:str(v) for k,v in (row or {}).items()} for row in (cur.fetchall() or [])]
-            # E: saved sentinel rows
-            cur.execute(f"SELECT target,pl_id,device_count,total_hours,number_of_builds,bu FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s AND build_name LIKE '__consolidated__%%' ORDER BY target,pl_id", (ws.isoformat(), we.isoformat()))
-            result['E_saved_rows'] = [{k:str(v) for k,v in (row or {}).items()} for row in (cur.fetchall() or [])]
-            result['E_saved_count'] = len(result['E_saved_rows'])
-        finally:
-            cur.close(); conn.close()
-    except Exception as e:
-        result['error'] = str(e)
-    return jsonify(result)
-
-
-@weekly_summary_bp.route('/api/sp2/consolidate')
-@login_required
-def api_sp2_consolidate():
-    """Smart Build consolidate: CRM rows shown in UI, Eng rows saved but hidden."""
-    ws_arg = request.args.get('week_start', '').strip()
-    we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we:
-        _, we = _selected_week_from_request()
-    if not ws:
-        ws = we - timedelta(days=6)
-    # Always rebuild from Axiom on every load so consolidate matches builds tab.
-    # refresh=1 explicitly re-seeds Axiom-derived device/hour/crash snapshot.
-    if str(request.args.get('refresh') or '').strip() in ('1', 'true', 'yes'):
-        _clear_sp2_static_snapshot(ws, we)
-    _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
-    rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
-    return jsonify(success=True, rows=rows, week_end=we.isoformat())
-
-
-@weekly_summary_bp.route('/api/sp2/active_devices')
-@login_required
-def api_sp2_active_devices():
-    """BU-wise active device table using truly unique chip_ids per BU/target.
-
-    For each BU -> target, we take the UNION of chip_ids across all PL rows
-    (deduplicating devices that ran multiple SPs on the same physical board).
-    The per-target device count is then the size of that union minus chips
-    already counted by a higher-hours target in the same BU (proportional share).
-    Grand total = union of all chip_ids across the entire week.
-    """
-    import json as _json
-    from collections import defaultdict as _dd
-
-    ws_arg = request.args.get('week_start', '').strip()
-    we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we:
-        _, we = _selected_week_from_request()
-    if not ws:
-        ws = we - timedelta(days=6)
-
-    conn = get_mysql_connection_db(bu_key=None)
-    if not conn:
-        return jsonify(success=False, message='DB unavailable'), 503
-    cur = conn.cursor(dictionary=True)
-    try:
-        cur.execute("""
-            SELECT
-                COALESCE(NULLIF(TRIM(bu),''), 'Unknown') AS bu,
-                COALESCE(NULLIF(TRIM(target),''),
-                         NULLIF(TRIM(pl_id),''), 'Unknown') AS target,
-                chip_ids,
-                total_hours
-            FROM pdt_stats_dashboard.sp2_build_consolidate
-            WHERE week_start=%s AND week_end=%s
-            ORDER BY bu, target
-        """, (ws.isoformat(), we.isoformat()))
-        db_rows = cur.fetchall() or []
-    finally:
-        cur.close(); conn.close()
-
-    # â”€â”€ build bu -> target -> chip_set and hours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    bu_tgt_chips = _dd(lambda: _dd(set))   # bu -> target -> set of chip_ids
-    bu_tgt_hours = _dd(lambda: _dd(float)) # bu -> target -> total hours
-
-    for r in db_rows:
-        bu  = str(r.get('bu')     or 'Unknown').strip() or 'Unknown'
-        tgt = str(r.get('target') or 'Unknown').strip() or 'Unknown'
-        hrs = float(r.get('total_hours') or 0)
-        bu_tgt_hours[bu][tgt] += hrs
-        chips_raw = r.get('chip_ids') or '[]'
-        try:
-            chips = _json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
-        except Exception:
-            chips = []
-        for c in chips:
-            c = str(c).strip()
-            if c:
-                bu_tgt_chips[bu][tgt].add(c)
-
-    # â”€â”€ compute per-target truly unique devices (cross-target dedup) â”€â”€â”€â”€â”€â”€
-    # For each target: exclusive chips + proportional share of chips shared
-    # with other targets in the same BU.
-    bu_rows   = []   # list of {bu, target, devices, bu_total (filled later)}
-    bu_totals = {}   # bu -> truly unique count (union)
-    grand_union = set()
-
-    for bu in sorted(bu_tgt_chips.keys()):
-        tgt_map = bu_tgt_chips[bu]
-        targets = sorted(tgt_map.keys())
-
-        # BU-level union for grand total
-        bu_union = set()
-        for chips in tgt_map.values():
-            bu_union.update(chips)
-        bu_totals[bu] = len(bu_union)
-        grand_union.update(bu_union)
-
-        # Per-target allocation
-        # chip -> set of targets in this BU that use it
-        chip_to_tgts = _dd(set)
-        for tgt, chips in tgt_map.items():
-            for c in chips:
-                chip_to_tgts[c].add(tgt)
-
-        tgt_devices = {}
-        for tgt in targets:
-            chips = tgt_map[tgt]
-            exclusive = sum(1 for c in chips if len(chip_to_tgts[c]) == 1)
-            shared_chips = [c for c in chips if len(chip_to_tgts[c]) > 1]
-            # proportional share of each shared chip by hours
-            shared_alloc = 0.0
-            tgt_hrs = bu_tgt_hours[bu][tgt]
-            for c in shared_chips:
-                sharing_tgts = chip_to_tgts[c]
-                total_hrs = sum(bu_tgt_hours[bu][t] for t in sharing_tgts)
-                if total_hrs > 0:
-                    shared_alloc += tgt_hrs / total_hrs
-                else:
-                    shared_alloc += 1.0 / len(sharing_tgts)
-            tgt_devices[tgt] = exclusive + shared_alloc
-
-        # Integer allocation preserving BU total
-        raw_sum = sum(tgt_devices.values())
-        bu_total_int = bu_totals[bu]
-        if raw_sum > 0:
-            scale = bu_total_int / raw_sum
-        else:
-            scale = 1.0
-        base   = {t: int(v * scale) for t, v in tgt_devices.items()}
-        remain = bu_total_int - sum(base.values())
-        for t in sorted(targets, key=lambda t: -(tgt_devices[t] * scale - int(tgt_devices[t] * scale))):
-            if remain <= 0:
-                break
-            base[t] += 1
-            remain  -= 1
-
-        for tgt in targets:
-            bu_rows.append({'bu': bu, 'target': tgt, 'devices': base[tgt]})
-
-    # â”€â”€ attach bu_total to each row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    for row in bu_rows:
-        row['bu_total'] = bu_totals[row['bu']]
-
-    return jsonify(
-        success=True,
-        rows=bu_rows,
-        bu_totals=[{'bu': bu, 'total': tot} for bu, tot in sorted(bu_totals.items())],
-        grand_total=len(grand_union),
-        week_start=ws.isoformat(),
-        week_end=we.isoformat(),
-    )
-
-
-@weekly_summary_bp.route('/api/sp2/stability_health')
-@login_required
-def api_sp2_stability_health():
-    """PDT Stability Health trend.
-
-    Uses Smart Build consolidate for weeks that exist there. For older weeks,
-    falls back to weekly_sharepoint_consolidate_summary totals so the chart can
-    still show the previous 2-3 weeks.
-    """
-    we = _safe_date(request.args.get('week_end')) or date.today()
-    try:
-        count = int(request.args.get('count') or 20)
-    except Exception:
-        count = 20
-    count = max(1, min(count, 60))
-    min_week_end = date(2026, 6, 14)
-    weeks = []
-    for i in range(count - 1, -1, -1):
-        week_end = we - timedelta(weeks=i)
-        if week_end < min_week_end:
-            continue
-        week_start = week_end - timedelta(days=6)
-        rows = []
-        old_rows = None
-        weekly_cr_mapped_distinct = 0
-        source = 'sp2'
-        conn = get_mysql_connection_db(bu_key=None)
-        if conn:
-            cur = conn.cursor(dictionary=True)
-            try:
-                cur.execute(
-                    f"""SELECT total_hours, total_crashes, device_count
-                      FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                      WHERE week_start=%s AND week_end=%s
-                        AND build_name LIKE '__consolidated__%'""",
-                    (week_start.isoformat(), week_end.isoformat()))
-                rows = cur.fetchall() or []
-
-                # Number of CRs for the JIRA/CR chart comes directly from
-                # pdt_stats_dashboard.weekly_qipl_data for the same week:
-                # distinct CR Current Ticket where jira_category = 'CR Mapped'.
-                cur.execute(
-                    f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
-                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-                      WHERE week_start=%s AND week_end=%s
-                        AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
-                    (week_start.isoformat(), week_end.isoformat()))
-                cr_row = cur.fetchone() or {}
-                weekly_cr_mapped_distinct = int(cr_row.get('cr_count') or 0)
-            finally:
-                cur.close(); conn.close()
-
-                hrs     = sum(float(r.get('total_hours')   or 0) for r in rows)
-        crashes = sum(float(r.get('total_crashes') or 0) for r in rows)
-        # True unique devices = union of chip_ids across all consolidate rows
-        # (avoids double-counting devices that ran multiple SPs in the same week)
-        _stab_chip_union = set()
-        for _sr in rows:
-            try:
-                import json as _sj
-                _sc = _sj.loads(_sr.get('chip_ids') or '[]') if isinstance(_sr.get('chip_ids'), str) else list(_sr.get('chip_ids') or [])
-                _stab_chip_union.update(str(c).strip() for c in _sc if str(c).strip())
-            except Exception:
-                pass
-        dev = float(len(_stab_chip_union)) if _stab_chip_union else sum(float(r.get('device_count') or 0) for r in rows)
-
-        # Distinct CR count is sourced from weekly_qipl_data, not from the
-        # SharePoint consolidate unique_crs column.
-        old_rows = _fetch_consolidate_summary(week_end)
-        unique_crs = weekly_cr_mapped_distinct
-
-        if not (hrs > 0 or crashes > 0 or dev > 0):
-            source = 'weekly_sharepoint_consolidate_summary'
-            hrs     = sum(float(r.get('total_hours')       or 0) for r in old_rows)
-            crashes = sum(float(r.get('total_crashes')     or 0) for r in old_rows)
-            dev     = sum(float(r.get('number_of_devices') or 0) for r in old_rows)
-
-        if not (hrs > 0 or crashes > 0 or dev > 0 or unique_crs > 0):
-            continue
-        weeks.append({
-            'week_end':              week_end.isoformat(),
-            'week_start':            week_start.isoformat(),
-            'label':                 week_end.strftime('%d-%b'),
-            'label_year':            week_end.strftime('%d-%b-%Y'),
-            'source':                source,
-            'total_hours':           round(hrs, 1),
-            'total_crashes':         int(crashes),
-            'total_jiras':           int(crashes),
-            'total_unique_crs':      int(unique_crs),
-            'total_devices':         int(dev),
-            'device_usage_per_week': round(hrs / dev,     2) if dev     else 0,
-            'time_per_crash':        round(hrs / crashes, 2) if crashes else 0,
-            'crash_per_mtp_week':    round(crashes / dev, 2) if dev     else 0,
-        })
-    return jsonify(success=True, weeks=weeks[-count:])
-
-
-@weekly_summary_bp.route('/api/sp2/fetch_all_missing_milestones', methods=['POST'])
-@login_required
-def api_sp2_fetch_all_missing_milestones():
-    """Fetch ES/FC/CS from OneView for ALL consolidate rows that have no timelines.
-    Processes sequentially with per-PL retry to handle OneView timeouts.
-    POST body: {week_start, week_end}
-    Returns: {results: [{pl_id, target, status, timelines, error}], total, updated, failed, skipped}
-    """
-    data = request.get_json(force=True, silent=True) or {}
-    ws   = _safe_date(data.get('week_start'))
-    we   = _safe_date(data.get('week_end'))
-    if not ws or not we:
-        return jsonify(success=False, error='week_start and week_end are required'), 400
-    if not fetch_milestones_for_sp:
-        return jsonify(success=False, error='fetch_milestones_for_sp not available'), 503
-
-    # Load all sentinel rows that are missing timelines
-    conn = get_mysql_connection_db(bu_key=None)
-    if not conn:
-        return jsonify(success=False, error='DB connection failed'), 500
-    cur = conn.cursor(dictionary=True)
-    try:
-        cur.execute(f"""
-            SELECT target, pl_id, timelines
-            FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-            WHERE week_start=%s AND week_end=%s
-              AND build_name LIKE '__consolidated__%'
-            ORDER BY target, pl_id
-        """, (ws.isoformat(), we.isoformat()))
-        all_rows = cur.fetchall() or []
-    finally:
-        cur.close(); conn.close()
-
-    # Separate missing vs already-filled
-    missing = [r for r in all_rows if not str(r.get('timelines') or '').strip()]
-    skipped = [r for r in all_rows if str(r.get('timelines') or '').strip()]
-
-    results = []
-    updated = 0
-    failed  = 0
-
-    for row in missing:
-        target = str(row.get('target') or '').strip()
-        pl_id  = str(row.get('pl_id')  or '').strip()
-        if not pl_id:
-            results.append({'target': target, 'pl_id': pl_id, 'status': 'skipped', 'error': 'empty pl_id'})
-            failed += 1
-            continue
-
-        # DB-first: check dashboard_status before hitting OneView
-        _ms = _resolve_pl_milestones(target, pl_id)
-        es = _ms['ES']; fc = _ms['FC']; cs = _ms['CS']
-
-        if not (es or fc or cs):
-            results.append({'target': target, 'pl_id': pl_id, 'status': 'failed',
-                            'error': 'No milestone dates found in DB or OneView'})
-            failed += 1
-            continue
-
-        timelines  = _sp_timeline(es, fc, cs)
-        pdt_status = _compute_pdt_test_status(es, cs, fc)
-        sentinel   = f'__consolidated__{target}__{pl_id}'
-
-        try:
-            conn2 = get_mysql_connection_db(bu_key=None)
-            if conn2:
-                cur2 = conn2.cursor()
-                try:
-                    cur2.execute(f"""
-                        UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                        SET timelines=%s, pdt_test_status=%s, updated_by=%s
-                        WHERE week_start=%s AND week_end=%s AND build_name=%s
-                    """, (timelines, pdt_status, _current_user_identifier(),
-                            ws.isoformat(), we.isoformat(), sentinel))
-                    conn2.commit()
-                finally:
-                    cur2.close(); conn2.close()
-        except Exception as _db_e:
-            import logging as _log
-            _log.getLogger('weekly_summary_routes').warning('[SP2 BULK TL] DB update failed: %s', _db_e)
-
-        results.append({'target': target, 'pl_id': pl_id, 'status': 'updated',
-                        'timelines': timelines, 'pdt_status': pdt_status,
-                        'es': es, 'fc': fc, 'cs': cs})
-        updated += 1
-
-    return jsonify(
-        success=True,
-        results=results,
-        total=len(all_rows),
-        updated=updated,
-        failed=failed,
-        skipped=len(skipped)
-    )
-
-
-def _resolve_pl_milestones(target: str, pl_id: str) -> dict:
-    """Resolve ES/FC/CS for a PL-ID.
-    Priority:
-      1. dashboard_status DB with version-strip fallback:
-         Kobuk.LE.1.1 -> Kobuk.LE.1 -> Kobuk.LE -> finds DB row instantly
-      2. OneView API (fetch_milestones_for_sp) -- tries pl_id then target
-    Returns dict with keys: ES, FC, CS, source ('db' or 'oneview' or 'none')
-    """
-    # Source 1: dashboard_status (version-strip fallback)
-    try:
-        _dm = _fetch_dashboard_status_map()
-        for _cand in [pl_id, target]:
-            if not _cand:
-                continue
-            _info = _match_dashboard_with_fallback(_cand, _dm)
-            if _info and (_info.get('ES') or _info.get('FC') or _info.get('CS')):
-                return {
-                    'ES': _fmt_iso_date(_info.get('ES')),
-                    'FC': _fmt_iso_date(_info.get('FC')),
-                    'CS': _fmt_iso_date(_info.get('CS')),
-                    'source': 'db',
-                }
-    except Exception:
-        pass
-
-    # Source 2: OneView API
-    if fetch_milestones_for_sp:
-        for _sp in [pl_id, target]:
-            if not _sp:
-                continue
-            try:
-                _kd, _src = fetch_milestones_for_sp(_sp)
-                if _kd.get('ES') or _kd.get('FC') or _kd.get('CS'):
-                    return {
-                        'ES': _fmt_iso_date(_kd.get('ES')),
-                        'FC': _fmt_iso_date(_kd.get('FC')),
-                        'CS': _fmt_iso_date(_kd.get('CS')),
-                        'source': 'oneview',
-                    }
-            except Exception:
-                continue
-
-    return {'ES': '', 'FC': '', 'CS': '', 'source': 'none'}
-
-@weekly_summary_bp.route('/api/sp2/refetch_timelines', methods=['POST'])
-@login_required
-def api_sp2_refetch_timelines():
-    """Refetch ES/FC/CS timelines from OneView for a specific PL-ID.
-    Updates the sp2_build_consolidate DB row and returns fresh timelines.
-    POST body: {week_start, week_end, target, pl_id}
-    """
-    data      = request.get_json(force=True, silent=True) or {}
-    ws        = _safe_date(data.get('week_start'))
-    we        = _safe_date(data.get('week_end'))
-    target    = str(data.get('target') or '').strip()
-    pl_id     = str(data.get('pl_id') or '').strip()
-    if not ws or not we or not pl_id:
-        return jsonify(success=False, error='week_start, week_end and pl_id are required'), 400
-
-    # DB-first: check dashboard_status before hitting OneView
-    _ms = _resolve_pl_milestones(target, pl_id)
-    es = _ms['ES']; fc = _ms['FC']; cs = _ms['CS']
-    source = _ms['source']
-
-    if not (es or fc or cs):
-        return jsonify(success=False,
-                       error=f'No milestone dates found in DB or OneView for PL-ID: {pl_id}',
-                       source=source), 404
-
-    timelines  = _sp_timeline(es, fc, cs)
-    pdt_status = _compute_pdt_test_status(es, cs, fc)
-
-    # Update the sentinel row in sp2_build_consolidate
-    sentinel_name = f'__consolidated__{target}__{pl_id}'
-    try:
-        conn = get_mysql_connection_db(bu_key=None)
-        if conn:
-            cur = conn.cursor()
-            try:
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                    SET timelines=%s, pdt_test_status=%s, updated_by=%s
-                    WHERE week_start=%s AND week_end=%s AND build_name=%s
-                """, (timelines, pdt_status, _current_user_identifier(),
-                        ws.isoformat(), we.isoformat(), sentinel_name))
-                conn.commit()
-            finally:
-                cur.close(); conn.close()
-    except Exception as _db_exc:
-        import logging as _log
-        _log.getLogger('weekly_summary_routes').warning('[SP2 REFETCH TL] DB update failed: %s', _db_exc)
-
-    return jsonify(success=True, timelines=timelines, pdt_status=pdt_status,
-                   es=es, fc=fc, cs=cs, source=source)
-
-
-@weekly_summary_bp.route('/api/sp2/save_build_type', methods=['POST'])
-@login_required
-def api_sp2_save_build_type():
-    """Save build_type (CRM/Eng) for a build row; triggers background consolidate update."""
-    data = request.get_json(force=True, silent=True) or {}
-    ws   = _safe_date(data.get('week_start'))
-    we   = _safe_date(data.get('week_end'))
-    build_name = str(data.get('build_name') or '').strip()
-    pl_id      = str(data.get('pl_id') or '').strip()
-    build_type = str(data.get('build_type') or 'CRM').strip()
-    if build_type not in ('CRM', 'Eng'):
-        build_type = 'CRM'
-    if not ws or not we or not build_name:
-        return jsonify(success=False, error='Missing required fields'), 400
-    try:
-        _upsert_sp2_build_type(ws, we, build_name, pl_id, build_type)
-        try:
-            _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
-        except Exception:
-            pass
-        return jsonify(success=True)
-    except Exception as e:
-        return jsonify(success=False, error=str(e)), 500
-
-
-@weekly_summary_bp.route('/api/sp2/save_pl_rows', methods=['POST'])
-@login_required
-def api_sp2_save_pl_rows():
-    """Save edited hours/crashes/build_type for all builds under a target+PL.
-    Called when user clicks the Save button on a PL section.
-    """
-    data = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
-    target = str(data.get('target') or '').strip()
-    pl_id  = str(data.get('pl_id')  or '').strip()
-    rows   = data.get('rows') or []
-    if not ws or not we or not target or not rows:
-        return jsonify(success=False, error='Missing required fields'), 400
-    try:
-        _ensure_sp2_override_snapshot_columns()
-        conn = get_mysql_connection_db(bu_key=None)
-        if not conn:
-            return jsonify(success=False, error='DB unavailable'), 500
-        cur = conn.cursor()
-        saved = 0
-        try:
-            for row in rows:
-                build_name = str(row.get('build_name') or '').strip()
-                build_type = str(row.get('build_type') or 'CRM').strip()
-                hours      = float(row.get('hours') or 0)
-                crashes    = int(row.get('crashes') or 0)
-                if build_type not in ('CRM', 'Eng'):
-                    build_type = 'CRM'
-                if not build_name:
-                    continue
-                # Update the static source row. These values are what Builds and
-                # Consolidate will show after refresh; they are no longer added
-                # onto sentinel totals.
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    SET target=%s,
-                        build_type=%s,
-                        hours=%s,
-                        total_crashes=%s,
-                        updated_by=%s,
-                        updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s
-                      AND build_name=%s AND pl_id=%s
-                """, (target, build_type, hours, crashes, _current_user_identifier(),
-                      ws.isoformat(), we.isoformat(), build_name, pl_id))
-                if cur.rowcount == 0:
-                    cur.execute(f"""
-                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                            (week_start, week_end, target, pl_id, build_name,
-                             build_type, hours, total_crashes, updated_by)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        ON DUPLICATE KEY UPDATE
-                            target=VALUES(target),
-                            build_type=VALUES(build_type),
-                            hours=VALUES(hours),
-                            total_crashes=VALUES(total_crashes),
-                            updated_by=VALUES(updated_by),
-                            updated_at=CURRENT_TIMESTAMP
-                    """, (ws.isoformat(), we.isoformat(), target, pl_id, build_name,
-                          build_type, hours, crashes, _current_user_identifier()))
-                saved += 1
-            conn.commit()
-        finally:
-            cur.close(); conn.close()
-        _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
-        return jsonify(success=True, saved=saved)
-    except Exception as e:
-        return jsonify(success=False, error=str(e)), 500
-
-
-@weekly_summary_bp.route('/api/sp2/save_bu', methods=['POST'])
-@login_required
-def api_sp2_save_bu():
-    """Save BU for a target -------? persists to sp2_build_consolidate for all
-    sentinel rows of that target so it survives page reloads.
-    """
-    data   = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
-    target = str(data.get('target') or '').strip()
-    bu     = str(data.get('bu')     or '').strip()
-    if not ws or not we or not target or not bu:
-        return jsonify(success=False, error='Missing required fields'), 400
-    try:
-        _ensure_sp2_build_consolidate_table()
-        _ensure_sp2_override_snapshot_columns()
-        conn = get_mysql_connection_db(bu_key=None)
-        if not conn:
-            return jsonify(success=False, error='DB unavailable'), 500
-        cur = conn.cursor()
-        try:
-            pl_id = str(data.get('pl_id') or '').strip()
-
-            # 1. Persist BU in the static Builds source table too. This is the
-            #    main source for /api/sp2/builds and survives consolidate rebuilds.
-            if pl_id:
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s
-                      AND pl_id=%s
-                """, (bu, target, ws.isoformat(), we.isoformat(), pl_id))
-            else:
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s
-                      AND (target=%s OR pl_id LIKE %s)
-                """, (bu, target, ws.isoformat(), we.isoformat(), target, target + '%'))
-
-            # 2. Update ALL existing consolidate sentinel rows for this target+week.
-            cur.execute(f"""
-                UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                SET bu=%s, updated_at=CURRENT_TIMESTAMP
-                WHERE week_start=%s AND week_end=%s
-                  AND target=%s
-            """, (bu, ws.isoformat(), we.isoformat(), target))
-
-            # 3. If no rows existed yet, insert a target-level placeholder
-            #    so the BU is persisted even before consolidate runs
-            if cur.rowcount == 0:
-                cur.execute(f"""
-                    INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                        (week_start, week_end, target, pl_id, build_name,
-                         build_type, bu, updated_by)
-                    VALUES (%s,%s,%s,'','__bu_placeholder__{target}',
-                            'CRM',%s,%s)
-                    ON DUPLICATE KEY UPDATE
-                        bu=VALUES(bu),
-                        updated_at=CURRENT_TIMESTAMP
-                """, (ws.isoformat(), we.isoformat(), target,
-                       bu, _current_user_identifier()))
-            conn.commit()
-        finally:
-            cur.close(); conn.close()
-        return jsonify(success=True)
-    except Exception as e:
-        return jsonify(success=False, error=str(e)), 500
-
-
-
-@weekly_summary_bp.route('/api/sp2/save_target', methods=['POST'])
-@login_required
-def api_sp2_save_target():
-    """Save everything for a target in one shot:
-       - BU (target-level)
-       - hours / crashes / build_type for every build row under the target
-    Replaces the separate save_bu + per-PL save_pl_rows flow.
-    """
-    data   = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
-    target = str(data.get('target') or '').strip()
-    bu     = str(data.get('bu')     or '').strip()
-    rows   = data.get('rows') or []   # all build rows across all PLs for this target
-
-    if not ws or not we or not target:
-        return jsonify(success=False, error='Missing required fields'), 400
-
-    try:
-        _ensure_sp2_build_consolidate_table()
-        _ensure_sp2_override_snapshot_columns()
-        conn = get_mysql_connection_db(bu_key=None)
-        if not conn:
-            return jsonify(success=False, error='DB unavailable'), 500
-        cur = conn.cursor()
-        saved_rows = 0
-        try:
-            user = _current_user_identifier()
-
-            # - 1. Update BU on every override row for this target -
-            if bu:
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s
-                      AND (target=%s OR pl_id LIKE %s)
-                """, (bu, target,
-                      ws.isoformat(), we.isoformat(),
-                      target, target + '%'))
-
-                # Also stamp consolidate rows
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                    SET bu=%s, updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s AND target=%s
-                """, (bu, ws.isoformat(), we.isoformat(), target))
-
-                if cur.rowcount == 0:
-                    # No consolidate rows yet - insert placeholder so BU persists
-                    cur.execute(f"""
-                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
-                            (week_start, week_end, target, pl_id, build_name,
-                             build_type, bu, updated_by)
-                        VALUES (%s,%s,%s,'','__bu_placeholder__',
-                                'CRM',%s,%s)
-                        ON DUPLICATE KEY UPDATE
-                            bu=VALUES(bu), updated_at=CURRENT_TIMESTAMP
-                    """, (ws.isoformat(), we.isoformat(), target, bu, user))
-
-            # - 2. Update each build row (hours / crashes / build_type) -
-            for row in rows:
-                build_name = str(row.get('build_name') or '').strip()
-                pl_id      = str(row.get('pl_id')      or '').strip()
-                build_type = str(row.get('build_type') or 'CRM').strip()
-                hours      = float(row.get('hours')    or 0)
-                crashes    = int(row.get('crashes')    or 0)
-                if build_type not in ('CRM', 'Eng'):
-                    build_type = 'CRM'
-                if not build_name:
-                    continue
-
-                cur.execute(f"""
-                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                    SET target=%s, bu=%s, build_type=%s,
-                        hours=%s, total_crashes=%s,
-                        updated_by=%s, updated_at=CURRENT_TIMESTAMP
-                    WHERE week_start=%s AND week_end=%s
-                      AND build_name=%s AND pl_id=%s
-                """, (target, bu or None, build_type,
-                      hours, crashes, user,
-                      ws.isoformat(), we.isoformat(),
-                      build_name, pl_id))
-
-                if cur.rowcount == 0:
-                    cur.execute(f"""
-                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
-                            (week_start, week_end, target, pl_id, build_name,
-                             build_type, hours, total_crashes, bu, updated_by)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        ON DUPLICATE KEY UPDATE
-                            target=VALUES(target),
-                            bu=VALUES(bu),
-                            build_type=VALUES(build_type),
-                            hours=VALUES(hours),
-                            total_crashes=VALUES(total_crashes),
-                            updated_by=VALUES(updated_by),
-                            updated_at=CURRENT_TIMESTAMP
-                    """, (ws.isoformat(), we.isoformat(),
-                          target, pl_id, build_name,
-                          build_type, hours, crashes,
-                          bu or None, user))
-                saved_rows += 1
-
-            conn.commit()
-        finally:
-            cur.close(); conn.close()
-
-        # Rebuild consolidate snapshot after save
-        try:
-            _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
-        except Exception:
-            pass
-
-        return jsonify(success=True, saved=saved_rows)
-    except Exception as e:
-        return jsonify(success=False, error=str(e)), 500
-
-
-@weekly_summary_bp.route('/api/sp2/unique_devices')
-@login_required
-def api_sp2_unique_devices():
-    """Return unique device (chip_id) list per target+PL from Axiom for the week.
-
-    Groups chip_ids by target -> pl_id, computes per-device hours split
-    proportionally across builds that used that chip.
-    """
-    ws_arg = request.args.get('week_start', '').strip()
-    we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not ws or not we:
-        ws, we = _selected_week_from_request()
-
-    payload, _src = _load_swpdt_json_payload()
-    raw_builds = _flatten_swpdt_build_entries(payload)
-
-    from collections import defaultdict
-    target_pl_chip_hours = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-
-    for b in raw_builds:
-        sub_dt = _axiom_date_from_value(b.get('submitted'))
-        if not sub_dt or not (ws <= sub_dt <= we):
-            continue
-        pl_id = str(b.get('software_product') or '').strip()
-        target = _swpdt_target_from_product(pl_id) or pl_id
-        chip_ids = b.get('chip_ids') or []
-        hours = float(b.get('hours') or 0)
-        per_chip = (hours / len(chip_ids)) if chip_ids else 0
-        for chip in chip_ids:
-            chip = str(chip).strip()
-            if chip:
-                target_pl_chip_hours[target][pl_id][chip] += per_chip
-
-    by_target = []
-    total_devices = 0
-    for target in sorted(target_pl_chip_hours.keys()):
-        pl_map = target_pl_chip_hours[target]
-        all_target_chips = defaultdict(float)
-        for pl_id, chip_hours in pl_map.items():
-            for chip, hrs in chip_hours.items():
-                all_target_chips[chip] += hrs
-        total_devices += len(all_target_chips)
-        max_hours = max(all_target_chips.values()) if all_target_chips else 1
-
-        pl_entries = []
-        for pl_id in sorted(pl_map.keys()):
-            chip_hours = pl_map[pl_id]
-            devices = [
-                {'chip_id': chip, 'hours': round(hrs, 2),
-                 'pl_id': pl_id, 'software_product': pl_id}
-                for chip, hrs in sorted(chip_hours.items(), key=lambda x: -x[1])
-            ]
-            pl_entries.append({'pl_id': pl_id, 'devices': devices,
-                               'total_hours': round(sum(chip_hours.values()), 2)})
-
-        flat_devices = [
-            {'chip_id': chip, 'hours': round(hrs, 2),
-             'pl_id': ', '.join(
-                 p for p in sorted(pl_map.keys()) if chip in pl_map[p]
-             )}
-            for chip, hrs in sorted(all_target_chips.items(), key=lambda x: -x[1])
-        ]
-
-        by_target.append({
-            'target':      target,
-            'total_chips': len(all_target_chips),
-            'total_hours': round(sum(all_target_chips.values()), 2),
-            'max_hours':   round(max_hours, 2),
-            'pl_entries':  pl_entries,
-            'devices':     flat_devices,
-        })
-
-    return jsonify(
-        success=True,
-        by_target=by_target,
-        total_devices=total_devices,
-        week_start=ws.isoformat(),
-        week_end=we.isoformat(),
-    )
 

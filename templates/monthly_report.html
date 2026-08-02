@@ -13,6 +13,28 @@
 .mr-hwpdt-toggle{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:11px;font-weight:800;color:#475569;height:34px;}
 .mr-hwpdt-toggle.active{border-color:#f59e0b;background:#fffbeb;color:#92400e;}
 .mr-hwpdt-toggle input{accent-color:#f59e0b;width:14px;height:14px;cursor:pointer;}
+/* ── CR filter toggles ── */
+.mr-cr-toggle{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:11px;font-weight:800;color:#475569;height:34px;transition:all .15s;}
+.mr-cr-toggle input{width:14px;height:14px;cursor:pointer;}
+.mr-cr-toggle--dup input{accent-color:#ef4444;}
+.mr-cr-toggle--dup.active{border-color:#ef4444;background:#fff5f5;color:#b91c1c;}
+.mr-cr-toggle--inv input{accent-color:#f97316;}
+.mr-cr-toggle--inv.active{border-color:#f97316;background:#fff7ed;color:#c2410c;}
+.mr-cr-toggle--site input{accent-color:#0ea5e9;}
+.mr-cr-toggle--site.active{border-color:#0ea5e9;background:#f0f9ff;color:#0369a1;}
+/* ── Site filter dropdown ── */
+.mr-site-wrap{position:relative;}
+.mr-site-dropdown{position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:#fff;border:1.5px solid #bae6fd;border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.14);z-index:300;overflow:hidden;display:none;}
+.mr-site-dropdown.open{display:block;}
+.mr-site-list{padding:6px 0;}
+.mr-site-item{display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:700;color:#1e293b;transition:background .1s;}
+.mr-site-item:hover{background:#f0f9ff;}
+.mr-site-item input[type=checkbox]{accent-color:#0ea5e9;width:13px;height:13px;cursor:pointer;flex-shrink:0;}
+/* ── CR filter badge ── */
+.mr-filter-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;}
+.mr-filter-badge--dup{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
+.mr-filter-badge--inv{background:#ffedd5;color:#c2410c;border:1px solid #fdba74;}
+.mr-filter-badge--site{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;}
 /* ── Target multi-select dropdown ── */
 .mr-tgt-wrap{position:relative;}
 .mr-tgt-trigger{height:34px;min-width:200px;max-width:280px;border:1px solid #dbe4f0;border-radius:8px;padding:0 10px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:none;white-space:nowrap;overflow:hidden;}
@@ -63,19 +85,9 @@
 .mr-section-title i{color:#6366f1;}
 .mr-section-sub{font-size:10px;color:#64748b;font-weight:700;}
 .mr-section-body{padding:14px 16px;}
-.mr-section-actions{display:flex;align-items:center;gap:6px;}
-.mr-chevron{transition:transform .2s;display:inline-block;font-size:9px;color:#94a3b8;margin-left:5px;}
-.mr-section-title.collapsed .mr-chevron{transform:rotate(-90deg);}
-.mr-collapsible.hidden{display:none;}
-.mr-target-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:10px 16px;border-bottom:1px solid #f1f5f9;}
-.mr-target-tab{padding:4px 11px;border-radius:999px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:10px;font-weight:800;color:#475569;cursor:pointer;transition:all .12s;}
-.mr-target-tab:hover{border-color:#a5b4fc;color:#4338ca;}
-.mr-target-tab.active{background:#eef2ff;border-color:#6366f1;color:#4338ca;}
-.mr-trend-sel{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
-.mr-trend-tab{padding:4px 11px;border-radius:999px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:10px;font-weight:800;color:#475569;cursor:pointer;}
-.mr-trend-tab.active{background:#1e3a5f;border-color:#1e3a5f;color:#fff;}
-.mr-chart-wrap{overflow-x:auto;overflow-y:hidden;}
-.mr-chart-inner{min-height:300px;}
+.mr-section-body--chart{padding:10px 0 0 0;}
+.mr-chart-wrap{width:100%;overflow-x:auto;overflow-y:hidden;box-sizing:border-box;}
+.mr-chart-inner{min-height:300px;width:100%;}
 .mr-chart-note{font-size:10px;color:#94a3b8;font-weight:700;padding:5px 0 0;font-style:italic;}
 .mr-table-wrap{overflow-x:auto;max-height:420px;overflow-y:auto;}
 .mr-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;}
@@ -160,10 +172,39 @@
         <option value="this_year">This Year</option>
       </select>
     </div>
-    <label class="mr-hwpdt-toggle" id="mrHwpdtToggle" title="Include HWPDT JIRAs and CRs">
+        <label class="mr-hwpdt-toggle" id="mrHwpdtToggle" title="Include HWPDT JIRAs and CRs">
       <input type="checkbox" id="mrHwpdtChk">
       <i class="fas fa-microchip" style="font-size:11px;"></i> Include HWPDT
     </label>
+    {# ── Dup CRs toggle ── #}
+    <label class="mr-cr-toggle mr-cr-toggle--dup" id="mrDupToggle" title="Include Duplicate CRs (cr_occurrence=Dup / cr_category=Dup)">
+      <input type="checkbox" id="mrDupChk">
+      <i class="fas fa-copy" style="font-size:11px;"></i> Include Dup
+    </label>
+    {# ── Invalid CRs toggle ── #}
+    <label class="mr-cr-toggle mr-cr-toggle--inv" id="mrInvToggle" title="Include Invalid CRs (cr_category=Invalid)">
+      <input type="checkbox" id="mrInvChk">
+      <i class="fas fa-ban" style="font-size:11px;"></i> Include Invalid
+    </label>
+    {# ── Site-wise filter ── #}
+    <div class="mr-ctrl-group">
+      <span class="mr-ctrl-label">Site Filter</span>
+      <div class="mr-site-wrap" id="mrSiteWrap">
+        <label class="mr-cr-toggle mr-cr-toggle--site" id="mrSiteToggle" title="Filter by site (QIPL / SD / CH)" style="cursor:pointer;">
+          <input type="checkbox" id="mrSiteChk" style="pointer-events:none;">
+          <i class="fas fa-globe" style="font-size:11px;"></i>
+          <span id="mrSiteLabel">All Sites</span>
+          <span style="font-size:9px;color:#94a3b8;margin-left:2px;">&#9660;</span>
+        </label>
+        <div class="mr-site-dropdown" id="mrSiteDropdown">
+          <div class="mr-site-list" id="mrSiteList">
+            <label class="mr-site-item"><input type="checkbox" value="QIPL" checked> QIPL</label>
+            <label class="mr-site-item"><input type="checkbox" value="SD" checked> SD (San Diego)</label>
+            <label class="mr-site-item"><input type="checkbox" value="CH" checked> CH (China)</label>
+          </div>
+        </div>
+      </div>
+    </div>
     <button class="mr-btn mr-btn--primary" id="mrGenerateBtn">
       <i class="fas fa-sync-alt"></i> Generate Report
     </button>
