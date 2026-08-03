@@ -1,4 +1,4 @@
-{% extends "target_layout.html" %}
+﻿{% extends "target_layout.html" %}
 {% block page_heading %}{{ page_heading }}{% endblock %}
 
 {% block page_content %}
@@ -90,7 +90,7 @@
 .oj-page-btn:hover:not(:disabled){background:#f0f4ff;border-color:#6366f1;color:#4f46e5;}
 .oj-page-btn:disabled{opacity:.4;cursor:not-allowed;}
 
-/* col widths */
+/* col widths – flat view */
 .oj-col-num  {width:44px;}
 .oj-col-tick {width:150px;}
 .oj-col-date {width:100px;}
@@ -98,6 +98,131 @@
 .oj-col-cr   {width:140px;}
 .oj-col-team {width:120px;}
 .oj-col-title{width:auto;}
+
+/* ── View toggle ── */
+.oj-view-toggle{display:flex;gap:6px;align-items:center;}
+.oj-vtab{height:32px;padding:0 14px;border-radius:8px;border:1px solid #e2e8f0;
+  background:#fff;font-size:12px;font-weight:700;color:#64748b;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;}
+.oj-vtab.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+.oj-vtab:hover:not(.active){background:#f0f4ff;border-color:#6366f1;color:#4f46e5;}
+
+/* ── Pivot table ── */
+.oj-pivot-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:16px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;}
+.oj-pivot-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);
+  border-bottom:1px solid #e5e7eb;gap:10px;flex-wrap:wrap;}
+.oj-pivot-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
+.oj-pivot-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.oj-pivot-tbl th{background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#f0f9ff;
+  padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08);}
+.oj-pivot-tbl td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;
+  word-break:break-word;line-height:1.45;}
+.oj-pivot-tbl tr:hover td{background:#f8faff;}
+.oj-pivot-tbl tr:last-child td{border-bottom:none;}
+/* occurrence badge – matches build-report br-count-link */
+.oj-occ-link{display:inline-flex;align-items:center;gap:4px;
+  border:1px solid #c4b5fd;background:linear-gradient(135deg,#eef2ff,#f5f3ff);
+  color:#4f46e5;border-radius:999px;font-size:12px;font-weight:950;
+  text-decoration:none;cursor:pointer;padding:3px 10px;
+  box-shadow:0 6px 14px rgba(79,70,229,.10);transition:background .15s,color .15s;}
+.oj-occ-link:hover{color:#fff;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-color:transparent;}
+.oj-no-cr{color:#cbd5e1;font-size:11px;}
+/* pivot col widths */
+.ojp-col-num {width:40px;}
+.ojp-col-cr  {width:190px;}
+.ojp-col-occ {width:90px;}
+.ojp-col-date{width:110px;}
+.ojp-col-area{width:100px;}
+.ojp-col-team{width:130px;}
+.ojp-col-title{width:auto;}
+
+/* ── JIRA list modal ── */
+.oj-modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;
+  display:none;align-items:center;justify-content:center;padding:16px;}
+.oj-modal-overlay.open{display:flex;}
+.oj-modal-box{background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(30,41,59,.28);
+  width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;
+  border:1px solid rgba(196,181,253,.9);overflow:hidden;}
+.oj-modal-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;background:linear-gradient(90deg,#eef2ff,#f5f3ff);
+  border-bottom:1px solid #ddd6fe;gap:10px;flex-shrink:0;}
+.oj-modal-hdr-title{font-size:13px;font-weight:900;color:#312e81;
+  display:flex;align-items:center;gap:8px;}
+.oj-modal-close{width:30px;height:30px;border-radius:50%;border:1px solid #e2e8f0;
+  background:#fff;cursor:pointer;font-size:16px;color:#64748b;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.oj-modal-close:hover{background:#fee2e2;color:#dc2626;border-color:#fca5a5;}
+.oj-modal-stats{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:8px;
+  padding:12px 18px;border-bottom:1px solid #f1f5f9;flex-shrink:0;}
+.oj-modal-stat{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:9px 10px;}
+.oj-modal-stat b{display:block;color:#1e3a8a;font-size:18px;font-weight:900;}
+.oj-modal-stat span{display:block;color:#64748b;font-size:10px;font-weight:900;text-transform:uppercase;}
+.oj-modal-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:10px 18px;border-bottom:1px solid #f1f5f9;flex-shrink:0;}
+.oj-modal-search{height:30px;flex:1;min-width:180px;max-width:280px;
+  border-radius:9px;border:1px solid #d1d5db;padding:0 10px;font-size:12px;outline:none;}
+.oj-modal-search:focus{border-color:#6366f1;}
+.oj-modal-body{overflow:auto;flex:1;}
+.oj-modal-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.oj-modal-tbl th{background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#f0f9ff;
+  padding:9px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.06em;white-space:nowrap;position:sticky;top:0;z-index:1;}
+.oj-modal-tbl td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top;
+  word-break:break-word;line-height:1.4;}
+.oj-modal-tbl tr:hover td{background:#f8faff;}
+.oj-modal-tbl tr:last-child td{border-bottom:none;}
+.oj-jira-link{font-weight:700;color:#4f46e5;text-decoration:none;white-space:nowrap;}
+.oj-jira-link:hover{text-decoration:underline;color:#3730a3;}
+.oj-open-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;
+  border-radius:8px;border:none;background:#4f46e5;color:#fff;font-size:11px;
+  font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap;}
+.oj-open-btn:hover{background:#3730a3;color:#fff;}
+
+/* -- Crash-type filter bar -- */
+.oj-crash-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #fed7aa;
+  border-radius:14px;padding:12px 18px;margin-bottom:18px;
+  box-shadow:0 4px 14px rgba(234,88,12,.07);}
+.oj-crash-label{font-size:11px;font-weight:800;color:#c2410c;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.oj-crash-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.oj-crash-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;
+  border-radius:999px;border:2px solid transparent;font-size:12px;font-weight:700;
+  cursor:pointer;transition:all .15s;user-select:none;}
+.oj-crash-chip input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:#6366f1;}
+.oj-crash-chip.sys {background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
+.oj-crash-chip.sys:hover{background:#dbeafe;border-color:#93c5fd;}
+.oj-crash-chip.sys.on {background:#1d4ed8;border-color:#1d4ed8;color:#fff;}
+.oj-crash-chip.sys.on input{accent-color:#fff;}
+.oj-crash-chip.non{background:#fdf4ff;border-color:#e9d5ff;color:#7c3aed;}
+.oj-crash-chip.non:hover{background:#ede9fe;border-color:#c4b5fd;}
+.oj-crash-chip.non.on {background:#7c3aed;border-color:#7c3aed;color:#fff;}
+.oj-crash-chip.non.on input{accent-color:#fff;}
+.oj-crash-divider{width:1px;height:22px;background:#fed7aa;flex-shrink:0;}
+.oj-crash-stat{font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;}
+.oj-crash-stat b{color:#0f172a;}
+/* -- Chart card -- */
+.oj-chart-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;margin-bottom:20px;}
+.oj-chart-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);
+  border-bottom:1px solid #e5e7eb;gap:10px;flex-wrap:wrap;}
+.oj-chart-title{font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;}
+.oj-chart-body{padding:8px 4px 4px;}
+#ojAreaChart{height:320px;width:100%;}
+.oj-chart-btn{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;
+  border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:700;
+  color:#374151;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.oj-chart-btn:hover{background:#f0f4ff;border-color:#6366f1;color:#4f46e5;}
+.oj-chart-btn.copied{background:#dcfce7;border-color:#86efac;color:#16a34a;}
+/* -- Crash type badge -- */
+.oj-crash-badge{display:inline-block;padding:1px 7px;border-radius:999px;
+  font-size:10px;font-weight:800;margin-left:5px;vertical-align:middle;}
+.oj-crash-badge.sys {background:#dbeafe;color:#1d4ed8;}
+.oj-crash-badge.non{background:#ede9fe;color:#7c3aed;}
 </style>
 
 <div id="ojLoading" style="text-align:center;padding:60px;display:none;">
@@ -110,6 +235,26 @@
   <!-- KPI row -->
   <div class="oj-kpi-row" id="ojKpiRow"></div>
 
+
+  <!-- Crash Type Filter -->
+  <div class="oj-crash-bar" id="ojCrashBar">
+    <div class="oj-crash-label"><i class="fas fa-bolt"></i> Crash Type</div>
+    <div class="oj-crash-chips">
+      <label class="oj-crash-chip sys on" id="ojChipSystem" onclick="ojToggleCrash('system')">
+        <input type="checkbox" id="ojChkSystem" checked onchange="ojToggleCrash('system')" onclick="event.stopPropagation()">
+        <i class="fas fa-desktop" style="font-size:11px;"></i> System Crash
+      </label>
+      <label class="oj-crash-chip non on" id="ojChipNonSystem" onclick="ojToggleCrash('nonsystem')">
+        <input type="checkbox" id="ojChkNonSystem" checked onchange="ojToggleCrash('nonsystem')" onclick="event.stopPropagation()">
+        <i class="fas fa-mobile-alt" style="font-size:11px;"></i> Non-System
+        <span style="font-size:10px;opacity:.75;">(FWR / Tombstone / ANR)</span>
+      </label>
+    </div>
+    <div class="oj-crash-divider"></div>
+    <div class="oj-crash-stat">System: <b id="ojStatSystem">0</b></div>
+    <div class="oj-crash-stat">Non-System: <b id="ojStatNonSystem">0</b></div>
+    <div class="oj-crash-stat">Showing: <b id="ojStatTotal">0</b></div>
+  </div>
   <!-- Area summary table -->
   <div class="oj-area-wrap">
     <div class="oj-area-head">
@@ -129,6 +274,28 @@
     </table>
   </div>
 
+
+  <!-- Area Bar Chart -->
+  <div class="oj-chart-card" id="ojChartCard">
+    <div class="oj-chart-head">
+      <div class="oj-chart-title">
+        <i class="fas fa-chart-bar" style="color:#6366f1;"></i>
+        <span id="ojChartTitle">Total Open JIRAs</span>
+        <span class="oj-badge" id="ojChartTotal" style="margin-left:4px;"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="oj-chart-btn" id="ojCopyChartBtn" onclick="ojCopyChart()" title="Copy chart to clipboard">
+          <i class="fas fa-copy"></i> Copy
+        </button>
+        <button class="oj-chart-btn" onclick="ojDownloadChart()" title="Download chart as PNG">
+          <i class="fas fa-download"></i> PNG
+        </button>
+      </div>
+    </div>
+    <div class="oj-chart-body">
+      <div id="ojAreaChart"></div>
+    </div>
+  </div>
   <!-- Filter bar -->
   <div class="oj-filter-bar">
     <span class="oj-filter-label"><i class="fas fa-filter"></i> Filters</span>
@@ -149,13 +316,76 @@
     </button>
   </div>
 
-  <!-- Main table -->
-  <div class="oj-table-wrap">
+  <!-- View toggle bar -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div class="oj-view-toggle">
+      <button class="oj-vtab active" id="ojTabPivot" onclick="ojSwitchView('pivot')"
+        title="Pivot: one row per CR/Ticket, occurrence count links to all JIRAs">
+        <i class="fas fa-table"></i> Pivot View
+      </button>
+      <button class="oj-vtab" id="ojTabFlat" onclick="ojSwitchView('flat')"
+        title="Flat: one row per JIRA ticket">
+        <i class="fas fa-list"></i> Flat View
+      </button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="oj-badge" id="ojCountBadge">&mdash;</span>
+      <button class="oj-btn oj-btn-excel" onclick="ojDownloadExcel('FILTERED')" style="height:32px;">
+        <i class="fas fa-file-excel"></i> Download
+      </button>
+    </div>
+  </div>
+
+  <!-- PIVOT TABLE -->
+  <div class="oj-pivot-wrap" id="ojPivotWrap">
+    <div class="oj-pivot-head">
+      <div class="oj-pivot-title">
+        <i class="fas fa-table" style="color:#6366f1;"></i>
+        CR / Ticket Pivot
+        <span style="font-size:11px;font-weight:600;color:#64748b;margin-left:4px;">
+          &mdash; click <span style="color:#4f46e5;font-weight:800;">occurrence count</span> to see all linked JIRAs
+        </span>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="oj-pivot-tbl">
+        <thead>
+          <tr>
+            <th class="ojp-col-num">#</th>
+            <th class="ojp-col-cr">CR / Current Ticket</th>
+            <th class="ojp-col-occ" style="text-align:center;">Occurrence</th>
+            <th class="ojp-col-date">Latest JIRA Date</th>
+            <th class="ojp-col-area">Area</th>
+            <th class="ojp-col-team">Test Team</th>
+            <th class="ojp-col-title">Title (Latest JIRA)</th>
+          </tr>
+        </thead>
+        <tbody id="ojPivotBody">
+          <tr><td colspan="7" class="oj-empty">
+            <i class="fas fa-spinner fa-spin" style="font-size:20px;color:#6366f1;"></i>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="oj-pagination">
+      <span id="ojPivotPageInfo" style="font-size:12px;font-weight:600;color:#64748b;">&mdash;</span>
+      <div style="display:flex;gap:8px;">
+        <button class="oj-page-btn" id="ojPivotPrevBtn" onclick="ojPivotPage(-1)" disabled>
+          <i class="fas fa-chevron-left"></i> Prev
+        </button>
+        <button class="oj-page-btn" id="ojPivotNextBtn" onclick="ojPivotPage(1)">
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLAT TABLE -->
+  <div class="oj-table-wrap" id="ojFlatWrap" style="display:none;">
     <div class="oj-table-head">
       <div class="oj-table-title">
         <i class="fas fa-ticket-alt" style="color:#6366f1;"></i>
-        Open JIRA Tickets
-        <span class="oj-badge" id="ojCountBadge">—</span>
+        Open JIRA Tickets (Flat)
       </div>
     </div>
     <div style="overflow-x:auto;">
@@ -179,7 +409,7 @@
       </table>
     </div>
     <div class="oj-pagination">
-      <span id="ojPageInfo" style="font-size:12px;font-weight:600;color:#64748b;">—</span>
+      <span id="ojPageInfo" style="font-size:12px;font-weight:600;color:#64748b;">&mdash;</span>
       <div style="display:flex;gap:8px;">
         <button class="oj-page-btn" id="ojPrevBtn" onclick="ojPage(-1)" disabled>
           <i class="fas fa-chevron-left"></i> Prev
@@ -193,271 +423,692 @@
 
 </div><!-- /ojContent -->
 
-<div id="ojError" style="display:none;background:#fff;border:1px solid #fca5a5;border-radius:16px;padding:28px;text-align:center;color:#dc2626;font-weight:700;"></div>
+<!-- JIRA List Modal -->
+<div class="oj-modal-overlay" id="ojJiraModal" onclick="if(event.target===this)ojCloseModal()">
+  <div class="oj-modal-box">
+    <div class="oj-modal-hdr">
+      <div class="oj-modal-hdr-title" id="ojModalTitle">
+        <i class="fas fa-ticket-alt"></i> JIRAs
+      </div>
+      <button class="oj-modal-close" onclick="ojCloseModal()" title="Close">&times;</button>
+    </div>
+    <div class="oj-modal-stats" id="ojModalStats"></div>
+    <div class="oj-modal-tools">
+      <input class="oj-modal-search" id="ojModalSearch" placeholder="Search ticket / title / team&hellip;"
+             oninput="ojFilterModal()">
+      <a class="oj-open-btn" id="ojModalOpenAll" href="#" target="_blank" rel="noopener">
+        <i class="fas fa-external-link-alt"></i> Open all in JIRA
+      </a>
+    </div>
+    <div class="oj-modal-body">
+      <table class="oj-modal-tbl">
+        <thead>
+          <tr>
+                        <th style="width:36px;">#</th>
+            <th style="width:160px;">JIRA Ticket</th>
+            <th style="width:110px;">Date</th>
+            <th style="width:90px;">Area</th>
+            <th style="width:120px;">Test Team</th>
+            <th>Title</th>
+            <th style="width:90px;">Crash Type</th>
+          </tr>
+        </thead>
+        <tbody id="ojModalBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
+<div id="ojError" style="display:none;background:#fff;border:1px solid #fca5a5;border-radius:16px;padding:28px;text-align:center;color:#dc2626;font-weight:700;"></div>
 <script>
 (function(){
-  const TARGET   = {{ target_name | tojson }};
+  const TARGET    = {{ target_name | tojson }};
+  const JIRA_BASE = 'https://jira.qualcomm.com/jira/browse/';
+  const JIRA_ISSUES_BASE = 'https://jira.qualcomm.com/jira/issues/?jql=';
   const PAGE_SIZE = 100;
-  let allRows = [], filtered = [], areaSummary = [];
-  let currentPage = 1;
+
+  // NON-SYSTEM crash keywords (title must contain at least one)
+  const NON_SYSTEM_KW_EXACT = ['tombstone', 'app not responding', 'fatal exception',
+                               'java.lang.', 'process crash', 'processdump', 'process_crash'];
+  const NON_SYSTEM_KW_WORD  = ['fwr', 'anr'];  // whole-word only
+
+  function isCrashNonSystem(title){
+    var t = ' ' + (title || '').toLowerCase() + ' ';
+    if(NON_SYSTEM_KW_EXACT.some(function(k){ return t.indexOf(k) >= 0; })) return true;
+    return NON_SYSTEM_KW_WORD.some(function(k){
+      return new RegExp('(?<![a-z0-9])' + k + '(?![a-z0-9])').test(t);
+    });
+  }
+
+  var allRows = [], filtered = [], areaSummary = [];
+  var currentPage = 1, pivotPage = 1;
+  var pivotRows = [], pivotFiltered = [];
+  var currentView = 'pivot';
+  // crash type filter state: true = show that type
+  var showSystem    = true;
+  var showNonSystem = true;
+  var ojChart = null;  // Highcharts instance
 
   function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  /* ── Load data ── */
+  function jiraKeysUrl(keys){
+    var uniq=[], seen={};
+    (keys||[]).forEach(function(k){
+      k=String(k||'').trim().toUpperCase();
+      if(k&&!seen[k]){seen[k]=1;uniq.push(k);}
+    });
+    return JIRA_ISSUES_BASE + encodeURIComponent('key in (' + uniq.slice(0,50).join(',') + ') ORDER BY created DESC');
+  }
+
+  // ── Crash type classification ──
+  function crashType(r){
+    return isCrashNonSystem(r.jira_title) ? 'nonsystem' : 'system';
+  }
+
+  // ── Load data ──
   function loadData(dateFrom, dateTo){
     document.getElementById('ojLoading').style.display = 'block';
     document.getElementById('ojContent').style.display = 'none';
     document.getElementById('ojError').style.display   = 'none';
-
-    let url = '/api/dashboard/' + encodeURIComponent(TARGET) + '/open_jiras';
-    const params = [];
+    var url = '/api/dashboard/' + encodeURIComponent(TARGET) + '/open_jiras';
+    var params = [];
     if(dateFrom) params.push('date_from=' + encodeURIComponent(dateFrom));
     if(dateTo)   params.push('date_to='   + encodeURIComponent(dateTo));
     if(params.length) url += '?' + params.join('&');
-
     fetch(url)
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r){ return r.json(); })
+      .then(function(data){
         document.getElementById('ojLoading').style.display = 'none';
         if(!data.success) throw new Error(data.message || 'Load failed');
         allRows     = data.rows     || [];
         areaSummary = data.area_summary || [];
-        filtered    = allRows.slice();
+        // tag each row with crash type
+        allRows.forEach(function(r){ r._ct = crashType(r); });
+        applyAllFilters();
         document.getElementById('ojContent').style.display = 'block';
+        renderCrashStats();
         renderKpi();
         renderAreaSummary();
+        renderChart();
         populateFilters();
-        currentPage = 1;
-        renderTable();
+        currentPage = 1; pivotPage = 1;
+        buildPivot(); renderPivot(); renderTable();
       })
-      .catch(e => {
+      .catch(function(e){
         document.getElementById('ojLoading').style.display = 'none';
-        const el = document.getElementById('ojError');
+        var el = document.getElementById('ojError');
         el.style.display = 'block';
         el.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:24px;"></i>'
           + '<div style="margin-top:10px;">' + esc(e.message) + '</div>';
       });
   }
 
-  /* ── KPI cards ── */
-  const AREA_COLORS = {
-    'ADSP':'#f59e0b','APPS':'#6366f1','Modem':'#0ea5e9','WLAN':'#10b981',
-    'BT':'#8b5cf6','BOOT':'#f97316','Other':'#94a3b8','Total':'#1e3a5f'
-  };
-  function renderKpi(){
-    const row = document.getElementById('ojKpiRow');
-    // Total + top areas
-    const areaMap = {};
-    allRows.forEach(r => { areaMap[r.area] = (areaMap[r.area]||0) + 1; });
-    const sorted = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]);
-    let html = `<div class="oj-kpi" style="--acc:#1e3a5f;" onclick="ojFilterArea('')">
-      <div class="oj-kpi-val">${allRows.length}</div>
-      <div class="oj-kpi-lbl">Total Open JIRAs</div>
-    </div>`;
-    sorted.forEach(([area, cnt]) => {
-      const col = AREA_COLORS[area] || '#6366f1';
-      html += `<div class="oj-kpi" style="--acc:${col};" onclick="ojFilterArea('${esc(area)}')">
-        <div class="oj-kpi-val" style="color:${col};">${cnt}</div>
-        <div class="oj-kpi-lbl">${esc(area)}</div>
-      </div>`;
-    });
-    row.innerHTML = html;
-  }
-
-  /* ── Area summary table ── */
-  function renderAreaSummary(){
-    const tbody = document.getElementById('ojAreaBody');
-    tbody.innerHTML = areaSummary.map(r => {
-      const isTotal = r.area === 'Total';
-      const col = AREA_COLORS[r.area] || '#6366f1';
-      return `<tr>
-        <td style="font-weight:${isTotal?'800':'600'};color:${isTotal?'#0f172a':'#374151'};">${esc(r.area)}</td>
-        <td>
-          ${isTotal
-            ? `<span style="font-weight:900;color:#1e3a5f;font-size:14px;">${r.count}</span>`
-            : `<span class="oj-count-link" style="color:${col};" onclick="ojFilterArea('${esc(r.area)}')">${r.count}</span>`
-          }
-        </td>
-
-      </tr>`;
-    }).join('');
-  }
-
-  /* ── Populate filter dropdowns ── */
-  function populateFilters(){
-    const areas = [...new Set(allRows.map(r=>r.area).filter(Boolean))].sort();
-    const teams = [...new Set(allRows.map(r=>r.test_team).filter(Boolean))].sort();
-    const areaSel = document.getElementById('ojAreaFilter');
-    const teamSel = document.getElementById('ojTeamFilter');
-    // keep first option
-    areaSel.innerHTML = '<option value="">All Areas</option>';
-    teamSel.innerHTML = '<option value="">All Teams</option>';
-    areas.forEach(a => { areaSel.innerHTML += `<option value="${esc(a)}">${esc(a)}</option>`; });
-    teams.forEach(t => { teamSel.innerHTML += `<option value="${esc(t)}">${esc(t)}</option>`; });
-  }
-
-  /* ── Filter ── */
-  window.ojFilterArea = function(area){
-    document.getElementById('ojAreaFilter').value = area;
-    ojApplyFilter();
-    // scroll to table
-    document.getElementById('ojContent').scrollIntoView({behavior:'smooth', block:'start'});
-  };
-
-  window.ojApplyFilter = function(){
-    const area  = document.getElementById('ojAreaFilter').value;
-    const team  = document.getElementById('ojTeamFilter').value;
-    const q     = (document.getElementById('ojSearch').value || '').toLowerCase();
-    filtered = allRows.filter(r => {
+  // ── Apply crash-type + area/team/search filters ──
+  function applyAllFilters(){
+    var area = (document.getElementById('ojAreaFilter')||{}).value || '';
+    var team = (document.getElementById('ojTeamFilter')||{}).value || '';
+    var q    = ((document.getElementById('ojSearch')||{}).value || '').toLowerCase();
+    filtered = allRows.filter(function(r){
+      // crash type gate
+      if(r._ct === 'system'    && !showSystem)    return false;
+      if(r._ct === 'nonsystem' && !showNonSystem) return false;
+      // area / team / search
       if(area && r.area !== area) return false;
       if(team && r.test_team !== team) return false;
       if(q && !(
-        (r.stability_ticket||'').toLowerCase().includes(q) ||
-        (r.jira_title||'').toLowerCase().includes(q) ||
-        (r.cr_current_ticket||'').toLowerCase().includes(q)
+        (r.stability_ticket||'').toLowerCase().indexOf(q) >= 0 ||
+        (r.jira_title||'').toLowerCase().indexOf(q) >= 0 ||
+        (r.cr_current_ticket||'').toLowerCase().indexOf(q) >= 0
       )) return false;
       return true;
     });
-    currentPage = 1;
-    renderTable();
+  }
+
+  // ── Crash type toggle ──
+  window.ojToggleCrash = function(type){
+    if(type === 'system'){
+      showSystem = !showSystem;
+      document.getElementById('ojChkSystem').checked = showSystem;
+      document.getElementById('ojChipSystem').classList.toggle('on', showSystem);
+    } else {
+      showNonSystem = !showNonSystem;
+      document.getElementById('ojChkNonSystem').checked = showNonSystem;
+      document.getElementById('ojChipNonSystem').classList.toggle('on', showNonSystem);
+    }
+    applyAllFilters();
+    renderCrashStats();
+    renderKpi();
+    renderAreaSummary();
+    renderChart();
+    currentPage = 1; pivotPage = 1;
+    buildPivot(); renderPivot(); renderTable();
+  };
+
+  // ── Crash stats counters ──
+  function renderCrashStats(){
+    var sys = 0, non = 0;
+    allRows.forEach(function(r){ if(r._ct==='system') sys++; else non++; });
+    document.getElementById('ojStatSystem').textContent    = sys;
+    document.getElementById('ojStatNonSystem').textContent = non;
+    document.getElementById('ojStatTotal').textContent     = filtered.length;
+  }
+
+  // ── Area colors ──
+  var AREA_COLORS = {
+    'ADSP':'#f59e0b','APPS':'#6366f1','Modem':'#0ea5e9','WLAN':'#10b981',
+    'WConnect':'#10b981','BT':'#8b5cf6','BOOT':'#f97316','Other':'#94a3b8','Total':'#1e3a5f',
+    'Camera':'#ec4899','Display':'#14b8a6','Sensors':'#84cc16','TZ':'#ef4444','CDSP':'#a855f7',
+    'ANR':'#dc2626','Tombstone':'#7c3aed','FWR':'#0891b2','BTFM':'#059669'
+  };
+  function areaColor(a){ return AREA_COLORS[a] || '#6366f1'; }
+
+  // ── KPI cards (based on filtered) ──
+  // Derive display area from crash type keywords in title
+  function crashArea(r){
+    var t = ' ' + (r.jira_title || '').toLowerCase() + ' ';
+    if(/(?<![a-z0-9])anr(?![a-z0-9])/.test(t) || t.indexOf('app not responding') >= 0) return 'ANR';
+    if(t.indexOf('tombstone') >= 0) return 'Tombstone';
+    if(/(?<![a-z0-9])fwr(?![a-z0-9])/.test(t)) return 'FWR';
+    if(t.indexOf('btfm') >= 0 || t.indexOf('bluetooth') >= 0) return 'BTFM';
+    return r.area || 'Other';
+  }
+
+  // Build area->count map from filtered rows
+  // System mode  -> group by DB area (APPS/BOOT/Modem...)
+  // Non-System   -> group by crash type (ANR/Tombstone/FWR/BTFM)
+  // Both         -> group by DB area (system rows) + crash type (non-system rows)
+  function _areaMapFromPivot(){
+    var m = {};
+    filtered.forEach(function(r){
+      var key = (showSystem && !showNonSystem)
+        ? (r.area || 'Other')                          // system only  -> DB area
+        : (!showSystem && showNonSystem)
+          ? crashArea(r)                               // non-sys only -> crash type
+          : (r._ct === 'nonsystem' ? crashArea(r) : (r.area || 'Other')); // both
+      m[key] = (m[key]||0) + 1;
+    });
+    return m;
+  }
+
+  function renderKpi(){
+    var row = document.getElementById('ojKpiRow');
+    var areaMap = _areaMapFromPivot();
+    var sorted = Object.keys(areaMap).map(function(k){ return [k, areaMap[k]]; })
+                       .sort(function(a,b){ return b[1]-a[1]; });
+    var label = (!showSystem && showNonSystem) ? 'Non-System JIRAs'
+              : (showSystem && !showNonSystem) ? 'System JIRAs'
+              : 'Total Open JIRAs';
+    var html = '<div class="oj-kpi" style="--acc:#1e3a5f;" onclick="ojFilterArea(\'\')">'
+      + '<div class="oj-kpi-val">' + filtered.length + '</div>'
+      + '<div class="oj-kpi-lbl">' + label + '</div></div>';
+    sorted.forEach(function(pair){
+      var area = pair[0], cnt = pair[1];
+      var col = areaColor(area);
+      html += '<div class="oj-kpi" style="--acc:' + col + ';" onclick="ojFilterArea(\'' + esc(area) + '\')">'
+        + '<div class="oj-kpi-val" style="color:' + col + ';">' + cnt + '</div>'
+        + '<div class="oj-kpi-lbl">' + esc(area) + '</div></div>';
+    });
+    row.innerHTML = html;
+    row.querySelectorAll('.oj-kpi').forEach(function(el){ el.classList.remove('active'); });
+  }
+
+  // ── Area summary table (based on filtered) ──
+  function renderAreaSummary(){
+    var areaMap = _areaMapFromPivot();
+    var sorted = Object.keys(areaMap).map(function(k){ return {area:k, count:areaMap[k]}; })
+                       .sort(function(a,b){ return b.count-a.count; });
+    sorted.push({area:'Total', count:filtered.length});
+    var tbody = document.getElementById('ojAreaBody');
+    tbody.innerHTML = sorted.map(function(r){
+      var isTotal = r.area === 'Total';
+      var col = areaColor(r.area);
+      return '<tr>'
+        + '<td style="font-weight:' + (isTotal?'800':'600') + ';color:' + (isTotal?'#0f172a':'#374151') + ';">' + esc(r.area) + '</td>'
+        + '<td>' + (isTotal
+          ? '<span style="font-weight:900;color:#1e3a5f;font-size:14px;">' + r.count + '</span>'
+          : '<span class="oj-count-link" style="color:' + col + ';" onclick="ojFilterArea(\'' + esc(r.area) + '\')">' + r.count + '</span>')
+        + '</td></tr>';
+    }).join('');
+  }
+
+  // ── Highcharts bar chart ──
+  function renderChart(){
+    var areaMap = _areaMapFromPivot();
+    var sorted = Object.keys(areaMap).map(function(k){ return [k, areaMap[k]]; })
+                       .sort(function(a,b){ return b[1]-a[1]; });
+    var cats   = sorted.map(function(p){ return p[0]; });
+    var vals   = sorted.map(function(p){ return p[1]; });
+
+    var label = (!showSystem && showNonSystem) ? 'Non-System JIRAs'
+              : (showSystem && !showNonSystem) ? 'System JIRAs'
+              : 'Total Open JIRAs';
+    document.getElementById('ojChartTitle').textContent = label;
+    document.getElementById('ojChartTotal').textContent = filtered.length;
+
+    var chartData = cats.map(function(a, i){
+      return { name: a, y: vals[i], color: areaColor(a) };
+    });
+
+    if(ojChart){
+      ojChart.xAxis[0].setCategories(cats, false);
+      ojChart.series[0].setData(chartData, false);
+      ojChart.setTitle({text: label + ' - ' + filtered.length});
+      ojChart.redraw();
+      return;
+    }
+
+    ojChart = Highcharts.chart('ojAreaChart', {
+      chart: {
+        type: 'column',
+        backgroundColor: 'transparent',
+        style: { fontFamily: 'Inter, Segoe UI, Arial, sans-serif' },
+        animation: { duration: 400 },
+        marginTop: 40
+      },
+      title: {
+        text: label + ' - ' + filtered.length,
+        style: { fontSize: '14px', fontWeight: '900', color: '#0f172a' }
+      },
+      credits: { enabled: false },
+      legend:  { enabled: false },
+      xAxis: {
+        categories: cats,
+        labels: { style: { fontSize: '12px', fontWeight: '700', color: '#374151' } },
+        lineColor: '#e2e8f0', tickColor: '#e2e8f0'
+      },
+      yAxis: {
+        title: { text: null },
+        gridLineColor: '#f1f5f9',
+        labels: { style: { fontSize: '11px', color: '#94a3b8' } },
+        min: 0
+      },
+      tooltip: {
+        formatter: function(){
+          return '<b>' + this.point.name + '</b><br/>JIRAs: <b>' + this.y + '</b>';
+        },
+        backgroundColor: '#fff',
+        borderColor: '#e2e8f0',
+        borderRadius: 10,
+        shadow: true,
+        style: { fontSize: '12px' }
+      },
+      plotOptions: {
+        column: {
+          borderRadius: 6,
+          dataLabels: {
+            enabled: true,
+            format: '{y}',
+            style: { fontSize: '11px', fontWeight: '900', color: '#0f172a', textOutline: 'none' }
+          },
+          colorByPoint: true,
+          pointPadding: 0.1,
+          groupPadding: 0.05
+        }
+      },
+      series: [{
+        name: 'JIRAs',
+        data: chartData
+      }],
+      exporting: { enabled: false, fallbackToExportServer: false }
+    });
+  }
+
+  // ── Populate filter dropdowns ──
+  function populateFilters(){
+    var areas = [], teams = [], seenA = {}, seenT = {};
+    allRows.forEach(function(r){
+      if(r.area && !seenA[r.area]){ seenA[r.area]=1; areas.push(r.area); }
+      if(r.test_team && !seenT[r.test_team]){ seenT[r.test_team]=1; teams.push(r.test_team); }
+    });
+    areas.sort(); teams.sort();
+    var areaSel = document.getElementById('ojAreaFilter');
+    var teamSel = document.getElementById('ojTeamFilter');
+    areaSel.innerHTML = '<option value="">All Areas</option>';
+    teamSel.innerHTML = '<option value="">All Teams</option>';
+    areas.forEach(function(a){ areaSel.innerHTML += '<option value="' + esc(a) + '">' + esc(a) + '</option>'; });
+    teams.forEach(function(t){ teamSel.innerHTML += '<option value="' + esc(t) + '">' + esc(t) + '</option>'; });
+  }
+
+  // ── View switch ──
+  window.ojSwitchView = function(view){
+    currentView = view;
+    document.getElementById('ojTabPivot').classList.toggle('active', view === 'pivot');
+    document.getElementById('ojTabFlat').classList.toggle('active',  view === 'flat');
+    document.getElementById('ojPivotWrap').style.display = view === 'pivot' ? '' : 'none';
+    document.getElementById('ojFlatWrap').style.display  = view === 'flat'  ? '' : 'none';
+  };
+
+  // ── Build pivot ──
+  function buildPivot(){
+    var map = {};
+    filtered.forEach(function(r){
+      var cr  = (r.cr_current_ticket || '').trim();
+      var key = cr || '__NO_CR__';
+      if(!map[key]){
+        map[key] = { cr:cr, jiras:[], latestDate:'', latestTitle:'', area:r.area||'', team:r.test_team||'', _ct:r._ct };
+      }
+      var entry = map[key];
+      entry.jiras.push(r);
+      var d = String(r.jira_date || '');
+      if(!entry.latestDate || d > entry.latestDate){
+        entry.latestDate  = d;
+        entry.latestTitle = r.jira_title || '';
+        entry.area        = r.area || entry.area;
+        entry.team        = r.test_team || entry.team;
+        entry._ct         = r._ct;
+      }
+    });
+    pivotRows = Object.values(map).sort(function(a, b){
+      var aHasCr = !!a.cr, bHasCr = !!b.cr;
+      if(aHasCr !== bHasCr) return aHasCr ? -1 : 1;
+      return b.jiras.length - a.jiras.length;
+    });
+    pivotFiltered = pivotRows.slice();
+  }
+
+  // ── Render pivot ──
+  function renderPivot(){
+    var tbody = document.getElementById('ojPivotBody');
+    var total = pivotFiltered.length;
+    var pages = Math.ceil(total / PAGE_SIZE) || 1;
+    var start = (pivotPage - 1) * PAGE_SIZE;
+    var page  = pivotFiltered.slice(start, start + PAGE_SIZE);
+
+    document.getElementById('ojCountBadge').textContent =
+      total + ' CR' + (total !== 1 ? 's' : '') + ' / ' + filtered.length + ' JIRAs';
+    document.getElementById('ojPivotPageInfo').textContent = total
+      ? 'Showing ' + (start+1) + '-' + Math.min(start+PAGE_SIZE, total) + ' of ' + total + ' (page ' + pivotPage + '/' + pages + ')'
+      : '0 results';
+    document.getElementById('ojPivotPrevBtn').disabled = pivotPage <= 1;
+    document.getElementById('ojPivotNextBtn').disabled = pivotPage >= pages;
+
+    if(!page.length){
+      tbody.innerHTML = '<tr><td colspan="7" class="oj-empty">No tickets match the current filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = page.map(function(entry, i){
+      var idx = start + i;
+      var col = areaColor(entry.area);
+      var cnt = entry.jiras.length;
+      var ctBadge = entry._ct === 'nonsystem'
+        ? '<span class="oj-crash-badge non">Non-Sys</span>'
+        : '<span class="oj-crash-badge sys">System</span>';
+      var occCell = '<button class="oj-occ-link" onclick="ojOpenModal(' + idx + ')" title="Show all ' + cnt + ' linked JIRAs">'
+        + '<i class="fas fa-ticket-alt" style="font-size:10px;"></i> ' + cnt + '</button>';
+      var crCell = entry.cr
+        ? '<a href="' + JIRA_BASE + encodeURIComponent(entry.cr) + '" target="_blank" class="oj-jira-link" style="color:#0ea5e9;">' + esc(entry.cr) + '</a>'
+        : '<span class="oj-no-cr">&mdash; No CR</span>';
+      var dateStr = String(entry.latestDate || '').slice(0, 10);
+      return '<tr>'
+        + '<td class="ojp-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;">' + (start+i+1) + '</td>'
+        + '<td class="ojp-col-cr">' + crCell + '</td>'
+        + '<td class="ojp-col-occ" style="text-align:center;">' + occCell + '</td>'
+        + '<td class="ojp-col-date" style="font-size:11px;color:#64748b;white-space:nowrap;">' + esc(dateStr||'&mdash;') + '</td>'
+        + '<td class="ojp-col-area"><span class="oj-area-pill" style="background:' + col + '18;color:' + col + ';">' + esc(entry.area||'&mdash;') + '</span></td>'
+        + '<td class="ojp-col-team" style="font-size:11px;color:#64748b;">' + esc(entry.team||'&mdash;') + '</td>'
+        + '<td class="ojp-col-title" style="font-size:11px;color:#374151;">' + esc(entry.latestTitle||'&mdash;') + ctBadge + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  window.ojPivotPage = function(dir){
+    var pages = Math.ceil(pivotFiltered.length / PAGE_SIZE) || 1;
+    pivotPage = Math.max(1, Math.min(pages, pivotPage + dir));
+    renderPivot();
+    document.getElementById('ojPivotWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  // ── JIRA list modal ──
+  window.ojOpenModal = function(pivotIdx){
+    var entry = pivotFiltered[pivotIdx];
+    if(!entry) return;
+    var jiras = entry.jiras || [];
+    var keys  = jiras.map(function(j){ return j.stability_ticket; }).filter(Boolean);
+    var col   = areaColor(entry.area);
+    var titleEl = document.getElementById('ojModalTitle');
+    var crLabel = entry.cr
+      ? '<a href="' + JIRA_BASE + encodeURIComponent(entry.cr) + '" target="_blank" style="color:#4f46e5;text-decoration:none;font-weight:900;">' + esc(entry.cr) + '</a>'
+      : '<span style="color:#94a3b8;">No CR</span>';
+    var sysCnt = jiras.filter(function(j){ return j._ct==='system'; }).length;
+    var nonCnt = jiras.length - sysCnt;
+    titleEl.innerHTML = '<i class="fas fa-ticket-alt"></i> JIRAs for ' + crLabel
+      + ' <span class="oj-badge" style="margin-left:8px;">' + jiras.length + ' JIRAs</span>';
+    document.getElementById('ojModalStats').innerHTML =
+      '<div class="oj-modal-stat"><b>' + jiras.length + '</b><span>Total JIRAs</span></div>'
+      + '<div class="oj-modal-stat"><b style="color:' + col + ';font-size:14px;">' + esc(entry.area||'&mdash;') + '</b><span>Area</span></div>'
+      + '<div class="oj-modal-stat"><b style="color:#1d4ed8;">' + sysCnt + '</b><span>System</span></div>'
+      + '<div class="oj-modal-stat"><b style="color:#7c3aed;">' + nonCnt + '</b><span>Non-System</span></div>';
+    var openAllBtn = document.getElementById('ojModalOpenAll');
+    if(keys.length){ openAllBtn.href = jiraKeysUrl(keys); openAllBtn.style.display = ''; }
+    else { openAllBtn.style.display = 'none'; }
+    _ojRenderModalRows(jiras);
+    document.getElementById('ojModalSearch').value = '';
+    document.getElementById('ojJiraModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  function _ojRenderModalRows(jiras){
+    var tbody = document.getElementById('ojModalBody');
+    if(!jiras.length){
+      tbody.innerHTML = '<tr><td colspan="7" class="oj-empty">No JIRAs linked.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = jiras.map(function(r, i){
+      var col = areaColor(r.area);
+      var ticketUrl = r.stability_ticket ? JIRA_BASE + encodeURIComponent(r.stability_ticket) : '#';
+      var dateStr   = String(r.jira_date || '').slice(0, 10);
+      var ctBadge   = r._ct === 'nonsystem'
+        ? '<span class="oj-crash-badge non">Non-Sys</span>'
+        : '<span class="oj-crash-badge sys">System</span>';
+      return '<tr>'
+        + '<td style="color:#94a3b8;font-size:11px;font-weight:600;text-align:center;">' + (i+1) + '</td>'
+        + '<td><a href="' + ticketUrl + '" target="_blank" class="oj-jira-link">' + esc(r.stability_ticket||'&mdash;') + '</a></td>'
+        + '<td style="font-size:11px;color:#64748b;white-space:nowrap;">' + esc(dateStr||'&mdash;') + '</td>'
+        + '<td><span class="oj-area-pill" style="background:' + col + '18;color:' + col + ';">' + esc(r.area||'&mdash;') + '</span></td>'
+        + '<td style="font-size:11px;color:#64748b;">' + esc(r.test_team||'&mdash;') + '</td>'
+        + '<td style="font-size:11px;color:#374151;word-break:break-word;">' + esc(r.jira_title||'&mdash;') + '</td>'
+        + '<td style="text-align:center;">' + ctBadge + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  window.ojFilterModal = function(){
+    var q = (document.getElementById('ojModalSearch').value || '').toLowerCase();
+    document.querySelectorAll('#ojModalBody tr').forEach(function(tr){
+      tr.style.display = tr.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
+    });
+  };
+
+  window.ojCloseModal = function(){
+    document.getElementById('ojJiraModal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') ojCloseModal(); });
+
+  // ── Area filter ──
+  window.ojFilterArea = function(area){
+    document.querySelectorAll('.oj-kpi').forEach(function(el){ el.classList.remove('active'); });
+    if(!area){
+      var first = document.querySelector('.oj-kpi');
+      if(first) first.classList.add('active');
+    } else {
+      document.querySelectorAll('.oj-kpi').forEach(function(el){
+        var lbl = el.querySelector('.oj-kpi-lbl');
+        if(lbl && lbl.textContent.trim() === area) el.classList.add('active');
+      });
+    }
+    document.getElementById('ojAreaFilter').value = area;
+    ojApplyFilter();
+    document.getElementById('ojPivotWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  window.ojApplyFilter = function(){
+    applyAllFilters();
+    renderCrashStats();
+    renderKpi();
+    renderAreaSummary();
+    renderChart();
+    currentPage = 1; pivotPage = 1;
+    buildPivot(); renderPivot(); renderTable();
   };
 
   window.ojApplyDate = function(){
-    const from = document.getElementById('ojDateFrom').value;
-    const to   = document.getElementById('ojDateTo').value;
-    loadData(from, to);
+    loadData(document.getElementById('ojDateFrom').value, document.getElementById('ojDateTo').value);
   };
 
   window.ojClear = function(){
     document.getElementById('ojAreaFilter').value = '';
     document.getElementById('ojTeamFilter').value = '';
     document.getElementById('ojSearch').value     = '';
-    filtered = allRows.slice();
-    currentPage = 1;
-    renderTable();
+    document.querySelectorAll('.oj-kpi').forEach(function(el){ el.classList.remove('active'); });
+    applyAllFilters();
+    renderCrashStats();
+    renderKpi();
+    renderAreaSummary();
+    renderChart();
+    currentPage = 1; pivotPage = 1;
+    buildPivot(); renderPivot(); renderTable();
   };
 
-  /* ── Render table ── */
+  // ── Flat table ──
   function renderTable(){
-    const tbody = document.getElementById('ojTableBody');
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const page  = filtered.slice(start, start + PAGE_SIZE);
-    const total = filtered.length;
-    const pages = Math.ceil(total / PAGE_SIZE) || 1;
-
-    document.getElementById('ojCountBadge').textContent = total + ' tickets';
-    document.getElementById('ojPageInfo').textContent   = total
-      ? 'Showing ' + (start+1) + '–' + Math.min(start+PAGE_SIZE, total) + ' of ' + total + ' (page ' + currentPage + '/' + pages + ')'
+    var tbody = document.getElementById('ojTableBody');
+    var start = (currentPage - 1) * PAGE_SIZE;
+    var page  = filtered.slice(start, start + PAGE_SIZE);
+    var total = filtered.length;
+    var pages = Math.ceil(total / PAGE_SIZE) || 1;
+    document.getElementById('ojPageInfo').textContent = total
+      ? 'Showing ' + (start+1) + '-' + Math.min(start+PAGE_SIZE, total) + ' of ' + total + ' (page ' + currentPage + '/' + pages + ')'
       : '0 results';
     document.getElementById('ojPrevBtn').disabled = currentPage <= 1;
     document.getElementById('ojNextBtn').disabled = currentPage >= pages;
-
     if(!page.length){
       tbody.innerHTML = '<tr><td colspan="7" class="oj-empty">No tickets match the current filters.</td></tr>';
       return;
     }
-
-    const JIRA_BASE = 'https://jira.qualcomm.com/jira/browse/';
-    tbody.innerHTML = page.map((r, i) => {
-      const col = AREA_COLORS[r.area] || '#6366f1';
-      const ticketUrl = r.stability_ticket ? JIRA_BASE + encodeURIComponent(r.stability_ticket) : '#';
-      const crUrl     = r.cr_current_ticket ? JIRA_BASE + encodeURIComponent(r.cr_current_ticket) : '#';
-      return `<tr>
-        <td class="oj-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;">${start+i+1}</td>
-        <td class="oj-col-tick">
-          <a href="${ticketUrl}" target="_blank" class="oj-ticket-link">${esc(r.stability_ticket||'—')}</a>
-        </td>
-        <td class="oj-col-date" style="font-size:11px;color:#64748b;white-space:nowrap;">${esc(r.jira_date||'—')}</td>
-        <td class="oj-col-area">
-          <span class="oj-area-pill" style="background:${col}18;color:${col};">${esc(r.area||'—')}</span>
-        </td>
-        <td class="oj-col-cr">
-          ${r.cr_current_ticket
-            ? `<a href="${crUrl}" target="_blank" class="oj-ticket-link" style="color:#0ea5e9;">${esc(r.cr_current_ticket)}</a>`
-            : '<span style="color:#cbd5e1;">—</span>'}
-        </td>
-        <td class="oj-col-team" style="font-size:11px;color:#64748b;">${esc(r.test_team||'—')}</td>
-        <td class="oj-col-title" style="font-size:11px;color:#374151;">${esc(r.jira_title||'—')}</td>
-      </tr>`;
+    tbody.innerHTML = page.map(function(r, i){
+      var col = areaColor(r.area);
+      var ticketUrl = r.stability_ticket ? JIRA_BASE + encodeURIComponent(r.stability_ticket) : '#';
+      var crUrl     = r.cr_current_ticket ? JIRA_BASE + encodeURIComponent(r.cr_current_ticket) : '#';
+      var ctBadge   = r._ct === 'nonsystem'
+        ? '<span class="oj-crash-badge non">Non-Sys</span>'
+        : '<span class="oj-crash-badge sys">System</span>';
+      return '<tr>'
+        + '<td class="oj-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;">' + (start+i+1) + '</td>'
+        + '<td class="oj-col-tick"><a href="' + ticketUrl + '" target="_blank" class="oj-ticket-link">' + esc(r.stability_ticket||'&mdash;') + '</a></td>'
+        + '<td class="oj-col-date" style="font-size:11px;color:#64748b;white-space:nowrap;">' + esc(String(r.jira_date||'').slice(0,10)||'&mdash;') + '</td>'
+        + '<td class="oj-col-area"><span class="oj-area-pill" style="background:' + col + '18;color:' + col + ';">' + esc(r.area||'&mdash;') + '</span></td>'
+        + '<td class="oj-col-cr">' + (r.cr_current_ticket
+          ? '<a href="' + crUrl + '" target="_blank" class="oj-ticket-link" style="color:#0ea5e9;">' + esc(r.cr_current_ticket) + '</a>'
+          : '<span style="color:#cbd5e1;">&mdash;</span>') + '</td>'
+        + '<td class="oj-col-team" style="font-size:11px;color:#64748b;">' + esc(r.test_team||'&mdash;') + '</td>'
+        + '<td class="oj-col-title" style="font-size:11px;color:#374151;">' + esc(r.jira_title||'&mdash;') + ctBadge + '</td>'
+        + '</tr>';
     }).join('');
   }
 
-  /* ── Pagination ── */
   window.ojPage = function(dir){
-    const pages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+    var pages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
     currentPage = Math.max(1, Math.min(pages, currentPage + dir));
     renderTable();
-    window.scrollTo({top: 0, behavior: 'smooth'});
+    document.getElementById('ojFlatWrap').scrollIntoView({behavior:'smooth', block:'start'});
   };
 
-  /* ── Excel download (.xlsx via SheetJS) ── */
+  // ── Excel download ──
+  // ── Copy chart to clipboard ──
+  window.ojCopyChart = function(){
+    if(!ojChart){ alert('Chart not ready.'); return; }
+    var btn = document.getElementById('ojCopyChartBtn');
+
+    // Highcharts SVG -> canvas -> clipboard
+    var svg = ojChart.getSVG({
+      chart:  { backgroundColor: '#ffffff', width: 900, height: 380 },
+      title:  { style: { fontSize: '15px', fontWeight: '900' } }
+    });
+
+    var blob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var img  = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      canvas.width  = img.width  || 900;
+      canvas.height = img.height || 380;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(pngBlob){
+        if(!pngBlob){ ojDownloadChart(); return; }
+        if(navigator.clipboard && navigator.clipboard.write){
+          navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': pngBlob })
+          ]).then(function(){
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.classList.add('copied');
+            setTimeout(function(){
+              btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+              btn.classList.remove('copied');
+            }, 2000);
+          }).catch(function(){ ojDownloadChart(); });
+        } else {
+          ojDownloadChart();
+        }
+      }, 'image/png');
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); ojDownloadChart(); };
+    img.src = url;
+  };
+
+  // ── Download chart as PNG ──
+  window.ojDownloadChart = function(){
+    if(!ojChart){ alert('Chart not ready.'); return; }
+    ojChart.exportChartLocal({
+      type:     'image/png',
+      filename: 'OpenJIRAs_Chart_' + new Date().toISOString().slice(0,10)
+    }, {
+      chart: { backgroundColor: '#ffffff', width: 900, height: 380 },
+      title: { style: { fontSize: '15px', fontWeight: '900' } }
+    });
+  };
+
   function _loadSheetJS(cb){
     if(window.XLSX){ cb(); return; }
-    const s = document.createElement('script');
+    var s = document.createElement('script');
     s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-    s.onload = cb;
-    document.head.appendChild(s);
+    s.onload = cb; document.head.appendChild(s);
   }
 
   window.ojDownloadExcel = function(areaFilter){
-    let rows;
-    if(areaFilter === 'ALL'){
-      rows = allRows;
-    } else if(areaFilter === 'FILTERED'){
-      rows = filtered;
-    } else {
-      rows = allRows.filter(r => r.area === areaFilter);
-    }
+    var rows = areaFilter === 'ALL' ? allRows : areaFilter === 'FILTERED' ? filtered
+             : allRows.filter(function(r){ return r.area === areaFilter; });
     if(!rows.length){ alert('No data to download.'); return; }
-
     _loadSheetJS(function(){
-      const headers = ['S.No','JIRA Ticket','Jira Date','Area','CR / Current Ticket','Test Team','Jira Title','Category','Status','Reporter'];
-      const data = [headers];
-      rows.forEach((r, i) => {
-        const clean = v => String(v==null?'':v);
-        data.push([
-          i+1,
-          clean(r.stability_ticket),
-          clean(r.jira_date),
-          clean(r.area),
-          clean(r.cr_current_ticket),
-          clean(r.test_team),
-          clean(r.jira_title),
-          clean(r.jira_category),
-          clean(r.status),
-          clean(r.jira_reporter),
-        ]);
+      var headers = ['S.No','JIRA Ticket','Jira Date','Area','CR / Current Ticket','Test Team','Jira Title','Crash Type','Category','Status','Reporter'];
+      var data = [headers];
+      rows.forEach(function(r, i){
+        var c = function(v){ return String(v==null?'':v); };
+        data.push([i+1, c(r.stability_ticket), c(r.jira_date), c(r.area), c(r.cr_current_ticket),
+                   c(r.test_team), c(r.jira_title), r._ct==='nonsystem'?'Non-System':'System',
+                   c(r.jira_category), c(r.status), c(r.jira_reporter)]);
       });
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-
-      /* column widths */
-      ws['!cols'] = [8,20,14,12,22,22,60,16,12,20].map(w=>({wch:w}));
-
-      /* header row style */
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for(let c = range.s.c; c <= range.e.c; c++){
-        const cell = ws[XLSX.utils.encode_cell({r:0, c:c})];
-        if(cell){
-          cell.s = {
-            font:    {bold:true, color:{rgb:'FFFFFF'}},
-            fill:    {fgColor:{rgb:'1E3A5F'}},
-            alignment:{horizontal:'center'}
-          };
-        }
+      var ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = [8,20,14,12,22,22,60,14,16,12,20].map(function(w){ return {wch:w}; });
+      var range = XLSX.utils.decode_range(ws['!ref']);
+      for(var c = range.s.c; c <= range.e.c; c++){
+        var cell = ws[XLSX.utils.encode_cell({r:0, c:c})];
+        if(cell) cell.s = {font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center'}};
       }
-
-      const wb = XLSX.utils.book_new();
-      const label = areaFilter === 'ALL' ? 'All' : areaFilter === 'FILTERED' ? 'Filtered' : areaFilter;
+      var wb = XLSX.utils.book_new();
+      var label = areaFilter === 'ALL' ? 'All' : areaFilter === 'FILTERED' ? 'Filtered' : areaFilter;
       XLSX.utils.book_append_sheet(wb, ws, label.substring(0,31));
       XLSX.writeFile(wb, TARGET.toUpperCase() + '_OpenJIRAs_' + label + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
     });
   };
 
-  /* ── Init ── */
+  // ── Init ──
+  ojSwitchView('pivot');
   loadData('', '');
-
 })();
 </script>
 {% endblock %}

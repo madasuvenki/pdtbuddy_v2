@@ -5603,9 +5603,8 @@ def api_dashboard_open_jiras(target_name):
         "CDSP":     ["cdsp", "compute dsp"],
         "Camera":   ["camera", "csiphy", "csid", "ife", "isp"],
         "Display":  ["display", "mdss", "dpu", "dsi", "panel"],
-        "Sensors":  ["sensor", "sensors", "ssc", "slpi"],
-        "BOOT":     ["boot", "xbl", "uefi", "abl"],
-        "APPS":     ["apps", "apss", "gcc", "kernel", "android", "framework", "userspace"],
+        "BOOT":     ["boot", "xbl", "uefi", " abl ", "_abl_", "/abl/", "abl:", "abl."],
+        "APPS":     ["apps", "apss", "kernel", "android", "framework", "userspace"],
     }
 
     def bucket_area(row):
@@ -5619,10 +5618,16 @@ def api_dashboard_open_jiras(target_name):
         title    = (row.get("jira_title")     or "").lower()
         comp     = (row.get("jira_component") or "").lower()
         cat      = (row.get("jira_category")  or "").lower()
-        combined = title + " " + comp + " " + cat
+        combined = " " + title + " " + comp + " " + cat + " "  # pad for word-boundary checks
+        import re as _re
         for bucket, keywords in AREA_KEYWORDS.items():
-            if any(k in combined for k in keywords):
-                return bucket
+            for k in keywords:
+                if len(k) <= 4:
+                    if _re.search(r"(?<![a-z0-9])" + _re.escape(k) + r"(?![a-z0-9])", combined):
+                        return bucket
+                else:
+                    if k in combined:
+                        return bucket
         # Step 3: cr_area field from DB as fallback
         area = (row.get("cr_area") or "").strip()
         area_upper = area.upper().replace('-', '_').replace(' ', '_')
