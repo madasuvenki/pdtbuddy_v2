@@ -270,12 +270,11 @@ def _stable_adas_row_id(row: Dict[str, Any], index: int) -> str:
 
 
 def _normalise_adas_mtbf_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Ensure legacy rows have ids and keep exactly one row per build.
+    """Ensure every MTBF build row has its own stable identity.
 
-    The MTBF table is edited by build/META identifier. If the user changes
-    Date/Hours/System/SSR/Process/MTBF for an existing build, it must update the
-    existing build row instead of creating another row. Short build labels and
-    full build labels are collapsed via ``_mtbf_build_core``.
+    Never collapse rows by a shortened build core: separate daily or full-build
+    entries can have different manual MTBF overrides. Edits are scoped to the
+    row's stable ``id``.
     """
     normalised: List[Dict[str, Any]] = []
     for idx, raw in enumerate(rows or []):
@@ -287,34 +286,7 @@ def _normalise_adas_mtbf_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]
         if canonical_meta:
             row["meta_id"] = canonical_meta
         normalised.append(row)
-
-    deduped: Dict[str, Dict[str, Any]] = {}
-    order: List[str] = []
-    for row in normalised:
-        key = _mtbf_build_core(row.get("meta_id") or row.get("build_id"))
-        key = key or str(row.get("meta_id") or row.get("build_id") or "").strip().upper()
-        if not key:
-            # Keep malformed/blank rows separate instead of merging all blanks.
-            key = f"__blank__:{row.get('id') or len(order)}"
-
-        previous = deduped.get(key)
-        if previous is None:
-            deduped[key] = row
-            order.append(key)
-            continue
-
-        prev_label = str(previous.get("build_id") or previous.get("meta_id") or "")
-        row_label = str(row.get("build_id") or row.get("meta_id") or "")
-        prev_len = len(prev_label.rstrip("-"))
-        row_len = len(row_label.rstrip("-"))
-
-        # Prefer the later row for edits, but do not let a short label replace a
-        # fuller build label. This collapses duplicates already created by old
-        # saves while preserving the user's latest metric values.
-        merged = dict(row if row_len >= prev_len else {**row, "meta_id": previous.get("meta_id") or row.get("meta_id")})
-        merged["id"] = previous.get("id") or row.get("id")
-        deduped[key] = merged
-    return [deduped[k] for k in order]
+    return normalised
 
 
 def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]:
@@ -391,10 +363,9 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
     """Build a normalised ADAS MTBF row dict from an add/edit payload.
 
     Rules:
-    - System + SSR + Process always auto-sum into total_crashes unless
-      total_crashes is explicitly provided in the payload.
-    - MTBF is auto-calculated from hours / total_crashes UNLESS the client
-      sent manual_mtbf=1, in which case the user's value is preserved as-is.
+    - System + SSR + Process always auto-sum into total_crashes for this row.
+    - MTBF is auto-calculated from hours / total_crashes unless this specific
+      row is sent with manual_mtbf=1.
     """
     s_no      = int(payload.get("s_no") or len(existing_rows) + 1)
     system_c  = _num_or_blank(payload.get("system_crashes"),  integer=True)
@@ -408,29 +379,22 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
     if ssr_c     != "": auto_total += int(ssr_c)
     if process_c != "": auto_total += int(process_c)
 
-    # Use explicit total_crashes if provided, otherwise use auto-sum
-    if payload.get("total_crashes") not in (None, ""):
-        total_c = _num_or_blank(payload.get("total_crashes"), integer=True)
-        if total_c == "":
-            total_c = auto_total
-    else:
-        total_c = auto_total
+        # Total crashes always belongs to and is derived from this row.
+    total_c = auto_total
 
     hours       = _num_or_blank(payload.get("hours"))
     mtbf_raw    = payload.get("mtbf")
     manual_mtbf = bool(int(payload.get("manual_mtbf") or 0))
 
     if manual_mtbf and mtbf_raw not in (None, ""):
-        # User explicitly set MTBF — save it exactly as entered
+        # User explicitly set MTBF for this row only.
         mtbf = _num_or_blank(mtbf_raw)
     else:
-        # Auto-calculate: use provided value if present, else compute
-        mtbf = _num_or_blank(mtbf_raw)
-        if mtbf == "" and hours and total_c:
-            try:
-                mtbf = round(float(hours) / int(total_c), 2)
-            except Exception:
-                mtbf = ""
+        # Auto rows never inherit or reuse a previously supplied MTBF value.
+        try:
+            mtbf = round(float(hours) / int(total_c), 2) if hours and total_c else ""
+        except Exception:
+            mtbf = ""
 
     return {
         "id":              str(payload.get("id") or "").strip() or datetime.utcnow().strftime("%Y%m%d%H%M%S%f"),
@@ -1106,18 +1070,9 @@ def api_adas_mtbf_add(target_name: str):
         rows = data.get("rows") or []
         new_row = _adas_row_from_payload(payload, rows)
         new_row["s_no"] = len(rows) + 1
-        new_core = _mtbf_build_core(new_row.get("meta_id"))
-        existing_idx = next((
-            i for i, r in enumerate(rows)
-            if new_core
-            and _mtbf_build_core(r.get("meta_id") or r.get("build_id")) == new_core
-        ), None)
-        if existing_idx is not None:
-            new_row["id"] = rows[existing_idx].get("id") or new_row.get("id")
-            new_row["s_no"] = rows[existing_idx].get("s_no") or (existing_idx + 1)
-            rows[existing_idx] = new_row
-        else:
-            rows.append(new_row)
+        # Each submission is an independent build/date row. Existing rows are
+        # replaced only through the edit endpoint using their stable row id.
+        rows.append(new_row)
         data["rows"] = rows
         saved = _save_adas_mtbf(target_name, view, data, sp)
         crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
@@ -1149,14 +1104,6 @@ def api_adas_mtbf_edit(target_name: str):
         data = _load_adas_mtbf(target_name, view, sp)
         rows = data.get("rows") or []
         idx = next((i for i, r in enumerate(rows) if str(r.get("id") or "") == row_id), None)
-        if idx is None:
-            # Legacy pages could submit an empty/stale row id. Fall back to the
-            # build identity so editing an existing build still updates it.
-            payload_core = _mtbf_build_core(payload.get("meta_id") or payload.get("build_id"))
-            idx = next((
-                i for i, r in enumerate(rows)
-                if payload_core and _mtbf_build_core(r.get("meta_id") or r.get("build_id")) == payload_core
-            ), None)
         if idx is None:
             return jsonify({"ok": False, "error": f"Row id {row_id} not found."}), 404
         updated_row = _adas_row_from_payload({**rows[idx], **payload}, rows)
@@ -2275,81 +2222,61 @@ def _save_sp_mtbf(target_name: str, domain: str, sp_name: str, payload: Dict[str
 @live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/sp_list', methods=['GET'])
 @login_required
 def api_sp_list(target_name: str):
-    """Return SP list from dashboard_status for a target (HQX / HGY).
-    Each entry: {sp_name, cpl, target_name, display_name}
-    """
-    import re as _re
+    """Return SPs configured for a target, with a file-based fallback."""
     conn = None
     cur = None
     try:
-        from dashboard_common import get_mysql_connection_db as _conn
-        conn = _conn(bu_key=None)
-        if not conn:
-            return jsonify({'ok': False, 'error': 'DB connection failed'}), 500
-        cur = conn.cursor(dictionary=True)
-        # Match all dashboard_status rows whose target_name starts with the same prefix
-        prefix = _re.sub(r'_([a-z]+)_[0-9_]+$', '', str(target_name or '').lower())
-        cur.execute(
-            "SELECT target_name, sp_name, cpl, target_display "
-            "FROM pdt_stats_dashboard.dashboard_status "
-            "WHERE target_name LIKE %s AND is_active=1 "
-            "ORDER BY cpl ASC, target_name ASC",
-            (prefix + '%',)
-        )
-        rows = cur.fetchall() or []
+        conn = get_mysql_connection_db(bu_key=None)
+        rows = []
+        if conn:
+            cur = conn.cursor(dictionary=True)
+            prefix = re.sub(r'_([a-z]+)_[0-9_]+$', '', str(target_name or '').lower())
+            cur.execute(
+                "SELECT target_name, sp_name, cpl, target_display "
+                "FROM pdt_stats_dashboard.dashboard_status "
+                "WHERE target_name LIKE %s AND is_active=1 "
+                "ORDER BY cpl ASC, target_name ASC",
+                (prefix + '%',),
+            )
+            rows = cur.fetchall() or []
         sp_list = []
         seen = set()
-        for r in rows:
-            sp = str(r.get('sp_name') or '').strip()
-            cpl = str(r.get('cpl') or '').strip()
-            tn = str(r.get('target_name') or '').strip()
-            disp = str(r.get('target_display') or sp or tn).strip()
-            key = sp or cpl or tn
+        for row in rows:
+            sp = str(row.get('sp_name') or '').strip()
+            cpl = str(row.get('cpl') or '').strip()
+            target = str(row.get('target_name') or '').strip()
+            key = sp or cpl or target
             if not key or key in seen:
                 continue
             seen.add(key)
             sp_list.append({
-                'sp_name': sp or tn,
+                'sp_name': sp or target,
                 'cpl': cpl,
-                'target_name': tn,
-                'display_name': disp,
-                'slug': _sp_slug(sp or cpl or tn),
+                'target_name': target,
+                'display_name': str(row.get('target_display') or sp or target).strip(),
+                'slug': _sp_slug(key),
             })
-                # If no DB rows found, scan filesystem for SP-keyed JSON files
-        # e.g. mtbf_adas_5770.json -> SP CPL 5.7.7.0
         if not sp_list:
             try:
-                folder = _adas_mtbf_folder(target_name)
-                fs_sps: Dict[str, str] = {}  # sp_key -> cpl
-                for fname in os.listdir(folder):
-                    m = re.match(r'^mtbf_[a-z\-]+_(\d{4,8})\.json$', fname)
-                    if m:
-                        sp_k = m.group(1)
-                        # Convert compact key back to CPL: 5770 -> 5.7.7.0
-                        digits = sp_k.ljust(4, '0')[:4]
-                        cpl = f"{digits[0]}.{digits[1]}.{digits[2]}.{digits[3]}"
-                        fs_sps[sp_k] = cpl
-                for sp_k, cpl in sorted(fs_sps.items()):
-                    sp_name_fs = cpl  # use CPL as sp_name
-                    if sp_name_fs not in seen:
-                        seen.add(sp_name_fs)
-                        sp_list.append({
-                            'sp_name': sp_name_fs,
-                            'cpl': cpl,
-                            'target_name': target_name,
-                            'display_name': f'SP {cpl}',
-                            'slug': _sp_slug(sp_name_fs),
-                        })
+                for filename in os.listdir(_adas_mtbf_folder(target_name)):
+                    match = re.match(r'^mtbf_[a-z\-]+_(\d{4,8})\.json$', filename)
+                    if not match:
+                        continue
+                    digits = match.group(1).ljust(4, '0')[:4]
+                    cpl = '.'.join(digits)
+                    if cpl in seen:
+                        continue
+                    seen.add(cpl)
+                    sp_list.append({
+                        'sp_name': cpl, 'cpl': cpl, 'target_name': target_name,
+                        'display_name': f'SP {cpl}', 'slug': _sp_slug(cpl),
+                    })
             except Exception:
                 pass
-        # Final fallback: return target itself so the SP page is never empty
         if not sp_list:
             sp_list.append({
-                'sp_name': target_name,
-                'cpl': '',
-                'target_name': target_name,
-                'display_name': target_name.upper(),
-                'slug': _sp_slug(target_name),
+                'sp_name': target_name, 'cpl': '', 'target_name': target_name,
+                'display_name': target_name.upper(), 'slug': _sp_slug(target_name),
             })
         return jsonify({'ok': True, 'target': target_name, 'sp_list': sp_list})
     except Exception as exc:
@@ -2361,27 +2288,34 @@ def api_sp_list(target_name: str):
             conn.close()
 
 
+def _sp_request_scope(target_name: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
+    payload = payload or {}
+    allowed = _get_target_domains(target_name)
+    domain = str(payload.get('domain') or request.args.get('domain') or 'ADAS').strip().upper()
+    if domain not in allowed:
+        domain = allowed[0]
+    sp_name = str(payload.get('sp_name') or request.args.get('sp_name') or '').strip()
+    return domain, sp_name
+
+
 @live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/sp_mtbf', methods=['GET'])
 @login_required
 def api_sp_mtbf_get(target_name: str):
-    """GET SP-scoped MTBF rows for a target + domain + sp_name."""
-    allowed = _get_target_domains(target_name)
-    domain = (request.args.get('domain') or 'ADAS').strip().upper()
-    if domain not in allowed:
-        domain = allowed[0]
-    sp_name = (request.args.get('sp_name') or '').strip()
+    domain, sp_name = _sp_request_scope(target_name)
     if not sp_name:
         return jsonify({'ok': False, 'error': 'sp_name is required'}), 400
-    crash_types_raw = (request.args.get('crash_types') or 'system,ssr,process').strip()
-    crash_types = [c.strip().lower() for c in crash_types_raw.split(',') if c.strip()] or ['system', 'ssr', 'process']
+    crash_types = [
+        value.strip().lower()
+        for value in (request.args.get('crash_types') or 'system,ssr,process').split(',')
+        if value.strip()
+    ]
     try:
         data = _load_sp_mtbf(target_name, domain, sp_name)
         rows = _sort_adas_rows_by_date(data.get('rows') or [])
-        chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({
-            'ok': True, 'target': target_name, 'domain': domain,
-            'sp_name': sp_name, 'domains': allowed,
-            'rows': rows, 'chart_data': chart_data,
+            'ok': True, 'target': target_name, 'domain': domain, 'sp_name': sp_name,
+            'domains': _get_target_domains(target_name), 'rows': rows,
+            'chart_data': _adas_rows_to_chart_data(rows, crash_types),
             'updated_at': data.get('updated_at') or '',
         })
     except Exception as exc:
@@ -2391,22 +2325,15 @@ def api_sp_mtbf_get(target_name: str):
 @live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/sp_mtbf/save', methods=['POST'])
 @login_required
 def api_sp_mtbf_save(target_name: str):
-    """Bulk-save all SP MTBF rows (from the Edit Table modal)."""
     payload = request.get_json(force=True, silent=True) or {}
-    allowed = _get_target_domains(target_name)
-    domain = str(payload.get('domain') or 'ADAS').strip().upper()
-    if domain not in allowed:
-        domain = allowed[0]
-    sp_name = str(payload.get('sp_name') or '').strip()
+    domain, sp_name = _sp_request_scope(target_name, payload)
     if not sp_name:
         return jsonify({'ok': False, 'error': 'sp_name is required'}), 400
     try:
         data = _load_sp_mtbf(target_name, domain, sp_name)
-        raw_rows = payload.get('rows') or []
-        # Re-build each row through the normaliser so ids/mtbf are consistent
         built = []
-        for r in raw_rows:
-            built.append(_adas_row_from_payload(r, built))
+        for row in payload.get('rows') or []:
+            built.append(_adas_row_from_payload(row, built))
         data['rows'] = built
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
@@ -2422,13 +2349,8 @@ def api_sp_mtbf_save(target_name: str):
 @live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/sp_mtbf/add', methods=['POST'])
 @login_required
 def api_sp_mtbf_add(target_name: str):
-    """Add a new row to SP-scoped MTBF."""
     payload = request.get_json(force=True, silent=True) or {}
-    allowed = _get_target_domains(target_name)
-    domain = str(payload.get('domain') or 'ADAS').strip().upper()
-    if domain not in allowed:
-        domain = allowed[0]
-    sp_name = str(payload.get('sp_name') or '').strip()
+    domain, sp_name = _sp_request_scope(target_name, payload)
     meta_id = str(payload.get('meta_id') or '').strip()
     if not sp_name:
         return jsonify({'ok': False, 'error': 'sp_name is required'}), 400
@@ -2438,23 +2360,13 @@ def api_sp_mtbf_add(target_name: str):
         data = _load_sp_mtbf(target_name, domain, sp_name)
         rows = data.get('rows') or []
         new_row = _adas_row_from_payload(payload, rows)
-        new_core = _mtbf_build_core(new_row.get('meta_id'))
-        existing_idx = next((
-            i for i, r in enumerate(rows)
-            if new_core and _mtbf_build_core(r.get('meta_id') or r.get('build_id')) == new_core
-        ), None)
-        if existing_idx is not None:
-            new_row['id'] = rows[existing_idx].get('id') or new_row.get('id')
-            new_row['s_no'] = rows[existing_idx].get('s_no') or (existing_idx + 1)
-            rows[existing_idx] = new_row
-        else:
-            rows.append(new_row)
+        rows.append(new_row)
         data['rows'] = rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
         return jsonify({
-            'ok': True, 'message': f'Build {meta_id} added.',
-            'row': new_row, 'rows': saved.get('rows') or [],
+            'ok': True, 'message': f'Build {meta_id} added.', 'row': new_row,
+            'rows': saved.get('rows') or [],
             'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),
         })
     except Exception as exc:
@@ -2464,115 +2376,91 @@ def api_sp_mtbf_add(target_name: str):
 @live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/sp_mtbf/delete', methods=['POST'])
 @login_required
 def api_sp_mtbf_delete(target_name: str):
-    """Delete a row from SP-scoped MTBF by id."""
     payload = request.get_json(force=True, silent=True) or {}
-    allowed = _get_target_domains(target_name)
-    domain = str(payload.get('domain') or 'ADAS').strip().upper()
-    if domain not in allowed:
-        domain = allowed[0]
-    sp_name = str(payload.get('sp_name') or '').strip()
+    domain, sp_name = _sp_request_scope(target_name, payload)
     row_id = str(payload.get('id') or '').strip()
-    if not sp_name:
-        return jsonify({'ok': False, 'error': 'sp_name is required'}), 400
-    if not row_id:
-        return jsonify({'ok': False, 'error': 'Row id is required'}), 400
+    if not sp_name or not row_id:
+        return jsonify({'ok': False, 'error': 'sp_name and row id are required'}), 400
     try:
         data = _load_sp_mtbf(target_name, domain, sp_name)
         rows = data.get('rows') or []
-        new_rows = [r for r in rows if str(r.get('id') or '') != row_id]
+        new_rows = [row for row in rows if str(row.get('id') or '') != row_id]
         if len(new_rows) == len(rows):
             return jsonify({'ok': False, 'error': 'Row not found'}), 404
-        for i, r in enumerate(new_rows, start=1):
-            r['s_no'] = i
+        for index, row in enumerate(new_rows, start=1):
+            row['s_no'] = index
         data['rows'] = new_rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
         return jsonify({
-            'ok': True, 'message': 'Row deleted.',
-            'rows': saved.get('rows') or [],
+            'ok': True, 'message': 'Row deleted.', 'rows': saved.get('rows') or [],
             'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),
         })
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
-@live_status_view_api_bp.route("/api/live_status_view/<string:target_name>/consolidated", methods=["POST"])
+@live_status_view_api_bp.route('/api/live_status_view/<string:target_name>/consolidated', methods=['POST'])
 @login_required
 def api_live_status_view_consolidated(target_name: str):
     data = request.get_json(force=True, silent=True) or {}
-    meta_ids = [str(x or "").strip() for x in (data.get("meta_ids") or []) if str(x or "").strip()]
-    excluded = _set_target_exclusions(target_name, data.get("excluded") or []) if "excluded" in data else _get_target_exclusions(target_name)
-    excluded_norm = {_norm(x) for x in excluded}
-    excluded_cr = {_norm_cr(x) for x in excluded}
-
+    meta_ids = [str(value or '').strip() for value in data.get('meta_ids') or [] if str(value or '').strip()]
+    excluded = _set_target_exclusions(target_name, data.get('excluded') or []) if 'excluded' in data else _get_target_exclusions(target_name)
+    excluded_norm = {_norm(value) for value in excluded}
+    excluded_cr = {_norm_cr(value) for value in excluded}
     conn = None
     cur = None
     try:
-        schema_name = get_schema_for_target(target_name) or "pdt_stats_mobile"
+        schema_name = get_schema_for_target(target_name) or 'pdt_stats_mobile'
         conn = get_mysql_connection_db()
         if not conn:
-            return jsonify({"ok": False, "error": "Database connection failed"}), 500
+            return jsonify({'ok': False, 'error': 'Database connection failed'}), 500
         cur = conn.cursor(dictionary=True)
-
         all_rows = []
         for meta_id in meta_ids:
             all_rows.extend(_fetch_jira_rows_for_meta(cur, schema_name, target_name, meta_id))
-
         active_rows = []
         for row in all_rows:
-            ticket = _norm(row.get("stability_ticket"))
-            cr = _norm_cr(row.get("cr_mapped"))
+            ticket = _norm(row.get('stability_ticket'))
+            cr = _norm_cr(row.get('cr_mapped'))
             if (ticket and ticket in excluded_norm) or (cr and cr in excluded_cr):
                 continue
             active_rows.append(row)
-
         cr_to_tickets: Dict[str, List[str]] = {}
         for row in active_rows:
-            ticket = str(row.get("stability_ticket") or "").strip()
-            cr = _norm_cr(row.get("cr_mapped"))
-            if ticket and cr:
-                cr_to_tickets.setdefault(cr, [])
-                if ticket not in cr_to_tickets[cr]:
-                    cr_to_tickets[cr].append(ticket)
-
+            ticket = str(row.get('stability_ticket') or '').strip()
+            cr = _norm_cr(row.get('cr_mapped'))
+            if ticket and cr and ticket not in cr_to_tickets.setdefault(cr, []):
+                cr_to_tickets[cr].append(ticket)
         cr_rows = _resolve_cr_details(cur, target_name, cr_to_tickets)
         mapped_tickets = {ticket for tickets in cr_to_tickets.values() for ticket in tickets}
         open_jiras = []
         seen_open = set()
         for row in active_rows:
-            ticket = str(row.get("stability_ticket") or "").strip()
+            ticket = str(row.get('stability_ticket') or '').strip()
             if not ticket or ticket in mapped_tickets or ticket in seen_open:
                 continue
             seen_open.add(ticket)
             open_jiras.append({
-                "stability_ticket": ticket,
-                "jira_date": row.get("jira_date"),
-                "jira_title": row.get("jira_title"),
-                "serial_no": row.get("serial_no"),
-                "metabuild": row.get("metabuild"),
-                "meta_id": row.get("meta_id"),
-                "source_table": row.get("source_table"),
-                "status": row.get("jira_status") or row.get("status_alt") or "",
-                "reporter": row.get("jira_reporter") or row.get("reporter_alt") or "",
-                "component": row.get("component") or "",
+                'stability_ticket': ticket, 'jira_date': row.get('jira_date'),
+                'jira_title': row.get('jira_title'), 'serial_no': row.get('serial_no'),
+                'metabuild': row.get('metabuild'), 'meta_id': row.get('meta_id'),
+                'source_table': row.get('source_table'),
+                'status': row.get('jira_status') or row.get('status_alt') or '',
+                'reporter': row.get('jira_reporter') or row.get('reporter_alt') or '',
+                'component': row.get('component') or '',
             })
-
-        payload = {
-            "ok": True,
-            "target": target_name,
-            "selected_meta_ids": meta_ids,
-            "excluded": excluded,
-            "summary": {
-                "total_jiras": len({r.get("stability_ticket") for r in active_rows if r.get("stability_ticket")}),
-                "cr_count": len(cr_rows),
-                "open_jira_count": len(open_jiras),
+        response = {
+            'ok': True, 'target': target_name, 'selected_meta_ids': meta_ids, 'excluded': excluded,
+            'summary': {
+                'total_jiras': len({row.get('stability_ticket') for row in active_rows if row.get('stability_ticket')}),
+                'cr_count': len(cr_rows), 'open_jira_count': len(open_jiras),
             },
-            "cr_rows": cr_rows,
-            "open_jiras": open_jiras,
+            'cr_rows': cr_rows, 'open_jiras': open_jiras,
         }
-        return jsonify(json.loads(json.dumps(payload, default=_json_default)))
+        return jsonify(json.loads(json.dumps(response, default=_json_default)))
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify({'ok': False, 'error': str(exc)}), 500
     finally:
         if cur:
             cur.close()
