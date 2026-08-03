@@ -9318,12 +9318,12 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
             if ov_cr_list and _tbl_exists_cur(cur, ucrs_tbl):
                 ph = ",".join(["%s"] * len(ov_cr_list))
                 sql = (
-                    "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
-                    " cr_functionality, cr_title, image, cr_status, cr_category"
-                    " FROM " + ucrs_tbl +
-                    " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
-                    " " + dup_clause + " " + cat_clause +
-                    " ORDER BY jira_date"
+                                            "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
+                        " cr_functionality, cr_title, image, cr_status, cr_category, pdt_site_unique"
+                        " FROM " + ucrs_tbl +
+                        " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
+                        " " + dup_clause + " " + cat_clause +
+                        " ORDER BY jira_date"
                 )
                 cur.execute(sql, ov_cr_list * 2)
                 for r in (cur.fetchall() or []):
@@ -9337,8 +9337,9 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                         "cr_functionality": str(r.get("cr_functionality") or ""),
                         "cr_title":         str(r.get("cr_title")         or ""),
                         "image":            str(r.get("image")            or ""),
-                        "cr_status":        str(r.get("cr_status")        or ""),
+                                                "cr_status":        str(r.get("cr_status")        or ""),
                         "cr_category":      str(r.get("cr_category")      or ""),
+                        "pdt_site_unique":  str(r.get("pdt_site_unique")  or ""),
                     })
 
             jiras_tbl = "`%s`.`%s_jiras`" % (schema, db_name)
@@ -9352,8 +9353,8 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                 if mapped_crs:
                     ph = ",".join(["%s"] * len(mapped_crs))
                     sql = (
-                        "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
-                        " cr_functionality, cr_title, image, cr_status, cr_category"
+                                                "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
+                        " cr_functionality, cr_title, image, cr_status, cr_category, pdt_site_unique"
                         " FROM " + ucrs_tbl +
                         " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
                         " " + dup_clause + " " + cat_clause +
@@ -9371,8 +9372,9 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                             "cr_functionality": str(r.get("cr_functionality") or ""),
                             "cr_title":         str(r.get("cr_title")         or ""),
                             "image":            str(r.get("image")            or ""),
-                            "cr_status":        str(r.get("cr_status")        or ""),
+                                                        "cr_status":        str(r.get("cr_status")        or ""),
                             "cr_category":      str(r.get("cr_category")      or ""),
+                            "pdt_site_unique":  str(r.get("pdt_site_unique")  or ""),
                         })
 
             result[sp_name] = entry
