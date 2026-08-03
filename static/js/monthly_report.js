@@ -181,6 +181,32 @@
       });
   }
 
+      /* Build the same filtered CR counts used by the two WBC flat tables.
+     total  = tbl3_total; unique = tbl2_unique. Counts are distinct CR IDs
+     per PL target, matching the displayed flat-table deduplication. */
+  function getFilteredWbcSnapshotStats() {
+    if (!state.wbcData || !state.wbcData.cr_tables) return null;
+    var stats = { byTarget: {}, total: 0, unique: 0 };
+    Object.keys(state.wbcData.cr_tables).forEach(function(sp) {
+      var entry = state.wbcData.cr_tables[sp] || {};
+      var totalSeen = {}, uniqueSeen = {};
+      filterCrRows(entry.tbl3_total || []).forEach(function(r) {
+        var cr = String(r.cr_id || '').trim();
+        if (cr) totalSeen[cr] = 1;
+      });
+      filterCrRows(entry.tbl2_unique || []).forEach(function(r) {
+        var cr = String(r.cr_id || '').trim();
+        if (cr) uniqueSeen[cr] = 1;
+      });
+      var totalCount  = Object.keys(totalSeen).length;
+      var uniqueCount = Object.keys(uniqueSeen).length;
+      stats.byTarget[sp] = { total: totalCount, unique: uniqueCount };
+      stats.total  += totalCount;
+      stats.unique += uniqueCount;
+    });
+    return stats;
+  }
+
     /* ── Apply all client-side CR filters to already-loaded data ── */
   function applyAllFilters() {
     var d = state.data;
@@ -248,37 +274,40 @@
       }
     });
 
-            /* Re-render WBC flat tables if present */
+                /* Re-render WBC flat tables if present */
     if (state.wbcData) {
       /* Re-filter flat tables in-place (faster than full rebuild) */
-      var tables = state.wbcData.cr_tables || {};
-      ['mrFlatTotalSec|tbl3_total', 'mrFlatUniqueSec|tbl2_unique'].forEach(function(pair) {
-        var parts  = pair.split('|');
-        var secId  = parts[0];
-        var kind   = parts[1];
-        var sec    = $(secId); if (!sec) return;
+      var wbcTables = state.wbcData.cr_tables || {};
+      var flatPairs = [
+        { secId: 'mrFlatTotalSec',  tblKind: 'tbl3_total'  },
+        { secId: 'mrFlatUniqueSec', tblKind: 'tbl2_unique' }
+      ];
+      flatPairs.forEach(function(pair) {
+        var flatSecId  = pair.secId;
+        var flatKind   = pair.tblKind;
+        var flatSec    = $(flatSecId); if (!flatSec) return;
         /* re-flatten + re-filter */
-        var allRows = [];
-        var seenCr  = {};
-        Object.keys(tables).sort().forEach(function(sp) {
-          var rows = filterCrRows(tables[sp][kind] || []);
-          rows.forEach(function(r) {
+        var flatRows = [];
+        var flatSeen = {};
+        Object.keys(wbcTables).sort().forEach(function(sp) {
+          var spRows = filterCrRows(wbcTables[sp][flatKind] || []);
+          spRows.forEach(function(r) {
             var key = (r.cr_id || '') + '|' + sp;
-            if (!seenCr[key]) { seenCr[key] = true; allRows.push(r); }
+            if (!flatSeen[key]) { flatSeen[key] = true; flatRows.push(r); }
           });
         });
         /* update tbody */
-        var tblId = secId + 'Tbl';
-        var tbl   = $(tblId);
-        if (tbl) {
-          var tbody = tbl.querySelector('tbody');
-          if (tbody) {
-            var cols = ['program','cr_id','instances','cr_date','cr_area','cr_subsystem','cr_functionality','cr_title','image','cr_status'];
-            if (!allRows.length) {
-              tbody.innerHTML = '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;color:#94a3b8;padding:14px">No data</td></tr>';
+        var flatTblId = flatSecId + 'Tbl';
+        var flatTbl   = $(flatTblId);
+        if (flatTbl) {
+          var flatTbody = flatTbl.querySelector('tbody');
+          if (flatTbody) {
+            var flatCols = ['program','cr_id','instances','cr_date','cr_area','cr_subsystem','cr_functionality','cr_title','image','cr_status'];
+            if (!flatRows.length) {
+              flatTbody.innerHTML = '<tr><td colspan="' + (flatCols.length+1) + '" style="text-align:center;color:#94a3b8;padding:14px">No data</td></tr>';
             } else {
-              tbody.innerHTML = allRows.map(function(r, i) {
-                return '<tr><td>' + (i+1) + '</td>' + cols.map(function(c) {
+              flatTbody.innerHTML = flatRows.map(function(r, i) {
+                return '<tr><td>' + (i+1) + '</td>' + flatCols.map(function(c) {
                   var val = esc(String(r[c] || ''));
                   if (c === 'cr_id' && val) val = '<b><a href="https://orbit/cr/' + val.replace(/^CR-?/i,'') + '" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:none;">' + val + '</a></b>';
                   else if (c === 'cr_status' && val) val = badge(r[c]);
@@ -288,8 +317,8 @@
             }
           }
           /* update subtitle count */
-          var sub = sec.querySelector('.mr-section-sub');
-          if (sub) sub.textContent = fmt(allRows.length) + ' CRs';
+          var flatSub = flatSec.querySelector('.mr-section-sub');
+          if (flatSub) flatSub.textContent = fmt(flatRows.length) + ' CRs';
         }
       });
       /* Re-render per-target CR tables */
@@ -994,30 +1023,28 @@
     var rows = d.overall_status || [];
     var bu   = d.bu || '';
 
-    /* Re-compute total_crs / unique_crs from filtered pdt_crs so
-       Dup / Invalid / Site toggles are reflected in the table counts. */
-    var filteredPdt = filterCrRows(d.pdt_crs || []);
-    /* Build per-target lookup: target_name -> {total, unique} */
+        /* Use the exact same filtered sources as the two WBC flat tables.
+       Fall back to monthly pdt_crs until asynchronous WBC detail arrives. */
+    var wbcStats = getFilteredWbcSnapshotStats();
     var tgtMap = {};
-    filteredPdt.forEach(function(r) {
-      var tgt = String(r.target_name || '').trim();
-      if (!tgt) return;
-      if (!tgtMap[tgt]) tgtMap[tgt] = { total: 0, seen: {} };
-      tgtMap[tgt].total++;
-      var cr = String(r.mapped_cr || '').trim();
-      if (cr) tgtMap[tgt].seen[cr] = 1;
-    });
-    /* Patch rows with recomputed counts */
+    if (!wbcStats) {
+      filterCrRows(d.pdt_crs || []).forEach(function(r) {
+        var tgt = String(r.target_name || '').trim();
+        if (!tgt) return;
+        if (!tgtMap[tgt]) tgtMap[tgt] = { total: 0, seen: {} };
+        tgtMap[tgt].total++;
+        var cr = String(r.mapped_cr || '').trim();
+        if (cr) tgtMap[tgt].seen[cr] = 1;
+      });
+    }
     rows = rows.map(function(r) {
       var key = String(r.pl_id || r.target || '').trim();
-      var stats = tgtMap[key];
-      if (stats) {
-        return Object.assign({}, r, {
-          total_crs:  stats.total,
-          unique_crs: Object.keys(stats.seen).length
-        });
-      }
-      return r;
+      var stats = wbcStats ? wbcStats.byTarget[key] : tgtMap[key];
+      if (!stats) return Object.assign({}, r, { total_crs: 0, unique_crs: 0 });
+      return Object.assign({}, r, {
+        total_crs:  Number(stats.total || 0),
+        unique_crs: wbcStats ? Number(stats.unique || 0) : Object.keys(stats.seen || {}).length
+      });
     });
     var sec  = mkSec('mrOverallStatusSec',
       '<i class="fas fa-table"></i> Overall PDT ' + esc(bu) + ' Target-wise Test Status',
@@ -1107,6 +1134,17 @@
       if (subEl) subEl.insertAdjacentHTML('afterend', badges);
     }
         var t  = d.totals || {};
+    var wbcSnapshot = getFilteredWbcSnapshotStats();
+    var filteredPdt = filterCrRows(d.pdt_crs || []);
+    var filteredPdtSeen = {};
+    filteredPdt.forEach(function(r) {
+      var cr = String(r.mapped_cr || '').trim();
+      if (cr) filteredPdtSeen[cr] = 1;
+    });
+    /* Use exactly the same sources as the WBC flat tables when available. */
+    var shownTotalPdt  = wbcSnapshot ? wbcSnapshot.total  : filteredPdt.length;
+    var shownUniquePdt = wbcSnapshot ? wbcSnapshot.unique : Object.keys(filteredPdtSeen).length;
+    var shownOverall   = filterCrRows(d.overall_crs || []).length;
     /* hours/builds/devices/crashes come from overall_status (axiom data).
        Fall back to status_table if overall_status is absent. */
     var _src = (d.overall_status && d.overall_status.length) ? d.overall_status : (d.status_table || []);
@@ -1123,9 +1161,9 @@
       : '<span style="font-size:10px;color:#94a3b8;font-weight:700;">Overall PDT CRs: not enabled for any target</span>';
     sec.querySelector('.mr-section-body').innerHTML =
       '<div class="mr-kpi-row">'
-      + '<div class="mr-kpi"><b>'                    + fmt(t.total_pdt_crs)   + '</b><span>PDT CRs</span></div>'
-      + '<div class="mr-kpi mr-kpi--teal"><b>'       + fmt(t.unique_pdt_crs)  + '</b><span>Unique PDT CRs</span></div>'
-      + '<div class="mr-kpi"><b>'                    + fmt(t.overall_cr_count)+ '</b><span>Overall PDT CRs</span></div>'
+            + '<div class="mr-kpi"><b>'                    + fmt(shownTotalPdt)  + '</b><span>PDT CRs</span></div>'
+      + '<div class="mr-kpi mr-kpi--teal"><b>'       + fmt(shownUniquePdt) + '</b><span>Unique PDT CRs</span></div>'
+      + '<div class="mr-kpi"><b>'                    + fmt(shownOverall)   + '</b><span>Overall PDT CRs</span></div>'
       + '<div class="mr-kpi mr-kpi--amber"><b>'      + fmt(t.total_jiras)     + '</b><span>Total JIRAs</span></div>'
       + '<div class="mr-kpi mr-kpi--red"><b>'        + fmt(t.open_jiras)      + '</b><span>Open JIRAs</span></div>'
       + '<div class="mr-kpi"><b>'                    + fmtF(tH, 0) + ' h</b><span>Total Hours</span></div>'
@@ -1545,7 +1583,7 @@
         pdtUniqByTgt[t]  = (pdtUniqByTgt[t] || 0) + 1;
       }
     });
-    var ovUniqByTgt = {};
+        var ovUniqByTgt = {};
     var ovSeenCr    = {};
     filtOverall.forEach(function(r) {
       var t  = String(r.target_name || '').trim();
@@ -1557,6 +1595,25 @@
         ovUniqByTgt[t]  = (ovUniqByTgt[t] || 0) + 1;
       }
     });
+
+        /* Unique means the direct all-time overallcrs rows explicitly marked
+       reported_team=PDT_Unique. Do not expand through unique_crs because a
+       single source CR can match multiple target rows and inflate the count. */
+    var pdtUniqueOnlyByTgt = {};
+    var pdtUniqueOnlySeen  = {};
+    filtOverall.forEach(function(r) {
+      var team = String(r.test_team || '').trim().toUpperCase();
+      if (team !== 'PDT_UNIQUE') return;
+      var t  = String(r.target_name || '').trim();
+      var cr = String(r.mapped_cr || '').trim();
+      if (!t || !cr) return;
+      if (!pdtUniqueOnlySeen[t]) pdtUniqueOnlySeen[t] = {};
+      if (!pdtUniqueOnlySeen[t][cr]) {
+        pdtUniqueOnlySeen[t][cr] = 1;
+        pdtUniqueOnlyByTgt[t] = (pdtUniqueOnlyByTgt[t] || 0) + 1;
+      }
+    });
+
 
     var cats = byTgt.map(function(r) { return String(r.target || '').trim(); });
     var hasPdt     = filtPdt.length > 0;
@@ -1581,10 +1638,8 @@
       var row = byTgt.filter(function(r){ return r.target === t; })[0];
       return row ? (row.overall_cr_count || 0) : 0;
     });
-    var pdtData = cats.map(function(t) {
-      if (hasPdt) return pdtUniqByTgt[t] || 0;
-      var row = byTgt.filter(function(r){ return r.target === t; })[0];
-      return row ? (row.unique_pdt_crs || 0) : 0;
+            var pdtData = cats.map(function(t) {
+      return pdtUniqueOnlyByTgt[t] || 0;
     });
 
     var allVals = ovData.concat(pdtData);
@@ -1601,7 +1656,7 @@
 
     /* title */
     svgTxt(svg, PAD.left + (W - PAD.left - PAD.right) / 2, 24,
-      'PDT overall & Unique CRs',
+      'PDT overall & Unique CRs (All Time)',
       { 'text-anchor':'middle','font-size':'13','font-weight':'900', fill:'#1e293b' });
 
     /* grid + y ticks */
@@ -1620,7 +1675,7 @@
       var gx = PAD.left + ci * step + Math.floor((step - grpW) / 2);
       var series = [
         { val: ovData[ci],  color: '#1e3a5f', name: 'Overall PDT CRs' },
-        { val: pdtData[ci], color: '#93c5fd', name: 'Unique CRs' }
+        { val: pdtData[ci], color: '#93c5fd', name: 'Unique CRs (All Time)' }
       ];
       series.forEach(function(s, si) {
         var val = s.val || 0;
@@ -1662,7 +1717,7 @@
 
     /* legend */
     var lx = PAD.left, ly = totalH - 8;
-    [['#1e3a5f','Overall PDT CRs'],['#93c5fd','Unique CRs']].forEach(function(pair) {
+    [['#1e3a5f','Overall PDT CRs'],['#93c5fd','Unique CRs (All Time)']].forEach(function(pair) {
       svg.appendChild(svgEl('rect', { x:lx, y:ly-10, width:13, height:10, fill:pair[0], rx:2 }));
       svgTxt(svg, lx+17, ly, pair[1], { 'font-size':'10','font-weight':'800', fill:'#475569' });
       lx += pair[1].length * 6.5 + 26;
@@ -1832,9 +1887,9 @@
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d.success) return;
-        state.wbcData = d; /* store for re-filter */
+                state.wbcData = d; /* store for re-filter */
         var c = $('mrContent');
-        if (!c) return;
+                if (!c) return;
 
         /* ── Flat CR tables right after Overall Status table ── */
         var overallSec = document.getElementById('mrOverallStatusSec');
@@ -1855,8 +1910,12 @@
         /* Section 2: CR tables (Total + Unique) */
         if (Object.keys(d.cr_tables || {}).length) c.appendChild(buildCrTables(d));
         /* render first MTBF target chart — delay so container is visible */
-        var firstTgt = Object.keys(d.mtbf_trend || {})[0] || '';
+                var firstTgt = Object.keys(d.mtbf_trend || {})[0] || '';
         if (firstTgt) setTimeout(function(){ renderWbcMtbf(d, firstTgt); }, 60);
+
+        /* WBC detail is asynchronous. Refresh summary cards and target-wise
+           snapshot now that the same tbl3/tbl2 sources are available. */
+        applyAllFilters();
       })
       .catch(function(e){ console.warn('WBC detail fetch error:', e); });
   }

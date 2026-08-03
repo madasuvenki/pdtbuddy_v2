@@ -9300,11 +9300,12 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
             if not _tbl_exists_cur(cur, ov_tbl):
                 family_ov_cr_list[base] = []
                 continue
+                                    # overallcrs is cumulative/all-time. The unique series must use
+            # only rows explicitly classified as PDT_Unique; PDT_Reported
+            # belongs to the overall series and must not inflate this count.
             cur.execute(
                 "SELECT DISTINCT crid FROM " + ov_tbl +
-                " WHERE DATE(date) >= %s AND DATE(date) <= %s"
-                " AND reported_team IN ('PDT_Reported','PDT_Unique')",
-                (date_from_s, date_to_s))
+                " WHERE reported_team = 'PDT_Unique'")
             family_ov_cr_list[base] = [r["crid"] for r in (cur.fetchall() or [])]
 
         for tgt in bu_targets:
