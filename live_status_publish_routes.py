@@ -2715,9 +2715,16 @@ def api_target_auto_mtbf(target_name):
     view = str(request.args.get('view') or 'ADAS').strip().upper()
     if view not in {'ADAS', 'FLEX', 'IVI'}:
         view = 'ADAS'
+    requested_sp = str(request.args.get('sp') or '').strip()
+    if not requested_sp:
+        siblings = _get_sp_siblings(target) or []
+        default_sp = next((row for row in siblings if row.get('active')), None)
+        default_sp = default_sp or (siblings[0] if siblings else {})
+        requested_sp = str(default_sp.get('cpl') or '').strip()
     try:
         from live_status_view_api import _load_adas_mtbf, _adas_rows_to_chart_data
-        data = _load_adas_mtbf(target, view) or {}
+        data = _load_adas_mtbf(target, view, requested_sp) or {}
+
         rows = data.get('rows') if isinstance(data.get('rows'), list) else []
         crash_types_raw = str(request.args.get('crash_types') or 'system,ssr,process').strip()
         crash_types = [c.strip().lower() for c in crash_types_raw.split(',') if c.strip()]
@@ -2726,8 +2733,10 @@ def api_target_auto_mtbf(target_name):
         return jsonify({
             'ok': True,
             'target': target,
-            'view': view,
+                        'view': view,
+            'sp': requested_sp,
             'views': ['ADAS', 'FLEX', 'IVI'],
+
             'rows': rows,
             'chart_data': _adas_rows_to_chart_data(rows, crash_types),
             'updated_at': data.get('updated_at') or '',
