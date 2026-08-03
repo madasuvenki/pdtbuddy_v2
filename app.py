@@ -4827,9 +4827,11 @@ def auto_hierarchy(gen_name):
         if str(info.get('bu', '')).upper() == 'AUTO' and info.get('platform')
     })
 
-    # Build deduplicated AUTO hierarchy tree in Python
+        # Build deduplicated AUTO hierarchy tree in Python
     _tree = {}
     _seen_slots = set()
+    # pl_overall_keys: { prog: { fam: { cpl: tkey } } }  — first tkey seen per PL
+    _pl_overall_keys = {}
     for _tkey, _info in cfg.items():
         if str(_info.get('bu','')).upper() != 'AUTO': continue
         if str(_info.get('platform','')).upper() != gen_name.upper(): continue
@@ -4840,7 +4842,7 @@ def auto_hierarchy(gen_name):
         _disp = str(_info.get('display_name', _tkey) or _tkey)
         _spn  = str(_info.get('sp_name', '') or '')
         if _prog not in _tree: _tree[_prog] = {}
-        if _fam not in _tree[_prog]: _tree[_prog][_fam] = {'overall': '', 'overall_label': '', 'overall_has_dashboard': False, 'cats': {}}
+        if _fam not in _tree[_prog]: _tree[_prog][_fam] = {'overall': '', 'overall_label': '', 'overall_has_dashboard': False, 'cats': {}, 'pl_overalls': {}}
         if not _cpl or _cpl == 'None':
             if not _tree[_prog][_fam]['overall']:
                 _tree[_prog][_fam]['overall'] = _tkey
@@ -4852,6 +4854,32 @@ def auto_hierarchy(gen_name):
                 _seen_slots.add(_slot)
                 if _cat not in _tree[_prog][_fam]['cats']: _tree[_prog][_fam]['cats'][_cat] = []
                 _tree[_prog][_fam]['cats'][_cat].append({'tkey': _tkey, 'label': _disp, 'sp_name': _spn, 'cpl': _cpl})
+            # Register first tkey per PL for per-PL overall buttons
+            _pl_ov = _tree[_prog][_fam]['pl_overalls']
+            if _cpl not in _pl_ov:
+                # Derive a PL-level overall tkey: strip category suffix from tkey
+                # e.g. nord_hgy_flex_5_1_7_0 -> nord_hgy_5_1_7_0  (best guess)
+                # Fall back to first SP tkey in that PL
+                _pl_suffix = _cpl.replace('.', '_')
+                _fam_lower = _fam.lower()
+                _prog_lower = _prog.lower()
+                # Try to find a dedicated PL-overall tkey (cpl=None but has PL suffix)
+                _pl_overall_tkey = next(
+                    (k for k, v in cfg.items()
+                     if str(v.get('bu','')).upper() == 'AUTO'
+                     and str(v.get('platform','')).upper() == gen_name.upper()
+                     and str(v.get('program','')).upper() == _prog
+                     and str(v.get('product_family','')).upper() == _fam
+                     and not (str(v.get('cpl','') or ''))
+                     and _pl_suffix in k.lower()),
+                    None
+                )
+                _pl_ov[_cpl] = {
+                    'tkey':          _pl_overall_tkey or _tkey,
+                    'label':         _cpl,
+                    'has_dashboard': bool(_pl_overall_tkey and str(cfg.get(_pl_overall_tkey, {}).get('excel_path') or '').strip()),
+                    'has_overallcrs': False,  # filled in below
+                }
 
     auto_tree_json = _json.dumps(_tree)
 
@@ -4864,11 +4892,14 @@ def auto_hierarchy(gen_name):
         _oc_cur.close(); _oc_conn.close()
     except Exception:
         _oc_tables = set()
-    # Inject has_overallcrs flag into tree
+        # Inject has_overallcrs flag into tree (family overall + per-PL overalls)
     for _pdata in _tree.values():
         for _fdata in _pdata.values():
             _ok = str(_fdata.get('overall') or '').lower()
             _fdata['has_overallcrs'] = (_ok in _oc_tables)
+            for _pl_entry in _fdata.get('pl_overalls', {}).values():
+                _pl_tk = str(_pl_entry.get('tkey') or '').lower()
+                _pl_entry['has_overallcrs'] = (_pl_tk in _oc_tables)
     auto_tree_json = _json.dumps(_tree)
     _total_targets = sum(
         (1 if _fdata.get('overall') else 0) + sum(len(v) for v in _fdata.get('cats', {}).values())
