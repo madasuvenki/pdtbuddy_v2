@@ -84,6 +84,7 @@ def _fetch_dashboard_status_rows(active_only: bool = True) -> List[dict]:
               last_milestone_sync_by,
               dashboard_latest_update,
               unique_cr_last_update,
+              overall_report_level,
               is_active
             FROM pdt_stats_dashboard.dashboard_status
             {where_clause}
@@ -184,6 +185,7 @@ def _build_metadata_from_rows(rows: List[dict]) -> dict:
         tc.setdefault("sp_name", sp_name)
         tc.setdefault("excel_path", r.get("excel_path") or "")
         tc.setdefault("unique_cr_path", r.get("unique_cr_path") or "")
+        tc.setdefault("overall_report_level", r.get("overall_report_level") or "")
         tc.setdefault("dashboard_latest_update", r.get("dashboard_latest_update"))
         tc.setdefault("unique_cr_last_update", r.get("unique_cr_last_update"))
         tc.setdefault("db_prefix", target_key)

@@ -1,4 +1,4 @@
-{% extends "base.html" if request.args.get("embed") == "1" else "bu_shell_layout.html" %}
+﻿{% extends "base.html" if request.args.get("embed") == "1" else "bu_shell_layout.html" %}
 {% block topbar %}{% if request.args.get("embed") == "1" %}{% else %}{{ super() }}{% endif %}{% endblock %}
 
 {% block extra_css %}{% if request.args.get("embed") == "1" %}{{ self.shell_extra_css() }}{% else %}{{ super() }}{% endif %}{% endblock %}
@@ -314,7 +314,18 @@
   background: linear-gradient(135deg,#f0f9ff,#e0f2fe);
   border: 1.5px solid #bae6fd; border-radius: 12px;
   flex-wrap: wrap;
+  cursor: pointer;
+  transition: all .18s;
 }
+.ah-pl-bar:hover { background: linear-gradient(135deg,#e0f2fe,#bae6fd); border-color:#7dd3fc; }
+.ah-pl-bar.active {
+  background: linear-gradient(135deg,#0ea5e9,#0284c7);
+  border-color: #0284c7;
+  box-shadow: 0 4px 14px rgba(14,165,233,.35);
+}
+.ah-pl-bar.active .ah-pl-bar-label { color: #fff; }
+.ah-pl-bar.active .ah-pl-pill { background: rgba(255,255,255,.25); color:#fff; }
+.ah-pl-bar.active .ah-no-overall { background: rgba(255,255,255,.15); color: rgba(255,255,255,.8); }
 .ah-pl-bar-label {
   font-size: 11px; font-weight: 700; color: #0369a1; flex: 1;
   display: flex; align-items: center; gap: 6px;
@@ -904,55 +915,92 @@ function famPillClick(fam, pillEl) {
          <span class="ah-overall-bar-label" style="color:#94a3b8;"><i class="fas fa-info-circle" style="margin-right:6px;"></i>No overall dashboard &mdash; add a family-level target to enable</span>
        </div>`;
 
-  // ── Per-PL overall bars (one per product line e.g. 5.1.7.0 / 5.1.9.0) ──
-  const plBars = plEntries.length > 0
-    ? plEntries.map(([pl, plData]) => {
-        const plTkey = plData.tkey || '';
-        return `<div class="ah-pl-bar">
-          <span class="ah-pl-bar-label">
-            <i class="fas fa-layer-group" style="margin-right:5px;color:#0369a1;"></i>
-            <span class="ah-pl-pill">${pl}</span>
-            Overall
-          </span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            ${plData.has_overallcrs ? `<a href="/overall_crs/${encodeURIComponent(plTkey)}" class="ah-pl-btn ah-pl-btn--crs" target="_top"><i class="fas fa-fingerprint"></i> Unique CRs</a>` : ''}
-            ${plData.has_dashboard  ? `<a href="${dashUrl(plTkey)}" class="ah-pl-btn" target="_top"><i class="fas fa-external-link-alt"></i> Open Dashboard</a>` : ''}
-            ${!plData.has_overallcrs && !plData.has_dashboard ? `<span class="ah-no-overall"><i class="fas fa-clock"></i> Not yet available</span>` : ''}
+    // ── Per-PL overall bars (clickable filter tabs) ──
+  let _activePl = '';   // '' = show all
+
+  function renderSpSection(filterPl) {
+    _activePl = filterPl || '';
+    const filteredEntries = catEntries.map(([cat, entries]) => {
+      const visible = _activePl
+        ? entries.filter(e => (e.cpl || '') === _activePl)
+        : entries;
+      return [cat, visible];
+    }).filter(([, entries]) => entries.length > 0);
+
+    const visibleTotal = filteredEntries.reduce((s, [, arr]) => s + arr.length, 0);
+
+    const catSections = filteredEntries.map(([cat, entries]) => {
+      const cards = entries.map(entry => {
+        const tkey      = entry.tkey  || entry;
+        const cpl       = entry.cpl   || '';
+        const spName    = entry.sp_name || '';
+        const cardTitle = cpl || spName || tkey;
+        const cardSub   = spName || tkey;
+        return `<a href="${dashUrl(tkey)}" class="ah-tgt-card" target="_top" title="DB: ${tkey}">
+           <span class="ah-tgt-card-icon">&#128230;</span>
+           <span class="ah-tgt-card-body">
+             <span class="ah-tgt-card-sp">${cardSub}</span>
+             <span class="ah-tgt-card-name">${cardTitle}</span>
+           </span>
+           <span class="ah-tgt-card-arrow"><i class="fas fa-arrow-right"></i></span></a>`;
+      }).join('');
+      return `<div class="ah-cat-section">
+          <div class="ah-cat-header">
+            <span class="ah-cat-badge">${cat}</span>
+            <span class="ah-cat-count">${entries.length} SP target${entries.length !== 1 ? 's' : ''}</span>
           </div>
-        </div>`;
-      }).join('')
+          <div class="ah-tgt-grid">${cards}</div></div>`;
+    }).join('');
+
+    const label = _activePl
+      ? `SP Targets for <span style="background:#0ea5e9;color:#fff;padding:1px 8px;border-radius:999px;font-family:monospace;">${_activePl}</span> (${visibleTotal})`
+      : `SP Targets (${totalSPs})`;
+
+    const spHtml = visibleTotal > 0
+      ? `<div style="margin-top:4px;">
+           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;margin-bottom:10px;">${label}</div>
+           ${catSections}</div>`
+      : `<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;">No SP targets for this PL.</div>`;
+
+    // Update only the sp section inside the panel
+    const spEl = document.getElementById('ah-sp-section');
+    if (spEl) spEl.innerHTML = spHtml;
+
+    // Update PL bar active states
+    document.querySelectorAll('.ah-pl-bar[data-pl]').forEach(bar => {
+      bar.classList.toggle('active', bar.getAttribute('data-pl') === _activePl);
+    });
+  }
+
+  window._ahRenderSpSection = renderSpSection;
+
+  const plBars = plEntries.length > 0
+    ? `<div style="margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;margin-bottom:6px;">Product Lines</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
+          <button class="ah-pl-bar${!_activePl?' active':''}" data-pl="" onclick="_ahRenderSpSection('')" style="padding:6px 14px;font-size:11px;font-weight:800;border:none;cursor:pointer;border-radius:999px;background:${!_activePl?'#0ea5e9':'#e0f2fe'};color:${!_activePl?'#fff':'#0369a1'};">
+            <i class="fas fa-layer-group" style="margin-right:4px;"></i> All PLs
+          </button>
+          ${plEntries.map(([pl, plData]) => {
+            const plTkey = plData.tkey || '';
+            return `<div class="ah-pl-bar" data-pl="${pl}" onclick="_ahRenderSpSection('${pl}')" style="display:inline-flex;padding:6px 14px;margin-bottom:0;">
+              <span class="ah-pl-bar-label" style="flex:unset;margin-right:10px;">
+                <i class="fas fa-layer-group" style="margin-right:5px;"></i>
+                <span class="ah-pl-pill">${pl}</span>
+              </span>
+              <div style="display:flex;gap:6px;align-items:center;">
+                ${plData.has_overallcrs ? `<a href="/overall_crs/${encodeURIComponent(plTkey)}" class="ah-pl-btn ah-pl-btn--crs" target="_top" onclick="event.stopPropagation()"><i class="fas fa-fingerprint"></i> Unique CRs</a>` : ''}
+                ${plData.has_dashboard  ? `<a href="${dashUrl(plTkey)}" class="ah-pl-btn" target="_top" onclick="event.stopPropagation()"><i class="fas fa-external-link-alt"></i> Dashboard</a>` : ''}
+                ${!plData.has_overallcrs && !plData.has_dashboard ? `<span class="ah-no-overall"><i class="fas fa-clock"></i> Not yet available</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`
     : '';
 
-  const catSections = catEntries.map(([cat, entries]) => {
-    const cards = entries.map(entry => {
-      const tkey      = entry.tkey  || entry;
-      const cpl       = entry.cpl   || '';
-      const spName    = entry.sp_name || '';
-      const cardTitle = cpl || spName || tkey;
-      const cardSub   = spName || tkey;
-      return `<a href="${dashUrl(tkey)}" class="ah-tgt-card" target="_top" title="DB: ${tkey}">
-         <span class="ah-tgt-card-icon">&#128230;</span>
-         <span class="ah-tgt-card-body">
-           <span class="ah-tgt-card-sp">${cardSub}</span>
-           <span class="ah-tgt-card-name">${cardTitle}</span>
-         </span>
-         <span class="ah-tgt-card-arrow"><i class="fas fa-arrow-right"></i></span></a>`;
-    }).join('');
-    return `<div class="ah-cat-section">
-        <div class="ah-cat-header">
-          <span class="ah-cat-badge">${cat}</span>
-          <span class="ah-cat-count">${entries.length} SP target${entries.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="ah-tgt-grid">${cards}</div></div>`;
-  }).join('');
-
-  const spSection = totalSPs > 0
-    ? `<div style="margin-top:4px;">
-         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;margin-bottom:10px;">SP Targets (${totalSPs})</div>
-         ${catSections}</div>`
-    : `<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;">No SP targets configured yet.</div>`;
-
-    document.getElementById('fam-detail').innerHTML =
+  // Render panel with placeholder sp section; then fill it via renderSpSection
+  document.getElementById('fam-detail').innerHTML =
     `<div class="ah-fam-panel visible">
        <div class="ah-fam-panel-header">
          <span style="font-size:20px;">&#128194;</span>
@@ -964,8 +1012,11 @@ function famPillClick(fam, pillEl) {
        </div>
        ${overallBar}
        ${plBars}
-       ${spSection}
+       <div id="ah-sp-section"></div>
      </div>`;
+
+  // Render all SPs initially (no PL filter)
+  renderSpSection('');
 
   updateInfoPanel(overallKey || fam, [
     { label: 'Platform', value: GEN,        cls: 'ah-info-stat-pill--gen'  },

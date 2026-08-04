@@ -42,11 +42,16 @@ def admin_targets_paths_api():
     rows = []
     for t, cfg in targets_cfg.items():
         rows.append({
-            'target_name': t,
-            'target_display': cfg.get('display_name') or t,
-            'bu': cfg.get('bu') or cfg.get('bu_key') or cfg.get('business_unit') or '',
-            'sp_name': cfg.get('sp_name') or '',
-            'unique_cr_path': cfg.get('unique_cr_path') or '',
+            'target_name':          t,
+            'target_display':       cfg.get('display_name') or t,
+            'bu':                   cfg.get('bu') or cfg.get('bu_key') or cfg.get('business_unit') or '',
+            'sp_name':              cfg.get('sp_name') or '',
+            'unique_cr_path':       cfg.get('unique_cr_path') or '',
+            'platform':             cfg.get('platform') or '',
+            'program':              cfg.get('program') or '',
+            'product_family':       cfg.get('product_family') or '',
+            'cpl':                  cfg.get('cpl') or '',
+            'overall_report_level': cfg.get('overall_report_level') or '',
         })
 
     rows.sort(key=lambda r: (str(r.get('bu') or ''), str(r.get('target_display') or ''), str(r.get('target_name') or '')))
@@ -92,6 +97,42 @@ def admin_update_unique_cr_path_api():
     except Exception as exc:
         conn.rollback()
         logger.exception('Failed to update unique_cr_path for %s', target_name)
+        return jsonify(success=False, message=str(exc)), 500
+    finally:
+        conn.close()
+
+
+@admin_paths_bp.route('/admin/update_overall_report_level', methods=['POST'])
+@login_required
+def admin_update_overall_report_level_api():
+    if not _is_admin_user():
+        return jsonify(success=False, message='Forbidden'), 403
+
+    data = request.get_json(silent=True) or {}
+    target_name          = (data.get('target_name') or '').strip()
+    overall_report_level = (data.get('overall_report_level') or '').strip() or None
+    if not target_name:
+        return jsonify(success=False, message='target_name is required'), 400
+
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, message='DB connection failed'), 500
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            'UPDATE pdt_stats_dashboard.dashboard_status '
+            'SET overall_report_level=%s WHERE target_name=%s',
+            (overall_report_level, target_name),
+        )
+        conn.commit()
+        try:
+            dc.update_global_targets_config()
+        except Exception:
+            pass
+        return jsonify(success=True, message=f'Updated overall_report_level for {target_name}')
+    except Exception as exc:
+        conn.rollback()
+        logger.exception('Failed to update overall_report_level for %s', target_name)
         return jsonify(success=False, message=str(exc)), 500
     finally:
         conn.close()

@@ -22,14 +22,31 @@
 .ap-pill-no{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
 .ap-input{width:100%;min-width:340px;max-width:680px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;outline:none}
 .ap-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
-.ap-row-actions{display:flex;gap:8px;align-items:center}
+.ap-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+/* Overall report level dropdown */
+.ap-level-select{height:32px;padding:0 8px;border-radius:9px;border:1.5px solid #c7d2fe;
+  font-size:11px;font-weight:700;color:#374151;background:#fff;outline:none;cursor:pointer;
+  min-width:170px;max-width:220px;box-shadow:0 1px 3px rgba(15,23,42,.06);}
+.ap-level-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.ap-level-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;
+  border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;}
+.ap-level-pill.none    {background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;}
+.ap-level-pill.pl      {background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;}
+.ap-level-pill.family  {background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+.ap-level-pill.program {background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;}
+.ap-level-pill.platform{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.ap-level-save{height:28px;padding:0 10px;border-radius:8px;border:none;
+  background:#0ea5e9;color:#fff;font-size:11px;font-weight:800;cursor:pointer;
+  transition:background .15s;white-space:nowrap;}
+.ap-level-save:hover{background:#0284c7;}
+.ap-level-save.saved{background:#16a34a;}
 </style>
 
 <div class="ap-shell">
   <div class="ap-head">
     <div>
-      <div class="ap-title"><i class="fas fa-folder-open" style="color:#4f46e5"></i> Target Paths (Admin)</div>
-      <div class="ap-sub">Update <b>unique_cr_path</b> per target. If empty, the Unique CRs / Overall CRs tabs will be hidden automatically.</div>
+      <div class="ap-title"><i class="fas fa-folder-open" style="color:#4f46e5"></i> Target Paths &amp; Report Level (Admin)</div>
+      <div class="ap-sub">Update <b>unique_cr_path</b> and <b>overall_report_level</b> per target. Report level controls which hierarchy node the Overall CRs tab rolls up to.</div>
     </div>
     <a href="{{ url_for('admin_usage') }}" class="ap-btn ap-btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px"><i class="fas fa-arrow-left"></i> Back</a>
   </div>
@@ -45,16 +62,17 @@
       <table class="ap-table">
         <thead>
           <tr>
-            <th style="width:210px">Target</th>
-            <th style="width:120px">BU</th>
-            <th style="width:200px">SP</th>
+            <th style="width:200px">Target</th>
+            <th style="width:80px">BU</th>
+            <th style="width:180px">SP / Hierarchy</th>
             <th>Unique CR Path (folder)</th>
-            <th style="width:150px">Unique Tabs</th>
-            <th style="width:140px">Action</th>
+            <th style="width:100px">Tabs</th>
+            <th style="width:240px">Overall Report Level</th>
+            <th style="width:130px">Action</th>
           </tr>
         </thead>
         <tbody id="apTbody">
-          <tr><td colspan="6" style="padding:18px;color:#64748b">Loading…</td></tr>
+          <tr><td colspan="7" style="padding:18px;color:#64748b">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -67,7 +85,7 @@
   const status = document.getElementById('apStatus');
   const search = document.getElementById('apSearch');
 
-  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
   async function apiGet(){
     const resp = await fetch('/admin/targets_paths', {cache:'no-store'});
@@ -87,41 +105,101 @@
     return data;
   }
 
+  async function apiSaveLevel(target_name, overall_report_level){
+    const resp = await fetch('/admin/update_overall_report_level', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target_name, overall_report_level})
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
+    return data;
+  }
+
   function pill(ok){
     return ok
       ? '<span class="ap-pill ap-pill-ok"><i class="fas fa-eye"></i> Enabled</span>'
       : '<span class="ap-pill ap-pill-no"><i class="fas fa-eye-slash"></i> Hidden</span>';
   }
 
+  // Build dropdown options from target hierarchy fields
+  function levelOptions(r){
+    const cur = r.overall_report_level || '';
+    const platform = r.platform || '';
+    const program  = r.program  || '';
+    const family   = r.product_family || '';
+    const cpl      = r.cpl || '';
+    // Build choices: only show levels that have a value
+    const choices = [{val:'', label:'— Not set —', cls:'none'}];
+    if(cpl)      choices.push({val:'pl',      label: cpl + ' Level (PL)',           cls:'pl'});
+    if(family)   choices.push({val:'family',  label: family + ' Level (Family)',     cls:'family'});
+    if(program)  choices.push({val:'program', label: program + ' Level (Program)',   cls:'program'});
+    if(platform) choices.push({val:'platform',label: platform + ' Level (Platform)', cls:'platform'});
+    return choices.map(c =>
+      `<option value="${esc(c.val)}" ${cur===c.val?'selected':''}>${esc(c.label)}</option>`
+    ).join('');
+  }
+
+  function levelPill(level, r){
+    if(!level) return '<span class="ap-level-pill none"><i class="fas fa-minus"></i> Not set</span>';
+    const labels = {
+      pl:       (r.cpl||'PL') + ' Level',
+      family:   (r.product_family||'Family') + ' Level',
+      program:  (r.program||'Program') + ' Level',
+      platform: (r.platform||'Platform') + ' Level',
+    };
+    const icons = {pl:'fas fa-layer-group', family:'fas fa-folder', program:'fas fa-sitemap', platform:'fas fa-microchip'};
+    return `<span class="ap-level-pill ${level}"><i class="${icons[level]||'fas fa-circle'}"></i> ${esc(labels[level]||level)}</span>`;
+  }
+
   function render(rows){
     const q = (search.value || '').trim().toLowerCase();
     const filtered = (rows||[]).filter(r => {
       if(!q) return true;
-      const s = [r.target_name, r.bu, r.sp_name, r.target_display].map(x => String(x||'').toLowerCase()).join(' ');
+      const s = [r.target_name, r.bu, r.sp_name, r.target_display, r.platform, r.program, r.product_family, r.cpl].map(x => String(x||'').toLowerCase()).join(' ');
       return s.includes(q);
     });
 
     if(!filtered.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">No matches.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:18px;color:#64748b">No matches.</td></tr>';
       return;
     }
 
     tbody.innerHTML = filtered.map(r => {
-      const t = r.target_name;
+      const t       = r.target_name;
       const display = r.target_display || t;
-      const bu = r.bu || '';
-      const sp = r.sp_name || '';
-      const path = r.unique_cr_path || '';
+      const bu      = r.bu || '';
+      const path    = r.unique_cr_path || '';
       const enabled = !!path;
+      const level   = r.overall_report_level || '';
+      // Hierarchy breadcrumb
+      const hier = [r.platform, r.program, r.product_family, r.cpl].filter(Boolean).join(' › ');
       return `
         <tr>
-          <td><div style="font-weight:950;color:#0f172a">${esc(display)}</div><div style="font-size:10px;color:#94a3b8;font-family:ui-monospace,monospace">${esc(t)}</div></td>
+          <td>
+            <div style="font-weight:950;color:#0f172a">${esc(display)}</div>
+            <div style="font-size:10px;color:#94a3b8;font-family:ui-monospace,monospace">${esc(t)}</div>
+          </td>
           <td style="font-weight:800;color:#334155">${esc(bu)}</td>
-          <td style="color:#475569">${esc(sp)}</td>
+          <td>
+            <div style="font-size:11px;font-weight:700;color:#475569">${esc(r.sp_name||'')}</div>
+            ${hier ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px">${esc(hier)}</div>` : ''}
+          </td>
           <td>
             <input class="ap-input" data-target="${esc(t)}" value="${esc(path)}" placeholder="\\\\sphere\\...\\DailyData\\Latest" />
           </td>
           <td>${pill(enabled)}</td>
+          <td>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <select class="ap-level-select" data-level-target="${esc(t)}">
+                ${levelOptions(r)}
+              </select>
+              <button class="ap-level-save" data-level-save="${esc(t)}" title="Save report level">
+                <i class="fas fa-save"></i>
+              </button>
+            </div>
+            <div style="margin-top:4px;">${levelPill(level, r)}</div>
+          </td>
           <td>
             <div class="ap-row-actions">
               <button class="ap-btn ap-btn-primary" data-save="${esc(t)}"><i class="fas fa-save"></i> Save</button>
@@ -200,7 +278,31 @@
     });
   }
 
-  let _cache = [];
+    // Level save buttons
+    tbody.querySelectorAll('button[data-level-save]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const t   = btn.getAttribute('data-level-save');
+        const sel = tbody.querySelector(`select[data-level-target="${CSS.escape(t)}"]`);
+        const v   = sel ? sel.value : '';
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        status.textContent = 'Saving level for ' + t + '…';
+        try{
+          await apiSaveLevel(t, v || null);
+          btn.classList.add('saved');
+          btn.innerHTML = '<i class="fas fa-check"></i>';
+          status.innerHTML = `<span style="color:#16a34a;font-weight:800">✅ Level saved for ${t}</span>`;
+          setTimeout(() => { btn.classList.remove('saved'); btn.innerHTML = '<i class="fas fa-save"></i>'; }, 2000);
+          await load();
+        }catch(e){
+          status.innerHTML = `<span style="color:#dc2626;font-weight:800">❌ Error: ${e.message||e}</span>`;
+        }finally{
+          btn.disabled = false;
+        }
+      });
+    });
+  }
   async function load(){
     tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">Loading…</td></tr>';
     status.textContent = '';

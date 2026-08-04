@@ -175,15 +175,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* -- populate dropdowns ------------------------------------- */
   function populateDropdowns() {
-    /* BU selector */
+        /* BU selector */
     if (adminBuAdd) {
       adminBuAdd.innerHTML = '<option value="">Select Business Unit</option>';
-      Object.keys(BUSINESS_UNITS_DATA).forEach((buKey) => {
-        const opt = document.createElement('option');
-        opt.value = buKey;
-        opt.textContent = BUSINESS_UNITS_DATA[buKey].display_name || buKey;
+      Object.keys(BUSINESS_UNITS_DATA).sort().forEach((buKey) => {
+        const info = BUSINESS_UNITS_DATA[buKey] || {};
+        const opt  = document.createElement('option');
+        opt.value       = buKey;
+        opt.textContent = info.display_name || buKey;
         adminBuAdd.appendChild(opt);
       });
+      // Fallback: if still empty, build from TARGETS_CONFIG_DATA
+      if (adminBuAdd.options.length <= 1) {
+        const buSet = new Set();
+        Object.values(TARGETS_CONFIG_DATA).forEach((cfg) => {
+          const bu = String((cfg || {}).bu || (cfg || {}).bu_key || '').toUpperCase();
+          if (bu) buSet.add(bu);
+        });
+        Array.from(buSet).sort().forEach((buKey) => {
+          const opt = document.createElement('option');
+          opt.value = buKey; opt.textContent = buKey;
+          adminBuAdd.appendChild(opt);
+        });
+      }
     }
 
     /* Target selectors (milestone / remove / update) */
