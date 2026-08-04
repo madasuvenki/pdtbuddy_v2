@@ -211,12 +211,14 @@ def _get_instance_id(report_id: str, build: str, host: str,
     because Axiom may take a few seconds to process the report after POST.
     Never cached - instanceId is tied to a temporary reportId.
     """
-    path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=5'
+    path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=50'
 
     for attempt in range(retries):
         try:
             data = axiom_get(path, host=host)
             rows = data.get('data', []) if isinstance(data, dict) else []
+            logger.debug('[stability] instances raw rows=%d data=%s for build=%s reportId=%s',
+                         len(rows), str(data)[:500], build, report_id)
             iid = ''
             for row in rows:
                 row_meta = str(row.get('meta') or row.get('metaId') or
