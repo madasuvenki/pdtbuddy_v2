@@ -487,21 +487,21 @@ def _ensure_weekly_qipl_table():
                 week_end          DATE         NULL,
                 jira_date         DATE         NULL,
                 cr_date           DATE         NULL,
-                jira_category     VARCHAR(128) NULL,
-                cr_current_ticket VARCHAR(128) NULL,
-                cr_si             VARCHAR(128) NULL,
+                jira_category     VARCHAR(255) NULL,
+                cr_current_ticket VARCHAR(255) NULL,
+                cr_si             VARCHAR(255) NULL,
                 cr_title          TEXT         NULL,
                 jira_title        TEXT         NULL,
-                ticket_status     VARCHAR(128) NULL,
-                resolution        VARCHAR(128) NULL,
+                ticket_status     VARCHAR(255) NULL,
+                resolution        VARCHAR(512) NULL,
                 jira_reporter     VARCHAR(255) NULL,
                 fetched_date      DATE         NULL,
                 target            VARCHAR(255) NULL,
                 jira_component    VARCHAR(255) NULL,
-                pl_id             VARCHAR(128) NULL,
+                pl_id             VARCHAR(255) NULL,
                 host_name         VARCHAR(255) NULL,
-                type_of_farm      VARCHAR(128) NULL,
-                cr_status         VARCHAR(128) NULL,
+                type_of_farm      VARCHAR(255) NULL,
+                cr_status         VARCHAR(255) NULL,
                 cr_area           VARCHAR(255) NULL,
                 cr_age            INT          NULL,
                 INDEX idx_week  (week_start, week_end),
@@ -596,7 +596,7 @@ def _ensure_weekly_qipl_table():
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` DROP INDEX uq_week_target",
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` ADD UNIQUE KEY uq_week_target_pl (week_end, target, pl_id)",
             # Dedup: add stability_ticket + meta_build + unique key to weekly_qipl_data
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(128) NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN meta_build VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD UNIQUE KEY uq_stability_ticket (stability_ticket)",
         ):
@@ -9470,4 +9470,1375 @@ def sharepoint2_page():
         week_ranges=week_ranges,
         is_sp2_admin=_is_sp2_admin_user(),
         **shell_ctx,
+    )
+
+
+# ---------------------------------------------------------------------------
+# SP2 (Smart Build Report) API routes - restored from backup
+# ---------------------------------------------------------------------------
+@weekly_summary_bp.route('/api/sp2/admin_force_refresh_week', methods=['POST'])
+@login_required
+def api_sp2_admin_force_refresh_week():
+    """Admin-only hard refresh: clear cached Smart Build week and rebuild from DB."""
+    if not _is_sp2_admin_user():
+        return jsonify(success=False, message='Admin only'), 403
+    data = request.get_json(silent=True) or {}
+    ws = _safe_date(data.get('week_start') or request.form.get('week_start') or request.args.get('week_start'))
+    we = _safe_date(data.get('week_end') or request.form.get('week_end') or request.args.get('week_end'))
+    if not ws or not we:
+        return jsonify(success=False, message='Invalid week'), 400
+
+    deleted_builds = _clear_sp2_static_snapshot(ws, we)
+    deleted_consolidate = _clear_sp2_consolidate_snapshot(ws, we)
+    inserted_builds = _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    capped_build_rows = _cap_sp2_static_snapshot_hours(ws, we)
+    _build_and_save_sp2_consolidate_from_static(ws, we, _current_user_identifier())
+
+    static_rows = _load_sp2_static_build_rows(ws, we)
+    consolidate_rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
+    # True unique device count = union of all chip_ids across consolidate rows
+    _force_chip_union = set()
+    for _cr in (consolidate_rows or []):
+        try:
+            import json as _j
+            _chips = _j.loads(_cr.get('chip_ids') or '[]') if isinstance(_cr.get('chip_ids'), str) else list(_cr.get('chip_ids') or [])
+            _force_chip_union.update(str(c).strip() for c in _chips if str(c).strip())
+        except Exception:
+            pass
+    return jsonify(
+        success=True,
+        message='Force refreshed from axiom_job_summary',
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
+        deleted_build_snapshot_rows=deleted_builds,
+        deleted_consolidate_rows=deleted_consolidate,
+        inserted_or_updated_build_rows=inserted_builds,
+        capped_build_rows=capped_build_rows,
+        build_rows=len(static_rows or []),
+        consolidate_rows=len(consolidate_rows or []),
+        consolidate_device_count=len(_force_chip_union),
+    )
+
+
+@weekly_summary_bp.route('/api/sp2/reimport_csv', methods=['POST'])
+@login_required
+def api_sp2_reimport_csv():
+    """Admin: force re-read the weekly CSV into weekly_qipl_data, then rebuild SP2 snapshot.
+
+    Steps:
+      1. Reset any stuck in_progress/done audit record for this week's file.
+      2. Re-run _auto_load_qipl_week (DELETE old rows, INSERT all CSV rows).
+      3. Clear + rebuild SP2 static build snapshot from Axiom.
+      4. Rebuild SP2 consolidate snapshot.
+    """
+    if not _is_sp2_admin_user():
+        return jsonify(success=False, message='Admin only'), 403
+
+    data = request.get_json(silent=True) or {}
+    ws = _safe_date(data.get('week_start') or request.args.get('week_start'))
+    we = _safe_date(data.get('week_end')   or request.args.get('week_end'))
+    if not ws or not we:
+        return jsonify(success=False, message='Invalid week'), 400
+
+    # Step 1: find the source file for this week
+    src_path = _find_qipl_source_file_for_week(ws, we)
+    if not src_path:
+        return jsonify(success=False, message='No CSV file found for this week on the share'), 404
+
+    # Step 2: reset any stuck in_progress/done audit so _auto_load_qipl_week can re-claim it
+    try:
+        _conn = get_mysql_connection_db(bu_key=None)
+        if _conn:
+            _cur = _conn.cursor()
+            fp = _qipl_file_fingerprint(src_path)
+            _cur.execute(
+                "UPDATE `{db}`.`{tbl}` "
+                "SET status='failed', message='Reset by admin re-import', "
+                "    finished_at=NOW(), updated_at=NOW() "
+                "WHERE file_key=%s AND status IN ('in_progress','done')".format(
+                    db=_QIPL_DB, tbl=_QIPL_IMPORT_AUDIT_TABLE
+                ),
+                (fp['key'],)
+            )
+            _conn.commit()
+            _cur.close()
+            _conn.close()
+    except Exception:
+        pass  # non-fatal
+
+    # Step 3: re-import CSV -> weekly_qipl_data
+    import_result = _auto_load_qipl_week(ws, we, _current_user_identifier())
+    if not import_result.get('loaded'):
+        return jsonify(
+            success=False,
+            message='CSV import failed: {}'.format(
+                import_result.get('reason') or import_result.get('message') or 'unknown'
+            ),
+            detail=import_result,
+        ), 500
+
+    csv_rows = import_result.get('inserted', 0)
+
+    # Step 4: rebuild SP2 static build snapshot + consolidate
+    _clear_sp2_static_snapshot(ws, we)
+    _clear_sp2_consolidate_snapshot(ws, we)
+    _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    _cap_sp2_static_snapshot_hours(ws, we)
+    _build_and_save_sp2_consolidate_from_static(ws, we, _current_user_identifier())
+
+    static_rows = _load_sp2_static_build_rows(ws, we)
+    fname = (import_result.get('path') or '').replace('\\', '/').split('/')[-1]
+
+    return jsonify(
+        success=True,
+        message='CSV re-imported ({:,} rows) and SP2 snapshot rebuilt.'.format(csv_rows),
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
+        csv_rows_inserted=csv_rows,
+        csv_rows_deleted=import_result.get('deleted', 0),
+        csv_file=fname,
+        build_rows=len(static_rows or []),
+    )
+
+@weekly_summary_bp.route('/api/sp2/builds')
+@login_required
+def api_sp2_builds():
+    """Return /PDT/QIPL Axiom builds for the selected week.
+
+    Grouping: same build_name + pl_id are merged into one row.
+    Hours summed, chip_ids unioned (unique devices), crashes summed.
+    Each row has build_type (CRM/Eng) that the user can toggle per row.
+    Hours are week-bounded: running builds capped at week_end Sunday 23:59:59.
+    Crashes from weekly_qipl_data (same CSV as CR Pie / CR Age).
+    """
+    import re as _re
+    ws_arg = request.args.get('week_start', '').strip()
+    we_arg = request.args.get('week_end', '').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not ws or not we:
+        ws, we = _selected_week_from_request()
+
+    # Static mode: once the weekly CSV is present, seed/read frozen build rows
+    # from sp2_build_type_overrides. User edits update this table, so page
+    # refreshes do not recalculate/overwrite hours or crashes from CSV/Axiom.
+    if str(request.args.get('force') or '').strip() in ('1', 'true', 'yes'):
+        _clear_sp2_static_snapshot(ws, we)
+    _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    _cap_sp2_static_snapshot_hours(ws, we)
+    static_rows = _load_sp2_static_build_rows(ws, we)
+    if static_rows:
+        dash_map_static = _fetch_dashboard_status_map()
+        # Build target->bu lookup from sp2_build_consolidate (user-saved target-level BU)
+        _cons_bu_map = {}
+        try:
+            _cconn = get_mysql_connection_db(bu_key=None)
+            if _cconn:
+                _ccur = _cconn.cursor(dictionary=True)
+                _ccur.execute(f"""
+                    SELECT DISTINCT target, bu
+                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                    WHERE week_start=%s AND week_end=%s
+                      AND bu IS NOT NULL AND bu != ''
+                """, (ws.isoformat(), we.isoformat()))
+                for _cr in (_ccur.fetchall() or []):
+                    if _cr.get('target') and _cr.get('bu'):
+                        _cons_bu_map[str(_cr['target']).strip()] = str(_cr['bu']).strip()
+                _ccur.close(); _cconn.close()
+        except Exception:
+            pass
+        out = []
+        all_chips = set()
+        for r in static_rows:
+            chips_raw = r.get('chip_ids') or '[]'
+            try:
+                chip_ids = json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
+            except Exception:
+                chip_ids = []
+            chip_ids = sorted(str(c).strip() for c in chip_ids if str(c).strip())
+            all_chips.update(chip_ids)
+            target = str(r.get('target') or '').strip() or (_swpdt_target_from_product(r.get('pl_id')) or '')
+            pl_id = str(r.get('pl_id') or '').strip()
+            dash = _match_dashboard_with_fallback(target, dash_map_static) or _match_dashboard_with_fallback(pl_id, dash_map_static) or {}
+            # BU priority: 1) consolidate target-level (user saved)  2) row-level  3) dashboard_status
+            row_bu = _cons_bu_map.get(target) or str(r.get('bu') or dash.get('bu') or '').strip()
+            job_ids_raw = r.get('job_ids') or '[]'
+            try:
+                job_ids = json.loads(job_ids_raw) if isinstance(job_ids_raw, str) else list(job_ids_raw or [])
+            except Exception:
+                job_ids = []
+            state = str(r.get('state') or '').lower()
+            out.append({
+                'job_ids':      job_ids,
+                'job_id':       job_ids[0] if job_ids else '',
+                'target':       target,
+                'pl_id':        pl_id,
+                'pl_id_exact':  pl_id,
+                'build_id':     str(r.get('build_id') or ''),
+                'build_name':   str(r.get('build_name') or r.get('build_id') or ''),
+                'submitted':    str(r.get('submitted_at') or '')[:10],
+                'completed_at': str(r.get('completed_at') or '')[:10],
+                'status':       'running' if state in ('running', 'jobsetup') else 'completed',
+                'hours':        round(float(r.get('hours') or 0), 3),
+                'device_count': max(len(chip_ids), int(r.get('device_count') or 0)),
+                'chip_ids':     chip_ids,
+                'crashes':      int(r.get('total_crashes') or 0),
+                'build_type':   str(r.get('build_type') or 'CRM'),
+                'bu':           row_bu,
+                'meta_id':      _sp2_meta_build_key(str(r.get('build_name') or r.get('build_id') or '')),
+                'run_count':    len(job_ids) or 1,
+                        })
+        out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
+        bu_opts = {str(o.get('key') or '').strip() for o in _sp_bu_options() if str(o.get('key') or '').strip()}
+        bu_opts.update({b['bu'] for b in out if b['bu']})
+        # True unique devices = union of chip_ids from consolidate table (covers all targets/PLs)
+        _true_chips = set()
+        try:
+            _tc = get_mysql_connection_db(bu_key=None)
+            if _tc:
+                _tcc = _tc.cursor(dictionary=True)
+                _tcc.execute(
+                    f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
+                    (ws.isoformat(), we.isoformat()))
+                for _tr in (_tcc.fetchall() or []):
+                    try:
+                        _tc_chips = json.loads(_tr.get('chip_ids') or '[]') if isinstance(_tr.get('chip_ids'), str) else list(_tr.get('chip_ids') or [])
+                        _true_chips.update(str(c).strip() for c in _tc_chips if str(c).strip())
+                    except Exception:
+                        pass
+                _tcc.close(); _tc.close()
+        except Exception:
+            pass
+        _total_devices = len(_true_chips) if _true_chips else len(all_chips)
+        return jsonify(success=True, builds=out, total_devices=_total_devices,
+                       bu_list=sorted(bu_opts),
+                       week_start=ws.isoformat(), week_end=we.isoformat(), static=True)
+
+    # 1. Query axiom_job_summary
+    db_rows = []
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if conn:
+            cur = conn.cursor(dictionary=True)
+            try:
+                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+                cur.execute(f"""
+                    SELECT job_id, build_id, build_name, software_product,
+                    taxonomy_path, team, city_team, state, device_count, chip_ids,
+                           submitted_at, started_at, ended_at,
+                           ({live_h}) AS hours_live,
+                           product_flavor, submitter, site
+                    FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                                                            WHERE taxonomy_path LIKE '/PDT%'
+                      AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
+                      AND taxonomy_path NOT LIKE '/PDT/China%'
+                      AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                                                                  AND city_team = 'QIPL'
+                      AND team != 'HWPDT'
+                      AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
+                      AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
+                    ORDER BY submitted_at DESC
+                """, (we.isoformat(), ws.isoformat()))
+                db_rows = cur.fetchall() or []
+            finally:
+                cur.close(); conn.close()
+    except Exception as _exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning('[SP2 BUILDS] DB read failed: %s', _exc)
+
+    if not db_rows:
+        return jsonify(success=True, builds=[], total_devices=0,
+                       week_start=ws.isoformat(), week_end=we.isoformat())
+
+        # 2. Week + PL bounded crash map from weekly_qipl_data.
+    crash_map = _sp2_weekly_crash_map(ws, we)
+
+
+    # 3. Load saved build_type overrides from sp2_build_type_overrides
+    #    (sp2_build_consolidate only holds sentinel rows, not per-build overrides)
+    build_type_map = {}
+    try:
+        _ensure_sp2_build_type_overrides_table()
+        conn3 = get_mysql_connection_db(bu_key=None)
+        if conn3:
+            cur3 = conn3.cursor(dictionary=True)
+            try:
+                cur3.execute(f"""
+                    SELECT build_name, pl_id, build_type
+                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    WHERE week_start=%s AND week_end=%s
+                """, (ws.isoformat(), we.isoformat()))
+                for row in cur3.fetchall() or []:
+                    k = (str(row.get('build_name') or '').strip().upper(),
+                         str(row.get('pl_id') or '').strip().upper())
+                    build_type_map[k] = str(row.get('build_type') or 'CRM')
+            except Exception:
+                pass
+            finally:
+                cur3.close(); conn3.close()
+    except Exception:
+        pass
+
+        # 4. Normalise + GROUP by (meta_build_key, pl_group)
+    # 4. Normalise each DB row into a flat build entry.
+    #    Builds tab shows ALL individual builds with full names (no grouping).
+    #    Consolidate tab uses _build_and_save_sp2_consolidate which groups by meta_key.
+    import re as _re2
+    def _pl_group(sp):
+        return _re.sub(r'\.r\d+$', '', str(sp or ''), flags=_re.IGNORECASE)
+
+    # Load dashboard_status for BU lookup per target
+    _dash_map_builds = _fetch_dashboard_status_map()
+
+    # Load saved BU overrides keyed by target_upper -> bu
+    _bu_override_map = {}
+    try:
+        _ensure_sp2_build_consolidate_table()
+        _bo_conn = get_mysql_connection_db(bu_key=None)
+        if _bo_conn:
+            _bo_cur = _bo_conn.cursor(dictionary=True)
+            try:
+                _bo_cur.execute(f"""
+                    SELECT target, bu
+                    FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                    WHERE week_start=%s AND week_end=%s
+                      AND bu IS NOT NULL AND bu != ''
+                    ORDER BY updated_at DESC
+                """, (ws.isoformat(), we.isoformat()))
+                for _bo_row in (_bo_cur.fetchall() or []):
+                    _tgt_key = str(_bo_row.get('target') or '').strip().upper()
+                    if _tgt_key and _tgt_key not in _bu_override_map:
+                        _bu_override_map[_tgt_key] = str(_bo_row.get('bu') or '').strip()
+            finally:
+                _bo_cur.close(); _bo_conn.close()
+    except Exception:
+        pass
+
+    # 5. Group by (build_name, pl_id) so duplicate Axiom job runs for the
+    #    same build are merged into one row.
+    #    Hours are SUMMED, chip_ids are UNIONED (unique devices),
+    #    crashes come from crash_map (keyed by build_name, not job_id),
+    #    status = running if ANY job for that build is still running.
+    _explicit_qipl_targets = set()
+    for _er in db_rows:
+        _tax = str(_er.get('taxonomy_path') or '').strip().upper()
+        if not _tax.startswith('/PDT/QIPL'):
+            continue
+        _pl = _pl_group(str(_er.get('software_product') or '').strip())
+        _tgt = (_swpdt_target_from_product(_pl) or _pl).upper()
+        if int(_er.get('device_count') or 0) > 0:
+            _explicit_qipl_targets.add(_tgt)
+
+    grouped = {}   # key: (build_name_upper, pl_grp_upper) -> accumulator dict
+    all_chips = set()
+
+    for r in db_rows:
+        chips_raw = r.get('chip_ids') or '[]'
+        if isinstance(chips_raw, str):
+            try:
+                chip_ids = json.loads(chips_raw)
+            except Exception:
+                chip_ids = []
+        else:
+            chip_ids = list(chips_raw) if chips_raw else []
+
+        # Skip ghost/auto jobs: no devices assigned AND negligible hours.
+                # These are Axiom bookkeeping rows (device_count=0, chip_ids=[],
+        # hours<=0.1) that inflate the build count without real execution.
+        _raw_dev_actual = int(r.get('device_count') or 0)
+        _raw_hrs_actual = float(r.get('hours_live') or 0)
+        if _raw_dev_actual <= 0 and not chip_ids and _raw_hrs_actual <= 0.1:
+            continue
+
+        pl_id      = str(r.get('software_product') or '').strip()
+        pl_grp     = _pl_group(pl_id)
+        target     = _swpdt_target_from_product(pl_grp) or pl_grp
+        _target_key = str(target or '').upper()
+        _source_tax = str(r.get('taxonomy_path') or '').strip().upper()
+        _device_eligible = (
+            _source_tax.startswith('/PDT/QIPL')
+            or (
+                _source_tax == '/PDT'
+                and _target_key not in _explicit_qipl_targets
+                and str(r.get('city_team') or 'QIPL').strip().upper() == 'QIPL'
+            )
+        )
+        _raw_dev = _raw_dev_actual if _device_eligible else 0
+        build_id   = str(r.get('build_id') or '').strip()
+        build_name = str(r.get('build_name') or build_id).strip()
+                # Hours use all broad QIPL-city rows; only device/chip counting is restricted.
+        hours      = _raw_hrs_actual
+        hours = round(hours, 3)
+
+        state      = str(r.get('state') or '').lower()
+        is_running = state in ('running', 'jobsetup')
+        job_id     = str(r.get('job_id') or '')
+        submitted  = str(r.get('submitted_at') or '')[:10]
+        completed  = str(r.get('ended_at') or '')[:10]
+
+        grp_key = (build_name.upper(), pl_grp.upper())
+        if grp_key not in grouped:
+            # BU: saved override first, then dashboard_status
+            _dash = _match_dashboard(target, _dash_map_builds) or {}
+            _bu   = (_bu_override_map.get(target.upper())
+                     or str(_dash.get('bu') or '').strip())
+            bt    = build_type_map.get((build_name.upper(), pl_grp.upper()), 'CRM')
+            grouped[grp_key] = {
+                'job_ids':      [],
+                'job_id':       job_id,   # first job_id (representative)
+                'target':       target,
+                'pl_id':        pl_grp,
+                'pl_id_exact':  pl_id,
+                'build_id':     build_id,
+                'build_name':   build_name,
+                'submitted':    submitted,
+                'completed_at': completed,
+                'is_running':   False,
+                'hours':        0.0,
+                'chip_ids_set': set(),
+                'device_count': 0,
+                'crashes':      0,        # filled after loop
+                'build_type':   bt,
+                'bu':           _bu,
+                'meta_id':      _sp2_meta_build_key(build_name),
+                                    }
+
+        acc = grouped[grp_key]
+        acc['job_ids'].append(job_id)
+        acc['hours']        += hours
+        chip_ids = _sp2_parse_chip_ids(chip_ids if _device_eligible else [], _raw_dev, target or pl_grp)
+        acc['chip_ids_set'].update(str(c).strip() for c in chip_ids if str(c).strip())
+        # device_count: track the max raw_dev seen across jobs as a floor
+        # Final device_count = max(len(chip_ids_union), max_raw_dev) - resolved at output
+        acc['device_count']  = max(int(acc.get('device_count') or 0), _raw_dev if _device_eligible else 0)
+        all_chips.update(chip_ids)
+        if is_running:
+            acc['is_running'] = True
+        # keep earliest submitted, latest completed
+        if submitted and (not acc['submitted'] or submitted < acc['submitted']):
+            acc['submitted'] = submitted
+        if completed and completed > acc.get('completed_at', ''):
+            acc['completed_at'] = completed
+
+    # Resolve crashes per unique build_name and finalise output list
+    out = []
+    for acc in grouped.values():
+        build_name = acc['build_name']
+        build_id   = acc['build_id']
+        crashes    = _sp2_crash_count_for_build(crash_map, build_name, build_id, acc.get('pl_id'))
+
+        chip_ids_sorted = sorted(acc.pop('chip_ids_set'))
+        # True device count: union of real chip IDs is primary;
+        # fall back to max raw device_count if chip_ids are sparse/missing
+        true_dev_count = max(len(chip_ids_sorted), int(acc.get('device_count') or 0))
+                # Cap hours: device_count * days * 20 h/day
+        capped_hours = _sp2_capped_pl_hours(acc['hours'], true_dev_count, ws, we)
+        out.append({
+            'job_ids':      acc['job_ids'],
+            'job_id':       acc['job_id'],
+            'target':       acc['target'],
+            'pl_id':        acc['pl_id'],
+            'pl_id_exact':  acc['pl_id_exact'],
+            'build_id':     acc['build_id'],
+            'build_name':   build_name,
+            'submitted':    acc['submitted'],
+            'completed_at': acc['completed_at'],
+            'status':       'running' if acc['is_running'] else 'completed',
+            'hours':        capped_hours,
+            'device_count': true_dev_count,
+            'chip_ids':     chip_ids_sorted,
+            'crashes':      crashes,
+            'build_type':   acc['build_type'],
+            'bu':           acc['bu'],
+            'meta_id':      acc['meta_id'],
+            'run_count':    len(acc['job_ids']),   # how many Axiom jobs ran for this build
+        })
+
+    # Collect BU list for dropdown
+    bu_opts = {str(o.get('key') or '').strip() for o in _sp_bu_options() if str(o.get('key') or '').strip()}
+    bu_opts.update({b['bu'] for b in out if b['bu']})
+    bu_list = sorted(bu_opts)
+
+    out.sort(key=lambda x: (x['target'].lower(), x['pl_id'].lower(), x['submitted']))
+    # True unique devices = union of chip_ids from consolidate table
+    _true_chips2 = set()
+    try:
+        _tc2 = get_mysql_connection_db(bu_key=None)
+        if _tc2:
+            _tcc2 = _tc2.cursor(dictionary=True)
+            _tcc2.execute(
+                f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s",
+                (ws.isoformat(), we.isoformat()))
+            for _tr2 in (_tcc2.fetchall() or []):
+                try:
+                    _tc2_chips = json.loads(_tr2.get('chip_ids') or '[]') if isinstance(_tr2.get('chip_ids'), str) else list(_tr2.get('chip_ids') or [])
+                    _true_chips2.update(str(c).strip() for c in _tc2_chips if str(c).strip())
+                except Exception:
+                    pass
+            _tcc2.close(); _tc2.close()
+    except Exception:
+        pass
+    _total_devices2 = len(_true_chips2) if _true_chips2 else len(all_chips)
+    return jsonify(success=True, builds=out, total_devices=_total_devices2,
+                   bu_list=bu_list,
+                   week_start=ws.isoformat(), week_end=we.isoformat())
+
+
+@weekly_summary_bp.route('/api/sp2/debug_consolidate')
+@login_required
+def api_sp2_debug_consolidate():
+    ws_arg = request.args.get('week_start','').strip()
+    we_arg = request.args.get('week_end','').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not we: _, we = _selected_week_from_request()
+    if not ws: ws = we - timedelta(days=6)
+    result = {'week_start': ws.isoformat(), 'week_end': we.isoformat()}
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify({'error':'no db connection'})
+        cur = conn.cursor(dictionary=True)
+        try:
+            # A: total QIPL rows (no date filter)
+            cur.execute("SELECT COUNT(*) as c FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL'")
+            result['A_total_qipl'] = int((cur.fetchone() or {}).get('c') or 0)
+            # B: date range in table
+            cur.execute("SELECT MIN(DATE(submitted_at)) mn, MAX(DATE(submitted_at)) mx FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL'")
+            r = cur.fetchone() or {}
+            result['B_date_range'] = {'min': str(r.get('mn') or ''), 'max': str(r.get('mx') or '')}
+            # C: count for requested week
+            cur.execute("""
+                SELECT COUNT(*) as c
+                FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                WHERE taxonomy_path='/PDT/QIPL'
+                  AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
+                  AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
+            """, (we.isoformat(), ws.isoformat()))
+            result['C_count_for_week'] = int((cur.fetchone() or {}).get('c') or 0)
+            # D: latest 5 rows
+            cur.execute("SELECT software_product, build_name, DATE(submitted_at) sub FROM `pdt_stats_dashboard`.`axiom_job_summary` WHERE taxonomy_path='/PDT/QIPL' ORDER BY submitted_at DESC LIMIT 5")
+            result['D_latest_5'] = [{k:str(v) for k,v in (row or {}).items()} for row in (cur.fetchall() or [])]
+            # E: saved sentinel rows
+            cur.execute(f"SELECT target,pl_id,device_count,total_hours,number_of_builds,bu FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` WHERE week_start=%s AND week_end=%s AND build_name LIKE '__consolidated__%%' ORDER BY target,pl_id", (ws.isoformat(), we.isoformat()))
+            result['E_saved_rows'] = [{k:str(v) for k,v in (row or {}).items()} for row in (cur.fetchall() or [])]
+            result['E_saved_count'] = len(result['E_saved_rows'])
+        finally:
+            cur.close(); conn.close()
+    except Exception as e:
+        result['error'] = str(e)
+    return jsonify(result)
+
+
+@weekly_summary_bp.route('/api/sp2/consolidate')
+@login_required
+def api_sp2_consolidate():
+    """Smart Build consolidate: CRM rows shown in UI, Eng rows saved but hidden."""
+    ws_arg = request.args.get('week_start', '').strip()
+    we_arg = request.args.get('week_end', '').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not we:
+        _, we = _selected_week_from_request()
+    if not ws:
+        ws = we - timedelta(days=6)
+    # Always rebuild from Axiom on every load so consolidate matches builds tab.
+    # refresh=1 explicitly re-seeds Axiom-derived device/hour/crash snapshot.
+    if str(request.args.get('refresh') or '').strip() in ('1', 'true', 'yes'):
+        _clear_sp2_static_snapshot(ws, we)
+    _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
+    rows = _fetch_sp2_consolidate(ws, we, crm_only=True)
+    return jsonify(success=True, rows=rows, week_end=we.isoformat())
+
+
+@weekly_summary_bp.route('/api/sp2/active_devices')
+@login_required
+def api_sp2_active_devices():
+    """BU-wise active device table using truly unique chip_ids per BU/target.
+
+    For each BU -> target, we take the UNION of chip_ids across all PL rows
+    (deduplicating devices that ran multiple SPs on the same physical board).
+    The per-target device count is then the size of that union minus chips
+    already counted by a higher-hours target in the same BU (proportional share).
+    Grand total = union of all chip_ids across the entire week.
+    """
+    import json as _json
+    from collections import defaultdict as _dd
+
+    ws_arg = request.args.get('week_start', '').strip()
+    we_arg = request.args.get('week_end', '').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not we:
+        _, we = _selected_week_from_request()
+    if not ws:
+        ws = we - timedelta(days=6)
+
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, message='DB unavailable'), 503
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT
+                COALESCE(NULLIF(TRIM(bu),''), 'Unknown') AS bu,
+                COALESCE(NULLIF(TRIM(target),''),
+                         NULLIF(TRIM(pl_id),''), 'Unknown') AS target,
+                chip_ids,
+                total_hours
+            FROM pdt_stats_dashboard.sp2_build_consolidate
+            WHERE week_start=%s AND week_end=%s
+            ORDER BY bu, target
+        """, (ws.isoformat(), we.isoformat()))
+        db_rows = cur.fetchall() or []
+    finally:
+        cur.close(); conn.close()
+
+    # â”€â”€ build bu -> target -> chip_set and hours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    bu_tgt_chips = _dd(lambda: _dd(set))   # bu -> target -> set of chip_ids
+    bu_tgt_hours = _dd(lambda: _dd(float)) # bu -> target -> total hours
+
+    for r in db_rows:
+        bu  = str(r.get('bu')     or 'Unknown').strip() or 'Unknown'
+        tgt = str(r.get('target') or 'Unknown').strip() or 'Unknown'
+        hrs = float(r.get('total_hours') or 0)
+        bu_tgt_hours[bu][tgt] += hrs
+        chips_raw = r.get('chip_ids') or '[]'
+        try:
+            chips = _json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
+        except Exception:
+            chips = []
+        for c in chips:
+            c = str(c).strip()
+            if c:
+                bu_tgt_chips[bu][tgt].add(c)
+
+    # â”€â”€ compute per-target truly unique devices (cross-target dedup) â”€â”€â”€â”€â”€â”€
+    # For each target: exclusive chips + proportional share of chips shared
+    # with other targets in the same BU.
+    bu_rows   = []   # list of {bu, target, devices, bu_total (filled later)}
+    bu_totals = {}   # bu -> truly unique count (union)
+    grand_union = set()
+
+    for bu in sorted(bu_tgt_chips.keys()):
+        tgt_map = bu_tgt_chips[bu]
+        targets = sorted(tgt_map.keys())
+
+        # BU-level union for grand total
+        bu_union = set()
+        for chips in tgt_map.values():
+            bu_union.update(chips)
+        bu_totals[bu] = len(bu_union)
+        grand_union.update(bu_union)
+
+        # Per-target allocation
+        # chip -> set of targets in this BU that use it
+        chip_to_tgts = _dd(set)
+        for tgt, chips in tgt_map.items():
+            for c in chips:
+                chip_to_tgts[c].add(tgt)
+
+        tgt_devices = {}
+        for tgt in targets:
+            chips = tgt_map[tgt]
+            exclusive = sum(1 for c in chips if len(chip_to_tgts[c]) == 1)
+            shared_chips = [c for c in chips if len(chip_to_tgts[c]) > 1]
+            # proportional share of each shared chip by hours
+            shared_alloc = 0.0
+            tgt_hrs = bu_tgt_hours[bu][tgt]
+            for c in shared_chips:
+                sharing_tgts = chip_to_tgts[c]
+                total_hrs = sum(bu_tgt_hours[bu][t] for t in sharing_tgts)
+                if total_hrs > 0:
+                    shared_alloc += tgt_hrs / total_hrs
+                else:
+                    shared_alloc += 1.0 / len(sharing_tgts)
+            tgt_devices[tgt] = exclusive + shared_alloc
+
+        # Integer allocation preserving BU total
+        raw_sum = sum(tgt_devices.values())
+        bu_total_int = bu_totals[bu]
+        if raw_sum > 0:
+            scale = bu_total_int / raw_sum
+        else:
+            scale = 1.0
+        base   = {t: int(v * scale) for t, v in tgt_devices.items()}
+        remain = bu_total_int - sum(base.values())
+        for t in sorted(targets, key=lambda t: -(tgt_devices[t] * scale - int(tgt_devices[t] * scale))):
+            if remain <= 0:
+                break
+            base[t] += 1
+            remain  -= 1
+
+        for tgt in targets:
+            bu_rows.append({'bu': bu, 'target': tgt, 'devices': base[tgt]})
+
+    # â”€â”€ attach bu_total to each row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    for row in bu_rows:
+        row['bu_total'] = bu_totals[row['bu']]
+
+    return jsonify(
+        success=True,
+        rows=bu_rows,
+        bu_totals=[{'bu': bu, 'total': tot} for bu, tot in sorted(bu_totals.items())],
+        grand_total=len(grand_union),
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
+    )
+
+
+@weekly_summary_bp.route('/api/sp2/stability_health')
+@login_required
+def api_sp2_stability_health():
+    """PDT Stability Health trend.
+
+    Uses Smart Build consolidate for weeks that exist there. For older weeks,
+    falls back to weekly_sharepoint_consolidate_summary totals so the chart can
+    still show the previous 2-3 weeks.
+    """
+    we = _safe_date(request.args.get('week_end')) or date.today()
+    try:
+        count = int(request.args.get('count') or 20)
+    except Exception:
+        count = 20
+    count = max(1, min(count, 60))
+    min_week_end = date(2026, 6, 14)
+    weeks = []
+    for i in range(count - 1, -1, -1):
+        week_end = we - timedelta(weeks=i)
+        if week_end < min_week_end:
+            continue
+        week_start = week_end - timedelta(days=6)
+        rows = []
+        old_rows = None
+        weekly_cr_mapped_distinct = 0
+        source = 'sp2'
+        conn = get_mysql_connection_db(bu_key=None)
+        if conn:
+            cur = conn.cursor(dictionary=True)
+            try:
+                cur.execute(
+                    f"""SELECT total_hours, total_crashes, device_count
+                      FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                      WHERE week_start=%s AND week_end=%s
+                        AND build_name LIKE '__consolidated__%'""",
+                    (week_start.isoformat(), week_end.isoformat()))
+                rows = cur.fetchall() or []
+
+                # Number of CRs for the JIRA/CR chart comes directly from
+                # pdt_stats_dashboard.weekly_qipl_data for the same week:
+                # distinct CR Current Ticket where jira_category = 'CR Mapped'.
+                cur.execute(
+                    f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
+                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
+                      WHERE week_start=%s AND week_end=%s
+                        AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
+                    (week_start.isoformat(), week_end.isoformat()))
+                cr_row = cur.fetchone() or {}
+                weekly_cr_mapped_distinct = int(cr_row.get('cr_count') or 0)
+            finally:
+                cur.close(); conn.close()
+
+                hrs     = sum(float(r.get('total_hours')   or 0) for r in rows)
+        crashes = sum(float(r.get('total_crashes') or 0) for r in rows)
+        # True unique devices = union of chip_ids across all consolidate rows
+        # (avoids double-counting devices that ran multiple SPs in the same week)
+        _stab_chip_union = set()
+        for _sr in rows:
+            try:
+                import json as _sj
+                _sc = _sj.loads(_sr.get('chip_ids') or '[]') if isinstance(_sr.get('chip_ids'), str) else list(_sr.get('chip_ids') or [])
+                _stab_chip_union.update(str(c).strip() for c in _sc if str(c).strip())
+            except Exception:
+                pass
+        dev = float(len(_stab_chip_union)) if _stab_chip_union else sum(float(r.get('device_count') or 0) for r in rows)
+
+        # Distinct CR count is sourced from weekly_qipl_data, not from the
+        # SharePoint consolidate unique_crs column.
+        old_rows = _fetch_consolidate_summary(week_end)
+        unique_crs = weekly_cr_mapped_distinct
+
+        if not (hrs > 0 or crashes > 0 or dev > 0):
+            source = 'weekly_sharepoint_consolidate_summary'
+            hrs     = sum(float(r.get('total_hours')       or 0) for r in old_rows)
+            crashes = sum(float(r.get('total_crashes')     or 0) for r in old_rows)
+            dev     = sum(float(r.get('number_of_devices') or 0) for r in old_rows)
+
+        if not (hrs > 0 or crashes > 0 or dev > 0 or unique_crs > 0):
+            continue
+        weeks.append({
+            'week_end':              week_end.isoformat(),
+            'week_start':            week_start.isoformat(),
+            'label':                 week_end.strftime('%d-%b'),
+            'label_year':            week_end.strftime('%d-%b-%Y'),
+            'source':                source,
+            'total_hours':           round(hrs, 1),
+            'total_crashes':         int(crashes),
+            'total_jiras':           int(crashes),
+            'total_unique_crs':      int(unique_crs),
+            'total_devices':         int(dev),
+            'device_usage_per_week': round(hrs / dev,     2) if dev     else 0,
+            'time_per_crash':        round(hrs / crashes, 2) if crashes else 0,
+            'crash_per_mtp_week':    round(crashes / dev, 2) if dev     else 0,
+        })
+    return jsonify(success=True, weeks=weeks[-count:])
+
+
+@weekly_summary_bp.route('/api/sp2/fetch_all_missing_milestones', methods=['POST'])
+@login_required
+def api_sp2_fetch_all_missing_milestones():
+    """Fetch ES/FC/CS from OneView for ALL consolidate rows that have no timelines.
+    Processes sequentially with per-PL retry to handle OneView timeouts.
+    POST body: {week_start, week_end}
+    Returns: {results: [{pl_id, target, status, timelines, error}], total, updated, failed, skipped}
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    ws   = _safe_date(data.get('week_start'))
+    we   = _safe_date(data.get('week_end'))
+    if not ws or not we:
+        return jsonify(success=False, error='week_start and week_end are required'), 400
+    if not fetch_milestones_for_sp:
+        return jsonify(success=False, error='fetch_milestones_for_sp not available'), 503
+
+    # Load all sentinel rows that are missing timelines
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, error='DB connection failed'), 500
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute(f"""
+            SELECT target, pl_id, timelines
+            FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+            WHERE week_start=%s AND week_end=%s
+              AND build_name LIKE '__consolidated__%'
+            ORDER BY target, pl_id
+        """, (ws.isoformat(), we.isoformat()))
+        all_rows = cur.fetchall() or []
+    finally:
+        cur.close(); conn.close()
+
+    # Separate missing vs already-filled
+    missing = [r for r in all_rows if not str(r.get('timelines') or '').strip()]
+    skipped = [r for r in all_rows if str(r.get('timelines') or '').strip()]
+
+    results = []
+    updated = 0
+    failed  = 0
+
+    for row in missing:
+        target = str(row.get('target') or '').strip()
+        pl_id  = str(row.get('pl_id')  or '').strip()
+        if not pl_id:
+            results.append({'target': target, 'pl_id': pl_id, 'status': 'skipped', 'error': 'empty pl_id'})
+            failed += 1
+            continue
+
+        # DB-first: check dashboard_status before hitting OneView
+        _ms = _resolve_pl_milestones(target, pl_id)
+        es = _ms['ES']; fc = _ms['FC']; cs = _ms['CS']
+
+        if not (es or fc or cs):
+            results.append({'target': target, 'pl_id': pl_id, 'status': 'failed',
+                            'error': 'No milestone dates found in DB or OneView'})
+            failed += 1
+            continue
+
+        timelines  = _sp_timeline(es, fc, cs)
+        pdt_status = _compute_pdt_test_status(es, cs, fc)
+        sentinel   = f'__consolidated__{target}__{pl_id}'
+
+        try:
+            conn2 = get_mysql_connection_db(bu_key=None)
+            if conn2:
+                cur2 = conn2.cursor()
+                try:
+                    cur2.execute(f"""
+                        UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                        SET timelines=%s, pdt_test_status=%s, updated_by=%s
+                        WHERE week_start=%s AND week_end=%s AND build_name=%s
+                    """, (timelines, pdt_status, _current_user_identifier(),
+                            ws.isoformat(), we.isoformat(), sentinel))
+                    conn2.commit()
+                finally:
+                    cur2.close(); conn2.close()
+        except Exception as _db_e:
+            import logging as _log
+            _log.getLogger('weekly_summary_routes').warning('[SP2 BULK TL] DB update failed: %s', _db_e)
+
+        results.append({'target': target, 'pl_id': pl_id, 'status': 'updated',
+                        'timelines': timelines, 'pdt_status': pdt_status,
+                        'es': es, 'fc': fc, 'cs': cs})
+        updated += 1
+
+    return jsonify(
+        success=True,
+        results=results,
+        total=len(all_rows),
+        updated=updated,
+        failed=failed,
+        skipped=len(skipped)
+    )
+
+
+def _resolve_pl_milestones(target: str, pl_id: str) -> dict:
+    """Resolve ES/FC/CS for a PL-ID.
+    Priority:
+      1. dashboard_status DB with version-strip fallback:
+         Kobuk.LE.1.1 -> Kobuk.LE.1 -> Kobuk.LE -> finds DB row instantly
+      2. OneView API (fetch_milestones_for_sp) -- tries pl_id then target
+    Returns dict with keys: ES, FC, CS, source ('db' or 'oneview' or 'none')
+    """
+    # Source 1: dashboard_status (version-strip fallback)
+    try:
+        _dm = _fetch_dashboard_status_map()
+        for _cand in [pl_id, target]:
+            if not _cand:
+                continue
+            _info = _match_dashboard_with_fallback(_cand, _dm)
+            if _info and (_info.get('ES') or _info.get('FC') or _info.get('CS')):
+                return {
+                    'ES': _fmt_iso_date(_info.get('ES')),
+                    'FC': _fmt_iso_date(_info.get('FC')),
+                    'CS': _fmt_iso_date(_info.get('CS')),
+                    'source': 'db',
+                }
+    except Exception:
+        pass
+
+    # Source 2: OneView API
+    if fetch_milestones_for_sp:
+        for _sp in [pl_id, target]:
+            if not _sp:
+                continue
+            try:
+                _kd, _src = fetch_milestones_for_sp(_sp)
+                if _kd.get('ES') or _kd.get('FC') or _kd.get('CS'):
+                    return {
+                        'ES': _fmt_iso_date(_kd.get('ES')),
+                        'FC': _fmt_iso_date(_kd.get('FC')),
+                        'CS': _fmt_iso_date(_kd.get('CS')),
+                        'source': 'oneview',
+                    }
+            except Exception:
+                continue
+
+    return {'ES': '', 'FC': '', 'CS': '', 'source': 'none'}
+
+@weekly_summary_bp.route('/api/sp2/refetch_timelines', methods=['POST'])
+@login_required
+def api_sp2_refetch_timelines():
+    """Refetch ES/FC/CS timelines from OneView for a specific PL-ID.
+    Updates the sp2_build_consolidate DB row and returns fresh timelines.
+    POST body: {week_start, week_end, target, pl_id}
+    """
+    data      = request.get_json(force=True, silent=True) or {}
+    ws        = _safe_date(data.get('week_start'))
+    we        = _safe_date(data.get('week_end'))
+    target    = str(data.get('target') or '').strip()
+    pl_id     = str(data.get('pl_id') or '').strip()
+    if not ws or not we or not pl_id:
+        return jsonify(success=False, error='week_start, week_end and pl_id are required'), 400
+
+    # DB-first: check dashboard_status before hitting OneView
+    _ms = _resolve_pl_milestones(target, pl_id)
+    es = _ms['ES']; fc = _ms['FC']; cs = _ms['CS']
+    source = _ms['source']
+
+    if not (es or fc or cs):
+        return jsonify(success=False,
+                       error=f'No milestone dates found in DB or OneView for PL-ID: {pl_id}',
+                       source=source), 404
+
+    timelines  = _sp_timeline(es, fc, cs)
+    pdt_status = _compute_pdt_test_status(es, cs, fc)
+
+    # Update the sentinel row in sp2_build_consolidate
+    sentinel_name = f'__consolidated__{target}__{pl_id}'
+    try:
+        conn = get_mysql_connection_db(bu_key=None)
+        if conn:
+            cur = conn.cursor()
+            try:
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                    SET timelines=%s, pdt_test_status=%s, updated_by=%s
+                    WHERE week_start=%s AND week_end=%s AND build_name=%s
+                """, (timelines, pdt_status, _current_user_identifier(),
+                        ws.isoformat(), we.isoformat(), sentinel_name))
+                conn.commit()
+            finally:
+                cur.close(); conn.close()
+    except Exception as _db_exc:
+        import logging as _log
+        _log.getLogger('weekly_summary_routes').warning('[SP2 REFETCH TL] DB update failed: %s', _db_exc)
+
+    return jsonify(success=True, timelines=timelines, pdt_status=pdt_status,
+                   es=es, fc=fc, cs=cs, source=source)
+
+
+@weekly_summary_bp.route('/api/sp2/save_build_type', methods=['POST'])
+@login_required
+def api_sp2_save_build_type():
+    """Save build_type (CRM/Eng) for a build row; triggers background consolidate update."""
+    data = request.get_json(force=True, silent=True) or {}
+    ws   = _safe_date(data.get('week_start'))
+    we   = _safe_date(data.get('week_end'))
+    build_name = str(data.get('build_name') or '').strip()
+    pl_id      = str(data.get('pl_id') or '').strip()
+    build_type = str(data.get('build_type') or 'CRM').strip()
+    if build_type not in ('CRM', 'Eng'):
+        build_type = 'CRM'
+    if not ws or not we or not build_name:
+        return jsonify(success=False, error='Missing required fields'), 400
+    try:
+        _upsert_sp2_build_type(ws, we, build_name, pl_id, build_type)
+        try:
+            _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
+        except Exception:
+            pass
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+
+@weekly_summary_bp.route('/api/sp2/save_pl_rows', methods=['POST'])
+@login_required
+def api_sp2_save_pl_rows():
+    """Save edited hours/crashes/build_type for all builds under a target+PL.
+    Called when user clicks the Save button on a PL section.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    ws     = _safe_date(data.get('week_start'))
+    we     = _safe_date(data.get('week_end'))
+    target = str(data.get('target') or '').strip()
+    pl_id  = str(data.get('pl_id')  or '').strip()
+    rows   = data.get('rows') or []
+    if not ws or not we or not target or not rows:
+        return jsonify(success=False, error='Missing required fields'), 400
+    try:
+        _ensure_sp2_override_snapshot_columns()
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify(success=False, error='DB unavailable'), 500
+        cur = conn.cursor()
+        saved = 0
+        try:
+            for row in rows:
+                build_name = str(row.get('build_name') or '').strip()
+                build_type = str(row.get('build_type') or 'CRM').strip()
+                hours      = float(row.get('hours') or 0)
+                crashes    = int(row.get('crashes') or 0)
+                if build_type not in ('CRM', 'Eng'):
+                    build_type = 'CRM'
+                if not build_name:
+                    continue
+                # Update the static source row. These values are what Builds and
+                # Consolidate will show after refresh; they are no longer added
+                # onto sentinel totals.
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET target=%s,
+                        build_type=%s,
+                        hours=%s,
+                        total_crashes=%s,
+                        updated_by=%s,
+                        updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND build_name=%s AND pl_id=%s
+                """, (target, build_type, hours, crashes, _current_user_identifier(),
+                      ws.isoformat(), we.isoformat(), build_name, pl_id))
+                if cur.rowcount == 0:
+                    cur.execute(f"""
+                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                            (week_start, week_end, target, pl_id, build_name,
+                             build_type, hours, total_crashes, updated_by)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON DUPLICATE KEY UPDATE
+                            target=VALUES(target),
+                            build_type=VALUES(build_type),
+                            hours=VALUES(hours),
+                            total_crashes=VALUES(total_crashes),
+                            updated_by=VALUES(updated_by),
+                            updated_at=CURRENT_TIMESTAMP
+                    """, (ws.isoformat(), we.isoformat(), target, pl_id, build_name,
+                          build_type, hours, crashes, _current_user_identifier()))
+                saved += 1
+            conn.commit()
+        finally:
+            cur.close(); conn.close()
+        _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
+        return jsonify(success=True, saved=saved)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+
+@weekly_summary_bp.route('/api/sp2/save_bu', methods=['POST'])
+@login_required
+def api_sp2_save_bu():
+    """Save BU for a target -------? persists to sp2_build_consolidate for all
+    sentinel rows of that target so it survives page reloads.
+    """
+    data   = request.get_json(force=True, silent=True) or {}
+    ws     = _safe_date(data.get('week_start'))
+    we     = _safe_date(data.get('week_end'))
+    target = str(data.get('target') or '').strip()
+    bu     = str(data.get('bu')     or '').strip()
+    if not ws or not we or not target or not bu:
+        return jsonify(success=False, error='Missing required fields'), 400
+    try:
+        _ensure_sp2_build_consolidate_table()
+        _ensure_sp2_override_snapshot_columns()
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify(success=False, error='DB unavailable'), 500
+        cur = conn.cursor()
+        try:
+            pl_id = str(data.get('pl_id') or '').strip()
+
+            # 1. Persist BU in the static Builds source table too. This is the
+            #    main source for /api/sp2/builds and survives consolidate rebuilds.
+            if pl_id:
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND pl_id=%s
+                """, (bu, target, ws.isoformat(), we.isoformat(), pl_id))
+            else:
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND (target=%s OR pl_id LIKE %s)
+                """, (bu, target, ws.isoformat(), we.isoformat(), target, target + '%'))
+
+            # 2. Update ALL existing consolidate sentinel rows for this target+week.
+            cur.execute(f"""
+                UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                SET bu=%s, updated_at=CURRENT_TIMESTAMP
+                WHERE week_start=%s AND week_end=%s
+                  AND target=%s
+            """, (bu, ws.isoformat(), we.isoformat(), target))
+
+            # 3. If no rows existed yet, insert a target-level placeholder
+            #    so the BU is persisted even before consolidate runs
+            if cur.rowcount == 0:
+                cur.execute(f"""
+                    INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                        (week_start, week_end, target, pl_id, build_name,
+                         build_type, bu, updated_by)
+                    VALUES (%s,%s,%s,'','__bu_placeholder__{target}',
+                            'CRM',%s,%s)
+                    ON DUPLICATE KEY UPDATE
+                        bu=VALUES(bu),
+                        updated_at=CURRENT_TIMESTAMP
+                """, (ws.isoformat(), we.isoformat(), target,
+                       bu, _current_user_identifier()))
+            conn.commit()
+        finally:
+            cur.close(); conn.close()
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+
+
+@weekly_summary_bp.route('/api/sp2/save_target', methods=['POST'])
+@login_required
+def api_sp2_save_target():
+    """Save everything for a target in one shot:
+       - BU (target-level)
+       - hours / crashes / build_type for every build row under the target
+    Replaces the separate save_bu + per-PL save_pl_rows flow.
+    """
+    data   = request.get_json(force=True, silent=True) or {}
+    ws     = _safe_date(data.get('week_start'))
+    we     = _safe_date(data.get('week_end'))
+    target = str(data.get('target') or '').strip()
+    bu     = str(data.get('bu')     or '').strip()
+    rows   = data.get('rows') or []   # all build rows across all PLs for this target
+
+    if not ws or not we or not target:
+        return jsonify(success=False, error='Missing required fields'), 400
+
+    try:
+        _ensure_sp2_build_consolidate_table()
+        _ensure_sp2_override_snapshot_columns()
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify(success=False, error='DB unavailable'), 500
+        cur = conn.cursor()
+        saved_rows = 0
+        try:
+            user = _current_user_identifier()
+
+            # - 1. Update BU on every override row for this target -
+            if bu:
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET bu=%s, target=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND (target=%s OR pl_id LIKE %s)
+                """, (bu, target,
+                      ws.isoformat(), we.isoformat(),
+                      target, target + '%'))
+
+                # Also stamp consolidate rows
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                    SET bu=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s AND target=%s
+                """, (bu, ws.isoformat(), we.isoformat(), target))
+
+                if cur.rowcount == 0:
+                    # No consolidate rows yet - insert placeholder so BU persists
+                    cur.execute(f"""
+                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}`
+                            (week_start, week_end, target, pl_id, build_name,
+                             build_type, bu, updated_by)
+                        VALUES (%s,%s,%s,'','__bu_placeholder__',
+                                'CRM',%s,%s)
+                        ON DUPLICATE KEY UPDATE
+                            bu=VALUES(bu), updated_at=CURRENT_TIMESTAMP
+                    """, (ws.isoformat(), we.isoformat(), target, bu, user))
+
+            # - 2. Update each build row (hours / crashes / build_type) -
+            for row in rows:
+                build_name = str(row.get('build_name') or '').strip()
+                pl_id      = str(row.get('pl_id')      or '').strip()
+                build_type = str(row.get('build_type') or 'CRM').strip()
+                hours      = float(row.get('hours')    or 0)
+                crashes    = int(row.get('crashes')    or 0)
+                if build_type not in ('CRM', 'Eng'):
+                    build_type = 'CRM'
+                if not build_name:
+                    continue
+
+                cur.execute(f"""
+                    UPDATE `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                    SET target=%s, bu=%s, build_type=%s,
+                        hours=%s, total_crashes=%s,
+                        updated_by=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE week_start=%s AND week_end=%s
+                      AND build_name=%s AND pl_id=%s
+                """, (target, bu or None, build_type,
+                      hours, crashes, user,
+                      ws.isoformat(), we.isoformat(),
+                      build_name, pl_id))
+
+                if cur.rowcount == 0:
+                    cur.execute(f"""
+                        INSERT INTO `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
+                            (week_start, week_end, target, pl_id, build_name,
+                             build_type, hours, total_crashes, bu, updated_by)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON DUPLICATE KEY UPDATE
+                            target=VALUES(target),
+                            bu=VALUES(bu),
+                            build_type=VALUES(build_type),
+                            hours=VALUES(hours),
+                            total_crashes=VALUES(total_crashes),
+                            updated_by=VALUES(updated_by),
+                            updated_at=CURRENT_TIMESTAMP
+                    """, (ws.isoformat(), we.isoformat(),
+                          target, pl_id, build_name,
+                          build_type, hours, crashes,
+                          bu or None, user))
+                saved_rows += 1
+
+            conn.commit()
+        finally:
+            cur.close(); conn.close()
+
+        # Rebuild consolidate snapshot after save
+        try:
+            _build_and_save_sp2_consolidate(ws, we, _current_user_identifier())
+        except Exception:
+            pass
+
+        return jsonify(success=True, saved=saved_rows)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+
+@weekly_summary_bp.route('/api/sp2/unique_devices')
+@login_required
+def api_sp2_unique_devices():
+    """Return unique device (chip_id) list per target+PL from Axiom for the week.
+
+    Groups chip_ids by target -> pl_id, computes per-device hours split
+    proportionally across builds that used that chip.
+    """
+    ws_arg = request.args.get('week_start', '').strip()
+    we_arg = request.args.get('week_end', '').strip()
+    ws = _safe_date(ws_arg)
+    we = _safe_date(we_arg)
+    if not ws or not we:
+        ws, we = _selected_week_from_request()
+
+    payload, _src = _load_swpdt_json_payload()
+    raw_builds = _flatten_swpdt_build_entries(payload)
+
+    from collections import defaultdict
+    target_pl_chip_hours = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
+    for b in raw_builds:
+        sub_dt = _axiom_date_from_value(b.get('submitted'))
+        if not sub_dt or not (ws <= sub_dt <= we):
+            continue
+        pl_id = str(b.get('software_product') or '').strip()
+        target = _swpdt_target_from_product(pl_id) or pl_id
+        chip_ids = b.get('chip_ids') or []
+        hours = float(b.get('hours') or 0)
+        per_chip = (hours / len(chip_ids)) if chip_ids else 0
+        for chip in chip_ids:
+            chip = str(chip).strip()
+            if chip:
+                target_pl_chip_hours[target][pl_id][chip] += per_chip
+
+    by_target = []
+    total_devices = 0
+    for target in sorted(target_pl_chip_hours.keys()):
+        pl_map = target_pl_chip_hours[target]
+        all_target_chips = defaultdict(float)
+        for pl_id, chip_hours in pl_map.items():
+            for chip, hrs in chip_hours.items():
+                all_target_chips[chip] += hrs
+        total_devices += len(all_target_chips)
+        max_hours = max(all_target_chips.values()) if all_target_chips else 1
+
+        pl_entries = []
+        for pl_id in sorted(pl_map.keys()):
+            chip_hours = pl_map[pl_id]
+            devices = [
+                {'chip_id': chip, 'hours': round(hrs, 2),
+                 'pl_id': pl_id, 'software_product': pl_id}
+                for chip, hrs in sorted(chip_hours.items(), key=lambda x: -x[1])
+            ]
+            pl_entries.append({'pl_id': pl_id, 'devices': devices,
+                               'total_hours': round(sum(chip_hours.values()), 2)})
+
+        flat_devices = [
+            {'chip_id': chip, 'hours': round(hrs, 2),
+             'pl_id': ', '.join(
+                 p for p in sorted(pl_map.keys()) if chip in pl_map[p]
+             )}
+            for chip, hrs in sorted(all_target_chips.items(), key=lambda x: -x[1])
+        ]
+
+        by_target.append({
+            'target':      target,
+            'total_chips': len(all_target_chips),
+            'total_hours': round(sum(all_target_chips.values()), 2),
+            'max_hours':   round(max_hours, 2),
+            'pl_entries':  pl_entries,
+            'devices':     flat_devices,
+        })
+
+    return jsonify(
+        success=True,
+        by_target=by_target,
+        total_devices=total_devices,
+        week_start=ws.isoformat(),
+        week_end=we.isoformat(),
     )

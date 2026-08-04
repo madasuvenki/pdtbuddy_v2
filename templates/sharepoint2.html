@@ -215,11 +215,16 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
     <div class="mini-toolbar" style="margin-left:auto">
             <span id="sp2Spinner" style="display:none;color:#a5b4fc"><i class="fas fa-circle-notch spin"></i> Loading...</span>
       <button class="btn btn-primary" onclick="sp2Load(true)"><i class="fas fa-rotate"></i> Refresh</button>
-      {% if is_sp2_admin %}
+            {% if is_sp2_admin %}
       <button class="btn" id="sp2AdminForceRefreshBtn" onclick="sp2AdminForceRefreshWeek()"
               style="background:linear-gradient(135deg,#b91c1c,#f97316);color:#fff;border-color:transparent"
               title="Admin only: delete this week's Smart Build cached DB rows and rebuild from axiom_job_summary">
         <i class="fas fa-bolt"></i> Admin Force Refresh Week
+      </button>
+      <button class="btn" id="sp2ReimportCsvBtn" onclick="sp2ReimportCsv()"
+              style="background:linear-gradient(135deg,#065f46,#059669);color:#fff;border-color:transparent"
+              title="Admin only: re-read the weekly CSV file from share, reload all crash data into DB, then rebuild snapshot">
+        <i class="fas fa-file-csv"></i> Re-import CSV
       </button>
       {% endif %}
     </div>
@@ -640,6 +645,48 @@ window.sp2AdminForceRefreshWeek=function(){
   }).finally(function(){
     spinner(false);
     if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-bolt"></i> Admin Force Refresh Week';}
+  });
+};
+
+window.sp2ReimportCsv=function(){
+  var btn=g('sp2ReimportCsvBtn');
+  var w=getWeek();
+  if(!confirm(
+    'Re-import CSV for '+w.ws+' \u2192 '+w.we+'?\n\n'+
+    'This will:\n'+
+    '  1. Reset any stuck import lock\n'+
+    '  2. Re-read the full CSV from the share (may take 30-60s)\n'+
+    '  3. Replace ALL crash data in DB for this week\n'+
+    '  4. Rebuild the Smart Build snapshot\n\n'+
+    'Use this when crash counts look wrong or incomplete.'
+  )) return;
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Re-importing CSV...';}
+  spinner(true);
+  var statusEl=g('sp2Spinner');
+  if(statusEl){statusEl.style.display='';statusEl.innerHTML='<i class="fas fa-circle-notch spin"></i> Reading CSV from share...';}
+  fetch('/api/sp2/reimport_csv',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    cache:'no-store',
+    body:JSON.stringify({week_start:w.ws,week_end:w.we})
+  }).then(function(r){return r.json().then(function(d){d._status=r.status;return d;});}).then(function(d){
+    if(!d.success){throw new Error(d.message||'Re-import failed');}
+    alert(
+      '\u2705 CSV re-import complete!\n\n'+
+      'File: '+d.csv_file+'\n'+
+      'Rows imported: '+(d.csv_rows_inserted||0).toLocaleString()+'\n'+
+      'Rows deleted (old): '+(d.csv_rows_deleted||0).toLocaleString()+'\n'+
+      'Build rows rebuilt: '+(d.build_rows||0)
+    );
+    _consLoaded=false;_devLoaded=false;_udLoaded=false;
+    sp2Load(false);
+    sp2LoadConsolidate(false);
+  }).catch(function(e){
+    alert('\u274c Re-import failed: '+String(e));
+  }).finally(function(){
+    spinner(false);
+    if(statusEl){statusEl.style.display='none';statusEl.innerHTML='<i class="fas fa-circle-notch spin"></i> Loading...';}
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-file-csv"></i> Re-import CSV';}
   });
 };
 
