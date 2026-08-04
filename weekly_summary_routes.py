@@ -9446,3 +9446,28 @@ def api_monthly_report_wbc_detail():
         'cr_tables':        cr_tables,
     })
 
+# ---------------------------------------------------------------------------
+# Compatibility alias: sharepoint2_page was renamed but templates still
+# reference 'weekly_summary_bp.sharepoint2_page'
+# ---------------------------------------------------------------------------
+@weekly_summary_bp.route('/weekly-report/smart-build-report')
+@login_required
+def sharepoint2_page():
+    """Smart Build Report page - fully auto-populated from Axiom DB."""
+    sel_start, sel_end = _selected_week_from_request()
+    week_ranges = _week_ranges_for_templates()
+    try:
+        from dashboard_routes import _build_bu_shell_context
+        shell_ctx = _build_bu_shell_context('WEEKLY_QIPL_REPORTS')
+    except Exception:
+        shell_ctx = {'active_bu_key': 'WEEKLY_QIPL_REPORTS', 'bu_list': [],
+                     'BU_ICONS': {}, 'shell_title': 'Smart Build Report'}
+    shell_ctx['shell_title'] = 'Smart Build Report'
+    return render_template(
+        'sharepoint2.html',
+        sel_start=sel_start,
+        sel_end=sel_end,
+        week_ranges=week_ranges,
+        is_sp2_admin=_is_sp2_admin_user(),
+        **shell_ctx,
+    )
