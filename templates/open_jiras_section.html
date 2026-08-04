@@ -1080,29 +1080,118 @@
   }
 
   window.ojDownloadExcel = function(areaFilter){
-    var rows = areaFilter === 'ALL' ? allRows : areaFilter === 'FILTERED' ? filtered
-             : allRows.filter(function(r){ return r.area === areaFilter; });
-    if(!rows.length){ alert('No data to download.'); return; }
     _loadSheetJS(function(){
-      var headers = ['S.No','JIRA Ticket','Jira Date','Area','CR / Current Ticket','Test Team','Jira Title','Crash Type','Category','Status','Reporter'];
-      var data = [headers];
-      rows.forEach(function(r, i){
-        var c = function(v){ return String(v==null?'':v); };
-        data.push([i+1, c(r.stability_ticket), c(r.jira_date), c(r.area), c(r.cr_current_ticket),
-                   c(r.test_team), c(r.jira_title), r._ct==='nonsystem'?'Non-System':'System',
-                   c(r.jira_category), c(r.status), c(r.jira_reporter)]);
-      });
-      var ws = XLSX.utils.aoa_to_sheet(data);
-      ws['!cols'] = [8,20,14,12,22,22,60,14,16,12,20].map(function(w){ return {wch:w}; });
-      var range = XLSX.utils.decode_range(ws['!ref']);
-      for(var c = range.s.c; c <= range.e.c; c++){
-        var cell = ws[XLSX.utils.encode_cell({r:0, c:c})];
-        if(cell) cell.s = {font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center'}};
-      }
-      var wb = XLSX.utils.book_new();
+      var cv = function(v){ return String(v==null?'':v); };
       var label = areaFilter === 'ALL' ? 'All' : areaFilter === 'FILTERED' ? 'Filtered' : areaFilter;
-      XLSX.utils.book_append_sheet(wb, ws, label.substring(0,31));
-      XLSX.writeFile(wb, TARGET.toUpperCase() + '_OpenJIRAs_' + label + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+      var wb = XLSX.utils.book_new();
+      var today = new Date().toISOString().slice(0,10);
+
+      // Helper: set hyperlink on a cell (col index, row index, url, display text)
+      function setLink(ws, r, c, url, text){
+        var addr = XLSX.utils.encode_cell({r:r, c:c});
+        ws[addr] = { t:'s', v: text,
+          l:{ Target: url, Tooltip: url },
+          s:{ font:{color:{rgb:'1D4ED8'}, underline:true}, alignment:{wrapText:true} }
+        };
+      }
+      // Helper: style header row
+      function styleHeaders(ws, ncols){
+        for(var col=0; col<ncols; col++){
+          var cell = ws[XLSX.utils.encode_cell({r:0, c:col})];
+          if(cell) cell.s = {font:{bold:true,color:{rgb:'FFFFFF'}},
+            fill:{fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center',wrapText:true}};
+        }
+      }
+
+      if(currentView === 'pivot'){
+        // ---- PIVOT view download ----
+        var pivotSrc = areaFilter === 'ALL' ? pivotRows : pivotFiltered;
+        if(!pivotSrc || !pivotSrc.length){ alert('No pivot data to download.'); return; }
+
+        // Columns: #, CR/Ticket, Occurrence, JIRA Tickets, Latest JIRA Date, Area, Test Team, Title
+        var headers = ['#','CR / Current Ticket','Occurrence','JIRA Tickets','Latest JIRA Date','Area','Test Team','Title (Latest JIRA)'];
+        var data = [headers];
+        pivotSrc.forEach(function(p, i){
+          var keys = (p.jiras||[]).map(function(j){ return cv(j.stability_ticket); }).filter(Boolean);
+          data.push([
+            i+1,
+            cv(p.cr) || '(No CR)',
+            keys.length,
+            keys.join(', '),          // plain text placeholder - hyperlink set below
+            cv(p.latestDate).slice(0,10),
+            cv(p.area),
+            cv(p.team),
+            cv(p.latestTitle)
+          ]);
+        });
+        var ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [6,28,14,55,14,14,20,60].map(function(w){ return {wch:w}; });
+        styleHeaders(ws, headers.length);
+
+        // Add hyperlinks on data rows
+        pivotSrc.forEach(function(p, i){
+          var rowIdx = i + 1;  // 0=header
+          var keys = (p.jiras||[]).map(function(j){ return cv(j.stability_ticket); }).filter(Boolean);
+
+          // Col 1 (B): CR hyperlink
+          if(p.cr){
+            setLink(ws, rowIdx, 1, JIRA_BASE + encodeURIComponent(p.cr), p.cr);
+          }
+
+          // Col 2 (C): Occurrence - link to JIRA search for all tickets in this group
+          if(keys.length){
+            var searchUrl = keys.length === 1
+              ? JIRA_BASE + encodeURIComponent(keys[0])
+              : 'https://jira.qualcomm.com/jira/issues/?jql=key+in+(' + keys.map(encodeURIComponent).join('%2C') + ')';
+            setLink(ws, rowIdx, 2, searchUrl, String(keys.length));
+          }
+
+          // Col 3 (D): JIRA Tickets - each ticket as comma list, link to multi-search
+          if(keys.length){
+            var multiUrl = keys.length === 1
+              ? JIRA_BASE + encodeURIComponent(keys[0])
+              : 'https://jira.qualcomm.com/jira/issues/?jql=key+in+(' + keys.map(encodeURIComponent).join('%2C') + ')';
+            setLink(ws, rowIdx, 3, multiUrl, keys.join(', '));
+          }
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws, ('Pivot_'+label).substring(0,31));
+        XLSX.writeFile(wb, TARGET.toUpperCase()+'_OpenJIRAs_Pivot_'+label+'_'+today+'.xlsx');
+
+      } else {
+        // ---- FLAT view download ----
+        var rows = areaFilter === 'ALL' ? allRows : areaFilter === 'FILTERED' ? filtered
+                 : allRows.filter(function(r){ return r.area === areaFilter; });
+        if(!rows.length){ alert('No data to download.'); return; }
+
+        var headers = ['S.No','JIRA Ticket','Jira Date','Area','CR / Current Ticket','Test Team','Jira Title','Crash Type','Category','Status','Reporter'];
+        var data = [headers];
+        rows.forEach(function(r, i){
+          data.push([i+1, cv(r.stability_ticket), cv(r.jira_date), cv(r.area),
+                     cv(r.cr_current_ticket), cv(r.test_team), cv(r.jira_title),
+                     r._ct==='nonsystem'?'Non-System':'System',
+                     cv(r.jira_category), cv(r.status), cv(r.jira_reporter)]);
+        });
+        var ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [8,20,14,12,22,22,60,14,16,12,20].map(function(w){ return {wch:w}; });
+        styleHeaders(ws, headers.length);
+
+        // Add hyperlinks on data rows
+        rows.forEach(function(r, i){
+          var rowIdx = i + 1;
+          // Col 1 (B): JIRA Ticket hyperlink
+          if(r.stability_ticket){
+            setLink(ws, rowIdx, 1, JIRA_BASE + encodeURIComponent(cv(r.stability_ticket)), cv(r.stability_ticket));
+          }
+          // Col 4 (E): CR / Current Ticket hyperlink
+          if(r.cr_current_ticket){
+            setLink(ws, rowIdx, 4, JIRA_BASE + encodeURIComponent(cv(r.cr_current_ticket)), cv(r.cr_current_ticket));
+          }
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws, ('Flat_'+label).substring(0,31));
+        XLSX.writeFile(wb, TARGET.toUpperCase()+'_OpenJIRAs_Flat_'+label+'_'+today+'.xlsx');
+      }
     });
   };
 
