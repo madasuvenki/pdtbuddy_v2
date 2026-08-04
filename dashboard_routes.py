@@ -339,6 +339,15 @@ def _mtbf_json_headers(is_compute=False):
 def _mtbf_json_dir(target_name, view_name=None):
     # MTBF is JSON-backed. Compute keeps the historical shared GLYMUR folder for
     # Glymur/Mahua compatibility; all other targets get target-specific JSON.
+    # AUTO / Gen4.5: always use managed_excel\AUTO\Automotive\Gen4.5
+    try:
+        from automotive_live_view_stats_routes import _is_auto_gen45_target as _chk45
+        if _chk45(target_name):
+            _p = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', 'AUTO', 'Automotive', 'Gen4.5')
+            os.makedirs(_p, exist_ok=True)
+            return _p
+    except Exception:
+        pass
     try:
         from dashboard_common import get_bu_for_target
         bu_key = (get_bu_for_target(target_name) or '').upper()

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, date, timedelta
@@ -99,7 +99,7 @@ _AUTO_CANONICAL_TARGET = "auto_gen4.5"
 
 def _canonical_target(target_name: str) -> str:
     target = str(target_name or "").strip()
-    if target.lower() in {"auto", "auto_gen4.5", "auto_gen45", "automotive_4.8.9.0", "4.8.9.0", "4.8.0.9"}:
+    if target.lower() in {"auto", "auto_gen4.5", "auto_gen45", "automotive", "automotive_4.8.9.0", "4.8.9.0", "4.8.0.9"}:
         return _AUTO_CANONICAL_TARGET
     return target
 
