@@ -2231,7 +2231,7 @@ function brExcelPayloadRows(){
   const crRows=(window._brCrRows||[]).map(r=>{
     const items=brJiraItemsForCr(r);
     const jiraKeys=items.map(x=>x.key).filter(Boolean);
-    return {cr:r.cr||'',occurrence:Number(r.count||jiraKeys.length||0),priority:r.priority||'',crash_type:crashTypeSummary(items,r),title:r.title||'',area:r.area||'',sub:r.sub||'',func:r.func||'',date:brDateOnly(r.date),ready_date:brDateOnly(r.ready_date)||'None',built_date:brDateOnly(r.built_date),age:brDisplayCrAge(r),si:r.si&&r.si!=='NoSIR'?r.si:'',status:r.status||'',is_dup:!!(r.is_dup),parent_cr:r.parent_cr||'',cr_assignee:r.cr_assignee||'',jira_keys:jiraKeys};
+    return {cr:r.cr||'',occurrence:Number(r.count||jiraKeys.length||0),priority:r.priority||'',crash_type:crashTypeSummary(items,r),title:r.title||'',area:r.area||'',sub:r.sub||'',func:r.func||'',date:brDateOnly(r.date),ready_date:brDateOnly(r.ready_date)||'None',built_date:brDateOnly(r.built_date),age:brDisplayCrAge(r),si:r.si&&r.si!=='NoSIR'?r.si:'',status:r.status||'',is_dup:!!(r.is_dup),parent_cr:r.parent_cr||'',cr_assignee:r.cr_assignee||'',cr_notes:r.cr_notes||'',jira_keys:jiraKeys};
   });
 
   // ── Mapped Tickets sheet ──────────────────────────────────────────────────
