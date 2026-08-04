@@ -89,16 +89,129 @@ def _json_path() -> str:
     return os.path.abspath(os.path.expanduser(_AUTO_JSON_PATH))
 
 
+_GEN45_DIR = os.path.join(
+    _DATA_ROOT, "managed_excel", "AUTO", "Automotive", "Gen4.5"
+)
+_VALID_PLATFORMS = {"HQX", "HGY"}
+
+
+def _platform_dir(platform: str) -> str:
+    """Return Gen4.5/HQX or Gen4.5/HGY folder."""
+    p = str(platform or "HQX").upper().strip()
+    if p not in _VALID_PLATFORMS:
+        p = "HQX"
+    return os.path.join(_GEN45_DIR, p)
+
+
+def _platform_index_path(platform: str) -> str:
+    return os.path.join(_platform_dir(platform), "_index.json")
+
+
+def _platform_audit_path(platform: str) -> str:
+    return os.path.join(_platform_dir(platform), "_audit_log.json")
+
+
+def _platform_sp_file_path(platform: str, program_key: str, slug: str = "") -> str:
+    return os.path.join(_platform_dir(platform),
+                        f"{slug or _sp_file_slug(program_key)}.json")
+
+
+# Keep old names as HQX aliases so existing HQX code is unchanged
+def _platform_read_index(platform: str) -> List[Dict[str, Any]]:
+    path = _platform_index_path(platform)
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    return []
+
+
+def _platform_write_index(platform: str, index: List[Dict[str, Any]]) -> None:
+    os.makedirs(_platform_dir(platform), exist_ok=True)
+    _atomic_write_json(_platform_index_path(platform), index)
+
+
+def _platform_find_entry(index: List[Dict[str, Any]], sp: str) -> Optional[Dict[str, Any]]:
+    return _find_sp_index_entry(index, sp)
+
+
+def _platform_read_sp_rows(platform: str, entry: Dict[str, Any]) -> List[Dict[str, Any]]:
+    path = _platform_sp_file_path(
+        platform, entry.get("program") or "",
+        str(entry.get("file") or "").replace(".json", ""))
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        rows = data.get("rows") if isinstance(data, dict) else data
+        return rows if isinstance(rows, list) else []
+    except Exception:
+        return []
+
+
+def _platform_write_sp_rows(platform: str, entry: Dict[str, Any],
+                              rows: List[Dict[str, Any]]) -> None:
+    os.makedirs(_platform_dir(platform), exist_ok=True)
+    path = _platform_sp_file_path(
+        platform, entry.get("program") or "",
+        str(entry.get("file") or "").replace(".json", ""))
+    _atomic_write_json(path, {
+        "sp"        : entry.get("sp"),
+        "program"   : entry.get("program"),
+        "domain"    : entry.get("domain") or "",
+        "platform"  : platform.upper(),
+        "rows"      : rows,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    })
+    index = _platform_read_index(platform)
+    for item in index:
+        if (item.get("sp") == entry.get("sp") and
+                item.get("program") == entry.get("program")):
+            item["row_count"] = len(rows)
+            break
+    _platform_write_index(platform, index)
+
+
+def _platform_write_audit(platform: str, action: str, sp: str,
+                           program: str, actor: str, extra: dict = None) -> None:
+    try:
+        path = _platform_audit_path(platform)
+        log: list = []
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    log = json.load(fh)
+                if not isinstance(log, list):
+                    log = []
+            except Exception:
+                log = []
+        rec = {"action": action, "sp": sp, "program": program,
+               "actor": actor, "platform": platform.upper(),
+               "timestamp": datetime.utcnow().isoformat() + "Z"}
+        if extra:
+            rec.update(extra)
+        log.append(rec)
+        _atomic_write_json(path, log)
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"[auto_gen45] audit write failed: {e}")
+
+
 def _by_sp_dir() -> str:
-    return os.path.join(os.path.dirname(_json_path()), "by_sp")
+    return _platform_dir("HQX")
 
 
 def _sp_index_path() -> str:
-    return os.path.join(_by_sp_dir(), "_index.json")
+    return _platform_index_path("HQX")
 
 
 def _audit_log_path() -> str:
-    return os.path.join(_by_sp_dir(), "_audit_log.json")
+    return _platform_audit_path("HQX")
 
 
 def _write_audit(action: str, sp: str, program: str, actor: str, extra: dict = None) -> None:
@@ -140,7 +253,7 @@ def _sp_file_slug(program_key: str) -> str:
 
 
 def _sp_file_path(program_key: str, slug: str = "") -> str:
-    return os.path.join(_by_sp_dir(), f"{slug or _sp_file_slug(program_key)}.json")
+    return _platform_sp_file_path("HQX", program_key, slug)
 
 
 def _atomic_write_json(path: str, payload: Any) -> None:
@@ -461,16 +574,11 @@ def public_auto_gen45_docs():
     except Exception as exc:
         available = []
         load_error = str(exc)
-    try:
-        available_hgy = _hgy_read_index()
-    except Exception:
-        available_hgy = []
-
     return render_template(
         "public_auto_gen45_api.html",
         base=base,
         available=available,
-        available_hgy=available_hgy,
+        available_hgy=_platform_read_index('HGY'),
         load_error=load_error,
     )
 
@@ -697,167 +805,20 @@ def api_public_auto_gen45_search():
 
 
 # =============================================================================
-# HGY — completely separate JSON storage under by_sp/hgy/
-# All existing HQX endpoints above are untouched.
-# External tools that use /public/auto-gen45/api/sp/<sp> are unaffected.
+# HGY routes — reads/writes go to Gen4.5/HGY/<slug>.json
 # =============================================================================
-
-_HGY_SEED_ROWS_BY_SP: Dict[str, List[Dict[str, Any]]] = {
-    "8255": [
-        {"excel_row": 2, "sno": 1, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00009-STD.INT-3", "meta_id": "Meta -9", "hours": 36, "mtbf": 36, "crashes": 1},
-        {"excel_row": 3, "sno": 2, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00012-STD.INT-1", "meta_id": "Meta -10", "hours": 135, "mtbf": 27, "crashes": 5},
-        {"excel_row": 4, "sno": 3, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00013-STD.INT-2", "meta_id": "Meta -13", "hours": 266, "mtbf": 13, "crashes": 20},
-        {"excel_row": 5, "sno": 4, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00014-STD.INT-2", "meta_id": "Meta -14", "hours": 260, "mtbf": 5, "crashes": 53},
-        {"excel_row": 6, "sno": 5, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00015-STD.INT-2", "meta_id": "Meta -15", "hours": 250, "mtbf": 3.8, "crashes": 65},
-        {"excel_row": 7, "sno": 6, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00016-STD.INT-2", "meta_id": "Meta -16", "hours": 130, "mtbf": 8.6, "crashes": 15},
-        {"excel_row": 8, "sno": 7, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00018-STD.INT-2", "meta_id": "Meta -18", "hours": 270, "mtbf": 22.5, "crashes": 12},
-        {"excel_row": 9, "sno": 8, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00019-STD.INT-2", "meta_id": "Meta -19", "hours": 160, "mtbf": 32, "crashes": 5},
-        {"excel_row": 10, "sno": 9, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00020-STD.INT-2", "meta_id": "Meta -20", "hours": 210, "mtbf": 7.8, "crashes": 27},
-        {"excel_row": 11, "sno": 10, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00021-STD.INT-1", "meta_id": "Meta -21", "hours": 230, "mtbf": 38.3, "crashes": 6},
-        {"excel_row": 12, "sno": 11, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00022-STD.INT-1", "meta_id": "Meta -22", "hours": 110, "mtbf": 18.3, "crashes": 12},
-        {"excel_row": 13, "sno": 12, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00023-STD.INT-1", "meta_id": "Meta -23", "hours": 330, "mtbf": 4.3, "crashes": 7},
-        {"excel_row": 14, "sno": 13, "target": "SA8255 HGY", "build_s": "Snapdragon_Auto.HGY.4.1.8.0.r2-00025-STD.INT-1", "meta_id": "Meta -25", "hours": 240, "mtbf": 48, "crashes": 5},
-    ]
-}
-
-
-def _hgy_seed_rows(sp: str) -> List[Dict[str, Any]]:
-    key = str(sp or "").strip()
-    return [dict(row) for row in _HGY_SEED_ROWS_BY_SP.get(key, [])]
-
-
-def _hgy_dir() -> str:
-    """Root dir for HGY per-SP JSON files: <Gen4.5 dir>/by_sp/hgy/"""
-    return os.path.join(_by_sp_dir(), "hgy")
-
-
-def _hgy_index_path() -> str:
-    return os.path.join(_hgy_dir(), "_index.json")
-
-
-def _hgy_sp_file_path(sp: str) -> str:
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(sp or "").strip()).strip("_") or "sp"
-    return os.path.join(_hgy_dir(), f"{slug}.json")
-
-
-def _hgy_read_index() -> List[Dict[str, Any]]:
-    index: List[Dict[str, Any]] = []
-    if os.path.exists(_hgy_index_path()):
-        try:
-            with open(_hgy_index_path(), "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            index = data if isinstance(data, list) else []
-        except Exception:
-            index = []
-    seen = {str(e.get("sp") or "").strip() for e in index}
-    for sp, rows in _HGY_SEED_ROWS_BY_SP.items():
-        if sp not in seen:
-            index.append({"sp": sp, "program": f"SP {sp} HGY", "platform": "HGY", "row_count": len(rows), "seeded": True})
-    return index
-
-
-def _hgy_write_index(index: List[Dict[str, Any]]) -> None:
-    os.makedirs(_hgy_dir(), exist_ok=True)
-    _atomic_write_json(_hgy_index_path(), index)
-
-
-def _hgy_find_entry(index: List[Dict[str, Any]], sp: str) -> Optional[Dict[str, Any]]:
-    q = str(sp or "").strip().lower()
-    if not q:
-        return None
-    for e in index:
-        if str(e.get("sp") or "").lower() == q:
-            return e
-    return None
-
-
-def _hgy_read_sp_rows(sp: str) -> List[Dict[str, Any]]:
-    path = _hgy_sp_file_path(sp)
-    if not os.path.exists(path):
-        return _hgy_seed_rows(sp)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        rows = data.get("rows") if isinstance(data, dict) else data
-        return rows if isinstance(rows, list) else _hgy_seed_rows(sp)
-    except Exception:
-        return _hgy_seed_rows(sp)
-
-
-def _hgy_write_sp_rows(sp: str, rows: List[Dict[str, Any]], program: str = "") -> None:
-    os.makedirs(_hgy_dir(), exist_ok=True)
-    _atomic_write_json(_hgy_sp_file_path(sp), {
-        "sp": sp,
-        "program": program or sp,
-        "platform": "HGY",
-        "rows": rows,
-        "updated_at": datetime.utcnow().isoformat() + "Z",
-    })
-    # Sync index
-    index = _hgy_read_index()
-    entry = _hgy_find_entry(index, sp)
-    if entry:
-        entry["row_count"] = len(rows)
-    else:
-        index.append({"sp": sp, "program": program or sp, "platform": "HGY", "row_count": len(rows)})
-    _hgy_write_index(index)
-
-
-def _hgy_append_row(sp: str, row: Dict[str, Any], program: str = "") -> Dict[str, Any]:
-    rows = _hgy_read_sp_rows(sp)
-    clean = {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
-
-    def _ints(field: str) -> List[int]:
-        out = []
-        for r in rows:
-            v = str(r.get(field) or "").strip()
-            if v.lstrip("-").isdigit():
-                out.append(int(v))
-        return out
-
-    existing_sno = _ints("sno")
-    existing_excel = _ints("excel_row")
-    next_sno = (max(existing_sno) if existing_sno else len(rows)) + 1
-    next_excel = (max(existing_excel) if existing_excel else next_sno) + 1
-    new_row = {"excel_row": next_excel, "sno": next_sno, **clean}
-    rows.append(new_row)
-    _hgy_write_sp_rows(sp, rows, program)
-    return {
-        "ok": True, "sp": sp, "platform": "HGY",
-        "row": new_row, "row_count": len(rows), "rows": rows,
-        "summary": _program_summary(rows),
-    }
-
-
-def _hgy_replace_rows(sp: str, rows_payload: List[Dict[str, Any]], program: str = "") -> Dict[str, Any]:
-    if not isinstance(rows_payload, list):
-        return {"ok": False, "error": "rows must be a list."}
-    clean = []
-    for item in rows_payload:
-        if not isinstance(item, dict):
-            continue
-        clean.append({k: v for k, v in item.items() if k not in _RESERVED_ROW_KEYS})
-    clean = _renumber_rows(clean)
-    _hgy_write_sp_rows(sp, clean, program)
-    return {
-        "ok": True, "sp": sp, "platform": "HGY",
-        "row_count": len(clean), "rows": clean,
-        "summary": _program_summary(clean),
-    }
-
-
-# --- HGY Public read endpoints (no login required, CORS enabled) -------------
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sps", methods=["GET", "OPTIONS"])
 def api_public_hgy_sps():
-    """List all HGY SPs. Separate from HQX /api/sps — does not affect existing tools."""
+    """List all HGY SPs."""
     if request.method == "OPTIONS":
         return "", 204
     try:
-        index = _hgy_read_index()
-        return jsonify({"ok": True, "platform": "HGY", "count": len(index), "available_sps": index})
+        index = _platform_read_index("HGY")
+        return jsonify({"ok": True, "platform": "HGY",
+                        "count": len(index), "available_sps": index})
     except Exception as exc:
-        return jsonify({"ok": False, "message": str(exc), "available_sps": []}), 500
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>", methods=["GET", "OPTIONS"])
@@ -866,50 +827,208 @@ def api_public_hgy_sp(sp: str):
     if request.method == "OPTIONS":
         return "", 204
     try:
-        rows = _hgy_read_sp_rows(sp)
-        last_n = int(request.args.get("last_n") or 0)
-        if last_n > 0:
+        index = _platform_read_index("HGY")
+        entry = _platform_find_entry(index, sp)
+        if not entry:
+            return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+        rows = _platform_read_sp_rows("HGY", entry)
+        last_n = request.args.get("last_n", 0, type=int)
+        if last_n and last_n > 0:
             rows = rows[-last_n:]
-        safe_rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
-        resp = {
-            "ok": True, "sp": sp, "platform": "HGY",
-            "row_count": len(safe_rows), "rows": safe_rows,
-        }
-        if _bool_arg("summary", True):
-            resp["summary"] = _program_summary(rows)
-        return jsonify(resp)
+        return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
+                        "row_count": len(rows), "rows": rows})
     except Exception as exc:
-        return jsonify({"ok": False, "rows": [], "row_count": 0, "message": str(exc)}), 500
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
-# --- HGY Editor endpoints (login required) -----------------------------------
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/create", methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_create_sp():
+    """Create a new HGY SP. Writes to Gen4.5/HGY/<slug>.json"""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sp_raw  = str(payload.get("sp") or "").strip()
+    program = str(payload.get("program") or "").strip() or sp_raw
+    if not sp_raw:
+        return jsonify({"ok": False, "error": "sp is required"}), 400
+    index = _platform_read_index("HGY")
+    if _platform_find_entry(index, sp_raw):
+        return jsonify({"ok": False, "error": f"SP {sp_raw!r} already exists in HGY"}), 409
+    digits = "".join(re.findall(r"\d+", sp_raw))
+    slug   = _sp_file_slug(program or sp_raw)
+    entry  = {"sp": digits or sp_raw, "program": program, "domain": "",
+              "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
+    _atomic_write_json(_platform_sp_file_path("HGY", program or sp_raw, slug), {
+        "sp": entry["sp"], "program": program, "domain": "",
+        "platform": "HGY", "rows": [],
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    })
+    index.append(entry)
+    _platform_write_index("HGY", index)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _platform_write_audit("HGY", "create", entry["sp"], program, actor)
+    return jsonify({"ok": True, "sp": entry["sp"], "program": program,
+                    "entry": entry, "available_sps": index})
 
-@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/add_build", methods=["POST", "OPTIONS"])
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/add_build",
+                             methods=["POST", "OPTIONS"])
 @login_required
 def api_public_hgy_add_build(sp: str):
-    """Append a new HGY build row. Completely separate from HQX add_build."""
+    """Append a build row to this HGY SP. Writes to Gen4.5/HGY/<slug>.json"""
     if request.method == "OPTIONS":
         return "", 204
     if not _can_edit_auto_gen45():
         return jsonify({"ok": False, "error": "Access denied"}), 403
     payload = request.get_json(force=True, silent=True) or {}
     row = payload.get("row") if isinstance(payload.get("row"), dict) else payload
-    program = str(payload.get("program") or "").strip()
-    result = _hgy_append_row(sp, row, program)
-    return jsonify(result), (200 if result.get("ok") else 400)
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+    rows = _platform_read_sp_rows("HGY", entry)
+    next_sno = max((r.get("sno", 0) or 0 for r in rows), default=0) + 1
+    next_row = max((r.get("excel_row", 1) or 1 for r in rows), default=1) + 1
+    clean = {k: v for k, v in row.items() if k not in ("sno", "excel_row")}
+    clean["sno"]       = next_sno
+    clean["excel_row"] = next_row
+    rows.append(clean)
+    _platform_write_sp_rows("HGY", entry, rows)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _platform_write_audit("HGY", "add_build", entry["sp"], entry.get("program", sp), actor)
+    return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
+                    "row_count": len(rows), "rows": rows})
 
 
-@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/save_table", methods=["POST", "OPTIONS"])
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/save_table",
+                             methods=["POST", "OPTIONS"])
 @login_required
 def api_public_hgy_save_table(sp: str):
-    """Replace the complete HGY SP table."""
+    """Replace the complete HGY SP table. Writes to Gen4.5/HGY/<slug>.json"""
     if request.method == "OPTIONS":
         return "", 204
     if not _can_edit_auto_gen45():
         return jsonify({"ok": False, "error": "Access denied"}), 403
     payload = request.get_json(force=True, silent=True) or {}
-    program = str(payload.get("program") or "").strip()
-    result = _hgy_replace_rows(sp, payload.get("rows"), program)
-    status = 200 if result.get("ok") else 400
-    return jsonify(result), status
+    rows_payload = payload.get("rows")
+    if not isinstance(rows_payload, list):
+        return jsonify({"ok": False, "error": "rows must be a list"}), 400
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+    clean = []
+    for i, r in enumerate(rows_payload, 1):
+        if not isinstance(r, dict):
+            continue
+        row = {k: v for k, v in r.items() if k not in ("sno", "excel_row")}
+        row["sno"]       = i
+        row["excel_row"] = i + 1
+        clean.append(row)
+    _platform_write_sp_rows("HGY", entry, clean)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _platform_write_audit("HGY", "save_table", entry["sp"], entry.get("program", sp), actor)
+    return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
+                    "row_count": len(clean), "rows": clean})
 
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/edit_build",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_edit_build(sp: str):
+    """Edit an existing HGY build row by sno."""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sno = payload.get("sno")
+    row = payload.get("row") if isinstance(payload.get("row"), dict) else payload
+    if sno is None:
+        return jsonify({"ok": False, "error": "sno is required"}), 400
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+    rows = _platform_read_sp_rows("HGY", entry)
+    for i, r in enumerate(rows):
+        if str(r.get("sno")) == str(sno):
+            updated = dict(r)
+            updated.update({k: v for k, v in row.items()
+                            if k not in ("sno", "excel_row")})
+            rows[i] = updated
+            _platform_write_sp_rows("HGY", entry, rows)
+            actor = str(getattr(current_user, "id", "") or "").strip()
+            _platform_write_audit("HGY", "edit_build",
+                                  entry["sp"], entry.get("program", sp), actor)
+            return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
+                            "row_count": len(rows), "rows": rows})
+    return jsonify({"ok": False, "error": f"Row sno={sno} not found"}), 404
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/delete_build",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_delete_build(sp: str):
+    """Delete a HGY build row by sno."""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    sno = payload.get("sno")
+    if sno is None:
+        return jsonify({"ok": False, "error": "sno is required"}), 400
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+    rows = _platform_read_sp_rows("HGY", entry)
+    new_rows = [r for r in rows if str(r.get("sno")) != str(sno)]
+    if len(new_rows) == len(rows):
+        return jsonify({"ok": False, "error": f"Row sno={sno} not found"}), 404
+    for i, r in enumerate(new_rows, 1):
+        r["sno"] = i
+        r["excel_row"] = i + 1
+    _platform_write_sp_rows("HGY", entry, new_rows)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _platform_write_audit("HGY", "delete_build",
+                          entry["sp"], entry.get("program", sp), actor)
+    return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
+                    "row_count": len(new_rows), "rows": new_rows})
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/remove",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_remove_sp(sp: str):
+    """Remove a HGY SP and archive its file to Gen4.5/HGY/_removed/"""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
+    if not entry:
+        return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
+    actor   = str(getattr(current_user, "id", "") or "").strip()
+    sp_val  = entry.get("sp", sp)
+    program = entry.get("program", sp_val)
+    sp_file = _platform_sp_file_path(
+        "HGY", program, str(entry.get("file") or "").replace(".json", ""))
+    if os.path.exists(sp_file):
+        removed_dir = os.path.join(_platform_dir("HGY"), "_removed")
+        os.makedirs(removed_dir, exist_ok=True)
+        ts   = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        base = os.path.basename(sp_file).replace(".json", "")
+        import shutil
+        shutil.move(sp_file, os.path.join(removed_dir, f"{base}-{ts}_by_{actor}.json"))
+    new_index = [e for e in index if e is not entry]
+    _platform_write_index("HGY", new_index)
+    _platform_write_audit("HGY", "remove", sp_val, program, actor,
+                          {"row_count": entry.get("row_count", 0)})
+    return jsonify({"ok": True, "sp": sp_val, "program": program,
+                    "removed_by": actor, "available_sps": new_index})
