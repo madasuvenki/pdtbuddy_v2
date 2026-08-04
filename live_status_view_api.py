@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import json
 import os
 import re
@@ -302,6 +302,39 @@ def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]
                 return data
         except Exception:
             pass
+    # Base file missing and no SP given: fall back to the latest SP file for
+    # this domain so /api/domain/<domain> always returns data when only
+    # SP-suffixed files exist (e.g. mtbf_adas_5770.json, mtbf_adas_5170.json).
+    if not _sp_key(sp):
+        folder = _adas_mtbf_folder(target_name)
+        view_clean = str(view or "ADAS").strip().upper()
+        pat = re.compile(
+            r"^mtbf_" + re.escape(view_clean.lower()) + r"_(\d{4,8})\.json$",
+            re.IGNORECASE,
+        )
+        candidates = []
+        try:
+            for fname in os.listdir(folder):
+                m = pat.match(fname)
+                if m:
+                    candidates.append((m.group(1), os.path.join(folder, fname)))
+        except Exception:
+            pass
+        if candidates:
+            # Pick the file with the highest SP key (most recent SP)
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            fallback_path = candidates[0][1]
+            try:
+                with open(fallback_path, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                if isinstance(data, dict):
+                    data.setdefault("target", target_name)
+                    data.setdefault("view", view)
+                    data["rows"] = _normalise_adas_mtbf_rows(data.get("rows") or [])
+                    data["_fallback_sp_key"] = candidates[0][0]
+                    return data
+            except Exception:
+                pass
     return {"target": target_name, "view": view, "headers": list(_ADAS_MTBF_HEADERS), "rows": []}
 
 
