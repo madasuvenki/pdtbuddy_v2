@@ -8254,7 +8254,7 @@ def api_build_report_export_excel():
         match = _re.search(r'(\d{5,9})', str(cr_value or ''))
         return f'https://orbit/CR/{match.group(1)}' if match else ''
 
-    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status']
+    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status', 'CR Notes']
     ws = _safe_sheet('CR_Summary')
     _write_headers(ws, cr_headers)
     for idx, row in enumerate(cr_rows if isinstance(cr_rows, list) else [], start=1):
@@ -8277,12 +8277,18 @@ def api_build_report_export_excel():
             _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
             _br_export_text(row.get('si') or row.get('CR SI')),
             _br_export_text(row.get('status') or row.get('CR Status')),
+            _br_export_text(row.get('cr_notes') or row.get('CR Notes') or ''),
         ]
         ws.append(values)
         excel_row = ws.max_row
         _set_link(ws.cell(excel_row, 2), _cr_url(values[1]))
         _set_link(ws.cell(excel_row, 3), _br_export_jira_issues_url(keys))
     _style_body(ws)
+    # CR Notes column: wider + left-aligned wrap
+    _notes_col = get_column_letter(len(cr_headers))
+    ws.column_dimensions[_notes_col].width = 60
+    for _nc in ws[_notes_col]:
+        _nc.alignment = Alignment(vertical='top', wrap_text=True, horizontal='left')
 
     mapped_headers = ['#', 'JIRA-Ticket', 'Occurrence', 'Jira Title', 'Jira Date', 'Status', 'JIRA Tickets (Source)']
     ws = _safe_sheet('Mapped_Tickets')
