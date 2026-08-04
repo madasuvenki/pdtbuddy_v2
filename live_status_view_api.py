@@ -321,8 +321,8 @@ def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]
         except Exception:
             pass
         if candidates:
-            # Pick the file with the highest SP key (most recent SP)
-            candidates.sort(key=lambda x: x[0], reverse=True)
+            # Pick the file with the lowest SP key (base/first SP = correct fallback)
+            candidates.sort(key=lambda x: x[0], reverse=False)
             fallback_path = candidates[0][1]
             try:
                 with open(fallback_path, "r", encoding="utf-8") as fh:
