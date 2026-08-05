@@ -861,9 +861,9 @@
       });
       const data = await resp.json();
       if(!data.success) throw new Error(data.message||'Save failed');
-      CR_TAG_ALIAS_GROUPS = data.groups||groups;
-      msg.style.color='#16a34a'; msg.textContent='Saved. Re-applying aliases to loaded CRs...';
+          CR_TAG_ALIAS_GROUPS = data.groups||groups;
       pcrReapplyAliases();
+      msg.style.color='#16a34a'; msg.textContent='Saved. Aliases applied to loaded CRs.';
       setTimeout(()=>{ pcrCloseAliasModal(); }, 700);
     }catch(e){ msg.style.color='#dc2626'; msg.textContent=e.message; }
   };
@@ -1291,27 +1291,25 @@
       setTimeout(()=>pcrShowProgress(false), 3500);
   }
   }
-  // -- Re-apply alias matching to already-fetched CR tags (no Orbit re-fetch needed) --
+    // Re-match already-fetched cr_tags against updated alias groups - no Orbit re-fetch needed
   function pcrReapplyAliases(){
     if(!allRows.length) return;
-    allRows.forEach(r => {
-      const tags = r.cr_tags || [];
+    allRows.forEach(function(r){
+      var tags = r.cr_tags || [];
       if(!tags.length) return;
-      // Match tags against current CR_TAG_ALIAS_GROUPS
-      const tagLut = {};
-      tags.forEach(t => { tagLut[String(t).trim().toLowerCase()] = String(t).trim(); });
-      const matchedGroups = [], matchedAliases = [];
-      (CR_TAG_ALIAS_GROUPS || []).forEach(g => {
-        const name = (g.name || '').trim();
-        const matched = (g.aliases || []).filter(a => tagLut[String(a).trim().toLowerCase()]);
+      var tagLut = {};
+      tags.forEach(function(t){ tagLut[String(t).trim().toLowerCase()] = String(t).trim(); });
+      var matchedGroups = [], matchedAliases = [];
+      (CR_TAG_ALIAS_GROUPS || []).forEach(function(g){
+        var name = (g.name || '').trim();
+        var matched = (g.aliases || []).filter(function(a){ return tagLut[String(a).trim().toLowerCase()]; });
         if(name && matched.length){
           matchedGroups.push(name);
-          matched.forEach(a => matchedAliases.push(tagLut[String(a).trim().toLowerCase()]));
+          matched.forEach(function(a){ matchedAliases.push(tagLut[String(a).trim().toLowerCase()]); });
         }
       });
-      // Deduplicate
-      r.cr_tag       = [...new Set(matchedGroups)].join(', ');
-      r.cr_tag_alias = [...new Set(matchedAliases)].join(', ');
+      r.cr_tag       = matchedGroups.filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+      r.cr_tag_alias = matchedAliases.filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
     });
     buildDdList('crtag', allRows, true);
     pcrApply();
@@ -1667,4 +1665,237 @@
 
   window.pcrRefetchTags = function(){
     const area = document.getElementById('pcrTagExistingArea');
-    area.innerHTML = '<span style="font-size:11px;color
+    area.innerHTML = '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Fetching existing tags&hellip;</span>';
+    _pcrFetchExistingTags([..._pcrPickedCrs]);
+  };
+
+  window.pcrAddToRemove = function(tag){
+    const inp=document.getElementById('pcrTagRemoveInput');
+    const existing=inp.value.split(',').map(t=>t.trim()).filter(Boolean);
+    if(!existing.includes(tag)) existing.push(tag);
+    inp.value=existing.join(', ');
+  };
+
+  window.pcrApplyTag = function(){
+    const addTag     = document.getElementById('pcrTagAddInput').value.trim();
+    const removeTags = document.getElementById('pcrTagRemoveInput').value.split(',').map(t=>t.trim()).filter(Boolean);
+    const validMsg   = document.getElementById('pcrTagValidMsg');
+    const applyBtn   = document.getElementById('pcrTagApplyBtn');
+    validMsg.textContent = '';
+    if(!addTag && !removeTags.length){
+      validMsg.textContent = 'Specify at least one tag to Add or Remove.';
+      return;
+    }
+        const tagRe = /^[A-Za-z0-9_]{3,}$/;
+    if(addTag && !tagRe.test(addTag)){
+      validMsg.textContent = 'Add tag invalid - use letters, numbers, underscore only (min 3 chars).';
+      return;
+    }
+    for(const rt of removeTags){
+      if(!tagRe.test(rt)){
+        validMsg.textContent = 'Remove tag invalid: "'+rt+'"';
+        return;
+      }
+    }
+    if(!_pcrPickedCrs.size){
+      validMsg.textContent = 'No CRs selected in Section A.';
+      return;
+    }
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Applying...';
+    applyBtn.style.background = '#94a3b8';
+    validMsg.textContent = '';
+    (async function(){
+      try{
+        const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/pdt_tag', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({crs:[..._pcrPickedCrs], add_tag:addTag, remove_tags:removeTags})
+        });
+        const data = await resp.json();
+        if(data.success){
+          validMsg.style.color = '#16a34a';
+          validMsg.textContent = 'Done! ' + (data.message || _pcrPickedCrs.size+' CR(s) updated.');
+          applyBtn.textContent = 'Done';
+          applyBtn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+          applyBtn.disabled = false;
+          setTimeout(function(){ document.getElementById('pcrTagModal').style.display='none'; }, 1500);
+        } else {
+          validMsg.style.color = '#dc2626';
+          validMsg.textContent = 'Failed: ' + (data.message || 'Operation failed.');
+          applyBtn.disabled = false;
+          applyBtn.textContent = 'Apply';
+          applyBtn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+        }
+      } catch(e){
+        validMsg.style.color = '#dc2626';
+        validMsg.textContent = 'Network error: ' + e.message;
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Apply';
+        applyBtn.style.background = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
+      }
+    })();
+  };
+
+  function pcrDisplayPdtTag(r){
+    const tag = String((r||{}).pdt_priority_tag||'').trim();
+    if(tag && tag.toLowerCase() !== 'none' && tag.toLowerCase() !== 'na') return tag;
+    return numVal((r||{}).cr_occurrence)>10 ? 'PDT_P1' : '';
+  }
+
+  window.pcrExportExcel = function(){
+    const rows = filtered.length ? filtered : allRows;
+    if(!rows.length){ alert('No data to export.'); return; }
+    const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date','Build Date']
+      .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
+      .concat(['PDT Tag','Last Reported Date','Last Reported JIRA']);
+    const htmlRows = rows.map((r,idx) => '<tr>'+headers.map(col => {
+      let val = '';
+      if(col==='#') val = String(idx+1);
+      else if(col==='CR ID') val = pcrCrId(r) ? 'CR'+pcrCrId(r).replace(/^CR/i,'') : '';
+      else if(col==='Title') val = r.cr_title || '';
+      else if(col==='Area') val = r.cr_area || '';
+      else if(col==='Subsystem') val = r.cr_subsystem || '';
+      else if(col==='Functionality') val = r.cr_functionality || '';
+      else if(col==='JIRA Hits') val = String(numVal(r.cr_occurrence)||0);
+      else if(col==='Age (days)') val = numVal(r.cr_age)>0 ? String(numVal(r.cr_age)) : '';
+      else if(col==='Status') val = r.cr_status || '';
+      else if(col==='SI') val = r.cr_si || '';
+      else if(col==='Ready Date') val = r.si_ready_date || 'NA';
+      else if(col==='Build Date') val = dateOnly(r.built_date)||'';
+      else if(col==='CR TAG') val = r.cr_tag || '';
+      else if(col==='CR TAG Alias') val = r.cr_tag_alias || '';
+      else if(col==='PDT Tag') val = pcrDisplayPdtTag(r);
+      else if(col==='Last Reported Date') val = dateOnly(r.last_reported_date||r.jira_date_last)||'';
+      else if(col==='Last Reported JIRA') val = r.last_reported_jira||'';
+      return '<td>'+esc(val)+'</td>';
+    }).join('')+'</tr>').join('');
+    const html = '<html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+htmlRows+'</tbody></table></body></html>';
+    const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = String(TARGET||'target').replace(/[^a-z0-9_-]+/ig,'_')+'_pdt_crs.xls';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  };
+
+    window.pcrCopyOutlook = async function(){
+    const rows = filtered.length ? filtered : allRows;
+    if(!rows.length){ alert('No data to copy.'); return; }
+    const btn = document.getElementById('pcrCopyBtn');
+    const origHtml = btn ? btn.innerHTML : '';
+    if(btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Copying...';
+
+    // Truncate text to max chars - Outlook only respects text length, not CSS overflow
+    const trunc = (v, max) => { const s = String(v==null?'':v).trim(); return s.length > max ? s.slice(0,max)+'ΓÇª' : (s||'--'); };
+
+    // Column definitions: [header, width-px, field-or-fn, maxChars]
+    const cols = [
+      { h:'#',                  w:30,  fn:(r,i)=>i+1,                                                    max:4  },
+      { h:'CR ID',              w:72,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:12 },
+      { h:'Title',              w:300, fn:(r)=>r.cr_title||'',                                            max:60 },
+      { h:'Area',               w:70,  fn:(r)=>r.cr_area||'',                                             max:14 },
+      { h:'Subsystem',          w:90,  fn:(r)=>r.cr_subsystem||'',                                        max:18 },
+      { h:'Functionality',      w:90,  fn:(r)=>r.cr_functionality||r.cr_function||'',                     max:18 },
+      { h:'Hits',               w:36,  fn:(r)=>numVal(r.cr_occurrence)||0,                                max:5  },
+      { h:'Age',                w:36,  fn:(r)=>r.cr_age!=null?r.cr_age+'d':'',                            max:5  },
+      { h:'Status',             w:80,  fn:(r)=>r.cr_status||'',                                           max:16 },
+      { h:'SI',                 w:80,  fn:(r)=>r.cr_si||'',                                               max:16 },
+      { h:'Ready Date',         w:82,  fn:(r)=>r.si_ready_date||'',                                       max:12 },
+      { h:'Build Date',         w:82,  fn:(r)=>r.built_date||r.build_date||'',                            max:12 },
+      { h:'PDT Tag',            w:70,  fn:(r)=>r.pdt_tag||'',                                             max:12 },
+      { h:'Last Reported Date', w:100, fn:(r)=>r.last_reported_date||'',                                  max:16 },
+      { h:'Last Reported JIRA', w:110, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
+    ];
+
+    // Build HTML table ΓÇö use width attribute (Outlook respects this) + plain truncated text
+    const thHtml = cols.map(c=>
+      `<th width="${c.w}" style="background:#1e3a8a;color:#fff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #3b5bdb;white-space:nowrap">${c.h}</th>`
+    ).join('');
+
+    const rowsHtml = rows.map((r,idx)=>{
+      const bg = idx%2===0 ? '#ffffff' : '#f8fafc';
+      const crIdRaw = pcrCrId(r) ? String(pcrCrId(r)).replace(/^CR/i,'') : '';
+      const crId    = crIdRaw ? 'CR'+crIdRaw : '';
+      const crUrl   = crIdRaw ? `https://orbit/CR/${crIdRaw}` : '';
+      const jiraKey = String(r.last_reported_jira||'').trim();
+
+      // Status color
+      const st = String(r.cr_status||'').toLowerCase();
+      const stBg    = st.includes('open')?'#fef9c3':st.includes('analysis')?'#ede9fe':st.includes('built')?'#dcfce7':st.includes('fix')?'#fff7ed':'#f1f5f9';
+      const stColor = st.includes('open')?'#854d0e':st.includes('analysis')?'#5b21b6':st.includes('built')?'#166534':st.includes('fix')?'#c2410c':'#475569';
+
+      const cells = cols.map((c,ci)=>{
+        const tdStyle = `padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;vertical-align:middle;background:${bg};`;
+        // Special cells with links or color
+        if(ci===1){
+          // CR ID ΓÇö hyperlink
+          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#1d4ed8;font-weight:900;text-decoration:none">${crId}</a>` : (crId||'--');
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+        }
+        if(ci===8){
+          // Status ΓÇö colored badge
+          const badge = r.cr_status ? `<span style="background:${stBg};color:${stColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:900">${trunc(r.cr_status,16)}</span>` : '--';
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${badge}</td>`;
+        }
+        if(ci===14){
+          // Last Reported JIRA ΓÇö hyperlink
+          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#0ea5e9;font-weight:900;text-decoration:none">${jiraKey}</a>` : '--';
+          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+        }
+        // Standard cell ΓÇö plain truncated text
+        const val = c.fn(r, idx);
+        const txt = trunc(val, c.max);
+        const align = (ci===0||ci===6||ci===7) ? 'text-align:center;' : '';
+        const color = ci===0 ? 'color:#94a3b8;' : ci===6 ? 'color:#4f46e5;font-weight:900;' : '';
+        return `<td width="${c.w}" style="${tdStyle}${align}${color}white-space:nowrap">${esc(txt)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    const fullHtml = `<html><body><table width="1200" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:fixed"><thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+
+    // TSV fallback (plain text for non-Outlook paste)
+    const tsvHeader = cols.map(c=>c.h).join('\t');
+    const tsvRows = rows.map((r,idx)=>cols.map((c,ci)=>{
+      if(ci===0) return idx+1;
+      return String(c.fn(r,idx)||'').replace(/\t|\n|\r/g,' ');
+    }).join('\t'));
+    const tsv = [tsvHeader].concat(tsvRows).join('\n');
+
+    const done = ok => {
+      if(btn){
+        btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied!' : '<i class="fas fa-exclamation-triangle"></i> Copy failed';
+        setTimeout(()=>{ btn.innerHTML = origHtml; }, 2000);
+      }
+    };
+
+    // 1. Rich HTML (Chrome/Edge Clipboard API)
+    try{
+      if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([fullHtml], {type:'text/html'}),
+          'text/plain': new Blob([tsv],      {type:'text/plain'})
+        })]);
+        done(true); return;
+      }
+    }catch(e){}
+
+    // 2. Plain TSV via writeText
+    try{ await navigator.clipboard.writeText(tsv); done(true); return; }catch(e){}
+
+    // 3. execCommand fallback (HTTP / older browsers)
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = tsv;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(true);
+    }catch(e2){ done(false); }
+  };
+})();
+</script>
+{% endblock %}
+

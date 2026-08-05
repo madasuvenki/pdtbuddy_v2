@@ -5399,11 +5399,26 @@ def api_dashboard_pdt_crs(target_name):
         cr_tag_enabled = _is_compute_cr_tag_enabled_target(target_name)
         cr_tag_alias_groups = _load_compute_cr_tag_alias_config() if cr_tag_enabled else []
 
+        # Inject cached CR tags into rows so the table shows them immediately
+        cr_tag_cache_loaded = False
+        if cr_tag_enabled:
+            cached_tags, _ = _load_compute_cr_tag_cache(target_name)
+            if cached_tags:
+                cr_tag_cache_loaded = True
+                for row in normalized_rows:
+                    cr_num = str(row.get('cr_id') or '').strip().lstrip('CRcr').strip()
+                    info = cached_tags.get(cr_num) or cached_tags.get('CR' + cr_num) or {}
+                    raw_tags = info.get('cr_tags') or []
+                    matched_group, matched_alias = _match_compute_cr_tag_aliases(raw_tags, cr_tag_alias_groups)
+                    row['cr_tags']     = raw_tags
+                    row['cr_tag']      = matched_group
+                    row['cr_tag_alias']= matched_alias
+
         return jsonify({
             "success": True,
             "rows": normalized_rows,
             "cr_tag_alias_groups": cr_tag_alias_groups,
-            "cr_tag_cache_loaded": True,
+            "cr_tag_cache_loaded": cr_tag_cache_loaded,
         })
     except Exception as exc:
         logger.exception("[api_dashboard_pdt_crs] error target=%s", target_name)
