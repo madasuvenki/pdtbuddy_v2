@@ -520,9 +520,12 @@ def add_target():
     auto_meta = data.get('auto_metadata') or {}
     auto_gen      = (auto_meta.get('gen') or '').strip()
     auto_program  = (auto_meta.get('program') or '').strip()
-    auto_family   = (auto_meta.get('family') or '').strip()
-    auto_category = (auto_meta.get('category') or '').strip()
-    auto_sp_label = (auto_meta.get('sp_label') or '').strip()
+          auto_family   = (auto_meta.get('family') or '').strip()
+      auto_category = (auto_meta.get('category') or '').strip()
+      auto_sp_label = (auto_meta.get('sp_label') or '').strip()
+      auto_pl_version = (auto_meta.get('pl_version') or '').strip()
+      # cpl: SP label when category set, PL version when no category, else None
+      auto_cpl = auto_sp_label if auto_category else (auto_pl_version or None)
 
     # WBC
     wbc_meta = data.get('wbc_metadata') or {}
@@ -544,11 +547,11 @@ def add_target():
         is_auto=is_auto,
         gen=auto_gen,
         auto_project=auto_program,
-        family=auto_family if is_auto else (wbc_target_name or None),
-        category=auto_category,
-        cp=auto_sp_label if is_auto else (wbc_sp_label or None),
-        # Mobile
-        mobile_product_family=mobile_fam
+                  family=auto_family if is_auto else (wbc_target_name or None),
+          category=auto_category,
+          cp=auto_cpl if is_auto else (wbc_sp_label or None),
+          # Mobile
+          mobile_product_family=mobile_fam
     )
 
     if not ok:

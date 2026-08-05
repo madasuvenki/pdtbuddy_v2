@@ -902,18 +902,8 @@ function famPillClick(fam, pillEl) {
   const plOveralls   = fdata.pl_overalls || {};   // { '5.1.7.0': {tkey,label,has_overallcrs,has_dashboard}, ... }
   const plEntries    = Object.entries(plOveralls).sort((a,b) => a[0].localeCompare(b[0]));
 
-  // ── Family-level overall bar ──
-  const overallBar = overallKey
-    ? `<div class="ah-overall-bar">
-         <span class="ah-overall-bar-label"><i class="fas fa-chart-bar" style="margin-right:6px;"></i>${fam} Overall Dashboard</span>
-         <div style="display:flex;gap:8px;align-items:center">
-           ${fdata.has_overallcrs ? `<a href="/overall_crs/${encodeURIComponent(overallKey)}" class="ah-overall-btn" target="_top" style="background:linear-gradient(135deg,#c2410c,#ea580c)"><i class="fas fa-fingerprint"></i> Unique CRs</a>` : ''}
-           ${fdata.overall_has_dashboard ? `<a href="${dashUrl(overallKey)}" class="ah-overall-btn" target="_top"><i class="fas fa-external-link-alt"></i> Open Dashboard</a>` : ''}
-         </div>
-       </div>`
-    : `<div class="ah-overall-bar">
-         <span class="ah-overall-bar-label" style="color:#94a3b8;"><i class="fas fa-info-circle" style="margin-right:6px;"></i>No overall dashboard &mdash; add a family-level target to enable</span>
-       </div>`;
+  // ── Family-level overall bar: hidden — dashboard buttons live on PL rows instead ──
+  const overallBar = '';
 
     // ── Per-PL overall bars (clickable filter tabs) ──
   let _activePl = '';   // '' = show all
@@ -974,30 +964,54 @@ function famPillClick(fam, pillEl) {
 
   window._ahRenderSpSection = renderSpSection;
 
-  const plBars = plEntries.length > 0
-    ? `<div style="margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;margin-bottom:6px;">Product Lines</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
-          <button class="ah-pl-bar${!_activePl?' active':''}" data-pl="" onclick="_ahRenderSpSection('')" style="padding:6px 14px;font-size:11px;font-weight:800;border:none;cursor:pointer;border-radius:999px;background:${!_activePl?'#0ea5e9':'#e0f2fe'};color:${!_activePl?'#fff':'#0369a1'};">
-            <i class="fas fa-layer-group" style="margin-right:4px;"></i> All PLs
-          </button>
-          ${plEntries.map(([pl, plData]) => {
-            const plTkey = plData.tkey || '';
-            return `<div class="ah-pl-bar" data-pl="${pl}" onclick="_ahRenderSpSection('${pl}')" style="display:inline-flex;padding:6px 14px;margin-bottom:0;">
-              <span class="ah-pl-bar-label" style="flex:unset;margin-right:10px;">
-                <i class="fas fa-layer-group" style="margin-right:5px;"></i>
-                <span class="ah-pl-pill">${pl}</span>
-              </span>
-              <div style="display:flex;gap:6px;align-items:center;">
-                ${plData.has_overallcrs ? `<a href="/overall_crs/${encodeURIComponent(plTkey)}" class="ah-pl-btn ah-pl-btn--crs" target="_top" onclick="event.stopPropagation()"><i class="fas fa-fingerprint"></i> Unique CRs</a>` : ''}
-                ${plData.has_dashboard  ? `<a href="${dashUrl(plTkey)}" class="ah-pl-btn" target="_top" onclick="event.stopPropagation()"><i class="fas fa-external-link-alt"></i> Dashboard</a>` : ''}
-                ${!plData.has_overallcrs && !plData.has_dashboard ? `<span class="ah-no-overall"><i class="fas fa-clock"></i> Not yet available</span>` : ''}
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
+  // ── PL filter tabs (All PLs + one per PL) ──
+  const plFilterTabs = plEntries.length > 0
+    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <button class="ah-pl-bar${!_activePl?' active':''}" data-pl="" onclick="_ahRenderSpSection('')"
+          style="padding:5px 14px;font-size:11px;font-weight:800;border:none;cursor:pointer;border-radius:999px;
+                 background:${!_activePl?'#0ea5e9':'#e0f2fe'};color:${!_activePl?'#fff':'#0369a1'};">
+          <i class="fas fa-layer-group" style="margin-right:4px;"></i> All PLs
+        </button>
+        ${plEntries.map(([pl]) =>
+          `<button class="ah-pl-bar" data-pl="${pl}" onclick="_ahRenderSpSection('${pl}')"
+            style="padding:5px 14px;font-size:11px;font-weight:800;border:none;cursor:pointer;border-radius:999px;
+                   background:#e0f2fe;color:#0369a1;">
+            ${pl}
+          </button>`
+        ).join('')}
       </div>`
     : '';
+
+  // ── Per-PL overall rows (one row per PL, stacked) ──
+  const plOverallRows = plEntries.length > 0
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#9ca3af;margin-bottom:2px;">Product Line Dashboards</div>
+        ${plEntries.map(([pl, plData]) => {
+          // Use dedicated PL tkey if available, else fall back to family overall
+          const plTkey = plData.tkey || overallKey;
+          const hasDash = plData.has_dashboard || (!!overallKey && fdata.overall_has_dashboard);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;
+                              background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
+                              border:1.5px solid #bae6fd;border-radius:10px;">
+            <span style="font-size:11px;font-weight:800;color:#0369a1;flex:1;display:flex;align-items:center;gap:8px;">
+              <i class="fas fa-layer-group" style="font-size:10px;"></i>
+              <span style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;padding:2px 10px;
+                           border-radius:999px;font-family:'Courier New',monospace;font-size:11px;font-weight:900;">${pl}</span>
+              Overall Dashboard
+            </span>
+            ${hasDash
+              ? `<a href="${dashUrl(plTkey)}" class="ah-pl-btn" target="_top"
+                   style="white-space:nowrap;" onclick="event.stopPropagation()">
+                   <i class="fas fa-external-link-alt"></i> Open Dashboard
+                 </a>`
+              : `<span class="ah-no-overall"><i class="fas fa-clock"></i> Not yet available</span>`
+            }
+          </div>`;
+        }).join('')}
+      </div>`
+    : '';
+
+  const plBars = plOverallRows + plFilterTabs;
 
   // Render panel with placeholder sp section; then fill it via renderSpSection
   document.getElementById('fam-detail').innerHTML =

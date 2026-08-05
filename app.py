@@ -4849,6 +4849,17 @@ def auto_hierarchy(gen_name):
                 _tree[_prog][_fam]['overall_label'] = _disp
                 _tree[_prog][_fam]['overall_has_dashboard'] = bool(str(_info.get('excel_path') or '').strip())
         else:
+            # PL-overall target: has cpl but NO application_domain - register as PL overall only, skip SP card
+            if not _cat:
+                _pl_ov = _tree[_prog][_fam]['pl_overalls']
+                if _cpl not in _pl_ov:
+                    _pl_ov[_cpl] = {
+                        'tkey':           _tkey,
+                        'label':          _cpl,
+                        'has_dashboard':  bool(str(_info.get('excel_path') or '').strip()),
+                        'has_overallcrs': False,
+                    }
+                continue
             _slot = f'{_prog}|{_fam}|{_cat}|{_cpl}'
             if _slot not in _seen_slots:
                 _seen_slots.add(_slot)
@@ -4857,32 +4868,34 @@ def auto_hierarchy(gen_name):
             # Register first tkey per PL for per-PL overall buttons
             _pl_ov = _tree[_prog][_fam]['pl_overalls']
             if _cpl not in _pl_ov:
-                # Derive a PL-level overall tkey: strip category suffix from tkey
-                # e.g. nord_hgy_flex_5_1_7_0 -> nord_hgy_5_1_7_0  (best guess)
-                # Fall back to first SP tkey in that PL
+                # Derive a PL-level overall tkey:
+                # 1. Look for dedicated PL-overall target (cpl=X, no application_domain)
+                # 2. Fall back to family overall (nord_hgy) — NOT to an SP tkey
                 _pl_suffix = _cpl.replace('.', '_')
                 _fam_lower = _fam.lower()
                 _prog_lower = _prog.lower()
-                # Try to find a dedicated PL-overall tkey (cpl=None but has PL suffix)
+                # Try to find a dedicated PL-overall tkey:
+                # Must match same BU/gen/prog/fam AND same cpl AND have NO application_domain
+                # e.g. nord_hgy_5_1_7_0 has cpl='5.1.7.0', application_domain=''
                 _pl_overall_tkey = next(
                     (k for k, v in cfg.items()
                      if str(v.get('bu','')).upper() == 'AUTO'
                      and str(v.get('platform','')).upper() == gen_name.upper()
                      and str(v.get('program','')).upper() == _prog
                      and str(v.get('product_family','')).upper() == _fam
-                     and not (str(v.get('cpl','') or ''))
-                     and _pl_suffix in k.lower()),
+                     and str(v.get('cpl','') or '').strip() == _cpl
+                     and not str(v.get('application_domain','') or '').strip()),
                     None
                 )
+                # Fallback tkey: use family overall (e.g. nord_hgy), NOT an SP tkey
+                _fam_overall_tkey = _tree[_prog][_fam].get('overall') or ''
+                _resolved_tkey = _pl_overall_tkey or _fam_overall_tkey or ''
                 _pl_ov[_cpl] = {
-                    'tkey':          _pl_overall_tkey or _tkey,
+                    'tkey':          _resolved_tkey,
                     'label':         _cpl,
-                    'has_dashboard': bool(_pl_overall_tkey and str(cfg.get(_pl_overall_tkey, {}).get('excel_path') or '').strip()),
+                    'has_dashboard': bool(_resolved_tkey),
                     'has_overallcrs': False,  # filled in below
                 }
-
-    auto_tree_json = _json.dumps(_tree)
-
     # Find which overall targets have _overallcrs table in DB
     try:
         _oc_conn = get_mysql_connection_db()
@@ -5519,7 +5532,9 @@ def add_target():
             family       = (auto_meta.get("family")   or family       or "").strip()
             category     = (auto_meta.get("category") or category     or "").strip() or None
             sp_label     = (auto_meta.get("sp_label") or "").strip()
-            cp           = sp_label if sp_label else None
+            pl_version   = (auto_meta.get("pl_version") or "").strip()
+            # cpl: SP label when category set, PL version when no category, else None
+            cp           = sp_label if category else (pl_version if pl_version else None)
 
         elif is_wbc:
             # WBC: wbc_metadata.target = Target name, wbc_metadata.sp_label = SP label
@@ -9104,10 +9119,10 @@ if __name__ == '__main__':
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

@@ -123,8 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminAutoProgram         = $('admin_auto_program');
   const adminAutoFamily          = $('admin_auto_family');
   const adminAutoCategory        = $('admin_auto_category');
-  const adminAutoSp              = $('admin_auto_sp');          // SP label (shown only when category selected)
-  const adminAutoSpGroup         = $('admin_auto_sp_group');    // wrapper div for SP field
+  const adminAutoPl              = $('admin_auto_pl');           // PL version (e.g. 5.1.9.0) — PL-level overall
+  const adminAutoPlGroup         = $('admin_auto_pl_group');     // wrapper div for PL field
+  const adminAutoSp              = $('admin_auto_sp');           // SP label (shown only when category selected)
+  const adminAutoSpGroup         = $('admin_auto_sp_group');     // wrapper div for SP field
   const adminAutoTargetKeyPreview = $('admin_auto_target_key_preview');
 
   /* WBC sub-fields */
@@ -174,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const msUseCs1= $('ms_use_cs1'); const msCs1= $('ms_cs1');
 
   /* -- populate dropdowns ------------------------------------- */
+  // Expose globally so bu_shell_layout.html can call it when opening the modal directly
+  window._adminPopulateDropdowns = function() { populateDropdowns(); toggleBuFields(); };
   function populateDropdowns() {
         /* BU selector */
     if (adminBuAdd) {
@@ -226,23 +230,36 @@ document.addEventListener('DOMContentLoaded', () => {
    * (gen is NOT part of the DB name - it's metadata only)
    * CP Version is removed - not required.
    */
-  function buildAutoKey() {
+    function buildAutoKey() {
     const prog     = slugify(getVal(adminAutoProgram));
     const family   = slugify(getVal(adminAutoFamily));
+    const pl       = slugify(getVal(adminAutoPl));       // PL version e.g. 5_1_9_0
     const category = slugify(getVal(adminAutoCategory));
     const sp       = slugify(getVal(adminAutoSp));
 
-    // Show/hide SP field based on whether category is selected
+    // PL field: only visible when no category selected
+    if (adminAutoPlGroup) {
+      adminAutoPlGroup.style.display = category ? 'none' : '';
+    }
+    // SP field: only visible when category selected
     if (adminAutoSpGroup) {
       adminAutoSpGroup.style.display = category ? '' : 'none';
     }
+    // If category is selected, clear PL field
+    if (category && adminAutoPl) adminAutoPl.value = '';
 
-        // Build key: always start with prog+family; add cat+sp only when present
-    // All parts already lowercased by slugify
+    // Build key:
+    //   Family overall:  prog_fam              e.g. nord_hgy
+    //   PL overall:      prog_fam_5_1_9_0      e.g. nord_hgy_5_1_9_0
+    //   SP target:       prog_fam_cat_sp        e.g. nord_hgy_adas_5_1_9_0
     const parts = [prog, family];
-    if (category) parts.push(category);
-    if (category && sp) parts.push(sp);
-    const key = parts.filter(Boolean).join('_');  // e.g. nord_hgy_adas_sp1
+    if (category) {
+      parts.push(category);
+      if (sp) parts.push(sp);
+    } else if (pl) {
+      parts.push(pl);
+    }
+    const key = parts.filter(Boolean).join('_');
 
     setVal(adminAutoTargetKeyPreview, key);
     setVal(adminTargetAdd, key);
@@ -395,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (adminBuAdd) adminBuAdd.addEventListener('change', toggleBuFields);
 
     /* -- AUTO field changes -> rebuild key ---------------------- */
-  [adminAutoGen, adminAutoProgram, adminAutoFamily, adminAutoCategory, adminAutoSp].forEach((el) => {
+    [adminAutoGen, adminAutoProgram, adminAutoFamily, adminAutoPl, adminAutoCategory, adminAutoSp].forEach((el) => {
     if (!el) return;
     el.addEventListener('input',  buildAutoKey);
     el.addEventListener('change', buildAutoKey);
@@ -612,12 +629,13 @@ document.addEventListener('DOMContentLoaded', () => {
       /* Mobile-specific */
       const mobile_product_family = getVal(adminMobileProductFamily) || 'VT';
 
-      /* AUTO-specific */
+            /* AUTO-specific */
       const generation = getVal(adminAutoGen);
       const program    = getVal(adminAutoProgram);
       const family     = getVal(adminAutoFamily);
+      const pl_version = getVal(adminAutoPl);      // PL-level overall e.g. 5.1.9.0
       const category   = getVal(adminAutoCategory);
-            const sp_label   = getVal(adminAutoSp);
+      const sp_label   = getVal(adminAutoSp);
 
       /* WBC-specific */
       const wbc_target = getVal(adminWbcTarget);
@@ -678,12 +696,13 @@ document.addEventListener('DOMContentLoaded', () => {
         category,
         cp:           '',
         mobile_product_family,
-        auto_metadata: {
+                auto_metadata: {
           gen:      generation,
           program,
           family,
+          pl_version,  /* PL-level overall e.g. 5.1.9.0 — cpl with no application_domain */
           category,
-          sp_label,   /* SP level (optional) */
+          sp_label,    /* SP level (optional) */
           cp:       ''
         },
 

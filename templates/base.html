@@ -1449,13 +1449,18 @@ body:has(.bu-simple-page) .app-bg-gradient {
             &bull; Leave <strong>Category empty</strong> &rarr; Family Overall Dashboard (no SP card)<br>
             &bull; Fill <strong>Category + SP Label</strong> &rarr; SP-level card shown under &ldquo;Expand SPs&rdquo;
           </div>
-          <div class="form-group">
-            <label for="admin_auto_category" style="font-weight:800;">Category <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional)</span></label>
-            <select id="admin_auto_category" class="form-control">
-              <option value="">-- None (Family-level overall target) --</option>
-              <option value="ADAS">ADAS</option>
-              <option value="IVI">IVI</option>
-              <option value="FLEX">FLEX</option>
+                      <div class="form-group" id="admin_auto_pl_group">
+              <label for="admin_auto_pl" style="font-weight:800;">PL Version <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional &mdash; PL-level overall)</span></label>
+              <input type="text" id="admin_auto_pl" class="form-control" placeholder="e.g. 5.1.9.0">
+              <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Creates a <strong>PL-level overall dashboard</strong> e.g. <code>Nord_HGY_5_1_9_0</code>. Stored as <code>cpl</code> with no <code>application_domain</code>. <strong>Leave Category empty when using this.</strong></div>
+            </div>
+            <div class="form-group">
+              <label for="admin_auto_category" style="font-weight:800;">Category <span style="font-size:10px;font-weight:500;color:#6b7280;">(optional &mdash; SP target)</span></label>
+              <select id="admin_auto_category" class="form-control">
+                <option value="">-- None --</option>
+                <option value="ADAS">ADAS</option>
+                <option value="IVI">IVI</option>
+                <option value="FLEX">FLEX</option>
             </select>
             <div style="font-size:10px;color:#6b7280;margin-top:3px;">&#128161; Stored as <code>application_domain</code> in DB &mdash; the use-case domain (ADAS, IVI, FLEX). Leave empty for family-level overall.</div>
           </div>
@@ -1467,7 +1472,7 @@ body:has(.bu-simple-page) .app-bg-gradient {
           <div class="form-group" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;">
             <label for="admin_auto_target_key_preview" style="color:#15803d;font-weight:800;">&#128279; Generated DB Name / Target Key</label>
             <input type="text" id="admin_auto_target_key_preview" class="form-control" readonly style="font-family:monospace;font-weight:700;background:#fff;letter-spacing:.03em;">
-            <small id="admin_auto_key_hint" style="color:#6b7280;font-size:11px;">Pattern: <code>Program</code> or <code>Program_Family</code> e.g. <code>Nord</code> / <code>Nord_HGY</code> &nbsp;|&nbsp; With Category+SP: <code>Nord_HGY_ADAS_5_1_7_0</code></small>
+                          <small id="admin_auto_key_hint" style="color:#6b7280;font-size:11px;">Pattern: <code>Program_Family</code> &nbsp;|&nbsp; PL overall: <code>Nord_HGY_5_1_9_0</code> &nbsp;|&nbsp; SP target: <code>Nord_HGY_ADAS_5_1_9_0</code></small>
           </div>
         </div>
       </div>
@@ -1799,6 +1804,9 @@ body:has(.bu-simple-page) .app-bg-gradient {
 {% if current_user.is_authenticated and not request.args.get('embed') == '1' %}
 <script src="{{ url_for('static', filename='js/chatbot.js') }}?v={{ cache_buster }}"></script>
 <script src="{{ url_for('static', filename='js/qgenie_access.js') }}?v={{ cache_buster }}"></script>
+{% endif %}
+{% if current_user.is_authenticated and current_user.role == 'admin' %}
+<script src="{{ url_for('static', filename='js/admin.js') }}?v={{ cache_buster }}"></script>
 {% endif %}
 
 
