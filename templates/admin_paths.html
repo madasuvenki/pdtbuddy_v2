@@ -87,33 +87,40 @@
 
   function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-  async function apiGet(){
-    const resp = await fetch('/admin/targets_paths', {cache:'no-store'});
-    const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Failed to load targets');
-    return data.rows || [];
+  function apiGet(){
+    return fetch('/admin/targets_paths', {cache:'no-store'})
+      .then(function(resp){
+        return resp.json().catch(function(){ return {}; }).then(function(data){
+          if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Failed to load targets');
+          return data.rows || [];
+        });
+      });
   }
 
-  async function apiSave(target_name, unique_cr_path){
-    const resp = await fetch('/admin/update_unique_cr_path', {
+  function apiSave(target_name, unique_cr_path){
+    return fetch('/admin/update_unique_cr_path', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({target_name, unique_cr_path})
+      body: JSON.stringify({target_name: target_name, unique_cr_path: unique_cr_path})
+    }).then(function(resp){
+      return resp.json().catch(function(){ return {}; }).then(function(data){
+        if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
+        return data;
+      });
     });
-    const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
-    return data;
   }
 
-  async function apiSaveLevel(target_name, overall_report_level){
-    const resp = await fetch('/admin/update_overall_report_level', {
+  function apiSaveLevel(target_name, overall_report_level){
+    return fetch('/admin/update_overall_report_level', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({target_name, overall_report_level})
+      body: JSON.stringify({target_name: target_name, overall_report_level: overall_report_level})
+    }).then(function(resp){
+      return resp.json().catch(function(){ return {}; }).then(function(data){
+        if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
+        return data;
+      });
     });
-    const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Save failed');
-    return data;
   }
 
   function pill(ok){
@@ -210,108 +217,82 @@
       `;
     }).join('');
 
-    tbody.querySelectorAll('button[data-save]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const t = btn.getAttribute('data-save');
-        const inp = tbody.querySelector(`input[data-target="${CSS.escape(t)}"]`);
-        const v = (inp?.value || '').trim();
+    tbody.querySelectorAll('button[data-save]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var t = btn.getAttribute('data-save');
+        var inp = tbody.querySelector('input[data-target="' + t + '"]');
+        var v = (inp ? inp.value : '').trim();
         btn.disabled = true;
-        const oldHtml = btn.innerHTML;
+        var oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving';
-        status.textContent = 'Saving ' + t + '…';
-        try{
-          await apiSave(t, v || null);
-          status.textContent = 'Saved. Reloading…';
-          await load();
-          status.textContent = 'Saved.';
-        }catch(e){
-          status.textContent = 'Error: ' + (e.message||e);
-        }finally{
-          btn.disabled = false;
-          btn.innerHTML = oldHtml;
-        }
+        status.textContent = 'Saving ' + t + '...';
+        apiSave(t, v || null)
+          .then(function(){ status.textContent = 'Saved. Reloading...'; return load(); })
+          .then(function(){ status.textContent = 'Saved.'; })
+          .catch(function(e){ status.textContent = 'Error: ' + (e.message||e); })
+          .finally(function(){ btn.disabled = false; btn.innerHTML = oldHtml; });
       });
     });
 
-    tbody.querySelectorAll('button[data-ingest]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const t = btn.getAttribute('data-ingest');
+    tbody.querySelectorAll('button[data-ingest]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var t = btn.getAttribute('data-ingest');
         btn.disabled = true;
-        const oldHtml = btn.innerHTML;
+        var oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ingesting';
-
-        // Show progress steps
-        const steps = [
-          '🔍 Resolving workbook…',
-          '📂 Reading OverallCrs sheet…',
-          '🗂️ Building reported_team map…',
-          '💾 Creating DB table…',
-          '📥 Inserting rows…',
-          '✅ Finalising…'
-        ];
-        let stepIdx = 0;
-        status.innerHTML = `<span style="color:#6366f1;font-weight:800">${steps[stepIdx]}</span>`;
-        const stepTimer = setInterval(() => {
-          stepIdx = Math.min(stepIdx + 1, steps.length - 1);
-          status.innerHTML = `<span style="color:#6366f1;font-weight:800">${steps[stepIdx]}</span>`;
-        }, 2200);
-
-        try{
-          const resp = await fetch('/admin/update_target', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({target_name: t})
+        status.textContent = 'Ingesting ' + t + '...';
+        fetch('/admin/update_target', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({target_name: t})
+        }).then(function(resp){
+          return resp.json().catch(function(){ return {}; }).then(function(data){
+            if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Ingest failed');
+            status.innerHTML = '<span style="color:#16a34a;font-weight:800">&#10003; ' + ((data && data.message) ? data.message : ('Ingest complete for ' + t)) + '</span>';
+            return load();
           });
-          clearInterval(stepTimer);
-          const data = await resp.json().catch(()=>({}));
-          if(!resp.ok || !data.success) throw new Error((data && data.message) || 'Ingest failed');
-          status.innerHTML = `<span style="color:#16a34a;font-weight:800">✅ ${(data && data.message) ? data.message : ('Ingest complete for ' + t)}</span>`;
-          await load();
-        }catch(e){
-          clearInterval(stepTimer);
-          status.innerHTML = `<span style="color:#dc2626;font-weight:800">❌ Error: ${e.message||e}</span>`;
-        }finally{
-          btn.disabled = false;
-          btn.innerHTML = oldHtml;
-        }
+        }).catch(function(e){
+          status.innerHTML = '<span style="color:#dc2626;font-weight:800">&#10007; Error: ' + (e.message||e) + '</span>';
+        }).finally(function(){ btn.disabled = false; btn.innerHTML = oldHtml; });
       });
     });
-  }
 
     // Level save buttons
-    tbody.querySelectorAll('button[data-level-save]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const t   = btn.getAttribute('data-level-save');
-        const sel = tbody.querySelector(`select[data-level-target="${CSS.escape(t)}"]`);
-        const v   = sel ? sel.value : '';
+    tbody.querySelectorAll('button[data-level-save]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var t   = btn.getAttribute('data-level-save');
+        var sel = tbody.querySelector('select[data-level-target="' + t + '"]');
+        var v   = sel ? sel.value : '';
         btn.disabled = true;
-        const oldHtml = btn.innerHTML;
+        var oldHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        status.textContent = 'Saving level for ' + t + '…';
-        try{
-          await apiSaveLevel(t, v || null);
-          btn.classList.add('saved');
-          btn.innerHTML = '<i class="fas fa-check"></i>';
-          status.innerHTML = `<span style="color:#16a34a;font-weight:800">✅ Level saved for ${t}</span>`;
-          setTimeout(() => { btn.classList.remove('saved'); btn.innerHTML = '<i class="fas fa-save"></i>'; }, 2000);
-          await load();
-        }catch(e){
-          status.innerHTML = `<span style="color:#dc2626;font-weight:800">❌ Error: ${e.message||e}</span>`;
-        }finally{
-          btn.disabled = false;
-        }
+        status.textContent = 'Saving level for ' + t + '...';
+        apiSaveLevel(t, v || null)
+          .then(function(){
+            btn.classList.add('saved');
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            status.innerHTML = '<span style="color:#16a34a;font-weight:800">&#10003; Level saved for ' + t + '</span>';
+            setTimeout(function(){ btn.classList.remove('saved'); btn.innerHTML = '<i class="fas fa-save"></i>'; }, 2000);
+            return load();
+          })
+          .catch(function(e){
+            status.innerHTML = '<span style="color:#dc2626;font-weight:800">&#10007; Error: ' + (e.message||e) + '</span>';
+          })
+          .finally(function(){ btn.disabled = false; });
       });
     });
   }
-  async function load(){
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">Loading…</td></tr>';
+  function load(){
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">Loading...</td></tr>';
     status.textContent = '';
-    _cache = await apiGet();
-    render(_cache);
+    return apiGet().then(function(rows){
+      _cache = rows;
+      render(_cache);
+    }).catch(function(e){
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#b91c1c">Error: ' + e.message + '</td></tr>';
+      status.textContent = 'Error';
+    });
   }
-
-  document.getElementById('apReload').addEventListener('click', load);
-  search.addEventListener('input', () => render(_cache));
 
   load();
 })();

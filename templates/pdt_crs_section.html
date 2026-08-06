@@ -96,6 +96,15 @@
 .pcr-page-btn:disabled{opacity:.35;cursor:default;}
 .pcr-empty{text-align:center;padding:56px;color:#94a3b8;font-size:13px;}
 .sort-icon{margin-left:4px;font-size:9px;opacity:.8;}
+.pcr-col-assignee{min-width:100px;white-space:nowrap;}
+.pcr-col-priority{min-width:80px;text-align:center;}
+.pcr-col-customer{min-width:140px;}
+.pcr-col-matched-tags{min-width:120px;}
+.pcr-priority-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;}
+.pcr-priority-p1{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
+.pcr-priority-p2{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;}
+.pcr-priority-p3{background:#f0fdf4;color:#166534;border:1px solid #86efac;}
+.pcr-matched-tag-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;white-space:nowrap;}
 
 
 
@@ -387,7 +396,32 @@
              placeholder="&#128269; Search CR ID or title..." oninput="pcrApply()">
     </div>
 
-        <button class="pcr-clear-btn" onclick="pcrClear()">
+    {% if not is_compute_target %}
+    <!-- CR Tag Filter (non-Compute BU only - Compute uses CR TAG dropdown) -->
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:240px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:12px;padding:8px 10px;box-shadow:0 2px 8px rgba(245,158,11,.18);">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        <i class="fas fa-tags" style="color:#d97706;font-size:13px;"></i>
+        <span style="font-size:12px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.06em;">CR Tag Filter</span>
+        <span style="font-size:9px;color:#b45309;font-style:italic;margin-left:2px;">shared across all users</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" id="pcrSearchTagsInput"
+               style="height:34px;padding:0 12px;border-radius:8px;border:1.5px solid #fcd34d;font-size:13px;font-weight:600;color:#374151;background:#fff;outline:none;flex:1;box-sizing:border-box;transition:border-color .15s,box-shadow .15s;"
+               placeholder="e.g. PDT_P1, CUSTOMER_A..."
+               oninput="pcrSearchTagsChanged()"
+               onfocus="this.style.borderColor='#f59e0b';this.style.boxShadow='0 0 0 3px rgba(245,158,11,.18)'"
+               onblur="this.style.borderColor='#fcd34d';this.style.boxShadow='none'"
+               title="Enter Orbit CR tags to filter by (comma separated). Saved across refreshes.">
+        <button onclick="pcrSaveSearchTagsManual()" title="Save tags"
+                style="height:34px;padding:0 12px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,.35);">
+          <i class="fas fa-save" style="margin-right:4px;"></i>Save
+        </button>
+      </div>
+      <span style="font-size:10px;color:#92400e;font-weight:600;">Enter multiple tags with comma separated</span>
+    </div>
+    {% endif %}
+
+    <button class="pcr-clear-btn" onclick="pcrClear()">
       <i class="fas fa-times" style="margin-right:4px;"></i>Clear
     </button>
   </div>
@@ -453,6 +487,9 @@
         <button id="pcrAliasBtn" onclick="pcrOpenAliasModal()" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:10px;border:1px solid #67e8f9;background:linear-gradient(135deg,#ecfeff,#cffafe);color:#0e7490;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(14,116,144,.12);white-space:nowrap;">
           <i class="fas fa-tags"></i> CR TAG Aliases
         </button>
+        <button id="pcrRefreshCustomerBtn" onclick="pcrRefreshCustomerSN()" title="Fetch Assignee, Priority and Customer SN from Orbit for visible CRs" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:10px;border:1px solid #fde68a;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(245,158,11,.15);white-space:nowrap;">
+          <i class="fas fa-user-tag"></i> Refresh Customer SN
+        </button>
         {% endif %}
 
 
@@ -493,8 +530,12 @@
                                     <th class="pcr-col-si">SI</th>
             <th class="pcr-col-ready sortable" onclick="pcrSort('si_ready_date')">Ready Date <span class="sort-icon" id="sort-si_ready_date"></span></th>
            
-                        <th class="pcr-col-date sortable" onclick="pcrSort('built_date')">Build Date <span class="sort-icon" id="sort-built_date"></span></th>
+           <th class="pcr-col-date sortable" onclick="pcrSort('built_date')">Build Date <span class="sort-icon" id="sort-built_date"></span></th>
  {% if is_compute_target %}<th class="pcr-col-crtag sortable" onclick="pcrSort('cr_tag')">CR TAG <span class="sort-icon" id="sort-cr_tag"></span></th>{% endif %}
+            <th class="pcr-col-assignee sortable" onclick="pcrSort('cr_assignee')">CR Assignee <span class="sort-icon" id="sort-cr_assignee"></span></th>
+            <th class="pcr-col-priority sortable" onclick="pcrSort('cr_priority')">CR Priority <span class="sort-icon" id="sort-cr_priority"></span></th>
+            <th class="pcr-col-customer sortable" onclick="pcrSort('cr_customer_sn')">Customer SN (Name) <span class="sort-icon" id="sort-cr_customer_sn"></span></th>
+            {% if not is_compute_target %}<th class="pcr-col-matched-tags">CR TAG <span style="font-size:8px;color:#fcd34d;font-weight:600;">(matched)</span></th>{% endif %}
                         <th class="pcr-col-pdttag">PDT Tag</th>
 
             <th class="pcr-col-lastjira sortable" onclick="pcrSort('last_reported_date')">Last Reported Date <span class="sort-icon" id="sort-last_reported_date"></span></th>
@@ -502,7 +543,7 @@
           </tr>
         </thead>
         <tbody id="pcrTableBody">
-          <tr><td colspan="{{ 16 if is_compute_target else 15 }}" class="pcr-empty">
+          <tr><td colspan="{{ 20 if is_compute_target else 19 }}" class="pcr-empty">
             <i class="fas fa-spinner fa-spin" style="font-size:22px;color:#6366f1;"></i>
             <div style="margin-top:12px;font-weight:600;">Loading CRs&hellip;</div>
           </td></tr>
@@ -709,6 +750,60 @@
   let activeKpi = '';
   let pcrLoadStarted = 0;
   let pcrLoadTimer = null;
+
+  // ── Shared Tag Filter (server-side, visible to ALL users for this target) ───
+  let _pcrSearchTags = []; // array of lowercase tag strings
+
+  async function pcrLoadSearchTags(){
+    try{
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/shared_tag_filter');
+      const data = await resp.json();
+      if(data.success && Array.isArray(data.tags) && data.tags.length){
+        _pcrSearchTags = data.tags.map(t=>t.toLowerCase());
+        const inp = document.getElementById('pcrSearchTagsInput');
+        if(inp) inp.value = data.tags.join(', ');
+        pcrApply();
+      }
+    }catch(e){}
+  }
+
+  window.pcrSearchTagsChanged = function(){
+    const inp = document.getElementById('pcrSearchTagsInput');
+    const val = inp ? inp.value : '';
+    _pcrSearchTags = val.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean);
+    pcrApply();
+  };
+
+  window.pcrSaveSearchTagsManual = async function(){
+    const inp = document.getElementById('pcrSearchTagsInput');
+    const val = inp ? inp.value : '';
+    const tags = val.split(',').map(t=>t.trim()).filter(Boolean);
+    _pcrSearchTags = tags.map(t=>t.toLowerCase());
+    pcrApply();
+    const btn = document.querySelector('button[onclick="pcrSaveSearchTagsManual()"]');
+    if(btn){
+      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="margin-right:4px;"></i>Saving...';
+      btn.style.background = '#94a3b8';
+    }
+    try{
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/shared_tag_filter',{
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tags})
+      });
+      const data = await resp.json();
+      if(btn){
+        if(data.success){
+          btn.innerHTML = '<i class="fas fa-check" style="margin-right:4px;"></i>Saved!';
+          btn.style.background = 'linear-gradient(135deg,#16a34a,#15803d)';
+        } else {
+          btn.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i>Error';
+          btn.style.background = '#dc2626';
+        }
+        setTimeout(()=>{ btn.innerHTML = '<i class="fas fa-save" style="margin-right:4px;"></i>Save'; btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)'; }, 2000);
+      }
+    }catch(e){
+      if(btn){ btn.innerHTML = '<i class="fas fa-save" style="margin-right:4px;"></i>Save'; btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)'; }
+    }
+  };
 
   function pcrLoadShow(show, title, text, pct){
     const modal = document.getElementById('pcrLoadModal');
@@ -1058,6 +1153,17 @@
 
       if(q && !text.toLowerCase().includes(q)) return false;
 
+      // Matched CR Tags filter (shared server-side tag filter, case-insensitive)
+      if(_pcrSearchTags.length > 0){
+        // Check raw Orbit tags array, alias-matched raw tags, and alias group names
+        const crRawTags = [
+          ...(r.cr_tags || []),
+          ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
+          ...(r.cr_tag || '').split(',').map(x=>x.trim()).filter(Boolean),
+        ].map(t => String(t).trim().toLowerCase()).filter(Boolean);
+        if(!_pcrSearchTags.some(t => crRawTags.some(rt => rt.includes(t) || t.includes(rt)))) return false;
+      }
+
       return true;
     });
     applySort(); currentPage=1; renderTable(); renderKpi(filtered);
@@ -1078,8 +1184,16 @@
       renderDdList(key, '');
     });
     document.getElementById('fltSearch').value = '';
+    // Clear tag filter input display AND server-side saved tags
+    const tagInp = document.getElementById('pcrSearchTagsInput');
+    if(tagInp) tagInp.value = '';
+    _pcrSearchTags = [];
+    // Clear server-side saved tags so they don't reload on next refresh
+    fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/shared_tag_filter',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tags:[]})
+    }).catch(function(){});
     ['kpiCardTotal','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
-        pcrApply();
+    pcrApply();
   };
 
   // ΓöÇΓöÇ Render table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -1098,7 +1212,7 @@
     document.getElementById('pcrNextBtn').disabled = currentPage>=pages;
 
     if(!page.length){
-      tbody.innerHTML='<tr><td colspan="{{ 16 if is_compute_target else 15 }}" class="pcr-empty">No CRs match the current filters.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="{{ 20 if is_compute_target else 19 }}" class="pcr-empty">No CRs match the current filters.</td></tr>';
       return;
     }
 
@@ -1133,6 +1247,32 @@
         : (hits > 10
           ? '<span class="pcr-p1-tag"><i class="fas fa-fire" style="font-size:9px;"></i>PDT_P1</span>'
           : '<span style="color:#cbd5e1;">&mdash;</span>');
+      // Matched CR Tags (based on shared server-side tag filter, case-insensitive substring)
+      const _allCrTagsForMatch = [
+        ...(r.cr_tags || []),
+        ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
+      ];
+      const matchedRawTags = _pcrSearchTags.length > 0
+        ? _allCrTagsForMatch.filter(t => {
+            const tl = String(t).trim().toLowerCase();
+            return _pcrSearchTags.some(st => tl.includes(st) || st.includes(tl));
+          })
+        : [];
+      const matchedTagCell = matchedRawTags.length > 0
+        ? matchedRawTags.map(t => '<span class="pcr-matched-tag-pill"><i class="fas fa-tag" style="font-size:9px;"></i>'+esc(t)+'</span>').join(' ')
+        : '<span style="color:#cbd5e1;">&mdash;</span>';
+      // Assignee / Priority / Customer cells (filled async by pcrLoadOrbitDetailsForPage)
+      const assigneeHtml = r.cr_assignee ? esc(r.cr_assignee) : '<span style="color:#cbd5e1;font-size:10px;">…</span>';
+      const priorityVal  = r.cr_priority || '';
+      const pClass = priorityVal && /p0|p1|critical/i.test(priorityVal) ? 'pcr-priority-p1'
+                   : priorityVal && /p2/i.test(priorityVal) ? 'pcr-priority-p2'
+                   : priorityVal ? 'pcr-priority-p3' : '';
+      const priorityHtml = priorityVal ? '<span class="pcr-priority-badge '+pClass+'">'+esc(priorityVal)+'</span>' : '<span style="color:#cbd5e1;font-size:10px;">…</span>';
+      const custSn   = r.cr_customer_sn   || '';
+      const custName = r.cr_customer_name || '';
+      const customerHtml = custSn
+        ? esc(custSn)+(custName ? ' <span style="color:#94a3b8;font-size:10px;">('+esc(custName)+')</span>' : '')
+        : '<span style="color:#cbd5e1;font-size:10px;">…</span>';
             return '<tr>'
 
         +'<td class="pcr-col-num" style="color:#94a3b8;font-size:11px;font-weight:600;background:inherit;">'+(start+i+1)+'</td>'
@@ -1147,17 +1287,96 @@
                                 +'<td class="pcr-col-si">'+siCell+'</td>'
                 +'<td class="pcr-col-ready" id="pcr-ready-'+crNum+'" title="'+esc(readyTitle)+'" style="font-size:11px;color:'+(readyDate==='NA'?'#94a3b8':'#047857')+';font-weight:800;">'+esc(readyDate)+'</td>'
         +'<td class="pcr-col-date" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:600;">'+(builtD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
-        +(IS_COMPUTE_TARGET?'<td class="pcr-col-crtag" style="text-align:center;">'+crTagCell+'</td>':'')
-
-        +'<td class="pcr-col-pdttag" style="text-align:center;">'+pdtTagCell+'</td>'
-        +'<td class="pcr-col-lastjira" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:700;">'+(lastD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
-        +'<td class="pcr-col-lastjira">'+(lastJira?'<a href="'+lastJiraUrl+'" target="_blank" class="pcr-cr-id" style="color:#0ea5e9;background:#ecfeff;">'+esc(lastJira)+'</a>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
-        +'</tr>';
+      +(IS_COMPUTE_TARGET?'<td class="pcr-col-crtag" style="text-align:center;">'+crTagCell+'</td>':'')
+      +'<td class="pcr-col-assignee" id="pcr-assignee-'+crNum+'" style="font-size:11px;color:#374151;white-space:nowrap;">'+assigneeHtml+'</td>'
+      +'<td class="pcr-col-priority" id="pcr-priority-'+crNum+'" style="text-align:center;">'+priorityHtml+'</td>'
+      +'<td class="pcr-col-customer" id="pcr-customer-'+crNum+'" style="font-size:11px;color:#374151;">'+customerHtml+'</td>'
+      +(IS_COMPUTE_TARGET?'':'<td class="pcr-col-matched-tags" style="text-align:center;">'+matchedTagCell+'</td>')
+      +'<td class="pcr-col-pdttag" style="text-align:center;">'+pdtTagCell+'</td>'
+      +'<td class="pcr-col-lastjira" style="white-space:nowrap;font-size:11px;color:#64748b;font-weight:700;">'+(lastD||'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
+      +'<td class="pcr-col-lastjira">'+(lastJira?'<a href="'+lastJiraUrl+'" target="_blank" class="pcr-cr-id" style="color:#0ea5e9;background:#ecfeff;">'+esc(lastJira)+'</a>':'<span style="color:#cbd5e1;">&mdash;</span>')+'</td>'
+      +'</tr>';
         }).join('');
     pcrLoadReadyDatesForPage(page);
+    pcrLoadOrbitDetailsForPage(page);
   }
 
-    function pcrShowReadyProgress(show, text, pct, done){
+  // ── Fetch CR Assignee / Priority / Customer from Orbit (per page, async) ────
+  async function pcrLoadOrbitDetailsForPage(page, force){
+    if(IS_COMPUTE_TARGET && !force) return;
+    const items = [];
+    page.forEach(r=>{
+      const cr = pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'');
+      if(!cr || r._orbitDetailsLoaded || r._orbitDetailsLoading) return;
+      r._orbitDetailsLoading = true;
+      items.push(cr);
+    });
+    if(!items.length) return;
+    try{
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_orbit_details', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({crs:items})
+      });
+      if(!resp.ok){
+        console.warn('[pcrOrbitDetails] HTTP '+resp.status+' for '+items.length+' CRs');
+        return;
+      }
+      const data = await resp.json();
+      if(!data.success){
+        console.warn('[pcrOrbitDetails] API error:', data.message);
+        return;
+      }
+      console.log('[pcrOrbitDetails] fetched details for '+Object.keys(data.rows||{}).length+' CRs');
+      const rows = data.rows || {};
+      page.forEach(r=>{
+        const cr = pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'');
+        const info = rows[cr] || rows['CR'+cr] || {};
+        r.cr_assignee     = info.assignee     || '';
+        r.cr_priority     = info.priority     || '';
+        r.cr_customer_sn  = info.customer_sn  || '';
+        r.cr_customer_name= info.customer_name|| '';
+        r._orbitDetailsLoaded  = true;
+        r._orbitDetailsLoading = false;
+        // Update assignee cell
+        const aCell = document.getElementById('pcr-assignee-'+cr);
+        if(aCell) aCell.innerHTML = r.cr_assignee
+          ? '<span style="font-size:11px;color:#374151;">'+esc(r.cr_assignee)+'</span>'
+          : '<span style="color:#cbd5e1;">&mdash;</span>';
+        // Update priority cell
+        const pCell = document.getElementById('pcr-priority-'+cr);
+        if(pCell){
+          const pv = r.cr_priority;
+          const pc = pv && /p0|p1|critical/i.test(pv) ? 'pcr-priority-p1'
+                   : pv && /p2/i.test(pv) ? 'pcr-priority-p2'
+                   : pv ? 'pcr-priority-p3' : '';
+          pCell.innerHTML = pv
+            ? '<span class="pcr-priority-badge '+pc+'">'+esc(pv)+'</span>'
+            : '<span style="color:#cbd5e1;">&mdash;</span>';
+        }
+        // Update customer cell
+        const cCell = document.getElementById('pcr-customer-'+cr);
+        if(cCell){
+          const sn = r.cr_customer_sn, nm = r.cr_customer_name;
+          cCell.innerHTML = sn
+            ? esc(sn)+(nm?' <span style="color:#94a3b8;font-size:10px;">('+esc(nm)+')</span>':'')
+            : '<span style="color:#cbd5e1;">&mdash;</span>';
+        }
+      });
+    }catch(e){
+      page.forEach(r=>{r._orbitDetailsLoaded=true;r._orbitDetailsLoading=false;});
+    }
+  }
+
+  window.pcrRefreshCustomerSN = async function(){
+    var btn = document.getElementById('pcrRefreshCustomerBtn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Fetching...'; }
+    var start = (currentPage-1)*PAGE_SIZE;
+    var page  = filtered.slice(start, start+PAGE_SIZE);
+    page.forEach(function(r){ r._orbitDetailsLoaded=false; r._orbitDetailsLoading=false; });
+    await pcrLoadOrbitDetailsForPage(page, true);
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-user-tag"></i> Refresh Customer SN'; }
+  };
+
+  function pcrShowReadyProgress(show, text, pct, done){
     const modal=document.getElementById('pcrReadyProgressModal');
     if(!modal) return;
     modal.style.display = show ? 'flex' : 'none';
@@ -1244,8 +1463,36 @@
     if(bar) bar.style.width = Math.max(0, Math.min(100, pct||0)) + '%';
   }
 
+  // Fetch CR tags directly via pdt_tags endpoint (works for ALL targets)
+  async function pcrFetchTagsDirect(){
+    if(!allRows.length) return;
+    const crNums = [...new Set(allRows.map(r => pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'')).filter(Boolean))];
+    if(!crNums.length) return;
+    const batchSize = 200;
+    let updated = false;
+    for(let i = 0; i < crNums.length; i += batchSize){
+      const batch = crNums.slice(i, i + batchSize);
+      try{
+        const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/pdt_tags', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({crs:batch})
+        });
+        const data = await resp.json();
+        if(data.tags_by_cr){
+          allRows.forEach(r => {
+            const cr = pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'');
+            const tags = data.tags_by_cr[cr] || data.tags_by_cr['CR'+cr] || [];
+            if(tags.length){ r.cr_tags = tags; updated = true; }
+          });
+        }
+      }catch(e){}
+    }
+    if(updated) pcrApply();
+  }
+
   async function pcrStartCrTagProgress(){
-    if(!IS_COMPUTE_TARGET || !allRows.length) return;
+    if(!allRows.length) return;
+    // For non-Compute targets, use direct pdt_tags fetch instead
+    if(!IS_COMPUTE_TARGET){ pcrFetchTagsDirect(); return; }
     const crs = allRows.map(r => pcrCrId(r).replace(/^CR/i,'').replace(/-/g,'')).filter(Boolean);
     if(!crs.length) return;
     try{
@@ -1319,6 +1566,32 @@
 
   // ΓöÇΓöÇ Load data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
+  // -- Bulk Orbit details fetch (all rows, called once on initial load) ----------
+  async function pcrFetchOrbitDetailsForAllRows(){
+    const crNums = [...new Set(allRows.map(r => pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'')).filter(Boolean))];
+    if(!crNums.length) return;
+    try{
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_orbit_details', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({crs:crNums})
+      });
+      if(!resp.ok) return;
+      const data = await resp.json();
+      if(!data.success) return;
+      const rows = data.rows || {};
+      allRows.forEach(r => {
+        const cr = pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'');
+        const info = rows[cr] || rows['CR'+cr] || {};
+        r.cr_assignee      = info.assignee      || '';
+        r.cr_priority      = info.priority      || '';
+        r.cr_customer_sn   = info.customer_sn   || '';
+        r.cr_customer_name = info.customer_name || '';
+        r._orbitDetailsLoaded = true;
+      });
+    }catch(e){
+      console.warn('pcrFetchOrbitDetailsForAllRows failed:', e);
+    }
+  }
+
     async function loadData(){
 
     pcrLoadShow(true, 'Loading PDT CRs', 'Requesting PDT CR data from server...', 10);
@@ -1340,13 +1613,17 @@
       pcrLoadUpdate('Building filters for '+allRows.length+' CRs...', 72);
             ['area','subsystem','functionality','status'].concat(IS_COMPUTE_TARGET ? ['crtag'] : []).forEach(k=>buildDdList(k, allRows));
 
+      // Fetch Orbit details (assignee/priority/customer) for ALL rows in bulk
+      // so they appear together with the initial table render — not as a delayed per-page fetch
+      pcrLoadUpdate('Fetching CR assignee, priority & customer from Orbit...', 80);
+      await pcrFetchOrbitDetailsForAllRows();
       // Apply current exclude state and filters after dropdowns are ready.
       // This avoids the initial table/KPI rendering unexcluded rows when the
       // saved exclude config loads before/after the CR data request.
       pcrLoadUpdate('Rendering PDT CR table and KPIs...', 88);
       pcrApply();
       pcrLoadDone('Loaded '+allRows.length+' PDT CRs.');
-      if(IS_COMPUTE_TARGET && !data.cr_tag_cache_loaded) pcrStartCrTagProgress();
+      if(!data.cr_tag_cache_loaded) pcrStartCrTagProgress();
     }catch(e){
 
 
@@ -1428,6 +1705,7 @@
   // Load exclude config first (parallel), then load CR data.
   // Both paths call pcrApply(), so whichever completes last still renders with
   // the latest exclude state and preserves the current filter selections.
+  pcrLoadSearchTags(); // async - loads shared tag filter from server
   if(IS_COMPUTE_TARGET) pcrExcludeLoad();
   loadData();
 
@@ -1748,7 +2026,7 @@
     if(!rows.length){ alert('No data to export.'); return; }
     const headers = ['#','CR ID','Title','Area','Subsystem','Functionality','JIRA Hits','Age (days)','Status','SI','Ready Date','Build Date']
       .concat(IS_COMPUTE_TARGET ? ['CR TAG','CR TAG Alias'] : [])
-      .concat(['PDT Tag','Last Reported Date','Last Reported JIRA']);
+      .concat(['CR Assignee','CR Priority','Customer SN (Name)','Matched CR Tags','PDT Tag','Last Reported Date','Last Reported JIRA']);
     const htmlRows = rows.map((r,idx) => '<tr>'+headers.map(col => {
       let val = '';
       if(col==='#') val = String(idx+1);
@@ -1765,6 +2043,10 @@
       else if(col==='Build Date') val = dateOnly(r.built_date)||'';
       else if(col==='CR TAG') val = r.cr_tag || '';
       else if(col==='CR TAG Alias') val = r.cr_tag_alias || '';
+      else if(col==='CR Assignee') val = r.cr_assignee || '';
+      else if(col==='CR Priority') val = r.cr_priority || '';
+      else if(col==='Customer SN (Name)') val = r.cr_customer_sn ? (r.cr_customer_sn+(r.cr_customer_name?' ('+r.cr_customer_name+')':'')) : '';
+      else if(col==='Matched CR Tags') val = [...(r.cr_tags||[]),...(r.cr_tag_alias||'').split(',').map(x=>x.trim()).filter(Boolean)].filter(t=>{ const tl=String(t).trim().toLowerCase(); return _pcrSearchTags.some(st=>tl.includes(st)||st.includes(tl)); }).join(', ');
       else if(col==='PDT Tag') val = pcrDisplayPdtTag(r);
       else if(col==='Last Reported Date') val = dateOnly(r.last_reported_date||r.jira_date_last)||'';
       else if(col==='Last Reported JIRA') val = r.last_reported_jira||'';
@@ -1803,7 +2085,11 @@
       { h:'SI',                 w:80,  fn:(r)=>r.cr_si||'',                                               max:16 },
       { h:'Ready Date',         w:82,  fn:(r)=>r.si_ready_date||'',                                       max:12 },
       { h:'Build Date',         w:82,  fn:(r)=>r.built_date||r.build_date||'',                            max:12 },
-      { h:'PDT Tag',            w:70,  fn:(r)=>r.pdt_tag||'',                                             max:12 },
+      { h:'CR Assignee',        w:90,  fn:(r)=>r.cr_assignee||'',                                         max:18 },
+      { h:'CR Priority',        w:70,  fn:(r)=>r.cr_priority||'',                                         max:12 },
+      { h:'Customer SN (Name)', w:120, fn:(r)=>r.cr_customer_sn?(r.cr_customer_sn+(r.cr_customer_name?' ('+r.cr_customer_name+')':'')):'', max:24 },
+      { h:'Matched CR Tags',    w:100, fn:(r)=>[...(r.cr_tags||[]),...(r.cr_tag_alias||'').split(',').map(x=>x.trim()).filter(Boolean)].filter(t=>{ const tl=String(t).trim().toLowerCase(); return _pcrSearchTags.some(st=>tl.includes(st)||st.includes(tl)); }).join(', '), max:20 },
+      { h:'PDT Tag',            w:70,  fn:(r)=>pcrDisplayPdtTag(r),                                       max:12 },
       { h:'Last Reported Date', w:100, fn:(r)=>r.last_reported_date||'',                                  max:16 },
       { h:'Last Reported JIRA', w:110, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
     ];
