@@ -363,6 +363,13 @@ app.register_blueprint(public_auto_gen5_bp)
 app.register_blueprint(core_deck_bp)
 app.register_blueprint(jiraquery_api_bp)
 app.register_blueprint(orbit_public_api_bp)
+
+
+@app.route('/api/docs')
+@login_required
+def api_all_in_one_docs():
+    """All-in-one API reference page — lists every PDTBuddy endpoint with redirect links."""
+    return render_template('api_all_in_one.html')
 from weekly_summary_routes import weekly_summary_bp
 app.register_blueprint(weekly_summary_bp)
 from sp_entry_routes import sp_entry_bp

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDTBuddy – All APIs Reference</title>
+  <style>
+    :root{--bg:#0f172a;--surface:#1e293b;--surface2:#273549;--border:#334155;--accent:#3b82f6;--accent2:#22d3ee;--green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--purple:#a78bfa;--text:#e2e8f0;--muted:#94a3b8;--code-bg:#0d1117;--sw:260px}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;display:flex;min-height:100vh}
+    #sidebar{width:var(--sw);min-width:var(--sw);background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+    .sb-hdr{padding:1rem;border-bottom:1px solid var(--border);background:var(--surface2)}
+    .sb-hdr h2{font-size:.95rem;color:var(--accent2);font-weight:700}
+    .sb-hdr p{font-size:.72rem;color:var(--muted);margin-top:2px}
+    .sb-search{padding:.6rem .75rem;border-bottom:1px solid var(--border)}
+    .sb-search input{width:100%;background:var(--code-bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.35rem .6rem;font-size:.78rem;outline:none}
+    .sb-search input:focus{border-color:var(--accent)}
+    #sbNav{flex:1;padding:.5rem 0}
+    .ng{margin-bottom:.25rem}
+    .ngt{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:.5rem 1rem .2rem}
+    #sbNav a{display:block;padding:.3rem 1rem .3rem 1.25rem;font-size:.78rem;color:var(--muted);text-decoration:none;border-left:2px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #sbNav a:hover{color:var(--text);background:var(--surface2)}
+    #sbNav a.active{color:var(--accent2);border-left-color:var(--accent2);background:rgba(34,211,238,.06)}
+    #main{margin-left:var(--sw);flex:1;min-width:0}
+    header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:50}
+    header h1{font-size:1.3rem;font-weight:700;color:var(--accent2)}
+    .badge{background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.05em}
+    .hdr-links{margin-left:auto;display:flex;gap:.75rem;align-items:center}
+    .hdr-links a{font-size:.78rem;color:var(--muted);text-decoration:none;padding:.25rem .6rem;border:1px solid var(--border);border-radius:5px}
+    .hdr-links a:hover{color:var(--text);border-color:var(--accent)}
+    .container{max-width:1000px;margin:0 auto;padding:2rem}
+    .section{margin-bottom:3rem;scroll-margin-top:70px}
+    h2.st{font-size:1.15rem;font-weight:700;color:var(--accent2);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+    h3{font-size:.95rem;font-weight:600;color:var(--text);margin:1.25rem 0 .4rem}
+    p{color:var(--muted);margin-bottom:.6rem;font-size:.88rem}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .method{display:inline-block;font-size:.65rem;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.05em;margin-right:.4rem;vertical-align:middle;flex-shrink:0}
+    .method.get{background:#065f46;color:#fff}.method.post{background:#1d4ed8;color:#fff}.method.del{background:#7f1d1d;color:#fff}
+    .endpoint{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:.75rem;overflow:hidden}
+    .ep-hdr{display:flex;align-items:center;gap:.5rem;padding:.65rem 1rem;background:var(--surface2);border-bottom:1px solid transparent;cursor:pointer;user-select:none}
+    .ep-hdr:hover{background:#2d3f55}
+    .ep-hdr.open{border-bottom-color:var(--border)}
+    .ep-path{font-family:'Cascadia Code','Fira Code',monospace;font-size:.85rem;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ep-desc{font-size:.75rem;color:var(--muted);flex-shrink:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ep-acts{display:flex;gap:.4rem;align-items:center;flex-shrink:0}
+    .eb{font-size:.68rem;font-weight:600;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+    .eb:hover{color:var(--text);border-color:var(--accent);text-decoration:none}
+    .eb.ob{border-color:#065f46;color:var(--green)}.eb.ob:hover{background:#052e16}
+    .eb.cb{border-color:#1d4ed8;color:#93c5fd}.eb.cb:hover{background:#0c1a3a}
+    .arrow{color:var(--muted);font-size:.8rem;flex-shrink:0}
+    .ep-body{padding:1rem;display:none}.ep-body.open{display:block}
+    pre{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:.85rem 1rem;overflow-x:auto;font-family:'Cascadia Code','Fira Code',monospace;font-size:.8rem;line-height:1.5;margin:.4rem 0 .75rem;position:relative}
+    code{font-family:'Cascadia Code','Fira Code',monospace}
+    .k{color:#79c0ff}.s{color:#a5d6ff}.n{color:#f2cc60}.c{color:#8b949e;font-style:italic}.kw{color:#ff7b72}
+    table{width:100%;border-collapse:collapse;margin:.4rem 0 .75rem;font-size:.82rem}
+    th{background:var(--surface2);color:var(--muted);font-weight:600;text-align:left;padding:.45rem .7rem;border-bottom:1px solid var(--border)}
+    td{padding:.45rem .7rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+    td code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:.78rem}
+    .req{color:var(--red);font-size:.68rem;font-weight:700}.opt{color:var(--muted);font-size:.68rem}
+    .alert{border-radius:6px;padding:.65rem 1rem;margin-bottom:.75rem;font-size:.83rem}
+    .alert.info{background:#0c2340;border-left:3px solid var(--accent);color:var(--text)}
+    .alert.warn{background:#2d1f00;border-left:3px solid var(--yellow);color:var(--text)}
+    .alert.green{background:#052e16;border-left:3px solid var(--green);color:var(--text)}
+    .alert.purple{background:#1e1040;border-left:3px solid var(--purple);color:var(--text)}
+    .auth-box{background:#0c2340;border:1px solid #1e4a7a;border-radius:8px;padding:.85rem 1.1rem;margin-bottom:1.25rem}
+    .auth-box h3{color:var(--accent2);margin-top:0;font-size:.9rem}
+    .tag{display:inline-block;font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:999px;margin-left:.3rem;vertical-align:middle}
+    .tag.pub{background:#052e16;color:var(--green);border:1px solid #166534}
+    .tag.adm{background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d}
+    .tag.tok{background:#0c2340;color:#93c5fd;border:1px solid #1e4a7a}
+    .tag.ses{background:#1e1040;color:#c4b5fd;border:1px solid #4c1d95}
+    .cw{position:relative}
+    .ic{position:absolute;top:.4rem;right:.4rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:1px 7px;border-radius:4px;font-size:.68rem;cursor:pointer}
+    .ic:hover{color:var(--text)}
+    footer{text-align:center;color:var(--muted);font-size:.75rem;padding:2rem;border-top:1px solid var(--border);margin-top:3rem}
+    footer a{color:var(--accent)}
+    @media(max-width:768px){#sidebar{display:none}#main{margin-left:0}}
+  </style>
+</head>
+<body>
+<aside id="sidebar">
+  <div class="sb-hdr"><h2>📡 PDTBuddy APIs</h2><p>All endpoints — one page</p></div>
+  <div class="sb-search"><input type="text" id="sbSearch" placeholder="Search endpoints…" oninput="filterSidebar(this.value)"/></div>
+  <nav id="sbNav">
+    <div class="ng"><div class="ngt">Overview</div>
+      <a href="#sec-intro">Introduction &amp; Auth</a>
+      <a href="#sec-quickref">Quick Reference</a>
+    </div>
+    <div class="ng"><div class="ngt">CR APIs</div>
+      <a href="#sec-cr-overview">CR Overview</a>
+      <a href="#sec-overall-crs">Overall CRs</a>
+      <a href="#sec-cr-insight">CR Insight &amp; Info</a>
+      <a href="#sec-open-crs">Open CRs</a>
+    </div>
+    <div class="ng"><div class="ngt">Device &amp; Hardware</div>
+      <a href="#sec-device-summary">Device Summary</a>
+      <a href="#sec-hwpdt">HWPDT</a>
+    </div>
+    <div class="ng"><div class="ngt">Reports</div>
+      <a href="#sec-mtbf">MTBF</a>
+      <a href="#sec-weekly">Weekly Summary</a>
+      <a href="#sec-jiraquery">JiraQuery Raw</a>
+      <a href="#sec-build-report">Build Report</a>
+    </div>
+    <div class="ng"><div class="ngt">Live Status</div>
+      <a href="#sec-live-status">Live Status Publish</a>
+    </div>
+    <div class="ng"><div class="ngt">Orbit</div>
+      <a href="#sec-orbit">Orbit Public API</a>
+    </div>
+    <div class="ng"><div class="ngt">Other</div>
+      <a href="#sec-workspace">Workspace</a>
+      <a href="#sec-feedback">Feedback</a>
+      <a href="#sec-report-task">Report Task</a>
+      <a href="#sec-admin">Admin</a>
+    </div>
+    <div class="ng"><div class="ngt">Dedicated Docs</div>
+      <a href="/build_report/api_docs" target="_blank">Build Report API Docs ↗</a>
+      <a href="/api/public/orbit/docs" target="_blank">Orbit API Docs ↗</a>
+    </div>
+  </nav>
+</aside>
+
+<div id="main">
+<header>
+  <h1>📡 PDTBuddy API Reference</h1>
+  <span class="badge">All-in-One</span>
+  <div class="hdr-links">
+    <a href="/build_report/api_docs" target="_blank">Build Report Docs</a>
+    <a href="/api/public/orbit/docs" target="_blank">Orbit Docs</a>
+    <a href="/api/token/verify" target="_blank">Verify Token</a>
+  </div>
+</header>
+<div class="container">
+
+<!-- INTRO -->
+<div class="section" id="sec-intro">
+  <h2 class="st">🔑 Introduction &amp; Authentication</h2>
+  <div class="auth-box">
+    <h3>Base URL</h3>
+    <p>All endpoints are relative to the PDTBuddy host:</p>
+    <pre><code>https://&lt;pdt-buddy-host&gt;</code></pre>
+  </div>
+  <div class="auth-box">
+    <h3>🔑 API Token Authentication</h3>
+    <p>External tools must send <code>PDTBUDDY_API_TOKEN</code> in one of these ways:</p>
+    <table>
+      <tr><th>Method</th><th>Example</th></tr>
+      <tr><td>HTTP Header (recommended)</td><td><code>X-PDTBuddy-API-Token: your-token</code></td></tr>
+      <tr><td>Authorization Bearer</td><td><code>Authorization: Bearer your-token</code></td></tr>
+      <tr><td>Query parameter</td><td><code>?api_token=your-token</code></td></tr>
+    </table>
+    <p style="margin-top:.6rem">Browser sessions (logged-in users) are also accepted — no token needed from the UI.</p>
+    <div class="cw"><pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" https://&lt;host&gt;/api/token/verify</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+  </div>
+  <div class="alert info"><strong>Response format:</strong> Most endpoints return JSON. Errors: <code>{"success":false,"message":"..."}</code> or <code>{"ok":false,"error":"..."}</code>.</div>
+  <h3>Common Path Parameters</h3>
+  <table>
+    <tr><th>Parameter</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>target_name</code></td><td>PDT target key</td><td><code>ALDABRA</code>, <code>BALSAM</code></td></tr>
+    <tr><td><code>job_id</code></td><td>Live Status Publish job id</td><td><code>abc123</code></td></tr>
+    <tr><td><code>meta_id</code></td><td>Meta build id</td><td><code>META-00270</code></td></tr>
+    <tr><td><code>cr_number</code></td><td>CR number</td><td><code>CR1234567</code></td></tr>
+  </table>
+</div>
+
+<!-- QUICK REF -->
+<div class="section" id="sec-quickref">
+  <h2 class="st">⚡ Quick Reference — Recommended External APIs</h2>
+  <div class="alert green">✅ These read-only GET endpoints are the safest to expose to external applications.</div>
+  <table>
+    <tr><th>Use Case</th><th>Method</th><th>Endpoint</th><th>Auth</th><th>Try</th></tr>
+    <tr><td>CR overview KPIs/charts</td><td><span class="method get">GET</span></td><td><code>/api/cr_overview</code></td><td><span class="tag ses">Session</span></td><td><a class="eb ob" href="/api/cr_overview" target="_blank">↗</a></td></tr>
+    <tr><td>CR detail rows</td><td><span class="method get">GET</span></td><td><code>/api/cr_overview/cr_rows</code></td><td><span class="tag ses">Session</span></td><td><a class="eb ob" href="/api/cr_overview/cr_rows" target="_blank">↗</a></td></tr>
+    <tr><td>Target list by BU</td><td><span class="method get">GET</span></td><td><code>/api/cr_overview/targets</code></td><td><span class="tag ses">Session</span></td><td><a class="eb ob" href="/api/cr_overview/targets" target="_blank">↗</a></td></tr>
+    <tr><td>Per-target CR weekly summary</td><td><span class="method get">GET</span></td><td><code>/api/weekly_summary/&lt;target&gt;</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>Device summary / device pool</td><td><span class="method get">GET</span></td><td><code>/api/device_summary_data/&lt;target&gt;</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>Device list from Excel</td><td><span class="method get">GET</span></td><td><code>/api/ds/&lt;target&gt;/devices/list</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>HWPDT tested parts</td><td><span class="method get">GET</span></td><td><code>/api/hwpdt_chip_parts/&lt;target&gt;</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>Live status published report</td><td><span class="method get">GET</span></td><td><code>/api/live_status/jobs/&lt;job_id&gt;/current_report</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>MTBF JIRAs for meta</td><td><span class="method get">GET</span></td><td><code>/api/mtbf_jiras/&lt;target&gt;/&lt;meta_id&gt;</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>JiraQuery raw data by builds</td><td><span class="method get">GET</span></td><td><code>/api/jiraquery/raw?builds=B1,B2&amp;target=T</code></td><td><span class="tag tok">Token</span></td><td><a class="eb ob" href="/api/jiraquery/raw" target="_blank">↗</a></td></tr>
+    <tr><td>CR insight</td><td><span class="method get">GET</span></td><td><code>/api/cr_insight/&lt;cr_number&gt;</code></td><td><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>Orbit CRs for target</td><td><span class="method get">GET</span></td><td><code>/api/public/orbit/crs?target=&lt;target&gt;</code></td><td><span class="tag tok">Token</span><span class="tag ses">Session</span></td><td><a class="eb ob" href="/api/public/orbit/crs" target="_blank">↗</a></td></tr>
+    <tr><td>Build report (sync)</td><td><span class="method post">POST</span></td><td><code>/api/build_report/run</code></td><td><span class="tag tok">Token</span><span class="tag ses">Session</span></td><td>—</td></tr>
+    <tr><td>Verify API token</td><td><span class="method get">GET</span></td><td><code>/api/token/verify</code></td><td><span class="tag tok">Token</span></td><td><a class="eb ob" href="/api/token/verify" target="_blank">↗</a></td></tr>
+  </table>
+</div>
+
+<!-- CR OVERVIEW -->
+<div class="section" id="sec-cr-overview">
+  <h2 class="st">📊 CR Overview APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_overview</span><span class="ep-desc">CR overview summary — KPIs, BU cards, charts</span><div class="ep-acts"><a class="eb ob" href="/api/cr_overview" target="_blank">↗ Open</a><button class="eb cb" onclick="copyCurl(event,'/api/cr_overview')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns landing-page CR overview data: hero KPIs, BU cards, charts, pivot data, site keys, and selected filters.</p>
+      <table><tr><th>Param</th><th>Required</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>bu</code></td><td><span class="opt">No</span></td><td><code>ALL</code></td><td>BU key or <code>ALL</code></td></tr>
+        <tr><td><code>target</code></td><td><span class="opt">No</span></td><td><code>ALL</code></td><td>Single target or <code>ALL</code></td></tr>
+        <tr><td><code>targets</code></td><td><span class="opt">No</span></td><td>—</td><td>Comma-separated targets (overrides <code>target</code>)</td></tr>
+        <tr><td><code>dim</code></td><td><span class="opt">No</span></td><td><code>cr_area</code></td><td><code>bu_key</code>, <code>cr_area</code>, <code>cr_status</code>, <code>cr_functionality</code>, <code>cr_subsystem</code></td></tr>
+        <tr><td><code>site</code></td><td><span class="opt">No</span></td><td><code>ALL</code></td><td><code>ALL</code>, <code>PDT_QIPL</code>, <code>PDT_SD</code>, <code>PDT_CH</code>, …</td></tr>
+        <tr><td><code>date_from</code> / <code>date_to</code></td><td><span class="opt">No</span></td><td>—</td><td><code>YYYY-MM-DD</code></td></tr>
+        <tr><td><code>status_filter</code></td><td><span class="opt">No</span></td><td><code>all</code></td><td><code>all</code>, <code>invalid</code>, <code>nosir</code></td></tr>
+        <tr><td><code>flt_cr</code>, <code>flt_area</code>, <code>flt_sub</code>, <code>flt_func</code></td><td><span class="opt">No</span></td><td>—</td><td>Column text filters</td></tr>
+        <tr><td><code>flt_age_min</code>, <code>flt_age_max</code></td><td><span class="opt">No</span></td><td>—</td><td>CR age range filter</td></tr>
+      </table>
+      <div class="cw"><pre><code>curl -b cookies.txt "https://&lt;host&gt;/api/cr_overview?bu=MOBILE&amp;target=ALDABRA&amp;dim=cr_area"</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_overview/cr_rows</span><span class="ep-desc">Paginated CR detail rows</span><div class="ep-acts"><a class="eb ob" href="/api/cr_overview/cr_rows" target="_blank">↗ Open</a><button class="eb cb" onclick="copyCurl(event,'/api/cr_overview/cr_rows')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns paginated detailed CR rows with sorting, filtering, and pagination.</p>
+      <table><tr><th>Param</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>bu</code></td><td><code>ALL</code></td><td>BU key</td></tr>
+        <tr><td><code>target</code></td><td><code>ALL</code></td><td>Target name</td></tr>
+        <tr><td><code>category</code></td><td><code>undisposed</code></td><td><code>all</code>, <code>undisposed</code>, <code>built</code>, <code>invalid</code>, <code>nosir</code></td></tr>
+        <tr><td><code>sort</code></td><td><code>age_desc</code></td><td><code>age_desc</code>, <code>age_asc</code>, <code>jira_desc</code></td></tr>
+        <tr><td><code>page</code></td><td><code>1</code></td><td>1-based page number</td></tr>
+        <tr><td><code>per_page</code></td><td><code>200</code></td><td>Min 10, max 100000</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_overview/area_targets</span><span class="ep-desc">Per-target CR count breakdown for a dimension value</span><div class="ep-acts"><a class="eb ob" href="/api/cr_overview/area_targets" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>For a selected dimension value, returns per-target CR count and average age breakdown. Required param: <code>area</code>. Optional: <code>dim</code>, <code>bu</code>.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_overview/targets</span><span class="ep-desc">Active targets for a BU</span><div class="ep-acts"><a class="eb ob" href="/api/cr_overview/targets" target="_blank">↗ Open</a><button class="eb cb" onclick="copyCurl(event,'/api/cr_overview/targets')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Query param: <code>bu</code> (optional, default <code>ALL</code>). Returns: <code>{"targets":["T1","T2"],"bu":"MOBILE"}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/cr_overview/excluded_targets</span><span class="ep-desc">Get / save excluded CR overview targets</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns excluded target list. POST body: <code>{"excluded":["TARGET1","TARGET2"]}</code></p></div>
+  </div>
+</div>
+
+<!-- OVERALL CRS -->
+<div class="section" id="sec-overall-crs">
+  <h2 class="st">📋 Overall CR APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/overall_crs_summary/&lt;target_name&gt;</span><span class="ep-desc">Overall CR summary counts</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns total/mapped/open/built/invalid CR summary counts for the target.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/overall_crs_rows/&lt;target_name&gt;</span><span class="ep-desc">Detailed overall CR rows</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns detailed overall CR rows with filtering/sorting/pagination support.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/overall_crs_breakdown/&lt;target_name&gt;</span><span class="ep-desc">Grouped CR breakdown for charts</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Query param: <code>group_by</code> / <code>col</code> — group by subsystem / functionality / area / status.</p></div>
+  </div>
+</div>
+
+<!-- CR INSIGHT -->
+<div class="section" id="sec-cr-insight">
+  <h2 class="st">🔍 CR Insight &amp; Info APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_insight/&lt;cr_number&gt;</span><span class="ep-desc">CR metadata, linked CRs, JIRA ids, target details</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/cr_insight/CR1234567')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns CR metadata, linked CRs, linked JIRA ids, last reported information, and target-specific details from <code>unique_crs</code>.</p>
+      <div class="cw"><pre><code>curl -b cookies.txt "https://&lt;host&gt;/api/cr_insight/CR1234567"</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/cr_info_summary?cr=&lt;cr_number&gt;</span><span class="ep-desc">Lightweight CR summary</span><div class="ep-acts"><a class="eb ob" href="/api/cr_info_summary?cr=CR1234567" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Required param: <code>cr</code> — CR number (normalizes <code>CR</code> prefix automatically).</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/cr_ai_summary</span><span class="ep-desc">AI-generated CR summary via QGenie</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Generates an AI summary using PDT DB data and QGenie. Returns AI-generated CR summary and source/debug information.</p></div>
+  </div>
+</div>
+
+<!-- OPEN CRS -->
+<div class="section" id="sec-open-crs">
+  <h2 class="st">🔓 Open CR APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/open_crs/&lt;target_name&gt;</span><span class="ep-desc">Open CRs for a target</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns open CRs: list of open CR rows, columns, counts/status data.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/cr_debug_notes/&lt;target_name&gt;</span><span class="ep-desc">Get / save CR debug notes</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns saved debug notes. POST saves debug notes keyed by CR/debug row.</p></div>
+  </div>
+</div>
+
+<!-- DEVICE SUMMARY -->
+<div class="section" id="sec-device-summary">
+  <h2 class="st">📱 Device Summary APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/device_summary_data/&lt;target_name&gt;</span><span class="ep-desc">Axiom/QDT device summary data</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/device_summary_data/ALDABRA')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><table><tr><th>Param</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>pdt</code></td><td><code>SWPDT</code></td><td><code>SWPDT</code> or <code>HWPDT</code></td></tr>
+      <tr><td><code>refresh</code></td><td><code>0</code></td><td><code>1</code> to force Axiom refresh</td></tr>
+    </table><p>Returns: <code>chipset</code>, <code>pdt_type</code>, <code>saved_at</code>, <code>count</code>, <code>devices</code>, <code>qdt_ok</code>, <code>source</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/device_summary_data/&lt;target_name&gt;/sync_status</span><span class="ep-desc">Cache readiness for SWPDT and HWPDT</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">success</span>":<span class="kw">true</span>,"<span class="k">chip_name</span>":"<span class="s">SM4850</span>","<span class="k">status</span>":{"<span class="k">SWPDT</span>":{"<span class="k">ready</span>":<span class="kw">true</span>,"<span class="k">count</span>":<span class="n">10</span>},"<span class="k">HWPDT</span>":{"<span class="k">ready</span>":<span class="kw">false</span>,"<span class="k">count</span>":<span class="n">0</span>}}}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/ds/&lt;target_name&gt;/devices/list</span><span class="ep-desc">List devices from Excel</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/ds/ALDABRA/devices/list')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns: <code>headers</code>, <code>rows</code>, <code>total</code>, <code>mode</code>, <code>excel_path</code>, <code>devices_sheet</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/ds/&lt;target_name&gt;/refresh</span><span class="ep-desc">Refresh Device Summary from Excel</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Forces parse/recompile of Device Summary dashboard data from configured Excel.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/ds/&lt;target_name&gt;/debug</span><span class="ep-desc">Device Summary debug parse info</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns raw Excel parse info: config, headers, sample rows, parse errors, detected sites, row count, grand delivered total.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/ds/&lt;target_name&gt;/upload</span><span class="ep-desc">Upload Device Summary Excel (multipart)</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Multipart form-data. Field <code>file</code>: <code>.xlsx</code> or <code>.xlsm</code> file.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/ds/&lt;target_name&gt;/devices/add</span><span class="ep-desc">Add device row</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">row</span>":[<span class="s">"device-id"</span>,<span class="s">"host-pc"</span>,<span class="s">"mcn"</span>,<span class="s">"storage"</span>,<span class="s">"location"</span>,<span class="s">"rework"</span>]}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/ds/&lt;target_name&gt;/devices/edit</span><span class="ep-desc">Edit device row by index</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">index</span>":<span class="n">0</span>,"<span class="k">row</span>":[<span class="s">"updated"</span>,<span class="s">"values"</span>]}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/ds/&lt;target_name&gt;/devices/delete</span><span class="ep-desc">Delete device row by index</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">index</span>":<span class="n">0</span>}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/device_pool/&lt;target_name&gt;/overrides?pdt=SWPDT</span><span class="ep-desc">Get device pool overrides</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns removed device ids and edit map for the target.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/device_pool/&lt;target_name&gt;/remove | /restore | /edit</span><span class="ep-desc">Device pool override operations</span><span class="arrow">▼</span></div>
+    <div class="ep-body">
+      <p><strong>Remove/Restore:</strong> <code>{"device_id":"DEVICE123","pdt_type":"SWPDT"}</code></p>
+      <p><strong>Edit:</strong> <code>{"pdt_type":"SWPDT","edits":{"DEVICE123":{"mcn_display":"...","storage_display":"...","location_display":"...","rework_info_display":"..."}}}</code></p>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/device_summary_data/save_sw_del/&lt;target_name&gt;</span><span class="ep-desc">Save SW delivered override data</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">rows</span>":[{"<span class="k">site</span>":<span class="s">"QIPL"</span>,"<span class="k">delivered</span>":<span class="n">10</span>,"<span class="k">deployed</span>":<span class="n">8</span>}]}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/device_summary_data/save_hw_metrics/&lt;target_name&gt;</span><span class="ep-desc">Save HW metrics override data</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">columns</span>":[<span class="s">"REV0"</span>,<span class="s">"REV1"</span>,<span class="s">"Part Type"</span>,<span class="s">"Total"</span>],"<span class="k">rows</span>":[]}</code></pre></div>
+  </div>
+</div>
+
+<!-- HWPDT -->
+<div class="section" id="sec-hwpdt">
+  <h2 class="st">🔩 HWPDT APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/hwpdt_chip_parts/&lt;target_name&gt;</span><span class="ep-desc">HWPDT tested chip/part data</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/hwpdt_chip_parts/ALDABRA')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns: <code>sp_name</code>, <code>family_prefix</code>, <code>matched_products</code>, <code>tested_parts</code>, <code>projected_parts</code>, <code>chip_ids</code>, <code>chip_rows</code>, <code>playlist_filters</code>, <code>generated_at</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/hwpdt_cr_venn/&lt;target_name&gt;</span><span class="ep-desc">CR overlap between HWPDT and SWPDT</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns CR overlap data between HWPDT and SWPDT JIRA/CR mappings. Useful for Venn charts and linked CR analysis.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/hwpdt/excluded_targets</span><span class="ep-desc">Get / save excluded HWPDT targets</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns current excluded HWPDT targets. POST (admin-only): <code>{"excluded":["TARGET1"]}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/hwpdt_projected/&lt;target_name&gt;</span><span class="ep-desc">Save projected HWPDT parts</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"<span class="k">projected_parts</span>":<span class="n">100</span>}</code></pre></div>
+  </div>
+</div>
+
+<!-- MTBF -->
+<div class="section" id="sec-mtbf">
+  <h2 class="st">📈 MTBF APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/mtbf_jiras/&lt;target_name&gt;/&lt;meta_id&gt;</span><span class="ep-desc">MTBF JIRAs for a meta build</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/mtbf_jiras/ALDABRA/META-00270')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Query param: <code>builds</code> — comma-separated build ids (optional; falls back to meta LIKE search).</p>
+      <pre><code>{"<span class="k">meta_id</span>":<span class="s">"META-00270"</span>,"<span class="k">jiras</span>":[{"<span class="k">stability_ticket</span>":<span class="s">"QSTABILITY-123"</span>,"<span class="k">jira_title</span>":<span class="s">"..."</span>,"<span class="k">crash_count</span>":<span class="n">1</span>}]}</code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- WEEKLY SUMMARY -->
+<div class="section" id="sec-weekly">
+  <h2 class="st">📅 Weekly Summary API</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/weekly_summary/&lt;target_name&gt;</span><span class="ep-desc">Per-target CR weekly summary</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/weekly_summary/ALDABRA')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><table><tr><th>Param</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>from</code></td><td>current Monday</td><td>Week start <code>YYYY-MM-DD</code></td></tr>
+      <tr><td><code>to</code></td><td>current Sunday</td><td>Week end <code>YYYY-MM-DD</code></td></tr>
+    </table>
+    <div class="cw"><pre><code>curl -b cookies.txt "https://&lt;host&gt;/api/weekly_summary/ALDABRA?from=2026-01-05&amp;to=2026-01-11"</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- JIRAQUERY -->
+<div class="section" id="sec-jiraquery">
+  <h2 class="st">🔎 JiraQuery Raw-Data API</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/jiraquery/raw</span><span class="ep-desc">Consolidated report raw JIRA data by build IDs</span><div class="ep-acts"><a class="eb ob" href="/api/jiraquery/raw" target="_blank">↗ Open</a><button class="eb cb" onclick="copyCurl(event,'/api/jiraquery/raw?builds=BUILD1,BUILD2&target=ALDABRA&raw_only=true')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body">
+      <div class="alert info">🔑 Requires <code>X-PDTBuddy-API-Token</code> header.</div>
+      <table><tr><th>Param</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>builds</code></td><td><span class="req">Yes</span></td><td>Comma-separated build IDs</td></tr>
+        <tr><td><code>target</code> / <code>target_name</code></td><td><span class="opt">No</span></td><td>Target name for CR enrichment</td></tr>
+        <tr><td><code>filter_id</code></td><td><span class="opt">No</span></td><td>JIRA filter id (overrides default)</td></tr>
+        <tr><td><code>traverse</code></td><td><span class="opt">No</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
+        <tr><td><code>enrich_orbit</code></td><td><span class="opt">No</span></td><td>Enrich missing CR details from Orbit (default: <code>true</code>)</td></tr>
+        <tr><td><code>raw_only</code></td><td><span class="opt">No</span></td><td>Return flat JIRA list only (default: <code>false</code>)</td></tr>
+      </table>
+      <div class="cw"><pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" "https://&lt;host&gt;/api/jiraquery/raw?builds=BUILD1,BUILD2&amp;target=ALDABRA&amp;raw_only=true"</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- BUILD REPORT -->
+<div class="section" id="sec-build-report">
+  <h2 class="st">🏗️ Build Report APIs</h2>
+  <div class="alert info">Full documentation: <a href="/build_report/api_docs" target="_blank">/build_report/api_docs ↗</a></div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/build_report/run</span><span class="ep-desc">Run report synchronously — one call, one response</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/build_report/run','POST')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body">
+      <div class="alert green">⭐ Recommended. Pass filter ID or JQL → get full report back immediately.</div>
+      <table><tr><th>Field</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>filter_id</code></td><td><span class="req">required*</span></td><td>JIRA saved filter ID e.g. <code>"76997"</code></td></tr>
+        <tr><td><code>custom_jql</code></td><td><span class="req">required*</span></td><td>Direct JIRA JQL string</td></tr>
+        <tr><td><code>builds</code></td><td><span class="req">required*</span></td><td>Comma-separated build IDs</td></tr>
+        <tr><td><code>target</code></td><td><span class="opt">optional</span></td><td>Target name for context</td></tr>
+        <tr><td><code>traverse</code></td><td><span class="opt">optional</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
+        <tr><td><code>orbit</code></td><td><span class="opt">optional</span></td><td>Enrich with Orbit CR data (default: <code>true</code>)</td></tr>
+      </table>
+      <p><em>* At least one of <code>filter_id</code>, <code>custom_jql</code>, or <code>builds</code> is required.</em></p>
+      <div class="cw"><pre><code>curl -s -X POST https://&lt;host&gt;/api/build_report/run \
+  -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"filter_id": "76997"}'</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/consolidated_report</span><span class="ep-desc">Start async Build Report job</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Starts an async consolidated report job. Returns <code>{"ok":true,"job_id":"..."}</code>. Use <code>job_id</code> to poll for results.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/consolidated_report/result/&lt;job_id&gt;</span><span class="ep-desc">Fetch completed report by job ID</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns 202 while pending, 200 with full report when complete, 500 on failure.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/consolidated_report/progress/&lt;job_id&gt;</span><span class="ep-desc">SSE stream of job progress events</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Server-Sent Events stream. Emits JSON progress events until the job completes.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/consolidated_report/status</span><span class="ep-desc">Preflight check — verify JIRA credentials</span><div class="ep-acts"><a class="eb ob" href="/api/consolidated_report/status" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns whether JIRA credentials are configured on the server. Use as a health check before submitting jobs.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/token/verify</span><span class="ep-desc">Verify API token</span><div class="ep-acts"><a class="eb ob" href="/api/token/verify" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Verifies the <code>X-PDTBuddy-API-Token</code> is valid. Returns <code>{"ok":true,"valid":true}</code> or 401.</p></div>
+  </div>
+</div>
+
+<!-- LIVE STATUS -->
+<div class="section" id="sec-live-status">
+  <h2 class="st">📡 Live Status Publish APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/live_status/jobs</span><span class="ep-desc">List all Live Status jobs</span><div class="ep-acts"><a class="eb ob" href="/api/live_status/jobs" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Requires editor/admin target-group access. Returns <code>{"ok":true,"jobs":[]}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;</span><span class="ep-desc">Get job metadata and saved rows</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns job metadata and saved rows for the specified job.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/save</span><span class="ep-desc">Save job metadata</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>JSON body: job metadata object (name, targets, status, current report JQL, etc.). Returns updated job.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/rows</span><span class="ep-desc">Save job draft rows</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"rows":[{"build_full":"...","run_status":"running"}]}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/publish</span><span class="ep-desc">Publish job</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns updated job and published URL: <code>{"ok":true,"job":{},"published_url":"/published/live-status/&lt;token&gt;"}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/delete</span><span class="ep-desc">Delete job</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns <code>{"ok":true}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/current_report</span><span class="ep-desc">Published current report</span><div class="ep-acts"><span style="font-size:.7rem;color:var(--green)">Public</span></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Published reports are publicly readable. Draft/non-published jobs require editor access. Optional params: <code>force</code> (1/true to rerun), <code>jql</code> / <code>custom_jql</code>.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/current_report/jql</span><span class="ep-desc">Get / save current report JQL</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns persisted JQL. POST body: <code>{"jql":"project = CHIPMD ORDER BY created DESC"}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/current_report/exclusions</span><span class="ep-desc">Get / save current report exclusions</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns excluded JIRAs. POST body: <code>{"excluded":["QSTABILITY-123","QSTABILITY-456"]}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/live_status/swpdt_status</span><span class="ep-desc">SWPDT JSON status</span><div class="ep-acts"><a class="eb ob" href="/api/live_status/swpdt_status" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns SWPDT job summary file status: file existence, file age, generated timestamp, total jobs, state counts, poller thread health.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/live_status/jobs/&lt;job_id&gt;/swpdt_search?q=&lt;query&gt;</span><span class="ep-desc">Search SWPDT running builds</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Required param: <code>q</code> (min 2 chars). Matches build name or meta number. Returns matching builds and count.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/live_status/swpdt_force_refresh</span><span class="ep-desc">Force refresh SWPDT data</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Requires Axiom credentials in environment. Returns total jobs, newly fetched count, state counts, generated timestamp, output path.</p></div>
+  </div>
+</div>
+
+<!-- ORBIT -->
+<div class="section" id="sec-orbit">
+  <h2 class="st">🌐 Orbit Public API</h2>
+  <div class="alert info">Full documentation: <a href="/api/public/orbit/docs" target="_blank">/api/public/orbit/docs ↗</a></div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/public/orbit/crs?target=&lt;target&gt;&amp;pl=&lt;pl&gt;</span><span class="ep-desc">All Orbit CR data for a target</span><div class="ep-acts"><a class="eb ob" href="/api/public/orbit/crs" target="_blank">↗ Open</a><button class="eb cb" onclick="copyCurl(event,'/api/public/orbit/crs?target=ALDABRA')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body">
+      <div class="alert info">🔑 Requires <code>X-PDTBuddy-API-Token</code> or browser session.</div>
+      <table><tr><th>Param</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>target</code></td><td><span class="req">Yes</span></td><td>Target name</td></tr>
+        <tr><td><code>pl</code></td><td><span class="opt">No</span></td><td>PL filter</td></tr>
+        <tr><td><code>limit</code></td><td><span class="opt">No</span></td><td>Max results (default 500, max 2000)</td></tr>
+        <tr><td><code>include_sirs</code></td><td><span class="opt">No</span></td><td>Include SIR data</td></tr>
+        <tr><td><code>include_tags</code></td><td><span class="opt">No</span></td><td>Include CR tags</td></tr>
+      </table>
+      <div class="cw"><pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" "https://&lt;host&gt;/api/public/orbit/crs?target=ALDABRA&amp;limit=100"</code></pre><button class="ic" onclick="copyPre(this)">copy</button></div>
+    </div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/public/orbit/cr/&lt;cr_id&gt;</span><span class="ep-desc">Full Orbit record for a single CR</span><div class="ep-acts"><button class="eb cb" onclick="copyCurl(event,'/api/public/orbit/cr/CR1234567')">curl</button></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns full Orbit record: Title, Status, Type, Severity, IsCrash, Priority, Tags, Participants, SIRs, Duplicates, Related, linked_crs.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/public/orbit/all-targets</span><span class="ep-desc">List all available targets</span><div class="ep-acts"><a class="eb ob" href="/api/public/orbit/all-targets" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns all available targets with BU, display name, schema.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/public/orbit/all-crs?bu=&lt;bu&gt;</span><span class="ep-desc">All Orbit data across ALL targets</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Optional params: <code>bu</code> (BU filter), <code>limit_per_target</code>. Returns Orbit data across all targets.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/public/orbit/docs</span><span class="ep-desc">Orbit API HTML documentation page</span><div class="ep-acts"><a class="eb ob" href="/api/public/orbit/docs" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Public HTML documentation page for the Orbit Public API. No authentication required.</p></div>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div class="section" id="sec-workspace">
+  <h2 class="st">🗂️ Workspace APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/workspace/&lt;target_name&gt;</span><span class="ep-desc">Get saved workspace JSON</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns saved workspace JSON/data for a target.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/workspace/&lt;target_name&gt;</span><span class="ep-desc">Save workspace JSON</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Saves workspace JSON/data for a target. Body is the workspace payload used by the frontend.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/workspace/&lt;target_name&gt;/autofill</span><span class="ep-desc">Autofill workspace data</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Autofills workspace data for a target.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/workspace/&lt;target_name&gt;/highlights_qgenie</span><span class="ep-desc">Refresh project highlights using QGenie</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Requires QGenie API key in session. Returns refreshed highlights.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/workspace/&lt;target_name&gt;/debug</span><span class="ep-desc">Debug workspace — inspect raw JSON</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Admin/debug endpoint to inspect raw workspace JSON.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/workspace/&lt;target_name&gt;/upload_image</span><span class="ep-desc">Upload workspace image (multipart)</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Uploads image used by workspace. Multipart form-data with image file.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/workspace/&lt;target_name&gt;/reset</span><span class="ep-desc">Reset workspace for target</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Resets workspace for the target.</p></div>
+  </div>
+</div>
+
+<!-- FEEDBACK -->
+<div class="section" id="sec-feedback">
+  <h2 class="st">💬 Feedback APIs</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/feedback/check_access</span><span class="ep-desc">Check feedback access</span><div class="ep-acts"><a class="eb ob" href="/api/feedback/check_access" target="_blank">↗ Open</a></div><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns whether current user can submit feedback: <code>{"allowed":true,"username":"user"}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/api/feedback/submit</span><span class="ep-desc">Submit feedback</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><table><tr><th>Field</th><th>Required</th><th>Validation</th><th>Description</th></tr>
+      <tr><td><code>rating</code></td><td><span class="req">Yes</span></td><td>1–5</td><td>Star rating</td></tr>
+      <tr><td><code>hours_saved</code></td><td><span class="req">Yes</span></td><td>0–100</td><td>Estimated hours saved</td></tr>
+      <tr><td><code>feedback_text</code></td><td><span class="opt">No</span></td><td>max 500 chars</td><td>Free text</td></tr>
+      <tr><td><code>page</code></td><td><span class="opt">No</span></td><td>max 64 chars</td><td>Page key, defaults <code>cr_overview</code></td></tr>
+    </table></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/feedback/stats</span><span class="ep-desc">Feedback stats (admin only)</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Admin-only. Returns aggregate rating/hours stats, stats by user, recent feedback records.</p></div>
+  </div>
+</div>
+
+<!-- REPORT TASK -->
+<div class="section" id="sec-report-task">
+  <h2 class="st">⏳ Report Task API</h2>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="ep-path">/api/report_task_status/&lt;task_id&gt;</span><span class="ep-desc">Async report task status</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>Returns lightweight progress/status for JiraQuery report generation. Path param: <code>task_id</code> — task id returned when report generation was started.</p></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="section" id="sec-admin">
+  <h2 class="st">⚙️ Admin APIs <span style="font-size:.75rem;color:var(--red);font-weight:400">(require admin role)</span></h2>
+  <div class="alert warn">⚠️ Admin endpoints can modify persisted data. Require login + admin role unless otherwise noted.</div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/fetch_sp_milestones</span><span class="ep-desc">Fetch SP milestones from OneView</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"sp_name":"ALDABRA.LA.1.0","target_name":"ALDABRA"}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/save_milestones</span><span class="ep-desc">Save milestones</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA","sp_name":"ALDABRA.LA.1.0","milestones":{"ES":"2026-01-22","FC":"2026-02-26","CS":"2026-03-31","CS1":null}}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/resync_milestones</span><span class="ep-desc">Resync milestones</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA","sp_name":"ALDABRA.LA.1.0"}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/get_target_sp</span><span class="ep-desc">Get target active SP</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA"}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/update_target_sp</span><span class="ep-desc">Update target SP</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA","sp_name":"ALDABRA.LA.1.0"}</code></pre></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/toggle_target_active</span><span class="ep-desc">Toggle target active/inactive</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA","is_active":1}</code></pre><p><code>is_active</code> must be <code>0</code> or <code>1</code>.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/add_target</span><span class="ep-desc">Add target</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><table><tr><th>Field</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>bu_key</code></td><td><span class="req">Yes</span></td><td>BU key</td></tr>
+      <tr><td><code>target_name</code></td><td><span class="req">Yes</span></td><td>Internal target key</td></tr>
+      <tr><td><code>display_name</code></td><td><span class="req">Yes</span></td><td>UI display name</td></tr>
+      <tr><td><code>chip_name</code></td><td><span class="opt">Usually</span></td><td>Chip name</td></tr>
+      <tr><td><code>sp_name</code></td><td><span class="opt">Usually</span></td><td>Software product name</td></tr>
+      <tr><td><code>excel_path</code></td><td><span class="opt">Usually</span></td><td>Excel input path</td></tr>
+      <tr><td><code>unique_cr_path</code></td><td><span class="opt">No</span></td><td>Unique CR file path</td></tr>
+      <tr><td><code>unique_cr_only</code></td><td><span class="opt">No</span></td><td>Boolean; skip Excel ingestion</td></tr>
+    </table></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method post">POST</span><span class="ep-path">/admin/remove_target</span><span class="ep-desc">Remove target</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><pre><code>{"target_name":"ALDABRA"}</code></pre><p>Removes target row from dashboard status.</p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/admin/get_page_visibility | /admin/save_page_visibility</span><span class="ep-desc">Page visibility settings</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET: <code>?target=&lt;target_name&gt;</code>. POST body: <code>{"target":"ALDABRA","settings":{"dashboard":true,"device_summary":true,"mtbf":false,...}}</code></p></div>
+  </div>
+  <div class="endpoint"><div class="ep-hdr" onclick="toggle(this)"><span class="method get">GET</span><span class="method post">POST</span><span class="ep-path">/admin/targets_paths | /admin/update_unique_cr_path</span><span class="ep-desc">Target unique CR paths</span><span class="arrow">▼</span></div>
+    <div class="ep-body"><p>GET returns target names, BU, SP name, and unique CR path. POST body: <code>{"target_name":"ALDABRA","unique_cr_path":"\\\\server\\path\\unique_cr.xlsx"}</code></p></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+<footer>
+  PDTBuddy API Reference &mdash; All-in-One &mdash;
+  <a href="/build_report/api_docs" target="_blank">Build Report API Docs</a> &middot;
+  <a href="/api/public/orbit/docs" target="_blank">Orbit API Docs</a> &middot;
+  <a href="/api/token/verify" target="_blank">Verify Token</a>
+</footer>
+</div><!-- /main -->
+
+<script>
+function toggle(hdr) {
+  const body = hdr.nextElementSibling;
+  body.classList.toggle('open');
+  hdr.classList.toggle('open');
+  const arrow = hdr.querySelector('.arrow');
+  if (arrow) arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+function copyCurl(e, path, method) {
+  e.stopPropagation();
+  const host = window.location.origin;
+  const m = (method || 'GET').toUpperCase();
+  let cmd;
+  if (m === 'POST') {
+    cmd = `curl -s -X POST "${host}${path}" \\\n  -H "Content-Type: application/json" \\\n  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \\\n  -d '{}'`;
+  } else {
+    cmd = `curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" "${host}${path}"`;
+  }
+  navigator.clipboard.writeText(cmd).then(() => {
+    const btn = e.target;
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {});
+}
+
+function copyPre(btn) {
+  const pre = btn.previousElementSibling;
+  const text = pre ? pre.innerText : '';
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {});
+}
+
+function filterSidebar(q) {
+  const links = document.querySelectorAll('#sbNav a');
+  const lq = q.toLowerCase();
+  links.forEach(a => {
+    a.style.display = (!lq || a.textContent.toLowerCase().includes(lq)) ? '' : 'none';
+  });
+}
+
+// Highlight active sidebar link on scroll
+const sections = document.querySelectorAll('.section[id]');
+const navLinks = document.querySelectorAll('#sbNav a[href^="#"]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const active = document.querySelector(`#sbNav a[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
