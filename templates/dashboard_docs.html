@@ -632,10 +632,14 @@
                 <tr><td><span class="docs-code">/api/live_status_view/&lt;target&gt;/running_builds_db</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Running builds from Axiom cache</td></tr>
                 <tr><td><span class="docs-code">/api/build_report/running_builds</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>Live JIRA fetch for build report</td></tr>
                 <tr><td><span class="docs-code">/api/consolidated_report</span></td><td><span class="docs-badge docs-badge--blue">GET</span></td><td>JIRA/CR consolidated report data</td></tr>
+                <tr style="background:#eef2ff"><td><span class="docs-code">/api/public/orbit/crs?target=&lt;t&gt;&amp;pl=SWPDT</span></td><td><span class="docs-badge docs-badge--purple">TOKEN</span></td><td>All Orbit CR data (Priority, Assignee, Customer, SIRs, Tags) for a target/PL — <a href="/api/public/orbit/docs" target="_blank" style="color:#4338ca;font-weight:700">Full docs</a></td></tr>
+                <tr style="background:#eef2ff"><td><span class="docs-code">/api/public/orbit/all-targets</span></td><td><span class="docs-badge docs-badge--purple">TOKEN</span></td><td>List all available targets with BU, display name, chip — <a href="/api/public/orbit/all-targets" target="_blank" style="color:#4338ca;font-weight:700">Try it</a></td></tr>
+                <tr style="background:#eef2ff"><td><span class="docs-code">/api/public/orbit/all-crs?bu=AUTO</span></td><td><span class="docs-badge docs-badge--purple">TOKEN</span></td><td>All Orbit CR data across all targets (optional BU/PL filter)</td></tr>
+                <tr style="background:#eef2ff"><td><span class="docs-code">/api/public/orbit/cr/&lt;cr_id&gt;</span></td><td><span class="docs-badge docs-badge--purple">TOKEN</span></td><td>Full Orbit record for one CR (Title, Status, Severity, Tags, SIRs, Participants)</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="docs-tip" style="margin-top:10px"><i class="fas fa-info-circle"></i><span>Internal endpoints require login. Public API supports CORS &mdash; no auth needed for GET requests.</span></div>
+          <div class="docs-tip" style="margin-top:10px"><i class="fas fa-info-circle"></i><span>Internal endpoints require login or API token (<code>X-PDTBuddy-API-Token</code> header). Public MTBF API supports CORS — no auth needed. <a href="/api/public/orbit/docs" target="_blank" style="color:#059669;font-weight:700">Orbit API full docs →</a></span></div>
         </div>
       </div>
 

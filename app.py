@@ -136,6 +136,7 @@ from auto_gen45_public_routes import public_auto_gen45_bp
 from auto_gen5_public_routes import public_auto_gen5_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
+from orbit_public_api_routes import orbit_public_api_bp
 
 APP_VERSION = "v2.9"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
@@ -361,6 +362,7 @@ app.register_blueprint(public_auto_gen45_bp)
 app.register_blueprint(public_auto_gen5_bp)
 app.register_blueprint(core_deck_bp)
 app.register_blueprint(jiraquery_api_bp)
+app.register_blueprint(orbit_public_api_bp)
 from weekly_summary_routes import weekly_summary_bp
 app.register_blueprint(weekly_summary_bp)
 from sp_entry_routes import sp_entry_bp

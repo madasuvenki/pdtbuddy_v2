@@ -1,9 +1,18 @@
 # Active Context: PDTBuddy
 
 ## Current Work Focus
-Stability Report generation from build_report_standalone page.
+Orbit Public API — fetch all orbit info for CRs by target and PL, expose as shareable API.
 
 ## Recent Changes
+- **`orbit_public_api_routes.py`** *(new)* — Public API blueprint for Orbit CR data:
+  - `GET /api/public/orbit/crs?target=<target>&pl=<pl>` — returns all PDT DB + Orbit data for CRs in a target/PL
+    - Fetches CR rows via `fetch_weekly_crs()` (same as dashboard), then bulk-enriches with `bulk_query_cr_orbit_details()`, `bulk_query_cr_software_images()`, `bulk_query_cr_tags()`
+    - Params: `target` (required), `pl`, `limit` (default 500, max 2000), `include_sirs`, `include_tags`
+    - Auth: `X-PDTBuddy-API-Token` / `Authorization: Bearer` / browser session
+  - `GET /api/public/orbit/cr/<cr_id>` — full Orbit record for a single CR (Title, Status, Type, Severity, IsCrash, Priority, Tags, Participants, SIRs, Duplicates, Related, linked_crs)
+  - `GET /api/public/orbit/docs` — HTML documentation page
+- **`app.py`** — Registered `orbit_public_api_bp` blueprint
+- **`templates/public_orbit_api.html`** *(new)* — API documentation page with endpoint reference, params, response schemas, error codes, and curl examples
 - **`dashboard_routes.py`** — Added `POST /api/build_report/stability_metrics` endpoint:
   - Accepts `{"builds": [...], "taxonomy": "/PDT"}` (max 20 builds)
   - Calls `fetch_build_stability_metrics()` from `src/stability_reports_client.py`
@@ -27,6 +36,9 @@ Stability Report generation from build_report_standalone page.
 ## API Endpoints Now Accessible to External Tools
 | Endpoint | Auth |
 |---|---|
+| `GET /api/public/orbit/crs?target=&pl=` | Token or Session |
+| `GET /api/public/orbit/cr/<cr_id>` | Token or Session |
+| `GET /api/public/orbit/docs` | Public (no auth) |
 | `POST /api/consolidated_report` | Token or Session |
 | `GET /api/consolidated_report/result/<job_id>` | Token or Session |
 | `GET /api/consolidated_report/progress/<job_id>` | Token or Session |

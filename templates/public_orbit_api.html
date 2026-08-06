@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDTBuddy — Orbit Public API Docs</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.6;}
+
+    /* ── Header ── */
+    .hdr{background:linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 100%);color:#fff;padding:28px 40px 22px;}
+    .hdr-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .hdr h1{font-size:22px;font-weight:900;letter-spacing:-.5px;}
+    .hdr p{font-size:13px;color:#bfdbfe;margin-top:5px;}
+    .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(255,255,255,.18);color:#e0f2fe;}
+
+    /* ── Layout ── */
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 20px;}
+
+    /* ── Info strip ── */
+    .info-strip{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px;}
+    .info-chip{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 16px;min-width:130px;}
+    .info-chip-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:2px;}
+    .info-chip-val{font-size:13px;font-weight:700;color:#0f172a;}
+
+    /* ── Auth box ── */
+    .auth-box{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #f59e0b;border-radius:14px;padding:18px 22px;margin-bottom:22px;}
+    .auth-box h2{font-size:14px;font-weight:900;color:#92400e;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .auth-methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;}
+    .auth-method{background:#fff;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;}
+    .auth-method-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:4px;}
+    .auth-method code{font-family:'Courier New',monospace;font-size:11.5px;color:#1e293b;word-break:break-all;}
+
+    /* ── Endpoint card ── */
+    .ep-card{background:#fff;border-radius:16px;border:1px solid #e2e8f0;box-shadow:0 2px 14px rgba(15,23,42,.07);margin-bottom:24px;overflow:hidden;}
+    .ep-card-head{padding:16px 22px;background:linear-gradient(135deg,#f8faff,#eef2ff);border-bottom:2px solid #e0e7ff;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .method-badge{display:inline-block;padding:5px 14px;border-radius:8px;font-size:12px;font-weight:900;letter-spacing:.06em;background:#dcfce7;color:#166534;flex-shrink:0;}
+    .ep-path{font-family:'Courier New',monospace;font-size:14px;font-weight:800;color:#1e3a5f;background:#eef2ff;padding:5px 14px;border-radius:8px;word-break:break-all;}
+    .ep-card-body{padding:22px;}
+    .ep-desc{font-size:13px;color:#475569;margin-bottom:18px;line-height:1.65;}
+
+    /* ── Section labels ── */
+    .sec-lbl{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#6366f1;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+    .sec-lbl::after{content:'';flex:1;height:1px;background:#e0e7ff;}
+
+    /* ── Param table ── */
+    .param-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;}
+    .param-table th{background:#f0f4ff;padding:9px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#4f46e5;border-bottom:1px solid #e0e7ff;}
+    .param-table td{padding:9px 14px;border-bottom:1px solid #f8fafc;vertical-align:top;}
+    .param-table tr:last-child td{border-bottom:none;}
+    .param-table tr:hover td{background:#fafbff;}
+    .pname{font-family:'Courier New',monospace;font-weight:800;color:#4f46e5;font-size:12px;}
+    .tag-req{display:inline-block;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:900;background:#fee2e2;color:#b91c1c;margin-left:5px;vertical-align:middle;}
+    .tag-opt{display:inline-block;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:900;background:#f0fdf4;color:#166534;margin-left:5px;vertical-align:middle;}
+    .tag-path{display:inline-block;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:900;background:#ede9fe;color:#6d28d9;margin-left:5px;vertical-align:middle;}
+    .pdefault{font-family:'Courier New',monospace;font-size:11px;color:#64748b;}
+    code{font-family:'Courier New',monospace;font-size:11.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;color:#1e293b;}
+
+    /* ── Code blocks ── */
+    .code-wrap{margin-bottom:20px;}
+    .code-lbl{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:6px;}
+    .code-box{background:#0f172a;border-radius:10px;padding:16px 18px;overflow-x:auto;}
+    .code-box pre{color:#e2e8f0;font-family:'Courier New',monospace;font-size:12px;white-space:pre;line-height:1.65;}
+    .cm{color:#64748b;}   /* comment */
+    .ck{color:#93c5fd;}   /* key */
+    .cv{color:#86efac;}   /* string value */
+    .cn{color:#fbbf24;}   /* number */
+    .cb{color:#f472b6;}   /* bool/null */
+
+    /* ── Response schema ── */
+    .resp-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin-bottom:20px;overflow-x:auto;}
+    .resp-box pre{font-family:'Courier New',monospace;font-size:11.5px;color:#374151;white-space:pre;line-height:1.65;}
+
+    /* ── Field table ── */
+    .field-table{width:100%;border-collapse:collapse;font-size:12px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;}
+    .field-table th{background:#f8fafc;padding:8px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;border-bottom:1px solid #e2e8f0;}
+    .field-table td{padding:8px 12px;border-bottom:1px solid #f8fafc;vertical-align:top;font-size:12px;}
+    .field-table tr:last-child td{border-bottom:none;}
+    .src-db{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#dbeafe;color:#1d4ed8;}
+    .src-orbit{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;background:#dcfce7;color:#166534;}
+
+    /* ── Error table ── */
+    .err-table{width:100%;border-collapse:collapse;font-size:12px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;}
+    .err-table th{background:#fff1f2;padding:8px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#be123c;border-bottom:1px solid #fecdd3;}
+    .err-table td{padding:8px 12px;border-bottom:1px solid #f8fafc;vertical-align:top;font-size:12px;}
+    .err-table tr:last-child td{border-bottom:none;}
+
+    /* ── Warning ── */
+    .warn{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 16px;font-size:12px;color:#92400e;margin-bottom:16px;line-height:1.6;}
+
+    /* ── Section card ── */
+    .sec-card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 2px 10px rgba(15,23,42,.05);margin-bottom:22px;overflow:hidden;}
+    .sec-card-head{padding:14px 20px;background:linear-gradient(135deg,#f8faff,#f0f4ff);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;}
+    .sec-card-head h2{font-size:14px;font-weight:900;color:#0f172a;}
+    .sec-card-body{padding:20px;}
+
+    /* ── Quick start tabs ── */
+    .tab-bar{display:flex;gap:4px;margin-bottom:10px;}
+    .tab-btn{padding:6px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s;}
+    .tab-btn.active{background:#eef2ff;border-color:#a5b4fc;color:#4338ca;}
+    .tab-content{display:none;}
+    .tab-content.active{display:block;}
+
+    footer{text-align:center;font-size:11px;color:#94a3b8;padding:20px 0 32px;}
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ HEADER -->
+<div class="hdr">
+  <div class="hdr-row">
+    <span style="font-size:28px;">🛰️</span>
+    <div>
+      <h1>PDTBuddy Orbit Public API <span class="badge">v1.1</span></h1>
+      <p>Fetch all Orbit CR data for any target and product line — no browser needed.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Info strip -->
+  <div class="info-strip">
+    <div class="info-chip"><div class="info-chip-lbl">Base URL</div><div class="info-chip-val" style="font-family:monospace;font-size:11px;">/api/public/orbit/</div></div>
+    <div class="info-chip"><div class="info-chip-lbl">Auth</div><div class="info-chip-val">Token or Session</div></div>
+    <div class="info-chip"><div class="info-chip-lbl">Response</div><div class="info-chip-val">JSON</div></div>
+    <div class="info-chip"><div class="info-chip-lbl">Endpoints</div><div class="info-chip-val">4 endpoints</div></div>
+    <div class="info-chip"><div class="info-chip-lbl">Docs URL</div><div class="info-chip-val" style="font-family:monospace;font-size:11px;">/api/public/orbit/docs</div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ AUTH -->
+  <div class="auth-box">
+    <h2>🔑 Authentication — required for all endpoints except /docs</h2>
+    <div class="auth-methods">
+      <div class="auth-method">
+        <div class="auth-method-lbl">Header (recommended)</div>
+        <code>X-PDTBuddy-API-Token: &lt;your-token&gt;</code>
+      </div>
+      <div class="auth-method">
+        <div class="auth-method-lbl">Bearer token</div>
+        <code>Authorization: Bearer &lt;your-token&gt;</code>
+      </div>
+      <div class="auth-method">
+        <div class="auth-method-lbl">Query parameter</div>
+        <code>?api_token=&lt;your-token&gt;</code>
+      </div>
+      <div class="auth-method">
+        <div class="auth-method-lbl">Browser session</div>
+        <code>Log in to PDTBuddy — no token needed</code>
+      </div>
+    </div>
+    <p style="margin-top:12px;font-size:12px;color:#78350f;">
+      Use the same <code>PDTBUDDY_API_TOKEN</code> as other PDTBuddy APIs. Contact your admin for a token.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ LIVE TARGETS -->
+  <div class="sec-card" id="live-targets-card">
+    <div class="sec-card-head">
+      <span style="font-size:16px;">🗂️</span>
+      <h2>Available Targets</h2>
+      <span id="targets-count" style="font-size:11px;color:#64748b;margin-left:8px;"></span>
+      <button onclick="loadTargets()" style="margin-left:auto;padding:4px 12px;border-radius:7px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:700;cursor:pointer;">↻ Refresh</button>
+    </div>
+    <div class="sec-card-body">
+      <p style="font-size:12px;color:#475569;margin-bottom:14px;">
+        Use any <code>target</code> value from the list below in the API endpoints.
+        Filter by BU:
+        <span id="bu-filter-btns" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:8px;"></span>
+      </p>
+      <div id="targets-table-wrap">
+        <div id="targets-loading" style="text-align:center;padding:24px;color:#94a3b8;font-size:13px;">
+          <span style="font-size:20px;">⏳</span><br>Loading targets... (requires login or API token)
+        </div>
+        <table id="targets-table" class="param-table" style="display:none;">
+          <thead>
+            <tr>
+              <th style="width:220px;">Target Name <span style="font-size:9px;color:#a5b4fc;">(use as ?target=)</span></th>
+              <th style="width:80px;">BU</th>
+              <th>Display Name</th>
+              <th style="width:80px;">Chip</th>
+              <th style="width:70px;">Active</th>
+            </tr>
+          </thead>
+          <tbody id="targets-tbody"></tbody>
+        </table>
+        <div id="targets-error" style="display:none;color:#dc2626;font-size:12px;padding:10px;background:#fff1f2;border-radius:8px;border:1px solid #fecdd3;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ QUICK START -->
+  <div class="sec-card">
+    <div class="sec-card-head"><span style="font-size:16px;">⚡</span><h2>Quick Start Examples</h2></div>
+    <div class="sec-card-body">
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="showTab('curl')">curl</button>
+        <button class="tab-btn" onclick="showTab('python')">Python</button>
+        <button class="tab-btn" onclick="showTab('powerbi')">Power BI</button>
+      </div>
+
+      <div id="tab-curl" class="tab-content active">
+        <div class="code-lbl">Get all CRs for one target + PL</div>
+        <div class="code-box"><pre>curl -H "X-PDTBuddy-API-Token: &lt;token&gt;" \
+     "http://10.142.213.5/api/public/orbit/crs?target=nord_hgy_ivi_5_1_9_0&amp;pl=SWPDT"</pre></div>
+
+        <div class="code-lbl" style="margin-top:14px;">List all available targets</div>
+        <div class="code-box"><pre>curl -H "X-PDTBuddy-API-Token: &lt;token&gt;" \
+     "http://10.142.213.5/api/public/orbit/all-targets"</pre></div>
+
+        <div class="code-lbl" style="margin-top:14px;">Get CRs across ALL targets in AUTO BU</div>
+        <div class="code-box"><pre>curl -H "X-PDTBuddy-API-Token: &lt;token&gt;" \
+     "http://10.142.213.5/api/public/orbit/all-crs?bu=AUTO&amp;limit_per_target=100"</pre></div>
+
+        <div class="code-lbl" style="margin-top:14px;">Get full orbit detail for one CR</div>
+        <div class="code-box"><pre>curl -H "X-PDTBuddy-API-Token: &lt;token&gt;" \
+     "http://10.142.213.5/api/public/orbit/cr/4477116"</pre></div>
+      </div>
+
+      <div id="tab-python" class="tab-content">
+        <div class="code-box"><pre>import requests
+
+TOKEN = "your-token-here"
+BASE  = "http://10.142.213.5"
+HDR   = {"X-PDTBuddy-API-Token": TOKEN}
+
+<span class="cm"># ── 1. List all targets ──────────────────────────────────────</span>
+r = requests.get(f"{BASE}/api/public/orbit/all-targets", headers=HDR)
+targets = r.json()["targets"]
+print(f"Found {len(targets)} targets")
+for t in targets[:5]:
+    print(f"  {t['target']} ({t['bu']})")
+
+<span class="cm"># ── 2. Get CRs for one target ────────────────────────────────</span>
+r = requests.get(f"{BASE}/api/public/orbit/crs", headers=HDR,
+    params={"target": "nord_hgy_ivi_5_1_9_0", "pl": "SWPDT", "limit": 100})
+data = r.json()
+print(f"\n{data['count']} CRs for {data['target']}")
+for cr in data["crs"][:3]:
+    print(f"  CR{cr['cr_id']}  hits={cr['cr_occurrence']}  "
+          f"priority={cr['orbit']['priority']}  "
+          f"tags={cr['orbit']['tags']}")
+
+<span class="cm"># ── 3. Get CRs across ALL targets ────────────────────────────</span>
+r = requests.get(f"{BASE}/api/public/orbit/all-crs", headers=HDR,
+    params={"bu": "AUTO", "limit_per_target": 50})
+all_data = r.json()
+print(f"\nTotal: {all_data['total_crs']} CRs across {all_data['total_targets']} targets")
+
+<span class="cm"># ── 4. Full orbit detail for one CR ──────────────────────────</span>
+r = requests.get(f"{BASE}/api/public/orbit/cr/4477116", headers=HDR)
+cr = r.json()
+print(f"\nCR{cr['cr_number']}: {cr['orbit']['Title']}")
+print(f"  Status: {cr['orbit']['Status']}, Priority: {cr['orbit']['Priority']}")
+print(f"  Tags: {cr['orbit']['Tags']}")
+print(f"  SIRs: {[s['SoftwareImageName'] for s in cr['orbit']['SoftwareImageReleases']]}")</pre></div>
+      </div>
+
+      <div id="tab-powerbi" class="tab-content">
+        <div class="code-lbl">Power BI — Get Data → Web</div>
+        <div class="code-box"><pre><span class="cm">// In Power BI: Home → Get Data → Web → Advanced</span>
+
+URL:
+  http://10.142.213.5/api/public/orbit/crs?target=nord_hgy_ivi_5_1_9_0&amp;pl=SWPDT
+
+HTTP request header parameters:
+  Name:  X-PDTBuddy-API-Token
+  Value: &lt;your-token&gt;
+
+<span class="cm">// Power Query M formula:</span>
+let
+    Source = Json.Document(Web.Contents(
+        "http://10.142.213.5/api/public/orbit/crs",
+        [
+            Query = [target="nord_hgy_ivi_5_1_9_0", pl="SWPDT"],
+            Headers = [#"X-PDTBuddy-API-Token"="&lt;token&gt;"]
+        ]
+    )),
+    crs = Source[crs],
+    table = Table.FromList(crs, Splitter.SplitByNothing())
+in
+    table</pre></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ENDPOINT 1: GET /api/public/orbit/crs
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="ep-card">
+    <div class="ep-card-head">
+      <span class="method-badge">GET</span>
+      <span class="ep-path">/api/public/orbit/crs</span>
+      <span style="font-size:12px;color:#64748b;margin-left:4px;">— One target, optional PL filter</span>
+    </div>
+    <div class="ep-card-body">
+      <p class="ep-desc">
+        Returns all PDT DB CR data <strong>plus full Orbit information</strong> (Priority, Assignee,
+        Customer SN/Name, Software Image Releases, CR Tags) for every CR in one target.
+        Optionally filter by product line.
+      </p>
+
+      <!-- Input params -->
+      <div class="sec-lbl">📥 Input Parameters (Query String)</div>
+      <table class="param-table">
+        <thead>
+          <tr>
+            <th style="width:160px;">Parameter</th>
+            <th style="width:70px;">Type</th>
+            <th style="width:90px;">Default</th>
+            <th>Description &amp; Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pname">target</span><span class="tag-req">required</span></td>
+            <td>string</td>
+            <td class="pdefault">—</td>
+            <td>Target name. Use <code>/all-targets</code> to list valid values.<br>
+              Example: <code>nord_hgy_ivi_5_1_9_0</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">pl</span><span class="tag-opt">optional</span></td>
+            <td>string</td>
+            <td class="pdefault">all PLs</td>
+            <td>Product line filter. If omitted, all PLs are returned.<br>
+              Example: <code>SWPDT</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">limit</span><span class="tag-opt">optional</span></td>
+            <td>integer</td>
+            <td class="pdefault">500</td>
+            <td>Max CRs to return. Maximum allowed: <code>2000</code>.<br>
+              Example: <code>100</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">include_sirs</span><span class="tag-opt">optional</span></td>
+            <td>boolean</td>
+            <td class="pdefault">true</td>
+            <td>Include Software Image Releases from Orbit. Set <code>false</code> to skip (faster response).</td>
+          </tr>
+          <tr>
+            <td><span class="pname">include_tags</span><span class="tag-opt">optional</span></td>
+            <td>boolean</td>
+            <td class="pdefault">true</td>
+            <td>Include CR tags from Orbit. Set <code>false</code> to skip (faster response).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Example request -->
+      <div class="code-wrap">
+        <div class="code-lbl">Example Request</div>
+        <div class="code-box"><pre>GET /api/public/orbit/crs?target=nord_hgy_ivi_5_1_9_0&amp;pl=SWPDT&amp;limit=50
+Host: 10.142.213.5
+X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
+      </div>
+
+      <!-- Response -->
+      <div class="sec-lbl">📤 Response</div>
+      <div class="resp-box"><pre>{
+  "ok": true,
+  "target": "nord_hgy_ivi_5_1_9_0",
+  "pl": "SWPDT",
+  "count": 42,
+  "crs": [
+    {
+      <span style="color:#6366f1;font-weight:700;">/* ── PDT DB fields ── */</span>
+      "cr_id": "4477116",
+      "cr_raw": "CR4477116",
+      "cr_occurrence": 25,          <span style="color:#94a3b8;">// JIRA hit count</span>
+      "cr_age": 34,                  <span style="color:#94a3b8;">// days since first reported</span>
+      "status": "Fix",               <span style="color:#94a3b8;">// Fix | Analysis | Built | Withdrawn | CannotDuplicate</span>
+      "area": "Automotive",
+      "subsystem": "Automotive FastRC",
+      "functionality": "PVM-HDY",
+      "cr_si": "NHGY_IVI_5.1.9.0",  <span style="color:#94a3b8;">// software image CR was found on</span>
+      "built_date": "2026-07-01",
+      "last_reported_date": "2026-08-01",
+      "last_reported_jira": "QSTABILITY-12345",
+
+      <span style="color:#6366f1;font-weight:700;">/* ── Orbit fields ── */</span>
+      "orbit": {
+        "priority": "P1",            <span style="color:#94a3b8;">// P1 | P2 | P3 | null</span>
+        "assignee": "jsmith",        <span style="color:#94a3b8;">// Orbit assignee username</span>
+        "customer_sn": "SR 98765",   <span style="color:#94a3b8;">// customer service request number</span>
+        "customer_name": "Customer A",
+        "sirs": [                    <span style="color:#94a3b8;">// Software Image Releases</span>
+          {
+            "name": "NHGY_IVI_5.1.9.0",
+            "status": "Built",       <span style="color:#94a3b8;">// Built | Ready | Pending | Rejected</span>
+            "ready_date": "2026-07-01",
+            "built_date": "2026-07-05"
+          }
+        ],
+        "tags": [                    <span style="color:#94a3b8;">// all Orbit CR tags</span>
+          "NHGY_PDT_Blocker_Nord_V1",
+          "PDT_P1"
+        ]
+      }
+    }
+  ]
+}</pre></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ENDPOINT 2: GET /api/public/orbit/all-targets
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="ep-card">
+    <div class="ep-card-head">
+      <span class="method-badge">GET</span>
+      <span class="ep-path">/api/public/orbit/all-targets</span>
+      <span style="font-size:12px;color:#64748b;margin-left:4px;">— List all available targets</span>
+    </div>
+    <div class="ep-card-body">
+      <p class="ep-desc">
+        Returns a list of all available targets in PDTBuddy with their BU, display name, schema, and chip name.
+        Use this to discover valid <code>target</code> values for the other endpoints.
+      </p>
+
+      <div class="sec-lbl">📥 Input Parameters (Query String)</div>
+      <table class="param-table">
+        <thead>
+          <tr><th style="width:160px;">Parameter</th><th style="width:70px;">Type</th><th style="width:90px;">Default</th><th>Description &amp; Example</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pname">bu</span><span class="tag-opt">optional</span></td>
+            <td>string</td>
+            <td class="pdefault">all BUs</td>
+            <td>Filter by Business Unit key. If omitted, all BUs are returned.<br>
+              Valid values: <code>AUTO</code>, <code>MOBILE</code>, <code>COMPUTE</code>, <code>QI_IOT_WEAR</code>, <code>AUTO_TELEMATICS</code>, <code>AUTOMOTIVE</code>, <code>XR</code>, <code>HWPDT</code><br>
+              Example: <code>bu=AUTO</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code-wrap">
+        <div class="code-lbl">Example Request</div>
+        <div class="code-box"><pre>GET /api/public/orbit/all-targets?bu=AUTO
+X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
+      </div>
+
+      <div class="sec-lbl">📤 Response</div>
+      <div class="resp-box"><pre>{
+  "ok": true,
+  "bu_filter": "AUTO",             <span style="color:#94a3b8;">// null if no bu filter was applied</span>
+  "count": 8,
+  "targets": [
+    {
+      "target": "nord_hgy_ivi_5_1_9_0",   <span style="color:#94a3b8;">// use this as the 'target' param in other endpoints</span>
+      "display_name": "NORD HGY IVI 5.1.9.0",
+      "bu": "AUTO",
+      "schema": "pdt_stats_auto",
+      "db_prefix": "nord_hgy_ivi",
+      "chip_name": "SA8775P",
+      "is_active": true
+    },
+    {
+      "target": "another_auto_target",
+      "display_name": "...",
+      "bu": "AUTO",
+      "schema": "pdt_stats_auto",
+      "db_prefix": "...",
+      "chip_name": "...",
+      "is_active": true
+    }
+  ]
+}</pre></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ENDPOINT 3: GET /api/public/orbit/all-crs
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="ep-card">
+    <div class="ep-card-head">
+      <span class="method-badge">GET</span>
+      <span class="ep-path">/api/public/orbit/all-crs</span>
+      <span style="font-size:12px;color:#64748b;margin-left:4px;">— All targets, all PLs</span>
+    </div>
+    <div class="ep-card-body">
+      <p class="ep-desc">
+        Returns orbit data for CRs across <strong>all targets</strong> in one call.
+        Optionally filter by Business Unit or product line.
+        Each target's CRs are returned as a separate group.
+      </p>
+
+      <div class="warn">
+        ⚠️ <strong>Performance note:</strong> This endpoint fetches Orbit data for every CR in every target.
+        It may take <strong>30–120 seconds</strong> depending on the number of targets and CRs.
+        Use <code>limit_per_target</code> to control response size.
+        For large datasets, prefer calling <code>/orbit/crs</code> per target in parallel.
+      </div>
+
+      <div class="sec-lbl">📥 Input Parameters (Query String)</div>
+      <table class="param-table">
+        <thead>
+          <tr><th style="width:180px;">Parameter</th><th style="width:70px;">Type</th><th style="width:90px;">Default</th><th>Description &amp; Example</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pname">bu</span><span class="tag-opt">optional</span></td>
+            <td>string</td>
+            <td class="pdefault">all BUs</td>
+            <td>Filter by BU key. Example: <code>AUTO</code>, <code>MOBILE</code>, <code>COMPUTE</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">pl</span><span class="tag-opt">optional</span></td>
+            <td>string</td>
+            <td class="pdefault">all PLs</td>
+            <td>Filter by product line. Example: <code>SWPDT</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">limit_per_target</span><span class="tag-opt">optional</span></td>
+            <td>integer</td>
+            <td class="pdefault">200</td>
+            <td>Max CRs per target. Maximum: <code>500</code>. Example: <code>50</code></td>
+          </tr>
+          <tr>
+            <td><span class="pname">include_sirs</span><span class="tag-opt">optional</span></td>
+            <td>boolean</td>
+            <td class="pdefault">true</td>
+            <td>Include Software Image Releases. Set <code>false</code> to skip (faster).</td>
+          </tr>
+          <tr>
+            <td><span class="pname">include_tags</span><span class="tag-opt">optional</span></td>
+            <td>boolean</td>
+            <td class="pdefault">true</td>
+            <td>Include CR tags. Set <code>false</code> to skip (faster).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code-wrap">
+        <div class="code-lbl">Example Request</div>
+        <div class="code-box"><pre>GET /api/public/orbit/all-crs?bu=AUTO&amp;pl=SWPDT&amp;limit_per_target=50
+X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
+      </div>
+
+      <div class="sec-lbl">📤 Response</div>
+      <div class="resp-box"><pre>{
+  "ok": true,
+  "bu_filter": "AUTO",             <span style="color:#94a3b8;">// null if not filtered</span>
+  "pl_filter": "SWPDT",            <span style="color:#94a3b8;">// null if not filtered</span>
+  "total_targets": 8,              <span style="color:#94a3b8;">// number of targets that returned data</span>
+  "total_crs": 312,                <span style="color:#94a3b8;">// total CRs across all targets</span>
+  "targets_failed": [],            <span style="color:#94a3b8;">// targets that had errors (see below)</span>
+  "targets": [
+    {
+      "target": "nord_hgy_ivi_5_1_9_0",
+      "display_name": "NORD HGY IVI 5.1.9.0",
+      "bu": "AUTO",
+      "cr_count": 42,
+      "crs": [
+        {
+          "cr_id": "4477116",
+          "cr_occurrence": 25,
+          "cr_age": 34,
+          "status": "Fix",
+          "area": "Automotive",
+          "subsystem": "Automotive FastRC",
+          "functionality": "PVM-HDY",
+          "orbit": {
+            "priority": "P1",
+            "assignee": "jsmith",
+            "customer_sn": "SR 98765",
+            "customer_name": "Customer A",
+            "sirs": [{"name": "NHGY_IVI_5.1.9.0", "status": "Built",
+                       "ready_date": "2026-07-01", "built_date": "2026-07-05"}],
+            "tags": ["NHGY_PDT_Blocker_Nord_V1", "PDT_P1"]
+          }
+        }
+      ]
+    },
+    {
+      "target": "another_target",
+      "display_name": "...",
+      "bu": "AUTO",
+      "cr_count": 31,
+      "crs": [ ... ]
+    }
+  ]
+}
+
+<span style="color:#94a3b8;">// If a target fails, it appears in targets_failed (others still succeed):</span>
+"targets_failed": [
+  { "target": "some_target", "error": "DB connection failed" }
+]</pre></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ENDPOINT 4: GET /api/public/orbit/cr/<cr_id>
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="ep-card">
+    <div class="ep-card-head">
+      <span class="method-badge">GET</span>
+      <span class="ep-path">/api/public/orbit/cr/&lt;cr_id&gt;</span>
+      <span style="font-size:12px;color:#64748b;margin-left:4px;">— Full orbit record for one CR</span>
+    </div>
+    <div class="ep-card-body">
+      <p class="ep-desc">
+        Returns the <strong>complete Orbit record</strong> for a single CR — including Title, Status, Type,
+        Severity, IsCrash, Priority, Reporter, Assignee, Tags, Participants (Area/Subsystem/Functionality),
+        Software Image Releases, Duplicate CRs, Related CRs, and linked sibling CRs from the PDT DB.
+      </p>
+
+      <div class="sec-lbl">📥 Input (Path Parameter)</div>
+      <table class="param-table">
+        <thead>
+          <tr><th style="width:160px;">Parameter</th><th style="width:70px;">Type</th><th>Description &amp; Example</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pname">cr_id</span><span class="tag-path">path</span></td>
+            <td>string</td>
+            <td>CR number with or without prefix.<br>
+              Examples: <code>4477116</code> or <code>CR4477116</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code-wrap">
+        <div class="code-lbl">Example Request</div>
+        <div class="code-box"><pre>GET /api/public/orbit/cr/4477116
+X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
+      </div>
+
+      <div class="sec-lbl">📤 Response</div>
+      <div class="resp-box"><pre>{
+  "ok": true,
+  "cr_number": "4477116",
+  "orbit": {
+    "found": true,
+    "ChangeRequestNumber": "4477116",
+    "Title": "ProcessDump - LINUX_PROCESS_CRASH: ...",
+    "Status": "Fix",               <span style="color:#94a3b8;">// Fix | Analysis | Built | Withdrawn | CannotDuplicate</span>
+    "Type": "Software",
+    "Severity": "S2",              <span style="color:#94a3b8;">// S1 | S2 | S3 | S4</span>
+    "IsCrash": true,
+    "Priority": "P1",              <span style="color:#94a3b8;">// P1 | P2 | P3 | null</span>
+    "ReporterUid": "jdoe",
+    "AssigneeUid": "jsmith",
+    "CreatedOn": "2026-01-15",
+    "ParentId": null,
+    "Description": "...",
+    "FoundOnSoftwareImage": "NHGY_IVI_5.1.8.0",
+    "Tags": [
+      "NHGY_PDT_Blocker_Nord_V1",
+      "PDT_P1"
+    ],
+    "Participants": [              <span style="color:#94a3b8;">// Area / Subsystem / Functionality breakdown</span>
+      {
+        "AreaName": "Automotive",
+        "SubsystemName": "Automotive FastRC",
+        "FunctionalityName": "PVM-HDY",
+        "IsPrimary": true
+      }
+    ],
+    "SoftwareImageReleases": [     <span style="color:#94a3b8;">// all SIRs from Orbit</span>
+      {
+        "SoftwareImageName": "NHGY_IVI_5.1.9.0",
+        "Status": "Built",
+        "ReadyDate": "2026-07-01",
+        "BuiltDate": "2026-07-05"
+      }
+    ],
+    "DuplicateChangeRequests": [   <span style="color:#94a3b8;">// duplicate CRs</span>
+      {"Id": "4477200"}
+    ],
+    "RelatedChangeRequests": [],   <span style="color:#94a3b8;">// related CRs</span>
+    "source": "ORBIT_DIRECT"       <span style="color:#94a3b8;">// ORBIT_DIRECT | ORBIT_QUERY_RUN | ONEVIEW_MCP</span>
+  },
+  "linked_crs": ["4477118", "4477120"]  <span style="color:#94a3b8;">// sibling CRs from PDT DB mapped_cr</span>
+}</pre></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ ERRORS -->
+  <div class="sec-card">
+    <div class="sec-card-head"><span style="font-size:16px;">⚠️</span><h2>Error Responses</h2></div>
+    <div class="sec-card-body">
+      <table class="err-table">
+        <thead>
+          <tr><th style="width:80px;">HTTP</th><th style="width:100px;">ok field</th><th>When it happens</th><th>Example response body</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>400</strong></td>
+            <td><code>false</code></td>
+            <td>Missing required parameter</td>
+            <td><code>{"ok": false, "error": "target parameter is required"}</code></td>
+          </tr>
+          <tr>
+            <td><strong>401</strong></td>
+            <td><code>false</code></td>
+            <td>Not authenticated / bad token</td>
+            <td><code>{"ok": false, "error": "Authentication required...", "login_required": true}</code></td>
+          </tr>
+          <tr>
+            <td><strong>404</strong></td>
+            <td><code>false</code></td>
+            <td>Target name not found in PDTBuddy</td>
+            <td><code>{"ok": false, "error": "Target 'xyz' not found"}</code></td>
+          </tr>
+          <tr>
+            <td><strong>500</strong></td>
+            <td><code>false</code></td>
+            <td>Server / Orbit / DB error</td>
+            <td><code>{"ok": false, "error": "DB connection failed"}</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:#64748b;margin-top:10px;">
+        For <code>/all-crs</code>, per-target errors appear in <code>targets_failed[]</code> rather than failing the whole request.
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ FIELD REF -->
+  <div class="sec-card">
+    <div class="sec-card-head"><span style="font-size:16px;">📖</span><h2>Field Reference — CR Object</h2></div>
+    <div class="sec-card-body">
+      <p style="font-size:12px;color:#64748b;margin-bottom:14px;">
+        Fields returned in each CR object inside <code>crs[]</code>.
+        <span class="src-db">PDT DB</span> = from MySQL database &nbsp;
+        <span class="src-orbit">Orbit</span> = fetched live from Orbit server
+      </p>
+      <table class="field-table">
+        <thead>
+          <tr><th style="width:180px;">Field</th><th style="width:80px;">Source</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>cr_id</code></td><td><span class="src-db">PDT DB</span></td><td>CR number (digits only, no CR prefix)</td></tr>
+          <tr><td><code>cr_raw</code></td><td><span class="src-db">PDT DB</span></td><td>CR number as stored in DB (may include CR prefix)</td></tr>
+          <tr><td><code>cr_occurrence</code></td><td><span class="src-db">PDT DB</span></td><td>Number of JIRA hits / occurrences</td></tr>
+          <tr><td><code>cr_age</code></td><td><span class="src-db">PDT DB</span></td><td>Age in days since CR was first reported</td></tr>
+          <tr><td><code>status</code></td><td><span class="src-db">PDT DB</span></td><td>PDT status: Fix, Analysis, Built, Withdrawn, CannotDuplicate</td></tr>
+          <tr><td><code>area</code></td><td><span class="src-db">PDT DB</span></td><td>CR area (e.g. Automotive, Core, Multimedia)</td></tr>
+          <tr><td><code>subsystem</code></td><td><span class="src-db">PDT DB</span></td><td>CR subsystem</td></tr>
+          <tr><td><code>functionality</code></td><td><span class="src-db">PDT DB</span></td><td>CR functionality</td></tr>
+          <tr><td><code>cr_si</code></td><td><span class="src-db">PDT DB</span></td><td>Software image the CR was found on</td></tr>
+          <tr><td><code>built_date</code></td><td><span class="src-db">PDT DB</span></td><td>Date CR was built/resolved</td></tr>
+          <tr><td><code>last_reported_date</code></td><td><span class="src-db">PDT DB</span></td><td>Date of last JIRA report</td></tr>
+          <tr><td><code>last_reported_jira</code></td><td><span class="src-db">PDT DB</span></td><td>Last JIRA ticket key (e.g. QSTABILITY-12345)</td></tr>
+          <tr><td><code>orbit.priority</code></td><td><span class="src-orbit">Orbit</span></td><td>Orbit priority: P1, P2, P3, or empty</td></tr>
+          <tr><td><code>orbit.assignee</code></td><td><span class="src-orbit">Orbit</span></td><td>Orbit assignee username</td></tr>
+          <tr><td><code>orbit.customer_sn</code></td><td><span class="src-orbit">Orbit</span></td><td>Customer service request number (e.g. SR 98765)</td></tr>
+          <tr><td><code>orbit.customer_name</code></td><td><span class="src-orbit">Orbit</span></td><td>Customer name</td></tr>
+          <tr><td><code>orbit.sirs[]</code></td><td><span class="src-orbit">Orbit</span></td><td>Software Image Releases: name, status, ready_date, built_date</td></tr>
+          <tr><td><code>orbit.tags[]</code></td><td><span class="src-orbit">Orbit</span></td><td>All Orbit CR tags (e.g. NHGY_PDT_Blocker_Nord_V1, PDT_P1)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    PDTBuddy Orbit Public API v1.1 &mdash; Qualcomm Internal &mdash;
+    <a href="/api/public/orbit/docs" style="color:#6366f1;">Docs</a>
+  </footer>
+
+</div><!-- /wrap -->
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Live target list ──────────────────────────────────────────────────────
+var _allTargets = [];
+var _activeBuFilter = '';
+
+function loadTargets() {
+  var loading = document.getElementById('targets-loading');
+  var table   = document.getElementById('targets-table');
+  var errDiv  = document.getElementById('targets-error');
+  if (loading) { loading.style.display = 'block'; loading.innerHTML = '<span style="font-size:20px;">⏳</span><br>Loading targets...'; }
+  if (table)   table.style.display = 'none';
+  if (errDiv)  errDiv.style.display = 'none';
+
+  fetch('/api/public/orbit/all-targets')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) throw new Error(data.error || 'API error');
+      _allTargets = data.targets || [];
+      renderTargets(_activeBuFilter);
+      buildBuFilterBtns();
+      var cnt = document.getElementById('targets-count');
+      if (cnt) cnt.textContent = '(' + _allTargets.length + ' targets)';
+    })
+    .catch(function(e) {
+      if (loading) loading.style.display = 'none';
+      if (errDiv) {
+        errDiv.style.display = 'block';
+        errDiv.innerHTML = '⚠️ Could not load targets: ' + e.message
+          + '<br><span style="font-size:11px;color:#64748b;">You need to be logged in or provide an API token to load the target list.</span>';
+      }
+    });
+}
+
+function buildBuFilterBtns() {
+  var bus = [...new Set(_allTargets.map(function(t) { return t.bu; }).filter(Boolean))].sort();
+  var wrap = document.getElementById('bu-filter-btns');
+  if (!wrap) return;
+  var html = '<button onclick="filterByBu(\'\')" id="bu-btn-all" style="padding:3px 10px;border-radius:6px;border:1px solid #6366f1;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:800;cursor:pointer;">All</button>';
+  bus.forEach(function(bu) {
+    html += '<button onclick="filterByBu(\'' + bu + '\')" id="bu-btn-' + bu + '" style="padding:3px 10px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;font-weight:700;cursor:pointer;">' + bu + '</button>';
+  });
+  wrap.innerHTML = html;
+}
+
+function filterByBu(bu) {
+  _activeBuFilter = bu;
+  document.querySelectorAll('[id^="bu-btn-"]').forEach(function(b) {
+    var isSel = (bu === '' && b.id === 'bu-btn-all') || b.id === 'bu-btn-' + bu;
+    b.style.background  = isSel ? '#eef2ff' : '#f8fafc';
+    b.style.color       = isSel ? '#4338ca' : '#64748b';
+    b.style.borderColor = isSel ? '#6366f1' : '#e2e8f0';
+    b.style.fontWeight  = isSel ? '800' : '700';
+  });
+  renderTargets(bu);
+}
+
+function renderTargets(buFilter) {
+  var loading = document.getElementById('targets-loading');
+  var table   = document.getElementById('targets-table');
+  var tbody   = document.getElementById('targets-tbody');
+  if (!tbody) return;
+
+  var rows = buFilter ? _allTargets.filter(function(t) { return t.bu === buFilter; }) : _allTargets;
+
+  if (loading) loading.style.display = 'none';
+  if (table)   table.style.display = rows.length ? '' : 'none';
+
+  var buColors = {
+    'AUTO':          '#dbeafe:#1d4ed8',
+    'MOBILE':        '#dcfce7:#166534',
+    'COMPUTE':       '#ede9fe:#6d28d9',
+    'QI_IOT_WEAR':   '#fef3c7:#92400e',
+    'AUTO_TELEMATICS':'#cffafe:#0e7490',
+    'AUTOMOTIVE':    '#dbeafe:#1d4ed8',
+    'XR':            '#fce7f3:#9d174d',
+    'HWPDT':         '#f1f5f9:#475569',
+  };
+
+  tbody.innerHTML = rows.map(function(t) {
+    var colors = (buColors[t.bu] || '#f1f5f9:#475569').split(':');
+    var buBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;background:' + colors[0] + ';color:' + colors[1] + ';">' + (t.bu || '—') + '</span>';
+    var activeBadge = t.is_active
+      ? '<span style="color:#16a34a;font-weight:800;font-size:11px;">✓ Active</span>'
+      : '<span style="color:#94a3b8;font-size:11px;">Inactive</span>';
+    return '<tr>'
+      + '<td><code style="font-size:11px;font-weight:800;color:#4f46e5;background:#eef2ff;padding:2px 6px;border-radius:4px;cursor:pointer;" onclick="copyTarget(\'' + t.target + '\')" title="Click to copy">' + t.target + '</code></td>'
+      + '<td>' + buBadge + '</td>'
+      + '<td style="font-size:12px;color:#374151;">' + (t.display_name || t.target) + '</td>'
+      + '<td style="font-size:11px;color:#64748b;">' + (t.chip_name || '—') + '</td>'
+      + '<td>' + activeBadge + '</td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px;">No targets found</td></tr>';
+}
+
+function copyTarget(val) {
+  try {
+    navigator.clipboard.writeText(val).then(function() {
+      showCopyToast(val);
+    });
+  } catch(e) {
+    var ta = document.createElement('textarea');
+    ta.value = val;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showCopyToast(val);
+  }
+}
+
+function showCopyToast(val) {
+  var t = document.createElement('div');
+  t.textContent = '✓ Copied: ' + val;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+  document.body.appendChild(t);
+  setTimeout(function() { t.remove(); }, 2000);
+}
+
+// Auto-load targets on page open
+document.addEventListener('DOMContentLoaded', function() { loadTargets(); });
+</script>
+
+</body>
+</html>
