@@ -1303,7 +1303,6 @@
 
   // ── Fetch CR Assignee / Priority / Customer from Orbit (per page, async) ────
   async function pcrLoadOrbitDetailsForPage(page, force){
-    if(IS_COMPUTE_TARGET && !force) return;
     const items = [];
     page.forEach(r=>{
       const cr = pcrCrId(r).replace(/^CR/i,'').replace(/\D/g,'');
@@ -1334,6 +1333,7 @@
         r.cr_priority     = info.priority     || '';
         r.cr_customer_sn  = info.customer_sn  || '';
         r.cr_customer_name= info.customer_name|| '';
+        if(info.cr_status) r.cr_status = info.cr_status; // live Orbit status
         r._orbitDetailsLoaded  = true;
         r._orbitDetailsLoading = false;
         // Update assignee cell
@@ -1615,9 +1615,7 @@
 
       // Fetch Orbit details (assignee/priority/customer) for ALL rows in bulk
       // so they appear together with the initial table render — not as a delayed per-page fetch
-      pcrLoadUpdate('Fetching CR assignee, priority & customer from Orbit...', 80);
-      await pcrFetchOrbitDetailsForAllRows();
-      // Apply current exclude state and filters after dropdowns are ready.
+            // Apply current exclude state and filters after dropdowns are ready.
       // This avoids the initial table/KPI rendering unexcluded rows when the
       // saved exclude config loads before/after the CR data request.
       pcrLoadUpdate('Rendering PDT CR table and KPIs...', 88);

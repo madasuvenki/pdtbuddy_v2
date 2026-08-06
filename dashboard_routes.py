@@ -63,6 +63,43 @@ from dashboard_common import get_display_name_for_target
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
 
+# ---------------------------------------------------------------------------
+# Build Report API Token Auth
+# Allows external tools (CI/CD, scripts, Power BI, etc.) to call the
+# consolidated Build Report API without a browser session.
+# Uses the same PDTBUDDY_API_TOKEN as jiraquery endpoints.
+# Send via:  X-PDTBuddy-API-Token: <token>
+#            Authorization: Bearer <token>
+#            ?api_token=<token>
+# ---------------------------------------------------------------------------
+def _build_report_login_or_token_required(fn):
+    """Accept either a logged-in browser session OR a static API token."""
+    from functools import wraps as _wraps
+    @_wraps(fn)
+    def wrapper(*args, **kwargs):
+        # Accept valid API token (same token as jiraquery)
+        try:
+            from jiraquery_api_routes import _jiraquery_authenticated
+            if _jiraquery_authenticated():
+                return fn(*args, **kwargs)
+        except Exception:
+            pass
+        # Fall back to session auth
+        from flask_login import current_user as _cu
+        if _cu.is_authenticated:
+            return fn(*args, **kwargs)
+        # Neither token nor session - return 401
+        return jsonify({
+            'ok': False,
+            'error': (
+                'Authentication required. Use a browser session or send '
+                'X-PDTBuddy-API-Token: <token> header (or Authorization: Bearer <token>).'
+            ),
+            'login_required': True,
+        }), 401
+    return wrapper
+
+
 # Persistent user/data storage. Do NOT keep generated Excel/config under static/,
 # because static/ can be replaced when Buddy is rebuilt/recompiled/redeployed.
 _PDTBUDDY_DATA_ROOT = os.environ.get(
@@ -5427,6 +5464,50 @@ def api_dashboard_pdt_crs(target_name):
 
 
 
+@dashboard_bp.route("/api/dashboard/<string:target_name>/shared_tag_filter", methods=["GET"])
+@login_required
+def api_dashboard_shared_tag_filter_get(target_name):
+    """Return shared CR tag filter for this target (visible to all users)."""
+    try:
+        cfg = _get_target_excel_config(target_name) or {}
+        stf = cfg.get("shared_tag_filter") or {}
+        tags = stf.get("tags", []) if isinstance(stf, dict) else (stf if isinstance(stf, list) else [])
+        return jsonify({"success": True, "tags": tags})
+    except Exception as exc:
+        logger.exception("[api_dashboard_shared_tag_filter_get] error target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/shared_tag_filter", methods=["POST"])
+@login_required
+def api_dashboard_shared_tag_filter_post(target_name):
+    """Save shared CR tag filter for this target (visible to all users)."""
+    try:
+        payload = request.get_json(force=True) or {}
+        tags = [str(t).strip() for t in (payload.get("tags") or []) if str(t).strip()]
+        _update_target_excel_config(target_name, "shared_tag_filter", {"tags": tags})
+        return jsonify({"success": True, "tags": tags})
+    except Exception as exc:
+        logger.exception("[api_dashboard_shared_tag_filter_post] error target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr_orbit_details", methods=["POST"])
+@login_required
+def api_dashboard_cr_orbit_details(target_name):
+    """Fetch Assignee, Priority, CustomerSN, CustomerName from Orbit for a batch of CRs."""
+    try:
+        payload = request.get_json(force=True) or {}
+        cr_numbers = payload.get('crs', [])
+        if not cr_numbers:
+            return jsonify({"success": True, "rows": {}})
+        from orbit_client import bulk_query_cr_orbit_details
+        rows = bulk_query_cr_orbit_details(cr_numbers)
+        return jsonify({"success": True, "rows": rows})
+    except Exception as exc:
+        logger.exception("[api_dashboard_cr_orbit_details] error target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+
 @dashboard_bp.route("/api/dashboard/<string:target_name>/cr_si_ready_dates", methods=["POST"])
 @login_required
 def api_dashboard_cr_si_ready_dates(target_name):
@@ -7747,8 +7828,7 @@ def _fetch_axiom_unique_devices_from_job_summary(builds, taxonomy_path='/PDT'):
 
 
 @dashboard_bp.route("/api/consolidated_report", methods=["POST"])
-
-@login_required
+@_build_report_login_or_token_required
 def api_consolidated_report():
     """Start a background consolidated Build Report job."""
     body = request.get_json(force=True, silent=True) or {}
@@ -8010,7 +8090,7 @@ def api_consolidated_report():
 
 
 @dashboard_bp.route("/api/consolidated_report/progress/<job_id>")
-@login_required
+@_build_report_login_or_token_required
 def api_consolidated_report_progress(job_id):
     """
     SSE stream: GET /api/consolidated_report/progress/<job_id>
@@ -8100,7 +8180,7 @@ def api_consolidated_report_cancel(job_id):
 
 
 @dashboard_bp.route("/api/consolidated_report/result/<job_id>")
-@login_required
+@_build_report_login_or_token_required
 def api_consolidated_report_result(job_id):
     """Pick up the finished report by job_id.
 
@@ -8123,7 +8203,7 @@ def api_consolidated_report_result(job_id):
     return jsonify(report)
 
 @dashboard_bp.route("/api/consolidated_report/load", methods=["GET", "POST"])
-@login_required
+@_build_report_login_or_token_required
 def api_consolidated_report_load():
     """
     Load a previously saved consolidated report from disk (no JIRA/Orbit call).
@@ -8278,7 +8358,7 @@ def api_build_report_export_excel():
         match = _re.search(r'(\d{5,9})', str(cr_value or ''))
         return f'https://orbit/CR/{match.group(1)}' if match else ''
 
-    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status', 'CR Notes']
+    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status', 'Assignee', 'CR Notes (Latest)']
     ws = _safe_sheet('CR_Summary')
     _write_headers(ws, cr_headers)
     for idx, row in enumerate(cr_rows if isinstance(cr_rows, list) else [], start=1):
@@ -8301,6 +8381,7 @@ def api_build_report_export_excel():
             _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
             _br_export_text(row.get('si') or row.get('CR SI')),
             _br_export_text(row.get('status') or row.get('CR Status')),
+            _br_export_text(row.get('cr_assignee') or row.get('assignee') or ''),
             _br_export_text(row.get('cr_notes') or row.get('CR Notes') or ''),
         ]
         ws.append(values)
@@ -8370,7 +8451,7 @@ def api_build_report_export_excel():
 
 
 @dashboard_bp.route("/api/consolidated_report/status")
-@login_required
+@_build_report_login_or_token_required
 def api_consolidated_report_status():
     """Preflight status for the JIRA-backed consolidated-report runner."""
     try:
@@ -8507,6 +8588,82 @@ def api_jira_filter_jql():
     return jsonify({'ok': True, 'filter_id': filter_id, 'jql': jql})
 
 
+@dashboard_bp.route("/api/build_report/stability_metrics", methods=["POST"])
+@login_required
+def api_build_report_stability_metrics():
+    """Generate Axiom Stability Report metrics for a list of builds.
+
+    POST body: {
+        "builds":   ["Build.LA.1.0-00123-STD.INT-1", ...],
+        "taxonomy": "/PDT"          (optional, default /PDT)
+    }
+
+    Flow (per build, via stability_reports_client):
+      Step 1: POST /axiom/v1/public/stabilityreport  -> fresh reportId
+      Step 2: GET  instances?metaId={build}          -> instanceId
+      Step 3: GET  instances/{id}/metrics            -> hours/crashes/mtbf/devices
+
+    Returns: {
+        ok: true,
+        results: {
+            "<build>": {
+                matched: bool,
+                runtimeHours: float,
+                crashes: int,
+                mtbfHours: float,
+                deviceCount: int,
+                error: str | null
+            }, ...
+        }
+    }
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    raw_builds = body.get('builds') or []
+    taxonomy   = str(body.get('taxonomy') or '/PDT').strip() or '/PDT'
+
+    builds = [str(b).strip() for b in raw_builds if str(b).strip()]
+    if not builds:
+        return jsonify({'ok': False, 'error': 'No builds provided'}), 400
+    if len(builds) > 20:
+        return jsonify({'ok': False, 'error': 'Maximum 20 builds per request'}), 400
+
+    try:
+        from src.stability_reports_client import fetch_build_stability_metrics
+        raw = fetch_build_stability_metrics(builds, taxonomy_path=taxonomy)
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger('dashboard_routes').warning('[stability_metrics] %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    # Normalise to a flat, UI-friendly dict per build
+    results = {}
+    for build, data in raw.items():
+        metrics = (data.get('metrics') or [])
+        if metrics:
+            m = metrics[0]
+            results[build] = {
+                'matched':      True,
+                'runtimeHours': round(float(m.get('runtimeHours') or m.get('hours') or 0), 2),
+                'crashes':      int(m.get('crashes') or 0),
+                'mtbfHours':    round(float(m.get('mtbfHours') or 0), 2),
+                'deviceCount':  int(m.get('deviceCount') or 0),
+                'report_id':    data.get('report_id', ''),
+                'instance_id':  data.get('instance_id', ''),
+                'error':        None,
+            }
+        else:
+            results[build] = {
+                'matched':      False,
+                'runtimeHours': 0,
+                'crashes':      0,
+                'mtbfHours':    0,
+                'deviceCount':  0,
+                'report_id':    data.get('report_id', ''),
+                'instance_id':  '',
+                'error':        data.get('error') or 'No metrics returned',
+            }
+
+    return jsonify({'ok': True, 'results': results, 'taxonomy': taxonomy})
 
 
 @dashboard_bp.route("/api/dashboard/<string:target_name>/cr_tag_aliases", methods=["GET", "POST"])
@@ -8561,7 +8718,10 @@ def api_pdt_tags_get(target_name):
                     tags_set.add(t.strip())
         all_tags  = sorted(tags_set)
         pdt_tags  = [t for t in all_tags if "PDT" in t.upper()]
-        return jsonify({"tags": all_tags, "pdt_tags": pdt_tags})
+        # Also return per-CR tag mapping so frontend can populate r.cr_tags
+        tags_by_cr = {str(cr): [str(t).strip() for t in tags if str(t).strip()]
+                      for cr, tags in all_tags_map.items()}
+        return jsonify({"tags": all_tags, "pdt_tags": pdt_tags, "tags_by_cr": tags_by_cr})
     except Exception as e:
         logger.warning(f"[PDT TAGS GET] {e}")
         return jsonify({"tags": [], "error": str(e)})

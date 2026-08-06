@@ -35,15 +35,18 @@
 
   function waitForResult(jobId, options){
     options = options || {};
-    var intervalMs = options.intervalMs || 3000;  // poll every 3s
-    var maxTries = options.maxTries || 0;         // 0 = no timeout, poll until result arrives
+    var intervalMs = options.intervalMs || 3000;   // poll every 3s
+    var maxTries = options.maxTries || 0;          // 0 = no timeout, poll until result arrives
+    var maxNetErr = options.maxNetworkErrors || 15; // tolerate up to 15 consecutive network errors
     return new Promise(function(resolve, reject){
       var tries = 0;
+      var netErrors = 0;
       var timer = setInterval(function(){
         tries++;
         fetch('/api/consolidated_report/result/' + encodeURIComponent(jobId), {cache:'no-store'})
           .then(function(r){ return r.status === 202 ? null : r.json(); })
           .then(function(data){
+            netErrors = 0; // reset on any successful HTTP response
             if(!data){
               // maxTries=0 means no timeout — keep polling until result arrives
               if(maxTries > 0 && tries > maxTries){ clearInterval(timer); reject(new Error('Timed out waiting for report')); }
@@ -52,7 +55,13 @@
             clearInterval(timer);
             resolve(data);
           })
-          .catch(function(err){ clearInterval(timer); reject(err); });
+          .catch(function(err){
+            // Network error (fetch failed, server restarted, etc.) — retry instead of giving up.
+            // Only abort after maxNetErr consecutive failures.
+            netErrors++;
+            if(netErrors > maxNetErr){ clearInterval(timer); reject(err); }
+            // else: swallow the error and retry on the next tick
+          });
       }, intervalMs);
     });
   }
@@ -86,7 +95,7 @@
       target: options.target || '',
       force: options.force !== false,
       custom_jql: jql,
-      include_axiom_metrics: options.include_axiom_metrics !== false
+      include_axiom_metrics: options.include_axiom_metrics === true  // default OFF until Axiom is stable
     };
     if(options.axiom_taxonomy_path) payload.axiom_taxonomy_path = options.axiom_taxonomy_path;
     if(options.domain) payload.domain = options.domain;

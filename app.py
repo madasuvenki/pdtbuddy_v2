@@ -1,4 +1,4 @@
-﻿ # ====================================================================================
+﻿# ====================================================================================
 # IMPORTS
 # ====================================================================================
 import logging
@@ -8,29 +8,38 @@ logger = logging.getLogger(__name__)
 logging.getLogger('jira.resilientsession').setLevel(logging.ERROR)
 logging.getLogger('waitress').setLevel(logging.ERROR)
 logging.getLogger('waitress.queue').setLevel(logging.ERROR)
-import subprocess
-import uuid
+
 import glob
-import os,sys
+import json
 import math
+import os
 import random
+import re
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import traceback
+import uuid
 
 from datetime import datetime, date, timedelta, timezone
-import threading
-from difflib import get_close_matches
-import pandas as pd
-from mysql.connector import Error
-from textwrap import dedent
-from markupsafe import Markup
-import urllib.parse
-import re,os, json, glob, time, uuid, tempfile,threading
-from flask import Blueprint,render_template_string,request,send_file, abort,jsonify, url_for,current_app, session
-
 from decimal import Decimal
+from difflib import get_close_matches
 from pathlib import Path
+
+import pandas as pd
+from flask import (
+    Blueprint, Flask, render_template, render_template_string, request,
+    send_file, send_from_directory, abort, jsonify, url_for, current_app,
+    session, redirect, flash, Response,
+)
 from ldap3 import Server, Connection, ALL, SUBTREE
 from ldap3.utils.conv import escape_filter_chars
-import traceback
+from markupsafe import Markup
+from mysql.connector import Error
+from textwrap import dedent
+import urllib.parse
 
 
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user, login_fresh
@@ -94,14 +103,6 @@ except ImportError:
     QGENIE_SDK_AVAILABLE = False
     QGenieClient = None
 
-# Configuration (adjust this as needed)
-TASK_EXPIRY_TIME = 600  # 10 minutes in seconds
-
-from flask import (
-    Flask, render_template, request, jsonify, redirect, url_for, flash, session,
-    send_from_directory,Response
-)
-
 # ====================================================================================
 # GLOBAL VARIABLES & APP SETUP
 # ====================================================================================
@@ -136,7 +137,7 @@ from auto_gen5_public_routes import public_auto_gen5_bp
 from core_deck_routes import core_deck_bp
 from jiraquery_api_routes import jiraquery_api_bp
 
-APP_VERSION = "v2.7"
+APP_VERSION = "v2.9"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -1848,13 +1849,13 @@ def get_schema_for_target(target_name):
     bu = get_bu_for_target(target_name)
     return get_schema_for_bu(bu)
 
-def get_mysql_connection_db():
+def get_mysql_connection_db(bu_key=None):
     """
     Uses the shared util connection. Even if a default DB is selected, we still
     run cross-schema queries via fully-qualified `schema`.`table`.
     """
     from dashboard_common import get_mysql_connection_db as _dc_conn
-    return _dc_conn(bu_key=None)
+    return _dc_conn(bu_key=bu_key)
 
 def fq_table_for_target(target_name, suffix):
     """
@@ -4306,12 +4307,13 @@ def admin_usage_data():
 # -- Auto selection
 
 
-def _norm(val):
+def _norm_auto(val):
+    """Normalize for auto hierarchy (no uppercase)."""
     return str(val).strip()
 
 
 def _norm_lower(val):
-    return _norm(val).lower()
+    return _norm_auto(val).lower()
 
 def _slug(val):
     """
@@ -4319,7 +4321,7 @@ def _slug(val):
       '5.1.7.0_c1' -> '5_1_7_0_c1'
       'Nord' -> 'nord'
     """
-    return re.sub(r'[^a-z0-9]+', '_', _norm(val).lower()).strip('_')
+    return re.sub(r'[^a-z0-9]+', '_', _norm_auto(val).lower()).strip('_')
 
 
 def _safe_mermaid_text(val):
@@ -4351,7 +4353,7 @@ def collect_auto_target_buttons(gen_name, gen_data):
     for auto_target, target_info in gen_data.get("targets", {}).items():
         for family, family_info in target_info.get("families", {}).items():
             # family-level target key
-            family_target_key = _norm(family_info.get("target_key", ""))
+            family_target_key = _norm_auto(family_info.get("target_key", ""))
             if family_target_key and family_target_key not in seen:
                 buttons.append({
                     "key": family_target_key,
@@ -4361,8 +4363,8 @@ def collect_auto_target_buttons(gen_name, gen_data):
 
             # category-level + cp-level
             for category, category_info in family_info.get("categories", {}).items():
-                # category-level target
-                category_target_key = _norm(category_info.get("target_key", ""))
+            # category-level target
+                category_target_key = _norm_auto(category_info.get("target_key", ""))
                 if category_target_key and category_target_key not in seen:
                     buttons.append({
                         "key": category_target_key,
@@ -4372,8 +4374,8 @@ def collect_auto_target_buttons(gen_name, gen_data):
 
                 # CP-level
                 for cp in category_info.get("cps", []):
-                    cp_name = _norm(cp.get("display_name") or cp.get("name") or "")
-                    cp_target_key = _norm(cp.get("target_key", ""))
+                    cp_name = _norm_auto(cp.get("display_name") or cp.get("name") or "")
+                    cp_target_key = _norm_auto(cp.get("target_key", ""))
                     if cp_target_key and cp_target_key not in seen:
                         buttons.append({
                             "key": cp_target_key,
@@ -4385,26 +4387,7 @@ def collect_auto_target_buttons(gen_name, gen_data):
 
 
 def build_auto_mermaid_for_gen(gen_name, gen_data):
-    """
-    Build a Mermaid diagram from gen_data structure:
-    gen_data = {
-      "targets": {
-        <program>: {
-          "families": {
-            <family>: {
-              "target_key": "...",
-              "categories": {
-                <category>: {
-                  "target_key": "...",
-                  "cps": [...]
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    """
+    """Build a Mermaid diagram from gen_data structure."""
     lines = ["flowchart TD"]
     gen_id = _mermaid_id("gen", gen_name)
     lines.append(f'    {gen_id}(["{_safe_mermaid_text(gen_name)}"])')
@@ -4419,7 +4402,7 @@ def build_auto_mermaid_for_gen(gen_name, gen_data):
             lines.append(f'    {family_id}(["{_safe_mermaid_text(family)}"])')
             lines.append(f"    {target_id} --> {family_id}")
 
-            family_target_key = _norm(family_info.get("target_key", ""))
+            family_target_key = _norm_auto(family_info.get("target_key", ""))
             if family_target_key:
                 tk_id = _mermaid_id("tk", family_target_key)
                 lines.append(f'    {tk_id}["- {_safe_mermaid_text(family_target_key)}"]')
@@ -4430,19 +4413,19 @@ def build_auto_mermaid_for_gen(gen_name, gen_data):
                 lines.append(f'    {category_id}(["{_safe_mermaid_text(category)}"])')
                 lines.append(f"    {family_id} --> {category_id}")
 
-                category_target_key = _norm(category_info.get("target_key", ""))
+                category_target_key = _norm_auto(category_info.get("target_key", ""))
                 if category_target_key:
                     tk_id = _mermaid_id("tk", category_target_key)
                     lines.append(f'    {tk_id}["- {_safe_mermaid_text(category_target_key)}"]')
                     lines.append(f"    {category_id} --> {tk_id}")
 
                 for cp in category_info.get("cps", []):
-                    cp_name = _norm(cp.get("display_name") or cp.get("name") or "")
+                    cp_name = _norm_auto(cp.get("display_name") or cp.get("name") or "")
                     cp_id = _mermaid_id("cp", gen_name, auto_target, family, category, cp_name)
                     lines.append(f'    {cp_id}(["{_safe_mermaid_text(cp_name)}"])')
                     lines.append(f"    {category_id} --> {cp_id}")
 
-                    cp_target_key = _norm(cp.get("target_key", ""))
+                    cp_target_key = _norm_auto(cp.get("target_key", ""))
                     if cp_target_key:
                         tk_id = _mermaid_id("tk", cp_target_key)
                         lines.append(f'    {tk_id}["- {_safe_mermaid_text(cp_target_key)}"]')
@@ -4457,13 +4440,13 @@ def find_bu_for_target(metadata, target_name):
     - normal flat targets
     - AUTO admin_hierarchy targets
     """
-    target_name_lower = _norm_lower(target_name)
+    target_name_lower = str(target_name or "").strip().lower()
     business_units = metadata.get("BUSINESS_UNITS", {})
 
     # 1. Regular flat BU targets
     for b_key, b_info in business_units.items():
         targets = (b_info or {}).get("targets", [])
-        if target_name_lower in [_norm_lower(t) for t in targets]:
+        if target_name_lower in [str(t or "").strip().lower() for t in targets]:
             return str(b_key).upper()
 
     # 2. AUTO hierarchy
@@ -4475,17 +4458,17 @@ def find_bu_for_target(metadata, target_name):
         for _, target_info in gen_info.get("targets", {}).items():
             for _, family_info in target_info.get("families", {}).items():
                 # family-level target
-                if _norm_lower(family_info.get("target_key")) == target_name_lower:
+                if str(family_info.get("target_key") or "").strip().lower() == target_name_lower:
                     return "AUTO"
 
                 for _, category_info in family_info.get("categories", {}).items():
                     # category-level target
-                    if _norm_lower(category_info.get("target_key")) == target_name_lower:
+                    if str(category_info.get("target_key") or "").strip().lower() == target_name_lower:
                         return "AUTO"
 
                     # optional cp-level target references
                     for cp in category_info.get("cps", []):
-                        if _norm_lower(cp.get("target_key")) == target_name_lower:
+                        if str(cp.get("target_key") or "").strip().lower() == target_name_lower:
                             return "AUTO"
 
     return None
@@ -4509,9 +4492,9 @@ def build_auto_gen_data_from_targets_config(gen_name: str) -> dict:
         if str(info.get("platform", "")).strip().upper() != gen_upper:
             continue
 
-        program = _norm(info.get("program", "")) or tkey
-        family  = _norm(info.get("product_family", "")) or "UNKNOWN_FAMILY"
-        category = _norm(info.get("application_domain", "")) or "UNKNOWN_CATEGORY"
+        program = _norm_auto(info.get("program", "")) or tkey
+        family  = _norm_auto(info.get("product_family", "")) or "UNKNOWN_FAMILY"
+        category = _norm_auto(info.get("application_domain", "")) or "UNKNOWN_CATEGORY"
 
         targets = gen_data["targets"]
         if program not in targets:
@@ -4709,8 +4692,6 @@ def build_auto_mermaid_tree(gen_name: str, gen_data: dict) -> str:
     # Append click lines
     lines.extend(clicks)
     return "\n".join(lines)
-
-from flask import url_for
 
 def build_auto_mermaid_tree_with_clicks(gen_name: str, gen_data: dict) -> str:
     def safe_label(s: str) -> str:
@@ -7933,19 +7914,6 @@ chatbot_engine = ChatbotEngine(
     log_user_activity_fn=log_user_activity,
 )
 
-def enforce_select_limit(sql: str, limit: int = 200) -> str:
-
-    if not sql:
-        return sql
-    s = sql.strip().rstrip(";")
-    if re.search(r"\bLIMIT\b", s, flags=re.IGNORECASE):
-        return s
-    if re.match(r"^\s*SELECT\b", s, flags=re.IGNORECASE):
-        return f"{s} LIMIT {int(limit)}"
-    return s
-
-
-
 CR_AREA_KEYWORDS = {
     "core": ["core"],
     "modem": ["modem"],
@@ -8867,7 +8835,7 @@ def execute_cr_compare(mode: str, targets, context):
                 row[f"{t}_CR Status"] = d.get("status")
                 row[f"{t}_CR age"] = d.get("age")
             rows.append(row)
-        cache_id = cache_table(clean_rows(rows), table_name=title)
+        cache_id = cache_table(clean_data_for_session(rows), table_name=title)
         context["table_view_url"] = url_for("view_cached_table", cache_id=cache_id)
         return jsonify({
             "response": f"{title} generated for {len(rows)} CRs. Open the table link.",
@@ -9114,15 +9082,16 @@ def _start_mcp_server_thread():
     logger.info('[MCP] MTBF server thread launched (port %s)', mcp_port)
 
 
-if __name__ == '__main__':
+def main():
+    """Entry point for `uv run app` and direct `python app.py` execution."""
     logger.debug("app.py started executing")
     os.makedirs('temp_reports', exist_ok=True)
     _start_mcp_server_thread()
 
-    # HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    # PORT = int(os.environ.get('BUDDY_PORT', '80'))
-    HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('BUDDY_PORT', '500'))
+    HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
+    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
@@ -9134,7 +9103,7 @@ if __name__ == '__main__':
             app,
             host=HOST,
             port=PORT,
-                        threads=95,                  # handle up to 45 concurrent requests
+            threads=95,                  # handle up to 95 concurrent requests
             channel_timeout=0,          # no timeout - long-running reports allowed
             cleanup_interval=30,
             connection_limit=200,
@@ -9143,3 +9112,7 @@ if __name__ == '__main__':
         logger.info("[APP] waitress not found - falling back to Flask dev server.")
         logger.info("[APP] Install waitress for production: pip install waitress")
         app.run(debug=True, host=HOST, port=PORT, use_reloader=True)
+
+
+if __name__ == '__main__':
+    main()

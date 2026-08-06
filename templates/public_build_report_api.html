@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build Report API – PDTBuddy</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #273549;
+      --border: #334155;
+      --accent: #3b82f6;
+      --accent2: #22d3ee;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --code-bg: #0d1117;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent2); }
+    header .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    h2 { font-size: 1.2rem; font-weight: 700; color: var(--accent2); margin: 2rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+    h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+    p { color: var(--muted); margin-bottom: 0.75rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Method badges */
+    .method {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+    .method.post { background: #1d4ed8; color: #fff; }
+    .method.get  { background: #065f46; color: #fff; }
+
+    /* Endpoint cards */
+    .endpoint {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .endpoint-header:hover { background: #2d3f55; }
+    .endpoint-path {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+      flex: 1;
+    }
+    .endpoint-desc { font-size: 0.8rem; color: var(--muted); }
+    .endpoint-body { padding: 1rem; display: none; }
+    .endpoint-body.open { display: block; }
+
+    /* Code blocks */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin: 0.5rem 0 1rem;
+    }
+    code { font-family: inherit; }
+    .hl-key   { color: #79c0ff; }
+    .hl-str   { color: #a5d6ff; }
+    .hl-num   { color: #f2cc60; }
+    .hl-cmt   { color: #8b949e; font-style: italic; }
+    .hl-kw    { color: #ff7b72; }
+    .hl-fn    { color: #d2a8ff; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.85rem; }
+    th { background: var(--surface2); color: var(--muted); font-weight: 600; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+    td code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; }
+    .req { color: var(--red); font-size: 0.7rem; font-weight: 700; }
+    .opt { color: var(--muted); font-size: 0.7rem; }
+
+    /* Auth box */
+    .auth-box {
+      background: #0c2340;
+      border: 1px solid #1e4a7a;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .auth-box h3 { color: var(--accent2); margin-top: 0; }
+    .auth-box p { margin-bottom: 0.5rem; }
+
+    /* Alert */
+    .alert {
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    .alert.info  { background: #0c2340; border-left: 3px solid var(--accent); color: var(--text); }
+    .alert.warn  { background: #2d1f00; border-left: 3px solid var(--yellow); color: var(--text); }
+    .alert.green { background: #052e16; border-left: 3px solid var(--green); color: var(--text); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 0; }
+    .tab-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      color: var(--muted);
+      padding: 0.4rem 1rem;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .tab-btn.active { background: var(--code-bg); color: var(--text); border-color: var(--border); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Copy button */
+    .copy-wrap { position: relative; }
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .copy-btn:hover { color: var(--text); }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0;
+    }
+    .flow-step {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+    .flow-arrow { color: var(--muted); font-size: 1.1rem; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 2rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔌 Build Report API</h1>
+  <span class="badge">PDTBuddy</span>
+  <span style="color:var(--muted);font-size:0.85rem;margin-left:auto;">Share consolidated build reports with external tools</span>
+</header>
+
+<div class="container">
+
+  <!-- Overview -->
+  <h2>Overview</h2>
+  <p>
+    The Build Report API exposes the same consolidated report engine used by the
+    <strong>Build Report standalone page</strong> as a machine-callable REST API.
+    Pass a JIRA filter ID or JQL — get the full report JSON back immediately.
+    No job_id, no polling.
+  </p>
+
+  <div class="alert green">
+    ✅ <strong>One call, one response.</strong> Pass your filter ID → get the report.
+    Works with a browser session (internal users) or an API token (external tools).
+  </div>
+
+  <div class="alert info">
+    🔑 <strong>What is the token?</strong> It's a long random string set in the server's
+    <code>.env</code> file as <code>PDTBUDDY_API_TOKEN=your-secret-here</code>.
+    The admin generates it once and shares it with teams who need API access.
+    Verify yours: <code>curl -H "X-PDTBuddy-API-Token: TOKEN" http://&lt;host&gt;/api/token/verify</code>
+  </div>
+
+  <!-- Authentication -->
+  <h2>Authentication</h2>
+  <div class="auth-box">
+    <h3>🔑 API Token (required for external tools)</h3>
+    <p>Send your token in <strong>one</strong> of these ways:</p>
+    <table>
+      <tr><th>Method</th><th>Example</th></tr>
+      <tr><td>HTTP Header (recommended)</td><td><code>X-PDTBuddy-API-Token: your-token-here</code></td></tr>
+      <tr><td>Authorization Bearer</td><td><code>Authorization: Bearer your-token-here</code></td></tr>
+      <tr><td>Query parameter</td><td><code>?api_token=your-token-here</code></td></tr>
+    </table>
+    <p style="margin-top:0.75rem;">
+      The token is configured by the admin via the <code>PDTBUDDY_API_TOKEN</code> environment variable
+      (or <code>JIRAQUERY_API_TOKEN</code> as an alias). Verify your token:
+    </p>
+    <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" http://&lt;host&gt;/api/token/verify</code></pre>
+    <p>Browser sessions (logged-in users) are also accepted — no token needed from the UI.</p>
+  </div>
+
+  <!-- PRIMARY ENDPOINT -->
+  <h2>⭐ Primary Endpoint — Synchronous (Recommended)</h2>
+  <p>Pass a filter ID or JQL, get the full report back in one call. Same output as the Build Report page.</p>
+
+  <!-- POST /api/build_report/run -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method post">POST</span>
+      <span class="endpoint-path">/api/build_report/run</span>
+      <span class="endpoint-desc">Run report synchronously — same as the Build Report page</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Runs the consolidated report and returns the full JSON immediately. No job_id, no polling.</p>
+
+      <h3>Request Body (JSON) or GET params</h3>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>filter_id</code></td><td>string</td><td><span class="req">required*</span></td><td>JIRA saved filter ID (e.g. <code>"76997"</code>) or full filter URL</td></tr>
+        <tr><td><code>custom_jql</code></td><td>string</td><td><span class="req">required*</span></td><td>Direct JIRA JQL string</td></tr>
+        <tr><td><code>builds</code></td><td>string</td><td><span class="req">required*</span></td><td>Comma-separated build IDs</td></tr>
+        <tr><td><code>target</code></td><td>string</td><td><span class="opt">optional</span></td><td>Target name for context (e.g. <code>"ALDABRA"</code>)</td></tr>
+        <tr><td><code>traverse</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
+        <tr><td><code>orbit</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Enrich with Orbit CR data (default: <code>true</code>)</td></tr>
+      </table>
+      <p><em>* At least one of <code>filter_id</code>, <code>custom_jql</code>, or <code>builds</code> is required.</em></p>
+
+      <h3>Response (200)</h3>
+      <pre><code>{
+  <span class="hl-key">"ok"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"filter_id"</span>: <span class="hl-str">"76997"</span>,
+  <span class="hl-key">"meta"</span>: { <span class="hl-key">"jql"</span>: <span class="hl-str">"..."</span>, <span class="hl-key">"build_ids"</span>: [...] },
+  <span class="hl-key">"summary"</span>: { <span class="hl-key">"total_jiras"</span>: <span class="hl-num">42</span>, <span class="hl-key">"with_cr"</span>: <span class="hl-num">28</span> },
+  <span class="hl-key">"hierarchical_report"</span>: [ <span class="hl-cmt">/* CR-grouped JIRA rows */</span> ],
+  <span class="hl-key">"jiras"</span>: [ <span class="hl-cmt">/* flat list of all matched JIRAs */</span> ],
+  <span class="hl-key">"cr_index"</span>: { <span class="hl-cmt">/* CR details keyed by CR number */</span> }
+}</code></pre>
+
+      <h3>Examples</h3>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this,'run1a')">curl (filter ID)</button>
+        <button class="tab-btn" onclick="switchTab(this,'run1b')">curl (JQL)</button>
+        <button class="tab-btn" onclick="switchTab(this,'run1c')">Python</button>
+        <button class="tab-btn" onclick="switchTab(this,'run1d')">Browser session</button>
+      </div>
+      <div class="tab-content active" id="run1a">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-cmt"># Pass a JIRA saved filter ID — same as selecting it in the Build Report page</span>
+curl -s -X POST http://&lt;host&gt;/api/build_report/run \
+  -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"filter_id": "76997"}'</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="run1b">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-cmt"># Pass direct JQL</span>
+curl -s -X POST http://&lt;host&gt;/api/build_report/run \
+  -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"custom_jql": "project = QSTABILITY AND summary ~ \"SecaAU_IVI.LE.1.0-00070\""}'</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="run1c">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-kw">import</span> requests
+
+HOST  = <span class="hl-str">"http://&lt;host&gt;"</span>
+TOKEN = <span class="hl-str">"YOUR_TOKEN"</span>
+
+<span class="hl-cmt"># One call — full report returned immediately</span>
+resp = requests.post(
+    <span class="hl-fn">f</span><span class="hl-str">"{HOST}/api/build_report/run"</span>,
+    json={<span class="hl-str">"filter_id"</span>: <span class="hl-str">"76997"</span>},
+    headers={<span class="hl-str">"X-PDTBuddy-API-Token"</span>: TOKEN},
+)
+report = resp.json()
+<span class="hl-fn">print</span>(report[<span class="hl-str">"summary"</span>])          <span class="hl-cmt"># {"total_jiras": 42, "with_cr": 28, ...}</span>
+<span class="hl-fn">print</span>(<span class="hl-fn">len</span>(report[<span class="hl-str">"jiras"</span>]))       <span class="hl-cmt"># 42</span></code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="run1d">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-cmt"># Logged-in users can call from the browser console (no token needed)</span>
+<span class="hl-kw">const</span> resp = <span class="hl-kw">await</span> fetch(<span class="hl-str">'/api/build_report/run'</span>, {
+  method: <span class="hl-str">'POST'</span>,
+  headers: { <span class="hl-str">'Content-Type'</span>: <span class="hl-str">'application/json'</span> },
+  body: JSON.stringify({ filter_id: <span class="hl-str">'76997'</span> })
+});
+<span class="hl-kw">const</span> report = <span class="hl-kw">await</span> resp.json();
+console.log(report.summary);</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECONDARY: Async endpoints -->
+  <h2>Advanced: Async Endpoints (for long-running reports)</h2>
+  <p>For very large reports that may time out, use the async job pattern. The page itself uses this internally.</p>
+
+  <!-- POST /api/consolidated_report -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method post">POST</span>
+      <span class="endpoint-path">/api/consolidated_report</span>
+      <span class="endpoint-desc">Start a background Build Report job (async)</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Starts an async consolidated report job. Returns a <code>job_id</code> immediately.</p>
+
+      <h3>Request Body (JSON)</h3>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>builds</code></td><td>string or array</td><td><span class="req">required*</span></td><td>Build ID(s). Comma-separated string or JSON array. e.g. <code>"SecaAU_IVI.LE.1.0-00070"</code></td></tr>
+        <tr><td><code>custom_jql</code></td><td>string</td><td><span class="req">required*</span></td><td>Direct JIRA JQL or saved filter ID/URL. Required if <code>builds</code> not provided.</td></tr>
+        <tr><td><code>target</code></td><td>string</td><td><span class="opt">optional</span></td><td>Target name for context (e.g. <code>"ALDABRA"</code>)</td></tr>
+        <tr><td><code>traverse</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
+        <tr><td><code>orbit</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Enrich with Orbit CR data (default: <code>true</code>)</td></tr>
+        <tr><td><code>force</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Bypass cache and re-run (default: <code>false</code>)</td></tr>
+        <tr><td><code>cache_ttl_minutes</code></td><td>number</td><td><span class="opt">optional</span></td><td>Cache TTL in minutes (default: 30)</td></tr>
+        <tr><td><code>include_axiom_metrics</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Include Axiom stability metrics (default: <code>false</code>)</td></tr>
+      </table>
+      <p><em>* Either <code>builds</code> or <code>custom_jql</code> is required.</em></p>
+
+      <h3>Response</h3>
+      <pre><code>{
+  <span class="hl-key">"ok"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"job_id"</span>: <span class="hl-str">"3f8a1c2d-..."</span>
+}</code></pre>
+      <p>HTTP 202 Accepted. Use <code>job_id</code> to poll for results.</p>
+
+      <h3>Examples</h3>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this,'ex1a')">curl</button>
+        <button class="tab-btn" onclick="switchTab(this,'ex1b')">Python</button>
+        <button class="tab-btn" onclick="switchTab(this,'ex1c')">PowerShell</button>
+      </div>
+      <div class="tab-content active" id="ex1a">
+        <div class="copy-wrap">
+          <pre><code>curl -s -X POST http://&lt;host&gt;/api/consolidated_report \
+  -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"builds": "SecaAU_IVI.LE.1.0-00070", "target": "ALDABRA"}'</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="ex1b">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-kw">import</span> requests, time
+
+HOST = <span class="hl-str">"http://&lt;host&gt;"</span>
+TOKEN = <span class="hl-str">"YOUR_TOKEN"</span>
+HEADERS = {<span class="hl-str">"X-PDTBuddy-API-Token"</span>: TOKEN}
+
+<span class="hl-cmt"># 1. Start job</span>
+r = requests.post(
+    <span class="hl-fn">f</span><span class="hl-str">"{HOST}/api/consolidated_report"</span>,
+    json={<span class="hl-str">"builds"</span>: <span class="hl-str">"SecaAU_IVI.LE.1.0-00070"</span>, <span class="hl-str">"target"</span>: <span class="hl-str">"ALDABRA"</span>},
+    headers=HEADERS,
+)
+job_id = r.json()[<span class="hl-str">"job_id"</span>]
+
+<span class="hl-cmt"># 2. Poll for result</span>
+<span class="hl-kw">while</span> <span class="hl-kw">True</span>:
+    res = requests.get(<span class="hl-fn">f</span><span class="hl-str">"{HOST}/api/consolidated_report/result/{job_id}"</span>, headers=HEADERS)
+    <span class="hl-kw">if</span> res.status_code != <span class="hl-num">202</span>:
+        report = res.json()
+        <span class="hl-kw">break</span>
+    time.sleep(<span class="hl-num">3</span>)
+
+<span class="hl-fn">print</span>(report[<span class="hl-str">"summary"</span>])</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="ex1c">
+        <div class="copy-wrap">
+          <pre><code><span class="hl-cmt"># PowerShell</span>
+$headers = @{ "X-PDTBuddy-API-Token" = "YOUR_TOKEN"; "Content-Type" = "application/json" }
+$body = '{"builds": "SecaAU_IVI.LE.1.0-00070", "target": "ALDABRA"}'
+$r = Invoke-RestMethod -Uri "http://&lt;host&gt;/api/consolidated_report" -Method POST -Headers $headers -Body $body
+$jobId = $r.job_id
+
+<span class="hl-cmt"># Poll</span>
+do {
+    Start-Sleep 3
+    $res = Invoke-WebRequest -Uri "http://&lt;host&gt;/api/consolidated_report/result/$jobId" -Headers $headers
+} while ($res.StatusCode -eq 202)
+$report = $res.Content | ConvertFrom-Json
+$report.summary</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /api/consolidated_report/result/<job_id> -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="endpoint-path">/api/consolidated_report/result/&lt;job_id&gt;</span>
+      <span class="endpoint-desc">Fetch completed report by job ID</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns the completed report JSON. Non-destructive — safe to call multiple times.</p>
+      <table>
+        <tr><th>Status</th><th>Meaning</th></tr>
+        <tr><td><code>202</code> + <code>{"status":"pending"}</code></td><td>Job still running — poll again</td></tr>
+        <tr><td><code>200</code> + report JSON</td><td>Report complete</td></tr>
+        <tr><td><code>500</code> + <code>{"error":"..."}</code></td><td>Job failed</td></tr>
+      </table>
+
+      <h3>Report JSON Structure</h3>
+      <pre><code>{
+  <span class="hl-key">"meta"</span>: {
+    <span class="hl-key">"build_ids"</span>: [<span class="hl-str">"SecaAU_IVI.LE.1.0-00070"</span>],
+    <span class="hl-key">"target_name"</span>: <span class="hl-str">"ALDABRA"</span>,
+    <span class="hl-key">"generated_at"</span>: <span class="hl-str">"2026-08-05T10:30:00"</span>,
+    <span class="hl-key">"jql"</span>: <span class="hl-str">"summary ~ \"SecaAU_IVI.LE.1.0-00070\" AND filter = 76997 ..."</span>
+  },
+  <span class="hl-key">"summary"</span>: {
+    <span class="hl-key">"total_jiras"</span>: <span class="hl-num">42</span>,
+    <span class="hl-key">"with_cr"</span>: <span class="hl-num">28</span>,
+    <span class="hl-key">"open_jiras"</span>: <span class="hl-num">15</span>
+  },
+  <span class="hl-key">"hierarchical_report"</span>: [ <span class="hl-cmt">/* CR-grouped JIRA rows */</span> ],
+  <span class="hl-key">"jiras"</span>: [ <span class="hl-cmt">/* flat list of all matched JIRAs */</span> ],
+  <span class="hl-key">"cr_index"</span>: { <span class="hl-cmt">/* CR details keyed by CR number */</span> }
+}</code></pre>
+
+      <h3>Example</h3>
+      <div class="copy-wrap">
+        <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  http://&lt;host&gt;/api/consolidated_report/result/3f8a1c2d-...</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /api/consolidated_report/progress/<job_id> -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="endpoint-path">/api/consolidated_report/progress/&lt;job_id&gt;</span>
+      <span class="endpoint-desc">SSE stream of job progress events</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>
+        Server-Sent Events (SSE) stream. Emits JSON progress events until the job completes.
+        Useful for real-time progress bars. For simple polling, use the <code>/result</code> endpoint instead.
+      </p>
+      <pre><code><span class="hl-cmt"># Each SSE event looks like:</span>
+data: {"stage":"running","done":12,"total":50,"pct":24,"message":"Fetching JIRA tickets..."}
+
+data: {"stage":"done","done":50,"total":50,"pct":100,"message":"Report complete."}</code></pre>
+      <h3>Example (curl)</h3>
+      <div class="copy-wrap">
+        <pre><code>curl -N -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  http://&lt;host&gt;/api/consolidated_report/progress/3f8a1c2d-...</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /api/consolidated_report/status -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="endpoint-path">/api/consolidated_report/status</span>
+      <span class="endpoint-desc">Preflight check — verify JIRA credentials are configured</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns whether JIRA credentials are configured on the server. Use this as a health check before submitting jobs.</p>
+      <pre><code>{
+  <span class="hl-key">"ok"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"configured"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"jira_user_set"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"jira_password_set"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"jira_server"</span>: <span class="hl-str">"https://jira-dc2.qualcomm.com/jira/"</span>,
+  <span class="hl-key">"message"</span>: <span class="hl-str">"JIRA credentials configured."</span>
+}</code></pre>
+      <div class="copy-wrap">
+        <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" http://&lt;host&gt;/api/consolidated_report/status</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /api/consolidated_report/load -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="endpoint-path">/api/consolidated_report/load</span>
+      <span class="endpoint-desc">Load a previously cached report from disk</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns a previously saved report without re-running JIRA/Orbit queries.</p>
+      <table>
+        <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>builds</code></td><td>string</td><td>Comma-separated build IDs</td></tr>
+        <tr><td><code>target</code></td><td>string</td><td>Target name (optional)</td></tr>
+      </table>
+      <pre><code>{
+  <span class="hl-key">"found"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"report"</span>: { <span class="hl-cmt">/* full report JSON */</span> },
+  <span class="hl-key">"saved_at"</span>: <span class="hl-str">"2026-08-05T10:30:00"</span>
+}</code></pre>
+      <div class="copy-wrap">
+        <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  "http://&lt;host&gt;/api/consolidated_report/load?builds=SecaAU_IVI.LE.1.0-00070&target=ALDABRA"</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Also available: jiraquery raw -->
+  <h2>Also Available: Synchronous Raw API</h2>
+  <div class="alert info">
+    The <code>/api/jiraquery/raw</code> endpoint runs the report <strong>synchronously</strong>
+    (blocks until complete). Suitable for small builds or scripted one-shot calls.
+    Uses the same <code>PDTBUDDY_API_TOKEN</code>.
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="method post" style="margin-left:0">POST</span>
+      <span class="endpoint-path">/api/jiraquery/raw</span>
+      <span class="endpoint-desc">Synchronous consolidated report (blocks until done)</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body">
+      <table>
+        <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>builds</code></td><td>string</td><td>Comma-separated build IDs</td></tr>
+        <tr><td><code>target</code></td><td>string</td><td>Target name (optional)</td></tr>
+        <tr><td><code>project</code></td><td>string</td><td>JIRA project keys e.g. <code>QSTABILITY,CHIPMD</code></td></tr>
+        <tr><td><code>filter_id</code></td><td>string</td><td>JIRA saved filter ID (overrides default)</td></tr>
+        <tr><td><code>traverse</code></td><td>bool</td><td>Follow linked JIRAs (default: true)</td></tr>
+        <tr><td><code>raw_only</code></td><td>bool</td><td>Return flat JIRA list only (default: false)</td></tr>
+      </table>
+      <div class="copy-wrap">
+        <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  "http://&lt;host&gt;/api/jiraquery/raw?builds=SecaAU_IVI.LE.1.0-00070&target=ALDABRA"</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Reference -->
+  <h2>Quick Reference</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Method</th><th>Auth</th><th>Description</th></tr>
+    <tr><td><code>/api/consolidated_report</code></td><td>POST</td><td>Token or Session</td><td>Start async report job</td></tr>
+    <tr><td><code>/api/consolidated_report/result/&lt;job_id&gt;</code></td><td>GET</td><td>Token or Session</td><td>Fetch completed result</td></tr>
+    <tr><td><code>/api/consolidated_report/progress/&lt;job_id&gt;</code></td><td>GET</td><td>Token or Session</td><td>SSE progress stream</td></tr>
+    <tr><td><code>/api/consolidated_report/status</code></td><td>GET</td><td>Token or Session</td><td>JIRA credentials check</td></tr>
+    <tr><td><code>/api/consolidated_report/load</code></td><td>GET/POST</td><td>Token or Session</td><td>Load cached report</td></tr>
+    <tr><td><code>/api/consolidated_report/cancel/&lt;job_id&gt;</code></td><td>POST</td><td>Session only</td><td>Cancel running job</td></tr>
+    <tr><td><code>/api/build_report/export_excel</code></td><td>POST</td><td>Session only</td><td>Export to Excel</td></tr>
+    <tr><td><code>/api/jiraquery/raw</code></td><td>GET/POST</td><td>Token only</td><td>Synchronous report</td></tr>
+    <tr><td><code>/api/token/verify</code></td><td>GET/POST</td><td>Token only</td><td>Verify API token</td></tr>
+  </table>
+
+  <h2>Environment Setup</h2>
+  <div class="auth-box">
+    <h3>⚙️ Admin: Configure API Token</h3>
+    <p>Add to your <code>.env</code> file and restart PDTBuddy:</p>
+    <pre><code><span class="hl-cmt"># .env</span>
+PDTBUDDY_API_TOKEN=your-long-random-token-here
+
+<span class="hl-cmt"># Generate a secure token (PowerShell):</span>
+[System.Web.Security.Membership]::GeneratePassword(40, 5)
+
+<span class="hl-cmt"># Generate a secure token (Python):</span>
+python -c "import secrets; print(secrets.token_urlsafe(40))"</code></pre>
+  </div>
+
+</div>
+
+<footer>
+  PDTBuddy Build Report API &mdash; v2.7 &mdash;
+  <a href="/build_report">Open Build Report UI</a> &middot;
+  <a href="/api/token/verify">Verify Token</a>
+</footer>
+
+<script>
+function toggle(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+  const arrow = header.querySelector('span:last-child');
+  if (arrow) arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+function switchTab(btn, targetId) {
+  const container = btn.closest('.endpoint-body') || btn.closest('.container');
+  const allBtns = btn.parentElement.querySelectorAll('.tab-btn');
+  allBtns.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // find all tab-content siblings
+  const parent = btn.parentElement.parentElement;
+  parent.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  const target = document.getElementById(targetId);
+  if (target) target.classList.add('active');
+}
+
+function copyPre(btn) {
+  const pre = btn.previousElementSibling;
+  const text = pre ? pre.innerText : '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  }).catch(() => {
+    btn.textContent = 'error';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+
+// Auto-open first endpoint
+document.addEventListener('DOMContentLoaded', () => {
+  const first = document.querySelector('.endpoint-header');
+  if (first) toggle(first);
+});
+</script>
+</body>
+</html>

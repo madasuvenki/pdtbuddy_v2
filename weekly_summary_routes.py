@@ -9303,9 +9303,13 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                                     # overallcrs is cumulative/all-time. The unique series must use
             # only rows explicitly classified as PDT_Unique; PDT_Reported
             # belongs to the overall series and must not inflate this count.
+            # Apply the same date filter used by _monthly_fetch_target_stats so
+            # the flat table respects the user-selected date range.
             cur.execute(
                 "SELECT DISTINCT crid FROM " + ov_tbl +
-                " WHERE reported_team = 'PDT_Unique'")
+                " WHERE reported_team = 'PDT_Unique'"
+                " AND DATE(date) >= %s AND DATE(date) <= %s",
+                (date_from_s, date_to_s))
             family_ov_cr_list[base] = [r["crid"] for r in (cur.fetchall() or [])]
 
         for tgt in bu_targets:

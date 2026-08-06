@@ -1303,3 +1303,127 @@ def bulk_get_cr_tags(cr_numbers: list) -> dict:
             results[cr] = tags
     return results
 
+
+def bulk_query_cr_orbit_details(cr_numbers: list, batch_size: int = 100) -> dict:
+    """
+    Fetch Priority, Assignee, CustomerSN, CustomerName from Orbit for a batch of CRs.
+    - Priority/Assignee: via POST /api/query/run (batch, fast)
+    - CustomerSN/CustomerName: via GET /api/changerequest/{cr}/ (parallel, direct REST)
+      CustomerSN/CustomerName are NOT valid query/run projection fields on this instance
+      (they cause HTTP 400 "Column Name not supported").
+    Returns {cr_number: {priority, assignee, customer_sn, customer_name}, ...}
+    """
+    import concurrent.futures as _cf
+
+    cr_list = []
+    seen = set()
+    for cr in cr_numbers or []:
+        norm = _normalize_cr(cr)
+        if norm and norm not in seen:
+            cr_list.append(norm)
+            seen.add(norm)
+    results = {cr: {} for cr in cr_list}
+    if not cr_list:
+        return results
+
+    # Step 1: Fetch Priority and Assignee via query/run (batch, fast)
+    fields = [
+        {"Name": "ChangeRequestNumber"},
+        {"Name": "Priority"},
+        {"Name": "Assignee"},
+    ]
+    step = max(1, int(batch_size or 100))
+    for idx in range(0, len(cr_list), step):
+        batch = cr_list[idx:idx + step]
+        payload = {
+            "Query": {
+                "Projection": fields,
+                "Predicate": {
+                    "Operands": [{
+                        "Field": {"Name": "ChangeRequestNumber"},
+                        "FieldValue": batch,
+                    }]
+                },
+            },
+            "Page": 1,
+            "PageSize": 1000,
+        }
+        url = f"{_get_orbit_query_api_base()}/query/run"
+        try:
+            resp = _orbit_post_with_auth(url, payload, ORBIT_QUERY_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and 'IsSuccess' in data:
+                if not data.get('IsSuccess'):
+                    logger.warning(f"[orbit_client] bulk_query_cr_orbit_details: Orbit query failed: {data.get('Errors')}")
+                    continue
+                data = data.get('Content') or {}
+            for row in (data.get('Results') if isinstance(data, dict) else []) or []:
+                cr = _normalize_cr(row.get('ChangeRequestNumber'))
+                if cr:
+                    results[cr] = {
+                        'priority': str(row.get('Priority') or '').strip(),
+                        'assignee': str(row.get('Assignee') or '').strip(),
+                        'customer_sn':   '',
+                        'customer_name': '',
+                    }
+        except Exception as e:
+            logger.warning(f"[orbit_client] bulk_query_cr_orbit_details batch error: {e}")
+
+    # Step 2: Fetch customer data via direct CR REST endpoint (parallel)
+    # Orbit format: Customers: [{CustomerName, ServiceRequestNumber, SoftwareProduct}]
+    def _fetch_customer(cr):
+        try:
+            url = f"{_get_orbit_api_base()}/{cr}/"
+            resp = _orbit_request_with_auth('GET', url, ORBIT_DIRECT_TIMEOUT)
+            if resp.status_code != 200:
+                return cr, '', ''
+            raw = resp.json()
+            if isinstance(raw, dict) and 'IsSuccess' in raw:
+                if not raw.get('IsSuccess'):
+                    return cr, '', ''
+                data = raw.get('Content') or {}
+            else:
+                data = raw
+            # Try multiple field names for customer records array
+            customers = (
+                data.get('Customers') or
+                data.get('CustomerRecords') or
+                data.get('customers') or
+                []
+            )
+            if not customers or not isinstance(customers, list):
+                return cr, '', ''
+            first = customers[0] if isinstance(customers[0], dict) else {}
+            name = str(
+                first.get('CustomerName') or first.get('Name') or first.get('name') or ''
+            ).strip()
+            sn_raw = str(
+                first.get('ServiceRequestNumber') or first.get('SRNumber') or
+                first.get('SR') or first.get('sr_number') or ''
+            ).strip()
+            sn = (f"SR {sn_raw}" if sn_raw and not sn_raw.upper().startswith('SR') else sn_raw)
+            return cr, sn, name
+        except Exception:
+            return cr, '', ''
+
+    crs_to_fetch = list(results.keys()) or cr_list
+    try:
+        with _cf.ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(_fetch_customer, cr): cr for cr in crs_to_fetch}
+            for future in _cf.as_completed(futures, timeout=60):
+                try:
+                    cr, sn, name = future.result()
+                    if cr in results:
+                        results[cr]['customer_sn'] = sn
+                        results[cr]['customer_name'] = name
+                    else:
+                        results[cr] = {'priority': '', 'assignee': '', 'customer_sn': sn, 'customer_name': name}
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"[orbit_client] bulk_query_cr_orbit_details customer fetch error: {e}")
+
+    logger.info(f"[orbit_client] bulk_query_cr_orbit_details: fetched details for {len(cr_list)} CRs")
+    return results
+

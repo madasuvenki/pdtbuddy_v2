@@ -96,6 +96,12 @@ _DEFAULT_AUTO_EXCEL = os.environ.get("AUTO_LIVE_VIEW_STATS_EXCEL", r"C:\Dropbox\
 _DEFAULT_AUTO_ROOT = os.environ.get("AUTO_LIVE_VIEW_STATS_ROOT", r"C:\Dropbox")
 _AUTO_CANONICAL_TARGET = "auto_gen4.5"
 
+# -- Domain to milestone label mapping (used by automotive live view stats page) --
+DOMAIN_MILESTONE_MAP: dict[str, list[str]] = {
+    "SECA": ["LE.1.0", "LE.1.1", "LE.2.0", "LE.2.1", "Flex", "Overall"],
+    "IVI":  ["LE.1.0", "LE.1.1", "LE.2.0", "LE.2.1", "Flex", "Overall"],
+}
+
 
 def _canonical_target(target_name: str) -> str:
     target = str(target_name or "").strip()
@@ -1586,6 +1592,7 @@ def automotive_live_view_stats_page(target_name: str = _AUTO_CANONICAL_TARGET):
         target_display=get_display_name_for_target(target_name) or target_name,
         default_excel_path=default_excel,
         default_excel_root=default_root,
+        domain_milestone_map=DOMAIN_MILESTONE_MAP,
     )
 
 

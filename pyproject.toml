@@ -1,0 +1,108 @@
+[project]
+name = "pdtbuddy"
+version = "2.7.0"
+description = "PDT Statistics Dashboard & Reporting Platform (Qualcomm Internal)"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    # Web framework
+    "flask>=3.1",
+    "flask-login>=0.6",
+    "flask-session>=0.8",
+    "werkzeug>=3.1",
+    "cachelib>=0.9",
+    # Database
+    "mysql-connector-python>=9.0",
+    # Authentication
+    "ldap3>=2.9",
+    # Data processing
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "openpyxl>=3.1",
+    "xlsxwriter>=3.0",
+    # HTTP / APIs
+    "requests>=2.28",
+    "urllib3>=2.0",
+    "jira>=3.5",
+    # WSGI server
+    "waitress>=3.0",
+    # Config / utils
+    "python-dotenv>=1.0",
+    "itsdangerous>=2.1",
+    "markupsafe>=2.1",
+    # Git integration
+    "gitpython>=3.1",
+    # Real-time (socket.io used by live status)
+    "python-socketio>=5.0",
+    "python-engineio>=4.0",
+    # Serialization / validation
+    "pydantic>=2.0",
+    # AI / LLM — fetched from Qualcomm internal devpi (see [tool.uv.sources])
+    "qgenie-sdk>=0.2",
+]
+
+[project.scripts]
+app = "app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Include the flat app module so the `app` script entry-point resolves correctly.
+# All other local modules are importable via the editable install path.
+include = ["app.py"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "app.py",
+    "auth_service.py",
+    "auto_gen5_public_routes.py",
+    "auto_gen45_public_routes.py",
+    "automotive_live_view_stats_routes.py",
+    "config.py",
+    "core_deck_routes.py",
+    "dashboard_common.py",
+    "dashboard_routes.py",
+    "dashboard_service.py",
+    "dashboard_state.py",
+    "device_summary_api.py",
+    "device_summary_service.py",
+    "ingest_autoupdate.py",
+    "jiraquery_api_routes.py",
+    "live_status_publish_routes.py",
+    "live_status_publish_service.py",
+    "live_status_view_api.py",
+    "live_view_saved_jql_service.py",
+    "live_view_stats_routes.py",
+    "mcp_mtbf_server.py",
+    "orbit_client.py",
+    "patch_gen45.py",
+    "qdt_client.py",
+    "sp_entry_routes.py",
+    "wbc_live_view_stats_routes.py",
+    "weekly_summary_routes.py",
+    "weekly_summary_service.py",
+    "src/**",
+    "static/**",
+    "templates/**",
+    "pyproject.toml",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0",
+]
+
+# ---------------------------------------------------------------------------
+# uv: custom index for Qualcomm-internal packages
+# ---------------------------------------------------------------------------
+[[tool.uv.index]]
+name = "qualcomm-qgenie"
+url = "https://devpi.qualcomm.com/qgenie/dev/+simple"
+explicit = true          # only used for packages that reference it below
+
+[tool.uv.sources]
+qgenie-sdk = { index = "qualcomm-qgenie" }
+
+[tool.uv]
+allow-insecure-host = ["devpi.qualcomm.com"]

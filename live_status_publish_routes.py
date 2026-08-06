@@ -4877,3 +4877,10 @@ def api_target_group_members():
         return jsonify({'ok': True, 'members': members})
     except Exception as exc:
         return jsonify({'ok': False, 'members': [], 'error': str(exc)})
+
+
+@live_status_publish_bp.route('/build_report/api_docs')
+@login_required
+def build_report_api_docs():
+    """Build Report API documentation page — shows how to share the API with external tools."""
+    return render_template('public_build_report_api.html')

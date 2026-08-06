@@ -779,10 +779,12 @@
   };
 
   // ── Build pivot ──
+  // If cr_current_ticket is empty, fall back to stability_ticket so every
+  // row is grouped under a meaningful key instead of a blank bucket.
   function buildPivot(){
     var map = {};
     filtered.forEach(function(r){
-      var cr  = (r.cr_current_ticket || '').trim();
+      var cr  = (r.cr_current_ticket || r.stability_ticket || '').trim();
       var key = cr || '__NO_CR__';
       if(!map[key]){
         map[key] = { cr:cr, jiras:[], latestDate:'', latestTitle:'', area:r.area||'', team:r.test_team||'', _ct:r._ct };
@@ -1168,7 +1170,7 @@
         var data = [headers];
         rows.forEach(function(r, i){
           data.push([i+1, cv(r.stability_ticket), cv(r.jira_date), cv(r.area),
-                     cv(r.cr_current_ticket), cv(r.test_team), cv(r.jira_title),
+                     cv(r.cr_current_ticket || r.stability_ticket), cv(r.test_team), cv(r.jira_title),
                      r._ct==='nonsystem'?'Non-System':'System',
                      cv(r.jira_category), cv(r.status), cv(r.jira_reporter)]);
         });

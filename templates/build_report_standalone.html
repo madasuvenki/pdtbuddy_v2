@@ -97,10 +97,28 @@
         </div>
 
       </div>
-            <div class="toolbar" style="margin-top:8px;justify-content:flex-end">
+      <div class="toolbar" style="margin-top:8px;justify-content:flex-end">
+        <button id="brStabilityBtn" class="btn" onclick="brRunStabilityReport(this)" style="display:none;background:linear-gradient(135deg,#0f766e,#0891b2);color:#fff;border:0;box-shadow:0 8px 18px rgba(8,145,178,.22)"><i class="fas fa-chart-line"></i> Stability Report</button>
         <button id="brRunBtn" class="btn btn-primary" onclick="brRun()" style="display:none"><i class="fas fa-play"></i> Run Query</button>
       </div>
       <div id="brStatus" class="muted" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Stability Report Results Card -->
+  <div class="card" id="brStabilityCard" style="display:none">
+    <div class="card-h">
+      <h2><i class="fas fa-chart-line" style="color:#0891b2"></i> Axiom Stability Report</h2>
+      <div class="toolbar">
+        <span id="brStabilityMeta" class="muted" style="font-size:11px;font-weight:800"></span>
+        <button class="btn" style="font-size:11px" onclick="document.getElementById('brStabilityCard').style.display='none'"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="card-b" id="brStabilityBody">
+      <div class="mr-loading" style="display:flex;align-items:center;gap:10px;padding:20px;color:#64748b;font-size:12px;font-weight:700">
+        <div style="width:18px;height:18px;border:3px solid #e2e8f0;border-top-color:#0891b2;border-radius:50%;animation:spin .7s linear infinite"></div>
+        Fetching Axiom stability metrics…
+      </div>
     </div>
   </div>
 
@@ -314,6 +332,9 @@ function brComposeJqlWithResolvedFilter(filterJql){
     const btn = g('brRunBtn');
     if(!btn) return;
     btn.style.display = ok ? 'inline-flex' : 'none';
+    // Show Stability Report button only when builds are explicitly listed
+    const stabBtn = g('brStabilityBtn');
+    if(stabBtn) stabBtn.style.display = hasBuilds ? 'inline-flex' : 'none';
   }
 function brQueueFilterJqlResolve(source){
   clearTimeout(brFilterResolveTimer);
@@ -2501,6 +2522,119 @@ async function brFetchAxiomNow(buildIds, existingRep){
   const _savedTab=window._brActiveTab;
   if(_savedTab && _savedTab!=='crs') brSwitchTab(_savedTab);
 }
+/* ── Stability Report: fetch Axiom metrics directly for listed builds ─────── */
+async function brRunStabilityReport(btn){
+  const builds = buildList();
+  if(!builds.length){ alert('Paste one or more build IDs in the Builds box first.'); return; }
+  if(builds.length > 20){ alert('Maximum 20 builds per stability report request.'); return; }
+
+  const card = g('brStabilityCard');
+  const body = g('brStabilityBody');
+  const meta = g('brStabilityMeta');
+  if(!card || !body) return;
+
+  // Show card with spinner
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+  body.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:20px;color:#64748b;font-size:12px;font-weight:700">'
+    + '<div style="width:18px;height:18px;border:3px solid #e2e8f0;border-top-color:#0891b2;border-radius:50%;animation:spin .7s linear infinite"></div>'
+    + 'Fetching Axiom stability metrics for ' + esc(String(builds.length)) + ' build(s)…</div>';
+  if(meta) meta.textContent = '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Fetching…'; }
+
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('/api/build_report/stability_metrics', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ builds: builds, taxonomy: '/PDT' })
+    });
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Stability metrics request failed');
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    if(meta) meta.textContent = builds.length + ' build(s) · ' + elapsed + 's';
+
+    const results = data.results || {};
+    const keys = Object.keys(results);
+
+    function fmtH(h){
+      h = Number(h||0);
+      if(h <= 0) return '0 hr';
+      if(h < 1)  return Math.round(h*60) + ' min';
+      return h >= 10 ? Math.round(h*10)/10 + ' hr' : Math.round(h*100)/100 + ' hr';
+    }
+
+    // Summary KPI row
+    let totalHours = 0, totalCrashes = 0, maxDevices = 0;
+    keys.forEach(k => {
+      const r = results[k];
+      if(r.matched) {
+        totalHours   += Number(r.runtimeHours || 0);
+        totalCrashes += Number(r.crashes || 0);
+        if(Number(r.deviceCount||0) > maxDevices) maxDevices = Number(r.deviceCount||0);
+      }
+    });
+    const totalMtbf = totalCrashes > 0 ? totalHours / totalCrashes : 0;
+
+    let html = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">';
+    const kpis = [
+      {label:'Total Hours',   val:fmtH(totalHours),   color:'#d97706', bg:'#fffbeb', border:'#fde68a'},
+      {label:'Crashes',       val:totalCrashes||'--', color:'#b45309', bg:'#fff7ed', border:'#fed7aa'},
+      {label:'MTBF',          val:totalMtbf>0?fmtH(totalMtbf):'--', color:'#166534', bg:'#f0fdf4', border:'#bbf7d0'},
+      {label:'Devices (max)', val:maxDevices||'--',   color:'#6d28d9', bg:'#faf5ff', border:'#ddd6fe'},
+    ];
+    kpis.forEach(k => {
+      html += '<div style="flex:1;min-width:120px;border:1px solid '+k.border+';border-radius:14px;background:'+k.bg+';padding:10px 14px">'
+        + '<b style="display:block;font-size:20px;font-weight:900;color:'+k.color+'">'+esc(String(k.val))+'</b>'
+        + '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b">'+esc(k.label)+'</span>'
+        + '</div>';
+    });
+    html += '</div>';
+
+    // Per-build table
+    html += '<div class="tbl-wrap"><table style="width:100%;table-layout:auto">'
+      + '<thead><tr>'
+      + '<th style="white-space:nowrap">#</th>'
+      + '<th style="min-width:260px">Build ID</th>'
+      + '<th style="white-space:nowrap;text-align:right">Hours</th>'
+      + '<th style="white-space:nowrap;text-align:right">Crashes</th>'
+      + '<th style="white-space:nowrap;text-align:right">MTBF</th>'
+      + '<th style="white-space:nowrap;text-align:right">Devices</th>'
+      + '<th style="white-space:nowrap">Status</th>'
+      + '</tr></thead><tbody>';
+
+    keys.forEach((build, i) => {
+      const r = results[build];
+      const matched = r.matched;
+      const rowBg = matched ? '' : 'background:#fff1f2;';
+      const statusBadge = matched
+        ? '<span style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">&#10003; Matched</span>'
+        : '<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900" title="'+esc(r.error||'No data')+'">&#10007; No data</span>';
+      const shortName = (build.match(/-?(\d{4,6}-[^.]+)/) || [])[1] || build.slice(-40);
+      html += '<tr style="'+rowBg+'">'
+        + '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+        + '<td><code style="font-size:10px;background:#e2e8f0;padding:2px 6px;border-radius:4px;word-break:break-all">'+esc(shortName)+'</code></td>'
+        + '<td style="text-align:right;font-weight:900;color:#d97706">'+(matched?fmtH(r.runtimeHours):'--')+'</td>'
+        + '<td style="text-align:right;font-weight:900;color:#b45309">'+(matched?(r.crashes||0):'--')+'</td>'
+        + '<td style="text-align:right;font-weight:900;color:#166534">'+(matched&&r.mtbfHours>0?fmtH(r.mtbfHours):'--')+'</td>'
+        + '<td style="text-align:right;font-weight:900;color:#6d28d9">'+(matched?(r.deviceCount||0):'--')+'</td>'
+        + '<td>'+statusBadge+'</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+
+  } catch(e) {
+    body.innerHTML = '<div style="padding:16px;color:#dc2626;font-size:12px;font-weight:700">'
+      + '<i class="fas fa-exclamation-triangle"></i> ' + esc(e.message || String(e)) + '</div>';
+    if(meta) meta.textContent = 'Error';
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-chart-line"></i> Stability Report'; }
+  }
+}
+
 async function brRun(){
   const builds=buildList();
   const directJql=brNormalizeJqlInput(g('brJql').value||'');

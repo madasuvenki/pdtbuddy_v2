@@ -1,0 +1,21 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/node_modules",
+    "flask_session"
+  ],
+  "extraPaths": [
+    "scripts",
+    "src"
+  ],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "off",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "reportUndefinedVariable": false,
+  "reportGeneralTypeIssues": false
+}

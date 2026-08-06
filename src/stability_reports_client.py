@@ -11,9 +11,8 @@ IMPORTANT: Axiom reportId and instanceId are TEMPORARY.
   - Only cache the final normalised metrics keyed by build name.
 
 Correct flow per build (every call):
-  Step 1: POST /axiom/v1/public/stabilityreport  -> fresh reportId
-  Step 2: GET  /axiom/v1/public/stabilityreport/{reportId}/instances
-               ?metaId={build}  -> instanceId  (poll up to 3x)
+  Step 1: POST /axiom/v1/public/stabilityreport                              -> fresh reportId
+  Step 2: POST /axiom/v1/public/stabilityreport/{reportId}/instances         -> instanceId
   Step 3: GET  /axiom/v1/public/stabilityreport/{reportId}/instances/{instanceId}/metrics
                -> runtime, crashes, mtbf, uniqueDevices
 
@@ -200,53 +199,67 @@ def _post_fresh_report(build: str, taxonomy: str, host: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 2 - GET instanceId (never cached, poll until ready)
+# Step 2 - POST to create instance (NO request body per Axiom Swagger)
 # ---------------------------------------------------------------------------
 
-def _get_instance_id(report_id: str, build: str, host: str,
-                     retries: int = 3, wait: int = 8) -> str:
-    """GET instanceId for a given fresh reportId + build.
+def _create_instance_id(report_id: str, build: str, host: str,
+                        retries: int = 3, wait: int = 8) -> str:
+    """POST to create a stability report instance for a given reportId.
 
-    Polls up to `retries` times with `wait` seconds between attempts
-    because Axiom may take a few seconds to process the report after POST.
+    Correct flow per Axiom Swagger v1.4.0:
+      POST /stabilityreport/{reportId}/instances  (NO body)  ->  instanceId
+
+    The POST response contains:
+      { "instanceId": "<uuid>", "errorMessage": "<string>" }
+
+    Rate limit: 300 requests/day per user, max 10 concurrent.
+    Note: After POST, wait ~5s before GET requests (write/read replication).
     Never cached - instanceId is tied to a temporary reportId.
     """
-    path = f'{BASE}/{_q(report_id)}/instances?metaId={_q(build)}&pageNumber=0&pageSize=50'
+    post_path = f'{BASE}/{_q(report_id)}/instances'
+    # Swagger: POST /stabilityreport/{reportId}/instances has NO request body
+    payload: dict = {}
 
     for attempt in range(retries):
         try:
-            data = axiom_get(path, host=host)
-            rows = data.get('data', []) if isinstance(data, dict) else []
-            logger.debug('[stability] instances raw rows=%d data=%s for build=%s reportId=%s',
-                         len(rows), str(data)[:500], build, report_id)
+            data = _post(post_path, payload, host=host)
+            logger.debug('[stability] POST instances response=%s for build=%s reportId=%s',
+                         str(data)[:500], build, report_id)
+
+            # Extract instanceId from POST response
+            # Swagger schema: StabilityReportInstance { instanceId: uuid, errorMessage: string }
             iid = ''
-            for row in rows:
-                row_meta = str(row.get('meta') or row.get('metaId') or
-                               row.get('buildId') or '').strip()
-                row_iid  = str(row.get('instanceId') or row.get('id') or '').strip()
-                if not row_iid:
-                    continue
+            if isinstance(data, dict):
+                iid = str(data.get('instanceId') or data.get('id') or '').strip()
                 if not iid:
-                    iid = row_iid          # fallback: first available
-                if row_meta and build.lower() in row_meta.lower():
-                    iid = row_iid          # exact match wins
-                    break
+                    rows = data.get('data', [])
+                    if isinstance(rows, list):
+                        for row in rows:
+                            row_iid = str(row.get('instanceId') or row.get('id') or '').strip()
+                            if row_iid:
+                                iid = row_iid
+                                break
+                    elif isinstance(rows, dict):
+                        iid = str(rows.get('instanceId') or rows.get('id') or '').strip()
+
             if iid:
                 logger.info('[stability] instanceId=%s for build=%s (attempt %d)',
                             iid, build, attempt + 1)
                 return iid
+
             if attempt < retries - 1:
-                logger.debug('[stability] instanceId not ready for build=%s '
+                logger.debug('[stability] instanceId not in POST response for build=%s '
                              'attempt %d/%d, waiting %ds',
                              build, attempt + 1, retries, wait)
                 time.sleep(wait)
+
         except Exception as e:
             err = str(e)
             if '404' in err or 'not_found' in err.lower():
                 logger.warning('[stability] reportId=%s expired/404 for build=%s',
                                report_id, build)
                 return ''
-            logger.warning('[stability] instanceId fetch failed build=%s attempt %d: %s',
+            logger.warning('[stability] instanceId POST failed build=%s attempt %d: %s',
                            build, attempt + 1, e)
             if attempt < retries - 1:
                 time.sleep(wait)
@@ -254,23 +267,108 @@ def _get_instance_id(report_id: str, build: str, host: str,
     return ''
 
 
+# Keep old name as alias for backward compatibility
+_get_instance_id = _create_instance_id
+
+
 # ---------------------------------------------------------------------------
-# Step 3 - GET metrics
+# Step 2b - Poll instance status until Completed
 # ---------------------------------------------------------------------------
 
-def _get_metrics(report_id: str, instance_id: str, build: str, host: str) -> List[dict]:
-    """GET metrics for a given reportId + instanceId."""
+def _wait_for_instance_ready(report_id: str, instance_id: str, build: str, host: str,
+                              retries: int = 12, wait: int = 10) -> bool:
+    """Poll GET /stabilityreport/{reportId}/instances/{instanceId} until status=Completed.
+
+    Per Axiom Swagger:
+      StabilityReportInstanceInfo.status: Undefined | Submitted | InProgress | Completed | Failed
+
+    Returns True when Completed, False on Failed or timeout.
+    """
+    path = f'{BASE}/{_q(report_id)}/instances/{_q(instance_id)}'
+    for attempt in range(retries):
+        try:
+            data = axiom_get(path, host=host)
+            status = str((data.get('status') or '') if isinstance(data, dict) else '').strip()
+            logger.debug('[stability] instance status=%s build=%s attempt %d/%d',
+                         status, build, attempt + 1, retries)
+            if status == 'Completed':
+                logger.info('[stability] instance Completed for build=%s instanceId=%s',
+                            build, instance_id)
+                return True
+            if status == 'Failed':
+                logger.warning('[stability] instance Failed for build=%s instanceId=%s',
+                               build, instance_id)
+                return False
+            # Submitted / InProgress / Undefined — keep polling
+            if attempt < retries - 1:
+                time.sleep(wait)
+        except Exception as e:
+            logger.debug('[stability] instance status poll failed build=%s attempt %d: %s',
+                         build, attempt + 1, e)
+            if attempt < retries - 1:
+                time.sleep(wait)
+    logger.warning('[stability] instance status poll timed out for build=%s instanceId=%s',
+                   build, instance_id)
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Step 3 - GET metrics (returns 202 while processing, 200 when ready)
+# ---------------------------------------------------------------------------
+
+def _get_metrics(report_id: str, instance_id: str, build: str, host: str,
+                 retries: int = 4, wait: int = 10) -> List[dict]:
+    """GET metrics for a given reportId + instanceId.
+
+    Per Axiom Swagger:
+      200 OK      — metrics data available
+      202 Accepted — report generation still in progress; poll instance status and retry
+      404 Not Found — instance not found
+
+    Retries up to `retries` times with `wait` seconds between attempts.
+    """
     path = (f'{BASE}/{_q(report_id)}/instances'
             f'/{_q(instance_id)}/metrics?pageNumber=0&pageSize=100')
-    try:
-        data = axiom_get(path, host=host)
-        rows = data.get('data', []) if isinstance(data, dict) else []
-        if not rows and isinstance(data, list):
-            rows = [x for x in data if isinstance(x, dict)]
-        return rows
-    except Exception as e:
-        logger.warning('[stability] metrics failed for build=%s: %s', build, e)
-        return []
+    for attempt in range(retries):
+        try:
+            data = axiom_get(path, host=host)
+            # axiom_get raises on non-2xx; if we get here it's 200 or 202
+            # Check for 202-style response (empty data, message about in-progress)
+            rows = data.get('data', []) if isinstance(data, dict) else []
+            if not rows and isinstance(data, list):
+                rows = [x for x in data if isinstance(x, dict)]
+            if rows:
+                logger.info('[stability] metrics OK for build=%s instanceId=%s (attempt %d)',
+                            build, instance_id, attempt + 1)
+                return rows
+            # Empty data — instance may still be processing (202 Accepted)
+            if attempt < retries - 1:
+                logger.debug('[stability] metrics empty/202 for build=%s attempt %d/%d, waiting %ds',
+                             build, attempt + 1, retries, wait)
+                time.sleep(wait)
+        except Exception as e:
+            err = str(e)
+            # 202 Accepted comes through as an exception in some HTTP clients
+            if '202' in err:
+                if attempt < retries - 1:
+                    logger.debug('[stability] metrics 202 (in progress) for build=%s '
+                                 'attempt %d/%d, waiting %ds',
+                                 build, instance_id, attempt + 1, retries, wait)
+                    time.sleep(wait)
+                    continue
+            if '404' in err or 'not_found' in err.lower():
+                if attempt < retries - 1:
+                    logger.debug('[stability] metrics 404 for build=%s instanceId=%s '
+                                 'attempt %d/%d, waiting %ds',
+                                 build, instance_id, attempt + 1, retries, wait)
+                    time.sleep(wait)
+                    continue
+                logger.warning('[stability] metrics 404 after %d attempts for build=%s instanceId=%s',
+                               retries, build, instance_id)
+                return []
+            logger.warning('[stability] metrics failed for build=%s: %s', build, e)
+            return []
+    return []
 
 
 def _normalise(raw: dict) -> dict:
@@ -338,7 +436,7 @@ def fetch_build_stability_metrics(
                               'error': 'No reportId', 'source': 'stability_reports_api'}
                 continue
 
-            # Step 2: GET instanceId - wait 5s after POST then poll 3x
+            # Step 2: POST to create instance — wait 5s after report POST then poll 3x
             time.sleep(5)
             iid = _get_instance_id(rid, build, host, retries=3, wait=8)
 
@@ -348,7 +446,18 @@ def fetch_build_stability_metrics(
                               'error': 'No instanceId', 'source': 'stability_reports_api'}
                 continue
 
-            # Step 3: GET metrics
+            # Step 2b: Wait ~5s (write/read replication), then poll until Completed
+            time.sleep(5)
+            ready = _wait_for_instance_ready(rid, iid, build, host, retries=12, wait=10)
+            if not ready:
+                logger.warning('[stability] instance not ready for build=%s instanceId=%s',
+                               build, iid)
+                out[build] = {'matched': False, 'report_id': rid, 'instance_id': iid,
+                              'metrics': [], 'error': 'Instance did not reach Completed status',
+                              'source': 'stability_reports_api'}
+                continue
+
+            # Step 3: GET metrics (instance is Completed)
             raw_metrics = _get_metrics(rid, iid, build, host)
             metrics = [_normalise(m) for m in raw_metrics]
             result = {
