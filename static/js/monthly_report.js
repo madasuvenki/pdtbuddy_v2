@@ -15,6 +15,19 @@
   function inclInv()  { var c = $('mrInvChk');  return c ? c.checked : false; }
   function siteChkd() { var c = $('mrSiteChk'); return c ? c.checked : false; }
 
+  var MR_DIM_LABELS = { area: 'Area', subsystem: 'SubSystem', functionality: 'Functionality' };
+  function getCrDim(kind) {
+    var sel = $('mrDimSel_' + kind);
+    var v = sel ? String(sel.value || 'area') : 'area';
+    return ({ area: 1, subsystem: 1, functionality: 1 })[v] ? v : 'area';
+  }
+  function dimField(dim) {
+    return dim === 'subsystem' ? 'cr_subsystem' : (dim === 'functionality' ? 'cr_functionality' : 'cr_area');
+  }
+  function dimLabel(dim) {
+    return MR_DIM_LABELS[dim] || 'Area';
+  }
+
   function getSelSites() {
     var items = document.querySelectorAll('#mrSiteList input[type=checkbox]');
     var out = [];
@@ -59,8 +72,10 @@
       document.querySelectorAll('#mrSiteList input[type=checkbox]').forEach(function(cb) {
         cb.addEventListener('change', function() {
           updateSiteLabel();
-          /* live re-filter if data already loaded */
-          if (state.data) applyAllFilters();
+          /* Site affects CR-to-team mapping and all dependent Axiom metrics.
+             Re-fetch the authoritative site-scoped payload so hero cards,
+             charts, status rows, and detail tables stay synchronized. */
+          if (state.data) generateReport();
         });
       });
     }
@@ -382,7 +397,7 @@
             /* ── Site filter ──
          pdt_site_unique field: 'PDT_QIPL_Unique', 'PDT_CH_Unique', 'PDT_SD_Unique', 'DupCR', 'NA'
          test_team fallback:    'PDT_QIPL_SWPDT', 'PDT_SD_SWPDT', 'PDT_CH_SWPDT'
-         overall_crs rows have no site info — pass through */
+         Rows without site information are excluded when a site filter is active. */
       if (!allSites && sites.length) {
         var siteVal = String(r.pdt_site_unique || '').trim().toUpperCase();
         var team    = String(r.test_team       || '').trim().toUpperCase();
@@ -397,8 +412,8 @@
         else if (team.indexOf('_SD_')   >= 0 || team === 'PDT_SD')   rowSite = 'SD';
         else if (team.indexOf('_CH_')   >= 0 || team === 'PDT_CH')   rowSite = 'CH';
 
-        /* only filter if we could determine a site; unknown = pass through */
-        if (rowSite && sites.indexOf(rowSite) < 0) return false;
+        /* A selected site is strict: unknown or non-selected rows are excluded. */
+        if (!rowSite || sites.indexOf(rowSite) < 0) return false;
       }
 
       return true;
@@ -918,7 +933,7 @@
       + '&include_dup=1'
       + '&include_invalid=1';
     if (selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
-    /* Note: sites param not sent for main data — site filter is client-side only */
+    if (!allSites) qs += '&sites=' + encodeURIComponent(selSites.join(','));
 
     fetch('/api/monthly-report/data?' + qs)
       .then(function (r) { return r.json(); })
@@ -972,11 +987,9 @@
     if (d.overall_area_chart && (d.overall_area_chart.overall || []).length)
       c.appendChild(buildArea(d, 'overall'));
 
-    /* ── 8. PDT CRs detail table ── */
-    if ((d.pdt_crs     || []).length) c.appendChild(buildCrSec(d, 'pdt'));
-
-    /* ── 9. Overall PDT CRs detail table ── */
-    if ((d.overall_crs || []).length) c.appendChild(buildCrSec(d, 'overall'));
+    /* Detail CR tables are intentionally not rendered here.
+       The WBC flat Total/Unique CR tables and the PDT CR Details section below
+       remain the authoritative tabular views. */
 
     /* ── Defer all SVG rendering so browser paints DOM first ── */
     setTimeout(function() {
@@ -1023,29 +1036,11 @@
     var rows = d.overall_status || [];
     var bu   = d.bu || '';
 
-        /* Use the exact same filtered sources as the two WBC flat tables.
-       Fall back to monthly pdt_crs until asynchronous WBC detail arrives. */
-    var wbcStats = getFilteredWbcSnapshotStats();
-    var tgtMap = {};
-    if (!wbcStats) {
-      filterCrRows(d.pdt_crs || []).forEach(function(r) {
-        var tgt = String(r.target_name || '').trim();
-        if (!tgt) return;
-        if (!tgtMap[tgt]) tgtMap[tgt] = { total: 0, seen: {} };
-        tgtMap[tgt].total++;
-        var cr = String(r.mapped_cr || '').trim();
-        if (cr) tgtMap[tgt].seen[cr] = 1;
-      });
-    }
-    rows = rows.map(function(r) {
-      var key = String(r.pl_id || r.target || '').trim();
-      var stats = wbcStats ? wbcStats.byTarget[key] : tgtMap[key];
-      if (!stats) return Object.assign({}, r, { total_crs: 0, unique_crs: 0 });
-      return Object.assign({}, r, {
-        total_crs:  Number(stats.total || 0),
-        unique_crs: wbcStats ? Number(stats.unique || 0) : Object.keys(stats.seen || {}).length
-      });
-    });
+    /*
+     * total_crs and unique_crs are already calculated server-side per selected
+     * target.  Do not replace them with pdt_crs/WBC detail data: those payloads
+     * use different target keys and previously overwrote valid values with 0.
+     */
     var sec  = mkSec('mrOverallStatusSec',
       '<i class="fas fa-table"></i> Overall PDT ' + esc(bu) + ' Target-wise Test Status',
       fmt(rows.length) + ' targets');
@@ -1134,20 +1129,24 @@
       if (subEl) subEl.insertAdjacentHTML('afterend', badges);
     }
         var t  = d.totals || {};
-    var wbcSnapshot = getFilteredWbcSnapshotStats();
-    var filteredPdt = filterCrRows(d.pdt_crs || []);
-    var filteredPdtSeen = {};
-    filteredPdt.forEach(function(r) {
-      var cr = String(r.mapped_cr || '').trim();
-      if (cr) filteredPdtSeen[cr] = 1;
-    });
-    /* Use exactly the same sources as the WBC flat tables when available. */
-    var shownTotalPdt  = wbcSnapshot ? wbcSnapshot.total  : filteredPdt.length;
-    var shownUniquePdt = wbcSnapshot ? wbcSnapshot.unique : Object.keys(filteredPdtSeen).length;
-    var shownOverall   = filterCrRows(d.overall_crs || []).length;
-    /* hours/builds/devices/crashes come from overall_status (axiom data).
-       Fall back to status_table if overall_status is absent. */
+    /* Hero cards must use the exact same authoritative rows as the Overall
+       Target-wise Status table. This guarantees its Total CRs and Unique CRs
+       equal the table footer for every site/target selection. */
     var _src = (d.overall_status && d.overall_status.length) ? d.overall_status : (d.status_table || []);
+    var shownTotalPdt = _src.reduce(function (a, r) {
+      return a + Number(r.total_crs != null ? r.total_crs : (r.total_pdt_crs || 0));
+    }, 0);
+    var shownUniquePdt = _src.reduce(function (a, r) {
+      return a + Number(r.unique_crs != null ? r.unique_crs : (r.unique_pdt_crs || 0));
+    }, 0);
+    /* Overall PDT CRs = all-time cumulative CRs ever reported by PDT for this
+       target (no date filter). Sourced from all_time_crs in the status rows,
+       which is COUNT(DISTINCT mapped_crs) from jiras without date restriction.
+       This is always >= PDT CRs (date-filtered), so the hero card is logical. */
+    var shownOverall = _src.reduce(function (a, r) {
+      return a + Number(r.all_time_crs != null ? r.all_time_crs : (r.total_crs || 0));
+    }, 0);
+    /* hours/builds/devices/crashes use the selected-date table rows. */
     var tH = _src.reduce(function (a, r) { return a + Number(r.hours   || 0); }, 0);
     var tC = _src.reduce(function (a, r) { return a + Number(r.crashes || 0); }, 0);
     var tB = _src.reduce(function (a, r) { return a + Number(r.builds  || 0); }, 0);
@@ -1196,7 +1195,10 @@
     var total    = (chartData.overall || []).reduce(function (a, r) { return a + r.count; }, 0);
     var targets  = Object.keys(chartData.by_target || {}).sort();
     var sec      = mkSec(cfg.secId, cfg.title, fmt(total) + ' CRs');
-    sec.querySelector('.mr-section-actions').innerHTML = copySvgBtn(cfg.chartId);
+    sec.querySelector('.mr-section-actions').innerHTML =
+      '<select id="mrDimSel_' + kind + '" class="mr-dim-select" title="Group chart by" style="height:28px;border:1px solid #dbe4f0;border-radius:7px;padding:0 8px;font-size:11px;font-weight:800;color:#1e293b;background:#f8fafc;">'
+      + '<option value="area">Area</option><option value="subsystem">SubSystem</option><option value="functionality">Functionality</option>'
+      + '</select>' + copySvgBtn(cfg.chartId);
     var body     = sec.querySelector('.mr-section-body');
     body.className = 'mr-section-body mr-section-body--chart';
 
@@ -1210,6 +1212,15 @@
       tabs.appendChild(btn);
     });
     body.appendChild(tabs);
+
+    setTimeout(function() {
+      var dimSel = $('mrDimSel_' + kind);
+      if (dimSel) dimSel.addEventListener('change', function() {
+        var activeBtn = document.querySelector('#' + cfg.tabsId + ' .mr-target-tab.active');
+        var activeTgt = activeBtn ? (activeBtn.getAttribute('data-target') || 'ALL') : 'ALL';
+        renderArea(d, kind, activeTgt);
+      });
+    }, 0);
 
         var wrap = document.createElement('div'); wrap.className = 'mr-chart-wrap';
     wrap.innerHTML = '<div id="' + cfg.chartId + '" style="width:100%;min-height:300px;"></div>';
@@ -1244,10 +1255,12 @@
     /* Apply Dup / Invalid / Site filters */
     var filtered = filterCrRows(crRows);
 
-    /* Aggregate by cr_area */
+    /* Aggregate by selected dimension: Area / SubSystem / Functionality */
+    var dim = getCrDim(kind);
+    var dimFld = dimField(dim);
     var areaMap = {};
     filtered.forEach(function(r) {
-      var area = String(r.cr_area || 'Unknown').trim() || 'Unknown';
+      var area = String(r[dimFld] || 'Unknown').trim() || 'Unknown';
       areaMap[area] = (areaMap[area] || 0) + 1;
     });
 
@@ -1285,7 +1298,7 @@
     });
     el.appendChild(svg);
     svgTxt(svg, PAD.left + plotW/2, 22,
-      (kind === 'pdt' ? 'PDT CRs by Area' : 'Overall PDT CRs by Area') + ' \u2014 ' + fmt(total) + (target !== 'ALL' ? ' ('+target+')' : ''),
+      (kind === 'pdt' ? 'PDT CRs by ' : 'Overall PDT CRs by ') + dimLabel(dim) + ' \u2014 ' + fmt(total) + (target !== 'ALL' ? ' ('+target+')' : ''),
       { 'text-anchor':'middle','font-size':'13','font-weight':'900', fill:'#1e293b' });
     ticks.forEach(function(v) {
       var y = PAD.top + H - (v/yMax)*H;
@@ -1569,6 +1582,8 @@
 
     var filtPdt     = filterCrRows(d.pdt_crs     || []);
     var filtOverall = filterCrRows(d.overall_crs || []);
+    /* The comparison chart is explicitly all-time and therefore uses the
+       cumulative overall_crs payload, not selected-date status-table values. */
 
     /* count unique mapped_cr per base target */
     var pdtUniqByTgt = {};
@@ -1615,7 +1630,13 @@
     });
 
 
-    var cats = byTgt.map(function(r) { return String(r.target || '').trim(); });
+    var catsMap = {};
+    filtPdt.forEach(function(r) { var t = String(r.target_name || '').trim(); if (t) catsMap[t] = 1; });
+    filtOverall.forEach(function(r) { var t = String(r.target_name || '').trim(); if (t) catsMap[t] = 1; });
+    var cats = Object.keys(catsMap).sort();
+    if (!cats.length) {
+      cats = byTgt.map(function(r) { return String(r.target || '').trim(); }).filter(Boolean);
+    }
     var hasPdt     = filtPdt.length > 0;
     var hasOverall = filtOverall.length > 0;
 
@@ -1736,8 +1757,8 @@
     var isOverall = kind === 'overall';
     var secId     = isOverall ? 'mrOverallPerTgtSec' : 'mrPdtPerTgtSec';
     var title     = isOverall
-      ? '<i class="fas fa-chart-bar"></i> Overall valid CRs reported by Area (per target)'
-      : '<i class="fas fa-chart-bar"></i> PDT Unique CRs reported by Area (per target)';
+      ? '<i class="fas fa-chart-bar"></i> Overall valid CRs reported by Area / SubSystem / Functionality (per target)'
+      : '<i class="fas fa-chart-bar"></i> PDT Unique CRs reported by Area / SubSystem / Functionality (per target)';
     var srcRows   = isOverall ? (d.overall_crs || []) : (d.pdt_crs || []);
     var targets   = [];
     var seen      = {};
@@ -1751,6 +1772,16 @@
       targets = Object.keys(chartData.by_target || {}).sort();
     }
     var sec  = mkSec(secId, title, targets.length + ' targets');
+    sec.querySelector('.mr-section-actions').innerHTML =
+      '<select id="mrDimSel_' + kind + '_pt" class="mr-dim-select" title="Group charts by" style="height:28px;border:1px solid #dbe4f0;border-radius:7px;padding:0 8px;font-size:11px;font-weight:800;color:#1e293b;background:#f8fafc;">'
+      + '<option value="area">Area</option><option value="subsystem">SubSystem</option><option value="functionality">Functionality</option>'
+      + '</select>';
+    setTimeout(function() {
+      var dimSel = $('mrDimSel_' + kind + '_pt');
+      if (dimSel) dimSel.addEventListener('change', function() {
+        renderPerTargetAreaCharts(d, kind);
+      });
+    }, 0);
     var body = sec.querySelector('.mr-section-body');
     targets.forEach(function(t) {
       var lbl = document.createElement('div');
@@ -1773,6 +1804,10 @@
   function renderPerTargetAreaCharts(d, kind) {
     var isOverall = kind === 'overall';
     var color     = isOverall ? '#1e3a5f' : '#0f766e';
+    var dimSel    = $('mrDimSel_' + kind + '_pt');
+    var dim       = dimSel ? String(dimSel.value || 'area') : 'area';
+    if (!({ area: 1, subsystem: 1, functionality: 1 })[dim]) dim = 'area';
+    var dimFld    = dimField(dim);
     var srcRows   = isOverall ? (d.overall_crs || []) : (d.pdt_crs || []);
     var filtAll   = filterCrRows(srcRows);
 
@@ -1781,7 +1816,7 @@
     filtAll.forEach(function(r) {
       var t = String(r.target_name || '').trim(); if (!t) return;
       if (!byTgt[t]) byTgt[t] = {};
-      var area = String(r.cr_area || 'Unknown').trim() || 'Unknown';
+      var area = String(r[dimFld] || 'Unknown').trim() || 'Unknown';
       byTgt[t][area] = (byTgt[t][area] || 0) + 1;
     });
 
@@ -1825,7 +1860,7 @@
       });
       el.appendChild(svg);
       svgTxt(svg, PAD.left + plotW/2, 22,
-        (isOverall ? 'Overall '+t+' valid CRs by Area — ' : 'PDT Unique '+t+' CRs by Area — ') + fmt(total),
+        (isOverall ? 'Overall '+t+' valid CRs by ' : 'PDT Unique '+t+' CRs by ') + dimLabel(dim) + ' — ' + fmt(total),
         { 'text-anchor':'middle','font-size':'12','font-weight':'900', fill:'#1e293b' });
       ticks.forEach(function(v) {
         var y = PAD.top + H - (v/yMax)*H;
@@ -1882,7 +1917,8 @@
            + '&include_dup=1'
            + '&include_invalid=1';
     if (selTgts && selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
-    /* Note: sites not sent — site filter is client-side only */
+    var selectedSites = getSelSites();
+    if (!allSitesSelected()) qs += '&sites=' + encodeURIComponent(selectedSites.join(','));
     fetch('/api/monthly-report/wbc-detail?' + qs)
       .then(function(r){ return r.json(); })
       .then(function(d){

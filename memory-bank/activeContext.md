@@ -4,7 +4,111 @@
 Enhanced SI image path tracking in `dashboard_status` table via batch file scanning.
 Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
 
+### Monthly report site-wise metrics and unique devices (2026-08-07)
+- Wired the existing QIPL/SD/CH checkbox selection through the Overall PDT
+  Target-wise status backend, rather than applying it only to detail rows.
+- Site is derived from the CR-reporting `test_team` values. The resulting
+  site-filtered JIRA set supplies the unique CRs and metabuilds used for Axiom
+  hours, builds, and devices.
+- Axiom rows are additionally filtered using available `site`, `city_team`, and
+  `team` columns for the selected sites.
+- Changed the monthly device metric from maximum per-job `device_count` to the
+  count of unique non-empty `chip_ids` used across matching Axiom jobs, with
+  maximum `device_count` retained only as a fallback when chip IDs are absent.
+- Site filtering now also applies to generic monthly Unique CR rows when their
+  `test_team` column is available.
+- Follow-up correction: all Monthly Unique CR rows/counts now come exclusively
+  from `overall_crs` rows where `reported_team='PDT_Unique'`. The per-target
+  `unique_crs` table is used only to identify CR numbers reported by a selected
+  site/team; it is not a Unique CR metric source.
+- Site checkbox changes now re-fetch the complete backend payload, ensuring
+  hero cards, target status, charts, and all tables use the same site scope.
+- Site-scoped overall rows carry the selected-site marker so strict client-side
+  filtering does not discard the already validated backend result.
+- Metric time scopes are intentionally separate:
+  - **Total CRs reported by PDT** and **Unique CRs reported by PDT** in the
+    Overall Target-wise table are restricted to the selected date range.
+  - The **Overall PDT CRs** hero and **PDT overall & Unique CRs (All Time)**
+    target-wise chart are cumulative through the full `overall_crs` history.
+- Site-to-CR matching for cumulative metrics is also all-time, so selecting a
+  site does not accidentally reduce the all-time chart to the selected month.
+- Verified with `py -3 -m py_compile weekly_summary_routes.py` and
+  `git diff --check -- weekly_summary_routes.py static/js/monthly_report.js`.
+
+### API documentation enhancement (2026-08-07)
+- Enhanced the existing authenticated `/api/docs` (`templates/api_all_in_one.html`) page.
+- Added direct Architecture links (`/architecture`) in the sidebar and header.
+- Added clear Public APIs and Private APIs sections covering access level, input, and expected response.
+- Added a browser-based request tester that accepts endpoint path, query input, optional API token, and JSON POST body, then displays HTTP status and response.
+- The tester uses same-origin credentials and does not persist tokens. It warns that write requests can modify data.
+
+### Monthly report CR source correction (2026-08-07)
+- Corrected the Overall PDT Target-wise Test Status metric definition for
+  **Total CRs reported by PDT**.
+- For every selected target, the value remains the date-filtered
+  `COUNT(DISTINCT mapped_crs)` from that target's `{db_name}_jiras` table.
+- Removed the later overwrite that replaced this selected-target JIRA count with
+  filtered `unique_crs` rows, which could undercount valid reported CRs.
+- Verified syntax with `py -3 -m py_compile weekly_summary_routes.py`.
+
+### Monthly MOBILE table-name resolution (2026-08-07)
+- Investigated zero values in the July 2026 MOBILE Overall Target-wise table.
+- Root cause: `dashboard_status.db_name` contains a stale `mavroos` value,
+  while the actual populated table name is `pdt_stats_mobile.mavros_jiras`.
+- Updated the status-table path to prefer `dashboard_status.target_name` when
+  resolving `{target}_jiras` tables, with `db_name` as fallback.
+- Confirmed July source counts directly:
+  - `maili_jiras`: 14,358 JIRA rows and 505 distinct `mapped_crs`
+  - `poros_jiras`: 1,181 JIRA rows and 60 distinct `mapped_crs`
+  - `mavros_jiras`: no July rows (a genuine zero for that range)
+- Found a second display-side cause: `static/js/monthly_report.js` rebuilt the
+  Overall Status CR columns from unrelated `pdt_crs` / WBC-detail payloads and
+  overwrote the server response with zero whenever target keys did not match.
+- Removed the client-side overwrite so the table renders the authoritative
+  server-calculated `overall_status.total_crs` and `overall_status.unique_crs`.
+- Root cause for WBC-versus-other-BU behavior: WBC uses a separate
+  `_wbc_cr_tables()` pipeline with `dashboard_status.db_name` (its target
+  names happen to match the physical table prefixes), while the generic Monthly
+  pipeline incorrectly derived its table prefix from `sp_name`
+  (for example `Maili.LA.1.0 -> maili_la_1_0_jiras`).
+- Unified the generic Monthly data path to resolve live JIRA/unique/open tables
+  from `dashboard_status.target_name` for every BU, with PL-ID only as fallback.
+- Verified MOBILE generic-path JIRA totals for July: Maili 13,874 and Poros
+  1,166 distinct stability tickets.
+
+### Application composition modularization (2026-08-07)
+- Created `src/application/` as the package boundary for Flask application wiring.
+- Added `register_feature_blueprints(app)` in `src/application/blueprints.py`.
+- Moved all 18 currently active feature-blueprint imports and registrations from
+  `app.py` into this registry while preserving their original registration order.
+- `app.py` now imports and invokes the central registry; route URLs, blueprint
+  endpoint names, and existing compatibility aliases remain unchanged.
+- Verified with `py -3 -m py_compile app.py src\application\__init__.py src\application\blueprints.py`
+  using Python 3.13. The bare `python` executable is Python 2 and must not be
+  used for project validation.
+- Existing extracted `auth_routes.py`, `navigation_routes.py`, and
+  `hwpdt_routes.py` remain unregistered because they duplicate active routes and
+  currently expose incompatible endpoint names. Make them dependency-independent
+  and preserve legacy endpoint names before replacing app-level handlers.
+
 ## Recently Completed
+
+### Compute MTBF JSON routing fix (2026-08-07)
+Investigated why Glymur MTBF charts appeared on unrelated Compute targets such as Hamoa_AL.
+
+**Root cause:**
+- `dashboard_routes.py::_mtbf_json_dir()` routed every `COMPUTE` BU target to the shared folder:
+  `managed_excel/COMPUTE/GLYMUR`
+- Therefore Hamoa and any other Compute target loaded the same `mtbf_glymur.json` / `mtbf_mahua.json` chart data.
+
+**Fix:**
+- Added `_is_legacy_glymur_mtbf_target(target_name)`.
+- Only Glymur/Mahua/Kalambo legacy Compute targets continue using the shared GLYMUR folder.
+- All other Compute targets now use target-specific MTBF JSON directories:
+  `managed_excel/<BU>/<target>`
+
+**Verification:**
+- `python -m py_compile dashboard_routes.py` passed via `.venv\Scripts\python.exe`.
 
 ### orbit_cr DB Layer (2026-08-06)
 Created a full persistent DB cache for Orbit CR data to eliminate repeated Orbit API calls.
