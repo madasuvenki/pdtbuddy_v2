@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}SI Image Path — Target View{% endblock %}
+
+{% block content %}
+<style>
+.siv-wrap{max-width:1400px;margin:0 auto;padding:24px 20px;}
+.siv-card{background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 4px 16px rgba(15,23,42,.07);padding:22px 26px;margin-bottom:22px;}
+.siv-input{height:36px;padding:0 12px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:13px;color:#374151;outline:none;transition:border-color .15s;}
+.siv-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.siv-badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:800;}
+.siv-badge-set{background:#dcfce7;color:#16a34a;border:1px solid #86efac;}
+.siv-badge-none{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;}
+.siv-path-cell{font-family:Consolas,monospace;font-size:11px;color:#1e40af;word-break:break-all;max-width:340px;}
+.siv-btn{height:30px;padding:0 12px;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;}
+.siv-btn-save{background:#4f46e5;color:#fff;}
+.siv-btn-cancel{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
+.siv-btn-edit{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}
+.siv-btn-scan{background:#0891b2;color:#fff;}
+.siv-btn-auto{background:#059669;color:#fff;}
+</style>
+
+<div class="siv-wrap">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:22px;font-weight:900;color:#0f172a;margin:0;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-microchip" style="color:#0891b2;"></i>
+        SI Image Path — Target (PL) View
+      </h1>
+      <p style="font-size:13px;color:#64748b;margin:4px 0 0;">
+        View and edit the SI image path per target (PL). Path is read from the target sync batch file and stored in
+        <code>dashboard_status.si_image_path</code>.
+        <a href="/admin/orbit_cr" style="color:#4f46e5;text-decoration:none;font-weight:600;">&#8592; Back to Orbit CR Cache</a>
+      </p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <span id="totalBadge" style="font-size:12px;color:#64748b;font-weight:700;"></span>
+      <button onclick="loadData()" class="siv-btn" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;height:34px;">
+        <i class="fas fa-sync-alt"></i> Refresh
+      </button>
+      <button onclick="doScan()" class="siv-btn siv-btn-scan" style="height:34px;">
+        <i class="fas fa-search"></i> Preview Scan
+      </button>
+      <button onclick="doRefresh()" class="siv-btn siv-btn-auto" style="height:34px;background:#7c3aed;">
+        <i class="fas fa-redo"></i> Refresh from .bat files
+      </button>
+      <button onclick="doDebug()" class="siv-btn" style="height:34px;background:#dc2626;color:#fff;">
+        <i class="fas fa-bug"></i> Debug Scan
+      </button>
+    </div>
+  </div>
+
+  <!-- Info bar -->
+  <div id="infoBar" style="display:none;padding:10px 16px;border-radius:10px;margin-bottom:14px;font-size:12px;font-weight:600;"></div>
+
+  <!-- Filter Bar -->
+  <div class="siv-card" style="padding:14px 18px;margin-bottom:14px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <i class="fas fa-filter" style="color:#6366f1;font-size:12px;"></i>
+      <input type="text" id="filterTarget" class="siv-input" style="min-width:180px;"
+             placeholder="Filter by target / PL..." oninput="applyFilter()">
+      <input type="text" id="filterBU" class="siv-input" style="min-width:110px;"
+             placeholder="BU..." oninput="applyFilter()">
+      <input type="text" id="filterPath" class="siv-input" style="min-width:220px;"
+             placeholder="Filter by SI path..." oninput="applyFilter()">
+      <select id="filterStatus" class="siv-input" style="min-width:140px;" onchange="applyFilter()">
+        <option value="">All targets</option>
+        <option value="set">Path set</option>
+        <option value="none">No path</option>
+      </select>
+      <button onclick="clearFilters()" class="siv-btn" style="background:#fff1f2;color:#dc2626;border:1px solid #fca5a5;height:36px;">
+        <i class="fas fa-times"></i> Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+    <div style="background:linear-gradient(135deg,#f8faff,#f0f4ff);border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;text-align:center;">
+      <div style="font-size:28px;font-weight:900;color:#4f46e5;" id="statTotal">&#8212;</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Total PLs</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;padding:14px 16px;text-align:center;">
+      <div style="font-size:28px;font-weight:900;color:#16a34a;" id="statConfigured">&#8212;</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Path Set</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#fff1f2,#fee2e2);border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center;">
+      <div style="font-size:28px;font-weight:900;color:#dc2626;" id="statMissing">&#8212;</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">No Path</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;text-align:center;">
+      <div style="font-size:28px;font-weight:900;color:#d97706;" id="statWithExcel">&#8212;</div>
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Has Excel Path</div>
+    </div>
+  </div>
+
+  <!-- Main Table -->
+  <div class="siv-card" style="padding:0;overflow:hidden;">
+    <div style="padding:12px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-table" style="color:#0891b2;"></i>
+        Target (PL) &#8594; SI Image Path
+        <span id="filteredCount" style="font-size:11px;font-weight:800;color:#4f46e5;background:#eef2ff;padding:2px 10px;border-radius:999px;border:1px solid #c7d2fe;"></span>
+      </div>
+      <button onclick="exportCSV()" class="siv-btn" style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="siTable">
+        <thead>
+          <tr style="background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#fff;">
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">#</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;" onclick="sortBy('target')">
+              Target (PL) <span id="sort-target"></span>
+            </th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">BU</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Excel Path</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Status</th>
+            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;" onclick="sortBy('path')">
+              SI Image Path <span id="sort-path"></span>
+            </th>
+            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="siTableBody">
+          <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">
+            <i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:10px;display:block;"></i>
+            Loading...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:560px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <h3 style="margin:0 0 6px;font-size:16px;font-weight:900;color:#0f172a;">Edit SI Image Path</h3>
+    <p id="editTargetLabel" style="font-size:12px;color:#64748b;margin:0 0 16px;"></p>
+    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">SI Image Path</label>
+    <input id="editPathInput" type="text"
+           style="width:100%;height:36px;padding:0 10px;border-radius:8px;border:1.5px solid #6366f1;font-size:12px;font-family:Consolas,monospace;color:#1e40af;outline:none;box-sizing:border-box;margin-bottom:6px;"
+           placeholder="e.g. \\lab9130\Dropbox\DATA_MINING\NORD_HGY\SI\NORD.HGY.5.1.9.0-00001">
+    <p style="font-size:10px;color:#94a3b8;margin:0 0 18px;">
+      Leave empty to clear. Stored in <code>dashboard_status.si_image_path</code>.
+      Later you can change this path and resync.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeEditModal()" class="siv-btn siv-btn-cancel" style="height:34px;padding:0 16px;">Cancel</button>
+      <button onclick="saveEdit()" class="siv-btn siv-btn-save" style="height:34px;padding:0 16px;">
+        <i class="fas fa-save"></i> Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _allRows = [];
+var _sortCol = 'target';
+var _sortAsc = true;
+var _editTarget = '';
+
+document.addEventListener('DOMContentLoaded', loadData);
+
+// ── Load all targets + si_image_path from dashboard_status ───────────────────
+function loadData() {
+  document.getElementById('siTableBody').innerHTML =
+    '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:10px;display:block;"></i>Loading...</td></tr>';
+
+  fetch('/api/admin/orbit_cr/si_image_paths')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success) throw new Error(d.message || 'Load failed');
+      _allRows = (d.rows || []).map(function(row){
+        return {
+          target:     row.target_name || '',
+          display:    row.target_display || row.target_name || '',
+          bu:         row.bu || '',
+          excel_path: row.excel_path || '',
+          si_path:    row.si_image_path || '',
+          has_path:   !!(row.si_image_path && row.si_image_path.trim()),
+          has_excel:  !!(row.excel_path && row.excel_path.trim()),
+        };
+      });
+      updateStats();
+      applyFilter();
+      document.getElementById('totalBadge').textContent = _allRows.length + ' targets';
+    })
+    .catch(function(e){
+      document.getElementById('siTableBody').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Error: ' + e.message + '</td></tr>';
+    });
+}
+
+function updateStats() {
+  var total      = _allRows.length;
+  var configured = _allRows.filter(function(r){ return r.has_path; }).length;
+  var withExcel  = _allRows.filter(function(r){ return r.has_excel; }).length;
+  document.getElementById('statTotal').textContent      = total;
+  document.getElementById('statConfigured').textContent = configured;
+  document.getElementById('statMissing').textContent    = total - configured;
+  document.getElementById('statWithExcel').textContent  = withExcel;
+}
+
+function applyFilter() {
+  var fT = (document.getElementById('filterTarget').value || '').toLowerCase().trim();
+  var fB = (document.getElementById('filterBU').value || '').toLowerCase().trim();
+  var fP = (document.getElementById('filterPath').value || '').toLowerCase().trim();
+  var fS = document.getElementById('filterStatus').value;
+
+  var filtered = _allRows.filter(function(r){
+    if (fT && r.target.toLowerCase().indexOf(fT) < 0 && r.display.toLowerCase().indexOf(fT) < 0) return false;
+    if (fB && r.bu.toLowerCase().indexOf(fB) < 0) return false;
+    if (fP && r.si_path.toLowerCase().indexOf(fP) < 0) return false;
+    if (fS === 'set'  && !r.has_path) return false;
+    if (fS === 'none' &&  r.has_path) return false;
+    return true;
+  });
+
+  filtered.sort(function(a, b){
+    var av = _sortCol === 'path' ? a.si_path : a.target;
+    var bv = _sortCol === 'path' ? b.si_path : b.target;
+    if (_sortAsc) return av.localeCompare(bv);
+    return bv.localeCompare(av);
+  });
+
+  document.getElementById('filteredCount').textContent = filtered.length + ' shown';
+  renderTable(filtered);
+}
+
+function renderTable(rows) {
+  var tbody = document.getElementById('siTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No targets match the current filters.</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var bg = i % 2 === 0 ? '#fff' : '#f8fafc';
+    var statusBadge = r.has_path
+      ? '<span class="siv-badge siv-badge-set"><i class="fas fa-check" style="font-size:8px;margin-right:3px;"></i>Path Set</span>'
+      : '<span class="siv-badge siv-badge-none"><i class="fas fa-times" style="font-size:8px;margin-right:3px;"></i>No Path</span>';
+
+    var excelCell = r.excel_path
+      ? '<span style="font-family:Consolas,monospace;font-size:10px;color:#64748b;word-break:break-all;max-width:200px;display:inline-block;" title="' + esc(r.excel_path) + '">' + esc(shortPath(r.excel_path)) + '</span>'
+      : '<span style="color:#cbd5e1;font-size:11px;">&#8212;</span>';
+
+    var pathCell = r.si_path
+      ? '<span class="siv-path-cell" title="' + esc(r.si_path) + '">' + esc(r.si_path) + '</span>'
+      : '<span style="color:#cbd5e1;font-size:11px;font-style:italic;">not set</span>';
+
+    html += '<tr style="background:' + bg + ';" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'' + bg + '\'">'
+      + '<td style="padding:9px 12px;color:#94a3b8;font-size:11px;">' + (i+1) + '</td>'
+      + '<td style="padding:9px 12px;font-weight:800;color:#0f172a;">' + esc(r.display || r.target) + '<br><span style="font-size:10px;color:#94a3b8;font-weight:400;">' + esc(r.target) + '</span></td>'
+      + '<td style="padding:9px 12px;font-size:11px;color:#64748b;">' + esc(r.bu || '—') + '</td>'
+      + '<td style="padding:9px 12px;">' + excelCell + '</td>'
+      + '<td style="padding:9px 12px;">' + statusBadge + '</td>'
+      + '<td style="padding:9px 12px;">' + pathCell + '</td>'
+      + '<td style="padding:9px 12px;text-align:center;">'
+      + '<button onclick="openEditModal(\'' + esc(r.target) + '\',\'' + esc(r.si_path) + '\')" class="siv-btn siv-btn-edit" style="height:28px;font-size:10px;">'
+      + '<i class="fas fa-edit"></i> Edit</button>'
+      + '</td>'
+      + '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function shortPath(p) {
+  if (!p) return '';
+  var parts = p.replace(/\\/g,'/').split('/');
+  if (parts.length > 3) return '...' + parts.slice(-2).join('/');
+  return p;
+}
+
+function sortBy(col) {
+  if (_sortCol === col) { _sortAsc = !_sortAsc; }
+  else { _sortCol = col; _sortAsc = true; }
+  document.querySelectorAll('[id^="sort-"]').forEach(function(el){ el.textContent = ''; });
+  document.getElementById('sort-' + col).textContent = _sortAsc ? ' \u25b2' : ' \u25bc';
+  applyFilter();
+}
+
+function clearFilters() {
+  document.getElementById('filterTarget').value = '';
+  document.getElementById('filterBU').value = '';
+  document.getElementById('filterPath').value = '';
+  document.getElementById('filterStatus').value = '';
+  applyFilter();
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEditModal(target, currentPath) {
+  _editTarget = target;
+  document.getElementById('editTargetLabel').textContent = 'Target: ' + target;
+  document.getElementById('editPathInput').value = currentPath || '';
+  var modal = document.getElementById('editModal');
+  modal.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('editPathInput').focus(); }, 80);
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  _editTarget = '';
+}
+
+function saveEdit() {
+  var newPath = (document.getElementById('editPathInput').value || '').trim();
+  if (!_editTarget) return;
+
+  fetch('/api/admin/orbit_cr/update_si_image_path', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({target_name: _editTarget, si_image_path: newPath})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success) {
+      // Update local data
+      var row = _allRows.find(function(r){ return r.target === _editTarget; });
+      if (row) {
+        row.si_path  = newPath;
+        row.has_path = !!newPath;
+      }
+      closeEditModal();
+      updateStats();
+      applyFilter();
+      showInfo('Saved SI image path for ' + _editTarget, 'ok');
+    } else {
+      showInfo('Save failed: ' + (d.message || 'unknown error'), 'err');
+    }
+  })
+  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
+}
+
+// ── Debug scan — show bat file details and why targets don't match ────────────
+function doDebug() {
+  showInfo('Running debug scan...', 'info');
+  fetch('/api/admin/orbit_cr/bat_debug')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success) { showInfo('Debug failed: ' + (d.message || ''), 'err'); return; }
+
+      var lines = [
+        'Config path: ' + d.config_path,
+        'Bat files found: ' + (d.bat_files_found || []).join(', '),
+        'Total targets in map: ' + d.total_targets_in_map,
+        'Targets matched: ' + d.targets_matched + ' / ' + d.targets_total,
+        '',
+        '--- BAT FILE DETAILS ---',
+      ];
+
+      for (var fname in (d.bat_file_details || {})) {
+        var fd = d.bat_file_details[fname];
+        lines.push(fname + ': ' + fd.targets_count + ' targets → ' + (fd.targets || []).slice(0, 5).join(', ') + (fd.targets_count > 5 ? '...' : ''));
+      }
+
+      lines.push('', '--- UNMATCHED TARGETS (first 20) ---');
+      var unmatched = (d.target_debug || []).filter(function(t){ return t.status === 'no_match'; }).slice(0, 20);
+      unmatched.forEach(function(t){
+        lines.push(t.target_name + ' [' + t.bu + '] tried: ' + (t.tried_keys || []).join(' | '));
+      });
+
+      // Show in a popup
+      var msg = lines.join('\n');
+      var pre = document.createElement('pre');
+      pre.style.cssText = 'position:fixed;top:10px;right:10px;bottom:10px;width:700px;background:#1e293b;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;font-size:11px;z-index:99999;white-space:pre-wrap;';
+      pre.textContent = msg;
+      var closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕ Close';
+      closeBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;';
+      closeBtn.onclick = function(){ document.body.removeChild(pre); };
+      pre.appendChild(closeBtn);
+      document.body.appendChild(pre);
+
+      showInfo('Debug scan complete. ' + d.targets_matched + ' matched, ' + d.targets_no_match + ' unmatched. See popup.', 'ok');
+    })
+    .catch(function(e){ showInfo('Debug error: ' + e.message, 'err'); });
+}
+
+// ── Preview scan (no DB write) ────────────────────────────────────────────────
+function doScan() {
+  showInfo('Scanning batch files (preview)...', 'info');
+  fetch('/api/admin/orbit_cr/si_scan')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success) { showInfo('Scan failed: ' + (d.message || ''), 'err'); return; }
+      var rows = d.rows || [];
+      var matched  = rows.filter(function(r){ return r.status === 'matched'; }).length;
+      var noMatch  = rows.filter(function(r){ return r.status === 'no_bat_match'; }).length;
+      var noSI     = rows.filter(function(r){ return r.status === 'no_si_in_bat'; }).length;
+      var wouldUpd = rows.filter(function(r){ return r.would_update; }).length;
+      showInfo(
+        'Preview scan: ' + d.bat_files_found + ' .bat files found, '
+        + matched + ' matched, ' + noMatch + ' no bat match, '
+        + noSI + ' no SI in bat, ' + wouldUpd + ' would update DB. '
+        + 'Click "Auto-configure from .bat" to apply.',
+        'ok'
+      );
+    })
+    .catch(function(e){ showInfo('Scan error: ' + e.message, 'err'); });
+}
+
+// ── Refresh: clear all paths and re-read from batch files ────────────────────
+function doRefresh() {
+  if (!confirm(
+    'This will re-read ALL batch files and update si_image_path for every target.\n\n' +
+    'Targets with no matching .bat file will have their path cleared.\n\n' +
+    'Continue?'
+  )) return;
+  showInfo('Reading batch files and refreshing all SI image paths...', 'info');
+  fetch('/api/admin/orbit_cr/refresh_si_paths', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success) {
+      showInfo(d.message || 'Done', 'ok');
+      loadData();  // reload table with fresh paths
+    } else {
+      showInfo('Refresh failed: ' + (d.message || ''), 'err');
+    }
+  })
+  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
+}
+
+// ── Info bar ──────────────────────────────────────────────────────────────────
+function showInfo(msg, type) {
+  var bar = document.getElementById('infoBar');
+  var colors = {
+    ok:   {bg:'#f0fdf4', color:'#16a34a', border:'#86efac'},
+    err:  {bg:'#fff1f2', color:'#dc2626', border:'#fca5a5'},
+    info: {bg:'#eff6ff', color:'#1d4ed8', border:'#93c5fd'},
+  };
+  var c = colors[type] || colors.info;
+  bar.style.background = c.bg;
+  bar.style.color = c.color;
+  bar.style.border = '1px solid ' + c.border;
+  bar.textContent = msg;
+  bar.style.display = 'block';
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  var header = ['Target', 'Display', 'BU', 'Excel Path', 'SI Image Path', 'Has Path'];
+  var lines = [header.join(',')];
+  _allRows.forEach(function(r){
+    lines.push([
+      r.target,
+      r.display,
+      r.bu,
+      '"' + (r.excel_path || '').replace(/"/g,'""') + '"',
+      '"' + (r.si_path || '').replace(/"/g,'""') + '"',
+      r.has_path ? 'Yes' : 'No',
+    ].join(','));
+  });
+  var blob = new Blob([lines.join('\n')], {type: 'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'si_image_paths.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+// Close modal on backdrop click
+document.getElementById('editModal').addEventListener('click', function(e){
+  if (e.target === this) closeEditModal();
+});
+</script>
+{% endblock %}

@@ -1,114 +1,140 @@
-# Active Context: PDTBuddy
+# Active Context
 
 ## Current Work Focus
-Orbit Public API — fetch all orbit info for CRs by target and PL, expose as shareable API.
+Enhanced SI image path tracking in `dashboard_status` table via batch file scanning.
+Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
 
-## Recent Changes
-- **`orbit_public_api_routes.py`** *(new)* — Public API blueprint for Orbit CR data:
-  - `GET /api/public/orbit/crs?target=<target>&pl=<pl>` — returns all PDT DB + Orbit data for CRs in a target/PL
-    - Fetches CR rows via `fetch_weekly_crs()` (same as dashboard), then bulk-enriches with `bulk_query_cr_orbit_details()`, `bulk_query_cr_software_images()`, `bulk_query_cr_tags()`
-    - Params: `target` (required), `pl`, `limit` (default 500, max 2000), `include_sirs`, `include_tags`
-    - Auth: `X-PDTBuddy-API-Token` / `Authorization: Bearer` / browser session
-  - `GET /api/public/orbit/cr/<cr_id>` — full Orbit record for a single CR (Title, Status, Type, Severity, IsCrash, Priority, Tags, Participants, SIRs, Duplicates, Related, linked_crs)
-  - `GET /api/public/orbit/docs` — HTML documentation page
-- **`app.py`** — Registered `orbit_public_api_bp` blueprint
-- **`templates/public_orbit_api.html`** *(new)* — API documentation page with endpoint reference, params, response schemas, error codes, and curl examples
-- **`dashboard_routes.py`** — Added `POST /api/build_report/stability_metrics` endpoint:
-  - Accepts `{"builds": [...], "taxonomy": "/PDT"}` (max 20 builds)
-  - Calls `fetch_build_stability_metrics()` from `src/stability_reports_client.py`
-  - Returns per-build `{matched, runtimeHours, crashes, mtbfHours, deviceCount, error}`
-  - Flow: POST `/axiom/v1/public/stabilityreport` → GET instances → GET metrics
-- **`templates/build_report_standalone.html`** — Added Stability Report UI:
-  - **Stability Report button**: Appears in toolbar when builds are entered in the Builds textarea
-  - **Stability Report card**: Shows KPI summary (Total Hours, Crashes, MTBF, Devices) + per-build table with Matched/No data status badges
-  - **`brRunStabilityReport(btn)`**: Async JS function that calls the new endpoint and renders results
-  - **`brUpdateRunBtn()`**: Updated to also show/hide the Stability Report button based on `hasBuilds`
-- **`weekly_summary_routes.py`** — `_wbc_cr_tables()`: Fixed date filter bug for "PDT WBC Unique CRs reported by PDT" (tbl2_unique) — previous session
+## Recently Completed
 
-## How API Token Auth Works
-- Same `PDTBUDDY_API_TOKEN` env var used by `jiraquery_api_bp`
-- `_build_report_login_or_token_required` decorator:
-  1. Checks for valid API token via `_jiraquery_authenticated()` (reuses jiraquery logic)
-  2. Falls back to session auth (`current_user.is_authenticated`)
-  3. Returns 401 JSON if neither passes
-- `app.py`'s `_check_session_idle()` already skips session check when `_jiraquery_authenticated()` returns True — so API token requests bypass session idle timeout automatically
+### orbit_cr DB Layer (2026-08-06)
+Created a full persistent DB cache for Orbit CR data to eliminate repeated Orbit API calls.
 
-## API Endpoints Now Accessible to External Tools
-| Endpoint | Auth |
-|---|---|
-| `GET /api/public/orbit/crs?target=&pl=` | Token or Session |
-| `GET /api/public/orbit/cr/<cr_id>` | Token or Session |
-| `GET /api/public/orbit/docs` | Public (no auth) |
-| `POST /api/consolidated_report` | Token or Session |
-| `GET /api/consolidated_report/result/<job_id>` | Token or Session |
-| `GET /api/consolidated_report/progress/<job_id>` | Token or Session |
-| `GET/POST /api/consolidated_report/load` | Token or Session |
-| `GET /api/consolidated_report/status` | Token or Session |
-| `GET/POST /api/jiraquery/raw` | Token only (existing) |
-| `GET /api/token/verify` | Token only (existing) |
+**New Files:**
+- `src/orbit_cr_db.py` — Core DB module: table creation, CRUD, CR tag filter, SI config, sync log
+- `scripts/sync_orbit_cr.py` — Bulk sync script (batch 200 CRs per Orbit query/run call)
+- `src/orbit_cr_routes.py` — Flask Blueprint with all API endpoints
 
-## Documentation URL
-`/build_report/api_docs` — accessible to logged-in users
+**Modified Files:**
+- `config.py` — Added `ORBIT_CR_DB_ENABLED` feature flag (default `False`)
+- `orbit_client.py` — Added DB-first lookup in `fetch_cr()` behind feature flag
+- `app.py` — Registered `orbit_cr_bp` blueprint
 
-## Active Decisions and Considerations
+**UI Changes:**
+- `templates/pdt_crs_section.html` — Added "Non-matched CRs" button + `pcrShowNonMatchedCrs()` JS function
 
-### Architecture Decisions
-1. **Session storage**: Filesystem-based (not Redis/DB) — suitable for single-server deployment
-2. **Orbit routing**: Priority chain (LDAP location → browser TZ → IP prefix → LDAP group) ensures correct regional endpoint
-3. **QGenie model selection**: Random selection from `QGENIE_HIGHLIGHTS_MODEL_OPTIONS` per session for load distribution
-4. **Result signing**: `URLSafeSerializer` binds result tokens to the creating user (security)
+### Codebase Analysis (2026-08-06)
+Full analysis of all Python files and templates completed.
 
-### Known Patterns
-- `SYSTEM_SCHEMAS` tuple excludes MySQL system schemas from user-facing queries
-- `SNO_HEADERS` set handles various "serial number" column header formats in Excel imports
-- `GLOBAL_REPORT_DATA_STORAGE` (from `dashboard_state.py`) is in-memory global storage for report data
-- `consolidate_snapshots/` directory likely holds snapshot data for consolidation scripts
+**Key Findings:**
+- `app.py` is **9,158 lines** with **90 `@app.route` decorators** — critical modularization target
+- ~15 functions duplicated between `app.py` and `dashboard_common.py`
+- 3 standalone tools in root that are not integrated: `PAuth.py`, `PDT_Tagging_Tool.py`, `patch_gen45.py`
+- ~10 templates potentially unused (need verification)
+- `auth_service.py` functions are duplicated in `app.py`
 
-### Important File Locations
-| Purpose | File |
-|---|---|
-| Main app entry | `app.py` |
-| Configuration | `config.py` |
-| Dashboard utilities | `dashboard_common.py` |
-| Dashboard state | `dashboard_state.py` |
-| MySQL utilities | `src/utils.py` |
-| Ingest logic | `src/ingest_logic.py`, `src/ingest.py` |
-| CR overview | `src/cr_overview_service.py` |
-| CR comparison | `src/cr_compare_service.py` |
-| CR master search | `src/cr_master_search.py` |
-| Chatbot | `src/chatbot_engine.py` |
-| Orbit bridge | `src/orbit_bridge.py` |
-| Axiom client | `src/axiom_client.py` |
-| Stability reports | `src/stability_reports_client.py` |
-| Sync central | `src/sync_central.py` |
-| Build Report API docs | `templates/public_build_report_api.html` |
+**Modularization Plan:** `docs/MODULARIZATION_PLAN.md`
 
-## Important Patterns and Preferences
+## dashboard_status: New Column
+- `si_image_path` VARCHAR(512) — SI image path read from target sync batch file.
+  Added automatically (ALTER TABLE) by `_ensure_si_image_path_column()` on first use.
 
-### Code Style
-- Python 3.10+ union type syntax (`str | None`)
-- Logging via `logging` module (WARNING level default, ERROR for noisy third-party loggers)
-- Error handling: broad `except Exception` with `traceback.format_exc()` for debug logging
-- Thread safety: `threading.Lock()` for shared mutable state (`REPORT_TASKS_LOCK`)
+## Changes: src/orbit_cr_routes.py (2026-08-07) — Batch file parsing complete
 
-### API Response Pattern
-- JSON APIs return `{"success": bool, "message": str}` or `{"ok": bool, "error": str}`
-- HTTP 401 returned for unauthenticated API requests (not redirect)
-- HTTP 400 for validation errors
+### Batch file format understood
+```batch
+set target=Monaco_HGY_Overall_JIRAs_PDT
+set baseFolder=\\sphere\pdtstats\DailyReports\AutoIVI_Data\%target%
+set SI_Image=\\sphere\pdtautodumps\PDT_XMLs\Unique_CR\SoftwareImages\MonacoOverall_SI.txt
+```
+One `.bat` file covers many targets (grouped by BU):
+- `Auto_PDT_Test_File.bat` — all AUTO targets
+- `AT.bat` — Auto Telematics
+- `LA.bat` — Mobile (LA)
+- `MBB.bat` — MBB targets
+- `IOT.bat` — IOT targets
+- `Others.bat` — remaining targets
 
-### Template Pattern
-- `base.html` is the base template
-- Feature-specific templates extend base
-- `resource_path()` used for template/static folder resolution (PyInstaller compat)
-- Standalone pages (like `public_build_report_api.html`) do NOT extend base.html
+### Key parsing functions
+- `_parse_bat_target_si_pairs(bat_path)` — reads `set target=` / `set SI_Image=` pairs; resolves `%target%` variable in SI_Image value
+- `_parse_bat_all_vars(bat_path)` — fallback: reads all `set VAR=VALUE` lines
+- `_build_global_si_map(config_path)` — reads ALL .bat files, merges into one global map
+- `_find_si_for_target(target_name, excel_path, global_map)` — matches by target_name OR by scanning ALL excel_path components right-to-left (handles `DailyData/Latest` suffix)
 
-## Learnings and Project Insights
-1. This is a **Qualcomm-internal tool** — all external service URLs are Qualcomm internal
-2. The app supports **three geographic regions** (SD/QIPL/CH) with different Orbit endpoints
-3. **QGenie** is Qualcomm's internal AI platform — the app uses it for CR summarization
-4. The app can be **packaged as a Windows .exe** for distribution to teams without Python
-5. **Axiom** is used for job/build data (separate from CR/Jira data in MySQL)
-6. The `patch_gen45.py` file suggests Gen45 data may need special patching/transformation
-7. `PDT_Tagging_Tool.py` and `PAuth.py` suggest standalone utility scripts exist alongside the web app
-8. `ingest_autoupdate.py` suggests the ingest process can auto-update itself
-9. **API token auth** reuses `PDTBUDDY_API_TOKEN` / `JIRAQUERY_API_TOKEN` env vars — no new config needed
+### New API endpoints
+- `GET /api/admin/orbit_cr/si_image_paths` — all targets with si_image_path from dashboard_status
+- `POST /api/admin/orbit_cr/update_si_image_path` — manual edit of si_image_path
+- `POST /api/admin/orbit_cr/refresh_si_paths` — reads ALL bat files, updates dashboard_status
+- `GET /api/admin/orbit_cr/si_scan` — preview scan (no DB write)
+
+### New DB column
+`dashboard_status.si_image_path VARCHAR(512)` — auto-added on first use
+
+### UI: templates/admin_si_config_view.html
+- Shows all PLs with SI image path, BU, excel path
+- "Preview Scan" button — calls si_scan
+- "Refresh from .bat files" button — calls refresh_si_paths
+- Edit modal — manual path override per target
+
+## Changes: src/orbit_cr_routes.py (2026-08-06)
+
+### New helpers
+- `_ensure_si_image_path_column(cursor)` — idempotent ALTER TABLE to add `si_image_path` to `dashboard_status`
+- `_match_bat_for_target(target_name, excel_path, bat_files)` — priority matching:
+  1. Exact match on `target_name` (correct name for target sync)
+  2. Exact match on folder extracted from `excel_path`
+  3. Partial match on target name
+  4. Partial match on folder name
+- `_read_si_from_bat(bat_path)` — now returns `(si_image, si_path)` tuple:
+  - `si_image`: SI image name (e.g. `DAYTONA.HGY.5.1.9.0-00001`)
+  - `si_path`: full path from `SET SI_IMAGE_PATH=...` or similar; empty if not in bat file
+
+### Updated endpoints
+- `POST /api/admin/orbit_cr/auto_si_config` — now:
+  - Matches bat files by target name first (not just folder)
+  - Reads `si_path` from bat file
+  - Updates `dashboard_status.si_image_path` when value changes
+  - Supports `dry_run=true` for preview
+- `GET /api/admin/orbit_cr/all_si_configs` — now JOINs `dashboard_status` to include `si_image_path` + `excel_path`
+
+### New endpoint
+- `GET /api/admin/orbit_cr/si_scan?config_path=...` — preview scan (no DB writes):
+  - Returns per-target: `bat_file`, `match_type`, `si_image`, `si_path`, `current_si_path`, `would_update`
+
+## New DB Tables (all in `pdt_stats_dashboard`)
+1. `orbit_cr` — Global CR data (1 row per CR, fetched from Orbit)
+2. `orbit_cr_sir` — Software Image Releases per CR (all products, global)
+3. `orbit_cr_participant` — Area/Subsystem/Functionality per CR
+4. `orbit_cr_link` — Parent/duplicate/related CR relationships
+5. `target_si_config` — SI image prefix config per target (reusable)
+6. `cr_tag_filter` — Saved CR tag filter per target+pdt_type
+7. `orbit_cr_sync_log` — Sync history/status
+
+## API Endpoints (orbit_cr_bp)
+- `POST /api/dashboard/<target>/cr_tag_filter/save` — Save CR tag filter
+- `GET /api/dashboard/<target>/cr_tag_filter/load` — Load CR tag filter
+- `GET /api/dashboard/<target>/cr_tag_filter/non_matched` — Get non-matched CRs
+- `GET /api/dashboard/<target>/si_config` — Load SI config
+- `POST /api/dashboard/<target>/si_config` — Save SI config
+- `GET /api/orbit_cr/si_prefixes` — Get distinct SI prefixes
+- `POST /api/admin/orbit_cr/sync` — Trigger sync (admin)
+- `GET /api/admin/orbit_cr/status` — Sync status
+- `GET /api/admin/orbit_cr/stats` — Table row counts
+
+## Feature Flag
+```
+ORBIT_CR_DB_ENABLED=0  # in .env (default OFF)
+ORBIT_CR_DB_ENABLED=1  # to enable DB-first lookup
+```
+
+## Next Steps
+1. **Modularization Phase 1**: Extract shared utilities from app.py
+   - Create `src/user_activity.py`
+   - Create `src/cache_utils.py`
+   - Create `src/cr_utils.py`
+   - Remove duplicate functions from app.py
+2. **Modularization Phase 2**: Consolidate auth
+   - Expand `src/auth_service.py`
+   - Create `src/auth_routes.py`
+3. **Modularization Phase 3-4**: Extract route groups (see plan doc)
+4. **Cleanup**: Move standalone tools, remove unused templates
+5. **orbit_cr sync**: Run `python scripts/sync_orbit_cr.py --dry-run` to check CR count

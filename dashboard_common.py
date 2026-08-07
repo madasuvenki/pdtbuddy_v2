@@ -1537,7 +1537,7 @@ def fetch_total_jiras(conn, schema_name, target_name, from_date, to_date):
     return total_jiras, cnt, overall_crs, valid_crs
 
 
-def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
+def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date, dedupe=True):
     all_data = not from_date or not to_date or str(from_date).lower() == 'all' or str(to_date).lower() == 'all'
     from_s = None if all_data else norm_ymd(from_date)
     to_s   = None if all_data else norm_ymd(to_date)
@@ -1593,6 +1593,7 @@ def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
         select_parts = [
             "TRIM(`mapped_cr`) AS `cr`",
             _col('mapped_cr'),
+            _col('cr', 'cr_raw'),
             _col('cr_occurrence', 'overall_cr_occurrence'),
             _col('cr_age', 'overall_age'),
             _col('cr_title'),
@@ -1652,6 +1653,9 @@ def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
             return out
         raw_rows = [_serialize_row(r) for r in raw_rows]
 
+        if not dedupe:
+            return raw_rows
+
         seen = {}
         for row in raw_rows:
             cr = (row.get('cr') or row.get('mapped_cr') or '').strip()
@@ -1680,6 +1684,134 @@ def fetch_weekly_crs(conn, schema_name, target_name, from_date, to_date):
                 seen[cr] = row
 
         deduped = list(seen.values())
+
+        # Compute selected-month instance counts from the target JIRA table.
+        #
+        # The legacy Unique CR columns (`cr_____previous_month` /
+        # `cr_____current_month`) are often present but not populated by ingest.
+        # For Compute weekly report, calculate them live from `{target}_jiras`
+        # using the selected date range:
+        #   - previous_month_occurrence = instances in the month of from_date
+        #   - current_month_occurrence  = instances in the month of to_date
+        #
+        # This matches the table headers in templates/weekly_data.html.
+        if is_compute:
+            try:
+                from calendar import monthrange
+
+                def _month_window(ymd):
+                    d = datetime.strptime(str(ymd)[:10], "%Y-%m-%d").date()
+                    start = d.replace(day=1)
+                    end = d.replace(day=monthrange(d.year, d.month)[1])
+                    return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+
+                def _previous_month_window(ymd):
+                    d = datetime.strptime(str(ymd)[:10], "%Y-%m-%d").date()
+                    first_this = d.replace(day=1)
+                    prev_end_d = first_this - timedelta(days=1)
+                    prev_start_d = prev_end_d.replace(day=1)
+                    return prev_start_d.strftime("%Y-%m-%d"), prev_end_d.strftime("%Y-%m-%d")
+
+                jiras_table = f"{tgt}_jiras"
+                jiras_fq = f"`{schema}`.`{jiras_table}`"
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = %s
+                    LIMIT 1
+                    """,
+                    (schema, jiras_table),
+                )
+                if cur.fetchone():
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = %s AND table_name = %s
+                        """,
+                        (schema, jiras_table),
+                    )
+                    j_cols = {str(r.get("column_name") or r.get("COLUMN_NAME") or "") for r in (cur.fetchall() or [])}
+                    jira_cr_col = "mapped_crs" if "mapped_crs" in j_cols else ("mapped_cr" if "mapped_cr" in j_cols else ("cr" if "cr" in j_cols else None))
+                    jira_date_col = "jira_date" if "jira_date" in j_cols else ("created" if "created" in j_cols else None)
+
+                    if jira_cr_col and jira_date_col:
+                        if all_data or not (from_s and to_s):
+                            # In "All CRs" mode there is no selected date range.
+                            # Use the latest JIRA date as the current month anchor
+                            # and the calendar month before it as previous month.
+                            cur.execute(f"SELECT MAX(`{jira_date_col}`) AS max_dt FROM {jiras_fq}")
+                            max_row = cur.fetchone() or {}
+                            max_dt = max_row.get("max_dt")
+                            if isinstance(max_dt, (datetime, date)):
+                                anchor_s = max_dt.strftime("%Y-%m-%d")
+                            else:
+                                anchor_s = str(max_dt or date.today().strftime("%Y-%m-%d"))[:10]
+                            prev_start, prev_end = _previous_month_window(anchor_s)
+                            curr_start, curr_end = _month_window(anchor_s)
+                        else:
+                            # Date-filtered weekly report: headers use from_date month
+                            # and to_date month, so counts follow those selected months.
+                            prev_start, prev_end = _month_window(from_s)
+                            curr_start, curr_end = _month_window(to_s)
+
+                        def _count_instances(start_s, end_s):
+                            counts = {}
+                            cur.execute(
+                                f"""
+                                SELECT `{jira_cr_col}` AS cr_key, COUNT(*) AS cnt
+                                FROM {jiras_fq}
+                                WHERE `{jira_date_col}` >= %s
+                                  AND `{jira_date_col}` < DATE_ADD(%s, INTERVAL 1 DAY)
+                                  AND `{jira_cr_col}` IS NOT NULL
+                                  AND TRIM(`{jira_cr_col}`) <> ''
+                                  AND TRIM(`{jira_cr_col}`) <> 'None'
+                                GROUP BY `{jira_cr_col}`
+                                """,
+                                (start_s, end_s),
+                            )
+                            for jr in cur.fetchall() or []:
+                                raw_crs = str(jr.get("cr_key") or "")
+                                cnt = int(jr.get("cnt") or 0)
+                                for part in raw_crs.replace(";", ",").split(","):
+                                    cr_key = part.strip()
+                                    if not cr_key:
+                                        continue
+                                    variants = {cr_key, cr_key.upper()}
+                                    if cr_key.upper().startswith("CR"):
+                                        variants.add(cr_key.upper()[2:])
+                                    else:
+                                        variants.add("CR" + cr_key.upper())
+                                    for v in variants:
+                                        counts[v] = counts.get(v, 0) + cnt
+                            return counts
+
+                        prev_counts = _count_instances(prev_start, prev_end)
+                        curr_counts = _count_instances(curr_start, curr_end)
+
+                        def _lookup_count(row, counts):
+                            keys = []
+                            for key_name in ("cr", "mapped_cr"):
+                                val = str(row.get(key_name) or "").strip()
+                                if val:
+                                    keys.extend([val, val.upper()])
+                                    if val.upper().startswith("CR"):
+                                        keys.append(val.upper()[2:])
+                                    else:
+                                        keys.append("CR" + val.upper())
+                            return max([counts.get(k, 0) for k in keys] or [0])
+
+                        for row in deduped:
+                            row["previous_month_occurrence"] = _lookup_count(row, prev_counts)
+                            row["current_month_occurrence"] = _lookup_count(row, curr_counts)
+            except Exception:
+                logger.exception(
+                    "WEEKLY_REPORT: failed to compute selected month occurrence counts for %s.%s",
+                    schema,
+                    tgt,
+                )
+
         deduped.sort(
             key=lambda r: (
                 int(str(r.get('overall_cr_occurrence') or '0').strip()) if str(r.get('overall_cr_occurrence') or '').strip().isdigit() else 0,

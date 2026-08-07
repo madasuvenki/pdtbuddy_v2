@@ -5405,7 +5405,11 @@ def api_dashboard_pdt_crs(target_name):
             return jsonify({"success": False, "message": "DB connection failed"}), 500
         schema = get_schema_for_target(target_name) or "pdt_stats_mobile"
         try:
-            rows = fetch_weekly_crs(conn, schema, target_name, "all", "all")
+            # PDT CR section must show every row from the Unique CR sheet,
+            # including duplicate rows. The weekly-report default dedupes by
+            # mapped_cr, which collapses dup/invalid_dup rows and makes Dup CRs
+            # show as 0 on this page.
+            rows = fetch_weekly_crs(conn, schema, target_name, "all", "all", dedupe=False)
         finally:
             try:
                 conn.close()

@@ -127,6 +127,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 
 from dashboard_routes import dashboard_bp
 from device_summary_api import device_summary_api_bp
+from src.orbit_cr_routes import orbit_cr_bp
 from live_status_publish_routes import live_status_publish_bp
 from live_status_view_api import live_status_view_api_bp
 from live_view_stats_routes import live_view_stats_bp
@@ -353,6 +354,7 @@ def _set_no_cache_html(response):
 
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(device_summary_api_bp)
+app.register_blueprint(orbit_cr_bp)
 app.register_blueprint(live_status_publish_bp)
 app.register_blueprint(live_status_view_api_bp)
 app.register_blueprint(live_view_stats_bp)
@@ -1177,6 +1179,14 @@ app.jinja_env.filters['cr_strip_prefix'] = cr_strip_prefix_filter
 # Optional: one-time metadata refresh + debug at startup
 dc.ensure_unique_cr_last_update_column()   # migration: add unique_cr_last_update if missing
 dc.update_global_targets_config()
+
+# Auto-create orbit_cr tables on startup (safe — uses CREATE TABLE IF NOT EXISTS)
+try:
+    from src.orbit_cr_db import ensure_orbit_cr_tables as _ensure_orbit_cr_tables
+    _ensure_orbit_cr_tables()
+    logger.info("[APP] orbit_cr tables verified/created.")
+except Exception as _e:
+    logger.info(f"[APP] orbit_cr table setup skipped (non-fatal): {_e}")
 logger.info(
     "[APP] Startup - Business Units loaded: %s",
     list(dc.get_business_units().keys()),
@@ -3808,6 +3818,27 @@ def admin_all_targets_status():
         return jsonify({"error": str(e), "rows": []})
     finally:
         conn.close()
+
+@app.route('/admin/orbit_cr')
+@login_required
+def admin_orbit_cr():
+    """Admin page for orbit_cr DB cache management."""
+    if not is_admin():
+        abort(403)
+    from dashboard_common import get_targets_config
+    cfg = get_targets_config() or {}
+    all_targets = sorted(cfg.keys())
+    return render_template('admin_orbit_cr.html', all_targets=all_targets)
+
+
+@app.route('/admin/si_config_view')
+@login_required
+def admin_si_config_view():
+    """Dedicated page: view all targets with their SI image config + filter."""
+    if not is_admin():
+        abort(403)
+    return render_template('admin_si_config_view.html')
+
 
 @app.route('/admin/system_docs')
 @login_required

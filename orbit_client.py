@@ -884,7 +884,13 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
     """
     Fetch CR details from Orbit.
 
-    Uses ORBIT_CR_SOURCE to decide method.
+    Priority (when ORBIT_CR_DB_ENABLED=True):
+      1. orbit_cr DB table (persistent cache, avoids repeated Orbit calls)
+      2. Direct Orbit REST / MCP / Python2 (if DB miss or stale)
+      3. Store result back in orbit_cr DB for next time
+
+    When ORBIT_CR_DB_ENABLED=False (default):
+      Uses existing behavior unchanged.
 
     Args:
         cr_number : CR number (with or without 'CR' prefix)
@@ -895,14 +901,35 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
     """
     cr = _normalize_cr(cr_number)
 
-    # Check cache
+    # ── DB-first path (feature flag) ────────────────────────────────────────
+    try:
+        from config import ORBIT_CR_DB_ENABLED
+    except Exception:
+        ORBIT_CR_DB_ENABLED = False
+
+    if ORBIT_CR_DB_ENABLED:
+        try:
+            from src.orbit_cr_db import fetch_cr_from_db, upsert_cr_to_db
+            db_result = fetch_cr_from_db(cr)
+            if db_result and db_result.get("found") and not db_result.get("stale"):
+                logger.info(f"[orbit_client] DB cache hit for CR{cr}")
+                # Also populate in-memory cache
+                if use_cache:
+                    _cache_set(cr, db_result)
+                return db_result
+            if db_result and db_result.get("stale"):
+                logger.info(f"[orbit_client] DB cache stale for CR{cr}, re-fetching from Orbit")
+        except Exception as _dbe:
+            logger.debug(f"[orbit_client] DB lookup failed for CR{cr}: {_dbe}")
+
+    # ── In-memory cache ──────────────────────────────────────────────────────
     if use_cache:
         cached = _cache_get(cr)
         if cached:
             logger.info(f"[orbit_client] Cache hit for CR{cr}")
             return cached
 
-        # Fetch based on source
+    # ── Fetch from Orbit ─────────────────────────────────────────────────────
     if ORBIT_CR_SOURCE == "ORBIT_DIRECT":
         # Primary: direct Orbit REST (full CR + SIRs via Kerberos)
         data = _fetch_via_orbit_direct(cr)
@@ -924,7 +951,15 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
     else:
         data = _fetch_via_python2(cr)
 
-    # Cache result
+    # ── Store in DB cache (if enabled and fetch succeeded) ───────────────────
+    if ORBIT_CR_DB_ENABLED and data.get("found"):
+        try:
+            from src.orbit_cr_db import upsert_cr_to_db
+            upsert_cr_to_db(data)
+        except Exception as _dbe:
+            logger.debug(f"[orbit_client] DB upsert failed for CR{cr}: {_dbe}")
+
+    # ── In-memory cache ──────────────────────────────────────────────────────
     if use_cache and data.get("found"):
         _cache_set(cr, data)
 

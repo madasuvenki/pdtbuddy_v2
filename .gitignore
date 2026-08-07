@@ -35,6 +35,7 @@ flask_session/
 temp_reports/
 instance/
 *.log
+build_log.txt
 logs/
 
 # Local/generated data and large backups

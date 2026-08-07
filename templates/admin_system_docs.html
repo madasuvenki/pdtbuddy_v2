@@ -51,6 +51,7 @@
       </div>
       <div class="actions">
         <button id="syncCentralBtn" class="btn btn-primary" onclick="triggerCentralSync()"><i class="fas fa-sync-alt"></i> Sync Central Tables</button>
+        <a href="{{ url_for('admin_orbit_cr') }}" class="btn btn-secondary" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;border:1px solid #c7d2fe;"><i class="fas fa-database"></i> Orbit CR DB Cache</a>
         <a href="{{ url_for('admin_live_status_docs') }}" class="btn btn-secondary"><i class="fas fa-satellite-dish"></i> Live Status Docs</a>
         <a href="{{ url_for('admin_usage') }}" class="btn btn-secondary"><i class="fas fa-chart-line"></i> Admin Stats</a>
       </div>

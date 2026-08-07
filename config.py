@@ -390,3 +390,16 @@ SHEET_CONFIG = [
 
 # --- Ingestion Options ---
 TRUNCATE_EXISTING_TABLES = True
+
+# ---------------------------------------------------------------------------
+# ORBIT_CR_DB_ENABLED - Persistent orbit_cr DB cache feature flag.
+#
+# False (default) = current behavior, CRs fetched directly from Orbit each time
+# True            = DB-first lookup (orbit_cr table), fall back to Orbit on miss
+#
+# To enable: set ORBIT_CR_DB_ENABLED=1 in .env  OR  change default below.
+# To disable: set ORBIT_CR_DB_ENABLED=0 in .env  OR  set False below.
+#
+# Safe to toggle at runtime - no restart needed if read via os.getenv().
+# ---------------------------------------------------------------------------
+ORBIT_CR_DB_ENABLED = os.getenv("ORBIT_CR_DB_ENABLED", "0").strip() in ("1", "true", "True", "yes")

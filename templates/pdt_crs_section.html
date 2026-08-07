@@ -214,13 +214,40 @@
 
   <div class="pcr-kpi-row">
 
-    <!-- Total ΓÇö click to reset filter -->
+    <!-- All CRs from Unique CR sheet -->
+    <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#2563eb,#1d4ed8);"
+         onclick="pcrKpiFilter('')" id="kpiCardTotal" title="All CRs from Unique CR sheet">
+      <span class="pcr-kpi-icon">&#128196;</span>
+      <div class="pcr-kpi-val" id="kpiTotal" style="color:#1d4ed8;">-</div>
+      <div class="pcr-kpi-lbl">All CRs</div>
+      <div class="pcr-kpi-hint">from unique_cr sheet</div>
+    </div>
+
+    <!-- Valid CRs -->
     <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#16a34a,#15803d);"
-         onclick="pcrKpiFilter('')" id="kpiCardTotal" title="Valid CRs (built + undisposed)">
+         onclick="pcrKpiFilter('valid')" id="kpiCardValid" title="Valid CRs (built + undisposed)">
       <span class="pcr-kpi-icon">&#9989;</span>
-      <div class="pcr-kpi-val" id="kpiTotal" style="color:#15803d;">-</div>
+      <div class="pcr-kpi-val" id="kpiValid" style="color:#15803d;">-</div>
       <div class="pcr-kpi-lbl">Valid CRs</div>
       <div class="pcr-kpi-hint">built + undisposed</div>
+    </div>
+
+    <!-- Duplicate CRs -->
+    <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#f59e0b,#d97706);"
+         onclick="pcrKpiFilter('dup')" id="kpiCardDup" title="Duplicate CRs">
+      <span class="pcr-kpi-icon">&#128260;</span>
+      <div class="pcr-kpi-val" id="kpiDup" style="color:#d97706;">-</div>
+      <div class="pcr-kpi-lbl">Dup CRs</div>
+      <div class="pcr-kpi-hint">dup + invalid_dup</div>
+    </div>
+
+    <!-- Invalid CRs -->
+    <div class="pcr-kpi clickable" style="--acc:linear-gradient(90deg,#ef4444,#dc2626);"
+         onclick="pcrKpiFilter('invalid')" id="kpiCardInvalid" title="Invalid CRs">
+      <span class="pcr-kpi-icon">&#9940;</span>
+      <div class="pcr-kpi-val" id="kpiInvalid" style="color:#dc2626;">-</div>
+      <div class="pcr-kpi-lbl">Invalid CRs</div>
+      <div class="pcr-kpi-hint">invalid category</div>
     </div>
 
     <!-- Status Breakdown (valid CRs only) -->
@@ -397,27 +424,35 @@
     </div>
 
     {% if not is_compute_target %}
-    <!-- CR Tag Filter (non-Compute BU only - Compute uses CR TAG dropdown) -->
+    <!-- CR Tag Search (non-Compute BU only - Compute uses CR TAG dropdown) -->
     <div style="display:flex;flex-direction:column;gap:4px;min-width:240px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #f59e0b;border-radius:12px;padding:8px 10px;box-shadow:0 2px 8px rgba(245,158,11,.18);">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
         <i class="fas fa-tags" style="color:#d97706;font-size:13px;"></i>
-        <span style="font-size:12px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.06em;">CR Tag Filter</span>
-        <span style="font-size:9px;color:#b45309;font-style:italic;margin-left:2px;">shared across all users</span>
+        <span style="font-size:12px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.06em;">CR Tag Search</span>
+        <span style="font-size:9px;color:#b45309;font-style:italic;margin-left:2px;">shows with / without tag</span>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         <input type="text" id="pcrSearchTagsInput"
                style="height:34px;padding:0 12px;border-radius:8px;border:1.5px solid #fcd34d;font-size:13px;font-weight:600;color:#374151;background:#fff;outline:none;flex:1;box-sizing:border-box;transition:border-color .15s,box-shadow .15s;"
-               placeholder="e.g. PDT_P1, CUSTOMER_A..."
+               placeholder="e.g. NORD_HGY_PDTQIPL..."
                oninput="pcrSearchTagsChanged()"
                onfocus="this.style.borderColor='#f59e0b';this.style.boxShadow='0 0 0 3px rgba(245,158,11,.18)'"
                onblur="this.style.borderColor='#fcd34d';this.style.boxShadow='none'"
-               title="Enter Orbit CR tags to filter by (comma separated). Saved across refreshes.">
+               title="Enter Orbit CR tags to search by (comma separated). The table keeps all CRs and marks each row as matching or not matching.">
         <button onclick="pcrSaveSearchTagsManual()" title="Save tags"
                 style="height:34px;padding:0 12px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,.35);">
           <i class="fas fa-save" style="margin-right:4px;"></i>Save
         </button>
       </div>
-      <span style="font-size:10px;color:#92400e;font-weight:600;">Enter multiple tags with comma separated</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="pcrTagSearchSummary" style="font-size:10px;color:#92400e;font-weight:600;">Enter tag(s), comma separated. Table is not filtered.</span>
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#166534;font-weight:900;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="pcrShowWithTagOnly" onchange="pcrTagScopeChanged(this)" style="accent-color:#16a34a;margin:0;"> With tag
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#c2410c;font-weight:900;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="pcrShowWithoutTagOnly" onchange="pcrTagScopeChanged(this)" style="accent-color:#f97316;margin:0;"> Without tag
+        </label>
+      </div>
     </div>
     {% endif %}
 
@@ -763,8 +798,8 @@
   let pcrLoadStarted = 0;
   let pcrLoadTimer = null;
 
-  // ── Shared Tag Filter (server-side, visible to ALL users for this target) ───
-  let _pcrSearchTags = []; // array of lowercase tag strings
+  // ── Shared CR Tag Search (server-side, visible to ALL users for this target) ─
+  let _pcrSearchTags = []; // array of lowercase tag strings; annotates rows; optional with/without checkboxes filter rows
 
   async function pcrLoadSearchTags(){
     try{
@@ -778,6 +813,53 @@
       }
     }catch(e){}
   }
+
+  function pcrRowMatchesSearchTags(r){
+    if(!_pcrSearchTags.length) return false;
+    const allTags = [
+      ...(r.cr_tags || []),
+      ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
+      ...(r.cr_tag || '').split(',').map(x=>x.trim()).filter(Boolean),
+    ];
+    return allTags.some(t => {
+      const tl = String(t).trim().toLowerCase();
+      return tl && _pcrSearchTags.some(st => tl.includes(st) || st.includes(tl));
+    });
+  }
+
+  function pcrTagScopeMode(){
+    const withCb = document.getElementById('pcrShowWithTagOnly');
+    const withoutCb = document.getElementById('pcrShowWithoutTagOnly');
+    if(withCb && withCb.checked) return 'with';
+    if(withoutCb && withoutCb.checked) return 'without';
+    return '';
+  }
+
+  function pcrUpdateTagSearchSummary(rows){
+    const el = document.getElementById('pcrTagSearchSummary');
+    if(!el) return;
+    if(!_pcrSearchTags.length){
+      el.textContent = 'Enter tag(s), comma separated. Table is not filtered.';
+      return;
+    }
+    const baseRows = rows || filtered || [];
+    const sourceRows = _applyExclude(allRows || []);
+    const withCount = sourceRows.filter(pcrRowMatchesSearchTags).length;
+    const withoutCount = Math.max(0, sourceRows.length - withCount);
+    const mode = pcrTagScopeMode();
+    const suffix = mode === 'with'
+      ? ' Showing only CRs with tag.'
+      : (mode === 'without' ? ' Showing only CRs without tag.' : ' Table is not filtered by tag.');
+    el.textContent = 'With tag: '+withCount+' CRs | Without tag: '+withoutCount+' CRs.' + suffix;
+  }
+
+  window.pcrTagScopeChanged = function(source){
+    const withCb = document.getElementById('pcrShowWithTagOnly');
+    const withoutCb = document.getElementById('pcrShowWithoutTagOnly');
+    if(source && source.id === 'pcrShowWithTagOnly' && source.checked && withoutCb) withoutCb.checked = false;
+    if(source && source.id === 'pcrShowWithoutTagOnly' && source.checked && withCb) withCb.checked = false;
+    pcrApply();
+  };
 
   window.pcrSearchTagsChanged = function(){
     const inp = document.getElementById('pcrSearchTagsInput');
@@ -1063,8 +1145,8 @@
   // ΓöÇΓöÇ KPI card click ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   window.pcrKpiFilter = function(type){
     activeKpi = (activeKpi === type) ? '' : type;
-    ['kpiCardTotal','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
-    const cardMap = { 'old40':'kpiCardOld', '':'kpiCardTotal' };
+    ['kpiCardTotal','kpiCardValid','kpiCardDup','kpiCardInvalid','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
+    const cardMap = { 'valid':'kpiCardValid', 'dup':'kpiCardDup', 'invalid':'kpiCardInvalid', 'old40':'kpiCardOld', '':'kpiCardTotal' };
     const activeCard = document.getElementById(cardMap[activeKpi]||'kpiCardTotal');
     if(activeCard) activeCard.classList.add('active');
     pcrApply();
@@ -1077,7 +1159,8 @@
     const validRows   = rows.filter(r => { const c=_cat(r); return c==='built'||c==='undisposed'; });
     const invalidRows = rows.filter(r => _cat(r)==='invalid');
     const dupRows     = rows.filter(r => { const c=_cat(r); return c==='dup'||c==='invalid_dup'; });
-    const total   = validRows.length;
+    const total   = rows.length;
+    const valid   = validRows.length;
     const invalid = invalidRows.length;
     const dup     = dupRows.length;
     const areas   = new Set(validRows.map(r=>r.cr_area||'').filter(Boolean)).size;
@@ -1103,6 +1186,9 @@
     }).join('');
     document.getElementById('kpiStatusBreakdown').innerHTML = pills||'-';
     document.getElementById('kpiTotal').textContent   = total;
+    document.getElementById('kpiValid').textContent   = valid;
+    document.getElementById('kpiDup').textContent     = dup;
+    document.getElementById('kpiInvalid').textContent = invalid;
     document.getElementById('kpiAreas').textContent   = areas;
     document.getElementById('kpiAvgAge').textContent  = avgAge;
     document.getElementById('kpiOld').textContent     = old40;
@@ -1153,6 +1239,14 @@
       if(pdtTagFlt==='PDT_P1' && hits <= 10) return false;
       if(pdtTagFlt==='none'   && hits >  10) return false;
       if(ageFlt && age <= ageFlt) return false;
+
+      const cat = (r.cr_category||'').trim().toLowerCase();
+      const isValid = (cat==='built'||cat==='undisposed');
+      const isDup = (cat==='dup'||cat==='invalid_dup');
+      const isInvalid = (cat==='invalid');
+      if(activeKpi==='valid' && !isValid) return false;
+      if(activeKpi==='dup' && !isDup) return false;
+      if(activeKpi==='invalid' && !isInvalid) return false;
       if(activeKpi==='old40' && age <= 40) return false;
 
             if(ddState.area.all.size>0          && ddState.area.sel.size>0          && ddState.area.sel.size<ddState.area.all.size                   && !ddState.area.sel.has(area))          return false;
@@ -1165,20 +1259,15 @@
 
       if(q && !text.toLowerCase().includes(q)) return false;
 
-      // Matched CR Tags filter (shared server-side tag filter, case-insensitive)
-      if(_pcrSearchTags.length > 0){
-        // Check raw Orbit tags array, alias-matched raw tags, and alias group names
-        const crRawTags = [
-          ...(r.cr_tags || []),
-          ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
-          ...(r.cr_tag || '').split(',').map(x=>x.trim()).filter(Boolean),
-        ].map(t => String(t).trim().toLowerCase()).filter(Boolean);
-        if(!_pcrSearchTags.some(t => crRawTags.some(rt => rt.includes(t) || t.includes(rt)))) return false;
-      }
+      // CR Tag search annotates rows by default. The With/Without checkboxes
+      // optionally update this same table to show only matching/non-matching CRs.
+      const tagScope = pcrTagScopeMode();
+      if(_pcrSearchTags.length && tagScope === 'with' && !pcrRowMatchesSearchTags(r)) return false;
+      if(_pcrSearchTags.length && tagScope === 'without' && pcrRowMatchesSearchTags(r)) return false;
 
       return true;
     });
-    applySort(); currentPage=1; renderTable(); renderKpi(filtered);
+    applySort(); currentPage=1; renderTable(); renderKpi(filtered); pcrUpdateTagSearchSummary(filtered);
   };
 
   // ΓöÇΓöÇ Clear all ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -1199,12 +1288,16 @@
     // Clear tag filter input display AND server-side saved tags
     const tagInp = document.getElementById('pcrSearchTagsInput');
     if(tagInp) tagInp.value = '';
+    const withCb = document.getElementById('pcrShowWithTagOnly');
+    const withoutCb = document.getElementById('pcrShowWithoutTagOnly');
+    if(withCb) withCb.checked = false;
+    if(withoutCb) withoutCb.checked = false;
     _pcrSearchTags = [];
     // Clear server-side saved tags so they don't reload on next refresh
     fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/shared_tag_filter',{
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tags:[]})
     }).catch(function(){});
-    ['kpiCardTotal','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
+    ['kpiCardTotal','kpiCardValid','kpiCardDup','kpiCardInvalid','kpiCardOld'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
     pcrApply();
   };
 
@@ -1263,6 +1356,7 @@
       const _allCrTagsForMatch = [
         ...(r.cr_tags || []),
         ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
+        ...(r.cr_tag || '').split(',').map(x=>x.trim()).filter(Boolean),
       ];
       const matchedRawTags = _pcrSearchTags.length > 0
         ? _allCrTagsForMatch.filter(t => {
@@ -1272,7 +1366,9 @@
         : [];
       const matchedTagCell = matchedRawTags.length > 0
         ? matchedRawTags.map(t => '<span class="pcr-matched-tag-pill"><i class="fas fa-tag" style="font-size:9px;"></i>'+esc(t)+'</span>').join(' ')
-        : '<span style="color:#cbd5e1;">&mdash;</span>';
+        : (_pcrSearchTags.length > 0
+            ? '<span style="color:#94a3b8;font-size:10px;font-style:italic;white-space:nowrap;">tag not matched</span>'
+            : '<span style="color:#cbd5e1;">&mdash;</span>');
       // Assignee / Priority / Customer cells (filled async by pcrLoadOrbitDetailsForPage)
       const assigneeHtml = r.cr_assignee ? esc(r.cr_assignee) : '<span style="color:#cbd5e1;font-size:10px;">…</span>';
       const priorityVal  = r.cr_priority || '';
@@ -1613,14 +1709,8 @@
       const data = await resp.json();
             if(!data.success) throw new Error(data.message||'Load failed');
       if(data.cr_tag_alias_groups) CR_TAG_ALIAS_GROUPS = data.cr_tag_alias_groups;
-      pcrLoadUpdate('Filtering duplicate CRs...', 55);
-      allRows = (data.rows||[]).map(pcrEnsureCrId).filter(r=>{
-        const occ=(r.cr_occurrence||'').toString().trim().toLowerCase();
-        const cat=(r.cr_category||'').toString().trim().toLowerCase();
-        // Exclude dup and invalid_dup - duplicate entries, not real analysis CRs
-        // Keep 'invalid' - real CRs marked invalid, still shown for visibility
-        return occ!=='dup' && cat!=='dup' && cat!=='invalid_dup';
-      });
+      pcrLoadUpdate('Loading all Unique CR rows...', 55);
+      allRows = (data.rows||[]).map(pcrEnsureCrId);
                         filtered = allRows.slice();
       pcrLoadUpdate('Building filters for '+allRows.length+' CRs...', 72);
             ['area','subsystem','functionality','status'].concat(IS_COMPUTE_TARGET ? ['crtag'] : []).forEach(k=>buildDdList(k, allRows));
@@ -2069,6 +2159,179 @@
     a.href = url; a.download = String(TARGET||'target').replace(/[^a-z0-9_-]+/ig,'_')+'_pdt_crs.xls';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  };
+
+  // ── CR Tag Search groups: show CRs WITH the entered tag and WITHOUT it ─────
+  function pcrTagListHtml(rows, emptyText){
+    if(!rows.length){
+      return '<div style="text-align:center;padding:26px;color:#94a3b8;font-size:12px;">'+esc(emptyText)+'</div>';
+    }
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    html += '<thead><tr style="background:#f8fafc;color:#334155;border-bottom:1px solid #e5e7eb;">';
+    html += '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;">#</th>';
+    html += '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;">CR ID</th>';
+    html += '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;">Title</th>';
+    html += '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;">Status</th>';
+    html += '<th style="padding:7px 9px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;">CR Tags</th>';
+    html += '</tr></thead><tbody>';
+    rows.forEach(function(r, i){
+      const crId = pcrCrId(r).replace(/^CR/i,'');
+      const crUrl = crId ? 'https://orbit/CR/'+encodeURIComponent(crId) : '#';
+      const tags = [
+        ...(r.cr_tags || []),
+        ...(r.cr_tag_alias || '').split(',').map(x=>x.trim()).filter(Boolean),
+        ...(r.cr_tag || '').split(',').map(x=>x.trim()).filter(Boolean),
+      ];
+      const uniqueTags = tags.filter(function(v, idx, arr){ return v && arr.indexOf(v) === idx; });
+      const tagsHtml = uniqueTags.length
+        ? uniqueTags.map(function(t){
+            const tl = String(t).toLowerCase();
+            const isMatch = _pcrSearchTags.some(function(st){ return tl.includes(st) || st.includes(tl); });
+            return '<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:'+(isMatch?'#fef3c7':'#ecfeff')+';color:'+(isMatch?'#92400e':'#0e7490')+';border:1px solid '+(isMatch?'#fcd34d':'#67e8f9')+';font-size:10px;margin:1px;font-weight:800;">'+esc(t)+'</span>';
+          }).join(' ')
+        : '<span style="color:#cbd5e1;font-size:10px;">no tags</span>';
+      html += '<tr style="background:'+(i%2===0?'#fff':'#f8fafc')+';">';
+      html += '<td style="padding:7px 9px;color:#94a3b8;">'+(i+1)+'</td>';
+      html += '<td style="padding:7px 9px;"><a href="'+crUrl+'" target="_blank" style="color:#4f46e5;font-weight:900;text-decoration:none;">CR'+esc(crId)+'</a></td>';
+      html += '<td style="padding:7px 9px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.cr_title||r.title||'')+'">'+esc(r.cr_title||r.title||'—')+'</td>';
+      html += '<td style="padding:7px 9px;">'+esc(r.cr_status||r.status||'—')+'</td>';
+      html += '<td style="padding:7px 9px;">'+tagsHtml+'</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  window.pcrShowTagSearchGroups = function(){
+    if(!_pcrSearchTags.length){
+      alert('Enter CR tag search tags first.');
+      return;
+    }
+    const rows = filtered.length ? filtered : allRows;
+    const withRows = rows.filter(pcrRowMatchesSearchTags);
+    const withoutRows = rows.filter(function(r){ return !pcrRowMatchesSearchTags(r); });
+    let modal = document.getElementById('pcrTagSearchGroupsModal');
+    if(!modal){
+      modal = document.createElement('div');
+      modal.id = 'pcrTagSearchGroupsModal';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.5);align-items:stretch;justify-content:stretch;padding:10px;box-sizing:border-box;';
+      modal.innerHTML =
+        '<div style="background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.22);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;">'
+        +'<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;flex-shrink:0;">'
+        +'<div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-tags"></i><b>CR Tag Search — With / Without Tag</b><span id="pcrTagSearchGroupsCount" style="background:rgba(255,255,255,.22);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;"></span></div>'
+        +'<button onclick="document.getElementById(\'pcrTagSearchGroupsModal\').style.display=\'none\'" style="background:rgba(255,255,255,.18);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;">&times;</button>'
+        +'</div>'
+        +'<div id="pcrTagSearchGroupsLabel" style="padding:10px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:12px;color:#92400e;font-weight:700;flex-shrink:0;"></div>'
+        +'<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;min-height:0;overflow:hidden;flex:1;">'
+        +'<div style="border-right:1px solid #e5e7eb;display:flex;flex-direction:column;min-width:0;"><div id="pcrWithTagHead" style="padding:10px 14px;background:#f0fdf4;color:#166534;font-weight:900;font-size:12px;border-bottom:1px solid #bbf7d0;"></div><div id="pcrWithTagBody" style="overflow:auto;padding:10px;min-height:0;"></div></div>'
+        +'<div style="display:flex;flex-direction:column;min-width:0;"><div id="pcrWithoutTagHead" style="padding:10px 14px;background:#fff7ed;color:#c2410c;font-weight:900;font-size:12px;border-bottom:1px solid #fed7aa;"></div><div id="pcrWithoutTagBody" style="overflow:auto;padding:10px;min-height:0;"></div></div>'
+        +'</div></div>';
+      document.body.appendChild(modal);
+    }
+    document.getElementById('pcrTagSearchGroupsCount').textContent = rows.length + ' CRs';
+    document.getElementById('pcrTagSearchGroupsLabel').textContent = 'Search tag(s): ' + _pcrSearchTags.join(', ') + ' — normal filters still apply; CR tag search itself does not hide rows.';
+    document.getElementById('pcrWithTagHead').textContent = 'WITH tag — ' + withRows.length + ' CRs';
+    document.getElementById('pcrWithoutTagHead').textContent = 'WITHOUT tag — ' + withoutRows.length + ' CRs';
+    document.getElementById('pcrWithTagBody').innerHTML = pcrTagListHtml(withRows, 'No CRs have the entered tag.');
+    document.getElementById('pcrWithoutTagBody').innerHTML = pcrTagListHtml(withoutRows, 'All shown CRs have the entered tag.');
+    modal.style.display = 'flex';
+  };
+
+  // Backward-compatible name used by older buttons/docs.
+  window.pcrShowNonMatchedCrs = window.pcrShowTagSearchGroups;
+
+  // ── Non-matched CRs (legacy server-side orbit_cr DB feature) ───────────────
+  window.pcrShowNonMatchedCrsLegacy = async function(){
+    const tags = _pcrSearchTags;
+    if(!tags || !tags.length){
+      alert('Enter CR tag search tags first.');
+      return;
+    }
+    // Show loading modal
+    let modal = document.getElementById('pcrNonMatchedModal');
+    if(!modal){
+      modal = document.createElement('div');
+      modal.id = 'pcrNonMatchedModal';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.5);align-items:center;justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.22);width:min(900px,95vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <i class="fas fa-filter"></i>
+              <b>Non-matched CRs</b>
+              <span id="pcrNonMatchedCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="pcrNonMatchedTagsLabel" style="font-size:11px;opacity:.8;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+              <button onclick="document.getElementById('pcrNonMatchedModal').style.display='none'"
+                      style="background:rgba(255,255,255,.18);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;">&times;</button>
+            </div>
+          </div>
+          <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-size:12px;color:#64748b;flex-shrink:0;">
+            Legacy server-side view: CRs in this target that do <b>NOT</b> match the saved CR tag search. These CRs have no matching Orbit tags.
+          </div>
+          <div id="pcrNonMatchedBody" style="overflow-y:auto;flex:1;padding:16px;">
+            <div style="text-align:center;padding:40px;color:#94a3b8;">
+              <i class="fas fa-circle-notch fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>
+              Loading non-matched CRs...
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+    document.getElementById('pcrNonMatchedTagsLabel').textContent = 'Filter: ' + tags.join(', ');
+    document.getElementById('pcrNonMatchedCount').textContent = '';
+    document.getElementById('pcrNonMatchedBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-circle-notch fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>Loading non-matched CRs...</div>';
+
+    try{
+      const pdt_type = (new URLSearchParams(window.location.search).get('pdt_type') || 'SWPDT').toUpperCase();
+      const resp = await fetch('/api/dashboard/'+encodeURIComponent(TARGET)+'/cr_tag_filter/non_matched?pdt_type='+encodeURIComponent(pdt_type));
+      const data = await resp.json();
+      if(!data.success){
+        document.getElementById('pcrNonMatchedBody').innerHTML = '<div style="color:#ef4444;padding:20px;">Error: '+(data.message||'Failed to load')+'</div>';
+        return;
+      }
+      const rows = data.rows || [];
+      document.getElementById('pcrNonMatchedCount').textContent = rows.length + ' CRs';
+      if(!rows.length){
+        document.getElementById('pcrNonMatchedBody').innerHTML = '<div style="text-align:center;padding:40px;color:#16a34a;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;display:block;"></i><b>All CRs match the filter!</b><br><span style="font-size:12px;color:#64748b;margin-top:8px;display:block;">Every CR in this target has at least one matching tag.</span></div>';
+        return;
+      }
+      // Build table
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      html += '<thead><tr style="background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#fff;">';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">#</th>';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">CR ID</th>';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">Title</th>';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">Status</th>';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">Assignee</th>';
+      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;">CR Tags</th>';
+      html += '</tr></thead><tbody>';
+      rows.forEach(function(r, i){
+        const bg = i%2===0 ? '#fff' : '#f8fafc';
+        const crId = String(r.cr_id||'').replace(/^CR/i,'');
+        const crUrl = crId ? 'https://orbit/CR/'+crId : '#';
+        const st = String(r.status||'').toLowerCase();
+        const stBg = st.includes('open')?'#fef9c3':st.includes('built')?'#dcfce7':st.includes('analysis')?'#ede9fe':'#f1f5f9';
+        const stColor = st.includes('open')?'#854d0e':st.includes('built')?'#166534':st.includes('analysis')?'#5b21b6':'#475569';
+        const tagsHtml = (r.cr_tags||[]).length
+          ? r.cr_tags.map(function(t){ return '<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:#ecfeff;color:#0e7490;border:1px solid #67e8f9;font-size:10px;margin:1px;">'+esc(t)+'</span>'; }).join(' ')
+          : '<span style="color:#cbd5e1;font-size:10px;">no tags</span>';
+        html += '<tr style="background:'+bg+';">';
+        html += '<td style="padding:7px 10px;color:#94a3b8;">'+(i+1)+'</td>';
+        html += '<td style="padding:7px 10px;"><a href="'+crUrl+'" target="_blank" style="color:#4f46e5;font-weight:800;text-decoration:none;">CR'+esc(crId)+'</a></td>';
+        html += '<td style="padding:7px 10px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.title||'')+'">'+esc(r.title||'—')+'</td>';
+        html += '<td style="padding:7px 10px;"><span style="background:'+stBg+';color:'+stColor+';padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;">'+esc(r.status||'—')+'</span></td>';
+        html += '<td style="padding:7px 10px;color:#374151;">'+esc(r.assignee||'—')+'</td>';
+        html += '<td style="padding:7px 10px;">'+tagsHtml+'</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      document.getElementById('pcrNonMatchedBody').innerHTML = html;
+    }catch(e){
+      document.getElementById('pcrNonMatchedBody').innerHTML = '<div style="color:#ef4444;padding:20px;">Error: '+esc(e.message)+'</div>';
+    }
   };
 
     window.pcrCopyOutlook = async function(){

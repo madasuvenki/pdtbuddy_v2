@@ -64,14 +64,35 @@
 ### Optional Components
 - ✅ MCP MTBF server (mcp_mtbf_server.py, disabled by default, enable via MCP_MTBF_ENABLED=1)
 
+## Modularization Progress (2026-08-06)
+
+### New Modules Created
+- ✅ `src/user_activity.py` — `log_user_activity()`, `ensure_user_data_table()`
+- ✅ `src/cache_utils.py` — `_json_safe()`, `cache_table()`, `_sign_result_id()`, `load_cached_table()`
+- ✅ `src/cr_utils.py` — `normalize_cr_rows_for_table()`, `fetch_cr_jira_counts()`, `get_overall_crs_summary()`
+- ✅ `src/auth_routes.py` — `auth_bp`: login, logout, post_login_qgenie_gate, post_login_team_selection
+- ✅ `src/navigation_routes.py` — `navigation_bp`: bu_selection, bu_target_selection, bu_live_status, home, set_target
+- ✅ `src/hwpdt_routes.py` — `hwpdt_bp`: hwpdt_parts, hwpdt_overview
+- ✅ `tools/` directory — moved PAuth.py, PDT_Tagging_Tool.py, patch_gen45.py
+- ✅ `docs/MODULARIZATION_PLAN.md` — comprehensive plan with all 90 routes mapped
+
+### Remaining Work (app.py still 9,158 lines)
+The new modules are created but app.py has NOT yet been updated to:
+1. Import and register the new blueprints
+2. Remove the duplicate route handlers
+3. Remove the duplicate utility functions
+
+**Next Steps:**
+1. Register new blueprints in app.py (auth_bp, navigation_bp, hwpdt_bp)
+2. Remove duplicate routes from app.py (login, logout, bu_selection, home, hwpdt_*, etc.)
+3. Create remaining route modules: cr_routes.py, qgenie_routes.py, chatbot_routes.py, report_routes.py
+4. Remove duplicate utility functions from app.py (those now in user_activity.py, cache_utils.py, cr_utils.py)
+
 ## What's Left to Build / Unknown Status
 
 ### Unknown (Not Verified Without Running)
 - ❓ `consolidate_snapshots/` — purpose and current state of snapshot consolidation
-- ❓ `PDT_Tagging_Tool.py` — standalone tagging utility, integration status unknown
-- ❓ `PAuth.py` — standalone auth utility, integration status unknown
 - ❓ `ingest_autoupdate.py` — auto-update mechanism, current state unknown
-- ❓ `patch_gen45.py` — Gen45 data patching, when/how it's used
 - ❓ `qdt_client.py` — QDT integration, current usage status
 - ❓ `src/stability_reports_client.py` — stability reports client, current usage
 - ❓ `src/sync_central.py` — sync coordination, current usage
@@ -80,22 +101,19 @@
 - 🔄 Live status publish feature (has plan doc + technical doc in `docs/`)
 
 ## Current Status
-**Active production application at v2.7.** The codebase is mature with comprehensive features. Memory bank was initialized on 2026-08-05 to establish baseline documentation.
+**Active production application at v2.7.** Modularization in progress — new modules created, app.py not yet updated to use them.
 
 ## Known Issues
 - `VIEWER_OVERRIDE_USERS` contains `'akacham'` with comment "TEMP TEST" — suggests a temporary test configuration that may need cleanup
 - `BYPASS_USERS` is empty (commented out entries) — clean state
 - Result cache directory defaults to `/var/tmp/qgenie_result_cache` which is Linux-style; on Windows this may need adjustment via `QGENIE_RESULT_CACHE_DIR` env var
+- `app.py` is still 9,158 lines — modularization is in progress
 
 ## Cleanup History
-- **2026-08-06**: Removed 24 unused debug/temp/output files from root directory:
-  - `_debug_run.py`, `_dump_files.bat`, `_fix_dup_route.py`, `_verify_fix.py`
-  - `_out_src__auto_hierarchy_routes.py`, `_out_src__cr_info_routes.py`
-  - `_read_auto_hier.py`, `_read_files_temp.py`, `_read_output.py`, `_read_paths_debug.py`
-  - `_git_out.txt`, `_git_status.txt`, `_syntax_result.txt`, `_verify_out.txt`
-  - `_temp_hier.txt`, `_temp_read.txt`
-  - `_temp_output_*.txt` (6 files — captured output of previous Cline sessions)
-  - `build_log.txt`, `compile_check.txt`
+- **2026-08-06**: Removed 24 unused debug/temp/output files from root directory
+- **2026-08-06**: Created modularization plan at `docs/MODULARIZATION_PLAN.md`
+- **2026-08-06**: Created new modules: user_activity.py, cache_utils.py, cr_utils.py, auth_routes.py, navigation_routes.py, hwpdt_routes.py
+- **2026-08-06**: Moved standalone tools to `tools/` directory: PAuth.py, PDT_Tagging_Tool.py, patch_gen45.py
 
 ## Evolution of Project Decisions
 
@@ -114,3 +132,4 @@
 - Public API endpoints added for external consumers (automotive Gen5/Gen45)
 - AI features (QGenie, ChatWise) added as optional enhancements
 - MCP server added for AI agent integration with MTBF data
+- **Modularization started 2026-08-06**: extracting routes and utilities from monolithic app.py
