@@ -7467,33 +7467,18 @@ def _monthly_fetch_target_stats(
             return _tbl_exists_cur(cur, t)
 
         try:
-            # â”€â”€ 1. jiras: total JIRA count + metabuilds + total_crs â”€â”€â”€â”€â”€â”€
+            # 1. jiras: total JIRA count + metabuilds + total_crs (NO site filter)
             if tbl_exists(tbl('jiras')):
-                cur.execute(f'SHOW COLUMNS FROM {tbl("jiras")}')
-                jira_cols = {
-                    str(r.get('Field') or '').strip().lower()
-                    for r in (cur.fetchall() or [])
-                }
-                jira_site_sql = ''
-                jira_site_params = []
-                if selected_team_values and 'test_team' in jira_cols:
-                    jira_site_sql = ' AND UPPER(test_team) IN ({})'.format(
-                        ','.join(['%s'] * len(selected_team_values))
-                    )
-                    jira_site_params = list(selected_team_values)
-
                 # total_jiras
                 cur.execute(f"""
                     SELECT COUNT(*) AS cnt
                     FROM {tbl('jiras')}
                     WHERE DATE(jira_date) >= %s
                       AND DATE(jira_date) <= %s
-                      {jira_site_sql}
-                """, [date_from_s, date_to_s] + jira_site_params)
+                """, [date_from_s, date_to_s])
                 result['total_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-                # total_crs = COUNT(DISTINCT mapped_crs) per this pl_id's jiras
-                # (date-filtered: CRs reported in the selected month)
+                # total_crs = COUNT(DISTINCT mapped_crs) — date-filtered, no site filter
                 cur.execute(f"""
                     SELECT COUNT(DISTINCT mapped_crs) AS cnt
                     FROM {tbl('jiras')}
@@ -7502,24 +7487,21 @@ def _monthly_fetch_target_stats(
                       AND mapped_crs IS NOT NULL
                       AND mapped_crs != ''
                       AND mapped_crs != 'None'
-                      {jira_site_sql}
-                """, [date_from_s, date_to_s] + jira_site_params)
+                """, [date_from_s, date_to_s])
                 result['total_crs'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-                # all_time_crs = all-time COUNT(DISTINCT mapped_crs) from jiras
-                # (no date filter: cumulative total ever reported by PDT for this target)
-                # This is always >= total_crs so "Overall PDT CRs" >= "PDT CRs".
+                # all_time_crs = cumulative all-time COUNT(DISTINCT mapped_crs)
+                # (no date filter, no site filter)
                 cur.execute(f"""
                     SELECT COUNT(DISTINCT mapped_crs) AS cnt
                     FROM {tbl('jiras')}
                     WHERE mapped_crs IS NOT NULL
                       AND mapped_crs != ''
                       AND mapped_crs != 'None'
-                      {jira_site_sql}
-                """, jira_site_params)
+                """)
                 result['all_time_crs'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-                # distinct metabuilds for axiom lookup
+                # distinct metabuilds for axiom lookup (date-filtered, no site filter)
                 cur.execute(f"""
                     SELECT DISTINCT metabuild
                     FROM {tbl('jiras')}
@@ -7527,53 +7509,27 @@ def _monthly_fetch_target_stats(
                       AND DATE(jira_date) <= %s
                       AND metabuild IS NOT NULL
                       AND metabuild != ''
-                      {jira_site_sql}
-                """, [date_from_s, date_to_s] + jira_site_params)
+                """, [date_from_s, date_to_s])
                 result['metabuilds'] = [
                     str(row['metabuild']).strip()
                     for row in (cur.fetchall() or [])
                     if row.get('metabuild')
                 ]
 
-            # â”€â”€ 2. openjiras: open JIRA count â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # 2. openjiras: open JIRA count (NO site filter)
             if tbl_exists(tbl('openjiras')):
-                cur.execute(f'SHOW COLUMNS FROM {tbl("openjiras")}')
-                open_cols = {
-                    str(r.get('Field') or '').strip().lower()
-                    for r in (cur.fetchall() or [])
-                }
-                open_site_sql = ''
-                open_site_params = []
-                if selected_team_values and 'test_team' in open_cols:
-                    open_site_sql = ' AND UPPER(test_team) IN ({})'.format(
-                        ','.join(['%s'] * len(selected_team_values))
-                    )
-                    open_site_params = list(selected_team_values)
                 cur.execute(f"""
                     SELECT COUNT(*) AS cnt
                     FROM {tbl('openjiras')}
                     WHERE DATE(jira_date) >= %s
                       AND DATE(jira_date) <= %s
-                      {open_site_sql}
-                """, [date_from_s, date_to_s] + open_site_params)
+                """, [date_from_s, date_to_s])
                 result['open_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-            # â”€â”€ 3. Total CRs + Unique CRs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            #
-            # [total_crs] = "Total CRs reported by PDT" for the selected target.
-            # It is the distinct mapped_crs values reported by that target's
-            # {db_name}_jiras table inside the selected jira_date range.
-            # Do not replace this count with unique_crs rows: unique_crs is a
-            # separate classification table and can omit valid reported JIRAs.
-            #
-            # [unique_crs] = PDT-reported CRs from {base}_overallcrs
-            #                WHERE crid IN (mapped_crs from Step A)
-            #                AND reported_team IN ('PDT_Reported','PDT_Unique')
-            #                (no date filter on overallcrs â€” overallcrs.date is CR
-            #                 first-reported date, not jira date)
-
-            # Step A: distinct mapped_crs from jiras in range
-            # (already fetched above as result['metabuilds'] step, reuse jiras query)
+            # 3. Unique CRs from overallcrs (NO site filter, NO date filter on overallcrs)
+            # unique_crs = CRs in overallcrs WHERE reported_team='PDT_Unique'
+            # AND crid is in the set of mapped_crs reported in the date range.
+            # overallcrs is the ONLY authoritative source for Unique CRs.
             mapped_crs_rows = []
             if tbl_exists(tbl('jiras')):
                 cur.execute(f"""
@@ -7584,20 +7540,11 @@ def _monthly_fetch_target_stats(
                       AND mapped_crs IS NOT NULL
                       AND mapped_crs != ''
                       AND mapped_crs != 'None'
-                      {jira_site_sql}
-                """, [date_from_s, date_to_s] + jira_site_params)
+                """, [date_from_s, date_to_s])
                 mapped_crs_rows = [r['mapped_crs'] for r in (cur.fetchall() or [])]
 
             if mapped_crs_rows:
                 ph_cr = ','.join(['%s'] * len(mapped_crs_rows))
-
-                # total_crs was calculated above directly from the selected
-                # target's date-filtered JIRA mapped_crs values. Keep that
-                # source-of-truth count unchanged.
-
-                # unique_crs must come only from overall CR tables.
-                # Prefer PL-wise overall first (for example
-                # amboseli_le_1_2_overallcrs), then target/base-wise overall.
                 ov_tbl = None
                 for _ov_candidate in (
                     f'`{schema}`.`{db_name}_overallcrs`',
@@ -7609,15 +7556,16 @@ def _monthly_fetch_target_stats(
                         ov_tbl = _ov_candidate
                         break
                 if ov_tbl:
+                    # No date filter on overallcrs — it is a cumulative table.
+                    # No site filter — unique_crs is from overallcrs only.
                     cur.execute(f"""
                         SELECT COUNT(DISTINCT crid) AS unique_cnt
                         FROM {ov_tbl}
-                        WHERE DATE(date) >= %s AND DATE(date) <= %s
-                          AND reported_team = 'PDT_Unique'
+                        WHERE reported_team = 'PDT_Unique'
                           AND crid IN ({ph_cr})
                           AND crid IS NOT NULL
                           AND TRIM(crid) != ''
-                    """, [date_from_s, date_to_s] + mapped_crs_rows)
+                    """, mapped_crs_rows)
                     result['unique_crs'] = int((cur.fetchone() or {}).get('unique_cnt') or 0)
         finally:
             cur.close()
@@ -7639,44 +7587,14 @@ def _monthly_fetch_target_stats(
                 cur2 = conn2.cursor(dictionary=True)
                 try:
                     ph = ','.join(['%s'] * len(metabuilds))
-                    cur2.execute("""
-                        SHOW COLUMNS FROM `pdt_stats_dashboard`.`axiom_job_summary`
-                    """)
-                    ax_cols = {
-                        str(r.get('Field') or '').strip().lower()
-                        for r in (cur2.fetchall() or [])
-                    }
-                    ax_site_sql = ''
-                    ax_site_params = []
-                    if selected_sites:
-                        site_clauses = []
-                        site_values = []
-                        if 'site' in ax_cols:
-                            site_clauses.append(
-                                'UPPER(site) IN ({})'.format(','.join(['%s'] * len(selected_sites)))
-                            )
-                            site_values.extend(sorted(selected_sites))
-                        if 'city_team' in ax_cols:
-                            site_clauses.append(
-                                'UPPER(city_team) IN ({})'.format(','.join(['%s'] * len(selected_sites)))
-                            )
-                            site_values.extend(sorted(selected_sites))
-                        if 'team' in ax_cols:
-                            site_clauses.append(
-                                'UPPER(team) IN ({})'.format(','.join(['%s'] * len(selected_team_values)))
-                            )
-                            site_values.extend(selected_team_values)
-                        if site_clauses:
-                            ax_site_sql = ' AND (' + ' OR '.join(site_clauses) + ')'
-                            ax_site_params = site_values
+                    # No site filter on axiom — status table shows all data for the target
                     cur2.execute(f"""
                         SELECT build_name, device_count, chip_ids, hours
                         FROM `pdt_stats_dashboard`.`axiom_job_summary`
                         WHERE build_name IN ({ph})
                           AND team IN ('QIPL','PDT','SD','CH')
                           AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%%'
-                          {ax_site_sql}
-                    """, list(metabuilds) + ax_site_params)
+                    """, list(metabuilds))
                     ax_rows = cur2.fetchall() or []
                 finally:
                     cur2.close()
