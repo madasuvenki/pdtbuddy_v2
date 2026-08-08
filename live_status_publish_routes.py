@@ -4132,6 +4132,7 @@ def api_get_sp_configs(target_name):
 
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/sp_tables', methods=['GET'])
+@live_status_publish_bp.route('/api/live_status/targets/<target_name>/sp_table_options', methods=['GET'])
 @login_required
 def api_get_sp_tables(target_name):
     """Return all DB tables for this target grouped by SP and domain.
@@ -4148,12 +4149,76 @@ def api_get_sp_tables(target_name):
         if not conn:
             return jsonify({'ok': False, 'error': 'DB connection failed'}), 500
         cur = conn.cursor()
-        cur.execute(
-            'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES '
-            'WHERE TABLE_NAME LIKE %s ORDER BY TABLE_SCHEMA, TABLE_NAME',
-            (target.replace('_', r'\_') + '%',)
-        )
-        all_tables = [(r[0], r[1]) for r in (cur.fetchall() or [])]
+        # New external-link jobs can use a display/URL target whose physical
+        # tables are keyed by dashboard_status.db_name or target_name. Query
+        # all plausible prefixes instead of relying on one URL slug.
+        prefixes = {target}
+        # Common external-link naming variants:
+        # SECA_LE_IVI_1_0 may be stored as seca_ivi_1_0_* or seca_ivi_1_0.
+        for variant in (
+            target.replace('_le_', '_'),
+            target.replace('_LE_', '_').lower(),
+            target.replace('_safe_ivi_', '_ivi_'),
+            target.replace('_nonsafe_ivi_', '_ivi_'),
+        ):
+            variant = str(variant or '').strip('_').lower()
+            if variant:
+                prefixes.add(variant)
+        schema_hint = ''
+        try:
+            from dashboard_common import get_target_info, get_schema_for_target, get_mysql_connection_db
+            info = get_target_info(target_name) or {}
+            for key in ('target_name', 'target_display', 'db_name', 'db_prefix', 'sp_name'):
+                value = str(info.get(key) or '').strip().lower()
+                if value:
+                    prefixes.add(value)
+            schema_hint = str(get_schema_for_target(target_name) or '').strip('`')
+        except Exception:
+            pass
+        # Also resolve dashboard_status directly. Newly created jobs often use
+        # a URL/display target absent from TARGETS_CONFIG, while this row still
+        # contains the physical db_name and BU schema.
+        try:
+            meta_conn = get_mysql_connection_db(bu_key=None)
+            meta_cur = meta_conn.cursor(dictionary=True)
+            meta_cur.execute(
+                """SELECT target_name, target_display, db_name, db_prefix, sp_name, bu
+                   FROM pdt_stats_dashboard.dashboard_status
+                   WHERE is_active=1
+                     AND (LOWER(target_name)=LOWER(%s)
+                          OR LOWER(target_display)=LOWER(%s)
+                          OR LOWER(db_name)=LOWER(%s))
+                   ORDER BY id DESC LIMIT 1""",
+                (target_name, target_name, target_name),
+            )
+            meta = meta_cur.fetchone() or {}
+            for key in ('target_name', 'target_display', 'db_name', 'db_prefix', 'sp_name'):
+                value = str(meta.get(key) or '').strip().lower()
+                if value:
+                    prefixes.add(value)
+                    prefixes.add(value.replace('_le_', '_'))
+            if not schema_hint and meta.get('bu'):
+                from dashboard_common import get_schema_for_bu
+                schema_hint = str(get_schema_for_bu(str(meta['bu']).upper()) or '').strip('`')
+            meta_cur.close()
+            meta_conn.close()
+        except Exception as exc:
+            logger.info('[SP TABLES] dashboard metadata lookup skipped for %s: %s', target_name, exc)
+        all_tables = []
+        seen_tables = set()
+        for prefix in prefixes:
+            cur.execute(
+                'SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES '
+                'WHERE TABLE_NAME LIKE %s ORDER BY TABLE_SCHEMA, TABLE_NAME',
+                (prefix.replace('_', r'\_') + '%',)
+            )
+            for row in cur.fetchall() or []:
+                key = (row[0], row[1])
+                if key not in seen_tables:
+                    seen_tables.add(key)
+                    all_tables.append(key)
+        if schema_hint:
+            all_tables = [row for row in all_tables if row[0] == schema_hint] or all_tables
         cur.close()
         conn.close()
     except Exception as exc:
@@ -4165,17 +4230,21 @@ def api_get_sp_tables(target_name):
     SUFFIXES = ['unique_crs', 'closed_jiras', 'openjiras', 'crs', 'jiras']
     DOMAINS  = ['adas', 'flex', 'ivi']
 
-    # Group tables: result[sp_cpl][domain][suffix] = 'schema.table'
+    # Group tables: result[sp_cpl][domain][suffix] = 'schema.table'.
+    # Use the prefix that actually matched the DB table; a new external job
+    # may be opened with target_display/target_name while tables use db_name.
     result = {}
     for schema, tname in all_tables:
         tl = tname.lower()
-        # Match pattern: <target>_<domain>_<sp_slug>_<suffix>
-        # e.g. nord_hgy_adas_5_1_7_0_crs
         for dom in DOMAINS:
-            dom_prefix = target + '_' + dom + '_'
-            if not tl.startswith(dom_prefix):
+            matched_prefix = next(
+                (prefix + '_' + dom + '_' for prefix in prefixes
+                 if tl.startswith(prefix + '_' + dom + '_')),
+                ''
+            )
+            if not matched_prefix:
                 continue
-            rest = tl[len(dom_prefix):]  # e.g. '5_1_7_0_crs'
+            rest = tl[len(matched_prefix):]  # e.g. '5_1_7_0_crs'
             for suf in SUFFIXES:
                 if rest.endswith('_' + suf):
                     sp_slug = rest[: -(len(suf) + 1)]  # e.g. '5_1_7_0'
@@ -4184,7 +4253,31 @@ def api_get_sp_tables(target_name):
                     result.setdefault(sp_cpl, {}).setdefault(dom.upper(), {})[suf] = fq
                     break
 
-    return jsonify({'ok': True, 'tables': result, 'target': target_name})
+    # Fallback for target tables whose domain is embedded in the target name,
+    # e.g. seca_ivi_1_0_jiras rather than seca_ivi_1_0_ivi_<cpl>_jiras.
+    if not result:
+        for schema, tname in all_tables:
+            tl = tname.lower()
+            suffix = next((s for s in SUFFIXES if tl.endswith('_' + s)), '')
+            if not suffix:
+                continue
+            stem = tl[:-(len(suffix) + 1)]
+            matched = next((p for p in prefixes if stem == p or stem.startswith(p + '_')), '')
+            if not matched:
+                continue
+            domain = next((d.upper() for d in DOMAINS if f'_{d}_' in f'_{stem}_'), 'IVI')
+            cpl_match = re.search(r'(\d+(?:_\d+){1,3})$', stem)
+            cpl = cpl_match.group(1).replace('_', '.') if cpl_match else 'DEFAULT'
+            result.setdefault(cpl, {}).setdefault(domain, {})[suffix] = f'{schema}.{tname}'
+
+    return jsonify({
+        'ok': True,
+        'tables': result,
+        'target': target_name,
+        'prefixes_checked': sorted(prefixes),
+        'table_count': len(all_tables),
+        'matched_table_count': sum(len(domains) for sp in result.values() for domains in sp.values()),
+    })
 
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/add_sp', methods=['POST'])

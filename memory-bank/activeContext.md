@@ -1,7 +1,36 @@
 # Active Context
 
+### New external-link job SP table discovery (2026-08-08)
+- Added the missing compatibility endpoint
+  `/api/live_status/targets/<target>/sp_table_options`, backed by the existing
+  SP table discovery implementation.
+- Table discovery now checks target metadata aliases including `target_name`,
+  `target_display`, `db_name`, `db_prefix`, and `sp_name`, rather than relying
+  only on the URL target slug.
+- Results are filtered to the resolved target schema when available and grouped
+  by CPL/domain/suffix for the SP Config modal.
+- This fixes newly created external-link jobs such as `SECA_LE_IVI_1_0` showing
+  `-- None --` for every table when physical tables use another metadata prefix.
+- Validated with Python compilation and `git diff --check`.
+
+
 ## Current Work Focus
 Enhanced SI image path tracking in `dashboard_status` table via batch file scanning.
+Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
+
+### New external-link job SP table discovery (2026-08-08)
+- Added the missing compatibility endpoint
+  `/api/live_status/targets/<target>/sp_table_options`, backed by the existing
+  SP table discovery implementation.
+- Table discovery now checks target metadata aliases including `target_name`,
+  `target_display`, `db_name`, `db_prefix`, and `sp_name`, rather than relying
+  only on the URL target slug.
+- Results are filtered to the resolved target schema when available and grouped
+  by CPL/domain/suffix for the SP Config modal.
+- This fixes newly created external-link jobs such as `SECA_LE_IVI_1_0` showing
+  `-- None --` for every table when physical tables use another metadata prefix.
+- Validated with Python compilation and `git diff --check`.
+
 Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
 
 ### Build Report mutually exclusive JIRA counts (2026-08-08)
