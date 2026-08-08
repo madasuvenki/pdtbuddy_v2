@@ -199,20 +199,50 @@
           </ul>
         </div>
 
-        <div class="guide-card">
+        <div class="guide-card" style="grid-column:span 2;">
           <div class="guide-card__header">
             <div class="guide-card__icon" style="background:#dcfce7;color:#166534;"><i class="fas fa-tachometer-alt"></i></div>
-            <div><div class="guide-card__title">Target Dashboard (AUTO)</div><div class="guide-card__path">/live_status/AUTO/&lt;target&gt;</div></div>
+            <div><div class="guide-card__title">Target Dashboard — All Tabs</div><div class="guide-card__path">/dashboard/&lt;target&gt;/dashboard</div></div>
           </div>
-          <div class="guide-card__body">Per-target MTBF, CR age, open/mapped CRs, JIRA counts, and build health.</div>
-          <ul class="guide-card__steps">
-            <li>Select a target from the left sidebar</li>
-            <li>Overview tab: MTBF trend chart, KPI cards, open CR summary</li>
-            <li>Open CRs tab: filterable table of open/analysis CRs by area</li>
-            <li>JIRAs tab: weekly JIRA list with traversal to CR</li>
-            <li>Build Report tab: run JQL by build ID to get CR/JIRA report</li>
-            <li>Config tab (editors only): set DB tables for this target</li>
-          </ul>
+          <div class="guide-card__body" style="margin-bottom:10px;">Select a target from the left BU rail. The top tab bar gives access to all sections below.</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">
+            <div style="background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#1d4ed8;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-th-large"></i> Dashboard</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Main PDT execution view. Shows KPI cards (Mapped JIRAs, Open JIRAs, Closed JIRAs, Total JIRAs, Total PDT CRs), CR Avg Age chart by Area/Subsystem/Functionality, Analysis/Open CRs by Area bar chart, and CR age bucket table. Use the View selector to switch between Summary, Area, Subsystem, Functionality.</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#166534;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-clipboard-list"></i> Device Summary</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Shows device-level PDT execution summary — device count, pass/fail rates, and per-device status. Useful for tracking which devices are actively running PDT and their current state.</div>
+            </div>
+            <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#7c3aed;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-file-excel"></i> MTBF</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">View and edit the MTBF Excel data for this target. Shows MTBF trend chart, build-wise hours/crashes/MTBF table. Editors can add new builds, edit existing rows, or upload a new Excel file. MTBF = Hours / Total Crashes.</div>
+            </div>
+            <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#7c3aed;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-table"></i> SWPDT</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Software PDT MTBF table — shows the SWPDT-specific MTBF data from Axiom. Displays build ID, hours, crashes, and MTBF per build. Use the filter to search by build ID or date. Separate from the MTBF Excel tab.</div>
+            </div>
+            <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#0e7490;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-microchip"></i> HWPDT</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Hardware PDT data (shown only if HWPDT is configured for this target). Displays HW device test results, pass/fail counts, and HWPDT-specific CR/JIRA data. Visible only when hwpdt_available is true for the target.</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#0f766e;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-file-alt"></i> Weekly Report</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Inline weekly report for this target. Shows CR age, CR TAT, unique CRs, and farm testing data for the selected week. Select date range from the top. Download PPT for a slide deck. Same data as the standalone Weekly Summary page.</div>
+            </div>
+            <div style="background:#fff1f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#b91c1c;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-microscope"></i> Open_Analysis CR</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Detailed analysis of Open and Analysis-status CRs. Shows CR age distribution, area/subsystem breakdown, and a filterable CR table. Use the status checkboxes to toggle Open vs Analysis CRs. Click a bar to filter the table by area.</div>
+            </div>
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#92400e;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-bug"></i> PDT CRs</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Full list of PDT CRs for this target — both SWPDT and HWPDT. Shows CR ID, title, area, subsystem, status, age, and JIRA count. Filter by status (Valid/Invalid/Dup) and detailed status (Analysis/Built/Open/Ready). Export to Excel.</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;">
+              <div style="font-size:12px;font-weight:900;color:#166534;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-ticket-alt"></i> Open JIRAs</div>
+              <div style="font-size:11.5px;color:#475569;line-height:1.6;">Open JIRA tickets for this target — JIRAs that are not yet mapped to a CR. Shows JIRA key, title, date, reporter, component, and source table. Filter by JIRA reporter (AUTO targets). Export to CSV. Used to track unmapped stability tickets.</div>
+            </div>
+          </div>
         </div>
 
         <div class="guide-card">
@@ -468,7 +498,7 @@
           <span class="badge badge--purple">Auth Required</span>
         </div>
         <div class="api-btn-row">
-          <a href="/api/docs" target="_blank" class="api-open-btn api-open-btn--priv"><i class="fas fa-external-link-alt"></i> Full Private API Docs</a>
+          <a href="/docs/api" target="_blank" class="api-open-btn api-open-btn--priv"><i class="fas fa-external-link-alt"></i> Full Private API Docs</a>
         </div>
       </div>
 
