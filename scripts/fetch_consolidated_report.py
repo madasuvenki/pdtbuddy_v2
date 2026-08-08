@@ -1356,17 +1356,19 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                     return str(x.get('Status') or x.get('status') or '').strip()
 
                 def _sir_built(x):
-                    return str(
+                    raw = str(
                         x.get('BuiltDate') or x.get('built') or
                         x.get('BuildDate') or x.get('built_date') or ''
-                    ).strip()[:10]
+                    ).strip()
+                    return raw.split(' ')[0][:10] if raw else ''
 
                 def _sir_ready(x):
-                    return str(
+                    raw = str(
                         x.get('ReadyDate') or x.get('ready') or
                         x.get('ReadyOn') or x.get('ReadyOnDate') or
                         x.get('ready_date') or x.get('readyDate') or ''
-                    ).strip()[:10]
+                    ).strip()
+                    return raw.split(' ')[0][:10] if raw else ''
 
                 # Sort: matching SI first, then by status priority
 
@@ -1427,7 +1429,7 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_subsystem' : sub,
                 'cr_function'  : func,
                 'cr_built_date': best_built,
-                'cr_ready_date': best_ready or _g('ReadyDate', 'ReadyOn', 'ready_date', 'readyDate')[:10],
+                'cr_ready_date': best_ready or (_g('ReadyDate', 'ReadyOn', 'ready_date', 'readyDate').split(' ')[0][:10]),
                 'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built, best_status or _g('Status', 'cr_status', 'status')),
                 'AssigneeUid'  : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
                 'assignee_uid' : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
@@ -1883,8 +1885,8 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
                 'cr_area'      : str(row.get(area_col,   '') or '') if area_col   else '',
                 'cr_subsystem' : str(row.get(sub_col,    '') or '') if sub_col    else '',
                 'cr_function'  : str(row.get(func_col,   '') or '') if func_col   else '',
-                                                'cr_built_date': str(row.get(built_col,  '') or '') if built_col  else '',
-                'cr_ready_date': str(row.get(ready_col,  '') or '') if ready_col  else '',
+                                                'cr_built_date': str(row.get(built_col,  '') or '').split(' ')[0][:10] if built_col  else '',
+                'cr_ready_date': str(row.get(ready_col,  '') or '').split(' ')[0][:10] if ready_col  else '',
                 'cr_date'      : str(row.get(date_col,   '') or '') if date_col   else '',
 
                                 'cr_age'       : (str(row.get(age_col, '') or '') if age_col else '') or _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else '', str(row.get(status_col, '') or '') if status_col else ''),
