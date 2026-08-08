@@ -23,7 +23,11 @@
 
 ### Dashboard & Reporting
 - ✅ Multi-BU dashboard with per-target MySQL schema routing
+- ✅ Monthly report site checkboxes re-fetch and scope hero cards, target status, charts, CR tables, JIRA metrics, and Axiom metrics through CR-reporting team-to-site mapping
+- ✅ Monthly report Unique CR metrics use only `overall_crs` rows classified as `PDT_Unique`
+- ✅ Monthly report device values count unique Axiom chip IDs used, with device_count fallback when IDs are unavailable
 - ✅ MTBF trend tracking and display
+- ✅ Compute MTBF JSON routing fixed so only legacy Glymur/Mahua/Kalambo targets use the shared GLYMUR chart folder; Hamoa/other Compute targets now use target-specific JSON
 - ✅ CR (Change Request) overview and drilldown
 - ✅ Jira ticket integration
 - ✅ Milestone tracking
@@ -66,6 +70,17 @@
 
 ## Modularization Progress (2026-08-06)
 
+### Application Composition Registry (2026-08-07)
+- ✅ Created `src/application/__init__.py` and `src/application/blueprints.py`.
+- ✅ Centralized registration of all 18 active production feature blueprints in
+  `register_feature_blueprints(app)`, retaining the pre-existing order.
+- ✅ Replaced `app.py`’s scattered blueprint imports/registrations with one
+  composition call, without changing route ownership or endpoint names.
+- ✅ Verified modified Python sources with:
+  `py -3 -m py_compile app.py src\application\__init__.py src\application\blueprints.py`
+  (Python 3.13). The bare `python` command resolves to Python 2 in this
+  environment and is not valid for project checks.
+
 ### New Modules Created
 - ✅ `src/user_activity.py` — `log_user_activity()`, `ensure_user_data_table()`
 - ✅ `src/cache_utils.py` — `_json_safe()`, `cache_table()`, `_sign_result_id()`, `load_cached_table()`
@@ -83,10 +98,15 @@ The new modules are created but app.py has NOT yet been updated to:
 3. Remove the duplicate utility functions
 
 **Next Steps:**
-1. Register new blueprints in app.py (auth_bp, navigation_bp, hwpdt_bp)
-2. Remove duplicate routes from app.py (login, logout, bu_selection, home, hwpdt_*, etc.)
-3. Create remaining route modules: cr_routes.py, qgenie_routes.py, chatbot_routes.py, report_routes.py
-4. Remove duplicate utility functions from app.py (those now in user_activity.py, cache_utils.py, cr_utils.py)
+1. Make `auth_routes.py`, `navigation_routes.py`, and `hwpdt_routes.py`
+   dependency-independent and preserve legacy endpoint names before registration.
+   They currently conflict with active `app.py` URLs, so do not register them yet.
+2. Replace each legacy route group with its compatible blueprint in a separate
+   validated change, then remove only the matching `app.py` handlers.
+3. Create remaining route modules: `cr_routes.py`, `qgenie_routes.py`,
+   `chatbot_routes.py`, `report_routes.py`.
+4. Remove duplicate utility functions from `app.py` only after all callers use
+   `user_activity.py`, `cache_utils.py`, and `cr_utils.py`.
 
 ## What's Left to Build / Unknown Status
 
@@ -104,6 +124,7 @@ The new modules are created but app.py has NOT yet been updated to:
 **Active production application at v2.7.** Modularization in progress — new modules created, app.py not yet updated to use them.
 
 ## Known Issues
+- Fixed 2026-08-07: unrelated Compute targets (for example Hamoa_AL) were showing Glymur MTBF charts because `_mtbf_json_dir()` routed all Compute targets to `managed_excel/COMPUTE/GLYMUR`.
 - `VIEWER_OVERRIDE_USERS` contains `'akacham'` with comment "TEMP TEST" — suggests a temporary test configuration that may need cleanup
 - `BYPASS_USERS` is empty (commented out entries) — clean state
 - Result cache directory defaults to `/var/tmp/qgenie_result_cache` which is Linux-style; on Windows this may need adjustment via `QGENIE_RESULT_CACHE_DIR` env var

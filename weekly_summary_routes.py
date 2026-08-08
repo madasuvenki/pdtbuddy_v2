@@ -6879,22 +6879,65 @@ def _monthly_fetch_target_cr_data(
             except Exception:
                 pass
 
-        # Unique CR metrics must come exclusively from overall_crs. The
-        # target's unique_crs table is used only to identify which CR numbers
-        # were reported by the selected site/team.
-        site_reported_crs = {
-            str(row.get('mapped_cr') or '').strip().upper()
-            for row in result['pdt_crs']
-            if str(row.get('mapped_cr') or '').strip()
-        }
+        # Step 5: map each Overall CR back to the reporting team found in the
+        # date-scoped Step-1 JIRA rows. `overallcrs` supplies the authoritative
+        # Unique CR list/details; the JIRA table supplies the team ownership.
+        cr_team_map = {}
+        if _tbl_exists_cur(cur, j_table):
+            try:
+                cur.execute(f'SHOW COLUMNS FROM {j_table}')
+                map_cols = frozenset(r['Field'].lower() for r in (cur.fetchall() or []))
+                mapped_col = next((c for c in ('mapped_crs', 'mapped_cr', 'crid') if c in map_cols), None)
+                team_col = next((c for c in ('test_team', 'reported_team', 'team') if c in map_cols), None)
+                if mapped_col:
+                    team_select = f'`{team_col}` AS reporting_team' if team_col else "'' AS reporting_team"
+                    where = [
+                        'DATE(jira_date) >= %s',
+                        'DATE(jira_date) <= %s',
+                        f'`{mapped_col}` IS NOT NULL',
+                        f"TRIM(`{mapped_col}`) <> ''",
+                    ]
+                    params = [date_from_s, date_to_s]
+                    if selected_team_values and team_col:
+                        where.append('UPPER(`{}`) IN ({})'.format(
+                            team_col, ','.join(['%s'] * len(selected_team_values))
+                        ))
+                        params.extend(selected_team_values)
+                    cur.execute(f"""
+                        SELECT `{mapped_col}` AS mapped_cr, {team_select}
+                        FROM {j_table}
+                        WHERE {' AND '.join(where)}
+                        ORDER BY jira_date DESC
+                    """, params)
+                    for row in (cur.fetchall() or []):
+                        cr_key = str(row.get('mapped_cr') or '').strip().upper()
+                        team = str(row.get('reporting_team') or '').strip()
+                        if cr_key and cr_key not in cr_team_map:
+                            cr_team_map[cr_key] = team
+            except Exception:
+                pass
+
+        def _site_from_team(team):
+            team_up = str(team or '').upper()
+            if 'QIPL' in team_up:
+                return 'QIPL'
+            if '_SD_' in team_up or team_up == 'SD':
+                return 'SD'
+            if '_CH_' in team_up or 'CHINA' in team_up or team_up == 'CH':
+                return 'CH'
+            return ''
+
+        for row in result['overall_crs']:
+            cr_key = str(row.get('mapped_cr') or '').strip().upper()
+            reporting_team = cr_team_map.get(cr_key, '')
+            row['reporting_team'] = reporting_team
+            row['pdt_site_unique'] = _site_from_team(reporting_team)
+
         if selected_sites:
             result['overall_crs'] = [
                 row for row in result['overall_crs']
-                if str(row.get('mapped_cr') or '').strip().upper() in site_reported_crs
+                if str(row.get('pdt_site_unique') or '').upper() in selected_sites
             ]
-            site_marker = ','.join(sorted(selected_sites))
-            for row in result['overall_crs']:
-                row['pdt_site_unique'] = site_marker
 
         result['pdt_crs'] = [
             dict(row) for row in result['overall_crs']
@@ -7469,24 +7512,27 @@ def _monthly_fetch_target_stats(
         try:
             # 1. jiras: total JIRA count + metabuilds + total_crs (NO site filter)
             if tbl_exists(tbl('jiras')):
-                # total_jiras
+                # Step 1: count each reported JIRA once for the selected JIRA date range.
                 cur.execute(f"""
-                    SELECT COUNT(*) AS cnt
+                    SELECT COUNT(DISTINCT stability_ticket) AS cnt
                     FROM {tbl('jiras')}
                     WHERE DATE(jira_date) >= %s
                       AND DATE(jira_date) <= %s
+                      AND stability_ticket IS NOT NULL
+                      AND TRIM(stability_ticket) <> ''
                 """, [date_from_s, date_to_s])
                 result['total_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
-                # total_crs = COUNT(DISTINCT mapped_crs) — date-filtered, no site filter
+                # Step 1: PDT-reported CRs are the distinct mapped CRs associated
+                # with the date-scoped reported JIRAs.
                 cur.execute(f"""
                     SELECT COUNT(DISTINCT mapped_crs) AS cnt
                     FROM {tbl('jiras')}
                     WHERE DATE(jira_date) >= %s
                       AND DATE(jira_date) <= %s
                       AND mapped_crs IS NOT NULL
-                      AND mapped_crs != ''
-                      AND mapped_crs != 'None'
+                      AND TRIM(mapped_crs) <> ''
+                      AND UPPER(TRIM(mapped_crs)) <> 'NONE'
                 """, [date_from_s, date_to_s])
                 result['total_crs'] = int((cur.fetchone() or {}).get('cnt') or 0)
 
@@ -7516,13 +7562,16 @@ def _monthly_fetch_target_stats(
                     if row.get('metabuild')
                 ]
 
-            # 2. openjiras: open JIRA count (NO site filter)
+            # Step 1 / 3: date-scoped open JIRAs are counted separately and
+            # added to reported JIRAs by the caller for the Total JIRAs metric.
             if tbl_exists(tbl('openjiras')):
                 cur.execute(f"""
-                    SELECT COUNT(*) AS cnt
+                    SELECT COUNT(DISTINCT stability_ticket) AS cnt
                     FROM {tbl('openjiras')}
                     WHERE DATE(jira_date) >= %s
                       AND DATE(jira_date) <= %s
+                      AND stability_ticket IS NOT NULL
+                      AND TRIM(stability_ticket) <> ''
                 """, [date_from_s, date_to_s])
                 result['open_jiras'] = int((cur.fetchone() or {}).get('cnt') or 0)
 

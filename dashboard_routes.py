@@ -373,9 +373,40 @@ def _mtbf_json_headers(is_compute=False):
     return list(_MTBF_JSON_HEADERS if is_compute else _MTBFSIMPLE_JSON_HEADERS)
 
 
+def _is_legacy_glymur_mtbf_target(target_name):
+    """Return True only for the legacy Glymur/Mahua/Kalambo Compute MTBF group.
+
+    Compute has multiple targets. Historically the Glymur/Mahua MTBF JSON lived in
+    a shared managed_excel/COMPUTE/GLYMUR folder, but routing every Compute target
+    there makes unrelated targets such as Hamoa_AL render Glymur charts.
+    """
+    import re as _re
+    candidates = [target_name]
+    try:
+        info = get_target_info(target_name) or {}
+        candidates.extend([
+            info.get('target_name'),
+            info.get('display_name'),
+            info.get('db_prefix'),
+            info.get('db_name'),
+            info.get('chip_name'),
+            info.get('product'),
+        ])
+    except Exception:
+        pass
+
+    legacy_tokens = ('GLYMUR', 'MAHUA', 'KALAMBO')
+    for value in candidates:
+        normalized = _re.sub(r'[^A-Z0-9]+', '', str(value or '').upper())
+        if any(token in normalized for token in legacy_tokens):
+            return True
+    return False
+
+
 def _mtbf_json_dir(target_name, view_name=None):
-    # MTBF is JSON-backed. Compute keeps the historical shared GLYMUR folder for
-    # Glymur/Mahua compatibility; all other targets get target-specific JSON.
+    # MTBF is JSON-backed. Only the legacy Glymur/Mahua/Kalambo Compute group
+    # keeps the historical shared GLYMUR folder; other Compute targets get their
+    # own target-specific JSON so they do not inherit Glymur charts.
     # AUTO / Gen4.5: always use managed_excel\AUTO\Automotive\Gen4.5
     try:
         from automotive_live_view_stats_routes import _is_auto_gen45_target as _chk45
@@ -390,7 +421,7 @@ def _mtbf_json_dir(target_name, view_name=None):
         bu_key = (get_bu_for_target(target_name) or '').upper()
     except Exception:
         bu_key = ''
-    if bu_key == 'COMPUTE':
+    if bu_key == 'COMPUTE' and _is_legacy_glymur_mtbf_target(target_name):
         path = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', 'COMPUTE', 'GLYMUR')
     else:
         path = os.path.join(_PDTBUDDY_DATA_ROOT, 'managed_excel', _safe_target_slug(bu_key or 'GENERAL'), _safe_target_slug(target_name))

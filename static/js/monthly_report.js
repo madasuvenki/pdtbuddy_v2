@@ -1645,8 +1645,8 @@
     W = Math.max(W - 40, 500);
 
     el.innerHTML = '';
-    var PAD = { top: 50, right: 30, bottom: 100, left: 60 };
-    var LEGEND_H = 28;
+    var PAD = { top: 50, right: 30, bottom: 58, left: 60 };
+    var LEGEND_H = 34;
     var H   = 320;
     var nS  = 2;
     var grpGap = Math.max(20, Math.floor((W - PAD.left - PAD.right) / Math.max(cats.length, 1) * 0.18));
@@ -1717,17 +1717,12 @@
             { 'text-anchor':'middle','font-size':'9','font-weight':'900', fill:'#1e293b' });
         }
       });
-      /* x label: target name + series labels below */
+      /* One concise target label per group. Series names are rendered once
+         in the legend below the chart to prevent overlap on short groups. */
       var cx = gx + grpW / 2;
-      svgTxt(svg, cx, PAD.top + H + 18, cat,
+      var targetLabel = cat.length > 18 ? cat.slice(0, 17) + '\u2026' : cat;
+      svgTxt(svg, cx, PAD.top + H + 18, targetLabel,
         { 'text-anchor':'middle','font-size':'10','font-weight':'800', fill:'#1e293b' });
-      /* sub-labels */
-      var subLabels = ['Overall PDT CRs','Unique CRs'];
-      series.forEach(function(s, si) {
-        var lx = gx + si * (barW + 2) + barW / 2;
-        svgTxt(svg, lx, PAD.top + H + 34, s.name,
-          { 'text-anchor':'middle','font-size':'8','font-weight':'700', fill:'#64748b' });
-      });
     });
 
     /* baseline */

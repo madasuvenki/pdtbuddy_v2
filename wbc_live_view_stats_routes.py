@@ -20,6 +20,10 @@ wbc_live_view_stats_bp = Blueprint("wbc_live_view_stats_bp", __name__)
 
 _WBC_ROOT = os.environ.get("WBC_LIVE_VIEW_STATS_ROOT", r"C:\Dropbox\WBC_Scrum_DB")
 _WBC_DB_FILES = os.environ.get("WBC_LIVE_VIEW_STATS_DB_FILES", os.path.join(_WBC_ROOT, "DB_Files"))
+_WBC_FR_FILES = os.environ.get(
+    "WBC_LIVE_VIEW_FR_FILES",
+    r"\\sphere\pdtqipl_internal\PDTBuddy\live_status_publish\WBC\FRs",
+)
 _DATA_ROOT = os.environ.get("PDTBUDDY_DATA_ROOT", r"\\Sphere\pdtqipl_internal\PDTBuddy")
 _LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "wbc_live_view_stats")
 _WBC_SCHEMA = str(BU_DATABASE_MAPPING.get("WBC") or "pdt_stats_wbc").strip("`")
@@ -76,6 +80,16 @@ def _mtbf_aux_dir() -> str:
     return folder
 
 
+def _fr_json_dir() -> str:
+    folder = os.path.join(_store_dir(), "fr_analysis")
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def _fr_json_path(target_key: str) -> str:
+    return os.path.join(_fr_json_dir(), f"fr_analysis_{_slug(target_key)}.json")
+
+
 def _overview_summary_path(target_key: str) -> str:
     return os.path.join(_mtbf_aux_dir(), f"overview_summary_{_slug(target_key)}.json")
 
@@ -93,8 +107,12 @@ def _running_build_jql_cache_path(target_key: str, build_id: str) -> str:
     return os.path.join(folder, f"{key}.json")
 
 
-def _wbc_saved_jql_domain() -> str:
-    return "WBC"
+def _wbc_saved_jql_domain(target: Dict[str, str] | str | None = None) -> str:
+    """Use a distinct saved-JQL namespace for every WBC PL/target."""
+    if isinstance(target, dict):
+        target = target.get("key") or target.get("name") or target.get("label")
+    key = _slug(str(target or "WBC"))
+    return f"WBC_{key}"
 
 
 def _wbc_saved_jql_filter_id(value: Any) -> str:
@@ -281,11 +299,76 @@ def _find_target_excel(target: Dict[str, str], db_cfg: Dict[str, str] = None) ->
             os.path.join(_WBC_DB_FILES, f"*{token}*.xlsm"),
         ):
             hits.extend(glob(pattern))
+    # Mostly-matched fallback: try base name (first alphabetic characters, min 4 chars)
+    # e.g. "Kobuk11" -> "Kobuk", "Pinnacles.2.3" -> "Pinnacles"
+    if not hits:
+        base_names: set = set()
+        for name in (target.get("name"), target.get("label"), target.get("key")):
+            text = str(name or "").strip()
+            if text:
+                m = re.match(r"^([A-Za-z]+)", text)
+                if m and len(m.group(1)) >= 4:
+                    base_names.add(m.group(1))
+        for base in base_names:
+            for pattern in (
+                os.path.join(_WBC_DB_FILES, f"*{base}*Device_Deployment.xlsx"),
+                os.path.join(_WBC_DB_FILES, f"*{base}*Device_Deployment.xlsm"),
+                os.path.join(_WBC_DB_FILES, f"*{base}*.xlsx"),
+                os.path.join(_WBC_DB_FILES, f"*{base}*.xlsm"),
+            ):
+                hits.extend(glob(pattern))
     hits = [p for p in dict.fromkeys(hits) if os.path.exists(p)]
     if hits:
         hits.sort(key=lambda p: ("device_deployment" not in os.path.basename(p).lower(), os.path.basename(p).lower()))
         return hits[0]
     return explicit
+
+
+def _find_target_fr_workbook(target: Dict[str, str], db_cfg: Dict[str, str] = None) -> str:
+    """Resolve the PL-wise FR workbook; MTBF remains sourced from _WBC_DB_FILES."""
+    explicit = str((db_cfg or {}).get("fr_excel_path") or "").strip()
+    if explicit and os.path.exists(explicit):
+        return explicit
+
+    # Build a rich set of search tokens from name/label/key
+    tokens: List[str] = []
+    for value in (target.get("name"), target.get("label"), target.get("key")):
+        text = str(value or "").strip()
+        if not text:
+            continue
+        tokens.append(text)
+        tokens.append(text.replace(".", "_"))
+        tokens.append(text.replace("_", "."))
+        # Base name without LE version (e.g. "Tarang" from "Tarang.LE.1.0")
+        base = re.split(r"[._]LE[._]", text, maxsplit=1)[0].strip()
+        if base and base != text:
+            tokens.append(base)
+        # Version-compressed token: base + version digits (e.g. "Tarang1.0" from "Tarang.LE.1.0")
+        # Handles filenames like Tarang1.0_Device_Deployment.xlsx
+        m_ver = re.search(r"[._]LE[._](\d+[._]\d+)", text, re.I)
+        if m_ver and base:
+            ver = m_ver.group(1).replace("_", ".")
+            tokens.append(f"{base}{ver}")          # Tarang1.0
+            tokens.append(f"{base}{ver.replace('.', '_')}")  # Tarang1_0
+            tokens.append(f"{base}{ver.replace('.', '')}")   # Tarang10
+
+    search_dirs = [d for d in [_WBC_FR_FILES, _WBC_DB_FILES] if d and os.path.isdir(d)]
+
+    hits: List[str] = []
+    for search_dir in search_dirs:
+        for token in dict.fromkeys(tokens):
+            # Strict: require "Device_Deployment" in filename
+            hits.extend(glob(os.path.join(search_dir, f"*{token}*Device_Deployment.xls*")))
+        # Broader fallback: any workbook containing the token (no suffix requirement)
+        if not hits:
+            for token in dict.fromkeys(tokens):
+                hits.extend(glob(os.path.join(search_dir, f"*{token}*.xls*")))
+
+    hits = [path for path in dict.fromkeys(hits) if os.path.exists(path)]
+    if hits:
+        hits.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+        return hits[0]
+    return ""
 
 
 def _wbc_header_index(headers: List[str], names: List[str]) -> int:
@@ -993,6 +1076,36 @@ def _save_mtbf_chart_rows(target: Dict[str, str], db_cfg: Dict[str, str], rows: 
     return data
 
 
+def _read_swpdt_summary_from_excel(excel_path: str) -> Dict[str, str]:
+    """Read SWPDT_Summary (→ overview) and SWPDT_Summary2 (→ pdt_status) from the workbook."""
+    import openpyxl
+    result: Dict[str, str] = {"overview": "", "pdt_status": ""}
+    try:
+        wb = openpyxl.load_workbook(excel_path, data_only=True)
+        # SWPDT_Summary: col 2 rows 2+ = summary bullet points
+        if "SWPDT_Summary" in wb.sheetnames:
+            ws = wb["SWPDT_Summary"]
+            lines = []
+            for r in range(2, ws.max_row + 1):
+                val = str(ws.cell(r, 2).value or "").strip().replace("\xa0", " ").strip()
+                if val:
+                    lines.append(val)
+            result["overview"] = "\n".join(lines)
+        # SWPDT_Summary2: col 1 rows 2+ = PDT status / timelines
+        if "SWPDT_Summary2" in wb.sheetnames:
+            ws2 = wb["SWPDT_Summary2"]
+            lines2 = []
+            for r in range(2, ws2.max_row + 1):
+                val = str(ws2.cell(r, 1).value or "").strip().replace("\xa0", " ").strip()
+                if val:
+                    lines2.append(val)
+            result["pdt_status"] = "\n".join(lines2)
+        wb.close()
+    except Exception:
+        pass
+    return result
+
+
 def _load_overview_summary(target_key: str) -> Dict[str, Any]:
     data = _read_json(_overview_summary_path(target_key), {})
     if not isinstance(data, dict):
@@ -1049,6 +1162,25 @@ def _parse_iso_dt(value: Any) -> datetime:
         return datetime.fromisoformat(text)
     except Exception:
         return datetime.min
+
+
+def _wbc_external_saved_jql_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Return only current-build metadata safe for external/view-only users."""
+    allowed = (
+        "id", "name", "build_id", "has_cached_report", "cached_report_stale",
+        "last_run_at", "next_run_at", "cache_ttl_minutes", "cached_row_count",
+        "cached_cr_count", "cached_jira_count", "cache_status",
+    )
+    return {key: row.get(key) for key in allowed if key in row}
+
+
+def _wbc_external_saved_jql_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove saved-filter/JQL implementation details from an external response."""
+    hidden_keys = {
+        "jql", "raw_jql", "resolved_jql", "filter_id", "filter_resolved",
+        "filter_error", "tab",
+    }
+    return {key: value for key, value in report.items() if key not in hidden_keys}
 
 
 def _wbc_saved_jql_cache_meta(cached: Dict[str, Any]) -> Dict[str, Any]:
@@ -1577,10 +1709,11 @@ def api_wbc_saved_jql_tabs(target_key: str):
     from live_view_saved_jql_service import get_cached_report_raw, list_tabs
     tabs = []
 
-    for tab in list_tabs(_wbc_pdt_key(target), _wbc_saved_jql_domain()):
+    saved_domain = _wbc_saved_jql_domain(target)
+    for tab in list_tabs(_wbc_pdt_key(target), saved_domain):
         row = dict(tab)
         resolved_jql, filter_id, resolved, err = _wbc_resolve_saved_jql(row.get("jql"))
-        cached = get_cached_report_raw(_wbc_pdt_key(target), _wbc_saved_jql_domain(), row.get("id")) or {}
+        cached = get_cached_report_raw(_wbc_pdt_key(target), saved_domain, row.get("id")) or {}
         row["raw_jql"] = row.get("jql") or ""
         row["resolved_jql"] = resolved_jql
         row["filter_id"] = filter_id
@@ -1588,8 +1721,8 @@ def api_wbc_saved_jql_tabs(target_key: str):
         row["filter_error"] = err
         row["build_id"] = _wbc_extract_build_id_from_jql(resolved_jql or row.get("jql") or row.get("name")) or row.get("name") or ""
         row.update(_wbc_saved_jql_cache_meta(cached))
-        tabs.append(row)
-    return jsonify({"ok": True, "target": target, "domain": _wbc_saved_jql_domain(), "tabs": tabs})
+        tabs.append(row if _can_edit() else _wbc_external_saved_jql_row(row))
+    return jsonify({"ok": True, "target": target, "domain": saved_domain, "tabs": tabs})
 
 
 
@@ -1608,13 +1741,13 @@ def api_wbc_saved_jql_tabs_save(target_key: str):
         pdt_key = _wbc_pdt_key(target)
         tab = save_tab(
             pdt_key,
-            _wbc_saved_jql_domain(),
+            _wbc_saved_jql_domain(target),
             tab_id=str(payload.get("id") or "").strip() or None,
             name=str(payload.get("name") or "").strip(),
             jql=str(payload.get("jql") or "").strip(),
             username=username,
         )
-        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(pdt_key, _wbc_saved_jql_domain())})
+        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(pdt_key, _wbc_saved_jql_domain(target))})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
@@ -1629,19 +1762,26 @@ def api_wbc_saved_jql_tabs_delete(target_key: str, tab_id: str):
         return jsonify({"ok": False, "error": "WBC target not found"}), 404
     from live_view_saved_jql_service import delete_tab, list_tabs
     pdt_key = _wbc_pdt_key(target)
-    deleted = delete_tab(pdt_key, _wbc_saved_jql_domain(), tab_id)
-    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(pdt_key, _wbc_saved_jql_domain())})
+    saved_domain = _wbc_saved_jql_domain(target)
+    deleted = delete_tab(pdt_key, saved_domain, tab_id)
+    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(pdt_key, saved_domain)})
 
 
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/saved_jql_tabs/<tab_id>/report", methods=["GET", "POST"])
 @login_required
 def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
+    external_viewer = not _can_edit()
+    # View-only users may read the same consolidated report tables, but not
+    # saved-filter/JQL configuration and must never force a new run.
+    if external_viewer and request.method == "POST":
+        return jsonify({"ok": False, "error": "Internal target-group access required"}), 403
     target = _find_target(target_key)
     if not target:
         return jsonify({"ok": False, "error": "WBC target not found"}), 404
     force = str(request.args.get("force") or "").lower() in ("1", "true", "yes", "y")
     from live_view_saved_jql_service import get_cached_report, get_tab, set_cached_report
-    tab = get_tab(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id)
+    saved_domain = _wbc_saved_jql_domain(target)
+    tab = get_tab(_wbc_pdt_key(target), saved_domain, tab_id)
     if not tab:
         return jsonify({"ok": False, "error": "Saved JQL tab not found"}), 404
     raw_jql = str(tab.get("jql") or "").strip()
@@ -1649,13 +1789,13 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
     if not jql:
         return jsonify({"ok": False, "error": "Saved JQL is empty", "tab": tab}), 400
     if not force:
-        cached = get_cached_report(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id)
+        cached = get_cached_report(_wbc_pdt_key(target), saved_domain, tab_id)
         cached_jql = str((cached or {}).get("resolved_jql") or (cached or {}).get("jql") or "")
         if cached and cached_jql == jql:
             cached = dict(cached)
             cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql, "raw_jql": raw_jql, "filter_id": filter_id, "filter_resolved": resolved})
             cached.update(_wbc_saved_jql_cache_meta(cached))
-            return jsonify(cached)
+            return jsonify(_wbc_external_saved_jql_report(cached) if external_viewer else cached)
 
 
     now = datetime.utcnow()
@@ -1717,10 +1857,10 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             "summary": raw_report.get("summary") or {},
             "meta": raw_report.get("meta") or {},
         }
-        stored = set_cached_report(_wbc_pdt_key(target), _wbc_saved_jql_domain(), tab_id, report)
+        stored = set_cached_report(_wbc_pdt_key(target), saved_domain, tab_id, report)
         report["generated_at"] = stored.get("generated_at") or report["generated_at"]
         report.update(_wbc_saved_jql_cache_meta(report))
-        return jsonify(report)
+        return jsonify(_wbc_external_saved_jql_report(report) if external_viewer else report)
 
     except Exception as exc:
         return jsonify({
@@ -1798,6 +1938,112 @@ def api_wbc_overview_summary(target_key: str):
     else:
         data = _load_overview_summary(target["key"])
     return jsonify({"ok": True, "target": target, "overview_summary": data})
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/overview_summary/sync_excel", methods=["POST"])
+@login_required
+def api_wbc_overview_summary_sync_excel(target_key: str):
+    """Read SWPDT_Summary (→ Summary panel) and SWPDT_Summary2 (→ PDT STATUS panel)
+    from the target's MTBF workbook and save to the overview_summary JSON cache."""
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        cfg = _load_config()
+        db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
+        excel_path = _find_target_excel(target, db_cfg)
+        if not excel_path or not os.path.exists(excel_path):
+            return jsonify({"ok": False, "error": "Target workbook not found"}), 404
+        extracted = _read_swpdt_summary_from_excel(excel_path)
+        if not extracted.get("overview") and not extracted.get("pdt_status"):
+            return jsonify({"ok": False, "error": "SWPDT_Summary / SWPDT_Summary2 sheets not found in workbook"}), 404
+        # Merge with existing summary (preserve engineer/title/highlights if already set)
+        existing = _load_overview_summary(target["key"])
+        existing["overview"] = extracted["overview"]
+        existing["pdt_status"] = extracted["pdt_status"]
+        existing["next_steps"] = extracted["pdt_status"]
+        existing["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        existing["updated_by"] = str(getattr(current_user, "id", "") or getattr(current_user, "username", "") or "").strip()
+        existing["source"] = "excel_swpdt"
+        _write_json(_overview_summary_path(target["key"]), existing)
+        return jsonify({"ok": True, "target": target, "overview_summary": existing,
+                        "overview_chars": len(extracted["overview"]),
+                        "pdt_status_chars": len(extracted["pdt_status"])})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/overview_summary/upload_excel", methods=["POST"])
+@login_required
+def api_wbc_overview_summary_upload_excel(target_key: str):
+    """Upload an Excel file, show sheet picker, then read SWPDT_Summary + SWPDT_Summary2
+    from the uploaded file and save to the overview_summary JSON cache.
+
+    The selected sheet_name is used to read the Summary panel (col 2 rows 2+).
+    SWPDT_Summary2 is also read automatically from the same file for the PDT STATUS panel.
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        file = request.files.get("file")
+        if not file or not file.filename:
+            return jsonify({"ok": False, "error": "No file uploaded"}), 400
+        import tempfile
+        suffix = os.path.splitext(str(file.filename))[1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        sheet_name = (request.form.get("sheet_name") or "").strip()
+        try:
+            extracted = _read_swpdt_summary_from_excel(tmp_path)
+            # If a specific sheet was selected, also read it as the summary text
+            # (handles cases where the user picks a non-standard sheet name)
+            if sheet_name and not extracted.get("overview"):
+                import openpyxl
+                wb = openpyxl.load_workbook(tmp_path, data_only=True)
+                if sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    lines = []
+                    for r in range(2, ws.max_row + 1):
+                        # Try col 2 first (SWPDT_Summary format), fall back to col 1
+                        val = str(ws.cell(r, 2).value or "").strip().replace("\xa0", " ").strip()
+                        if not val:
+                            val = str(ws.cell(r, 1).value or "").strip().replace("\xa0", " ").strip()
+                        if val:
+                            lines.append(val)
+                    extracted["overview"] = "\n".join(lines)
+                wb.close()
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        existing = _load_overview_summary(target["key"])
+        if extracted.get("overview"):
+            existing["overview"] = extracted["overview"]
+        if extracted.get("pdt_status"):
+            existing["pdt_status"] = extracted["pdt_status"]
+            existing["next_steps"] = extracted["pdt_status"]
+        existing["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        existing["updated_by"] = str(getattr(current_user, "id", "") or getattr(current_user, "username", "") or "").strip()
+        existing["source"] = "excel_upload_swpdt"
+        _write_json(_overview_summary_path(target["key"]), existing)
+        return jsonify({
+            "ok": True,
+            "target": target,
+            "overview_summary": existing,
+            "overview_chars": len(extracted.get("overview") or ""),
+            "pdt_status_chars": len(extracted.get("pdt_status") or ""),
+            "sheet_used": sheet_name or "SWPDT_Summary",
+            "uploaded_filename": str(file.filename),
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/mtbf/add_build", methods=["POST"])
@@ -2187,6 +2433,483 @@ def _wbc_build_ppt(target_key: str):
     prs.save(buf)
     buf.seek(0)
     return buf
+
+
+def _wbc_fr_sheet_payload(excel_path: str) -> Dict[str, Any]:
+    """Read the PL-wise FR_Analysis worksheet as an editable table.
+
+    Columns whose header cell is blank are silently dropped so the UI
+    does not show a sea of empty 'Column N' placeholders.
+    """
+    import openpyxl
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    try:
+        if "FR_Analysis" not in wb.sheetnames:
+            raise ValueError("FR_Analysis sheet was not found in the PL workbook.")
+        ws = wb["FR_Analysis"]
+        raw_headers = [str(ws.cell(1, col).value or "").strip() for col in range(1, ws.max_column + 1)]
+        # Keep only columns that have a non-empty header
+        non_empty_idx = [i for i, h in enumerate(raw_headers) if h]
+        if not non_empty_idx:
+            # Fallback: keep all and use Column N names
+            non_empty_idx = list(range(len(raw_headers)))
+            raw_headers = [h or f"Column {i+1}" for i, h in enumerate(raw_headers)]
+        headers = [raw_headers[i] for i in non_empty_idx]
+        col_nums = [i + 1 for i in non_empty_idx]  # 1-based column numbers
+        rows = []
+        for row_vals in ws.iter_rows(min_row=2, values_only=True):
+            selected = [
+                ("" if row_vals[i] is None else str(row_vals[i]).strip().replace("\xa0", " ").strip())
+                if i < len(row_vals) else ""
+                for i in non_empty_idx
+            ]
+            if any(v for v in selected):
+                rows.append(selected)
+        return {"sheet": ws.title, "excel_path": excel_path, "headers": headers, "rows": rows}
+    finally:
+        wb.close()
+
+
+def _save_wbc_fr_sheet(excel_path: str, headers: List[Any], rows: List[List[Any]]) -> Dict[str, Any]:
+    """Replace only FR_Analysis table values while retaining the rest of the PL workbook."""
+    import openpyxl
+    clean_headers = [str(value or "").strip() for value in headers if str(value or "").strip()]
+    if not clean_headers:
+        raise ValueError("At least one FR Analysis column is required.")
+    wb = openpyxl.load_workbook(excel_path)
+    try:
+        ws = wb["FR_Analysis"] if "FR_Analysis" in wb.sheetnames else wb.create_sheet("FR_Analysis")
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.value = None
+        for col, header in enumerate(clean_headers, start=1):
+            ws.cell(1, col, header)
+        saved_rows = 0
+        for row_num, row in enumerate(rows or [], start=2):
+            values = list(row) if isinstance(row, list) else []
+            if not any(str(value or "").strip() for value in values):
+                continue
+            for col, _header in enumerate(clean_headers, start=1):
+                ws.cell(row_num, col, values[col - 1] if col <= len(values) else "")
+            saved_rows += 1
+        wb.save(excel_path)
+        return {"sheet": ws.title, "excel_path": excel_path, "headers": clean_headers, "saved_rows": saved_rows}
+    finally:
+        wb.close()
+
+
+def _wbc_cr_analysis_sheet(excel_path: str, target_sheet: str, force: bool = False) -> Dict[str, Any]:
+    """Run session-authorized QGenie summaries for a WBC workbook CR sheet."""
+    try:
+        import openpyxl
+        from src.qgenie_service import get_current_qgenie_client, get_session_qgenie_highlights_model
+    except ImportError as exc:
+        raise RuntimeError(f"CR analysis dependency is unavailable: {exc}")
+
+    client = get_current_qgenie_client()
+    if not client:
+        raise PermissionError("QGenie API key is not configured for this session.")
+
+    sheet_names = (
+        ("Open_CR_Details", "Open CR Details", "Open CRs", "Open CR")
+        if target_sheet == "open_cr"
+        else ("Current_Meta_CR", "Current Meta CR", "CR Details")
+    )
+    wb = openpyxl.load_workbook(excel_path)
+    try:
+        ws = next((wb[name] for name in sheet_names if name in wb.sheetnames), None)
+        if ws is None:
+            raise ValueError(f"Required CR sheet not found: {', '.join(sheet_names)}")
+
+        header_row = next(
+            (row for row in range(1, min(ws.max_row, 20) + 1)
+             if any(str(ws.cell(row, col).value or "").strip() for col in range(1, ws.max_column + 1))),
+            1,
+        )
+        headers = [str(ws.cell(header_row, col).value or "").strip() for col in range(1, ws.max_column + 1)]
+        normalized = [_norm(h) for h in headers]
+        cr_col = next((i + 1 for i, name in enumerate(normalized)
+                       if name in ("cr", "cr_id", "crid") or name.startswith("cr_")), None)
+        if not cr_col:
+            raise ValueError("No CR/CR-ID column found in the selected worksheet.")
+
+        analysis_col = next((i + 1 for i, name in enumerate(normalized)
+                             if name in ("qgenie_analysis", "qgenieanalysis", "cr_analysis", "cranalysis")), None)
+        if not analysis_col:
+            analysis_col = ws.max_column + 1
+            ws.cell(header_row, analysis_col, "Qgenie Analysis")
+            headers.append("Qgenie Analysis")
+
+        model = get_session_qgenie_highlights_model()
+        today = datetime.now().strftime("%Y-%m-%d")
+        processed = skipped = failed = 0
+        for row_num in range(header_row + 1, ws.max_row + 1):
+            cr_value = str(ws.cell(row_num, cr_col).value or "").strip()
+            if not cr_value:
+                continue
+            existing = str(ws.cell(row_num, analysis_col).value or "").strip()
+            if not force and existing and today in existing:
+                skipped += 1
+                continue
+
+            context_parts = []
+            for col_num, header in enumerate(headers[:analysis_col - 1], start=1):
+                value = str(ws.cell(row_num, col_num).value or "").strip()
+                if value and _norm(header) not in ("qgenie_analysis", "qgenieanalysis", "cr_analysis", "cranalysis"):
+                    context_parts.append(f"{header}: {value}")
+            prompt = (
+                f"Provide a concise PDT engineering analysis for {cr_value}. "
+                "State likely impact, current status/risk, and recommended next action. "
+                "Use only the following workbook context when it is relevant:\n"
+                + "\n".join(context_parts)[:2500]
+            )
+            try:
+                response = client.chat(model=model, messages=[{"role": "user", "content": prompt}])
+                text = str(getattr(response, "content", response) or "").strip()
+                text = re.sub(r"\s+", " ", text).strip()
+                if text:
+                    ws.cell(row_num, analysis_col, f"[{today}] {text[:1800]}")
+                    processed += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+
+        if processed:
+            wb.save(excel_path)
+        return {
+            "sheet": ws.title, "excel_path": excel_path, "processed": processed,
+            "skipped": skipped, "failed": failed, "analysis_column": analysis_col,
+        }
+    finally:
+        wb.close()
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/fr_analysis", methods=["GET", "POST"])
+@login_required
+def api_wbc_fr_analysis(target_key: str):
+    """Read or save the PL-wise FR_Analysis data.
+
+    GET  – returns JSON cache if present, otherwise reads from the PL workbook
+           and seeds the JSON cache.
+    POST – saves the submitted headers/rows to JSON only (no Excel write).
+           The JSON is stored at:
+             <store_dir>/fr_analysis/fr_analysis_<slug>.json
+           mirroring the MTBF JSON pattern.
+    """
+    if request.method == "POST" and not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+        json_path = _fr_json_path(key)
+
+        if request.method == "POST":
+            body = request.get_json(force=True, silent=True) or {}
+            raw_headers = body.get("headers") or []
+            raw_rows = body.get("rows") or []
+            clean_headers = [str(h or "").strip() for h in raw_headers if str(h or "").strip()]
+            if not clean_headers:
+                return jsonify({"ok": False, "error": "At least one FR Analysis column is required."}), 400
+            saved_rows = 0
+            clean_rows = []
+            for row in raw_rows:
+                values = list(row) if isinstance(row, list) else []
+                if not any(str(v or "").strip() for v in values):
+                    continue
+                padded = [(str(values[i]) if i < len(values) else "") for i in range(len(clean_headers))]
+                clean_rows.append(padded)
+                saved_rows += 1
+            payload = {
+                "target_key": key,
+                "target_label": target.get("label") or target.get("name") or key,
+                "sheet": "FR_Analysis",
+                "excel_path": "",
+                "headers": clean_headers,
+                "rows": clean_rows,
+                "saved_rows": saved_rows,
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+                "updated_by": str(getattr(current_user, "id", "") or getattr(current_user, "username", "") or "").strip(),
+                "source": "json",
+            }
+            _write_json(json_path, payload)
+            return jsonify({"ok": True, "target": target, **payload})
+
+        # GET: try JSON cache first
+        cached = _read_json(json_path, {})
+        if cached.get("headers"):
+            cached.setdefault("source", "json")
+            cached.setdefault("json_path", json_path)
+            return jsonify({"ok": True, "target": target, **cached})
+
+        # Fall back to Excel read and seed the JSON cache
+        cfg = _load_config()
+        excel_path = _find_target_fr_workbook(target, (cfg.get("targets") or {}).get(key, {}))
+        if not excel_path:
+            # No Excel and no JSON cache — return an empty sheet so the user
+            # can build the FR Analysis from scratch in the portal.
+            return jsonify({
+                "ok": True,
+                "target": target,
+                "target_key": key,
+                "target_label": target.get("label") or target.get("name") or key,
+                "sheet": "FR_Analysis",
+                "excel_path": "",
+                "headers": [],
+                "rows": [],
+                "saved_rows": 0,
+                "source": "empty",
+                "json_path": json_path,
+                "updated_at": "",
+                "updated_by": "",
+            })
+        result = _wbc_fr_sheet_payload(excel_path)
+        seed = {
+            "target_key": key,
+            "target_label": target.get("label") or target.get("name") or key,
+            "source": "excel_seeded",
+            "json_path": json_path,
+            **result,
+        }
+        try:
+            _write_json(json_path, seed)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "target": target, **seed})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/fr_analysis/sync_excel", methods=["POST"])
+@login_required
+def api_wbc_fr_sync_excel(target_key: str):
+    """Read FR_Analysis from the PL workbook and merge rows missing from the JSON cache.
+
+    - If no JSON cache exists, seeds it from Excel (same as the GET fallback).
+    - If a JSON cache exists, appends any Excel rows whose first-column key is
+      absent from the cache, preserving all existing edits.
+    - Returns the merged payload so the UI can refresh immediately.
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+        json_path = _fr_json_path(key)
+        cfg = _load_config()
+        excel_path = _find_target_fr_workbook(target, (cfg.get("targets") or {}).get(key, {}))
+        if not excel_path or not os.path.exists(excel_path):
+            return jsonify({"ok": False, "error": "PL-wise FR workbook not found for this target"}), 404
+
+        excel_data = _wbc_fr_sheet_payload(excel_path)
+        excel_headers = excel_data.get("headers") or []
+        excel_rows = excel_data.get("rows") or []
+
+        # Always replace the cache with fresh Excel data so stale/empty
+        # values from a previous manual upload are overwritten.
+        fresh_payload = {
+            "target_key": key,
+            "target_label": target.get("label") or target.get("name") or key,
+            "sheet": "FR_Analysis",
+            "excel_path": excel_path,
+            "headers": excel_headers,
+            "rows": excel_rows,
+            "saved_rows": len(excel_rows),
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_by": str(getattr(current_user, "id", "") or
+                              getattr(current_user, "username", "") or "").strip(),
+            "source": "excel_seeded",
+        }
+        _write_json(json_path, fresh_payload)
+        return jsonify({"ok": True, "target": target, "added": len(excel_rows),
+                        "total": len(excel_rows), **fresh_payload})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/excel/list_sheets", methods=["POST"])
+@login_required
+def api_wbc_excel_list_sheets(target_key: str):
+    """List sheets from an uploaded Excel file (used for sheet selection UI)."""
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        file = request.files.get("file")
+        if not file or not file.filename:
+            return jsonify({"ok": False, "error": "No file uploaded"}), 400
+        import tempfile
+        suffix = os.path.splitext(str(file.filename))[1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        try:
+            sheets = _workbook_sheets(tmp_path)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        return jsonify({"ok": True, "sheets": sheets, "filename": str(file.filename)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/fr_analysis/upload_excel", methods=["POST"])
+@login_required
+def api_wbc_fr_upload_excel(target_key: str):
+    """Upload an Excel file and read the FR_Analysis sheet from it (one-time import).
+    Saves the result to the FR JSON cache so subsequent GETs serve from JSON.
+    Accepts optional form field 'sheet_name' to override auto-detection.
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+        json_path = _fr_json_path(key)
+        file = request.files.get("file")
+        if not file or not file.filename:
+            return jsonify({"ok": False, "error": "No file uploaded"}), 400
+        import tempfile
+        suffix = os.path.splitext(str(file.filename))[1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        sheet_name = (request.form.get("sheet_name") or "").strip()
+        try:
+            if sheet_name:
+                raw = _sheet_to_payload(key, tmp_path, sheet_name)
+                headers = raw.get("headers") or []
+                rows = raw.get("rows") or []
+                # Strip columns whose header is blank
+                non_empty_cols = [i for i, h in enumerate(headers) if str(h or "").strip()]
+                if non_empty_cols and len(non_empty_cols) < len(headers):
+                    headers = [headers[i] for i in non_empty_cols]
+                    rows = [[row[i] if i < len(row) else "" for i in non_empty_cols] for row in rows]
+                # Strip rows that are entirely blank
+                rows = [row for row in rows if any(str(v or "").strip() for v in row)]
+                result = {"headers": headers, "rows": rows, "sheet": sheet_name, "saved_rows": len(rows)}
+            else:
+                result = _wbc_fr_sheet_payload(tmp_path)
+                headers = result.get("headers") or []
+                rows = result.get("rows") or []
+                non_empty_cols = [i for i, h in enumerate(headers) if str(h or "").strip()]
+                if non_empty_cols and len(non_empty_cols) < len(headers):
+                    headers = [headers[i] for i in non_empty_cols]
+                    rows = [[row[i] if i < len(row) else "" for i in non_empty_cols] for row in rows]
+                rows = [row for row in rows if any(str(v or "").strip() for v in row)]
+                result["headers"] = headers
+                result["rows"] = rows
+                result["saved_rows"] = len(rows)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        seed = {
+            "target_key": key,
+            "target_label": target.get("label") or target.get("name") or key,
+            "source": "excel_upload",
+            "json_path": json_path,
+            "uploaded_filename": str(file.filename),
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_by": str(getattr(current_user, "id", "") or
+                              getattr(current_user, "username", "") or "").strip(),
+            **result,
+        }
+        _write_json(json_path, seed)
+        return jsonify({"ok": True, "target": target, **seed})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/mtbf/upload_excel", methods=["POST"])
+@login_required
+def api_wbc_mtbf_upload_excel(target_key: str):
+    """Upload an Excel file and read the Mainline_Build_Details sheet (one-time import).
+    Saves the result to the MTBF JSON cache so subsequent loads serve from JSON.
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+        file = request.files.get("file")
+        if not file or not file.filename:
+            return jsonify({"ok": False, "error": "No file uploaded"}), 400
+        import tempfile
+        suffix = os.path.splitext(str(file.filename))[1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        sheet_name = (request.form.get("sheet_name") or "").strip()
+        try:
+            sheets = _workbook_sheets(tmp_path)
+            if sheet_name:
+                sheet = sheet_name
+            else:
+                sheet = next((s for s in sheets if str(s).strip().lower() == "mainline_build_details"), "")
+                if not sheet:
+                    sheet = next((s for s in sheets if "mainline" in str(s).lower() and "build" in str(s).lower()), "")
+                if not sheet:
+                    raise ValueError(
+                        f"Sheet Mainline_Build_Details not found. Available: {', '.join(sheets)}"
+                    )
+            data = _coerce_wbc_mtbf_payload(_sheet_to_payload(key, tmp_path, sheet))
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        data["target_key"] = key
+        data["target_label"] = target.get("label") or target.get("name") or key
+        data["mtbf_sheet"] = sheet
+        data["one_time_synced"] = True
+        data["uploaded_filename"] = str(file.filename)
+        data["saved_json"] = _mtbf_json_path(key)
+        _write_json(_mtbf_json_path(key), data)
+        _write_json(_target_json_path(key), data)
+        return jsonify({
+            "ok": True, "target": target, "excel": data,
+            "rows": len(data.get("chart_rows") or []),
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/cr_analysis", methods=["POST"])
+@login_required
+def api_wbc_cr_analysis(target_key: str):
+    """Generate QGenie CR analysis in a target's Open CR or Current Meta workbook sheet."""
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    try:
+        body = request.get_json(silent=True) or {}
+        target_sheet = str(body.get("target_sheet") or "open_cr").strip().lower()
+        if target_sheet not in ("open_cr", "current_cr"):
+            return jsonify({"ok": False, "error": "target_sheet must be open_cr or current_cr"}), 400
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        cfg = _load_config()
+        db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
+        excel_path = _find_target_fr_workbook(target, db_cfg)
+        if not excel_path or not os.path.exists(excel_path):
+            return jsonify({"ok": False, "error": "PL-wise WBC FR workbook was not found"}), 404
+        result = _wbc_cr_analysis_sheet(excel_path, target_sheet, bool(body.get("force")))
+        return jsonify({"ok": True, **result})
+    except PermissionError as exc:
+        return jsonify({"ok": False, "requires_config": True, "error": str(exc)}), 401
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/export_ppt")

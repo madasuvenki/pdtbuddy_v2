@@ -125,19 +125,7 @@ SNO_HEADERS = {
 
 from itsdangerous import URLSafeSerializer, BadSignature
 
-from dashboard_routes import dashboard_bp
-from device_summary_api import device_summary_api_bp
-from src.orbit_cr_routes import orbit_cr_bp
-from live_status_publish_routes import live_status_publish_bp
-from live_status_view_api import live_status_view_api_bp
-from live_view_stats_routes import live_view_stats_bp
-from automotive_live_view_stats_routes import automotive_live_view_stats_bp
-from wbc_live_view_stats_routes import wbc_live_view_stats_bp
-from auto_gen45_public_routes import public_auto_gen45_bp
-from auto_gen5_public_routes import public_auto_gen5_bp
-from core_deck_routes import core_deck_bp
-from jiraquery_api_routes import jiraquery_api_bp
-from orbit_public_api_routes import orbit_public_api_bp
+from src.application import register_feature_blueprints
 
 APP_VERSION = "v2.9"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
@@ -211,16 +199,8 @@ app.config.update(
 
 Session(app)
 
-from src.admin_milestone_routes import admin_milestone_bp
-from src.admin_paths_routes import admin_paths_bp
 from src.chatbot_engine import ChatbotEngine
 from src.orbit_bridge import get_orbit_credentials, update_orbit_credentials
-app.register_blueprint(admin_milestone_bp)
-app.register_blueprint(admin_paths_bp)
-from src.cr_compare_service import cr_compare_bp
-
-
-app.register_blueprint(cr_compare_bp)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -352,19 +332,7 @@ def _set_no_cache_html(response):
 
 
 
-app.register_blueprint(dashboard_bp)
-app.register_blueprint(device_summary_api_bp)
-app.register_blueprint(orbit_cr_bp)
-app.register_blueprint(live_status_publish_bp)
-app.register_blueprint(live_status_view_api_bp)
-app.register_blueprint(live_view_stats_bp)
-app.register_blueprint(automotive_live_view_stats_bp)
-app.register_blueprint(wbc_live_view_stats_bp)
-app.register_blueprint(public_auto_gen45_bp)
-app.register_blueprint(public_auto_gen5_bp)
-app.register_blueprint(core_deck_bp)
-app.register_blueprint(jiraquery_api_bp)
-app.register_blueprint(orbit_public_api_bp)
+register_feature_blueprints(app)
 
 
 @app.route('/api/docs')
@@ -372,10 +340,6 @@ app.register_blueprint(orbit_public_api_bp)
 def api_all_in_one_docs():
     """All-in-one API reference page — lists every PDTBuddy endpoint with redirect links."""
     return render_template('api_all_in_one.html')
-from weekly_summary_routes import weekly_summary_bp
-app.register_blueprint(weekly_summary_bp)
-from sp_entry_routes import sp_entry_bp
-app.register_blueprint(sp_entry_bp)
 
 
 app.view_functions

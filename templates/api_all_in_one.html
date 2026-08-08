@@ -83,8 +83,10 @@
   <div class="sb-search"><input type="text" id="sbSearch" placeholder="Search endpoints…" oninput="filterSidebar(this.value)"/></div>
   <nav id="sbNav">
     <div class="ng"><div class="ngt">Overview</div>
-      <a href="#sec-intro">Introduction &amp; Auth</a>
+      <a href="#sec-intro">Introduction & Auth</a>
       <a href="#sec-quickref">Quick Reference</a>
+      <a href="#sec-public-apis">Public APIs</a>
+      <a href="#sec-private-apis">Private APIs</a>
     </div>
     <div class="ng"><div class="ngt">CR APIs</div>
       <a href="#sec-cr-overview">CR Overview</a>
@@ -115,6 +117,7 @@
       <a href="#sec-admin">Admin</a>
     </div>
     <div class="ng"><div class="ngt">Dedicated Docs</div>
+      <a href="/architecture" target="_blank">Architecture ↗</a>
       <a href="/build_report/api_docs" target="_blank">Build Report API Docs ↗</a>
       <a href="/api/public/orbit/docs" target="_blank">Orbit API Docs ↗</a>
     </div>
@@ -126,6 +129,7 @@
   <h1>📡 PDTBuddy API Reference</h1>
   <span class="badge">All-in-One</span>
   <div class="hdr-links">
+    <a href="/architecture" target="_blank">Architecture</a>
     <a href="/build_report/api_docs" target="_blank">Build Report Docs</a>
     <a href="/api/public/orbit/docs" target="_blank">Orbit Docs</a>
     <a href="/api/token/verify" target="_blank">Verify Token</a>
@@ -185,6 +189,50 @@
     <tr><td>Build report (sync)</td><td><span class="method post">POST</span></td><td><code>/api/build_report/run</code></td><td><span class="tag tok">Token</span><span class="tag ses">Session</span></td><td>—</td></tr>
     <tr><td>Verify API token</td><td><span class="method get">GET</span></td><td><code>/api/token/verify</code></td><td><span class="tag tok">Token</span></td><td><a class="eb ob" href="/api/token/verify" target="_blank">↗</a></td></tr>
   </table>
+</div>
+
+<!-- PUBLIC APIs -->
+<div class="section" id="sec-public-apis">
+  <h2 class="st">🌍 Public APIs</h2>
+  <div class="alert green"><strong>Public APIs</strong> can be called without a PDTBuddy browser session. Token-protected endpoints still require <code>X-PDTBuddy-API-Token</code>; never put a token in a public web page or client-side source code.</div>
+  <table>
+    <tr><th>Endpoint</th><th>Access</th><th>Input</th><th>Response</th><th>Try it</th></tr>
+    <tr><td><span class="method get">GET</span> <code>/api/public/orbit/docs</code></td><td><span class="tag pub">No login</span></td><td>None</td><td>Orbit API HTML documentation</td><td><a class="eb ob" href="/api/public/orbit/docs" target="_blank">Open ↗</a></td></tr>
+    <tr><td><span class="method get">GET</span> <code>/api/public/orbit/all-targets</code></td><td><span class="tag tok">Token</span></td><td>Optional token header</td><td>JSON target list with BU and schema metadata</td><td><a class="eb ob" href="/api/public/orbit/all-targets" target="_blank">Open ↗</a></td></tr>
+    <tr><td><span class="method get">GET</span> <code>/api/public/orbit/crs</code></td><td><span class="tag tok">Token</span></td><td><code>target</code> required; <code>pl</code>, <code>limit</code>, <code>include_sirs</code>, <code>include_tags</code> optional</td><td>JSON CR collection for the selected target</td><td>Use the request form below</td></tr>
+    <tr><td><span class="method get">GET</span> <code>/api/jiraquery/raw</code></td><td><span class="tag tok">Token</span></td><td><code>builds</code> required; <code>target</code> and report options optional</td><td>JSON JIRA report data</td><td>Use the request form below</td></tr>
+    <tr><td><span class="method get">GET</span> <code>/api/token/verify</code></td><td><span class="tag tok">Token</span></td><td>API token header</td><td><code>{"ok":true,"valid":true}</code> or HTTP 401</td><td><a class="eb ob" href="/api/token/verify" target="_blank">Open ↗</a></td></tr>
+  </table>
+</div>
+
+<!-- PRIVATE APIs -->
+<div class="section" id="sec-private-apis">
+  <h2 class="st">🔒 Private APIs</h2>
+  <div class="alert purple"><strong>Private APIs</strong> require a signed-in PDTBuddy session. Admin and write endpoints additionally require the appropriate target-group or admin role. Use the detailed sections below to see every parameter and sample payload.</div>
+  <table>
+    <tr><th>API group</th><th>Typical input</th><th>Response</th><th>Access</th></tr>
+    <tr><td>CR Overview</td><td>BU, target, filters, paging</td><td>KPIs, charts, CR rows, target lists</td><td><span class="tag ses">Session</span></td></tr>
+    <tr><td>Device / HWPDT</td><td>Target, PDT type, optional refresh</td><td>Device rows, cache status, chip/part data</td><td><span class="tag ses">Session</span></td></tr>
+    <tr><td>Reports / Live Status</td><td>Job ID, filter/JQL, build IDs, report settings</td><td>Job status, report payloads, published URLs</td><td><span class="tag ses">Session</span></td></tr>
+    <tr><td>Workspace / Feedback</td><td>Target or JSON payload</td><td>Saved workspace data or submission result</td><td><span class="tag ses">Session</span></td></tr>
+    <tr><td>Admin APIs</td><td>Target configuration and admin JSON payloads</td><td>Persisted configuration/status</td><td><span class="tag adm">Admin</span></td></tr>
+  </table>
+  <div class="alert warn">Write operations (POST/DELETE) may change data or trigger external work. Verify the target and payload before sending a request.</div>
+</div>
+
+<!-- REQUEST TESTER -->
+<div class="section" id="sec-request-tester">
+  <h2 class="st">🧪 Try an API Request</h2>
+  <div class="alert info">Provide the endpoint input below, then run the request. Token values are used only for this browser request and are not stored by this page. Requests execute with your current PDTBuddy session when available.</div>
+  <table><tr><th>Field</th><th>Value</th></tr>
+    <tr><td>Method</td><td><select id="tryMethod"><option>GET</option><option>POST</option></select></td></tr>
+    <tr><td>Endpoint path</td><td><input id="tryPath" value="/api/public/orbit/crs" style="width:100%;padding:7px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);border-radius:4px"></td></tr>
+    <tr><td>Query / input</td><td><input id="tryQuery" value="target=ALDABRA&limit=10" placeholder="target=ALDABRA&limit=10" style="width:100%;padding:7px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);border-radius:4px"></td></tr>
+    <tr><td>API token (optional)</td><td><input id="tryToken" type="password" placeholder="Required for token-protected APIs" style="width:100%;padding:7px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);border-radius:4px"></td></tr>
+    <tr><td>JSON body (POST only)</td><td><textarea id="tryBody" rows="5" style="width:100%;padding:7px;background:var(--code-bg);color:var(--text);border:1px solid var(--border);border-radius:4px">{}</textarea></td></tr>
+  </table>
+  <button class="eb ob" style="font-size:.8rem;padding:7px 12px" onclick="tryApiRequest()">Run request</button>
+  <h3>Response</h3><pre id="tryResult">Run a request to see the HTTP status and JSON/text response here.</pre>
 </div>
 
 <!-- CR OVERVIEW -->
@@ -655,6 +703,42 @@ const observer = new IntersectionObserver(entries => {
   });
 }, { rootMargin: '-20% 0px -70% 0px' });
 sections.forEach(s => observer.observe(s));
+
+async function tryApiRequest() {
+  const method = document.getElementById('tryMethod').value;
+  const path = document.getElementById('tryPath').value.trim();
+  const query = document.getElementById('tryQuery').value.trim();
+  const token = document.getElementById('tryToken').value.trim();
+  const bodyText = document.getElementById('tryBody').value.trim();
+  const result = document.getElementById('tryResult');
+  if (!path.startsWith('/')) {
+    result.textContent = 'Endpoint path must begin with /.';
+    return;
+  }
+  let url = path;
+  if (query) url += (path.includes('?') ? '&' : '?') + query;
+  const headers = { 'Accept': 'application/json' };
+  if (token) headers['X-PDTBuddy-API-Token'] = token;
+  const options = { method, headers, credentials: 'same-origin' };
+  if (method !== 'GET') {
+    try { JSON.parse(bodyText || '{}'); } catch (_) {
+      result.textContent = 'JSON body is invalid. Correct it before submitting.';
+      return;
+    }
+    headers['Content-Type'] = 'application/json';
+    options.body = bodyText || '{}';
+  }
+  result.textContent = 'Sending request…';
+  try {
+    const response = await fetch(url, options);
+    const text = await response.text();
+    let output = text;
+    try { output = JSON.stringify(JSON.parse(text), null, 2); } catch (_) {}
+    result.textContent = `HTTP ${response.status} ${response.statusText}\n\n${output}`;
+  } catch (error) {
+    result.textContent = `Request failed: ${error.message}`;
+  }
+}
 </script>
 </body>
 </html>

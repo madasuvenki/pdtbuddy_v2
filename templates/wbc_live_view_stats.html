@@ -28,7 +28,94 @@
     .item{background:#ffffff!important;border-color:#dbeafe!important;color:#334155!important}.item.active,.item:hover{background:#ecfdf5!important;border-color:#0f766e!important;color:#0f766e!important;box-shadow:0 4px 12px rgba(15,118,110,.12)!important}
     .btn{background:#ffffff!important;color:#334155!important;border-color:#dbe3ef!important}.btn.primary{background:linear-gradient(135deg,#2563eb,#7c3aed)!important;color:#fff!important}.btn.green{background:#dcfce7!important;color:#166534!important;border-color:#bbf7d0!important}
   </style>
+  <style>
+    /* Full-page glass portal inspired by the purple/cyan reference table. */
+    body{background:
+      radial-gradient(circle at 78% 7%,rgba(56,189,248,.24),transparent 30%),
+      radial-gradient(circle at 15% 30%,rgba(147,51,234,.18),transparent 34%),
+      linear-gradient(145deg,#edf1ff 0%,#e8eaf8 45%,#e5f6ff 100%)!important;background-attachment:fixed!important}
+    .main{position:relative;background:transparent!important;isolation:isolate}
+    .main:before,.main:after{content:"";position:fixed;border-radius:999px;filter:blur(2px);pointer-events:none;z-index:-1}
+    .main:before{width:360px;height:360px;right:-100px;top:-130px;background:linear-gradient(135deg,rgba(139,92,246,.16),rgba(34,211,238,.24))}
+    .main:after{width:280px;height:280px;left:210px;bottom:-130px;background:linear-gradient(135deg,rgba(124,58,237,.14),rgba(96,165,250,.18))}
+    .topbar,.card,.tabs,.table-filterbar,.report-time-card,.report-zero{
+      background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(255,255,255,.42))!important;
+      border:1px solid rgba(255,255,255,.88)!important;
+      box-shadow:0 14px 38px rgba(76,29,149,.11),inset 0 1px 0 rgba(255,255,255,.9)!important;
+      backdrop-filter:blur(18px) saturate(145%);-webkit-backdrop-filter:blur(18px) saturate(145%)
+    }
+    .card{border-radius:22px!important;position:relative}
+    .card:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;border-radius:22px 0 0 22px;background:linear-gradient(180deg,#8b5cf6,#38bdf8);opacity:.82;pointer-events:none}
+    .head{background:linear-gradient(90deg,rgba(124,58,237,.10),rgba(56,189,248,.10),rgba(255,255,255,.48))!important;border-bottom:1px solid rgba(139,92,246,.16)!important;color:#312e81!important;padding:13px 17px!important}
+    .body{color:#334155!important}
+    .metric{background:rgba(255,255,255,.40)!important;backdrop-filter:blur(12px)}
+    .metric:before{height:4px!important;background:linear-gradient(90deg,#8b5cf6,#6366f1,#38bdf8)!important}
+    .metric .num{background:linear-gradient(90deg,#6d28d9,#2563eb,#0891b2);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+    .btn,.input,select.input,.edit-cell,.rich-editor,.overview-text{
+      background:rgba(255,255,255,.66)!important;border:1px solid rgba(139,92,246,.20)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 5px 14px rgba(76,29,149,.06)!important;
+      backdrop-filter:blur(10px);color:#334155!important
+    }
+    .btn:hover{background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(56,189,248,.14))!important;border-color:#8b5cf6!important;transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(110deg,#7c3aed,#4f46e5,#0891b2)!important;box-shadow:0 8px 20px rgba(79,70,229,.24)!important}
+    .tblwrap{padding:12px;background:linear-gradient(120deg,rgba(124,58,237,.78),rgba(59,130,246,.68),rgba(34,211,238,.76))!important;border:0!important;border-radius:22px!important}
+    .tblwrap table{border-collapse:separate!important;border-spacing:0 7px!important;background:transparent!important}
+    .tblwrap thead{filter:drop-shadow(0 7px 14px rgba(49,46,129,.12))}
+    .tblwrap th{position:sticky;top:0;background:rgba(248,250,252,.92)!important;color:#312e81!important;border:0!important;padding:11px 12px!important}
+    .tblwrap th:first-child{border-radius:999px 0 0 999px}.tblwrap th:last-child{border-radius:0 999px 999px 0}
+    .tblwrap td{background:rgba(255,255,255,.86)!important;color:#334155!important;border:0!important;padding:10px 12px!important}
+    .tblwrap tr td:first-child{border-radius:999px 0 0 999px}.tblwrap tr td:last-child{border-radius:0 999px 999px 0}
+    .tblwrap tbody tr{filter:drop-shadow(0 5px 9px rgba(49,46,129,.08));transition:transform .16s,filter .16s}
+    .tblwrap tbody tr:hover{transform:translateY(-2px);filter:drop-shadow(0 8px 13px rgba(49,46,129,.15))}
+    .tblwrap tbody tr:hover td{background:rgba(255,255,255,.96)!important}
+    #frAnalysisBox{padding:14px!important;background:linear-gradient(110deg,#7e49aa 0%,#597cc9 52%,#3dc1df 100%)!important;border-radius:24px!important}
+    #frAnalysisBox table{border-collapse:separate!important;border-spacing:0 8px!important}
+    #frAnalysisBox thead tr{background:transparent!important}
+    #frAnalysisBox th{background:rgba(248,250,252,.92)!important;color:#312e81!important;border:0!important}
+    #frAnalysisBox th:first-child{border-radius:999px 0 0 999px}#frAnalysisBox th:last-child{border-radius:0 999px 999px 0}
+    #frAnalysisBox td{background:rgba(255,255,255,.88)!important;color:#334155!important;border:0!important}
+    #frAnalysisBox td:first-child{border-radius:999px 0 0 999px}#frAnalysisBox td:last-child{border-radius:0 999px 999px 0}
+    #frAnalysisBox .fr-head{background:transparent!important;border:0!important;box-shadow:none!important;color:#312e81!important}
+    #frAnalysisBox .fr-cell{background:rgba(255,255,255,.46)!important;border-color:rgba(99,102,241,.14)!important}
+    .modal,.modal.open{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+    .modal-box{background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(238,242,255,.72))!important;border:1px solid rgba(255,255,255,.9)!important;backdrop-filter:blur(22px);box-shadow:0 30px 90px rgba(49,46,129,.25)!important}
+    /* Compact operational overview. */
+    .overview-kpi-compact{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr));gap:9px;margin-bottom:10px}
+    .current-build-metrics{display:grid;grid-template-columns:minmax(300px,1.7fr) repeat(3,minmax(150px,1fr));gap:9px;grid-column:1/-1}
+    .compact-metric{appearance:none;width:100%;min-height:76px;margin:0!important;padding:11px 13px!important;display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer;font:inherit;color:#334155}
+    .compact-metric:before{height:3px!important}
+    .compact-metric:hover{transform:translateY(-2px);border-color:rgba(99,102,241,.45)!important;box-shadow:0 12px 24px rgba(76,29,149,.13)!important}
+    .compact-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(135deg,rgba(79,70,229,.16),rgba(56,189,248,.18));color:#4f46e5;font-size:15px}
+    .compact-icon.red{color:#dc2626;background:rgba(254,226,226,.75)}.compact-icon.violet{color:#7c3aed;background:rgba(237,233,254,.82)}
+    .compact-icon.green{color:#059669;background:rgba(209,250,229,.78)}.compact-icon.cyan{color:#0891b2;background:rgba(207,250,254,.78)}
+    .compact-icon.amber{color:#d97706;background:rgba(254,243,199,.78)}.compact-icon.blue{color:#2563eb;background:rgba(219,234,254,.80)}
+    .compact-copy{min-width:0;display:flex;flex:1;flex-direction:column;justify-content:center;gap:2px}
+    .compact-metric .lbl{font-size:8px!important;line-height:1.25}.compact-metric .lbl:after{content:" ↗";opacity:.42}
+    .compact-metric .num{font-size:19px!important;line-height:1.05;margin:0!important}
+    .compact-build{font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block!important}
+    .compact-count{min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:linear-gradient(135deg,#7c3aed,#0891b2);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:1000}
+    .compact-note{font-size:8px;color:#64748b;font-weight:800}
+    #wbcTabLoadingOverlay{position:fixed;inset:0;z-index:99997;display:none;align-items:center;justify-content:center;background:rgba(30,41,59,.28);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+    #wbcTabLoadingOverlay.open{display:flex}
+    .tab-loading-card{width:min(360px,90vw);padding:24px;border:1px solid rgba(255,255,255,.9);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(238,242,255,.82));box-shadow:0 28px 80px rgba(49,46,129,.25);text-align:center}
+    .tab-loading-orb{width:48px;height:48px;margin:0 auto 14px;border-radius:50%;border:4px solid rgba(99,102,241,.16);border-top-color:#7c3aed;border-right-color:#38bdf8;animation:wbcSpinAnim .72s linear infinite}
+    .tab-loading-title{font-size:15px;font-weight:1000;color:#312e81}.tab-loading-msg{margin-top:5px;font-size:11px;font-weight:800;color:#64748b}
+    .tab-loading-track{height:4px;margin-top:16px;border-radius:999px;background:rgba(99,102,241,.12);overflow:hidden}
+    .tab-loading-progress{height:100%;width:42%;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#38bdf8);animation:wbcTabProgress 1s ease-in-out infinite}
+    @keyframes wbcTabProgress{0%{transform:translateX(-110%)}100%{transform:translateX(340%)}}
+    /* Active PL selector: no horizontal scrollbar; targets wrap cleanly. */
+    .topbar{align-items:flex-start!important;flex-wrap:wrap!important}
+    .topbar .project-label{min-height:34px;align-items:center}
+    #targetList.list{display:flex;flex:1 1 620px;flex-wrap:wrap;align-items:center;gap:7px;overflow:visible!important;padding:0;min-width:280px}
+    #targetList .item{flex:0 0 auto;margin:0;padding:7px 11px}
+    .topbar-actions{flex:0 0 auto;align-self:flex-start}
+    @media(max-width:1100px){div[id="targetList"].list{order:3;flex-basis:100%;padding-top:8px}.topbar-actions{margin-left:auto!important}}
+    @media(max-width:1180px){.overview-kpi-compact{grid-template-columns:repeat(3,minmax(150px,1fr))}.compact-wide{grid-column:span 2}}
+    @media(max-width:900px){.tblwrap{border-radius:16px!important;padding:7px}.card{border-radius:17px!important}.topbar{display:flex!important;flex-direction:row!important;align-items:flex-start!important}.topbar-actions{width:auto!important;flex-direction:row!important;margin-left:auto!important}div[id="targetList"].list{order:3;min-width:0}.overview-kpi-compact{grid-template-columns:repeat(2,minmax(135px,1fr))}.compact-wide{grid-column:span 2}}
+    @media(max-width:560px){.overview-kpi-compact{grid-template-columns:1fr}.compact-wide{grid-column:span 1}}
+  </style>
 </head>
+<style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}</style>
 <body>
 <div class="shell">
   <aside class="side">
@@ -44,6 +131,7 @@
         <button class="premium-tab" onclick="sideNav('jiras', this)"><span><i class="fas fa-clipboard-list" style="color:#93c5fd"></i> JIRAs</span><b id="nOverallJiras">0</b></button>
         <button class="premium-tab" onclick="sideNav('allcrs', this)"><span><i class="fas fa-gem" style="color:#facc15"></i> All CRs</span><b id="nOverallCrs">0</b></button>
         <button class="premium-tab" onclick="sideNav('opencrs', this)"><span><i class="fas fa-folder-open" style="color:#fdba74"></i> Open CRs</span><b id="nOpenCrs">0</b></button>
+        <button class="premium-tab" onclick="sideNav('franalysis', this);loadFrAnalysis()"><span><i class="fas fa-file-alt" style="color:#7c3aed"></i> FR Analysis</span><b id="nFrs">0</b></button>
       </div>
         </div>
     <div class="side-bottom">
@@ -61,7 +149,7 @@
     <div class="topbar">
       <div class="project-label"><i class="fas fa-circle"></i> Active Projects</div>
       <div id="targetList" class="list"><div class="empty" style="padding:6px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div></div>
-      <div class="actions" style="margin-left:auto;white-space:nowrap"><button class="btn" id="pptBtn" onclick="downloadPpt()" title="Download PowerPoint"><i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT</button><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button></div>
+      <div class="actions topbar-actions" style="margin-left:auto;white-space:nowrap"><button class="btn" id="pptBtn" onclick="downloadPpt()" title="Download PowerPoint"><i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT</button><button class="btn" onclick="closeLiveStatusViewer()"><i class="fas fa-times"></i> Close</button></div>
     </div>
     <div class="page-title"><h1 id="title">WBC Live View Stats</h1><span>Overview</span></div>
     <div class="tabs">
@@ -78,98 +166,43 @@
     </div>
     <section id="tabOverview" class="section active">
       <div class="section-title"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
-      <div id="overviewKpis" style="display:flex;flex-direction:column;gap:10px">
-
-        <!-- ── ROW 1 : Latest MTBF | MTBF Build | Hours | Crashes ── -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-
-          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Open MTBF trend table" style="border-top:3px solid #2563eb">
-            <div class="ico">📈</div>
-            <div id="ovKMtbf" class="num" style="color:#2563eb">-</div>
-            <div class="lbl">Latest MTBF</div>
-            <div id="ovKDate" style="font-size:10px;color:#94a3b8;margin-top:2px">-</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Build that produced this MTBF" style="border-top:3px solid #0891b2">
-            <div class="ico">🏗️</div>
-            <div id="ovKMtbfBuild" class="num" style="color:#0891b2;font-size:12px;word-break:break-all">-</div>
-            <div class="lbl">MTBF Build</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="PDT hours for this build" style="border-top:3px solid #16a34a">
-            <div class="ico">⏱️</div>
-            <div id="ovKHours" class="num" style="color:#16a34a">-</div>
-            <div class="lbl">Hours</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" title="Crashes for this build" style="border-top:3px solid #dc2626">
-            <div class="ico">💥</div>
-            <div id="ovKCrashes" class="num" style="color:#dc2626">-</div>
-            <div class="lbl">Crashes</div>
-          </div>
-
+      <div id="overviewKpis" class="overview-kpi-compact">
+        <button class="card metric compact-metric" onclick="navToTab('allcrs',null)" title="Open all CRs">
+          <span class="compact-icon cyan"><i class="fas fa-layer-group"></i></span>
+          <span class="compact-copy"><span class="lbl">Total CRs</span><span id="ovKTotalCrs" class="num">0</span></span>
+        </button>
+        <button class="card metric compact-metric" onclick="navToTab('opencrs',null)" title="Open total open CRs">
+          <span class="compact-icon amber"><i class="fas fa-folder-open"></i></span>
+          <span class="compact-copy"><span class="lbl">Total Open CRs</span><span id="ovKOverallCrs" class="num">0</span></span>
+        </button>
+        <button class="card metric compact-metric" onclick="navToTab('openjiras',null)" title="Open total open JIRAs">
+          <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
+          <span class="compact-copy"><span class="lbl">Total Open JIRAs</span><span id="ovKOverallJiras" class="num">0</span></span>
+        </button>
+        <button class="card metric compact-metric" onclick="navToTab('mtbf','mtbfTableBody')" title="Open latest MTBF trend and build details">
+          <span class="compact-icon green"><i class="fas fa-chart-line"></i></span>
+          <span class="compact-copy"><span class="lbl">Latest MTBF</span><span id="ovKMtbf" class="num">—</span><span id="ovKDate" class="compact-note">—</span></span>
+        </button>
+        <div class="current-build-metrics">
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcSjqlCardsBox')" title="Open current running build report">
+            <span class="compact-icon"><i class="fas fa-satellite-dish"></i></span>
+            <span class="compact-copy"><span class="lbl">Current Running Build / Meta ID</span><span id="ovKMeta" class="num compact-build">—</span></span>
+            <span id="ovKRunCnt" class="compact-count">0</span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open CRs related to this current Meta ID">
+            <span class="compact-icon violet"><i class="fas fa-bug"></i></span>
+            <span class="compact-copy"><span class="lbl">Current Build CRs</span><span id="ovKOpenCr" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open all JIRAs related to this current Meta ID">
+            <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
+            <span class="compact-copy"><span class="lbl">Current Build Total JIRAs</span><span id="ovKTotalJirasBuild" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open unmapped/open JIRAs related to this current Meta ID">
+            <span class="compact-icon amber"><i class="fas fa-lock-open"></i></span>
+            <span class="compact-copy"><span class="lbl">Current Build Open JIRAs</span><span id="ovKOpenJira" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
+          </button>
         </div>
-
-        <!-- ── ROW 2 : Running Builds | Total JIRAs | Valid JIRAs | CRs ── -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-
-          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="View current running builds" style="border-top:3px solid #7c3aed">
-            <div class="ico">🛰️</div>
-            <div id="ovKRunCnt" class="num" style="color:#7c3aed">-</div>
-            <div class="lbl">Running Builds</div>
-            <div id="ovKMeta" style="font-size:10px;color:#94a3b8;margin-top:2px;word-break:break-all">-</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="All JIRAs returned by the running build report" style="border-top:3px solid #475569">
-            <div class="ico">📄</div>
-            <div id="ovKTotalJirasBuild" class="num" style="color:#475569">0</div>
-            <div class="lbl">Total JIRAs (Build)</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="Valid JIRAs only — invalid / withdrawn excluded" style="border-top:3px solid #16a34a">
-            <div class="ico">✅</div>
-            <div id="ovKOpenJira" class="num" style="color:#16a34a">0</div>
-            <div class="lbl">Valid JIRAs</div>
-            <div id="ovKInvalidNote" style="font-size:10px;color:#b91c1c;font-weight:900;margin-top:2px"></div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('current','wbcSjqlCardsBox')" title="Unique valid Orbit CRs from running build" style="border-top:3px solid #6366f1">
-            <div class="ico">🐛</div>
-            <div id="ovKOpenCr" class="num" style="color:#6366f1">0</div>
-            <div class="lbl">CRs (Unique, Valid)</div>
-          </div>
-
-        </div>
-
-        <!-- ── ROW 3 : Total Open CRs | Total Open JIRAs | Total CRs | Total JIRAs ── -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-
-          <div class="card metric clickable" onclick="navToTab('opencrs',null)" title="Open CRs table" style="border-top:3px solid #0369a1">
-            <div class="ico">🔓</div>
-            <div id="ovKOverallCrs" class="num" style="color:#0369a1">0</div>
-            <div class="lbl">Total Open CRs</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('openjiras',null)" title="Open JIRAs table" style="border-top:3px solid #b45309">
-            <div class="ico">📁</div>
-            <div id="ovKOverallJiras" class="num" style="color:#b45309">0</div>
-            <div class="lbl">Total Open JIRAs</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('allcrs',null)" title="All CRs table" style="border-top:3px solid #7c3aed">
-            <div class="ico">📊</div>
-            <div id="ovKTotalCrs" class="num" style="color:#7c3aed">0</div>
-            <div class="lbl">Total CRs</div>
-          </div>
-
-          <div class="card metric clickable" onclick="navToTab('jiras',null)" title="All JIRAs table" style="border-top:3px solid #475569">
-            <div class="ico">🧾</div>
-            <div id="ovKTotalJiras" class="num" style="color:#475569">0</div>
-            <div class="lbl">Total JIRAs</div>
-          </div>
-
-        </div>
-
+        <span id="ovKCrashes" hidden></span><span id="ovKMtbfBuild" hidden></span><span id="ovKHours" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKTotalJiras" hidden></span>
       </div>
       <div class="overview-panels">
         <div class="card"><div class="head"><span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="overviewView" class="overview-text"></div></div></div>
@@ -178,13 +211,13 @@
       <div class="card overview-chart-card"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
-            <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> Saved JQL Current Running Build Reports</div>
+            <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> {% if can_edit %}Saved JQL {% endif %}Current Running Build Reports</div>
       <div class="card">
         <div class="head">
-          <span><i class="fas fa-bookmark" style="color:#4f46e5"></i> Current Running Build — Saved JQL Reports</span>
+          <span><i class="fas fa-bookmark" style="color:#4f46e5"></i> Current Running Build{% if can_edit %} — Saved JQL Reports{% endif %}</span>
           <span id="runningReportStatus" class="muted"></span>
-          {% if can_edit %}<button class="btn" onclick="wbcOpenSjqlModal()"><i class="fas fa-plus"></i> Add Saved JQL Row</button>{% endif %}
-          <button class="btn" onclick="wbcSjqlLoad()"><i class="fas fa-sync"></i> Refresh</button>
+          {% if can_edit %}<button class="btn" onclick="wbcOpenSjqlModal()"><i class="fas fa-plus"></i> Add Saved JQL Row</button>
+          <button class="btn" onclick="wbcSjqlLoad()"><i class="fas fa-sync"></i> Refresh</button>{% endif %}
         </div>
         <div class="body" id="wbcSjqlCardsBox" style="min-height:120px">
           <div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>
@@ -200,7 +233,7 @@
               <span id="wbcInlineReportMeta" style="font-size:10px;color:rgba(255,255,255,.7);margin-left:4px"></span>
             </div>
             <div style="display:flex;gap:8px">
-              <button onclick="wbcSjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>
+              {% if can_edit %}<button onclick="wbcSjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>{% endif %}
               <button onclick="wbcCloseInlineReport()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:900"><i class="fas fa-times"></i> Close</button>
             </div>
           </div>
@@ -208,12 +241,70 @@
         </div>
       </div>
     </section>
-    <section id="tabMtbf" class="section"><div class="card"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span><button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox"><canvas id="chart" height="330"></canvas><div id="chartEmpty" class="empty">Reading Mainline_Build_Details Excel once and saving MTBF JSON...</div></div></div><div class="card"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span>{% if can_edit %}<div class="actions"><button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
+    <section id="tabMtbf" class="section"><div class="card"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span>{% if can_edit %}<input type="file" id="mtbfExcelFileInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="uploadMtbfExcel(this)"><button id="mtbfBrowseBtn" class="btn" onclick="document.getElementById('mtbfExcelFileInput').click()" title="Browse and select an Excel file to read Mainline_Build_Details (one-time import)"><i class="fas fa-folder-open" style="color:#f97316"></i> Browse Excel</button>{% endif %}<button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox"><canvas id="chart" height="330"></canvas><div id="chartEmpty" class="empty">No MTBF data. Use Browse Excel to import Mainline_Build_Details once.</div></div></div><div class="card"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span>{% if can_edit %}<div class="actions"><button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
         <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
     <section id="tabOpenjiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</span><span id="openJirasCount" class="muted"></span></div><div class="body" id="openJirasBox"></div></div></section>
     <section id="tabBuilds" class="section"><div class="card"><div class="head"><span><i class="fas fa-file-alt"></i> Build Report</span><span id="buildSummaryCount" class="muted"></span></div><div class="body" id="buildSummaryBox"></div></div></section>
     <section id="tabAllcrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-gem" style="color:#d4af37"></i> All CRs</span><span id="allCrsCount" class="muted"></span></div><div class="body" id="allCrsBox"></div></div></section>
     <section id="tabJiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-clipboard-list" style="color:#2563eb"></i> JIRAs</span><span id="allJirasCount" class="muted"></span></div><div class="body" id="allJirasBox"></div></div></section>
+    <section id="tabFranalysis" class="section">
+      <!-- FR Analysis hero KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px" id="frKpiRow">
+        <div class="card metric" style="border-top:3px solid #7c3aed">
+          <div class="ico">📋</div>
+          <div id="frKpiTotal" class="num" style="color:#7c3aed">—</div>
+          <div class="lbl">Total FR Rows</div>
+        </div>
+        <div class="card metric" style="border-top:3px solid #2563eb">
+          <div class="ico">📊</div>
+          <div id="frKpiCols" class="num" style="color:#2563eb">—</div>
+          <div class="lbl">Columns</div>
+        </div>
+        <div class="card metric" style="border-top:3px solid #16a34a">
+          <div class="ico">💾</div>
+          <div id="frKpiSource" class="num" style="color:#16a34a;font-size:12px">—</div>
+          <div class="lbl">Data Source</div>
+        </div>
+        <div class="card metric" style="border-top:3px solid #b45309">
+          <div class="ico">🕐</div>
+          <div id="frKpiUpdated" class="num" style="color:#b45309;font-size:11px">—</div>
+          <div class="lbl">Last Saved</div>
+        </div>
+      </div>
+      <!-- FR Analysis charts (PDT Analysis pie + PDT Setup bar) -->
+      <div id="frChartsRow" style="display:none;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="card">
+          <div class="head"><span><i class="fas fa-chart-pie" style="color:#7c3aed"></i> PDT Analysis Distribution</span></div>
+          <div class="body" style="height:280px;position:relative"><canvas id="frPieChart" style="display:none"></canvas><div id="frPieEmpty" class="empty" style="padding:20px">No PDT Analysis column found in FR data.</div></div>
+        </div>
+        <div class="card">
+          <div class="head"><span><i class="fas fa-chart-bar" style="color:#2563eb"></i> PDT Setup Status</span></div>
+          <div class="body" style="height:280px;position:relative"><canvas id="frBarChart" style="display:none"></canvas><div id="frBarEmpty" class="empty" style="padding:20px">No PDT Setup column found in FR data.</div></div>
+        </div>
+      </div>
+      <!-- FR Analysis main card -->
+      <div class="card">
+        <div class="head">
+          <span><i class="fas fa-table" style="color:#7c3aed"></i> PL-wise FR Analysis</span>
+          <div class="actions">
+            <input id="frFilter" class="input" style="max-width:220px;height:32px;font-size:12px" placeholder="Search FR rows…" oninput="frFilterTable(this.value)">
+            {% if can_edit %}
+            <input type="file" id="frExcelFileInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="uploadFrExcel(this)">
+            <button id="frBrowseBtn" class="btn" onclick="document.getElementById('frExcelFileInput').click()" title="Browse and select an Excel file to read FR_Analysis (one-time import)"><i class="fas fa-folder-open" style="color:#7c3aed"></i> Browse Excel</button>
+            <button class="btn" onclick="frAddColumn()"><i class="fas fa-columns"></i> Add Column</button>
+            <button class="btn" onclick="frAddRow()"><i class="fas fa-plus"></i> Add Row</button>
+            <button class="btn primary" onclick="saveFrAnalysis()"><i class="fas fa-save"></i> Save FR JSON</button>
+            <button class="btn" onclick="syncFrFromExcel()" title="Read FR_Analysis from PL Excel workbook and add any rows missing from the JSON cache"><i class="fas fa-file-excel" style="color:#16a34a"></i> Read from Excel</button>
+            {% endif %}
+            <button class="btn" onclick="loadFrAnalysis()"><i class="fas fa-sync"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="body">
+          <div id="frAnalysisMsg" class="muted" style="margin-bottom:10px;font-size:12px">Select a target to load its PL-wise FR_Analysis data.</div>
+          <div class="tblwrap" id="frAnalysisBox"></div>
+        </div>
+      </div>
+    </section>
     <section id="tabExcel" class="section"><div class="card"><div class="head"><span>Synced Excel Table</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="filter" class="input" style="max-width:260px;height:34px" placeholder="Search synced rows" oninput="renderExcel()"><button class="filter-btn" onclick="renderExcel();document.getElementById('filter')?.focus()"><i class="fas fa-filter"></i> Filter</button></div></div><div class="tblwrap"><table><thead id="excelHead"></thead><tbody id="excelBody"></tbody></table></div></div></section>
     {% if can_edit %}
     <section id="tabConfig" class="section"><div class="card"><div class="head"><span>Per-WBC Target DB Configuration</span><button class="btn primary" onclick="saveConfig()"><i class="fas fa-save"></i> Save Config</button></div><div class="body"><div class="config-grid"><div class="field"><label>Active WBC Target</label><input id="cfgTarget" class="input" readonly></div><div class="field"><label>JIRAs Table</label><select id="cfgJiras" class="input"></select></div><div class="field"><label>Open JIRAs Table</label><select id="cfgOpen" class="input"></select></div><div class="field"><label>Unique CRs Table</label><select id="cfgUnique" class="input"></select></div><div class="field"><label>Overall CRs Table</label><select id="cfgOverall" class="input"></select></div></div><div id="cfgMsg" class="saved">Load a target to configure DB tables.</div></div></div></section>
@@ -295,7 +386,7 @@
 </div>
 {% endif %}
 <script>
-const CAN_EDIT={{ can_edit|tojson }}; const API='/api/wbc_live_view_stats';
+const CAN_EDIT=JSON.parse('{{ can_edit|tojson|forceescape }}'); const API='/api/wbc_live_view_stats';
 let targets=[], allTargets=[], config={targets:{}}, active='', payload=null, tables=[], chart=null, overviewChart=null;
 function goLiveStatusHome(){
   if(window.parent && window.parent !== window){try{window.parent.postMessage({type:'lsp_close_viewer'}, '*');return;}catch(e){}}
@@ -305,11 +396,21 @@ function closeLiveStatusViewer(){
   if(window.parent && window.parent !== window){try{window.parent.postMessage({type:'lsp_close_viewer'}, '*');return;}catch(e){}}
   window.location.href='/live_status_view';
 }
+let _wbcTabLoadingTimer=null;
+const _WBC_TAB_LABELS={overview:'Overview',current:'Current Running Builds',mtbf:'MTBF',builds:'Build Report',openjiras:'Open JIRAs',jiras:'JIRAs',allcrs:'All CRs',opencrs:'Open CRs',franalysis:'FR Analysis',excel:'Excel Table',config:'Configuration'};
+function _wbcShowTabLoading(tab){
+  const o=document.getElementById('wbcTabLoadingOverlay');if(!o)return;
+  clearTimeout(_wbcTabLoadingTimer);
+  const el=document.getElementById('wbcTabLoadingTitle');if(el)el.textContent='Loading '+(_WBC_TAB_LABELS[tab]||'dashboard');
+  o.style.display='flex';o.setAttribute('aria-hidden','false');
+  _wbcTabLoadingTimer=setTimeout(()=>{o.style.display='none';o.setAttribute('aria-hidden','true');},480);
+}
 function sideNav(tab, btn, anchor){
+  _wbcShowTabLoading(tab);
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   switchTab(tab);
-  if(anchor) setTimeout(()=>document.getElementById(anchor)?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+  if(anchor)setTimeout(()=>document.getElementById(anchor)?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function num(v){const x=Number(String(v||0).replace(/,/g,''));return Number.isFinite(x)?x:0;} function fmt(v,d=1){return num(v).toLocaleString(undefined,{maximumFractionDigits:d});}
@@ -322,14 +423,55 @@ document.addEventListener('focusin',e=>{if(e.target&&e.target.classList&&e.targe
 function richCmd(cmd,val){const id=_activeRichEditor||document.querySelector('.modal.open .rich-editor')?.id;if(id)document.getElementById(id)?.focus();document.execCommand(cmd,false,val||null);}
 async function getJson(url){const r=await fetch(url,{cache:'no-store'});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'API failed');return d;}
 async function postJson(url,p){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p||{})});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'Save failed');return d;}
-const TAB_ID_MAP={overview:'tabOverview',current:'tabCurrent',mtbf:'tabMtbf',opencrs:'tabOpencrs',openjiras:'tabOpenjiras',builds:'tabBuilds',allcrs:'tabAllcrs',jiras:'tabJiras',excel:'tabExcel',config:'tabConfig'};
+const TAB_ID_MAP={overview:'tabOverview',current:'tabCurrent',mtbf:'tabMtbf',opencrs:'tabOpencrs',openjiras:'tabOpenjiras',builds:'tabBuilds',allcrs:'tabAllcrs',jiras:'tabJiras',franalysis:'tabFranalysis',excel:'tabExcel',config:'tabConfig'};
 const TABBTN_ID_MAP={overview:'tabBtnOverview',current:'tabBtnCurrent',mtbf:'tabBtnMtbf',opencrs:'tabBtnOpencrs',openjiras:'tabBtnOpenjiras',builds:'tabBtnBuilds',allcrs:'tabBtnAllcrs',jiras:'tabBtnJiras',excel:'tabBtnExcel',config:'tabBtnConfig'};
 function switchTab(tab){Object.keys(TAB_ID_MAP).forEach(t=>{document.getElementById(TAB_ID_MAP[t])?.classList.toggle('active',t===tab);document.getElementById(TABBTN_ID_MAP[t])?.classList.toggle('active',t===tab);});}
 async function loadTargets(){const d=await getJson(`${API}/targets`);targets=d.targets||[];allTargets=d.all_targets||targets;config=d.config||{targets:{}};renderQuickSelect();renderList();if(!active&&targets[0])selectTarget(targets[0].key);if(CAN_EDIT)loadTables();}
 function cfgFor(k){return (config.targets||{})[k]||{};}
 function renderQuickSelect(){const sel=document.getElementById('quickTarget');if(!sel)return;sel.innerHTML='<option value="">Select...</option>'+targets.map(t=>`<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');if(active)sel.value=active;}
 function renderList(){const q=(document.getElementById('search')?.value||'').toLowerCase();const rows=targets.filter(t=>!q||JSON.stringify(t).toLowerCase().includes(q));document.getElementById('targetList').innerHTML=rows.length?rows.map(t=>`<button class="item ${t.key===active?'active':''}" onclick="selectTarget('${esc(t.key)}')"><b>${esc(t.label)}</b></button>`).join(''):'<div class="empty" style="padding:6px;color:#94a3b8">No WBC workbooks found.</div>';}
-async function selectTarget(k){active=k;renderQuickSelect();renderList();setText('title','Loading '+k+'...');try{payload=await getJson(`${API}/target/${encodeURIComponent(k)}`);renderAll();wbcSjqlLoad();}catch(e){setText('subtitle',e.message||e);}}
+async function selectTarget(k){
+  _wbcShowTabLoading('overview');
+  active=k;
+  // Saved-JQL state belongs to one PL only. Clear the prior PL immediately so
+  // its cards, active report, and scheduled refreshes cannot leak into this PL.
+  _wbcSjqlTabs=[];
+  _wbcActiveTabId=null;
+  Object.values(_wbcSjqlTimers||{}).forEach(timer=>{
+    if(timer&&timer._timer) clearTimeout(timer._timer);
+    if(timer&&timer.handle) clearTimeout(timer.handle);
+    if(timer&&timer.interval) clearInterval(timer.interval);
+  });
+  _wbcSjqlTimers={};
+  const oldCards=document.getElementById('wbcSjqlCardsBox');
+  if(oldCards) oldCards.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading this PL...</div>';
+  // The report panel contains rendered HTML independent of the cards list.
+  // Remove it immediately; otherwise a PL with no JQL rows can still show the
+  // previously selected PL's cached report below its empty-state message.
+  const oldReport=document.getElementById('wbcInlineReport');
+  const oldReportBody=document.getElementById('wbcInlineReportBody');
+  const oldReportTitle=document.getElementById('wbcInlineReportTitle');
+  const oldReportMeta=document.getElementById('wbcInlineReportMeta');
+  if(oldReport) oldReport.style.display='none';
+  if(oldReportBody) oldReportBody.innerHTML='';
+  if(oldReportTitle) oldReportTitle.textContent='Report';
+  if(oldReportMeta) oldReportMeta.textContent='';
+  frData={headers:[],rows:[]};
+  renderQuickSelect();renderList();
+  setText('title','Loading '+k+'...');
+  try{
+    const loadedPayload=await getJson(`${API}/target/${encodeURIComponent(k)}`);
+    if(active!==k) return;
+    payload=loadedPayload;
+    renderAll();
+    wbcSjqlLoad();
+    // If FR Analysis tab is currently visible, reload its data for the new target
+    const frSection=document.getElementById('tabFranalysis');
+    if(frSection&&frSection.classList.contains('active')){
+      loadFrAnalysis();
+    }
+  }catch(e){setText('subtitle',e.message||e);}
+}
 function _latestMtbfRow(){const rows=((payload&&payload.excel&&payload.excel.chart_rows)||[]);return rows.length?rows[rows.length-1]:{};}
 function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,invalid:0});}
 function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
@@ -346,13 +488,13 @@ async function loadRunningBuildReport(i,force){const current=(payload.current_bu
 async function forceRunBuildReport(i){return loadRunningBuildReport(i,true);}
 async function showRunningBuildReport(i){return loadRunningBuildReport(i,false);}
 function renderRunningBuildReport(){} // removed - replaced by saved JQL cards
-function renderChart(){const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty');setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));empty.style.display=rows.length?'none':'block';if(!rows.length)empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';if(chart){chart.destroy();chart=null;}if(!rows.length)return;const canvas=document.getElementById('chart');canvas.style.width=Math.max(1000,rows.length*86)+'px';canvas.width=Math.max(1000,rows.length*86);chart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{label:'Hours+',data:rows.map(r=>num(r.hours)),backgroundColor:'#a78bfa',yAxisID:'y'},{label:'crash',data:rows.map(r=>num(r.crash||r.total_crashes)),type:'line',borderColor:'#ef4444',backgroundColor:'#ef4444',pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'},{label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#16a34a',backgroundColor:'#16a34a',pointRadius:5,pointHoverRadius:8,pointStyle:'rectRounded',tension:.25,yAxisID:'y1'}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{mode:'index',intersect:false}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}},x:{ticks:{autoSkip:false,maxRotation:55,minRotation:35}}}}});}
+function renderChart(){const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty');setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));empty.style.display=rows.length?'none':'block';if(!rows.length)empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';if(chart){chart.destroy();chart=null;}if(!rows.length)return;const n=rows.length;const barThick=n<=2?60:n<=4?44:n<=8?28:n<=14?18:n<=22?12:8;const _fewPts=n<=6;const _tabParentW=document.getElementById('chart')?.parentElement?.clientWidth||760;const _tabFixW=n<=2?Math.min(480,_tabParentW):n<=4?Math.min(680,_tabParentW):n<=6?Math.min(900,_tabParentW):null;const canvasW=_fewPts?_tabFixW:Math.max(760,n*Math.max(barThick*2.8,52));const canvas=document.getElementById('chart');if(_fewPts){canvas.style.width=_tabFixW+'px';canvas.width=_tabFixW;}else{canvas.style.width=canvasW+'px';canvas.width=canvasW;}chart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'rgba(59,91,219,0.85)',borderColor:'#3b5bdb',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},{label:'Crashes',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},{label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#b88a00',backgroundColor:'rgba(245,197,66,0.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,font:{size:11}}},tooltip:{mode:'index',intersect:false}},scales:{y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:9}}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9},color:'#b88a00'},ticks:{color:'#b88a00'}},x:{ticks:{autoSkip:false,maxRotation:55,minRotation:35}}}}});}
 async function copyChart(){try{const canvas=document.getElementById('chart');const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(e){alert('Copy failed.');}}
 function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.jiras||0);setText('ovKOpenCr',jql.crs||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
 function openOverviewEditModal(focus){if(!CAN_EDIT)return;renderOverviewSummary();setText('ovSummaryMsg','');setText('ovPdtMsg','');if(focus==='pdt'){document.getElementById('pdtEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovPdtStatus')?.focus(),50);}else{document.getElementById('summaryEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovOverview')?.focus(),50);}}
 function closeOverviewEditModal(){document.getElementById('summaryEditModal')?.classList.remove('open');document.getElementById('pdtEditModal')?.classList.remove('open');}
 async function saveOverviewSummary(which){if(!active)return;const overview_html=editorHtml('ovOverview'), pdt_status_html=editorHtml('ovPdtStatus');const body={engineer:document.getElementById('ovEngineer')?.value||'',summary_title:document.getElementById('ovTitle')?.value||'',overview:editorText('ovOverview'),overview_html:overview_html,highlights:document.getElementById('ovHighlights')?.value||'',highlights_html:'',risks:document.getElementById('ovHighlights')?.value||'',pdt_status:editorText('ovPdtStatus'),pdt_status_html:pdt_status_html,next_steps:document.getElementById('ovNext')?.value||'',next_steps_html:''};const msgId=which==='pdt'?'ovPdtMsg':'ovSummaryMsg';setText(msgId,'Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/overview_summary`,body);payload.overview_summary=d.overview_summary||body;renderOverviewSummary();setText(msgId,'Saved.');setTimeout(closeOverviewEditModal,450);}catch(e){setText(msgId,'Save failed: '+(e.message||e));}}
-function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:1,barThickness:6,maxBarThickness:6,categoryPercentage:.34,barPercentage:.42,yAxisID:'y'},{type:'line',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),borderColor:'#dc2626',backgroundColor:'#dc2626',borderWidth:1.4,pointRadius:2.4,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y1'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:1.6,pointRadius:2.6,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:6,right:8,left:2,bottom:46}},plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,font:{size:9},padding:8}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:11,weight:'bold'},padding:{top:2,bottom:4}},tooltip:{mode:'index',intersect:false}},scales:{x:{offset:false,grid:{display:false},ticks:{autoSkip:false,maxRotation:58,minRotation:58,color:'#0f172a',font:{size:8,weight:'700'},padding:4,callback:function(v){const s=this.getLabelForValue(v);return s.length>20?s.slice(0,20)+'…':s;}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:9}},ticks:{font:{size:8}}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9}},ticks:{font:{size:8},color:'#b88a00'}}}}});}
+function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;const n=rows.length;const _bThick=n<=2?80:n<=4?60:n<=6?40:n<=10?24:n<=18?14:8;const _catPct=n<=4?.55:n<=8?.42:.34;const _barPct=n<=4?.82:n<=8?.65:.42;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'bar',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:1.6,pointRadius:2.6,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:6,right:8,left:2,bottom:46}},plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,font:{size:9},padding:8}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:11,weight:'bold'},padding:{top:2,bottom:4}},tooltip:{mode:'index',intersect:false}},scales:{x:{offset:true,grid:{display:false},ticks:{autoSkip:false,maxRotation:58,minRotation:58,color:'#0f172a',font:{size:8,weight:'700'},padding:4,callback:function(v){const s=this.getLabelForValue(v);return s.length>20?s.slice(0,20)+'…':s;}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:9}},ticks:{font:{size:8}}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9}},ticks:{font:{size:8},color:'#b88a00'}}}}});}
 function mtbfRows(){return ((payload&&payload.excel&&payload.excel.chart_rows)||[]).map((r,i)=>({...r,s_no:r.s_no||i+1}));}
 const MTBF_COLS=[['s_no','S.No'],['crm_build_id','CRM Build ID'],['date','Date'],['hours','Hours+'],['crash','crash'],['mtbf','MTBF']];
 function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;h.innerHTML='<tr>'+MTBF_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')+'</tr>';b.innerHTML=rows.length?rows.map(r=>'<tr>'+MTBF_COLS.map(c=>`<td>${esc(r[c[0]]??'')}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
@@ -369,6 +511,250 @@ function mtbfEditAddBlankRow(){_mtbfEditRows=collectMtbfEditRows();_mtbfEditRows
 function mtbfEditCopyLastRow(){_mtbfEditRows=collectMtbfEditRows();_mtbfEditRows.push(_mtbfEditRows.length?{..._mtbfEditRows[_mtbfEditRows.length-1]}:{});renderMtbfEditTable();}
 async function saveMtbfEditTable(){const rows=collectMtbfEditRows().filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));setText('mtbfEditMsg','Saving complete table...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/mtbf/save_table`,{rows});payload.excel=d.excel||payload.excel;renderChart();renderMtbfTable();setText('mtbfEditMsg','Saved '+(d.row_count||0)+' rows.');setTimeout(closeMtbfEditModal,700);}catch(e){setText('mtbfEditMsg','Save failed: '+(e.message||e));}}
 function renderExcel(){const ex=payload.excel||{}, headers=ex.headers||[], rows=ex.rows||[], q=(document.getElementById('filter')?.value||'').toLowerCase();const f=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));document.getElementById('excelHead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':'';document.getElementById('excelBody').innerHTML=f.length?f.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No synced Excel rows. Click Sync Target Excel.</td></tr>';}
+let frData={headers:[],rows:[]};
+function _frStatusBadge(val){
+  const v=String(val||'').trim().toLowerCase();
+  if(!v||v==='—'||v==='-')return '<span style="color:#94a3b8;font-size:11px">—</span>';
+  let bg='#eef2ff',color='#4338ca',border='#c7d2fe';
+  if(/implici|covered|done|complete|pass/i.test(v)){bg='#dcfce7';color='#166534';border='#86efac';}
+  else if(/not.cover|not.start|pending|open|todo/i.test(v)){bg='#fff1f2';color='#b91c1c';border='#fca5a5';}
+  else if(/partial|in.prog|wip|ongoing/i.test(v)){bg='#fff7ed';color='#c2410c';border='#fed7aa';}
+  else if(/na|n\/a|not.applic/i.test(v)){bg='#f1f5f9';color='#64748b';border='#cbd5e1';}
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;background:'+bg+';color:'+color+';border:1px solid '+border+'">'+esc(val)+'</span>';
+}
+function _frIsStatusCol(header){return /(status|state|coverage|deploy|result|outcome)/i.test(String(header||''));}
+function _frIsIdCol(header){return /(^id$|_id$|^fr|request.id|feature.id)/i.test(String(header||'').replace(/\s+/g,'_'));}
+function renderFrAnalysis(){
+  const box=document.getElementById('frAnalysisBox');
+  if(!box)return;
+  const headers=frData.headers||[], rows=frData.rows||[];
+  if(!headers.length){box.innerHTML='<div class="empty" style="padding:48px"><i class="fas fa-table" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No FR Analysis data. Click Refresh to load from the PL workbook.</div>';return;}
+  // Build header row
+  let html='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:linear-gradient(135deg,#1e3a8a,#4f46e5)">'
+    +'<th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:900;text-align:center;width:38px;border-right:1px solid rgba(255,255,255,.15)">#</th>';
+  headers.forEach((header,col)=>{
+    html+=CAN_EDIT
+      ? '<th style="padding:6px 4px;border-right:1px solid rgba(255,255,255,.15)"><input class="edit-cell fr-head" data-c="'+col+'" value="'+esc(header)+'" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;width:100%;min-width:80px"></th>'
+      : '<th style="padding:9px 10px;color:#e0e7ff;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;border-right:1px solid rgba(255,255,255,.15);white-space:nowrap">'+esc(header)+'</th>';
+  });
+  html+='</tr></thead><tbody>';
+  rows.forEach((row,rowIndex)=>{
+    const bg=rowIndex%2===0?'background:#ffffff':'background:#f8fbff';
+    html+='<tr style="'+bg+';border-bottom:1px solid #e5e7eb" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(rowIndex%2===0?'#ffffff':'#f8fbff')+'\'">'
+      +'<td style="padding:8px 10px;text-align:center;color:#94a3b8;font-size:11px;font-weight:900;border-right:1px solid #f1f5f9">'+(rowIndex+1)+'</td>';
+    headers.forEach((header,col)=>{
+      const value=String((row||[])[col]||'').trim();
+      const isStatus=_frIsStatusCol(header);
+      const isId=_frIsIdCol(header);
+      let cellContent;
+      if(CAN_EDIT){
+        cellContent='<input class="edit-cell fr-cell" data-r="'+rowIndex+'" data-c="'+col+'" value="'+esc(value)+'" style="width:100%;min-width:'+(isId?'100px':isStatus?'130px':'120px')+'">';
+      } else if(isStatus){
+        cellContent=_frStatusBadge(value);
+      } else if(isId&&value){
+        cellContent='<span style="font-weight:950;color:#4338ca;font-size:11px">'+esc(value)+'</span>';
+      } else {
+        cellContent='<span style="color:#334155">'+esc(value||'—')+'</span>';
+      }
+      html+='<td style="padding:8px 10px;border-right:1px solid #f1f5f9;max-width:280px;white-space:normal;vertical-align:middle">'+cellContent+'</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  box.innerHTML=html;
+}
+async function loadFrAnalysis(){
+  if(!active)return;
+  setText('frAnalysisMsg','Loading PL-wise FR_Analysis data...');
+  try{
+    const d=await getJson(`${API}/target/${encodeURIComponent(active)}/fr_analysis`);
+    frData={headers:d.headers||[],rows:d.rows||[]};
+    renderFrAnalysis();
+    renderFrCharts();
+    setText('nFrs',frData.rows.length);
+    setText('frKpiTotal',frData.rows.length);
+    setText('frKpiCols',frData.headers.length);
+    const src=d.source==='json'?'JSON Cache':(d.source==='excel_seeded'?'Excel → JSON':(d.source==='excel_upload'?'Excel Upload':(d.source==='excel_merged'?'Excel Merged':'Excel')));
+    setText('frKpiSource',src);
+    const upd=d.updated_at?String(d.updated_at).replace('T',' ').slice(0,16):(d.excel_path?'From Excel':'—');
+    setText('frKpiUpdated',upd);
+    const by=d.updated_by?(' by '+d.updated_by):'';
+    setText('frAnalysisMsg',src+' • '+frData.rows.length+' FR rows • '+frData.headers.length+' columns'+by);
+    // Hide Browse Excel button once data is loaded from any source
+    const browseBtn=document.getElementById('frBrowseBtn');
+    if(browseBtn&&frData.rows.length>0)browseBtn.style.display='none';
+  }catch(e){
+    setText('frAnalysisMsg','FR Analysis load failed: '+(e.message||e));
+  }
+}
+function frFilterTable(q){
+  const box=document.getElementById('frAnalysisBox');
+  if(!box)return;
+  const qq=String(q||'').toLowerCase();
+  box.querySelectorAll('tbody tr').forEach(tr=>{tr.style.display=!qq||tr.textContent.toLowerCase().includes(qq)?'':'none';});
+}
+function frCollect(){if(!CAN_EDIT)return;document.querySelectorAll('.fr-head').forEach(e=>frData.headers[+e.dataset.c]=e.value);document.querySelectorAll('.fr-cell').forEach(e=>frData.rows[+e.dataset.r][+e.dataset.c]=e.value);}
+function frAddRow(){frCollect();frData.rows.push(frData.headers.map(()=>''));renderFrAnalysis();}
+function frAddColumn(){const name=prompt('New FR Analysis column name:','');if(!name||!name.trim())return;frCollect();frData.headers.push(name.trim());frData.rows.forEach(r=>r.push(''));renderFrAnalysis();}
+async function saveFrAnalysis(){if(!active||!CAN_EDIT)return;frCollect();setText('frAnalysisMsg','Saving FR_Analysis sheet...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/fr_analysis`,frData);frData.headers=d.headers||frData.headers;setText('frAnalysisMsg','Saved '+d.saved_rows+' FR rows to '+d.sheet+'.');renderFrAnalysis();}catch(e){setText('frAnalysisMsg','FR Analysis save failed: '+(e.message||e));}}
+function _wbcShowExcelLoading(title,filename,msg){
+  const o=document.getElementById('wbcExcelLoadingOverlay');if(!o)return;
+  const t=document.getElementById('wbcExcelLoadingTitle');if(t)t.textContent=title||'Reading Excel Workbook';
+  const f=document.getElementById('wbcExcelLoadingFile');if(f)f.textContent=filename||'';
+  const m=document.getElementById('wbcExcelLoadingMsg');if(m)m.textContent=msg||'Processing sheet data, please wait…';
+  o.style.display='flex';
+}
+function _wbcHideExcelLoading(){const o=document.getElementById('wbcExcelLoadingOverlay');if(o)o.style.display='none';}
+let _wbcSheetPickerResolve=null;
+function wbcSheetPickerCancel(){
+  const modal=document.getElementById('wbcSheetPickerModal');if(modal)modal.style.display='none';
+  if(_wbcSheetPickerResolve){_wbcSheetPickerResolve('');_wbcSheetPickerResolve=null;}
+}
+function wbcSheetPickerSelect(sheetName){
+  const modal=document.getElementById('wbcSheetPickerModal');if(modal)modal.style.display='none';
+  if(_wbcSheetPickerResolve){_wbcSheetPickerResolve(sheetName);_wbcSheetPickerResolve=null;}
+}
+function _wbcShowSheetPicker(sheets,filename,kind){
+  return new Promise(resolve=>{
+    _wbcSheetPickerResolve=resolve;
+    setText('wbcSheetPickerFilename','Workbook: '+filename);
+    const recommended=(sheets||[]).find(s=>kind==='mtbf'?(/mainline.*build|build.*detail/i.test(s)):(/fr.*anal|anal.*fr/i.test(s)));
+    const list=document.getElementById('wbcSheetPickerList');
+    list.innerHTML=(sheets||[]).map((sheet,index)=>{
+      const isRecommended=sheet===recommended;
+      const button=document.createElement('button');
+      button.type='button';
+      button.dataset.sheetIndex=String(index);
+      return `<button type="button" data-sheet-index="${index}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:13px 15px;border-radius:12px;border:1.5px solid ${isRecommended?'#60a5fa':'#334155'};background:${isRecommended?'rgba(59,130,246,.16)':'#111827'};color:${isRecommended?'#dbeafe':'#e2e8f0'};font-size:13px;font-weight:900;text-align:left;cursor:pointer"><span><i class="fas fa-file-excel" style="color:#22c55e;margin-right:9px"></i>${esc(sheet)}</span>${isRecommended?'<span style="padding:3px 8px;border-radius:999px;background:#2563eb;color:#fff;font-size:9px;font-weight:950">RECOMMENDED</span>':''}</button>`;
+    }).join('')||'<div style="padding:20px;text-align:center;color:#fca5a5">No worksheets found.</div>';
+    list.querySelectorAll('[data-sheet-index]').forEach(btn=>btn.addEventListener('click',()=>wbcSheetPickerSelect(sheets[Number(btn.dataset.sheetIndex)])));
+    const modal=document.getElementById('wbcSheetPickerModal');if(modal)modal.style.display='flex';
+  });
+}
+async function _wbcChooseExcelSheet(file,kind){
+  _wbcShowExcelLoading('Scanning Workbook','📂 '+file.name,'Reading available worksheet names…');
+  const formData=new FormData();formData.append('file',file);
+  const response=await fetch(`${API}/target/${encodeURIComponent(active)}/excel/list_sheets`,{method:'POST',body:formData});
+  const data=await response.json();
+  _wbcHideExcelLoading();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Unable to read worksheet names');
+  return _wbcShowSheetPicker(data.sheets||[],file.name,kind);
+}
+async function uploadFrExcel(input){
+  if(!active||!CAN_EDIT||!input.files||!input.files[0])return;
+  const file=input.files[0];
+  try{
+    const sheet=await _wbcChooseExcelSheet(file,'fr');
+    if(!sheet)return;
+    _wbcShowExcelLoading('Reading FR Analysis','📂 '+file.name,'Importing selected sheet: '+sheet);
+    const formData=new FormData();formData.append('file',file);formData.append('sheet_name',sheet);
+    const r=await fetch(`${API}/target/${encodeURIComponent(active)}/fr_analysis/upload_excel`,{method:'POST',body:formData});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||'Upload failed');
+    frData={headers:d.headers||[],rows:d.rows||[]};
+    renderFrAnalysis();renderFrCharts();
+    setText('nFrs',frData.rows.length);setText('frKpiTotal',frData.rows.length);setText('frKpiCols',frData.headers.length);
+    setText('frKpiSource','Excel Upload');
+    const upd=d.updated_at?String(d.updated_at).replace('T',' ').slice(0,16):'—';setText('frKpiUpdated',upd);
+    setText('frAnalysisMsg','Imported '+frData.rows.length+' non-empty rows and '+frData.headers.length+' non-empty columns from '+sheet+'.');
+    const btn=document.getElementById('frBrowseBtn');if(btn)btn.style.display='none';
+  }catch(e){setText('frAnalysisMsg','Excel upload failed: '+(e.message||e));}
+  finally{_wbcHideExcelLoading();input.value='';}
+}
+async function uploadMtbfExcel(input){
+  if(!active||!CAN_EDIT||!input.files||!input.files[0])return;
+  const file=input.files[0];
+  try{
+    const sheet=await _wbcChooseExcelSheet(file,'mtbf');
+    if(!sheet)return;
+    _wbcShowExcelLoading('Reading MTBF Data','📂 '+file.name,'Importing selected sheet: '+sheet);
+    const formData=new FormData();formData.append('file',file);formData.append('sheet_name',sheet);
+    const r=await fetch(`${API}/target/${encodeURIComponent(active)}/mtbf/upload_excel`,{method:'POST',body:formData});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||'Upload failed');
+    payload.excel=d.excel||payload.excel;
+    renderChart();renderMtbfTable();renderOverviewMtbfChart();
+    setText('mtbfSource','Uploaded: '+file.name+' • '+sheet+' • '+(d.rows||0)+' rows');
+    const btn=document.getElementById('mtbfBrowseBtn');if(btn)btn.style.display='none';
+    alert('MTBF imported from '+sheet+': '+(d.rows||0)+' non-empty build rows saved.');
+  }catch(e){alert('MTBF Excel upload failed: '+(e.message||e));}
+  finally{_wbcHideExcelLoading();input.value='';}
+}
+let frPieChart=null,frBarChart=null;
+// Inline % labels for pie chart — no external plugin needed
+const _frPiePctPlugin={id:'frPiePct',afterDatasetsDraw(chart){
+  const {ctx,data,chartArea}=chart;if(!chartArea)return;
+  const ds=data.datasets[0];if(!ds)return;
+  const total=ds.data.reduce((a,b)=>a+b,0)||1;
+  chart.getDatasetMeta(0).data.forEach((arc,i)=>{
+    const pct=Math.round(ds.data[i]/total*100);if(pct<4)return;
+    const pos=arc.tooltipPosition?arc.tooltipPosition():{x:arc.x,y:arc.y};
+    ctx.save();ctx.font='bold 10px Arial';ctx.fillStyle='#fff';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=3;
+    ctx.fillText(pct+'%',pos.x,pos.y);ctx.restore();
+  });
+}};
+function renderFrCharts(){
+  const headers=frData.headers||[],rows=frData.rows||[];
+  const pdtAIdx=headers.findIndex(h=>/pdt.anal/i.test(String(h||'')));
+  const pdtSIdx=headers.findIndex(h=>/pdt.setup/i.test(String(h||'')));
+  const chartsRow=document.getElementById('frChartsRow');
+  if(chartsRow)chartsRow.style.display=(pdtAIdx>=0||pdtSIdx>=0)?'grid':'none';
+  // Pie chart — PDT Analysis with % labels
+  const pieCanvas=document.getElementById('frPieChart'),pieEmpty=document.getElementById('frPieEmpty');
+  if(pdtAIdx>=0&&rows.length&&pieCanvas){
+    const counts={};
+    rows.forEach(row=>{const v=String((row||[])[pdtAIdx]||'').trim()||'Unknown';counts[v]=(counts[v]||0)+1;});
+    const labels=Object.keys(counts),data=Object.values(counts),total=data.reduce((a,b)=>a+b,0);
+    if(pieEmpty)pieEmpty.style.display='none';pieCanvas.style.display='block';
+    if(frPieChart){frPieChart.destroy();frPieChart=null;}
+    const bgColors=['#6366f1','#22c55e','#f59e0b','#ef4444','#0891b2','#7c3aed','#16a34a','#dc2626','#0369a1','#b45309'];
+    frPieChart=new Chart(pieCanvas,{type:'pie',data:{labels,datasets:[{data,backgroundColor:bgColors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8,boxWidth:12,generateLabels:(chart)=>{const ds=chart.data.datasets[0];return chart.data.labels.map((lbl,i)=>{const v=ds.data[i];const pct=Math.round(v/total*100);return{text:`${lbl}: ${v} (${pct}%)`,fillStyle:bgColors[i%bgColors.length],strokeStyle:'#fff',lineWidth:1,index:i};});}}},tooltip:{callbacks:{label:(ctx)=>` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/total*100)}%)`}}}},plugins:[_frPiePctPlugin]});
+  }else{if(pieEmpty)pieEmpty.style.display='block';if(pieCanvas)pieCanvas.style.display='none';}
+  // Bar chart — PDT Setup with value labels
+  const barCanvas=document.getElementById('frBarChart'),barEmpty=document.getElementById('frBarEmpty');
+  if(pdtSIdx>=0&&rows.length&&barCanvas){
+    const counts={};
+    rows.forEach(row=>{const v=String((row||[])[pdtSIdx]||'').trim()||'Unknown';counts[v]=(counts[v]||0)+1;});
+    const labels=Object.keys(counts),data=Object.values(counts);
+    if(barEmpty)barEmpty.style.display='none';barCanvas.style.display='block';
+    if(frBarChart){frBarChart.destroy();frBarChart=null;}
+    const colors=['#2563eb','#7c3aed','#16a34a','#f59e0b','#ef4444','#0891b2'];
+    const _barValPlugin={id:'barVals',afterDatasetsDraw(chart){
+      const {ctx}=chart;chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+        const v=chart.data.datasets[0].data[i];
+        ctx.save();ctx.font='bold 9px Arial';ctx.fillStyle='#334155';
+        ctx.textAlign='center';ctx.textBaseline='bottom';
+        ctx.fillText(v,bar.x,bar.y-2);ctx.restore();
+      });
+    }};
+    frBarChart=new Chart(barCanvas,{type:'bar',data:{labels,datasets:[{label:'Count',data,backgroundColor:labels.map((_,i)=>colors[i%colors.length]),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>` ${ctx.raw} items`}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}},x:{ticks:{font:{size:9},maxRotation:45}}}},plugins:[_barValPlugin]});
+  }else{if(barEmpty)barEmpty.style.display='block';if(barCanvas)barCanvas.style.display='none';}
+}
+async function syncFrFromExcel(){
+  if(!active||!CAN_EDIT)return;
+  if(!confirm('Read FR_Analysis from the PL workbook?\n\nThis will replace the current cache with fresh data from the Excel file.'))return;
+  setText('frAnalysisMsg','Reading from Excel workbook...');
+  try{
+    const d=await postJson(`${API}/target/${encodeURIComponent(active)}/fr_analysis/sync_excel`,{});
+    if(!d.ok)throw new Error(d.error||'Excel sync failed');
+    frData={headers:d.headers||[],rows:d.rows||[]};
+    renderFrAnalysis();
+    renderFrCharts();
+    setText('nFrs',frData.rows.length);
+    setText('frKpiTotal',frData.rows.length);
+    setText('frKpiCols',frData.headers.length);
+    const src='Excel → JSON';
+    setText('frKpiSource',src);
+    const upd=d.updated_at?String(d.updated_at).replace('T',' ').slice(0,16):'—';
+    setText('frKpiUpdated',upd);
+    setText('frAnalysisMsg',src+' • Loaded '+frData.rows.length+' rows from Excel workbook.');
+    const browseBtn=document.getElementById('frBrowseBtn');if(browseBtn)browseBtn.style.display='none';
+  }catch(e){
+    setText('frAnalysisMsg','Excel sync failed: '+(e.message||e));
+  }
+}
 const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
 const CR_BASE   = 'https://orbit/CR/';
 const _JIRA_COLS = new Set(['stability_ticket','jira','jira_id','jira_key','ticket','key','jira_ticket','open_jira','jira_number','final_ticket','final_key','source_jira','jira__key','issue','issue_key']);
@@ -544,15 +930,29 @@ function updateRunningJqlCount(count){
 
 async function wbcSjqlLoad(){
   if(!active) return;
+  // Capture the requested PL. If the user selects another PL before this
+  // request completes, discard the stale response instead of displaying it.
+  const requestedTarget=active;
   const box = document.getElementById('wbcSjqlCardsBox');
-  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>'; 
+  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
   try {
-    const d = await getJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`);
+    const d = await getJson(`${API}/target/${encodeURIComponent(requestedTarget)}/saved_jql_tabs`);
+    if(active!==requestedTarget) return;
     _wbcSjqlTabs = d.tabs || [];
-  } catch(e) { _wbcSjqlTabs = []; }
+  } catch(e) {
+    if(active!==requestedTarget) return;
+    _wbcSjqlTabs = [];
+  }
     updateRunningJqlCount(_wbcSjqlTabs.length);
-  _wbcSjqlTabs.forEach((t,i)=>_wbcScheduleAutoRun(t, 1500 + i*3500));
+  if(CAN_EDIT) _wbcSjqlTabs.forEach((t,i)=>_wbcScheduleAutoRun(t, 1500 + i*3500));
   wbcSjqlRenderCards();
+  // External viewers receive build/status metadata only; reports/JQL remain internal.
+  if(!CAN_EDIT) {
+    // External users get the same consolidated report table, with JQL/filter
+    // data stripped by the server and no run controls in the UI.
+    if(_wbcSjqlTabs.length) setTimeout(()=>wbcSjqlRunCard(_wbcSjqlTabs[0].id, false), 400);
+    return;
+  }
   // Auto-show the first tab's report on page load (cached or not)
   if(_wbcSjqlTabs.length && !_wbcActiveTabId){
     const firstTab = _wbcSjqlTabs[0];
@@ -576,8 +976,8 @@ function wbcSjqlRenderCards(){
     return;
   }
   box.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-    <div style="font-size:12px;font-weight:950;color:#172554"><i class="fas fa-list" style="color:#4f46e5"></i> ${_wbcSjqlTabs.length} saved JQL row${_wbcSjqlTabs.length===1?'':'s'}</div>
-    <div class="muted">Each saved item is shown row-by-row as <b>Build ID</b> then <b>JQL Saved</b>.</div>
+    <div style="font-size:12px;font-weight:950;color:#172554"><i class="fas fa-list" style="color:#4f46e5"></i> ${_wbcSjqlTabs.length} current running build${_wbcSjqlTabs.length===1?'':'s'}</div>
+    <div class="muted">${CAN_EDIT?'Each saved item is shown row-by-row as Build ID then JQL Saved.':'Current running build status.'}</div>
   </div>` + _wbcSjqlTabs.map(t => {
         const state    = _wbcTabCacheState(t);
     const lastRun  = state.lastRun || null;
@@ -594,9 +994,9 @@ function wbcSjqlRenderCards(){
         const idAttr   = esc(t.id);
     const domId    = _wbcDomId(t.id);
     const buildId  = _wbcBuildIdFromJqlTab(t) || t.name || 'Build ID not found';
-    const savedJql = t.jql || '';
-    const displayJql = savedJql || t.resolved_jql || '';
-    const filterBadge = t.filter_id ? `<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;border:1px solid #86efac">JIRA filter ${esc(t.filter_id)}${t.filter_resolved?' resolved':''}</span>` : '';
+  const savedJql = t.jql || '';
+  const displayJql = CAN_EDIT ? (savedJql || t.resolved_jql || '') : '';
+  const filterBadge = CAN_EDIT && t.filter_id ? `<span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;border:1px solid #86efac">JIRA filter ${esc(t.filter_id)}${t.filter_resolved?' resolved':''}</span>` : '';
     return `<div id="wbccard_${esc(domId)}" style="border:1.5px solid #334155;background:#1e293b;border-radius:14px;margin-bottom:10px;box-shadow:none;overflow:hidden">
       <div style="display:grid;grid-template-columns:minmax(190px,280px) minmax(0,1fr) auto;gap:0;align-items:stretch">
         <div style="padding:13px 14px;background:#111827;border-right:1px solid #334155">
@@ -605,28 +1005,18 @@ function wbcSjqlRenderCards(){
           <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap"><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe"><i class="fas fa-bookmark" style="margin-right:3px"></i>WBC</span>${filterBadge}</div>
         </div>
         <div style="padding:13px 14px;min-width:0">
-          <div style="font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">JQL Saved</div>
-          <div style="font-size:10px;color:#e2e8f0;font-family:Consolas,monospace;word-break:break-all;line-height:1.5;background:#0f172a;border:1px solid #334155;border-radius:9px;padding:7px 9px">${esc(displayJql.slice(0,220))}${displayJql.length>220?'&hellip;':''}</div>
-                                        <div id="wbctiming_${esc(domId)}" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">${lastHtml}${nextHtml}${countsHtml}</div>
-
+          ${CAN_EDIT?`<div style="font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">JQL Saved</div><div style="font-size:10px;color:#e2e8f0;font-family:Consolas,monospace;word-break:break-all;line-height:1.5;background:#0f172a;border:1px solid #334155;border-radius:9px;padding:7px 9px">${esc(displayJql.slice(0,220))}${displayJql.length>220?'&hellip;':''}</div>`:`<div style="font-size:11px;font-weight:900;color:#475569">Current running build status</div>`}
+          <div id="wbctiming_${esc(domId)}" style="font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap">${lastHtml}${nextHtml}${countsHtml}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start;padding:13px 14px;border-left:1px solid #334155;background:#111827">
-                    <button id="wbcrun_${esc(domId)}" data-id="${idAttr}" onclick="wbcSjqlRunCard(this.dataset.id,true)" title="Force run this JQL now"
-
-            style="padding:5px 12px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px">
-                        ${running ? '<i class="fas fa-circle-notch fa-spin"></i> Running...' : '<i class="fas fa-play"></i> Run Now'}
-
-          </button>
-          <button data-id="${idAttr}" data-name="${esc(buildId)}" data-jql="${esc(savedJql)}" onclick="wbcOpenSjqlModal(this.dataset.id,this.dataset.name,this.dataset.jql)" style="padding:5px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button>
-          <button data-id="${idAttr}" onclick="wbcSjqlDelete(this.dataset.id)" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button>
-        </div>
+        ${CAN_EDIT?`<div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start;padding:13px 14px;border-left:1px solid #334155;background:#111827"><button id="wbcrun_${esc(domId)}" data-id="${idAttr}" onclick="wbcSjqlRunCard(this.dataset.id,true)" title="Force run this JQL now" style="padding:5px 12px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px">${running ? '<i class="fas fa-circle-notch fa-spin"></i> Running...' : '<i class="fas fa-play"></i> Run Now'}</button><button data-id="${idAttr}" data-name="${esc(buildId)}" data-jql="${esc(savedJql)}" onclick="wbcOpenSjqlModal(this.dataset.id,this.dataset.name,this.dataset.jql)" style="padding:5px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-pen"></i></button><button data-id="${idAttr}" onclick="wbcSjqlDelete(this.dataset.id)" style="padding:5px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i></button></div>`:''}
       </div>
     </div>`;
   }).join('');
 }
 
 function wbcSjqlRunCard(id, force){
-  const tab = _wbcSjqlTabs.find(t => t.id === id); if(!tab) return;
+  const requestedTarget=active;
+  const tab = _wbcSjqlTabs.find(t => t.id === id); if(!tab||!requestedTarget) return;
   if(!_wbcSjqlTimers[id]) _wbcSjqlTimers[id] = {};
   _wbcSjqlTimers[id].running = true;
     const runBtn = document.getElementById('wbcrun_'+_wbcDomId(id));
@@ -642,10 +1032,13 @@ function wbcSjqlRunCard(id, force){
   if(meta)  meta.textContent = 'Running...';
   if(body)  body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running JQL report...</span></div>';
   if(panel) setTimeout(() => panel.scrollIntoView({behavior:'smooth',block:'start'}), 80);
-    fetch(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs/${encodeURIComponent(id)}/report${force?'?force=1':''}`, {cache:'no-store'})
+    fetch(`${API}/target/${encodeURIComponent(requestedTarget)}/saved_jql_tabs/${encodeURIComponent(id)}/report${force?'?force=1':''}`, {cache:'no-store'})
 
     .then(r => r.json())
     .then(d => {
+      // A report request can outlive a PL switch. Never apply its rows, counts,
+      // timing, or build ID to the newly selected PL.
+      if(active!==requestedTarget) return;
             const now    = new Date();
       const genAt  = d.generated_at || d.last_run_at || now.toISOString();
       const nextAt = d.next_run_at || d.next_auto_refresh_at || new Date(now.getTime() + _wbcSjqlTTL).toISOString();
@@ -654,12 +1047,28 @@ function wbcSjqlRunCard(id, force){
       _wbcSjqlTimers[id].nextRun = nextAt;
       const tabIndex=_wbcSjqlTabs.findIndex(t=>t.id===id);
       if(tabIndex>=0){
-        _wbcSjqlTabs[tabIndex]={..._wbcSjqlTabs[tabIndex],has_cached_report:true,cached_report_stale:false,last_run_at:genAt,next_run_at:nextAt,
+        _wbcSjqlTabs[tabIndex]={..._wbcSjqlTabs[tabIndex],
+        // A saved filter ID is deliberately retained as the saved value, while
+        // every run refreshes the effective JQL/build from JIRA.  This makes a
+        // changed JIRA filter immediately update the Current Running Builds UI.
+        raw_jql: d.raw_jql || _wbcSjqlTabs[tabIndex].raw_jql || _wbcSjqlTabs[tabIndex].jql || '',
+        resolved_jql: d.resolved_jql || d.jql || _wbcSjqlTabs[tabIndex].resolved_jql || '',
+        filter_id: d.filter_id || _wbcSjqlTabs[tabIndex].filter_id || '',
+        filter_resolved: d.filter_resolved !== undefined ? d.filter_resolved : _wbcSjqlTabs[tabIndex].filter_resolved,
+        build_id: d.build_id || _wbcSjqlTabs[tabIndex].build_id || '',
+        has_cached_report:true,cached_report_stale:false,last_run_at:genAt,next_run_at:nextAt,
         cached_row_count:  d.row_count||((d.rows||d.flat_rows||[]).length),
         cached_cr_count:   d.valid_cr_count   !== undefined ? d.valid_cr_count   : (d.cr_count   || 0),
         cached_jira_count: d.valid_jira_count !== undefined ? d.valid_jira_count : (d.jira_count || 0),
         cached_invalid_count: d.invalid_count || 0
       };
+      wbcSjqlRenderCards();
+      updateRunningJqlCount(_wbcSjqlTabs.length);
+      // These three overview cards always describe the report for the Meta ID
+      // currently selected above, never the PL-wide database totals.
+      setText('ovKOpenCr', d.valid_cr_count !== undefined ? d.valid_cr_count : (d.cr_count || 0));
+      setText('ovKTotalJirasBuild', d.valid_jira_count !== undefined ? d.valid_jira_count : (d.jira_count || 0));
+      setText('ovKOpenJira', d.valid_open_jira_count !== undefined ? d.valid_open_jira_count : (d.open_jira_count || 0));
       }
       const timingEl = document.getElementById('wbctiming_'+_wbcDomId(id));
       if(timingEl) timingEl.innerHTML =
@@ -674,6 +1083,7 @@ function wbcSjqlRunCard(id, force){
 
     })
     .catch(e => {
+      if(active!==requestedTarget) return;
       _wbcSjqlTimers[id].running = false;
             const rb = document.getElementById('wbcrun_'+_wbcDomId(id));
       if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
@@ -855,7 +1265,9 @@ async function wbcSjqlSave(){
     if(!resolvedJql){ if(msg){ msg.style.color='#dc2626'; msg.textContent='JQL is empty after resolution. Provide a valid filter or JQL.'; } return; }
     try {
       if(msg){ msg.style.color='#2563eb'; msg.textContent='Saving...'; }
-      const body = {target: active, domain: 'WBC', name, jql: resolvedJql};
+      // Persist the filter reference, not its resolved JQL snapshot. The server
+      // re-fetches this same filter ID before every scheduled/manual report run.
+      const body = {target: active, domain: 'WBC', name, jql: filterId ? filterId : resolvedJql};
       if(id) body.id = id;
       const d = await postJson(`${API}/target/${encodeURIComponent(active)}/saved_jql_tabs`, body);
       if(!d.ok) throw new Error(d.error||'Save failed');
@@ -873,13 +1285,51 @@ async function wbcSjqlDelete(id){
     await wbcSjqlLoad();
   } catch(e) { alert('Delete failed: '+(e.message||e)); }
 }
-function downloadPpt(){
+async function runCrAnalysis(){
+  if(!active){alert('Select a WBC target first.');return;}
+  const choice=prompt('Analyze which workbook sheet? Type OPEN for Open_CR_Details or CURRENT for Current_Meta_CR.','OPEN');
+  if(choice===null)return;
+  const targetSheet=/^current/i.test(choice)?'current_cr':'open_cr';
+  const label=targetSheet==='current_cr'?'Current_Meta_CR':'Open_CR_Details';
+  if(!confirm(`Run QGenie analysis for every CR in ${label}? New results are written to the target workbook.`))return;
+  const btn=document.getElementById('crAnalysisBtn'),old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Analyzing...';}
+  try{
+    const r=await fetch(`${API}/target/${encodeURIComponent(active)}/cr_analysis`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_sheet:targetSheet})});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||'CR analysis failed');
+    alert(`QGenie CR analysis completed for ${d.sheet}.\nProcessed: ${d.processed}\nSkipped today: ${d.skipped}\nFailed: ${d.failed}`);
+  }catch(e){alert(e.message||'CR analysis failed');}
+  finally{if(btn){btn.disabled=false;btn.innerHTML=old;}}
+}
+async function downloadPpt(){
   if(!active){alert('Please select a target first.');return;}
   const btn=document.getElementById('pptBtn');
+  const resetBtn=()=>{if(btn){btn.innerHTML='<i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT';btn.disabled=false;}};
   if(btn){btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Generating...';btn.disabled=true;}
-  const url=`${API}/target/${encodeURIComponent(active)}/export_ppt`;
-  const a=document.createElement('a');a.href=url;a.download='';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>{if(btn){btn.innerHTML='<i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT';btn.disabled=false;}},3000);
+  try{
+    const url=`${API}/target/${encodeURIComponent(active)}/export_ppt`;
+    const r=await fetch(url,{cache:'no-store'});
+    if(!r.ok){
+      const ct=r.headers.get('content-type')||'';
+      let msg='PPT generation failed ('+r.status+')';
+      if(ct.includes('json')){try{const d=await r.json();msg=d.error||d.message||msg;}catch(e2){}}
+      alert(msg);resetBtn();return;
+    }
+    const ct=r.headers.get('content-type')||'';
+    if(ct.includes('json')){
+      const d=await r.json();
+      alert('PPT error: '+(d.error||d.message||'Unknown error'));resetBtn();return;
+    }
+    const blob=await r.blob();
+    const disp=r.headers.get('content-disposition')||'';
+    const fnMatch=disp.match(/filename[^;=\n]*=["']?([^"';\n]+)/i);
+    const filename=fnMatch?fnMatch[1].trim():(active.replace(/[^A-Za-z0-9._-]/g,'_')+'_stability.pptx');
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  }catch(e){alert('PPT download failed: '+(e.message||e));}
+  finally{resetBtn();}
 }
 loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';});
 </script>
@@ -907,6 +1357,48 @@ loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div cl
   </div>
 </div>
 {% endif %}
+<!-- Premium page/tab loading progress overlay -->
+<div id="wbcTabLoadingOverlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="tab-loading-card">
+    <div class="tab-loading-orb"></div>
+    <div id="wbcTabLoadingTitle" class="tab-loading-title">Loading dashboard</div>
+    <div id="wbcTabLoadingMsg" class="tab-loading-msg">Preparing the selected view…</div>
+    <div class="tab-loading-track"><div class="tab-loading-progress"></div></div>
+  </div>
+</div>
+
+<!-- Premium Excel sheet selection modal -->
+<div id="wbcSheetPickerModal" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:18px">
+  <div style="width:min(540px,96vw);background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #475569;border-radius:24px;box-shadow:0 32px 90px rgba(0,0,0,.58);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+      <div>
+        <div style="font-size:17px;font-weight:950"><i class="fas fa-table" style="margin-right:8px"></i>Select Excel Sheet</div>
+        <div id="wbcSheetPickerFilename" style="font-size:11px;color:#c7d2fe;margin-top:4px;word-break:break-all"></div>
+      </div>
+      <button type="button" onclick="wbcSheetPickerCancel()" style="width:32px;height:32px;border:1px solid rgba(255,255,255,.3);border-radius:9px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer">&times;</button>
+    </div>
+    <div style="padding:22px 24px">
+      <div style="font-size:12px;font-weight:800;color:#94a3b8;margin-bottom:14px">Choose the worksheet to import. The recommended worksheet is highlighted.</div>
+      <div id="wbcSheetPickerList" style="display:grid;gap:9px;max-height:340px;overflow:auto"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:18px">
+        <button type="button" onclick="wbcSheetPickerCancel()" style="padding:9px 20px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:13px;font-weight:850;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Premium Excel import loading overlay -->
+<div id="wbcExcelLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);align-items:center;justify-content:center">
+  <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.55);min-width:360px;max-width:440px;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(59,130,246,.07),rgba(124,58,237,.07));pointer-events:none;border-radius:24px"></div>
+    <div style="width:64px;height:64px;border-radius:50%;border:4px solid rgba(59,130,246,.18);border-top-color:#3b82f6;animation:wbcSpinAnim 0.75s linear infinite;margin:0 auto 24px;position:relative;z-index:1"></div>
+    <div id="wbcExcelLoadingTitle" style="font-size:18px;font-weight:950;color:#f8fafc;margin-bottom:10px;position:relative;z-index:1;letter-spacing:-.01em">Reading Excel Workbook</div>
+    <div id="wbcExcelLoadingFile" style="font-size:11px;color:#60a5fa;font-weight:800;margin-bottom:10px;position:relative;z-index:1;word-break:break-all;max-width:300px;margin-left:auto;margin-right:auto;line-height:1.4"></div>
+    <div id="wbcExcelLoadingMsg" style="font-size:12px;color:#94a3b8;font-weight:700;position:relative;z-index:1">Processing sheet data, please wait…</div>
+    <div style="margin-top:20px;height:3px;background:#1e293b;border-radius:999px;overflow:hidden;position:relative;z-index:1"><div style="height:100%;background:linear-gradient(90deg,#3b82f6,#7c3aed);border-radius:999px;animation:wbcProgressAnim 1.4s ease-in-out infinite"></div></div>
+  </div>
+</div>
+<style>@keyframes wbcSpinAnim{to{transform:rotate(360deg)}}@keyframes wbcProgressAnim{0%{width:0%;margin-left:0}50%{width:70%;margin-left:0}100%{width:0%;margin-left:100%}}</style>
 </body>
 </html>
 

@@ -432,6 +432,26 @@ tools/                          (NEW — standalone utilities, not part of Flask
 
 ## Implementation Steps (Phased Approach)
 
+### Completed: Application Composition Registry (2026-08-07)
+
+A compatibility-preserving application composition package now centralizes the
+existing feature blueprint wiring:
+
+- `src/application/__init__.py` exposes the composition API.
+- `src/application/blueprints.py` owns `register_feature_blueprints(app)`.
+- `app.py` calls this registry instead of importing and registering each of the
+  18 existing feature blueprints inline.
+
+The original registration order is preserved, so route URLs, blueprint endpoint
+names, and existing `url_for()` compatibility aliases remain unchanged. This is
+the stable seam for future app-factory adoption and incremental route migration.
+
+**Deferred intentionally:** `src/auth_routes.py`, `src/navigation_routes.py`,
+and `src/hwpdt_routes.py` currently duplicate active `app.py` routes and use
+different blueprint endpoint names. They must be made endpoint-compatible and
+their dependencies inverted before registration; registering them now would
+create URL conflicts and break legacy `url_for()` references.
+
 ### Phase 1: Extract Shared Utilities (Low Risk)
 1. Create `src/user_activity.py` — extract `log_user_activity()`, `ensure_user_data_table()`
 2. Create `src/cache_utils.py` — extract `_json_safe()`, `cache_table()`, `_sign_result_id()`
