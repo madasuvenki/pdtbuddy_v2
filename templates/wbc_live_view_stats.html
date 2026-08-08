@@ -803,20 +803,97 @@ function _cellHtml(col, val){
 
 function _normColName(c){return String(c||'').toLowerCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'');}
 const _OPEN_JIRA_HIDE_COLS = new Set(['cr_date','cr_area','cr_subsystem','cr_functionality','cr_status','cr_si','cr_title']);
+// Global registry for table data (filter/sort state)
+if(!window._wbcTblData) window._wbcTblData = {};
+
 function tableHtml(x, opts){
   x = x || {};
   opts = opts || {};
   const cols = (x.columns || []).filter(c => !(opts.hideCols||new Set()).has(_normColName(c)));
   const rows = x.rows || [];
   const uid = 'tbl_'+Math.random().toString(36).slice(2,7);
-  const head = cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('');
-  const body = rows.length
-    ? rows.map((r,i)=>'<tr><td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')+'</tr>').join('')
-    : '<tr><td class="empty" colspan="99">No data/config.</td></tr>';
-  const search = rows.length ? `<div class="table-filterbar"><button class="filter-btn" onclick="_wbcFilterTbl('${uid}',document.getElementById('${uid}_filter')?.value||'');document.getElementById('${uid}_filter')?.focus()"><i class="fas fa-filter"></i> Filter</button><input id="${uid}_filter" class="input" placeholder="Search table..." oninput="_wbcFilterTbl('${uid}',this.value)"><span class="pill">${rows.length} row${rows.length===1?'':'s'}</span></div>` : '';
-  return `${search}<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${head}</tr></thead><tbody id="${uid}">${body}</tbody></table></div>`;
+
+  if(!rows.length){
+    return `<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody><tr><td class="empty" colspan="99">No data/config.</td></tr></tbody></table></div>`;
+  }
+
+  // Store data in global registry for filter/sort
+  window._wbcTblData[uid] = {rows, cols, sort:{col:-1, dir:1}};
+
+  // Column headers with sort arrows
+  const head = cols.map((c,i)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="_wbcSortTbl('${uid}',${i})">${esc(String(c).replace(/_/g,' '))} <span id="${uid}_si_${i}" style="font-size:9px;opacity:.35;color:#6366f1">\u21d5</span></th>`).join('');
+
+  // Column filter row
+  const filterRow = '<tr style="background:#f0f4ff">'
+    +'<td style="padding:2px 4px"></td>'
+    +cols.map((c,i)=>`<td style="padding:2px 4px"><input id="${uid}_cf_${i}" placeholder="filter\u2026" oninput="_wbcApplyTbl('${uid}')" style="width:100%;min-width:50px;border:1px solid #c7d2fe;border-radius:5px;padding:2px 5px;font-size:10px;background:#fff;color:#1e293b;outline:none"></td>`).join('')
+    +'</tr>';
+
+  // Global search bar
+  const search = `<div class="table-filterbar"><input id="${uid}_q" class="input" placeholder="Search all columns..." oninput="_wbcApplyTbl('${uid}')"><span class="pill" id="${uid}_cnt">${rows.length} row${rows.length===1?'':'s'}</span><button class="filter-btn" onclick="_wbcClearTbl('${uid}')" title="Clear all filters" style="padding:5px 10px"><i class="fas fa-times"></i> Clear</button></div>`;
+
+  // Schedule initial render after DOM insertion
+  setTimeout(()=>_wbcApplyTbl(uid), 0);
+
+  return `${search}<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${head}</tr>${filterRow}</thead><tbody id="${uid}"></tbody></table></div>`;
 }
 
+function _wbcApplyTbl(uid){
+  const d = window._wbcTblData && window._wbcTblData[uid];
+  if(!d) return;
+  const {rows, cols, sort} = d;
+  const q = (document.getElementById(uid+'_q')?.value||'').toLowerCase();
+  const cf = cols.map((_,i)=>(document.getElementById(uid+'_cf_'+i)?.value||'').toLowerCase());
+  let filtered = rows.filter(r=>{
+    if(q && !cols.some(c=>String(r[c]||'').toLowerCase().includes(q))) return false;
+    for(let i=0;i<cols.length;i++){
+      if(cf[i] && !String(r[cols[i]]||'').toLowerCase().includes(cf[i])) return false;
+    }
+    return true;
+  });
+  if(sort.col >= 0){
+    const sc = cols[sort.col];
+    filtered = [...filtered].sort((a,b)=>{
+      const av=String(a[sc]||''), bv=String(b[sc]||'');
+      const an=parseFloat(av), bn=parseFloat(bv);
+      const cmp = (!isNaN(an)&&!isNaN(bn)) ? (an-bn) : av.localeCompare(bv);
+      return cmp * sort.dir;
+    });
+  }
+  const tbody = document.getElementById(uid);
+  if(!tbody) return;
+  tbody.innerHTML = filtered.length
+    ? filtered.map((r,i)=>'<tr><td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')+'</tr>').join('')
+    : '<tr><td class="empty" colspan="99">No rows match filters.</td></tr>';
+  const cnt = document.getElementById(uid+'_cnt');
+  if(cnt) cnt.textContent = filtered.length+' / '+rows.length+' row'+(rows.length===1?'':'s');
+}
+
+function _wbcSortTbl(uid, colIdx){
+  const d = window._wbcTblData && window._wbcTblData[uid];
+  if(!d) return;
+  if(d.sort.col === colIdx){ d.sort.dir *= -1; }
+  else { d.sort.col = colIdx; d.sort.dir = 1; }
+  d.cols.forEach((_,i)=>{
+    const el = document.getElementById(uid+'_si_'+i);
+    if(!el) return;
+    if(i===colIdx){ el.textContent = d.sort.dir===1?'\u2191':'\u2193'; el.style.opacity='1'; el.style.color='#4f46e5'; }
+    else { el.textContent='\u21d5'; el.style.opacity='.35'; el.style.color='#6366f1'; }
+  });
+  _wbcApplyTbl(uid);
+}
+
+function _wbcClearTbl(uid){
+  const d = window._wbcTblData && window._wbcTblData[uid];
+  if(!d) return;
+  d.sort = {col:-1, dir:1};
+  const q = document.getElementById(uid+'_q'); if(q) q.value='';
+  d.cols.forEach((_,i)=>{
+    const cf = document.getElementById(uid+'_cf_'+i); if(cf) cf.value='';
+    const si = document.getElementById(uid+'_si_'+i); if(si){si.textContent='\u21d5';si.style.opacity='.35';si.style.color='#6366f1';}
+  });
+  _wbcApplyTbl(uid);
+}
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
 function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}

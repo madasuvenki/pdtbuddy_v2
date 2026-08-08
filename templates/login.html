@@ -79,7 +79,7 @@
               </svg>
                             <input type="text" id="username" name="username"
                 placeholder="e.g. vmadas or vmadasu@qti.qualcomm.com"
-                value="{{ username or '' }}"
+                value="{% if error %}{{ username or '' }}{% endif %}"
                 autocomplete="username"
                 autocorrect="off" autocapitalize="off" spellcheck="false"
                 required>
