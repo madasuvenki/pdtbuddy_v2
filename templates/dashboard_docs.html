@@ -24,18 +24,20 @@
     .docs-body{max-width:1100px;margin:0 auto;padding:40px 28px 80px;}
 
     /* Hero cards */
-    .docs-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:40px;}
+    .docs-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:40px;}
     .docs-hero-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:28px 26px;box-shadow:0 4px 20px rgba(15,23,42,.07);display:flex;flex-direction:column;gap:16px;transition:transform .15s,box-shadow .15s;}
     .docs-hero-card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(15,23,42,.12);}
     .docs-hero-card__icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
     .docs-hero-card__icon--arch{background:linear-gradient(135deg,#dbeafe,#ede9fe);color:#4338ca;}
     .docs-hero-card__icon--guide{background:linear-gradient(135deg,#d1fae5,#cffafe);color:#0f766e;}
+    .docs-hero-card__icon--dash{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;}
     .docs-hero-card__title{font-size:18px;font-weight:950;color:var(--ink);}
     .docs-hero-card__desc{font-size:13px;color:var(--muted);line-height:1.7;flex:1;}
     .docs-hero-card__btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;font-size:13px;font-weight:900;text-decoration:none;border:none;cursor:pointer;transition:filter .15s,transform .15s;}
     .docs-hero-card__btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
     .docs-hero-card__btn--arch{background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;box-shadow:0 6px 18px rgba(99,102,241,.3);}
     .docs-hero-card__btn--guide{background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;box-shadow:0 6px 18px rgba(13,148,136,.3);}
+    .docs-hero-card__btn--dash{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;box-shadow:0 6px 18px rgba(217,119,6,.3);}
 
     /* API section */
     .api-section{margin-bottom:32px;}
@@ -44,6 +46,7 @@
     .api-section__title .sec-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;}
     .api-section__title .sec-icon.pub{background:#dbeafe;color:#1d4ed8;}
     .api-section__title .sec-icon.priv{background:#ede9fe;color:#6d28d9;}
+    .api-section__title .sec-icon.dash{background:#fef3c7;color:#92400e;}
     .api-btn-row{display:flex;gap:10px;flex-wrap:wrap;}
     .api-open-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:12px;font-weight:900;text-decoration:none;border:none;cursor:pointer;transition:filter .15s;}
     .api-open-btn:hover{filter:brightness(1.1);}
@@ -86,6 +89,19 @@
     .try-it-result{margin-top:10px;background:#0f172a;color:#86efac;border-radius:8px;padding:10px 12px;font-family:'Consolas','Courier New',monospace;font-size:11px;line-height:1.6;max-height:260px;overflow:auto;display:none;white-space:pre-wrap;}
     .try-it-result.show{display:block;}
 
+    /* Dashboard Guide */
+    .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+    .guide-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(15,23,42,.05);}
+    .guide-card__header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .guide-card__icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+    .guide-card__title{font-size:14px;font-weight:950;color:var(--ink);}
+    .guide-card__path{font-family:'Consolas','Courier New',monospace;font-size:10px;color:var(--muted);margin-top:2px;}
+    .guide-card__body{font-size:12px;color:#475569;line-height:1.7;}
+    .guide-card__steps{list-style:none;padding:0;margin:8px 0 0;}
+    .guide-card__steps li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;color:#475569;border-bottom:1px solid #f8fafc;}
+    .guide-card__steps li:last-child{border-bottom:none;}
+    .guide-card__steps li::before{content:"→";color:#6366f1;font-weight:900;flex-shrink:0;margin-top:1px;}
+
     /* Divider */
     .docs-divider{border:none;border-top:2px solid var(--border);margin:32px 0;}
 
@@ -94,6 +110,7 @@
     .badge--blue{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
     .badge--green{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
     .badge--purple{background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;}
+    .badge--amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
 
     @media(max-width:640px){.docs-header{padding:14px 16px;}.docs-body{padding:20px 14px 48px;}.docs-hero-grid{grid-template-columns:1fr;}.api-card__desc{display:none;}}
   </style>
@@ -106,12 +123,10 @@
       <div class="docs-header__icon"><i class="fas fa-book-open"></i></div>
       <div>
         <div class="docs-header__title">PDT Buddy — Documentation</div>
-        <div class="docs-header__sub">Architecture · Public API · Private API · User Guide</div>
+        <div class="docs-header__sub">Architecture · Dashboard Guide · Public API · Private API</div>
       </div>
     </div>
-    <a href="/cr_overview/embed" class="docs-header__back">
-      <i class="fas fa-arrow-left"></i> Back to Dashboard
-    </a>
+    <a href="/cr_overview/embed" class="docs-header__back"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
   </div>
 
   <!-- Body -->
@@ -122,43 +137,192 @@
 
       <!-- Architecture -->
       <div class="docs-hero-card">
-        <div class="docs-hero-card__icon docs-hero-card__icon--arch">
-          <i class="fas fa-sitemap"></i>
-        </div>
+        <div class="docs-hero-card__icon docs-hero-card__icon--arch"><i class="fas fa-sitemap"></i></div>
         <div>
           <div class="docs-hero-card__title">Architecture Review</div>
-          <div class="docs-hero-card__desc">
-            Explore the full system architecture of PDT Buddy — data flow, module relationships,
-            BU-specific pipelines, Axiom integration, Orbit CR enrichment, and the JIRA traversal engine.
-          </div>
+          <div class="docs-hero-card__desc">Explore the full system architecture — data flow, module relationships, BU-specific pipelines, Axiom integration, Orbit CR enrichment, and the JIRA traversal engine.</div>
         </div>
-        <a href="/architecture_outputs" target="_blank" class="docs-hero-card__btn docs-hero-card__btn--arch">
-          <i class="fas fa-sitemap"></i> Open Architecture Diagram
-        </a>
+        <a href="/architecture_outputs" target="_blank" class="docs-hero-card__btn docs-hero-card__btn--arch"><i class="fas fa-sitemap"></i> Open Architecture Diagram</a>
       </div>
 
-      <!-- User Guide -->
+      <!-- Dashboard Guide -->
       <div class="docs-hero-card">
-        <div class="docs-hero-card__icon docs-hero-card__icon--guide">
-          <i class="fas fa-book"></i>
-        </div>
+        <div class="docs-hero-card__icon docs-hero-card__icon--dash"><i class="fas fa-map"></i></div>
         <div>
-          <div class="docs-hero-card__title">User Guide &amp; API Reference</div>
-          <div class="docs-hero-card__desc">
-            Complete API reference for both Public (token-free, external) and Private (authenticated)
-            endpoints. Try each API live, see request parameters and response formats.
-          </div>
+          <div class="docs-hero-card__title">Dashboard User Guide</div>
+          <div class="docs-hero-card__desc">Step-by-step guide for every tab and feature in PDT Buddy — CR Overview, Live Status, Build Report, Weekly Reports, WBC, MTBF, and more.</div>
+        </div>
+        <button onclick="scrollToSection('dash-guide')" class="docs-hero-card__btn docs-hero-card__btn--dash"><i class="fas fa-map"></i> View Dashboard Guide</button>
+      </div>
+
+      <!-- User Guide / API -->
+      <div class="docs-hero-card">
+        <div class="docs-hero-card__icon docs-hero-card__icon--guide"><i class="fas fa-book"></i></div>
+        <div>
+          <div class="docs-hero-card__title">API Reference</div>
+          <div class="docs-hero-card__desc">Complete API reference for Public (no auth) and Private (authenticated) endpoints. Try each API live with built-in request tester.</div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button onclick="scrollToSection('pub-api')" class="docs-hero-card__btn docs-hero-card__btn--guide" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);">
-            <i class="fas fa-globe"></i> Public API
-          </button>
-          <button onclick="scrollToSection('priv-api')" class="docs-hero-card__btn docs-hero-card__btn--guide">
-            <i class="fas fa-lock"></i> Private API
-          </button>
+          <button onclick="scrollToSection('pub-api')" class="docs-hero-card__btn docs-hero-card__btn--guide" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);"><i class="fas fa-globe"></i> Public API</button>
+          <button onclick="scrollToSection('priv-api')" class="docs-hero-card__btn docs-hero-card__btn--guide"><i class="fas fa-lock"></i> Private API</button>
         </div>
       </div>
 
+    </div>
+
+    <hr class="docs-divider">
+
+    <!-- ══ DASHBOARD GUIDE ══ -->
+    <div class="api-section" id="dash-guide">
+      <div class="api-section__header">
+        <div class="api-section__title">
+          <span class="sec-icon dash"><i class="fas fa-map"></i></span>
+          Dashboard User Guide
+          <span class="badge badge--amber">All Features</span>
+        </div>
+      </div>
+
+      <div class="guide-grid">
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-chart-bar"></i></div>
+            <div><div class="guide-card__title">CR Overview</div><div class="guide-card__path">/cr_overview/embed</div></div>
+          </div>
+          <div class="guide-card__body">Cross-BU CR age analysis with site distribution and area breakdown.</div>
+          <ul class="guide-card__steps">
+            <li>Select BU or All BUs from the top filter</li>
+            <li>Click a bar in the chart to drill into area → target breakdown</li>
+            <li>Use Date Range to filter by CR creation date</li>
+            <li>Toggle NoSIR / Dup / Invalid chips to include/exclude those CRs</li>
+            <li>Use Expand to view chart full-screen with data table</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#dcfce7;color:#166534;"><i class="fas fa-tachometer-alt"></i></div>
+            <div><div class="guide-card__title">Target Dashboard (AUTO)</div><div class="guide-card__path">/live_status/AUTO/&lt;target&gt;</div></div>
+          </div>
+          <div class="guide-card__body">Per-target MTBF, CR age, open/mapped CRs, JIRA counts, and build health.</div>
+          <ul class="guide-card__steps">
+            <li>Select a target from the left sidebar</li>
+            <li>Overview tab: MTBF trend chart, KPI cards, open CR summary</li>
+            <li>Open CRs tab: filterable table of open/analysis CRs by area</li>
+            <li>JIRAs tab: weekly JIRA list with traversal to CR</li>
+            <li>Build Report tab: run JQL by build ID to get CR/JIRA report</li>
+            <li>Config tab (editors only): set DB tables for this target</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-satellite-dish"></i></div>
+            <div><div class="guide-card__title">Live Status View</div><div class="guide-card__path">/live_status_view/AUTO/&lt;target&gt;</div></div>
+          </div>
+          <div class="guide-card__body">DB-backed META selection, consolidated CRs, open JIRAs, and ADAS MTBF.</div>
+          <ul class="guide-card__steps">
+            <li>Select META rows from the table and click Submit Selected</li>
+            <li>View consolidated CRs, mapped JIRAs, and open JIRAs in tabs</li>
+            <li>ADAS MTBF tab: view/add/edit MTBF builds per domain (ADAS/FLEX/IVI)</li>
+            <li>Current Report tab: live running build JIRA→CR report</li>
+            <li>Unique CRs tab: cross-target unique CR list by domain</li>
+            <li>Exclusions: add JIRA/CR IDs to exclude from consolidated view</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#fef3c7;color:#92400e;"><i class="fas fa-bolt"></i></div>
+            <div><div class="guide-card__title">Build Report</div><div class="guide-card__path">/build_report or via Live Status</div></div>
+          </div>
+          <div class="guide-card__body">Run JIRA JQL by build ID, traverse JIRA→CR mappings, get hierarchical CR/JIRA report.</div>
+          <ul class="guide-card__steps">
+            <li>Enter a build ID (e.g. SA8797P.HQX.5.7.7.0-00623)</li>
+            <li>Select a JIRA filter or enter custom JQL</li>
+            <li>Click Run — results show CRs with mapped JIRAs and open JIRAs</li>
+            <li>Export to Excel or copy the report</li>
+            <li>AI Summary button generates one-line CR summaries via Claude</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#cffafe;color:#0e7490;"><i class="fas fa-calendar-week"></i></div>
+            <div><div class="guide-card__title">Weekly Reports</div><div class="guide-card__path">/weekly_summary/&lt;target&gt;</div></div>
+          </div>
+          <div class="guide-card__body">Weekly CR age, CR TAT, unique CR report, farm testing, and smart build report.</div>
+          <ul class="guide-card__steps">
+            <li>Select target and date range (defaults to last Mon–Sun)</li>
+            <li>CR Age tab: age distribution of open CRs for the week</li>
+            <li>CR TAT tab: turnaround time analysis for closed CRs</li>
+            <li>Unique CRs tab: deduplicated CR list across builds</li>
+            <li>Farm Testing tab: Axiom job summary for the week</li>
+            <li>Download PPT to get a slide deck of the weekly summary</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#f0fdf4;color:#166534;"><i class="fas fa-broadcast-tower"></i></div>
+            <div><div class="guide-card__title">Live Status Publish</div><div class="guide-card__path">/live_status_publish/&lt;bu&gt;</div></div>
+          </div>
+          <div class="guide-card__body">Publish live status reports for external viewers with public token access.</div>
+          <ul class="guide-card__steps">
+            <li>Editors: click Edit to update status text, MTBF, and notes</li>
+            <li>External viewers see a read-only view via public token URL</li>
+            <li>Config tab (editors): set which targets appear in the BU view</li>
+            <li>Customize Tabs: show/hide sections for all viewers</li>
+            <li>Status is auto-refreshed every 5 minutes for external viewers</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#fdf4ff;color:#7c3aed;"><i class="fas fa-layer-group"></i></div>
+            <div><div class="guide-card__title">WBC Live Stats</div><div class="guide-card__path">/wbc_live_stats/&lt;target&gt;</div></div>
+          </div>
+          <div class="guide-card__body">WBC-specific dashboard with MTBF trend, open CRs, JIRAs, and build-wise report.</div>
+          <ul class="guide-card__steps">
+            <li>Select a WBC target from the left sidebar</li>
+            <li>Overview tab: MTBF chart, KPI cards, open CR/JIRA counts</li>
+            <li>Open CRs / Open JIRAs / All CRs tabs: filterable + sortable tables</li>
+            <li>Build Summary tab: build-wise consolidated CR/JIRA report</li>
+            <li>Click column headers to sort; use filter inputs to narrow rows</li>
+            <li>Config tab (editors): set DB tables for this WBC target</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#fff7ed;color:#c2410c;"><i class="fas fa-robot"></i></div>
+            <div><div class="guide-card__title">PDT Buddy AI Chatbot</div><div class="guide-card__path">Chat icon (bottom right)</div></div>
+          </div>
+          <div class="guide-card__body">Ask the chatbot about any CR, status, build, or JIRA. Auto-loads CR info panel.</div>
+          <ul class="guide-card__steps">
+            <li>Type a CR number (e.g. CR4477116) — chatbot auto-fetches CR details</li>
+            <li>Ask "open CRs for nord_hqx" to get a filtered list</li>
+            <li>Ask "weekly summary for &lt;target&gt;" for a quick digest</li>
+            <li>Type /help to see all available commands</li>
+            <li>CR info panel opens automatically when a CR is detected</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <div class="guide-card__header">
+            <div class="guide-card__icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-columns"></i></div>
+            <div><div class="guide-card__title">Target Delta Studio</div><div class="guide-card__path">/cr_compare</div></div>
+          </div>
+          <div class="guide-card__body">Compare CR/JIRA data between two targets side-by-side.</div>
+          <ul class="guide-card__steps">
+            <li>Select two targets from the dropdowns</li>
+            <li>View CR count, area breakdown, and JIRA overlap side-by-side</li>
+            <li>Click a CR to see which target it appears in</li>
+            <li>Export comparison to Excel</li>
+          </ul>
+        </div>
+
+      </div>
     </div>
 
     <hr class="docs-divider">
@@ -172,21 +336,14 @@
           <span class="badge badge--green">No Auth Required</span>
         </div>
         <div class="api-btn-row">
-          <a href="/api/public/orbit/docs" target="_blank" class="api-open-btn api-open-btn--pub">
-            <i class="fas fa-external-link-alt"></i> Full Public API Docs
-          </a>
-          <a href="/public/auto-gen45" target="_blank" class="api-open-btn api-open-btn--teal">
-            <i class="fas fa-car"></i> Auto Gen4.5 API
-          </a>
-          <a href="/public/auto-gen5" target="_blank" class="api-open-btn api-open-btn--teal">
-            <i class="fas fa-car-side"></i> Auto Gen5 API
-          </a>
+          <a href="/api/public/orbit/docs" target="_blank" class="api-open-btn api-open-btn--pub"><i class="fas fa-external-link-alt"></i> Full Public API Docs</a>
+          <a href="/public/auto-gen45" target="_blank" class="api-open-btn api-open-btn--teal"><i class="fas fa-car"></i> Auto Gen4.5 API</a>
+          <a href="/public/auto-gen5" target="_blank" class="api-open-btn api-open-btn--teal"><i class="fas fa-car-side"></i> Auto Gen5 API</a>
         </div>
       </div>
 
       <div class="api-cards">
 
-        <!-- GET /api/public/orbit/crs -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -201,28 +358,24 @@
               <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
               <tbody>
                 <tr><td><code>target</code></td><td>string</td><td><span class="badge badge--blue">Required</span></td><td>Target name e.g. <code>nord_hqx</code></td></tr>
-                <tr><td><code>status</code></td><td>string</td><td>Optional</td><td>Filter by CR status: <code>open</code>, <code>analysis</code></td></tr>
+                <tr><td><code>status</code></td><td>string</td><td>Optional</td><td>Filter: <code>open</code>, <code>analysis</code></td></tr>
                 <tr><td><code>limit</code></td><td>int</td><td>Optional</td><td>Max rows (default 500)</td></tr>
               </tbody>
             </table>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-pub-crs">{"ok": true, "target": "nord_hqx", "rows": [{"cr": "CR4477116", "cr_title": "...", "cr_status": "Open", "cr_area": "APPS", "cr_age": "45"}], "count": 1}
-<button class="code-copy-btn" onclick="copyCode('resp-pub-crs')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-pub-crs">{"ok": true, "target": "nord_hqx", "rows": [{"cr": "CR4477116", "cr_title": "...", "cr_status": "Open", "cr_area": "APPS", "cr_age": "45"}], "count": 1}<button class="code-copy-btn" onclick="copyCode('resp-pub-crs')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It</div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-pub-crs-target" placeholder="target (e.g. nord_hqx)" value="nord_hqx">
                 <input class="try-it-input" id="ti-pub-crs-status" placeholder="status (optional)" style="max-width:160px">
-                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/crs?target='+encodeURIComponent(document.getElementById('ti-pub-crs-target').value)+'&status='+encodeURIComponent(document.getElementById('ti-pub-crs-status').value), 'ti-pub-crs-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/crs?target='+encodeURIComponent(document.getElementById('ti-pub-crs-target').value)+'&status='+encodeURIComponent(document.getElementById('ti-pub-crs-status').value), 'ti-pub-crs-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-pub-crs-result"></div>
             </div>
           </div>
         </div>
 
-        <!-- GET /api/public/orbit/all-targets -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -232,24 +385,18 @@
           </div>
           <div class="api-card__body">
             <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns all active PDT targets grouped by BU with display names and metadata.</p>
-            <div class="api-card__section-title">Parameters</div>
-            <p style="font-size:12px;color:#94a3b8;margin-bottom:8px;">No parameters required.</p>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-pub-targets">{"ok": true, "targets": [{"target": "nord_hqx", "display_name": "Nord HQX", "bu": "AUTO"}], "count": 42}
-<button class="code-copy-btn" onclick="copyCode('resp-pub-targets')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-pub-targets">{"ok": true, "targets": [{"target": "nord_hqx", "display_name": "Nord HQX", "bu": "AUTO"}], "count": 42}<button class="code-copy-btn" onclick="copyCode('resp-pub-targets')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It</div>
               <div class="try-it-row">
-                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/all-targets', 'ti-pub-targets-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/all-targets', 'ti-pub-targets-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-pub-targets-result"></div>
             </div>
           </div>
         </div>
 
-        <!-- GET /api/public/orbit/cr/<cr_id> -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -262,27 +409,21 @@
             <div class="api-card__section-title">Path Parameters</div>
             <table class="api-params">
               <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>cr_id</code></td><td>string</td><td>CR number e.g. <code>4477116</code> or <code>CR4477116</code></td></tr>
-              </tbody>
+              <tbody><tr><td><code>cr_id</code></td><td>string</td><td>CR number e.g. <code>4477116</code> or <code>CR4477116</code></td></tr></tbody>
             </table>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-pub-cr">{"ok": true, "cr": {"ChangeRequestNumber": "4477116", "Title": "...", "Status": "Open", "Participants": [{"AreaName": "APPS"}]}}
-<button class="code-copy-btn" onclick="copyCode('resp-pub-cr')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-pub-cr">{"ok": true, "cr": {"ChangeRequestNumber": "4477116", "Title": "...", "Status": "Open", "Participants": [{"AreaName": "APPS"}]}}<button class="code-copy-btn" onclick="copyCode('resp-pub-cr')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It</div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-pub-cr-id" placeholder="CR number e.g. 4477116" value="4477116">
-                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/cr/'+encodeURIComponent(document.getElementById('ti-pub-cr-id').value), 'ti-pub-cr-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/cr/'+encodeURIComponent(document.getElementById('ti-pub-cr-id').value), 'ti-pub-cr-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-pub-cr-result"></div>
             </div>
           </div>
         </div>
 
-        <!-- GET /api/public/orbit/all-crs -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -301,15 +442,12 @@
               </tbody>
             </table>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-pub-allcrs">{"ok": true, "rows": [...], "count": 1240, "targets": 42}
-<button class="code-copy-btn" onclick="copyCode('resp-pub-allcrs')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-pub-allcrs">{"ok": true, "rows": [...], "count": 1240, "targets": 42}<button class="code-copy-btn" onclick="copyCode('resp-pub-allcrs')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It</div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-pub-allcrs-status" placeholder="status (optional)" style="max-width:200px">
-                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/all-crs?status='+encodeURIComponent(document.getElementById('ti-pub-allcrs-status').value)+'&limit=10', 'ti-pub-allcrs-result')">
-                  <i class="fas fa-play"></i> Run (limit=10)
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/public/orbit/all-crs?status='+encodeURIComponent(document.getElementById('ti-pub-allcrs-status').value)+'&limit=10', 'ti-pub-allcrs-result')"><i class="fas fa-play"></i> Run (limit=10)</button>
               </div>
               <div class="try-it-result" id="ti-pub-allcrs-result"></div>
             </div>
@@ -336,7 +474,45 @@
 
       <div class="api-cards">
 
-        <!-- GET /api/live_status/targets/<target>/weekly_full -->
+        <!-- Build Report Run -->
+        <div class="api-card">
+          <div class="api-card__head" onclick="toggleApiCard(this)">
+            <span class="api-card__method api-card__method--post">POST</span>
+            <span class="api-card__endpoint">/api/build_report/run</span>
+            <span class="api-card__desc">Run JIRA build report</span>
+            <i class="fas fa-chevron-down api-card__chevron"></i>
+          </div>
+          <div class="api-card__body">
+            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Accepts a JIRA filter ID, filter URL, or direct JQL and returns the full JIRA→CR traversal report. Supports both GET (query params) and POST (JSON body). Also accepts <code>?api_token=&lt;token&gt;</code> for external access.</p>
+            <div class="api-card__section-title">Request Body (JSON) / Query Params</div>
+            <table class="api-params">
+              <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>filter_id</code></td><td>string</td><td>JIRA saved filter ID or full filter URL e.g. <code>76997</code></td></tr>
+                <tr><td><code>custom_jql</code></td><td>string</td><td>Direct JQL string (alternative to filter_id)</td></tr>
+                <tr><td><code>builds</code></td><td>array</td><td>List of build IDs to scope the JQL e.g. <code>["SA8797P.HQX.5.7.7.0-00623"]</code></td></tr>
+                <tr><td><code>traverse</code></td><td>bool</td><td>Traverse JIRA→CR mappings (default true)</td></tr>
+                <tr><td><code>orbit</code></td><td>bool</td><td>Enrich CRs with Orbit data (default true)</td></tr>
+                <tr><td><code>target</code></td><td>string</td><td>Target name for context e.g. <code>nord_hqx</code></td></tr>
+              </tbody>
+            </table>
+            <div class="api-card__section-title">Example Request Body</div>
+            <div class="code-block" id="req-build-run">{"builds": ["SA8797P.HQX.5.7.7.0-00623"], "filter_id": "76997", "traverse": true, "orbit": true, "target": "nord_hqx"}<button class="code-copy-btn" onclick="copyCode('req-build-run')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="api-card__section-title">Example Response</div>
+            <div class="code-block" id="resp-build-run">{"ok": true, "jiras": [{"key": "QSTABILITY-12345", "summary": "...", "cr": "CR4477116"}], "crs": [{"cr": "CR4477116", "cr_title": "...", "cr_status": "Open", "jiras": [...]}], "meta": {"jql": "...", "build_ids": ["SA8797P.HQX.5.7.7.0-00623"], "jira_count": 12, "cr_count": 5}}<button class="code-copy-btn" onclick="copyCode('resp-build-run')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="try-it-box">
+              <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+              <div class="try-it-row">
+                <input class="try-it-input" id="ti-build-run-build" placeholder="build ID e.g. SA8797P.HQX.5.7.7.0-00623">
+                <input class="try-it-input" id="ti-build-run-filter" placeholder="filter_id e.g. 76997" style="max-width:160px">
+                <button class="try-it-btn" onclick="tryApiPost('/api/build_report/run', {builds:[document.getElementById('ti-build-run-build').value].filter(Boolean), filter_id:document.getElementById('ti-build-run-filter').value||undefined, traverse:true, orbit:true}, 'ti-build-run-result')"><i class="fas fa-play"></i> Run</button>
+              </div>
+              <div class="try-it-result" id="ti-build-run-result"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weekly Full -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -345,14 +521,7 @@
             <i class="fas fa-chevron-down api-card__chevron"></i>
           </div>
           <div class="api-card__body">
-            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns weekly CR rows, JIRA rows, open JIRA rows, build IDs, pie charts, and area matrix for a target. Requires login session.</p>
-            <div class="api-card__section-title">Path Parameters</div>
-            <table class="api-params">
-              <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>target</code></td><td>string</td><td>Target name e.g. <code>nord_hqx</code></td></tr>
-              </tbody>
-            </table>
+            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns weekly CR rows, JIRA rows, open JIRA rows, build IDs, pie charts, and area matrix for a target.</p>
             <div class="api-card__section-title">Query Parameters</div>
             <table class="api-params">
               <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
@@ -362,22 +531,19 @@
               </tbody>
             </table>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-priv-weekly">{"success": true, "from_date": "2026-07-28", "to_date": "2026-08-03", "cr_rows": [...], "jira_rows": [...], "counts": {"total_jiras": 42, "total_crs": 18}}
-<button class="code-copy-btn" onclick="copyCode('resp-priv-weekly')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-priv-weekly">{"success": true, "from_date": "2026-07-28", "to_date": "2026-08-03", "cr_rows": [...], "jira_rows": [...], "counts": {"total_jiras": 42, "total_crs": 18}}<button class="code-copy-btn" onclick="copyCode('resp-priv-weekly')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-priv-weekly-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
-                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-weekly-target').value)+'/weekly_full', 'ti-priv-weekly-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-weekly-target').value)+'/weekly_full', 'ti-priv-weekly-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-priv-weekly-result"></div>
             </div>
           </div>
         </div>
 
-        <!-- GET /api/live_status/targets/<target>/open_crs_full -->
+        <!-- Open CRs Full -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -390,46 +556,22 @@
             <div class="api-card__section-title">Query Parameters</div>
             <table class="api-params">
               <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
-              <tbody>
-                <tr><td><code>domain</code></td><td>string</td><td>Filter by domain: ADAS, FLEX, IVI (AUTO BU only)</td></tr>
-              </tbody>
+              <tbody><tr><td><code>domain</code></td><td>string</td><td>Filter by domain: ADAS, FLEX, IVI (AUTO BU only)</td></tr></tbody>
             </table>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-priv-opencrs">{"success": true, "rows": [{"cr": "CR4477116", "cr_status": "Open", "cr_area": "APPS", "cr_age": "45", "latest_cr_notes": "..."}], "count": 18}
-<button class="code-copy-btn" onclick="copyCode('resp-priv-opencrs')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-priv-opencrs">{"success": true, "rows": [{"cr": "CR4477116", "cr_status": "Open", "cr_area": "APPS", "cr_age": "45", "latest_cr_notes": "..."}], "count": 18}<button class="code-copy-btn" onclick="copyCode('resp-priv-opencrs')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-priv-opencrs-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
-                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-opencrs-target').value)+'/open_crs_full', 'ti-priv-opencrs-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-opencrs-target').value)+'/open_crs_full', 'ti-priv-opencrs-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-priv-opencrs-result"></div>
             </div>
           </div>
         </div>
 
-        <!-- POST /api/consolidated_report -->
-        <div class="api-card">
-          <div class="api-card__head" onclick="toggleApiCard(this)">
-            <span class="api-card__method api-card__method--post">POST</span>
-            <span class="api-card__endpoint">/api/consolidated_report</span>
-            <span class="api-card__desc">JIRA to CR consolidated report</span>
-            <i class="fas fa-chevron-down api-card__chevron"></i>
-          </div>
-          <div class="api-card__body">
-            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Runs a JIRA JQL query, traverses JIRA to CR mappings, enriches with Orbit CR data, and returns a hierarchical CR/JIRA report.</p>
-            <div class="api-card__section-title">Request Body (JSON)</div>
-            <div class="code-block" id="req-priv-report">{"builds": ["SA8797P.HQX.5.7.7.0-00623"], "traverse": true, "orbit": true, "target": "nord_hqx", "custom_jql": "filter = 76997 AND summary ~ \"00623\""}
-<button class="code-copy-btn" onclick="copyCode('req-priv-report')"><i class="fas fa-copy"></i> Copy</button></div>
-            <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-priv-report">{"ok": true, "hierarchical_report": [{"cr": "CR4477116", "cr_title": "...", "jiras": [...]}], "summary": {"total_jiras": 12, "with_cr": 8}}
-<button class="code-copy-btn" onclick="copyCode('resp-priv-report')"><i class="fas fa-copy"></i> Copy</button></div>
-          </div>
-        </div>
-
-        <!-- GET /api/live_status/targets/<target>/mtbf -->
+        <!-- MTBF -->
         <div class="api-card">
           <div class="api-card__head" onclick="toggleApiCard(this)">
             <span class="api-card__method api-card__method--get">GET</span>
@@ -440,17 +582,68 @@
           <div class="api-card__body">
             <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns MTBF rows from the target's Excel/Axiom data including build ID, hours, crashes, and MTBF value.</p>
             <div class="api-card__section-title">Example Response</div>
-            <div class="code-block" id="resp-priv-mtbf">{"success": true, "rows": [{"crm_build_id": "SA8797P.HQX.5.7.7.0-00623", "mtbf": 142.5, "hours": 1425, "crash": 10, "date": "2026-07-28"}]}
-<button class="code-copy-btn" onclick="copyCode('resp-priv-mtbf')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="code-block" id="resp-priv-mtbf">{"success": true, "rows": [{"crm_build_id": "SA8797P.HQX.5.7.7.0-00623", "mtbf": 142.5, "hours": 1425, "crash": 10, "date": "2026-07-28"}]}<button class="code-copy-btn" onclick="copyCode('resp-priv-mtbf')"><i class="fas fa-copy"></i> Copy</button></div>
             <div class="try-it-box">
               <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
               <div class="try-it-row">
                 <input class="try-it-input" id="ti-priv-mtbf-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
-                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-mtbf-target').value)+'/mtbf', 'ti-priv-mtbf-result')">
-                  <i class="fas fa-play"></i> Run
-                </button>
+                <button class="try-it-btn" onclick="tryApi('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-priv-mtbf-target').value)+'/mtbf', 'ti-priv-mtbf-result')"><i class="fas fa-play"></i> Run</button>
               </div>
               <div class="try-it-result" id="ti-priv-mtbf-result"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consolidated Report -->
+        <div class="api-card">
+          <div class="api-card__head" onclick="toggleApiCard(this)">
+            <span class="api-card__method api-card__method--post">POST</span>
+            <span class="api-card__endpoint">/api/consolidated_report</span>
+            <span class="api-card__desc">JIRA to CR consolidated report</span>
+            <i class="fas fa-chevron-down api-card__chevron"></i>
+          </div>
+          <div class="api-card__body">
+            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Runs a JIRA JQL query, traverses JIRA to CR mappings, enriches with Orbit CR data, and returns a hierarchical CR/JIRA report.</p>
+            <div class="api-card__section-title">Request Body (JSON)</div>
+            <div class="code-block" id="req-priv-report">{"builds": ["SA8797P.HQX.5.7.7.0-00623"], "traverse": true, "orbit": true, "target": "nord_hqx", "custom_jql": "filter = 76997 AND summary ~ \"00623\""}<button class="code-copy-btn" onclick="copyCode('req-priv-report')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="api-card__section-title">Example Response</div>
+            <div class="code-block" id="resp-priv-report">{"ok": true, "hierarchical_report": [{"cr": "CR4477116", "cr_title": "...", "jiras": [...]}], "summary": {"total_jiras": 12, "with_cr": 8}}<button class="code-copy-btn" onclick="copyCode('resp-priv-report')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="try-it-box">
+              <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+              <div class="try-it-row">
+                <input class="try-it-input" id="ti-consol-build" placeholder="build ID (optional)">
+                <input class="try-it-input" id="ti-consol-target" placeholder="target e.g. nord_hqx" value="nord_hqx" style="max-width:180px">
+                <button class="try-it-btn" onclick="tryApiPost('/api/consolidated_report', {builds:document.getElementById('ti-consol-build').value?[document.getElementById('ti-consol-build').value]:[], target:document.getElementById('ti-consol-target').value, traverse:true, orbit:true}, 'ti-consol-result')"><i class="fas fa-play"></i> Run</button>
+              </div>
+              <div class="try-it-result" id="ti-consol-result"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Running Builds -->
+        <div class="api-card">
+          <div class="api-card__head" onclick="toggleApiCard(this)">
+            <span class="api-card__method api-card__method--get">GET</span>
+            <span class="api-card__endpoint">/api/build_report/running_builds</span>
+            <span class="api-card__desc">List active running builds</span>
+            <i class="fas fa-chevron-down api-card__chevron"></i>
+          </div>
+          <div class="api-card__body">
+            <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns active builds from the local Axiom cache table. Used by the Live Status View current report panel.</p>
+            <div class="api-card__section-title">Query Parameters</div>
+            <table class="api-params">
+              <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody><tr><td><code>target</code></td><td>string</td><td>Filter by target name</td></tr></tbody>
+            </table>
+            <div class="api-card__section-title">Example Response</div>
+            <div class="code-block" id="resp-running-builds">{"ok": true, "builds": [{"build_id": "SA8797P.HQX.5.7.7.0-00623", "meta_id": "Meta-651", "software_product": "SA8797P", "product_flavor": "HQX"}]}<button class="code-copy-btn" onclick="copyCode('resp-running-builds')"><i class="fas fa-copy"></i> Copy</button></div>
+            <div class="try-it-box">
+              <div class="try-it-box__title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+              <div class="try-it-row">
+                <input class="try-it-input" id="ti-running-target" placeholder="target (optional)" style="max-width:220px">
+                <button class="try-it-btn" onclick="tryApi('/api/build_report/running_builds'+(document.getElementById('ti-running-target').value?'?target='+encodeURIComponent(document.getElementById('ti-running-target').value):''), 'ti-running-result')"><i class="fas fa-play"></i> Run</button>
+              </div>
+              <div class="try-it-result" id="ti-running-result"></div>
             </div>
           </div>
         </div>
@@ -488,6 +681,21 @@
     el.textContent = 'Loading...';
     try{
       var r = await fetch(url, {cache:'no-store'});
+      var data = await r.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      el.style.color = r.ok ? '#86efac' : '#fca5a5';
+    } catch(e){
+      el.textContent = 'Error: ' + e.message;
+      el.style.color = '#fca5a5';
+    }
+  }
+  async function tryApiPost(url, body, resultId){
+    var el = document.getElementById(resultId);
+    if(!el) return;
+    el.classList.add('show');
+    el.textContent = 'Loading...';
+    try{
+      var r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), cache:'no-store'});
       var data = await r.json();
       el.textContent = JSON.stringify(data, null, 2);
       el.style.color = r.ok ? '#86efac' : '#fca5a5';
