@@ -63,7 +63,7 @@
 
     <section id="tabTable" class="tab-section">
       <section class="panel">
-        <div class="panel-h"><div class="panel-title"><i class="fas fa-table" style="color:#f97316"></i> Sheet MTBF Table</div><input id="tableFilter" class="input" style="max-width:280px" placeholder="Filter rows..." oninput="renderTable()"></div>
+        <div class="panel-h"><div class="panel-title"><i class="fas fa-table" style="color:#f97316"></i> Sheet MTBF Table <span id="tableRowCount" style="font-size:10px;font-weight:800;color:#94a3b8;margin-left:8px"></span></div><div style="display:flex;gap:8px;align-items:center"><button onclick="_colFilters={};renderTable()" style="background:#1c2e48;color:#bae6fd;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:4px 10px;font-size:10px;font-weight:900;cursor:pointer" title="Clear all column filters"><i class="fas fa-filter-circle-xmark"></i> Clear Filters</button><input id="tableFilter" class="input" style="max-width:220px" placeholder="Search all columns..." oninput="renderTable()"></div></div>
         <div class="panel-b"><div class="table-wrap"><table><thead id="mtbfThead"></thead><tbody id="mtbfTbody"><tr><td class="empty">No data.</td></tr></tbody></table></div></div>
       </section>
     </section>
@@ -163,10 +163,170 @@ function renderChart(){
   chart=new Chart(canvas,{type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#1f4e79',yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#c55a11',backgroundColor:'transparent',yAxisID:'y1',tension:0,pointRadius:4},{type:'line',label:'MTBF',data:mtbf,borderColor:'#ed7d31',backgroundColor:'transparent',yAxisID:'y2',tension:0,pointRadius:4}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},title:{display:true,text:activeSheet+' MTBF Trend'}},scales:{x:{ticks:{autoSkip:false,maxRotation:35}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours'}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes'}},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF'}}}}});
   const totalHours=hours.reduce((a,b)=>a+b,0), totalCrashes=crashes.reduce((a,b)=>a+b,0); document.getElementById('kRows').textContent=(sheetData.rows||[]).length; document.getElementById('kHours').textContent=totalHours.toFixed(1); document.getElementById('kCrashes').textContent=totalCrashes; document.getElementById('kMtbf').textContent=totalCrashes? (totalHours/totalCrashes).toFixed(1):'0';
 }
+// Column filter state: {colIndex: {type:'text'|'num', value:'', op:'>'|'<'|'='|'contains'}}
+let _colFilters = {};
+
+function _isNumericCol(headers, rows, idx){
+  // Check if >60% of non-empty values in this column are numeric
+  let num=0, total=0;
+  for(const r of (rows||[]).slice(0,30)){
+    const v=String((r.values||[])[idx]||'').trim();
+    if(!v) continue;
+    total++;
+    if(!isNaN(parseFloat(v)) && isFinite(v)) num++;
+  }
+  return total>0 && num/total>0.6;
+}
+
+function _getColUniqueValues(rows, idx){
+  const seen=new Set();
+  for(const r of rows||[]){
+    const v=String((r.values||[])[idx]||'').trim();
+    if(v) seen.add(v);
+  }
+  return [...seen].sort().slice(0,50);
+}
+
 function renderTable(){
-  const headers=(sheetData&&sheetData.headers)||[]; const rows=(sheetData&&sheetData.rows)||[]; const q=(document.getElementById('tableFilter').value||'').toLowerCase(); const filtered=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));
-  document.getElementById('mtbfThead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':'';
-  document.getElementById('mtbfTbody').innerHTML=filtered.length?filtered.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';
+  const headers=(sheetData&&sheetData.headers)||[];
+  const rows=(sheetData&&sheetData.rows)||[];
+  const q=(document.getElementById('tableFilter').value||'').toLowerCase();
+
+  // Determine column types
+  const isNum=headers.map((_,i)=>_isNumericCol(headers,rows,i));
+
+  // Apply global text filter + column filters
+  const filtered=rows.filter(r=>{
+    if(q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
+    for(const [ci, cf] of Object.entries(_colFilters)){
+      const idx=parseInt(ci);
+      const val=String((r.values||[])[idx]||'').trim();
+      if(!cf.value && cf.value!==0) continue;
+      if(cf.type==='num'){
+        const n=parseFloat(val), fv=parseFloat(cf.value);
+        if(isNaN(n)||isNaN(fv)) continue;
+        if(cf.op==='>' && !(n>fv)) return false;
+        if(cf.op==='<' && !(n<fv)) return false;
+        if(cf.op==='=' && !(Math.abs(n-fv)<0.0001)) return false;
+        if(cf.op==='>=' && !(n>=fv)) return false;
+        if(cf.op==='<=' && !(n<=fv)) return false;
+      } else {
+        // text/checkbox: filter by selected values (comma-separated) or substring
+        const selected=(cf.selected||[]);
+        if(selected.length>0 && !selected.includes(val)) return false;
+        if(!selected.length && cf.value && !val.toLowerCase().includes(cf.value.toLowerCase())) return false;
+      }
+    }
+    return true;
+  });
+
+  // Build header row
+  const headerRow=headers.length?'<tr>'+headers.map((h,i)=>{
+    const active=_colFilters[i]&&(_colFilters[i].value||(_colFilters[i].selected||[]).length);
+    return `<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="toggleColFilter(${i},event)">
+      ${esc(h)}
+      <span style="margin-left:4px;font-size:10px;opacity:${active?1:.4};color:${active?'#38bdf8':'#94a3b8'}" title="Column filter">
+        <i class="fas fa-filter"></i>
+      </span>
+    </th>`;
+  }).join('')+'</tr>':'';
+
+  // Build filter row
+  const filterRow=headers.length?'<tr id="colFilterRow" style="background:#0d2040">'+headers.map((h,i)=>{
+    const cf=_colFilters[i]||{};
+    if(isNum[i]){
+      const op=cf.op||'>';
+      return `<td style="padding:4px 6px;white-space:nowrap">
+        <select onchange="_colFilters[${i}]=Object.assign(_colFilters[${i}]||{},{type:'num',op:this.value});renderTable()" style="background:#1c2e48;color:#e2e8f0;border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:2px 4px;font-size:10px;width:36px">
+          <option value=">" ${op==='>'?'selected':''}>></option>
+          <option value=">=" ${op==='>='?'selected':''}>≥</option>
+          <option value="<" ${op==='<'?'selected':''}>&#60;</option>
+          <option value="<=" ${op==='<='?'selected':''}>≤</option>
+          <option value="=" ${op==='='?'selected':''}}>=</option>
+        </select>
+        <input type="number" value="${esc(cf.value||'')}" placeholder="…"
+          oninput="_colFilters[${i}]=Object.assign(_colFilters[${i}]||{},{type:'num',op:document.querySelector('#colFilterRow td:nth-child(${i+1}) select').value,value:this.value});renderTable()"
+          style="background:#1c2e48;color:#e2e8f0;border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:2px 5px;font-size:10px;width:60px">
+      </td>`;
+    } else {
+      const uniq=_getColUniqueValues(rows,i);
+      const sel=cf.selected||[];
+      if(uniq.length<=20){
+        // Checkbox dropdown
+        const selLabel=sel.length?sel.slice(0,2).join(','+(sel.length>2?'…':'')):'All';
+        return `<td style="padding:4px 6px;position:relative">
+          <button onclick="toggleCheckboxDrop(${i},this)" style="background:#1c2e48;color:#e2e8f0;border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis" title="${esc(selLabel)}">
+            ${esc(selLabel.length>14?selLabel.slice(0,14)+'…':selLabel)} <i class="fas fa-chevron-down" style="font-size:8px"></i>
+          </button>
+        </td>`;
+      } else {
+        return `<td style="padding:4px 6px">
+          <input value="${esc(cf.value||'')}" placeholder="filter…"
+            oninput="_colFilters[${i}]=Object.assign(_colFilters[${i}]||{},{type:'text',value:this.value,selected:[]});renderTable()"
+            style="background:#1c2e48;color:#e2e8f0;border:1px solid rgba(148,163,184,.3);border-radius:6px;padding:2px 6px;font-size:10px;width:90px">
+        </td>`;
+      }
+    }
+  }).join('')+'</tr>':'';
+
+  document.getElementById('mtbfThead').innerHTML=headerRow+filterRow;
+  document.getElementById('mtbfTbody').innerHTML=filtered.length
+    ?filtered.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join('')
+    :'<tr><td class="empty" colspan="99">No rows match filters.</td></tr>';
+
+  // Update count
+  const countEl=document.getElementById('tableRowCount');
+  if(countEl) countEl.textContent=filtered.length+' / '+rows.length+' rows';
+}
+
+function toggleColFilter(idx, e){
+  e.stopPropagation();
+  // Toggle clear for this column
+  if(_colFilters[idx]&&(_colFilters[idx].value||(_colFilters[idx].selected||[]).length)){
+    delete _colFilters[idx]; renderTable();
+  }
+}
+
+// Checkbox dropdown for text columns
+let _openDrop=null;
+function toggleCheckboxDrop(idx, btn){
+  // Close existing
+  document.querySelectorAll('.col-drop').forEach(d=>d.remove());
+  if(_openDrop===idx){_openDrop=null;return;}
+  _openDrop=idx;
+  const rows=(sheetData&&sheetData.rows)||[];
+  const uniq=_getColUniqueValues(rows,idx);
+  const sel=(_colFilters[idx]||{}).selected||[];
+  const drop=document.createElement('div');
+  drop.className='col-drop';
+  drop.style.cssText='position:fixed;z-index:9999;background:#0f1b2d;border:1px solid rgba(148,163,184,.3);border-radius:10px;padding:8px;min-width:160px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)';
+  const rect=btn.getBoundingClientRect();
+  drop.style.left=Math.min(rect.left,window.innerWidth-180)+'px';
+  drop.style.top=(rect.bottom+4)+'px';
+  drop.innerHTML='<div style="display:flex;gap:6px;margin-bottom:6px">'
+    +'<button onclick="colDropSelectAll('+idx+',true)" style="flex:1;background:#1c2e48;color:#bae6fd;border:1px solid rgba(148,163,184,.2);border-radius:6px;padding:3px 6px;font-size:10px;cursor:pointer">All</button>'
+    +'<button onclick="colDropSelectAll('+idx+',false)" style="flex:1;background:#1c2e48;color:#bae6fd;border:1px solid rgba(148,163,184,.2);border-radius:6px;padding:3px 6px;font-size:10px;cursor:pointer">None</button>'
+    +'</div>'
+    +uniq.map(v=>`<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;cursor:pointer;font-size:11px;color:#e2e8f0;border-radius:5px" onmouseover="this.style.background='rgba(56,189,248,.1)'" onmouseout="this.style.background=''">
+      <input type="checkbox" ${sel.includes(v)?'checked':''} onchange="colDropToggle(${idx},'${esc(v).replace(/'/g,"\\'")}',this.checked)" style="accent-color:#38bdf8">
+      ${esc(v)}
+    </label>`).join('');
+  document.body.appendChild(drop);
+  setTimeout(()=>document.addEventListener('click',function _close(e){if(!drop.contains(e.target)&&e.target!==btn){drop.remove();document.removeEventListener('click',_close);_openDrop=null;}},true),10);
+}
+function colDropToggle(idx,val,checked){
+  const cf=_colFilters[idx]||{type:'text',selected:[]};
+  const sel=new Set(cf.selected||[]);
+  if(checked) sel.add(val); else sel.delete(val);
+  _colFilters[idx]={type:'text',value:'',selected:[...sel]};
+  renderTable();
+}
+function colDropSelectAll(idx,all){
+  if(all){delete _colFilters[idx];}
+  else{_colFilters[idx]={type:'text',value:'',selected:[]};}
+  document.querySelectorAll('.col-drop').forEach(d=>d.remove());
+  _openDrop=null;
+  renderTable();
 }
 async function loadCurrentBuilds(){
   const box=document.getElementById('currentBuildsBox'); if(!activeSheet){box.innerHTML='<div class="empty">Select a sheet.</div>';return;} box.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><p>Loading current builds...</p></div>';

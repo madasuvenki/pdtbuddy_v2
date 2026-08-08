@@ -227,8 +227,20 @@ def _cache_set(cr_number: str, data: dict):
 # - Normalize CR number -
 
 def _normalize_cr(cr_number) -> str:
-    """Return digits-only string. '4477116' or 'CR4477116' - '4477116'"""
-    return str(cr_number).upper().replace("CR", "").strip()
+    """Return digits-only string. '4477116' or 'CR4477116' -> '4477116'.
+    Returns empty string for invalid/placeholder values like 'NONE', 'N/A', etc.
+    """
+    raw = str(cr_number or "").strip()
+    if not raw:
+        return ""
+    upper = raw.upper()
+    # Strip CR prefix
+    digits = upper.replace("CR", "").strip()
+    # Reject placeholder values
+    _INVALID = {"NONE", "N/A", "NA", "NULL", "UNKNOWN", "-", "--", "0"}
+    if digits in _INVALID or not digits:
+        return ""
+    return digits
 
 
 # - Kerberos auth helper -
@@ -900,6 +912,10 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
         dict with CR details, always has 'found' key
     """
     cr = _normalize_cr(cr_number)
+
+    # ── Guard: skip invalid/placeholder CR numbers ───────────────────────────
+    if not cr:
+        return {"found": False, "cr_number": str(cr_number or ""), "error": "Invalid CR number"}
 
     # ── DB-first path (feature flag) ────────────────────────────────────────
     try:
