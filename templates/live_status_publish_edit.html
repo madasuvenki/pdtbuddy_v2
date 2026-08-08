@@ -175,8 +175,10 @@
       <button class="btn" id="lspPublicApiBtn" type="button" onclick="lspTogglePublicApiPanel()" style="background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:#fff;border:none;font-weight:900;box-shadow:0 6px 16px rgba(79,70,229,.24);"><i class="fas fa-plug"></i> Public API</button>
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+      {% if can_edit %}
       <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables for the selected SP/page" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config{% if sp_siblings and sp_siblings|length > 1 %}<span class="lsp-config-sp-chip">{% for sp in sp_siblings %}{% if sp.active %}SP {{ sp.cpl }}{% endif %}{% endfor %}</span>{% endif %}</button>
       <button onclick="lspOpenCustomizeTabs()" title="Show/hide tabs" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
+      {% endif %}
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
