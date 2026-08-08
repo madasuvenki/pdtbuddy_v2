@@ -122,8 +122,10 @@
       {% endif %}
                         <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;font-weight:800;"><i class="fas fa-users"></i> View / Join Groups</a>
             <a class="btn" href="#" onclick="lspGoHome();return false;"><i class="fas fa-house"></i> All Reports</a>
+      {% if can_edit %}
       <button class="btn" onclick="lspOpenTopConfig()" title="Configure domain and DB tables" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border:none;font-weight:900;"><i class="fas fa-cog"></i> Config</button>
       <button onclick="lspOpenCustomizeTabs()" title="Show/hide tabs" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;"><i class="fas fa-sliders-h"></i> Customize Tabs</button>
+      {% endif %}
       <span id="jobStatusMessage" style="font-size:12px;font-weight:800;"></span>
     </div>
   </header>
@@ -891,6 +893,457 @@
     </section>
   {% endif %}
 
+  {% if available_domains %}
+  <!-- ===== SAVED JQL TABS ===== -->
+  <div class="card" style="margin-top:14px;border:2px solid #a5b4fc;overflow:hidden">
+    <div class="card-head" style="background:linear-gradient(90deg,#eef2ff,#f5f3ff);padding:10px 16px">
+      <h2 style="display:flex;align-items:center;gap:8px">
+        <i class="fas fa-bookmark" style="color:#6366f1"></i> SAVED JQL TABS
+        <span id="lspSjqlDomBar" style="display:inline-flex;gap:5px;margin-left:10px"></span>
+      </h2>
+      <div class="mini-toolbar">
+        {% if can_edit %}
+        <button onclick="lspSjqlOpenAdd()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:9px;border:none;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;font-weight:900;cursor:pointer">
+          <i class="fas fa-plus"></i> Add JQL Tab
+        </button>
+        {% endif %}
+        <button class="btn" style="font-size:11px;padding:4px 11px" onclick="lspSjqlLoad()">
+          <i class="fas fa-sync"></i> Refresh
+        </button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:260px minmax(0,1fr);min-height:400px">
+      <div id="lspSjqlLeft" style="border-right:2px solid #e0e7ff;background:linear-gradient(180deg,#f5f3ff,#eef2ff 60%,#f8fafc);padding:0">
+        <div style="padding:10px 12px 8px;border-bottom:1px solid #e0e7ff">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#6d28d9;margin-bottom:7px">Domain</div>
+          <div style="display:flex;flex-direction:column;gap:4px" id="lspSjqlDomBtns"></div>
+        </div>
+        <div id="lspSjqlTabList" style="padding:10px 8px;overflow-y:auto;max-height:calc(100vh - 280px)">
+          <div class="empty" style="font-size:11px">Select a domain</div>
+        </div>
+      </div>
+      <div id="lspSjqlRight" style="padding:0;display:flex;flex-direction:column">
+        <div id="lspSjqlRightEmpty" style="display:flex;align-items:center;justify-content:center;flex:1;color:#94a3b8;font-size:13px;font-weight:700;padding:40px">
+          <div style="text-align:center">
+            <i class="fas fa-bookmark" style="font-size:32px;margin-bottom:12px;opacity:.3"></i><br>
+            Select a saved JQL tab to view its report
+          </div>
+        </div>
+        <div id="lspSjqlReportHead" style="display:none;padding:12px 16px;border-bottom:1px solid #e0e7ff;background:#f8fafc">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div>
+              <span style="font-size:14px;font-weight:950;color:#1e3a8a" id="lspSjqlReportTitle">Report</span>
+              <span style="font-size:11px;color:#64748b;margin-left:8px" id="lspSjqlReportMeta"></span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button onclick="lspSjqlRunNow()" style="padding:5px 14px;border-radius:8px;border:1.5px solid #4f46e5;background:#fff;color:#4f46e5;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-play"></i> Run Now</button>
+              <span style="display:inline-flex;align-items:center;gap:5px;margin-left:4px">
+                <span style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Crash Type</span>
+                <label id="lspSjqlCT_system" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#dc2626;cursor:pointer;border:1.5px solid #fca5a5;border-radius:7px;padding:3px 8px;background:#fff"><input type="checkbox" checked onchange="lspSjqlCTChanged('system',this.checked)"> System</label>
+                <label id="lspSjqlCT_ssr" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#d97706;cursor:pointer;border:1.5px solid #fcd34d;border-radius:7px;padding:3px 8px;background:#fff"><input type="checkbox" checked onchange="lspSjqlCTChanged('ssr',this.checked)"> SSR</label>
+                <label id="lspSjqlCT_process" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#7c3aed;cursor:pointer;border:1.5px solid #c4b5fd;border-radius:7px;padding:3px 8px;background:#fff"><input type="checkbox" checked onchange="lspSjqlCTChanged('process',this.checked)"> Process</label>
+                <label id="lspSjqlCT_open_jira" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#0891b2;cursor:pointer;border:1.5px solid #a5f3fc;border-radius:7px;padding:3px 8px;background:#fff"><input type="checkbox" checked onchange="lspSjqlCTChanged('open_jira',this.checked)"> Open JIRA</label>
+              </span>
+              <button onclick="lspSjqlCloseReport()" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-times"></i></button>
+            </div>
+          </div>
+        </div>
+        <div id="lspSjqlReportBody" style="padding:16px 18px;flex:1;overflow:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ── Saved JQL Tabs (non-AUTO BU) ─────────────────────────────────────────
+  (function(){
+  var _JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
+  var DOMAINS = (window.LSP_DATA && LSP_DATA.available_domains && LSP_DATA.available_domains.length)
+    ? LSP_DATA.available_domains
+    : ['ADAS','FLEX','IVI'];
+  var DOM_COLOR  = {ADAS:'#2563eb',FLEX:'#7c3aed',IVI:'#059669',CSP:'#0891b2','SAFE-IVI':'#16a34a','NONSAFE-IVI':'#dc2626',HQX:'#2563eb',HGY:'#7c3aed'};
+  var DOM_BG     = {ADAS:'#eff6ff',FLEX:'#f5f3ff',IVI:'#f0fdf4',CSP:'#ecfeff','SAFE-IVI':'#dcfce7','NONSAFE-IVI':'#fff1f2',HQX:'#eff6ff',HGY:'#f5f3ff'};
+  var DOM_BORDER = {ADAS:'#bfdbfe',FLEX:'#ddd6fe',IVI:'#6ee7b7',CSP:'#a5f3fc','SAFE-IVI':'#86efac','NONSAFE-IVI':'#fca5a5',HQX:'#bfdbfe',HGY:'#ddd6fe'};
+  var DOM_ICON   = {ADAS:'fa-microchip',FLEX:'fa-bolt',IVI:'fa-car',CSP:'fa-shield-halved','SAFE-IVI':'fa-shield','NONSAFE-IVI':'fa-car-burst',HQX:'fa-microchip',HGY:'fa-microchip'};
+  function _domColor(d){ return DOM_COLOR[d]||'#6366f1'; }
+  function _domBg(d)   { return DOM_BG[d]||'#eef2ff'; }
+  function _domBorder(d){ return DOM_BORDER[d]||'#c7d2fe'; }
+  function _domIcon(d) { return DOM_ICON[d]||'fa-tag'; }
+  var _dom     = DOMAINS[0]||'ADAS';
+  var _allTabs = {};
+  var _timers  = {};
+  var _activeId  = null;
+  var _TARGET    = (window.LSP_DATA && LSP_DATA.primary_target) || '';
+  var _sjqlCT = {system:true,ssr:true,process:true,open_jira:true};
+  function _sjqlCtParam(){
+    var active=Object.keys(_sjqlCT).filter(function(k){return _sjqlCT[k];});
+    return active.length===4?'':'&crash_types='+encodeURIComponent(active.join(','));
+  }
+  function _esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+
+  // ── IR helper functions ──────────────────────────────────────────────────
+  function _irEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);}); }
+  function _irStatusBadge(st){
+    var s=String(st||'').toLowerCase();
+    var style=s.indexOf('open')>=0?'background:#fef9c3;color:#854d0e;border:1px solid #fde68a':
+      s.indexOf('hold')>=0?'background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc':
+      s.indexOf('closed')>=0||s.indexOf('done')>=0||s.indexOf('resolved')>=0?'background:#dcfce7;color:#166534;border:1px solid #86efac':
+      s.indexOf('analysis')>=0||s.indexOf('information')>=0?'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd':
+      s.indexOf('ready')>=0?'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd':
+      'background:#f1f5f9;color:#475569;border:1px solid #e2e8f0';
+    return st?'<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 8px;'+style+'">'+_irEsc(st)+'</span>':'<span style="color:#94a3b8">--</span>';
+  }
+  function _irPriorityBadge(p){
+    var s=String(p||'').toLowerCase();
+    var c=s==='p1'||s==='critical'?'#dc2626':s==='p2'||s==='high'?'#f97316':s==='p3'||s==='medium'?'#d97706':s==='p4'||s==='low'?'#16a34a':'#64748b';
+    return p?'<span style="color:'+c+';font-weight:900;font-size:11px">'+_irEsc(p)+'</span>':'<span style="color:#94a3b8">--</span>';
+  }
+  function _irJiraLink(key){
+    if(!key) return '<span style="color:#94a3b8">--</span>';
+    return '<a style="color:#1d4ed8;font-weight:900;text-decoration:none;white-space:nowrap" href="'+_JIRA_BASE+_irEsc(key)+'" target="_blank" rel="noopener">'+_irEsc(key)+'</a>';
+  }
+  function _irCrashType(row){
+    var t=[row&&row.crash_type,row&&row.type,row&&row.cr_title,row&&row.title,row&&row.summary,row&&row.cr_area,row&&row.cr_subsystem].filter(Boolean).join(' ').toLowerCase();
+    if(String(row&&row.crash_type||'').toLowerCase()==='open_jira') return 'open_jira';
+    if(/\bssr\b|subsystem\s*restart|sleep\s*crash/.test(t)) return 'ssr';
+    if(/process\s*dump|processdump|process\s*crash|\bqnx\b|undetermined/.test(t)) return 'process';
+    return 'system';
+  }
+  function _irCrashLabel(ct){ return {system:'System',ssr:'SSR',process:'Process',open_jira:'Open JIRA'}[String(ct||'').toLowerCase()]||'System'; }
+  function _irCrashBadge(ct){
+    var c=String(ct||'system').toLowerCase();
+    var s={system:'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe',ssr:'background:#fef3c7;color:#92400e;border:1px solid #fde68a',process:'background:#fce7f3;color:#9d174d;border:1px solid #fbcfe8',open_jira:'background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe'};
+    return '<span style="'+(s[c]||s.system)+';border-radius:4px;padding:2px 7px;font-size:10px;font-weight:900;white-space:nowrap">'+_irCrashLabel(c)+'</span>';
+  }
+  var _irCtState={};
+  function _irToggleCt(uid,ct){ var cur=_irCtState[uid]||'all'; _irSetCt(uid,cur===ct?'all':ct); }
+  function _irSetCt(uid,ct){
+    _irCtState[uid]=ct||'all';
+    ['system','ssr','process','open_jira'].forEach(function(k){ var card=document.getElementById(uid+'_ct_'+k); if(card) card.style.opacity=(ct==='all'||ct===k)?'1':'0.35'; });
+    var allBtn=document.getElementById(uid+'_ctbtn_all');
+    if(allBtn){allBtn.style.background=ct==='all'?'#4f46e5':'#f1f5f9';allBtn.style.color=ct==='all'?'#fff':'#475569';allBtn.style.borderColor=ct==='all'?'#4f46e5':'#e2e8f0';}
+    _irRenderCrFiltered(uid);
+  }
+  function _irRenderCrFiltered(uid){
+    var ct=_irCtState[uid]||'all';
+    var allRows=window['_irCrRows_'+uid]||[];
+    var rows=ct==='all'?allRows:allRows.filter(function(r){return String(r.crash_type||'system').toLowerCase()===ct;});
+    var tbody=document.getElementById(uid+'_cr_tbody'); if(!tbody) return;
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:#94a3b8">No CRs for this crash type.</td></tr>';return;}
+    tbody.innerHTML=rows.map(function(r,i){
+      var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+      var crLink=id?'<a style="color:#4338ca;font-weight:900;text-decoration:none" href="https://orbit/CR/'+_irEsc(id)+'" target="_blank" rel="noopener">'+_irEsc(r.cr)+'</a>':_irEsc(r.cr||'--');
+      var jiraKeys=(r.jiras||[]).map(function(j){return typeof j==='string'?j:String(j.key||j.stability_ticket||'');}).filter(Boolean);
+      var cnt=Number(r.count||jiraKeys.length||0);
+      var jiraCell=jiraKeys.length<=3?'<div style="display:flex;flex-wrap:wrap;gap:3px">'+jiraKeys.map(function(k){return _irJiraLink(k);}).join('')+'</div>':'<span style="font-weight:950;color:#4f46e5">'+cnt+'</span>';
+      var bg=i%2===0?'#fff':'#f8fafc';
+      return '<tr style="background:'+bg+'"><td style="padding:8px 10px;color:#94a3b8;font-size:11px">'+(i+1)+'</td><td style="padding:8px 10px">'+crLink+'</td><td style="padding:8px 10px;text-align:center;font-weight:950;color:#4f46e5">'+cnt+'</td><td style="padding:8px 10px">'+_irCrashBadge(r.crash_type)+'</td><td style="padding:8px 10px;max-width:260px;word-break:break-word">'+_irEsc(r.title||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.area||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.sub||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.func||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.date||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.si||'--')+'</td><td style="padding:8px 10px">'+_irStatusBadge(r.status)+'</td><td style="padding:8px 10px;min-width:160px">'+jiraCell+'</td></tr>';
+    }).join('');
+  }
+  function _irNormalize(r){
+    var crRows=[],mappedRows=[],openRows=[],seenJ={};
+    var CR_EQ=['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG','ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO','WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'];
+    function isCrEquiv(k){ return CR_EQ.some(function(p){return String(k||'').toUpperCase().indexOf(p+'-')===0;}); }
+    function isTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
+    function fSummary(j){ var t=j.traversal||{}; return String(t.final_summary||j.final_summary||j.summary||j.jira_title||j.title||''); }
+    function fStatus(j){ var t=j.traversal||{}; return String(t.final_status||j.final_status||j.status||''); }
+    function fCr(j){ var t=j.traversal||{}; return String(t.final_cr||j.cr_mapped||j.mapped_cr||j.cr||''); }
+    if(r.rows&&r.rows.length&&!r.hierarchical_report){
+      r.rows.forEach(function(row){openRows.push({key:String(row.key||row.id||''),title:String(row.summary||row.title||row.name||''),status:String(row.status||''),priority:String(row.priority||''),type:String(row.issuetype||row.type||''),assignee:String(row.assignee||''),created:String((row.created||'').slice(0,10)),updated:String((row.updated||'').slice(0,10))});});
+      return {crRows:crRows,mappedRows:mappedRows,openRows:openRows,totalJiras:openRows.length,isFlatJql:true};
+    }
+    var hier=r.hierarchical_report||[];
+    if(!hier.length&&r.jiras&&r.jiras.length){
+      var groups={};
+      r.jiras.forEach(function(j){var cr=fCr(j)||'NO_CR';if(!groups[cr])groups[cr]=[];groups[cr].push(j);});
+      var ci=r.cr_index||{};
+      hier=Object.keys(groups).map(function(cr){var info=ci[cr]||{};return {cr:cr,cr_count:groups[cr].length,cr_title:info.cr_title||'',cr_status:info.cr_status||'',cr_area:info.cr_area||'',cr_subsystem:info.cr_subsystem||'',cr_function:info.cr_function||'',cr_date:info.cr_date||'',cr_si:info.cr_si||'',jiras:groups[cr]};});
+    }
+    hier.forEach(function(row){
+      var cr=String(row.cr||'').trim();
+      var jiras=row.jiras||[];
+      if(isTrueCr(cr)){
+        var _ct=_irCrashType(Object.assign({},jiras.length?jiras[0]:{},{cr_title:row.cr_title,cr_area:row.cr_area,cr_subsystem:row.cr_subsystem}));
+        crRows.push({cr:cr,title:row.cr_title||'',area:row.cr_area||'',sub:row.cr_subsystem||'',func:row.cr_functionality||row.cr_function||'',date:row.cr_date||'',si:row.cr_si||'',status:row.cr_status||'',count:jiras.length||row.cr_count||1,jiras:jiras,crash_type:_ct});
+      } else if(isCrEquiv(cr)){
+        var first=jiras[0]||{};
+        mappedRows.push({ticket:cr,count:jiras.length||1,title:fSummary(first)||row.title||'',date:String(first.created||'').slice(0,10),status:fStatus(first)||first.status||'',srcKeys:jiras.map(function(j){return String(j.key||j.stability_ticket||'');}).filter(Boolean)});
+      } else {
+        var EXCL_RES=new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+        var CLOSED_ST=new Set(['closed','closed_root_cause_not_found','resolved','rejected']);
+        jiras.forEach(function(j){
+          var key=String(j.key||j.stability_ticket||'').toUpperCase();
+          if(!key||seenJ[key]) return;
+          var jSt=String(j.status||'').toLowerCase();
+          var jRes=String(j.resolution||'').toLowerCase();
+          if(jSt==='rejected'||jSt.indexOf('transfer')>=0) return;
+          if(CLOSED_ST.has(jSt)&&EXCL_RES.has(jRes)) return;
+          seenJ[key]=1;
+          openRows.push({key:key,title:j.summary||j.jira_title||fSummary(j)||'',date:String(j.created||'').slice(0,10),status:j.status||fStatus(j)||'',priority:j.priority||'',type:j.issuetype||j.type||''});
+        });
+      }
+    });
+    var s=r.summary||{};
+    var totalJiras=Number(s.total_all_jiras||s.total_jiras||0)||(crRows.reduce(function(a,c){return a+(c.count||0);},0)+openRows.length+mappedRows.length);
+    return {crRows:crRows,mappedRows:mappedRows,openRows:openRows,totalJiras:totalJiras,isFlatJql:false};
+  }
+  function _irRender(el,r,tab,uid){
+    uid=uid||('ir_'+Math.random().toString(36).slice(2,7));
+    var jql=(tab&&tab.jql)||r.jql||'';
+    var runErr=r.run_error?'<div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;margin-bottom:12px"><i class="fas fa-exclamation-triangle" style="margin-right:6px"></i><b>JQL Error:</b> '+_irEsc(r.run_error)+'</div>':'';
+    var jqlBlock=jql?'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 13px;font-family:Consolas,monospace;font-size:11px;color:#334155;margin-bottom:14px;word-break:break-all;line-height:1.6">'+_irEsc(jql)+'</div>':'';
+    var norm=_irNormalize(r);
+    var isFlatJql=norm.isFlatJql;
+    var kpiHtml='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+    if(isFlatJql){
+      kpiHtml+='<div style="border:1px solid #dbeafe;border-radius:14px;background:#eff6ff;padding:12px 18px;min-width:110px"><div style="font-size:22px;font-weight:950;color:#1e3a8a;line-height:1">'+norm.openRows.length+'</div><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:5px">JIRAs</div></div>';
+    } else {
+      [{val:norm.totalJiras,label:'Total JIRAs',bg:'#eff6ff',border:'#bfdbfe',color:'#1d4ed8'},{val:norm.crRows.reduce(function(a,c){return a+(c.count||0);},0),label:'Mapped to CRs',bg:'#ecfdf5',border:'#6ee7b7',color:'#047857'},{val:norm.crRows.length,label:'Unique CRs',bg:'#f5f3ff',border:'#ddd6fe',color:'#6d28d9'},{val:norm.openRows.length,label:'Open / Unmapped',bg:'#fff7ed',border:'#fed7aa',color:'#c2410c'}].forEach(function(c){kpiHtml+='<div style="border:1.5px solid '+c.border+';background:'+c.bg+';border-radius:12px;padding:10px 16px;min-width:100px"><div style="font-size:22px;font-weight:950;color:'+c.color+';line-height:1">'+c.val+'</div><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-top:4px">'+c.label+'</div></div>';});
+    }
+    kpiHtml+='</div>';
+    var panes='';
+    if(isFlatJql){
+      var openHtml='<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff"><thead><tr style="background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff"><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:900">#</th><th style="padding:10px 12px">Issue</th><th style="padding:10px 12px">Summary</th><th style="padding:10px 12px">Status</th><th style="padding:10px 12px">Priority</th><th style="padding:10px 12px">Type</th><th style="padding:10px 12px">Assignee</th><th style="padding:10px 12px">Created</th><th style="padding:10px 12px">Updated</th></tr></thead><tbody>';
+      norm.openRows.forEach(function(r,i){openHtml+='<tr style="background:'+(i%2===0?'#fff':'#f8fafc')+'"><td style="padding:8px 10px;color:#94a3b8">'+(i+1)+'</td><td style="padding:8px 10px">'+_irJiraLink(r.key)+'</td><td style="padding:8px 10px;max-width:380px;word-break:break-word">'+_irEsc(r.title||'--')+'</td><td style="padding:8px 10px">'+_irStatusBadge(r.status)+'</td><td style="padding:8px 10px">'+_irPriorityBadge(r.priority)+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.type||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.assignee||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.created||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.updated||'--')+'</td></tr>';});
+      openHtml+='</tbody></table></div>';
+      panes='<div>'+openHtml+'</div>';
+    } else {
+      var crTblHtml='<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff"><thead><tr style="background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff"><th style="padding:10px 12px">#</th><th style="padding:10px 12px">CR-ID</th><th style="padding:10px 12px">Occurrences</th><th style="padding:10px 12px">Crash Type</th><th style="padding:10px 12px">CR Title</th><th style="padding:10px 12px">Area</th><th style="padding:10px 12px">SubSystem</th><th style="padding:10px 12px">Functionality</th><th style="padding:10px 12px">Date</th><th style="padding:10px 12px">SI</th><th style="padding:10px 12px">Status</th><th style="padding:10px 12px">JIRA Tickets</th></tr></thead><tbody id="'+uid+'_cr_tbody"></tbody></table></div>';
+      window['_irCrRows_'+uid]=norm.crRows;
+      _irCtState[uid]='all';
+      var openTblHtml='';
+      if(norm.openRows.length){
+        openTblHtml='<div style="margin-top:14px"><div style="font-size:12px;font-weight:950;color:#334155;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px"><i class="fas fa-ticket-alt" style="color:#f97316"></i> Open / Unmapped JIRAs ('+norm.openRows.length+')</div><div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff"><thead><tr style="background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff"><th style="padding:10px 12px">#</th><th style="padding:10px 12px">JIRA Ticket</th><th style="padding:10px 12px">Title</th><th style="padding:10px 12px">Date</th><th style="padding:10px 12px">Status</th><th style="padding:10px 12px">Priority</th><th style="padding:10px 12px">Type</th></tr></thead><tbody>';
+        norm.openRows.forEach(function(r,i){openTblHtml+='<tr style="background:'+(i%2===0?'#fff':'#f8fafc')+'"><td style="padding:8px 10px;color:#94a3b8">'+(i+1)+'</td><td style="padding:8px 10px">'+_irJiraLink(r.key)+'</td><td style="padding:8px 10px;max-width:380px;word-break:break-word;font-size:11px">'+_irEsc(r.title||'--')+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.date||'--')+'</td><td style="padding:8px 10px">'+_irStatusBadge(r.status)+'</td><td style="padding:8px 10px">'+_irPriorityBadge(r.priority)+'</td><td style="padding:8px 10px;font-size:11px">'+_irEsc(r.type||'--')+'</td></tr>';});
+        openTblHtml+='</tbody></table></div></div>';
+      }
+      panes='<div>'+crTblHtml+'</div>'+openTblHtml;
+    }
+    el.innerHTML=runErr+jqlBlock+kpiHtml+panes;
+    if(!isFlatJql) _irRenderCrFiltered(uid);
+  }
+
+  // ── Domain button bar ──────────────────────────────────────────────────────
+  function _renderDomBtns(){
+    var el=document.getElementById('lspSjqlDomBtns'); if(!el) return;
+    el.innerHTML=DOMAINS.map(function(d){
+      var active=d===_dom;
+      var col=_domColor(d),bg=active?_domBg(d):'#fff',border=active?_domBorder(d):'#e2e8f0',fw=active?'950':'700';
+      var cnt=(_allTabs[d]||[]).length;
+      return '<button onclick="lspSjqlSetDomain(this.dataset.dom)" data-dom="'+_esc(d)+'" style="display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:10px;border:1.5px solid '+border+';background:'+bg+';color:'+col+';font-size:12px;font-weight:'+fw+';cursor:pointer;text-align:left;width:100%;transition:.12s"><i class="fas '+_domIcon(d)+'" style="font-size:11px"></i><span style="flex:1">'+d+'</span><span style="background:'+col+'22;color:'+col+';border-radius:999px;padding:1px 7px;font-size:10px;font-weight:900">'+cnt+'</span></button>';
+    }).join('');
+  }
+  function _renderTabList(){
+    var el=document.getElementById('lspSjqlTabList'); if(!el) return;
+    var tabs=_allTabs[_dom]||[];
+    var canEdit=!!(window.LSP_DATA&&LSP_DATA.can_edit);
+    var col=_domColor(_dom),bg=_domBg(_dom),border=_domBorder(_dom);
+    if(!tabs.length){el.innerHTML='<div class="empty" style="font-size:11px;padding:16px 8px"><i class="fas fa-inbox"></i> No saved JQL tabs for '+_esc(_dom)+'.'+(canEdit?' Click <b>Add JQL Tab</b> to create one.':'')+'</div>';return;}
+    el.innerHTML=tabs.map(function(t){
+      var active=t.id===_activeId;
+      var lr=_timers[t.id]?_timers[t.id].lastRun:(t.last_run||null);
+      var activeBg=active?bg:'#fff',activeBorder=active?('2px solid '+col):'1px solid #e2e8f0';
+      var editBtns=canEdit?'<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0"><button onclick="event.stopPropagation();lspSjqlEdit(this.closest(\'[data-tabid]\').dataset.tabid)" style="padding:2px 7px;border-radius:5px;border:1px solid #e2e8f0;background:#fff;font-size:10px;cursor:pointer" title="Edit"><i class="fas fa-pen"></i></button><button onclick="event.stopPropagation();lspSjqlDelete(this.closest(\'[data-tabid]\').dataset.tabid)" style="padding:2px 7px;border-radius:5px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:10px;cursor:pointer" title="Delete"><i class="fas fa-trash"></i></button></div>':'';
+      return '<div onclick="lspSjqlViewReport(this.dataset.tabid,this.dataset.dom)" data-tabid="'+_esc(t.id)+'" data-dom="'+_esc(_dom)+'" style="cursor:pointer;border:'+activeBorder+';background:'+activeBg+';border-radius:10px;padding:9px 11px;margin-bottom:6px;transition:.12s"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px"><div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:950;color:'+col+';margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(t.name)+'</div><div style="font-size:9px;color:#94a3b8;font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc((t.jql||'').slice(0,60))+(t.jql&&t.jql.length>60?'\u2026':'')+'</div><div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?String(lr).slice(0,16).replace('T',' '):'never')+'</span></div></div>'+editBtns+'</div></div>';
+    }).join('');
+  }
+  window.lspSjqlLoad=function(){
+    var el=document.getElementById('lspSjqlTabList');
+    if(el) el.innerHTML='<div class="empty" style="font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
+    fetch('/api/live_status_view/'+encodeURIComponent(_TARGET)+'/adas_mtbf/domains',{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){if(d.ok&&d.domains&&d.domains.length)DOMAINS=d.domains;}).catch(function(){})
+      .then(function(){
+        if(DOMAINS.indexOf(_dom)===-1) _dom=DOMAINS[0];
+        var promises=DOMAINS.map(function(d){return fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs?domain='+encodeURIComponent(d),{cache:'no-store'}).then(function(r){return r.json();}).then(function(data){_allTabs[d]=data.tabs||[];}).catch(function(){_allTabs[d]=[];});});
+        return Promise.all(promises);
+      }).then(function(){_renderDomBtns();_renderTabList();});
+  };
+  window.lspSjqlSetDomain=function(d){
+    _dom=d;_renderDomBtns();_renderTabList();
+    var badge=document.getElementById('lsp-sjql-dom-badge');
+    if(badge){badge.textContent=d;badge.style.background=_domBg(d);badge.style.color=_domColor(d);badge.style.borderColor=_domBorder(d);}
+  };
+  window.lspSjqlViewReport=function(id,d){
+    _activeId=id; if(d) _dom=d;
+    var tabs=_allTabs[_dom]||[],tab=tabs.find(function(t){return t.id===id;});
+    var head=document.getElementById('lspSjqlReportHead'),body=document.getElementById('lspSjqlReportBody'),empty=document.getElementById('lspSjqlRightEmpty'),title=document.getElementById('lspSjqlReportTitle'),meta=document.getElementById('lspSjqlReportMeta');
+    if(!body) return;
+    if(head){head.style.display='flex';}
+    if(empty) empty.style.display='none';
+    if(title) title.textContent=tab?tab.name:'Report';
+    if(meta) meta.textContent='';
+    body.innerHTML='<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Loading report...</span></div>';
+    _renderTabList();
+    fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(_dom)+_sjqlCtParam(),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(r){
+        var genAt=r.generated_at||new Date().toISOString();
+        if(!_timers[id]) _timers[id]={};
+        _timers[id].lastRun=genAt;
+        var lrel=document.getElementById('lsplr_'+id); if(lrel) lrel.textContent=genAt.slice(0,16).replace('T',' ');
+        if(meta) meta.textContent='Last run: '+genAt.slice(0,19).replace('T',' ');
+        _irRender(body,r,tab,'lspir_'+id);
+      }).catch(function(e){body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_esc(String(e))+'</div>';});
+  };
+  window.lspSjqlCTChanged=function(ct,checked){_sjqlCT[ct]=!!checked; if(_activeId) window.lspSjqlRunNow();};
+  window.lspSjqlRunNow=function(){
+    if(!_activeId) return;
+    var id=_activeId,tabs=_allTabs[_dom]||[],tab=tabs.find(function(t){return t.id===id;}),body=document.getElementById('lspSjqlReportBody'),meta=document.getElementById('lspSjqlReportMeta');
+    if(!body) return;
+    body.innerHTML='<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running report...</span></div>';
+    fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(_dom)+'&force=1'+_sjqlCtParam(),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(r){
+        var genAt=r.generated_at||new Date().toISOString();
+        if(!_timers[id]) _timers[id]={};
+        _timers[id].lastRun=genAt;
+        var lrel=document.getElementById('lsplr_'+id); if(lrel) lrel.textContent=genAt.slice(0,16).replace('T',' ');
+        if(meta) meta.textContent='Last run: '+genAt.slice(0,19).replace('T',' ');
+        _irRender(body,r,tab,'lspir_'+id);
+      }).catch(function(e){body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_esc(String(e))+'</div>';});
+  };
+  window.lspSjqlCloseReport=function(){
+    _activeId=null;
+    var head=document.getElementById('lspSjqlReportHead'),body=document.getElementById('lspSjqlReportBody'),empty=document.getElementById('lspSjqlRightEmpty');
+    if(head) head.style.display='none';
+    if(body) body.innerHTML='';
+    if(empty) empty.style.display='flex';
+    _renderTabList();
+  };
+  function _lspExtractFilterId(v){
+    var raw=String(v||'').trim(); if(!raw) return '';
+    try{var u=new URL(raw,window.location.origin);var f=u.searchParams.get('filter')||u.searchParams.get('filterId')||'';if(/^\d+$/.test(String(f).trim()))return String(f).trim();}catch(e){}
+    var m=raw.match(/[?&]filter(?:Id)?=(\d+)/i); if(m) return m[1];
+    m=raw.match(/\bfilter\s*=\s*(\d+)\b/i); if(m) return m[1];
+    m=raw.match(/^\d{3,}$/); if(m) return m[0];
+    return '';
+  }
+  function _lspResolveFilterToJql(filterId){
+    return fetch('/api/jira/filter_jql?filter_id='+encodeURIComponent(filterId),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(!d.ok) throw new Error(d.error||'Unable to resolve filter '+filterId);return String(d.jql||'').trim();});
+  }
+  window.lspSjqlFilterInputChanged=function(){
+    var fi=document.getElementById('lsp-sjql-inp-filter'),jq=document.getElementById('lsp-sjql-inp-jql');
+    if(!fi||!jq) return;
+    var fid=_lspExtractFilterId(fi.value);
+    if(!fid) return;
+    if(!jq.value.trim()){
+      jq.placeholder='Resolving filter '+fid+'...';
+      _lspResolveFilterToJql(fid).then(function(resolved){jq.placeholder='project = QSTABILITY AND ...';if(resolved&&!jq.value.trim())jq.value=resolved;}).catch(function(){jq.placeholder='project = QSTABILITY AND ...';if(!jq.value.trim())jq.value='filter = '+fid;});
+    }
+  };
+  window.lspSjqlOpenAdd=function(){
+    var m=document.getElementById('lsp-sjql-modal'); if(!m) return;
+    document.getElementById('lsp-sjql-edit-id').value='';
+    document.getElementById('lsp-sjql-inp-name').value='';
+    document.getElementById('lsp-sjql-inp-jql').value='';
+    var _fi=document.getElementById('lsp-sjql-inp-filter'); if(_fi) _fi.value='';
+    document.getElementById('lsp-sjql-modal-title').textContent='Add JQL Tab';
+    _renderModalDomBtns(); m.style.display='flex';
+  };
+  function _renderModalDomBtns(){
+    var el=document.getElementById('lsp-sjql-modal-doms'); if(!el) return;
+    el.innerHTML=DOMAINS.map(function(d){
+      var active=d===_dom,col=_domColor(d),bg=active?_domBg(d):'#f8fafc',border=active?('2px solid '+col):'1px solid #e2e8f0';
+      return '<button type="button" onclick="lspSjqlModalSetDom(this.dataset.dom)" data-dom="'+_esc(d)+'" style="padding:5px 14px;border-radius:8px;border:'+border+';background:'+bg+';color:'+col+';font-size:12px;font-weight:'+(active?'950':'700')+';cursor:pointer"><i class="fas '+_domIcon(d)+'" style="margin-right:4px"></i>'+d+'</button>';
+    }).join('');
+    var badge=document.getElementById('lsp-sjql-dom-badge');
+    if(badge){badge.textContent=_dom;badge.style.background=_domBg(_dom);badge.style.color=_domColor(_dom);}
+  }
+  window.lspSjqlModalSetDom=function(d){_dom=d;_renderModalDomBtns();};
+  window.lspSjqlCloseModal=function(){var m=document.getElementById('lsp-sjql-modal');if(m)m.style.display='none';};
+  window.lspSjqlEdit=function(id){
+    var tabs=_allTabs[_dom]||[],tab=tabs.find(function(t){return t.id===id;}); if(!tab) return;
+    var m=document.getElementById('lsp-sjql-modal'); if(!m) return;
+    document.getElementById('lsp-sjql-edit-id').value=id;
+    document.getElementById('lsp-sjql-inp-name').value=tab.name||'';
+    document.getElementById('lsp-sjql-inp-jql').value=tab.jql||'';
+    var _fi2=document.getElementById('lsp-sjql-inp-filter'); if(_fi2) _fi2.value=tab.filter_id||'';
+    document.getElementById('lsp-sjql-modal-title').textContent='Edit JQL Tab';
+    _renderModalDomBtns(); m.style.display='flex';
+  };
+  window.lspSjqlSave=function(){
+    var id=document.getElementById('lsp-sjql-edit-id').value;
+    var name=(document.getElementById('lsp-sjql-inp-name').value||'').trim();
+    var jqlRaw=(document.getElementById('lsp-sjql-inp-jql').value||'').trim();
+    var filtEl=document.getElementById('lsp-sjql-inp-filter');
+    var filtRaw=(filtEl?filtEl.value:'').trim();
+    var saveBtn=document.querySelector('#lsp-sjql-modal button[onclick="lspSjqlSave()"]');
+    var filterId=_lspExtractFilterId(jqlRaw)||_lspExtractFilterId(filtRaw);
+    var isJqlBoxFilterRef=filterId&&(jqlRaw==='filter = '+filterId||jqlRaw===filtRaw||!jqlRaw||_lspExtractFilterId(jqlRaw)===filterId);
+    var directJql=(!isJqlBoxFilterRef&&jqlRaw)?jqlRaw:'';
+    if(!name){alert('Tab name is required.');return;}
+    if(!directJql&&!filterId){alert('Enter a JQL query or Filter ID / URL.');return;}
+    function _doSave(resolvedJql){
+      var payload={target:_TARGET,domain:_dom,name:name,jql:resolvedJql,filter_id:filterId||''};
+      if(id) payload.id=id;
+      fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+        .then(function(r){return r.json();}).then(function(d){
+          if(!d.ok) throw new Error(d.error||'Save failed');
+          if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}
+          window.lspSjqlCloseModal(); window.lspSjqlLoad();
+        }).catch(function(e){if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}alert('Save failed: '+e.message);});
+    }
+    if(directJql){_doSave(directJql);}
+    else{
+      if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Resolving filter...';}
+      _lspResolveFilterToJql(filterId).then(function(resolvedJql){
+        if(!resolvedJql) throw new Error('Filter '+filterId+' resolved to empty JQL');
+        var jqlEl=document.getElementById('lsp-sjql-inp-jql'); if(jqlEl) jqlEl.value=resolvedJql;
+        _doSave(resolvedJql);
+      }).catch(function(e){
+        if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}
+        var jqlEl=document.getElementById('lsp-sjql-inp-jql'); if(jqlEl) jqlEl.value='filter = '+filterId;
+        _doSave('filter = '+filterId);
+      });
+    }
+  };
+  window.lspSjqlDelete=function(id){
+    if(!confirm('Delete this JQL tab?')) return;
+    fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'?domain='+encodeURIComponent(_dom),{method:'DELETE'})
+      .then(function(r){return r.json();}).then(function(d){if(!d.ok) throw new Error(d.error||'Delete failed');if(_activeId===id) window.lspSjqlCloseReport();window.lspSjqlLoad();}).catch(function(e){alert('Delete failed: '+e.message);});
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    if(window.LSP_DATA&&LSP_DATA.available_domains&&LSP_DATA.available_domains.length) window.lspSjqlLoad();
+  });
+  })();
+  </script>
+
+  {% if can_edit %}
+  <div id="lsp-sjql-modal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:18px;width:min(540px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:15px;font-weight:950" id="lsp-sjql-modal-title">Add JQL Tab</span>
+          <span id="lsp-sjql-dom-badge" style="font-size:11px;font-weight:900;padding:3px 10px;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8">ADAS</span>
+        </div>
+        <button onclick="lspSjqlCloseModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+      </div>
+      <div style="padding:20px">
+        <input type="hidden" id="lsp-sjql-edit-id">
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:7px">Domain</label>
+          <div id="lsp-sjql-modal-doms" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Tab Name</label>
+          <input id="lsp-sjql-inp-name" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px" placeholder="e.g. Mainline Build JIRAs">
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Filter ID / URL</label>
+          <input id="lsp-sjql-inp-filter" placeholder="e.g. 346152, filter=346152, or JIRA filter URL" oninput="lspSjqlFilterInputChanged()" style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;padding:0 10px;font-family:inherit;font-size:12px">
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px">Paste a JIRA filter ID, filter URL, or leave blank and use Direct JQL below.</div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Direct JQL</label>
+          <textarea id="lsp-sjql-inp-jql" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:12px;font-family:Consolas,monospace;min-height:90px;resize:vertical" placeholder="project = QSTABILITY AND ..."></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button onclick="lspSjqlCloseModal()" style="padding:9px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:13px;font-weight:800;cursor:pointer">Cancel</button>
+          <button onclick="lspSjqlSave()" style="padding:9px 20px;border-radius:10px;border:0;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:13px;font-weight:900;cursor:pointer">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
 <!-- ===== TOP CONFIG MODAL ===== -->
 <div id="lspTopCfgModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.55);align-items:center;justify-content:center" onclick="if(event.target===this)lspCloseTopConfig()">
   <div style="background:#fff;border-radius:18px;width:min(520px,96vw);box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden">
@@ -1090,7 +1543,8 @@ window.LSP_DATA = {
   persisted_jql: {{ (job.current_report_jql or '')|tojson }},
   jira_filter_id: {{ jira_pdt_filter_id|tojson }},
   saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
-  landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
+  landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }},
+  available_domains: {{ (available_domains or [])|tojson }}
 };
 
 // =======================================================================

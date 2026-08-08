@@ -2191,9 +2191,8 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
     """Return the actual domain list for this target by reading the same
     mtbf_domains.json that the MTBF Trend page uses. Falls back to a
     sensible default only when the file does not exist yet.
+    Available for ALL BUs (AUTO, IoT, WBC, etc.) — not just AUTO.
     """
-    if not is_auto_bu:
-        return []
     try:
         from live_status_view_api import _get_target_domains
         domains = _get_target_domains(target_name)
