@@ -4,6 +4,17 @@
 Enhanced SI image path tracking in `dashboard_status` table via batch file scanning.
 Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
 
+### Build Report mutually exclusive JIRA counts (2026-08-08)
+- Corrected Build Report Open JIRAs to:
+  `Total JIRAs - mapped-to-CR occurrences - mapped-JIRA occurrences - invalid`.
+- Mapped Tickets now displays occurrence count, matching the value deducted by
+  the formula rather than the number of grouped mapped rows.
+- Updated on-screen and copied-report formula notes.
+- Counts are clamped at zero. The reported example now gives
+  `92 - 75 - 2 - 12 = 3` Open JIRAs instead of 15.
+- Validated Jinja parsing, formula presence, occurrence bindings,
+  representative arithmetic, and `git diff --check`.
+
 ### WBC current-Meta overview report cards (2026-08-08)
 - Added three overview cards immediately beside the Current Running Build /
   Meta ID: **Current Build CRs**, **Current Build Total JIRAs**, and

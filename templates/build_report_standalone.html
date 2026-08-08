@@ -1112,7 +1112,7 @@ jiraTable+='<th style="padding:8px 14px;text-align:left;font-size:12px;font-weig
     {label:'Total JIRAs',                val:counts.totalJiras,     note:'All JIRAs from filter',                              color:'#1e3a8a', bg:''},
     {label:'Mapped to CRs (occurrences)',val:counts.convertedToCrs, note:'Sum of all JIRA occurrences across all CRs',         color:'#7c3aed', bg:'#faf5ff'},
     {label:'Mapped Tickets',             val:counts.mappedTickets,   note:'Sum of occurrences across mapped stability tickets', color:'#0369a1', bg:'#eff6ff'},
-    {label:'Open JIRAs',                 val:counts.openInclMapped,  note:'Total ΓêÆ CR occurrences ΓêÆ Mapped occurrences',         color:'#b45309', bg:'#fffbeb', bold:true, sep:true},
+    {label:'Open JIRAs',                 val:counts.openInclMapped,  note:'Total - CR occurrences - Mapped occurrences - Invalid/Closed', color:'#b45309', bg:'#fffbeb', bold:true, sep:true},
     {label:'CRs (unique)',               val:counts.crs,             note:'Unique CRs mapped from JIRAs',                      color:'#6d28d9', bg:'#f5f3ff'},
     {label:'Invalid / Closed',           val:counts.invalidJiras,    note:"Closed, Won't Fix, Not a Bug, etc.",                color:'#b91c1c', bg:'#fff1f2'},
     {label:'Valid JIRAs',                val:counts.validJiras,      note:'Total ΓêÆ Invalid/Closed',                                color:'#166534', bg:'#f0fdf4', bold:true},
@@ -1835,10 +1835,11 @@ function renderReport(rep){
   }).length || Number(((rep||{}).summary||{}).invalid_jiras||0)||0;
   const activeOpenCount = openRows.length - invalidCount;
 
-  // Open JIRAs = Total - CR occurrences - Mapped occurrences (not additive)
+  // Keep these categories mutually exclusive:
+  // Open = Total - mapped-to-CR occurrences - mapped-JIRA occurrences - invalid.
   const crOccurrences  = rows.convertedToCrs;
   const mappedOcc      = mappedRows.reduce((a,m)=>a+(m.count||1),0);
-  const openJiras      = Math.max(0, rows.totalJiras - crOccurrences - mappedOcc);
+  const openJiras      = Math.max(0, rows.totalJiras - crOccurrences - mappedOcc - invalidCount);
   // Valid JIRAs = Total - Invalid/Closed
   const validJiras     = rows.totalJiras - invalidCount;
   const openInclMapped = openJiras;
@@ -1852,7 +1853,7 @@ function renderReport(rep){
     crs:            crRows.length,
     validJiras:     validJiras,
     invalidJiras:   invalidCount,
-    mappedTickets:  mappedRows.length,
+    mappedTickets:  mappedOcc,
     convertedToCrs: rows.convertedToCrs,
   };
 
@@ -1862,7 +1863,7 @@ function renderReport(rep){
     crs:             crRows.length,
     validJiras:      validJiras,
     invalidJiras:    invalidCount,
-    mappedTickets:   mappedRows.length,
+    mappedTickets:   mappedOcc,
     convertedToCrs:  rows.convertedToCrs,
   }, rep||{});
 
@@ -2411,7 +2412,7 @@ function brBuildCleanReportHtml(){
     ['Total JIRAs',counts.totalJiras||0,'All JIRAs from filter'],
     ['Mapped to CRs (occurrences)',counts.convertedToCrs||0,'Sum of all JIRA occurrences across all CRs'],
     ['Mapped Tickets',counts.mappedTickets||0,'Sum of occurrences across mapped stability tickets'],
-    ['Open JIRAs',counts.openInclMapped||0,'Total - CR occurrences - Mapped occurrences'],
+    ['Open JIRAs',counts.openInclMapped||0,'Total - CR occurrences - Mapped occurrences - Invalid/Closed'],
     ['CRs (unique)',counts.crs||0,'Unique CRs mapped from JIRAs'],
     ['Invalid / Closed',counts.invalidJiras||0,"Closed, Won't Fix, Not a Bug, etc."],
     ['Valid JIRAs',counts.validJiras||window._brValidJiras||0,'Total - Invalid/Closed']
