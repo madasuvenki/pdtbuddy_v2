@@ -339,8 +339,8 @@ register_feature_blueprints(app)
 @app.route('/docs/api')
 @login_required
 def api_all_in_one_docs():
-    """All-in-one API reference page — lists every PDTBuddy endpoint with redirect links."""
-    return render_template('api_all_in_one.html')
+    """Private API reference — focused page with Try It and response examples."""
+    return render_template('private_api_docs.html')
 
 
 app.view_functions

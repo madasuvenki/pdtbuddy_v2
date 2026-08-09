@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDT Buddy — Private API</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root{--ink:#0f172a;--muted:#64748b;--border:#e2e8f0;--page-bg:#f1f5f9;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:var(--page-bg);color:var(--ink);min-height:100vh;font-size:14px;}
+
+    /* Header */
+    .hdr{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(15,23,42,.35);}
+    .hdr__left{display:flex;align-items:center;gap:12px;}
+    .hdr__icon{width:40px;height:40px;border-radius:12px;background:rgba(109,40,217,.3);display:flex;align-items:center;justify-content:center;font-size:18px;color:#c4b5fd;flex-shrink:0;border:1px solid rgba(109,40,217,.4);}
+    .hdr__title{font-size:18px;font-weight:900;color:#f8fafc;}
+    .hdr__sub{font-size:11px;color:#94a3b8;margin-top:2px;font-weight:500;}
+    .hdr__back{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);color:#e2e8f0;font-size:12px;font-weight:800;text-decoration:none;transition:background .15s;}
+    .hdr__back:hover{background:rgba(255,255,255,.20);color:#fff;}
+
+    /* Search bar */
+    .search-bar{background:#fff;border-bottom:1px solid var(--border);padding:12px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:76px;z-index:99;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+    .search-input{flex:1;max-width:480px;border:1px solid #c7d2fe;border-radius:10px;padding:9px 14px 9px 36px;font-size:13px;font-weight:700;background:#f8faff;color:#1e293b;outline:none;transition:border-color .15s;}
+    .search-input:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12);}
+    .search-wrap{position:relative;flex:1;max-width:480px;}
+    .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;}
+    .search-count{font-size:12px;color:var(--muted);font-weight:700;}
+
+    /* Body */
+    .body{max-width:960px;margin:0 auto;padding:28px 24px 80px;}
+
+    /* Section header */
+    .sec-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+    .sec-title{font-size:16px;font-weight:950;color:var(--ink);display:flex;align-items:center;gap:10px;}
+    .sec-icon{width:34px;height:34px;border-radius:10px;background:#ede9fe;color:#6d28d9;display:flex;align-items:center;justify-content:center;font-size:14px;}
+    .badge-purple{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;}
+
+    /* API cards */
+    .api-cards{display:grid;gap:14px;}
+    .api-card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:box-shadow .15s;}
+    .api-card:hover{box-shadow:0 4px 20px rgba(15,23,42,.10);}
+    .api-card.hidden{display:none;}
+    .api-card__head{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;background:linear-gradient(135deg,#f8faff,#f1f5ff);border-bottom:1px solid transparent;transition:background .15s;}
+    .api-card__head:hover{background:linear-gradient(135deg,#eef2ff,#e8edff);}
+    .api-card__head.open{border-bottom-color:var(--border);}
+    .method{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;}
+    .method--get{background:#dcfce7;color:#166534;}
+    .method--post{background:#dbeafe;color:#1e40af;}
+    .api-card__endpoint{font-family:'Consolas','Courier New',monospace;font-size:12px;font-weight:700;color:#1e293b;flex:1;}
+    .api-card__desc{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+    .api-card__chevron{color:var(--muted);font-size:11px;transition:transform .2s;flex-shrink:0;}
+    .api-card__head.open .api-card__chevron{transform:rotate(180deg);}
+    .api-card__body{display:none;padding:20px 22px;}
+    .api-card__body.open{display:block;}
+
+    /* Params table */
+    .sec-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 8px;}
+    .sec-label:first-child{margin-top:0;}
+    .params{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}
+    .params th{background:#f1f5f9;color:#334155;font-weight:900;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;text-align:left;border-bottom:2px solid var(--border);}
+    .params td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#475569;vertical-align:top;}
+    .params tr:last-child td{border-bottom:none;}
+    .params tr:hover td{background:#f8faff;}
+    .req-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+
+    /* Code block */
+    .code-block{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;font-family:'Consolas','Courier New',monospace;font-size:11px;line-height:1.7;overflow-x:auto;margin-bottom:6px;position:relative;}
+    .copy-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:800;cursor:pointer;}
+    .copy-btn:hover{background:rgba(255,255,255,.22);}
+
+    /* Try It */
+    .try-box{background:#f8faff;border:1px solid #dbeafe;border-radius:12px;padding:16px 18px;margin-top:10px;}
+    .try-title{font-size:11px;font-weight:900;color:#1d4ed8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .try-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+    .try-input{flex:1;min-width:180px;border:1px solid #bfdbfe;border-radius:8px;padding:8px 11px;font-size:12px;font-weight:700;background:#fff;color:#1e293b;outline:none;}
+    .try-input:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12);}
+    .try-textarea{width:100%;border:1px solid #bfdbfe;border-radius:8px;padding:8px 11px;font-size:11px;font-family:'Consolas','Courier New',monospace;font-weight:700;background:#fff;color:#1e293b;outline:none;resize:vertical;min-height:80px;}
+    .try-textarea:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12);}
+    .run-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;font-size:12px;font-weight:900;border:none;cursor:pointer;white-space:nowrap;}
+    .run-btn:hover{filter:brightness(1.1);}
+    .try-result{margin-top:12px;background:#0f172a;color:#86efac;border-radius:8px;padding:12px 14px;font-family:'Consolas','Courier New',monospace;font-size:11px;line-height:1.6;max-height:320px;overflow:auto;display:none;white-space:pre-wrap;}
+    .try-result.show{display:block;}
+    .try-result.error{color:#fca5a5;}
+
+    @media(max-width:640px){.hdr{padding:12px 16px;}.body{padding:16px 12px 48px;}.api-card__desc{display:none;}}
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr__left">
+      <div class="hdr__icon"><i class="fas fa-lock"></i></div>
+      <div>
+        <div class="hdr__title">Private API Reference</div>
+        <div class="hdr__sub">Auth Required · Try It Live · Response Examples</div>
+      </div>
+    </div>
+    <a href="/dashboard_docs" class="hdr__back"><i class="fas fa-arrow-left"></i> Back to Docs</a>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="search-input" id="apiSearch" placeholder="Search endpoints..." oninput="filterApis(this.value)">
+    </div>
+    <span class="search-count" id="apiCount">6 endpoints</span>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <div class="sec-hdr">
+      <div class="sec-title">
+        <span class="sec-icon"><i class="fas fa-lock"></i></span>
+        Private API
+        <span class="badge-purple">Auth Required</span>
+      </div>
+    </div>
+
+    <div class="api-cards" id="apiCards">
+
+      <!-- /api/build_report/run -->
+      <div class="api-card" data-search="build report run jira filter jql">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--post">POST</span>
+          <span class="api-card__endpoint">/api/build_report/run</span>
+          <span class="api-card__desc">Run JIRA build report</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Accepts a JIRA filter ID, filter URL, or direct JQL and returns the full JIRA→CR traversal report. Supports GET (query params) and POST (JSON body). Also accepts <code>?api_token=&lt;token&gt;</code> for external access.</p>
+          <div class="sec-label">Request Body (JSON)</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>filter_id</code></td><td>string</td><td>JIRA saved filter ID e.g. <code>76997</code></td></tr>
+              <tr><td><code>custom_jql</code></td><td>string</td><td>Direct JQL string (alternative to filter_id)</td></tr>
+              <tr><td><code>builds</code></td><td>array</td><td>Build IDs e.g. <code>["SA8797P.HQX.5.7.7.0-00623"]</code></td></tr>
+              <tr><td><code>traverse</code></td><td>bool</td><td>Traverse JIRA→CR mappings (default true)</td></tr>
+              <tr><td><code>orbit</code></td><td>bool</td><td>Enrich CRs with Orbit data (default true)</td></tr>
+              <tr><td><code>target</code></td><td>string</td><td>Target name for context e.g. <code>nord_hqx</code></td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-build-run">{"ok": true, "jiras": [{"key": "QSTABILITY-12345", "cr": "CR4477116"}], "crs": [{"cr": "CR4477116", "cr_title": "...", "cr_status": "Open"}], "meta": {"jql": "...", "jira_count": 12, "cr_count": 5}}<button class="copy-btn" onclick="copyCode('resp-build-run')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="sec-label" style="margin-top:0">Build ID (optional)</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-br-build" placeholder="e.g. SA8797P.HQX.5.7.7.0-00623">
+            </div>
+            <div class="sec-label">Filter ID (optional)</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-br-filter" placeholder="e.g. 76997" style="max-width:200px">
+              <input class="try-input" id="ti-br-target" placeholder="target e.g. nord_hqx" style="max-width:200px">
+            </div>
+            <div class="sec-label">Custom JQL (optional)</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-br-jql" placeholder="e.g. filter = 76997 AND summary ~ &quot;00623&quot;">
+            </div>
+            <button class="run-btn" onclick="runBuildReport()"><i class="fas fa-play"></i> Run</button>
+            <div class="try-result" id="ti-br-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/live_status/targets/<target>/weekly_full -->
+      <div class="api-card" data-search="weekly full cr jira data target">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="api-card__endpoint">/api/live_status/targets/&lt;target&gt;/weekly_full</span>
+          <span class="api-card__desc">Weekly CR/JIRA data</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns weekly CR rows, JIRA rows, open JIRA rows, build IDs, pie charts, and area matrix for a target.</p>
+          <div class="sec-label">Query Parameters</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>from</code></td><td>date</td><td>Start date YYYY-MM-DD (default: last Monday)</td></tr>
+              <tr><td><code>to</code></td><td>date</td><td>End date YYYY-MM-DD (default: last Sunday)</td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-weekly">{"success": true, "from_date": "2026-07-28", "to_date": "2026-08-03", "cr_rows": [...], "jira_rows": [...], "counts": {"total_jiras": 42, "total_crs": 18}}<button class="copy-btn" onclick="copyCode('resp-weekly')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="try-row">
+              <input class="try-input" id="ti-weekly-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
+              <input class="try-input" id="ti-weekly-from" placeholder="from YYYY-MM-DD" style="max-width:160px">
+              <input class="try-input" id="ti-weekly-to" placeholder="to YYYY-MM-DD" style="max-width:160px">
+              <button class="run-btn" onclick="runGet('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-weekly-target').value)+'/weekly_full'+(document.getElementById('ti-weekly-from').value?'?from='+document.getElementById('ti-weekly-from').value+'&to='+document.getElementById('ti-weekly-to').value:''), 'ti-weekly-result')"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-weekly-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/live_status/targets/<target>/open_crs_full -->
+      <div class="api-card" data-search="open analysis crs full target">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="api-card__endpoint">/api/live_status/targets/&lt;target&gt;/open_crs_full</span>
+          <span class="api-card__desc">Open/Analysis CRs</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns all open/analysis CRs for a target from the unique_crs table with area, subsystem, functionality, age, and notes.</p>
+          <div class="sec-label">Query Parameters</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>domain</code></td><td>string</td><td>Filter by domain: ADAS, FLEX, IVI (AUTO BU only)</td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-opencrs">{"success": true, "rows": [{"cr": "CR4477116", "cr_status": "Open", "cr_area": "APPS", "cr_age": "45", "latest_cr_notes": "..."}], "count": 18}<button class="copy-btn" onclick="copyCode('resp-opencrs')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="try-row">
+              <input class="try-input" id="ti-opencrs-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
+              <input class="try-input" id="ti-opencrs-domain" placeholder="domain (optional)" style="max-width:160px">
+              <button class="run-btn" onclick="runGet('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-opencrs-target').value)+'/open_crs_full'+(document.getElementById('ti-opencrs-domain').value?'?domain='+encodeURIComponent(document.getElementById('ti-opencrs-domain').value):''), 'ti-opencrs-result')"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-opencrs-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/live_status/targets/<target>/mtbf -->
+      <div class="api-card" data-search="mtbf trend data target hours crashes">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="api-card__endpoint">/api/live_status/targets/&lt;target&gt;/mtbf</span>
+          <span class="api-card__desc">MTBF trend data</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns MTBF rows from the target's Excel/Axiom data including build ID, hours, crashes, and MTBF value.</p>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-mtbf">{"success": true, "rows": [{"crm_build_id": "SA8797P.HQX.5.7.7.0-00623", "mtbf": 142.5, "hours": 1425, "crash": 10, "date": "2026-07-28"}]}<button class="copy-btn" onclick="copyCode('resp-mtbf')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="try-row">
+              <input class="try-input" id="ti-mtbf-target" placeholder="target e.g. nord_hqx" value="nord_hqx">
+              <button class="run-btn" onclick="runGet('/api/live_status/targets/'+encodeURIComponent(document.getElementById('ti-mtbf-target').value)+'/mtbf', 'ti-mtbf-result')"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-mtbf-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/consolidated_report -->
+      <div class="api-card" data-search="consolidated report jira cr hierarchical">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--post">POST</span>
+          <span class="api-card__endpoint">/api/consolidated_report</span>
+          <span class="api-card__desc">JIRA to CR consolidated report</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Runs a JIRA JQL query, traverses JIRA to CR mappings, enriches with Orbit CR data, and returns a hierarchical CR/JIRA report.</p>
+          <div class="sec-label">Request Body (JSON)</div>
+          <div class="code-block" id="req-consol">{"builds": ["SA8797P.HQX.5.7.7.0-00623"], "traverse": true, "orbit": true, "target": "nord_hqx", "custom_jql": "filter = 76997 AND summary ~ \"00623\""}<button class="copy-btn" onclick="copyCode('req-consol')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-consol">{"ok": true, "hierarchical_report": [{"cr": "CR4477116", "cr_title": "...", "jiras": [...]}], "summary": {"total_jiras": 12, "with_cr": 8}}<button class="copy-btn" onclick="copyCode('resp-consol')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="try-row">
+              <input class="try-input" id="ti-consol-build" placeholder="build ID (optional)">
+              <input class="try-input" id="ti-consol-target" placeholder="target e.g. nord_hqx" value="nord_hqx" style="max-width:200px">
+            </div>
+            <div class="sec-label">Custom JQL (optional)</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-consol-jql" placeholder="e.g. filter = 76997">
+              <button class="run-btn" onclick="runPost('/api/consolidated_report', {builds:document.getElementById('ti-consol-build').value?[document.getElementById('ti-consol-build').value]:[], target:document.getElementById('ti-consol-target').value, custom_jql:document.getElementById('ti-consol-jql').value||undefined, traverse:true, orbit:true}, 'ti-consol-result')"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-consol-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/build_report/running_builds -->
+      <div class="api-card" data-search="running builds active axiom list">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="api-card__endpoint">/api/build_report/running_builds</span>
+          <span class="api-card__desc">List active running builds</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">Returns active builds from the local Axiom cache table. Used by the Live Status View current report panel.</p>
+          <div class="sec-label">Query Parameters</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>target</code></td><td>string</td><td>Filter by target name (optional)</td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-running">{"ok": true, "builds": [{"build_id": "SA8797P.HQX.5.7.7.0-00623", "meta_id": "Meta-651", "software_product": "SA8797P", "product_flavor": "HQX"}]}<button class="copy-btn" onclick="copyCode('resp-running')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It <span style="font-size:10px;color:#94a3b8;font-weight:700">(requires login)</span></div>
+            <div class="try-row">
+              <input class="try-input" id="ti-running-target" placeholder="target (optional)" style="max-width:240px">
+              <button class="run-btn" onclick="runGet('/api/build_report/running_builds'+(document.getElementById('ti-running-target').value?'?target='+encodeURIComponent(document.getElementById('ti-running-target').value):''), 'ti-running-result')"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-running-result"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  function toggleCard(head){
+    head.classList.toggle('open');
+    var body = head.nextElementSibling;
+    if(body) body.classList.toggle('open');
+  }
+
+  function filterApis(q){
+    var cards = document.querySelectorAll('.api-card');
+    var lq = (q||'').toLowerCase();
+    var visible = 0;
+    cards.forEach(function(c){
+      var text = (c.getAttribute('data-search')||'') + ' ' + (c.querySelector('.api-card__endpoint')||{}).textContent + ' ' + (c.querySelector('.api-card__desc')||{}).textContent;
+      var show = !lq || text.toLowerCase().includes(lq);
+      c.classList.toggle('hidden', !show);
+      if(show) visible++;
+    });
+    var cnt = document.getElementById('apiCount');
+    if(cnt) cnt.textContent = visible + ' endpoint' + (visible===1?'':'s');
+  }
+
+  function copyCode(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    var text = el.innerText.replace(/\s*Copy\s*$/, '').trim();
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(function(){
+        var btn = el.querySelector('.copy-btn');
+        if(btn){var orig=btn.innerHTML;btn.innerHTML='<i class="fas fa-check"></i> Copied!';setTimeout(function(){btn.innerHTML=orig;},1800);}
+      });
+    }
+  }
+
+  async function runGet(url, resultId){
+    var el = document.getElementById(resultId);
+    if(!el) return;
+    el.classList.add('show');
+    el.classList.remove('error');
+    el.textContent = 'Loading...';
+    try{
+      var r = await fetch(url, {cache:'no-store'});
+      var data = await r.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      if(!r.ok) el.classList.add('error');
+    } catch(e){
+      el.textContent = 'Error: ' + e.message;
+      el.classList.add('error');
+    }
+  }
+
+  async function runPost(url, body, resultId){
+    var el = document.getElementById(resultId);
+    if(!el) return;
+    el.classList.add('show');
+    el.classList.remove('error');
+    el.textContent = 'Loading...';
+    // Remove undefined values
+    Object.keys(body).forEach(function(k){ if(body[k]===undefined||body[k]==='') delete body[k]; });
+    try{
+      var r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), cache:'no-store'});
+      var data = await r.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      if(!r.ok) el.classList.add('error');
+    } catch(e){
+      el.textContent = 'Error: ' + e.message;
+      el.classList.add('error');
+    }
+  }
+
+  async function runBuildReport(){
+    var build = document.getElementById('ti-br-build').value.trim();
+    var filter = document.getElementById('ti-br-filter').value.trim();
+    var target = document.getElementById('ti-br-target').value.trim();
+    var jql = document.getElementById('ti-br-jql').value.trim();
+    var body = {traverse:true, orbit:true};
+    if(build) body.builds = [build];
+    if(filter) body.filter_id = filter;
+    if(target) body.target = target;
+    if(jql) body.custom_jql = jql;
+    await runPost('/api/build_report/run', body, 'ti-br-result');
+  }
+  </script>
+</body>
+</html>
