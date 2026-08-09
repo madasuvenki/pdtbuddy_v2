@@ -360,6 +360,249 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
   })();
   </script>
 
+  <!-- ── CRM Weekly Report Section ─────────────────────────────────────── -->
+  <div id="crmReportSection" style="background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 4px 16px rgba(15,23,42,.06);padding:20px 24px;margin-bottom:16px;">
+    <div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:14px;padding:12px 16px;background:#f8fafc;border-radius:10px;border-left:4px solid #3b82f6;">
+      Please find the latest status of Open/Analysis CR observed by PDT across Main farm builds since last 1 Week. Also included PDT PT CR details which are in high occurrences/systemic issues/potential OEM issues.
+    </div>
+
+    <!-- Mainfarm Builds -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:900;color:#0f172a;margin-bottom:6px;text-decoration:underline;">Mainfarm Builds:</div>
+      <div id="crmBuildsList" style="font-size:12px;color:#334155;line-height:1.8;"></div>
+    </div>
+
+    <!-- Tech wise summary + Priority side by side -->
+    <div style="display:grid;grid-template-columns:minmax(260px,380px) minmax(200px,280px);gap:20px;margin-bottom:20px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;font-weight:900;color:#0f172a;margin-bottom:8px;text-decoration:underline;">Tech wise summary:</div>
+        <table id="crmTechTable" style="border-collapse:collapse;width:100%;font-size:12px;">
+          <thead>
+            <tr>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:left;border:1px solid #cbd5e1;width:40px;">S. No</th>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:left;border:1px solid #cbd5e1;">Area</th>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:center;border:1px solid #cbd5e1;width:80px;">Count</th>
+            </tr>
+          </thead>
+          <tbody id="crmTechBody"></tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:900;color:#0f172a;margin-bottom:8px;">&nbsp;</div>
+        <table id="crmPriorityTable" style="border-collapse:collapse;width:100%;font-size:12px;">
+          <thead>
+            <tr>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:left;border:1px solid #cbd5e1;width:40px;">S. No</th>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:left;border:1px solid #cbd5e1;">Category</th>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 12px;text-align:center;border:1px solid #cbd5e1;width:100px;">No. Of CRs</th>
+            </tr>
+          </thead>
+          <tbody id="crmPriorityBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tech wise Distribution Bar Chart -->
+    <div style="margin-bottom:8px;">
+      <div style="font-size:12px;font-weight:900;color:#0f172a;margin-bottom:10px;">
+        Tech wise Distribution of Closed CRs of last update, Old CRs in Open/Analysis (CR Age &gt;1 week and above) and New CRs in Open/Analysis:
+      </div>
+      <div style="position:relative;border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow-x:auto;">
+        <svg id="crmBarChart" style="display:block;min-height:420px;" aria-label="Tech wise CR distribution"></svg>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:#64748b;margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:8px;">
+      <strong>Note:</strong><br>
+      &bull; CR Age is calculated from the date at which first instance is reported.<br>
+      &bull; Attached spreadsheet for overall Open/Analysis CR details.
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    var crRows = {{ (report_summary|default({},true)).get('cr_rows', []) | tojson }};
+    var fromDate = {{ from_date_val | tojson }};
+    var toDate   = {{ to_date_val   | tojson }};
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    function isOpenAnalysis(r){
+      var s = String(r.cr_status||r.status||'').trim().toLowerCase();
+      return s === 'open' || s.startsWith('anal');
+    }
+    function isBuilt(r){
+      var s = String(r.cr_status||r.status||'').trim().toLowerCase();
+      var c = String(r.cr_category||'').trim().toLowerCase();
+      return s === 'built' || s === 'build' || s === 'closed' || s === 'close' || c === 'built';
+    }
+    function crAge(r){
+      return parseInt(String(r.cr_age||r.overall_age||0).replace(/[^0-9]/g,''),10)||0;
+    }
+    function crArea(r){
+      return String(r.cr_area||'Unknown').trim()||'Unknown';
+    }
+    function crPriority(r){
+      return String(r.pdt_priority_tag||r.priority||'').trim().toUpperCase();
+    }
+
+    // ── Mainfarm Builds ──────────────────────────────────────────────────
+    var buildSet = {};
+    crRows.forEach(function(r){
+      var img = String(r.image||r.cr_si||r.last_reported_jira||'').trim();
+      if(img && img !== 'None' && img !== 'null') buildSet[img] = true;
+    });
+    var builds = Object.keys(buildSet).sort();
+    var buildsEl = document.getElementById('crmBuildsList');
+    if(buildsEl){
+      if(builds.length){
+        buildsEl.innerHTML = builds.map(function(b){ return '<div>'+b+'</div>'; }).join('');
+      } else {
+        buildsEl.innerHTML = '<span style="color:#94a3b8;">No build data available for this date range.</span>';
+      }
+    }
+
+    // ── Tech wise summary (Open/Analysis only) ───────────────────────────
+    var areaMap = {};
+    crRows.forEach(function(r){
+      if(!isOpenAnalysis(r)) return;
+      var a = crArea(r);
+      areaMap[a] = (areaMap[a]||0) + 1;
+    });
+    var areaRows = Object.keys(areaMap).map(function(a){ return {area:a, count:areaMap[a]}; });
+    areaRows.sort(function(a,b){ return b.count - a.count; });
+    var totalArea = areaRows.reduce(function(s,r){ return s+r.count; },0);
+    var techBody = document.getElementById('crmTechBody');
+    if(techBody){
+      var html = areaRows.map(function(r,i){
+        var bg = i%2===0 ? '#fff' : '#f8fafc';
+        return '<tr style="background:'+bg+'"><td style="padding:6px 12px;border:1px solid #e2e8f0;color:#64748b;">'+(i+1)+'</td><td style="padding:6px 12px;border:1px solid #e2e8f0;color:#334155;font-weight:600;">'+r.area+'</td><td style="padding:6px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:#1e293b;">'+r.count+'</td></tr>';
+      }).join('');
+      html += '<tr style="background:#e8f0fe;font-weight:900;"><td style="padding:6px 12px;border:1px solid #e2e8f0;" colspan="2">Total</td><td style="padding:6px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:900;color:#1e293b;">'+totalArea+'</td></tr>';
+      techBody.innerHTML = html;
+    }
+
+    // ── Priority table (P1, P2 — Open/Analysis only) ─────────────────────
+    var priMap = {};
+    crRows.forEach(function(r){
+      if(!isOpenAnalysis(r)) return;
+      var p = crPriority(r);
+      if(p === 'P1' || p === 'P2' || p === 'P3'){
+        priMap[p] = (priMap[p]||0) + 1;
+      }
+    });
+    var priRows = ['P1','P2','P3'].filter(function(p){ return priMap[p]; }).map(function(p){ return {cat:p, count:priMap[p]}; });
+    var totalPri = priRows.reduce(function(s,r){ return s+r.count; },0);
+    var priBody = document.getElementById('crmPriorityBody');
+    if(priBody){
+      var phtml = priRows.map(function(r,i){
+        var bg = i%2===0 ? '#fff' : '#f8fafc';
+        return '<tr style="background:'+bg+'"><td style="padding:6px 12px;border:1px solid #e2e8f0;color:#64748b;">'+(i+1)+'</td><td style="padding:6px 12px;border:1px solid #e2e8f0;color:#334155;font-weight:600;">'+r.cat+'</td><td style="padding:6px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:#1e293b;">'+r.count+'</td></tr>';
+      }).join('');
+      if(totalPri) phtml += '<tr style="background:#e8f0fe;font-weight:900;"><td style="padding:6px 12px;border:1px solid #e2e8f0;" colspan="2">Total</td><td style="padding:6px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:900;color:#1e293b;">'+totalPri+'</td></tr>';
+      priBody.innerHTML = phtml || '<tr><td colspan="3" style="padding:10px;text-align:center;color:#94a3b8;">No P1/P2/P3 data</td></tr>';
+    }
+
+    // ── Bar Chart: Tech wise Distribution ────────────────────────────────
+    var SERIES = [
+      {key:'new',    label:'New Open/Analysis CRs',      color:'#7c3aed'},
+      {key:'lt1w',   label:'CR Age <1 Week',              color:'#2563eb'},
+      {key:'1to2w',  label:'CR Age 1-2 Weeks',            color:'#16a34a'},
+      {key:'2to3w',  label:'CR Age 2-3 Weeks',            color:'#ca8a04'},
+      {key:'gt3w',   label:'CR Age >3 Weeks',             color:'#ea580c'},
+      {key:'closed', label:'Closed CRs from last update', color:'#dc2626'},
+    ];
+
+    // Compute per-area counts
+    var areaData = {};
+    crRows.forEach(function(r){
+      var a = crArea(r);
+      if(!areaData[a]) areaData[a] = {new:0,lt1w:0,'1to2w':0,'2to3w':0,gt3w:0,closed:0};
+      var age = crAge(r);
+      if(isBuilt(r)){
+        areaData[a].closed++;
+      } else if(isOpenAnalysis(r)){
+        if(age <= 7)       { areaData[a].new++; areaData[a].lt1w++; }
+        else if(age <= 14) areaData[a]['1to2w']++;
+        else if(age <= 21) areaData[a]['2to3w']++;
+        else               areaData[a].gt3w++;
+      }
+    });
+
+    // Sort areas by total Open/Analysis count desc
+    var areas = Object.keys(areaData).sort(function(a,b){
+      var ta = areaData[a].new+areaData[a].lt1w+areaData[a]['1to2w']+areaData[a]['2to3w']+areaData[a].gt3w+areaData[a].closed;
+      var tb = areaData[b].new+areaData[b].lt1w+areaData[b]['1to2w']+areaData[b]['2to3w']+areaData[b].gt3w+areaData[b].closed;
+      return tb - ta;
+    });
+
+    var svg = document.getElementById('crmBarChart');
+    if(!svg || !areas.length) return;
+
+    var H=460, L=60, R=20, T=50, B=120, plotH=H-T-B;
+    var BAR_W=14, BAR_GAP=3, GROUP_PAD=28;
+    var nSeries=SERIES.length;
+    var groupW = Math.max(140, BAR_W*nSeries + BAR_GAP*(nSeries-1) + GROUP_PAD*2);
+    var plotW = groupW * areas.length;
+    var W = L + plotW + R;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('width', W);
+    svg.style.width = W+'px';
+
+    var mk = function(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); };
+
+    var maxVal = 1;
+    areas.forEach(function(a){
+      SERIES.forEach(function(s){ maxVal = Math.max(maxVal, areaData[a][s.key]||0); });
+    });
+    var niceMax = maxVal <= 5 ? 5 : maxVal <= 10 ? 10 : maxVal <= 20 ? 20 : Math.ceil(maxVal/5)*5+5;
+    var yFn = function(v){ return T + plotH - (Number(v||0)/niceMax)*plotH; };
+
+    // Grid lines
+    for(var gi=0;gi<=5;gi++){
+      var gv = Math.round(niceMax*gi/5), gy = yFn(gv);
+      var ln = mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy); ln.setAttribute('stroke','#e5e7eb'); ln.setAttribute('stroke-width','1'); svg.appendChild(ln);
+      var tx = mk('text'); tx.setAttribute('x',L-8); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
+    }
+    // Axes
+    var axL=mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#94a3b8'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
+    var axB=mk('line'); axB.setAttribute('x1',L); axB.setAttribute('x2',W-R); axB.setAttribute('y1',T+plotH); axB.setAttribute('y2',T+plotH); axB.setAttribute('stroke','#94a3b8'); axB.setAttribute('stroke-width','1.5'); svg.appendChild(axB);
+
+    // Bars
+    areas.forEach(function(area, ai){
+      var gcx = L + ai*groupW + groupW/2;
+      var totalBarsW = nSeries*BAR_W + (nSeries-1)*BAR_GAP;
+      var bx0 = gcx - totalBarsW/2;
+      if(ai%2===0){ var band=mk('rect'); band.setAttribute('x',L+ai*groupW); band.setAttribute('y',T); band.setAttribute('width',groupW); band.setAttribute('height',plotH); band.setAttribute('fill','rgba(241,245,249,0.6)'); svg.insertBefore(band, svg.firstChild); }
+      SERIES.forEach(function(s, si){
+        var val = areaData[area][s.key]||0;
+        if(!val) return;
+        var bx = bx0 + si*(BAR_W+BAR_GAP);
+        var h = T+plotH - yFn(val);
+        var rect=mk('rect'); rect.setAttribute('x',bx); rect.setAttribute('y',yFn(val)); rect.setAttribute('width',BAR_W); rect.setAttribute('height',Math.max(0,h)); rect.setAttribute('fill',s.color); rect.setAttribute('rx','2'); svg.appendChild(rect);
+        if(h >= 14){ var vt=mk('text'); vt.setAttribute('x',bx+BAR_W/2); vt.setAttribute('y',yFn(val)-3); vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','9'); vt.setAttribute('font-weight','900'); vt.setAttribute('fill','#1e293b'); vt.textContent=val; svg.appendChild(vt); }
+      });
+      // Area label (rotated)
+      var lab=mk('text'); lab.setAttribute('x',gcx); lab.setAttribute('y',T+plotH+18); lab.setAttribute('text-anchor','end'); lab.setAttribute('font-size','10'); lab.setAttribute('font-weight','700'); lab.setAttribute('fill','#475569'); lab.setAttribute('transform','rotate(-40 '+gcx+' '+(T+plotH+18)+')'); lab.textContent=area; svg.appendChild(lab);
+    });
+
+    // Y-axis label
+    var yl=mk('text'); yl.setAttribute('x',18); yl.setAttribute('y',T+plotH/2); yl.setAttribute('transform','rotate(-90 18 '+(T+plotH/2)+')'); yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','11'); yl.setAttribute('fill','#475569'); yl.textContent='Count'; svg.appendChild(yl);
+
+    // Legend
+    var legY = H - 28;
+    var legItemW = 170;
+    var legStart = Math.max(L, (W - legItemW*SERIES.length)/2);
+    SERIES.forEach(function(s, idx){
+      var gx = legStart + idx*legItemW;
+      var sw=mk('rect'); sw.setAttribute('x',gx); sw.setAttribute('y',legY-10); sw.setAttribute('width',10); sw.setAttribute('height',10); sw.setAttribute('rx','2'); sw.setAttribute('fill',s.color); svg.appendChild(sw);
+      var st=mk('text'); st.setAttribute('x',gx+14); st.setAttribute('y',legY); st.setAttribute('font-size','10'); st.setAttribute('font-weight','700'); st.setAttribute('fill','#475569'); st.textContent=s.label; svg.appendChild(st);
+    });
+
+    // X-axis label
+    var xl=mk('text'); xl.setAttribute('x',L+plotW/2); xl.setAttribute('y',H-8); xl.setAttribute('text-anchor','middle'); xl.setAttribute('font-size','11'); xl.setAttribute('fill','#475569'); xl.textContent='CR Area'; svg.appendChild(xl);
+  })();
+  </script>
+
   <div class="wk-grid">
     <div class="wk-panel">
       <h2>Summary</h2>
