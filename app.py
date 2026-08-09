@@ -8918,6 +8918,12 @@ def dashboard_docs():
     return render_template("dashboard_docs.html")
 
 
+@app.route("/dashboard/guide")
+@login_required
+def dashboard_guide():
+    return render_template("dashboard_guide.html")
+
+
 @app.route("/architecture")
 @app.route("/dashboard/architecture")
 @login_required

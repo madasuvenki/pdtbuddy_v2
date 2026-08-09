@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDT Buddy — Dashboard User Guide</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root{--ink:#0f172a;--muted:#64748b;--border:#e2e8f0;--page-bg:#f1f5f9;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:var(--page-bg);color:var(--ink);min-height:100vh;font-size:14px;}
+
+    /* Header */
+    .hdr{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(15,23,42,.35);}
+    .hdr__left{display:flex;align-items:center;gap:12px;}
+    .hdr__icon{width:40px;height:40px;border-radius:12px;background:rgba(217,119,6,.3);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fde68a;flex-shrink:0;border:1px solid rgba(217,119,6,.4);}
+    .hdr__title{font-size:18px;font-weight:900;color:#f8fafc;}
+    .hdr__sub{font-size:11px;color:#94a3b8;margin-top:2px;font-weight:500;}
+    .hdr__back{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);color:#e2e8f0;font-size:12px;font-weight:800;text-decoration:none;transition:background .15s;}
+    .hdr__back:hover{background:rgba(255,255,255,.20);color:#fff;}
+
+    /* Search bar */
+    .search-bar{background:#fff;border-bottom:1px solid var(--border);padding:12px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:76px;z-index:99;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+    .search-wrap{position:relative;flex:1;max-width:480px;}
+    .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;}
+    .search-input{width:100%;border:1px solid #c7d2fe;border-radius:10px;padding:9px 14px 9px 36px;font-size:13px;font-weight:700;background:#f8faff;color:#1e293b;outline:none;transition:border-color .15s;}
+    .search-input:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12);}
+    .search-count{font-size:12px;color:var(--muted);font-weight:700;}
+
+    /* Body */
+    .body{max-width:960px;margin:0 auto;padding:28px 24px 80px;}
+
+    /* Section header */
+    .sec-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+    .sec-title{font-size:16px;font-weight:950;color:var(--ink);display:flex;align-items:center;gap:10px;}
+    .sec-icon{width:34px;height:34px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:14px;}
+
+    /* Guide cards */
+    .guide-cards{display:grid;gap:14px;}
+    .guide-card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:box-shadow .15s;}
+    .guide-card:hover{box-shadow:0 4px 20px rgba(15,23,42,.10);}
+    .guide-card.hidden{display:none;}
+    .guide-card__head{display:flex;align-items:center;gap:12px;padding:16px 20px;cursor:pointer;border-bottom:1px solid transparent;transition:background .15s;}
+    .guide-card__head:hover{background:#f8faff;}
+    .guide-card__head.open{border-bottom-color:var(--border);}
+    .tab-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+    .guide-card__title{font-size:14px;font-weight:900;color:var(--ink);flex:1;}
+    .guide-card__sub{font-size:12px;color:var(--muted);margin-top:2px;}
+    .guide-card__path{font-family:'Consolas','Courier New',monospace;font-size:10px;color:var(--muted);margin-top:3px;}
+    .guide-card__chevron{color:var(--muted);font-size:11px;transition:transform .2s;flex-shrink:0;}
+    .guide-card__head.open .guide-card__chevron{transform:rotate(180deg);}
+    .guide-card__body{display:none;padding:22px 24px;}
+    .guide-card__body.open{display:block;}
+
+    /* Content inside cards */
+    .desc{font-size:13px;color:#475569;line-height:1.75;margin-bottom:16px;}
+    .sec-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 8px;}
+    .sec-label:first-child{margin-top:0;}
+
+    /* Feature list */
+    .feature-list{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:8px;}
+    .feature-list li{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:#f8faff;border:1px solid #e0e7ff;border-radius:10px;font-size:12.5px;color:#334155;line-height:1.6;}
+    .feature-list li .fi{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;}
+    .feature-list li .ft{flex:1;}
+    .feature-list li .ft strong{display:block;font-weight:900;color:#1e293b;margin-bottom:2px;}
+
+    /* Steps */
+    .steps{list-style:none;padding:0;margin:0 0 8px;counter-reset:step;}
+    .steps li{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;color:#475569;line-height:1.6;counter-increment:step;}
+    .steps li:last-child{border-bottom:none;}
+    .steps li::before{content:counter(step);min-width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+
+    /* Info box */
+    .info-box{background:#f0f9ff;border:1px solid #bae6fd;border-left:4px solid #0ea5e9;border-radius:10px;padding:12px 16px;font-size:12.5px;color:#0c4a6e;line-height:1.65;margin-bottom:12px;}
+    .info-box i{color:#0ea5e9;margin-right:6px;}
+    .tip-box{background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:10px;padding:12px 16px;font-size:12.5px;color:#14532d;line-height:1.65;margin-bottom:12px;}
+    .tip-box i{color:#22c55e;margin-right:6px;}
+    .warn-box{background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:12.5px;color:#78350f;line-height:1.65;margin-bottom:12px;}
+    .warn-box i{color:#f59e0b;margin-right:6px;}
+
+    /* KPI grid */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:12px;}
+    .kpi-card{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;}
+    .kpi-card__label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px;}
+    .kpi-card__val{font-size:18px;font-weight:950;color:#1e3a8a;}
+    .kpi-card__desc{font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;}
+
+    /* Tag */
+    .tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;}
+    .tag--blue{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+    .tag--green{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+    .tag--purple{background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;}
+    .tag--amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+    .tag--red{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
+    .tag--teal{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;}
+
+    @media(max-width:640px){.hdr{padding:12px 16px;}.body{padding:16px 12px 48px;}.guide-card__sub{display:none;}}
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr__left">
+      <div class="hdr__icon"><i class="fas fa-map"></i></div>
+      <div>
+        <div class="hdr__title">Dashboard User Guide</div>
+        <div class="hdr__sub">All Tabs · Features · How To Use · Tips</div>
+      </div>
+    </div>
+    <a href="/dashboard_docs" class="hdr__back"><i class="fas fa-arrow-left"></i> Back to Docs</a>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="search-input" id="guideSearch" placeholder="Search tabs and features..." oninput="filterGuide(this.value)">
+    </div>
+    <span class="search-count" id="guideCount">12 sections</span>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <div class="sec-hdr">
+      <div class="sec-title">
+        <span class="sec-icon"><i class="fas fa-map"></i></span>
+        All Dashboard Tabs &amp; Features
+      </div>
+    </div>
+
+    <div class="guide-cards" id="guideCards">
+
+      <!-- CR Overview -->
+      <div class="guide-card" data-search="cr overview bu area site chart drill filter">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+          <div class="tab-icon" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-chart-bar"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">CR Overview</div>
+            <div class="guide-card__sub">Cross-BU CR age analysis with site distribution and area breakdown</div>
+            <div class="guide-card__path">/cr_overview/embed</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The CR Overview is the main landing page after login. It shows a cross-BU view of all Change Request (CR) ages, statuses, and distributions. Use it to quickly identify which BUs or areas have the most aging CRs.</p>
+          <div class="sec-label">Key KPIs</div>
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-card__label">Total CRs</div><div class="kpi-card__val" style="color:#1d4ed8">~1,200</div><div class="kpi-card__desc">All active CRs across selected BU/targets</div></div>
+            <div class="kpi-card"><div class="kpi-card__label">Avg Age</div><div class="kpi-card__val" style="color:#dc2626">~85d</div><div class="kpi-card__desc">Average CR age in days for open CRs</div></div>
+            <div class="kpi-card"><div class="kpi-card__label">Sites</div><div class="kpi-card__val" style="color:#059669">3</div><div class="kpi-card__desc">QIPL, SD, CH site distribution</div></div>
+          </div>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Select a <strong>BU</strong> from the top filter (or keep All BUs for cross-BU view)</li>
+            <li>Use the <strong>Date Range</strong> picker to filter CRs by creation date</li>
+            <li>Toggle <strong>NoSIR / Dup / Invalid</strong> chips to include or exclude those CR categories</li>
+            <li>Click any <strong>bar in the chart</strong> to drill into area → target breakdown</li>
+            <li>Use the <strong>View selector</strong> to switch between BU, Area, Subsystem, Functionality grouping</li>
+            <li>Click <strong>Expand</strong> to view the chart full-screen with a data table below</li>
+          </ol>
+          <div class="tip-box"><i class="fas fa-lightbulb"></i><strong>Tip:</strong> The CR age bucket table below the chart shows exact counts per age range (0-7d, 7-14d, 14-21d, &gt;21d). Click a bucket to filter the detail rows.</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Tab -->
+      <div class="guide-card" data-search="dashboard pdt execution kpi mapped jira open closed total cr avg age area subsystem">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#f0f9ff,#ede9fe);">
+          <div class="tab-icon" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-th-large"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Dashboard Tab</div>
+            <div class="guide-card__sub">Main PDT execution view — KPIs, CR age charts, area breakdown</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/dashboard</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Dashboard tab is the primary view for a specific target. It shows all key PDT execution metrics in one place — JIRA counts, CR age distribution, area breakdown, and site distribution.</p>
+          <div class="sec-label">KPI Cards (top row)</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-link"></i></div><div class="ft"><strong>Mapped JIRAs</strong>All JIRAs that have been successfully mapped to a CR. These are tracked and resolved.</div></li>
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-exclamation-circle"></i></div><div class="ft"><strong>Open JIRAs</strong>JIRAs that are still open and not yet mapped to a CR. Requires action from the PDT team.</div></li>
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-check-circle"></i></div><div class="ft"><strong>Closed JIRAs</strong>JIRAs that have been resolved/closed. Indicates completed work.</div></li>
+            <li><div class="fi" style="background:#f1f5f9;color:#475569;"><i class="fas fa-ticket-alt"></i></div><div class="ft"><strong>Total JIRAs</strong>Sum of all JIRAs (mapped + open + closed) for the selected target and date range.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-bug"></i></div><div class="ft"><strong>Total PDT CRs</strong>Total unique CRs reported by PDT. Broken down into Valid, Invalid, and Dup counts.</div></li>
+          </ul>
+          <div class="sec-label">CR Avg Age Chart</div>
+          <ol class="steps">
+            <li>Shows CR average age (in days or weeks) grouped by Area, Subsystem, or Functionality</li>
+            <li>Use the <strong>View selector</strong> to switch between Summary, Area, Subsystem, Functionality</li>
+            <li>Use <strong>Age Unit</strong> to toggle between Days and Weeks</li>
+            <li>Click a bar to filter the CR detail table below by that area/subsystem</li>
+            <li>Use <strong>CR Status</strong> checkboxes (Analysis / Built / Open / Ready) to filter which CRs appear</li>
+            <li>Use <strong>Detailed Status</strong> checkboxes to further filter by sub-status</li>
+          </ol>
+          <div class="sec-label">Analysis/Open CRs by Area (right chart)</div>
+          <p class="desc" style="margin-bottom:8px;">Horizontal bar chart showing CR count per area. Toggle between Valid / Invalid / Dup using the radio buttons below the chart. Click a bar to filter the CR table.</p>
+          <div class="info-box"><i class="fas fa-info-circle"></i>The age bucket table at the bottom shows exact CR counts per age range. Use <strong>Copy Chart</strong> to copy the chart image to clipboard for reports.</div>
+        </div>
+      </div>
+
+      <!-- Device Summary Tab -->
+      <div class="guide-card" data-search="device summary swpdt hwpdt axiom qdt pool serial mcn">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+          <div class="tab-icon" style="background:#dcfce7;color:#166534;"><i class="fas fa-clipboard-list"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Device Summary Tab</div>
+            <div class="guide-card__sub">Device pool, pass/fail rates, per-device PDT execution status</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/device-summary</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Device Summary tab shows the current state of all PDT devices for this target — how many are deployed, which are actively running tests, and the pass/fail breakdown. Data is pulled from Axiom (live) and the Excel device list.</p>
+          <div class="sec-label">Key Sections</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-server"></i></div><div class="ft"><strong>Device Pool Summary</strong>Total devices configured, deployed, and actively running SWPDT or HWPDT. Shows site-wise breakdown (QIPL, SD, CH).</div></li>
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-chart-pie"></i></div><div class="ft"><strong>SW Delivered / Deployed</strong>How many SW units have been delivered to each site vs. how many are deployed and running tests.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-microchip"></i></div><div class="ft"><strong>HW Metrics</strong>Hardware device counts by revision (REV0, REV1, etc.) and part type. Shows total HW units in the PDT pool.</div></li>
+            <li><div class="fi" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-list"></i></div><div class="ft"><strong>Device List</strong>Full list of all devices with serial number, MCN, host PC, storage, location, and rework info. Editable by editors.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Switch between <strong>SWPDT</strong> and <strong>HWPDT</strong> using the PDT type selector</li>
+            <li>Click <strong>Refresh</strong> to pull the latest device data from Axiom</li>
+            <li>Editors can <strong>Add / Edit / Delete</strong> device rows using the action buttons</li>
+            <li>Use <strong>Remove from Pool</strong> to exclude a device from MTBF calculations without deleting it</li>
+            <li>Click <strong>Upload Excel</strong> to replace the device list with a new Excel file</li>
+          </ol>
+          <div class="tip-box"><i class="fas fa-lightbulb"></i><strong>Tip:</strong> The device pool sync status shows when data was last fetched from Axiom. If stale, click Refresh to get the latest running device counts.</div>
+        </div>
+      </div>
+
+      <!-- MTBF Tab -->
+      <div class="guide-card" data-search="mtbf excel trend chart hours crashes build add edit upload">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fdf4ff,#ede9fe);">
+          <div class="tab-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-file-excel"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">MTBF Tab</div>
+            <div class="guide-card__sub">MTBF Excel data — trend chart, build-wise hours/crashes/MTBF table</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/mtbf-excel</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The MTBF tab shows the Mean Time Between Failures trend for this target. Data comes from the configured Excel file and is displayed as a chart and table. Editors can add new builds, edit existing rows, or upload a new Excel file.</p>
+          <div class="sec-label">MTBF Formula</div>
+          <div class="info-box"><i class="fas fa-calculator"></i><strong>MTBF = Total Hours / Total Crashes</strong> — Higher MTBF means better stability. A build with 1000 hours and 5 crashes has MTBF = 200 hours.</div>
+          <div class="sec-label">Chart Features</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-chart-line"></i></div><div class="ft"><strong>MTBF Trend Line</strong>Shows MTBF value per build over time. Upward trend = improving stability.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-clock"></i></div><div class="ft"><strong>Hours Bar</strong>Total test hours per build. More hours = more test coverage.</div></li>
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-bug"></i></div><div class="ft"><strong>Crashes Line</strong>Total crash count per build. Lower is better.</div></li>
+          </ul>
+          <div class="sec-label">How to Use (Editors)</div>
+          <ol class="steps">
+            <li>Click <strong>Add Build</strong> to add a new MTBF data row (Meta-ID, date, hours, crashes)</li>
+            <li>Click the <strong>Edit</strong> button on any row to modify existing data</li>
+            <li>Click <strong>Delete</strong> to remove a row</li>
+            <li>Click <strong>Upload Excel</strong> to replace the entire MTBF dataset with a new file</li>
+            <li>Use <strong>Last N Builds</strong> filter to show only the most recent builds in the chart</li>
+          </ol>
+          <div class="warn-box"><i class="fas fa-exclamation-triangle"></i><strong>Note:</strong> MTBF data is stored in the Excel file on the shared drive. Changes made here update the file directly. Always verify before saving.</div>
+        </div>
+      </div>
+
+      <!-- SWPDT Tab -->
+      <div class="guide-card" data-search="swpdt axiom software pdt mtbf table build hours crashes">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fdf4ff,#f5f3ff);">
+          <div class="tab-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-table"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">SWPDT Tab</div>
+            <div class="guide-card__sub">Software PDT MTBF data from Axiom — separate from MTBF Excel tab</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/mtbf-table (pdt_type=SWPDT)</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The SWPDT tab shows the Software PDT MTBF data fetched directly from Axiom (the PDT job tracking system). Unlike the MTBF Excel tab, this data is automatically synced from Axiom and shows the latest running build statistics.</p>
+          <div class="sec-label">Key Differences from MTBF Tab</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-sync"></i></div><div class="ft"><strong>Auto-synced from Axiom</strong>Data is automatically updated from the Axiom job summary database. No manual entry needed.</div></li>
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-layer-group"></i></div><div class="ft"><strong>Build-level granularity</strong>Shows MTBF per individual build ID (e.g. SA8797P.HQX.5.7.7.0-00623) rather than per Meta-ID.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-filter"></i></div><div class="ft"><strong>Filterable table</strong>Search by build ID, date, or Meta-ID. Sort by any column. Export to CSV.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Use the <strong>search box</strong> to filter by build ID or Meta-ID</li>
+            <li>Click column headers to <strong>sort</strong> by that column</li>
+            <li>Use <strong>Last N Builds</strong> to limit the view to recent builds</li>
+            <li>Click <strong>Refresh</strong> to pull the latest data from Axiom</li>
+          </ol>
+          <div class="info-box"><i class="fas fa-info-circle"></i>SWPDT data is updated every 30 minutes by the Axiom poller. The "Last Updated" timestamp shows when data was last synced.</div>
+        </div>
+      </div>
+
+      <!-- HWPDT Tab -->
+      <div class="guide-card" data-search="hwpdt hardware pdt chip parts tested projected venn cr overlap">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#ecfeff,#cffafe);">
+          <div class="tab-icon" style="background:#cffafe;color:#0e7490;"><i class="fas fa-microchip"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">HWPDT Tab</div>
+            <div class="guide-card__sub">Hardware PDT data — chip/part counts, tested vs projected, CR overlap</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/hwpdt (pdt_type=HWPDT)</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The HWPDT tab shows Hardware PDT execution data — how many hardware chips/parts have been tested, what's projected, and how HWPDT CRs overlap with SWPDT CRs. This tab is only visible when HWPDT is configured for the target.</p>
+          <div class="sec-label">Key Sections</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#cffafe;color:#0e7490;"><i class="fas fa-microchip"></i></div><div class="ft"><strong>Chip/Part Summary</strong>Total chips tested vs. projected. Breakdown by revision (REV0, REV1, etc.) and part type (PERF, STD, etc.).</div></li>
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-check-double"></i></div><div class="ft"><strong>Tested Parts</strong>List of all chip IDs that have been tested in HWPDT. Pulled from Axiom chip ID database.</div></li>
+            <li><div class="fi" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-circle-notch"></i></div><div class="ft"><strong>CR Venn Diagram</strong>Shows overlap between HWPDT CRs and SWPDT CRs — which CRs appear in both, only HWPDT, or only SWPDT.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>View the <strong>chip summary</strong> to see tested vs. projected counts per revision</li>
+            <li>Click <strong>Projected Parts</strong> to set the expected total chip count for this target</li>
+            <li>Use the <strong>Venn diagram</strong> to identify CRs that are unique to HWPDT vs. shared with SWPDT</li>
+            <li>Click any segment of the Venn diagram to see the CR list for that segment</li>
+          </ol>
+          <div class="warn-box"><i class="fas fa-exclamation-triangle"></i>HWPDT tab is only shown when <code>hwpdt_available = true</code> for this target. Contact admin to enable HWPDT for a target.</div>
+        </div>
+      </div>
+
+      <!-- Weekly Report Tab -->
+      <div class="guide-card" data-search="weekly report cr age tat unique farm testing axiom ppt download">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+          <div class="tab-icon" style="background:#dcfce7;color:#0f766e;"><i class="fas fa-file-alt"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Weekly Report Tab</div>
+            <div class="guide-card__sub">Weekly CR age, CR TAT, unique CRs, farm testing — with PPT download</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/weekly-report</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Weekly Report tab shows a comprehensive weekly summary for this target. It covers CR age distribution, CR turnaround time (TAT), unique CR list, and farm testing data from Axiom. The same data is available as a downloadable PPT slide deck.</p>
+          <div class="sec-label">Report Sections</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-chart-bar"></i></div><div class="ft"><strong>CR Age Distribution</strong>How many CRs fall into each age bucket (0-7d, 7-14d, 14-21d, &gt;21d) for the selected week. Compares to previous week.</div></li>
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-stopwatch"></i></div><div class="ft"><strong>CR TAT (Turnaround Time)</strong>Average time from CR creation to CR resolution (built/closed) for CRs closed during the week.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-list-ol"></i></div><div class="ft"><strong>Unique CRs</strong>Deduplicated list of all CRs reported during the week, with area, subsystem, status, and JIRA count.</div></li>
+            <li><div class="fi" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-flask"></i></div><div class="ft"><strong>Farm Testing</strong>Axiom job summary for the week — total jobs, pass/fail counts, hours run, and build-wise breakdown.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Select the <strong>date range</strong> (defaults to last Monday–Sunday)</li>
+            <li>Click <strong>Generate Report</strong> to load data for the selected week</li>
+            <li>Switch between tabs (CR Age, CR TAT, Unique CRs, Farm Testing) to view each section</li>
+            <li>Click <strong>Download PPT</strong> to get a PowerPoint slide deck of the weekly summary</li>
+            <li>Use <strong>JIRA Reporter Filter</strong> (AUTO targets) to filter by specific reporters</li>
+          </ol>
+          <div class="tip-box"><i class="fas fa-lightbulb"></i><strong>Tip:</strong> The PPT download generates a ready-to-present slide deck with all charts and tables. Use it directly in weekly PDT review meetings.</div>
+        </div>
+      </div>
+
+      <!-- Open_Analysis CR Tab -->
+      <div class="guide-card" data-search="open analysis cr age distribution area subsystem filter status">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fff1f2,#fee2e2);">
+          <div class="tab-icon" style="background:#fee2e2;color:#b91c1c;"><i class="fas fa-microscope"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Open_Analysis CR Tab</div>
+            <div class="guide-card__sub">Detailed analysis of Open and Analysis-status CRs with age distribution</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/open-cr-analysis</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Open_Analysis CR tab provides a deep-dive into CRs that are currently in Open or Analysis status. It shows age distribution, area/subsystem breakdown, and a filterable CR table. Use this tab to identify the oldest and most critical open CRs.</p>
+          <div class="sec-label">Key Features</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-chart-bar"></i></div><div class="ft"><strong>Age Distribution Chart</strong>Bar chart showing how many CRs fall into each age bucket. Red bars = older CRs that need attention.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-sitemap"></i></div><div class="ft"><strong>Area/Subsystem Breakdown</strong>Pie or bar chart showing CR distribution by area and subsystem. Click a segment to filter the table.</div></li>
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-table"></i></div><div class="ft"><strong>Filterable CR Table</strong>Full list of open/analysis CRs with CR ID, title, area, subsystem, age, JIRA count, and notes. Sortable and filterable.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Use the <strong>Status checkboxes</strong> to toggle between Open CRs, Analysis CRs, or both</li>
+            <li>Click a bar in the age chart to filter the table to that age range</li>
+            <li>Click a segment in the area chart to filter the table to that area</li>
+            <li>Use the <strong>search box</strong> in the table to find specific CRs by ID, title, or area</li>
+            <li>Click <strong>Copy Table</strong> to copy the filtered CR list to clipboard</li>
+          </ol>
+          <div class="info-box"><i class="fas fa-info-circle"></i>CRs in <strong>Analysis</strong> status are being investigated but not yet fixed. CRs in <strong>Open</strong> status are confirmed bugs awaiting a fix. Both require active tracking.</div>
+        </div>
+      </div>
+
+      <!-- PDT CRs Tab -->
+      <div class="guide-card" data-search="pdt crs valid invalid dup built open ready analysis filter export excel">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+          <div class="tab-icon" style="background:#fef3c7;color:#92400e;"><i class="fas fa-bug"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">PDT CRs Tab</div>
+            <div class="guide-card__sub">Full PDT CR list — Valid/Invalid/Dup, Analysis/Built/Open/Ready filters</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/pdt-crs</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The PDT CRs tab shows the complete list of all PDT CRs for this target — both SWPDT and HWPDT. It includes all CR statuses (Valid, Invalid, Dup) and all detailed statuses (Analysis, Built, Open, Ready). Use this tab for comprehensive CR tracking and reporting.</p>
+          <div class="sec-label">CR Status Categories</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-check"></i></div><div class="ft"><strong>Valid CRs</strong>CRs that are confirmed PDT bugs. Includes Analysis (being investigated), Open (confirmed, awaiting fix), Built (fix integrated), and Ready (fix ready for release).</div></li>
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-times"></i></div><div class="ft"><strong>Invalid CRs</strong>CRs that were filed but determined to be not a real bug (e.g., user error, environment issue, cannot reproduce).</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-copy"></i></div><div class="ft"><strong>Dup CRs</strong>Duplicate CRs that map to an existing CR. The canonical CR is shown in the "Mapped CR" column.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Use <strong>CR Status</strong> checkboxes (Valid / Invalid / Dup) to filter the main category</li>
+            <li>Use <strong>Detailed Status</strong> checkboxes (Analysis / Built / Open / Ready) to filter sub-status</li>
+            <li>Use the <strong>search box</strong> to find CRs by ID, title, area, or subsystem</li>
+            <li>Click column headers to <strong>sort</strong> by CR age, JIRA count, area, etc.</li>
+            <li>Click <strong>Export to Excel</strong> to download the filtered CR list as an Excel file</li>
+            <li>Click any CR ID to open the CR in Orbit (external link)</li>
+          </ol>
+          <div class="tip-box"><i class="fas fa-lightbulb"></i><strong>Tip:</strong> Use the <strong>PDT Priority</strong> column to identify P1/P2 CRs that need immediate attention. Filter by priority to focus on critical issues.</div>
+        </div>
+      </div>
+
+      <!-- Open JIRAs Tab -->
+      <div class="guide-card" data-search="open jiras unmapped stability ticket reporter component source csv export filter">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+          <div class="tab-icon" style="background:#dcfce7;color:#166534;"><i class="fas fa-ticket-alt"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Open JIRAs Tab</div>
+            <div class="guide-card__sub">Unmapped JIRA tickets — not yet linked to a CR, requires action</div>
+            <div class="guide-card__path">/dashboard/&lt;target&gt;/open-jiras</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Open JIRAs tab shows all JIRA stability tickets that have NOT been mapped to a CR yet. These are open bugs that need to be investigated and either linked to an existing CR or used to file a new CR. This is a key action item for the PDT team.</p>
+          <div class="sec-label">Table Columns</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-key"></i></div><div class="ft"><strong>JIRA Key</strong>The stability ticket ID (e.g. QSTABILITY-12345). Click to open in JIRA.</div></li>
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-calendar"></i></div><div class="ft"><strong>JIRA Date</strong>When the JIRA was filed. Older JIRAs that are still open need priority attention.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-user"></i></div><div class="ft"><strong>Reporter</strong>Who filed the JIRA. Use the JIRA Reporter Filter (AUTO targets) to filter by specific reporters.</div></li>
+            <li><div class="fi" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-database"></i></div><div class="ft"><strong>Source Table</strong>Which database table this JIRA came from (e.g. openjiras, jiras). Helps identify the data source.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Review the list of open JIRAs — these all need CR mapping or investigation</li>
+            <li>Use the <strong>JIRA Reporter Filter</strong> (AUTO targets only) to filter by specific reporters</li>
+            <li>Use the <strong>search box</strong> to find JIRAs by key, title, or component</li>
+            <li>Click <strong>Export to CSV</strong> to download the list for offline analysis</li>
+            <li>Click any JIRA key to open it in JIRA and start the investigation</li>
+          </ol>
+          <div class="warn-box"><i class="fas fa-exclamation-triangle"></i><strong>Action Required:</strong> Open JIRAs represent unresolved stability issues. Each JIRA should be investigated and either mapped to an existing CR or used to file a new CR in Orbit.</div>
+        </div>
+      </div>
+
+      <!-- Live Status View -->
+      <div class="guide-card" data-search="live status view meta selection consolidated cr jira adas mtbf current report unique crs exclusions">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fdf4ff,#ede9fe);">
+          <div class="tab-icon" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-satellite-dish"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Live Status View</div>
+            <div class="guide-card__sub">META selection, consolidated CRs/JIRAs, ADAS MTBF, current running build report</div>
+            <div class="guide-card__path">/live_status_view/AUTO/&lt;target&gt;</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Live Status View is a separate page (not a tab in the main dashboard) that provides a DB-backed META selection interface. Select one or more META builds to get a consolidated view of all CRs and JIRAs for those builds.</p>
+          <div class="sec-label">Page Sections</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-layer-group"></i></div><div class="ft"><strong>META Selection</strong>Table of all META builds with hours, crashes, and MTBF. Select one or more META rows and click Submit to get the consolidated report.</div></li>
+            <li><div class="fi" style="background:#dcfce7;color:#166534;"><i class="fas fa-compress-arrows-alt"></i></div><div class="ft"><strong>Consolidated Result</strong>After submitting, shows Summary, CRs tab, Open JIRAs tab, and Exclusions tab for the selected META builds.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-chart-line"></i></div><div class="ft"><strong>ADAS MTBF</strong>View and edit MTBF data per domain (ADAS/FLEX/IVI). Add new builds, edit existing rows, toggle crash type filters.</div></li>
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-circle"></i></div><div class="ft"><strong>Current Report</strong>Live running build JIRA→CR report. Shows current running builds and their associated CRs/JIRAs in real time.</div></li>
+            <li><div class="fi" style="background:#ede9fe;color:#6d28d9;"><i class="fas fa-list-ul"></i></div><div class="ft"><strong>Unique CRs by Target</strong>Cross-target unique CR list grouped by domain (FLEX/ADAS/IVI). Shows which CRs appear across multiple targets.</div></li>
+          </ul>
+          <div class="sec-label">How to Use</div>
+          <ol class="steps">
+            <li>Select META rows from the table (use checkboxes) and click <strong>Submit Selected</strong></li>
+            <li>View the <strong>Summary</strong> tab for KPIs, then switch to CRs or Open JIRAs tabs</li>
+            <li>Add JIRA/CR IDs to <strong>Exclusions</strong> to remove them from the consolidated view</li>
+            <li>Click <strong>Save &amp; Refresh</strong> to apply exclusions and regenerate the report</li>
+            <li>Use the <strong>ADAS MTBF</strong> tab to add/edit MTBF builds per domain</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Build Report -->
+      <div class="guide-card" data-search="build report jql filter jira cr traversal hierarchical ai summary export excel">
+        <div class="guide-card__head" onclick="toggleCard(this)" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+          <div class="tab-icon" style="background:#fef3c7;color:#92400e;"><i class="fas fa-bolt"></i></div>
+          <div style="flex:1">
+            <div class="guide-card__title">Build Report</div>
+            <div class="guide-card__sub">Run JIRA JQL by build ID, traverse JIRA→CR mappings, get hierarchical report</div>
+            <div class="guide-card__path">/build_report (or via Live Status View)</div>
+          </div>
+          <i class="fas fa-chevron-down guide-card__chevron"></i>
+        </div>
+        <div class="guide-card__body">
+          <p class="desc">The Build Report runs a JIRA JQL query for one or more build IDs, traverses the JIRA→CR mapping chain, enriches with Orbit CR data, and returns a hierarchical CR/JIRA report. It's the most powerful tool for understanding what CRs and JIRAs are associated with a specific build.</p>
+          <div class="sec-label">How It Works</div>
+          <ol class="steps">
+            <li>Enter a <strong>build ID</strong> (e.g. SA8797P.HQX.5.7.7.0-00623) or select from running builds</li>
+            <li>Select a <strong>JIRA filter</strong> (saved filter ID) or enter custom JQL</li>
+            <li>Click <strong>Run</strong> — the system fetches all matching JIRAs from JIRA server</li>
+            <li>Each JIRA is <strong>traversed</strong> through linked tickets to find the final CR</li>
+            <li>CRs are <strong>enriched</strong> with Orbit data (title, status, area, SI image, built date)</li>
+            <li>Results show a hierarchical view: CR → mapped JIRAs → open JIRAs</li>
+          </ol>
+          <div class="sec-label">Report Tabs</div>
+          <ul class="feature-list">
+            <li><div class="fi" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-bug"></i></div><div class="ft"><strong>CRs Tab</strong>All CRs found for this build, with title, area, subsystem, status, age, and linked JIRA count. Click a CR to see its JIRAs.</div></li>
+            <li><div class="fi" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-link"></i></div><div class="ft"><strong>Mapped JIRAs Tab</strong>All JIRAs that were successfully mapped to a CR through the traversal chain.</div></li>
+            <li><div class="fi" style="background:#fef3c7;color:#92400e;"><i class="fas fa-ticket-alt"></i></div><div class="ft"><strong>Open JIRAs Tab</strong>JIRAs that could not be mapped to any CR. These need investigation.</div></li>
+          </ul>
+          <div class="tip-box"><i class="fas fa-lightbulb"></i><strong>AI Summary:</strong> Click <strong>Generate AI Summaries</strong> to get one-line AI-generated summaries for each CR using QGenie. Useful for quick review in meetings.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  function toggleCard(head){
+    head.classList.toggle('open');
+    var body = head.nextElementSibling;
+    if(body) body.classList.toggle('open');
+  }
+
+  function filterGuide(q){
+    var cards = document.querySelectorAll('.guide-card');
+    var lq = (q||'').toLowerCase();
+    var visible = 0;
+    cards.forEach(function(c){
+      var text = (c.getAttribute('data-search')||'') + ' ' + (c.querySelector('.guide-card__title')||{}).textContent + ' ' + (c.querySelector('.guide-card__sub')||{}).textContent;
+      var show = !lq || text.toLowerCase().includes(lq);
+      c.classList.toggle('hidden', !show);
+      if(show) visible++;
+    });
+    var cnt = document.getElementById('guideCount');
+    if(cnt) cnt.textContent = visible + ' section' + (visible===1?'':'s');
+  }
+  </script>
+</body>
+</html>
