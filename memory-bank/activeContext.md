@@ -416,6 +416,33 @@ ORBIT_CR_DB_ENABLED=1  # to enable DB-first lookup
   report responses strip all saved-filter/JQL fields while retaining report rows
   and aggregate counts.
 
+### Weekly Report & CR Age Report UI overhaul (2026-08-09)
+
+**Weekly Report page (`/dashboard/<target>/weekly-report`)**
+- Removed "Weekly Report PPT" button from the top bar
+- Hidden the entire CRM section (description, builds, tables, chart) — moved to CR Age Report page
+- Reduced bar GROUP_GAP from 24 → 12 (tighter spacing between area groups)
+- Chart grid lines: changed to `#d1d5db` (visible), restored bottom axis line
+
+**CR Age Report page (`/dashboard/<target>/cr-age-report`)**
+- Redesigned chart: 3 bars per area — New Open/Analysis (purple, single) | CR Age stacked (gt3w→lt1w) | Closed (navy, single)
+- Added **Copy Chart** button — copies SVG as PNG to clipboard (fallback: download)
+- Reduced GROUP_GAP 24 → 12 in chart
+- Added **All CRs table** with 14 columns matching reference image:
+  S.No, CR-ID, Occurrence-Last 1 Week, CR Overall Occurrences, CR Title, PDT Priority, CR Area, CR SubSystem, CR Functionality, CR Status, CR Age, First Instance, First Instance Date, **Type**
+- Type column: New CR / Closed CR / Open/Analysis (color-coded badge, derived from new_crs/closed_crs sets)
+- Filters: Type dropdown, Status dropdown, Search box
+- **Download Excel** button — exports all 14 columns with active filters applied
+- Auto-excludes DUP rows (`cr_category` = dup/duplicate) and Invalid/Withdrawn rows
+
+**Revision History page (`/revision-history`)**
+- Created `templates/revision_history.html` — premium timeline UI with color-coded revision cards, JIRA badges, feature groups
+- Added Flask route `@app.route("/revision-history")` in `app.py`
+- Added "Revision History" hero card to `templates/dashboard_docs.html`
+- Created `docs/REVISION_HISTORY.md` — markdown version of all revisions (Rev1 through Rev2.9)
+
+**Version:** Currently `v2.9` in `app.py`. Pending user approval to bump version.
+
 ## Next Steps
 1. **Modularization Phase 1**: Extract shared utilities from app.py
    - Create `src/user_activity.py`
