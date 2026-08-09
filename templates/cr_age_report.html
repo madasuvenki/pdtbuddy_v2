@@ -448,7 +448,7 @@ function renderReport(data, currBuilds, prevBuilds){
   renderAgeChart(data);
 
   // All CRs table
-  renderAllCrsTable(data.all_cr_details || []);
+  renderAllCrsTable(data.all_cr_details || [], data.new_crs || [], data.closed_crs || []);
 
   // New CRs table
   var newCrs = data.new_crs || [];
@@ -653,16 +653,41 @@ async function copyAgeChart(){
 
 // ── All CRs Table ─────────────────────────────────────────────────────────
 var _allCrDetails = [];
+var _newCrSet = new Set();
+var _closedCrSet = new Set();
 
-function renderAllCrsTable(allCrs){
-  _allCrDetails = allCrs || [];
-  // Build the section if not already present
+// DUP / Invalid status keys to exclude
+function _isDupRow(r){
+  var cat = String(r.cr_category||'').toLowerCase().trim();
+  return cat==='dup'||cat==='duplicate'||cat==='duplicates';
+}
+function _isInvalidRow(r){
+  var s = String(r.cr_status||'').toLowerCase().replace(/[\s_-]+/g,'');
+  return s==='invalid'||s==='withdrawn'||s==='nosir'||s==='notapplicable'||s==='cannotduplicate'||s==='invaliddup'||s.includes('invalid')||s.includes('nosir')||s.includes('withdrawn');
+}
+function _crType(r){
+  var cr = String(r.mapped_cr||r.cr||'').toUpperCase();
+  if(_newCrSet.has(cr)) return 'New CR';
+  if(_closedCrSet.has(cr)) return 'Closed CR';
+  var s = String(r.cr_status||'').toLowerCase();
+  if(s==='open'||s.startsWith('anal')) return 'Open/Analysis';
+  if(s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix')) return 'Closed CR';
+  return 'Open/Analysis';
+}
+
+function renderAllCrsTable(allCrs, newCrs, closedCrs){
+  // Build lookup sets for type classification
+  _newCrSet = new Set((newCrs||[]).map(function(r){ return String(r.mapped_cr||r.cr||'').toUpperCase(); }));
+  _closedCrSet = new Set((closedCrs||[]).map(function(r){ return String(r.mapped_cr||r.cr||'').toUpperCase(); }));
+
+  // Filter out DUP and Invalid/Withdrawn
+  _allCrDetails = (allCrs||[]).filter(function(r){ return !_isDupRow(r) && !_isInvalidRow(r); });
+
   var sec = document.getElementById('allCrsSection');
   if(!sec){
     sec = document.createElement('div');
     sec.id = 'allCrsSection';
     sec.style.cssText = 'background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:20px;box-shadow:0 2px 10px rgba(15,23,42,.05);';
-    // Insert before the note div (last child of reportSection)
     var reportSec = document.getElementById('reportSection');
     var noteDivs = reportSec.querySelectorAll('div[style*="font-size:11px"]');
     var noteDiv = noteDivs[noteDivs.length-1];
@@ -672,11 +697,17 @@ function renderAllCrsTable(allCrs){
 
   sec.innerHTML = '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
     + '<div style="font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;">'
-    + '<i class="fas fa-table" style="color:#6366f1;"></i> All CRs'
+    + '<i class="fas fa-table" style="color:#6366f1;"></i> PDT P1 Open/Analysis CRs'
     + '<span id="allCrsCount" style="background:#e0e7ff;color:#4338ca;border-radius:20px;padding:1px 10px;font-size:12px;font-weight:700;"></span>'
     + '</div>'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
     + '<input type="text" id="allCrsSearch" placeholder="Search CR, title, area..." style="height:32px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;outline:none;min-width:220px;">'
+    + '<select id="allCrsTypeFilter" style="height:32px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;outline:none;">'
+    + '<option value="">All Types</option>'
+    + '<option value="New CR">New CRs</option>'
+    + '<option value="Closed CR">Closed CRs</option>'
+    + '<option value="Open/Analysis">Open/Analysis</option>'
+    + '</select>'
     + '<select id="allCrsStatusFilter" style="height:32px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;outline:none;">'
     + '<option value="">All Statuses</option>'
     + '<option value="open_analysis">Open / Analysis</option>'
@@ -686,46 +717,52 @@ function renderAllCrsTable(allCrs){
     + '<i class="fas fa-file-excel"></i> Download Excel</button>'
     + '</div>'
     + '</div>'
-    + '<div style="max-height:500px;overflow:auto;">'
-    + '<table id="allCrsTable" style="width:100%;border-collapse:collapse;font-size:11px;">'
+    + '<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">'
+    + '<table id="allCrsTable" style="width:max-content;min-width:100%;border-collapse:collapse;font-size:11px;">'
     + '<thead><tr>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">#</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">CR</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;max-width:280px;">Title</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Area</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Status</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:center;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Age (days)</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Priority</th>'
-    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Category</th>'
+    + _th('S.No') + _th('CR-ID') + _th('Occurrence<br>Last 1 Week') + _th('CR Overall<br>Occurrences')
+    + _th('CR Title',true) + _th('PDT Priority') + _th('CR Area') + _th('CR SubSystem') + _th('CR Functionality')
+    + _th('CR Status') + _th('CR Age') + _th('First Instance') + _th('First Instance Date') + _th('Type')
     + '</tr></thead>'
     + '<tbody id="allCrsBody"></tbody>'
     + '</table>'
     + '</div>';
 
-  // Wire up filters
   document.getElementById('allCrsSearch').addEventListener('input', applyAllCrsFilter);
+  document.getElementById('allCrsTypeFilter').addEventListener('change', applyAllCrsFilter);
   document.getElementById('allCrsStatusFilter').addEventListener('change', applyAllCrsFilter);
   applyAllCrsFilter();
 }
 
-function applyAllCrsFilter(){
+function _th(label, wide){
+  return '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;'+(wide?'min-width:320px;max-width:500px;white-space:normal;':'')+'">'+label+'</th>';
+}
+
+function _getFilteredRows(){
   var q = (document.getElementById('allCrsSearch')||{}).value||'';
   q = q.toLowerCase().trim();
   var sf = (document.getElementById('allCrsStatusFilter')||{}).value||'';
-  var rows = _allCrDetails.filter(function(r){
+  var tf = (document.getElementById('allCrsTypeFilter')||{}).value||'';
+  return _allCrDetails.filter(function(r){
     var s = String(r.cr_status||'').toLowerCase();
     if(sf==='open_analysis' && !(s==='open'||s.startsWith('anal'))) return false;
     if(sf==='built_closed' && !(s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix'))) return false;
+    if(tf && _crType(r) !== tf) return false;
     if(q){
-      var text = [r.mapped_cr||r.cr||'', r.cr_title||'', r.cr_area||'', r.cr_status||''].join(' ').toLowerCase();
+      var text = [r.mapped_cr||r.cr||'', r.cr_title||'', r.cr_area||'', r.cr_status||'', r.pdt_priority_tag||''].join(' ').toLowerCase();
       if(!text.includes(q)) return false;
     }
     return true;
   });
+}
+
+function applyAllCrsFilter(){
+  var rows = _getFilteredRows();
   var countEl = document.getElementById('allCrsCount');
   if(countEl) countEl.textContent = rows.length + ' CR' + (rows.length===1?'':'s');
   var tbody = document.getElementById('allCrsBody');
   if(!tbody) return;
+  var thStyle = 'padding:6px 10px;border-bottom:1px solid #f1f5f9;';
   tbody.innerHTML = rows.length ? rows.map(function(r,i){
     var cr = String(r.mapped_cr||r.cr||'');
     var crId = cr.replace(/^CR/i,'');
@@ -734,49 +771,60 @@ function applyAllCrsFilter(){
     var isBuilt = s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix');
     var statusBg = isOpen?'#dbeafe;color:#1e40af':isBuilt?'#dcfce7;color:#166534':'#f1f5f9;color:#475569';
     var bg = i%2===0?'#fff':'#f8fafc';
+    var type = _crType(r);
+    var typeBg = type==='New CR'?'#dcfce7;color:#166534':type==='Closed CR'?'#fee2e2;color:#b91c1c':'#dbeafe;color:#1e40af';
+    var weekOcc = r.weekly_occurrence||r.last_week_occurrence||r.occurrence_last_week||'';
+    var totalOcc = r.overall_cr_occurrence||r.total_occurrence||'';
+    var firstInst = r.first_instance||r.first_jira||'';
+    var firstDate = r.first_instance_date||(r.cr_date||'').slice(0,10)||'';
     return '<tr style="background:'+bg+'">'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#94a3b8;">'+(i+1)+'</td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;"><a class="cr-link" href="https://orbit/cr/'+escHtml(crId)+'" target="_blank">'+escHtml(cr)+'</a></td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(r.cr_title||'')+'">'+escHtml(r.cr_title||'')+'</td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.cr_area||'')+'</td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;"><span style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:'+statusBg+'">'+escHtml(r.cr_status||'')+'</span></td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;">'+escHtml(r.cr_age||'')+'</td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.pdt_priority_tag||'')+'</td>'
-      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.cr_category||'')+'</td>'
+      +'<td style="'+thStyle+'color:#94a3b8;">'+(i+1)+'</td>'
+      +'<td style="'+thStyle+'"><a class="cr-link" href="https://orbit/cr/'+escHtml(crId)+'" target="_blank">'+escHtml(cr)+'</a></td>'
+      +'<td style="'+thStyle+'text-align:center;font-weight:700;">'+escHtml(String(weekOcc))+'</td>'
+      +'<td style="'+thStyle+'text-align:center;font-weight:700;">'+escHtml(String(totalOcc))+'</td>'
+      +'<td style="'+thStyle+'max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(r.cr_title||'')+'">'+escHtml(r.cr_title||'')+'</td>'
+      +'<td style="'+thStyle+'text-align:center;font-weight:800;color:#1e40af;">'+escHtml(r.pdt_priority_tag||'')+'</td>'
+      +'<td style="'+thStyle+'">'+escHtml(r.cr_area||'')+'</td>'
+      +'<td style="'+thStyle+'">'+escHtml(r.cr_subsystem||'')+'</td>'
+      +'<td style="'+thStyle+'">'+escHtml(r.cr_functionality||'')+'</td>'
+      +'<td style="'+thStyle+'"><span style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:'+statusBg+'">'+escHtml(r.cr_status||'')+'</span></td>'
+      +'<td style="'+thStyle+'text-align:center;font-weight:700;">'+escHtml(String(r.cr_age||''))+'</td>'
+      +'<td style="'+thStyle+'font-size:10px;">'+escHtml(firstInst)+'</td>'
+      +'<td style="'+thStyle+'font-size:10px;">'+escHtml(firstDate)+'</td>'
+      +'<td style="'+thStyle+'"><span style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:'+typeBg+'">'+type+'</span></td>'
       +'</tr>';
-  }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#94a3b8;font-weight:700;">No CRs match the current filter.</td></tr>';
+  }).join('') : '<tr><td colspan="14" style="padding:24px;text-align:center;color:#94a3b8;font-weight:700;">No CRs match the current filter.</td></tr>';
 }
 
 function downloadAllCrsExcel(){
-  var q = (document.getElementById('allCrsSearch')||{}).value||'';
-  q = q.toLowerCase().trim();
-  var sf = (document.getElementById('allCrsStatusFilter')||{}).value||'';
-  var rows = _allCrDetails.filter(function(r){
-    var s = String(r.cr_status||'').toLowerCase();
-    if(sf==='open_analysis' && !(s==='open'||s.startsWith('anal'))) return false;
-    if(sf==='built_closed' && !(s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix'))) return false;
-    if(q){
-      var text = [r.mapped_cr||r.cr||'', r.cr_title||'', r.cr_area||'', r.cr_status||''].join(' ').toLowerCase();
-      if(!text.includes(q)) return false;
-    }
-    return true;
-  });
-  var headers = ['#','CR','Title','Area','Status','Age (days)','Priority','Category'];
-  var thStyle = 'background:#1e3a5f;color:#fff;padding:6px 10px;border:1px solid #ccc;font-weight:700;';
+  var rows = _getFilteredRows();
+  var headers = ['S.No','CR-ID','Occurrence - Last 1 Week','CR Overall Occurrences','CR Title','PDT Priority','CR Area','CR SubSystem','CR Functionality','CR Status','CR Age','First Instance','First Instance Date','Type'];
+  var thStyle = 'background:#1e3a5f;color:#fff;padding:6px 10px;border:1px solid #ccc;font-weight:700;white-space:nowrap;';
   var tdStyle = 'padding:5px 10px;border:1px solid #ddd;vertical-align:top;';
-  var html = '<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">'
+  var html = '<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;">'
     + '<thead><tr>'+headers.map(function(h){ return '<th style="'+thStyle+'">'+h+'</th>'; }).join('')+'</tr></thead>'
     + '<tbody>'
     + rows.map(function(r,i){
+        var type = _crType(r);
+        var weekOcc = r.weekly_occurrence||r.last_week_occurrence||r.occurrence_last_week||'';
+        var totalOcc = r.overall_cr_occurrence||r.total_occurrence||'';
+        var firstInst = r.first_instance||r.first_jira||'';
+        var firstDate = r.first_instance_date||(r.cr_date||'').slice(0,10)||'';
         return '<tr>'
           +'<td style="'+tdStyle+'">'+(i+1)+'</td>'
           +'<td style="'+tdStyle+'">'+(r.mapped_cr||r.cr||'')+'</td>'
+          +'<td style="'+tdStyle+';text-align:center;">'+(weekOcc)+'</td>'
+          +'<td style="'+tdStyle+';text-align:center;">'+(totalOcc)+'</td>'
           +'<td style="'+tdStyle+'">'+(r.cr_title||'')+'</td>'
+          +'<td style="'+tdStyle+';text-align:center;">'+(r.pdt_priority_tag||'')+'</td>'
           +'<td style="'+tdStyle+'">'+(r.cr_area||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_subsystem||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_functionality||'')+'</td>'
           +'<td style="'+tdStyle+'">'+(r.cr_status||'')+'</td>'
           +'<td style="'+tdStyle+';text-align:center;">'+(r.cr_age||'')+'</td>'
-          +'<td style="'+tdStyle+'">'+(r.pdt_priority_tag||'')+'</td>'
-          +'<td style="'+tdStyle+'">'+(r.cr_category||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(firstInst)+'</td>'
+          +'<td style="'+tdStyle+'">'+(firstDate)+'</td>'
+          +'<td style="'+tdStyle+'">'+(type)+'</td>'
           +'</tr>';
       }).join('')
     + '</tbody></table>';
