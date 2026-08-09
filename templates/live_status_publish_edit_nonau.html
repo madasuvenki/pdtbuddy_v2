@@ -1383,13 +1383,37 @@
         <div style="font-size:10px;color:#94a3b8;margin-top:4px">Table used for the Overall CRs view across all domains.</div>
       </div>
 
-      <!-- Non-AUTO: Target Table -->
-      <div id="lspTopCfgTargetSection" style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-crosshairs"></i> Target CR Table</div>
-        <select id="lspTopCfgTargetTable" style="width:100%;height:36px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
-          <option value="">-- Loading tables... --</option>
-        </select>
-        <div style="font-size:10px;color:#94a3b8;margin-top:4px">Table used for the target-specific CR view.</div>
+      <!-- Non-AUTO: JIRAs / Open JIRAs / Unique CRs / Target Table -->
+      <div id="lspTopCfgTargetSection" style="margin-bottom:0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-ticket-alt"></i> JIRAs Table</div>
+            <select id="lspTopCfgJirasTable" style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+              <option value="">-- Select JIRAs Table --</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-exclamation-circle"></i> Open JIRAs Table</div>
+            <select id="lspTopCfgOpenJirasTable" style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+              <option value="">-- Select Open JIRAs Table --</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-bug"></i> Unique CRs Table</div>
+            <select id="lspTopCfgUniqueCrsTable" style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+              <option value="">-- Select Unique CRs Table --</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"><i class="fas fa-crosshairs"></i> Target CR Table</div>
+            <select id="lspTopCfgTargetTable" style="width:100%;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:800">
+              <option value="">-- Select Target CR Table --</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:14px">Select the DB tables for this target. Suggestions are loaded from the target schema.</div>
       </div>
 
       <!-- Footer buttons -->
@@ -1412,7 +1436,7 @@ window.lspOpenTopConfig = function(){
     return;
   }
 
-  // Non-AUTO BU: use our simpler modal (overall CR table + target CR table)
+  // Non-AUTO BU: use our simpler modal (overall CR + jiras + openjiras + unique_crs + target)
   var modal = document.getElementById('lspTopCfgModal');
   if(!modal) return;
 
@@ -1422,35 +1446,37 @@ window.lspOpenTopConfig = function(){
   if(domSec) domSec.style.display = 'none';
   if(tgtSec) tgtSec.style.display = 'block';
 
-  // Load overall CR tables + target tables dropdown
-  var ovSel = document.getElementById('lspTopCfgOverallTable');
-  var tgtSel = document.getElementById('lspTopCfgTargetTable');
   var target = (window.LSP_DATA && window.LSP_DATA.primary_target) || '';
-  var qs = target ? '?target=' + encodeURIComponent(target) : '';
-  fetch('/api/core_deck/overallcrs_tables' + qs)
+  var ovSel    = document.getElementById('lspTopCfgOverallTable');
+  var jirasSel = document.getElementById('lspTopCfgJirasTable');
+  var ojSel    = document.getElementById('lspTopCfgOpenJirasTable');
+  var uniqSel  = document.getElementById('lspTopCfgUniqueCrsTable');
+  var tgtSel   = document.getElementById('lspTopCfgTargetTable');
+
+  // Load all table types from live_view_stats db_tables endpoint
+  fetch('/api/live_view_stats/' + encodeURIComponent(target) + '/db_tables', {cache:'no-store'})
     .then(function(r){ return r.json(); })
     .then(function(d){
       var tables = d.tables || [];
-      var curOv = window._lspOverallCrsTable || '';
-      var curTgt = window._lspTargetCrsTable || '';
-      if(ovSel){
-        ovSel.innerHTML = '<option value="">-- Select Overall CR Table --</option>' +
-          tables.map(function(t){
-            var sel = (t.fq === curOv) ? ' selected' : '';
-            return '<option value="' + t.fq + '"' + sel + '>' + (t.label || t.fq) + '</option>';
+      function _opts(sel, curVal, placeholder, kinds){
+        if(!sel) return;
+        var filtered = kinds ? tables.filter(function(t){ return kinds.indexOf(t.kind) >= 0; }) : tables;
+        sel.innerHTML = '<option value="">' + placeholder + '</option>' +
+          filtered.map(function(t){
+            var s = (t.fq === curVal) ? ' selected' : '';
+            return '<option value="' + t.fq + '"' + s + '>' + (t.label || t.name) + '</option>';
           }).join('');
       }
-      if(tgtSel){
-        tgtSel.innerHTML = '<option value="">-- Select Target CR Table --</option>' +
-          tables.map(function(t){
-            var sel = (t.fq === curTgt) ? ' selected' : '';
-            return '<option value="' + t.fq + '"' + sel + '>' + (t.label || t.fq) + '</option>';
-          }).join('');
-      }
+      _opts(ovSel,    window._lspOverallCrsTable || '', '-- Select Overall CR Table --',  ['overallcrs','other']);
+      _opts(jirasSel, window._lspJirasTable      || '', '-- Select JIRAs Table --',        ['jiras']);
+      _opts(ojSel,    window._lspOpenJirasTable  || '', '-- Select Open JIRAs Table --',   ['openjiras']);
+      _opts(uniqSel,  window._lspUniqueCrsTable  || '', '-- Select Unique CRs Table --',   ['unique_crs']);
+      _opts(tgtSel,   window._lspTargetCrsTable  || '', '-- Select Target CR Table --',    ['jiras','openjiras','unique_crs','overallcrs','other']);
     })
     .catch(function(){
-      if(ovSel) ovSel.innerHTML = '<option value="">-- Could not load tables --</option>';
-      if(tgtSel) tgtSel.innerHTML = '<option value="">-- Could not load tables --</option>';
+      [ovSel, jirasSel, ojSel, uniqSel, tgtSel].forEach(function(s){
+        if(s) s.innerHTML = '<option value="">-- Could not load tables --</option>';
+      });
     });
 
   modal.style.display = 'flex';
@@ -1490,12 +1516,16 @@ window.lspApplyTopConfig = function(){
     if(typeof window._cdOverallCrsTable !== 'undefined') window._cdOverallCrsTable = ovSel.value;
   }
 
-  // Apply target CR table (non-AUTO)
+  // Apply additional non-AUTO tables
   if(!IS_AUTO){
-    var tgtSel = document.getElementById('lspTopCfgTargetTable');
-    if(tgtSel && tgtSel.value){
-      window._lspTargetCrsTable = tgtSel.value;
-    }
+    var tgtSel2 = document.getElementById('lspTopCfgTargetTable');
+    if(tgtSel2 && tgtSel2.value) window._lspTargetCrsTable = tgtSel2.value;
+    var jirasSel2 = document.getElementById('lspTopCfgJirasTable');
+    if(jirasSel2 && jirasSel2.value) window._lspJirasTable = jirasSel2.value;
+    var ojSel2 = document.getElementById('lspTopCfgOpenJirasTable');
+    if(ojSel2 && ojSel2.value) window._lspOpenJirasTable = ojSel2.value;
+    var uniqSel2 = document.getElementById('lspTopCfgUniqueCrsTable');
+    if(uniqSel2 && uniqSel2.value) window._lspUniqueCrsTable = uniqSel2.value;
   }
 
   // Save selected tables to localStorage so config persists across refreshes
