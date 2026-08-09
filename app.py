@@ -956,7 +956,6 @@ def qgenie_cr_summary(cr_number: str, prompt: str | None = None, style: str = 'o
 
 
 @app.route("/api/qgenie/configure", methods=["POST"])
-
 @login_required
 def configure_qgenie():
     data = request.get_json(silent=True) or {}
@@ -965,26 +964,26 @@ def configure_qgenie():
     if not api_key:
         return jsonify({"success": False, "message": "API key is required"}), 400
 
-    try:
-        client = QGenieClient(api_key=api_key)
+    # ── Always persist the key first — never gate on SDK availability ──────
+    session["qgenie_api_key"] = api_key
+    session["qgenie_ready"] = True
+    session.pop("needs_qgenie_popup", None)
+    next_url = None
+    if session.pop("needs_qgenie_before_team_selection", None) and session.get("needs_team_selection"):
+        next_url = url_for('post_login_team_selection')
+    session.modified = True
 
-        # add a small real validation call here if needed
+    # ── Optional lightweight SDK probe (non-blocking — key already saved) ──
+    if QGENIE_SDK_AVAILABLE and QGenieClient:
+        try:
+            QGenieClient(api_key=api_key)
+        except Exception as _sdk_err:
+            logger.warning("[QGenie] configure: SDK init warning (key saved anyway): %s", _sdk_err)
 
-        session["qgenie_api_key"] = api_key
-        session["qgenie_ready"] = True
-        session.pop("needs_qgenie_popup", None)
-        next_url = None
-        if session.pop("needs_qgenie_before_team_selection", None) and session.get("needs_team_selection"):
-            next_url = url_for('post_login_team_selection')
-        session.modified = True
-
-        payload = {"success": True, "message": "Configured successfully"}
-        if next_url:
-            payload["next_url"] = next_url
-        return jsonify(payload)
-
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Validation failed: {str(e)}"}), 400
+    payload = {"success": True, "message": "Configured successfully"}
+    if next_url:
+        payload["next_url"] = next_url
+    return jsonify(payload)
 
 
 @app.route("/post_login/qgenie", methods=["GET"])
@@ -8939,6 +8938,7 @@ def dashboard_guide():
 
 
 @app.route("/architecture")
+@app.route("/architecture_outputs")
 @app.route("/dashboard/architecture")
 @login_required
 def architecture_visual():
@@ -9114,7 +9114,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
     # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 

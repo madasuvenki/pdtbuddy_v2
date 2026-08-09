@@ -1,110 +1,196 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PDT Buddy Help</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDT Buddy — Help & Support</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background:#0b1220; color:#e8eefc; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 18px 40px; }
-    .card { background:#121b2f; border:1px solid rgba(255,255,255,0.08); border-radius: 12px; padding:18px; margin:14px 0; }
-    h1 { margin: 8px 0 10px; }
-    h2 { margin: 0 0 10px; font-size: 1.15rem; }
-    p, li { line-height: 1.5; color:#cfe0ff; }
-    code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }
-    .kbd { border: 1px solid rgba(255,255,255,0.18); padding:2px 6px; border-radius: 6px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .note { color:#9fb7e8; font-size: 13px; }
-    .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#1e2a45; margin-right:6px; margin-top:4px; }
-    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+    :root {
+      --ink: #172554;
+      --text: #334155;
+      --muted: #64748b;
+      --line: #dbe4f0;
+      --surface: #ffffff;
+      --page: #f5f8ff;
+      --indigo: #4f46e5;
+      --blue: #2563eb;
+      --teal: #0f766e;
+      --violet-soft: #eef2ff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(99, 102, 241, .14), transparent 30rem),
+        radial-gradient(circle at 92% 8%, rgba(14, 165, 233, .13), transparent 28rem),
+        var(--page);
+    }
+
+    .header {
+      min-height: 82px;
+      display: flex;
+      align-items: center;
+      padding: 16px clamp(18px, 4vw, 56px);
+      color: #fff;
+      background: linear-gradient(115deg, #0f172a 0%, #1e1b4b 48%, #172554 100%);
+      box-shadow: 0 5px 22px rgba(15, 23, 42, .25);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-icon {
+      width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center;
+      background: rgba(129, 140, 248, .22); border: 1px solid rgba(199, 210, 254, .34);
+      color: #c7d2fe; font-size: 18px;
+    }
+    .brand h1 { margin: 0; font-size: 19px; font-weight: 900; letter-spacing: -.02em; }
+    .brand p { margin: 3px 0 0; color: #a5b4fc; font-size: 11px; font-weight: 700; }
+
+    main { max-width: 1080px; margin: 0 auto; padding: 42px 22px 72px; }
+    .hero {
+      position: relative; overflow: hidden; border-radius: 25px; padding: clamp(28px, 5vw, 52px);
+      color: #fff; background: linear-gradient(125deg, #312e81, #4338ca 54%, #0f766e);
+      box-shadow: 0 18px 45px rgba(49, 46, 129, .23);
+    }
+    .hero::after {
+      content: ""; position: absolute; right: -70px; top: -100px; width: 310px; height: 310px;
+      border: 46px solid rgba(255,255,255,.09); border-radius: 50%;
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 660px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
+      font-size: 11px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase;
+      background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2);
+    }
+    .hero h2 { margin: 16px 0 9px; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -.04em; }
+    .hero p { margin: 0; max-width: 600px; color: #e0e7ff; font-size: 15px; line-height: 1.7; }
+
+    .section-title { margin: 38px 0 16px; color: var(--ink); font-size: 18px; font-weight: 900; letter-spacing: -.02em; }
+    .contact-grid, .guide-grid { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, .055);
+    }
+    .contact-card { display: flex; flex-direction: column; min-height: 240px; }
+    .contact-icon {
+      width: 47px; height: 47px; display: grid; place-items: center; border-radius: 14px;
+      font-size: 19px; margin-bottom: 17px;
+    }
+    .contact-card h3, .guide-card h3 { margin: 0 0 8px; color: var(--ink); font-size: 17px; font-weight: 900; }
+    .contact-card p, .guide-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .contact-value {
+      display: inline-block; margin: 14px 0 17px; color: #3730a3; font-size: 15px; font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+    .action {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: auto;
+      min-height: 42px; padding: 10px 16px; border-radius: 11px; color: #fff; text-decoration: none;
+      font-size: 12px; font-weight: 900; transition: transform .15s, filter .15s;
+    }
+    .action:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    .action--person { background: linear-gradient(135deg, #4f46e5, #2563eb); }
+    .action--mail { background: linear-gradient(135deg, #0f766e, #0891b2); }
+    .person .contact-icon { color: #4338ca; background: #eef2ff; }
+    .mail .contact-icon { color: #0f766e; background: #dffaf4; }
+
+    .guide-grid { grid-template-columns: 1.15fr .85fr; }
+    .guide-card h3 i { color: #4f46e5; margin-right: 8px; }
+    .example-list { margin: 15px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+    .example-list li {
+      padding: 10px 12px; border-radius: 10px; color: #334155; font-size: 12px; font-weight: 700;
+      background: #f8faff; border: 1px solid #e6edff;
+    }
+    code { color: #3730a3; font-family: Consolas, "Courier New", monospace; font-size: .95em; }
+    .tip-list { margin: 14px 0 0; padding-left: 19px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .footer-note {
+      margin-top: 26px; padding: 15px 18px; border-radius: 13px; color: #475569; font-size: 12px; line-height: 1.6;
+      background: #eef6ff; border: 1px solid #cfe1fb;
+    }
+    .footer-note i { color: #2563eb; margin-right: 7px; }
+
+    @media (max-width: 720px) {
+      main { padding: 25px 16px 48px; }
+      .contact-grid, .guide-grid { grid-template-columns: 1fr; }
+      .hero { border-radius: 19px; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>PDT Buddy — Quick Help</h1>
-    <p>
-      Use PDT Buddy like a search assistant. Ask in plain English, and it will return a simple answer at user level.
-      You do <b>not</b> need to know table names, joins, or internal relationships.
-    </p>
-
-    <div class="card">
-      <h2>How to search</h2>
-      <div class="grid">
-        <div>
-          <p><span class="pill">Search by CR</span></p>
-          <ul>
-            <li>Type a CR number directly, like <code>CR123456</code></li>
-            <li>Ask for a specific CR: <code>show CR123456 details</code></li>
-            <li>Ask for related CRs: <code>related CRs for CR123456</code></li>
-          </ul>
-        </div>
-        <div>
-          <p><span class="pill">Search by status or keyword</span></p>
-          <ul>
-            <li><code>show open CRs</code></li>
-            <li><code>show built CRs</code></li>
-            <li><code>find crash CRs</code></li>
-            <li><code>show CRs for modem with status open</code></li>
-          </ul>
-        </div>
+  <header class="header">
+    <div class="brand">
+      <div class="brand-icon"><i class="fas fa-life-ring"></i></div>
+      <div>
+        <h1>PDT Buddy — Help & Support</h1>
+        <p>Guidance, contacts, and quick chatbot examples</p>
       </div>
     </div>
+  </header>
 
-    <div class="card">
-      <h2>What output you will see</h2>
-      <ul>
-        <li><b>Short summary</b> — a plain-English response first.</li>
-        <li><b>List or table</b> — if multiple results are found, PDT Buddy may show a compact table or list.</li>
-        <li><b>Counts</b> — for questions like “how many”, you will get a count with a short explanation.</li>
-        <li><b>Details</b> — for a single CR, you will get the main information only, not internal technical metadata.</li>
-      </ul>
-      <p class="note">Example: “I found 6 open CRs for modem. Here are the top results.”</p>
-    </div>
+  <main>
+    <section class="hero">
+      <div class="hero-content">
+        <span class="eyebrow"><i class="fas fa-headset"></i> We are here to help</span>
+        <h2>Need help with PDT Buddy?</h2>
+        <p>For access, dashboard, data, report, or chatbot support, contact the PDT Buddy support team using either option below.</p>
+      </div>
+    </section>
 
-    <div class="card">
-      <h2>Common examples</h2>
-      <ul>
-        <li><code>show me CRs for camera</code></li>
-        <li><code>how many built CRs do we have?</code></li>
-        <li><code>find crash CRs in infotainment</code></li>
-        <li><code>show details for CR123456</code></li>
-        <li><code>what are the related CRs for CR123456?</code></li>
-      </ul>
-    </div>
+    <h2 class="section-title">Contact support</h2>
+    <section class="contact-grid">
+      <article class="card contact-card person">
+        <div class="contact-icon"><i class="fas fa-user"></i></div>
+        <h3>Primary contact</h3>
+        <p>Contact the PDT Buddy owner directly for assistance with the application, access, reports, or general questions.</p>
+        <span class="contact-value">vmadasu</span>
+        <a class="action action--person" href="mailto:vmadasu@qti.qualcomm.com?subject=PDT%20Buddy%20Support%20Request">
+          <i class="fas fa-envelope"></i> Email vmadasu
+        </a>
+      </article>
 
-    <div class="card">
-      <h2>JiraQuery / filter report</h2>
-      <p>
-        To run a JiraQuery filter report, paste the full command into PDT Buddy. The command must include
-        <code>jiraquery=</code>; PDT Buddy will start the report and show progress.
-      </p>
-      <ul>
-        <li>Use <code>filter=&lt;id&gt;</code> when you already have a saved JIRA filter ID.</li>
-        <li>Use <code>JiraQueryLimit</code> to control the maximum number of rows returned.</li>
-        <li>Use <code>$SkipHwPdtQStabilityCheck</code> when you want to skip the HW PDT QStability check.</li>
-      </ul>
-      <p><b>Sample:</b></p>
-      <p><code>jiraquery="filter=115827" $processCRinfo JiraQueryLimit=2000 $SkipHwPdtQStabilityCheck</code></p>
-    </div>
+      <article class="card contact-card mail">
+        <div class="contact-icon"><i class="fas fa-users"></i></div>
+        <h3>PDT Stats support mailbox</h3>
+        <p>Send support requests, feedback, screenshots, or issue details to the PDT Stats team mailbox.</p>
+        <span class="contact-value">qipl.pdt.stats@qti.qualcomm.com</span>
+        <a class="action action--mail" href="mailto:qipl.pdt.stats@qti.qualcomm.com?subject=PDT%20Buddy%20Support%20Request">
+          <i class="fas fa-paper-plane"></i> Send support email
+        </a>
+      </article>
+    </section>
 
-    <div class="card">
-      <h2>Tips for best results</h2>
-      <ul>
-        <li>Be specific if you know the target, team, or CR number.</li>
-        <li>Use simple phrases like <code>open</code>, <code>built</code>, <code>crash</code>, <code>related</code>, or <code>count</code>.</li>
-        <li>If the chatbot asks for confirmation, choose <span class="kbd">No</span> if you want a normal answer instead of a workflow action.</li>
-      </ul>
-    </div>
+    <h2 class="section-title">Quick guidance</h2>
+    <section class="guide-grid">
+      <article class="card guide-card">
+        <h3><i class="fas fa-robot"></i> Chatbot examples</h3>
+        <p>Use simple natural-language questions. Include a target, CR number, or status when available for more accurate results.</p>
+        <ul class="example-list">
+          <li><code>show open CRs for modem</code></li>
+          <li><code>show details for CR123456</code></li>
+          <li><code>how many built CRs do we have?</code></li>
+          <li><code>find crash CRs in infotainment</code></li>
+        </ul>
+      </article>
 
-    <div class="card">
-      <h2>What this page does not show</h2>
-      <ul>
-        <li>No internal table mapping</li>
-        <li>No table interlink details</li>
-        <li>No admin / database-level explanation</li>
-      </ul>
-      <p class="note">This page is intentionally user-facing and kept simple.</p>
+      <article class="card guide-card">
+        <h3><i class="fas fa-lightbulb"></i> Before contacting support</h3>
+        <p>Please include enough information for the team to investigate quickly.</p>
+        <ul class="tip-list">
+          <li>Page URL or target name</li>
+          <li>Screenshot of the issue</li>
+          <li>Error message and time observed</li>
+          <li>Expected result versus actual result</li>
+        </ul>
+      </article>
+    </section>
+
+    <div class="footer-note">
+      <i class="fas fa-info-circle"></i>
+      If you need help, please contact <strong>vmadasu</strong> or email <strong>qipl.pdt.stats@qualcomm.com</strong>.
     </div>
-  </div>
+  </main>
 </body>
 </html>

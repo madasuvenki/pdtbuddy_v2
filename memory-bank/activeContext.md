@@ -15,6 +15,19 @@
 
 
 ## Current Work Focus
+Documentation navigation repair completed (2026-08-09):
+- The Docs Architecture card now opens the canonical `/architecture` route in a new tab.
+- Added `/architecture_outputs` as a backward-compatible alias to the same Architecture page, preventing prior bookmarks from returning 404.
+- Removed redundant “Back to Docs” buttons from independently opened Dashboard Guide, Private API Reference, and Revision History pages.
+
+Login browser-autofill enhancement completed (2026-08-09):
+- Kept credentials exclusively in the browser password manager; the app never reads, stores, or exposes browser-saved passwords.
+- The login form now has a stable form name plus standard `autocomplete="username"` and `autocomplete="current-password"` fields, username focus, and mobile keyboard hints to improve browser autofill behavior.
+
+Help & Support redesign completed (2026-08-09):
+- Rebuilt `/chatbot_help` as a responsive Help & Support page with a modern support hero, contact cards, chatbot examples, and issue-reporting guidance.
+- Added direct mail actions for primary contact `vmadasu` and the PDT Stats support mailbox `qipl.pdt.stats@qualcomm.com`.
+
 Enhanced SI image path tracking in `dashboard_status` table via batch file scanning.
 Full codebase analysis completed. Modularization plan created at `docs/MODULARIZATION_PLAN.md`.
 

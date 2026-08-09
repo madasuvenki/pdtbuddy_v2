@@ -62,7 +62,7 @@
         </div>
         {% endif %}
 
-                <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm"
+                <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm" name="login"
               autocomplete="on"
               onsubmit="return onLoginSubmit()">
 
@@ -81,8 +81,9 @@
                 placeholder="e.g. vmadas or vmadasu@qti.qualcomm.com"
                 value="{% if error %}{{ username or '' }}{% endif %}"
                 autocomplete="username"
+                inputmode="email" enterkeyhint="next"
                 autocorrect="off" autocapitalize="off" spellcheck="false"
-                required>
+                required autofocus>
             </div>
           </div>
 
@@ -97,6 +98,7 @@
                             <input type="password" id="password" name="password"
                 placeholder="Qualcomm LDAP password"
                 autocomplete="current-password"
+                enterkeyhint="go"
                 required>
               <button type="button" class="eye-btn" onclick="togglePwd('password',this)" tabindex="-1">
                 <svg class="eye-icon" viewBox="0 0 20 20" fill="none">
