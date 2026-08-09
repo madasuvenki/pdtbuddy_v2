@@ -15,8 +15,8 @@
 <body>
 <div class="shell">
   <aside class="side">
-    <div class="brand"><div class="brand-ico"><i class="fas fa-chart-network"></i></div><div><div class="brand-title">Live View Stats</div><div class="brand-sub">AUTO workbook sheets</div></div></div>
-    <div class="target-pill"><i class="fas fa-car"></i> {{ target_display|replace('_',' ')|upper }}</div>
+    <div class="brand"><div class="brand-ico"><i class="fas fa-chart-network"></i></div><div><div class="brand-title">Live View Stats</div><div class="brand-sub">Workbook sheets &amp; DB tables</div></div></div>
+    <div class="target-pill"><i class="fas fa-{% if is_auto %}car{% else %}database{% endif %}"></i> {{ target_display|replace('_',' ')|upper }}</div>
     <div class="side-actions">
       <button class="btn primary" onclick="openConfig()"><i class="fas fa-cog"></i> Config Excel / DB Tables</button>
       <button class="btn green" onclick="syncExcel()"><i class="fas fa-file-import"></i> Sync Excel to JSON</button>
@@ -29,7 +29,7 @@
   <main class="main">
     <section class="hero">
       <div><h1 id="pageTitle">{{ target_display }} Live View Stats</h1><p id="pageSub">Select a workbook sheet from the left. Each sheet is persisted as JSON after sync.</p></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><span class="tag green"><i class="fas fa-database"></i> AUTO only</span><span id="lastSync" class="tag warn">No sync yet</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">{% if is_auto %}<span class="tag green"><i class="fas fa-car"></i> Automotive</span>{% endif %}<span id="lastSync" class="tag warn">No sync yet</span></div>
     </section>
 
     <section class="kpis">

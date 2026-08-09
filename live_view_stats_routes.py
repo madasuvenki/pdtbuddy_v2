@@ -392,10 +392,9 @@ def _db_table_options(target_name: str) -> List[Dict[str, str]]:
 @live_view_stats_bp.route("/live_view_stats/<string:target_name>", methods=["GET"])
 @login_required
 def live_view_stats_page(target_name: str):
-    if not _is_auto_target(target_name):
-        return render_template("coming_soon_template.html", title="Live View Stats", message="Live View Stats is available for AUTO targets only."), 404
-        # Nord HQX/HGY pages use the same Live View Stats UI, with an admin-managed
+    # Nord HQX/HGY pages use the same Live View Stats UI, with an admin-managed
     # SP-name list layered on top of the existing synced workbook sheet list.
+    is_auto = _is_auto_target(target_name)
     slug = str(target_name or "").strip().upper().replace(".", "_")
     is_nord_sp_managed = slug in {"NORD_HQX", "NORD_HGY"} or "NORD_HQX" in slug or "NORD_HGY" in slug
     return render_template(
@@ -405,14 +404,13 @@ def live_view_stats_page(target_name: str):
         default_excel_root=_DEFAULT_EXCEL_ROOT,
         is_admin=_is_admin_user(),
         is_nord_sp_managed=is_nord_sp_managed,
+        is_auto=is_auto,
     )
 
 
 @live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/config", methods=["GET", "POST"])
 @login_required
 def api_live_view_stats_config(target_name: str):
-    if not _is_auto_target(target_name):
-        return jsonify({"ok": False, "error": "Live View Stats is AUTO-only."}), 404
     if request.method == "POST":
         cfg = _save_config(target_name, request.get_json(force=True, silent=True) or {})
     else:
@@ -430,8 +428,6 @@ def api_live_view_stats_config(target_name: str):
 @live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/db_tables", methods=["GET"])
 @login_required
 def api_live_view_stats_db_tables(target_name: str):
-    if not _is_auto_target(target_name):
-        return jsonify({"ok": False, "error": "Live View Stats is AUTO-only."}), 404
     tables = _db_table_options(target_name)
     return jsonify({"ok": True, "target": target_name, "tables": tables})
 
