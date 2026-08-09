@@ -3841,6 +3841,337 @@ def build_weekly_report_context(target_name, request):
 
 
 # ---------------------------------------------------------------------
+# WEEKLY REPORT PPT EXPORT
+# ---------------------------------------------------------------------
+def _build_weekly_report_ppt(target_name, report_summary, from_date, to_date):
+    """Generate a PowerPoint for the weekly report matching the image layout."""
+    import io
+    from collections import Counter as _Counter
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN
+    except ImportError:
+        raise RuntimeError("python-pptx is not installed. Run: uv pip install python-pptx")
+
+    rs = report_summary or {}
+    cr_rows = rs.get("cr_rows") or []
+
+    # ── Colour palette (matches WBC_Report.py) ──────────────────────────
+    NAVY   = RGBColor(0x1f, 0x5f, 0x91)
+    NAVY2  = RGBColor(0x1a, 0x4f, 0x7b)
+    WHITE  = RGBColor(0xff, 0xff, 0xff)
+    LIGHT  = RGBColor(0xf1, 0xf5, 0xf9)
+    GOLD   = RGBColor(0xd4, 0xaf, 0x37)
+    TEAL   = RGBColor(0x15, 0x60, 0x82)
+    BORDER = RGBColor(0xd6, 0xde, 0xea)
+    TEXT2  = RGBColor(0x33, 0x41, 0x55)
+    ROW    = RGBColor(0xe9, 0xed, 0xf3)
+    ROW_A  = RGBColor(0xf7, 0xf2, 0xf6)
+
+    def _in(v):
+        return Inches(float(v))
+
+    def _plain(v, max_chars=None):
+        import re as _re
+        t = _re.sub(r"<[^>]+>", " ", str(v or ""))
+        t = _re.sub(r"\s+", " ", t).strip()
+        if max_chars and len(t) > max_chars:
+            return t[:max_chars - 1].rstrip() + "…"
+        return t
+
+    def _add_slide(prs):
+        try:
+            layout = prs.slide_layouts[6]
+        except IndexError:
+            layout = prs.slide_layouts[0]
+        return prs.slides.add_slide(layout)
+
+    def _bg(slide, color):
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = color
+
+    def _rect(slide, x, y, w, h, fc, lc=None, lw=0.5):
+        from pptx.util import Pt as _Pt
+        shape = slide.shapes.add_shape(1, _in(x), _in(y), _in(w), _in(h))
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fc
+        if lc:
+            shape.line.color.rgb = lc
+            shape.line.width = _Pt(lw)
+        else:
+            shape.line.fill.background()
+        return shape
+
+    def _txt(slide, x, y, w, h, text, size=10, bold=False, color=None,
+             align=PP_ALIGN.LEFT, wrap=True):
+        from pptx.util import Pt as _Pt
+        txb = slide.shapes.add_textbox(_in(x), _in(y), _in(w), _in(h))
+        txb.word_wrap = wrap
+        tf = txb.text_frame
+        tf.word_wrap = wrap
+        p = tf.paragraphs[0]
+        p.alignment = align
+        run = p.add_run()
+        run.text = str(text or "")
+        run.font.size = _Pt(size)
+        run.font.bold = bold
+        run.font.color.rgb = color or TEXT2
+        return txb
+
+    def _header(slide, title, subtitle, W, H):
+        bar_h = _in(1.0)
+        _rect(slide, 0, 0, W / _in(1), bar_h / _in(1), NAVY)
+        _rect(slide, 0, (bar_h - Pt(3)) / _in(1), W / _in(1), Pt(3) / _in(1), GOLD)
+        _txt(slide, 0.22, 0.12, W / _in(1) - 2.5, 0.45,
+             title, size=18, bold=True, color=WHITE, align=PP_ALIGN.LEFT)
+        _txt(slide, 0.22, 0.58, W / _in(1) - 2.5, 0.35,
+             subtitle, size=10, color=RGBColor(0xb0, 0xbc, 0xd4), align=PP_ALIGN.LEFT)
+        from datetime import datetime as _dt
+        ts = _dt.now().strftime("%Y-%m-%d %H:%M")
+        _txt(slide, W / _in(1) - 2.3, 0.18, 2.1, 0.35,
+             ts, size=9, color=RGBColor(0x90, 0x9b, 0xb8), align=PP_ALIGN.RIGHT)
+
+    def _footer(slide, target, W, H):
+        fh = _in(0.32)
+        _rect(slide, 0, H / _in(1) - 0.32, W / _in(1), 0.32, NAVY2)
+        _txt(slide, 0.2, H / _in(1) - 0.28, W / _in(1) * 0.5, 0.28,
+             f"PDT Buddy  |  {target}  |  Weekly Report",
+             size=8, color=RGBColor(0x90, 0x9b, 0xb8))
+        _txt(slide, W / _in(1) * 0.5, H / _in(1) - 0.28, W / _in(1) * 0.5, 0.28,
+             "CONFIDENTIAL — QUALCOMM INTERNAL",
+             size=8, color=RGBColor(0x90, 0x9b, 0xb8), align=PP_ALIGN.RIGHT)
+
+    def _kpi(slide, x, y, w, h, label, value, accent):
+        _rect(slide, x, y, w, h, WHITE, BORDER, 0.75)
+        _rect(slide, x, y, w, Pt(4) / _in(1), accent)
+        _txt(slide, x + 0.1, y + Pt(8) / _in(1), w - 0.2, 0.38,
+             str(value), size=20, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+        _txt(slide, x + 0.05, y + 0.48, w - 0.1, 0.32,
+             label, size=8, color=TEXT2, align=PP_ALIGN.CENTER)
+
+    def _table_slide(prs, target, title, subtitle, columns, rows, max_rows=30):
+        W = prs.slide_width
+        H = prs.slide_height
+        HEADER_H = _in(1.1)
+        FOOTER_H = _in(0.35)
+        MARGIN   = _in(0.22)
+        TABLE_TOP = HEADER_H + _in(0.12)
+        TABLE_H   = H - TABLE_TOP - FOOTER_H - _in(0.08)
+
+        if not columns:
+            return
+
+        chunks = [rows[i:i + max_rows] for i in range(0, max(len(rows), 1), max_rows)] if rows else [[]]
+        total_pages = len(chunks)
+
+        for page_idx, chunk in enumerate(chunks):
+            slide = _add_slide(prs)
+            _bg(slide, LIGHT)
+            sfx = f" (Page {page_idx + 1}/{total_pages})" if total_pages > 1 else ""
+            _header(slide, title + sfx, subtitle, W, H)
+            _footer(slide, target, W, H)
+
+            n_cols = len(columns)
+            avail_w = W - MARGIN * 2
+            widths = [avail_w // n_cols] * n_cols
+            widths[-1] = avail_w - sum(widths[:-1])
+
+            n_data = len(chunk)
+            n_total = 1 + max(n_data, 1)
+
+            tbl = slide.shapes.add_table(
+                n_total, n_cols, MARGIN, TABLE_TOP, avail_w, TABLE_H
+            ).table
+
+            for ci, cw in enumerate(widths):
+                tbl.columns[ci].width = int(cw)
+
+            for ci, col in enumerate(columns):
+                cell = tbl.cell(0, ci)
+                cell.text = col["title"]
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = NAVY
+                p = cell.text_frame.paragraphs[0]
+                p.alignment = PP_ALIGN.CENTER
+                run = p.runs[0] if p.runs else p.add_run()
+                run.font.bold = True
+                run.font.size = Pt(9)
+                run.font.color.rgb = WHITE
+
+            if chunk:
+                for ri, row in enumerate(chunk):
+                    bg = WHITE if ri % 2 == 0 else ROW
+                    for ci, col in enumerate(columns):
+                        cell = tbl.cell(ri + 1, ci)
+                        val = _plain(row.get(col["key"], "") or "")
+                        cell.text = val
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = bg
+                        p = cell.text_frame.paragraphs[0]
+                        p.alignment = PP_ALIGN.LEFT
+                        run = p.runs[0] if p.runs else p.add_run()
+                        run.font.size = Pt(8)
+                        run.font.color.rgb = TEXT2
+            else:
+                tbl.cell(1, 0).text = "No data available."
+
+    # ── Build presentation ───────────────────────────────────────────────
+    prs = Presentation()
+    prs.slide_width  = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+    W = prs.slide_width
+    H = prs.slide_height
+
+    date_label = f"{from_date} – {to_date}" if from_date and to_date and from_date != "ALL" else "All Data"
+    target_upper = (target_name or "").upper()
+
+    # ── SLIDE 1: Cover ───────────────────────────────────────────────────
+    slide = _add_slide(prs)
+    _bg(slide, NAVY)
+    _rect(slide, 0, 2.8, 13.33, Pt(5) / _in(1), GOLD)
+    _txt(slide, 0.8, 1.1, 11.73, 1.0,
+         "PDT Weekly Report", size=36, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+    _txt(slide, 0.8, 2.2, 11.73, 0.55,
+         f"{target_upper}  |  {date_label}", size=22, color=GOLD, align=PP_ALIGN.CENTER)
+    from datetime import datetime as _dt2
+    _txt(slide, 0.8, 3.05, 11.73, 0.45,
+         f"Generated: {_dt2.now().strftime('%Y-%m-%d %H:%M')}",
+         size=12, color=RGBColor(0x90, 0x9b, 0xb8), align=PP_ALIGN.CENTER)
+    _txt(slide, 0.8, 3.55, 11.73, 0.38,
+         "CONFIDENTIAL — QUALCOMM INTERNAL",
+         size=10, color=RGBColor(0x70, 0x7b, 0x98), align=PP_ALIGN.CENTER)
+    _rect(slide, 0, 6.95, 13.33, 0.55, NAVY2)
+    _txt(slide, 0.3, 7.05, 12.73, 0.38,
+         "Qualcomm  |  PDT Stability  |  Weekly Executive Report",
+         size=9, color=RGBColor(0x90, 0x9b, 0xb8), align=PP_ALIGN.CENTER)
+
+    # ── SLIDE 2: KPI Overview ────────────────────────────────────────────
+    slide = _add_slide(prs)
+    _bg(slide, LIGHT)
+    _header(slide, "Weekly Summary — Key Metrics",
+            f"{target_upper}  |  {date_label}", W, H)
+    _footer(slide, target_name, W, H)
+
+    kpi_items = [
+        ("Total JIRAs Reported",  rs.get("num_jiras_reported", 0),   RGBColor(0x1b, 0x2d, 0x52)),
+        ("Open JIRAs",            rs.get("num_open_jiras", 0),        RGBColor(0xd9, 0x30, 0x25)),
+        ("Total CRs Reported",    rs.get("num_crs_week", 0),          RGBColor(0x0d, 0x9e, 0x6e)),
+        ("Valid CRs",             rs.get("num_valid_crs", 0),         RGBColor(0x08, 0x91, 0xb2)),
+        ("Built CRs",             rs.get("num_built_crs", 0),         RGBColor(0x7c, 0x3a, 0xed)),
+        ("Dup CRs",               rs.get("num_dup_crs", rs.get("dup", 0)), RGBColor(0xd4, 0xaf, 0x37)),
+    ]
+    CARD_W = 2.0
+    CARD_H = 0.95
+    GAP    = 0.18
+    COLS   = 3
+    START_X = 0.28
+    START_Y = 1.22
+    for idx, (label, value, accent) in enumerate(kpi_items):
+        col_i = idx % COLS
+        row_i = idx // COLS
+        lft = START_X + col_i * (CARD_W + GAP)
+        top = START_Y + row_i * (CARD_H + GAP)
+        _kpi(slide, lft, top, CARD_W, CARD_H, label, value, accent)
+
+    # ── SLIDE 3: Tech-wise Summary Table (Area + Count) ──────────────────
+    area_counts = _Counter((r.get("cr_area") or "Unknown").strip() for r in cr_rows)
+    area_rows = [{"area": k, "count": str(v)}
+                 for k, v in sorted(area_counts.items(), key=lambda x: -x[1])]
+    # Add total row
+    area_rows.append({"area": "Total", "count": str(sum(area_counts.values()))})
+    _table_slide(prs, target_name,
+                 "Tech-wise Summary",
+                 f"{target_upper}  |  CR Count by Area  |  {date_label}",
+                 [{"title": "Area", "key": "area"}, {"title": "Count", "key": "count"}],
+                 area_rows)
+
+    # ── SLIDE 4: Priority Table (P1, P2) ─────────────────────────────────
+    pri_counts = _Counter()
+    for r in cr_rows:
+        pri = str(r.get("pdt_priority_tag") or r.get("priority") or "").strip()
+        if pri.upper() in ("P1", "P2", "P3"):
+            pri_counts[pri.upper()] += 1
+    if pri_counts:
+        pri_rows = [{"category": k, "count": str(v)}
+                    for k, v in sorted(pri_counts.items())]
+        pri_rows.append({"category": "Total", "count": str(sum(pri_counts.values()))})
+        _table_slide(prs, target_name,
+                     "Priority Summary",
+                     f"{target_upper}  |  CR Count by Priority  |  {date_label}",
+                     [{"title": "Category", "key": "category"}, {"title": "No. of CRs", "key": "count"}],
+                     pri_rows)
+
+    # ── SLIDE 5: CR Status Table ──────────────────────────────────────────
+    status_counts = _Counter((r.get("cr_status") or "Unknown").strip() for r in cr_rows)
+    status_rows = [{"status": k, "count": str(v)}
+                   for k, v in sorted(status_counts.items(), key=lambda x: -x[1])]
+    if status_rows:
+        _table_slide(prs, target_name,
+                     "CR Status Breakdown",
+                     f"{target_upper}  |  CR Count by Status  |  {date_label}",
+                     [{"title": "CR Status", "key": "status"}, {"title": "Count", "key": "count"}],
+                     status_rows)
+
+    # ── SLIDE 6: Open/Analysis CR Detail Table ────────────────────────────
+    open_rows = [r for r in cr_rows
+                 if str(r.get("cr_status") or "").strip().lower() in ("open", "analysis")]
+    if open_rows:
+        detail_cols = [
+            {"title": "CR",          "key": "mapped_cr"},
+            {"title": "Title",       "key": "cr_title"},
+            {"title": "Area",        "key": "cr_area"},
+            {"title": "Status",      "key": "cr_status"},
+            {"title": "Age (days)",  "key": "cr_age"},
+            {"title": "Priority",    "key": "pdt_priority_tag"},
+        ]
+        detail_rows = []
+        for r in open_rows:
+            detail_rows.append({
+                "mapped_cr":       str(r.get("mapped_cr") or r.get("cr") or ""),
+                "cr_title":        _plain(r.get("cr_title") or "", 60),
+                "cr_area":         str(r.get("cr_area") or ""),
+                "cr_status":       str(r.get("cr_status") or ""),
+                "cr_age":          str(r.get("cr_age") or ""),
+                "pdt_priority_tag": str(r.get("pdt_priority_tag") or ""),
+            })
+        _table_slide(prs, target_name,
+                     "Open / Analysis CRs",
+                     f"{target_upper}  |  Open & Analysis CRs  |  {date_label}",
+                     detail_cols, detail_rows, max_rows=25)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/weekly-report/export_ppt")
+@login_required
+def api_dashboard_weekly_report_ppt(target_name):
+    """Download a PowerPoint for the weekly report."""
+    try:
+        report_summary, from_date, to_date, error = build_weekly_report_context(target_name, request)
+        if error:
+            return jsonify({"ok": False, "error": error}), 400
+        buf = _build_weekly_report_ppt(target_name, report_summary, from_date, to_date)
+        label = (from_date or "").replace("-", "") + "_" + (to_date or "").replace("-", "")
+        filename = f"Weekly_Report_{target_name}_{label}.pptx"
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+    except Exception as exc:
+        import traceback as _tb
+        logger.exception("[api_dashboard_weekly_report_ppt] error target=%s", target_name)
+        return jsonify({"ok": False, "error": str(exc), "trace": _tb.format_exc()}), 500
+
+
+# ---------------------------------------------------------------------
 # HELPERS FOR CR AGE (detail + status)
 # ---------------------------------------------------------------------
 def fetch_undisposed_crs_in_age_band(table_u, min_age, max_age=None):

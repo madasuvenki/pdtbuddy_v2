@@ -329,10 +329,36 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
         </div>
         <div class="wk-actions">
           <button type="submit">Submit</button>
+          <a id="btnDownloadWeeklyPpt"
+             href="{{ url_for('dashboard_bp.api_dashboard_weekly_report_ppt', target_name=target_val) }}"
+             style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:10px;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:800;font-size:12px;text-decoration:none;box-shadow:0 4px 12px rgba(217,119,6,.3);white-space:nowrap;"
+             title="Download Weekly Report as PowerPoint">
+            <i class="fas fa-file-powerpoint"></i> Weekly Report PPT
+          </a>
         </div>
       </div>
     </div>
   </form>
+  <script>
+  (function(){
+    var btn = document.getElementById('btnDownloadWeeklyPpt');
+    if(!btn) return;
+    function updatePptLink(){
+      var from = document.getElementById('from_date');
+      var to   = document.getElementById('to_date');
+      var base = btn.getAttribute('href').split('?')[0];
+      var params = [];
+      if(from && from.value) params.push('from_date=' + encodeURIComponent(from.value));
+      if(to   && to.value)   params.push('to_date='   + encodeURIComponent(to.value));
+      btn.href = base + (params.length ? '?' + params.join('&') : '');
+    }
+    var f = document.getElementById('from_date');
+    var t = document.getElementById('to_date');
+    if(f) f.addEventListener('change', updatePptLink);
+    if(t) t.addEventListener('change', updatePptLink);
+    updatePptLink();
+  })();
+  </script>
 
   <div class="wk-grid">
     <div class="wk-panel">
