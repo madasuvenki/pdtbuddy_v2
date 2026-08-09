@@ -488,20 +488,29 @@ function renderAgeChart(data){
   svg.innerHTML = '';
   if(!areas.length){ svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" font-size="13" fill="#94a3b8">No data available.</text>'; return; }
 
-  var SERIES = [
-    {key:'new',    label:'New Open/Analysis CRs',      color:'#7c3aed'},
-    {key:'lt1w',   label:'CR Age <1 Week',             color:'#16a34a'},
-    {key:'1to2w',  label:'CR Age 1-2 Weeks',           color:'#eab308'},
-    {key:'2to3w',  label:'CR Age 2-3 Weeks',           color:'#f97316'},
-    {key:'gt3w',   label:'CR Age >3 Weeks',            color:'#dc2626'},
-    {key:'closed', label:'Closed CRs from last update',color:'#1e3a5f'},
+  // Legend items
+  var LEGEND = [
+    {label:'New Open/Analysis CRs', color:'#7c3aed'},
+    {label:'CR Age <1 Week',        color:'#16a34a'},
+    {label:'CR Age 1-2 Weeks',      color:'#eab308'},
+    {label:'CR Age 2-3 Weeks',      color:'#f97316'},
+    {label:'CR Age >3 Weeks',       color:'#dc2626'},
+    {label:'Closed CRs from last update', color:'#1e3a5f'},
   ];
 
-  // Layout constants matching the image
-  var LEG_H = 36;   // legend strip height at top
+  // Stacked age series (bottom to top)
+  var STACK = [
+    {key:'gt3w',  color:'#dc2626'},
+    {key:'2to3w', color:'#f97316'},
+    {key:'1to2w', color:'#eab308'},
+    {key:'lt1w',  color:'#16a34a'},
+  ];
+
+  // Layout: 3 bars per area — New (single) | Age Stack | Closed (single)
+  var LEG_H = 36;
   var H = 480, L = 52, R = 24, T = LEG_H + 20, B = 90, plotH = H - T - B;
-  var BAR_W = 22, BAR_GAP = 2, GROUP_GAP = 18, nSeries = SERIES.length;
-  var groupW = BAR_W * nSeries + BAR_GAP * (nSeries - 1) + GROUP_GAP;
+  var BAR_W = 30, BAR_GAP = 8, GROUP_GAP = 24;
+  var groupW = BAR_W * 3 + BAR_GAP * 2 + GROUP_GAP;
   var plotW = groupW * areas.length;
   var W = L + plotW + R;
 
@@ -511,87 +520,90 @@ function renderAgeChart(data){
 
   var mk = function(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); };
 
-  // Max value
+  // Max value (account for stacked bar height)
   var maxVal = 1;
-  areas.forEach(function(a){ SERIES.forEach(function(s){ maxVal = Math.max(maxVal, areaData[a][s.key]||0); }); });
+  areas.forEach(function(a){
+    maxVal = Math.max(maxVal, areaData[a].new||0);
+    maxVal = Math.max(maxVal, (areaData[a].lt1w||0)+(areaData[a]['1to2w']||0)+(areaData[a]['2to3w']||0)+(areaData[a].gt3w||0));
+    maxVal = Math.max(maxVal, areaData[a].closed||0);
+  });
   var niceMax = maxVal<=5?5:maxVal<=10?10:maxVal<=15?15:maxVal<=20?20:Math.ceil(maxVal/4)*4+4;
   var yFn = function(v){ return T + plotH - (Number(v||0)/niceMax)*plotH; };
 
-  // Horizontal grid lines
+  // Grid lines
   var gridSteps = Math.min(niceMax, 8);
   for(var gi=0; gi<=gridSteps; gi++){
-    var gv = Math.round(niceMax*gi/gridSteps), gy = yFn(gv);
-    var ln = mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy);
-    ln.setAttribute('stroke','#d1d5db'); ln.setAttribute('stroke-width','1'); svg.appendChild(ln);
-    var tx = mk('text'); tx.setAttribute('x',L-6); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
+    var gv=Math.round(niceMax*gi/gridSteps), gy=yFn(gv);
+    var ln=mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy); ln.setAttribute('stroke','#d1d5db'); ln.setAttribute('stroke-width','1'); svg.appendChild(ln);
+    var tx=mk('text'); tx.setAttribute('x',L-6); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
   }
+  var axL=mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#6b7280'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
+  var axB=mk('line'); axB.setAttribute('x1',L); axB.setAttribute('x2',W-R); axB.setAttribute('y1',T+plotH); axB.setAttribute('y2',T+plotH); axB.setAttribute('stroke','#6b7280'); axB.setAttribute('stroke-width','1.5'); svg.appendChild(axB);
 
-  // Axes
-  var axL = mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#6b7280'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
-  var axB = mk('line'); axB.setAttribute('x1',L); axB.setAttribute('x2',W-R); axB.setAttribute('y1',T+plotH); axB.setAttribute('y2',T+plotH); axB.setAttribute('stroke','#6b7280'); axB.setAttribute('stroke-width','1.5'); svg.appendChild(axB);
-
-  // Bars
+  // Draw bars
   areas.forEach(function(area, ai){
     var gx0 = L + ai * groupW + GROUP_GAP / 2;
-    SERIES.forEach(function(s, si){
-      var val = (areaData[area]||{})[s.key]||0;
-      var bx = gx0 + si * (BAR_W + BAR_GAP);
-      var barTop = yFn(val);
-      var barH = Math.max(0, T + plotH - barTop);
-      // Draw bar even if val=0 (invisible) so spacing is consistent
-      if(val > 0){
-        var rect = mk('rect');
-        rect.setAttribute('x', bx); rect.setAttribute('y', barTop);
-        rect.setAttribute('width', BAR_W); rect.setAttribute('height', barH);
-        rect.setAttribute('fill', s.color); rect.setAttribute('rx', '2');
-        svg.appendChild(rect);
-        // Value label on top of bar
-        var vt = mk('text');
-        vt.setAttribute('x', bx + BAR_W/2);
-        vt.setAttribute('y', barTop - 3);
-        vt.setAttribute('text-anchor','middle');
-        vt.setAttribute('font-size','9');
-        vt.setAttribute('font-weight','900');
-        vt.setAttribute('fill','#1e293b');
-        vt.textContent = val;
-        svg.appendChild(vt);
+    var d = areaData[area] || {};
+
+    // ── Bar 1: New Open/Analysis CRs (purple, single) ──
+    var newVal = d.new || 0;
+    var bx1 = gx0;
+    if(newVal > 0){
+      var bt1 = yFn(newVal), bh1 = Math.max(0, T+plotH-bt1);
+      var r1=mk('rect'); r1.setAttribute('x',bx1); r1.setAttribute('y',bt1); r1.setAttribute('width',BAR_W); r1.setAttribute('height',bh1); r1.setAttribute('fill','#7c3aed'); r1.setAttribute('rx','2'); svg.appendChild(r1);
+      var v1=mk('text'); v1.setAttribute('x',bx1+BAR_W/2); v1.setAttribute('y',bt1-3); v1.setAttribute('text-anchor','middle'); v1.setAttribute('font-size','9'); v1.setAttribute('font-weight','900'); v1.setAttribute('fill','#1e293b'); v1.textContent=newVal; svg.appendChild(v1);
+    }
+
+    // ── Bar 2: Stacked age bar (gt3w bottom → lt1w top) ──
+    var bx2 = gx0 + BAR_W + BAR_GAP;
+    var stackAcc = 0;
+    STACK.forEach(function(s){
+      var val = d[s.key] || 0;
+      if(!val){ stackAcc += val; return; }
+      var segBot = yFn(stackAcc), segTop = yFn(stackAcc + val);
+      var segH = Math.max(0, segBot - segTop);
+      var rs=mk('rect'); rs.setAttribute('x',bx2); rs.setAttribute('y',segTop); rs.setAttribute('width',BAR_W); rs.setAttribute('height',segH); rs.setAttribute('fill',s.color); rs.setAttribute('rx','2'); svg.appendChild(rs);
+      if(segH >= 14){
+        var vs=mk('text'); vs.setAttribute('x',bx2+BAR_W/2); vs.setAttribute('y',segTop+segH/2+4); vs.setAttribute('text-anchor','middle'); vs.setAttribute('font-size','9'); vs.setAttribute('font-weight','900'); vs.setAttribute('fill','#fff'); vs.textContent=val; svg.appendChild(vs);
+      } else if(segH > 0){
+        var vs=mk('text'); vs.setAttribute('x',bx2+BAR_W/2); vs.setAttribute('y',segTop-2); vs.setAttribute('text-anchor','middle'); vs.setAttribute('font-size','9'); vs.setAttribute('font-weight','900'); vs.setAttribute('fill','#1e293b'); vs.textContent=val; svg.appendChild(vs);
       }
+      stackAcc += val;
     });
-    // Area label (rotated, centred under group)
-    var gcx = gx0 + (nSeries * BAR_W + (nSeries-1) * BAR_GAP) / 2;
-    var lab = mk('text');
-    lab.setAttribute('x', gcx); lab.setAttribute('y', T + plotH + 16);
-    lab.setAttribute('text-anchor','end'); lab.setAttribute('font-size','10');
-    lab.setAttribute('font-weight','700'); lab.setAttribute('fill','#475569');
-    lab.setAttribute('transform','rotate(-40 '+gcx+' '+(T+plotH+16)+')');
-    lab.textContent = area; svg.appendChild(lab);
+    // Total label on top of stacked bar
+    if(stackAcc > 0){
+      var stTop = yFn(stackAcc);
+      var vst=mk('text'); vst.setAttribute('x',bx2+BAR_W/2); vst.setAttribute('y',stTop-3); vst.setAttribute('text-anchor','middle'); vst.setAttribute('font-size','9'); vst.setAttribute('font-weight','900'); vst.setAttribute('fill','#1e293b'); vst.textContent=stackAcc; svg.appendChild(vst);
+    }
+
+    // ── Bar 3: Closed CRs (navy, single) ──
+    var closedVal = d.closed || 0;
+    var bx3 = gx0 + (BAR_W + BAR_GAP) * 2;
+    if(closedVal > 0){
+      var bt3 = yFn(closedVal), bh3 = Math.max(0, T+plotH-bt3);
+      var r3=mk('rect'); r3.setAttribute('x',bx3); r3.setAttribute('y',bt3); r3.setAttribute('width',BAR_W); r3.setAttribute('height',bh3); r3.setAttribute('fill','#1e3a5f'); r3.setAttribute('rx','2'); svg.appendChild(r3);
+      var v3=mk('text'); v3.setAttribute('x',bx3+BAR_W/2); v3.setAttribute('y',bt3-3); v3.setAttribute('text-anchor','middle'); v3.setAttribute('font-size','9'); v3.setAttribute('font-weight','900'); v3.setAttribute('fill','#1e293b'); v3.textContent=closedVal; svg.appendChild(v3);
+    }
+
+    // Area label
+    var gcx = gx0 + (BAR_W*3 + BAR_GAP*2) / 2;
+    var lab=mk('text'); lab.setAttribute('x',gcx); lab.setAttribute('y',T+plotH+16); lab.setAttribute('text-anchor','end'); lab.setAttribute('font-size','10'); lab.setAttribute('font-weight','700'); lab.setAttribute('fill','#475569'); lab.setAttribute('transform','rotate(-40 '+gcx+' '+(T+plotH+16)+')'); lab.textContent=area; svg.appendChild(lab);
   });
 
   // Y-axis label
-  var yl = mk('text'); yl.setAttribute('x',14); yl.setAttribute('y',T+plotH/2);
-  yl.setAttribute('transform','rotate(-90 14 '+(T+plotH/2)+')');
-  yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','11'); yl.setAttribute('fill','#475569');
-  yl.textContent='Count'; svg.appendChild(yl);
-
+  var yl=mk('text'); yl.setAttribute('x',14); yl.setAttribute('y',T+plotH/2); yl.setAttribute('transform','rotate(-90 14 '+(T+plotH/2)+')'); yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','11'); yl.setAttribute('fill','#475569'); yl.textContent='Count'; svg.appendChild(yl);
   // X-axis label
-  var xl = mk('text'); xl.setAttribute('x',L+plotW/2); xl.setAttribute('y',H-6);
-  xl.setAttribute('text-anchor','middle'); xl.setAttribute('font-size','11'); xl.setAttribute('fill','#475569');
-  xl.textContent='CR Area'; svg.appendChild(xl);
+  var xl=mk('text'); xl.setAttribute('x',L+plotW/2); xl.setAttribute('y',H-6); xl.setAttribute('text-anchor','middle'); xl.setAttribute('font-size','11'); xl.setAttribute('fill','#475569'); xl.textContent='CR Area'; svg.appendChild(xl);
 
-  // Legend — top right, single row
-  var LEG_ITEM_W = 155, LEG_X_START = Math.max(L + plotW - LEG_ITEM_W * SERIES.length, L);
-  // If legend overflows left, wrap to two rows
-  var legRow1 = SERIES.slice(0, Math.ceil(SERIES.length/2));
-  var legRow2 = SERIES.slice(Math.ceil(SERIES.length/2));
-  var legStartX = W - R - LEG_ITEM_W * legRow1.length - 4;
+  // Legend top-right, two rows
+  var LEG_ITEM_W = 155, nHalf = Math.ceil(LEGEND.length/2);
+  var legStartX = W - R - LEG_ITEM_W * nHalf - 4;
   if(legStartX < L) legStartX = L;
-  [legRow1, legRow2].forEach(function(row, ri){
-    row.forEach(function(s, idx){
-      var gx = legStartX + idx * LEG_ITEM_W;
-      var gy = 8 + ri * 16;
-      var sw = mk('rect'); sw.setAttribute('x',gx); sw.setAttribute('y',gy); sw.setAttribute('width',11); sw.setAttribute('height',11); sw.setAttribute('rx','2'); sw.setAttribute('fill',s.color); svg.appendChild(sw);
-      var st = mk('text'); st.setAttribute('x',gx+15); st.setAttribute('y',gy+9); st.setAttribute('font-size','10'); st.setAttribute('font-weight','700'); st.setAttribute('fill','#475569'); st.textContent=s.label; svg.appendChild(st);
-    });
+  LEGEND.forEach(function(s, idx){
+    var row = Math.floor(idx/nHalf), col = idx%nHalf;
+    var gx = legStartX + col*LEG_ITEM_W, gy = 8 + row*16;
+    var sw=mk('rect'); sw.setAttribute('x',gx); sw.setAttribute('y',gy); sw.setAttribute('width',11); sw.setAttribute('height',11); sw.setAttribute('rx','2'); sw.setAttribute('fill',s.color); svg.appendChild(sw);
+    var st=mk('text'); st.setAttribute('x',gx+15); st.setAttribute('y',gy+9); st.setAttribute('font-size','10'); st.setAttribute('font-weight','700'); st.setAttribute('fill','#475569'); st.textContent=s.label; svg.appendChild(st);
   });
 }
 </script>
