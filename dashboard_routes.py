@@ -4148,6 +4148,185 @@ def _build_weekly_report_ppt(target_name, report_summary, from_date, to_date):
     return buf
 
 
+@dashboard_bp.route("/dashboard/<string:target_name>/cr-age-report")
+@login_required
+def cr_age_report_page(target_name):
+    """CR Age Report — select Meta IDs from two weeks and generate CR age analysis."""
+    return render_template('cr_age_report.html', target_name=target_name)
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr-age-report/meta-ids")
+@login_required
+def api_cr_age_report_meta_ids(target_name):
+    """Return distinct Meta IDs (build IDs) for a date range from the jiras table."""
+    from_date = (request.args.get("from_date") or "").strip()
+    to_date   = (request.args.get("to_date")   or "").strip()
+    if not from_date or not to_date:
+        return jsonify({"ok": False, "error": "from_date and to_date required"}), 400
+    conn = cur = None
+    try:
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify({"ok": False, "error": "DB connection failed"}), 500
+        j_table = fq_table_for_target(target_name, "jiras")
+        cur = conn.cursor(dictionary=True)
+        cur.execute(f"SHOW COLUMNS FROM {j_table}")
+        cols = {r['Field'] for r in (cur.fetchall() or [])}
+        date_col = next((c for c in ['jira_date','test_date','date','created'] if c in cols), None)
+        mb_col   = next((c for c in ['metabuild','meta_build','build_id','build'] if c in cols), None)
+        if not date_col or not mb_col:
+            return jsonify({"ok": True, "meta_ids": [], "count": 0,
+                            "message": "Required columns (jira_date/metabuild) not found in jiras table"})
+        cur.execute(
+            f"SELECT DISTINCT `{mb_col}` AS metabuild FROM {j_table} "
+            f"WHERE `{date_col}` >= %s AND `{date_col}` <= %s "
+            f"  AND `{mb_col}` IS NOT NULL AND `{mb_col}` != '' "
+            f"ORDER BY `{mb_col}` DESC",
+            (from_date, to_date + " 23:59:59")
+        )
+        builds = [r["metabuild"] for r in (cur.fetchall() or []) if r.get("metabuild")]
+        import re as _re
+        def _to_meta(build):
+            m = _re.search(r'(?:\.(r\d+))?-0*(\d{3,})', str(build))
+            if m:
+                rsuffix = m.group(1) or ''
+                num = str(int(m.group(2)))
+                return f"META-{rsuffix}-{num}" if rsuffix else f"META-{num}"
+            return build
+        meta_ids = [{"build": b, "meta_id": _to_meta(b)} for b in builds]
+        return jsonify({"ok": True, "meta_ids": meta_ids, "count": len(meta_ids)})
+    except Exception as exc:
+        logger.exception("[api_cr_age_report_meta_ids] error target=%s", target_name)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            if cur:  cur.close()
+            if conn: conn.close()
+        except Exception:
+            pass
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cr-age-report/generate", methods=["POST"])
+@login_required
+def api_cr_age_report_generate(target_name):
+    """Generate CR age report for selected Meta IDs from two weeks."""
+    body = request.get_json(force=True) or {}
+    current_builds  = [str(b).strip() for b in (body.get("current_builds")  or []) if str(b).strip()]
+    previous_builds = [str(b).strip() for b in (body.get("previous_builds") or []) if str(b).strip()]
+    if not current_builds and not previous_builds:
+        return jsonify({"ok": False, "error": "No builds selected"}), 400
+    conn = cur = None
+    try:
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify({"ok": False, "error": "DB connection failed"}), 500
+        j_table = fq_table_for_target(target_name, "jiras")
+        u_table = fq_table_for_target(target_name, "unique_crs")
+        cur = conn.cursor(dictionary=True)
+
+        # Detect jiras columns
+        cur.execute(f"SHOW COLUMNS FROM {j_table}")
+        j_cols = {r['Field'] for r in (cur.fetchall() or [])}
+        mb_col = next((c for c in ['metabuild','meta_build','build_id','build'] if c in j_cols), None)
+        cr_col = next((c for c in ['mapped_crs','mapped_cr','cr'] if c in j_cols), None)
+
+        def _get_crs(builds):
+            if not builds or not mb_col or not cr_col:
+                return set()
+            ph = ",".join(["%s"] * len(builds))
+            cur.execute(
+                f"SELECT DISTINCT `{cr_col}` AS cr FROM {j_table} "
+                f"WHERE `{mb_col}` IN ({ph}) AND `{cr_col}` IS NOT NULL AND `{cr_col}` != ''",
+                tuple(builds)
+            )
+            return {r["cr"] for r in (cur.fetchall() or []) if r.get("cr")}
+
+        curr_set = _get_crs(current_builds)
+        prev_set = _get_crs(previous_builds)
+        all_crs  = list(curr_set | prev_set)
+
+        # Fetch CR details from unique_crs
+        cr_details = {}
+        if all_crs:
+            cur.execute(f"SHOW COLUMNS FROM {u_table}")
+            u_cols = {r['Field'] for r in (cur.fetchall() or [])}
+            def _col(name):
+                return f"`{name}`" if name in u_cols else "NULL"
+            ph = ",".join(["%s"] * len(all_crs))
+            cur.execute(
+                f"SELECT `mapped_cr`, {_col('cr_title')}, {_col('cr_area')}, "
+                f"{_col('cr_status')}, {_col('cr_age')}, {_col('pdt_priority_tag')}, "
+                f"{_col('cr_category')}, {_col('image')} "
+                f"FROM {u_table} WHERE `mapped_cr` IN ({ph})",
+                tuple(all_crs)
+            )
+            for r in (cur.fetchall() or []):
+                cr = r.get("mapped_cr")
+                if cr and cr not in cr_details:
+                    cr_details[cr] = {k: (str(v) if v is not None else '') for k, v in r.items()}
+
+        def _cr_list(cr_set):
+            return [cr_details.get(cr, {"mapped_cr": cr}) for cr in sorted(cr_set)]
+
+        # New CRs = in current but not in previous
+        new_crs = curr_set - prev_set
+        # Closed CRs = in previous with built/closed status
+        closed_crs = {
+            cr for cr in prev_set
+            if any(k in str(cr_details.get(cr, {}).get('cr_status', '')).lower()
+                   for k in ('built', 'close', 'fix'))
+        }
+
+        # Area data for bar chart
+        area_data = {}
+        for cr, d in cr_details.items():
+            area   = str(d.get('cr_area') or 'Unknown').strip() or 'Unknown'
+            status = str(d.get('cr_status') or '').lower()
+            try:
+                age = int(str(d.get('cr_age') or 0).replace(',', '').split('.')[0] or 0)
+            except Exception:
+                age = 0
+            if area not in area_data:
+                area_data[area] = {'new': 0, 'lt1w': 0, '1to2w': 0, '2to3w': 0, 'gt3w': 0, 'closed': 0}
+            if 'built' in status or 'close' in status or 'fix' in status:
+                area_data[area]['closed'] += 1
+            elif 'open' in status or status.startswith('anal'):
+                if cr in new_crs:
+                    area_data[area]['new'] += 1
+                if age <= 7:
+                    area_data[area]['lt1w'] += 1
+                elif age <= 14:
+                    area_data[area]['1to2w'] += 1
+                elif age <= 21:
+                    area_data[area]['2to3w'] += 1
+                else:
+                    area_data[area]['gt3w'] += 1
+
+        return jsonify({
+            "ok": True,
+            "current_builds":  current_builds,
+            "previous_builds": previous_builds,
+            "new_crs":         _cr_list(new_crs),
+            "closed_crs":      _cr_list(closed_crs),
+            "all_cr_details":  list(cr_details.values()),
+            "area_data":       area_data,
+            "total_current":   len(curr_set),
+            "total_previous":  len(prev_set),
+            "total_new":       len(new_crs),
+            "total_closed":    len(closed_crs),
+        })
+    except Exception as exc:
+        import traceback as _tb
+        logger.exception("[api_cr_age_report_generate] error target=%s", target_name)
+        return jsonify({"ok": False, "error": str(exc), "trace": _tb.format_exc()}), 500
+    finally:
+        try:
+            if cur:  cur.close()
+            if conn: conn.close()
+        except Exception:
+            pass
+
+
 @dashboard_bp.route("/api/dashboard/<string:target_name>/weekly-report/export_ppt")
 @login_required
 def api_dashboard_weekly_report_ppt(target_name):
