@@ -322,12 +322,21 @@ def _check_session_idle():
 
 @app.after_request
 def _set_no_cache_html(response):
-    """Prevent browsers from caching HTML pages so template changes are always picked up."""
+    """Prevent browsers from caching HTML pages so template changes are always picked up.
+    The login page uses 'no-cache' (not 'no-store') so the browser password manager
+    can still auto-fill saved credentials.
+    """
     ct = response.content_type or ''
     if 'text/html' in ct:
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+        # Login page: use no-cache (not no-store) so browser password manager works
+        if request.endpoint == 'login':
+            response.headers['Cache-Control'] = 'no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        else:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
     return response
 
 
@@ -9105,7 +9114,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
     # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
