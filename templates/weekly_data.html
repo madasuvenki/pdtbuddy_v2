@@ -510,11 +510,11 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     // ── Bar Chart: Tech wise Distribution ────────────────────────────────
     var SERIES = [
       {key:'new',    label:'New Open/Analysis CRs',      color:'#7c3aed'},
-      {key:'lt1w',   label:'CR Age <1 Week',              color:'#2563eb'},
-      {key:'1to2w',  label:'CR Age 1-2 Weeks',            color:'#16a34a'},
-      {key:'2to3w',  label:'CR Age 2-3 Weeks',            color:'#ca8a04'},
-      {key:'gt3w',   label:'CR Age >3 Weeks',             color:'#ea580c'},
-      {key:'closed', label:'Closed CRs from last update', color:'#dc2626'},
+      {key:'lt1w',   label:'CR Age <1 Week',             color:'#16a34a'},
+      {key:'1to2w',  label:'CR Age 1-2 Weeks',           color:'#eab308'},
+      {key:'2to3w',  label:'CR Age 2-3 Weeks',           color:'#f97316'},
+      {key:'gt3w',   label:'CR Age >3 Weeks',            color:'#dc2626'},
+      {key:'closed', label:'Closed CRs from last update',color:'#1e3a5f'},
     ];
 
     // Compute per-area counts
@@ -533,7 +533,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
       }
     });
 
-    // Sort areas by total Open/Analysis count desc
+    // Sort areas by total count desc
     var areas = Object.keys(areaData).sort(function(a,b){
       var ta = areaData[a].new+areaData[a].lt1w+areaData[a]['1to2w']+areaData[a]['2to3w']+areaData[a].gt3w+areaData[a].closed;
       var tb = areaData[b].new+areaData[b].lt1w+areaData[b]['1to2w']+areaData[b]['2to3w']+areaData[b].gt3w+areaData[b].closed;
@@ -543,10 +543,9 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     var svg = document.getElementById('crmBarChart');
     if(!svg || !areas.length) return;
 
-    var H=460, L=60, R=20, T=50, B=120, plotH=H-T-B;
-    var BAR_W=14, BAR_GAP=3, GROUP_PAD=28;
-    var nSeries=SERIES.length;
-    var groupW = Math.max(140, BAR_W*nSeries + BAR_GAP*(nSeries-1) + GROUP_PAD*2);
+    var LEG_H=36, H=480, L=52, R=24, T=LEG_H+20, B=90, plotH=H-T-B;
+    var BAR_W=22, BAR_GAP=2, GROUP_GAP=18, nSeries=SERIES.length;
+    var groupW = BAR_W*nSeries + BAR_GAP*(nSeries-1) + GROUP_GAP;
     var plotW = groupW * areas.length;
     var W = L + plotW + R;
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
@@ -556,42 +555,38 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     var mk = function(tag){ return document.createElementNS('http://www.w3.org/2000/svg',tag); };
 
     var maxVal = 1;
-    areas.forEach(function(a){
-      SERIES.forEach(function(s){ maxVal = Math.max(maxVal, areaData[a][s.key]||0); });
-    });
-    var niceMax = maxVal <= 5 ? 5 : maxVal <= 10 ? 10 : maxVal <= 20 ? 20 : Math.ceil(maxVal/5)*5+5;
+    areas.forEach(function(a){ SERIES.forEach(function(s){ maxVal = Math.max(maxVal, areaData[a][s.key]||0); }); });
+    var niceMax = maxVal<=5?5:maxVal<=10?10:maxVal<=15?15:maxVal<=20?20:Math.ceil(maxVal/4)*4+4;
     var yFn = function(v){ return T + plotH - (Number(v||0)/niceMax)*plotH; };
 
-    // Grid lines
-    for(var gi=0;gi<=5;gi++){
-      var gv = Math.round(niceMax*gi/5), gy = yFn(gv);
-      var ln = mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy); ln.setAttribute('stroke','#e5e7eb'); ln.setAttribute('stroke-width','1'); svg.appendChild(ln);
-      var tx = mk('text'); tx.setAttribute('x',L-8); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
+    // Horizontal grid lines
+    var gridSteps = Math.min(niceMax, 8);
+    for(var gi=0;gi<=gridSteps;gi++){
+      var gv=Math.round(niceMax*gi/gridSteps), gy=yFn(gv);
+      var ln=mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy);
+      ln.setAttribute('stroke', gi===0?'#94a3b8':'#e5e7eb'); ln.setAttribute('stroke-width', gi===0?'1.5':'1'); svg.appendChild(ln);
+      var tx=mk('text'); tx.setAttribute('x',L-6); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
     }
-    // Axes
+    // Y axis
     var axL=mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#94a3b8'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
-    var axB=mk('line'); axB.setAttribute('x1',L); axB.setAttribute('x2',W-R); axB.setAttribute('y1',T+plotH); axB.setAttribute('y2',T+plotH); axB.setAttribute('stroke','#94a3b8'); axB.setAttribute('stroke-width','1.5'); svg.appendChild(axB);
 
     // Bars
     areas.forEach(function(area, ai){
-      var gcx = L + ai*groupW + groupW/2;
-      var totalBarsW = nSeries*BAR_W + (nSeries-1)*BAR_GAP;
-      var bx0 = gcx - totalBarsW/2;
-      if(ai%2===0){ var band=mk('rect'); band.setAttribute('x',L+ai*groupW); band.setAttribute('y',T); band.setAttribute('width',groupW); band.setAttribute('height',plotH); band.setAttribute('fill','rgba(241,245,249,0.6)'); svg.insertBefore(band, svg.firstChild); }
+      var gx0 = L + ai*groupW + GROUP_GAP/2;
       SERIES.forEach(function(s, si){
         var val = areaData[area][s.key]||0;
         if(!val) return;
-        var bx = bx0 + si*(BAR_W+BAR_GAP);
-        var h = T+plotH - yFn(val);
-        var rect=mk('rect'); rect.setAttribute('x',bx); rect.setAttribute('y',yFn(val)); rect.setAttribute('width',BAR_W); rect.setAttribute('height',Math.max(0,h)); rect.setAttribute('fill',s.color); rect.setAttribute('rx','2'); svg.appendChild(rect);
-        if(h >= 14){ var vt=mk('text'); vt.setAttribute('x',bx+BAR_W/2); vt.setAttribute('y',yFn(val)-3); vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','9'); vt.setAttribute('font-weight','900'); vt.setAttribute('fill','#1e293b'); vt.textContent=val; svg.appendChild(vt); }
+        var bx = gx0 + si*(BAR_W+BAR_GAP);
+        var barTop = yFn(val), barH = Math.max(0, T+plotH - barTop);
+        var rect=mk('rect'); rect.setAttribute('x',bx); rect.setAttribute('y',barTop); rect.setAttribute('width',BAR_W); rect.setAttribute('height',barH); rect.setAttribute('fill',s.color); rect.setAttribute('rx','2'); svg.appendChild(rect);
+        var vt=mk('text'); vt.setAttribute('x',bx+BAR_W/2); vt.setAttribute('y',barTop-3); vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','9'); vt.setAttribute('font-weight','900'); vt.setAttribute('fill','#1e293b'); vt.textContent=val; svg.appendChild(vt);
       });
-      // Area label (rotated)
-      var lab=mk('text'); lab.setAttribute('x',gcx); lab.setAttribute('y',T+plotH+18); lab.setAttribute('text-anchor','end'); lab.setAttribute('font-size','10'); lab.setAttribute('font-weight','700'); lab.setAttribute('fill','#475569'); lab.setAttribute('transform','rotate(-40 '+gcx+' '+(T+plotH+18)+')'); lab.textContent=area; svg.appendChild(lab);
+      var gcx = gx0 + (nSeries*BAR_W+(nSeries-1)*BAR_GAP)/2;
+      var lab=mk('text'); lab.setAttribute('x',gcx); lab.setAttribute('y',T+plotH+16); lab.setAttribute('text-anchor','end'); lab.setAttribute('font-size','10'); lab.setAttribute('font-weight','700'); lab.setAttribute('fill','#475569'); lab.setAttribute('transform','rotate(-40 '+gcx+' '+(T+plotH+16)+')'); lab.textContent=area; svg.appendChild(lab);
     });
 
     // Y-axis label
-    var yl=mk('text'); yl.setAttribute('x',18); yl.setAttribute('y',T+plotH/2); yl.setAttribute('transform','rotate(-90 18 '+(T+plotH/2)+')'); yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','11'); yl.setAttribute('fill','#475569'); yl.textContent='Count'; svg.appendChild(yl);
+    var yl=mk('text'); yl.setAttribute('x',14); yl.setAttribute('y',T+plotH/2); yl.setAttribute('transform','rotate(-90 14 '+(T+plotH/2)+')'); yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','11'); yl.setAttribute('fill','#475569'); yl.textContent='Count'; svg.appendChild(yl);
 
     // Legend
     var legY = H - 28;
