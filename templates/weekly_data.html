@@ -334,12 +334,6 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
              title="Open CR Age Report — select Meta IDs and generate analysis">
             <i class="fas fa-chart-bar"></i> CR Age Report
           </a>
-          <a id="btnDownloadWeeklyPpt"
-             href="{{ url_for('dashboard_bp.api_dashboard_weekly_report_ppt', target_name=target_val) }}"
-             style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:10px;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:800;font-size:12px;text-decoration:none;box-shadow:0 4px 12px rgba(217,119,6,.3);white-space:nowrap;"
-             title="Download Weekly Report as PowerPoint">
-            <i class="fas fa-file-powerpoint"></i> Weekly Report PPT
-          </a>
         </div>
       </div>
     </div>
@@ -365,8 +359,8 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
   })();
   </script>
 
-  <!-- ── CRM Weekly Report Section ─────────────────────────────────────── -->
-  <div id="crmReportSection" style="background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 4px 16px rgba(15,23,42,.06);padding:20px 24px;margin-bottom:16px;">
+  <!-- CRM section removed — use CR Age Report page instead -->
+  <div id="crmReportSection" style="display:none;">
     <div style="font-size:13px;color:#334155;line-height:1.7;margin-bottom:14px;padding:12px 16px;background:#f8fafc;border-radius:10px;border-left:4px solid #3b82f6;">
       Please find the latest status of Open/Analysis CR observed by PDT across Main farm builds since last 1 Week. Also included PDT PT CR details which are in high occurrences/systemic issues/potential OEM issues.
     </div>
@@ -553,7 +547,7 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
 
     // Layout: 3 bars per area — New (single) | Age Stack | Closed (single)
     var LEG_H=36, H=480, L=52, R=24, T=LEG_H+20, B=90, plotH=H-T-B;
-    var BAR_W=30, BAR_GAP=8, GROUP_GAP=24;
+    var BAR_W=30, BAR_GAP=8, GROUP_GAP=12;
     var groupW = BAR_W*3 + BAR_GAP*2 + GROUP_GAP;
     var plotW = groupW * areas.length;
     var W = L + plotW + R;

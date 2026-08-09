@@ -198,8 +198,13 @@
 
     <!-- CR Age Distribution Chart -->
     <div class="chart-section">
-      <div class="chart-title">
-        Tech wise Distribution of Closed CRs of last update, Old CRs in Open/Analysis (CR Age &gt;1 week and above) and New CRs in Open/Analysis:
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div class="chart-title" style="margin-bottom:0;">
+          Tech wise Distribution of Closed CRs of last update, Old CRs in Open/Analysis (CR Age &gt;1 week and above) and New CRs in Open/Analysis:
+        </div>
+        <button id="btnCopyAgeChart" onclick="copyAgeChart()" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">
+          <i class="fas fa-copy"></i> Copy Chart
+        </button>
       </div>
       <div class="chart-wrap">
         <svg id="ageChart" style="display:block;min-height:420px;" aria-label="CR Age Distribution"></svg>
@@ -442,6 +447,9 @@ function renderReport(data, currBuilds, prevBuilds){
   // Bar chart
   renderAgeChart(data);
 
+  // All CRs table
+  renderAllCrsTable(data.all_cr_details || []);
+
   // New CRs table
   var newCrs = data.new_crs || [];
   document.getElementById('newCrCount').textContent = newCrs.length;
@@ -509,7 +517,7 @@ function renderAgeChart(data){
   // Layout: 3 bars per area — New (single) | Age Stack | Closed (single)
   var LEG_H = 36;
   var H = 480, L = 52, R = 24, T = LEG_H + 20, B = 90, plotH = H - T - B;
-  var BAR_W = 30, BAR_GAP = 8, GROUP_GAP = 24;
+  var BAR_W = 30, BAR_GAP = 8, GROUP_GAP = 12;
   var groupW = BAR_W * 3 + BAR_GAP * 2 + GROUP_GAP;
   var plotW = groupW * areas.length;
   var W = L + plotW + R;
@@ -605,6 +613,181 @@ function renderAgeChart(data){
     var sw=mk('rect'); sw.setAttribute('x',gx); sw.setAttribute('y',gy); sw.setAttribute('width',11); sw.setAttribute('height',11); sw.setAttribute('rx','2'); sw.setAttribute('fill',s.color); svg.appendChild(sw);
     var st=mk('text'); st.setAttribute('x',gx+15); st.setAttribute('y',gy+9); st.setAttribute('font-size','10'); st.setAttribute('font-weight','700'); st.setAttribute('fill','#475569'); st.textContent=s.label; svg.appendChild(st);
   });
+}
+
+// ── Copy Chart ────────────────────────────────────────────────────────────
+async function copyAgeChart(){
+  var btn = document.getElementById('btnCopyAgeChart');
+  var orig = btn ? btn.innerHTML : '';
+  try{
+    var svgEl = document.getElementById('ageChart');
+    if(!svgEl){ alert('Chart not rendered yet.'); return; }
+    var clone = svgEl.cloneNode(true);
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    var svgText = new XMLSerializer().serializeToString(clone);
+    var svgBlob = new Blob([svgText], {type:'image/svg+xml;charset=utf-8'});
+    var svgUrl = URL.createObjectURL(svgBlob);
+    var img = new Image();
+    await new Promise(function(res,rej){ img.onload=res; img.onerror=rej; img.src=svgUrl; });
+    var vb = svgEl.viewBox.baseVal;
+    var srcW = vb&&vb.width?vb.width:900, srcH = vb&&vb.height?vb.height:480;
+    var outW = 2200, outH = Math.round(srcH*(outW/srcW));
+    var canvas = document.createElement('canvas'); canvas.width=outW; canvas.height=outH;
+    var ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,outW,outH); ctx.drawImage(img,0,0,outW,outH);
+    URL.revokeObjectURL(svgUrl);
+    var blob = await new Promise(function(res){ canvas.toBlob(res,'image/png'); });
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      if(btn){ btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){ btn.innerHTML=orig; },1800); }
+      return;
+    }
+    // Fallback: download
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href=url; a.download='cr_age_chart.png'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); },1500);
+    if(btn){ btn.innerHTML='<i class="fas fa-download"></i> Downloaded'; setTimeout(function(){ btn.innerHTML=orig; },1800); }
+  } catch(e){
+    if(btn){ btn.innerHTML='<i class="fas fa-times"></i> Failed'; setTimeout(function(){ btn.innerHTML=orig; },1800); }
+  }
+}
+
+// ── All CRs Table ─────────────────────────────────────────────────────────
+var _allCrDetails = [];
+
+function renderAllCrsTable(allCrs){
+  _allCrDetails = allCrs || [];
+  // Build the section if not already present
+  var sec = document.getElementById('allCrsSection');
+  if(!sec){
+    sec = document.createElement('div');
+    sec.id = 'allCrsSection';
+    sec.style.cssText = 'background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:20px;box-shadow:0 2px 10px rgba(15,23,42,.05);';
+    // Insert before the note div (last child of reportSection)
+    var reportSec = document.getElementById('reportSection');
+    var noteDivs = reportSec.querySelectorAll('div[style*="font-size:11px"]');
+    var noteDiv = noteDivs[noteDivs.length-1];
+    if(noteDiv) reportSec.insertBefore(sec, noteDiv);
+    else reportSec.appendChild(sec);
+  }
+
+  sec.innerHTML = '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
+    + '<div style="font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;">'
+    + '<i class="fas fa-table" style="color:#6366f1;"></i> All CRs'
+    + '<span id="allCrsCount" style="background:#e0e7ff;color:#4338ca;border-radius:20px;padding:1px 10px;font-size:12px;font-weight:700;"></span>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+    + '<input type="text" id="allCrsSearch" placeholder="Search CR, title, area..." style="height:32px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;outline:none;min-width:220px;">'
+    + '<select id="allCrsStatusFilter" style="height:32px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:700;color:#334155;background:#f8fafc;outline:none;">'
+    + '<option value="">All Statuses</option>'
+    + '<option value="open_analysis">Open / Analysis</option>'
+    + '<option value="built_closed">Built / Closed</option>'
+    + '</select>'
+    + '<button onclick="downloadAllCrsExcel()" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-size:11px;font-weight:900;cursor:pointer;">'
+    + '<i class="fas fa-file-excel"></i> Download Excel</button>'
+    + '</div>'
+    + '</div>'
+    + '<div style="max-height:500px;overflow:auto;">'
+    + '<table id="allCrsTable" style="width:100%;border-collapse:collapse;font-size:11px;">'
+    + '<thead><tr>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">#</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">CR</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;max-width:280px;">Title</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Area</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Status</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:center;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Age (days)</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Priority</th>'
+    + '<th style="position:sticky;top:0;background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Category</th>'
+    + '</tr></thead>'
+    + '<tbody id="allCrsBody"></tbody>'
+    + '</table>'
+    + '</div>';
+
+  // Wire up filters
+  document.getElementById('allCrsSearch').addEventListener('input', applyAllCrsFilter);
+  document.getElementById('allCrsStatusFilter').addEventListener('change', applyAllCrsFilter);
+  applyAllCrsFilter();
+}
+
+function applyAllCrsFilter(){
+  var q = (document.getElementById('allCrsSearch')||{}).value||'';
+  q = q.toLowerCase().trim();
+  var sf = (document.getElementById('allCrsStatusFilter')||{}).value||'';
+  var rows = _allCrDetails.filter(function(r){
+    var s = String(r.cr_status||'').toLowerCase();
+    if(sf==='open_analysis' && !(s==='open'||s.startsWith('anal'))) return false;
+    if(sf==='built_closed' && !(s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix'))) return false;
+    if(q){
+      var text = [r.mapped_cr||r.cr||'', r.cr_title||'', r.cr_area||'', r.cr_status||''].join(' ').toLowerCase();
+      if(!text.includes(q)) return false;
+    }
+    return true;
+  });
+  var countEl = document.getElementById('allCrsCount');
+  if(countEl) countEl.textContent = rows.length + ' CR' + (rows.length===1?'':'s');
+  var tbody = document.getElementById('allCrsBody');
+  if(!tbody) return;
+  tbody.innerHTML = rows.length ? rows.map(function(r,i){
+    var cr = String(r.mapped_cr||r.cr||'');
+    var crId = cr.replace(/^CR/i,'');
+    var s = String(r.cr_status||'').toLowerCase();
+    var isOpen = s==='open'||s.startsWith('anal');
+    var isBuilt = s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix');
+    var statusBg = isOpen?'#dbeafe;color:#1e40af':isBuilt?'#dcfce7;color:#166534':'#f1f5f9;color:#475569';
+    var bg = i%2===0?'#fff':'#f8fafc';
+    return '<tr style="background:'+bg+'">'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#94a3b8;">'+(i+1)+'</td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;"><a class="cr-link" href="https://orbit/cr/'+escHtml(crId)+'" target="_blank">'+escHtml(cr)+'</a></td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(r.cr_title||'')+'">'+escHtml(r.cr_title||'')+'</td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.cr_area||'')+'</td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;"><span style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:'+statusBg+'">'+escHtml(r.cr_status||'')+'</span></td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;">'+escHtml(r.cr_age||'')+'</td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.pdt_priority_tag||'')+'</td>'
+      +'<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">'+escHtml(r.cr_category||'')+'</td>'
+      +'</tr>';
+  }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#94a3b8;font-weight:700;">No CRs match the current filter.</td></tr>';
+}
+
+function downloadAllCrsExcel(){
+  var q = (document.getElementById('allCrsSearch')||{}).value||'';
+  q = q.toLowerCase().trim();
+  var sf = (document.getElementById('allCrsStatusFilter')||{}).value||'';
+  var rows = _allCrDetails.filter(function(r){
+    var s = String(r.cr_status||'').toLowerCase();
+    if(sf==='open_analysis' && !(s==='open'||s.startsWith('anal'))) return false;
+    if(sf==='built_closed' && !(s==='built'||s==='build'||s==='closed'||s==='close'||s.startsWith('fix'))) return false;
+    if(q){
+      var text = [r.mapped_cr||r.cr||'', r.cr_title||'', r.cr_area||'', r.cr_status||''].join(' ').toLowerCase();
+      if(!text.includes(q)) return false;
+    }
+    return true;
+  });
+  var headers = ['#','CR','Title','Area','Status','Age (days)','Priority','Category'];
+  var thStyle = 'background:#1e3a5f;color:#fff;padding:6px 10px;border:1px solid #ccc;font-weight:700;';
+  var tdStyle = 'padding:5px 10px;border:1px solid #ddd;vertical-align:top;';
+  var html = '<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">'
+    + '<thead><tr>'+headers.map(function(h){ return '<th style="'+thStyle+'">'+h+'</th>'; }).join('')+'</tr></thead>'
+    + '<tbody>'
+    + rows.map(function(r,i){
+        return '<tr>'
+          +'<td style="'+tdStyle+'">'+(i+1)+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.mapped_cr||r.cr||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_title||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_area||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_status||'')+'</td>'
+          +'<td style="'+tdStyle+';text-align:center;">'+(r.cr_age||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.pdt_priority_tag||'')+'</td>'
+          +'<td style="'+tdStyle+'">'+(r.cr_category||'')+'</td>'
+          +'</tr>';
+      }).join('')
+    + '</tbody></table>';
+  var ws = '<!doctype html><html><head><meta charset="utf-8"></head><body>'+html+'</body></html>';
+  var blob = new Blob([ws], {type:'application/vnd.ms-excel;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = TARGET+'_cr_age_report.xls';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
 }
 </script>
 </body>
