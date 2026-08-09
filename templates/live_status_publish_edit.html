@@ -7268,5 +7268,153 @@ if(window.LSP_DATA && LSP_DATA.is_auto_bu) window.lspSjqlLoad();
     </div>
   </div>
 </div>
+{% if not is_auto_bu %}
+<script>
+/* ============================================================
+   Non-AUTO BU overrides
+   1. MTBF: load from dashboard Excel-based API (same as dashboard/<target>/mtbf-excel)
+   2. Open JIRAs: use SWPDT endpoint (dashboard/<target>/open-jiras?toggle_mode=CRM&pdt_type=SWPDT)
+   3. Hide domain/crash-type controls that are Automotive-only
+============================================================ */
+(function(){
+  var _TARGET = (window.LSP_DATA||{}).primary_target||'';
+  var MTBF_API = '/api/live_status/targets/' + encodeURIComponent(_TARGET) + '/mtbf_dashboard';
+
+  /* ── 1. MTBF: override adasLoadData to use Excel/DB-based data ── */
+  window.adasLoadData = async function(force){
+    var sp  = document.getElementById('mtbfSpinner');
+    var msg = document.getElementById('adasMsg');
+    if(sp)  sp.style.display = 'inline';
+    if(msg) msg.textContent  = '';
+    try{
+      var res  = await fetch(MTBF_API + '?_=' + Date.now(), {cache:'no-store'});
+      var data = await res.json();
+      if(!data.success) throw new Error(data.message||'Failed to load MTBF data');
+
+      // Adapt dashboard API response to the format expected by renderMtbfTrend/renderMtbfTable
+      var rawRows = data.mtbf_build_table || [];
+      var adasRows = rawRows.map(function(r, i){
+        return {
+          s_no:            i + 1,
+          date:            r.date || r.week || '',
+          meta_id:         r.meta_id || r.build_id || '',
+          build_id:        r.build_id || r.meta_id || '',
+          hours:           r.hours || '',
+          system_crashes:  '',
+          ssr_crashes:     '',
+          process_crashes: '',
+          total_crashes:   r.crashes || '',
+          mtbf:            r.mtbf || '',
+          comments:        r.mtbf_details || r.comments || '',
+          source:          r.source || 'SWPDT',
+          mode:            r.mode || 'CRM',
+        };
+      });
+
+      window._adasRows = adasRows;
+      if(typeof window._applyAutoMtbfRawRows === 'function'){
+        window._applyAutoMtbfRawRows(adasRows);
+      } else {
+        window._mtbfSeriesRows = adasRows.map(function(r){
+          return {
+            meta_id:     r.meta_id||'',
+            week:        r.date||'',
+            total_hours: Number(r.hours||0),
+            crashes:     Number(r.total_crashes||0),
+            mtbf:        Number(r.mtbf||0)
+          };
+        });
+        window._mtbfBuildRows = adasRows;
+      }
+      if(typeof window.renderMtbfTrend === 'function') window.renderMtbfTrend();
+      if(typeof window.renderMtbfTable === 'function') window.renderMtbfTable();
+      if(msg){
+        msg.textContent = 'MTBF updated ' + new Date().toLocaleTimeString();
+        msg.style.color = '#059669';
+        setTimeout(function(){ if(msg) msg.textContent=''; }, 4000);
+      }
+    }catch(err){
+      if(msg){ msg.textContent='Error: '+err.message; msg.style.color='#dc2626'; }
+    }finally{
+      if(sp) sp.style.display = 'none';
+    }
+  };
+
+  /* ── 2. Open JIRAs: use SWPDT endpoint ── */
+  var _origOjLoad = window.ojLoad;
+  window.ojLoad = function(){
+    var from = (document.getElementById('ojFrom')||{}).value||'';
+    var to   = (document.getElementById('ojTo')||{}).value||'';
+    var tgt  = ((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();
+    if(!tgt) return;
+    var ojLoading = document.getElementById('ojLoading');
+    var ojContent = document.getElementById('ojContent');
+    var ojError   = document.getElementById('ojError');
+    if(ojLoading) ojLoading.style.display='block';
+    if(ojContent) ojContent.style.display='none';
+    if(ojError)   ojError.style.display='none';
+    var url = '/api/dashboard/' + encodeURIComponent(tgt) + '/open_jiras?toggle_mode=CRM&pdt_type=SWPDT';
+    if(from) url += '&date_from=' + encodeURIComponent(from);
+    if(to)   url += '&date_to='   + encodeURIComponent(to);
+    fetch(url).then(function(r){return r.json();}).then(function(d){
+      if(ojLoading) ojLoading.style.display='none';
+      if(!d.success) throw new Error(d.message||'Load failed');
+      if(d.notice && !(d.rows&&d.rows.length)){
+        if(ojError){ ojError.style.display='block'; ojError.style.color='#64748b';
+          ojError.innerHTML='<i class="fas fa-info-circle" style="color:#6366f1"></i> '+String(d.notice||'').replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});
+        }
+        return;
+      }
+      // Delegate to the existing ojLoad logic by patching the URL and re-calling
+      // the original function is complex; instead directly populate the table.
+      // Use the existing ojLoad infrastructure by temporarily patching the URL.
+      // Simplest: call the original ojLoad but with the SWPDT URL already fetched.
+      // Since we already have the data, render it directly.
+      if(typeof _origOjLoad === 'function'){
+        // Patch: store the fetched data and call original which will re-fetch.
+        // Instead, just call original with the SWPDT params baked in.
+        // The original ojLoad reads from /api/dashboard/<tgt>/open_jiras.
+        // We already fetched with SWPDT params - just trigger the original
+        // with the same URL by temporarily overriding the fetch.
+        var _origFetch = window.fetch;
+        window.fetch = function(url2, opts){
+          if(url2 && url2.indexOf('/api/dashboard/') >= 0 && url2.indexOf('/open_jiras') >= 0 && url2.indexOf('toggle_mode') < 0){
+            var sep = url2.indexOf('?') >= 0 ? '&' : '?';
+            url2 = url2 + sep + 'toggle_mode=CRM&pdt_type=SWPDT';
+          }
+          return _origFetch.call(this, url2, opts);
+        };
+        _origOjLoad();
+        setTimeout(function(){ window.fetch = _origFetch; }, 5000);
+      }
+    }).catch(function(e){
+      if(ojLoading) ojLoading.style.display='none';
+      if(ojError){ ojError.style.display='block'; ojError.style.color='#dc2626';
+        ojError.textContent='Error: '+e.message; }
+    });
+  };
+
+  /* ── 3. Hide Automotive-only MTBF domain/crash-type controls ── */
+  document.addEventListener('DOMContentLoaded', function(){
+    // Hide domain buttons bar in MTBF tab (ADAS/FLEX/IVI)
+    var domBar = document.getElementById('mtbfDomainBtnBar');
+    if(domBar) domBar.style.display = 'none';
+    // Hide crash-type checkboxes in MTBF tab
+    var ckSys  = document.getElementById('ck_system');
+    var ckSsr  = document.getElementById('ck_ssr');
+    var ckProc = document.getElementById('ck_process');
+    if(ckSys  && ckSys.parentElement)  ckSys.parentElement.style.display  = 'none';
+    if(ckSsr  && ckSsr.parentElement)  ckSsr.parentElement.style.display  = 'none';
+    if(ckProc && ckProc.parentElement) ckProc.parentElement.style.display = 'none';
+    // Hide Add/Delete domain buttons
+    var addDomBtn = document.getElementById('mtbfAddDomainBtn');
+    var delDomBtn = document.getElementById('mtbfDeleteDomainBtn');
+    if(addDomBtn) addDomBtn.style.display = 'none';
+    if(delDomBtn) delDomBtn.style.display = 'none';
+    // Auto-load MTBF on page load for non-AUTO BUs
+    if(typeof window.adasLoadData === 'function') window.adasLoadData(true);
+  });
+})();
+</script>
 {% endif %}
 </html>

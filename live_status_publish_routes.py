@@ -2408,7 +2408,7 @@ def _render_published_full_page(job, initial_tab='current', suppress_top_redirec
     visible_tabs += ['current', 'mtbf']
 
     return render_template(
-        'live_status_publish_edit.html' if is_auto_bu else 'live_status_publish_edit_nonau.html',
+        'live_status_publish_edit.html',
         job=job,
         workspace_data=None,
         primary_target=primary_target,
