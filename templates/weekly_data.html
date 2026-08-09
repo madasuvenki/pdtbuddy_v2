@@ -564,11 +564,12 @@ a.cr-link:hover{border-bottom-color:#4f46e5;color:#3730a3;}
     for(var gi=0;gi<=gridSteps;gi++){
       var gv=Math.round(niceMax*gi/gridSteps), gy=yFn(gv);
       var ln=mk('line'); ln.setAttribute('x1',L); ln.setAttribute('x2',W-R); ln.setAttribute('y1',gy); ln.setAttribute('y2',gy);
-      ln.setAttribute('stroke', gi===0?'#94a3b8':'#e5e7eb'); ln.setAttribute('stroke-width', gi===0?'1.5':'1'); svg.appendChild(ln);
+      ln.setAttribute('stroke','#d1d5db'); ln.setAttribute('stroke-width','1'); svg.appendChild(ln);
       var tx=mk('text'); tx.setAttribute('x',L-6); tx.setAttribute('y',gy+4); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','10'); tx.setAttribute('fill','#64748b'); tx.textContent=gv; svg.appendChild(tx);
     }
-    // Y axis
-    var axL=mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#94a3b8'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
+    // Axes
+    var axL=mk('line'); axL.setAttribute('x1',L); axL.setAttribute('x2',L); axL.setAttribute('y1',T); axL.setAttribute('y2',T+plotH); axL.setAttribute('stroke','#6b7280'); axL.setAttribute('stroke-width','1.5'); svg.appendChild(axL);
+    var axB=mk('line'); axB.setAttribute('x1',L); axB.setAttribute('x2',W-R); axB.setAttribute('y1',T+plotH); axB.setAttribute('y2',T+plotH); axB.setAttribute('stroke','#6b7280'); axB.setAttribute('stroke-width','1.5'); svg.appendChild(axB);
 
     // Bars
     areas.forEach(function(area, ai){
