@@ -127,7 +127,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 
 from src.application import register_feature_blueprints
 
-APP_VERSION = "v2.9"
+APP_VERSION = "v2.10"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 

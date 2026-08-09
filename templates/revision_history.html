@@ -124,7 +124,7 @@
     <div>
       <div class="rh-hero__title">PDT Buddy Changelog</div>
       <div class="rh-hero__desc">A complete record of every feature, enhancement, and integration delivered across all PDT Buddy releases — from the initial web UI to the latest live data enhancements.</div>
-      <div class="rh-hero__badge"><i class="fas fa-tag"></i> Latest: Rev 2.9</div>
+      <div class="rh-hero__badge"><i class="fas fa-tag"></i> Latest: Rev 2.10</div>
     </div>
   </div>
 
@@ -322,12 +322,62 @@
       </div>
     </div>
 
+    <!-- Rev 2.10 -->
+    <div class="rh-rev">
+      <div class="rh-rev__dot" style="background:linear-gradient(135deg,#0f172a,#1d4ed8);font-size:6px;">2.10</div>
+      <div class="rh-rev__card">
+        <div class="rh-rev__head" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);">
+          <span class="rh-rev__badge" style="background:#dbeafe;color:#1e40af;"><i class="fas fa-star" style="margin-right:5px;"></i>Rev 2.10 — Latest</span>
+          <div>
+            <div class="rh-rev__title">CR Age Report Redesign &amp; Weekly Report Cleanup</div>
+            <div class="rh-rev__subtitle">New chart layout, All CRs table, Copy Chart, Revision History page</div>
+          </div>
+        </div>
+        <div class="rh-rev__body">
+          <div class="rh-group">
+            <div class="rh-group__label grp-cr"><i class="fas fa-chart-bar"></i> CR Age Report</div>
+            <div class="rh-group__items">
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Redesigned chart: 3 bars per area — New Open/Analysis (single) | CR Age stacked (>3w → <1w) | Closed (single)</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Copy Chart button — copies SVG as PNG to clipboard (fallback: download)</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>All CRs table with 14 columns: S.No, CR-ID, Occurrence Last 1 Week, CR Overall Occurrences, CR Title, PDT Priority, CR Area, CR SubSystem, CR Functionality, CR Status, CR Age, First Instance, First Instance Date, Type</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Type column: New CR / Closed CR / Open/Analysis (color-coded badge)</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Filters: Type dropdown, Status dropdown, Search box</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Download Excel — exports all 14 columns with active filters applied</div>
+              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Auto-excludes DUP and Invalid/Withdrawn rows from All CRs table</div>
+            </div>
+          </div>
+          <div class="rh-group">
+            <div class="rh-group__label grp-ui"><i class="fas fa-desktop"></i> Weekly Report</div>
+            <div class="rh-group__items">
+              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Removed "Weekly Report PPT" button from top bar</div>
+              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Hidden CRM section (description, builds, tables, chart) — content moved to CR Age Report page</div>
+              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Reduced bar GROUP_GAP 24 → 12 (tighter spacing between area groups)</div>
+            </div>
+          </div>
+          <div class="rh-group">
+            <div class="rh-group__label grp-report"><i class="fas fa-history"></i> Revision History</div>
+            <div class="rh-group__items">
+              <div class="rh-item"><span class="rh-item__dot dot-report"></span>New page at <code>/revision-history</code> — premium timeline UI with color-coded revision cards and JIRA badges</div>
+              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Linked from Docs page hero grid</div>
+              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Markdown version at <code>docs/REVISION_HISTORY.md</code></div>
+            </div>
+          </div>
+          <div class="rh-group">
+            <div class="rh-group__label grp-data"><i class="fas fa-chart-line"></i> Chart Fixes</div>
+            <div class="rh-group__items">
+              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Grid lines: changed to <code>#d1d5db</code> (visible gray), bottom axis line restored</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Rev 2.9 -->
     <div class="rh-rev">
       <div class="rh-rev__dot dot-rev29" style="font-size:7px;">2.9</div>
       <div class="rh-rev__card">
         <div class="rh-rev__head head-rev29">
-          <span class="rh-rev__badge badge-rev29"><i class="fas fa-star" style="margin-right:5px;"></i>Rev 2.9 — Latest</span>
+          <span class="rh-rev__badge badge-rev29"><i class="fas fa-star" style="margin-right:5px;"></i>Rev 2.9</span>
           <div>
             <div class="rh-rev__title">WBC Live Data &amp; Build Selector</div>
             <div class="rh-rev__subtitle">WBC live enhancement, monthly data, latest 5 Mainfarm builds selector</div>

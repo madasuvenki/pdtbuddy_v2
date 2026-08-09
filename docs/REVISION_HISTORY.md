@@ -97,4 +97,38 @@
 
 ---
 
+---
+
+## Rev 2.10 — Latest
+
+**CR Age Report Redesign**
+
+- Redesigned chart: 3 bars per area — New Open/Analysis (single, purple) | CR Age stacked (>3w → <1w) | Closed (single, navy)
+- Copy Chart button — copies SVG as PNG to clipboard (fallback: download)
+- All CRs table with 14 columns: S.No, CR-ID, Occurrence Last 1 Week, CR Overall Occurrences, CR Title, PDT Priority, CR Area, CR SubSystem, CR Functionality, CR Status, CR Age, First Instance, First Instance Date, Type
+- Type column: New CR / Closed CR / Open/Analysis (color-coded badge, derived from new_crs/closed_crs sets)
+- Filters: Type dropdown, Status dropdown, Search box
+- Download Excel — exports all 14 columns with active filters applied
+- Auto-excludes DUP (`cr_category` = dup/duplicate) and Invalid/Withdrawn rows
+
+**Weekly Report**
+
+- Removed "Weekly Report PPT" button from top bar
+- Hidden CRM section (description, builds, tables, chart) — content moved to CR Age Report page
+- Reduced bar GROUP_GAP 24 → 12 (tighter spacing between area groups)
+
+**Revision History Page**
+
+- New page at `/revision-history` — premium timeline UI with color-coded revision cards and JIRA badges
+- Linked from Docs page hero grid (`/dashboard/docs`)
+- Markdown version at `docs/REVISION_HISTORY.md`
+
+**Chart Fixes**
+
+- Grid lines: changed to `#d1d5db` (visible gray), bottom axis line restored
+
+**Version:** `APP_VERSION = "v2.10"` in `app.py`
+
+---
+
 *Document maintained by PDT Buddy team.*
