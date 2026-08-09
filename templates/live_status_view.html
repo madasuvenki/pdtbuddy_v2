@@ -161,7 +161,6 @@
       <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding-top:6px;flex-shrink:0">
-      <a href="/api/public/orbit/docs" target="_blank" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #86efac;background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;font-weight:900;font-size:12px;text-decoration:none" title="Public API Documentation"><i class="fas fa-globe"></i> Public API</a>
       <a id="lsvSpPageBtn" href="/live_status_view/AUTO/{{ target_name }}/sp" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #a5b4fc;background:linear-gradient(135deg,#eef2ff,#fdf4ff);color:#4338ca;font-weight:900;font-size:12px;text-decoration:none" title="View SP-level MTBF breakdown"><i class="fas fa-layer-group"></i> SP MTBF View</a>
       <button id="lsvCustomizeBtn" onclick="lsvOpenCustomize()"
         style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.12);transition:all .15s">
@@ -297,14 +296,13 @@
                 <th style="text-align:center;color:#dc2626;background:#fff1f2;border-left:2px solid #fca5a5"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>System</th>
                 <th style="text-align:center;color:#d97706;background:#fffbeb"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>SSR</th>
                 <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>Process</th>
-                                <th>Total Crashes</th>
-                 <th>MTBF</th>
-                 <th style="max-width:120px;width:120px">Comments</th>
-                 <th>Actions</th>
+                <th>Total Crashes</th>
+                <th>MTBF</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="adasTableBody">
-              <tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr>
+              <tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr>
             </tbody>
           </table>
         </div>
@@ -1360,7 +1358,7 @@ function _adasRenderTable(rows, crashTypes){
   _adasTableRows = filtered;
   document.getElementById('adasRowCount').textContent = `${filtered.length} row${filtered.length === 1 ? '' : 's'}`;
   if(!filtered.length){
-    body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</p></td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-inbox"></i><p>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</p></td></tr>`;
     return;
   }
   body.innerHTML = filtered.map(r => {
@@ -1385,7 +1383,6 @@ function _adasRenderTable(rows, crashTypes){
       <td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;${procDim}">${esc(proc)}</td>
       <td style="text-align:center;font-weight:900">${effTotal > 0 ? effTotal : '—'}</td>
       <td style="text-align:center">${mtbfBadge}</td>
-      <td style="max-width:120px;width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:11px" title="${esc(r.comments||'')}">${esc(r.comments || '')}</td>
       <td style="white-space:nowrap">
         <button class="adas-edit-btn" onclick="adasOpenEditModal('${esc(r.id || '')}')">
           <i class="fas fa-pen"></i> Edit
@@ -1534,4 +1531,1020 @@ function adasCloseModal(){
 }
 
 function adasAutoMtbf(){
-  const sys  = Number(docum
+  const sys  = Number(document.getElementById('adasModalSystem').value  || 0);
+  const ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
+  const proc = Number(document.getElementById('adasModalProcess').value || 0);
+  const autoTotal = sys + ssr + proc;
+  const totalEl = document.getElementById('adasModalTotal');
+  if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
+  const hours = Number(document.getElementById('adasModalHours').value || 0);
+  const totalCrashes = Number(totalEl?.value || autoTotal);
+  const mtbfEl = document.getElementById('adasModalMtbf');
+  if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && totalCrashes > 0)
+    mtbfEl.value = Math.round((hours / totalCrashes) * 10) / 10;
+}
+
+document.getElementById('adasModalTotal')?.addEventListener('input', function(){
+  this.dataset.manualEdit = '1';
+  const hours = Number(document.getElementById('adasModalHours').value || 0);
+  const total = Number(this.value || 0);
+  const mtbfEl = document.getElementById('adasModalMtbf');
+  if(mtbfEl && !mtbfEl.dataset.manualEdit && hours > 0 && total > 0)
+    mtbfEl.value = Math.round((hours / total) * 10) / 10;
+});
+document.getElementById('adasModalMtbf')?.addEventListener('input', function(){ this.dataset.manualEdit = '1'; });
+document.getElementById('adasModalHours')?.addEventListener('input', adasAutoMtbf);
+
+async function adasSaveModal(){
+  const rowId  = document.getElementById('adasModalRowId').value.trim();
+  const metaId = document.getElementById('adasModalMetaId').value.trim();
+  const msg    = document.getElementById('adasModalMsg');
+  if(!metaId){ msg.textContent = 'Meta-ID is required.'; msg.style.color = '#dc2626'; return; }
+  const payload = {
+    id:              rowId || undefined,
+    view:            _adasView,
+    sp:              _adasSp || undefined,
+    meta_id:         metaId,
+    date:            document.getElementById('adasModalDate').value    || '',
+    hours:           document.getElementById('adasModalHours').value   || '',
+    system_crashes:  document.getElementById('adasModalSystem').value  || '',
+    ssr_crashes:     document.getElementById('adasModalSsr').value     || '',
+    process_crashes: document.getElementById('adasModalProcess').value || '',
+    total_crashes:   document.getElementById('adasModalTotal').value   || '',
+    mtbf:            document.getElementById('adasModalMtbf').value    || '',
+    crash_types:     ['system','ssr','process'],
+  };
+  const btn = document.getElementById('adasModalSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...';
+  try{
+    const endpoint = rowId ? `${ADAS_API_BASE}/edit` : `${ADAS_API_BASE}/add`;
+    const res  = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Save failed');
+    _adasRows = data.rows || [];
+    _adasRenderAll();
+    adasCloseModal();
+    const adasMsg = document.getElementById('adasMsg');
+    if(adasMsg){ adasMsg.textContent = data.message || 'Saved!'; adasMsg.style.color = '#059669'; }
+  }catch(err){
+    msg.textContent = err.message || 'Save failed.'; msg.style.color = '#dc2626';
+  }finally{
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save';
+  }
+}
+
+async function adasDeleteRow(rowId){
+  if(!confirm('Delete this MTBF row?')) return;
+  try{
+    const res  = await fetch(`${ADAS_API_BASE}/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:rowId, view:_adasView, sp: _adasSp || undefined }) });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Delete failed');
+    _adasRows = data.rows || [];
+    _adasRenderAll();
+    const adasMsg = document.getElementById('adasMsg');
+    if(adasMsg){ adasMsg.textContent = 'Row deleted.'; adasMsg.style.color = '#059669'; }
+  }catch(err){ alert(err.message || 'Delete failed.'); }
+}
+
+function adasCopyTable(){
+  const rows = _adasTableRows.length ? _adasTableRows : _adasRows;
+  if(!rows.length){ alert('No rows to copy.'); return; }
+  const headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+  const lines   = [headers.join('\t')];
+  rows.forEach(r => lines.push([
+    r.s_no, r.date, r.meta_id, r.hours,
+    r.system_crashes, r.ssr_crashes, r.process_crashes,
+    r.total_crashes, r.mtbf
+  ].map(v => v == null || v === '' ? '' : String(v)).join('\t')));
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => { const m = document.getElementById('adasMsg'); if(m){ m.textContent='Table copied!'; m.style.color='#059669'; } })
+    .catch(() => alert('Copy failed.'));
+}
+
+document.getElementById('adasModal').addEventListener('click', e => { if(e.target === document.getElementById('adasModal')) adasCloseModal(); });
+
+// Initial load
+adasLoadData(false);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CURRENT REPORT SECTION
+// ═══════════════════════════════════════════════════════════════════════════
+const CR_REPORT_DATA_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/current_report_data`;
+const ORBIT_CR_BASE = 'https://orbit/CR/';
+
+let _crJobId        = null;
+let _crRunningRows  = [];   // all running rows from the job
+let _crPersistedJql = '';
+let _crAllRows      = [];   // CR rows from current report
+let _crOpenJiraGroups = [];
+let _crExcludedJiras  = [];
+let _crLastJiraCount  = null;
+let _crJqlCustom      = '';
+let _crCurrentDomain  = 'ADAS';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function _crLeafBuild(v){
+  const s = String(v || '').trim().replace(/\//g, '\\');
+  const parts = s.split('\\').filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : s;
+}
+
+function _crRowBuilds(row){
+  const r = row || {};
+  const out = [];
+  (Array.isArray(r.merged_builds) ? r.merged_builds : []).forEach(b => { if(b) out.push(_crLeafBuild(b)); });
+  ['build_full','display_build','build_id','build'].forEach(k => { if(r[k]) out.push(_crLeafBuild(r[k])); });
+  return [...new Set(out.filter(Boolean))];
+}
+
+function _crInferDomain(row){
+  const text = JSON.stringify(row || '').toLowerCase();
+  if(/\bivi\b|infotainment|cockpit/.test(text)) return 'IVI';
+  if(/\bflex\b|compute|desktop/.test(text)) return 'FLEX';
+  return 'ADAS';
+}
+
+function _crJqlQuote(v){ return String(v || '').replace(/"/g, '\\"'); }
+
+function _crGetJql(){
+  const base = (_crJqlCustom || _crPersistedJql || "").trim();
+  if(!base) return "";
+  // If a custom search text is active (new PL not yet in DB), scope by that text
+  if(_crCustomSearchText){
+    const clause = "summary ~ " + JSON.stringify(_crCustomSearchText);
+    return "(" + clause + ") AND (" + base + ")";
+  }
+  const allBuilds = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
+  const selected  = _crSelectedBuilds();
+  if(!allBuilds.length || selected.length === allBuilds.length) return base;
+  if(!selected.length) return "";
+  const buildClause = "(" + selected.map(b => "summary ~ " + JSON.stringify(b)).join(" OR ") + ")";
+  return buildClause + " AND (" + base + ")";
+}
+
+
+// ── current-build grouping / sidebar ─────────────────────────────────────────
+const CR_RUNNING_DB_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/running_builds_db`;
+const CR_REMOVED_STORAGE_KEY = `live_status_current_removed:${TARGET}`;
+let _crSelectedGroups = new Set();
+let _crRemovedGroups  = new Set();
+let _crReportCache    = null;
+let _crSoloGroup      = null;  // key of the single-clicked (solo) group, null = all selected
+
+function _crLoadRemovedGroups(){
+  try{ _crRemovedGroups = new Set(JSON.parse(localStorage.getItem(CR_REMOVED_STORAGE_KEY) || '[]')); }
+  catch(_){ _crRemovedGroups = new Set(); }
+}
+function _crSaveRemovedGroups(){ localStorage.setItem(CR_REMOVED_STORAGE_KEY, JSON.stringify([..._crRemovedGroups])); }
+function _crMetaNumberFromText(value){
+  const s = String(value || '');
+  let m = s.match(/META[-_ ]?0*(\d{3,6})/i);
+  if(m) return m[1].padStart(5, '0');
+  m = s.match(/-0*(\d{3,6})(?:\.\d+)?-(?:STD|PERF|SAFE|USER|ENG|INT)/i) || s.match(/-0*(\d{3,6})-/);
+  return m ? m[1].padStart(5, '0') : '';
+}
+function _crMetaLabelFromRow(row){
+  const explicit = String((row || {}).meta_id || '').trim();
+  if(explicit && !/^unknown$/i.test(explicit)) return explicit;
+  const n = _crMetaNumberFromText([row?.build_full,row?.display_build,row?.build_id,row?.build,row?.build_name].join(' '));
+  return n ? `Meta-${Number(n)}` : (explicit || 'Unknown');
+}
+function _crBuildGroupKey(row){
+  const domain = _crInferDomain(row);
+  const n = _crMetaNumberFromText([row?.meta_id,row?.build_full,row?.display_build,row?.build_id,row?.build,row?.build_name].join(' '));
+  if(n) return `${domain}:META:${n}`;
+  const fallback = _crLeafBuild(row?.build_full || row?.display_build || row?.build_id || row?.build || row?.build_name || 'unknown').toUpperCase();
+  return `${domain}:BUILD:${fallback}`;
+}
+function _crGroups(){
+  const map = new Map();
+  (_crRunningRows || []).forEach((row, idx) => {
+    const key = _crBuildGroupKey(row);
+    if(_crRemovedGroups.has(key)) return;
+    const domain = _crInferDomain(row);
+    if(!map.has(key)) map.set(key, {key, domain, meta:_crMetaLabelFromRow(row), rows:[], builds:new Set(), jobs:0, devices:0, crashes:0});
+    const g = map.get(key);
+    g.rows.push({row, idx});
+    _crRowBuilds(row).forEach(b => g.builds.add(b));
+    g.jobs += Number(row.axiom_job_count || row.job_count || 0) || 0;
+    g.devices += Number(row.device_count || 0) || 0;
+    g.crashes += Number(row.crashes || 0) || 0;
+  });
+  return [...map.values()].sort((a,b) => {
+    if(a.domain !== b.domain) return a.domain.localeCompare(b.domain);
+    return a.meta.localeCompare(b.meta, undefined, {numeric:true});
+  });
+}
+function _crVisibleDomainGroups(){ return _crGroups().filter(g => g.domain === _crCurrentDomain); }
+function _crEnsureSelectedGroups(){
+  const keys = new Set(_crGroups().map(g => g.key));
+  _crSelectedGroups = new Set([..._crSelectedGroups].filter(k => keys.has(k)));
+  _crGroups().forEach(g => { if(!_crSelectedGroups.has(g.key)) _crSelectedGroups.add(g.key); });
+}
+// ── domain nav button ────────────────────────────────────────────────────────
+function crNavSetDomain(domain){
+  _crCurrentDomain = domain;
+  ['ADAS','FLEX','IVI'].forEach(d => {
+    const btn = document.getElementById('crNavDom'+d);
+    if(!btn) return;
+    btn.className = 'cr-nav-domain-btn' + (d === domain ? ' active-'+d : '');
+  });
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── left nav sidebar ─────────────────────────────────────────────────────────
+// custom search text: used when typed text matches no DB group
+let _crCustomSearchText = "";
+
+function crApplyCustomSearch(text){
+  _crCustomSearchText = String(text || "").trim();
+  const inp = document.getElementById("crBuildSearch");
+  if(inp) inp.value = "";
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+function crClearCustomSearch(){
+  _crCustomSearchText = "";
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+function crRenderBuildSidebar(){
+  const host = document.getElementById("crBuildSidebar");
+  const cnt  = document.getElementById("crLeftCount");
+  if(!host) return;
+  _crEnsureSelectedGroups();
+  const q = String(document.getElementById("crBuildSearch")?.value || "").toLowerCase().trim();
+  const groups = _crVisibleDomainGroups().filter(g => !q || (g.meta + " " + [...g.builds].join(" ") + " " + g.domain).toLowerCase().includes(q));
+
+  // Active custom-search banner (shown when a manual text filter is active)
+  const customBanner = _crCustomSearchText
+    ? "<div style=\"margin-bottom:8px;padding:8px 10px;background:rgba(245,158,11,.15);border:1.5px solid rgba(245,158,11,.4);border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap\">"
+      + "<i class=\"fas fa-search\" style=\"color:#f59e0b;font-size:11px;flex-shrink:0\"></i>"
+      + "<span style=\"font-size:10px;font-weight:900;color:#92400e;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">"
+      + "Filtered: <em>" + esc(_crCustomSearchText) + "</em></span>"
+      + "<button onclick=\"crClearCustomSearch()\" style=\"border:none;background:rgba(220,38,38,.15);color:#b91c1c;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;cursor:pointer;flex-shrink:0\">"
+      + "<i class=\"fas fa-times\"></i> Clear</button></div>"
+    : "";
+
+  if(cnt) cnt.textContent = String(groups.length);
+  if(!groups.length){
+    const noMatchHtml = q
+      ? "<div style=\"padding:18px 10px;text-align:center\">"
+        + "<i class=\"fas fa-search\" style=\"font-size:20px;display:block;margin-bottom:8px;color:#f59e0b;opacity:.8\"></i>"
+        + "<p style=\"font-size:11px;margin:0 0 4px;font-weight:700;color:#334155\">No DB match for <em>&ldquo;" + esc(q) + "&rdquo;</em></p>"
+        + "<p style=\"font-size:10px;color:#64748b;margin:0 0 10px\">This PL may be new or not yet in the DB.<br>Use it as a build text filter for the JIRA report.</p>"
+        + "<button onclick=\"crApplyCustomSearch(" + JSON.stringify(q) + ")\" style=\"background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(245,158,11,.3)\">"
+        + "<i class=\"fas fa-filter\"></i> Use &ldquo;" + esc(q.length>22?q.slice(0,20)+"\u2026":q) + "&rdquo; as filter</button></div>"
+      : "<div style=\"padding:28px 12px;text-align:center;color:#475569\"><i class=\"fas fa-inbox\" style=\"font-size:22px;display:block;margin-bottom:8px;opacity:.4\"></i><p style=\"font-size:11px\">No builds for " + esc(_crCurrentDomain) + "</p></div>";
+    host.innerHTML = customBanner + noMatchHtml;
+    return;
+  }
+  const domainAccent = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  host.innerHTML = groups.map(g => {
+    const checked  = _crSelectedGroups.has(g.key);
+    const isSolo   = _crSoloGroup === g.key;
+    const builds   = [...g.builds];
+    const safeKey  = esc(g.key).replace(/'/g, '&#39;');
+    const accent   = domainAccent[g.domain] || '#2563eb';
+    const cls      = isSolo ? 'selected-solo' : (checked ? 'selected' : 'deselected');
+    return `<div class="cr-nav-item ${cls}" id="crNavItem_${safeKey}">
+      <div class="cr-nav-accent acc-${esc(g.domain)}" style="background:${accent}"></div>
+      <div class="cr-nav-body" onclick="crNavClickGroup('${safeKey}')">
+        <div class="cr-nav-meta">
+          ${esc(g.meta)}
+          <span style="font-size:9px;background:rgba(255,255,255,.1);color:#94a3b8;padding:1px 6px;border-radius:4px">${builds.length} build${builds.length===1?'':'s'}</span>
+        </div>
+        <div class="cr-nav-builds">${esc(builds.slice(0,3).join(' · '))+(builds.length>3?` +${builds.length-3} more`:'')}</div>
+        <div class="cr-nav-stats">
+          ${g.jobs ? `<span class="cr-nav-stat">${g.jobs} jobs</span>` : ''}
+          ${g.devices ? `<span class="cr-nav-stat">${g.devices} dev</span>` : ''}
+          ${g.crashes ? `<span class="cr-nav-stat has-crashes"><i class="fas fa-bug" style="font-size:8px"></i> ${g.crashes}</span>` : ''}
+        </div>
+      </div>
+      <div class="cr-nav-actions">
+        <input type="checkbox" class="cr-nav-cb" ${checked ? 'checked' : ''} onchange="crToggleGroup('${safeKey}', this.checked)" onclick="event.stopPropagation()" title="Include in JIRA query">
+        <button class="cr-nav-rm" onclick="event.stopPropagation();crRemoveBuildGroup('${safeKey}')" title="Hide this build"><i class="fas fa-times"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function crToggleGroup(key, checked){
+  _crSoloGroup = null;  // manual checkbox clears solo mode
+  checked ? _crSelectedGroups.add(key) : _crSelectedGroups.delete(key);
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+function crSelectAllGroups(checked){
+  _crSoloGroup = null;
+  _crVisibleDomainGroups().forEach(g => checked ? _crSelectedGroups.add(g.key) : _crSelectedGroups.delete(g.key));
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+function crRemoveBuildGroup(key){
+  if(!confirm('Remove this build group from the current list?')) return;
+  _crRemovedGroups.add(key);
+  _crSelectedGroups.delete(key);
+  if(_crSoloGroup === key) _crSoloGroup = null;
+  _crSaveRemovedGroups();
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
+}
+function crRestoreRemovedBuilds(){
+  _crRemovedGroups.clear();
+  _crSoloGroup = null;
+  _crSaveRemovedGroups();
+  _crEnsureSelectedGroups();
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+}
+
+// ── nav click: solo-select a single group ───────────────────────────────────────────────
+function crNavClickGroup(key){
+  if(_crSoloGroup === key){
+    // Second click on same group → restore all
+    _crSoloGroup = null;
+    _crEnsureSelectedGroups();
+  } else {
+    // Solo-select this group only
+    _crSoloGroup = key;
+    _crSelectedGroups.clear();
+    _crSelectedGroups.add(key);
+  }
+  // Update active-build tag
+  const tag = document.getElementById('crActiveBuildTag');
+  if(tag){
+    if(_crSoloGroup){
+      const g = _crVisibleDomainGroups().find(g => g.key === _crSoloGroup);
+      const builds = g ? [...g.builds] : [];
+      tag.className = 'cr-active-build-tag';
+      tag.innerHTML = `<i class="fas fa-code-branch"></i> ${esc(g ? g.meta : key)} <span style="font-size:9px;opacity:.7">(${builds.length} build${builds.length===1?'':'s'})</span>`;
+    } else {
+      tag.className = 'cr-active-build-tag all-mode';
+      tag.innerHTML = `<i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)} builds`;
+    }
+  }
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── right-side build cards ─────────────────────────────────────────────────────────────
+function _crRenderBuildCards(){
+  const host = document.getElementById('crBuildCards');
+  if(!host) return;
+  const groups = _crVisibleDomainGroups();
+  if(!groups.length){
+    host.innerHTML = `<div style="padding:14px;color:#94a3b8;font-size:12px"><i class="fas fa-inbox"></i> No running builds for ${esc(_crCurrentDomain)}.</div>`;
+    return;
+  }
+  const domainAccent = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  host.innerHTML = groups.map(g => {
+    const isActive = _crSoloGroup === g.key;
+    const safeKey  = esc(g.key).replace(/'/g, '&#39;');
+    const builds   = [...g.builds];
+    const accent   = domainAccent[g.domain] || '#2563eb';
+    return `<div class="cr-build-card ${isActive ? 'active-card' : ''}" onclick="crNavClickGroup('${safeKey}')">
+      <div style="width:5px;height:100%;min-height:52px;border-radius:4px;background:${accent};flex-shrink:0"></div>
+      <div style="min-width:0">
+        <div class="cr-build-card-meta">${esc(g.meta)}</div>
+        <div class="cr-build-card-builds">${esc(builds.join(' · '))}</div>
+        <div class="cr-build-card-stats">
+          ${g.jobs ? `<span class="cr-build-card-stat">${g.jobs} jobs</span>` : ''}
+          ${g.devices ? `<span class="cr-build-card-stat green">${g.devices} devices</span>` : ''}
+          ${g.crashes ? `<span class="cr-build-card-stat red"><i class="fas fa-bug" style="font-size:9px"></i> ${g.crashes} crashes</span>` : '<span class="cr-build-card-stat green"><i class="fas fa-check" style="font-size:9px"></i> No crashes</span>'}
+        </div>
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534;font-size:10px" onclick="event.stopPropagation();crAddBuildFromRow('${esc(g.meta)}','${esc(builds[0] || g.meta)}','${esc(g.domain)}')" title="Add to MTBF"><i class="fas fa-plus"></i></button>
+        ${isActive ? `<span style="font-size:9px;font-weight:900;color:#6366f1"><i class="fas fa-bolt"></i> Active</span>` : `<span style="font-size:9px;color:#94a3b8">Click to scope</span>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+  const row = {...(r || {})};
+  row.display_build = row.display_build || row.build_full || row.build_name || row.build_id || row.build || '';
+  row.build_full = row.build_full || row.build_name || row.build_id || row.display_build || '';
+  row.meta_id = _crMetaLabelFromRow(row);
+  row.job_count = row.job_count || row.axiom_job_count || 1;
+  row.display_hours = row.display_hours || row.hours || row.axiom_hours_total || '';
+  row.display_mtbf = row.display_mtbf || row.mtbf || '';
+  row.comments = row.comments || row.crash_source || row.product_flavor || '';
+  return row;
+}
+function _crMergeRows(jobRows, dbRows){
+  const byKey = new Map();
+  function add(row){
+    row = _crNormalizeDbRow(row);
+    const key = `${_crBuildGroupKey(row)}:${_crLeafBuild(row.build_full || row.display_build || row.build_id).toUpperCase()}`;
+    const old = byKey.get(key) || {};
+    byKey.set(key, {...old, ...row, axiom_jobs: row.axiom_jobs || old.axiom_jobs});
+  }
+  (jobRows || []).forEach(add);
+  (dbRows || []).forEach(add);
+  return [...byKey.values()];
+}
+
+// Override selected builds to use the left grouped build list.
+function _crSelectedBuilds(){
+  const selected = [];
+  (_crRunningRows || []).forEach(row => {
+    const key = _crBuildGroupKey(row);
+    if(_crRemovedGroups.has(key) || !_crSelectedGroups.has(key)) return;
+    _crRowBuilds(row).forEach(b => selected.push(b));
+  });
+  return [...new Set(selected)];
+}
+
+function _crUpdateRunPill(){
+  const visibleGroups = _crVisibleDomainGroups();
+  const selectedGroups = visibleGroups.filter(g => _crSelectedGroups.has(g.key));
+  const allBuilds = [...new Set(visibleGroups.flatMap(g => [...g.builds]))];
+  const selectedBuilds = _crSelectedBuilds().filter(b => allBuilds.includes(b));
+  const pill = document.getElementById('crRunCount');
+  if(pill) pill.textContent = `${selectedBuilds.length}/${allBuilds.length} builds • ${selectedGroups.length}/${visibleGroups.length} groups selected`;
+  const allBox = document.getElementById('crSelectAll');
+  if(allBox){
+    allBox.checked = visibleGroups.length > 0 && selectedGroups.length === visibleGroups.length;
+    allBox.indeterminate = selectedGroups.length > 0 && selectedGroups.length < visibleGroups.length;
+  }
+}
+
+function crToggleAllBuilds(checked){ crSelectAllGroups(checked); }
+function crOnBuildSelectionChanged(){
+  document.querySelectorAll('.cr-run-check').forEach(ch => {
+    const idx = Number(ch.getAttribute('data-row-idx'));
+    const row = (_crRunningRows || [])[idx];
+    if(row) ch.checked ? _crSelectedGroups.add(_crBuildGroupKey(row)) : _crSelectedGroups.delete(_crBuildGroupKey(row));
+  });
+  crRenderBuildSidebar();
+  _crUpdateRunPill();
+  _crLastJiraCount = null;
+  if(_crPersistedJql) crRunReport(true);
+}
+function crApplyDomainFilter(domain){ crNavSetDomain(domain); }
+
+async function _crFetchDbRows(){
+  try{
+    const res = await fetch(CR_RUNNING_DB_API, {cache:'no-store'});
+    const data = await res.json();
+    return data.ok ? (data.rows || []) : [];
+  }catch(_){ return []; }
+}
+
+// Override load to include all current Axiom builds plus job rows.
+async function crLoadData(force){
+  const sp  = document.getElementById('crReportSpinner');
+  const msg = document.getElementById('crReportMsg');
+  if(sp) sp.style.display = 'inline';
+  if(msg){ msg.textContent = ''; msg.style.color = '#059669'; }
+  try{
+    _crLoadRemovedGroups();
+    const [res, dbRows] = await Promise.all([fetch(CR_REPORT_DATA_API, {cache:'no-store'}), _crFetchDbRows()]);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load current report data');
+
+    if(!data.found && !dbRows.length){
+      _crJobId = null; _crRunningRows = [];
+      document.getElementById('crRunBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-info-circle"></i><p>No live status job/current builds found for this target.</p></td></tr>`;
+      document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>No live status job configured for this target.</p></td></tr>`;
+      crRenderBuildSidebar();
+      if(msg){ msg.textContent = 'No job/current builds found for this target.'; msg.style.color = '#d97706'; }
+      return;
+    }
+
+    _crJobId        = data.job_id || 'db-current-builds';
+    _crRunningRows  = _crMergeRows(data.running_rows || [], dbRows || []);
+    _crPersistedJql = data.persisted_jql || '';
+    _crJqlCustom    = '';
+    _crEnsureSelectedGroups();
+
+    const badge  = document.getElementById('crJobBadge');
+    const status = document.getElementById('crJobStatus');
+    if(badge){
+      badge.style.display = 'inline-flex';
+      badge.className = data.job_status === 'published' ? 'pill good' : 'pill warn';
+      badge.innerHTML = data.job_status === 'published'
+        ? `<i class="fas fa-circle" style="font-size:7px"></i> LIVE`
+        : `<i class="fas fa-pen" style="font-size:9px"></i> DRAFT`;
+    }
+    if(status) status.textContent = data.job_name ? `Job: ${data.job_name}` : 'Current Axiom builds';
+
+    crRenderBuildSidebar();
+    _crRenderBuildCards();
+    _crUpdateRunPill();
+
+    if(_crPersistedJql && _crRunningRows.length){
+      await crRunReport(false);
+    } else {
+      document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>${_crRunningRows.length ? 'No JIRA query configured for this job.' : 'No running builds found.'}</p></td></tr>`;
+    }
+    if(msg){
+      msg.textContent = data.published_at ? `Published ${new Date(data.published_at).toLocaleString()}` : `Loaded ${_crRunningRows.length} current build rows`;
+      msg.style.color = '#059669';
+    }
+  }catch(err){
+    if(msg){ msg.textContent = 'Error: ' + err.message; msg.style.color = '#dc2626'; }
+    document.getElementById('crRunBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message)}</p></td></tr>`;
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+// Override running-build table so it respects grouped selection/removal.
+function _crRenderRunningBuilds(){
+  const body = document.getElementById('crRunBody');
+  if(!body) return;
+  const rows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain && !_crRemovedGroups.has(_crBuildGroupKey(r)));
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No running builds for ${esc(_crCurrentDomain)} domain.</p></td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((r) => {
+    const globalIdx = (_crRunningRows || []).indexOf(r);
+    const key = _crBuildGroupKey(r);
+    const checked = _crSelectedGroups.has(key);
+    const hv = String(r.display_hours !== undefined && r.display_hours !== null && r.display_hours !== '' ? r.display_hours : (r.hours || '')).trim();
+    const mv = String(r.display_mtbf  !== undefined && r.display_mtbf  !== null && r.display_mtbf  !== '' ? r.display_mtbf  : (r.mtbf  || '')).trim();
+    const missing = !hv || /^(na|none|--|-)$/i.test(hv);
+    const builds = Array.isArray(r.merged_builds) && r.merged_builds.length ? r.merged_builds : [r.build_full || r.display_build || r.build_id || '--'];
+    const rowDomain = _crInferDomain(r);
+    const metaIdSafe  = String(r.meta_id  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const buildSafe   = String(builds[0]  || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const domainSafe  = String(rowDomain  || '').replace(/'/g,"\\'");
+    return `<tr data-cr-row-idx="${globalIdx}">
+      <td><input type="checkbox" class="cr-run-check check" ${checked ? 'checked' : ''} data-row-idx="${globalIdx}" onchange="crOnBuildSelectionChanged()" title="Include this META group in JIRA query"></td>
+      <td>${fmt(r.week || r.first_submitted || r.started_at || '--')}</td>
+      <td style="font-weight:950;color:#1e3a8a;white-space:nowrap">${fmt(r.meta_id || '--')}${missing ? '<div class="pill warn" style="margin-top:4px;padding:2px 7px;font-size:10px"><i class="fas fa-user-clock"></i> Not updated</div>' : ''}</td>
+      <td class="build-cell">${builds.map(b => esc(b)).join('<br>')}</td>
+      <td>${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : `<strong>${esc(hv)}</strong>`}</td>
+      <td style="font-weight:800;color:#dc2626">${fmt(r.crashes || '--')}</td>
+      <td style="font-weight:950;color:#6366f1">${missing ? '<span class="pill warn" style="font-size:10px">Not updated</span>' : esc(mv)}</td>
+      <td>${fmt(r.axiom_job_count || r.job_count || '--')}</td>
+      <td>${fmt(r.device_count || '--')}</td>
+      <td>${fmt(r.comments || r.test_eng_comment || r.product_flavor || '--')}</td>
+      <td style="white-space:nowrap"><button class="adas-edit-btn" style="background:#f0fdf4;border-color:#86efac;color:#166534" onclick="crAddBuildFromRow('${metaIdSafe}','${buildSafe}','${domainSafe}')" title="Add this build to ADAS MTBF Trend"><i class="fas fa-plus"></i> Add to MTBF</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function _crRenderBuildChips(){
+  const host = document.getElementById('crBuildChips');
+  if(!host) return;
+  const groups = _crVisibleDomainGroups();
+  const selectedBuilds = _crSelectedBuilds();
+  if(!groups.length){ host.innerHTML = '<span class="muted">No builds available</span>'; return; }
+  const domainChip = `<button class="cr-build-chip active" onclick="crSelectDomainBuilds()" title="Query all ${esc(_crCurrentDomain)} builds"><i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)}</button>`;
+  const buildChips = groups.slice(0, 28).map(g => `<button class="cr-build-chip ${_crSelectedGroups.has(g.key) ? 'running' : ''}" onclick="crToggleGroup('${esc(g.key).replace(/'/g, '&#39;')}', true)" title="${esc([...g.builds].join(' | '))}">${esc(g.meta)}</button>`).join('');
+  host.innerHTML = domainChip + buildChips + (groups.length > 28 ? `<span class="muted">+${groups.length - 28} more in left list</span>` : '');
+}
+function crSelectDomainBuilds(){ crSelectAllGroups(true); }
+function crSelectSingleBuild(buildName){
+  _crSelectedGroups.clear();
+  (_crRunningRows || []).forEach(row => { if(_crRowBuilds(row).includes(buildName)) _crSelectedGroups.add(_crBuildGroupKey(row)); });
+  crRenderBuildSidebar();
+  _crRenderBuildCards();
+  _crUpdateRunPill();
+  if(_crPersistedJql) crRunReport(true);
+}
+
+// ── 3-tab report state ────────────────────────────────────────────────────
+let _crMappedRows  = [];  // ADSPIMAGE/CNSSDEBUG/CHIPMD/ADSPBUG rows
+let _crOpenRows    = [];  // NO_CR open JIRAs (filtered)
+
+// ── report rendering ──────────────────────────────────────────────────────
+function _crCrashType(row){
+  const t = [row?.crash_type,row?.type,row?.cr_title,row?.title,row?.cr_area,row?.cr_subsystem].join(' ').toLowerCase();
+  if(t.includes('system')) return 'System';
+  if(/\bssr\b|subsystem restart/.test(t)) return 'SSR';
+  return 'Process';
+}
+function _crJiraKey(j){ return String(j?.final_key || j?.key || j?.stability_ticket || j?.ticket || '').toUpperCase(); }
+
+// CR classification helpers (mirrors build_report_standalone.html)
+const _CR_EQ_PREFIXES = ['ADSPIMAGE','CNSSDEBUG','CHIPMD','ADSPBUG','CNSS','WLAN','QWINBUG','ARAST','AVATAR','AVATARWPAP','BAGHEERAST','BLAUNCH','DINOSTABLE','DROIDBUG','ELANSTABLE','FORINO','FRODOST','FUSIONT','FUSNFOURST','JINGALA','QNPSTBLT','QSTABILITY','TORINOST','WAVEAPOLLO','WCNSTABLE','WPARAGORN','WPFRODO','WRSTABLE','UIBUG','RMASLT','SCSTABLE','AISW','WPST'];
+function _isTrueCr(k){ return /^CR\d{5,9}$/i.test(String(k||'').trim()); }
+function _isCrEquiv(k){ const u=String(k||'').toUpperCase(); return _CR_EQ_PREFIXES.some(p=>u.startsWith(p+'-')); }
+
+// Closed-ticket filter (mirrors PDT_StatsConstants.py)
+const _CR_EXCL_RES  = new Set(['invalid','incomplete',"won't fix",'wont fix','cannot reproduce','withdrawn']);
+const _CR_CLOSED_ST = new Set(['closed','closed_root_cause_not_found','closed_root_cause_cr_found','resolved','rejected']);
+function _crIsClosedJunk(j){
+  const st   = String(j?.final_status||j?.status||'').trim().toLowerCase();
+  const res  = String(j?.resolution||'').trim().toLowerCase();
+  const fres = String(j?.final_resolution||'').trim().toLowerCase();
+  if(st==='rejected') return true;
+  if(st.includes('transfer')) return true;
+  if(_CR_CLOSED_ST.has(st)&&(_CR_EXCL_RES.has(res)||_CR_EXCL_RES.has(fres))) return true;
+  return false;
+}
+
+function _crNormalizeReportRows(hierarchical){
+  const crRows=[], mappedRows=[], openRows=[], seenJ=new Set();
+  (hierarchical||[]).forEach(r=>{
+    const jiras=r.jiras||[];
+    const cr=String(r.cr||'').trim();
+    if(_isTrueCr(cr)){
+      crRows.push({
+        cr, title:r.cr_title||r.title||'', occurrences:jiras.length||r.cr_count||r.jira_count||1,
+        area:r.cr_area||r.area||'', subsystem:r.cr_subsystem||r.subsystem||'',
+        functionality:r.cr_functionality||r.cr_function||r.functionality||'',
+        date:r.cr_date||'', si:r.cr_si||'', status:r.cr_status||r.status||'',
+        age:r.cr_age||r.overall_age||'', jiras
+      });
+    } else if(_isCrEquiv(cr)){
+      const firstJ=jiras[0]||{};
+      const srcKeys=jiras.map(j=>_crJiraKey(j)).filter(Boolean);
+      mappedRows.push({
+        ticket:cr, count:jiras.length||1,
+        title:firstJ.final_summary||firstJ.summary||firstJ.jira_title||r.title||'',
+        date:String(firstJ.created||'').slice(0,10),
+        status:firstJ.final_status||firstJ.status||'',
+        srcKeys
+      });
+    } else {
+      // NO_CR - filter out closed+junk tickets (mirrors PDT_StatsConstants.py)
+      jiras.forEach(j=>{
+        const key=_crJiraKey(j);
+        if(!key||seenJ.has(key)) return;
+        if(_crIsClosedJunk(j)) return;
+        seenJ.add(key);
+        openRows.push({
+          key, occurrences:1,
+          summary:j.final_summary||j.summary||j.jira_title||'',
+          date:String(j.created||'').slice(0,10),
+          status:j.final_status||j.status||'Open',
+          final_resolution:j.final_resolution||j.resolution||'',
+          resolution_notes_text:j.resolution_notes_text||j.resolution_notes||''
+        });
+      });
+    }
+  });
+  return {crRows, mappedRows, open:openRows};
+}
+
+function crSwitchTab(name){
+  ['crs','mapped','open'].forEach(t=>{
+    const pane=document.getElementById('crTabPane_'+t);
+    const btn=document.getElementById('crTab_'+t);
+    const badge=document.getElementById('crTabBadge_'+t);
+    const active=(t===name);
+    if(pane) pane.style.display=active?'block':'none';
+    if(btn){ btn.style.borderBottomColor=active?'#6366f1':'transparent'; btn.style.color=active?'#6366f1':'#64748b'; }
+    if(badge){ badge.style.background=active?'#6366f1':'#e2e8f0'; badge.style.color=active?'#fff':'#475569'; }
+  });
+}
+
+function _crRenderCrTable(hierarchical){
+  const body = document.getElementById('crReportBody');
+  const parsed = _crNormalizeReportRows(hierarchical);
+  _crAllRows    = parsed.crRows;
+  _crMappedRows = parsed.mappedRows;
+  _crOpenRows   = parsed.open;
+  _crOpenJiraGroups = parsed.open; // legacy compat for crCopyReport
+
+  // Update tab badges
+  const setBadge=(id,n,active)=>{ const b=document.getElementById('crTabBadge_'+id); if(!b)return; b.textContent=n; b.style.background=active?'#6366f1':'#e2e8f0'; b.style.color=active?'#fff':'#475569'; };
+  setBadge('crs',   _crAllRows.length,    true);
+  setBadge('mapped',_crMappedRows.length, false);
+  setBadge('open',  _crOpenRows.length,   false);
+
+  // Show tabs, hide empty state
+  const tabs=document.getElementById('crReportTabs');
+  const empty=document.getElementById('crReportEmpty');
+  if(tabs)  tabs.style.display='block';
+  if(empty) empty.style.display='none';
+
+  // Render CRs tab
+  if(!body) return;
+  if(!_crAllRows.length){ body.innerHTML=`<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No CRs found for the selected builds.</p></td></tr>`; }
+  else body.innerHTML=_crAllRows.map((r,i)=>{
+    const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
+    const crLinkHtml=id?`<a class="link" href="https://orbit/CR/${esc(id)}" target="_blank" rel="noopener">${esc(r.cr)}</a>`:esc(r.cr||'--');
+    const jiraKeys=(r.jiras||[]).map(j=>_crJiraKey(j)).filter(Boolean);
+    const cnt=Number(r.occurrences||jiraKeys.length||0);
+    let jiraCell;
+    if(!jiraKeys.length){ jiraCell=`<b style="color:#4f46e5">${esc(cnt)}</b>`; }
+    else if(jiraKeys.length<=3){ jiraCell=jiraKeys.map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''); }
+    else{ const pills=jiraKeys.slice(0,4).map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''); const more=jiraKeys.length>4?`<span style="color:#94a3b8;font-size:10px"> +${jiraKeys.length-4} more</span>`:''; jiraCell=`<b style="color:#4f46e5">${esc(cnt)}</b><div style="margin-top:3px">${pills}${more}</div>`; }
+    const stLow=String(r.status||'').toLowerCase();
+    const stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6':stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534':'background:#f1f5f9;color:#475569';
+    const stBadge=r.status?`<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 6px;${stColor}">${esc(r.status)}</span>`:'--';
+    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${crLinkHtml}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(cnt)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="font-size:11px">${esc(r.area||'--')}</td><td style="font-size:11px">${esc(r.subsystem||'--')}</td><td style="font-size:11px">${esc(r.functionality||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.si||'--')}</td><td>${stBadge}</td><td style="min-width:160px">${jiraCell}</td></tr>`;
+  }).join('');
+
+  // Render Mapped tab
+  const mappedBody=document.getElementById('crMappedBody');
+  if(mappedBody){
+    if(!_crMappedRows.length){ mappedBody.innerHTML=`<tr><td colspan="7" class="empty">No mapped tickets found.</td></tr>`; }
+    else mappedBody.innerHTML=_crMappedRows.map((r,i)=>{
+      const prefix=String(r.ticket||'').split('-')[0]||'';
+      const pColor={'ADSPIMAGE':'#7c3aed','CNSSDEBUG':'#0369a1','CHIPMD':'#059669','ADSPBUG':'#b45309'}[prefix]||'#475569';
+      const tLink=`<a class="link" style="font-weight:900;color:${pColor}" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(r.ticket)}" target="_blank">${esc(r.ticket)}</a>`;
+      const srcKeys=r.srcKeys||[];
+      const srcCell=srcKeys.length<=3?srcKeys.map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join(''):(srcKeys.slice(0,3).map(k=>`<a class="link" style="font-size:10px;font-weight:800;color:#1d4ed8;display:inline-block;margin:1px 2px" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(k)}" target="_blank">${esc(k)}</a>`).join('')+(srcKeys.length>3?`<span style="color:#94a3b8;font-size:10px"> +${srcKeys.length-3} more</span>`:''));
+      return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${tLink}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(r.count||1)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.status||'--')}</td><td style="min-width:140px">${srcCell}</td></tr>`;
+    }).join('');
+  }
+
+  // Render Open JIRAs tab
+  _crRenderOpenJiras(null);
+}
+
+function _crRenderOpenJiras(_ignored){
+  const body  = document.getElementById('crOpenJiraBody');
+  if(!body) return;
+  const rows = _crOpenRows||[];
+  if(!rows.length){ body.innerHTML=`<tr><td colspan="6" class="empty">No open/unmapped JIRAs found.</td></tr>`; return; }
+  const _INV=['invalid','setup issue','incomplete',"won't fix",'wont fix','cannot reproduce','not a bug','nosir','no sir','not applicable','obsolete','postponed','withdrawn'];
+  body.innerHTML=rows.map((r,i)=>{
+    const st=String(r.status||''); const stLow=st.toLowerCase();
+    const fr=String(r.final_resolution||'').toLowerCase();
+    const rn=String(r.resolution_notes_text||'').toLowerCase();
+    const isInv=_INV.some(v=>stLow.includes(v)||fr.includes(v)||rn.includes(v));
+    const stColor=stLow.includes('open')?'background:#fef9c3;color:#854d0e':(stLow.includes('closed')||isInv)?'background:#fee2e2;color:#b91c1c':'background:#f1f5f9;color:#475569';
+    const stBadge=st?`<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 6px;${stColor}">${esc(st)}</span>`:'--';
+    const invBadge=isInv?`<span style="display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;font-size:10px;font-weight:900;padding:1px 5px;margin-left:3px">invalid</span>`:'';
+    const resDisplay=r.resolution_notes_text||r.final_resolution||'';
+    const resNote=resDisplay?`<div style="font-size:10px;color:#64748b;margin-top:2px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(resDisplay)}">${esc(resDisplay.substring(0,55))}${resDisplay.length>55?'\u2026':''}</div>`:'';
+    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap"><a class="link" href="https://jira-dc2.qualcomm.com/jira/browse/${esc(r.key)}" target="_blank">${esc(r.key)}</a></td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(r.occurrences||1)}</td><td style="max-width:360px;word-break:break-word;font-size:11px">${esc(r.summary||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td>${stBadge}${invBadge}${resNote}</td></tr>`;
+  }).join('');
+}
+
+async function crRunReport(force){
+  if(!_crJobId){ return; }
+  const jql = _crGetJql();
+  if(!jql){
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
+    const tabs=document.getElementById('crReportTabs'); if(tabs) tabs.style.display='none';
+    const empty=document.getElementById('crReportEmpty'); if(empty){ empty.style.display='block'; empty.innerHTML='<i class="fas fa-info-circle"></i> Select at least one build to view the report.'; }
+    return;
+  }
+  const sp = document.getElementById('crReportSpinner');
+  const msg = document.getElementById('crReportMsg');
+  if(sp) sp.style.display = 'inline';
+  if(msg){ msg.textContent = 'Fetching crash data...'; msg.style.color = '#4f46e5'; }
+  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
+  try{
+    const res  = await fetch(`/api/live_status/targets/${encodeURIComponent(TARGET)}/current_report`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({force: force === true, custom_jql: jql})
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Report failed');
+    const report  = data.report || {};
+    _crReportCache = report;
+    const meta = report.meta || {};
+    const newCount = meta.jira_count !== undefined ? meta.jira_count : (report.jiras || []).length;
+    _crLastJiraCount = newCount;
+    _crExcludedJiras = (report.excluded_jiras || []).map(k => String(k).toUpperCase());
+    _crRenderCrTable(report.hierarchical_report || []);
+    // Switch to CRs tab by default
+    crSwitchTab('crs');
+    const pills = document.getElementById('crSummaryPills');
+    if(pills){
+      pills.innerHTML = `<span class="pill"><i class="fas fa-ticket-alt"></i> ${newCount || 0} JIRAs</span><span class="pill good"><i class="fas fa-bug"></i> ${_crAllRows.length} CRs</span><span class="pill" style="background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9"><i class="fas fa-link"></i> ${_crMappedRows.length} mapped</span><span class="pill warn"><i class="fas fa-door-open"></i> ${_crOpenRows.length} open</span><span class="pill"><i class="fas fa-code-branch"></i> ${_crSelectedBuilds().length} builds</span>`;
+    }
+    if(msg){ msg.textContent = `Updated ${new Date().toLocaleTimeString()}`; msg.style.color = '#059669'; }
+  }catch(err){
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
+    if(msg){ msg.textContent = 'Error: ' + (err.message || err); msg.style.color = '#dc2626'; }
+  }finally{
+    if(sp) sp.style.display = 'none';
+  }
+}
+
+function crCopyReport(){
+  const lines = [];
+  lines.push('Current Crash Report - ' + String(TARGET || '').toUpperCase());
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('Selected builds: ' + _crSelectedBuilds().join(', '));
+  lines.push('');
+  // CRs tab
+  lines.push('=== CRs (' + (_crAllRows||[]).length + ') ===');
+  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','CR Date','CR SI','CR Status'].join('\t'));
+  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.date,r.si,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  // Mapped tab
+  if((_crMappedRows||[]).length){
+    lines.push(''); lines.push('=== Mapped JIRAs (' + _crMappedRows.length + ') ===');
+    lines.push(['#','Ticket','Count','Title','Date','Status','Source JIRAs'].join('\t'));
+    _crMappedRows.forEach((r,i) => lines.push([i+1,r.ticket,r.count,r.title,r.date,r.status,(r.srcKeys||[]).join(', ')].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  }
+  // Open JIRAs tab
+  if((_crOpenRows||[]).length){
+    lines.push(''); lines.push('=== Open JIRAs (' + _crOpenRows.length + ') ===');
+    lines.push(['#','Ticket','Occurrences','Summary','Date','Status'].join('\t'));
+    _crOpenRows.forEach((r,i) => lines.push([i+1,r.key,r.occurrences,r.summary,r.date,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  }
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => { const m = document.getElementById('crReportMsg'); if(m){ m.textContent = 'Crash report copied.'; m.style.color = '#059669'; } })
+    .catch(() => alert('Copy failed.'));
+}
+
+function crCopyRecentMetas(){
+  const rows = getVisibleCrRows();
+  if(!rows.length){ alert('No CR rows to copy.'); return; }
+  const lines = rows.map(r => [r.mapped_cr || r.cr || '', r.cr_title || '', r.jira_count || ''].join('\t'));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Copied recent META CR rows.')).catch(() => alert('Copy failed.'));
+}
+
+// Initial current-report load after all overrides are registered.
+document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LSV CUSTOMIZE TABS
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  const TAB_CFG_API = '/api/live_status_view/' + encodeURIComponent(TARGET) + '/tab_config';
+
+  const LSV_TABS = [
+    { key:'meta_selection',     label:'META Selection',       icon:'fa-layer-group',   color:'#4f46e5', desc:'META rows table, filter, submit selection' },
+    { key:'adas_mtbf',          label:'ADAS MTBF Trend',      icon:'fa-chart-line',    color:'#059669', desc:'MTBF chart and builds table (ADAS/IVI/FLEX)' },
+    { key:'unique_crs',         label:'Unique CRs by Target', icon:'fa-bug',           color:'#6366f1', desc:'FLEX / ADAS / IVI CR buckets' },
+    { key:'current_report',     label:'Current Report',       icon:'fa-circle',        color:'#16a34a', desc:'Running builds, CRs, JIRAs live view' },
+    { key:'consolidated_result',label:'Consolidated Result',  icon:'fa-table',         color:'#2563eb', desc:'Submitted META consolidated CR/JIRA result' },
+  ];
+
+  // Panel element IDs per tab key
+  const PANEL_IDS = {
+    meta_selection:      'lsvPanel_meta_selection',
+    adas_mtbf:           'adasMtbfPanel',
+    unique_crs:          'uniqueCrsByTargetPanel',
+    current_report:      'currentReportPanel',
+    consolidated_result: 'resultsPanel',
+  };
+
+  let _tabConfig = {};   // key -> bool (true = visible)
+  let _isEditor  = false;
+
+  // ── Apply visibility to DOM panels ──────────────────────────────────────
+  function _applyTabConfig(cfg){
+    _tabConfig = Object.assign({}, cfg);
+    LSV_TABS.forEach(function(t){
+      var panelId = PANEL_IDS[t.key];
+      var el = panelId ? document.getElementById(panelId) : null;
+      if(!el) return;
+      var visible = cfg[t.key] !== false;  // default true
+      if(visible){
+        el.classList.remove('lsv-tab-hidden');
+      } else {
+        el.classList.add('lsv-tab-hidden');
+        // Also hide consolidated result if it was shown
+        if(t.key === 'consolidated_result') el.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Load from server ─────────────────────────────────────────────────────
+  async function _loadTabConfig(){
+    try{
+      var res = await fetch(TAB_CFG_API, {cache:'no-store'});
+      var d   = await res.json();
+      if(d.ok) _applyTabConfig(d.tab_config || {});
+    }catch(e){ /* silent — defaults are all-visible */ }
+  }
+
+  // ── Check if current user is editor (TARGET_GROUP) ───────────────────────
+  async function _checkEditorAccess(){
+    try{
+      var res = await fetch('/api/feedback/check_access', {cache:'no-store'});
+      var d   = await res.json();
+      _isEditor = !!(d && d.allowed);
+    }catch(e){ _isEditor = false; }
+    var badge = document.getElementById('lsvCzEditorBadge');
+    if(badge) badge.style.display = _isEditor ? 'inline' : 'none';
+  }
+
+  // ── Render modal rows ────────────────────────────────────────────────────
+  function _renderCzRows(){
+    var container = document.getElementById('lsvCzRows');
+    if(!container) return;
+    var html = '';
+    LSV_TABS.forEach(function(t){
+      var checked = _tabConfig[t.key] !== false;
+      html += '<label class=lsv-cz-row' + (checked ? ' checked' : '') + ' id=lsvCzRow_' + t.key + ' onclick=lsvCzToggle(\'' + t.key + '\')>' +
+        '<input type=checkbox id=lsvCzCk_' + t.key + ' ' + (checked ? 'checked' : '') + ' onclick=event.stopPropagation() onchange=lsvCzToggle(\'' + t.key + '\')>' +
+        '<span class=lsv-cz-icon style=background:' + (checked ? t.color + '18' : '#f1f5f9') + '>' +
+          '<i class=fas ' + t.icon + ' style=color:' + (checked ? t.color : '#94a3b8') + '></i>' +
+        '</span>' +
+        '<span style=flex:1><div class=lsv-cz-label>' + t.label + '</div><div class=lsv-cz-desc>' + t.desc + '</div></span>' +
+        '<span style=font-size:11px;font-weight:900;color:' + (checked ? '#16a34a' : '#94a3b8') + '>' + (checked ? 'Visible' : 'Hidden') + '</span>' +
+      '</label>';
+    });
+    container.innerHTML = html;
+
+    // Show viewer-only note if not editor
+    var note = document.getElementById('lsvCzNote');
+    if(note){
+      if(_isEditor){
+        note.innerHTML = '<i class=fas fa-info-circle style=color:#6366f1></i> Toggle which sections are visible. Changes are saved server-side and apply to <strong>all viewers</strong> of this target.';
+      } else {
+        note.innerHTML = '<i class=fas fa-lock style=color:#d97706></i> <strong>View only.</strong> Only editors (TARGET_GROUP) can change tab visibility for all viewers.';
+      }
+    }
+    var saveBtn = document.getElementById('lsvCzSaveBtn');
+    if(saveBtn) saveBtn.style.display = _isEditor ? 'inline-flex' : 'none';
+  }
+
+  // ── Toggle a tab checkbox in the modal ───────────────────────────────────
+  window.lsvCzToggle = function(key){
+    if(!_isEditor) return;  // viewers cannot change
+    var ck  = document.getElementById('lsvCzCk_' + key);
+    var row = document.getElementById('lsvCzRow_' + key);
+    var tab = LSV_TABS.find(function(t){ return t.key === key; });
+    if(!ck || !tab) return;
+    var nowChecked = ck.checked;
+    _tabConfig[key] = nowChecked;
+    if(row){
+      row.classList.toggle('checked', nowChecked);
+      var icon = row.querySelector('.lsv-cz-icon');
+      if(icon){
+        icon.style.background = nowChecked ? tab.color + '18' : '#f1f5f9';
+        var i = icon.querySelector('i');
+        if(i) i.style.color = nowChecked ? tab.color : '#94a3b8';
+      }
+      var statusSpan = row.querySelector('span:last-child');
+      if(statusSpan){
+        statusSpan.textContent = nowChecked ? 'Visible' : 'Hidden';
+        statusSpan.style.color = nowChecked ? '#16a34a' : '#94a3b8';
+      }
+    }
+  };
+
+  // ── Open modal ───────────────────────────────────────────────────────────
+  window.lsvOpenCustomize = function(){
+    _renderCzRows();
+    var msg = document.getElementById('lsvCzMsg');
+    if(msg) msg.textContent = '';
+    document.getElementById('lsvCustomizeModal').classList.add('open');
+  };
+
+  // ── Close modal ──────────────────────────────────────────────────────────
+  window.lsvCloseCustomize = function(){
+    document.getElementById('lsvCustomizeModal').classList.remove('open');
+  };
+
+  // ── Save to server ───────────────────────────────────────────────────────
+  window.lsvSaveCustomize = async function(){
+    if(!_isEditor){ alert('Only editors can change tab visibility.'); return; }
+    var btn = document.getElementById('lsvCzSaveBtn');
+    var msg = document.getElementById('lsvCzMsg');
+    if(btn){ btn.disabled = true; btn.innerHTML = '<i class=fas fa-circle-notch fa-spin></i> Saving...'; }
+    if(msg){ msg.textContent = ''; msg.style.color = '#64748b'; }
+    try{
+      var res = await fetch(TAB_CFG_API, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({tab_config: _tabConfig})
+      });
+      var d = await res.json();
+      if(!d.ok) throw new Error(d.error || 'Save failed');
+      _applyTabConfig(d.tab_config || _tabConfig);
+      if(msg){ msg.textContent = '\u2713 Saved \u2014 all viewers will see the updated layout.'; msg.style.color = '#16a34a'; }
+      setTimeout(function(){ lsvCloseCustomize(); }, 1200);
+    }catch(e){
+      if(msg){ msg.textContent = 'Error: ' + (e.message || e); msg.style.color = '#dc2626'; }
+    }finally{
+      if(btn){ btn.disabled = false; btn.innerHTML = '<i class=fas fa-save></i> Save for All Viewers'; }
+    }
+  };
+
+  // Close on backdrop click
+  document.getElementById('lsvCustomizeModal').addEventListener('click', function(e){
+    if(e.target === this) lsvCloseCustomize();
+  });
+
+  // ── Init: load config + check editor access on page load ─────────────────
+  document.addEventListener('DOMContentLoaded', function(){
+    _loadTabConfig();
+    _checkEditorAccess();
+  });
+  // Also run immediately in case DOMContentLoaded already fired
+  _loadTabConfig();
+  _checkEditorAccess();
+})();
+
+</script>
+</body>
+</html>

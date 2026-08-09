@@ -2112,6 +2112,37 @@ def live_status_target_by_bu(bu_key, target_name, initial_tab_path=None):
     """
 
     initial_tab = _normal_live_status_tab(initial_tab_path, _requested_live_status_tab('mtbf'))
+
+    # ── BU-based routing ──────────────────────────────────────────────────────
+    # Determine the effective BU for this target (prefer resolved BU over URL param).
+    _bu = str(get_bu_for_target(target_name) or bu_key or '').strip().upper()
+    _is_auto_bu = _bu in {'AUTO', 'AUTOMOTIVE', 'AUTO_TELEMATICS'} or \
+                  str(target_name or '').upper().startswith('NORD') or \
+                  'NORD_' in str(target_name or '').upper()
+
+    # Non-AUTO / non-WBC targets → redirect ALL users (editors and viewers)
+    # to the correct live-view-stats page for that BU.
+    if not _is_auto_bu:
+        # Auto Gen4.5 (e.g. 4.8.x targets)
+        try:
+            from automotive_live_view_stats_routes import _is_auto_gen45_target
+            if _is_auto_gen45_target(target_name):
+                return redirect(url_for(
+                    'automotive_live_view_stats_bp.automotive_live_view_stats_page',
+                    target_name=target_name,
+                ))
+        except Exception:
+            pass
+        # WBC
+        if _bu == 'WBC':
+            return redirect(url_for('wbc_live_view_stats_bp.wbc_live_view_status_page'))
+        # Others (XR, Mobile, IoT, MBB, Compute, …)
+        return redirect(url_for(
+            'others_live_view_stats_bp.others_live_view_stats_page',
+            target_name=target_name,
+        ))
+    # ─────────────────────────────────────────────────────────────────────────
+
     if current_user.is_authenticated and _target_group_access():
 
         # Editors always get the edit workspace - draft or published.

@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>{{ target_display|upper }} &mdash; Live View Stats</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
+  <script src="/static/js/chart.umd.min.js"></script>
+  <script src="/static/js/chartjs-plugin-datalabels.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#f0f4ff 0%,#e8f5e9 40%,#fafbff 100%);color:#0f172a;min-height:100vh;font-size:14px}
+    /* ── Full-page shell ── */
+    .shell{width:100%;padding:0 0 60px}
+    /* ── Top bar ── */
+    .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 28px;background:#fff;border-bottom:2px solid #e0e7ff;box-shadow:0 2px 12px rgba(37,99,235,.08);position:sticky;top:0;z-index:50}
+    .topbar-left{flex:1;min-width:0}
+    .eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;margin-bottom:2px}
+    .topbar h1{font-size:20px;color:#1e3a8a;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    /* ── Badges ── */
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}
+    .badge-live{background:#dcfce7;color:#166534;border:1px solid #86efac}
+    .badge-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+    .badge-err{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+    /* ── Buttons ── */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;transition:all .15s}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.1)}
+    .btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.25)}
+    .btn-green{border:0;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
+    .btn-save{border:0;background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff}
+    .btn-danger{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+    .btn-sm{padding:5px 10px;font-size:11px;border-radius:8px}
+    /* ── KPI cards ── */
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;padding:18px 28px}
+    .kpi{background:#fff;border:1px solid #e0e7ff;border-radius:16px;padding:16px 18px;box-shadow:0 4px 14px rgba(15,23,42,.06);cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+    .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--acc,#6366f1);border-radius:16px 16px 0 0}
+    .kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.12)}
+    .kpi .num{font-size:28px;font-weight:1000;color:#0f172a;line-height:1}
+    .kpi .lbl{font-size:10px;color:#64748b;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-top:5px}
+    /* ── Tabs ── */
+    .tabs{display:flex;gap:0;padding:0 28px;border-bottom:2px solid #e0e7ff;background:#fff;overflow-x:auto}
+    .tab-btn{padding:12px 20px;border:0;border-bottom:3px solid transparent;background:transparent;color:#64748b;font-weight:900;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;margin-bottom:-2px}
+    .tab-btn:hover{color:#4338ca;background:#f0f4ff}
+    .tab-btn.active{color:#1e3a8a;border-bottom-color:#4f46e5;background:#f8faff}
+    .tab-section{display:none;padding:20px 28px}
+    .tab-section.active{display:block}
+    /* ── Panels ── */
+    .panel{background:#fff;border:1px solid #e0e7ff;border-radius:16px;box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;margin-bottom:16px}
+    .panel-h{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#fafbff,#f0f4ff)}
+    .panel-title{font-weight:950;display:flex;align-items:center;gap:8px;font-size:14px;color:#0f172a}
+    .panel-b{padding:16px 18px}
+    /* ── MTBF grid ── */
+    .mtbf-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(380px,1fr);gap:18px}
+    .chart-box{background:#fff;border-radius:12px;padding:10px;height:380px;position:relative;border:1px solid #e0e7ff}
+    /* ── Tables ── */
+    .tbl-wrap{overflow:auto;max-height:440px;border-radius:12px;border:1px solid #e0e7ff}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#f0f9ff;font-size:10px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;z-index:2;font-weight:800}
+    tr:hover td{background:#f8faff}
+    .empty{padding:36px;text-align:center;color:#94a3b8}
+    /* ── Inputs ── */
+    .inp{border:1px solid #d1d5db;background:#fff;border-radius:10px;color:#374151;padding:8px 12px;outline:none;font-family:inherit;font-size:13px;transition:border-color .15s}
+    .inp:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+    /* ── Filter bar ── */
+    .filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;background:linear-gradient(135deg,#fff,#f0f4ff);border:1px solid rgba(148,163,184,.35);border-radius:12px;padding:10px 14px}
+    /* ── Build cards (WBC style) ── */
+    .build-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+    .build-card{border:1.5px solid #dbeafe;background:linear-gradient(135deg,#fff,#f0f9ff);border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(37,99,235,.08)}
+    .build-card b{color:#1e3a8a;word-break:break-all;font-size:13px}
+    .build-card .sub{font-size:11px;color:#64748b;margin-top:5px;font-weight:800;line-height:1.5}
+    .build-card .pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;padding:3px 9px;font-size:10px;font-weight:900;color:#4338ca}
+    /* ── Saved JQL cards ── */
+    .sjql-card{border:1.5px solid #e0e7ff;background:#fff;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(37,99,235,.06)}
+    .sjql-card-grid{display:grid;grid-template-columns:minmax(200px,260px) minmax(0,1fr) auto;align-items:stretch}
+    .sjql-build-col{padding:13px 14px;background:#f8faff;border-right:1px solid #e0e7ff}
+    .sjql-jql-col{padding:13px 14px;min-width:0}
+    .sjql-actions-col{display:flex;gap:6px;flex-shrink:0;align-items:flex-start;padding:13px 14px;border-left:1px solid #e0e7ff;background:#f8faff}
+    .sjql-label{font-size:9px;font-weight:1000;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+    .sjql-build-id{font-size:13px;font-weight:1000;color:#1e3a8a;word-break:break-all}
+    .sjql-jql-code{font-size:10px;color:#334155;font-family:Consolas,monospace;word-break:break-all;line-height:1.5;background:#f8faff;border:1px solid #e0e7ff;border-radius:8px;padding:7px 9px}
+    .sjql-timing{font-size:10px;margin-top:7px;display:flex;gap:10px;flex-wrap:wrap;color:#64748b}
+    /* ── Inline report ── */
+    .inline-report{display:none;margin-top:0}
+    .inline-report-head{display:flex;align-items:center;gap:10px;padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff;border-radius:14px 14px 0 0}
+    /* ── Stat cards ── */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+    .stat-card{background:#fff;border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+    .stat-card .sv{font-size:24px;font-weight:1000;color:#1e3a8a}
+    .stat-card .sl{font-size:10px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+    /* ── CR status colors ── */
+    .cr-open{color:#16a34a;font-weight:900}
+    .cr-analysis{color:#d97706;font-weight:900}
+    /* ── Modal ── */
+    .modal-ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .modal-ov.open{display:flex}
+    .modal{background:#fff;border:1px solid #e0e7ff;border-radius:20px;padding:24px;width:min(560px,95vw);max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.2)}
+    .modal h2{margin:0 0 14px;font-size:17px;color:#0f172a}
+    .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .frow.full{grid-template-columns:1fr}
+    .flbl{font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+    .spin{animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .msg{font-size:12px;margin-top:8px;color:#64748b}
+    .msg.ok{color:#16a34a}
+    .msg.err{color:#dc2626}
+    td.editable{cursor:pointer}
+    td.editable:hover{background:#eff6ff!important}
+    td.editing input{width:100%;background:#fff;border:1px solid #6366f1;border-radius:6px;color:#0f172a;padding:4px 6px;font-family:inherit;font-size:12px;outline:none}
+    @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.mtbf-grid{grid-template-columns:1fr}.sjql-card-grid{grid-template-columns:1fr}}
+    @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}.tabs{padding:0 14px}.tab-section{padding:14px}.topbar{padding:12px 16px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="eyebrow"><i class="fas fa-satellite-dish"></i> {{ bu or 'Others' }} BU &mdash; Live View Stats</div>
+      <h1>{{ target_display }}</h1>
+    </div>
+    <div class="topbar-actions">
+      <span class="badge badge-info" id="statusBadge"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</span>
+      <button class="btn btn-primary" onclick="refreshAll()"><i class="fas fa-sync" id="refreshIcon"></i> Refresh</button>
+      {% if is_admin %}
+      <button class="btn btn-green" onclick="openAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+      <button class="btn btn-save" onclick="saveMtbfTable()" id="saveBtn"><i class="fas fa-save"></i> Save</button>
+      {% endif %}
+      <a class="btn" href="/dashboard/{{ target_name }}/mtbf-excel" target="_blank"><i class="fas fa-chart-bar"></i> Dashboard</a>
+      <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border:0;color:#fff"><i class="fas fa-users"></i> Live Status</a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpis">
+    <div class="kpi" style="--acc:#6366f1" onclick="switchTab('mtbf')"><div class="num" id="kpiBuilds">&mdash;</div><div class="lbl">Total Builds</div></div>
+    <div class="kpi" style="--acc:#0ea5e9" onclick="switchTab('mtbf')"><div class="num" id="kpiLatestMtbf">&mdash;</div><div class="lbl">Latest MTBF (hrs)</div></div>
+    <div class="kpi" style="--acc:#22c55e" onclick="switchTab('mtbf')"><div class="num" id="kpiAvgMtbf">&mdash;</div><div class="lbl">Avg MTBF (hrs)</div></div>
+    <div class="kpi" style="--acc:#c4b5fd" onclick="switchTab('openjiras')"><div class="num" id="kpiOpenJiras">&mdash;</div><div class="lbl">Open JIRAs</div></div>
+    <div class="kpi" style="--acc:#fb7185" onclick="switchTab('opencrs')"><div class="num" id="kpiOpenCrs">&mdash;</div><div class="lbl">Open CRs</div></div>
+    <div class="kpi" style="--acc:#34d399" onclick="switchTab('running')"><div class="num" id="kpiRunning">&mdash;</div><div class="lbl">Running Builds</div></div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-mtbf" onclick="switchTab('mtbf')"><i class="fas fa-chart-line"></i> MTBF Trend</button>
+    <button class="tab-btn" id="tab-running" onclick="switchTab('running')"><i class="fas fa-satellite-dish"></i> Current Running Builds</button>
+    <button class="tab-btn" id="tab-openjiras" onclick="switchTab('openjiras')"><i class="fas fa-ticket-alt"></i> Open JIRAs</button>
+    <button class="tab-btn" id="tab-opencrs" onclick="switchTab('opencrs')"><i class="fas fa-microscope"></i> Open CRs</button>
+    <button class="tab-btn" id="tab-weekly" onclick="switchTab('weekly')"><i class="fas fa-calendar-week"></i> Weekly Report</button>
+    <button class="tab-btn" id="tab-buildreport" onclick="switchTab('buildreport')"><i class="fas fa-file-alt"></i> Build Report</button>
+  </div>
+
+  <!-- ── MTBF Tab ── -->
+  <div class="tab-section active" id="sec-mtbf">
+    <div class="mtbf-grid">
+      <!-- Chart -->
+      <div class="panel">
+        <div class="panel-h">
+          <div class="panel-title"><i class="fas fa-chart-line" style="color:#2563eb"></i> MTBF Trend</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="copyChart()" title="Copy chart to clipboard"><i class="fas fa-copy"></i> Copy</button>
+            <button class="btn btn-sm" onclick="toggleChartType()" title="Toggle line/bar"><i class="fas fa-chart-bar"></i></button>
+          </div>
+        </div>
+        <div class="panel-b"><div class="chart-box"><canvas id="mtbfChart"></canvas></div></div>
+      </div>
+      <!-- Build Table -->
+      <div class="panel">
+        <div class="panel-h">
+          <div class="panel-title"><i class="fas fa-table" style="color:#7c3aed"></i> Build Table</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span id="rowCount" style="font-size:11px;color:#64748b"></span>
+            {% if is_admin %}<button class="btn btn-sm btn-save" onclick="saveMtbfTable()"><i class="fas fa-save"></i> Save</button>{% endif %}
+          </div>
+        </div>
+        <div class="panel-b">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th style="width:36px">#</th><th>Meta ID</th><th>Build(s)</th><th>Date</th>
+                <th style="text-align:right">Hours</th><th style="text-align:right">Crashes</th>
+                <th style="text-align:right">MTBF</th><th>Comments</th>
+                {% if is_admin %}<th style="width:36px"></th>{% endif %}
+              </tr></thead>
+              <tbody id="mtbfTbody"><tr><td colspan="9" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr></tbody>
+            </table>
+          </div>
+          <div id="tableMsg" class="msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Current Running Builds Tab (WBC style with saved JQL) ── -->
+  <div class="tab-section" id="sec-running">
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-satellite-dish" style="color:#16a34a"></i> Current Running Builds &mdash; Saved JQL Reports</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="runningStatus" style="font-size:11px;color:#64748b"></span>
+          {% if is_admin %}
+          <button class="btn btn-sm btn-green" onclick="openSjqlModal()"><i class="fas fa-plus"></i> Add JQL</button>
+          {% endif %}
+          <button class="btn btn-sm" onclick="loadSjqlTabs()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div id="sjqlCardsBox" style="min-height:100px">
+          <div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</div>
+        </div>
+      </div>
+    </div>
+    <!-- Inline report panel -->
+    <div id="inlineReport" class="inline-report">
+      <div class="panel" style="border:2px solid #a5b4fc">
+        <div class="inline-report-head">
+          <i class="fas fa-bookmark" style="opacity:.85"></i>
+          <span style="font-size:14px;font-weight:950;flex:1" id="inlineReportTitle">Report</span>
+          <span id="inlineReportMeta" style="font-size:10px;opacity:.7;margin-left:4px"></span>
+          {% if is_admin %}<button onclick="sjqlRunNow()" class="btn btn-sm" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);color:#fff"><i class="fas fa-rotate"></i> Run Now</button>{% endif %}
+          <button onclick="closeInlineReport()" class="btn btn-sm" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff"><i class="fas fa-times"></i> Close</button>
+        </div>
+        <div id="inlineReportBody" class="panel-b"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Open JIRAs Tab (dashboard style) ── -->
+  <div class="tab-section" id="sec-openjiras">
+    <!-- KPI row -->
+    <div id="ojKpiRow" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <!-- Area summary + filter -->
+    <div style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;margin-bottom:16px">
+      <div class="panel">
+        <div class="panel-h"><div class="panel-title"><i class="fas fa-layer-group" style="color:#6366f1"></i> By Area</div></div>
+        <div class="panel-b" style="padding:0">
+          <table style="width:100%;font-size:12px">
+            <thead><tr><th>Area</th><th style="text-align:right">Count</th></tr></thead>
+            <tbody id="ojAreaBody"><tr><td colspan="2" class="empty">-</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">
+          <div class="panel-title"><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="jiraCount" class="badge badge-info"></span>
+            <button class="btn btn-sm" onclick="copyJiraTable()" title="Copy table as text"><i class="fas fa-copy"></i> Copy</button>
+            <button class="btn btn-sm btn-green" onclick="downloadJiraCsv()" title="Download as CSV"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-sm" onclick="loadOpenJiras()"><i class="fas fa-sync"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="panel-b">
+          <div class="filter-bar">
+            <input class="inp" id="jiraFilter" style="max-width:260px;flex:1" placeholder="Search ticket / title&hellip;" oninput="renderJiraTable()">
+            <select class="inp" id="jiraAreaFilter" style="max-width:160px" onchange="renderJiraTable()"><option value="">All Areas</option></select>
+            <select class="inp" id="jiraTeamFilter" style="max-width:160px" onchange="renderJiraTable()"><option value="">All Teams</option></select>
+            <div style="display:flex;gap:0;border:1px solid #e0e7ff;border-radius:8px;overflow:hidden;flex-shrink:0">
+              <button id="jiraViewFlat" onclick="switchJiraView('flat')" class="btn btn-sm active" style="border:0;border-radius:0;background:#4f46e5;color:#fff;padding:5px 12px"><i class="fas fa-list"></i> Flat</button>
+              <button id="jiraViewPivot" onclick="switchJiraView('pivot')" class="btn btn-sm" style="border:0;border-radius:0;background:#fff;color:#64748b;padding:5px 12px"><i class="fas fa-layer-group"></i> Pivot</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table id="jiraTable">
+              <thead id="jiraThead"><tr>
+                <th style="width:36px">#</th>
+                <th style="width:140px">Ticket</th>
+                <th style="width:90px">Date</th>
+                <th style="width:90px">Area</th>
+                <th style="width:130px">CR</th>
+                <th style="width:120px">Test Team</th>
+                <th>Title</th>
+              </tr></thead>
+              <tbody id="jiraTbody"><tr><td colspan="7" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr></tbody>
+            </table>
+          </div>
+          <div id="jiraMsg" class="msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Open CRs Tab ── -->
+  <div class="tab-section" id="sec-opencrs">
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-microscope" style="color:#dc2626"></i> Open CRs</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="crCount" class="badge badge-info"></span>
+          <button class="btn btn-sm" onclick="loadOpenCrs()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="filter-bar">
+          <input class="inp" id="crFilter" style="max-width:340px;flex:1" placeholder="Search CRs&hellip;" oninput="renderCrTable()">
+          <select class="inp" id="crAreaFilter" style="max-width:200px" onchange="renderCrTable()">
+            <option value="">All Areas</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th style="width:36px">#</th><th>CR / JIRA</th><th style="min-width:180px">Title</th>
+              <th>Area</th><th>Subsystem</th><th>Status</th>
+              <th style="text-align:right">Age</th><th>First Seen</th><th>Last Seen</th>
+              <th>SI Image</th><th style="min-width:180px">Notes</th>
+            </tr></thead>
+            <tbody id="crTbody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr></tbody>
+          </table>
+        </div>
+        <div id="crMsg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Weekly Report Tab ── -->
+  <div class="tab-section" id="sec-weekly">
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-calendar-week" style="color:#d97706"></i> Weekly Report</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="weeklyRange" style="font-size:11px;color:#64748b"></span>
+          <button class="btn btn-sm" onclick="loadWeekly()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="stat-grid" id="weeklyStats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-chart-pie" style="color:#6366f1"></i> CR Status</div>
+            <div class="tbl-wrap" style="max-height:260px">
+              <table><thead><tr><th>Status</th><th style="text-align:right">Count</th></tr></thead>
+              <tbody id="weeklyStatusTbody"><tr><td colspan="2" class="empty">-</td></tr></tbody></table>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-layer-group" style="color:#0ea5e9"></i> CR Area</div>
+            <div class="tbl-wrap" style="max-height:260px">
+              <table><thead><tr><th>Area</th><th style="text-align:right">Count</th></tr></thead>
+              <tbody id="weeklyAreaTbody"><tr><td colspan="2" class="empty">-</td></tr></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fas fa-table" style="color:#7c3aed"></i> CR Rows</div>
+          <div class="filter-bar">
+            <input class="inp" id="weeklyFilter" style="max-width:320px" placeholder="Filter CRs&hellip;" oninput="renderWeeklyCrTable()">
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>#</th><th>CR</th><th>Title</th><th>Area</th><th>Status</th><th>Category</th><th>Last Seen</th></tr></thead>
+              <tbody id="weeklyCrTbody"><tr><td colspan="7" class="empty">-</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="weeklyMsg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Build Report Tab ── -->
+  <div class="tab-section" id="sec-buildreport">
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-file-alt" style="color:#0ea5e9"></i> Build Report</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="brCount" style="font-size:11px;color:#64748b"></span>
+          <button class="btn btn-sm" onclick="loadBuildReport()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="filter-bar">
+          <input class="inp" id="brFilter" style="max-width:320px" placeholder="Filter builds&hellip;" oninput="renderBuildReport()">
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th><th>Build</th><th>Software Product</th>
+              <th style="text-align:right">Devices</th><th style="text-align:right">Jobs</th>
+              <th>Submitted</th><th style="text-align:right">CRs</th><th>CR Statuses</th>
+            </tr></thead>
+            <tbody id="brTbody"><tr><td colspan="8" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr></tbody>
+          </table>
+        </div>
+        <div id="brMsg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Add Build Modal -->
+{% if is_admin %}
+<div class="modal-ov" id="addModal">
+  <div class="modal">
+    <h2><i class="fas fa-plus-circle" style="color:#16a34a"></i> Add Build</h2>
+    <p style="font-size:11px;color:#64748b;margin:0 0 14px">Calls <code style="color:#4f46e5">POST /api/dashboard/{{ target_name }}/excel/add_build</code></p>
+    <div class="frow">
+      <div><label class="flbl">Meta ID *</label><input class="inp" id="addBuild" placeholder="META-001"></div>
+      <div><label class="flbl">Build(s) Full ID</label><input class="inp" id="addBuildFull" placeholder="Target.LA.1.0-00001"></div>
+    </div>
+    <div class="frow">
+      <div><label class="flbl">Date</label><input class="inp" id="addDate" type="date"></div>
+      <div><label class="flbl">Hours</label><input class="inp" id="addHours" type="number" step="0.1" placeholder="120"></div>
+    </div>
+    <div class="frow">
+      <div><label class="flbl">Total Crashes</label><input class="inp" id="addCrashes" type="number" placeholder="1"></div>
+      <div><label class="flbl">MTBF (hrs)</label><input class="inp" id="addMtbf" type="number" step="0.01" placeholder="120.0"></div>
+    </div>
+    <div class="frow full"><div><label class="flbl">Comments</label><input class="inp" id="addComments" placeholder="Optional notes"></div></div>
+    <div id="addMsg" class="msg"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-green" onclick="submitAdd()" id="addSubmitBtn"><i class="fas fa-save"></i> Add Build</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Saved JQL Modal -->
+<div class="modal-ov" id="sjqlModal">
+  <div class="modal">
+    <h2><i class="fas fa-bookmark" style="color:#4f46e5"></i> <span id="sjqlModalTitle">Add Saved JQL</span></h2>
+    <input type="hidden" id="sjqlEditId">
+    <div class="frow full"><div><label class="flbl">Name / Build ID *</label><input class="inp" id="sjqlName" placeholder="e.g. Target.LA.1.0-00340-STD-1"></div></div>
+    <div class="frow full"><div><label class="flbl">JQL or Filter ID *</label><textarea class="inp" id="sjqlJql" rows="4" placeholder="filter = 12345  OR  project = PDT AND summary ~ &quot;Build-00340&quot; ORDER BY created ASC" style="resize:vertical"></textarea></div></div>
+    <div id="sjqlMsg" class="msg"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeSjqlModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSjqlTab()" id="sjqlSaveBtn"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const TARGET   = {{ target_name|tojson }};
+const IS_ADMIN = {{ is_admin|tojson }};
+const COL = { meta:0, build:1, date:2, hours:3, crashes:4, mtbf:5, comments:6 };
+const SJQL_DOMAIN = TARGET.toUpperCase().replace(/[^A-Z0-9_]/g,'_');
+
+let mtbfData = [], mtbfHdrs = [];
+let jiraRows = [], jiraCols = [];
+let crRows   = [];
+let weeklyData = {};
+let brRows   = [];
+let sjqlTabs = [], sjqlTimers = {}, activeTabId = null;
+let chartType = 'line', _chart = null;
+
+/* ── Utilities ── */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function setBadge(type,html){ const el=document.getElementById('statusBadge'); el.innerHTML=html; el.className='badge badge-'+(type==='err'?'err':type==='live'?'live':'info'); }
+function setMsg(id,type,msg){ const el=document.getElementById(id); if(el){el.textContent=msg;el.className='msg '+(type||'');} }
+function setText(id,v){ const e=document.getElementById(id); if(e)e.textContent=v==null?'':v; }
+async function apiGet(url){ const r=await fetch(url,{cache:'no-store'}); const d=await r.json(); if(!d.ok&&!d.success&&d.error) throw new Error(d.error); return d; }
+async function apiPost(url,p){ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p||{})}); const d=await r.json(); if(!d.ok&&d.error) throw new Error(d.error); return d; }
+
+/* ── Tab switching ── */
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('sec-'+name).classList.add('active');
+  if(name==='openjiras' && !jiraRows.length) loadOpenJiras();
+  if(name==='opencrs'   && !crRows.length)   loadOpenCrs();
+  if(name==='weekly'    && !weeklyData.cr_rows) loadWeekly();
+  if(name==='buildreport' && !brRows.length) loadBuildReport();
+  if(name==='running') loadSjqlTabs();
+}
+
+/* ── MTBF (same as dashboard) ── */
+async function loadMtbf(){
+  const icon=document.getElementById('refreshIcon');
+  icon.className='fas fa-circle-notch spin';
+  setBadge('info','<i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;');
+  try{
+    const r=await fetch('/api/dashboard/'+TARGET+'/excel/full_table');
+    const d=await r.json();
+    if(!d.success){ setBadge('err','<i class="fas fa-exclamation-circle"></i> '+(d.message||'Load failed')); return; }
+    mtbfHdrs=d.headers||[]; mtbfData=d.rows||[];
+    remapCols(mtbfHdrs); renderMtbfTable(); renderChart(); updateKPIs();
+    setBadge('live','<i class="fas fa-check-circle"></i> '+mtbfData.length+' build'+(mtbfData.length!==1?'s':''));
+  }catch(e){ setBadge('err','<i class="fas fa-exclamation-circle"></i> Network error'); }
+  finally{ icon.className='fas fa-sync'; }
+}
+
+function remapCols(hdrs){
+  const map={meta:['Meta ID','Meta-ID','meta_id','MetaID'],build:['Build(s)','Build','build_id','Builds','Full Build'],date:['Date','date'],hours:['Hours','hours'],crashes:['Total Crashes','Crashes','total_crashes'],mtbf:['MTBF','mtbf'],comments:['Comments','comments']};
+  for(const [key,names] of Object.entries(map)){
+    for(const name of names){ const idx=hdrs.indexOf(name); if(idx>=0){COL[key]=idx;break;} }
+  }
+}
+
+function renderMtbfTable(){
+  const tbody=document.getElementById('mtbfTbody');
+  setText('rowCount',mtbfData.length+' rows');
+  if(!mtbfData.length){ tbody.innerHTML='<tr><td colspan="9" class="empty">No data. Add a build to get started.</td></tr>'; return; }
+  tbody.innerHTML=mtbfData.map((r,i)=>{
+    const v=r.values||[];
+    const ea=IS_ADMIN?' class="editable" ondblclick="startEdit(this,'+i+')"':'';
+    const del=IS_ADMIN?'<td><button class="btn btn-sm btn-danger" onclick="deleteRow('+i+')" title="Delete"><i class="fas fa-trash"></i></button></td>':'';
+    return '<tr>'
+      +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+      +'<td'+ea+' data-col="0" style="font-weight:900;color:#1e3a8a">'+esc(v[COL.meta]||'')+'</td>'
+      +'<td'+ea+' data-col="1" style="font-size:11px;color:#64748b">'+esc(v[COL.build]||'')+'</td>'
+      +'<td'+ea+' data-col="2">'+esc(v[COL.date]||'')+'</td>'
+      +'<td'+ea+' data-col="3" style="text-align:right">'+esc(v[COL.hours]||'')+'</td>'
+      +'<td'+ea+' data-col="4" style="text-align:right">'+esc(v[COL.crashes]||'')+'</td>'
+      +'<td'+ea+' data-col="5" style="text-align:right;font-weight:900;color:#16a34a">'+esc(v[COL.mtbf]||'')+'</td>'
+      +'<td'+ea+' data-col="6" style="font-size:11px;color:#64748b">'+esc(v[COL.comments]||'')+'</td>'
+      +del+'</tr>';
+  }).join('');
+}
+
+function startEdit(td,rowIdx){
+  if(td.querySelector('input')) return;
+  const col=parseInt(td.dataset.col), val=mtbfData[rowIdx].values[col]||'';
+  td.innerHTML='<input value="'+esc(val)+'" onblur="commitEdit(this,'+rowIdx+','+col+')" onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.value=\''+esc(val)+'\';this.blur();}">';
+  td.classList.add('editing'); td.querySelector('input').focus();
+}
+function commitEdit(input,rowIdx,col){
+  const newVal=input.value.trim(); mtbfData[rowIdx].values[col]=newVal;
+  const td=input.parentElement; td.classList.remove('editing'); td.innerHTML=esc(newVal);
+  if(col===COL.mtbf||col===COL.date||col===COL.meta){renderChart();updateKPIs();}
+}
+function deleteRow(idx){
+  if(!confirm('Delete this build row?')) return;
+  mtbfData.splice(idx,1); renderMtbfTable(); renderChart(); updateKPIs();
+  setMsg('tableMsg','','Row deleted — click Save to persist.');
+}
+async function saveMtbfTable(){
+  const btns=['saveBtn'].map(id=>document.getElementById(id)).filter(Boolean);
+  btns.forEach(b=>{b.disabled=true;b.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving&hellip;';});
+  setMsg('tableMsg','','Saving…');
+  try{
+    const r=await fetch('/api/dashboard/'+TARGET+'/excel/save_table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet_name:'MTBF',rows:mtbfData})});
+    const d=await r.json();
+    if(d.success){setMsg('tableMsg','ok',d.message||'Saved!');await loadMtbf();}
+    else setMsg('tableMsg','err',d.message||'Save failed');
+  }catch(e){setMsg('tableMsg','err','Network error: '+e.message);}
+  finally{btns.forEach(b=>{b.disabled=false;b.innerHTML='<i class="fas fa-save"></i> Save';});}
+}
+
+function renderChart(){
+  const labels=mtbfData.map(r=>r.values[COL.meta]||'');
+  const mv=mtbfData.map(r=>{var v=parseFloat(r.values[COL.mtbf]);return isNaN(v)?null:v;});
+  const hv=mtbfData.map(r=>{var v=parseFloat(r.values[COL.hours]);return isNaN(v)?null:v;});
+  const cv=mtbfData.map(r=>{var v=parseFloat(r.values[COL.crashes]);return isNaN(v)?null:v;});
+  const ctx=document.getElementById('mtbfChart').getContext('2d');
+  if(_chart)_chart.destroy();
+  const n=labels.length;
+  const bThick=n<=2?60:n<=4?44:n<=8?28:n<=14?18:n<=22?12:8;
+  if(chartType==='line'){
+    // Line chart: MTBF + Hours + Crashes (same as dashboard MTBF page)
+    _chart=new Chart(ctx,{type:'line',data:{labels,datasets:[
+      {label:'MTBF (hrs)',data:mv,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.1)',fill:true,tension:0.35,yAxisID:'y',pointRadius:5,pointHoverRadius:8,borderWidth:2.5,
+        datalabels:{display:true,align:'top',color:'#2563eb',font:{size:9,weight:'bold'},formatter:v=>v==null?'':v.toFixed(1)}},
+      {label:'Hours',data:hv,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.06)',fill:false,tension:0.35,yAxisID:'y2',borderDash:[5,3],pointRadius:3,pointHoverRadius:6,borderWidth:1.5,
+        datalabels:{display:false}},
+      {label:'Crashes',data:cv,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.06)',fill:false,tension:0.35,yAxisID:'y2',borderDash:[3,3],pointRadius:3,pointHoverRadius:6,borderWidth:1.5,
+        datalabels:{display:false}}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y==null?'N/A':ctx.parsed.y.toFixed(1))}}},
+      scales:{
+        y:{type:'linear',position:'left',title:{display:true,text:'MTBF (hrs)',color:'#2563eb'},ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.15)'}},
+        y2:{type:'linear',position:'right',title:{display:true,text:'Hours / Crashes',color:'#16a34a'},ticks:{color:'#64748b'},grid:{drawOnChartArea:false}},
+        x:{ticks:{color:'#64748b',maxRotation:45},grid:{color:'rgba(148,163,184,.08)'}}
+      }
+    }});
+  } else {
+    // Bar chart: Hours + Crashes bars + MTBF line (WBC style)
+    _chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+      {label:'Hours',data:hv,backgroundColor:'rgba(37,99,235,.82)',borderColor:'#2563eb',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
+      {label:'Crashes',data:cv,backgroundColor:'rgba(220,38,38,.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
+      {label:'MTBF (hrs)',data:mv,type:'line',borderColor:'#d97706',backgroundColor:'rgba(217,119,6,.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,tension:0.25,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:11}}}},
+      scales:{
+        y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:9}},ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.15)'}},
+        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF (hrs)',font:{size:9},color:'#d97706'},ticks:{color:'#d97706'}},
+        x:{ticks:{color:'#64748b',maxRotation:55,autoSkip:false},grid:{color:'rgba(148,163,184,.08)'}}
+      }
+    }});
+  }
+}
+async function copyChart(){
+  const btn=event.currentTarget;
+  const orig=btn.innerHTML;
+  const canvas=document.getElementById('mtbfChart');
+
+  // Method 1: Modern Clipboard API (HTTPS / secure context)
+  if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{
+      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      btn.innerHTML='<i class="fas fa-check"></i> Copied';
+      setTimeout(()=>{btn.innerHTML=orig;},1500);
+      return;
+    }catch(e){}
+  }
+
+  // Method 2: execCommand on selected <img> (HTTP / non-secure context)
+  try{
+    const dataUrl=canvas.toDataURL('image/png');
+    const img=document.createElement('img');
+    img.src=dataUrl;
+    img.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0';
+    document.body.appendChild(img);
+    await new Promise(r=>img.onload=r);
+    const range=document.createRange();
+    range.selectNode(img);
+    const sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok=document.execCommand('copy');
+    sel.removeAllRanges();
+    document.body.removeChild(img);
+    if(ok){
+      btn.innerHTML='<i class="fas fa-check"></i> Copied';
+      setTimeout(()=>{btn.innerHTML=orig;},1500);
+      return;
+    }
+  }catch(e){}
+
+  // Method 3: Download PNG (final fallback — works everywhere)
+  const a=document.createElement('a');
+  a.href=canvas.toDataURL('image/png');
+  a.download='mtbf_chart.png';
+  a.click();
+  btn.innerHTML='<i class="fas fa-download"></i> Saved';
+  setTimeout(()=>{btn.innerHTML=orig;},1500);
+}
+function toggleChartType(){ chartType=chartType==='line'?'bar':'line'; renderChart(); }
+
+function updateKPIs(){
+  setText('kpiBuilds',mtbfData.length);
+  var mv=mtbfData.map(r=>parseFloat(r.values[COL.mtbf])).filter(v=>!isNaN(v)&&v>0);
+  setText('kpiLatestMtbf',mv.length?mv[mv.length-1].toFixed(1):'\u2014');
+  setText('kpiAvgMtbf',mv.length?(mv.reduce((a,b)=>a+b,0)/mv.length).toFixed(1):'\u2014');
+}
+
+/* ── Saved JQL Tabs (WBC style) ── */
+async function loadSjqlTabs(){
+  const box=document.getElementById('sjqlCardsBox');
+  if(box) box.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</div>';
+  try{
+    const d=await apiGet('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs?domain='+encodeURIComponent(SJQL_DOMAIN));
+    sjqlTabs=d.tabs||[];
+  }catch(e){ sjqlTabs=[]; }
+  setText('kpiRunning',sjqlTabs.length);
+  renderSjqlCards();
+  if(sjqlTabs.length && !activeTabId){
+    setTimeout(()=>sjqlRunCard(sjqlTabs[0].id,false),400);
+  }
+}
+
+function renderSjqlCards(){
+  const box=document.getElementById('sjqlCardsBox');
+  if(!box) return;
+  if(!sjqlTabs.length){
+    box.innerHTML='<div class="empty" style="padding:32px"><i class="fas fa-inbox" style="font-size:24px;color:#c7d2fe;display:block;margin-bottom:10px"></i>No saved JQL rows yet.'+(IS_ADMIN?' Click <b>Add JQL</b> to enter a Build ID and JIRA filter/JQL.':'')+'</div>';
+    return;
+  }
+  box.innerHTML='<div style="font-size:12px;font-weight:950;color:#1e3a8a;margin-bottom:10px"><i class="fas fa-list" style="color:#4f46e5"></i> '+sjqlTabs.length+' saved JQL row'+(sjqlTabs.length===1?'':'s')+'</div>'
+    +sjqlTabs.map(function(t){
+      var buildId=t.name||t.id||'Build';
+      var jql=t.jql||'';
+      var lastRun=t.last_run_at||t.generated_at||'';
+      var hasCached=!!t.has_cached_report;
+      var isActive=t.id===activeTabId;
+      var timingHtml='<span style="color:#94a3b8">'+(lastRun?('Last run: <b>'+esc(lastRun.replace('T',' ').slice(0,19))+'</b>'):'Never run')+'</span>';
+      if(hasCached) timingHtml+=' &middot; <span style="color:#16a34a">Cached</span>';
+      var actionsHtml='';
+      if(IS_ADMIN){
+        actionsHtml='<div class="sjql-actions-col">'
+          +'<button id="sjqlrun_'+esc(t.id)+'" onclick="sjqlRunCard(\''+esc(t.id)+'\',true)" class="btn btn-sm btn-primary"><i class="fas fa-play"></i> Run</button>'
+          +'<button onclick="openSjqlModal(\''+esc(t.id)+'\',\''+esc(buildId)+'\',\''+esc(jql.replace(/'/g,"\\'"))+'\''+')" class="btn btn-sm"><i class="fas fa-pen"></i></button>'
+          +'<button onclick="deleteSjqlTab(\''+esc(t.id)+'\')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>'
+          +'</div>';
+      }
+      return '<div class="sjql-card" style="'+(isActive?'border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.2)':'')+'">'
+        +'<div class="sjql-card-grid">'
+        +'<div class="sjql-build-col">'
+        +'<div class="sjql-label">Build ID / Name</div>'
+        +'<div class="sjql-build-id">'+esc(buildId)+'</div>'
+        +'<div style="margin-top:6px"><span class="pill" style="background:#eef2ff;border-color:#c7d2fe;color:#4338ca"><i class="fas fa-bookmark"></i> JQL Saved</span></div>'
+        +'</div>'
+        +'<div class="sjql-jql-col">'
+        +(IS_ADMIN?'<div class="sjql-label">JQL</div><div class="sjql-jql-code">'+esc(jql.slice(0,240))+(jql.length>240?'&hellip;':'')+'</div>':'<div style="font-size:11px;font-weight:900;color:#475569">Current running build status</div>')
+        +'<div class="sjql-timing">'+timingHtml+'</div>'
+        +'</div>'
+        +actionsHtml
+        +'</div>'
+        +'</div>';
+    }).join('');
+}
+
+async function sjqlRunCard(id,force){
+  const tab=sjqlTabs.find(t=>t.id===id); if(!tab) return;
+  activeTabId=id;
+  const runBtn=document.getElementById('sjqlrun_'+id);
+  if(runBtn) runBtn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running&hellip;';
+  const report=document.getElementById('inlineReport');
+  const body=document.getElementById('inlineReportBody');
+  const title=document.getElementById('inlineReportTitle');
+  const meta=document.getElementById('inlineReportMeta');
+  if(report) report.style.display='block';
+  if(title) title.textContent=tab.name||tab.id||'Report';
+  if(meta) meta.textContent='';
+  if(body) body.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Running report&hellip;</div>';
+  renderSjqlCards();
+  try{
+    var url='/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(SJQL_DOMAIN)+(force?'&force=1':'');
+    const d=await fetch(url,{cache:'no-store'}).then(r=>r.json());
+    if(meta) meta.textContent=d.generated_at?('Generated: '+String(d.generated_at).replace('T',' ').slice(0,19)):'';
+    var rows=d.detail_rows||d.rows||[];
+    var jiras=d.jiras||[];
+    if(body){
+      if(!rows.length && !jiras.length){
+        body.innerHTML='<div class="empty" style="padding:32px"><i class="fas fa-check-circle" style="color:#16a34a;font-size:24px;display:block;margin-bottom:10px"></i><b>Report complete</b><br>No CR/JIRA rows found for this build.</div>';
+      } else {
+        var allRows=rows.length?rows:jiras;
+        var cols=allRows.length?Object.keys(allRows[0]).filter(k=>!k.startsWith('_')&&k!=='crash_type').slice(0,12):[];
+        body.innerHTML='<div style="margin-bottom:10px;font-size:12px;color:#64748b">'+allRows.length+' rows</div>'
+          +'<div class="tbl-wrap" style="max-height:480px"><table><thead><tr><th>#</th>'+cols.map(c=>'<th>'+esc(c.replace(/_/g,' '))+'</th>').join('')+'</tr></thead>'
+          +'<tbody>'+allRows.map(function(r,i){return '<tr><td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(function(c){var v=String(r[c]||'');return '<td style="max-width:280px;white-space:normal">'+esc(v)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
+      }
+    }
+    // Update tab cache state
+    var tabIdx=sjqlTabs.findIndex(t=>t.id===id);
+    if(tabIdx>=0){
+      sjqlTabs[tabIdx].has_cached_report=true;
+      sjqlTabs[tabIdx].last_run_at=d.generated_at||new Date().toISOString();
+    }
+  }catch(e){
+    if(body) body.innerHTML='<div class="empty">Report failed: '+esc(e.message||e)+'</div>';
+  }finally{
+    if(runBtn) runBtn.innerHTML='<i class="fas fa-play"></i> Run';
+    renderSjqlCards();
+  }
+}
+
+function sjqlRunNow(){ if(activeTabId) sjqlRunCard(activeTabId,true); }
+function closeInlineReport(){
+  const r=document.getElementById('inlineReport'); if(r) r.style.display='none';
+  activeTabId=null; renderSjqlCards();
+}
+
+function openSjqlModal(id,name,jql){
+  document.getElementById('sjqlEditId').value=id||'';
+  document.getElementById('sjqlName').value=name||'';
+  document.getElementById('sjqlJql').value=jql||'';
+  document.getElementById('sjqlModalTitle').textContent=id?'Edit Saved JQL':'Add Saved JQL';
+  setMsg('sjqlMsg','','');
+  document.getElementById('sjqlModal').classList.add('open');
+  document.getElementById('sjqlName').focus();
+}
+function closeSjqlModal(){ document.getElementById('sjqlModal').classList.remove('open'); }
+
+async function saveSjqlTab(){
+  const id=document.getElementById('sjqlEditId').value.trim();
+  const name=document.getElementById('sjqlName').value.trim();
+  const jql=document.getElementById('sjqlJql').value.trim();
+  if(!name||!jql){setMsg('sjqlMsg','err','Name and JQL are required.');return;}
+  const btn=document.getElementById('sjqlSaveBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving&hellip;';
+  setMsg('sjqlMsg','','Saving…');
+  try{
+    const payload={name,jql,domain:SJQL_DOMAIN};
+    if(id) payload.id=id;
+    const d=await apiPost('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs',payload);
+    sjqlTabs=d.tabs||sjqlTabs;
+    closeSjqlModal();
+    renderSjqlCards();
+    setMsg('sjqlMsg','ok','Saved!');
+  }catch(e){setMsg('sjqlMsg','err','Save failed: '+e.message);}
+  finally{btn.disabled=false;btn.innerHTML='<i class="fas fa-save"></i> Save';}
+}
+
+async function deleteSjqlTab(id){
+  if(!confirm('Delete this saved JQL row?')) return;
+  try{
+    const d=await fetch('/api/live_status/targets/'+encodeURIComponent(TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'?domain='+encodeURIComponent(SJQL_DOMAIN),{method:'DELETE'}).then(r=>r.json());
+    sjqlTabs=d.tabs||sjqlTabs.filter(t=>t.id!==id);
+    if(activeTabId===id){closeInlineReport();}
+    renderSjqlCards();
+  }catch(e){alert('Delete failed: '+e.message);}
+}
+
+/* ── Axiom Running Builds ── */
+async function loadRunningBuilds(){
+  document.getElementById('buildGrid').innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</div>';
+  setMsg('runningMsg','','');
+  try{
+    const r=await fetch('/api/others_live_view_stats/'+TARGET+'/running_builds');
+    const d=await r.json();
+    const rows=d.rows||[];
+    if(d.updated_at) setText('runningUpdated','Updated: '+d.updated_at.slice(0,19));
+    if(!rows.length){
+      document.getElementById('buildGrid').innerHTML='<div class="empty">No running builds found for this target.</div>';
+      if(d.error) setMsg('runningMsg','err',d.error);
+      return;
+    }
+    document.getElementById('buildGrid').innerHTML=rows.map(function(b){
+      var pills='<span class="pill"><i class="fas fa-server"></i> '+esc(b.device_count)+' devices</span>'
+               +'<span class="pill"><i class="fas fa-tasks"></i> '+esc(b.job_count)+' jobs</span>'
+               +(b.hours?'<span class="pill"><i class="fas fa-clock"></i> '+esc(b.hours)+' hrs</span>':'')
+               +(b.started_at?'<span class="pill"><i class="fas fa-calendar"></i> '+esc(b.started_at.slice(0,10))+'</span>':'');
+      return '<div class="build-card">'
+        +'<b>'+esc(b.build_id)+'</b>'
+        +'<div class="sub">'+esc(b.meta_id)+' &bull; '+esc(b.software_product||'')+(b.product_flavor?' / '+esc(b.product_flavor):'')+'</div>'
+        +'<div class="pills">'+pills+'</div>'
+        +'</div>';
+    }).join('');
+  }catch(e){
+    document.getElementById('buildGrid').innerHTML='<div class="empty">Error loading builds.</div>';
+    setMsg('runningMsg','err','Network error: '+e.message);
+  }
+}
+
+/* ── Open JIRAs (dashboard style) ── */
+async function loadOpenJiras(){
+  setMsg('jiraMsg','','Loading…');
+  document.getElementById('jiraTbody').innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr>';
+  try{
+    const r=await fetch('/api/dashboard/'+TARGET+'/open_jiras');
+    const d=await r.json();
+    if(!d.success&&!d.rows){setMsg('jiraMsg','err',d.message||'Failed');return;}
+    jiraRows=d.rows||[];
+    setText('kpiOpenJiras',jiraRows.length);
+    document.getElementById('jiraCount').textContent=jiraRows.length+' rows';
+    var AREA_COLORS={'ADSP':'#f59e0b','APPS':'#6366f1','Modem':'#0ea5e9','WLAN':'#10b981','WConnect':'#10b981','BT':'#8b5cf6','BOOT':'#f97316','Other':'#94a3b8','Camera':'#ec4899','Display':'#14b8a6','TZ':'#ef4444','CDSP':'#a855f7','ANR':'#dc2626','Tombstone':'#7c3aed','FWR':'#0891b2'};
+    function aColor(a){return AREA_COLORS[a]||'#6366f1';}
+    var areaCounts={};
+    jiraRows.forEach(r=>{var a=String(r.area||r.cr_area||'Other').trim();areaCounts[a]=(areaCounts[a]||0)+1;});
+    var areaKeys=Object.keys(areaCounts).sort((a,b)=>areaCounts[b]-areaCounts[a]);
+    document.getElementById('jiraAreaFilter').innerHTML='<option value="">All Areas</option>'+areaKeys.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
+    var teams=[...new Set(jiraRows.map(r=>String(r.test_team||'')).filter(Boolean))].sort();
+    document.getElementById('jiraTeamFilter').innerHTML='<option value="">All Teams</option>'+teams.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');
+    var kpiHtml='<div style="background:#fff;border:1px solid #e0e7ff;border-radius:16px;padding:14px 18px;box-shadow:0 4px 14px rgba(15,23,42,.06);cursor:pointer;position:relative;overflow:hidden;min-width:100px" onclick="document.getElementById(\'jiraAreaFilter\').value=\'\';renderJiraTable()">'
+      +'<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#1e3a5f;border-radius:16px 16px 0 0"></div>'
+      +'<div style="font-size:26px;font-weight:1000;color:#0f172a">'+jiraRows.length+'</div>'
+      +'<div style="font-size:10px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Total Open JIRAs</div></div>';
+    areaKeys.forEach(a=>{var col=aColor(a);kpiHtml+='<div style="background:#fff;border:1px solid #e0e7ff;border-radius:16px;padding:14px 18px;box-shadow:0 4px 14px rgba(15,23,42,.06);cursor:pointer;position:relative;overflow:hidden;min-width:90px" onclick="document.getElementById(\'jiraAreaFilter\').value=\''+esc(a)+'\';renderJiraTable()"><div style="position:absolute;top:0;left:0;right:0;height:3px;background:'+col+';border-radius:16px 16px 0 0"></div><div style="font-size:26px;font-weight:1000;color:'+col+'">'+areaCounts[a]+'</div><div style="font-size:10px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">'+esc(a)+'</div></div>';});
+    document.getElementById('ojKpiRow').innerHTML=kpiHtml;
+    var areaRows=areaKeys.map(a=>'<tr onclick="document.getElementById(\'jiraAreaFilter\').value=\''+esc(a)+'\';renderJiraTable()" style="cursor:pointer"><td style="font-weight:700;color:#374151">'+esc(a)+'</td><td style="text-align:right"><span style="font-weight:900;color:'+aColor(a)+'">'+areaCounts[a]+'</span></td></tr>');
+    areaRows.push('<tr><td style="font-weight:900;color:#0f172a">Total</td><td style="text-align:right;font-weight:900;color:#1e3a5f;font-size:14px">'+jiraRows.length+'</td></tr>');
+    document.getElementById('ojAreaBody').innerHTML=areaRows.join('');
+    renderJiraTable(); setMsg('jiraMsg','','');
+  }catch(e){setMsg('jiraMsg','err','Network error: '+e.message);}
+}
+
+function _jiraLink(v){ if(!v) return esc(v); return '<a href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(v)+'" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:900;text-decoration:none">'+esc(v)+'</a>'; }
+function _crLink(v){ if(!v) return esc(v); var m=String(v).match(/\d{5,9}/); var num=m?m[0]:v; return '<a href="https://orbit/CR/'+esc(num)+'" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:900;text-decoration:none">'+esc(v)+'</a>'; }
+
+let jiraView = 'flat';
+function switchJiraView(v){
+  jiraView=v;
+  var flatBtn=document.getElementById('jiraViewFlat');
+  var pivotBtn=document.getElementById('jiraViewPivot');
+  if(flatBtn){flatBtn.style.background=v==='flat'?'#4f46e5':'#fff';flatBtn.style.color=v==='flat'?'#fff':'#64748b';}
+  if(pivotBtn){pivotBtn.style.background=v==='pivot'?'#4f46e5':'#fff';pivotBtn.style.color=v==='pivot'?'#fff':'#64748b';}
+  renderJiraTable();
+}
+
+function copyJiraTable(){
+  var rows=document.querySelectorAll('#jiraTbody tr');
+  var headers=document.querySelectorAll('#jiraThead th');
+  var lines=[...headers].map(th=>th.textContent.trim()).join('\t');
+  rows.forEach(tr=>{
+    var cells=[...tr.querySelectorAll('td')].map(td=>td.textContent.trim().replace(/\s+/g,' '));
+    if(cells.length) lines+='\n'+cells.join('\t');
+  });
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(lines).then(()=>{
+      var btn=event.currentTarget; var orig=btn.innerHTML;
+      btn.innerHTML='<i class="fas fa-check"></i> Copied';
+      setTimeout(()=>{btn.innerHTML=orig;},1500);
+    }).catch(()=>_fallbackCopyText(lines));
+  } else _fallbackCopyText(lines);
+}
+function _fallbackCopyText(text){
+  var ta=document.createElement('textarea');
+  ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{document.execCommand('copy');}finally{document.body.removeChild(ta);}
+}
+
+function downloadJiraCsv(){
+  var rows=document.querySelectorAll('#jiraTbody tr');
+  var headers=document.querySelectorAll('#jiraThead th');
+  var q=v=>'"'+String(v||'').replace(/"/g,'""')+'"';
+  var lines=[[...headers].map(th=>q(th.textContent.trim())).join(',')];
+  rows.forEach(tr=>{
+    var cells=[...tr.querySelectorAll('td')].map(td=>q(td.textContent.trim().replace(/\s+/g,' ')));
+    if(cells.length) lines.push(cells.join(','));
+  });
+  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='open_jiras_'+TARGET+'.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function renderJiraTable(){
+  const q=(document.getElementById('jiraFilter').value||'').toLowerCase();
+  const area=(document.getElementById('jiraAreaFilter').value||'');
+  const team=(document.getElementById('jiraTeamFilter').value||'');
+  const filtered=jiraRows.filter(r=>{
+    if(area && String(r.area||r.cr_area||'')!==area) return false;
+    if(team && String(r.test_team||'')!==team) return false;
+    return !q||JSON.stringify(r).toLowerCase().includes(q);
+  });
+  document.getElementById('jiraCount').textContent=filtered.length+' rows';
+  if(jiraView==='pivot'){
+    // Update table headers for pivot view
+    document.getElementById('jiraThead').innerHTML='<tr>'
+      +'<th style="width:36px">#</th>'
+      +'<th style="width:130px">CR</th>'
+      +'<th style="width:90px">Area</th>'
+      +'<th style="width:70px;text-align:right">JIRAs</th>'
+      +'<th style="width:200px">Tickets</th>'
+      +'<th>Title</th>'
+      +'</tr>';
+    // CR-centric pivot view
+    var crMap={};
+    filtered.forEach(r=>{
+      var cr=String(r.cr_current_ticket||r.mapped_cr||'').trim()||'NO_CR';
+      if(!crMap[cr]) crMap[cr]={cr,area:r.area||r.cr_area||'',jiras:[],title:r.jira_title||''};
+      crMap[cr].jiras.push(r);
+    });
+    var crRows=Object.values(crMap).sort((a,b)=>b.jiras.length-a.jiras.length);
+    document.getElementById('jiraTbody').innerHTML=crRows.length
+      ?crRows.map((c,i)=>'<tr>'
+        +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+        +'<td>'+_crLink(c.cr==='NO_CR'?'':c.cr)+'</td>'
+        +'<td><span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900">'+esc(c.area)+'</span></td>'
+        +'<td style="text-align:right"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:900">'+c.jiras.length+'</span></td>'
+        +'<td style="font-size:11px">'+c.jiras.map(r=>_jiraLink(r.stability_ticket||'')).join(' ')+'</td>'
+        +'<td style="font-size:11px;max-width:260px">'+esc(c.title)+'</td>'
+        +'</tr>').join('')
+      :'<tr><td colspan="6" class="empty">No data.</td></tr>';
+  } else {
+    // Restore flat headers
+    document.getElementById('jiraThead').innerHTML='<tr>'
+      +'<th style="width:36px">#</th>'
+      +'<th style="width:140px">Ticket</th>'
+      +'<th style="width:90px">Date</th>'
+      +'<th style="width:90px">Area</th>'
+      +'<th style="width:130px">CR</th>'
+      +'<th style="width:120px">Test Team</th>'
+      +'<th>Title</th>'
+      +'</tr>';
+    document.getElementById('jiraTbody').innerHTML=filtered.length
+      ?filtered.map((r,i)=>'<tr>'
+        +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+        +'<td>'+_jiraLink(r.stability_ticket||'')+'</td>'
+        +'<td style="font-size:11px">'+esc((r.jira_date||'').slice(0,10))+'</td>'
+        +'<td><span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900">'+esc(r.area||r.cr_area||'')+'</span></td>'
+        +'<td>'+_crLink(r.cr_current_ticket||r.mapped_cr||'')+'</td>'
+        +'<td style="font-size:11px">'+esc(r.test_team||'')+'</td>'
+        +'<td style="max-width:300px;font-size:11px">'+esc(r.jira_title||'')+'</td>'
+        +'</tr>').join('')
+      :'<tr><td colspan="7" class="empty">No matching JIRAs.</td></tr>';
+  }
+}
+
+/* ── Open CRs ── */
+async function loadOpenCrs(){
+  setMsg('crMsg','','Loading…');
+  document.getElementById('crTbody').innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr>';
+  try{
+    const r=await fetch('/api/live_status/targets/'+TARGET+'/open_crs_full');
+    const d=await r.json();
+    if(!d.success){setMsg('crMsg','err',d.message||'Failed');return;}
+    crRows=d.rows||[];
+    setText('kpiOpenCrs',crRows.length);
+    document.getElementById('crCount').textContent=crRows.length+' rows';
+    var areas=[...new Set(crRows.map(r=>String(r.cr_area||'')).filter(Boolean))].sort();
+    var sel=document.getElementById('crAreaFilter');
+    sel.innerHTML='<option value="">All Areas</option>'+areas.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
+    renderCrTable(); setMsg('crMsg','','');
+  }catch(e){setMsg('crMsg','err','Network error: '+e.message);}
+}
+
+function renderCrTable(){
+  const q=(document.getElementById('crFilter').value||'').toLowerCase();
+  const area=(document.getElementById('crAreaFilter').value||'');
+  const filtered=crRows.filter(r=>{
+    if(area && String(r.cr_area||'')!==area) return false;
+    return !q||JSON.stringify(r).toLowerCase().includes(q);
+  });
+  document.getElementById('crCount').textContent=filtered.length+' rows';
+  document.getElementById('crTbody').innerHTML=filtered.length
+    ?filtered.map((r,i)=>{
+      var crId=r.cr_display||r.cr||'';
+      var crNum=(crId.match(/\d{5,9}/)||[])[0]||'';
+      var crCell=crNum?'<a href="https://orbit/CR/'+esc(crNum)+'" target="_blank" rel="noopener" style="color:#dc2626;font-weight:900;text-decoration:none">'+esc(crId)+'</a>':esc(crId);
+      var jiraCell=r.stability_ticket?'<br><a href="https://jira-dc2.qualcomm.com/jira/browse/'+esc(r.stability_ticket)+'" target="_blank" rel="noopener" style="color:#4f46e5;font-size:10px;font-weight:900;text-decoration:none">'+esc(r.stability_ticket)+'</a>':'';
+      return '<tr>'
+        +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+        +'<td style="white-space:nowrap">'+crCell+jiraCell+'</td>'
+        +'<td style="max-width:200px;font-size:11px">'+esc(r.cr_title||'')+'</td>'
+        +'<td><span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900">'+esc(r.cr_area||'')+'</span></td>'
+        +'<td style="font-size:11px">'+esc(r.cr_subsystem||'')+'</td>'
+        +'<td class="cr-'+(r.cr_status||'').toLowerCase()+'">'+esc(r.cr_status||'')+'</td>'
+        +'<td style="text-align:right">'+esc(r.cr_age||'')+'</td>'
+        +'<td style="font-size:11px">'+esc((r.first_instance||r.first_seen||'').slice(0,10))+'</td>'
+        +'<td style="font-size:11px">'+esc((r.last_instance||'').slice(0,10))+'</td>'
+        +'<td style="font-size:11px;color:#64748b">'+esc(r.si_image||'')+'</td>'
+        +'<td style="font-size:11px;color:#475569;max-width:200px">'+esc(r.latest_cr_notes||r.latest_notes||'')+'</td>'
+        +'</tr>';
+    }).join('')
+    :'<tr><td colspan="11" class="empty">No open CRs found.</td></tr>';
+}
+
+/* ── Weekly Report ── */
+async function loadWeekly(){
+  setMsg('weeklyMsg','','Loading…');
+  document.getElementById('weeklyStats').innerHTML='<div style="color:#64748b;font-size:12px"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</div>';
+  try{
+    const r=await fetch('/api/live_status/targets/'+TARGET+'/weekly_full');
+    const d=await r.json();
+    if(!d.success){setMsg('weeklyMsg','err',d.message||'Failed');return;}
+    weeklyData=d;
+    setText('weeklyRange',(d.from_date||'')+' to '+(d.to_date||''));
+    var counts=d.counts||{};
+    document.getElementById('weeklyStats').innerHTML=[
+      {v:counts.total_jiras||0,l:'Total JIRAs'},
+      {v:counts.open_jiras||0,l:'Open JIRAs'},
+      {v:counts.total_crs||0,l:'Weekly CRs'},
+      {v:counts.overall_crs||0,l:'Overall CRs'},
+      {v:counts.valid_crs||0,l:'Valid CRs'},
+      {v:counts.build_count||0,l:'Builds'},
+    ].map(x=>'<div class="stat-card"><div class="sv">'+x.v+'</div><div class="sl">'+x.l+'</div></div>').join('');
+    var ps=d.pie_status||[];
+    document.getElementById('weeklyStatusTbody').innerHTML=ps.length
+      ?ps.map(x=>'<tr><td>'+esc(x.name)+'</td><td style="text-align:right;font-weight:900">'+x.y+'</td></tr>').join('')
+      :'<tr><td colspan="2" class="empty">No data</td></tr>';
+    var pa=d.pie_area||[];
+    document.getElementById('weeklyAreaTbody').innerHTML=pa.length
+      ?pa.map(x=>'<tr><td>'+esc(x.name)+'</td><td style="text-align:right;font-weight:900">'+x.y+'</td></tr>').join('')
+      :'<tr><td colspan="2" class="empty">No data</td></tr>';
+    renderWeeklyCrTable(); setMsg('weeklyMsg','','');
+  }catch(e){setMsg('weeklyMsg','err','Network error: '+e.message);}
+}
+
+function renderWeeklyCrTable(){
+  var rows=weeklyData.cr_rows||[];
+  var q=(document.getElementById('weeklyFilter').value||'').toLowerCase();
+  var filtered=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));
+  document.getElementById('weeklyCrTbody').innerHTML=filtered.length
+    ?filtered.map((r,i)=>'<tr>'
+      +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+      +'<td style="font-weight:900;color:#dc2626">'+esc(r.cr||r.mapped_cr||'')+'</td>'
+      +'<td style="max-width:240px;font-size:11px">'+esc(r.cr_title||'')+'</td>'
+      +'<td><span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900">'+esc(r.cr_area||'')+'</span></td>'
+      +'<td class="cr-'+(r.cr_status||'').toLowerCase()+'">'+esc(r.cr_status||'')+'</td>'
+      +'<td style="font-size:11px">'+esc(r.cr_category||'')+'</td>'
+      +'<td style="font-size:11px">'+esc((r.last_instance||'').slice(0,10))+'</td>'
+      +'</tr>').join('')
+    :'<tr><td colspan="7" class="empty">No CR data for this week.</td></tr>';
+}
+
+/* ── Build Report ── */
+async function loadBuildReport(){
+  setMsg('brMsg','','Loading…');
+  document.getElementById('brTbody').innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr>';
+  try{
+    const r=await fetch('/api/build_report/running_builds?target='+encodeURIComponent(TARGET)+'&limit=200');
+    const d=await r.json();
+    if(!d.ok){setMsg('brMsg','err',d.error||'Failed');return;}
+    brRows=d.builds||[];
+    setText('brCount',brRows.length+' builds');
+    renderBuildReport(); setMsg('brMsg','','');
+  }catch(e){setMsg('brMsg','err','Network error: '+e.message);}
+}
+
+function renderBuildReport(){
+  var q=(document.getElementById('brFilter').value||'').toLowerCase();
+  var filtered=brRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));
+  setText('brCount',filtered.length+' builds');
+  document.getElementById('brTbody').innerHTML=filtered.length
+    ?filtered.map((r,i)=>'<tr>'
+      +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+      +'<td style="font-weight:900;color:#1e3a8a;word-break:break-all">'+esc(r.build||r.build_id||'')+'</td>'
+      +'<td style="font-size:11px">'+esc(r.software_product||'')+'</td>'
+      +'<td style="text-align:right">'+esc(r.device_count||0)+'</td>'
+      +'<td style="text-align:right">'+esc(r.job_count||1)+'</td>'
+      +'<td style="font-size:11px">'+esc((r.submitted_at||r.started_at||'').slice(0,10))+'</td>'
+      +'<td style="text-align:right;font-weight:900;color:#dc2626">'+esc(r.cr_count||0)+'</td>'
+      +'<td style="font-size:11px;color:#64748b">'+esc(r.cr_statuses||'')+'</td>'
+      +'</tr>').join('')
+    :'<tr><td colspan="8" class="empty">No builds found for this target.</td></tr>';
+}
+
+/* ── Add Build modal ── */
+function openAddModal(){
+  document.getElementById('addModal').classList.add('open');
+  document.getElementById('addBuild').focus();
+  document.getElementById('addMsg').textContent='';
+  document.getElementById('addDate').value=new Date().toISOString().split('T')[0];
+}
+function closeAddModal(){ document.getElementById('addModal').classList.remove('open'); }
+
+async function submitAdd(){
+  const build=document.getElementById('addBuild').value.trim();
+  if(!build){document.getElementById('addMsg').textContent='Meta ID is required.';document.getElementById('addMsg').className='msg err';return;}
+  const btn=document.getElementById('addSubmitBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Adding&hellip;';
+  const payload={build,build_full:document.getElementById('addBuildFull').value.trim()||build,date:document.getElementById('addDate').value.trim(),hours:parseFloat(document.getElementById('addHours').value)||'',total_crashes:parseInt(document.getElementById('addCrashes').value)||'',mtbf:parseFloat(document.getElementById('addMtbf').value)||'',comments:document.getElementById('addComments').value.trim()};
+  try{
+    const r=await fetch('/api/dashboard/'+TARGET+'/excel/add_build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(d.success){document.getElementById('addMsg').textContent=d.message||'Build added!';document.getElementById('addMsg').className='msg ok';['addBuild','addBuildFull','addHours','addCrashes','addMtbf','addComments'].forEach(id=>{document.getElementById(id).value='';});await loadMtbf();setTimeout(closeAddModal,900);}
+    else{document.getElementById('addMsg').textContent=d.message||'Failed';document.getElementById('addMsg').className='msg err';}
+  }catch(e){document.getElementById('addMsg').textContent='Network error: '+e.message;document.getElementById('addMsg').className='msg err';}
+  finally{btn.disabled=false;btn.innerHTML='<i class="fas fa-save"></i> Add Build';}
+}
+
+/* ── Refresh all ── */
+async function refreshAll(){
+  await loadMtbf();
+  const active=document.querySelector('.tab-section.active');
+  if(active){
+    const id=active.id.replace('sec-','');
+    if(id==='openjiras') loadOpenJiras();
+    else if(id==='opencrs') loadOpenCrs();
+    else if(id==='weekly') loadWeekly();
+    else if(id==='buildreport') loadBuildReport();
+    else if(id==='running') loadSjqlTabs();
+  }
+}
+
+/* ── Modal close on overlay click ── */
+document.querySelectorAll('.modal-ov').forEach(function(ov){
+  ov.addEventListener('click',function(e){if(e.target===this){this.classList.remove('open');}});
+});
+
+/* ── Register datalabels plugin ── */
+if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
+
+/* ── Init ── */
+loadMtbf();
+</script>
+</body>
+</html>

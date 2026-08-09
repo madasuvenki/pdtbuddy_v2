@@ -5,7 +5,7 @@ from datetime import date, datetime
 from glob import glob
 from typing import Any, Dict, List, Optional
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from dashboard_common import get_bu_for_target, get_display_name_for_target, get_mysql_connection_db, get_schema_for_target
@@ -389,23 +389,70 @@ def _db_table_options(target_name: str) -> List[Dict[str, str]]:
             pass
 
 
+def _route_live_view_stats(target_name: str):
+    """Central dispatcher: redirect to the correct live-view-stats page for a target.
+
+    Priority order:
+      1. Auto Gen4.5 (canonical target = auto_gen4.5, or BU AUTO/AUTOMOTIVE with 4.8)
+         → /automotive/live_view_stats/<target>
+      2. WBC (BU = WBC)
+         → /wbc/live_view_status
+      3. AUTO / Automotive (Nord HQX, HGY, SECA, etc.)
+         → render live_view_stats.html  (existing behaviour)
+      4. Everything else (XR, Mobile, IoT, MBB, Compute, …)
+         → /others/live_view_stats/<target>
+    """
+    # 1. Auto Gen4.5
+    try:
+        from automotive_live_view_stats_routes import _is_auto_gen45_target
+        if _is_auto_gen45_target(target_name):
+            return redirect(
+                url_for(
+                    "automotive_live_view_stats_bp.automotive_live_view_stats_page",
+                    target_name=target_name,
+                )
+            )
+    except Exception:
+        pass
+
+    # 2. WBC
+    bu = str(get_bu_for_target(target_name) or "").strip().upper()
+    if bu == "WBC":
+        return redirect(url_for("wbc_live_view_stats_bp.wbc_live_view_status_page"))
+
+    # 3. AUTO / Automotive (Nord HQX, HGY, SECA, …)
+    is_auto = _is_auto_target(target_name)
+    if is_auto:
+        slug = str(target_name or "").strip().upper().replace(".", "_")
+        is_nord_sp_managed = (
+            slug in {"NORD_HQX", "NORD_HGY"}
+            or "NORD_HQX" in slug
+            or "NORD_HGY" in slug
+        )
+        return render_template(
+            "live_view_stats.html",
+            target_name=target_name,
+            target_display=get_display_name_for_target(target_name) or target_name,
+            default_excel_root=_DEFAULT_EXCEL_ROOT,
+            is_admin=_is_admin_user(),
+            is_nord_sp_managed=is_nord_sp_managed,
+            is_auto=is_auto,
+        )
+
+    # 4. Others (XR, Mobile, IoT, MBB, Compute, …)
+    return redirect(
+        url_for(
+            "others_live_view_stats_bp.others_live_view_stats_page",
+            target_name=target_name,
+        )
+    )
+
+
 @live_view_stats_bp.route("/live_view_stats/<string:target_name>", methods=["GET"])
 @login_required
 def live_view_stats_page(target_name: str):
-    # Nord HQX/HGY pages use the same Live View Stats UI, with an admin-managed
-    # SP-name list layered on top of the existing synced workbook sheet list.
-    is_auto = _is_auto_target(target_name)
-    slug = str(target_name or "").strip().upper().replace(".", "_")
-    is_nord_sp_managed = slug in {"NORD_HQX", "NORD_HGY"} or "NORD_HQX" in slug or "NORD_HGY" in slug
-    return render_template(
-        "live_view_stats.html",
-        target_name=target_name,
-        target_display=get_display_name_for_target(target_name) or target_name,
-        default_excel_root=_DEFAULT_EXCEL_ROOT,
-        is_admin=_is_admin_user(),
-        is_nord_sp_managed=is_nord_sp_managed,
-        is_auto=is_auto,
-    )
+    """Smart dispatcher: routes to the correct live-view-stats page based on BU."""
+    return _route_live_view_stats(target_name)
 
 
 @live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/config", methods=["GET", "POST"])
@@ -578,3 +625,31 @@ def api_live_view_stats_sheet(target_name: str, sheet_name: str):
     cfg = _load_config(target_name)
     data["db_config"] = (cfg.get("sheet_tables") or {}).get(data.get("sheet_name") or sheet_name, {})
     return jsonify({"ok": True, "sheet": data})
+
+
+# ---------------------------------------------------------------------------
+# Non-AUTO BU live view  (Bonsai, MOBILE, COMPUTE, IOT, MBB, etc.)
+# Uses the same common dashboard JSON API as /dashboard/<target>/mtbf-excel
+# so that read, edit, and update all share one canonical data path.
+# ---------------------------------------------------------------------------
+
+@live_view_stats_bp.route("/live_view_stats/nonau/<string:target_name>", methods=["GET"])
+@login_required
+def nonau_live_view_stats_page(target_name: str) -> "flask.Response":
+    """Live view stats page for non-automotive BUs.
+
+    Reads MTBF data via ``GET /api/dashboard/<target>/excel/full_table`` —
+    the same endpoint used by the dashboard MTBF edit page — so the live view
+    and the dashboard always show the same JSON-backed data.  Editors can add
+    builds (``POST /api/dashboard/<target>/excel/add_build``) and save the
+    full table (``POST /api/dashboard/<target>/excel/save_table``) without
+    any separate storage layer.
+    """
+    bu = (get_bu_for_target(target_name) or "").upper()
+    return render_template(
+        "nonau_live_view_stats.html",
+        target_name=target_name,
+        target_display=get_display_name_for_target(target_name) or target_name,
+        bu=bu,
+        is_admin=_is_admin_user(),
+    )

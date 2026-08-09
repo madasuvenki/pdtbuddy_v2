@@ -21,6 +21,7 @@ def register_feature_blueprints(app: Flask) -> None:
     from live_view_stats_routes import live_view_stats_bp
     from automotive_live_view_stats_routes import automotive_live_view_stats_bp
     from wbc_live_view_stats_routes import wbc_live_view_stats_bp
+    from others_live_view_stats_routes import others_live_view_stats_bp
     from auto_gen45_public_routes import public_auto_gen45_bp
     from auto_gen5_public_routes import public_auto_gen5_bp
     from core_deck_routes import core_deck_bp
@@ -41,6 +42,7 @@ def register_feature_blueprints(app: Flask) -> None:
         live_view_stats_bp,
         automotive_live_view_stats_bp,
         wbc_live_view_stats_bp,
+        others_live_view_stats_bp,
         public_auto_gen45_bp,
         public_auto_gen5_bp,
         core_deck_bp,

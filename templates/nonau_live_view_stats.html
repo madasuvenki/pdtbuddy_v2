@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>{{ target_display|upper }} &mdash; Live View Stats</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#0f172a 0%,#1e1b4b 40%,#0f172a 100%);color:#e2e8f0;min-height:100vh;font-size:14px}
+    .shell{max-width:1400px;margin:0 auto;padding:18px 24px 60px}
+    .hero{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 22px;border-radius:18px;background:linear-gradient(135deg,#1e1b4b,#312e81 50%,#1e3a8a);border:2px solid #4f46e5;box-shadow:0 8px 32px rgba(79,70,229,.35);margin-bottom:18px}
+    .eyebrow{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#a5b4fc;margin-bottom:4px}
+    .hero h1{font-size:22px;color:#fff;font-weight:950}
+    .hero p{font-size:12px;color:#a5b4fc;margin-top:3px}
+    .hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900}
+    .badge-live{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
+    .badge-info{background:rgba(56,189,248,.12);color:#bae6fd;border:1px solid rgba(56,189,248,.25)}
+    .badge-err{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25)}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(148,163,184,.25);background:rgba(255,255,255,.06);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;transition:all .15s}
+    .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.1)}
+    .btn-primary{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.3)}
+    .btn-green{border:0;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
+    .btn-save{border:0;background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff}
+    .btn-danger{border:0;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+    .btn-sm{padding:5px 10px;font-size:11px;border-radius:8px}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+    .kpi{border:1px solid rgba(148,163,184,.16);border-radius:16px;background:rgba(255,255,255,.04);padding:14px 16px}
+    .kpi .num{font-size:26px;font-weight:1000;color:#bae6fd;line-height:1}
+    .kpi .lbl{font-size:10px;color:#64748b;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(360px,1fr);gap:18px;margin-bottom:18px}
+    .panel{border:1px solid rgba(148,163,184,.16);border-radius:20px;background:rgba(15,27,45,.84);overflow:hidden}
+    .panel-h{padding:12px 16px;border-bottom:1px solid rgba(148,163,184,.12);display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.03)}
+    .panel-title{font-weight:950;display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0}
+    .panel-b{padding:14px 16px}
+    .chart-box{background:#fff;border-radius:14px;padding:10px;height:360px;position:relative}
+    .tbl-wrap{overflow:auto;max-height:400px;border-radius:12px;border:1px solid rgba(148,163,184,.12)}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:9px 10px;border-bottom:1px solid rgba(148,163,184,.1);text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:#172943;color:#dbeafe;font-size:10px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;z-index:2}
+    tr:hover td{background:rgba(56,189,248,.05)}
+    .empty{padding:36px;text-align:center;color:#64748b}
+    .inp{width:100%;border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.06);border-radius:10px;color:#e2e8f0;padding:9px 11px;outline:none;font-family:inherit;font-size:13px}
+    .inp:focus{border-color:#38bdf8}
+    .modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
+    .modal-ov.open{display:flex}
+    .modal{background:#0f1b2d;border:1px solid rgba(148,163,184,.22);border-radius:20px;padding:24px;width:min(520px,95vw);max-height:90vh;overflow:auto}
+    .modal h2{margin:0 0 14px;font-size:17px;color:#e2e8f0}
+    .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .frow.full{grid-template-columns:1fr}
+    .flbl{font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+    .spin{animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .msg{font-size:12px;margin-top:8px;color:#64748b}
+    .msg.ok{color:#86efac}
+    .msg.err{color:#fca5a5}
+    td.editable{cursor:pointer}
+    td.editable:hover{background:rgba(56,189,248,.1) !important}
+    td.editing input{width:100%;background:rgba(255,255,255,.08);border:1px solid #38bdf8;border-radius:6px;color:#e2e8f0;padding:4px 6px;font-family:inherit;font-size:12px;outline:none}
+    @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <div class="eyebrow"><i class="fas fa-satellite-dish"></i> {{ bu or 'Non-AUTO' }} BU &mdash; Live View Stats</div>
+      <h1>{{ target_display }}</h1>
+      <p>MTBF Build History &mdash; reads &amp; writes the same JSON as the dashboard MTBF page</p>
+    </div>
+    <div class="hero-actions">
+      <span class="badge badge-info" id="statusBadge"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</span>
+      <button class="btn btn-primary" onclick="loadData()"><i class="fas fa-sync" id="refreshIcon"></i> Refresh</button>
+      {% if is_admin %}
+      <button class="btn btn-green" onclick="openAddModal()"><i class="fas fa-plus"></i> Add Build</button>
+      <button class="btn btn-save" onclick="saveTable()" id="saveBtn"><i class="fas fa-save"></i> Save</button>
+      {% endif %}
+      <a class="btn" href="/dashboard/{{ target_name }}/mtbf-excel" target="_blank"><i class="fas fa-chart-bar"></i> Dashboard MTBF</a>
+      <a class="btn" href="/live_status_view" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border:0;color:#fff"><i class="fas fa-users"></i> Live Status</a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpis">
+    <div class="kpi">
+      <div class="num" id="kpiBuilds">&mdash;</div>
+      <div class="lbl">Total Builds</div>
+    </div>
+    <div class="kpi">
+      <div class="num" id="kpiLatestMtbf">&mdash;</div>
+      <div class="lbl">Latest MTBF (hrs)</div>
+    </div>
+    <div class="kpi">
+      <div class="num" id="kpiAvgMtbf">&mdash;</div>
+      <div class="lbl">Avg MTBF (hrs)</div>
+    </div>
+    <div class="kpi">
+      <div class="num" id="kpiLastDate">&mdash;</div>
+      <div class="lbl">Last Build Date</div>
+    </div>
+  </div>
+
+  <!-- Chart + Table -->
+  <div class="grid">
+
+    <!-- MTBF Trend Chart -->
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-chart-line" style="color:#38bdf8"></i> MTBF Trend</div>
+        <button class="btn btn-sm" onclick="toggleChartType()" title="Toggle line/bar"><i class="fas fa-chart-bar"></i></button>
+      </div>
+      <div class="panel-b">
+        <div class="chart-box"><canvas id="mtbfChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Build Table -->
+    <div class="panel">
+      <div class="panel-h">
+        <div class="panel-title"><i class="fas fa-table" style="color:#8b5cf6"></i> Build Table</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="rowCount" style="font-size:11px;color:#64748b"></span>
+          {% if is_admin %}
+          <button class="btn btn-sm btn-save" onclick="saveTable()"><i class="fas fa-save"></i> Save</button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="panel-b">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px">#</th>
+                <th>Meta ID</th>
+                <th>Build(s)</th>
+                <th>Date</th>
+                <th style="text-align:right">Hours</th>
+                <th style="text-align:right">Crashes</th>
+                <th style="text-align:right">MTBF</th>
+                <th>Comments</th>
+                {% if is_admin %}<th style="width:36px"></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody id="mtbfTbody">
+              <tr><td colspan="9" class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="tableMsg" class="msg"></div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+</div><!-- /shell -->
+
+{% if is_admin %}
+<!-- Add Build Modal -->
+<div class="modal-ov" id="addModal">
+  <div class="modal">
+    <h2><i class="fas fa-plus-circle" style="color:#22c55e"></i> Add Build</h2>
+    <p style="font-size:11px;color:#64748b;margin:0 0 14px">Calls <code style="color:#bae6fd">POST /api/dashboard/{{ target_name }}/excel/add_build</code></p>
+    <div class="frow">
+      <div><label class="flbl">Meta ID *</label><input class="inp" id="addBuild" placeholder="META-001"></div>
+      <div><label class="flbl">Build(s) Full ID</label><input class="inp" id="addBuildFull" placeholder="Target.LA.1.0-00001"></div>
+    </div>
+    <div class="frow">
+      <div><label class="flbl">Date</label><input class="inp" id="addDate" type="date"></div>
+      <div><label class="flbl">Hours</label><input class="inp" id="addHours" type="number" step="0.1" placeholder="120"></div>
+    </div>
+    <div class="frow">
+      <div><label class="flbl">Total Crashes</label><input class="inp" id="addCrashes" type="number" placeholder="1"></div>
+      <div><label class="flbl">MTBF (hrs)</label><input class="inp" id="addMtbf" type="number" step="0.01" placeholder="120.0"></div>
+    </div>
+    <div class="frow full">
+      <div><label class="flbl">Comments</label><input class="inp" id="addComments" placeholder="Optional notes"></div>
+    </div>
+    <div id="addMsg" class="msg"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-green" onclick="submitAdd()" id="addSubmitBtn"><i class="fas fa-save"></i> Add Build</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const TARGET   = {{ target_name|tojson }};
+const IS_ADMIN = {{ is_admin|tojson }};
+const COL = { meta:0, build:1, date:2, hours:3, crashes:4, mtbf:5, comments:6 };
+
+let tableData = [];
+let headers   = [];
+let chartType = 'line';
+let _chart    = null;
+
+/* ── Load ── */
+async function loadData() {
+  const icon = document.getElementById('refreshIcon');
+  icon.className = 'fas fa-circle-notch spin';
+  setBadge('info', '<i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;');
+  try {
+    const r = await fetch('/api/dashboard/' + TARGET + '/excel/full_table');
+    const d = await r.json();
+    if (!d.success) { setBadge('err', '<i class="fas fa-exclamation-circle"></i> ' + (d.message||'Load failed')); return; }
+    headers   = d.headers || [];
+    tableData = d.rows    || [];
+    // remap column indices by header name
+    remapCols(headers);
+    renderTable();
+    renderChart();
+    updateKPIs();
+    const n = tableData.length;
+    setBadge('live', '<i class="fas fa-check-circle"></i> ' + n + ' build' + (n!==1?'s':''));
+  } catch(e) {
+    setBadge('err', '<i class="fas fa-exclamation-circle"></i> Network error');
+  } finally {
+    icon.className = 'fas fa-sync';
+  }
+}
+
+function remapCols(hdrs) {
+  const map = { meta:['Meta ID','Meta-ID','meta_id','MetaID'], build:['Build(s)','Build','build_id','Builds','Full Build'], date:['Date','date'], hours:['Hours','hours'], crashes:['Total Crashes','Crashes','total_crashes'], mtbf:['MTBF','mtbf'], comments:['Comments','comments'] };
+  for (const [key, names] of Object.entries(map)) {
+    for (const name of names) {
+      const idx = hdrs.indexOf(name);
+      if (idx >= 0) { COL[key] = idx; break; }
+    }
+  }
+}
+
+function setBadge(type, html) {
+  const el = document.getElementById('statusBadge');
+  el.innerHTML = html;
+  el.className = 'badge badge-' + (type==='err'?'err':type==='live'?'live':'info');
+}
+
+/* ── Render table ── */
+function renderTable() {
+  const tbody = document.getElementById('mtbfTbody');
+  document.getElementById('rowCount').textContent = tableData.length + ' rows';
+  if (!tableData.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No data. Add a build to get started.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = tableData.map((r, i) => {
+    const v  = r.values || [];
+    const ea = IS_ADMIN ? ' class="editable" ondblclick="startEdit(this,' + i + ')"' : '';
+    const del = IS_ADMIN ? '<td><button class="btn btn-sm btn-danger" onclick="deleteRow(' + i + ')" title="Delete"><i class="fas fa-trash"></i></button></td>' : '';
+    return '<tr data-idx="' + i + '">'
+      + '<td style="color:#64748b;font-size:11px">' + (i+1) + '</td>'
+      + '<td' + ea + ' data-col="0" style="font-weight:900;color:#bae6fd">' + esc(v[COL.meta]||'') + '</td>'
+      + '<td' + ea + ' data-col="1" style="font-size:11px;color:#94a3b8">' + esc(v[COL.build]||'') + '</td>'
+      + '<td' + ea + ' data-col="2">' + esc(v[COL.date]||'') + '</td>'
+      + '<td' + ea + ' data-col="3" style="text-align:right">' + esc(v[COL.hours]||'') + '</td>'
+      + '<td' + ea + ' data-col="4" style="text-align:right">' + esc(v[COL.crashes]||'') + '</td>'
+      + '<td' + ea + ' data-col="5" style="text-align:right;font-weight:900;color:#86efac">' + esc(v[COL.mtbf]||'') + '</td>'
+      + '<td' + ea + ' data-col="6" style="font-size:11px;color:#94a3b8">' + esc(v[COL.comments]||'') + '</td>'
+      + del + '</tr>';
+  }).join('');
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── Inline edit ── */
+function startEdit(td, rowIdx) {
+  if (td.querySelector('input')) return;
+  const col = parseInt(td.dataset.col);
+  const val = tableData[rowIdx].values[col] || '';
+  td.innerHTML = '<input value="' + esc(val) + '" onblur="commitEdit(this,' + rowIdx + ',' + col + ')" onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.value=\'' + esc(val) + '\';this.blur();}">';
+  td.classList.add('editing');
+  td.querySelector('input').focus();
+}
+
+function commitEdit(input, rowIdx, col) {
+  const newVal = input.value.trim();
+  tableData[rowIdx].values[col] = newVal;
+  const td = input.parentElement;
+  td.classList.remove('editing');
+  td.innerHTML = esc(newVal);
+  if (col === COL.mtbf || col === COL.date || col === COL.meta) { renderChart(); updateKPIs(); }
+}
+
+/* ── Delete row ── */
+function deleteRow(idx) {
+  if (!confirm('Delete this build row?')) return;
+  tableData.splice(idx, 1);
+  renderTable(); renderChart(); updateKPIs();
+  setTableMsg('', 'Row deleted — click Save to persist.');
+}
+
+/* ── Save table ── */
+async function saveTable() {
+  const btns = ['saveBtn'].map(id => document.getElementById(id)).filter(Boolean);
+  btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving&hellip;'; });
+  setTableMsg('', 'Saving…');
+  try {
+    const r = await fetch('/api/dashboard/' + TARGET + '/excel/save_table', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sheet_name: 'MTBF', rows: tableData })
+    });
+    const d = await r.json();
+    if (d.success) {
+      setTableMsg('ok', d.message || 'Saved!');
+      await loadData();
+    } else {
+      setTableMsg('err', d.message || 'Save failed');
+    }
+  } catch(e) {
+    setTableMsg('err', 'Network error: ' + e.message);
+  } finally {
+    btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="fas fa-save"></i> Save'; });
+  }
+}
+
+function setTableMsg(type, msg) {
+  const el = document.getElementById('tableMsg');
+  el.textContent = msg;
+  el.className = 'msg ' + (type||'');
+}
+
+/* ── Add Build modal ── */
+function openAddModal() {
+  document.getElementById('addModal').classList.add('open');
+  document.getElementById('addBuild').focus();
+  document.getElementById('addMsg').textContent = '';
+  document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+}
+
+function closeAddModal() { document.getElementById('addModal').classList.remove('open'); }
+
+async function submitAdd() {
+  const build = document.getElementById('addBuild').value.trim();
+  if (!build) { document.getElementById('addMsg').textContent = 'Meta ID is required.'; document.getElementById('addMsg').className = 'msg err'; return; }
+  const btn = document.getElementById('addSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Adding&hellip;';
+  const payload = {
+    build,
+    build_full:    document.getElementById('addBuildFull').value.trim() || build,
+    date:          document.getElementById('addDate').value.trim(),
+    hours:         parseFloat(document.getElementById('addHours').value)    || '',
+    total_crashes: parseInt(document.getElementById('addCrashes').value)    || '',
+    mtbf:          parseFloat(document.getElementById('addMtbf').value)     || '',
+    comments:      document.getElementById('addComments').value.trim(),
+  };
+  try {
+    const r = await fetch('/api/dashboard/' + TARGET + '/excel/add_build', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('addMsg').textContent = d.message || 'Build added!';
+      document.getElementById('addMsg').className = 'msg ok';
+      ['addBuild','addBuildFull','addHours','addCrashes','addMtbf','addComments'].forEach(id => { document.getElementById(id).value = ''; });
+      await loadData();
+      setTimeout(closeAddModal, 900);
+    } else {
+      document.getElementById('addMsg').textContent = d.message || 'Failed';
+      document.getElementById('addMsg').className = 'msg err';
+    }
+  } catch(e) {
+    document.getElementById('addMsg').textContent = 'Network error: ' + e.message;
+    document.getElementById('addMsg').className = 'msg err';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Add Build';
+  }
+}
+
+/* ── Chart ── */
+function renderChart() {
+  const labels   = tableData.map(r => r.values[COL.meta] || '');
+  const mtbfData = tableData.map(r => { var v = parseFloat(r.values[COL.mtbf]);  return isNaN(v) ? null : v; });
+  const hrData   = tableData.map(r => { var v = parseFloat(r.values[COL.hours]); return isNaN(v) ? null : v; });
+  const ctx = document.getElementById('mtbfChart').getContext('2d');
+  if (_chart) _chart.destroy();
+  _chart = new Chart(ctx, {
+    type: chartType,
+    data: {
+      labels,
+      datasets: [
+        { label:'MTBF (hrs)', data:mtbfData, borderColor:'#38bdf8', backgroundColor:chartType==='bar'?'rgba(56,189,248,.65)':'rgba(56,189,248,.12)', fill:chartType!=='bar', tension:0.35, yAxisID:'y', pointRadius:5, pointHoverRadius:8 },
+        { label:'Hours',      data:hrData,   borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.06)', fill:false, tension:0.35, yAxisID:'y2', borderDash:[5,3], pointRadius:3, pointHoverRadius:6 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:true, position:'top' } },
+      scales:{
+        y:  { type:'linear', position:'left',  title:{ display:true, text:'MTBF (hrs)', color:'#38bdf8' }, ticks:{ color:'#64748b' }, grid:{ color:'rgba(148,163,184,.15)' } },
+        y2: { type:'linear', position:'right', title:{ display:true, text:'Hours',      color:'#22c55e' }, ticks:{ color:'#64748b' }, grid:{ drawOnChartArea:false } },
+        x:  { ticks:{ color:'#64748b', maxRotation:45 }, grid:{ color:'rgba(148,163,184,.08)' } }
+      }
+    }
+  });
+}
+
+function toggleChartType() { chartType = chartType==='line'?'bar':'line'; renderChart(); }
+
+/* ── KPIs ── */
+function updateKPIs() {
+  document.getElementById('kpiBuilds').textContent = tableData.length;
+  var mtbfVals = tableData.map(r => parseFloat(r.values[COL.mtbf])).filter(v => !isNaN(v) && v > 0);
+  document.getElementById('kpiLatestMtbf').textContent = mtbfVals.length ? mtbfVals[mtbfVals.length-1].toFixed(1) : '\u2014';
+  document.getElementById('kpiAvgMtbf').textContent    = mtbfVals.length ? (mtbfVals.reduce((a,b)=>a+b,0)/mtbfVals.length).toFixed(1) : '\u2014';
+  var dates = tableData.map(r => r.values[COL.date]).filter(Boolean);
+  document.getElementById('kpiLastDate').textContent   = dates.length ? dates[dates.length-1] : '\u2014';
+}
+
+/* ── Modal close on overlay click ── */
+document.getElementById('addModal') && document.getElementById('addModal').addEventListener('click', function(e){ if(e.target===this) closeAddModal(); });
+
+/* ── Init ── */
+loadData();
+</script>
+</body>
+</html>

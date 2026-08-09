@@ -456,6 +456,78 @@ ORBIT_CR_DB_ENABLED=1  # to enable DB-first lookup
 
 **Version:** Currently `v2.9` in `app.py`. Pending user approval to bump version.
 
+### Non-AUTO BU Live Status — dashboard parity (2026-08-09)
+
+**Problem:** For non-AUTO BU targets (e.g. Bonsai), the Live Status page MTBF tab
+was reading from `managed_excel/AUTO/MTBF/<target>/` (AUTO-BU JSON files) via the
+`/api/live_status_view/<target>/adas_mtbf` endpoint, which returns empty/wrong data
+for non-AUTO targets. The dashboard MTBF page reads from
+`mtbf_json/<target>/mtbf_MTBF.json` via `_load_mtbf_json_payload`.
+
+**Fix in `templates/live_status_publish_edit.html`** (non-AUTO BU override block):
+1. **MTBF tab**: Overrides `window.adasLoadData` to call
+   `/api/dashboard/<target>/excel/full_table` — the same endpoint the dashboard
+   MTBF edit page uses, which reads from `_load_mtbf_json_payload` (the correct
+   JSON files). Maps dashboard headers `["Meta ID","Build(s)","Date","Hours",
+   "Total Crashes","MTBF","Comments"]` to the `adas_mtbf` row format expected by
+   `renderMtbfTrend` / `renderMtbfTable`.
+2. **Open JIRAs tab**: Overrides `window.ojLoad` to call
+   `/api/dashboard/<target>/open_jiras?toggle_mode=CRM&pdt_type=SWPDT` — same
+   endpoint as the dashboard Open JIRAs page.
+3. **Automotive controls**: Hides domain/crash-type buttons (ADAS/FLEX/IVI) that
+   are irrelevant for non-AUTO BUs.
+
+**Key insight:** `api_excel_full_table` returns `{success, headers, rows:[{excel_row, values:[...]}]}`.
+The override maps column indices by header name (with fallback to positional index)
+to produce `{s_no, meta_id, build_id, date, hours, total_crashes, mtbf, comments}` rows.
+
+### Non-AUTO BU Live View — common dashboard JSON API (2026-08-09)
+
+**New route** `GET /live_view_stats/nonau/<target>` in `live_view_stats_routes.py`:
+- Renders `templates/nonau_live_view_stats.html`
+- Passes `target_name`, `target_display`, `bu`, `is_admin` to template
+- Works for any non-AUTO BU: Bonsai, MOBILE, COMPUTE, IOT, MBB, etc.
+
+**New template** `templates/nonau_live_view_stats.html`:
+- Premium dark-themed live view page (same visual language as WBC/AUTO live views)
+- **Reads** MTBF data via `GET /api/dashboard/<target>/excel/full_table`
+- **Adds** builds via `POST /api/dashboard/<target>/excel/add_build`
+- **Saves** full table via `POST /api/dashboard/<target>/excel/save_table`
+- All three operations share one canonical JSON path (`_load_mtbf_json_payload` /
+  `_save_mtbf_json_payload` in `dashboard_routes.py`)
+- Features: KPI cards, Chart.js trend, build table, Add Build modal, row delete, Save
+
+**Key design principle**: The live view does NOT maintain its own JSON storage.
+It reads and writes through the same `dashboard_bp` API endpoints that the dashboard
+MTBF page uses, so both views always show identical data.
+
+### Non-AUTO BU Live Status MTBF — full dashboard API parity (2026-08-09)
+
+**Root cause:** The page at `/live_status_view/XR/Bonsai` renders `live_status_publish_edit.html`
+(not `live_status_publish_edit_nonau.html`). The `{% if not is_auto_bu %}` block in that file
+already had `adasLoadData`/`loadMtbfData` overridden to call `full_table`, but:
+- `renderMtbfTable` was NOT overridden → showed AUTO-BU columns (Mode, Details)
+- `mtbfConfirmAddBuild` was NOT overridden → used `adas_mtbf/add|edit` (wrong)
+- `adasDeleteRowById` was NOT overridden → used `adas_mtbf/delete` (wrong)
+
+**Fix in `templates/live_status_publish_edit.html`** (`{% if not is_auto_bu %}` block):
+
+1. **`renderMtbfTable` override**: Renders non-AUTO BU columns (`#`, `Meta ID`, `Build(s)`,
+   `Hours`, `Total Crashes`, `MTBF`, `Comments`) — no Mode/Details columns.
+
+2. **`mtbfConfirmAddBuild` override**:
+   - For **new rows**: `POST /api/dashboard/<target>/excel/add_build`
+   - For **edit**: updates in-memory `_mtbfBuildRows` then `POST /api/dashboard/<target>/excel/save_table`
+
+3. **`adasDeleteRowById` override**:
+   - Filters row from `_mtbfBuildRows` then `POST /api/dashboard/<target>/excel/save_table`
+
+4. **`loadMtbfData` / `adasLoadData`**: Already overridden to call `full_table` (common path).
+   No fallback to old ADAS MTBF location — uses ONLY the common dashboard JSON path.
+
+All MTBF operations for non-AUTO BUs now use the same canonical JSON path as the dashboard
+MTBF page (`_load_mtbf_json_payload` / `_save_mtbf_json_payload` in `dashboard_routes.py`).
+
 ## Next Steps
 1. **Modularization Phase 1**: Extract shared utilities from app.py
    - Create `src/user_activity.py`

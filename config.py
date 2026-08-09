@@ -139,6 +139,11 @@ LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS = {
         "bus": ["WBC"],
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.WBC",
     },
+    "PdtBuddy.XR": {
+        "label": "XR",
+        "bus": ["XR"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.XR",
+    },
 }
 
 try:
