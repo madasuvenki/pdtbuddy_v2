@@ -8917,6 +8917,11 @@ def dashboard_help():
 def dashboard_docs():
     return render_template("dashboard_docs.html")
 
+@app.route("/revision-history")
+@login_required
+def revision_history():
+    return render_template("revision_history.html")
+
 
 @app.route("/dashboard/guide")
 @login_required
