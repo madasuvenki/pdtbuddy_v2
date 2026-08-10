@@ -214,10 +214,13 @@
         </div>
         <!-- Hidden elements for backward compat (MTBF data, not shown) -->
         <span id="ovKCrashes" hidden></span><span id="ovKHours" hidden></span><span id="ovKDate" hidden></span>
-        <!-- Row 2: 4 standard metric cards -->
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px">
+        <!-- Row 2: 5 standard metric cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px">
           <button class="card metric clickable" onclick="navToTab('openjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
             <div class="ico" style="font-size:16px;margin-bottom:8px">🔓</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('mappedjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🔗</div><div id="ovKMappedJiras" class="num">0</div><div class="lbl">Mapped JIRAs</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('opencrs',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
             <div class="ico" style="font-size:16px;margin-bottom:8px">📁</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div>
@@ -256,8 +259,8 @@
           </div>
         </div>
       </div>
-      <!-- MTBF Trend -->
-      <div class="card overview-chart-card"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
+      <!-- MTBF Trend — taller to fill available space -->
+      <div class="card overview-chart-card" style="margin-bottom:0"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:420px"><canvas id="overviewChart" height="380"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
             <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> {% if can_edit %}Saved JQL {% endif %}Current Running Build Reports</div>
@@ -949,7 +952,7 @@ function _wbcClearTbl(uid){
 }
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
-function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});document.getElementById('mappedJirasBox').innerHTML=tableHtml(p.jiras);document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
+function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);document.getElementById('openJirasBox').innerHTML=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});document.getElementById('mappedJirasBox').innerHTML=tableHtml(p.jiras);document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
 function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows);body.innerHTML=rows.length?`<div class="tblwrap" style="max-height:420px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">No detail rows for this build.</div>';}
