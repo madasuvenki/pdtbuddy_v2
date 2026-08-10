@@ -470,6 +470,7 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
         </div>
       </div>
     </div>
+    {% endif %}
     <!-- Saved JQL Tabs — two-column layout (left: domain+list, right: report) -->
     <div class="card" style="margin-top:14px;border:2px solid #a5b4fc;overflow:hidden">
       <!-- Card header -->
@@ -537,7 +538,6 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
         </div>
       </div>
     </div>
-    {% endif %}
   </section>
   {% endif %}
   {% if 'mtbf' in visible_tabs %}
@@ -1013,10 +1013,13 @@ lines.push([i+1,r.cr,r.jira,r.title,r.cr_count,r.cr_area,r.cr_subsystem,r.cr_fun
 .map(function(v){ return '"'+(String(v||'').replace(/"/g,'""'))+'"'; }).join(','));
 });
 var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+var url = URL.createObjectURL(blob);
 var a = document.createElement('a');
-a.href = URL.createObjectURL(blob);
+a.href = url;
 a.download = TARGET+'_'+bid+'_report.csv';
+document.body.appendChild(a);
 a.click();
+setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
 };
 /* -- build search (client-side, no server call) -------------------- */
 window.bwrFilterBuilds = function(){
@@ -6961,7 +6964,52 @@ return '<div onclick="lspSjqlViewReport(this.dataset.tabid, this.dataset.dom)"'
 window.lspSjqlLoad = function(){
 var el = document.getElementById('lspSjqlTabList');
 if(el) el.innerHTML = '<div class="empty" style="font-size:11px"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
-// Step 1: fetch actual domains for this target from the same API as MTBF Trend
+var isAutoBu = !!(window.LSP_DATA && window.LSP_DATA.is_auto_bu);
+// Non-AUTO BU: skip domain fetch, use target name as single domain, render flat tab list
+if(!isAutoBu){
+var singleDom = String(_TARGET||'').toUpperCase().replace(/[^A-Z0-9_]/g,'_')||'DEFAULT';
+DOMAINS = [singleDom];
+_dom = singleDom;
+fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs?domain='+encodeURIComponent(singleDom),{cache:'no-store'})
+.then(function(r){return r.json();})
+.then(function(data){ _allTabs[singleDom]=data.tabs||[]; })
+.catch(function(){ _allTabs[singleDom]=[]; })
+.then(function(){
+// For non-AUTO BU, render tabs directly in the right panel (no domain selector)
+var rightEmpty = document.getElementById('lspSjqlRightEmpty');
+var tabs = _allTabs[singleDom]||[];
+var canEdit = !!(window.LSP_DATA && window.LSP_DATA.can_edit);
+if(!tabs.length){
+if(rightEmpty) rightEmpty.innerHTML = '<div style="text-align:center"><i class="fas fa-bookmark" style="font-size:32px;margin-bottom:12px;opacity:.3"></i><br><br>'+(canEdit?'Click <b>Add JQL Tab</b> to create a saved JQL report.':'No saved JQL tabs yet.')+'</div>';
+return;
+}
+// Show tabs as cards in the right panel
+if(rightEmpty){
+var col = '#6366f1';
+rightEmpty.innerHTML = '<div style="padding:14px 16px;width:100%">'
++'<div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">'+tabs.length+' Saved JQL Tab'+(tabs.length===1?'':'s')+'</div>'
++tabs.map(function(t){
+var lr=t.last_run||null;
+var editBtns=canEdit
+?'<div style="display:flex;gap:4px;flex-shrink:0">'
++'<button onclick="event.stopPropagation();lspSjqlEdit(\''+_esc(t.id)+'\')" style="padding:3px 8px;border-radius:5px;border:1px solid #e2e8f0;background:#fff;font-size:10px;cursor:pointer" title="Edit"><i class="fas fa-pen"></i></button>'
++'<button onclick="event.stopPropagation();lspSjqlDelete(\''+_esc(t.id)+'\')" style="padding:3px 8px;border-radius:5px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:10px;cursor:pointer" title="Delete"><i class="fas fa-trash"></i></button>'
++'</div>':''
+;
+return '<div onclick="lspSjqlViewReport(\''+_esc(t.id)+'\',\''+_esc(singleDom)+'\')" style="cursor:pointer;border:1px solid #e0e7ff;background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:8px;transition:.12s" onmouseover="this.style.borderColor=\'#818cf8\'" onmouseout="this.style.borderColor=\'#e0e7ff\'">'
++'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
++'<div style="min-width:0;flex:1">'
++'<div style="font-size:12px;font-weight:950;color:'+col+';margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(t.name)+'</div>'
++'<div style="font-size:9px;color:#94a3b8;font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc((t.jql||'').slice(0,80))+(t.jql&&t.jql.length>80?'\u2026':'')+'</div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?String(lr).slice(0,16).replace('T',' '):'never')+'</span></div>'
++'</div>'+editBtns+'</div></div>';
+}).join('')
++'</div>';
+}
+});
+return;
+}
+// AUTO BU: Step 1: fetch actual domains for this target from the same API as MTBF Trend
 fetch('/api/live_status_view/'+encodeURIComponent(_TARGET)+'/adas_mtbf/domains',{cache:'no-store'})
 .then(function(r){return r.json();})
 .then(function(d){
@@ -7227,7 +7275,8 @@ window.lspSjqlLoad();
 };
 // ── Auto-load ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
-if(window.LSP_DATA && LSP_DATA.is_auto_bu) window.lspSjqlLoad();
+// Load saved JQL tabs for ALL BUs -- AUTO gets domain+crash-type, others get flat list
+window.lspSjqlLoad();
 });
 })();
 </script>

@@ -413,6 +413,7 @@
           <button type="button" class="cr-age-badge cr-age-badge-critical" data-band="over_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fee2e2;color:#b91c1c;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(239,68,68,.6);">&gt;21d: â€”</button>
           <span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Dup: <span style="color:#b45309;">{{ cr_dup_count|default(0) }}</span></span>
                     <span style="font-size:10px;font-weight:700;color:#6b7280;">Invalid: <span style="color:#b91c1c;">{{ cr_invalid_count|default(0) }}</span></span>
+          <span id="crNosirBadge" style="font-size:10px;font-weight:700;color:#6b7280;">NoSIR: <span style="color:#c2410c;">{{ glance.cr_nosir_count|default(0) }}</span></span>
 
         </div>
       </div>
@@ -576,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // â”€â”€ Build dynamic CR category radio buttons and status checkboxes from actual data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var _activeStatuses = {};  // { "Open": true, "Analysis": true, ... }
-  var _activeCrCategories = { valid:true, invalid:false, dup:false }; // single-selected cr_category group
+  var _activeCrCategories = { valid:true, invalid:false, dup:false, nosir:false }; // single-selected cr_category group
 
 
   (function buildStatusCheckboxes(){
@@ -605,7 +606,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         {key:'valid', label:'Valid', bg:'#ecfdf5', border:'#6ee7b7', color:'#047857', accent:'#059669'},
         {key:'invalid', label:'Invalid', bg:'#fee2e2', border:'#fecaca', color:'#b91c1c', accent:'#dc2626'},
-        {key:'dup', label:'Dup', bg:'#fff7ed', border:'#fed7aa', color:'#c2410c', accent:'#f97316'}
+        {key:'dup', label:'Dup', bg:'#fff7ed', border:'#fed7aa', color:'#c2410c', accent:'#f97316'},
+        {key:'nosir', label:'NoSIR', bg:'#fff7ed', border:'#fdba74', color:'#c2410c', accent:'#ea580c'}
       ];
       categoryDefs.forEach(function(def){
         var label = document.createElement('label');
@@ -703,8 +705,14 @@ document.addEventListener('DOMContentLoaded', function () {
         function _rowCategoryGroup(r){
     var cat = String(r.cr_category||'').trim().toLowerCase();
     var st = String(r.cr_status||r.status||'').trim().toLowerCase();
-    if(cat === 'dup' || cat === 'invalid_dup' || st === 'dup' || st === 'duplicate' || st === 'invalid_dup' || st.indexOf('dup') >= 0) return 'dup';
-    if(cat === 'invalid' || cat === 'nosir' || st === 'invalid' || st === 'nosir' || st === 'no sir') return 'invalid';
+    var stNorm = st.replace(/[\s_-]+/g,'');
+    // Dup: cr_category = 'dup' or 'invalid_dup' only
+    if(cat === 'dup' || cat === 'invalid_dup') return 'dup';
+    // Invalid: cr_category = 'invalid' only
+    if(cat === 'invalid') return 'invalid';
+    // NoSIR: cr_category = 'undisposed' AND cr_status = 'nosir' / 'no sir'
+    if(cat === 'undisposed' && (stNorm === 'nosir' || st === 'no sir')) return 'nosir';
+    // Valid: cr_category = 'built' or 'undisposed'
     if(cat === 'built' || cat === 'undisposed') return 'valid';
     return 'valid';
   }
@@ -741,11 +749,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function _isInvalidDupOnlyView(){
-    return !_activeCrCategories.valid && (_activeCrCategories.invalid || _activeCrCategories.dup);
+    return !_activeCrCategories.valid && !_activeCrCategories.nosir && (_activeCrCategories.invalid || _activeCrCategories.dup);
   }
 
   function _isDupOnlyView(){
-    return !_activeCrCategories.valid && !_activeCrCategories.invalid && _activeCrCategories.dup;
+    return !_activeCrCategories.valid && !_activeCrCategories.invalid && !_activeCrCategories.nosir && _activeCrCategories.dup;
   }
 
   function _statusMatchesRow(status, r){
@@ -788,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function _syncDetailedStatusVisibility(){
-    var hideDetailedStatus = _isDupOnlyView();
+    var hideDetailedStatus = _isDupOnlyView() || (_activeCrCategories.nosir && !_activeCrCategories.valid && !_activeCrCategories.invalid);
     var label = document.getElementById('crDetailedStatusLabel');
     var statusBox = document.getElementById('crStatusCheckboxes');
     var barRow = document.getElementById('pieDetailedStatusRow');
@@ -802,6 +810,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var parts = [];
     if(_activeCrCategories.invalid) parts.push('Invalid CRs');
     if(_activeCrCategories.dup) parts.push('Dup CRs');
+    if(_activeCrCategories.nosir) parts.push('NoSIR CRs');
     return parts.length ? parts.join(' / ') : 'Selected CRs';
   }
 
@@ -975,16 +984,18 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
     }
             // Compute 4 buckets live from filtered allCrRows â€” reacts to status filter + unit
-    var b0_7=0, b7_14=0, b14_21=0, bOver21=0, bDup=0, bInvalid=0;
+    var b0_7=0, b7_14=0, b14_21=0, bOver21=0, bDup=0, bInvalid=0, bNoSIR=0;
     (allCrRows||[]).forEach(function(r){
       var age = Number(r.cr_age||0);
-      var st  = String(r.cr_status||'').toLowerCase();
       var cat = String(r.cr_category||'').toLowerCase();
-            // Use cr_category only — 3 exact values
+      var stNorm = String(r.cr_status||'').toLowerCase().replace(/[\s_-]+/g,'');
+      // Use cr_category only — 4 exact values
       var isDup     = cat === 'dup' || cat === 'invalid_dup';
       var isInvalid = cat === 'invalid';
+      var isNoSIR   = cat === 'undisposed' && stNorm === 'nosir';
       if(isDup){ bDup++; return; }
       if(isInvalid){ bInvalid++; return; }
+      if(isNoSIR){ bNoSIR++; }
       if(!_isRowActive(r)) return;
       if(age<=7)       b0_7++;
       else if(age<=14) b7_14++;
@@ -1002,7 +1013,8 @@ document.addEventListener('DOMContentLoaded', function () {
       + '<button type="button" class="cr-age-badge cr-age-badge-warn" data-band="14_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fef3c7;color:#b45309;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(245,158,11,.4);">'+b3lbl+': '+b14_21+'</button>'
       + '<button type="button" class="cr-age-badge cr-age-badge-critical" data-band="over_21" style="padding:4px 10px;border-radius:999px;border:none;background:#fee2e2;color:#b91c1c;cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 0 0 1px rgba(239,68,68,.6);">'+b4lbl+': '+bOver21+'</button>'
       + '<span style="font-size:10px;font-weight:700;color:#6b7280;margin-left:6px;">Dup: <span style="color:#b45309;">'+bDup+'</span></span>'
-            + '<span style="font-size:10px;font-weight:700;color:#6b7280;">Invalid: <span style="color:#b91c1c;">'+bInvalid+'</span></span>';
+            + '<span style="font-size:10px;font-weight:700;color:#6b7280;">Invalid: <span style="color:#b91c1c;">'+bInvalid+'</span></span>'
+      + '<span style="font-size:10px;font-weight:700;color:#6b7280;">NoSIR: <span style="color:#c2410c;">'+bNoSIR+'</span></span>';
 
     bindAgeBadgeClicks();
   }
@@ -1875,6 +1887,7 @@ buildHeader(); buildFilters(); applyFilters();
       _activeCrCategories.valid = true;
       _activeCrCategories.invalid = false;
       _activeCrCategories.dup = false;
+      _activeCrCategories.nosir = false;
             document.querySelectorAll('#crCategoryCheckboxes input[type="radio"]').forEach(function(cb){
         cb.checked = !!_activeCrCategories[cb.dataset.categoryGroup];
       });

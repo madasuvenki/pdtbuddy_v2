@@ -15,6 +15,33 @@
 
 
 ## Current Work Focus
+
+### CR Category / NoSIR fix in dashboard_overview.html (2026-08-10)
+
+**Problem:** The CR STATUS section (CR Avg Age chart + CR Area bar chart) had incorrect category mapping and was missing a NoSIR filter option.
+
+**Root cause:**
+- `cr_category` only has 4 values: `invalid`, `dup`, `built`, `undisposed`
+- `NoSIR` and `CannotReproduce` are NOT separate `cr_category` values — they are `cr_status` values within `undisposed` CRs
+- The old `_rowCategoryGroup` function incorrectly mapped `cat === 'nosir'` to 'invalid' and used `cr_status` for dup detection
+
+**Fixes in `dashboard_routes.py`:**
+- `nosir_count` SQL: changed from `cr_category IN ('nosir','no_sir')` → `cr_category = 'undisposed' AND LOWER(TRIM(cr_status)) IN ('nosir','no sir')`
+- `invalid_count` SQL: changed from `cr_category IN ('invalid','nosir','no_sir')` → `cr_category = 'invalid'` only
+
+**Fixes in `templates/dashboard_overview.html`:**
+- `_activeCrCategories`: added `nosir: false`
+- `categoryDefs`: added NoSIR radio button chip `{key:'nosir', label:'NoSIR', bg:'#fff7ed', border:'#fdba74', color:'#c2410c', accent:'#ea580c'}`
+- `_rowCategoryGroup`: fixed to use `cr_category` only for dup/invalid; NoSIR = `undisposed` + `cr_status='nosir'`
+- `_isInvalidDupOnlyView` / `_isDupOnlyView`: account for `nosir`
+- `_syncDetailedStatusVisibility`: hide detailed status when only NoSIR selected
+- `_selectedCrCategoryTitlePrefix`: added "NoSIR CRs" label
+- Footer badges: added `bNoSIR` counter and "NoSIR: X" badge
+- Reset function (`setCrAgeViewMode`): added `_activeCrCategories.nosir = false`
+- HTML footer badges: added `<span id="crNosirBadge">NoSIR: {{ glance.cr_nosir_count|default(0) }}</span>`
+
+**Result:** The CR STATUS section now shows Valid | Invalid | Dup | NoSIR radio buttons in both the CR Avg Age chart area and the CR Area bar chart (via mirror). Selecting NoSIR shows only `undisposed` CRs with `cr_status='nosir'`.
+
 Documentation navigation repair completed (2026-08-09):
 - The Docs Architecture card now opens the canonical `/architecture` route in a new tab.
 - Added `/architecture_outputs` as a backward-compatible alias to the same Architecture page, preventing prior bookmarks from returning 404.

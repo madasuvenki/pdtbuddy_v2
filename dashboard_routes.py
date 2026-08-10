@@ -4385,21 +4385,21 @@ def fetch_undisposed_crs_in_age_band(table_u, min_age, max_age=None):
 def fetch_undisposed_status_counts(cursor, table_u):
 
     """
-        Return counts of undisposed CRs by status (Open / Analysis / Other).
+        Return counts of undisposed CRs by status (Open / Analysis / Cannot Reproduce / Other).
+        Queries ALL cr_category values (undisposed AND built) so every valid CR status is counted.
     """
     q = f"""
         SELECT
             cr_status,
             COUNT(*) AS cnt
         FROM {table_u}
-        WHERE LOWER(TRIM(cr_category)) = 'undisposed'
-          AND CAST(NULLIF(cr_age, '') AS UNSIGNED) > 0
+        WHERE LOWER(TRIM(cr_category)) IN ('undisposed', 'built')
         GROUP BY cr_status
     """
     cursor.execute(q)
     rows = cursor.fetchall() or []
 
-    result = {"open": 0, "analysis": 0, "other": 0}
+    result = {"open": 0, "analysis": 0, "cannot_reproduce": 0, "other": 0}
     for r in rows:
         status = (r["cr_status"] or "").strip().lower()
         count = int(r["cnt"] or 0)
@@ -4407,6 +4407,8 @@ def fetch_undisposed_status_counts(cursor, table_u):
             result["open"] += count
         elif "analysis" in status or "anal" in status:
             result["analysis"] += count
+        elif "cannot" in status and "reproduc" in status:
+            result["cannot_reproduce"] += count
         else:
             result["other"] += count
     return result
@@ -6748,6 +6750,13 @@ def dashboard(target_name, section="dashboard"):
         #   dup         -> Dup count only
         # cr_status is NOT used here - it caused double-counting when
         # cr_status='invalid' but cr_category='invalid_dup'.
+        # cannot_reproduce_count: CRs with cr_status containing 'cannot reproduce'
+        # across ALL categories (undisposed + built) so they are always included.
+        # cr_category only has 4 values: invalid, dup, built, undisposed.
+        # NoSIR and CannotReproduce are NOT separate cr_category values — they are
+        # cr_status values within undisposed CRs.
+        # nosir_count: cr_category='undisposed' AND cr_status IN ('nosir','no sir')
+        # invalid_count: cr_category='invalid' only (nosir stays in valid/undisposed)
         try:
             cursor.execute(f"""
                 SELECT
@@ -6760,31 +6769,44 @@ def dashboard(target_name, section="dashboard"):
                     SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'dup'
                              THEN 1 ELSE 0 END) AS dup_only_count,
                     SUM(CASE WHEN LOWER(TRIM(cr_category)) IN ('dup','invalid_dup')
-                             THEN 1 ELSE 0 END) AS dup_count
+                             THEN 1 ELSE 0 END) AS dup_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_category)) = 'undisposed'
+                             AND LOWER(TRIM(cr_status)) IN ('nosir','no sir')
+                             THEN 1 ELSE 0 END) AS nosir_count,
+                    SUM(CASE WHEN LOWER(TRIM(cr_status)) LIKE '%cannot%reproduc%'
+                             THEN 1 ELSE 0 END) AS cannot_reproduce_count
                 FROM {tables['u']}
             """)
             _inv_row = cursor.fetchone() or {}
-            cr_valid_count       = int(_inv_row.get('valid_count')       or 0)
-            cr_invalid_count     = int(_inv_row.get('invalid_count')     or 0)
-            cr_invalid_dup_count = int(_inv_row.get('invalid_dup_count') or 0)
-            cr_dup_only_count    = int(_inv_row.get('dup_only_count')    or 0)
-            cr_dup_count         = int(_inv_row.get('dup_count')         or 0)
-            glance['cr_valid_count']       = cr_valid_count
-            glance['cr_invalid_count']     = cr_invalid_count
-            glance['cr_invalid_dup_count'] = cr_invalid_dup_count
-            glance['cr_dup_only_count']    = cr_dup_only_count
-            glance['cr_dup_count']         = cr_dup_count
+            cr_valid_count            = int(_inv_row.get('valid_count')            or 0)
+            cr_invalid_count          = int(_inv_row.get('invalid_count')          or 0)
+            cr_invalid_dup_count      = int(_inv_row.get('invalid_dup_count')      or 0)
+            cr_dup_only_count         = int(_inv_row.get('dup_only_count')         or 0)
+            cr_dup_count              = int(_inv_row.get('dup_count')              or 0)
+            cr_nosir_count            = int(_inv_row.get('nosir_count')            or 0)
+            cr_cannot_reproduce_count = int(_inv_row.get('cannot_reproduce_count') or 0)
+            glance['cr_valid_count']            = cr_valid_count
+            glance['cr_invalid_count']          = cr_invalid_count
+            glance['cr_invalid_dup_count']      = cr_invalid_dup_count
+            glance['cr_dup_only_count']         = cr_dup_only_count
+            glance['cr_dup_count']              = cr_dup_count
+            glance['cr_nosir_count']            = cr_nosir_count
+            glance['cr_cannot_reproduce_count'] = cr_cannot_reproduce_count
         except Exception:
-            cr_valid_count       = 0
-            cr_invalid_count     = 0
-            cr_invalid_dup_count = 0
-            cr_dup_only_count    = 0
-            cr_dup_count         = 0
-            glance['cr_valid_count']       = 0
-            glance['cr_invalid_count']     = 0
-            glance['cr_invalid_dup_count'] = 0
-            glance['cr_dup_only_count']    = 0
-            glance['cr_dup_count']         = 0
+            cr_valid_count            = 0
+            cr_invalid_count          = 0
+            cr_invalid_dup_count      = 0
+            cr_dup_only_count         = 0
+            cr_dup_count              = 0
+            cr_nosir_count            = 0
+            cr_cannot_reproduce_count = 0
+            glance['cr_valid_count']            = 0
+            glance['cr_invalid_count']          = 0
+            glance['cr_invalid_dup_count']      = 0
+            glance['cr_dup_only_count']         = 0
+            glance['cr_dup_count']              = 0
+            glance['cr_nosir_count']            = 0
+            glance['cr_cannot_reproduce_count'] = 0
 
         # ALL CR rows (built + undisposed) with cr_status for dynamic checkbox filter
         try:
@@ -7049,6 +7071,7 @@ def dashboard(target_name, section="dashboard"):
             "cr_valid_count": cr_valid_count,
             "cr_dup_count": cr_dup_count,
             "cr_invalid_count": cr_invalid_count,
+            "cr_cannot_reproduce_count": cr_cannot_reproduce_count,
             "cr_rows": cr_rows,
             "all_cr_rows": all_cr_rows,
             "mapped_jiras_url": mapped_jiras_url,
