@@ -1749,3 +1749,88 @@ def api_automotive_live_view_stats_sync(target_name: str):
     index = {"target": target_name, "excel_path": excel_path, "sheets": synced, "errors": errors, "updated_at": datetime.utcnow().isoformat() + "Z"}
     _atomic_write_json(_index_path(target_name), index)
     return jsonify({"ok": not errors or bool(synced), "synced": synced, "errors": errors, "index": index})
+
+
+# ---------------------------------------------------------------------------
+# Saved JQL Tabs API for Automotive/Gen4.5 targets
+# Delegates to the generic helpers in live_view_stats_routes so the
+# centralized scheduler covers these targets automatically.
+# ---------------------------------------------------------------------------
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/saved_jql_tabs", methods=["GET"])
+@login_required
+def api_auto_saved_jql_tabs_list(target_name: str):
+    from live_view_stats_routes import _sjql_domain, api_lvs_saved_jql_tabs_list
+    # Delegate to the generic handler by temporarily setting request context
+    from live_view_saved_jql_service import get_cached_report_raw, list_tabs
+    from flask import jsonify as _jsonify
+    domain = _sjql_domain(target_name)
+    tabs = []
+    for tab in list_tabs(target_name, domain):
+        row = dict(tab)
+        cached = get_cached_report_raw(target_name, domain, row.get("id")) or {}
+        from datetime import datetime as _dt, timezone as _tz
+        gen_at = cached.get("generated_at") or ""
+        next_at = cached.get("next_run_at") or cached.get("next_auto_refresh_at") or ""
+        rows = cached.get("rows") or cached.get("flat_rows") or []
+        row.update({
+            "has_cached_report": bool(cached),
+            "cached_report_stale": bool(gen_at and next_at and _dt.fromisoformat(next_at.replace("Z", "+00:00")) <= _dt.now(_tz.utc)),
+            "last_run_at": gen_at,
+            "next_run_at": next_at,
+            "cached_row_count": cached.get("row_count", len(rows)),
+            "cached_cr_count": cached.get("cr_count", 0),
+            "cached_jira_count": cached.get("jira_count", 0),
+        })
+        tabs.append(row)
+    return _jsonify({"ok": True, "target": target_name, "domain": domain, "tabs": tabs})
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/saved_jql_tabs", methods=["POST"])
+@login_required
+def api_auto_saved_jql_tabs_save(target_name: str):
+    from live_view_stats_routes import _is_admin_user, _sjql_domain
+    from live_view_saved_jql_service import list_tabs, save_tab
+    from flask import jsonify as _jsonify, request as _req
+    from flask_login import current_user as _cu
+    if not _is_admin_user():
+        return _jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = _req.get_json(force=True, silent=True) or {}
+    domain = _sjql_domain(target_name)
+    username = str(getattr(_cu, "id", "") or getattr(_cu, "username", "") or "unknown")
+    try:
+        tab = save_tab(
+            target_name, domain,
+            tab_id=str(payload.get("id") or "").strip() or None,
+            name=str(payload.get("name") or "").strip(),
+            jql=str(payload.get("jql") or "").strip(),
+            username=username,
+        )
+        return _jsonify({"ok": True, "tab": tab, "tabs": list_tabs(target_name, domain)})
+    except Exception as exc:
+        return _jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/saved_jql_tabs/<tab_id>", methods=["DELETE"])
+@login_required
+def api_auto_saved_jql_tabs_delete(target_name: str, tab_id: str):
+    from live_view_stats_routes import _is_admin_user, _sjql_domain
+    from live_view_saved_jql_service import delete_tab, list_tabs
+    from flask import jsonify as _jsonify
+    if not _is_admin_user():
+        return _jsonify({"ok": False, "error": "Access denied"}), 403
+    domain = _sjql_domain(target_name)
+    deleted = delete_tab(target_name, domain, tab_id)
+    return _jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(target_name, domain)})
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/saved_jql_tabs/<tab_id>/report", methods=["GET", "POST"])
+@login_required
+def api_auto_saved_jql_tab_report(target_name: str, tab_id: str):
+    from live_view_stats_routes import _sjql_domain, _sjql_run_report
+    from flask import jsonify as _jsonify, request as _req
+    force = str(_req.args.get("force") or "").lower() in ("1", "true", "yes")
+    domain = _sjql_domain(target_name)
+    result = _sjql_run_report(target_name, domain, tab_id, force=force)
+    status = 200 if result.get("ok") or result.get("run_error") else 404
+    return _jsonify(result), status

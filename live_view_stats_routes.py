@@ -628,6 +628,214 @@ def api_live_view_stats_sheet(target_name: str, sheet_name: str):
 
 
 # ---------------------------------------------------------------------------
+# Generic Saved JQL Tabs API — works for any BU/target
+# The centralized scheduler in live_view_saved_jql_service is already running
+# and will auto-refresh due jobs for every BU without any extra wiring.
+# ---------------------------------------------------------------------------
+
+def _sjql_domain(target_name: str) -> str:
+    """Return the saved-JQL domain string for a target (BU-based)."""
+    bu = str(get_bu_for_target(target_name) or "").strip().upper() or "GENERAL"
+    return bu
+
+
+def _sjql_resolve_filter(jql: str) -> str:
+    """Resolve a JIRA filter ID to actual JQL if the value looks like a filter reference."""
+    import re as _re
+    text = str(jql or "").strip()
+    if not text:
+        return text
+    # Pure numeric → treat as filter ID
+    fid = ""
+    if text.isdigit():
+        fid = text
+    else:
+        m = _re.match(r"^\s*filter(?:Id)?\s*=\s*(\d+)\s*(?:ORDER\s+BY\s+.+)?$", text, flags=_re.I)
+        if m:
+            fid = m.group(1)
+        else:
+            m2 = _re.search(r"[?&]filter(?:Id)?=(\d+)", text, flags=_re.I)
+            if m2:
+                fid = m2.group(1)
+    if not fid:
+        return text
+    try:
+        from dashboard_routes import _resolve_jira_filter_jql
+        resolved = _resolve_jira_filter_jql(fid)
+        return str(resolved).strip() if resolved else text
+    except Exception:
+        return text
+
+
+def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = False):
+    """Execute a saved-JQL report for any BU target and cache the result."""
+    import sys as _sys
+    from datetime import datetime as _dt, timedelta as _td
+    from live_view_saved_jql_service import (
+        get_cached_report, get_tab, set_cached_report,
+    )
+    from config import JIRA_PDT_FILTER_ID
+
+    tab = get_tab(target_name, domain, tab_id)
+    if not tab:
+        return {"ok": False, "error": "Saved JQL tab not found"}
+
+    raw_jql = str(tab.get("jql") or "").strip()
+    jql = _sjql_resolve_filter(raw_jql)
+    if not jql:
+        return {"ok": False, "error": "Saved JQL is empty"}
+
+    if not force:
+        cached = get_cached_report(target_name, domain, tab_id)
+        if cached:
+            cached = dict(cached)
+            cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql})
+            return cached
+
+    now = _dt.utcnow()
+    try:
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        if scripts_dir not in _sys.path:
+            _sys.path.insert(0, scripts_dir)
+        from fetch_consolidated_report import run_consolidated_report
+        filter_id = str(tab.get("filter_id") or "").strip()
+        raw_report = run_consolidated_report(
+            build_ids=[],
+            filter_id=filter_id or JIRA_PDT_FILTER_ID,
+            traverse=True,
+            enrich_orbit=True,
+            target_name=str(target_name or "") or None,
+            custom_jql=jql,
+        )
+        rows = []
+        for cr_row in (raw_report.get("hierarchical_report") or []):
+            cr = cr_row.get("cr") or "NO_CR"
+            for jira in (cr_row.get("jiras") or []):
+                trav = jira.get("traversal") or {}
+                rows.append({
+                    "CR": cr,
+                    "CR Title": cr_row.get("cr_title") or "",
+                    "CR Status": cr_row.get("cr_status") or "",
+                    "CR Area": cr_row.get("cr_area") or "",
+                    "JIRA": jira.get("key") or "",
+                    "JIRA Title": jira.get("title") or jira.get("summary") or "",
+                    "JIRA Status": jira.get("status") or "",
+                    "Final Ticket": jira.get("final_key") or trav.get("final_key") or "",
+                    "Final Status": jira.get("final_status") or trav.get("final_status") or "",
+                    "Final Resolution": jira.get("final_resolution") or trav.get("final_resolution") or "",
+                    "Created": jira.get("created") or "",
+                })
+        if not rows:
+            rows = raw_report.get("rows") or raw_report.get("flat_rows") or []
+        ttl = _td(minutes=30)
+        report = {
+            "ok": True,
+            "tab": tab,
+            "target_name": target_name,
+            "domain": domain,
+            "generated_at": now.isoformat() + "Z",
+            "from_cache": False,
+            "source": "Saved JQL consolidated report",
+            "jql": jql,
+            "raw_jql": raw_jql,
+            "filter_id": filter_id,
+            "rows": rows,
+            "flat_rows": rows,
+            "row_count": len(rows),
+            "cr_count": len({str(r.get("CR") or "").strip() for r in rows if str(r.get("CR") or "").strip() and str(r.get("CR") or "").strip() != "NO_CR"}),
+            "jira_count": len({str(r.get("JIRA") or "").strip() for r in rows if str(r.get("JIRA") or "").strip()}),
+            "next_run_at": (now + ttl).isoformat() + "Z",
+            "next_auto_refresh_at": (now + ttl).isoformat() + "Z",
+            "summary": raw_report.get("summary") or {},
+        }
+        stored = set_cached_report(target_name, domain, tab_id, report)
+        report["generated_at"] = stored.get("generated_at") or report["generated_at"]
+        return report
+    except Exception as exc:
+        return {
+            "ok": False,
+            "tab": tab,
+            "generated_at": now.isoformat() + "Z",
+            "source": "Saved JQL consolidated report",
+            "jql": jql,
+            "raw_jql": raw_jql,
+            "run_error": str(exc),
+            "rows": [],
+            "flat_rows": [],
+        }
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/saved_jql_tabs", methods=["GET"])
+@login_required
+def api_lvs_saved_jql_tabs_list(target_name: str):
+    from live_view_saved_jql_service import get_cached_report_raw, list_tabs
+    domain = _sjql_domain(target_name)
+    tabs = []
+    for tab in list_tabs(target_name, domain):
+        row = dict(tab)
+        cached = get_cached_report_raw(target_name, domain, row.get("id")) or {}
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        gen_at = cached.get("generated_at") or ""
+        next_at = cached.get("next_run_at") or cached.get("next_auto_refresh_at") or ""
+        rows = cached.get("rows") or cached.get("flat_rows") or []
+        row.update({
+            "has_cached_report": bool(cached),
+            "cached_report_stale": bool(gen_at and next_at and _dt.fromisoformat(next_at.replace("Z", "+00:00")) <= _dt.now(_tz.utc)),
+            "last_run_at": gen_at,
+            "next_run_at": next_at,
+            "cached_row_count": cached.get("row_count", len(rows)),
+            "cached_cr_count": cached.get("cr_count", 0),
+            "cached_jira_count": cached.get("jira_count", 0),
+        })
+        tabs.append(row)
+    return jsonify({"ok": True, "target": target_name, "domain": domain, "tabs": tabs})
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/saved_jql_tabs", methods=["POST"])
+@login_required
+def api_lvs_saved_jql_tabs_save(target_name: str):
+    if not _is_admin_user():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    from flask_login import current_user as _cu
+    from live_view_saved_jql_service import list_tabs, save_tab
+    payload = request.get_json(force=True, silent=True) or {}
+    domain = _sjql_domain(target_name)
+    username = str(getattr(_cu, "id", "") or getattr(_cu, "username", "") or "unknown")
+    try:
+        tab = save_tab(
+            target_name, domain,
+            tab_id=str(payload.get("id") or "").strip() or None,
+            name=str(payload.get("name") or "").strip(),
+            jql=str(payload.get("jql") or "").strip(),
+            username=username,
+        )
+        return jsonify({"ok": True, "tab": tab, "tabs": list_tabs(target_name, domain)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/saved_jql_tabs/<tab_id>", methods=["DELETE"])
+@login_required
+def api_lvs_saved_jql_tabs_delete(target_name: str, tab_id: str):
+    if not _is_admin_user():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    from live_view_saved_jql_service import delete_tab, list_tabs
+    domain = _sjql_domain(target_name)
+    deleted = delete_tab(target_name, domain, tab_id)
+    return jsonify({"ok": True, "deleted": bool(deleted), "tabs": list_tabs(target_name, domain)})
+
+
+@live_view_stats_bp.route("/api/live_view_stats/<string:target_name>/saved_jql_tabs/<tab_id>/report", methods=["GET", "POST"])
+@login_required
+def api_lvs_saved_jql_tab_report(target_name: str, tab_id: str):
+    force = str(request.args.get("force") or "").lower() in ("1", "true", "yes")
+    domain = _sjql_domain(target_name)
+    result = _sjql_run_report(target_name, domain, tab_id, force=force)
+    status = 200 if result.get("ok") or result.get("run_error") else 404
+    return jsonify(result), status
+
+
+# ---------------------------------------------------------------------------
 # Non-AUTO BU live view  (Bonsai, MOBILE, COMPUTE, IOT, MBB, etc.)
 # Uses the same common dashboard JSON API as /dashboard/<target>/mtbf-excel
 # so that read, edit, and update all share one canonical data path.
