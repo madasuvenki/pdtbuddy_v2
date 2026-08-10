@@ -196,22 +196,13 @@
       </div>
       <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div id="overviewKpis">
-        <!-- Row 1: 7 standard metric cards -->
-        <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:8px">
+        <!-- Row 1: 4 current-meta cards (MTBF data cards removed) -->
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px">
           <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
             <div class="ico" style="font-size:16px;margin-bottom:8px">📈</div><div id="ovKMtbf" class="num">—</div><div class="lbl">Current PDT MTBF</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
             <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKMeta" class="num" style="font-size:12px;word-break:break-all">—</div><div class="lbl">Current Running Meta</div>
-          </button>
-          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKCrashes" class="num">0</div><div class="lbl">Current Meta Crashes</div>
-          </button>
-          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKHours" class="num">0</div><div class="lbl">Current Meta Hours</div>
-          </button>
-          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKDate" class="num" style="font-size:13px">—</div><div class="lbl">Report Date</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
             <div class="ico" style="font-size:16px;margin-bottom:8px">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div>
@@ -220,6 +211,8 @@
             <div class="ico" style="font-size:16px;margin-bottom:8px">🐛</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div>
           </button>
         </div>
+        <!-- Hidden elements for backward compat (MTBF data, not shown) -->
+        <span id="ovKCrashes" hidden></span><span id="ovKHours" hidden></span><span id="ovKDate" hidden></span>
         <!-- Row 2: 4 standard metric cards -->
         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px">
           <button class="card metric clickable" onclick="navToTab('openjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
