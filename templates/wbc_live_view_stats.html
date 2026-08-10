@@ -259,8 +259,27 @@
           </div>
         </div>
       </div>
-      <!-- MTBF Trend — taller to fill available space -->
-      <div class="card overview-chart-card" style="margin-bottom:0"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:420px"><canvas id="overviewChart" height="380"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
+      <!-- MTBF Trend -->
+      <div class="card overview-chart-card" style="margin-bottom:8px"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:320px"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
+      <!-- Current Meta Details — populated when a saved JQL report runs -->
+      <div id="currentMetaDetails" style="display:none">
+        <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-satellite-dish" style="color:#4f46e5"></i> Current Meta Details</div>
+        <!-- Current Meta Crashes -->
+        <div class="card" style="margin-bottom:8px">
+          <div class="head"><span><i class="fas fa-bolt" style="color:#dc2626"></i> Current Meta Crashes</span><span id="currentMetaCrashesLabel" class="muted"></span></div>
+          <div class="body" id="currentMetaCrashesBox"><div class="empty" style="padding:18px">Run a saved JQL report to see current meta data.</div></div>
+        </div>
+        <!-- Current Meta CR Details -->
+        <div class="card" style="margin-bottom:8px">
+          <div class="head"><span><i class="fas fa-bug" style="color:#7c3aed"></i> Current Meta CR Details</span><span id="currentMetaCrCount" class="muted"></span></div>
+          <div class="body" id="currentMetaCrBox"><div class="empty" style="padding:18px">Run a saved JQL report to see CR details.</div></div>
+        </div>
+        <!-- Current Meta Open Jira Details (Open JIRAs + Mapped JIRAs) -->
+        <div class="card" style="margin-bottom:0">
+          <div class="head"><span><i class="fas fa-ticket-alt" style="color:#0891b2"></i> Current Meta Open Jira Details</span><span id="currentMetaJiraCount" class="muted"></span></div>
+          <div class="body" id="currentMetaJiraBox"><div class="empty" style="padding:18px">Run a saved JQL report to see JIRA details.</div></div>
+        </div>
+      </div>
     </section>
     <section id="tabCurrent" class="section">
             <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> {% if can_edit %}Saved JQL {% endif %}Current Running Build Reports</div>
@@ -1215,6 +1234,8 @@ function wbcSjqlRunCard(id, force){
       if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
       if(meta) meta.textContent = 'Last run: '+_wbcDisplayTime(genAt);
       if(body) _wbcRenderReport(body, d, tab);
+      // Update Overview page Current Meta Details section
+      renderCurrentMetaOverview(d, d.build_id || _wbcBuildIdFromJqlTab(tab) || (tab&&tab.name) || '');
       _wbcScheduleAutoRun(_wbcSjqlTabs[tabIndex>=0?tabIndex:0]||tab, 0);
 
     })
@@ -1334,6 +1355,99 @@ function _wbcFilterTbl(tbodyId, q){
   const tb = document.getElementById(tbodyId); if(!tb) return;
   const qq = String(q||'').toLowerCase();
   tb.querySelectorAll('tr').forEach(tr => { tr.style.display = !qq||tr.textContent.toLowerCase().includes(qq)?'':'none'; });
+}
+
+// ── Current Meta Details on Overview page ────────────────────────────────
+function _cmjSwitch(uid, tab){
+  ['open','mapped'].forEach(t=>{
+    const pane=document.getElementById(`${uid}_${t}`), btn=document.getElementById(`${uid}_btn_${t}`);
+    if(pane) pane.style.display=t===tab?'block':'none';
+    if(btn){
+      const isOpen=t==='open';
+      btn.style.borderBottomColor=t===tab?(isOpen?'#0891b2':'#d97706'):'transparent';
+      btn.style.background=t===tab?(isOpen?'#e0f2fe':'#fffbeb'):'transparent';
+      btn.style.color=t===tab?(isOpen?'#0369a1':'#92400e'):'#64748b';
+      btn.style.fontWeight=t===tab?'950':'800';
+    }
+  });
+}
+
+function renderCurrentMetaOverview(d, buildId){
+  if(!d) return;
+  const rows = d.rows||d.flat_rows||[];
+  const crRows    = rows.filter(r=>_wbcRowType(r)==='cr');
+  const mappedRows= rows.filter(r=>_wbcRowType(r)==='mapped_jira');
+  const openRows  = rows.filter(r=>_wbcRowType(r)==='open');
+  const crCount   = crRows.length;
+  const mappedCount=mappedRows.length;
+  const openCount = openRows.length;
+  const invalidCount=(d.invalid_count||0);
+  const build = buildId || d.build_id || '—';
+
+  // Show the section
+  const section=document.getElementById('currentMetaDetails');
+  if(section) section.style.display='block';
+
+  // Current Meta Crashes — from MTBF data (last row)
+  const last=_latestMtbfRow();
+  const crashBox=document.getElementById('currentMetaCrashesBox');
+  setText('currentMetaCrashesLabel', build ? ('Build: '+build) : '');
+  if(crashBox) crashBox.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div style="text-align:center;padding:14px 10px;border-radius:12px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2)">
+      <div style="font-size:28px;font-weight:1000;color:#dc2626">${fmt(last.crash||last.total_crashes||0,0)}</div>
+      <div style="font-size:9px;font-weight:900;color:#b91c1c;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">Total Crashes</div>
+    </div>
+    <div style="text-align:center;padding:14px 10px;border-radius:12px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2)">
+      <div style="font-size:28px;font-weight:1000;color:#2563eb">${fmt(last.hours||0,1)}</div>
+      <div style="font-size:9px;font-weight:900;color:#1d4ed8;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">Hours</div>
+    </div>
+    <div style="text-align:center;padding:14px 10px;border-radius:12px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.2)">
+      <div style="font-size:28px;font-weight:1000;color:#16a34a">${fmt(last.mtbf||0,2)}</div>
+      <div style="font-size:9px;font-weight:900;color:#15803d;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">MTBF</div>
+    </div>
+    <div style="text-align:center;padding:14px 10px;border-radius:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2)">
+      <div style="font-size:28px;font-weight:1000;color:#7c3aed">${crCount+mappedCount}</div>
+      <div style="font-size:9px;font-weight:900;color:#6d28d9;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">CRs (JQL)</div>
+    </div>
+  </div>`;
+
+  // Current Meta CR Details
+  const crBox=document.getElementById('currentMetaCrBox');
+  setText('currentMetaCrCount', crCount+' CR(s)');
+  if(crBox){
+    const crCols=['CR','CR Count','CR Title','CR Status','CR Area','JIRA','Final Ticket','Final Status'].filter(c=>crRows.some(r=>r[c]!==undefined));
+    crBox.innerHTML=crRows.length
+      ?`<div class="tblwrap" style="max-height:300px"><table><thead><tr><th>#</th>${crCols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${crRows.map((r,i)=>{const inv=_isInvalidRow(r);return `<tr style="${inv?'background:#fff1f2':''}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}${inv?'<br><span style="background:#fca5a5;color:#7f1d1d;border-radius:3px;font-size:8px;font-weight:900;padding:0 3px">INV</span>':''}</td>${crCols.map(c=>`<td style="max-width:280px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div>`
+      :'<div class="empty" style="padding:18px">No CRs found for this meta.</div>';
+  }
+
+  // Current Meta Open Jira Details (Open JIRAs + Mapped JIRAs)
+  const jiraBox=document.getElementById('currentMetaJiraBox');
+  setText('currentMetaJiraCount', openCount+' Open, '+mappedCount+' Mapped');
+  if(jiraBox){
+    const uid='cmj_'+Math.random().toString(36).slice(2,6);
+    const openCols=['JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Final Resolution'].filter(c=>openRows.some(r=>r[c]!==undefined));
+    const mappedCols=['CR','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Final Resolution'].filter(c=>mappedRows.some(r=>r[c]!==undefined));
+    jiraBox.innerHTML=`
+      <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:10px;flex-wrap:wrap">
+        <button id="${uid}_btn_open" onclick="_cmjSwitch('${uid}','open')" style="padding:8px 14px;font-size:12px;font-weight:950;border:none;border-bottom:3px solid #0891b2;background:#e0f2fe;color:#0369a1;cursor:pointer;margin-bottom:-2px;display:flex;align-items:center;gap:6px">
+          <i class="fas fa-lock-open"></i> Open JIRAs <span style="background:#0891b2;color:#fff;border-radius:999px;padding:1px 7px;font-size:10px">${openCount}</span>
+        </button>
+        <button id="${uid}_btn_mapped" onclick="_cmjSwitch('${uid}','mapped')" style="padding:8px 14px;font-size:12px;font-weight:800;border:none;border-bottom:3px solid transparent;background:transparent;color:#64748b;cursor:pointer;margin-bottom:-2px;display:flex;align-items:center;gap:6px">
+          <i class="fas fa-link"></i> Mapped JIRAs <span style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:999px;padding:1px 7px;font-size:10px">${mappedCount}</span>
+        </button>
+      </div>
+      <div id="${uid}_open">
+        ${openRows.length
+          ?`<div class="tblwrap" style="max-height:280px"><table><thead><tr><th>#</th>${openCols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${openRows.map((r,i)=>`<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${openCols.map(c=>`<td style="max-width:280px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+          :'<div class="empty" style="padding:18px">No open JIRAs for this meta.</div>'}
+      </div>
+      <div id="${uid}_mapped" style="display:none">
+        ${mappedRows.length
+          ?`<div class="tblwrap" style="max-height:280px"><table><thead><tr><th>#</th>${mappedCols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${mappedRows.map((r,i)=>`<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${mappedCols.map(c=>`<td style="max-width:280px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+          :'<div class="empty" style="padding:18px">No mapped JIRAs for this meta.</div>'}
+      </div>`;
+  }
 }
 
 function wbcSjqlRunNow(){ if(_wbcActiveTabId) wbcSjqlRunCard(_wbcActiveTabId,true); }
