@@ -168,58 +168,83 @@
       {% if can_edit %}<button id="tabBtnConfig" class="tab" onclick="switchTab('config')"><i class="fas fa-cog"></i> Config</button>{% endif %}
     </div>
     <section id="tabOverview" class="section active">
+      <!-- Hero section -->
+      <div style="background:linear-gradient(135deg,#1e3a8a 0%,#4f46e5 55%,#0891b2 100%);border-radius:22px;padding:22px 26px;margin-bottom:14px;position:relative;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
+          <div style="flex:1;min-width:240px">
+            <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 12px;font-size:9px;font-weight:1000;letter-spacing:.12em;color:#bbf7d0;margin-bottom:10px">
+              <i class="fas fa-circle" style="font-size:6px;color:#4ade80"></i> LIVE STABILITY COMMAND CENTER
+            </div>
+            <h1 id="heroTitle" style="font-size:21px;font-weight:1000;color:#fff;margin:0 0 7px;line-height:1.2">WBC Executive Stability Portal</h1>
+            <p id="subtitle" style="color:#bfdbfe;font-size:11px;font-weight:700;margin:0;max-width:500px;line-height:1.5">Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+            <div style="text-align:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:9px 14px;min-width:68px">
+              <div style="font-size:9px;font-weight:1000;color:#93c5fd;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">MTBF</div>
+              <div id="kMtbf" style="font-size:19px;font-weight:1000;color:#fff">—</div>
+            </div>
+            <div style="text-align:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:9px 14px;min-width:68px">
+              <div style="font-size:9px;font-weight:1000;color:#93c5fd;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Open CRs</div>
+              <div id="kOverallCrs" style="font-size:19px;font-weight:1000;color:#fff">—</div>
+            </div>
+            <div style="text-align:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:9px 14px;min-width:68px">
+              <div style="font-size:9px;font-weight:1000;color:#93c5fd;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Updated</div>
+              <div id="kDate" style="font-size:12px;font-weight:1000;color:#fbbf24">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div id="overviewKpis">
-        <!-- Row 1: MTBF + Current Meta metrics (4 cards) -->
-        <div class="ov-row1">
-          <button class="card metric compact-metric" onclick="navToTab('mtbf','mtbfTableBody')" title="Latest MTBF">
-            <span class="compact-icon green"><i class="fas fa-chart-line"></i></span>
-            <span class="compact-copy"><span class="lbl">MTBF</span><span id="ovKMtbf" class="num">—</span><span id="ovKDate" class="compact-note">—</span></span>
+        <!-- Row 1: 7 standard metric cards -->
+        <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:8px">
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">📈</div><div id="ovKMtbf" class="num">—</div><div class="lbl">Current PDT MTBF</div>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta Crashes">
-            <span class="compact-icon red"><i class="fas fa-exclamation-triangle"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Meta Crashes</span><span id="ovKCrashes" class="num">0</span><span class="compact-note">Latest build</span></span>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKMeta" class="num" style="font-size:12px;word-break:break-all">—</div><div class="lbl">Current Running Meta</div>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta CR Details">
-            <span class="compact-icon violet"><i class="fas fa-bug"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Meta CR Details</span><span id="ovKOpenCr" class="num">0</span><span class="compact-note">CRs for selected Meta</span></span>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKCrashes" class="num">0</div><div class="lbl">Current Meta Crashes</div>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta Open Jira Details">
-            <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
-            <span class="compact-copy">
-              <span class="lbl">Current Meta Open Jira Details</span>
-              <span class="ov-jira-pair">
-                <span id="ovKOpenJira" class="num">0</span><span class="ov-jira-lbl">Open</span>
-                <span id="ovKTotalJirasBuild" class="num" style="color:#b45309">0</span><span class="ov-jira-lbl">Mapped</span>
-              </span>
-              <span class="compact-note">Open JIRAs + Mapped JIRAs</span>
-            </span>
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKHours" class="num">0</div><div class="lbl">Current Meta Hours</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKDate" class="num" style="font-size:13px">—</div><div class="lbl">Report Date</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🐛</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div>
           </button>
         </div>
-        <!-- Row 2: Overall metrics (3 cards) -->
-        <div class="ov-row2">
-          <button class="card metric compact-metric" onclick="navToTab('allcrs',null)" title="Overall CRs">
-            <span class="compact-icon cyan"><i class="fas fa-layer-group"></i></span>
-            <span class="compact-copy"><span class="lbl">Overall CRs</span><span id="ovKTotalCrs" class="num">0</span></span>
+        <!-- Row 2: 4 standard metric cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px">
+          <button class="card metric clickable" onclick="navToTab('openjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">🔓</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('openjiras',null)" title="Overall Open JIRAs">
-            <span class="compact-icon amber"><i class="fas fa-lock-open"></i></span>
-            <span class="compact-copy"><span class="lbl">Overall Open JIRAs</span><span id="ovKOverallJiras" class="num">0</span></span>
+          <button class="card metric clickable" onclick="navToTab('opencrs',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">📁</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('jiras',null)" title="Overall JIRAs">
-            <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
-            <span class="compact-copy"><span class="lbl">Overall JIRAs</span><span id="ovKTotalJiras" class="num">0</span></span>
+          <button class="card metric clickable" onclick="navToTab('allcrs',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">📊</div><div id="ovKTotalCrs" class="num">0</div><div class="lbl">Total CR's</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('jiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
+            <div class="ico" style="font-size:16px;margin-bottom:8px">📋</div><div id="ovKTotalJiras" class="num">0</div><div class="lbl">Total JIRA's</div>
           </button>
         </div>
         <!-- Hidden spans for backward compat -->
-        <span id="ovKMtbfBuild" hidden></span><span id="ovKHours" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKOverallCrs" hidden></span><span id="ovKRunCnt" hidden></span><span id="ovKMeta" hidden></span>
+        <span id="ovKMtbfBuild" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKRunCnt" hidden></span><span id="ovKTotalJirasBuild" hidden></span>
       </div>
       <!-- Merged Summary + Milestones panel -->
       <div class="card" style="margin-bottom:8px">
         <div class="head">
           <span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button id="ovFetchMilestonesBtn" class="btn" onclick="fetchOneViewMilestones()" title="Fetch ES/FC/CS milestone dates from OneView using PL name" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:5px"><i class="fas fa-flag" style="color:#7c3aed"></i> Fetch Milestones</button>
+            <input id="ovSpNameInput" class="input" style="max-width:155px;height:30px;font-size:11px" placeholder="SP name (e.g. Kobuk.LE.3.1)" title="OneView SP name — pre-filled from target label, editable">
+            <button id="ovFetchMilestonesBtn" class="btn" onclick="fetchOneViewMilestones()" title="Fetch ES/FC/CS milestone dates from OneView" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:5px"><i class="fas fa-flag" style="color:#7c3aed"></i> Fetch Milestones</button>
             {% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit Summary</button>
             <button class="btn green" onclick="openOverviewEditModal('pdt')"><i class="fas fa-pen"></i> Edit Milestones</button>{% endif %}
           </div>
@@ -504,7 +529,10 @@ async function selectTarget(k){
 }
 function _latestMtbfRow(){const rows=((payload&&payload.excel&&payload.excel.chart_rows)||[]);return rows.length?rows[rows.length-1]:{};}
 function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.open_jiras+=num(t.cached_open_jira_count);a.mapped_jiras+=num(t.cached_mapped_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,open_jiras:0,mapped_jiras:0,invalid:0});}
-function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
+function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('ovKMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');
+// Pre-fill SP name input with target label (only if empty or different target)
+const spInput=document.getElementById('ovSpNameInput');if(spInput&&(!spInput.value||spInput.dataset.lastTarget!==active)){spInput.value=t.label||t.name||active;spInput.dataset.lastTarget=active;}
+renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
 const BUILD_COLORS=['#2563eb','#16a34a','#f97316','#7c3aed','#0891b2','#be123c','#ca8a04','#0f766e','#4f46e5','#db2777'];
 function renderBuilds(){} // removed - builds grid replaced by saved JQL cards
 function _normBuildClient(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
@@ -1446,11 +1474,14 @@ async function fetchOneViewMilestones(){
   if(!active){alert('Select a WBC target first.');return;}
   const btn=document.getElementById('ovFetchMilestonesBtn');
   const statusEl=document.getElementById('ovMilestoneStatus');
+  const spInput=document.getElementById('ovSpNameInput');
+  const spOverride=(spInput&&spInput.value.trim())||'';
   const orig=btn?btn.innerHTML:'';
   if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Fetching...';}
-  if(statusEl) statusEl.textContent='Fetching milestones from OneView...';
+  if(statusEl) statusEl.textContent='Fetching milestones from OneView'+(spOverride?' (SP: '+spOverride+')':'')+'...';
   try{
-    const r=await fetch(`${API}/target/${encodeURIComponent(active)}/milestones`,{cache:'no-store'});
+    const url=`${API}/target/${encodeURIComponent(active)}/milestones`+(spOverride?'?sp_name='+encodeURIComponent(spOverride):'');
+    const r=await fetch(url,{cache:'no-store'});
     const d=await r.json();
     if(!r.ok||!d.ok) throw new Error(d.error||'Milestone fetch failed');
     const text=d.milestone_text||'No milestone dates found.';

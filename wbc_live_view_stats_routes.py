@@ -1996,6 +1996,10 @@ def api_wbc_milestones(target_key: str):
     # Deduplicate preserving order
     seen_c: set = set()
     sp_candidates = [c for c in candidates if c and not (c in seen_c or seen_c.add(c))]
+    # Allow caller to override the SP name via ?sp_name= query param (from the UI input)
+    sp_override = str(request.args.get("sp_name") or "").strip()
+    if sp_override:
+        sp_candidates = [sp_override] + [c for c in sp_candidates if c != sp_override]
     sp_name = sp_candidates[0] if sp_candidates else key
     try:
         from dashboard_common import fetch_milestones_for_sp
