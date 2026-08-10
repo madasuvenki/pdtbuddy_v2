@@ -197,39 +197,39 @@
       </div>
       <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div id="overviewKpis">
-        <!-- Row 1: 4 current-meta cards (MTBF data cards removed) -->
+        <!-- Row 1: 4 current-meta cards -->
         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px">
-          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">📈</div><div id="ovKMtbf" class="num">—</div><div class="lbl">Current PDT MTBF</div>
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">📈</div><div id="ovKMtbf" class="num" style="font-size:38px;line-height:1">—</div><div class="lbl" style="margin-top:6px">Current PDT MTBF</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🚀</div><div id="ovKMeta" class="num" style="font-size:12px;word-break:break-all">—</div><div class="lbl">Current Running Meta</div>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🚀</div><div id="ovKMeta" class="num" style="font-size:13px;word-break:break-all;line-height:1.3">—</div><div class="lbl" style="margin-top:6px">Current Running Meta</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">📋</div><div id="ovKOpenJira" class="num">0</div><div class="lbl">Open Jira (Current Meta)</div>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">📋</div><div id="ovKOpenJira" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open Jira (Current Meta)</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🐛</div><div id="ovKOpenCr" class="num">0</div><div class="lbl">Open CR (Current Meta)</div>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🐛</div><div id="ovKOpenCr" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open CR (Current Meta)</div>
           </button>
         </div>
         <!-- Hidden elements for backward compat (MTBF data, not shown) -->
         <span id="ovKCrashes" hidden></span><span id="ovKHours" hidden></span><span id="ovKDate" hidden></span>
         <!-- Row 2: 5 standard metric cards -->
         <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px">
-          <button class="card metric clickable" onclick="navToTab('openjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🔓</div><div id="ovKOverallJiras" class="num">0</div><div class="lbl">Overall Open JIRAs</div>
+          <button class="card metric clickable" onclick="navToTab('openjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🔓</div><div id="ovKOverallJiras" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Overall Open JIRAs</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('mappedjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">🔗</div><div id="ovKMappedJiras" class="num">0</div><div class="lbl">Mapped JIRAs</div>
+          <button class="card metric clickable" onclick="navToTab('mappedjiras',null)" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🔗</div><div id="ovKMappedJiras" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Mapped JIRAs</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('opencrs',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">📁</div><div id="ovKOverallCrs" class="num">0</div><div class="lbl">Overall Open CRs</div>
+          <button class="card metric clickable" onclick="navToTab('opencrs',null)" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">📁</div><div id="ovKOverallCrs" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Overall Open CRs</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('allcrs',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">📊</div><div id="ovKTotalCrs" class="num">0</div><div class="lbl">Total CR's</div>
+          <button class="card metric clickable" onclick="navToTab('allcrs',null)" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">📊</div><div id="ovKTotalCrs" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Total CR's</div>
           </button>
-          <button class="card metric clickable" onclick="navToTab('jiras',null)" style="text-align:left;border:none;cursor:pointer;padding:12px 10px;min-height:90px">
-            <div class="ico" style="font-size:16px;margin-bottom:8px">📋</div><div id="ovKTotalJiras" class="num">0</div><div class="lbl">Total JIRA's</div>
+          <button class="card metric clickable" onclick="navToTab('jiras',null)" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">📋</div><div id="ovKTotalJiras" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Total JIRA's</div>
           </button>
         </div>
         <!-- Hidden spans for backward compat -->
