@@ -1940,6 +1940,51 @@ def api_wbc_overview_summary(target_key: str):
     return jsonify({"ok": True, "target": target, "overview_summary": data})
 
 
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/milestones", methods=["GET"])
+@login_required
+def api_wbc_milestones(target_key: str):
+    """Fetch milestones from OneView for the given WBC target (uses PL name as SP name)."""
+    target = _find_target(target_key)
+    if not target:
+        return jsonify({"ok": False, "error": "WBC target not found"}), 404
+    sp_name = str(target.get("key") or target.get("name") or target_key).strip()
+    try:
+        from dashboard_common import fetch_milestones_for_sp
+        key_dates, source = fetch_milestones_for_sp(sp_name)
+        # Format dates for display
+        def _fmt(v):
+            if not v:
+                return ""
+            s = str(v).strip()
+            # Try to reformat YYYY-MM-DD to DD-Mon-YYYY
+            try:
+                from datetime import datetime as _dt
+                d = _dt.strptime(s[:10], "%Y-%m-%d")
+                return d.strftime("%d-%b-%Y")
+            except Exception:
+                return s
+        es = _fmt(key_dates.get("ES"))
+        fc = _fmt(key_dates.get("FC"))
+        cs = _fmt(key_dates.get("CS"))
+        cs1 = _fmt(key_dates.get("CS1"))
+        lines = []
+        if es:  lines.append(f"ES = {es}")
+        if fc:  lines.append(f"FC = {fc}")
+        if cs:  lines.append(f"CS = {cs}")
+        if cs1 and cs1 != cs: lines.append(f"CS1 = {cs1}")
+        milestone_text = "\n".join(lines) if lines else "No milestone dates found in OneView."
+        return jsonify({
+            "ok": True,
+            "sp_name": sp_name,
+            "source": source,
+            "milestones": key_dates,
+            "milestone_text": milestone_text,
+            "es": es, "fc": fc, "cs": cs, "cs1": cs1,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc), "sp_name": sp_name}), 500
+
+
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/overview_summary/sync_excel", methods=["POST"])
 @login_required
 def api_wbc_overview_summary_sync_excel(target_key: str):
