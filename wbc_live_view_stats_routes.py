@@ -1791,8 +1791,38 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
     if not force:
         cached = get_cached_report(_wbc_pdt_key(target), saved_domain, tab_id)
         cached_jql = str((cached or {}).get("resolved_jql") or (cached or {}).get("jql") or "")
-        if cached and cached_jql == jql:
+        # Accept cache if resolved JQL matches, OR if raw_jql/filter_id matches
+        # (scheduler stores filter ID as jql; WBC endpoint resolves it to full JQL)
+        jql_match = (
+            cached_jql == jql
+            or cached_jql == raw_jql
+            or (filter_id and cached_jql == filter_id)
+            or (filter_id and cached_jql == f"filter = {filter_id}")
+        )
+        if cached and jql_match:
             cached = dict(cached)
+            # Flatten rows from hierarchical_report if scheduler stored raw report
+            rows = cached.get("rows") or cached.get("flat_rows") or []
+            if not rows and (cached.get("hierarchical_report") or cached.get("jiras")):
+                rows = _wbc_flatten_consolidated_report(cached)
+                cached["rows"] = rows
+                cached["flat_rows"] = rows
+                cached["row_count"] = len(rows)
+            # Add WBC classification counts if missing (scheduler doesn't classify)
+            if rows and "valid_cr_count" not in cached:
+                _vrows = [r for r in rows if not _is_invalid_row(r)]
+                _vcrs   = {str(r.get("CR") or "").strip() for r in _vrows if _is_true_cr(str(r.get("CR") or ""))}
+                _vmapped= {str(r.get("CR") or "").strip() for r in _vrows if _is_cr_equiv(str(r.get("CR") or ""))}
+                _vopen  = {str(r.get("JIRA") or "").strip() for r in _vrows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+                _vall   = {str(r.get("JIRA") or "").strip() for r in _vrows if str(r.get("JIRA") or "").strip()}
+                cached.update({
+                    "valid_cr_count": len(_vcrs),
+                    "valid_mapped_jira_count": len(_vmapped),
+                    "valid_open_jira_count": len(_vopen),
+                    "valid_jira_count": len(_vall),
+                    "invalid_count": len(rows) - len(_vrows),
+                    "row_count": cached.get("row_count") or len(rows),
+                })
             cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql, "raw_jql": raw_jql, "filter_id": filter_id, "filter_resolved": resolved})
             cached.update(_wbc_saved_jql_cache_meta(cached))
             return jsonify(_wbc_external_saved_jql_report(cached) if external_viewer else cached)

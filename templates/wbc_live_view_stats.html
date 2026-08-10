@@ -503,7 +503,7 @@ async function selectTarget(k){
   }catch(e){setText('subtitle',e.message||e);}
 }
 function _latestMtbfRow(){const rows=((payload&&payload.excel&&payload.excel.chart_rows)||[]);return rows.length?rows[rows.length-1]:{};}
-function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,invalid:0});}
+function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.open_jiras+=num(t.cached_open_jira_count);a.mapped_jiras+=num(t.cached_mapped_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,open_jiras:0,mapped_jiras:0,invalid:0});}
 function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);setText('title',(t.label||t.name||active)+' Stability Dashboard');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');renderOverviewSummary();renderChart();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();}
 const BUILD_COLORS=['#2563eb','#16a34a','#f97316','#7c3aed','#0891b2','#be123c','#ca8a04','#0f766e','#4f46e5','#db2777'];
 function renderBuilds(){} // removed - builds grid replaced by saved JQL cards
@@ -1024,10 +1024,10 @@ function updateRunningJqlCount(count){
   setText('kRunCnt2', n);
   setText('kRunCnt', n);
   setText('nBuilds', n);
-    // Row 2 hero cards — from saved JQL report
-  setText('ovKOpenJira',        jql.jiras || 0);  // Valid JIRAs
-  setText('ovKOpenCr',          jql.crs   || 0);  // Unique valid CRs
-  setText('ovKTotalJirasBuild', jql.rows  || 0);  // Total JIRAs (all rows)
+    // Row 1 hero cards — from saved JQL report (correct classification)
+  setText('ovKOpenJira',        jql.open_jiras   || 0);  // Open/Unmapped JIRAs
+  setText('ovKOpenCr',          jql.crs          || 0);  // Unique valid CRs
+  setText('ovKTotalJirasBuild', jql.mapped_jiras || 0);  // Mapped JIRAs (WPST etc.)
   setText('kOpenJiraMeta',      jql.jiras || 0);
   // Invalid sub-note under Valid JIRAs card
   const invNoteEl = document.getElementById('ovKInvalidNote');
@@ -1165,17 +1165,20 @@ function wbcSjqlRunCard(id, force){
         build_id: d.build_id || _wbcSjqlTabs[tabIndex].build_id || '',
         has_cached_report:true,cached_report_stale:false,last_run_at:genAt,next_run_at:nextAt,
         cached_row_count:  d.row_count||((d.rows||d.flat_rows||[]).length),
-        cached_cr_count:   d.valid_cr_count   !== undefined ? d.valid_cr_count   : (d.cr_count   || 0),
-        cached_jira_count: d.valid_jira_count !== undefined ? d.valid_jira_count : (d.jira_count || 0),
+        cached_cr_count:          d.valid_cr_count          !== undefined ? d.valid_cr_count          : (d.cr_count          || 0),
+        cached_jira_count:        d.valid_jira_count        !== undefined ? d.valid_jira_count        : (d.jira_count        || 0),
+        cached_open_jira_count:   d.valid_open_jira_count   !== undefined ? d.valid_open_jira_count   : (d.open_jira_count   || 0),
+        cached_mapped_jira_count: d.valid_mapped_jira_count !== undefined ? d.valid_mapped_jira_count : (d.mapped_jira_count || 0),
         cached_invalid_count: d.invalid_count || 0
       };
       wbcSjqlRenderCards();
       updateRunningJqlCount(_wbcSjqlTabs.length);
       // These three overview cards always describe the report for the Meta ID
       // currently selected above, never the PL-wide database totals.
-      setText('ovKOpenCr', d.valid_cr_count !== undefined ? d.valid_cr_count : (d.cr_count || 0));
-      setText('ovKTotalJirasBuild', d.valid_jira_count !== undefined ? d.valid_jira_count : (d.jira_count || 0));
-      setText('ovKOpenJira', d.valid_open_jira_count !== undefined ? d.valid_open_jira_count : (d.open_jira_count || 0));
+      // Update overview cards with correct classification counts
+      setText('ovKOpenCr',          d.valid_cr_count          !== undefined ? d.valid_cr_count          : (d.cr_count          || 0));
+      setText('ovKTotalJirasBuild', d.valid_mapped_jira_count !== undefined ? d.valid_mapped_jira_count : (d.mapped_jira_count || 0));
+      setText('ovKOpenJira',        d.valid_open_jira_count   !== undefined ? d.valid_open_jira_count   : (d.open_jira_count   || 0));
       }
       const timingEl = document.getElementById('wbctiming_'+_wbcDomId(id));
       if(timingEl) timingEl.innerHTML =
