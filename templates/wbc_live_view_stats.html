@@ -263,13 +263,7 @@
         </div>
       </div>
       <!-- MTBF Trend -->
-      <div class="card overview-chart-card" style="margin-bottom:0"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:320px"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
-      <!-- hidden divs kept for renderCurrentMetaOverview() compatibility -->
-      <div id="currentMetaDetails" style="display:none">
-        <span id="currentMetaCrashesLabel"></span><div id="currentMetaCrashesBox"></div>
-        <span id="currentMetaCrCount"></span><div id="currentMetaCrBox"></div>
-        <span id="currentMetaJiraCount"></span><div id="currentMetaJiraBox"></div>
-      </div>
+      <div class="card overview-chart-card" style="margin-bottom:8px"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:320px"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
             <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> {% if can_edit %}Saved JQL {% endif %}Current Running Build Reports</div>
@@ -1224,8 +1218,6 @@ function wbcSjqlRunCard(id, force){
       if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
       if(meta) meta.textContent = 'Last run: '+_wbcDisplayTime(genAt);
       if(body) _wbcRenderReport(body, d, tab);
-      // Update Overview page Current Meta Details section
-      renderCurrentMetaOverview(d, d.build_id || _wbcBuildIdFromJqlTab(tab) || (tab&&tab.name) || '');
       _wbcScheduleAutoRun(_wbcSjqlTabs[tabIndex>=0?tabIndex:0]||tab, 0);
 
     })
