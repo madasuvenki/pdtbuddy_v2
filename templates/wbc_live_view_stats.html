@@ -80,21 +80,24 @@
     .modal,.modal.open{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
     .modal-box{background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(238,242,255,.72))!important;border:1px solid rgba(255,255,255,.9)!important;backdrop-filter:blur(22px);box-shadow:0 30px 90px rgba(49,46,129,.25)!important}
     /* Compact operational overview. */
-    .overview-kpi-compact{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr));gap:9px;margin-bottom:10px}
-    .current-build-metrics{display:grid;grid-template-columns:minmax(300px,1.7fr) repeat(3,minmax(150px,1fr));gap:9px;grid-column:1/-1}
-    .compact-metric{appearance:none;width:100%;min-height:76px;margin:0!important;padding:11px 13px!important;display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer;font:inherit;color:#334155}
+    .compact-metric{appearance:none;width:100%;min-height:64px;margin:0!important;padding:9px 11px!important;display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;font:inherit;color:#334155}
     .compact-metric:before{height:3px!important}
     .compact-metric:hover{transform:translateY(-2px);border-color:rgba(99,102,241,.45)!important;box-shadow:0 12px 24px rgba(76,29,149,.13)!important}
-    .compact-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(135deg,rgba(79,70,229,.16),rgba(56,189,248,.18));color:#4f46e5;font-size:15px}
+    .compact-icon{width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,rgba(79,70,229,.16),rgba(56,189,248,.18));color:#4f46e5;font-size:13px}
     .compact-icon.red{color:#dc2626;background:rgba(254,226,226,.75)}.compact-icon.violet{color:#7c3aed;background:rgba(237,233,254,.82)}
     .compact-icon.green{color:#059669;background:rgba(209,250,229,.78)}.compact-icon.cyan{color:#0891b2;background:rgba(207,250,254,.78)}
     .compact-icon.amber{color:#d97706;background:rgba(254,243,199,.78)}.compact-icon.blue{color:#2563eb;background:rgba(219,234,254,.80)}
-    .compact-copy{min-width:0;display:flex;flex:1;flex-direction:column;justify-content:center;gap:2px}
-    .compact-metric .lbl{font-size:8px!important;line-height:1.25}.compact-metric .lbl:after{content:" ↗";opacity:.42}
-    .compact-metric .num{font-size:19px!important;line-height:1.05;margin:0!important}
-    .compact-build{font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block!important}
-    .compact-count{min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:linear-gradient(135deg,#7c3aed,#0891b2);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:1000}
-    .compact-note{font-size:8px;color:#64748b;font-weight:800}
+    .compact-copy{min-width:0;display:flex;flex:1;flex-direction:column;justify-content:center;gap:1px}
+    .compact-metric .lbl{font-size:7px!important;line-height:1.2;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:900}.compact-metric .lbl:after{content:" ↗";opacity:.42}
+    .compact-metric .num{font-size:15px!important;line-height:1.05;margin:0!important;font-weight:1000}
+    .compact-build{font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block!important}
+    .compact-count{min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:linear-gradient(135deg,#7c3aed,#0891b2);color:#fff;display:grid;place-items:center;font-size:9px;font-weight:1000}
+    .compact-note{font-size:7px;color:#64748b;font-weight:800}
+    .ov-row1{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:7px;margin-bottom:7px}
+    .ov-row2{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:7px;margin-bottom:8px}
+    .ov-jira-pair{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
+    .ov-jira-pair .num{font-size:14px!important}
+    .ov-jira-lbl{font-size:7px;color:#64748b;font-weight:900;text-transform:uppercase}
     #wbcTabLoadingOverlay{position:fixed;inset:0;z-index:99997;display:none;align-items:center;justify-content:center;background:rgba(30,41,59,.28);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
     #wbcTabLoadingOverlay.open{display:flex}
     .tab-loading-card{width:min(360px,90vw);padding:24px;border:1px solid rgba(255,255,255,.9);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(238,242,255,.82));box-shadow:0 28px 80px rgba(49,46,129,.25);text-align:center}
@@ -110,9 +113,9 @@
     #targetList .item{flex:0 0 auto;margin:0;padding:7px 11px}
     .topbar-actions{flex:0 0 auto;align-self:flex-start}
     @media(max-width:1100px){div[id="targetList"].list{order:3;flex-basis:100%;padding-top:8px}.topbar-actions{margin-left:auto!important}}
-    @media(max-width:1180px){.overview-kpi-compact{grid-template-columns:repeat(3,minmax(150px,1fr))}.compact-wide{grid-column:span 2}}
-    @media(max-width:900px){.tblwrap{border-radius:16px!important;padding:7px}.card{border-radius:17px!important}.topbar{display:flex!important;flex-direction:row!important;align-items:flex-start!important}.topbar-actions{width:auto!important;flex-direction:row!important;margin-left:auto!important}div[id="targetList"].list{order:3;min-width:0}.overview-kpi-compact{grid-template-columns:repeat(2,minmax(135px,1fr))}.compact-wide{grid-column:span 2}}
-    @media(max-width:560px){.overview-kpi-compact{grid-template-columns:1fr}.compact-wide{grid-column:span 1}}
+    @media(max-width:1180px){.ov-row1{grid-template-columns:repeat(2,1fr)}.ov-row2{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:900px){.tblwrap{border-radius:16px!important;padding:7px}.card{border-radius:17px!important}.topbar{display:flex!important;flex-direction:row!important;align-items:flex-start!important}.topbar-actions{width:auto!important;flex-direction:row!important;margin-left:auto!important}div[id="targetList"].list{order:3;min-width:0}.ov-row1,.ov-row2{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:560px){.ov-row1,.ov-row2{grid-template-columns:1fr}}
   </style>
 </head>
 <style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}</style>
@@ -165,49 +168,63 @@
       {% if can_edit %}<button id="tabBtnConfig" class="tab" onclick="switchTab('config')"><i class="fas fa-cog"></i> Config</button>{% endif %}
     </div>
     <section id="tabOverview" class="section active">
-      <div class="section-title"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
-      <div id="overviewKpis" class="overview-kpi-compact">
-        <button class="card metric compact-metric" onclick="navToTab('allcrs',null)" title="Open all CRs">
-          <span class="compact-icon cyan"><i class="fas fa-layer-group"></i></span>
-          <span class="compact-copy"><span class="lbl">Total CRs</span><span id="ovKTotalCrs" class="num">0</span></span>
-        </button>
-        <button class="card metric compact-metric" onclick="navToTab('opencrs',null)" title="Open total open CRs">
-          <span class="compact-icon amber"><i class="fas fa-folder-open"></i></span>
-          <span class="compact-copy"><span class="lbl">Total Open CRs</span><span id="ovKOverallCrs" class="num">0</span></span>
-        </button>
-        <button class="card metric compact-metric" onclick="navToTab('openjiras',null)" title="Open total open JIRAs">
-          <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
-          <span class="compact-copy"><span class="lbl">Total Open JIRAs</span><span id="ovKOverallJiras" class="num">0</span></span>
-        </button>
-        <button class="card metric compact-metric" onclick="navToTab('mtbf','mtbfTableBody')" title="Open latest MTBF trend and build details">
-          <span class="compact-icon green"><i class="fas fa-chart-line"></i></span>
-          <span class="compact-copy"><span class="lbl">Latest MTBF</span><span id="ovKMtbf" class="num">—</span><span id="ovKDate" class="compact-note">—</span></span>
-        </button>
-        <div class="current-build-metrics">
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcSjqlCardsBox')" title="Open current running build report">
-            <span class="compact-icon"><i class="fas fa-satellite-dish"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Running Build / Meta ID</span><span id="ovKMeta" class="num compact-build">—</span></span>
-            <span id="ovKRunCnt" class="compact-count">0</span>
+      <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
+      <div id="overviewKpis">
+        <!-- Row 1: MTBF + Current Meta metrics (4 cards) -->
+        <div class="ov-row1">
+          <button class="card metric compact-metric" onclick="navToTab('mtbf','mtbfTableBody')" title="Latest MTBF">
+            <span class="compact-icon green"><i class="fas fa-chart-line"></i></span>
+            <span class="compact-copy"><span class="lbl">MTBF</span><span id="ovKMtbf" class="num">—</span><span id="ovKDate" class="compact-note">—</span></span>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open CRs related to this current Meta ID">
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta Crashes">
+            <span class="compact-icon red"><i class="fas fa-exclamation-triangle"></i></span>
+            <span class="compact-copy"><span class="lbl">Current Meta Crashes</span><span id="ovKCrashes" class="num">0</span><span class="compact-note">Latest build</span></span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta CR Details">
             <span class="compact-icon violet"><i class="fas fa-bug"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Build CRs</span><span id="ovKOpenCr" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
+            <span class="compact-copy"><span class="lbl">Current Meta CR Details</span><span id="ovKOpenCr" class="num">0</span><span class="compact-note">CRs for selected Meta</span></span>
           </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open all JIRAs related to this current Meta ID">
+          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Current Meta Open Jira Details">
             <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Build Total JIRAs</span><span id="ovKTotalJirasBuild" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
-          </button>
-          <button class="card metric compact-metric" onclick="navToTab('current','wbcInlineReport')" title="Open unmapped/open JIRAs related to this current Meta ID">
-            <span class="compact-icon amber"><i class="fas fa-lock-open"></i></span>
-            <span class="compact-copy"><span class="lbl">Current Build Open JIRAs</span><span id="ovKOpenJira" class="num">0</span><span class="compact-note">Related to selected Meta ID</span></span>
+            <span class="compact-copy">
+              <span class="lbl">Current Meta Open Jira Details</span>
+              <span class="ov-jira-pair">
+                <span id="ovKOpenJira" class="num">0</span><span class="ov-jira-lbl">Open</span>
+                <span id="ovKTotalJirasBuild" class="num" style="color:#b45309">0</span><span class="ov-jira-lbl">Mapped</span>
+              </span>
+              <span class="compact-note">Open JIRAs + Mapped JIRAs</span>
+            </span>
           </button>
         </div>
-        <span id="ovKCrashes" hidden></span><span id="ovKMtbfBuild" hidden></span><span id="ovKHours" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKTotalJiras" hidden></span>
+        <!-- Row 2: Overall metrics (3 cards) -->
+        <div class="ov-row2">
+          <button class="card metric compact-metric" onclick="navToTab('allcrs',null)" title="Overall CRs">
+            <span class="compact-icon cyan"><i class="fas fa-layer-group"></i></span>
+            <span class="compact-copy"><span class="lbl">Overall CRs</span><span id="ovKTotalCrs" class="num">0</span></span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('openjiras',null)" title="Overall Open JIRAs">
+            <span class="compact-icon amber"><i class="fas fa-lock-open"></i></span>
+            <span class="compact-copy"><span class="lbl">Overall Open JIRAs</span><span id="ovKOverallJiras" class="num">0</span></span>
+          </button>
+          <button class="card metric compact-metric" onclick="navToTab('jiras',null)" title="Overall JIRAs">
+            <span class="compact-icon blue"><i class="fas fa-ticket-alt"></i></span>
+            <span class="compact-copy"><span class="lbl">Overall JIRAs</span><span id="ovKTotalJiras" class="num">0</span></span>
+          </button>
+        </div>
+        <!-- Hidden spans for backward compat -->
+        <span id="ovKMtbfBuild" hidden></span><span id="ovKHours" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKOverallCrs" hidden></span><span id="ovKRunCnt" hidden></span><span id="ovKMeta" hidden></span>
       </div>
-      <div class="overview-panels">
-        <div class="card"><div class="head"><span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="overviewView" class="overview-text"></div></div></div>
-        <div class="card"><div class="head"><span><i class="fas fa-info-circle"></i> <span id="ovPdtHeader">PDT STATUS</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('pdt')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div><div class="body"><div id="pdtStatusView" class="overview-text"></div><div id="overviewSaved" class="muted" style="margin-top:8px"></div></div></div>
+      <!-- Single summary panel -->
+      <div class="card" style="margin-bottom:8px">
+        <div class="head"><span><i class="fas fa-chart-line"></i> <span id="ovSummaryHeader">Summary</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('summary')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div>
+        <div class="body"><div id="overviewView" class="overview-text"></div><div id="overviewSaved" class="muted" style="margin-top:6px;font-size:10px"></div></div>
       </div>
+      <!-- Milestones panel (from OneView / PDT STATUS) -->
+      <div class="card" style="margin-bottom:8px">
+        <div class="head"><span><i class="fas fa-flag" style="color:#7c3aed"></i> <span id="ovPdtHeader">Milestones</span></span>{% if can_edit %}<button class="btn green" onclick="openOverviewEditModal('pdt')"><i class="fas fa-pen"></i> Edit</button>{% endif %}</div>
+        <div class="body" style="padding:10px"><div id="pdtStatusView" class="overview-text" style="min-height:60px;max-height:100px;font-size:11px"></div></div>
+      </div>
+      <!-- MTBF Trend -->
       <div class="card overview-chart-card"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
