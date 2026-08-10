@@ -1973,14 +1973,45 @@ def api_wbc_overview_summary(target_key: str):
 @wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/milestones", methods=["GET"])
 @login_required
 def api_wbc_milestones(target_key: str):
-    """Fetch milestones from OneView for the given WBC target (uses PL name as SP name)."""
+    """Fetch milestones from OneView for the given WBC target (uses PL label as SP name)."""
     target = _find_target(target_key)
     if not target:
         return jsonify({"ok": False, "error": "WBC target not found"}), 404
-    sp_name = str(target.get("key") or target.get("name") or target_key).strip()
+    # Try label first (e.g. "Kobuk.LE.3.1"), then name, then key slug
+    # OneView SP names use dot notation matching the label
+    label = str(target.get("label") or "").strip()
+    name  = str(target.get("name")  or "").strip()
+    key   = str(target.get("key")   or target_key).strip()
+    # Build candidate list: label variants first, then name, then key
+    candidates = []
+    for raw in (label, name, key):
+        if not raw:
+            continue
+        candidates.append(raw)
+        # Also try with dots replaced by underscores and vice versa
+        if "." in raw:
+            candidates.append(raw.replace(".", "_"))
+        if "_" in raw:
+            candidates.append(raw.replace("_", "."))
+    # Deduplicate preserving order
+    seen_c: set = set()
+    sp_candidates = [c for c in candidates if c and not (c in seen_c or seen_c.add(c))]
+    sp_name = sp_candidates[0] if sp_candidates else key
     try:
         from dashboard_common import fetch_milestones_for_sp
-        key_dates, source = fetch_milestones_for_sp(sp_name)
+        key_dates, source = {"ES": None, "FC": None, "CS": None, "CS1": None}, "manual"
+        last_error = ""
+        for candidate in sp_candidates:
+            try:
+                key_dates, source = fetch_milestones_for_sp(candidate)
+                if any(v for v in key_dates.values()):
+                    sp_name = candidate
+                    break
+            except Exception as _e:
+                last_error = str(_e)
+                continue
+        if not any(v for v in key_dates.values()) and last_error:
+            raise RuntimeError(f"No milestone data found for any SP candidate {sp_candidates}. Last error: {last_error}")
         # Format dates for display
         def _fmt(v):
             if not v:
