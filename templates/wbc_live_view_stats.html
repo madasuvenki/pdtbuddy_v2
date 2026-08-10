@@ -197,8 +197,8 @@
       </div>
       <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div id="overviewKpis">
-        <!-- Row 1: 4 current-meta cards -->
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px">
+        <!-- Row 1: 5 current-meta cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px">
           <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">📈</div><div id="ovKMtbf" class="num" style="font-size:38px;line-height:1">—</div><div class="lbl" style="margin-top:6px">Current PDT MTBF</div>
           </button>
@@ -207,6 +207,9 @@
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">📋</div><div id="ovKOpenJira" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open Jira (Current Meta)</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🔗</div><div id="ovKTotalJirasBuild" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Mapped JIRAs (Current Meta)</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">🐛</div><div id="ovKOpenCr" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open CR (Current Meta)</div>
@@ -233,7 +236,7 @@
           </button>
         </div>
         <!-- Hidden spans for backward compat -->
-        <span id="ovKMtbfBuild" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKRunCnt" hidden></span><span id="ovKTotalJirasBuild" hidden></span>
+        <span id="ovKMtbfBuild" hidden></span><span id="ovKInvalidNote" hidden></span><span id="ovKRunCnt" hidden></span>
       </div>
       <!-- Merged Summary + Milestones panel -->
       <div class="card" style="margin-bottom:8px">
