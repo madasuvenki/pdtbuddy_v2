@@ -2015,7 +2015,14 @@ def api_wbc_milestones(target_key: str):
                 last_error = str(_e)
                 continue
         if not any(v for v in key_dates.values()) and last_error:
-            raise RuntimeError(f"No milestone data found for any SP candidate {sp_candidates}. Last error: {last_error}")
+            # Return graceful response — don't raise; let the UI show the status
+            is_timeout = any(kw in last_error.lower() for kw in ("timeout", "timed out", "connection", "refused", "unreachable"))
+            friendly = (
+                f"OneView server unreachable (timeout). Tried SP names: {', '.join(sp_candidates[:4])}."
+                if is_timeout else
+                f"No milestone data found. Tried: {', '.join(sp_candidates[:4])}. Error: {last_error}"
+            )
+            return jsonify({"ok": False, "error": friendly, "sp_name": sp_name, "timeout": is_timeout}), 200
         # Format dates for display
         def _fmt(v):
             if not v:

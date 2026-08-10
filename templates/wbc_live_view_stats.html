@@ -1483,12 +1483,19 @@ async function fetchOneViewMilestones(){
     const url=`${API}/target/${encodeURIComponent(active)}/milestones`+(spOverride?'?sp_name='+encodeURIComponent(spOverride):'');
     const r=await fetch(url,{cache:'no-store'});
     const d=await r.json();
-    if(!r.ok||!d.ok) throw new Error(d.error||'Milestone fetch failed');
+    if(!d.ok){
+      // Graceful failure (timeout, SP not found) — show in status only, no alert
+      const isTimeout=d.timeout||false;
+      const msg=d.error||'OneView unavailable';
+      if(statusEl) statusEl.textContent=(isTimeout?'⏱ ':'⚠ ')+esc(msg);
+      return;
+    }
+    if(!r.ok) throw new Error(d.error||'Milestone fetch failed (HTTP '+r.status+')');
     const text=d.milestone_text||'No milestone dates found.';
     // Update the milestones panel
     const pdtEl=document.getElementById('pdtStatusView');
     if(pdtEl) pdtEl.textContent=text;
-    if(statusEl) statusEl.textContent='✓ Fetched from OneView ('+esc(d.sp_name||active)+') • '+new Date().toLocaleTimeString();
+    if(statusEl) statusEl.textContent='✓ Fetched from OneView ('+esc(d.sp_name||spOverride||active)+') • '+new Date().toLocaleTimeString();
     // If can_edit, also save to overview_summary so it persists
     if(CAN_EDIT && payload && payload.overview_summary){
       try{
@@ -1498,8 +1505,9 @@ async function fetchOneViewMilestones(){
       }catch(e2){/* save failure is non-fatal */}
     }
   }catch(e){
+    // Only show alert for unexpected network errors, not graceful OneView failures
     if(statusEl) statusEl.textContent='⚠ '+esc(e.message||'Fetch failed');
-    alert('Milestone fetch failed: '+(e.message||e));
+    // Don't alert — just show in status field
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML=orig;}
   }
