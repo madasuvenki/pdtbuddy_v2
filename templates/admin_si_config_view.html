@@ -1,157 +1,395 @@
 {% extends "base.html" %}
-{% block title %}SI Image Path — Target View{% endblock %}
+{% block title %}SI Config Management{% endblock %}
 
 {% block content %}
 <style>
-.siv-wrap{max-width:1400px;margin:0 auto;padding:24px 20px;}
-.siv-card{background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 4px 16px rgba(15,23,42,.07);padding:22px 26px;margin-bottom:22px;}
-.siv-input{height:36px;padding:0 12px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:13px;color:#374151;outline:none;transition:border-color .15s;}
-.siv-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
-.siv-badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:800;}
-.siv-badge-set{background:#dcfce7;color:#16a34a;border:1px solid #86efac;}
-.siv-badge-none{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;}
-.siv-path-cell{font-family:Consolas,monospace;font-size:11px;color:#1e40af;word-break:break-all;max-width:340px;}
-.siv-btn{height:30px;padding:0 12px;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;}
-.siv-btn-save{background:#4f46e5;color:#fff;}
-.siv-btn-cancel{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
-.siv-btn-edit{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}
-.siv-btn-scan{background:#0891b2;color:#fff;}
-.siv-btn-auto{background:#059669;color:#fff;}
+/* ── SI Config Management ─────────────────────────────────────────────────── */
+.sic-wrap{max-width:100%;margin:0 auto;padding:24px 28px;font-size:14px;}
+.sic-header-bar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px;}
+.sic-title{font-size:24px;font-weight:900;color:#0f172a;margin:0;display:flex;align-items:center;gap:10px;}
+.sic-subtitle{font-size:14px;color:#64748b;margin:4px 0 0;line-height:1.5;}
+.sic-role-badge{display:inline-flex;align-items:center;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:800;margin-left:6px;vertical-align:middle;}
+.sic-role-admin{background:#fef3c7;color:#d97706;border:1px solid #fcd34d;}
+.sic-role-viewer{background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;}
+.sic-btn{height:36px;padding:0 16px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;white-space:nowrap;}
+.sic-btn:hover{opacity:.85;}
+.sic-btn-primary{background:#4f46e5;color:#fff;}
+.sic-btn-secondary{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;}
+.sic-btn-danger{background:#dc2626;color:#fff;}
+.sic-btn-success{background:#059669;color:#fff;}
+.sic-btn-ghost{background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;}
+.sic-btn-sm{height:30px;padding:0 12px;font-size:12px;border-radius:6px;}
+.sic-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+.sic-stat-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;text-align:center;box-shadow:0 2px 8px rgba(15,23,42,.05);}
+.sic-stat-value{font-size:28px;font-weight:900;color:#4f46e5;}
+.sic-stat-label{font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+.sic-stat-green .sic-stat-value{color:#16a34a;}
+.sic-stat-blue .sic-stat-value{color:#0369a1;}
+.sic-stat-orange .sic-stat-value{color:#d97706;}
+.sic-info-bar{padding:12px 18px;border-radius:10px;margin-bottom:14px;font-size:14px;font-weight:600;}
+
+/* Tabs */
+.sic-tabs-bar{display:flex;gap:4px;margin-bottom:18px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;padding:5px;}
+.sic-tab-btn{flex:1;height:44px;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:all .18s;background:transparent;color:#64748b;}
+.sic-tab-btn:hover:not(.active){background:#e8eeff;color:#4338ca;}
+.sic-tab-btn.active{background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.10);}
+.sic-tab-btn.active.tab-daily{color:#0891b2;border:1px solid #bae6fd;}
+.sic-tab-btn.active.tab-weekly{color:#7c3aed;border:1px solid #ddd6fe;}
+.sic-tab-btn.active.tab-unique{color:#059669;border:1px solid #bbf7d0;}
+
+/* BU Section */
+.sic-bu-section{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 12px rgba(15,23,42,.05);margin-bottom:12px;overflow:hidden;}
+.sic-bu-header{display:flex;align-items:center;justify-content:space-between;padding:15px 22px;cursor:pointer;user-select:none;background:linear-gradient(135deg,#f8faff,#f0f4ff);border-bottom:1px solid transparent;transition:background .15s;gap:10px;}
+.sic-bu-header:hover{background:linear-gradient(135deg,#f0f4ff,#e8eeff);}
+.sic-bu-header.open{border-bottom-color:#e5e7eb;}
+.sic-bu-header-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0;}
+.sic-bu-name{font-size:16px;font-weight:900;}
+.sic-bu-chevron{font-size:13px;color:#94a3b8;transition:transform .25s;flex-shrink:0;}
+.sic-bu-chevron.open{transform:rotate(90deg);}
+.sic-bu-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.sic-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;}
+.sic-bu-body{padding:0;display:none;}
+.sic-bu-body.open{display:block;}
+
+/* Config Table */
+.sic-config-table{width:100%;border-collapse:collapse;font-size:13px;}
+.sic-config-table th{text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:11px 16px;border-bottom:1px solid #f1f5f9;background:#f8fafc;}
+.sic-config-table td{padding:11px 16px;border-bottom:1px solid #f8fafc;color:#374151;font-size:13px;vertical-align:middle;}
+.sic-config-table tr:last-child td{border-bottom:none;}
+.sic-config-table tr:hover td{background:#f8faff;}
+.sic-config-table .mono{font-family:Consolas,monospace;font-size:12px;color:#475569;}
+.sic-empty-row{text-align:center;padding:28px;color:#94a3b8;font-size:14px;}
+
+/* Modal */
+.sic-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
+.sic-modal{background:#fff;border-radius:16px;padding:30px 36px;max-width:600px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;}
+.sic-modal-title{font-size:18px;font-weight:900;color:#0f172a;margin:0 0 4px;}
+.sic-modal-sub{font-size:13px;color:#64748b;margin:0 0 20px;}
+.sic-form-group{margin-bottom:18px;}
+.sic-form-label{font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:7px;}
+.sic-form-input{width:100%;height:40px;padding:0 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:13px;color:#374151;outline:none;box-sizing:border-box;transition:border-color .15s;}
+.sic-form-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.sic-form-input[readonly]{background:#f8fafc;color:#94a3b8;}
+.sic-form-hint{font-size:12px;color:#94a3b8;margin-top:5px;}
+.sic-modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;}
+
+@media(max-width:640px){
+  .sic-header-bar{flex-direction:column;}
+  .sic-stats-grid{grid-template-columns:repeat(3,1fr);}
+  .sic-tabs-bar{flex-direction:column;}
+  .sic-bu-pills{display:none;}
+}
 </style>
 
-<div class="siv-wrap">
+<div class="sic-wrap">
 
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+  <div class="sic-header-bar">
     <div>
-      <h1 style="font-size:22px;font-weight:900;color:#0f172a;margin:0;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-microchip" style="color:#0891b2;"></i>
-        SI Image Path — Target (PL) View
+      <h1 class="sic-title">
+        <i class="fas fa-cogs" style="color:#0891b2;"></i>
+        SI Config Management
+        <span class="sic-role-badge" id="roleBadge"></span>
       </h1>
-      <p style="font-size:13px;color:#64748b;margin:4px 0 0;">
-        View and edit the SI image path per target (PL). Path is read from the target sync batch file and stored in
-        <code>dashboard_status.si_image_path</code>.
-        <a href="/admin/orbit_cr" style="color:#4f46e5;text-decoration:none;font-weight:600;">&#8592; Back to Orbit CR Cache</a>
+      <p class="sic-subtitle">
+        Manage filter locations, SI image paths, and run schedules per target (PL).
+        <a href="/admin/orbit_cr" style="color:#4f46e5;text-decoration:none;font-weight:600;margin-left:8px;">&#8592; Orbit CR Cache</a>
       </p>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <span id="totalBadge" style="font-size:12px;color:#64748b;font-weight:700;"></span>
-      <button onclick="loadData()" class="siv-btn" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;height:34px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button onclick="loadData()" class="sic-btn sic-btn-secondary">
         <i class="fas fa-sync-alt"></i> Refresh
       </button>
-      <button onclick="doScan()" class="siv-btn siv-btn-scan" style="height:34px;">
-        <i class="fas fa-search"></i> Preview Scan
-      </button>
-      <button onclick="doRefresh()" class="siv-btn siv-btn-auto" style="height:34px;background:#7c3aed;">
-        <i class="fas fa-redo"></i> Refresh from .bat files
-      </button>
-      <button onclick="doDebug()" class="siv-btn" style="height:34px;background:#dc2626;color:#fff;">
-        <i class="fas fa-bug"></i> Debug Scan
-      </button>
     </div>
   </div>
 
-  <!-- Info bar -->
-  <div id="infoBar" style="display:none;padding:10px 16px;border-radius:10px;margin-bottom:14px;font-size:12px;font-weight:600;"></div>
-
-  <!-- Filter Bar -->
-  <div class="siv-card" style="padding:14px 18px;margin-bottom:14px;">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <i class="fas fa-filter" style="color:#6366f1;font-size:12px;"></i>
-      <input type="text" id="filterTarget" class="siv-input" style="min-width:180px;"
-             placeholder="Filter by target / PL..." oninput="applyFilter()">
-      <input type="text" id="filterBU" class="siv-input" style="min-width:110px;"
-             placeholder="BU..." oninput="applyFilter()">
-      <input type="text" id="filterPath" class="siv-input" style="min-width:220px;"
-             placeholder="Filter by SI path..." oninput="applyFilter()">
-      <select id="filterStatus" class="siv-input" style="min-width:140px;" onchange="applyFilter()">
-        <option value="">All targets</option>
-        <option value="set">Path set</option>
-        <option value="none">No path</option>
-      </select>
-      <button onclick="clearFilters()" class="siv-btn" style="background:#fff1f2;color:#dc2626;border:1px solid #fca5a5;height:36px;">
-        <i class="fas fa-times"></i> Clear
-      </button>
+  <!-- Stats -->
+  <div class="sic-stats-grid">
+    <div class="sic-stat-card">
+      <div class="sic-stat-value" id="statBUs">&#8212;</div>
+      <div class="sic-stat-label">Total BUs</div>
+    </div>
+    <div class="sic-stat-card">
+      <div class="sic-stat-value" id="statTargets">&#8212;</div>
+      <div class="sic-stat-label">Total Targets</div>
+    </div>
+    <div class="sic-stat-card sic-stat-green">
+      <div class="sic-stat-value" id="statDaily">&#8212;</div>
+      <div class="sic-stat-label">Daily Configs</div>
+    </div>
+    <div class="sic-stat-card sic-stat-blue">
+      <div class="sic-stat-value" id="statWeekly">&#8212;</div>
+      <div class="sic-stat-label">Weekly Configs</div>
+    </div>
+    <div class="sic-stat-card sic-stat-orange">
+      <div class="sic-stat-value" id="statUnique">&#8212;</div>
+      <div class="sic-stat-label">Unique CR Configs</div>
     </div>
   </div>
 
-  <!-- Summary Stats -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
-    <div style="background:linear-gradient(135deg,#f8faff,#f0f4ff);border:1px solid #e0e7ff;border-radius:12px;padding:14px 16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:#4f46e5;" id="statTotal">&#8212;</div>
-      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Total PLs</div>
-    </div>
-    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;padding:14px 16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:#16a34a;" id="statConfigured">&#8212;</div>
-      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Path Set</div>
-    </div>
-    <div style="background:linear-gradient(135deg,#fff1f2,#fee2e2);border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:#dc2626;" id="statMissing">&#8212;</div>
-      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">No Path</div>
-    </div>
-    <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:#d97706;" id="statWithExcel">&#8212;</div>
-      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;">Has Excel Path</div>
-    </div>
+  <!-- Three Tabs -->
+  <div class="sic-tabs-bar">
+    <button class="sic-tab-btn active tab-daily" id="tab-btn-daily" onclick="switchTab('daily', this)">
+      <i class="fas fa-calendar-day"></i> Daily Reports
+    </button>
+    <button class="sic-tab-btn tab-weekly" id="tab-btn-weekly" onclick="switchTab('weekly', this)">
+      <i class="fas fa-calendar-week"></i> Weekly Reports
+    </button>
+    <button class="sic-tab-btn tab-unique" id="tab-btn-unique" onclick="switchTab('unique', this)">
+      <i class="fas fa-filter"></i> Unique CRs
+    </button>
   </div>
 
-  <!-- Main Table -->
-  <div class="siv-card" style="padding:0;overflow:hidden;">
-    <div style="padding:12px 18px;background:linear-gradient(135deg,#fafbff,#f0f4ff);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-size:14px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:8px;">
-        <i class="fas fa-table" style="color:#0891b2;"></i>
-        Target (PL) &#8594; SI Image Path
-        <span id="filteredCount" style="font-size:11px;font-weight:800;color:#4f46e5;background:#eef2ff;padding:2px 10px;border-radius:999px;border:1px solid #c7d2fe;"></span>
-      </div>
-      <button onclick="exportCSV()" class="siv-btn" style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;">
-        <i class="fas fa-file-csv"></i> Export CSV
-      </button>
-    </div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="siTable">
-        <thead>
-          <tr style="background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#fff;">
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">#</th>
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;" onclick="sortBy('target')">
-              Target (PL) <span id="sort-target"></span>
-            </th>
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">BU</th>
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Excel Path</th>
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Status</th>
-            <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;" onclick="sortBy('path')">
-              SI Image Path <span id="sort-path"></span>
-            </th>
-            <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">Action</th>
-          </tr>
-        </thead>
-        <tbody id="siTableBody">
-          <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">
-            <i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:10px;display:block;"></i>
-            Loading...
-          </td></tr>
-        </tbody>
-      </table>
+  <!-- Info Bar -->
+  <div id="infoBar" style="display:none;" class="sic-info-bar"></div>
+
+  <!-- BU Sections -->
+  <div id="buSections">
+    <div style="text-align:center;padding:60px;color:#94a3b8;">
+      <i class="fas fa-circle-notch fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>
+      Loading...
     </div>
   </div>
 
 </div>
 
-<!-- Edit modal -->
-<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:560px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
-    <h3 style="margin:0 0 6px;font-size:16px;font-weight:900;color:#0f172a;">Edit SI Image Path</h3>
-    <p id="editTargetLabel" style="font-size:12px;color:#64748b;margin:0 0 16px;"></p>
-    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">SI Image Path</label>
-    <input id="editPathInput" type="text"
-           style="width:100%;height:36px;padding:0 10px;border-radius:8px;border:1.5px solid #6366f1;font-size:12px;font-family:Consolas,monospace;color:#1e40af;outline:none;box-sizing:border-box;margin-bottom:6px;"
-           placeholder="e.g. \\lab9130\Dropbox\DATA_MINING\NORD_HGY\SI\NORD.HGY.5.1.9.0-00001">
-    <p style="font-size:10px;color:#94a3b8;margin:0 0 18px;">
-      Leave empty to clear. Stored in <code>dashboard_status.si_image_path</code>.
-      Later you can change this path and resync.
-    </p>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button onclick="closeEditModal()" class="siv-btn siv-btn-cancel" style="height:34px;padding:0 16px;">Cancel</button>
-      <button onclick="saveEdit()" class="siv-btn siv-btn-save" style="height:34px;padding:0 16px;">
+<!-- ── Add Daily Report Modal ──────────────────────────────────────────────── -->
+<div id="addDailyModal" class="sic-modal-overlay" style="display:none;">
+  <div class="sic-modal">
+    <h3 class="sic-modal-title"><i class="fas fa-calendar-day" style="color:#0891b2;margin-right:6px;"></i>Add Daily Report Config</h3>
+    <p class="sic-modal-sub" id="addDailyModalSub"></p>
+    <input type="hidden" id="addDailyBU">
+    <input type="hidden" id="addDailyEditId">
+
+    <!-- Target Name (read-only display) -->
+    <div class="sic-form-group">
+      <label class="sic-form-label">Target Name</label>
+      <input id="addDailyTargetDisplay" type="text" class="sic-form-input" readonly
+             style="background:#f0f4ff;color:#4338ca;font-weight:700;">
+      <div class="sic-form-hint">Target PL — auto-filled from selected BU row.</div>
+    </div>
+
+    <div class="sic-form-group">
+      <label class="sic-form-label">Filter IID</label>
+      <input id="addDailyFilterIID" type="text" class="sic-form-input" placeholder="e.g. 346782 or SECA_IVI_HGY_PDT_JIRAs">
+      <div class="sic-form-hint">JIRA filter ID or filter name used in Jiraquery.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Name</label>
+      <input id="addDailyName" type="text" class="sic-form-input" placeholder="e.g. SECA_IVI_LE Daily">
+      <div class="sic-form-hint">Display name for this daily report config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">SI Image Path</label>
+      <input id="addDailySIImage" type="text" class="sic-form-input"
+             placeholder="e.g. \\sphere\pdtautodumps\PDT_XMLs\Unique_CR\SoftwareImages\SECA_IVI_LE.txt">
+      <div class="sic-form-hint">Full path to the SI image .txt file (SI_IMAGE param).</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Base Folder</label>
+      <input id="addDailyPath" type="text" class="sic-form-input"
+             placeholder="e.g. \\sphere\pdtstats\DailyReports\AutoIVI_Data\SECA_IVI_LE"
+             oninput="updateDailyDerivedPaths()">
+      <div class="sic-form-hint">Base folder path — <code>baseFolder</code> param in the batch file.</div>
+      <!-- Derived paths preview -->
+      <div id="addDailyDerivedPaths" style="margin-top:8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#64748b;display:none;">
+        <div style="font-weight:700;color:#374151;margin-bottom:6px;"><i class="fas fa-sitemap" style="margin-right:4px;color:#0891b2;"></i>Derived paths (auto-calculated):</div>
+        <div style="margin-bottom:3px;"><span style="color:#94a3b8;">Seed CRs:</span> <span id="derivedSeedCr" style="font-family:Consolas,monospace;color:#475569;"></span></div>
+        <div style="margin-bottom:3px;"><span style="color:#94a3b8;">Seed JIRAs:</span> <span id="derivedSeedJira" style="font-family:Consolas,monospace;color:#475569;"></span></div>
+        <div style="margin-bottom:3px;"><span style="color:#94a3b8;">Open JIRAs:</span> <span id="derivedSeedOpenJira" style="font-family:Consolas,monospace;color:#475569;"></span></div>
+        <div style="margin-bottom:3px;"><span style="color:#94a3b8;">Closed JIRAs:</span> <span id="derivedSeedClosedJira" style="font-family:Consolas,monospace;color:#475569;"></span></div>
+        <div><span style="color:#94a3b8;">DailyData/Latest:</span> <span id="derivedDailyLatest" style="font-family:Consolas,monospace;color:#475569;"></span></div>
+      </div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">PDT_Stats.exe Path</label>
+      <input id="addDailyExePath" type="text" class="sic-form-input"
+             placeholder="e.g. \\sphere\pdtstats\PDT_Stats.exe">
+      <div class="sic-form-hint">Shared path to <code>PDT_Stats.exe</code> — common for all jobs (not local PC).</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Log Folder</label>
+      <input id="addDailyLogFolder" type="text" class="sic-form-input"
+             placeholder="e.g. \\lab9130\Dropbox\DATA_MINING\config\AUTOPDT\AUTO\SECA_IVI_LE\Logs">
+      <div class="sic-form-hint">Log folder on lab PC (<code>\\lab9130\Dropbox\DATA_MINING\config\AUTOPDT\&lt;BU&gt;\&lt;target&gt;\Logs</code>). Auto-derived if left blank. Folder is created if missing.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">CR Tags <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+      <input id="addDailyCrTags" type="text" class="sic-form-input"
+             placeholder="e.g. PDT_AlreadyFoundByPDT,SECAAU_LE.1.0_ES_STABILITY_PDT_BLOCKER">
+      <div class="sic-form-hint">Comma-separated CR tags for the <code>CrTags</code> param.</div>
+    </div>
+
+    <!-- Schedule Section -->
+    <div class="sic-form-group" style="border-top:1px solid #f1f5f9;padding-top:16px;margin-top:4px;">
+      <label class="sic-form-label"><i class="fas fa-clock" style="color:#d97706;margin-right:5px;"></i>Schedule <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+      <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="dailySchedType" value="" id="dailySched0" style="width:14px;height:14px;" onchange="toggleDailySchedTimes()">
+          <span style="color:#64748b;">Not scheduled</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="dailySchedType" value="3x" id="dailySched3x" style="accent-color:#ea580c;width:14px;height:14px;" onchange="toggleDailySchedTimes()">
+          <span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;"><i class="fas fa-bolt"></i> 3x/day</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="dailySchedType" value="1x" id="dailySched1x" style="accent-color:#1d4ed8;width:14px;height:14px;" onchange="toggleDailySchedTimes()">
+          <span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;"><i class="fas fa-clock"></i> 1x/day</span>
+        </label>
+      </div>
+      <div id="dailySchedTimesSection" style="display:none;margin-top:10px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <input type="time" id="dailySchedTimeInput" class="sic-form-input" style="max-width:140px;">
+          <button type="button" onclick="addDailySchedTime()" class="sic-btn sic-btn-primary sic-btn-sm">
+            <i class="fas fa-plus"></i> Add Time
+          </button>
+        </div>
+        <div id="dailySchedTimeChips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;">
+          <span style="font-size:12px;color:#cbd5e1;font-style:italic;">No times added yet</span>
+        </div>
+        <div class="sic-form-hint">Add HH:MM run times for this daily report job.</div>
+      </div>
+    </div>
+
+    <!-- Last Run Info (read-only, shown when editing) -->
+    <div id="dailyLastRunInfo" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;"><i class="fas fa-history" style="color:#64748b;margin-right:4px;"></i>Last Run Info</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">
+        <div><span style="color:#94a3b8;">Status:</span> <span id="dailyLastRunStatus" style="font-weight:700;"></span></div>
+        <div><span style="color:#94a3b8;">Time:</span> <span id="dailyLastRunAt" style="font-family:Consolas,monospace;"></span></div>
+      </div>
+      <div id="dailyLastRunFailure" style="display:none;margin-top:6px;font-size:11px;color:#dc2626;font-style:italic;"></div>
+    </div>
+
+    <!-- Preview Command (collapsible) -->
+    <div id="dailyPreviewSection" style="display:none;margin-bottom:16px;border-top:1px solid #f1f5f9;padding-top:14px;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;"><i class="fas fa-terminal" style="color:#4f46e5;margin-right:5px;"></i>Generated PDT_Stats.exe Command:</div>
+      <pre id="dailyPreviewCmd" style="background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:8px;font-size:11px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin:0;"></pre>
+      <button type="button" onclick="copyDailyPreview()" class="sic-btn sic-btn-ghost sic-btn-sm" style="margin-top:8px;"><i class="fas fa-copy"></i> Copy</button>
+    </div>
+
+    <div class="sic-modal-footer">
+      <button onclick="closeModal('addDailyModal')" class="sic-btn sic-btn-ghost">Cancel</button>
+      <button type="button" onclick="toggleDailyPreview()" class="sic-btn sic-btn-sm" style="background:#f0f4ff;color:#4338ca;border:1px solid #c7d2fe;">
+        <i class="fas fa-terminal"></i> Preview Cmd
+      </button>
+      <button onclick="saveDaily()" class="sic-btn sic-btn-primary">
+        <i class="fas fa-save"></i> Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bulk Schedule Modal ────────────────────────────────────────────────── -->
+<div id="bulkScheduleModal" class="sic-modal-overlay" style="display:none;">
+  <div class="sic-modal">
+    <h3 class="sic-modal-title" id="bulkSchedTitle">Set All Daily Configs</h3>
+    <p class="sic-modal-sub" id="bulkSchedSub"></p>
+    <input type="hidden" id="bulkSchedType">
+    <div id="bulkSchedTimesSection">
+      <div class="sic-form-group">
+        <label class="sic-form-label">Run Times</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <input type="time" id="bulkSchedTimeInput" class="sic-form-input" style="max-width:140px;">
+          <button type="button" onclick="addBulkSchedTime()" class="sic-btn sic-btn-primary sic-btn-sm">
+            <i class="fas fa-plus"></i> Add Time
+          </button>
+        </div>
+        <div id="bulkSchedTimeChips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;">
+          <span style="font-size:12px;color:#cbd5e1;font-style:italic;">No times added yet</span>
+        </div>
+        <div class="sic-form-hint">These run times will be applied to <strong>all</strong> daily report configs.</div>
+      </div>
+    </div>
+    <div id="bulkSchedClearNote" style="display:none;padding:12px;background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;font-size:13px;color:#dc2626;margin-bottom:16px;">
+      <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+      This will <strong>remove the schedule</strong> from all daily report configs.
+    </div>
+    <div class="sic-modal-footer">
+      <button onclick="closeModal('bulkScheduleModal')" class="sic-btn sic-btn-ghost">Cancel</button>
+      <button onclick="saveBulkSchedule()" class="sic-btn sic-btn-primary" id="bulkSchedSaveBtn">
+        <i class="fas fa-check-double"></i> Apply to All
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Weekly Report Modal ─────────────────────────────────────────────── -->
+<div id="addWeeklyModal" class="sic-modal-overlay" style="display:none;">
+  <div class="sic-modal">
+    <h3 class="sic-modal-title"><i class="fas fa-calendar-week" style="color:#7c3aed;margin-right:6px;"></i>Add Weekly Report Config</h3>
+    <p class="sic-modal-sub" id="addWeeklyModalSub"></p>
+    <input type="hidden" id="addWeeklyBU" value="GLOBAL">
+    <input type="hidden" id="addWeeklyEditId">
+    <div class="sic-form-group">
+      <label class="sic-form-label">Filter IID</label>
+      <input id="addWeeklyFilterIID" type="text" class="sic-form-input" placeholder="e.g. 12345">
+      <div class="sic-form-hint">JIRA filter IID for this weekly report.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Name</label>
+      <input id="addWeeklyName" type="text" class="sic-form-input" placeholder="e.g. Monaco_HGY Weekly">
+      <div class="sic-form-hint">Display name for this weekly report config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">SI Image</label>
+      <input id="addWeeklySIImage" type="text" class="sic-form-input" placeholder="e.g. MonacoOverall_SI.txt">
+      <div class="sic-form-hint">SI image file name for this report.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Filter Name</label>
+      <input id="addWeeklyFilterName" type="text" class="sic-form-input" placeholder="e.g. Monaco_HGY_Weekly_Filter">
+      <div class="sic-form-hint">Filter name used for this weekly report.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Path to Generate</label>
+      <input id="addWeeklyPath" type="text" class="sic-form-input" placeholder="e.g. \\sphere\pdtstats\WeeklyReports\AutoIVI_Data\Monaco_HGY">
+      <div class="sic-form-hint">Path for generating the weekly report.</div>
+    </div>
+    <div class="sic-modal-footer">
+      <button onclick="closeModal('addWeeklyModal')" class="sic-btn sic-btn-ghost">Cancel</button>
+      <button onclick="saveWeekly()" class="sic-btn sic-btn-primary">
+        <i class="fas fa-save"></i> Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Unique CR Modal ─────────────────────────────────────────────────── -->
+<div id="addUniqueModal" class="sic-modal-overlay" style="display:none;">
+  <div class="sic-modal">
+    <h3 class="sic-modal-title"><i class="fas fa-filter" style="color:#059669;margin-right:6px;"></i>Add Unique CR Config</h3>
+    <p class="sic-modal-sub" id="addUniqueModalSub"></p>
+    <input type="hidden" id="addUniqueBU">
+    <input type="hidden" id="addUniqueEditId">
+    <div class="sic-form-group">
+      <label class="sic-form-label">Filter IID</label>
+      <input id="addUniqueFilterIID" type="text" class="sic-form-input" placeholder="e.g. 12345">
+      <div class="sic-form-hint">JIRA filter IID for this unique CR config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Name</label>
+      <input id="addUniqueName" type="text" class="sic-form-input" placeholder="e.g. Monaco_HGY Unique CRs">
+      <div class="sic-form-hint">Display name for this unique CR config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">SI Image</label>
+      <input id="addUniqueSIImage" type="text" class="sic-form-input" placeholder="e.g. MonacoOverall_SI.txt">
+      <div class="sic-form-hint">SI image file name for this config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">Filter Name</label>
+      <input id="addUniqueFilterName" type="text" class="sic-form-input" placeholder="e.g. Monaco_HGY_Unique_Filter">
+      <div class="sic-form-hint">Filter name for this unique CR config.</div>
+    </div>
+    <div class="sic-form-group">
+      <label class="sic-form-label">BU</label>
+      <input id="addUniqueBUDisplay" type="text" class="sic-form-input" readonly>
+      <div class="sic-form-hint">Business Unit (auto-filled from selected BU).</div>
+    </div>
+    <div class="sic-modal-footer">
+      <button onclick="closeModal('addUniqueModal')" class="sic-btn sic-btn-ghost">Cancel</button>
+      <button onclick="saveUnique()" class="sic-btn sic-btn-primary">
         <i class="fas fa-save"></i> Save
       </button>
     </div>
@@ -159,325 +397,900 @@
 </div>
 
 <script>
-var _allRows = [];
-var _sortCol = 'target';
-var _sortAsc = true;
-var _editTarget = '';
+/* ── State ─────────────────────────────────────────────────────────────────── */
+var IS_ADMIN = {% if is_admin %}true{% else %}false{% endif %};
+var _buData = [];
+var _activeTab = 'daily';
+var _tabConfigs = { daily: {}, weekly: {}, unique: {} };
+var _dailySchedTimes = [];
+var _bulkSchedTimes  = [];
 
-document.addEventListener('DOMContentLoaded', loadData);
+/* ── BU Color Map ──────────────────────────────────────────────────────────── */
+var BU_COLORS = {
+  'AUTO':    '#0891b2',
+  'MOBILE':  '#7c3aed',
+  'WBC':     '#059669',
+  'COMPUTE': '#d97706',
+  'IOT':     '#dc2626',
+  'MBB':     '#0369a1',
+  'XR':      '#9333ea',
+  'DEFAULT': '#4f46e5'
+};
+function getBUColor(bu) {
+  return BU_COLORS[(bu || '').toUpperCase()] || BU_COLORS.DEFAULT;
+}
 
-// ── Load all targets + si_image_path from dashboard_status ───────────────────
+/* ── Init ──────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  var badge = document.getElementById('roleBadge');
+  if (IS_ADMIN) {
+    badge.textContent = 'Admin';
+    badge.className = 'sic-role-badge sic-role-admin';
+  } else {
+    badge.textContent = 'Viewer';
+    badge.className = 'sic-role-badge sic-role-viewer';
+  }
+  loadData();
+});
+
+/* ── Load Data ─────────────────────────────────────────────────────────────── */
 function loadData() {
-  document.getElementById('siTableBody').innerHTML =
-    '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;"><i class="fas fa-circle-notch fa-spin" style="font-size:20px;margin-bottom:10px;display:block;"></i>Loading...</td></tr>';
+  document.getElementById('buSections').innerHTML =
+    '<div style="text-align:center;padding:60px;color:#94a3b8;">' +
+    '<i class="fas fa-circle-notch fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>' +
+    'Loading...</div>';
 
-  fetch('/api/admin/orbit_cr/si_image_paths')
+  fetch('/api/admin/si_config/bu_targets')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!d.success) throw new Error(d.message || 'Load failed');
-      _allRows = (d.rows || []).map(function(row){
-        return {
-          target:     row.target_name || '',
-          display:    row.target_display || row.target_name || '',
-          bu:         row.bu || '',
-          excel_path: row.excel_path || '',
-          si_path:    row.si_image_path || '',
-          has_path:   !!(row.si_image_path && row.si_image_path.trim()),
-          has_excel:  !!(row.excel_path && row.excel_path.trim()),
-        };
-      });
-      updateStats();
-      applyFilter();
-      document.getElementById('totalBadge').textContent = _allRows.length + ' targets';
+      _buData = d.bus || [];
+      updateGlobalStats(d.global_stats || {});
+      loadTabConfigs(_activeTab);
     })
     .catch(function(e){
-      document.getElementById('siTableBody').innerHTML =
-        '<tr><td colspan="7" style="text-align:center;padding:40px;color:#ef4444;">Error: ' + e.message + '</td></tr>';
+      document.getElementById('buSections').innerHTML =
+        '<div style="text-align:center;padding:60px;color:#ef4444;">' +
+        '<i class="fas fa-exclamation-triangle" style="font-size:24px;margin-bottom:12px;display:block;"></i>' +
+        'Error: ' + esc(e.message) + '</div>';
     });
 }
 
-function updateStats() {
-  var total      = _allRows.length;
-  var configured = _allRows.filter(function(r){ return r.has_path; }).length;
-  var withExcel  = _allRows.filter(function(r){ return r.has_excel; }).length;
-  document.getElementById('statTotal').textContent      = total;
-  document.getElementById('statConfigured').textContent = configured;
-  document.getElementById('statMissing').textContent    = total - configured;
-  document.getElementById('statWithExcel').textContent  = withExcel;
+/* ── Load Tab Configs ──────────────────────────────────────────────────────── */
+function loadTabConfigs(tab) {
+  fetch('/api/admin/si_config/tab_configs?tab=' + tab)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.success) {
+        _tabConfigs[tab] = d.configs || {};
+        updateTabStats();
+      }
+      renderBUSections();
+    })
+    .catch(function() {
+      renderBUSections();
+    });
 }
 
-function applyFilter() {
-  var fT = (document.getElementById('filterTarget').value || '').toLowerCase().trim();
-  var fB = (document.getElementById('filterBU').value || '').toLowerCase().trim();
-  var fP = (document.getElementById('filterPath').value || '').toLowerCase().trim();
-  var fS = document.getElementById('filterStatus').value;
-
-  var filtered = _allRows.filter(function(r){
-    if (fT && r.target.toLowerCase().indexOf(fT) < 0 && r.display.toLowerCase().indexOf(fT) < 0) return false;
-    if (fB && r.bu.toLowerCase().indexOf(fB) < 0) return false;
-    if (fP && r.si_path.toLowerCase().indexOf(fP) < 0) return false;
-    if (fS === 'set'  && !r.has_path) return false;
-    if (fS === 'none' &&  r.has_path) return false;
-    return true;
+/* ── Switch Tab ────────────────────────────────────────────────────────────── */
+function switchTab(tab, btn) {
+  _activeTab = tab;
+  document.querySelectorAll('.sic-tab-btn').forEach(function(t) {
+    t.classList.remove('active');
   });
-
-  filtered.sort(function(a, b){
-    var av = _sortCol === 'path' ? a.si_path : a.target;
-    var bv = _sortCol === 'path' ? b.si_path : b.target;
-    if (_sortAsc) return av.localeCompare(bv);
-    return bv.localeCompare(av);
-  });
-
-  document.getElementById('filteredCount').textContent = filtered.length + ' shown';
-  renderTable(filtered);
+  btn.classList.add('active');
+  loadTabConfigs(tab);
 }
 
-function renderTable(rows) {
-  var tbody = document.getElementById('siTableBody');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No targets match the current filters.</td></tr>';
+/* ── Update Stats ──────────────────────────────────────────────────────────── */
+function updateGlobalStats(stats) {
+  document.getElementById('statBUs').textContent     = stats.total_bus     || 0;
+  document.getElementById('statTargets').textContent = stats.total_targets || 0;
+}
+
+function updateTabStats() {
+  var dailyCount  = countConfigs(_tabConfigs.daily);
+  var weeklyCount = countConfigs(_tabConfigs.weekly);
+  var uniqueCount = countConfigs(_tabConfigs.unique);
+  document.getElementById('statDaily').textContent  = dailyCount;
+  document.getElementById('statWeekly').textContent = weeklyCount;
+  document.getElementById('statUnique').textContent = uniqueCount;
+}
+
+function countConfigs(cfgMap) {
+  var n = 0;
+  Object.keys(cfgMap || {}).forEach(function(bu) {
+    n += (cfgMap[bu] || []).length;
+  });
+  return n;
+}
+
+/* ── Render BU Sections ────────────────────────────────────────────────────── */
+function renderBUSections() {
+  var container = document.getElementById('buSections');
+  if (!_buData.length) {
+    container.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;">No BUs found.</div>';
+    return;
+  }
+
+  /* Weekly tab: flat list, no BU grouping */
+  if (_activeTab === 'weekly') {
+    renderWeeklyFlat(container);
+    return;
+  }
+
+  /* Daily tab: prepend schedule summary bar */
+  var prefixHtml = '';
+  if (_activeTab === 'daily') {
+    prefixHtml = renderDailySummaryBar();
+  }
+
+  var html = '';
+  _buData.forEach(function(bu, idx) {
+    var buKey   = bu.bu || 'UNKNOWN';
+    var color   = getBUColor(buKey);
+    var configs = (_tabConfigs[_activeTab] || {})[buKey] || [];
+    var isOpen  = idx === 0;
+
+    html += '<div class="sic-bu-section" id="bu-section-' + esc(buKey) + '">';
+
+    /* BU Header */
+    html += '<div class="sic-bu-header' + (isOpen ? ' open' : '') + '" onclick="toggleBU(\'' + esc(buKey) + '\')">';
+    html += '<div class="sic-bu-header-left">';
+    html += '<i class="fas fa-chevron-right sic-bu-chevron' + (isOpen ? ' open' : '') + '" id="chevron-' + esc(buKey) + '"></i>';
+    html += '<span class="sic-bu-name" style="color:' + color + ';">' + esc(buKey) + '</span>';
+    html += '<div class="sic-bu-pills">';
+    html += '<span class="sic-pill" style="background:#f0f4ff;color:#4338ca;border:1px solid #c7d2fe;">' + (bu.targets || []).length + ' targets</span>';
+    if (configs.length) {
+      html += '<span class="sic-pill" style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;">' + configs.length + ' configured</span>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    if (IS_ADMIN) {
+      html += '<button onclick="event.stopPropagation();openAddModal(\'' + esc(buKey) + '\')" class="sic-btn sic-btn-success sic-btn-sm" style="flex-shrink:0;">';
+      html += '<i class="fas fa-plus"></i> Add</button>';
+    }
+    html += '</div>';
+
+    /* BU Body */
+    html += '<div class="sic-bu-body' + (isOpen ? ' open' : '') + '" id="bu-body-' + esc(buKey) + '">';
+    if (configs.length) {
+      html += renderConfigTable(configs, buKey);
+    } else {
+      html += '<div class="sic-empty-row"><i class="fas fa-inbox" style="margin-right:6px;"></i>No ' + getTabLabel(_activeTab) + ' configs for this BU.' + (IS_ADMIN ? ' Click <b>Add</b> to create one.' : '') + '</div>';
+    }
+    html += '</div>';
+
+    html += '</div>';
+  });
+
+  container.innerHTML = prefixHtml + html;
+}
+
+/* ── Daily Schedule Summary Bar ────────────────────────────────────────────── */
+function renderDailySummaryBar() {
+  var total = 0, count3x = 0, count1x = 0, countNone = 0;
+  var cfgMap = _tabConfigs.daily || {};
+  Object.keys(cfgMap).forEach(function(bu) {
+    (cfgMap[bu] || []).forEach(function(c) {
+      total++;
+      if (c.schedule_type === '3x') count3x++;
+      else if (c.schedule_type === '1x') count1x++;
+      else countNone++;
+    });
+  });
+  if (!total) return '';
+
+  var html = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:12px 18px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.04);">';
+  html += '<div style="font-size:13px;font-weight:700;color:#374151;flex-shrink:0;">Schedule Overview:</div>';
+  html += '<span style="background:#f0f4ff;color:#4338ca;border:1px solid #c7d2fe;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">' + total + ' configs</span>';
+  if (count3x) html += '<span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;"><i class="fas fa-bolt"></i> ' + count3x + ' × 3x/day</span>';
+  if (count1x) html += '<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;"><i class="fas fa-clock"></i> ' + count1x + ' × 1x/day</span>';
+  if (countNone) html += '<span style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">' + countNone + ' not set</span>';
+  if (IS_ADMIN) {
+    html += '<div style="margin-left:auto;display:flex;gap:6px;flex-shrink:0;">';
+    html += '<button onclick="openBulkScheduleModal(\'3x\')" class="sic-btn sic-btn-sm" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;height:30px;"><i class="fas fa-bolt"></i> Set All 3x/day</button>';
+    html += '<button onclick="openBulkScheduleModal(\'1x\')" class="sic-btn sic-btn-sm" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;height:30px;"><i class="fas fa-clock"></i> Set All 1x/day</button>';
+    html += '<button onclick="openBulkScheduleModal(\'\')" class="sic-btn sic-btn-sm" style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;height:30px;"><i class="fas fa-ban"></i> Clear All</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+/* ── Weekly: flat list (no BU grouping) ────────────────────────────────────── */
+function renderWeeklyFlat(container) {
+  var allConfigs = [];
+  var cfgMap = _tabConfigs.weekly || {};
+  Object.keys(cfgMap).forEach(function(bu) {
+    (cfgMap[bu] || []).forEach(function(c) { allConfigs.push(c); });
+  });
+
+  var html = '<div class="sic-bu-section">';
+  html += '<div class="sic-bu-header open" style="cursor:default;">';
+  html += '<div class="sic-bu-header-left">';
+  html += '<i class="fas fa-calendar-week" style="color:#7c3aed;font-size:13px;"></i>';
+  html += '<span class="sic-bu-name" style="color:#7c3aed;">Weekly Report Configs</span>';
+  if (allConfigs.length) {
+    html += '<span class="sic-pill" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;">' + allConfigs.length + ' configured</span>';
+  }
+  html += '</div>';
+  if (IS_ADMIN) {
+    html += '<button onclick="openAddModal(\'\')" class="sic-btn sic-btn-success sic-btn-sm" style="flex-shrink:0;">';
+    html += '<i class="fas fa-plus"></i> Add</button>';
+  }
+  html += '</div>';
+
+  html += '<div class="sic-bu-body open">';
+  if (allConfigs.length) {
+    html += renderConfigTable(allConfigs, '');
+  } else {
+    html += '<div class="sic-empty-row"><i class="fas fa-inbox" style="margin-right:6px;"></i>No Weekly Report configs.' + (IS_ADMIN ? ' Click <b>Add</b> to create one.' : '') + '</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+/* ── Render Config Table ───────────────────────────────────────────────────── */
+function renderConfigTable(configs, buKey) {
+  var tab = _activeTab;
+  var html = '<table class="sic-config-table"><thead><tr>';
+  if (tab === 'daily') {
+    html += '<th>Target</th>';
+    html += '<th>Filter IID</th>';
+    html += '<th>Name</th>';
+    html += '<th>SI Image</th>';
+    html += '<th>Base Folder</th>';
+    html += '<th>CR Tags</th>';
+    html += '<th>Schedule</th>';
+    html += '<th>Next Run</th>';
+    html += '<th>Last Run</th>';
+  } else if (tab === 'weekly') {
+    html += '<th>Filter IID</th>';
+    html += '<th>Name</th>';
+    html += '<th>SI Image</th>';
+    html += '<th>Filter Name</th>';
+    html += '<th>Path to Generate</th>';
+  } else if (tab === 'unique') {
+    html += '<th>Filter IID</th>';
+    html += '<th>Name</th>';
+    html += '<th>SI Image</th>';
+    html += '<th>Filter Name</th>';
+    html += '<th>BU</th>';
+  }
+  if (IS_ADMIN) html += '<th style="width:80px;text-align:center;">Actions</th>';
+  html += '</tr></thead><tbody>';
+
+  configs.forEach(function(c) {
+    html += '<tr>';
+    if (tab === 'daily') {
+      html += '<td style="font-weight:700;color:#0891b2;">' + esc(c.target_name || c.bu || buKey || '&#8212;') + '</td>';
+      html += '<td><span class="mono">' + esc(c.filter_iid || '&#8212;') + '</span></td>';
+      html += '<td style="font-weight:700;color:#0f172a;">' + esc(c.name || '&#8212;') + '</td>';
+      html += '<td><span class="mono" title="' + esc(c.si_image || '') + '">' + esc(shortPath(c.si_image || '')) + '</span></td>';
+      html += '<td><span class="mono" title="' + esc(c.path || '') + '">' + esc(shortPath(c.path || '')) + '</span></td>';
+      var tags = c.cr_tags || '';
+      var shortTags = tags.length > 40 ? tags.substring(0, 40) + '…' : tags;
+      html += '<td><span style="font-size:11px;color:#7c3aed;" title="' + esc(tags) + '">' + esc(shortTags || '&#8212;') + '</span></td>';
+      /* Schedule */
+      var st = c.schedule_type || '';
+      if (st === '3x') {
+        html += '<td><span style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;"><i class="fas fa-bolt"></i> 3x/day</span>';
+        if (c.schedule_times && c.schedule_times.length) html += '<div style="font-size:10px;color:#64748b;margin-top:2px;font-family:Consolas,monospace;">' + esc(c.schedule_times.join(' · ')) + '</div>';
+        html += '</td>';
+      } else if (st === '1x') {
+        html += '<td><span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;"><i class="fas fa-clock"></i> 1x/day</span>';
+        if (c.schedule_times && c.schedule_times.length) html += '<div style="font-size:10px;color:#64748b;margin-top:2px;font-family:Consolas,monospace;">' + esc(c.schedule_times.join(' · ')) + '</div>';
+        html += '</td>';
+      } else {
+        html += '<td><span style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;">Not set</span></td>';
+      }
+      /* Next Run */
+      var nextRun = (st && c.schedule_times && c.schedule_times.length) ? getNextRun(c.schedule_times) : null;
+      if (nextRun) {
+        html += '<td><span style="font-size:11px;font-weight:700;color:#0891b2;font-family:Consolas,monospace;">' + esc(nextRun) + '</span></td>';
+      } else {
+        html += '<td><span style="color:#94a3b8;font-size:11px;">&#8212;</span></td>';
+      }
+      /* Last Run */
+      var lrs = c.last_run_status || '';
+      var lra = c.last_run_at || '';
+      var lfr = c.last_failure_reason || '';
+      if (lrs === 'success') {
+        html += '<td><span style="background:#f0fdf4;color:#16a34a;border:1px solid #86efac;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;"><i class="fas fa-check"></i> OK</span>';
+        if (lra) html += '<div style="font-size:10px;color:#64748b;margin-top:2px;">' + esc(lra.substring(0,16)) + '</div>';
+        html += '</td>';
+      } else if (lrs === 'failed') {
+        html += '<td><span style="background:#fff1f2;color:#dc2626;border:1px solid #fca5a5;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;"><i class="fas fa-times"></i> Failed</span>';
+        if (lra) html += '<div style="font-size:10px;color:#64748b;margin-top:2px;">' + esc(lra.substring(0,16)) + '</div>';
+        if (lfr) html += '<div style="font-size:10px;color:#dc2626;font-style:italic;margin-top:2px;" title="' + esc(lfr) + '">' + esc(lfr.length > 30 ? lfr.substring(0,30)+'…' : lfr) + '</div>';
+        html += '</td>';
+      } else if (lrs === 'running') {
+        html += '<td><span style="background:#fffbeb;color:#d97706;border:1px solid #fcd34d;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;"><i class="fas fa-circle-notch fa-spin"></i> Running</span></td>';
+      } else {
+        html += '<td><span style="color:#94a3b8;font-size:11px;">&#8212;</span></td>';
+      }
+    } else if (tab === 'weekly') {
+      html += '<td><span class="mono">' + esc(c.filter_iid || '&#8212;') + '</span></td>';
+      html += '<td style="font-weight:700;color:#0f172a;">' + esc(c.name || '&#8212;') + '</td>';
+      html += '<td><span class="mono" title="' + esc(c.si_image || '') + '">' + esc(shortPath(c.si_image || '')) + '</span></td>';
+      html += '<td>' + esc(c.filter_name || '&#8212;') + '</td>';
+      html += '<td><span class="mono" title="' + esc(c.path || '') + '">' + esc(shortPath(c.path || '')) + '</span></td>';
+    } else if (tab === 'unique') {
+      html += '<td><span class="mono">' + esc(c.filter_iid || '&#8212;') + '</span></td>';
+      html += '<td style="font-weight:700;color:#0f172a;">' + esc(c.name || '&#8212;') + '</td>';
+      html += '<td><span class="mono" title="' + esc(c.si_image || '') + '">' + esc(shortPath(c.si_image || '')) + '</span></td>';
+      html += '<td>' + esc(c.filter_name || '&#8212;') + '</td>';
+      html += '<td><span class="sic-pill" style="background:' + getBUColor(c.bu) + '18;color:' + getBUColor(c.bu) + ';border:1px solid ' + getBUColor(c.bu) + '44;">' + esc(c.bu || buKey) + '</span></td>';
+    }
+    if (IS_ADMIN) {
+      var cData = JSON.stringify(c).replace(/'/g, '&#39;');
+      html += '<td style="text-align:center;">';
+      html += '<button onclick=\'openEditModal(' + cData + ')\' class="sic-btn sic-btn-ghost sic-btn-sm" style="margin-right:4px;" title="Edit"><i class="fas fa-edit"></i></button>';
+      html += '<button onclick="deleteConfig(\'' + esc(c.id || '') + '\',\'' + esc(buKey) + '\')" class="sic-btn sic-btn-danger sic-btn-sm" title="Delete"><i class="fas fa-trash"></i></button>';
+      html += '</td>';
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ── BU Toggle ─────────────────────────────────────────────────────────────── */
+function toggleBU(buKey) {
+  var body    = document.getElementById('bu-body-' + buKey);
+  var chevron = document.getElementById('chevron-' + buKey);
+  var header  = body ? body.previousElementSibling : null;
+  if (!body) return;
+  var isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    chevron.classList.remove('open');
+    if (header) header.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    chevron.classList.add('open');
+    if (header) header.classList.add('open');
+  }
+}
+
+/* ── Daily Schedule helpers ────────────────────────────────────────────────── */
+function toggleDailySchedTimes() {
+  var sel = document.querySelector('input[name="dailySchedType"]:checked');
+  var val = sel ? sel.value : '';
+  document.getElementById('dailySchedTimesSection').style.display = val ? 'block' : 'none';
+}
+
+function addDailySchedTime() {
+  var val = (document.getElementById('dailySchedTimeInput').value || '').trim();
+  if (!val) return;
+  if (_dailySchedTimes.indexOf(val) >= 0) { showInfo('Time ' + val + ' already added.', 'info'); return; }
+  _dailySchedTimes.push(val);
+  _dailySchedTimes.sort();
+  renderDailySchedChips();
+  document.getElementById('dailySchedTimeInput').value = '';
+}
+
+function removeDailySchedTime(t) {
+  _dailySchedTimes = _dailySchedTimes.filter(function(x){ return x !== t; });
+  renderDailySchedChips();
+}
+
+function renderDailySchedChips() {
+  var container = document.getElementById('dailySchedTimeChips');
+  if (!_dailySchedTimes.length) {
+    container.innerHTML = '<span style="font-size:12px;color:#cbd5e1;font-style:italic;">No times added yet</span>';
     return;
   }
   var html = '';
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
-    var bg = i % 2 === 0 ? '#fff' : '#f8fafc';
-    var statusBadge = r.has_path
-      ? '<span class="siv-badge siv-badge-set"><i class="fas fa-check" style="font-size:8px;margin-right:3px;"></i>Path Set</span>'
-      : '<span class="siv-badge siv-badge-none"><i class="fas fa-times" style="font-size:8px;margin-right:3px;"></i>No Path</span>';
-
-    var excelCell = r.excel_path
-      ? '<span style="font-family:Consolas,monospace;font-size:10px;color:#64748b;word-break:break-all;max-width:200px;display:inline-block;" title="' + esc(r.excel_path) + '">' + esc(shortPath(r.excel_path)) + '</span>'
-      : '<span style="color:#cbd5e1;font-size:11px;">&#8212;</span>';
-
-    var pathCell = r.si_path
-      ? '<span class="siv-path-cell" title="' + esc(r.si_path) + '">' + esc(r.si_path) + '</span>'
-      : '<span style="color:#cbd5e1;font-size:11px;font-style:italic;">not set</span>';
-
-    html += '<tr style="background:' + bg + ';" onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'' + bg + '\'">'
-      + '<td style="padding:9px 12px;color:#94a3b8;font-size:11px;">' + (i+1) + '</td>'
-      + '<td style="padding:9px 12px;font-weight:800;color:#0f172a;">' + esc(r.display || r.target) + '<br><span style="font-size:10px;color:#94a3b8;font-weight:400;">' + esc(r.target) + '</span></td>'
-      + '<td style="padding:9px 12px;font-size:11px;color:#64748b;">' + esc(r.bu || '—') + '</td>'
-      + '<td style="padding:9px 12px;">' + excelCell + '</td>'
-      + '<td style="padding:9px 12px;">' + statusBadge + '</td>'
-      + '<td style="padding:9px 12px;">' + pathCell + '</td>'
-      + '<td style="padding:9px 12px;text-align:center;">'
-      + '<button onclick="openEditModal(\'' + esc(r.target) + '\',\'' + esc(r.si_path) + '\')" class="siv-btn siv-btn-edit" style="height:28px;font-size:10px;">'
-      + '<i class="fas fa-edit"></i> Edit</button>'
-      + '</td>'
-      + '</tr>';
-  }
-  tbody.innerHTML = html;
+  _dailySchedTimes.forEach(function(t) {
+    html += '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:#f0f4ff;border:1px solid #c7d2fe;font-size:12px;font-weight:700;color:#4338ca;">';
+    html += '<i class="fas fa-clock" style="font-size:10px;"></i> ' + esc(t);
+    html += '<button type="button" onclick="removeDailySchedTime(\'' + esc(t) + '\')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0;line-height:1;" title="Remove">&#10005;</button>';
+    html += '</span>';
+  });
+  container.innerHTML = html;
 }
 
+function resetDailyScheduleFields() {
+  _dailySchedTimes = [];
+  document.getElementById('dailySched0').checked = true;
+  document.getElementById('dailySchedTimesSection').style.display = 'none';
+  renderDailySchedChips();
+  document.getElementById('dailyLastRunInfo').style.display = 'none';
+}
+
+function loadDailyScheduleFields(c) {
+  _dailySchedTimes = (c.schedule_times || []).slice();
+  var st = c.schedule_type || '';
+  document.getElementById('dailySched0').checked  = !st;
+  document.getElementById('dailySched3x').checked = (st === '3x');
+  document.getElementById('dailySched1x').checked = (st === '1x');
+  document.getElementById('dailySchedTimesSection').style.display = st ? 'block' : 'none';
+  renderDailySchedChips();
+  /* Last run info */
+  var lrs = c.last_run_status || '';
+  var lra = c.last_run_at || '';
+  var lfr = c.last_failure_reason || '';
+  if (lrs) {
+    document.getElementById('dailyLastRunInfo').style.display = 'block';
+    var statusEl = document.getElementById('dailyLastRunStatus');
+    if (lrs === 'success') {
+      statusEl.innerHTML = '<span style="color:#16a34a;font-weight:800;"><i class="fas fa-check"></i> Success</span>';
+    } else if (lrs === 'failed') {
+      statusEl.innerHTML = '<span style="color:#dc2626;font-weight:800;"><i class="fas fa-times"></i> Failed</span>';
+    } else if (lrs === 'running') {
+      statusEl.innerHTML = '<span style="color:#d97706;font-weight:800;"><i class="fas fa-circle-notch fa-spin"></i> Running</span>';
+    } else {
+      statusEl.textContent = lrs;
+    }
+    document.getElementById('dailyLastRunAt').textContent = lra || '—';
+    var failEl = document.getElementById('dailyLastRunFailure');
+    if (lfr) {
+      failEl.style.display = 'block';
+      failEl.textContent = lfr;
+    } else {
+      failEl.style.display = 'none';
+    }
+  } else {
+    document.getElementById('dailyLastRunInfo').style.display = 'none';
+  }
+}
+
+/* ── Daily Preview Command ─────────────────────────────────────────────────── */
+function toggleDailyPreview() {
+  var sec = document.getElementById('dailyPreviewSection');
+  if (sec.style.display === 'none') {
+    sec.style.display = 'block';
+    document.getElementById('dailyPreviewCmd').textContent = generateDailyCommand();
+  } else {
+    sec.style.display = 'none';
+  }
+}
+
+function generateDailyCommand() {
+  var target    = (document.getElementById('addDailyTargetDisplay').value || '').trim();
+  var filter    = (document.getElementById('addDailyFilterIID').value || '').trim();
+  var siImage   = (document.getElementById('addDailySIImage').value || '').trim();
+  var base      = (document.getElementById('addDailyPath').value || '').trim().replace(/[/\\]+$/, '');
+  var crTags    = (document.getElementById('addDailyCrTags').value || '').trim();
+  var exePath   = (document.getElementById('addDailyExePath').value || '').trim();
+  var logFolder = (document.getElementById('addDailyLogFolder').value || '').trim();
+  var sep       = base.indexOf('/') >= 0 ? '/' : '\\';
+
+  var seedCr       = base + sep + 'SeedData' + sep + 'Cr.csv';
+  var seedJira     = base + sep + 'SeedData' + sep + 'Jira.csv';
+  var seedOpenJira = base + sep + 'SeedData' + sep + 'openJiras.csv';
+  var seedClosed   = base + sep + 'SeedData' + sep + 'closed_Jiras.csv';
+  var dailyData    = base + sep + 'DailyData';
+
+  var bu        = (document.getElementById('addDailyBU').value || '').trim();
+  var exeCmd    = exePath   || '<path_to_PDT_Stats.exe>';
+  var logDir    = logFolder || ('\\\\lab9130\\Dropbox\\DATA_MINING\\config\\AUTOPDT\\' + (bu || '<BU>') + '\\' + (target || '<target>') + '\\Logs');
+
+  var jiraQuery = filter
+    ? 'Jiraquery="filter=' + filter + ' and createdDate >= -10d"'
+    : 'Jiraquery="<filter_iid_here> and createdDate >= -10d"';
+
+  var lines = [
+    'if not exist "' + logDir + '" mkdir "' + logDir + '"',
+    exeCmd + ' ' + jiraQuery + ' JiraQueryLimit=175000 ^',
+    '     $debug --refreshCR --updateSeedData $SkipHwPdtQStabilityCheck $JIRADASHBOARD --CRNOTES ^',
+    '     SI_IMAGE=' + (siImage || '<si_image_path>') + ' ^',
+    '     SeedCRs=' + seedCr + ' ^',
+    '     SeedJIRAs=' + seedJira + ' ^',
+    '     SeedOtherJIRAs=' + seedOpenJira + ' ^',
+    '     SEEDClosedJIRAS=' + seedClosed + ' ^',
+  ];
+  if (crTags) {
+    lines.push('     CrTags="' + crTags + '" ^');
+  }
+  lines.push('     resultFilePath=' + logDir + ' ^');
+  lines.push('     UNIQUEREPORTLOC="' + dailyData + '" ^');
+  lines.push('     resultFilePrefix=' + (target || '<target>') + '_');
+
+  return lines.join('\n');
+}
+
+/* ── Next Run helper ───────────────────────────────────────────────────────── */
+function getNextRun(schedTimes) {
+  if (!schedTimes || !schedTimes.length) return null;
+  var now     = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var sorted  = schedTimes.slice().sort();
+
+  for (var i = 0; i < sorted.length; i++) {
+    var parts = sorted[i].split(':');
+    var mins  = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    if (mins > nowMins) {
+      return 'Today ' + sorted[i];
+    }
+  }
+  return 'Tomorrow ' + sorted[0];
+}
+
+function copyDailyPreview() {
+  var text = document.getElementById('dailyPreviewCmd').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){ showInfo('Command copied to clipboard', 'ok'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showInfo('Command copied to clipboard', 'ok');
+  }
+}
+
+/* ── Bulk Schedule helpers ─────────────────────────────────────────────────── */
+function openBulkScheduleModal(type) {
+  _bulkSchedTimes = [];
+  document.getElementById('bulkSchedType').value = type;
+  var isClear = (type === '');
+  if (isClear) {
+    document.getElementById('bulkSchedTitle').textContent = 'Clear Schedule — All Daily Configs';
+    document.getElementById('bulkSchedSub').textContent   = 'Remove the schedule from every daily report config.';
+    document.getElementById('bulkSchedTimesSection').style.display = 'none';
+    document.getElementById('bulkSchedClearNote').style.display    = 'block';
+    document.getElementById('bulkSchedSaveBtn').textContent        = ' Clear All Schedules';
+  } else {
+    var label = type === '3x' ? '3x/day' : '1x/day';
+    document.getElementById('bulkSchedTitle').textContent = 'Set All Daily Configs → ' + label;
+    document.getElementById('bulkSchedSub').textContent   = 'Apply ' + label + ' schedule to every daily report config.';
+    document.getElementById('bulkSchedTimesSection').style.display = 'block';
+    document.getElementById('bulkSchedClearNote').style.display    = 'none';
+    document.getElementById('bulkSchedSaveBtn').innerHTML = '<i class="fas fa-check-double"></i> Apply to All';
+  }
+  renderBulkSchedChips();
+  document.getElementById('bulkScheduleModal').style.display = 'flex';
+}
+
+function addBulkSchedTime() {
+  var val = (document.getElementById('bulkSchedTimeInput').value || '').trim();
+  if (!val) return;
+  if (_bulkSchedTimes.indexOf(val) >= 0) { showInfo('Time ' + val + ' already added.', 'info'); return; }
+  _bulkSchedTimes.push(val);
+  _bulkSchedTimes.sort();
+  renderBulkSchedChips();
+  document.getElementById('bulkSchedTimeInput').value = '';
+}
+
+function removeBulkSchedTime(t) {
+  _bulkSchedTimes = _bulkSchedTimes.filter(function(x){ return x !== t; });
+  renderBulkSchedChips();
+}
+
+function renderBulkSchedChips() {
+  var container = document.getElementById('bulkSchedTimeChips');
+  if (!_bulkSchedTimes.length) {
+    container.innerHTML = '<span style="font-size:12px;color:#cbd5e1;font-style:italic;">No times added yet</span>';
+    return;
+  }
+  var html = '';
+  _bulkSchedTimes.forEach(function(t) {
+    html += '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:#f0f4ff;border:1px solid #c7d2fe;font-size:12px;font-weight:700;color:#4338ca;">';
+    html += '<i class="fas fa-clock" style="font-size:10px;"></i> ' + esc(t);
+    html += '<button type="button" onclick="removeBulkSchedTime(\'' + esc(t) + '\')" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0;line-height:1;" title="Remove">&#10005;</button>';
+    html += '</span>';
+  });
+  container.innerHTML = html;
+}
+
+function saveBulkSchedule() {
+  var type = document.getElementById('bulkSchedType').value;
+  if (type && !_bulkSchedTimes.length) {
+    showInfo('Please add at least one run time.', 'err'); return;
+  }
+
+  /* Collect all daily configs */
+  var cfgMap = _tabConfigs.daily || {};
+  var allConfigs = [];
+  Object.keys(cfgMap).forEach(function(bu) {
+    (cfgMap[bu] || []).forEach(function(c) { allConfigs.push(c); });
+  });
+  if (!allConfigs.length) { showInfo('No daily configs to update.', 'err'); return; }
+
+  var label = type === '3x' ? '3x/day' : (type === '1x' ? '1x/day' : 'cleared');
+  if (!confirm('Apply schedule (' + label + ') to all ' + allConfigs.length + ' daily configs?')) return;
+
+  showInfo('Applying to ' + allConfigs.length + ' configs…', 'info');
+
+  var promises = allConfigs.map(function(c) {
+    return fetch('/api/admin/si_config/tab_config/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tab:            'daily',
+        bu:             c.bu,
+        id:             c.id,
+        filter_iid:     c.filter_iid,
+        name:           c.name,
+        si_image:       c.si_image,
+        path:           c.path,
+        cr_tags:        c.cr_tags,
+        target_name:    c.target_name,
+        exe_path:       c.exe_path || null,
+        log_folder:     c.log_folder || null,
+        schedule_type:  type || null,
+        schedule_times: type ? _bulkSchedTimes.slice() : []
+      })
+    }).then(function(r){ return r.json(); });
+  });
+
+  Promise.all(promises).then(function(results) {
+    var failed = results.filter(function(r){ return !r.success; }).length;
+    closeModal('bulkScheduleModal');
+    if (failed) {
+      showInfo('Applied to ' + (results.length - failed) + '/' + results.length + ' configs. ' + failed + ' failed.', 'err');
+    } else {
+      showInfo('Schedule (' + label + ') applied to all ' + results.length + ' daily configs.', 'ok');
+    }
+    loadTabConfigs('daily');
+  }).catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
+}
+
+/* ── Derived paths helper ──────────────────────────────────────────────────── */
+function updateDailyDerivedPaths() {
+  var base = (document.getElementById('addDailyPath').value || '').trim();
+  var box  = document.getElementById('addDailyDerivedPaths');
+  if (!base) { box.style.display = 'none'; return; }
+  var sep = base.indexOf('/') >= 0 ? '/' : '\\';
+  var b = base.replace(/[/\\]+$/, '');
+  document.getElementById('derivedSeedCr').textContent         = b + sep + 'SeedData' + sep + 'Cr.csv';
+  document.getElementById('derivedSeedJira').textContent       = b + sep + 'SeedData' + sep + 'Jira.csv';
+  document.getElementById('derivedSeedOpenJira').textContent   = b + sep + 'SeedData' + sep + 'openJiras.csv';
+  document.getElementById('derivedSeedClosedJira').textContent = b + sep + 'SeedData' + sep + 'closed_Jiras.csv';
+  document.getElementById('derivedDailyLatest').textContent    = b + sep + 'DailyData' + sep + 'Latest';
+  box.style.display = 'block';
+}
+
+/* ── Open Add Modal ────────────────────────────────────────────────────────── */
+function openAddModal(buKey) {
+  if (_activeTab === 'daily') {
+    document.getElementById('addDailyBU').value             = buKey;
+    document.getElementById('addDailyEditId').value         = '';
+    document.getElementById('addDailyModalSub').textContent = 'BU: ' + buKey + '  —  Daily Reports';
+    document.getElementById('addDailyTargetDisplay').value  = buKey;
+    document.getElementById('addDailyFilterIID').value      = '';
+    document.getElementById('addDailyName').value           = '';
+    document.getElementById('addDailySIImage').value        = '';
+    document.getElementById('addDailyPath').value           = '';
+    document.getElementById('addDailyCrTags').value         = '';
+    document.getElementById('addDailyExePath').value        = '';
+    document.getElementById('addDailyLogFolder').value      = '';
+    document.getElementById('addDailyDerivedPaths').style.display = 'none';
+    document.getElementById('dailyPreviewSection').style.display  = 'none';
+    resetDailyScheduleFields();
+    document.getElementById('addDailyModal').style.display  = 'flex';
+    setTimeout(function(){ document.getElementById('addDailyFilterIID').focus(); }, 80);
+  } else if (_activeTab === 'weekly') {
+    document.getElementById('addWeeklyBU').value           = 'GLOBAL';
+    document.getElementById('addWeeklyEditId').value       = '';
+    document.getElementById('addWeeklyModalSub').textContent = 'Weekly Reports';
+    document.getElementById('addWeeklyFilterIID').value    = '';
+    document.getElementById('addWeeklyName').value         = '';
+    document.getElementById('addWeeklySIImage').value      = '';
+    document.getElementById('addWeeklyFilterName').value   = '';
+    document.getElementById('addWeeklyPath').value         = '';
+    document.getElementById('addWeeklyModal').style.display = 'flex';
+    setTimeout(function(){ document.getElementById('addWeeklyFilterIID').focus(); }, 80);
+  } else if (_activeTab === 'unique') {
+    document.getElementById('addUniqueBU').value           = buKey;
+    document.getElementById('addUniqueEditId').value       = '';
+    document.getElementById('addUniqueModalSub').textContent = 'BU: ' + buKey + '  —  Unique CRs';
+    document.getElementById('addUniqueFilterIID').value    = '';
+    document.getElementById('addUniqueName').value         = '';
+    document.getElementById('addUniqueSIImage').value      = '';
+    document.getElementById('addUniqueFilterName').value   = '';
+    document.getElementById('addUniqueBUDisplay').value    = buKey;
+    document.getElementById('addUniqueModal').style.display = 'flex';
+    setTimeout(function(){ document.getElementById('addUniqueFilterIID').focus(); }, 80);
+  }
+}
+
+/* ── Open Edit Modal ───────────────────────────────────────────────────────── */
+function openEditModal(c) {
+  var buKey = c.bu || '';
+  if (_activeTab === 'daily') {
+    document.getElementById('addDailyBU').value             = buKey;
+    document.getElementById('addDailyEditId').value         = c.id || '';
+    document.getElementById('addDailyModalSub').textContent = 'Edit  —  BU: ' + buKey;
+    document.getElementById('addDailyTargetDisplay').value  = c.target_name || buKey;
+    document.getElementById('addDailyFilterIID').value      = c.filter_iid || '';
+    document.getElementById('addDailyName').value           = c.name || '';
+    document.getElementById('addDailySIImage').value        = c.si_image || '';
+    document.getElementById('addDailyPath').value           = c.path || '';
+    document.getElementById('addDailyCrTags').value         = c.cr_tags || '';
+    document.getElementById('addDailyExePath').value        = c.exe_path || '';
+    document.getElementById('addDailyLogFolder').value      = c.log_folder || '';
+    updateDailyDerivedPaths();
+    loadDailyScheduleFields(c);
+    document.getElementById('dailyPreviewSection').style.display = 'none';
+    document.getElementById('addDailyModal').style.display  = 'flex';
+  } else if (_activeTab === 'weekly') {
+    document.getElementById('addWeeklyBU').value           = 'GLOBAL';
+    document.getElementById('addWeeklyEditId').value       = c.id || '';
+    document.getElementById('addWeeklyModalSub').textContent = 'Edit  —  Weekly Reports';
+    document.getElementById('addWeeklyFilterIID').value    = c.filter_iid || '';
+    document.getElementById('addWeeklyName').value         = c.name || '';
+    document.getElementById('addWeeklySIImage').value      = c.si_image || '';
+    document.getElementById('addWeeklyFilterName').value   = c.filter_name || '';
+    document.getElementById('addWeeklyPath').value         = c.path || '';
+    document.getElementById('addWeeklyModal').style.display = 'flex';
+  } else if (_activeTab === 'unique') {
+    document.getElementById('addUniqueBU').value           = buKey;
+    document.getElementById('addUniqueEditId').value       = c.id || '';
+    document.getElementById('addUniqueModalSub').textContent = 'Edit  —  BU: ' + buKey;
+    document.getElementById('addUniqueFilterIID').value    = c.filter_iid || '';
+    document.getElementById('addUniqueName').value         = c.name || '';
+    document.getElementById('addUniqueSIImage').value      = c.si_image || '';
+    document.getElementById('addUniqueFilterName').value   = c.filter_name || '';
+    document.getElementById('addUniqueBUDisplay').value    = buKey;
+    document.getElementById('addUniqueModal').style.display = 'flex';
+  }
+}
+
+/* ── Close Modal ───────────────────────────────────────────────────────────── */
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+/* ── Save Daily ────────────────────────────────────────────────────────────── */
+function saveDaily() {
+  var bu          = document.getElementById('addDailyBU').value;
+  var editId      = document.getElementById('addDailyEditId').value;
+  var targetName  = (document.getElementById('addDailyTargetDisplay').value || '').trim();
+  var filterIID   = (document.getElementById('addDailyFilterIID').value || '').trim();
+  var name        = (document.getElementById('addDailyName').value || '').trim();
+  var siImage     = (document.getElementById('addDailySIImage').value || '').trim();
+  var path        = (document.getElementById('addDailyPath').value || '').trim();
+  var crTags      = (document.getElementById('addDailyCrTags').value || '').trim();
+  var exePath     = (document.getElementById('addDailyExePath').value || '').trim();
+  var logFolder   = (document.getElementById('addDailyLogFolder').value || '').trim();
+  var schedSel    = document.querySelector('input[name="dailySchedType"]:checked');
+  var schedType   = schedSel ? schedSel.value : '';
+  if (!filterIID && !name) { showInfo('Filter IID or Name is required.', 'err'); return; }
+  if (schedType && !_dailySchedTimes.length) {
+    showInfo('Please add at least one run time for the schedule.', 'err'); return;
+  }
+  postTabConfig('daily', bu, editId, {
+    filter_iid:     filterIID,
+    name:           name,
+    si_image:       siImage,
+    path:           path,
+    cr_tags:        crTags || null,
+    target_name:    targetName || bu,
+    exe_path:       exePath || null,
+    log_folder:     logFolder || null,
+    schedule_type:  schedType || null,
+    schedule_times: schedType ? _dailySchedTimes.slice() : []
+  }, 'addDailyModal');
+}
+
+/* ── Save Weekly ───────────────────────────────────────────────────────────── */
+function saveWeekly() {
+  var editId     = document.getElementById('addWeeklyEditId').value;
+  var filterIID  = (document.getElementById('addWeeklyFilterIID').value || '').trim();
+  var name       = (document.getElementById('addWeeklyName').value || '').trim();
+  var siImage    = (document.getElementById('addWeeklySIImage').value || '').trim();
+  var filterName = (document.getElementById('addWeeklyFilterName').value || '').trim();
+  var path       = (document.getElementById('addWeeklyPath').value || '').trim();
+  if (!filterIID && !name) { showInfo('Filter IID or Name is required.', 'err'); return; }
+  postTabConfig('weekly', 'GLOBAL', editId, { filter_iid: filterIID, name: name, si_image: siImage, filter_name: filterName, path: path }, 'addWeeklyModal');
+}
+
+/* ── Save Unique ───────────────────────────────────────────────────────────── */
+function saveUnique() {
+  var bu         = document.getElementById('addUniqueBU').value;
+  var editId     = document.getElementById('addUniqueEditId').value;
+  var filterIID  = (document.getElementById('addUniqueFilterIID').value || '').trim();
+  var name       = (document.getElementById('addUniqueName').value || '').trim();
+  var siImage    = (document.getElementById('addUniqueSIImage').value || '').trim();
+  var filterName = (document.getElementById('addUniqueFilterName').value || '').trim();
+  if (!filterIID && !name) { showInfo('Filter IID or Name is required.', 'err'); return; }
+  postTabConfig('unique', bu, editId, { filter_iid: filterIID, name: name, si_image: siImage, filter_name: filterName, bu: bu }, 'addUniqueModal');
+}
+
+/* ── POST Tab Config ───────────────────────────────────────────────────────── */
+function postTabConfig(tab, bu, editId, fields, modalId) {
+  var payload = Object.assign({ tab: tab, bu: bu }, fields);
+  if (editId) payload.id = editId;
+  fetch('/api/admin/si_config/tab_config/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success) {
+      closeModal(modalId);
+      var label = tab === 'weekly' ? 'Weekly Report' : (tab === 'daily' ? 'Daily Report (' + bu + ')' : 'Unique CR (' + bu + ')');
+      showInfo((editId ? 'Updated' : 'Saved') + ' ' + label + ' config', 'ok');
+      loadTabConfigs(tab);
+    } else {
+      showInfo('Save failed: ' + (d.message || ''), 'err');
+    }
+  })
+  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
+}
+
+/* ── Delete Config ─────────────────────────────────────────────────────────── */
+function deleteConfig(id, buKey) {
+  if (!id) { showInfo('Cannot delete: missing ID.', 'err'); return; }
+  if (!confirm('Delete this config entry for ' + buKey + '?')) return;
+  fetch('/api/admin/si_config/tab_config/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id, tab: _activeTab })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.success) {
+      showInfo('Config deleted.', 'ok');
+      loadTabConfigs(_activeTab);
+    } else {
+      showInfo('Delete failed: ' + (d.message || ''), 'err');
+    }
+  })
+  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
+}
+
+/* ── Info Bar ──────────────────────────────────────────────────────────────── */
+function showInfo(msg, type) {
+  var bar = document.getElementById('infoBar');
+  var colors = {
+    ok:   { bg:'#f0fdf4', color:'#16a34a', border:'#86efac' },
+    err:  { bg:'#fff1f2', color:'#dc2626', border:'#fca5a5' },
+    info: { bg:'#eff6ff', color:'#1d4ed8', border:'#93c5fd' }
+  };
+  var c = colors[type] || colors.info;
+  bar.style.background = c.bg;
+  bar.style.color      = c.color;
+  bar.style.border     = '1px solid ' + c.border;
+  bar.textContent      = msg;
+  bar.style.display    = 'block';
+  clearTimeout(bar._timer);
+  if (type === 'ok') bar._timer = setTimeout(function(){ bar.style.display = 'none'; }, 5000);
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────────── */
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function shortPath(p) {
   if (!p) return '';
-  var parts = p.replace(/\\/g,'/').split('/');
-  if (parts.length > 3) return '...' + parts.slice(-2).join('/');
+  var parts = p.replace(/\\/g,'/').split('/').filter(Boolean);
+  if (parts.length > 3) return '\u2026/' + parts.slice(-2).join('/');
   return p;
 }
 
-function sortBy(col) {
-  if (_sortCol === col) { _sortAsc = !_sortAsc; }
-  else { _sortCol = col; _sortAsc = true; }
-  document.querySelectorAll('[id^="sort-"]').forEach(function(el){ el.textContent = ''; });
-  document.getElementById('sort-' + col).textContent = _sortAsc ? ' \u25b2' : ' \u25bc';
-  applyFilter();
+function getTabLabel(tab) {
+  if (tab === 'daily')  return 'Daily Report';
+  if (tab === 'weekly') return 'Weekly Report';
+  if (tab === 'unique') return 'Unique CR';
+  return tab;
 }
 
-function clearFilters() {
-  document.getElementById('filterTarget').value = '';
-  document.getElementById('filterBU').value = '';
-  document.getElementById('filterPath').value = '';
-  document.getElementById('filterStatus').value = '';
-  applyFilter();
-}
+/* Close modals on backdrop click */
+['addDailyModal','addWeeklyModal','addUniqueModal','bulkScheduleModal'].forEach(function(id) {
+  document.getElementById(id).addEventListener('click', function(e){ if (e.target === this) closeModal(id); });
+});
 
-// ── Edit modal ────────────────────────────────────────────────────────────────
-function openEditModal(target, currentPath) {
-  _editTarget = target;
-  document.getElementById('editTargetLabel').textContent = 'Target: ' + target;
-  document.getElementById('editPathInput').value = currentPath || '';
-  var modal = document.getElementById('editModal');
-  modal.style.display = 'flex';
-  setTimeout(function(){ document.getElementById('editPathInput').focus(); }, 80);
-}
+/* Enter key in daily schedule time input */
+document.getElementById('dailySchedTimeInput').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { e.preventDefault(); addDailySchedTime(); }
+});
 
-function closeEditModal() {
-  document.getElementById('editModal').style.display = 'none';
-  _editTarget = '';
-}
-
-function saveEdit() {
-  var newPath = (document.getElementById('editPathInput').value || '').trim();
-  if (!_editTarget) return;
-
-  fetch('/api/admin/orbit_cr/update_si_image_path', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({target_name: _editTarget, si_image_path: newPath})
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (d.success) {
-      // Update local data
-      var row = _allRows.find(function(r){ return r.target === _editTarget; });
-      if (row) {
-        row.si_path  = newPath;
-        row.has_path = !!newPath;
-      }
-      closeEditModal();
-      updateStats();
-      applyFilter();
-      showInfo('Saved SI image path for ' + _editTarget, 'ok');
-    } else {
-      showInfo('Save failed: ' + (d.message || 'unknown error'), 'err');
-    }
-  })
-  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
-}
-
-// ── Debug scan — show bat file details and why targets don't match ────────────
-function doDebug() {
-  showInfo('Running debug scan...', 'info');
-  fetch('/api/admin/orbit_cr/bat_debug')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d.success) { showInfo('Debug failed: ' + (d.message || ''), 'err'); return; }
-
-      var lines = [
-        'Config path: ' + d.config_path,
-        'Bat files found: ' + (d.bat_files_found || []).join(', '),
-        'Total targets in map: ' + d.total_targets_in_map,
-        'Targets matched: ' + d.targets_matched + ' / ' + d.targets_total,
-        '',
-        '--- BAT FILE DETAILS ---',
-      ];
-
-      for (var fname in (d.bat_file_details || {})) {
-        var fd = d.bat_file_details[fname];
-        lines.push(fname + ': ' + fd.targets_count + ' targets → ' + (fd.targets || []).slice(0, 5).join(', ') + (fd.targets_count > 5 ? '...' : ''));
-      }
-
-      lines.push('', '--- UNMATCHED TARGETS (first 20) ---');
-      var unmatched = (d.target_debug || []).filter(function(t){ return t.status === 'no_match'; }).slice(0, 20);
-      unmatched.forEach(function(t){
-        lines.push(t.target_name + ' [' + t.bu + '] tried: ' + (t.tried_keys || []).join(' | '));
-      });
-
-      // Show in a popup
-      var msg = lines.join('\n');
-      var pre = document.createElement('pre');
-      pre.style.cssText = 'position:fixed;top:10px;right:10px;bottom:10px;width:700px;background:#1e293b;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;font-size:11px;z-index:99999;white-space:pre-wrap;';
-      pre.textContent = msg;
-      var closeBtn = document.createElement('button');
-      closeBtn.textContent = '✕ Close';
-      closeBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;';
-      closeBtn.onclick = function(){ document.body.removeChild(pre); };
-      pre.appendChild(closeBtn);
-      document.body.appendChild(pre);
-
-      showInfo('Debug scan complete. ' + d.targets_matched + ' matched, ' + d.targets_no_match + ' unmatched. See popup.', 'ok');
-    })
-    .catch(function(e){ showInfo('Debug error: ' + e.message, 'err'); });
-}
-
-// ── Preview scan (no DB write) ────────────────────────────────────────────────
-function doScan() {
-  showInfo('Scanning batch files (preview)...', 'info');
-  fetch('/api/admin/orbit_cr/si_scan')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d.success) { showInfo('Scan failed: ' + (d.message || ''), 'err'); return; }
-      var rows = d.rows || [];
-      var matched  = rows.filter(function(r){ return r.status === 'matched'; }).length;
-      var noMatch  = rows.filter(function(r){ return r.status === 'no_bat_match'; }).length;
-      var noSI     = rows.filter(function(r){ return r.status === 'no_si_in_bat'; }).length;
-      var wouldUpd = rows.filter(function(r){ return r.would_update; }).length;
-      showInfo(
-        'Preview scan: ' + d.bat_files_found + ' .bat files found, '
-        + matched + ' matched, ' + noMatch + ' no bat match, '
-        + noSI + ' no SI in bat, ' + wouldUpd + ' would update DB. '
-        + 'Click "Auto-configure from .bat" to apply.',
-        'ok'
-      );
-    })
-    .catch(function(e){ showInfo('Scan error: ' + e.message, 'err'); });
-}
-
-// ── Refresh: clear all paths and re-read from batch files ────────────────────
-function doRefresh() {
-  if (!confirm(
-    'This will re-read ALL batch files and update si_image_path for every target.\n\n' +
-    'Targets with no matching .bat file will have their path cleared.\n\n' +
-    'Continue?'
-  )) return;
-  showInfo('Reading batch files and refreshing all SI image paths...', 'info');
-  fetch('/api/admin/orbit_cr/refresh_si_paths', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({})
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (d.success) {
-      showInfo(d.message || 'Done', 'ok');
-      loadData();  // reload table with fresh paths
-    } else {
-      showInfo('Refresh failed: ' + (d.message || ''), 'err');
-    }
-  })
-  .catch(function(e){ showInfo('Error: ' + e.message, 'err'); });
-}
-
-// ── Info bar ──────────────────────────────────────────────────────────────────
-function showInfo(msg, type) {
-  var bar = document.getElementById('infoBar');
-  var colors = {
-    ok:   {bg:'#f0fdf4', color:'#16a34a', border:'#86efac'},
-    err:  {bg:'#fff1f2', color:'#dc2626', border:'#fca5a5'},
-    info: {bg:'#eff6ff', color:'#1d4ed8', border:'#93c5fd'},
-  };
-  var c = colors[type] || colors.info;
-  bar.style.background = c.bg;
-  bar.style.color = c.color;
-  bar.style.border = '1px solid ' + c.border;
-  bar.textContent = msg;
-  bar.style.display = 'block';
-}
-
-// ── Export CSV ────────────────────────────────────────────────────────────────
-function exportCSV() {
-  var header = ['Target', 'Display', 'BU', 'Excel Path', 'SI Image Path', 'Has Path'];
-  var lines = [header.join(',')];
-  _allRows.forEach(function(r){
-    lines.push([
-      r.target,
-      r.display,
-      r.bu,
-      '"' + (r.excel_path || '').replace(/"/g,'""') + '"',
-      '"' + (r.si_path || '').replace(/"/g,'""') + '"',
-      r.has_path ? 'Yes' : 'No',
-    ].join(','));
-  });
-  var blob = new Blob([lines.join('\n')], {type: 'text/csv'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'si_image_paths.csv';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-}
-
-// Close modal on backdrop click
-document.getElementById('editModal').addEventListener('click', function(e){
-  if (e.target === this) closeEditModal();
+/* Enter key in bulk schedule time input */
+document.getElementById('bulkSchedTimeInput').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { e.preventDefault(); addBulkSchedTime(); }
 });
 </script>
 {% endblock %}

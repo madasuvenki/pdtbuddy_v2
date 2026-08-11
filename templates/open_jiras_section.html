@@ -638,14 +638,35 @@
     var label = (!showSystem && showNonSystem) ? 'Non-System JIRAs'
               : (showSystem && !showNonSystem) ? 'System JIRAs'
               : 'Total Open JIRAs';
+
+    // ── Pivot count per area: count unique CRs (same key logic as _areaMapFromPivot) ──
+    var _pivotCrMap = {};
+    filtered.forEach(function(r){
+      var key = (showSystem && !showNonSystem)
+        ? (r.area || 'Other')
+        : (!showSystem && showNonSystem)
+          ? crashArea(r)
+          : (r._ct === 'nonsystem' ? crashArea(r) : (r.area || 'Other'));
+      var cr = (r.cr_current_ticket || r.stability_ticket || '').trim() || '__NO_CR__';
+      if(!_pivotCrMap[key]) _pivotCrMap[key] = {};
+      _pivotCrMap[key][cr] = 1;
+    });
+    var pivotCntByArea = {};
+    Object.keys(_pivotCrMap).forEach(function(k){
+      pivotCntByArea[k] = Object.keys(_pivotCrMap[k]).length;
+    });
+
     var html = '<div class="oj-kpi" style="--acc:#1e3a5f;" onclick="ojFilterArea(\'\')">'
       + '<div class="oj-kpi-val">' + filtered.length + '</div>'
       + '<div class="oj-kpi-lbl">' + label + '</div></div>';
     sorted.forEach(function(pair){
       var area = pair[0], cnt = pair[1];
+      var pivotCnt = pivotCntByArea[area] || 0;
       var col = areaColor(area);
       html += '<div class="oj-kpi" style="--acc:' + col + ';" onclick="ojFilterArea(\'' + esc(area) + '\')">'
-        + '<div class="oj-kpi-val" style="color:' + col + ';">' + cnt + '</div>'
+        + '<div class="oj-kpi-val" style="color:' + col + ';">' + pivotCnt
+        + '<span style="font-size:11px;font-weight:600;color:#94a3b8;white-space:nowrap;"> (overall count: ' + cnt + ')</span>'
+        + '</div>'
         + '<div class="oj-kpi-lbl">' + esc(area) + '</div></div>';
     });
     row.innerHTML = html;
