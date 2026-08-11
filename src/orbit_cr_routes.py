@@ -4,10 +4,12 @@ orbit_cr_routes.py
 Flask blueprint for Orbit CR DB cache admin API endpoints.
 """
 
+import json
 import logging
 import os
 import re
 import threading
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
@@ -1247,3 +1249,540 @@ def api_non_matched_crs(target):
         return jsonify(success=True, rows=rows, count=len(rows))
     except Exception as e:
         return jsonify(success=False, message=str(e)), 500
+
+
+# ── SI Config: Schedule config helpers ───────────────────────────────────────
+
+_SI_SCHEDULE_CONFIG_PATH = os.path.join(
+    os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy"),
+    "config", "si_schedule_config.json"
+)
+
+
+def _utcnow_str():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _load_si_schedule_config():
+    """Load SI schedule config from JSON file. Returns dict keyed by target_name."""
+    try:
+        if os.path.exists(_SI_SCHEDULE_CONFIG_PATH):
+            with open(_SI_SCHEDULE_CONFIG_PATH, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return data.get("targets", {}) if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.debug("[_load_si_schedule_config] Error: %s", exc)
+    return {}
+
+
+def _save_si_schedule_config(targets_dict):
+    """Atomically save SI schedule config to JSON file."""
+    try:
+        os.makedirs(os.path.dirname(_SI_SCHEDULE_CONFIG_PATH), exist_ok=True)
+        tmp = _SI_SCHEDULE_CONFIG_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"targets": targets_dict, "updated_at": _utcnow_str()},
+                fh, indent=2
+            )
+        os.replace(tmp, _SI_SCHEDULE_CONFIG_PATH)
+        return True
+    except Exception as exc:
+        logger.error("[_save_si_schedule_config] Error: %s", exc)
+        return False
+
+
+# ── SI Config: BU-grouped targets view ───────────────────────────────────────
+
+@orbit_cr_bp.route("/api/admin/si_config/bu_targets")
+@login_required
+def api_si_config_bu_targets():
+    """
+    Return all active targets grouped by BU with schedule info.
+    Accessible to all logged-in users (not just admins) — viewers see
+    the same data but the template hides edit controls.
+    """
+    try:
+        from src.utils import get_mysql_connection_db
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify(success=False, message="DB connection failed"), 500
+
+        cur = conn.cursor(dictionary=True)
+        _ensure_si_image_path_column(cur)
+        conn.commit()
+        cur.execute("""
+            SELECT
+                target_name,
+                target_display,
+                bu,
+                excel_path,
+                si_image_path,
+                unique_cr_path,
+                is_active
+            FROM pdt_stats_dashboard.dashboard_status
+            WHERE is_active = 1
+            ORDER BY bu, target_name
+        """)
+        rows = cur.fetchall() or []
+        cur.close()
+        conn.close()
+
+        # Load schedule config
+        schedule_config = _load_si_schedule_config()
+
+        # Group by BU
+        bu_map = {}
+        for row in rows:
+            bu = (row.get("bu") or "UNKNOWN").upper()
+            if bu not in bu_map:
+                bu_map[bu] = []
+            bu_map[bu].append({
+                "target_name":     row.get("target_name") or "",
+                "target_display":  row.get("target_display") or row.get("target_name") or "",
+                "bu":              bu,
+                "excel_path":      row.get("excel_path") or "",
+                "si_image_path":   row.get("si_image_path") or "",
+                "filter_location": row.get("unique_cr_path") or "",
+            })
+
+        # Build BU list with per-BU stats
+        bus = []
+        total_targets   = 0
+        total_si        = 0
+        total_filter    = 0
+        total_scheduled = 0
+
+        for bu_key in sorted(bu_map.keys()):
+            targets = bu_map[bu_key]
+            configured_si     = sum(1 for t in targets if t.get("si_image_path"))
+            configured_filter = sum(1 for t in targets if t.get("filter_location"))
+            scheduled = sum(
+                1 for t in targets
+                if schedule_config.get(t["target_name"], {}).get("schedule_type")
+            )
+            bus.append({
+                "bu": bu_key,
+                "targets": targets,
+                "stats": {
+                    "total":             len(targets),
+                    "configured_si":     configured_si,
+                    "configured_filter": configured_filter,
+                    "scheduled":         scheduled,
+                },
+            })
+            total_targets   += len(targets)
+            total_si        += configured_si
+            total_filter    += configured_filter
+            total_scheduled += scheduled
+
+        return jsonify(
+            success=True,
+            bus=bus,
+            schedule_config=schedule_config,
+            global_stats={
+                "total_bus":         len(bus),
+                "total_targets":     total_targets,
+                "configured_si":     total_si,
+                "configured_filter": total_filter,
+                "scheduled":         total_scheduled,
+            },
+        )
+
+    except Exception as exc:
+        logger.exception("[api_si_config_bu_targets] Error")
+        return jsonify(success=False, message=str(exc)), 500
+
+
+# ── SI Config: Update target filter_location + si_image_path ─────────────────
+
+@orbit_cr_bp.route("/api/admin/si_config/target/update", methods=["POST"])
+@login_required
+def api_si_config_target_update():
+    """
+    Update filter_location (unique_cr_path) and/or si_image_path for a target.
+    Admin only.
+
+    POST body:
+      target_name     (required)
+      filter_location (string | null)  — maps to unique_cr_path
+      si_image_path   (string | null)
+    """
+    if not _is_admin():
+        return jsonify(success=False, message="Forbidden"), 403
+
+    data = request.get_json(silent=True) or {}
+    target_name     = (data.get("target_name") or "").strip()
+    filter_location = data.get("filter_location")
+    si_image_path   = data.get("si_image_path")
+
+    if not target_name:
+        return jsonify(success=False, message="target_name required"), 400
+
+    # Normalise: empty string → None
+    if isinstance(filter_location, str):
+        filter_location = filter_location.strip() or None
+    if isinstance(si_image_path, str):
+        si_image_path = si_image_path.strip() or None
+
+    try:
+        from src.utils import get_mysql_connection_db
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify(success=False, message="DB connection failed"), 500
+
+        cur = conn.cursor()
+        _ensure_si_image_path_column(cur)
+
+        set_parts = []
+        values    = []
+        if "filter_location" in data:
+            set_parts.append("unique_cr_path = %s")
+            values.append(filter_location)
+        if "si_image_path" in data:
+            set_parts.append("si_image_path = %s")
+            values.append(si_image_path)
+
+        if not set_parts:
+            conn.close()
+            return jsonify(success=False, message="No fields to update"), 400
+
+        sql = (
+            "UPDATE pdt_stats_dashboard.dashboard_status SET "
+            + ", ".join(set_parts)
+            + " WHERE target_name = %s"
+        )
+        values.append(target_name)
+        cur.execute(sql, tuple(values))
+        conn.commit()
+        affected = cur.rowcount
+        cur.close()
+        conn.close()
+
+        # Reload in-memory config so change is reflected immediately
+        try:
+            import dashboard_common as _dc
+            _dc.update_global_targets_config()
+        except Exception:
+            pass
+
+        logger.info(
+            "[si_config_update] %s: filter=%s si=%s (rows=%d)",
+            target_name, filter_location, si_image_path, affected,
+        )
+        return jsonify(
+            success=True,
+            message=f"Updated config for {target_name}",
+            target_name=target_name,
+            rows_affected=affected,
+        )
+
+    except Exception as exc:
+        logger.exception("[api_si_config_target_update] Error")
+        return jsonify(success=False, message=str(exc)), 500
+
+
+# ── SI Config: Set / clear schedule for a target ─────────────────────────────
+
+@orbit_cr_bp.route("/api/admin/si_config/target/schedule", methods=["POST"])
+@login_required
+def api_si_config_target_schedule():
+    """
+    Set or clear the run schedule for a target.
+    Admin only.
+
+    POST body:
+      target_name    (required)
+      clear          (bool)  — if true, remove schedule entry
+      schedule_type  ('3x' | '1x')
+      schedule_times (list of 'HH:MM' strings)
+    """
+    if not _is_admin():
+        return jsonify(success=False, message="Forbidden"), 403
+
+    data = request.get_json(silent=True) or {}
+    target_name = (data.get("target_name") or "").strip()
+    if not target_name:
+        return jsonify(success=False, message="target_name required"), 400
+
+    schedule_config = _load_si_schedule_config()
+
+    # ── Clear ──
+    if data.get("clear"):
+        schedule_config.pop(target_name, None)
+        ok = _save_si_schedule_config(schedule_config)
+        if ok:
+            logger.info("[si_config_schedule] cleared for %s", target_name)
+            return jsonify(success=True, message=f"Schedule cleared for {target_name}")
+        return jsonify(success=False, message="Failed to save schedule config"), 500
+
+    # ── Set ──
+    schedule_type  = (data.get("schedule_type") or "").strip()
+    schedule_times = data.get("schedule_times") or []
+
+    if schedule_type not in ("3x", "1x"):
+        return jsonify(success=False, message='schedule_type must be "3x" or "1x"'), 400
+    if not schedule_times:
+        return jsonify(success=False, message="schedule_times must not be empty"), 400
+
+    valid_times = sorted({
+        t.strip() for t in schedule_times
+        if re.match(r"^\d{2}:\d{2}$", str(t).strip())
+    })
+    if not valid_times:
+        return jsonify(success=False, message="No valid HH:MM times provided"), 400
+
+    updated_by = str(
+        getattr(current_user, "username", None)
+        or getattr(current_user, "id", None)
+        or "admin"
+    )
+
+    existing = schedule_config.get(target_name, {})
+    schedule_config[target_name] = {
+        "schedule_type":       schedule_type,
+        "schedule_times":      valid_times,
+        "updated_at":          _utcnow_str(),
+        "updated_by":          updated_by,
+        "last_run_at":         existing.get("last_run_at"),
+        "last_run_status":     existing.get("last_run_status"),
+        "last_failure_reason": existing.get("last_failure_reason"),
+    }
+
+    ok = _save_si_schedule_config(schedule_config)
+    if ok:
+        logger.info(
+            "[si_config_schedule] %s: type=%s times=%s by=%s",
+            target_name, schedule_type, valid_times, updated_by,
+        )
+        return jsonify(
+            success=True,
+            message=f"Schedule saved for {target_name}",
+            target_name=target_name,
+            schedule_type=schedule_type,
+            schedule_times=valid_times,
+        )
+    return jsonify(success=False, message="Failed to save schedule config"), 500
+
+
+# ── SI Config: Tab configs (Daily / Weekly / Unique CRs) ─────────────────────
+
+_SI_TAB_CONFIGS_PATH = os.path.join(
+    os.environ.get("PDTBUDDY_DATA_ROOT", r"\\sphere\pdtstats\DB\PDTBuddy"),
+    "config", "si_tab_configs.json"
+)
+
+_VALID_TABS = {"daily", "weekly", "unique"}
+
+
+def _load_si_tab_configs():
+    """Load SI tab configs from JSON file.
+    Returns dict: { tab -> { bu -> [list of config dicts] } }
+    """
+    try:
+        if os.path.exists(_SI_TAB_CONFIGS_PATH):
+            with open(_SI_TAB_CONFIGS_PATH, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return data.get("tabs", {}) if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.debug("[_load_si_tab_configs] Error: %s", exc)
+    return {}
+
+
+def _save_si_tab_configs(tabs_dict):
+    """Atomically save SI tab configs to JSON file."""
+    try:
+        os.makedirs(os.path.dirname(_SI_TAB_CONFIGS_PATH), exist_ok=True)
+        tmp = _SI_TAB_CONFIGS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"tabs": tabs_dict, "updated_at": _utcnow_str()},
+                fh, indent=2
+            )
+        os.replace(tmp, _SI_TAB_CONFIGS_PATH)
+        return True
+    except Exception as exc:
+        logger.error("[_save_si_tab_configs] Error: %s", exc)
+        return False
+
+
+@orbit_cr_bp.route("/api/admin/si_config/tab_configs")
+@login_required
+def api_si_config_tab_configs():
+    """
+    Return all configs for a given tab (daily | weekly | unique).
+    Returns: { success, configs: { bu: [list of config dicts] } }
+    """
+    tab = (request.args.get("tab") or "daily").strip().lower()
+    if tab not in _VALID_TABS:
+        return jsonify(success=False, message=f"Invalid tab: {tab}"), 400
+    try:
+        all_tabs = _load_si_tab_configs()
+        configs = all_tabs.get(tab, {})
+        return jsonify(success=True, tab=tab, configs=configs)
+    except Exception as exc:
+        logger.exception("[api_si_config_tab_configs] Error")
+        return jsonify(success=False, message=str(exc)), 500
+
+
+@orbit_cr_bp.route("/api/admin/si_config/tab_config/save", methods=["POST"])
+@login_required
+def api_si_config_tab_config_save():
+    """
+    Save (create or update) a tab config entry.
+    Admin only.
+
+    POST body:
+      tab         (required)  — 'daily' | 'weekly' | 'unique'
+      bu          (required)  — BU key e.g. 'AUTO'
+      id          (optional)  — if provided, update existing entry
+      filter_iid  (string)
+      name        (string)
+      si_image    (string)
+      path        (string)    — daily / weekly only
+      filter_name (string)    — weekly / unique only
+    """
+    if not _is_admin():
+        return jsonify(success=False, message="Forbidden"), 403
+
+    data = request.get_json(silent=True) or {}
+    tab = (data.get("tab") or "").strip().lower()
+    bu  = (data.get("bu")  or "").strip().upper()
+
+    if tab not in _VALID_TABS:
+        return jsonify(success=False, message=f"Invalid tab: {tab}"), 400
+    if not bu:
+        return jsonify(success=False, message="bu is required"), 400
+
+    entry_id    = (data.get("id") or "").strip()
+    filter_iid  = (data.get("filter_iid")  or "").strip() or None
+    name        = (data.get("name")        or "").strip() or None
+    si_image    = (data.get("si_image")    or "").strip() or None
+    path        = (data.get("path")        or "").strip() or None
+    filter_name = (data.get("filter_name") or "").strip() or None
+    # Daily-specific extra fields
+    cr_tags        = (data.get("cr_tags")     or "").strip() or None
+    target_name    = (data.get("target_name") or "").strip() or None
+    schedule_type  = (data.get("schedule_type") or "").strip() or None
+    schedule_times = data.get("schedule_times") or []
+    if schedule_type not in ("3x", "1x", None):
+        schedule_type = None
+    if schedule_type:
+        import re as _re
+        schedule_times = sorted({
+            t.strip() for t in schedule_times
+            if _re.match(r"^\d{2}:\d{2}$", str(t).strip())
+        })
+    else:
+        schedule_times = []
+
+    if not filter_iid and not name:
+        return jsonify(success=False, message="filter_iid or name is required"), 400
+
+    try:
+        import uuid as _uuid
+        all_tabs = _load_si_tab_configs()
+        bu_list  = all_tabs.setdefault(tab, {}).setdefault(bu, [])
+
+        if entry_id:
+            # Update existing
+            found = False
+            for item in bu_list:
+                if item.get("id") == entry_id:
+                    item.update({
+                        "filter_iid":    filter_iid,
+                        "name":          name,
+                        "si_image":      si_image,
+                        "path":          path,
+                        "filter_name":   filter_name,
+                        "cr_tags":       cr_tags,
+                        "target_name":   target_name,
+                        "schedule_type": schedule_type,
+                        "schedule_times": schedule_times,
+                        "bu":            bu,
+                        "updated_at":    _utcnow_str(),
+                    })
+                    found = True
+                    break
+            if not found:
+                return jsonify(success=False, message=f"Entry {entry_id} not found"), 404
+        else:
+            # Create new
+            new_entry = {
+                "id":            str(_uuid.uuid4()),
+                "bu":            bu,
+                "filter_iid":    filter_iid,
+                "name":          name,
+                "si_image":      si_image,
+                "path":          path,
+                "filter_name":   filter_name,
+                "cr_tags":       cr_tags,
+                "target_name":   target_name,
+                "schedule_type": schedule_type,
+                "schedule_times": schedule_times,
+                "last_run_at":   None,
+                "last_run_status": None,
+                "last_failure_reason": None,
+                "created_at":    _utcnow_str(),
+                "updated_at":    _utcnow_str(),
+            }
+            bu_list.append(new_entry)
+            entry_id = new_entry["id"]
+
+        ok = _save_si_tab_configs(all_tabs)
+        if ok:
+            logger.info("[si_tab_config_save] tab=%s bu=%s id=%s", tab, bu, entry_id)
+            return jsonify(success=True, message=f"Saved {tab} config for {bu}", id=entry_id)
+        return jsonify(success=False, message="Failed to save tab configs"), 500
+
+    except Exception as exc:
+        logger.exception("[api_si_config_tab_config_save] Error")
+        return jsonify(success=False, message=str(exc)), 500
+
+
+@orbit_cr_bp.route("/api/admin/si_config/tab_config/delete", methods=["POST"])
+@login_required
+def api_si_config_tab_config_delete():
+    """
+    Delete a tab config entry by id.
+    Admin only.
+
+    POST body:
+      id   (required)
+      tab  (required)
+    """
+    if not _is_admin():
+        return jsonify(success=False, message="Forbidden"), 403
+
+    data = request.get_json(silent=True) or {}
+    entry_id = (data.get("id") or "").strip()
+    tab      = (data.get("tab") or "").strip().lower()
+
+    if not entry_id:
+        return jsonify(success=False, message="id is required"), 400
+    if tab not in _VALID_TABS:
+        return jsonify(success=False, message=f"Invalid tab: {tab}"), 400
+
+    try:
+        all_tabs = _load_si_tab_configs()
+        tab_data = all_tabs.get(tab, {})
+        deleted  = False
+        for bu_key, bu_list in tab_data.items():
+            before = len(bu_list)
+            tab_data[bu_key] = [x for x in bu_list if x.get("id") != entry_id]
+            if len(tab_data[bu_key]) < before:
+                deleted = True
+                break
+
+        if not deleted:
+            return jsonify(success=False, message=f"Entry {entry_id} not found"), 404
+
+        ok = _save_si_tab_configs(all_tabs)
+        if ok:
+            logger.info("[si_tab_config_delete] tab=%s id=%s", tab, entry_id)
+            return jsonify(success=True, message="Config entry deleted")
+        return jsonify(success=False, message="Failed to save tab configs"), 500
+
+    except Exception as exc:
+        logger.exception("[api_si_config_tab_config_delete] Error")
+        return jsonify(success=False, message=str(exc)), 500

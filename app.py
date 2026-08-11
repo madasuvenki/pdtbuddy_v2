@@ -3807,10 +3807,9 @@ def admin_orbit_cr():
 @app.route('/admin/si_config_view')
 @login_required
 def admin_si_config_view():
-    """Dedicated page: view all targets with their SI image config + filter."""
-    if not is_admin():
-        abort(403)
-    return render_template('admin_si_config_view.html')
+    """SI Config Management — view filter locations, SI paths, and schedules per target.
+    All logged-in users can view; only admins can edit/add/schedule."""
+    return render_template('admin_si_config_view.html', is_admin=is_admin())
 
 
 @app.route('/admin/system_docs')
@@ -9114,7 +9113,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
     # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 

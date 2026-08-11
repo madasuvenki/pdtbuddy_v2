@@ -16,6 +16,84 @@
 
 ## Current Work Focus
 
+### admin/si_config_view Three-Tab Redesign (2026-08-11)
+
+**Task:** Replace the existing target-card view with three tabs: Daily Reports, Weekly Reports, Unique CRs. Remove Preview Scan button.
+
+**Changes made:**
+
+**`templates/admin_si_config_view.html`** — Complete redesign:
+- **Removed**: Preview Scan button, target cards, schedule modal, edit modal, all old JS
+- **Added**: Three tab buttons (Daily Reports / Weekly Reports / Unique CRs) with pill-style switcher
+- **Stats**: Now shows Daily Configs, Weekly Configs, Unique CR Configs counts (instead of SI Configured / Filter Set / Scheduled)
+- **BU rows**: Accordion rows per BU with Add button (admin only); shows configured count pill
+- **Config table**: Per-tab columns:
+  - Daily: Filter IID | Name | SI Image | Path to Generate
+  - Weekly: Filter IID | Name | SI Image | Filter Name | Path to Generate
+  - Unique CRs: Filter IID | Name | SI Image | Filter Name | BU
+- **Modals**: Three separate Add/Edit modals (addDailyModal, addWeeklyModal, addUniqueModal)
+- **Tab switching**: `switchTab(tab, btn)` loads tab-specific configs via AJAX
+- **Data flow**: `loadData()` → `loadTabConfigs(tab)` → `renderBUSections()` → `renderConfigTable()`
+
+**`src/orbit_cr_routes.py`** — New endpoints added:
+- `GET /api/admin/si_config/tab_configs?tab=daily|weekly|unique` — returns `{ configs: { BU: [list] } }`
+- `POST /api/admin/si_config/tab_config/save` — create/update a tab config entry (UUID id)
+- `POST /api/admin/si_config/tab_config/delete` — delete a tab config entry by id
+- Storage: `<PDTBUDDY_DATA_ROOT>/config/si_tab_configs.json`
+- Helpers: `_load_si_tab_configs()`, `_save_si_tab_configs(tabs_dict)`, `_VALID_TABS = {"daily","weekly","unique"}`
+- `api_si_config_target_schedule` function fully restored (Clear + Set paths)
+
+**Validation:** `py -3 -m py_compile src/orbit_cr_routes.py` → SYNTAX_OK
+
+---
+
+### admin/si_config_view Refinement (2026-08-11)
+
+**Task:** Refine `admin/si_config_view` — full page width, remove .bat refresh methods, add CR Tag + JIRA Dashboard job params.
+
+**Changes made (2026-08-11 refinement):**
+
+**`templates/admin_si_config_view.html`** — Targeted updates:
+- **Full page width**: Removed `max-width:1600px` from `.sic-wrap`; now uses `max-width:100%` with `padding:24px 28px`
+- **Removed .bat refresh buttons**: "Refresh .bat" button and `doRefresh()` function removed; "Debug" button and `doDebug()` function removed
+- **Kept Preview Scan**: `doScan()` / "Preview Scan" button retained (read-only, useful)
+- **CR Tag + JIRA Dashboard fields in Schedule modal**: Two new optional fields added to the Schedule modal:
+  - `schedCrTag` — CR tag filter for the job (target-specific, optional)
+  - `schedJiraDashboard` — JIRA dashboard ID/URL for the job (target-specific, optional)
+- **`openScheduleModal()`**: Loads existing `cr_tag` and `jira_dashboard` from `_scheduleData`
+- **`saveSchedule()`**: Sends `cr_tag` and `jira_dashboard` in POST body; stores in `_scheduleData`
+- **`renderTargetCard()`**: Shows CR Tag (purple) and JIRA Dashboard (teal) param rows when set in schedule config
+
+**Design principle for CR Tag / JIRA Dashboard:**
+- These fields are target-specific — only a few targets need them
+- They are shown in the Schedule modal for all targets but left blank for targets that don't need them
+- The user fills them in when editing/adding a job schedule for a specific target
+- They are stored alongside the schedule config in `si_schedule_config.json`
+
+**Previous redesign (2026-08-11 initial):**
+- BU-wise accordion sections, target cards grid, global KPI stats
+- Admin-only controls: Edit button, Schedule button, + Add button per BU
+- Viewer access: all logged-in users see the full page
+- Role badge: Admin (amber) / Viewer (blue)
+- Add/Edit modal: filter_location + si_image_path per target
+- Info bar, copy to clipboard, Jinja2 IS_ADMIN fix
+
+**`src/orbit_cr_routes.py`** — New endpoints added:
+- `GET /api/admin/si_config/bu_targets` — BU-grouped targets with schedule config; accessible to all logged-in users
+- `POST /api/admin/si_config/target/update` — Update `unique_cr_path` (filter_location) + `si_image_path` (admin only)
+- `POST /api/admin/si_config/target/schedule` — Set/clear schedule for a target (admin only); stores in JSON file
+- Schedule config stored at `<PDTBUDDY_DATA_ROOT>/config/si_schedule_config.json`
+- Helper functions: `_load_si_schedule_config()`, `_save_si_schedule_config()`, `_utcnow_str()`
+- Added `import json`, `from datetime import datetime, timezone` to imports
+
+**`app.py`** — Route updated:
+- `/admin/si_config_view` now allows all logged-in users (removed `abort(403)` for non-admins)
+- Passes `is_admin=is_admin()` to template for role-based control visibility
+
+**Validation:** `py -3 -m py_compile src/orbit_cr_routes.py` → SYNTAX_OK, `py -3 -m py_compile app.py` → SYNTAX_OK
+
+---
+
 ### CR Category / NoSIR fix in dashboard_overview.html (2026-08-10)
 
 **Problem:** The CR STATUS section (CR Avg Age chart + CR Area bar chart) had incorrect category mapping and was missing a NoSIR filter option.
