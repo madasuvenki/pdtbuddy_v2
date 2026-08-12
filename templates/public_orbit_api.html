@@ -676,7 +676,8 @@ X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
     "RelatedChangeRequests": [],   <span style="color:#94a3b8;">// related CRs</span>
     "source": "ORBIT_DIRECT"       <span style="color:#94a3b8;">// ORBIT_DIRECT | ORBIT_QUERY_RUN | ONEVIEW_MCP</span>
   },
-  "linked_crs": ["4477118", "4477120"]  <span style="color:#94a3b8;">// sibling CRs from PDT DB mapped_cr</span>
+  "linked_crs": ["4477118", "4477120"],  <span style="color:#94a3b8;">// sibling CRs from PDT DB mapped_cr</span>
+  "cr_notes": "Root cause: null pointer dereference in FastRC module..."  <span style="color:#94a3b8;">// notes text from Orbit /notes endpoint (empty string if none)</span>
 }</pre></div>
     </div>
   </div>
@@ -754,6 +755,7 @@ X-PDTBuddy-API-Token: &lt;token&gt;</pre></div>
           <tr><td><code>orbit.customer_name</code></td><td><span class="src-orbit">Orbit</span></td><td>Customer name</td></tr>
           <tr><td><code>orbit.sirs[]</code></td><td><span class="src-orbit">Orbit</span></td><td>Software Image Releases: name, status, ready_date, built_date</td></tr>
           <tr><td><code>orbit.tags[]</code></td><td><span class="src-orbit">Orbit</span></td><td>All Orbit CR tags (e.g. NHGY_PDT_Blocker_Nord_V1, PDT_P1)</td></tr>
+          <tr><td><code>cr_notes</code></td><td><span class="src-orbit">Orbit</span></td><td>Notes text fetched directly from Orbit's <code>/notes</code> endpoint for this CR. Empty string if no notes exist.</td></tr>
         </tbody>
       </table>
     </div>

@@ -468,18 +468,29 @@ def api_public_orbit_cr(cr_id):
         Severity, IsCrash, Priority, ReporterUid, AssigneeUid, CreatedOn, Tags,
         Participants: [{AreaName,SubsystemName,FunctionalityName,IsPrimary}],
         SoftwareImageReleases: [{SoftwareImageName,Status,ReadyDate,BuiltDate}],
-        DuplicateChangeRequests, RelatedChangeRequests }, linked_crs: [...] }
+        DuplicateChangeRequests, RelatedChangeRequests },
+        linked_crs: [...],
+        cr_notes: "..." }
     """
     try:
-        from orbit_client import fetch_cr, fetch_linked_crs, _normalize_cr
+        from orbit_client import fetch_cr, fetch_linked_crs, _normalize_cr, fetch_cr_notes
         cr = _normalize_cr(cr_id)
         orbit_data = fetch_cr(cr)
         linked_crs = fetch_linked_crs(cr)
+
+        # Fetch CR notes directly from Orbit's /notes endpoint
+        cr_notes = ''
+        try:
+            cr_notes = fetch_cr_notes(cr) or ''
+        except Exception as _ne:
+            logger.warning("[orbit_public_api] fetch_cr_notes error cr=%s: %s", cr, _ne)
+
         return jsonify({
             'ok': True,
             'cr_number': cr,
             'orbit': _ser_orbit(orbit_data),
             'linked_crs': linked_crs,
+            'cr_notes': cr_notes,
         })
     except Exception:
         logger.exception("[orbit_public_api] api_public_orbit_cr error cr=%s", cr_id)
