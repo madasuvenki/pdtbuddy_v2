@@ -6996,6 +6996,18 @@ def dashboard(target_name, section="dashboard"):
         }
         perf_marks.append(("kpi_counts", _perf_elapsed_ms(perf_total_start)))
 
+        # ── Guard: if unique_crs table doesn't exist, this target has no data yet ──
+        # Redirect gracefully instead of crashing with MySQL 1146.
+        if not table_exists(tables["u"]):
+            logger.info('[DASHBOARD] target=%s has no unique_crs table — redirecting', target_name)
+            from flask import flash as _flash
+            _flash(
+                f"Target '{target_name}' has no data tables yet. "
+                "Please run ingest first or select a different target.",
+                "warning"
+            )
+            return redirect(url_for('bu_selection'))
+
         dash_meta = get_dashboard_meta_for_target(target_name)
 
         raw_dt = dash_meta.get("dashboard_latest_update") or dash_meta.get("unique_cr_last_update")
