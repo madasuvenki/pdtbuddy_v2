@@ -283,9 +283,10 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       const noteData = await noteResp.json();
       (noteData.notes || []).forEach(n => {
         NOTES_MAP[n.cr_id] = {
-          scenarios:  n.scenarios  || '',
-          tech_notes: n.tech_notes || '',
-          cr_notes:   n.cr_notes   || ''
+          scenarios:   n.scenarios   || '',
+          tech_notes:  n.tech_notes  || '',
+          cr_notes:    n.cr_notes    || '',
+          ai_analysis: n.ai_analysis || ''
         };
       });
 
@@ -456,6 +457,16 @@ window.OCR_TARGET  = {{ target_name | tojson }};
     renderTable();
   };
 
+  function _buildAiCell(crId, existingHtml) {
+    if (existingHtml) {
+      return '<div class="ai-result">' + existingHtml + '</div>' +
+        '<button class="ai-refresh-btn" onclick="delete AI_CACHE[\'' + esc(crId) + '\'];runAiAnalysis(\'' + esc(crId) + '\',this)" title="Refresh analysis">' +
+        '<i class="fas fa-sync-alt"></i> Refresh</button>';
+    }
+    return '<button class="ai-analyse-btn" onclick="runAiAnalysis(\'' + esc(crId) + '\', this)">' +
+      '<i class="fas fa-magic" style="font-size:10px;"></i> ✨ AI Analyse</button>';
+  }
+
   function renderTable() {
     const tbody = document.getElementById('ocrTbody');
     if (!TABLE_ROWS.length) { tbody.innerHTML = '<tr><td colspan="17" class="ocr-state">No CRs match the current filters.</td></tr>'; return; }
@@ -463,14 +474,16 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       const note    = NOTES_MAP[r.cr_id] || {};
       const sLow    = (r.cr_status || '').toLowerCase();
       const chipCls = sLow.includes('open') ? 'chip-open' : sLow.includes('anal') ? 'chip-analysis' : 'chip-other';
+      /* Pre-populate AI_CACHE from DB if available */
+      const savedAi = note.ai_analysis || '';
+      if (savedAi && !AI_CACHE[r.cr_id]) AI_CACHE[r.cr_id] = savedAi;
       return `
       <tr data-cr="${esc(r.cr_id)}">
         <td style="text-align:center;color:#94a3b8;font-weight:700;">${idx + 1}</td>
         <td><a href="https://orbit/cr/${esc(r.cr_id).replace(/^CR/i,'')}" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:800;text-decoration:none;border-bottom:1.5px solid rgba(79,70,229,0.3);">${esc(r.cr_id)}</a></td>
         <td style="text-align:center;font-weight:700;">${esc(r.occurrences)}</td>
-                <td class="wrap-cell" title="${esc(r.latest_meta)}" style="font-size:11px;color:#6b7280;">${esc(r.latest_meta)}</td>
+        <td class="wrap-cell" title="${esc(r.latest_meta)}" style="font-size:11px;color:#6b7280;">${esc(r.latest_meta)}</td>
         <td class="wrap-cell" title="${esc(r.cr_title)}">${esc(r.cr_title)}</td>
-
         <td class="notes-cell">
           <textarea class="notes-textarea" data-field="scenarios" data-cr="${esc(r.cr_id)}" placeholder="Add scenarios…" oninput="markDirty(this)">${esc(note.scenarios || '')}</textarea>
         </td>
@@ -486,11 +499,7 @@ window.OCR_TARGET  = {{ target_name | tojson }};
         <td class="wrap-cell" style="font-size:11px;">${esc(r.seen_in)}</td>
         <td class="wrap-cell" style="font-size:11px;">${esc(r.test_teams)}</td>
         <td class="wrap-cell" style="font-size:11px;color:#374151;">${esc(r.cr_notes)}</td>
-        <td style="min-width:200px;" class="ai-cell" id="ai-cell-${esc(r.cr_id)}">
-          <button class="ai-analyse-btn" onclick="runAiAnalysis('${esc(r.cr_id)}', this)">
-            <i class="fas fa-magic" style="font-size:10px;"></i> ? AI Analyse
-          </button>
-        </td>
+        <td style="min-width:200px;" class="ai-cell" id="ai-cell-${esc(r.cr_id)}">${_buildAiCell(r.cr_id, savedAi)}</td>
       </tr>`;
     }).join('');
   }
@@ -559,6 +568,16 @@ window.OCR_TARGET  = {{ target_name | tojson }};
           '</div>' +
           '<button class="ai-refresh-btn" onclick="delete AI_CACHE[\'' + esc(crId) + '\'];runAiAnalysis(\'' + esc(crId) + '\',this)" title="Refresh analysis">' +
           '<i class="fas fa-sync-alt"></i> Refresh</button>';
+        /* ── Save AI analysis to DB ── */
+        try {
+          await fetch(`/api/cr_debug_notes/${encodeURIComponent(TARGET)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rows: [{ cr_id: crId, ai_analysis: html }] })
+          });
+          if (!NOTES_MAP[crId]) NOTES_MAP[crId] = {};
+          NOTES_MAP[crId].ai_analysis = html;
+        } catch(_) {}
       } else {
         cell.innerHTML = '<span style="color:#ef4444;font-size:11px;">' + esc(d.error || 'Failed') + '</span>' +
           '<button class="ai-analyse-btn" style="margin-top:4px;" onclick="runAiAnalysis(\'' + esc(crId) + '\',this)"><i class="fas fa-redo"></i> Retry</button>';

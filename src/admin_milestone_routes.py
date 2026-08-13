@@ -266,6 +266,75 @@ def resync_milestones_route():
     return jsonify(success=ok, message=msg)
 
 
+def _ensure_target_milestones_table(cursor):
+    """Create target_milestones table if not exists (idempotent)."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pdt_stats_dashboard.target_milestones (
+            id            BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            target_name   VARCHAR(100) NOT NULL,
+            milestone_name VARCHAR(50) NOT NULL,
+            milestone_date DATE         NULL,
+            milestone_label VARCHAR(100) NULL,
+            sort_order    INT          NOT NULL DEFAULT 0,
+            updated_by    VARCHAR(100) NULL,
+            updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                          ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_target_milestone (target_name, milestone_name)
+        )
+    """)
+
+
+_MS_SORT_ORDER = {
+    'ES': 0, 'FC': 10, 'CS': 20,
+    'CS1': 30, 'CS2': 40, 'CS3': 50, 'CS4': 60, 'CS5': 70,
+    'CS6': 80, 'CS7': 90, 'CS8': 100, 'CS9': 110,
+}
+
+
+@admin_milestone_bp.route('/admin/get_milestones_v2/<target_name>', methods=['GET'])
+@login_required
+def get_milestones_v2_route(target_name):
+    """Return all milestones for a target from target_milestones table (falls back to dashboard_status)."""
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, message='DB connection failed'), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        _ensure_target_milestones_table(cur)
+        conn.commit()
+        cur.execute(
+            "SELECT milestone_name, milestone_date, milestone_label, sort_order "
+            "FROM pdt_stats_dashboard.target_milestones "
+            "WHERE target_name=%s ORDER BY sort_order ASC, milestone_name ASC",
+            (target_name,),
+        )
+        rows = cur.fetchall() or []
+        milestones = {}
+        for r in rows:
+            date_val = r['milestone_date']
+            milestones[r['milestone_name']] = str(date_val) if date_val else ''
+
+        # Fall back to dashboard_status columns if new table is empty
+        if not milestones:
+            cur.execute(
+                "SELECT es_date, fc_date, cs_date, cs1_date "
+                "FROM pdt_stats_dashboard.dashboard_status "
+                "WHERE target_name=%s AND is_active=1 ORDER BY id ASC LIMIT 1",
+                (target_name,),
+            )
+            row = cur.fetchone() or {}
+            for col, key in [('es_date', 'ES'), ('fc_date', 'FC'), ('cs_date', 'CS'), ('cs1_date', 'CS1')]:
+                if row.get(col):
+                    milestones[key] = str(row[col])
+
+        return jsonify(success=True, target_name=target_name, milestones=milestones)
+    except Exception as exc:
+        current_app.logger.exception('Failed to get milestones v2 for %s', target_name)
+        return jsonify(success=False, message=str(exc)), 500
+    finally:
+        conn.close()
+
+
 @admin_milestone_bp.route('/admin/save_milestones', methods=['POST'])
 @login_required
 def save_milestones_route():
@@ -296,6 +365,7 @@ def save_milestones_route():
 
     try:
         cur = conn.cursor()
+        # ── 1. Update legacy dashboard_status columns (backward compat) ──
         if sp_name:
             cur.execute(
                 """
@@ -317,12 +387,34 @@ def save_milestones_route():
                 """,
                 (es, fc, cs, cs1, 'manual', saved_by, target_name),
             )
+
+        # ── 2. Upsert ALL milestones into target_milestones table ──
+        _ensure_target_milestones_table(cur)
+        for idx, (ms_name, ms_date) in enumerate(milestones.items()):
+            ms_name = (ms_name or '').strip().upper()
+            if not ms_name:
+                continue
+            ms_date_val = _date_or_none(ms_date)
+            sort_order = _MS_SORT_ORDER.get(ms_name, 200 + idx)
+            cur.execute(
+                """
+                INSERT INTO pdt_stats_dashboard.target_milestones
+                    (target_name, milestone_name, milestone_date, sort_order, updated_by)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    milestone_date = VALUES(milestone_date),
+                    sort_order     = VALUES(sort_order),
+                    updated_by     = VALUES(updated_by)
+                """,
+                (target_name, ms_name, ms_date_val, sort_order, saved_by),
+            )
+
         conn.commit()
         try:
             dc.update_global_targets_config()
         except Exception:
             pass
-        return jsonify(success=True, message=f"Milestones saved for {target_name}")
+        return jsonify(success=True, message=f"Milestones saved for {target_name}", saved=len(milestones))
     except Exception as exc:
         conn.rollback()
         current_app.logger.exception('Failed to save milestones for %s', target_name)

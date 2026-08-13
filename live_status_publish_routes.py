@@ -2602,6 +2602,54 @@ def api_published_mtbf_dashboard(job_id=None, target_name=None):
             'mtbf_build_table': saved_details,
         })
 
+    # ── Try JSON-backed MTBF data (same path as internal dashboard) ──
+    try:
+        from dashboard_routes import _load_mtbf_json_payload
+        _json_payload = _load_mtbf_json_payload(target, 'MTBF')
+        _json_rows = _json_payload.get('rows') or []
+        if _json_rows:
+            _series = []
+            _details = []
+            for _r in _json_rows:
+                _meta_id = str(_r.get('meta_id') or _r.get('build') or '').strip()
+                if not _meta_id:
+                    continue
+                _hours   = _num(_r.get('hours') or _r.get('total_hours'), 0.0)
+                _crashes = int(_num(_r.get('total_crashes') or _r.get('crashes'), 0.0))
+                _mtbf    = _num(_r.get('mtbf'), 0.0)
+                if not _mtbf and _hours and _crashes:
+                    _mtbf = round(_hours / _crashes, 2)
+                _series.append({
+                    'meta_id':     _meta_id,
+                    'week':        _r.get('date') or _r.get('week') or '',
+                    'total_hours': round(_hours, 2),
+                    'crashes':     _crashes,
+                    'mtbf':        round(_mtbf, 2) if _mtbf else 0,
+                    'source':      'JSON',
+                })
+                _details.append({
+                    'meta_id':     _meta_id,
+                    'build_id':    str(_r.get('build_full') or _meta_id),
+                    'hours':       round(_hours, 2),
+                    'crashes':     _crashes,
+                    'mtbf':        round(_mtbf, 2) if _mtbf else '',
+                    'source':      'JSON',
+                    'mode':        'CRM',
+                    'mtbf_details': _r.get('comments') or '',
+                    'week':        _r.get('date') or _r.get('week') or '',
+                })
+            if _series:
+                return jsonify({
+                    'success': True,
+                    'target':  target,
+                    'schema':  'json_backed',
+                    'source':  'mtbf_json',
+                    'mtbf_series':      _series,
+                    'mtbf_build_table': _details,
+                })
+    except Exception:
+        pass  # fall through to DB-backed path
+
     conn = None
     cur = None
     try:

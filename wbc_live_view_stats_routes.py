@@ -74,6 +74,100 @@ def _mtbf_json_path(target_key: str) -> str:
     return os.path.join(_store_dir(), f"mtbf_{_slug(target_key)}_Mainline_Build_Details.json")
 
 
+def _dashboard_mtbf_target_name(target_key: str, target: dict = None) -> str:
+    """Derive the dashboard target name from the WBC target.
+
+    The dashboard stores target names in dashboard_status.target_name using the
+    format: label.replace(".", "_").lower()
+    e.g. WBC label "Kobuk.LE.1.1" → dashboard target name "kobuk_le_1_1"
+
+    This must match the path used by dashboard_routes._mtbf_json_dir().
+    """
+    label = str((target or {}).get("label") or "").strip()
+    if label:
+        # Convert WBC label to dashboard target name format
+        # "Kobuk.LE.1.1" → "kobuk_le_1_1"
+        return label.replace(".", "_").lower()
+    # Fallback: use the WBC key as-is
+    return target_key
+
+
+def _dashboard_mtbf_json_path(target_key: str, target: dict = None) -> str:
+    """Return the internal dashboard MTBF JSON path for this WBC target.
+
+    Uses the dashboard target name format (label.replace(".", "_").lower()) so
+    the path matches what dashboard_routes._load_mtbf_json_payload reads from:
+      PDTBUDDY_DATA_ROOT/managed_excel/WBC/{dashboard_target_name}/mtbf_mtbf.json
+
+    e.g. WBC key "Kobuk11" / label "Kobuk.LE.1.1"
+         → managed_excel/WBC/kobuk_le_1_1/mtbf_mtbf.json
+    """
+    import re as _re
+    def _safe_slug(v):
+        return _re.sub(r'[^A-Za-z0-9_.-]+', '_', str(v or '').strip()).strip('._') or 'target'
+    dash_name = _dashboard_mtbf_target_name(target_key, target)
+    return os.path.join(_DATA_ROOT, "managed_excel", "WBC", _safe_slug(dash_name), "mtbf_mtbf.json")
+
+
+def _sync_to_dashboard_mtbf_json(target_key: str, data: dict, target: dict = None) -> None:
+    """Write WBC MTBF chart_rows to the internal dashboard MTBF JSON path.
+
+    Converts the WBC chart_rows format to the internal rows format so that
+    /api/dashboard/<target>/excel/full_table returns the same data as the
+    WBC Live View Stats page.
+
+    The path is derived from the WBC label (e.g. "Kobuk.LE.1.1" → "kobuk_le_1_1")
+    to match the dashboard_status.target_name format used by dashboard_routes.
+    """
+    try:
+        chart_rows = data.get("chart_rows") or []
+        if not chart_rows:
+            return
+        internal_rows = []
+        for i, cr in enumerate(chart_rows, 1):
+            build = str(cr.get("crm_build_id") or cr.get("meta_id") or cr.get("build") or "").strip()
+            if not build:
+                continue
+            hours   = float(cr.get("hours") or 0)
+            crashes = int(cr.get("total_crashes") or cr.get("crash") or 0)
+            mtbf    = float(cr.get("mtbf") or 0)
+            if not mtbf and hours and crashes:
+                mtbf = round(hours / crashes, 2)
+            internal_rows.append({
+                "id":            str(cr.get("id") or f"wbc_{i}"),
+                "meta_id":       build,
+                "build":         build,
+                "build_full":    build,
+                "date":          str(cr.get("date") or "")[:10],
+                "hours":         round(hours, 2),
+                "total_crashes": crashes,
+                "mtbf":          round(mtbf, 2),
+                "comments":      "",
+                "_source":       "wbc_live_view_stats",
+            })
+        if not internal_rows:
+            return
+        dash_name = _dashboard_mtbf_target_name(target_key, target)
+        payload = {
+            "target":     dash_name,
+            "view":       "MTBF",
+            "headers":    ["Meta ID", "Build(s)", "Date", "Hours", "Total Crashes", "MTBF", "Comments"],
+            "rows":       internal_rows,
+            "updated_at": data.get("updated_at") or "",
+            "_source":    "wbc_live_view_stats",
+        }
+        path = _dashboard_mtbf_json_path(target_key, target)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        import json as _json
+        with open(tmp, "w", encoding="utf-8") as fh:
+            _json.dump(payload, fh, indent=2, ensure_ascii=False)
+        os.replace(tmp, path)
+    except Exception as _e:
+        import logging as _log
+        _log.getLogger(__name__).debug("[WBC MTBF SYNC] failed for %s: %s", target_key, _e)
+
+
 def _mtbf_aux_dir() -> str:
     folder = os.path.join(_store_dir(), "mtbf")
     os.makedirs(folder, exist_ok=True)
@@ -448,7 +542,14 @@ def _load_or_sync_mainline_mtbf(target: Dict[str, str], db_cfg: Dict[str, str]) 
     mtbf_path = _mtbf_json_path(key)
     data = _read_json(mtbf_path, {})
     if data.get("chart_rows"):
-        return _coerce_wbc_mtbf_payload(data)
+        coerced = _coerce_wbc_mtbf_payload(data)
+        # Sync to internal dashboard JSON on first access (or whenever it is missing).
+        # This ensures the internal MTBF page shows the same data as the WBC Live View
+        # Stats page without requiring a manual save/sync operation.
+        internal_path = _dashboard_mtbf_json_path(key, target)
+        if not os.path.exists(internal_path):
+            _sync_to_dashboard_mtbf_json(key, coerced, target=target)
+        return coerced
     excel_path = _find_target_excel(target, db_cfg)
     if not excel_path or not os.path.exists(excel_path):
         return {"headers": [], "rows": [], "chart_rows": [], "error": f"Mainline_Build_Details Excel not found for {target.get('label') or key}", "excel_path": excel_path}
@@ -467,6 +568,7 @@ def _load_or_sync_mainline_mtbf(target: Dict[str, str], db_cfg: Dict[str, str]) 
         data["saved_json"] = mtbf_path
         _write_json(mtbf_path, data)
         _write_json(_target_json_path(key), data)
+        _sync_to_dashboard_mtbf_json(key, data, target=target)
         return data
     except Exception as exc:
         return {"headers": [], "rows": [], "chart_rows": [], "error": str(exc), "excel_path": excel_path, "sheet_name": "Mainline_Build_Details"}
@@ -1073,6 +1175,7 @@ def _save_mtbf_chart_rows(target: Dict[str, str], db_cfg: Dict[str, str], rows: 
     })
     _write_json(_mtbf_json_path(key), data)
     _write_json(_target_json_path(key), data)
+    _sync_to_dashboard_mtbf_json(key, data, target=target)
     return data
 
 
@@ -1687,6 +1790,7 @@ def api_wbc_sync():
             data["one_time_synced"] = True
             _write_json(_mtbf_json_path(target["key"]), data)
             _write_json(_target_json_path(target["key"]), data)
+            _sync_to_dashboard_mtbf_json(target["key"], data, target=target)
             synced.append({"target": target, "sheet": preferred, "rows": len(data.get("rows") or []), "chart_rows": len(data.get("chart_rows") or [])})
         except Exception as exc:
             errors.append({"target": target, "error": str(exc)})
@@ -2994,6 +3098,7 @@ def api_wbc_mtbf_upload_excel(target_key: str):
         data["saved_json"] = _mtbf_json_path(key)
         _write_json(_mtbf_json_path(key), data)
         _write_json(_target_json_path(key), data)
+        _sync_to_dashboard_mtbf_json(key, data, target=target)
         return jsonify({
             "ok": True, "target": target, "excel": data,
             "rows": len(data.get("chart_rows") or []),

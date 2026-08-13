@@ -531,7 +531,8 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
             <button class="btn btn-sm" onclick="sp2LoadActiveDevices()" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px"><i class="fas fa-rotate"></i> Refresh</button>
           </div>
         </div>
-                <div class="ad-kpi-row" id="adKpiRow"></div>
+        <div class="ad-kpi-row" id="adKpiRow"></div>
+        <div class="ad-bu-bar" id="adBuBar"></div>
         <div class="ad-tbl-wrap">
                     <table class="ad-tbl">
             <thead><tr>
@@ -1117,7 +1118,12 @@ window.sp2LoadActiveDevices = function(){
   var lbl = g('adWeekLabel');
   if(lbl) lbl.textContent = w.ws.slice(5).replace('-','/') + ' to ' + w.we.slice(5).replace('-','/');
   fetch('/api/sp2/active_devices?week_start='+encodeURIComponent(w.ws)+'&week_end='+encodeURIComponent(w.we), {cache:'no-store'})
-  .then(function(r){return r.json();})
+  .then(function(r){
+    return r.json().then(function(d){
+      if(!r.ok) throw new Error(d.message||('Request failed ('+r.status+')'));
+      return d;
+    });
+  })
   .then(function(d){
     if(!d.success){throw new Error(d.message||'Failed');}
     _adAllRows    = d.rows       || [];
@@ -1127,7 +1133,12 @@ window.sp2LoadActiveDevices = function(){
     _renderActiveDevices('ALL');
   })
   .catch(function(e){
-    if(body) body.innerHTML = '<tr><td colspan="4" style="color:#dc2626;text-align:center;padding:24px">Error: '+esc(String(e))+'</td></tr>';
+    _adLoaded = false;
+    var kpiRow = g('adKpiRow');
+    var buBar = g('adBuBar');
+    if(kpiRow) kpiRow.innerHTML = '';
+    if(buBar) buBar.innerHTML = '';
+    if(body) body.innerHTML = '<tr><td colspan="4" style="color:#dc2626;text-align:center;padding:24px"><strong>Unable to load active devices.</strong><br><span style="font-size:11px">'+esc(String(e))+'</span></td></tr>';
   });
 };
 

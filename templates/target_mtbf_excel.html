@@ -189,6 +189,27 @@
 @media(max-width:760px){.mx-upload-panel .mx-actions{align-items:stretch}.mx-upload-panel .mx-btn{justify-content:center}}
 </style>
 {% set mtbf_title_name = selected_sheet if is_compute_mtbf and selected_sheet else target_display_name %}
+
+{# ── BU PL Tab Bar (same style as WBC Live View Stats) ─────────────────── #}
+{% if bu_pl_tabs and bu_pl_tabs|length > 1 %}
+<style>
+.pl-tabbar{display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;background:#f1f5f9;border:1px solid #dbe3ee;border-radius:12px;padding:5px 8px;margin-bottom:12px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+.pl-tabbar::-webkit-scrollbar{height:4px}.pl-tabbar::-webkit-scrollbar-track{background:transparent}.pl-tabbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+.pl-tab{display:inline-flex;align-items:center;white-space:nowrap;padding:5px 13px;border-radius:8px;font-size:11.5px;font-weight:700;color:#475569;cursor:pointer;text-decoration:none;transition:all .15s;border:1.5px solid transparent;flex-shrink:0}
+.pl-tab:hover{background:#e2e8f0;color:#1e293b;text-decoration:none}
+.pl-tab.active{background:linear-gradient(135deg,#1e3a5f,#334155);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(30,58,95,.22)}
+.pl-tabbar-label{font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;padding:0 8px 0 4px;flex-shrink:0}
+</style>
+<div class="pl-tabbar">
+  <span class="pl-tabbar-label"><i class="fas fa-layer-group" style="margin-right:4px"></i>Active PLs</span>
+  {% for tab in bu_pl_tabs %}
+  <a class="pl-tab{% if tab.active %} active{% endif %}"
+     href="{{ url_for('dashboard_bp.target_mtbf_excel_page', target_name=tab.key) }}"
+     title="{{ tab.display }}">{{ tab.display }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="mx-wrap">
 <!-- duplicate hero hidden; chart card below is the page header -->
 <div class="mx-hero" style="display:none">

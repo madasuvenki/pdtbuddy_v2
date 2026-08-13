@@ -6218,17 +6218,22 @@ def _ensure_cr_debug_notes_table(cursor, target_name: str) -> str:
             scenarios     TEXT         NULL,
             tech_notes    TEXT         NULL,
             cr_notes      TEXT         NULL,
+            ai_analysis   MEDIUMTEXT   NULL,
             updated_by    VARCHAR(100) NULL,
             updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                           ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uq_cr_target (cr_id, target_name)
         )
     """)
-    # Add cr_notes column if it doesn't exist yet (for existing tables)
-    try:
-        cursor.execute(f"ALTER TABLE {table} ADD COLUMN cr_notes TEXT NULL")
-    except Exception:
-        pass  # column already exists
+    # Add columns if they don't exist yet (for existing tables)
+    for col_def in [
+        "cr_notes TEXT NULL",
+        "ai_analysis MEDIUMTEXT NULL",
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+        except Exception:
+            pass  # column already exists
     return table
 
 
@@ -6937,7 +6942,7 @@ def get_cr_debug_notes(target_name):
         cursor = conn.cursor(dictionary=True)
         table = _ensure_cr_debug_notes_table(cursor, target_name)
         conn.commit()
-        cursor.execute(f"SELECT cr_id, scenarios, tech_notes, cr_notes, updated_by, updated_at FROM {table} WHERE target_name = %s", (target_name,))
+        cursor.execute(f"SELECT cr_id, scenarios, tech_notes, cr_notes, ai_analysis, updated_by, updated_at FROM {table} WHERE target_name = %s", (target_name,))
         rows = cursor.fetchall() or []
         # make datetime serialisable
         for r in rows:
@@ -6982,21 +6987,23 @@ def save_cr_debug_notes(target_name):
         table = _ensure_cr_debug_notes_table(cursor, target_name)
 
         for row in rows:
-            cr_id     = (row.get('cr_id')     or '').strip()
+            cr_id      = (row.get('cr_id')      or '').strip()
             scenarios  = (row.get('scenarios')  or '').strip()
             tech_notes = (row.get('tech_notes') or '').strip()
             cr_notes   = (row.get('cr_notes')   or '').strip()
+            ai_analysis = (row.get('ai_analysis') or '').strip()
             if not cr_id:
                 continue
             cursor.execute(f"""
-                INSERT INTO {table} (cr_id, target_name, scenarios, tech_notes, cr_notes, updated_by)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO {table} (cr_id, target_name, scenarios, tech_notes, cr_notes, ai_analysis, updated_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
-                    scenarios  = VALUES(scenarios),
-                    tech_notes = VALUES(tech_notes),
-                    cr_notes   = VALUES(cr_notes),
-                    updated_by = VALUES(updated_by)
-            """, (cr_id, target_name, scenarios, tech_notes, cr_notes, current_user.get_id()))
+                    scenarios   = IF(VALUES(scenarios)  <> '', VALUES(scenarios),  scenarios),
+                    tech_notes  = IF(VALUES(tech_notes) <> '', VALUES(tech_notes), tech_notes),
+                    cr_notes    = IF(VALUES(cr_notes)   <> '', VALUES(cr_notes),   cr_notes),
+                    ai_analysis = IF(VALUES(ai_analysis)<> '', VALUES(ai_analysis),ai_analysis),
+                    updated_by  = VALUES(updated_by)
+            """, (cr_id, target_name, scenarios, tech_notes, cr_notes, ai_analysis, current_user.get_id()))
 
         conn.commit()
         return jsonify({"success": True, "saved": len(rows)})
@@ -9113,7 +9120,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
     # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
     # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 

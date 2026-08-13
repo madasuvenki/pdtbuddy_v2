@@ -10236,44 +10236,163 @@ def api_sp2_active_devices():
     if not ws:
         ws = we - timedelta(days=6)
 
-    conn = get_mysql_connection_db(bu_key=None)
-    if not conn:
-        return jsonify(success=False, message='DB unavailable'), 503
-    cur = conn.cursor(dictionary=True)
-    try:
-        cur.execute("""
-            SELECT
-                COALESCE(NULLIF(TRIM(bu),''), 'Unknown') AS bu,
-                COALESCE(NULLIF(TRIM(target),''),
-                         NULLIF(TRIM(pl_id),''), 'Unknown') AS target,
-                chip_ids,
-                total_hours
-            FROM pdt_stats_dashboard.sp2_build_consolidate
-            WHERE week_start=%s AND week_end=%s
-            ORDER BY bu, target
-        """, (ws.isoformat(), we.isoformat()))
-        db_rows = cur.fetchall() or []
-    finally:
-        cur.close(); conn.close()
+    # Match /api/sp2/builds source selection exactly: prefer the frozen weekly
+    # Smart Build snapshot, then fall back to the same live Axiom query.
+    _seed_sp2_build_type_overrides_from_axiom(ws, we, _current_user_identifier())
+    _cap_sp2_static_snapshot_hours(ws, we)
+    static_rows = _load_sp2_static_build_rows(ws, we)
+    using_static = bool(static_rows)
 
-    # â”€â”€ build bu -> target -> chip_set and hours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    bu_tgt_chips = _dd(lambda: _dd(set))   # bu -> target -> set of chip_ids
-    bu_tgt_hours = _dd(lambda: _dd(float)) # bu -> target -> total hours
-
-    for r in db_rows:
-        bu  = str(r.get('bu')     or 'Unknown').strip() or 'Unknown'
-        tgt = str(r.get('target') or 'Unknown').strip() or 'Unknown'
-        hrs = float(r.get('total_hours') or 0)
-        bu_tgt_hours[bu][tgt] += hrs
-        chips_raw = r.get('chip_ids') or '[]'
+    if using_static:
+        db_rows = []
+        for row in static_rows:
+            db_rows.append({
+                'software_product': row.get('pl_id'),
+                'target': row.get('target'),
+                'bu': row.get('bu'),
+                'taxonomy_path': '/PDT/QIPL',
+                'city_team': 'QIPL',
+                'device_count': row.get('device_count'),
+                'chip_ids': row.get('chip_ids'),
+                'hours_live': row.get('hours'),
+            })
+    else:
+        conn = get_mysql_connection_db(bu_key=None)
+        if not conn:
+            return jsonify(success=False, message='DB unavailable'), 503
+        cur = conn.cursor(dictionary=True)
         try:
-            chips = _json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
+            live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+            cur.execute(f"""
+                SELECT software_product, taxonomy_path, city_team,
+                       device_count, chip_ids, ({live_h}) AS hours_live
+                FROM `pdt_stats_dashboard`.`axiom_job_summary`
+                WHERE taxonomy_path LIKE '/PDT%'
+                  AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
+                  AND taxonomy_path NOT LIKE '/PDT/China%'
+                  AND taxonomy_path NOT LIKE '/PDT/SanDiego%'
+                  AND city_team = 'QIPL'
+                  AND team != 'HWPDT'
+                  AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
+                  AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s)
+                       OR state IN ('Running','JobSetup'))
+            """, (we.isoformat(), ws.isoformat()))
+            db_rows = cur.fetchall() or []
+        except Exception as exc:
+            return jsonify(success=False, message=str(exc)), 500
+        finally:
+            cur.close()
+            conn.close()
+
+    dash_map = _fetch_dashboard_status_map()
+    bu_override_map = _fetch_sp2_previous_bu_map(
+        before_week_start=we + timedelta(days=1)
+    )
+
+    # Builds reports the consolidate chip union when it exists. Apply the same
+    # universe to the BU breakdown so its grand total cannot disagree.
+    builds_chip_universe = set()
+    try:
+        chip_conn = get_mysql_connection_db(bu_key=None)
+        if chip_conn:
+            chip_cur = chip_conn.cursor(dictionary=True)
+            chip_cur.execute(
+                f"SELECT chip_ids FROM `{_QIPL_DB}`.`{_SP2_BUILD_CONSOLIDATE_TABLE}` "
+                "WHERE week_start=%s AND week_end=%s",
+                (ws.isoformat(), we.isoformat()),
+            )
+            for chip_row in chip_cur.fetchall() or []:
+                raw = chip_row.get('chip_ids') or []
+                try:
+                    values = (_json.loads(raw)
+                              if isinstance(raw, str)
+                              else list(raw or []))
+                except Exception:
+                    values = []
+                builds_chip_universe.update(
+                    str(chip).strip() for chip in values if str(chip).strip()
+                )
+            chip_cur.close()
+            chip_conn.close()
+    except Exception:
+        builds_chip_universe = set()
+
+    # A target can have both broad /PDT and explicit /PDT/QIPL rows. Match the
+    # Builds tab by counting broad-row devices only when no explicit QIPL
+    # device row exists for that target.
+    explicit_qipl_targets = set()
+    for row in db_rows:
+        taxonomy = str(row.get('taxonomy_path') or '').strip().upper()
+        if not taxonomy.startswith('/PDT/QIPL'):
+            continue
+        pl_id = _sp2_pl_group(str(row.get('software_product') or '').strip())
+        target = (str(row.get('target') or '').strip()
+                  or _swpdt_target_from_product(pl_id)
+                  or pl_id)
+        if int(row.get('device_count') or 0) > 0:
+            explicit_qipl_targets.add(str(target or '').upper())
+
+    # Explicit BU corrections for targets whose dashboard/saved metadata is
+    # missing or historically mapped to the wrong BU.
+    active_device_bu_overrides = {
+        'ALISO.LE': 'MOBILE',
+        'KAILUA.LA': 'MOBILE',
+        'KAMORTA.LA': 'MOBILE',
+        'KENAI.WP': 'COMPUTE',
+        'LAHAINA.LA': 'MOBILE',
+    }
+
+    bu_tgt_chips = _dd(lambda: _dd(set))
+    bu_tgt_hours = _dd(lambda: _dd(float))
+
+    for row in db_rows:
+        pl_id = _sp2_pl_group(str(row.get('software_product') or '').strip())
+        target = (str(row.get('target') or '').strip()
+                  or _swpdt_target_from_product(pl_id)
+                  or pl_id)
+        if not target:
+            continue
+
+        taxonomy = str(row.get('taxonomy_path') or '').strip().upper()
+        target_key = str(target).upper()
+        device_eligible = (
+            taxonomy.startswith('/PDT/QIPL')
+            or (
+                taxonomy == '/PDT'
+                and target_key not in explicit_qipl_targets
+                and str(row.get('city_team') or 'QIPL').strip().upper() == 'QIPL'
+            )
+        )
+        if not device_eligible:
+            continue
+
+        chips_raw = row.get('chip_ids') or []
+        try:
+            chips = (_json.loads(chips_raw)
+                     if isinstance(chips_raw, str)
+                     else list(chips_raw or []))
         except Exception:
             chips = []
-        for c in chips:
-            c = str(c).strip()
-            if c:
-                bu_tgt_chips[bu][tgt].add(c)
+        chips = {str(chip).strip() for chip in chips if str(chip).strip()}
+        if builds_chip_universe:
+            chips.intersection_update(builds_chip_universe)
+        if not chips:
+            continue
+
+        dash = (_match_dashboard_with_fallback(target, dash_map)
+                or _match_dashboard_with_fallback(pl_id, dash_map)
+                or {})
+        bu = (
+            active_device_bu_overrides.get(target_key)
+            or bu_override_map.get((target_key, str(pl_id).upper()))
+            or bu_override_map.get((target_key, ''))
+            or str(row.get('bu') or '').strip()
+            or str(dash.get('bu') or '').strip()
+            or 'Unknown'
+        )
+        bu = _normalize_bu(bu) or 'Unknown'
+        bu_tgt_chips[bu][target].update(chips)
+        bu_tgt_hours[bu][target] += float(row.get('hours_live') or 0)
 
     # â”€â”€ compute per-target truly unique devices (cross-target dedup) â”€â”€â”€â”€â”€â”€
     # For each target: exclusive chips + proportional share of chips shared
@@ -10346,6 +10465,7 @@ def api_sp2_active_devices():
         grand_total=len(grand_union),
         week_start=ws.isoformat(),
         week_end=we.isoformat(),
+        source='static_snapshot' if using_static else 'axiom_job_summary',
     )
 
 

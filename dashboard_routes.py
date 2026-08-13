@@ -459,6 +459,150 @@ def _mtbf_json_path(target_name, view_name):
 
 
 
+def _load_wbc_mtbf_fallback(target_name: str) -> list:
+    """Read MTBF rows from the WBC Live View Stats JSON cache when the internal JSON is empty.
+
+    WBC Live View Stats stores MTBF data at:
+      PDTBUDDY_DATA_ROOT/managed_excel/WBC/LIVE_VIEW_STATS/mtbf_{slug}_Mainline_Build_Details.json
+
+    The slug is derived from the WBC *key* (e.g. "Kobuk11"), NOT the dashboard target name
+    (e.g. "kobuk_le_1_1"). So slug-based matching alone is insufficient.
+
+    Strategy:
+      1. Try slug variants of target_name (fast path for exact matches).
+      2. Glob all mtbf_*_Mainline_Build_Details.json files and match by target_label
+         field inside the JSON (label.replace(".", "_").lower() == target_name.lower()).
+    """
+    import re as _re
+    from glob import glob as _glob
+
+    def _wbc_slug(value):
+        return _re.sub(r'[^A-Za-z0-9_.-]+', '_', str(value or '').strip()).strip('_') or 'target'
+
+    def _extract_rows(wbc_data):
+        chart_rows = wbc_data.get('chart_rows') or []
+        rows = []
+        for i, cr in enumerate(chart_rows, 1):
+            build = str(cr.get('crm_build_id') or cr.get('meta_id') or cr.get('build') or '').strip()
+            if not build:
+                continue
+            hours   = float(cr.get('hours') or 0)
+            crashes = int(cr.get('total_crashes') or cr.get('crash') or 0)
+            mtbf    = float(cr.get('mtbf') or 0)
+            if not mtbf and hours and crashes:
+                mtbf = round(hours / crashes, 2)
+            rows.append({
+                'id':            str(cr.get('id') or f'wbc_{i}'),
+                'meta_id':       build,
+                'build':         build,
+                'build_full':    build,
+                'date':          str(cr.get('date') or '')[:10],
+                'hours':         round(hours, 2),
+                'total_crashes': crashes,
+                'mtbf':          round(mtbf, 2),
+                'comments':      '',
+                '_source':       'wbc_live_view_stats',
+            })
+        return rows
+
+    data_root = os.environ.get('PDTBUDDY_DATA_ROOT', r'\\Sphere\pdtqipl_internal\PDTBuddy')
+    wbc_store = os.path.join(data_root, 'managed_excel', 'WBC', 'LIVE_VIEW_STATS')
+
+    # ── Pass 1: slug-based (fast path) ──────────────────────────────────────
+    # Try multiple slug variants so Kobuk.LE.1.1 / Kobuk_LE_1_1 both resolve
+    slug_variants = list(dict.fromkeys([
+        _wbc_slug(target_name),
+        _wbc_slug(target_name.replace('_', '.')),
+        _wbc_slug(target_name.replace('.', '_')),
+        _wbc_slug(target_name.upper()),
+        _wbc_slug(target_name.lower()),
+    ]))
+
+    for slug in slug_variants:
+        wbc_json = os.path.join(wbc_store, f'mtbf_{slug}_Mainline_Build_Details.json')
+        if not os.path.exists(wbc_json):
+            continue
+        try:
+            with open(wbc_json, 'r', encoding='utf-8') as fh:
+                wbc_data = json.load(fh)
+            rows = _extract_rows(wbc_data)
+            if rows:
+                logger.debug('[MTBF JSON] WBC fallback (slug): %d rows from %s', len(rows), wbc_json)
+                return rows
+        except Exception:
+            logger.debug('[MTBF JSON] WBC fallback failed for %s', wbc_json, exc_info=True)
+
+    # ── Pass 2: glob + label/key match ──────────────────────────────────────
+    # The WBC key (e.g. "Kobuk11") differs from the dashboard target name
+    # (e.g. "kobuk_le_1_1"). Scan all LIVE_VIEW_STATS JSON files and try three
+    # sub-strategies per file:
+    #   2a. target_label exact norm match  ("Kobuk.LE.1.1" → "kobukle11")
+    #   2b. target_key exact norm match    ("Kuno_LE_1_1"  → "kunole11")
+    #   2c. target_key base+digits match   ("Kobuk31" base="kobuk" digits="31"
+    #                                       vs "kobuk_le_3_1" base="kobuk" digits="31")
+    #       This handles keys without LE/LA in the name (Kobuk11, Tarang10, Pinnacles_2_3).
+    if not os.path.isdir(wbc_store):
+        return []
+    norm_target = _re.sub(r'[^a-z0-9]+', '', target_name.lower())
+
+    def _base_digits(s):
+        """Extract (base_name, version_digits) after stripping LE/LA separators.
+
+        Examples:
+          "Kobuk31"        → ("kobuk", "31")
+          "kobuk_le_3_1"   → ("kobuk", "31")   [_le_ stripped]
+          "Tarang10"       → ("tarang", "10")
+          "tarang_le_1_0"  → ("tarang", "10")   [_le_ stripped]
+          "Pinnacles_2_3"  → ("pinnacles", "23")
+          "pinnacles_le_2_3" → ("pinnacles", "23") [_le_ stripped]
+        """
+        s = _re.sub(r'[_.]l[ae][_.]', '_', str(s or '').lower())
+        base_m = _re.match(r'^([a-z]+)', s)
+        base = base_m.group(1) if base_m else ''
+        digits = _re.sub(r'[^0-9]', '', s)
+        return base, digits
+
+    tgt_base, tgt_digits = _base_digits(target_name)
+
+    for wbc_json in _glob(os.path.join(wbc_store, 'mtbf_*_Mainline_Build_Details.json')):
+        try:
+            with open(wbc_json, 'r', encoding='utf-8') as fh:
+                wbc_data = json.load(fh)
+
+            # 2a. Match by target_label (present in JSONs created/saved after the fix)
+            label = str(wbc_data.get('target_label') or '').strip()
+            if label:
+                norm_label = _re.sub(r'[^a-z0-9]+', '', label.lower())
+                if norm_label == norm_target:
+                    rows = _extract_rows(wbc_data)
+                    if rows:
+                        logger.debug('[MTBF JSON] WBC fallback (label): %d rows from %s', len(rows), wbc_json)
+                        return rows
+
+            # 2b/2c. Match by target_key (for old JSONs without target_label)
+            key = str(wbc_data.get('target_key') or '').strip()
+            if key:
+                # 2b: exact norm match (handles keys that already contain LE/LA)
+                norm_key = _re.sub(r'[^a-z0-9]+', '', key.lower())
+                if norm_key == norm_target:
+                    rows = _extract_rows(wbc_data)
+                    if rows:
+                        logger.debug('[MTBF JSON] WBC fallback (key-norm): %d rows from %s', len(rows), wbc_json)
+                        return rows
+                # 2c: base+digits match (handles keys without LE, e.g. Kobuk31, Tarang10)
+                key_base, key_digits = _base_digits(key)
+                if (key_base and key_base == tgt_base
+                        and key_digits and key_digits == tgt_digits):
+                    rows = _extract_rows(wbc_data)
+                    if rows:
+                        logger.debug('[MTBF JSON] WBC fallback (key-base-digits): %d rows from %s', len(rows), wbc_json)
+                        return rows
+
+        except Exception:
+            logger.debug('[MTBF JSON] WBC fallback (glob) failed for %s', wbc_json, exc_info=True)
+    return []
+
+
 def _load_mtbf_json_payload(target_name, view_name):
     view = _mtbf_json_view_name(view_name)
     path = _mtbf_json_path(target_name, view)
@@ -481,14 +625,34 @@ def _load_mtbf_json_payload(target_name, view_name):
                         _save_mtbf_json_payload(target_name, view, data)
                     except Exception:
                         logger.debug('[MTBF JSON] legacy copy failed: %s -> %s', read_path, path, exc_info=True)
-                return data
+                # If the JSON exists but has no rows, still try WBC fallback below
+                if data.get('rows'):
+                    return data
         except Exception:
             logger.debug('[MTBF JSON] load failed: %s', read_path, exc_info=True)
     try:
         from dashboard_common import get_bu_for_target
-        is_compute = (get_bu_for_target(target_name) or '').upper() == 'COMPUTE'
+        bu = (get_bu_for_target(target_name) or '').upper()
+        is_compute = bu == 'COMPUTE'
     except Exception:
+        bu = ''
         is_compute = False
+
+    # ── WBC fallback: read from WBC Live View Stats JSON cache ──────────────
+    # The WBC Live View Stats page stores MTBF data in a separate JSON file.
+    # When the internal JSON is empty, serve that data so both pages show the
+    # same MTBF trend without requiring a manual re-entry.
+    if bu == 'WBC':
+        wbc_rows = _load_wbc_mtbf_fallback(target_name)
+        if wbc_rows:
+            return {
+                'target':  target_name,
+                'view':    view,
+                'headers': _mtbf_json_headers(False),
+                'rows':    wbc_rows,
+                '_source': 'wbc_live_view_stats',
+            }
+
     return {'target': target_name, 'view': view, 'headers': _mtbf_json_headers(is_compute), 'rows': []}
 
 
@@ -1965,6 +2129,7 @@ def _build_sidebar_context(target_name, active_section="mtbf-table"):
         "target_name": target_name,
         "target_display_name": target_display_name,
         "active_section": active_section,
+        "bu_pl_tabs": _get_bu_pl_tabs(target_name),
         **_build_bu_shell_context(active_bu_key),
         "toggle_mode": "CRM",
         "pdt_type": "SWPDT",
@@ -4905,6 +5070,92 @@ def device_summary(target_name, base_context, cursor, conn):
 # ---------------------------------------------------------------------
 # MAIN DASHBOARD VIEW
 # ---------------------------------------------------------------------
+def _get_bu_pl_tabs(target_name: str) -> list:
+    """Return all active PLs for the same BU as target_name, for the tab bar.
+
+    Strategy:
+      1. Look up bu_key directly from dashboard_status for the current target.
+      2. If not found (target not in dashboard_status), fall back to
+         get_bu_for_target() and resolve the exact stored bu_key value.
+      3. Fetch all active siblings with the same bu_key.
+
+    Returns a list of {key, display, active} dicts sorted by display_name.
+    """
+    try:
+        conn = get_mysql_connection_db('pdt_stats_dashboard')
+        if not conn:
+            return []
+        cur = conn.cursor(dictionary=True)
+        try:
+            # Step 1: get the exact bu_key stored for this target
+            cur.execute(
+                """
+                SELECT bu_key
+                FROM pdt_stats_dashboard.dashboard_status
+                WHERE LOWER(target_name) = LOWER(%s) AND is_active = 1
+                ORDER BY id DESC LIMIT 1
+                """,
+                (target_name,),
+            )
+            row = cur.fetchone()
+            bu_key = str(row['bu_key']).strip() if (row and row.get('bu_key')) else None
+
+            # Step 2 (fallback): use get_bu_for_target if not in dashboard_status
+            if not bu_key:
+                try:
+                    from dashboard_common import get_bu_for_target as _gbu
+                    raw_bu = (_gbu(target_name) or '').strip()
+                    if raw_bu:
+                        # Resolve exact stored bu_key (case-insensitive)
+                        cur.execute(
+                            """
+                            SELECT DISTINCT bu_key
+                            FROM pdt_stats_dashboard.dashboard_status
+                            WHERE UPPER(bu_key) = UPPER(%s) AND is_active = 1
+                            LIMIT 1
+                            """,
+                            (raw_bu,),
+                        )
+                        bk_row = cur.fetchone()
+                        bu_key = str(bk_row['bu_key']).strip() if (bk_row and bk_row.get('bu_key')) else raw_bu
+                except Exception:
+                    pass
+
+            if not bu_key:
+                logger.debug('[BU PL TABS] no bu_key found for %s', target_name)
+                return []
+
+            # Step 3: fetch all active targets for that BU
+            cur.execute(
+                """
+                SELECT target_name, display_name
+                FROM pdt_stats_dashboard.dashboard_status
+                WHERE bu_key = %s AND is_active = 1
+                ORDER BY COALESCE(NULLIF(TRIM(display_name),''), target_name)
+                """,
+                (bu_key,),
+            )
+            rows = cur.fetchall() or []
+        finally:
+            try: cur.close(); conn.close()
+            except Exception: pass
+
+        tabs = []
+        seen = set()
+        for r in rows:
+            key = str(r.get('target_name') or '').strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            display = str(r.get('display_name') or key).strip() or key
+            tabs.append({'key': key, 'display': display, 'active': key == target_name})
+        logger.debug('[BU PL TABS] %s → bu_key=%s → %d tabs', target_name, bu_key, len(tabs))
+        return tabs
+    except Exception:
+        logger.debug('[BU PL TABS] failed for %s', target_name, exc_info=True)
+        return []
+
+
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-json")
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-excel")
 @login_required
@@ -4939,6 +5190,7 @@ def target_mtbf_excel_page(target_name):
     chart_data = _mtbf_json_to_chart_data(json_rows, is_compute=is_compute_mtbf)
     ctx = _build_sidebar_context(target_name, active_section='mtbf-excel')
     ctx['target_display_name'] = get_display_name_for_target(target_name).upper()
+    ctx['bu_pl_tabs'] = _get_bu_pl_tabs(target_name)
     return render_template(
         'target_mtbf_excel.html',
         excel_path='',
@@ -7084,6 +7336,7 @@ def dashboard(target_name, section="dashboard"):
             "hwpdt_available": hwpdt_available,
             "pv_hidden_tabs": _get_pv_hidden_tabs(target_name),
             "unique_cr_path": (_tinfo.get("unique_cr_path") or ""),
+            "bu_pl_tabs": _get_bu_pl_tabs(target_name),
         }
 
                                 # Tab visibility:

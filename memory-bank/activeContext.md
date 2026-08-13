@@ -1,5 +1,105 @@
 # Active Context
 
+### WBC MTBF Dashboard Sync Path Fix — Complete (2026-08-13)
+
+**Root cause (two-part):**
+
+1. **Write path mismatch**: `_sync_to_dashboard_mtbf_json` was writing to `managed_excel/WBC/Kobuk11/mtbf_mtbf.json` (WBC key slug) but the dashboard reads from `managed_excel/WBC/kobuk_le_1_1/mtbf_mtbf.json` (label-derived slug).
+
+2. **Fallback slug mismatch**: `_load_wbc_mtbf_fallback` in `dashboard_routes.py` tried slug variants of the dashboard `target_name` (e.g. `kobuk_le_1_1`) to find `LIVE_VIEW_STATS/mtbf_kobuk_le_1_1_Mainline_Build_Details.json`, but the actual file is named `mtbf_Kobuk11_Mainline_Build_Details.json` (WBC key). No slug variant matched.
+
+**Fix 1 — `wbc_live_view_stats_routes.py`**:
+- Added `_dashboard_mtbf_target_name(target_key, target)` — converts WBC label `"Kobuk.LE.1.1"` → `"kobuk_le_1_1"`
+- Updated `_dashboard_mtbf_json_path` to use the label-derived name
+- Updated `_sync_to_dashboard_mtbf_json(target_key, data, target=None)` to accept and use the target dict
+- Updated all 5 callers to pass `target=target`
+
+**Fix 2 — `dashboard_routes.py`**:
+- Updated `_load_wbc_mtbf_fallback` to add **Pass 2: glob + label match**:
+  - Globs all `LIVE_VIEW_STATS/mtbf_*_Mainline_Build_Details.json` files
+  - Reads `target_label` field from each JSON (e.g. `"Kobuk.LE.1.1"`)
+  - Normalizes: `re.sub(r'[^a-z0-9]+', '', label.lower())` == `re.sub(r'[^a-z0-9]+', '', target_name.lower())`
+  - e.g. `"kobukle11"` == `"kobukle11"` ✓ → returns rows from that file
+
+**Validation**: Both `py -3 -m py_compile wbc_live_view_stats_routes.py` and `py -3 -m py_compile dashboard_routes.py` → SYNTAX OK
+
+---
+
+### WBC Internal MTBF Page Fallback from Live View Stats (2026-08-13)
+
+**Problem:** WBC Live View Stats page (`Kobuk.LE.1.1`) showed full MTBF trend data, but the internal PDT Buddy MTBF page for the same target showed "No builds yet."
+
+**Root cause:**
+- WBC Live View Stats stores MTBF data at: `PDTBUDDY_DATA_ROOT/managed_excel/WBC/LIVE_VIEW_STATS/mtbf_{slug}_Mainline_Build_Details.json`
+- Internal MTBF page reads from: `PDTBUDDY_DATA_ROOT/managed_excel/WBC/{target}/mtbf_mtbf.json`
+- These are two different JSON files; the internal one was empty.
+
+**Fix in `dashboard_routes.py`:**
+- Added `_load_wbc_mtbf_fallback(target_name)` helper that:
+  - Tries multiple slug variants (dots, underscores, upper/lower) to find the WBC Live View Stats JSON
+  - Converts `chart_rows` format (crm_build_id, hours, crash, mtbf) to internal `rows` format (meta_id, build, build_full, hours, total_crashes, mtbf, date)
+  - Returns empty list if no WBC JSON found
+- Updated `_load_mtbf_json_payload` to:
+  - After checking internal JSON (and finding it empty), check if BU is WBC
+  - If WBC, call `_load_wbc_mtbf_fallback()` and return converted rows
+  - Falls through to empty response only if WBC fallback also returns nothing
+  - Also handles case where internal JSON exists but has no rows (still tries WBC fallback)
+
+**Result:** Internal MTBF page now shows the same data as WBC Live View Stats page without requiring manual re-entry. Users can still add/edit builds independently on the internal page (those rows take priority over the WBC fallback).
+
+**Validation:** `py -3 -m py_compile dashboard_routes.py` → SYNTAX_OK
+
+---
+
+### Multi-Milestone, Open CR AI Saving, MTBF JSON Unification (2026-08-13)
+
+**Task 1: Dashboard Multi-Milestone Support**
+
+- Added `_ensure_target_milestones_table()` in `src/admin_milestone_routes.py` — creates `pdt_stats_dashboard.target_milestones` table (target_name, milestone_name, milestone_date, sort_order, updated_by, updated_at).
+- Added `GET /admin/get_milestones_v2/<target>` endpoint — returns all milestones from new table, falls back to `dashboard_status` columns (es_date/fc_date/cs_date/cs1_date) if empty.
+- Updated `save_milestones_route` to also upsert ALL milestones into `target_milestones` table (backward compat: still updates `dashboard_status` es/fc/cs/cs1 columns).
+- Updated `templates/target_layout.html` milestone modal:
+  - Added CS2, CS3, CS4, CS5 date inputs (fixed grid)
+  - Added dynamic "Add Custom Milestone" section (CS6, CS7, …) with add/remove rows
+  - Save payload now collects all fixed + custom milestones
+  - Modal loads existing milestones from `/admin/get_milestones_v2/<target>` on open
+  - `tdMsAddCustomRow(name, date)` global function for dynamic rows
+
+**Task 2: Open CR Analysis QGenie AI Saving**
+
+- Added `ai_analysis MEDIUMTEXT NULL` column to `_ensure_cr_debug_notes_table` in `app.py` (with idempotent ALTER TABLE for existing tables).
+- Updated `get_cr_debug_notes` to return `ai_analysis` field in SELECT.
+- Updated `save_cr_debug_notes` to handle `ai_analysis` field with `IF(VALUES(ai_analysis)<>'', VALUES(ai_analysis), ai_analysis)` merge logic.
+- Updated `templates/open_cr_analysis.html`:
+  - `boot()` now loads `ai_analysis` from DB into `NOTES_MAP`
+  - `renderTable()` pre-populates `AI_CACHE` from saved DB analysis; shows existing analysis immediately (no re-run needed)
+  - `_buildAiCell()` helper renders saved analysis with Refresh button, or Analyse button if none
+  - `runAiAnalysis()` saves AI result to DB via `POST /api/cr_debug_notes/<target>` after successful QGenie response
+
+**Task 3: MTBF JSON Path Unification**
+
+- Updated `api_published_mtbf_dashboard` in `live_status_publish_routes.py`:
+  - After checking saved job rows, now tries JSON-backed MTBF data via `_load_mtbf_json_payload(target, 'MTBF')` from `dashboard_routes`
+  - If JSON has rows, converts to `mtbf_series`/`mtbf_build_table` format and returns immediately
+  - Falls through to DB-backed path only if JSON is empty
+  - This means external MTBF page (`pdt_mtbf_ext_report.html`) now reads from the same JSON files as the internal dashboard MTBF page
+
+**Validation:** `py -3 -m py_compile src/admin_milestone_routes.py app.py live_status_publish_routes.py` → SYNTAX_OK
+
+---
+
+### Smart Build Weekly Active Devices direct Axiom source (2026-08-12)
+- Fixed the blank Weekly Active Devices tab in `/weekly-report/smart-build-report`.
+- `/api/sp2/active_devices` no longer depends on pre-generated
+  `sp2_build_consolidate` rows.
+- It now reads `pdt_stats_dashboard.axiom_job_summary` directly using the same
+  selected-week overlap query, QIPL eligibility rules, PL/target normalization,
+  dashboard-status BU mapping, and saved BU priority used by Smart Build Builds.
+- Unique chip IDs are grouped BU-wise and target-wise, retaining the existing
+  cross-target deduplication and hours-proportional allocation response.
+- Restored the missing `adBuBar` DOM container and improved HTTP/error display.
+- Validated Python compilation, Jinja parsing, and `git diff --check`.
+
 ### New external-link job SP table discovery (2026-08-08)
 - Added the missing compatibility endpoint
   `/api/live_status/targets/<target>/sp_table_options`, backed by the existing
