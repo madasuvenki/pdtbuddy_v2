@@ -5156,10 +5156,10 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                 logger.debug('[BU PL TABS] no bu_key found for %s', target_name)
                 return []
 
-            # Step 3: fetch all active targets for that BU
+            # Step 3: fetch all active targets for that BU (include db_name + bu for table check)
             cur.execute(
                 """
-                SELECT target_name, display_name
+                SELECT target_name, display_name, db_name, bu
                 FROM pdt_stats_dashboard.dashboard_status
                 WHERE bu_key = %s AND is_active = 1
                 ORDER BY COALESCE(NULLIF(TRIM(display_name),''), target_name)
@@ -5167,6 +5167,58 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                 (bu_key,),
             )
             rows = cur.fetchall() or []
+
+            # ── Step 4: filter to targets that actually have DB tables ──────────
+            # Build a set of (schema, table_prefix) pairs, then check
+            # information_schema.TABLES once per schema to avoid N queries.
+            from config import BU_DATABASE_MAPPING as _BU_DB_MAP
+            # Collect schema → set of prefixes to check
+            schema_prefixes: dict = {}  # schema -> {prefix, ...}
+            row_meta: dict = {}         # target_name -> (schema, prefix)
+            for r in rows:
+                tname = str(r.get('target_name') or '').strip()
+                if not tname:
+                    continue
+                db_n = str(r.get('db_name') or tname).strip().lower()
+                bu_v = str(r.get('bu') or bu_key or '').strip().upper()
+                schema = _BU_DB_MAP.get(bu_v, '')
+                if not schema:
+                    # fallback: try to resolve via get_schema_for_target
+                    try:
+                        schema = get_schema_for_target(tname) or ''
+                    except Exception:
+                        schema = ''
+                if schema:
+                    schema_prefixes.setdefault(schema, set()).add(db_n)
+                    row_meta[tname] = (schema, db_n)
+
+            # Query information_schema once per schema
+            existing_tables: set = set()  # (schema, table_name)
+            for schema, prefixes in schema_prefixes.items():
+                if not prefixes:
+                    continue
+                # Build LIKE patterns for the three table suffixes we care about
+                like_clauses = []
+                params_is = []
+                for pfx in prefixes:
+                    for suffix in ('_unique_crs', '_jiras', '_openjiras'):
+                        like_clauses.append("TABLE_NAME = %s")
+                        params_is.append(f"{pfx}{suffix}")
+                if not like_clauses:
+                    continue
+                try:
+                    cur.execute(
+                        f"SELECT TABLE_NAME FROM information_schema.TABLES "
+                        f"WHERE TABLE_SCHEMA = %s AND ({' OR '.join(like_clauses)})",
+                        tuple([schema] + params_is),
+                    )
+                    for tr in (cur.fetchall() or []):
+                        tbl = str(tr.get('TABLE_NAME') or '').strip()
+                        if tbl:
+                            existing_tables.add((schema, tbl))
+                except Exception:
+                    pass
+
         finally:
             try: cur.close(); conn.close()
             except Exception: pass
@@ -5178,9 +5230,20 @@ def _get_bu_pl_tabs(target_name: str) -> list:
             if not key or key in seen:
                 continue
             seen.add(key)
+            # Only include this PL if at least one of its tables exists
+            meta = row_meta.get(key)
+            if meta:
+                schema, prefix = meta
+                has_table = any(
+                    (schema, f"{prefix}{sfx}") in existing_tables
+                    for sfx in ('_unique_crs', '_jiras', '_openjiras')
+                )
+                if not has_table:
+                    logger.debug('[BU PL TABS] skipping %s — no DB tables found', key)
+                    continue
             display = str(r.get('display_name') or key).strip() or key
             tabs.append({'key': key, 'display': display, 'active': key == target_name})
-        logger.debug('[BU PL TABS] %s → bu_key=%s → %d tabs', target_name, bu_key, len(tabs))
+        logger.debug('[BU PL TABS] %s → bu_key=%s → %d tabs (after table filter)', target_name, bu_key, len(tabs))
         return tabs
     except Exception:
         logger.debug('[BU PL TABS] failed for %s', target_name, exc_info=True)
