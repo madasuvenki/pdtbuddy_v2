@@ -755,10 +755,16 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
       </div>
     </div>
     <div style="padding:16px; max-height:70vh; overflow-y:auto;">
-      <!-- SP Name -->
+      <!-- SP Name + OneView fetch -->
       <div style="margin-bottom:14px;">
         <div style="font-size:12px; font-weight:900; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;">SP Name</div>
-        <input id="tdMsSpName" type="text" placeholder="Enter SP name" style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700; box-sizing:border-box;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="tdMsSpName" type="text" placeholder="e.g. Kobuk.LE.3.1" style="flex:1;padding:12px 14px; border:1px solid #d1d5db; border-radius:12px; font-weight:700; box-sizing:border-box;">
+          <button type="button" id="tdMsFetchOneview" title="Auto-fetch ES/FC/CS dates from OneView" style="flex-shrink:0;border:none;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(37,99,235,.25);">
+            <i class="fas fa-cloud-download-alt"></i> Fetch from OneView
+          </button>
+        </div>
+        <div id="tdMsOneviewStatus" style="font-size:11px;font-weight:700;margin-top:5px;display:none;"></div>
       </div>
       <!-- Fixed milestone grid -->
       <div style="font-size:11px; font-weight:900; color:#6366f1; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #e5e7eb;"><i class="fas fa-calendar-alt"></i> Milestone Dates</div>
@@ -1007,8 +1013,13 @@ function onMsFlipCard(flip){const el=document.getElementById('onMsFlip'); if(el)
     try {
       const resp = await fetch('/admin/get_milestones_v2/' + encodeURIComponent({{ target_name|tojson }}));
       const data = await resp.json();
-      if (data.success && data.milestones) {
-        const ms = data.milestones;
+      if (data.success) {
+        /* Pre-fill SP name from dashboard_status */
+        const spInput = document.getElementById('tdMsSpName');
+        if (spInput && data.sp_name && !spInput.value) {
+          spInput.value = data.sp_name;
+        }
+        const ms = data.milestones || {};
         const fixedMap = {ES:'tdMsEs',FC:'tdMsFc',CS:'tdMsCs',CS1:'tdMsCs1',CS2:'tdMsCs2',CS3:'tdMsCs3',CS4:'tdMsCs4',CS5:'tdMsCs5'};
         Object.entries(fixedMap).forEach(function(kv) {
           const el = document.getElementById(kv[1]);
@@ -1030,6 +1041,66 @@ function onMsFlipCard(flip){const el=document.getElementById('onMsFlip'); if(el)
       if (statusEl) statusEl.textContent = '';
     }
   }
+
+  /* ── OneView auto-fetch button ── */
+  (function() {
+    const fetchBtn = document.getElementById('tdMsFetchOneview');
+    const statusDiv = document.getElementById('tdMsOneviewStatus');
+    if (!fetchBtn) return;
+
+    function _showOvStatus(msg, color) {
+      if (!statusDiv) return;
+      statusDiv.style.display = 'block';
+      statusDiv.style.color = color || '#6b7280';
+      statusDiv.textContent = msg;
+    }
+
+    fetchBtn.addEventListener('click', async function() {
+      const spName = (document.getElementById('tdMsSpName')?.value || '').trim();
+      if (!spName) {
+        _showOvStatus('⚠ Enter an SP name first (e.g. Kobuk.LE.3.1)', '#d97706');
+        return;
+      }
+      fetchBtn.disabled = true;
+      fetchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching…';
+      _showOvStatus('Connecting to OneView…', '#6b7280');
+      try {
+        const resp = await fetch('/admin/fetch_sp_milestones', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({sp_name: spName, target_name: {{ target_name|tojson }}})
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.success === false) {
+          _showOvStatus('✗ ' + (data.message || 'OneView fetch failed'), '#dc2626');
+          return;
+        }
+        const ms = data.milestones || {};
+        const fixedMap = {ES:'tdMsEs', FC:'tdMsFc', CS:'tdMsCs', CS1:'tdMsCs1'};
+        let filled = 0;
+        Object.entries(fixedMap).forEach(function(kv) {
+          const val = ms[kv[0]];
+          const el = document.getElementById(kv[1]);
+          if (el && val) {
+            /* OneView returns dates as YYYY-MM-DD or ISO strings */
+            const dateStr = String(val).slice(0, 10);
+            el.value = dateStr;
+            filled++;
+          }
+        });
+        if (filled > 0) {
+          _showOvStatus('✓ Fetched ' + filled + ' milestone date(s) from OneView (source: ' + (data.source || 'oneview') + '). Review and Save.', '#16a34a');
+        } else {
+          _showOvStatus('⚠ OneView returned no ES/FC/CS dates for "' + spName + '". Check SP name.', '#d97706');
+        }
+      } catch(e) {
+        _showOvStatus('✗ Error: ' + (e.message || 'Network error'), '#dc2626');
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Fetch from OneView';
+      }
+    });
+  })();
 
   if(modalSave){modalSave.addEventListener('click',async function(){
     /* Collect all fixed milestones */

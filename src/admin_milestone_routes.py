@@ -327,7 +327,20 @@ def get_milestones_v2_route(target_name):
                 if row.get(col):
                     milestones[key] = str(row[col])
 
-        return jsonify(success=True, target_name=target_name, milestones=milestones)
+        # Also return sp_name from dashboard_status so the modal can pre-fill it
+        sp_name_val = ''
+        try:
+            cur.execute(
+                "SELECT sp_name FROM pdt_stats_dashboard.dashboard_status "
+                "WHERE target_name=%s AND is_active=1 ORDER BY id ASC LIMIT 1",
+                (target_name,),
+            )
+            sp_row = cur.fetchone() or {}
+            sp_name_val = (sp_row.get('sp_name') or '').strip()
+        except Exception:
+            pass
+
+        return jsonify(success=True, target_name=target_name, milestones=milestones, sp_name=sp_name_val)
     except Exception as exc:
         current_app.logger.exception('Failed to get milestones v2 for %s', target_name)
         return jsonify(success=False, message=str(exc)), 500
