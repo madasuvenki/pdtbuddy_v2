@@ -3857,54 +3857,85 @@ def get_dashboard_meta_for_target(target_name):
 def build_milestone_phase_context(target_name):
     """
     Returns a milestone_phase dict for target_layout.html sidebar card.
-    Compares milestone dates against today to compute phase/progress/status.
-    has_milestone_data=True when at least one date is set (hides Refetch button).
+    Reads from target_milestones table first (all milestones), falls back to
+    dashboard_status es_date/fc_date/cs_date columns.
     """
     try:
         from datetime import date as _date, datetime as _dt
-        dash_meta = get_dashboard_meta_for_target(target_name) or {}
+
+        ms_dict = {}  # {milestone_name: date_value}
+
+        # ── 1. Try target_milestones table (has all milestones incl CS2..CS5, custom) ──
+        try:
+            _conn = get_mysql_connection_db("pdt_stats_dashboard")
+            try:
+                _cur = _conn.cursor(dictionary=True)
+                _cur.execute(
+                    "SELECT milestone_name, milestone_date FROM pdt_stats_dashboard.target_milestones "
+                    "WHERE target_name=%s ORDER BY sort_order ASC, milestone_name ASC",
+                    (target_name,)
+                )
+                for r in (_cur.fetchall() or []):
+                    ms_dict[r['milestone_name']] = r['milestone_date']
+            finally:
+                _conn.close()
+        except Exception:
+            ms_dict = {}
+
+        # ── 2. Fall back to dashboard_status columns if target_milestones is empty ──
+        if not ms_dict:
+            try:
+                dash_meta = get_dashboard_meta_for_target(target_name) or {}
+                for key, col in [("ES", "ES"), ("FC", "FC"), ("CS", "CS")]:
+                    if dash_meta.get(col):
+                        ms_dict[key] = dash_meta[col]
+            except Exception:
+                pass
+
+        if not ms_dict:
+            return None
+
         def _to_date(val):
             if isinstance(val, _date): return val
             if isinstance(val, _dt):   return val.date()
             if not val or str(val).strip().upper() == "TBD": return None
             try: return _dt.fromisoformat(str(val)).date()
             except Exception: return None
-        es_dt = _to_date(dash_meta.get("ES"))
-        fc_dt = _to_date(dash_meta.get("FC"))
-        cs_dt = _to_date(dash_meta.get("CS"))
+
         today = _date.today()
 
-        # True when at least one milestone date is actually set
-        has_milestone_data = any([es_dt, fc_dt, cs_dt])
+        # Build milestone list from ALL available milestones
+        all_milestones = []
+        for name, date_val in ms_dict.items():
+            d = _to_date(date_val)
+            all_milestones.append({
+                "label":  name,
+                "date":   d.strftime("%Y-%m-%d") if d else "TBD",
+                "status": "done" if (d and today >= d) else ("upcoming" if d else "pending"),
+            })
 
-        def _fmt(d): return d.strftime("%Y-%m-%d") if d else "TBD"
-        def _status(d):
-            if not d: return "pending"
-            return "done" if today >= d else "upcoming"
-
-        milestones = [
-            {"label": "ES", "date": _fmt(es_dt), "status": _status(es_dt)},
-            {"label": "FC", "date": _fmt(fc_dt), "status": _status(fc_dt)},
-            {"label": "CS", "date": _fmt(cs_dt), "status": _status(cs_dt)},
-        ]
+        # ES/FC/CS for progress bar calculation
+        es_dt = _to_date(ms_dict.get("ES"))
+        fc_dt = _to_date(ms_dict.get("FC"))
+        cs_dt = _to_date(ms_dict.get("CS"))
 
         if not es_dt or today < es_dt:
             phase, pct = "Pre-ES", 0
         elif fc_dt and today < fc_dt:
             seg = max(0.0, min(1.0, (today - es_dt).days / max(1, (fc_dt - es_dt).days)))
-            phase, pct = "ES ? FC", round(33 + seg * 33)
+            phase, pct = "ES \u2192 FC", round(33 + seg * 33)
         elif cs_dt and today < cs_dt:
-            seg = max(0.0, min(1.0, (today - fc_dt).days / max(1, (cs_dt - fc_dt).days)))
-            phase, pct = "FC ? CS", round(66 + seg * 34)
+            seg = max(0.0, min(1.0, (today - (fc_dt or es_dt)).days / max(1, (cs_dt - (fc_dt or es_dt)).days)))
+            phase, pct = "FC \u2192 CS", round(66 + seg * 34)
         else:
-            phase, pct = "CS Done ?", 100
+            phase, pct = "CS Done \u2713", 100
 
         return {
             "phase_label":        "Release Milestones",
             "phase_name":         phase,
             "progress_pct":       pct,
-            "milestones":         milestones,
-            "has_milestone_data": has_milestone_data,
+            "milestones":         all_milestones,
+            "has_milestone_data": True,
         }
     except Exception as _e:
         import traceback

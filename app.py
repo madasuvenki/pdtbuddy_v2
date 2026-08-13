@@ -6209,7 +6209,9 @@ def _ensure_cr_debug_notes_table(cursor, target_name: str) -> str:
     schema = get_schema_for_target(target_name)
     info   = dc.get_targets_config().get(target_name) or {}
     prefix = str(info.get('db_prefix', target_name)).lower()
-    table  = f"`{schema}`.`{prefix}_cr_debug_notes`"
+    schema_plain = schema.strip('`')
+    table_name   = f"{prefix}_cr_debug_notes"
+    table  = f"`{schema_plain}`.`{table_name}`"
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {table} (
             id            BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -6225,15 +6227,33 @@ def _ensure_cr_debug_notes_table(cursor, target_name: str) -> str:
             UNIQUE KEY uq_cr_target (cr_id, target_name)
         )
     """)
-    # Add columns if they don't exist yet (for existing tables)
-    for col_def in [
-        "cr_notes TEXT NULL",
-        "ai_analysis MEDIUMTEXT NULL",
+    # Add columns if they don't exist yet (for existing tables).
+    # Use INFORMATION_SCHEMA to check existence before ALTER TABLE to avoid
+    # silent failures from duplicate-column errors masking real issues.
+    try:
+        cursor.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s",
+            (schema_plain, table_name)
+        )
+        rows = cursor.fetchall() or []
+        # Handle both dict and tuple cursor results
+        if rows and isinstance(rows[0], dict):
+            existing_cols = {r.get('COLUMN_NAME', '').lower() for r in rows}
+        else:
+            existing_cols = {str(r[0]).lower() for r in rows}
+    except Exception:
+        existing_cols = set()
+
+    for col_name, col_def in [
+        ("cr_notes",    "cr_notes TEXT NULL"),
+        ("ai_analysis", "ai_analysis MEDIUMTEXT NULL"),
     ]:
-        try:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
-        except Exception:
-            pass  # column already exists
+        if col_name not in existing_cols:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+            except Exception:
+                pass  # column was added concurrently or already exists
     return table
 
 

@@ -366,27 +366,31 @@ def save_milestones_route():
     try:
         cur = conn.cursor()
         # ── 1. Update legacy dashboard_status columns (backward compat) ──
-        if sp_name:
-            cur.execute(
-                """
-                UPDATE pdt_stats_dashboard.dashboard_status
-                SET sp_name=%s,
-                    es_date=%s, fc_date=%s, cs_date=%s, cs1_date=%s,
-                    milestone_source=%s, last_milestone_sync_at=NOW(), last_milestone_sync_by=%s
-                WHERE target_name=%s AND is_active=1
-                """,
-                (sp_name, es, fc, cs, cs1, 'manual', saved_by, target_name),
-            )
-        else:
-            cur.execute(
-                """
-                UPDATE pdt_stats_dashboard.dashboard_status
-                SET es_date=%s, fc_date=%s, cs_date=%s, cs1_date=%s,
-                    milestone_source=%s, last_milestone_sync_at=NOW(), last_milestone_sync_by=%s
-                WHERE target_name=%s AND is_active=1
-                """,
-                (es, fc, cs, cs1, 'manual', saved_by, target_name),
-            )
+        # Wrapped in its own try/except so missing columns don't block target_milestones upsert
+        try:
+            if sp_name:
+                cur.execute(
+                    """
+                    UPDATE pdt_stats_dashboard.dashboard_status
+                    SET sp_name=%s,
+                        es_date=%s, fc_date=%s, cs_date=%s, cs1_date=%s,
+                        milestone_source=%s, last_milestone_sync_at=NOW(), last_milestone_sync_by=%s
+                    WHERE target_name=%s AND is_active=1
+                    """,
+                    (sp_name, es, fc, cs, cs1, 'manual', saved_by, target_name),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE pdt_stats_dashboard.dashboard_status
+                    SET es_date=%s, fc_date=%s, cs_date=%s, cs1_date=%s,
+                        milestone_source=%s, last_milestone_sync_at=NOW(), last_milestone_sync_by=%s
+                    WHERE target_name=%s AND is_active=1
+                    """,
+                    (es, fc, cs, cs1, 'manual', saved_by, target_name),
+                )
+        except Exception as _ds_exc:
+            current_app.logger.warning('dashboard_status milestone update skipped (column may not exist): %s', _ds_exc)
 
         # ── 2. Upsert ALL milestones into target_milestones table ──
         _ensure_target_milestones_table(cur)
