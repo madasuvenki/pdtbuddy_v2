@@ -640,20 +640,7 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
             renderPlTabs(SERVER_TABS);
             return;
           }
-
-          /* Fallback: fetch from existing /api/cr_overview/targets endpoint */
-          if(!ACTIVE_BU) return;
-          fetch('/api/cr_overview/targets?bu=' + encodeURIComponent(ACTIVE_BU))
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-              var targets = d.targets || [];
-              if(!targets.length) return;
-              var tabs = targets.map(function(key){
-                return { key: key, display: key.replace(/_/g,' ').toUpperCase(), active: key === TARGET };
-              });
-              renderPlTabs(tabs);
-            })
-            .catch(function(){});
+          /* No fallback API – only show PLs that have been verified by the server */
         })();
         </script>
       </div>

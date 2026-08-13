@@ -5118,10 +5118,11 @@ def _get_bu_pl_tabs(target_name: str) -> list:
             return []
         cur = conn.cursor(dictionary=True)
         try:
-            # Step 1: get the exact bu_key stored for this target
+            # Step 1: get the BU for this target from dashboard_status
+            # NOTE: the column is 'bu' (not 'bu_key') in this schema
             cur.execute(
                 """
-                SELECT bu_key
+                SELECT bu
                 FROM pdt_stats_dashboard.dashboard_status
                 WHERE LOWER(target_name) = LOWER(%s) AND is_active = 1
                 ORDER BY id DESC LIMIT 1
@@ -5129,50 +5130,40 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                 (target_name,),
             )
             row = cur.fetchone()
-            bu_key = str(row['bu_key']).strip() if (row and row.get('bu_key')) else None
+            bu_key = str(row['bu']).strip().upper() if (row and row.get('bu')) else None
 
             # Step 2 (fallback): use get_bu_for_target if not in dashboard_status
             if not bu_key:
                 try:
                     from dashboard_common import get_bu_for_target as _gbu
-                    raw_bu = (_gbu(target_name) or '').strip()
+                    raw_bu = (_gbu(target_name) or '').strip().upper()
                     if raw_bu:
-                        # Resolve exact stored bu_key (case-insensitive)
-                        cur.execute(
-                            """
-                            SELECT DISTINCT bu_key
-                            FROM pdt_stats_dashboard.dashboard_status
-                            WHERE UPPER(bu_key) = UPPER(%s) AND is_active = 1
-                            LIMIT 1
-                            """,
-                            (raw_bu,),
-                        )
-                        bk_row = cur.fetchone()
-                        bu_key = str(bk_row['bu_key']).strip() if (bk_row and bk_row.get('bu_key')) else raw_bu
+                        bu_key = raw_bu
                 except Exception:
                     pass
 
             if not bu_key:
-                logger.debug('[BU PL TABS] no bu_key found for %s', target_name)
+                logger.debug('[BU PL TABS] no bu found for %s', target_name)
                 return []
 
             # Step 3: fetch all active targets for that BU (include db_name + bu for table check)
+            # NOTE: the display name column is 'target_display' (not 'display_name') in this schema
             cur.execute(
                 """
-                SELECT target_name, display_name, db_name, bu
+                SELECT target_name, target_display, db_name, bu
                 FROM pdt_stats_dashboard.dashboard_status
-                WHERE bu_key = %s AND is_active = 1
-                ORDER BY COALESCE(NULLIF(TRIM(display_name),''), target_name)
+                WHERE UPPER(bu) = %s AND is_active = 1
+                ORDER BY COALESCE(NULLIF(TRIM(target_display),''), target_name)
                 """,
                 (bu_key,),
             )
             rows = cur.fetchall() or []
 
             # ── Step 4: filter to targets that actually have DB tables ──────────
-            # Build a set of (schema, table_prefix) pairs, then check
-            # information_schema.TABLES once per schema to avoid N queries.
+            # Use BU_DATABASE_MAPPING directly (like the original) to resolve schema
+            # from the 'bu' column in each row — this is more reliable than
+            # get_schema_for_target() which depends on the in-memory BUSINESS_UNITS cache.
             from config import BU_DATABASE_MAPPING as _BU_DB_MAP
-            # Collect schema → set of prefixes to check
             schema_prefixes: dict = {}  # schema -> {prefix, ...}
             row_meta: dict = {}         # target_name -> (schema, prefix)
             for r in rows:
@@ -5181,9 +5172,9 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                     continue
                 db_n = str(r.get('db_name') or tname).strip().lower()
                 bu_v = str(r.get('bu') or bu_key or '').strip().upper()
+                # Resolve schema: BU_DATABASE_MAPPING first, then get_schema_for_target
                 schema = _BU_DB_MAP.get(bu_v, '')
                 if not schema:
-                    # fallback: try to resolve via get_schema_for_target
                     try:
                         schema = get_schema_for_target(tname) or ''
                     except Exception:
@@ -5192,12 +5183,15 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                     schema_prefixes.setdefault(schema, set()).add(db_n)
                     row_meta[tname] = (schema, db_n)
 
-            # Query information_schema once per schema
+            # Query information_schema once per schema.
+            # Use a per-schema connection so the credentials have access to
+            # that schema's tables (pdt_stats_dashboard creds may not see
+            # pdt_stats_wbc tables in information_schema).
             existing_tables: set = set()  # (schema, table_name)
             for schema, prefixes in schema_prefixes.items():
                 if not prefixes:
                     continue
-                # Build LIKE patterns for the three table suffixes we care about
+                # Build exact TABLE_NAME conditions for the three suffixes
                 like_clauses = []
                 params_is = []
                 for pfx in prefixes:
@@ -5206,18 +5200,42 @@ def _get_bu_pl_tabs(target_name: str) -> list:
                         params_is.append(f"{pfx}{suffix}")
                 if not like_clauses:
                     continue
+                # Try with a schema-specific connection first, fall back to cur
+                # Use database_name= (not bu_key=) so we connect directly to pdt_stats_wbc etc.
+                _schema_conn = None
+                _schema_cur = None
                 try:
-                    cur.execute(
-                        f"SELECT TABLE_NAME FROM information_schema.TABLES "
-                        f"WHERE TABLE_SCHEMA = %s AND ({' OR '.join(like_clauses)})",
-                        tuple([schema] + params_is),
-                    )
-                    for tr in (cur.fetchall() or []):
-                        tbl = str(tr.get('TABLE_NAME') or '').strip()
-                        if tbl:
-                            existing_tables.add((schema, tbl))
+                    _schema_conn = get_mysql_connection_db(database_name=schema)
+                    if _schema_conn:
+                        _schema_cur = _schema_conn.cursor(dictionary=True)
+                        _schema_cur.execute(
+                            f"SELECT TABLE_NAME FROM information_schema.TABLES "
+                            f"WHERE TABLE_SCHEMA = %s AND ({' OR '.join(like_clauses)})",
+                            tuple([schema] + params_is),
+                        )
+                        for tr in (_schema_cur.fetchall() or []):
+                            tbl = str(tr.get('TABLE_NAME') or '').strip()
+                            if tbl:
+                                existing_tables.add((schema, tbl))
+                    else:
+                        # Fallback: use existing pdt_stats_dashboard cursor
+                        cur.execute(
+                            f"SELECT TABLE_NAME FROM information_schema.TABLES "
+                            f"WHERE TABLE_SCHEMA = %s AND ({' OR '.join(like_clauses)})",
+                            tuple([schema] + params_is),
+                        )
+                        for tr in (cur.fetchall() or []):
+                            tbl = str(tr.get('TABLE_NAME') or '').strip()
+                            if tbl:
+                                existing_tables.add((schema, tbl))
                 except Exception:
                     pass
+                finally:
+                    try:
+                        if _schema_cur: _schema_cur.close()
+                        if _schema_conn: _schema_conn.close()
+                    except Exception:
+                        pass
 
         finally:
             try: cur.close(); conn.close()
@@ -5230,18 +5248,20 @@ def _get_bu_pl_tabs(target_name: str) -> list:
             if not key or key in seen:
                 continue
             seen.add(key)
-            # Only include this PL if at least one of its tables exists
+            # Only include this PL if schema resolved AND at least one table exists.
+            # If schema couldn't be resolved, skip to be safe (avoids 1146 errors).
             meta = row_meta.get(key)
-            if meta:
-                schema, prefix = meta
-                has_table = any(
-                    (schema, f"{prefix}{sfx}") in existing_tables
-                    for sfx in ('_unique_crs', '_jiras', '_openjiras')
-                )
-                if not has_table:
-                    logger.debug('[BU PL TABS] skipping %s — no DB tables found', key)
-                    continue
-            display = str(r.get('display_name') or key).strip() or key
+            if not meta:
+                logger.debug('[BU PL TABS] skipping %s — schema not resolved', key)
+                continue
+            schema, prefix = meta
+            # Require unique_crs table specifically — the dashboard crashes without it.
+            # Targets that only have jiras/openjiras but no unique_crs are not ready.
+            has_unique_crs = (schema, f"{prefix}_unique_crs") in existing_tables
+            if not has_unique_crs:
+                logger.debug('[BU PL TABS] skipping %s — no unique_crs table', key)
+                continue
+            display = str(r.get('target_display') or key).strip() or key
             tabs.append({'key': key, 'display': display, 'active': key == target_name})
         logger.debug('[BU PL TABS] %s → bu_key=%s → %d tabs (after table filter)', target_name, bu_key, len(tabs))
         return tabs
