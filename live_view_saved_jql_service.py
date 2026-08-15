@@ -388,6 +388,45 @@ def run_due_jobs_once(limit: int = 5) -> Dict[str, Any]:
     return {"ok": not errors, "processed": processed, "errors": errors}
 
 
+def _extract_build_id(value: Any) -> str:
+    """Best-effort build/meta extraction used by the headless scheduler."""
+    text = str(value or "")
+    patterns = [
+        r"\b[A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b",
+        r"\b[A-Z][A-Z0-9_.-]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b",
+        r"\b(?:META|BUILD)[-_ ]?0*([0-9]{3,6})\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.I)
+        if match:
+            return match.group(0)
+    quoted = re.findall(r'"([^"\r\n]{6,160})"', text)
+    return next((q for q in quoted if re.search(r"\d{3,6}", q) and re.search(r"[A-Za-z]", q)), "")
+
+
+def _flatten_report_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Normalize common consolidated-report shapes into rows for cache metadata."""
+    if not isinstance(report, dict):
+        return []
+    rows = report.get("rows") or report.get("flat_rows")
+    if isinstance(rows, list):
+        return [r for r in rows if isinstance(r, dict)]
+    out: List[Dict[str, Any]] = []
+    for key in ("hierarchical_report", "jiras"):
+        section = report.get(key)
+        if isinstance(section, list):
+            out.extend([r for r in section if isinstance(r, dict)])
+        elif isinstance(section, dict):
+            for value in section.values():
+                if isinstance(value, list):
+                    out.extend([r for r in value if isinstance(r, dict)])
+                elif isinstance(value, dict):
+                    nested = value.get("rows") or value.get("jiras") or value.get("items")
+                    if isinstance(nested, list):
+                        out.extend([r for r in nested if isinstance(r, dict)])
+    return out
+
+
 def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a registry job without a browser/session."""
     import sys
@@ -400,8 +439,9 @@ def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
 
     jql = str(job.get("jql") or "").strip()
     filter_id = str(job.get("filter_id") or _filter_id(jql) or JIRA_PDT_FILTER_ID)
+    build_id = _extract_build_id(jql) or _extract_build_id(job.get("name"))
     raw = run_consolidated_report(
-        build_ids=[],
+        build_ids=[build_id] if build_id else [],
         filter_id=filter_id,
         traverse=True,
         enrich_orbit=True,
@@ -409,6 +449,11 @@ def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
         custom_jql=jql,
     )
     payload = dict(raw) if isinstance(raw, dict) else {"result": raw}
+    rows = _flatten_report_rows(payload)
+    if rows and not payload.get("rows"):
+        payload["rows"] = rows
+    if rows and not payload.get("flat_rows"):
+        payload["flat_rows"] = rows
     payload.update({
         "ok": True,
         "source": "Central saved-JQL scheduler",
@@ -416,6 +461,8 @@ def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
         "domain": job.get("domain"),
         "filter_id": job.get("filter_id"),
         "jql": jql,
+        "build_id": build_id,
+        "row_count": int(payload.get("row_count") or len(rows)),
         "registry_key": job.get("unique_key"),
     })
     return payload
