@@ -197,7 +197,7 @@
       <div class="section-title" style="font-size:11px;margin:6px 0 8px"><i class="fas fa-cube" style="color:#f97316"></i> Deployment Summary</div>
       <div id="overviewKpis">
         <!-- Row 1: 5 current-meta cards -->
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px">
           <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">📈</div><div id="ovKMtbf" class="num" style="font-size:38px;line-height:1">—</div><div class="lbl" style="margin-top:6px">Current PDT MTBF</div>
           </button>
@@ -213,6 +213,9 @@
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">🐛</div><div id="ovKOpenCr" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open CR (Current Meta)</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
+            <div class="ico" style="font-size:18px;margin-bottom:10px">💥</div><div id="ovKCurrentMetaCrashes" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Total Crashes Excl. Invalid (Current Meta)</div>
           </button>
         </div>
         <!-- Hidden elements for backward compat (MTBF data, not shown) -->
@@ -1125,6 +1128,7 @@ function updateRunningJqlCount(count){
   setText('ovKOpenJira',        jql.open_jiras   || 0);  // Open/Unmapped JIRAs
   setText('ovKOpenCr',          jql.crs          || 0);  // Unique valid CRs
   setText('ovKTotalJirasBuild', jql.mapped_jiras || 0);  // Mapped JIRAs (WPST etc.)
+  setText('ovKCurrentMetaCrashes', jql.jiras || Math.max(0,(jql.rows||0)-(jql.invalid||0))); // Total valid crashes/JIRA rows
   setText('kOpenJiraMeta',      jql.jiras || 0);
   // Invalid sub-note under Valid JIRAs card
   const invNoteEl = document.getElementById('ovKInvalidNote');
@@ -1276,6 +1280,7 @@ function wbcSjqlRunCard(id, force){
       setText('ovKOpenCr',          d.valid_cr_count          !== undefined ? d.valid_cr_count          : (d.cr_count          || 0));
       setText('ovKTotalJirasBuild', d.valid_mapped_jira_count !== undefined ? d.valid_mapped_jira_count : (d.mapped_jira_count || 0));
       setText('ovKOpenJira',        d.valid_open_jira_count   !== undefined ? d.valid_open_jira_count   : (d.open_jira_count   || 0));
+      setText('ovKCurrentMetaCrashes', d.valid_jira_count !== undefined ? d.valid_jira_count : Math.max(0,(d.row_count||((d.rows||d.flat_rows||[]).length)||0)-(d.invalid_count||0)));
       }
       const timingEl = document.getElementById('wbctiming_'+_wbcDomId(id));
       if(timingEl) timingEl.innerHTML =
@@ -1306,6 +1311,18 @@ function _wbcRowType(r){const rt=String(r['Row Type']||'').trim();if(rt==='cr'||
 function _wbcIssueKey(row){return String((row&&row.JIRA)||(row&&row.jira)||(row&&row.stability_ticket)||(row&&row.jira_id)||(row&&row.key)||'').trim().toUpperCase();}
 function _wbcCrKey(row){return String((row&&row.CR)||(row&&row.cr)||(row&&row.mapped_cr)||(row&&row.cr_id)||'').trim();}
 function _wbcUniqueBy(rows, keyFn){const out=[], seen=new Set();(rows||[]).forEach(r=>{const k=String(keyFn(r)||'').trim();if(!k||seen.has(k))return;seen.add(k);out.push(r);});return out;}
+function _wbcGroupByCr(allRows, keyFn){
+  const map=new Map(), countMap=new Map();
+  (allRows||[]).forEach(r=>{
+    const k=String(keyFn(r)||'').trim(); if(!k) return;
+    countMap.set(k,(countMap.get(k)||0)+1);
+    if(!map.has(k)) map.set(k,Object.assign({},r));
+  });
+  return Array.from(map.values()).map(r=>{
+    const k=String(keyFn(r)||'').trim();
+    return Object.assign({},r,{'CR Count': countMap.get(k)||1});
+  });
+}
 function _wbcReportTableHtml(rows, cols, uid){
   const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead>`;
   const tbody = `<tbody id="${uid}">${rows.length?rows.map((r,i)=>{const inv=_isInvalidRow(r);const bg=inv?"background:#fff1f2":i%2?"background:#f8fafc":"";return `<tr style="${bg}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}${inv?"<br><span style=\"background:#fca5a5;color:#7f1d1d;border-radius:3px;font-size:8px;font-weight:900;padding:0 3px\">INV</span>":""}</td>${cols.map(c=>`<td style="max-width:320px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join("")}</tr>`;}).join(''):'<tr><td colspan="99" class="empty">No rows.</td></tr>'}</tbody>`;
@@ -1353,20 +1370,8 @@ function _wbcRenderReport(el, d, tab){
   const _mappedAllRows = rows.filter(r=>_wbcRowType(r)==='mapped_jira');
   const _openAllRows   = rows.filter(r=>_wbcRowType(r)==='open');
   // Group by CR key and pick the first row as representative, inject CR Count
-  function _groupByCr(allRows, keyFn){
-    const map=new Map(), countMap=new Map();
-    allRows.forEach(r=>{
-      const k=String(keyFn(r)||'').trim(); if(!k) return;
-      countMap.set(k,(countMap.get(k)||0)+1);
-      if(!map.has(k)) map.set(k,Object.assign({},r));
-    });
-    return Array.from(map.values()).map(r=>{
-      const k=String(keyFn(r)||'').trim();
-      return Object.assign({},r,{'CR Count': countMap.get(k)||1});
-    });
-  }
-  const crRows     = _groupByCr(_crAllRows,     r=>_wbcCrKey(r));
-  const mappedRows = _groupByCr(_mappedAllRows, r=>_wbcCrKey(r)||_wbcIssueKey(r));
+  const crRows     = _wbcGroupByCr(_crAllRows,     r=>_wbcCrKey(r));
+  const mappedRows = _wbcGroupByCr(_mappedAllRows, r=>_wbcCrKey(r)||_wbcIssueKey(r));
   const openRows   = _wbcUniqueBy(_openAllRows, _wbcIssueKey);
   // Counts: unique CRs/mapped-tickets (not JIRA occurrences)
   const crCount     = crRows.length;
@@ -1424,10 +1429,13 @@ function _cmjSwitch(uid, tab){
 
 function renderCurrentMetaOverview(d, buildId){
   if(!d) return;
-  const rows = d.rows||d.flat_rows||[];
-  const crRows    = rows.filter(r=>_wbcRowType(r)==='cr');
-  const mappedRows= rows.filter(r=>_wbcRowType(r)==='mapped_jira');
-  const openRows  = rows.filter(r=>_wbcRowType(r)==='open');
+   const rows = d.rows||d.flat_rows||[];
+   const _crAllRows     = rows.filter(r=>_wbcRowType(r)==='cr');
+   const _mappedAllRows = rows.filter(r=>_wbcRowType(r)==='mapped_jira');
+   const _openAllRows   = rows.filter(r=>_wbcRowType(r)==='open');
+   const crRows    = _wbcGroupByCr(_crAllRows, r=>_wbcCrKey(r));
+   const mappedRows= _wbcGroupByCr(_mappedAllRows, r=>_wbcCrKey(r)||_wbcIssueKey(r));
+   const openRows  = _wbcUniqueBy(_openAllRows, _wbcIssueKey);
   const crCount   = crRows.length;
   const mappedCount=mappedRows.length;
   const openCount = openRows.length;
@@ -1457,13 +1465,13 @@ function renderCurrentMetaOverview(d, buildId){
     </div>
     <div style="text-align:center;padding:14px 10px;border-radius:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2)">
       <div style="font-size:28px;font-weight:1000;color:#7c3aed">${crCount+mappedCount}</div>
-      <div style="font-size:9px;font-weight:900;color:#6d28d9;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">CRs (JQL)</div>
+      <div style="font-size:9px;font-weight:900;color:#6d28d9;text-transform:uppercase;margin-top:4px;letter-spacing:.06em">Unique CRs / Mapped Tickets</div>
     </div>
   </div>`;
 
   // Current Meta CR Details
   const crBox=document.getElementById('currentMetaCrBox');
-  setText('currentMetaCrCount', crCount+' CR(s)');
+  setText('currentMetaCrCount', crCount+' unique CR(s), '+_crAllRows.length+' JIRA occurrence(s)');
   if(crBox){
     const crCols=['CR','CR Count','CR Title','CR Status','CR Area','JIRA','Final Ticket','Final Status'].filter(c=>crRows.some(r=>r[c]!==undefined));
     crBox.innerHTML=crRows.length

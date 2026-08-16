@@ -1894,15 +1894,28 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
         return jsonify({"ok": False, "error": "Saved JQL is empty", "tab": tab}), 400
     if not force:
         cached = get_cached_report(_wbc_pdt_key(target), saved_domain, tab_id)
-        cached_jql = str((cached or {}).get("resolved_jql") or (cached or {}).get("jql") or "")
-        # Accept cache if resolved JQL matches, OR if raw_jql/filter_id matches
-        # (scheduler stores filter ID as jql; WBC endpoint resolves it to full JQL)
-        jql_match = (
-            cached_jql == jql
-            or cached_jql == raw_jql
-            or (filter_id and cached_jql == filter_id)
-            or (filter_id and cached_jql == f"filter = {filter_id}")
-        )
+        cached_resolved_jql = str((cached or {}).get("resolved_jql") or "").strip()
+        cached_effective_jql = str((cached or {}).get("jql") or "").strip()
+        cached_raw_jql = str((cached or {}).get("raw_jql") or "").strip()
+        cached_filter_id = str((cached or {}).get("filter_id") or "").strip()
+        # For saved-filter rows, NEVER accept cache only because the raw filter
+        # ID matches.  The filter ID is stable while the actual JQL/build/meta can
+        # change in Jira.  Reuse cache only when the cached resolved/effective JQL
+        # is exactly the same as the current filter-resolved JQL.
+        if filter_id:
+            jql_match = (
+                cached_resolved_jql == jql
+                or (
+                    cached_effective_jql == jql
+                    and cached_effective_jql not in (raw_jql, filter_id, f"filter = {filter_id}")
+                )
+            )
+        else:
+            jql_match = (
+                cached_resolved_jql == jql
+                or cached_effective_jql == jql
+                or cached_raw_jql == raw_jql
+            )
         if cached and jql_match:
             cached = dict(cached)
             # Flatten rows from hierarchical_report if scheduler stored raw report

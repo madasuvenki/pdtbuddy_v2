@@ -124,6 +124,7 @@ The new modules are created but app.py has NOT yet been updated to:
 **Active production application at v2.7.** Modularization in progress — new modules created, app.py not yet updated to use them.
 
 ## Known Issues
+- Fixed 2026-08-16: WBC saved-JQL scheduled refresh was not resolving JIRA saved filter IDs before running; the headless scheduler passed raw `324988` / `filter = 324988` as `custom_jql`, so scheduled report caches could show `0` rows even when the JIRA filter had ~170+ crashes. Scheduler now resolves the filter on every due run and caches latest `resolved_jql`/build metadata. Follow-up fix: WBC manual/report endpoint no longer reuses cache for saved-filter rows just because the filter ID matches; cache is reused only when the current filter-resolved JQL exactly matches the cached resolved JQL, so Jira filter edits/build-meta changes invalidate old report cache.
 - Fixed 2026-08-07: unrelated Compute targets (for example Hamoa_AL) were showing Glymur MTBF charts because `_mtbf_json_dir()` routed all Compute targets to `managed_excel/COMPUTE/GLYMUR`.
 - `VIEWER_OVERRIDE_USERS` contains `'akacham'` with comment "TEMP TEST" — suggests a temporary test configuration that may need cleanup
 - `BYPASS_USERS` is empty (commented out entries) — clean state

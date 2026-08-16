@@ -428,25 +428,56 @@ def _flatten_report_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute a registry job without a browser/session."""
+    """Execute a registry job without a browser/session.
+
+    Saved-filter jobs must be resolved at run time.  The registry intentionally
+    stores the filter identity (for example ``324988`` or ``filter = 324988``)
+    so that edits made in JIRA are picked up automatically.  Passing that raw
+    value as ``custom_jql`` makes JIRA run an invalid/stale query and the WBC
+    current-build report can cache zero rows.  Resolve the filter first, then
+    run the consolidated report with the latest JQL text.
+    """
     import sys
 
     scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
-    from config import JIRA_PDT_FILTER_ID
-    from fetch_consolidated_report import run_consolidated_report
+    from config import JIRA_PASSWORD, JIRA_PDT_FILTER_ID, JIRA_SERVER_ENDPOINT, JIRA_USER
+    from fetch_consolidated_report import connect_jira, run_consolidated_report
 
-    jql = str(job.get("jql") or "").strip()
-    filter_id = str(job.get("filter_id") or _filter_id(jql) or JIRA_PDT_FILTER_ID)
-    build_id = _extract_build_id(jql) or _extract_build_id(job.get("name"))
+    raw_jql = str(job.get("jql") or "").strip()
+    filter_id = str(job.get("filter_id") or _filter_id(raw_jql) or "").strip()
+    effective_jql = raw_jql
+    filter_resolved = False
+    filter_error = ""
+
+    if filter_id:
+        try:
+            jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+            jira_filter = jira_obj.filter(filter_id)
+            resolved = str(getattr(jira_filter, "jql", "") or "").strip()
+            if resolved:
+                effective_jql = resolved
+                filter_resolved = True
+            else:
+                filter_error = "Filter lookup returned empty JQL"
+        except Exception as exc:
+            filter_error = str(exc)
+            logger.warning("[SAVED JQL] scheduler failed to resolve filter %s: %s", filter_id, exc)
+
+    report_filter_id = filter_id or str(JIRA_PDT_FILTER_ID)
+    build_id = (
+        _extract_build_id(effective_jql)
+        or _extract_build_id(raw_jql)
+        or _extract_build_id(job.get("name"))
+    )
     raw = run_consolidated_report(
         build_ids=[build_id] if build_id else [],
-        filter_id=filter_id,
+        filter_id=report_filter_id,
         traverse=True,
         enrich_orbit=True,
         target_name=str(job.get("target_name") or "") or None,
-        custom_jql=jql,
+        custom_jql=effective_jql,
     )
     payload = dict(raw) if isinstance(raw, dict) else {"result": raw}
     rows = _flatten_report_rows(payload)
@@ -459,8 +490,12 @@ def _default_scheduler_runner(job: Dict[str, Any]) -> Dict[str, Any]:
         "source": "Central saved-JQL scheduler",
         "target_name": job.get("target_name"),
         "domain": job.get("domain"),
-        "filter_id": job.get("filter_id"),
-        "jql": jql,
+        "filter_id": filter_id,
+        "jql": effective_jql,
+        "raw_jql": raw_jql,
+        "resolved_jql": effective_jql,
+        "filter_resolved": filter_resolved,
+        "filter_error": filter_error,
         "build_id": build_id,
         "row_count": int(payload.get("row_count") or len(rows)),
         "registry_key": job.get("unique_key"),

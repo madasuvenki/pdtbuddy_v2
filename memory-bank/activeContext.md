@@ -1,5 +1,36 @@
 # Active Context
 
+### WBC saved-JQL scheduler filter refetch fix — Complete (2026-08-16)
+
+**Problem:** WBC Current Running Builds / live view status showed `0` rows even though the saved JIRA filter (for example filter `324988`) returned ~173 crashes in JIRA. The UI indicated the saved JQL schedule ran, but it was not reflecting filter edits/build-ID changes in the report or Overview page.
+
+**Root cause:**
+- Manual WBC report endpoint resolves saved filter IDs to the latest JQL before running.
+- The centralized headless scheduler in `live_view_saved_jql_service.py::_default_scheduler_runner` did **not** resolve saved filter IDs.
+- It passed the stored raw value (`324988` / `filter = 324988`) as `custom_jql` into `run_consolidated_report`.
+- Because `custom_jql` overrides the generated query, scheduled runs could execute an invalid/stale/non-expanded query and cache `0` rows, so WBC Overview/current-running-build metadata stayed wrong.
+
+**Fix in `live_view_saved_jql_service.py`:**
+- Scheduler now imports `connect_jira` and resolves the saved JIRA filter at every due run using the configured JIRA credentials.
+- `effective_jql` is set to the latest filter JQL from JIRA before calling `run_consolidated_report`.
+- Build/meta ID extraction now uses the resolved latest JQL first, then falls back to raw saved value/name.
+- Cached report now includes `raw_jql`, `resolved_jql`, `filter_resolved`, and `filter_error`, so the UI can reflect latest JQL/build metadata and troubleshooting info.
+- The persisted schedule remains filter-ID based, so future JIRA filter edits are picked up on the next scheduled refresh.
+
+**Follow-up display/count clarification:**
+- The report can legitimately return 173 detail rows while only one Orbit CR is shown, because many JIRA crash tickets can traverse/map to the same final CR.
+- Example: `CR4639794` with `CR Count = 170` means 170 JIRA occurrences mapped to that one CR, not 170 unique CRs.
+- Updated `templates/wbc_live_view_stats.html` so CR tabs and Current Meta CR details group by unique CR and show one representative row per CR with `CR Count` = JIRA occurrence count.
+- All raw returned Jira/detail rows remain visible under the **All Rows** tab.
+
+**Validation:**
+- `py -3 -m py_compile live_view_saved_jql_service.py` executed successfully.
+- `py -3 -m py_compile live_view_saved_jql_service.py wbc_live_view_stats_routes.py` executed successfully.
+- `git diff --check -- live_view_saved_jql_service.py` executed successfully.
+- `git diff --check -- live_view_saved_jql_service.py wbc_live_view_stats_routes.py templates/wbc_live_view_stats.html` executed successfully.
+
+---
+
 ### WBC MTBF Dashboard Sync Path Fix — Complete (2026-08-13)
 
 **Root cause (two-part):**
