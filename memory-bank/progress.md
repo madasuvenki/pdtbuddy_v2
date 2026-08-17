@@ -44,9 +44,11 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
+- ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode
 - ✅ Live status publishing and viewing
 - ✅ Weekly summary reports (run_weekly_summary.py)
 - ✅ Device summary API
+- ✅ Device Summary target tab now includes live MCN-wise, host-wise, running-device, and quarantine-inferred inventory reporting from cached Axiom/QDT inventory plus `axiom_job_summary` active jobs
 - ✅ Automotive live view stats (Gen5, Gen45)
 - ✅ WBC live view stats
 - ✅ Public automotive API endpoints (no auth)

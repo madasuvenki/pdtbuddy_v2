@@ -766,8 +766,10 @@ def get_devices_by_chipset(
         deps: Dict[str, Any]  = dev.get("dependencies") or {}
 
         # Attempt to extract MCN and storage-related fields from properties/dependencies
+        # NOTE: Axiom /resources API returns deviceMcn in properties (TestResourcePropertiesDto)
         mcn_val = (
-            props.get("mcn")
+            props.get("deviceMcn")      # Primary: Axiom /resources API field (swagger: TestResourcePropertiesDto.deviceMcn)
+            or props.get("mcn")
             or props.get("MCN")
             or props.get("mcnType")
             or deps.get("mcn")
@@ -775,13 +777,13 @@ def get_devices_by_chipset(
             or ""
         )
         storage_val = (
-            props.get("storage")
+            props.get("storageType")    # Primary: Axiom /resources API field
+            or props.get("storage")
             or props.get("Storage")
-            or props.get("storageType")
             or props.get("flashType")
+            or deps.get("storageType")
             or deps.get("storage")
             or deps.get("Storage")
-            or deps.get("storageType")
             or deps.get("flashType")
             or ""
         )
@@ -827,6 +829,88 @@ def get_devices_by_chipset(
         else:
             entry["site_info"] = {}
 
+        normalised.append(entry)
+
+    return normalised
+
+
+def get_devices_by_taxonomy_path(
+    taxonomy_path: str,
+    page_size: int = 200,
+) -> List[Dict[str, Any]]:
+    """Fetch all Device resources under a taxonomy path without a chipset filter.
+
+    Used when the target is identified by a software product name (e.g. 'ALANA.LA.1.0')
+    rather than a chipset, so we don't know the chipset upfront.  The caller is
+    responsible for matching the returned devices against chip IDs (ADB IDs or
+    serial numbers) from axiom_job_summary.
+
+    Args:
+        taxonomy_path: Axiom taxonomy path, e.g. ``"/PDT/China"``.
+        page_size:     Pagination page size (default 200).
+
+    Returns:
+        List of normalised device dicts (same shape as ``get_devices_by_chipset``).
+    """
+    if AXIOM_FETCH_DISABLED:
+        logger.info("[AXIOM DISABLED] get_devices_by_taxonomy_path skipped for %s.", taxonomy_path)
+        return []
+
+    base = (
+        f"/axiom/v1/public/resources"
+        f"?taxonomyPath={taxonomy_path}"
+        f"&type=Device"
+    )
+    raw_devices = list(_paginate(base, page_size=page_size))
+    logger.info(
+        "get_devices_by_taxonomy_path: fetched %d device(s) under taxonomy='%s'",
+        len(raw_devices),
+        taxonomy_path,
+    )
+
+    normalised: List[Dict[str, Any]] = []
+    for dev in raw_devices:
+        props: Dict[str, Any] = dev.get("properties") or {}
+        deps: Dict[str, Any]  = dev.get("dependencies") or {}
+        rf_card: Dict[str, Any] = props.get("RfCard") or {}
+
+        # MCN priority:
+        # 1. properties.deviceMcn  (TestResourcePropertiesDto.deviceMcn)
+        # 2. properties.RfCard.mcn (RF card MCN — shown in Axiom API docs)
+        # 3. dependencies.mcnRev   (MCN revision — shown in Axiom API docs)
+        # 4. dependencies.mcn / MCN
+        mcn_val = (
+            props.get("deviceMcn")
+            or rf_card.get("mcn")
+            or deps.get("mcnRev")
+            or deps.get("mcn")
+            or deps.get("MCN")
+            or ""
+        )
+        storage_val = (
+            props.get("storageType")
+            or deps.get("storageType")
+            or deps.get("storage")
+            or ""
+        )
+
+        entry: Dict[str, Any] = {
+            "id":            dev.get("id"),
+            "serial_number": props.get("serialNumber") or "",
+            "hostname":      dev.get("hostname") or "",
+            "location":      dev.get("location") or "",
+            "asset_tag_id":  props.get("assetTagId") or "",
+            "chipset":       deps.get("chipset") or "",
+            "chipset_rev":   deps.get("chipsetRev") or "",
+            "mcn_rev":       deps.get("mcnRev") or "",
+            "form_factor":   deps.get("formFactor") or "",
+            "device_type":   props.get("deviceType") or "",
+            "mcn":           str(mcn_val or ""),
+            "storage":       str(storage_val or ""),
+            "heartbeat":     dev.get("heartbeat") or "",
+            "taxonomy_path": taxonomy_path,
+            "_raw":          dev,
+        }
         normalised.append(entry)
 
     return normalised

@@ -488,7 +488,7 @@ def _ensure_weekly_qipl_table():
                 jira_date         DATE         NULL,
                 cr_date           DATE         NULL,
                 jira_category     VARCHAR(255) NULL,
-                cr_current_ticket VARCHAR(255) NULL,
+                cr_current_ticket TEXT         NULL,
                 cr_si             VARCHAR(255) NULL,
                 cr_title          TEXT         NULL,
                 jira_title        TEXT         NULL,
@@ -595,6 +595,9 @@ def _ensure_weekly_qipl_table():
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` ADD COLUMN pl_id VARCHAR(255) NULL AFTER target",
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` DROP INDEX uq_week_target",
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` ADD UNIQUE KEY uq_week_target_pl (week_end, target, pl_id)",
+            # QIPL CSV rows can contain multiple/current ticket values longer than 255 chars.
+            # Store as TEXT so weekly imports do not fail with MySQL 1406 data-too-long.
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_current_ticket TEXT NULL",
             # Dedup: add stability_ticket + meta_build + unique key to weekly_qipl_data
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN meta_build VARCHAR(255) NULL",
@@ -727,6 +730,22 @@ def _parse_excel(filepath: str, uploaded_by: str):
 def _upsert_rows(rows: list):
     if not rows:
         return 0, 0, 'No rows'
+    # Defensive migration: CSV import paths may be called without first hitting
+    # routes that run _ensure_weekly_qipl_table().  Ensure the live table can
+    # accept long multi-ticket CR Current Ticket values before inserting.
+    try:
+        _ensure_weekly_qipl_table()
+    except Exception:
+        pass
+
+    # Hard safety for already-running deployments / DBs where the ALTER has not
+    # yet taken effect.  The full original value is still preserved inside
+    # row_data JSON; this indexed/display column must never block CSV import.
+    for row in rows:
+        val = row.get('cr_current_ticket')
+        if val is not None and len(str(val)) > 255:
+            row['cr_current_ticket'] = str(val)[:255]
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return 0, 0, 'DB connection failed'
@@ -1201,6 +1220,10 @@ def _auto_load_qipl_week(week_start: date, week_end: date, username: str) -> dic
     Duplicate/concurrent imports are prevented by the import audit table, and
     files still being generated are skipped until stable.
     """
+    try:
+        _ensure_weekly_qipl_table()
+    except Exception:
+        pass
     src_path = _find_qipl_source_file_for_week(week_start, week_end)
     if not src_path:
         return {'loaded': False, 'reason': 'no_ready_unimported_source_file', 'path': ''}
@@ -2819,6 +2842,14 @@ def _sp_primary_ticket(row: dict) -> str:
     return _clean_sp_ticket(_sp_pick(row, 'Stability Ticket', 'StabilityTicket', 'stability_ticket'))
 
 
+def _sp_is_sanitizer_non_system_crash(row: dict) -> bool:
+    """Return True for KASAN/SANITIZER/SANITIZED reports that should not be counted as system crashes."""
+    text = ' '.join(str(_sp_pick(
+        row,
+        'Title (Latest JIRA)', 'JIRA Title', 'Title', 'Summary', 'jira_title', 'title', 'summary',
+        'CR Title', 'cr_title', 'Description', 'description'
+    ) or '').split()).upper()
+    return bool(text and ('SANITIZER' in text or 'SANITIZED' in text))
 
 
 def _sp_pl_id(row: dict) -> str:
@@ -2967,6 +2998,10 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
               AND TRIM(stability_ticket) != ''
               AND stability_ticket NOT LIKE 'CHIPMD%%'
               AND (stability_ticket LIKE 'QSTABILITY%%' OR stability_ticket LIKE 'DROIDBUG%%')
+              AND UPPER(COALESCE(jira_title, '')) NOT LIKE '%%SANITIZER%%'
+              AND UPPER(COALESCE(jira_title, '')) NOT LIKE '%%SANITIZED%%'
+              AND UPPER(COALESCE(cr_title, '')) NOT LIKE '%%SANITIZER%%'
+              AND UPPER(COALESCE(cr_title, '')) NOT LIKE '%%SANITIZED%%'
             GROUP BY {_sp_build_match_sql_expr()}, pl_id
         """, (ws.isoformat(), we.isoformat()))
         result = {}
@@ -3311,6 +3346,10 @@ def _count_sharepoint_crashes_from_weekly_qipl(cur, target: str, pl_id: str, bui
         _tgt_upper  = str(target or "").strip().upper()
         if "COMPUTE" in _tgt_upper and "LKD" in _jira_title:
             continue
+        # KASAN/SANITIZER/SANITIZED rows are non-system-crash diagnostics.
+        # Do not count them in System Crashes or include them in crash details.
+        if _sp_is_sanitizer_non_system_crash(d):
+            continue
         counted_rows += 1
 
         ticket = _sp_primary_ticket(d)
@@ -3352,6 +3391,8 @@ def _build_sharepoint_context(sp_rows: list, week_start: date, week_end: date) -
     for idx, row in enumerate(sp_rows or []):
         tgt = str(row.get('target') or row.get('Target') or '').strip()
         if not tgt:
+            continue
+        if _sp_is_sanitizer_non_system_crash(row):
             continue
         ticket = _sp_primary_ticket(row)
         if not ticket and not _is_snapdragon_auto_target(tgt):
@@ -3862,6 +3903,45 @@ def _fetch_previous_sharepoint_pair_info(target: str, pl_id: str, before_week_st
                     'source_week_start': _fmt_iso_date(rec.get('week_start')),
                     'source_week_end': _fmt_iso_date(rec.get('week_end')),
                 }
+        # If exact Target+PL match was not found, fall back to the latest saved
+        # metadata for the same PL-ID or same target. Users often save BU once in
+        # an earlier week under a slightly different target alias; do not force
+        # them to reselect BU every week when a prior mapping exists.
+        fallback_clauses = []
+        fallback_params = []
+        if pl_id:
+            fallback_clauses.append("COALESCE(pl_id,'')=%s")
+            fallback_params.append(pl_id)
+        if target:
+            fallback_clauses.append("target=%s")
+            fallback_params.append(target)
+        if fallback_clauses:
+            fb_where = '(' + ' OR '.join(fallback_clauses) + ')'
+            if before_week_start:
+                fb_where += ' AND week_start < %s'
+                fallback_params.append(before_week_start.isoformat())
+            cur.execute(f"""
+                SELECT * FROM `{_QIPL_DB}`.`{_SHAREPOINT_SUMMARY_TABLE}`
+                WHERE {fb_where}
+                ORDER BY week_start DESC, week_end DESC, updated_at DESC, id DESC
+                LIMIT 20
+            """, tuple(fallback_params))
+            for rec in cur.fetchall() or []:
+                row_bu = _normalize_bu(str(rec.get('bu') or '').strip())
+                if row_bu:
+                    return {
+                        'target': str(rec.get('target') or target or ''),
+                        'pl_id': str(rec.get('pl_id') or pl_id or ''),
+                        'bu': row_bu,
+                        'build_type': str(rec.get('build_type') or 'CRM').upper(),
+                        'meta_build': str(rec.get('meta_build') or ''),
+                        'es': _fmt_iso_date(rec.get('es_date')),
+                        'fc': _fmt_iso_date(rec.get('fc_date')),
+                        'cs': _fmt_iso_date(rec.get('cs_date')),
+                        'source': 'previous_week_fallback',
+                        'source_week_start': _fmt_iso_date(rec.get('week_start')),
+                        'source_week_end': _fmt_iso_date(rec.get('week_end')),
+                    }
         return {}
     except Exception:
         return {}
@@ -9702,10 +9782,21 @@ def api_sp2_reimport_csv():
     if not ws or not we:
         return jsonify(success=False, message='Invalid week'), 400
 
-    # Step 1: find the source file for this week
-    src_path = _find_qipl_source_file_for_week(ws, we)
+    # Step 1: find the source file for this week. Admin re-import must ignore
+    # audit status, otherwise a stuck in_progress row hides the file.
+    src_path = ''
+    candidates = [
+        e for e in _list_qipl_source_files()
+        if ws <= e.get('file_date') <= we and os.path.isfile(e.get('path') or '')
+    ]
+    candidates.sort(key=lambda x: (x.get('file_date'), x.get('mtime') or 0), reverse=True)
+    for entry in candidates:
+        ready, _reason = _is_qipl_file_ready(entry.get('path') or '')
+        if ready:
+            src_path = entry.get('path') or ''
+            break
     if not src_path:
-        return jsonify(success=False, message='No CSV file found for this week on the share'), 404
+        return jsonify(success=False, message='No ready CSV file found for this week on the share'), 404
 
     # Step 2: reset any stuck in_progress/done audit so _auto_load_qipl_week can re-claim it
     try:
@@ -9728,8 +9819,39 @@ def api_sp2_reimport_csv():
     except Exception:
         pass  # non-fatal
 
-    # Step 3: re-import CSV -> weekly_qipl_data
-    import_result = _auto_load_qipl_week(ws, we, _current_user_identifier())
+    # Step 3: force re-import CSV -> weekly_qipl_data.
+    # Do not go through _auto_load_qipl_week() here because that path honors
+    # import-audit locks and can return import_in_progress after a failed/stuck
+    # attempt. Admin re-import is intentionally a hard override.
+    try:
+        rows, raw_headers = _parse_file(src_path, _current_user_identifier() or 'admin_reimport')
+        ws_iso = ws.isoformat()
+        we_iso = we.isoformat()
+        selected_rows = [
+            r for r in rows
+            if r.get('week_start') == ws_iso and r.get('week_end') == we_iso
+        ]
+        if not selected_rows:
+            msg = f"No rows for selected week. Headers: {[str(h) for h in raw_headers[:10]]}"
+            _finish_import_audit(_qipl_file_fingerprint(src_path)['key'], 'failed', 0, msg)
+            return jsonify(success=False, message='CSV import failed: no_rows_for_selected_week', detail={'message': msg, 'path': src_path}), 500
+        inserted, deleted, msg = _upsert_rows(selected_rows)
+        fp = _qipl_file_fingerprint(src_path)
+        _finish_import_audit(fp['key'], 'done' if inserted else 'failed', inserted, msg)
+        import_result = {
+            'loaded': bool(inserted),
+            'inserted': inserted,
+            'deleted': deleted,
+            'message': msg,
+            'path': src_path,
+        }
+    except Exception as exc:
+        try:
+            _finish_import_audit(_qipl_file_fingerprint(src_path)['key'], 'failed', 0, str(exc))
+        except Exception:
+            pass
+        return jsonify(success=False, message=f'CSV import failed: {exc}', detail={'path': src_path}), 500
+
     if not import_result.get('loaded'):
         return jsonify(
             success=False,
@@ -9791,6 +9913,7 @@ def api_sp2_builds():
     static_rows = _load_sp2_static_build_rows(ws, we)
     if static_rows:
         dash_map_static = _fetch_dashboard_status_map()
+        previous_bu_map_static = _fetch_sp2_previous_bu_map(before_week_start=ws)
         # Build target->bu lookup from sp2_build_consolidate (user-saved target-level BU)
         _cons_bu_map = {}
         try:
@@ -9822,8 +9945,18 @@ def api_sp2_builds():
             target = str(r.get('target') or '').strip() or (_swpdt_target_from_product(r.get('pl_id')) or '')
             pl_id = str(r.get('pl_id') or '').strip()
             dash = _match_dashboard_with_fallback(target, dash_map_static) or _match_dashboard_with_fallback(pl_id, dash_map_static) or {}
-            # BU priority: 1) consolidate target-level (user saved)  2) row-level  3) dashboard_status
-            row_bu = _cons_bu_map.get(target) or str(r.get('bu') or dash.get('bu') or '').strip()
+            # BU priority:
+            # 1) current-week consolidate target-level (user saved)
+            # 2) static row value
+            # 3) previous-week target+PL / target saved BU
+            # 4) dashboard_status
+            row_bu = (
+                _cons_bu_map.get(target)
+                or str(r.get('bu') or '').strip()
+                or previous_bu_map_static.get((target.upper(), pl_id.upper()))
+                or previous_bu_map_static.get((target.upper(), ''))
+                or str(dash.get('bu') or '').strip()
+            )
             job_ids_raw = r.get('job_ids') or '[]'
             try:
                 job_ids = json.loads(job_ids_raw) if isinstance(job_ids_raw, str) else list(job_ids_raw or [])
@@ -9949,8 +10082,9 @@ def api_sp2_builds():
     def _pl_group(sp):
         return _re.sub(r'\.r\d+$', '', str(sp or ''), flags=_re.IGNORECASE)
 
-    # Load dashboard_status for BU lookup per target
+    # Load dashboard_status and previous saved-week BU lookup per target.
     _dash_map_builds = _fetch_dashboard_status_map()
+    _previous_bu_map_builds = _fetch_sp2_previous_bu_map(before_week_start=ws)
 
     # Load saved BU overrides keyed by target_upper -> bu
     _bu_override_map = {}
@@ -10043,6 +10177,8 @@ def api_sp2_builds():
             # BU: saved override first, then dashboard_status
             _dash = _match_dashboard(target, _dash_map_builds) or {}
             _bu   = (_bu_override_map.get(target.upper())
+                     or _previous_bu_map_builds.get((target.upper(), pl_grp.upper()))
+                     or _previous_bu_map_builds.get((target.upper(), ''))
                      or str(_dash.get('bu') or '').strip())
             bt    = build_type_map.get((build_name.upper(), pl_grp.upper()), 'CRM')
             grouped[grp_key] = {

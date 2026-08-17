@@ -247,7 +247,7 @@
       <label class="oj-crash-chip non on" id="ojChipNonSystem" onclick="ojToggleCrash('nonsystem')">
         <input type="checkbox" id="ojChkNonSystem" checked onchange="ojToggleCrash('nonsystem')" onclick="event.stopPropagation()">
         <i class="fas fa-mobile-alt" style="font-size:11px;"></i> Non-System
-        <span style="font-size:10px;opacity:.75;">(FWR / Tombstone / ANR)</span>
+        <span style="font-size:10px;opacity:.75;">(FWR / Tombstone / ANR / Sanitizer)</span>
       </label>
     </div>
     <div class="oj-crash-divider"></div>
@@ -469,8 +469,9 @@
 
   // NON-SYSTEM crash keywords (title must contain at least one)
   const NON_SYSTEM_KW_EXACT = ['tombstone', 'app not responding', 'fatal exception',
-                               'java.lang.', 'process crash', 'processdump', 'process_crash'];
-  const NON_SYSTEM_KW_WORD  = ['fwr', 'anr'];  // whole-word only
+                               'java.lang.', 'process crash', 'processdump', 'process_crash',
+                               'sanitizer', 'sanitized', 'kasan_testing'];
+  const NON_SYSTEM_KW_WORD  = ['fwr', 'anr', 'kasan'];  // whole-word only
 
   function isCrashNonSystem(title){
     var t = ' ' + (title || '').toLowerCase() + ' ';
@@ -598,7 +599,7 @@
     'ADSP':'#f59e0b','APPS':'#6366f1','Modem':'#0ea5e9','WLAN':'#10b981',
     'WConnect':'#10b981','BT':'#8b5cf6','BOOT':'#f97316','Other':'#94a3b8','Total':'#1e3a5f',
     'Camera':'#ec4899','Display':'#14b8a6','Sensors':'#84cc16','TZ':'#ef4444','CDSP':'#a855f7',
-    'ANR':'#dc2626','Tombstone':'#7c3aed','FWR':'#0891b2','BTFM':'#059669'
+    'ANR':'#dc2626','Tombstone':'#7c3aed','FWR':'#0891b2','BTFM':'#059669','Sanitizer':'#9333ea'
   };
   function areaColor(a){ return AREA_COLORS[a] || '#6366f1'; }
 
@@ -606,6 +607,7 @@
   // Derive display area from crash type keywords in title
   function crashArea(r){
     var t = ' ' + (r.jira_title || '').toLowerCase() + ' ';
+    if(t.indexOf('sanitizer') >= 0 || t.indexOf('sanitized') >= 0 || t.indexOf('kasan_testing') >= 0 || /(?<![a-z0-9])kasan(?![a-z0-9])/.test(t)) return 'Sanitizer';
     if(/(?<![a-z0-9])anr(?![a-z0-9])/.test(t) || t.indexOf('app not responding') >= 0) return 'ANR';
     if(t.indexOf('tombstone') >= 0) return 'Tombstone';
     if(/(?<![a-z0-9])fwr(?![a-z0-9])/.test(t)) return 'FWR';

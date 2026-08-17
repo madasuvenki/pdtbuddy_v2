@@ -202,6 +202,8 @@ def _ensure_axiom_job_table(cursor) -> None:
             state               VARCHAR(32)  NULL,
             device_count        INT          NOT NULL DEFAULT 0,
             chip_ids            TEXT         NULL,
+            device_host_map     JSON         NULL,
+            device_hostnames    JSON         NULL,
             submitted_at        DATETIME     NULL,
             started_at          DATETIME     NULL,
             ended_at            DATETIME     NULL,
@@ -238,6 +240,10 @@ def _ensure_axiom_job_table(cursor) -> None:
                            'VARCHAR(512) NULL AFTER hours')
     _add_column_if_missing(cursor, 'axiom_job_summary', 'certicom_playlist',
                            'JSON NULL AFTER playlist_name')
+    _add_column_if_missing(cursor, 'axiom_job_summary', 'device_host_map',
+                           'JSON NULL AFTER chip_ids')
+    _add_column_if_missing(cursor, 'axiom_job_summary', 'device_hostnames',
+                           'JSON NULL AFTER device_host_map')
     _add_index_if_missing(cursor, 'axiom_job_summary', 'idx_city_team', '(city_team)')
 
 
@@ -488,6 +494,8 @@ def _hwpdt_build_test_result_index(results_payload: dict) -> Dict[tuple, dict]:
             'test_case_id': row.get('testCaseId'),
             'test_case_revision': row.get('testCaseRevision'),
             'test_case_result': row.get('testCaseTestResult'),
+            'test_resource_name': row.get('testCaseTestResourceName'),
+            'host_name': row.get('testCaseHostName'),
             'result_status': status,
             'passed': passed,
             'started': row.get('testCaseStarted'),
@@ -577,6 +585,42 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
             city_team  = _derive_city_team(tax, site or '')
             ex_pl      = int(b.get('executed_playlists') or b.get('executedPlaylistsCount') or 0)
             dev_count  = int(b.get('device_count') or len(chips))
+            device_host_map = {}
+            device_hostnames = []
+            for pl_entry in (b.get('certicom_playlist') or []):
+                if not isinstance(pl_entry, dict):
+                    continue
+                for result in (pl_entry.get('certicom_results') or []):
+                    if not isinstance(result, dict):
+                        continue
+                    certicom_id = str(result.get('certicom_id') or '').strip().upper()
+                    host_name = str(result.get('host_name') or '').strip()
+                    if certicom_id and host_name:
+                        device_host_map[certicom_id] = host_name
+                        if host_name not in device_hostnames:
+                            device_hostnames.append(host_name)
+
+                    # Axiom /jobs/{id}/results exposes the most reliable ALANA
+                    # device-host pair:
+                    #   testCaseTestResourceName -> device id
+                    #   testCaseHostName         -> host
+                    for test_case in (result.get('test_case_results') or []):
+                        if not isinstance(test_case, dict):
+                            continue
+                        tc_device = str(
+                            test_case.get('test_resource_name')
+                            or test_case.get('testCaseTestResourceName')
+                            or ''
+                        ).strip().upper()
+                        tc_host = str(
+                            test_case.get('host_name')
+                            or test_case.get('testCaseHostName')
+                            or ''
+                        ).strip()
+                        if tc_device and tc_host:
+                            device_host_map[tc_device] = tc_host
+                            if tc_host not in device_hostnames:
+                                device_hostnames.append(tc_host)
             # started_at: use started_at field, fallback to submitted if null
             s_at = _parse_dt(
                 b.get('started_at') or b.get('started') or b.get('start_time') or
@@ -594,12 +638,12 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                                 INSERT INTO `pdt_stats_dashboard`.`axiom_job_summary`
                     (job_id, team, taxonomy_path, build_id, build_name, site, city_team,
                      software_product, product_flavor, submitter,
-                     state, device_count, chip_ids,
+                     state, device_count, chip_ids, device_host_map, device_hostnames,
                      submitted_at, started_at, ended_at,
                      executed_playlists, axiom_hours, hours,
                      playlist_name, certicom_playlist, is_closed)
                 VALUES
-                    (%s,%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s)
+                    (%s,%s,%s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s,%s,%s, %s,%s,%s, %s,%s,%s, %s,%s,%s)
                 ON DUPLICATE KEY UPDATE
                     team               = VALUES(team),
                     taxonomy_path      = VALUES(taxonomy_path),
@@ -609,6 +653,10 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                     device_count       = VALUES(device_count),
                     chip_ids           = IF(JSON_LENGTH(VALUES(chip_ids)) > 0,
                                            VALUES(chip_ids), chip_ids),
+                    device_host_map    = IF(JSON_LENGTH(VALUES(device_host_map)) > 0,
+                                           VALUES(device_host_map), device_host_map),
+                    device_hostnames   = IF(JSON_LENGTH(VALUES(device_hostnames)) > 0,
+                                           VALUES(device_hostnames), device_hostnames),
                     started_at         = COALESCE(VALUES(started_at), started_at),
                     ended_at           = COALESCE(VALUES(ended_at),   ended_at),
                     product_flavor     = COALESCE(NULLIF(VALUES(product_flavor),''), product_flavor),
@@ -627,6 +675,8 @@ def _upsert_jobs_to_db(builds: Dict[str, dict]) -> int:
                 state or None,
                 dev_count,
                 chip_json,
+                json.dumps(device_host_map) if device_host_map else None,
+                json.dumps(device_hostnames) if device_hostnames else None,
                 _parse_dt(b.get('submitted')),
                 s_at, e_at,
                 ex_pl, axiom_hrs, hours_val,

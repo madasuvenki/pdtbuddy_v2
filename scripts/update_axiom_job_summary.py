@@ -336,6 +336,95 @@ def run_incremental_update(host: str, token: str, app_name: str,
     return token
 
 
+def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: str,
+                                              builds: Dict[str, dict],
+                                              max_workers: int = 16) -> Dict[str, dict]:
+    """Populate certicom_playlist host mapping from /jobs/{id}/results.
+
+    For ALANA/SWPDT the reliable mapping is:
+      testCaseTestResourceName -> device id
+      testCaseHostName         -> host PC
+
+    _upsert_jobs_to_db() derives axiom_job_summary.device_host_map from this
+    certicom_playlist structure.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    targets = {
+        str(jid): b for jid, b in (builds or {}).items()
+        if str(jid or '').strip() and not b.get('certicom_playlist')
+    }
+    if not targets:
+        return builds
+
+    def _fetch_result_host_map(job_id: str) -> Tuple[str, dict]:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "X-QCOM-AppName": app_name,
+            "X-QCOM-TokenType": "OAuth",
+            "X-QCOM-ClientType": "Python",
+            "X-QCOM-TracingID": uuid.uuid4().hex,
+        }
+        path = f"/axiom/v1/public/jobs/{job_id}/results?pageNumber=0&pageSize=3"
+        conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
+        try:
+            conn.request("GET", path, body="", headers=headers)
+            resp = conn.getresponse()
+            raw = resp.read()
+            if resp.status == 401:
+                raise _TokenExpired()
+            if resp.status not in (200, 201):
+                return job_id, {}
+            payload = json.loads(raw.decode("utf-8", errors="ignore"))
+        finally:
+            conn.close()
+
+        host_map = {}
+        for row in (payload or {}).get("data") or []:
+            if not isinstance(row, dict):
+                continue
+            dev_id = str(row.get("testCaseTestResourceName") or "").strip().upper()
+            host_name = str(row.get("testCaseHostName") or "").strip()
+            if dev_id and host_name:
+                host_map[dev_id] = host_name
+        return job_id, host_map
+
+    enriched = 0
+    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(targets)))) as pool:
+        futures = [pool.submit(_fetch_result_host_map, jid) for jid in targets.keys()]
+        for fut in as_completed(futures):
+            job_id, host_map = fut.result()
+            if not host_map:
+                continue
+            certicom_results = [
+                {
+                    "certicom_id": dev_id,
+                    "host_name": host_name,
+                    "test_case_results": [
+                        {
+                            "test_resource_name": dev_id,
+                            "host_name": host_name,
+                        }
+                    ],
+                }
+                for dev_id, host_name in host_map.items()
+            ]
+            builds[job_id]["certicom_playlist"] = [
+                {
+                    "playlist_id": "",
+                    "playlist_name": "",
+                    "certicom_ids": list(host_map.keys()),
+                    "certicom_results": certicom_results,
+                    "summary": {"total": len(certidom_results)} if False else {"total": len(certicom_results)},
+                }
+            ]
+            enriched += 1
+
+    logger.info("[DEVICE HOST MAP] enriched %d/%d jobs from /results", enriched, len(targets))
+    return builds
+
+
 def run_refresh_qipl_last_days(host: str, token: str, app_name: str,
                                days: int = 10,
                                max_jobs: int = 15000) -> str:
@@ -365,6 +454,7 @@ def run_refresh_qipl_last_days(host: str, token: str, app_name: str,
 
             normalised = _apply_cached_product_flavors(normalised)
             normalised = _backfill_missing_fields_by_rules(host, token, app_name, normalised)
+            normalised = _enrich_jobs_device_host_map_from_results(host, token, app_name, normalised)
             upserted = _upsert_jobs_to_db(normalised)
             logger.info(
                 "[QIPL REFRESH] Done. fetched=%d normalised=%d db_upserted=%d",

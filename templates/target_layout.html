@@ -129,7 +129,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden}
 .on-bu-sidebar-wrap #onBuShell.sidebar-collapsed{width:58px!important}
 .on-bu-sidebar-wrap #onBuShell:not(.sidebar-collapsed){width:210px!important}
 .on-body{display:flex;flex:1;min-height:0;overflow:hidden;position:relative}
-.on-panel{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 8px rgba(15,23,42,.06);display:flex;flex-direction:column;overflow:hidden;transition:width .22s ease;position:relative;z-index:10}
+.on-panel{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 8px rgba(15,23,42,.06);display:flex;flex-direction:column;overflow:hidden;transition:width .22s ease;position:relative;z-index:10;min-height:0}
 .on-panel.collapsed{width:48px}
 .on-panel-pill{position:absolute;top:calc(50% + 6px);right:-11px;transform:translateY(-50%);z-index:20;width:20px;height:40px;border:none;border-radius:0 8px 8px 0;background:linear-gradient(180deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:3px 0 12px rgba(79,70,229,.45);font-size:9px;transition:background .15s}
 
@@ -148,7 +148,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden}
 .on-ms-back-title{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:2px}
 .on-ms-back-title span{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.10em}
 .on-ms-back-close{border:none;background:#eef2ff;color:#334155;border-radius:999px;width:28px;height:28px;font-weight:900;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.on-panel-inner{display:flex;flex-direction:column;padding:4px 6px 10px;gap:2px;overflow-y:auto;overflow-x:hidden;flex:1}
+.on-panel-inner{display:flex;flex-direction:column;padding:4px 6px 10px;gap:2px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;scrollbar-width:none}
+.on-panel-inner::-webkit-scrollbar{display:none}
 .on-panel-label{font-size:8px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.14em;padding:8px 10px 3px;white-space:nowrap;overflow:hidden;transition:opacity .22s}
 .on-panel.collapsed .on-panel-label{opacity:0;height:0;padding:0;margin:0}
 .on-panel-btn{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:10px;text-decoration:none;color:#475569;font-size:11.5px;font-weight:700;border:1px solid transparent;white-space:nowrap;overflow:hidden;transition:background .14s,color .14s,border-color .14s;cursor:pointer;position:relative}
@@ -519,9 +520,9 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
             <div style="margin:8px 0 4px;position:relative;">
               <div style="height:6px;border-radius:999px;background:#e5e7eb;position:relative;">
                 <div id="tdMsBar" style="height:100%;border-radius:999px;background:linear-gradient(90deg,#4f46e5,#22c55e);width:{{ mp.progress_pct }}%;transition:width .6s ease;"></div>
-                <div title="ES" style="position:absolute;top:-3px;left:33%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[0].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
-                <div title="FC" style="position:absolute;top:-3px;left:66%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[1].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
-                <div title="CS" style="position:absolute;top:-3px;left:calc(100% - 6px);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones[2].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+                <div title="ES" style="position:absolute;top:-3px;left:33%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones|length > 0 and mp.milestones[0].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+                <div title="FC" style="position:absolute;top:-3px;left:66%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones|length > 1 and mp.milestones[1].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
+                <div title="CS" style="position:absolute;top:-3px;left:calc(100% - 6px);width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:{% if mp.milestones|length > 2 and mp.milestones[2].status == 'done' %}#22c55e{% else %}#e5e7eb{% endif %};box-shadow:0 0 0 1px #94a3b8;z-index:2;"></div>
               </div>
               <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:9px;font-weight:800;color:#94a3b8;padding:0 2px;">
                 <span style="margin-left:27%;">ES</span><span>FC</span><span>CS</span>
@@ -619,7 +620,9 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
             if(count) count.textContent = tabs.length;
             list.innerHTML = tabs.map(function(tab){
               var active = tab.active || tab.key === TARGET;
-              var href = '/dashboard/' + encodeURIComponent(tab.key) + '/' + encodeURIComponent(SECTION);
+              /* PL click should always open the default Dashboard overview,
+                 not the currently open sub-tab such as Device Summary. */
+              var href = '/dashboard/' + encodeURIComponent(tab.key) + '/dashboard';
               return '<a href="'+href+'" title="'+tab.display+'" style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;text-decoration:none;font-size:11px;font-weight:700;transition:all .14s;'+(active?'background:linear-gradient(135deg,#1e3a5f,#334155);color:#fff;':'color:#475569;')+'">'
                 + '<i class="fas fa-circle" style="font-size:5px;flex-shrink:0;color:'+(active?'#93c5fd':'#cbd5e1')+'"></i>'
                 + '<span class="on-panel-btn-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+tab.display+'</span>'
@@ -647,20 +650,6 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
     </div>
 
         <div class="on-content">
-            {# ── BU PL Tab Bar – visible on every section ─────────────────── #}
-            {% if bu_pl_tabs and bu_pl_tabs|length > 1 %}
-            <div style="display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;background:#f1f5f9;border-bottom:1px solid #dbe3ee;padding:4px 10px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent;flex-shrink:0">
-              <span style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;padding:0 8px 0 2px;flex-shrink:0"><i class="fas fa-layer-group" style="margin-right:3px"></i>PLs</span>
-              {% for tab in bu_pl_tabs %}
-              <a href="{{ url_for('dashboard_bp.dashboard', target_name=tab.key, section=s) }}"
-                 title="{{ tab.display }}"
-                 style="display:inline-flex;align-items:center;white-space:nowrap;padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;color:{% if tab.active %}#fff{% else %}#475569{% endif %};text-decoration:none;transition:all .15s;border:1.5px solid transparent;flex-shrink:0;{% if tab.active %}background:linear-gradient(135deg,#1e3a5f,#334155);box-shadow:0 2px 6px rgba(30,58,95,.22);{% endif %}"
-                 onmouseover="if(!this.classList.contains('pl-active'))this.style.background='#e2e8f0'"
-                 onmouseout="if(!this.classList.contains('pl-active'))this.style.background=''"
-                 {% if tab.active %}class="pl-active"{% endif %}>{{ tab.display }}</a>
-              {% endfor %}
-            </div>
-            {% endif %}
             {% if s == 'unique-crs' %}
       <div class="on-tabs">
         <span class="on-tab t-amber active"><i class="fas fa-file-alt"></i> Unique CRs</span>

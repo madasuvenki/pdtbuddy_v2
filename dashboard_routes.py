@@ -6752,6 +6752,8 @@ def api_dashboard_open_jiras(target_name):
 
         def infer_crash_type(row):
             text = " ".join(str(row.get(k) or "") for k in ("jira_title", "issue_tag", "labels", "scenario")).lower()
+            if "sanitizer" in text or "sanitized" in text or "kasan_testing" in text or " kasan " in f" {text} ":
+                return "Non-System"
             if "processdump" in text or "process crash" in text or "process_crash" in text or "qnx_process" in text:
                 return "Process"
             if "ssr" in text or "subsystem restart" in text:
@@ -6915,6 +6917,11 @@ def device_summary_page(target_name):
     ctx  = _build_sidebar_context(target_name, active_section='device-summary')
 
     ctx['target_display_name'] = get_display_name_for_target(target_name).upper()
+    ctx['pdt_type'] = (request.args.get('pdt') or 'SWPDT').strip().upper()
+    try:
+        ctx['is_compute_bu'] = (get_schema_for_target(target_name) or '').strip().lower() == 'pdt_stats_compute'
+    except Exception:
+        ctx['is_compute_bu'] = False
     return render_template('device_summary_page.html', **data, **ctx)
 
 
@@ -6942,6 +6949,8 @@ def dashboard(target_name, section="dashboard"):
     conn = None
     cursor = None
     section = normalize_dashboard_section(section)
+    if section in ('device-summary', 'device_summary'):
+        return redirect(url_for('dashboard_bp.dashboard', target_name=target_name, section='dashboard'))
     toggle_mode = request.args.get("toggle_mode", "CRM")
     pdt_type = request.args.get("pdt_type", "SWPDT")
     compute_bu_flag = request.args.get("compute_bu", "0")

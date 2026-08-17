@@ -106,6 +106,26 @@
 .dv-mini-save{background:#dcfce7;color:#166534;border:1px solid #86efac}
 .dv-mini-del{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5}
 .dv-footer{padding:8px 16px;background:#fffbeb;border-top:1px solid #fde68a;font-size:11px;color:#92400e;font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
+.di-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;padding:14px 18px;border-bottom:1px solid #edf2f7;background:#f8fafc}
+.di-kpi{border:1px solid #e2e8f0;border-radius:13px;padding:11px 13px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.04);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.di-kpi:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.10);border-color:#93c5fd}
+.di-kpi.active{outline:2px solid #2563eb;outline-offset:2px}
+.di-kpi-val{font-size:23px;font-weight:950;color:#0f172a;line-height:1}
+.di-kpi-lbl{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-top:3px}
+.di-kpi.run{border-color:#86efac;background:#f0fdf4}.di-kpi.run .di-kpi-val{color:#15803d}
+.di-kpi.quar{border-color:#fca5a5;background:#fff1f2}.di-kpi.quar .di-kpi-val{color:#dc2626}
+.di-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 18px;background:#fff}
+.di-controls .ds-input,.di-controls .ds-select{width:auto;min-width:155px;padding:7px 10px;font-size:12px}
+.di-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 18px 16px}
+.di-site-row{padding:0 18px 16px}
+.di-panel{border:1px solid #e2e8f0;border-radius:13px;overflow:hidden;background:#fff}
+.di-panel-h{padding:9px 12px;background:linear-gradient(135deg,#eef2ff,#fff);font-size:12px;font-weight:950;color:#3730a3;border-bottom:1px solid #e0e7ff}
+.di-table{width:100%;border-collapse:collapse;font-size:12px}
+.di-table th{background:#f8fafc;color:#475569;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:7px 9px;text-align:left;border-bottom:1px solid #e2e8f0}
+.di-table td{padding:7px 9px;border-bottom:1px solid #f1f5f9;color:#334155}
+.di-pill{border-radius:999px;padding:2px 7px;font-size:10px;font-weight:900;display:inline-block}
+.di-pill.run{background:#dcfce7;color:#166534}.di-pill.idle{background:#e0f2fe;color:#075985}.di-pill.quar{background:#fee2e2;color:#b91c1c}
+@media(max-width:900px){.di-grid{grid-template-columns:repeat(2,1fr)}.di-cols{grid-template-columns:1fr}}
 .ds-modal-close{background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:2px 8px;border-radius:8px;line-height:1;flex-shrink:0}
 .ds-modal-close:hover{background:#f1f5f9;color:#334155}
 /* add device modal */
@@ -303,6 +323,68 @@
   {% endif %}
 </div>
 
+<!-- Live Axiom/QDT Inventory Summary -->
+<div class="ds-card" id="dsInventoryCard">
+  <div class="ds-table-hdr">
+    <div>
+      <div class="ds-table-hdr-title"><i class="fas fa-network-wired"></i> Live Device Inventory &mdash; MCN / Host / Running Status</div>
+      <div class="ds-table-hdr-sub">Axiom active jobs + cached Axiom/QDT device inventory. Quarantine is counted only when explicit inventory status/state says quarantined.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+      <button class="ds-btn ds-btn-green" type="button" onclick="dsOpenDevices()" title="Open the same editable device list popup using the current SP/filter data">
+        <i class="fas fa-microchip"></i> View Devices
+      </button>
+      <span id="diSpActive" style="font-size:11px;font-weight:900;color:#64748b"></span>
+      <button class="ds-btn ds-btn-blue" id="diRefreshBtn" onclick="diLoadInventory(false)" title="Fast load from cached Axiom/QDT data and latest active jobs">
+        <i class="fas fa-bolt"></i> Load Cached / Check SP
+      </button>
+      <button class="ds-btn ds-btn-ghost" id="diForceRefreshBtn" onclick="diLoadInventory(true)" title="Slow: force live Axiom refresh only when cache is stale">
+        <i class="fas fa-sync-alt"></i> Force Live Refresh
+      </button>
+    </div>
+  </div>
+  <div class="di-grid">
+    <div class="di-kpi" id="diCardTotal" onclick="diHeroFilter('all')" title="Show all devices"><div class="di-kpi-val" id="diTotal">-</div><div class="di-kpi-lbl">Devices as per MCN</div></div>
+    <div class="di-kpi" id="diCardHosts" onclick="diHeroFilter('hosts')" title="Show all hosts"><div class="di-kpi-val" id="diHosts">-</div><div class="di-kpi-lbl">Unique Host PCs</div></div>
+    <div class="di-kpi run" id="diCardRunning" onclick="diHeroFilter('running')" title="Filter running devices"><div class="di-kpi-val" id="diRunning">-</div><div class="di-kpi-lbl">Running Devices</div></div>
+    <div class="di-kpi quar" id="diCardQuarantine" onclick="diHeroFilter('quarantine')" title="Filter quarantine devices"><div class="di-kpi-val" id="diQuarantine">-</div><div class="di-kpi-lbl">Quarantine Devices</div></div>
+  </div>
+  <div class="di-controls">
+    <input class="ds-input" id="diSearch" placeholder="Search device / host / MCN..." oninput="diLoadInventory(false)">
+    <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:360px">
+      <input class="ds-input" id="diSpNames" style="flex:1;border-color:#2563eb;background:#eff6ff" placeholder="Enter Axiom SP/software product name(s), comma separated..." onchange="diSaveSpAndLoad()" onkeydown="if(event.key==='Enter')diSaveSpAndLoad()">
+      <button class="ds-btn ds-btn-blue" type="button" style="padding:7px 12px;white-space:nowrap" onclick="diSaveSpAndLoad()"><i class="fas fa-search"></i> Check SP</button>
+      <button class="ds-btn ds-btn-ghost" type="button" style="padding:7px 10px;white-space:nowrap" title="Clear saved SP name" onclick="diClearSavedSp()"><i class="fas fa-times"></i></button>
+    </div>
+    <select class="ds-select" id="diStatus" onchange="diLoadInventory(false)">
+      <option value="all">All Status</option>
+      <option value="running">Running</option>
+      <option value="idle">Idle</option>
+      <option value="quarantine">Quarantine</option>
+    </select>
+    <select class="ds-select" id="diMcn" onchange="diLoadInventory(false)"><option value="">All MCNs</option></select>
+    <select class="ds-select" id="diHost" onchange="diLoadInventory(false)"><option value="">All Hosts</option></select>
+    <select class="ds-select" id="diSite" onchange="diLoadInventory(false)"><option value="">All Sites</option></select>
+    <span id="diMsg" style="font-size:11px;font-weight:800;color:#64748b"></span>
+  </div>
+  <div class="di-cols">
+    <div class="di-panel">
+      <div class="di-panel-h"><i class="fas fa-microchip"></i> Devices as per MCN</div>
+      <div id="diByMcn"></div>
+    </div>
+    <div class="di-panel">
+      <div class="di-panel-h"><i class="fas fa-desktop"></i> Device count per Host PC / Running Hosts</div>
+      <div id="diByHost"></div>
+    </div>
+  </div>
+  <div class="di-site-row">
+    <div class="di-panel">
+      <div class="di-panel-h"><i class="fas fa-map-marker-alt"></i> Site-wise Running Devices</div>
+      <div id="diBySite"></div>
+    </div>
+  </div>
+</div>
+
 <!-- DEVICES POPUP (Rework-style) -->
 <div class="dv-ov" id="dsDevicesOv" onclick="if(event.target===this)dsCloseDevices()">
   <div class="dv-modal">
@@ -477,7 +559,7 @@
 <script>
 /* ═══ Chart ═══ */
 (function(){
-  const TABLE_ROWS = {{ sw_table.rows | tojson if sw_table and sw_table.rows else '[]' }};
+  const TABLE_ROWS = [];
   const COLORS = ['#059669','#10b981','#34d399','#0e7490','#06b6d4','#22d3ee','#7c3aed','#8b5cf6','#d97706','#f59e0b','#dc2626','#f87171','#0284c7','#38bdf8','#65a30d','#a3e635'];
   window.dsRenderChart = function(){
     const group  = document.getElementById('dsChartGroup')?.value  || 'mcn';
@@ -534,14 +616,165 @@
 
 /* ═══ Main page logic ═══ */
 (function(){
-    const target  = {{ target_name|tojson }};
-  const IS_COMPUTE_BU = {{ is_compute_bu|default(false)|tojson }};
+    const target  = "{{ target_name }}";
+  const IS_COMPUTE_BU = false;
   const msgEl   = document.getElementById('dsMsg');
 
-  let deviceHeaders = {{ devices_headers | tojson }};
-  let deviceRows    = {{ devices_rows    | tojson }};
+  let deviceHeaders = [];
+  let deviceRows    = [];
 
   function setMsg(t,ok){ msgEl.textContent=t||''; msgEl.className='ds-msg'+(t?(ok?' ok':' err'):''); }
+
+  function diEsc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function diRenderBucket(elId, rows, labelName){
+    const el=document.getElementById(elId); if(!el)return;
+    if(!rows||!rows.length){el.innerHTML='<div class="ds-empty" style="padding:18px"><i class="fas fa-filter"></i>No data for current filters.</div>';return;}
+    const sum=rows.reduce((a,r)=>({total:a.total+Number(r.total||0),running:a.running+Number(r.running||0),idle:a.idle+Number(r.idle||0),quarantine:a.quarantine+Number(r.quarantine||0)}),{total:0,running:0,idle:0,quarantine:0});
+    let html='<table class="di-table"><thead><tr><th>'+labelName+'</th><th>Total</th><th>Running</th><th>Idle</th><th>Quarantine</th></tr></thead><tbody>';
+    rows.slice(0,80).forEach(r=>{
+      html+='<tr><td><strong>'+diEsc(r.key||'Unknown')+'</strong></td><td>'+Number(r.total||0)+'</td><td><span class="di-pill run">'+Number(r.running||0)+'</span></td><td><span class="di-pill idle">'+Number(r.idle||0)+'</span></td><td><span class="di-pill quar">'+Number(r.quarantine||0)+'</span></td></tr>';
+    });
+    html+='</tbody><tfoot><tr><td><strong>Total</strong></td><td><strong>'+sum.total+'</strong></td><td><span class="di-pill run">'+sum.running+'</span></td><td><span class="di-pill idle">'+sum.idle+'</span></td><td><span class="di-pill quar">'+sum.quarantine+'</span></td></tr></tfoot></table>';
+    el.innerHTML=html;
+  }
+  function diUpdateOptions(selId, values, current){
+    const sel=document.getElementById(selId); if(!sel)return;
+    const first=selId==='diMcn'?'All MCNs':(selId==='diSite'?'All Sites':'All Hosts');
+    sel.innerHTML='<option value="">'+first+'</option>'+(values||[]).map(v=>'<option value="'+diEsc(v)+'">'+diEsc(v)+'</option>').join('');
+    if(current)sel.value=current;
+  }
+
+  window.diHeroFilter = function(kind){
+    document.querySelectorAll('.di-kpi').forEach(el=>el.classList.remove('active'));
+    const statusSel=document.getElementById('diStatus');
+    if(kind==='running'){
+      if(statusSel) statusSel.value='running';
+      document.getElementById('diCardRunning')?.classList.add('active');
+    }else if(kind==='quarantine'){
+      if(statusSel) statusSel.value='quarantine';
+      document.getElementById('diCardQuarantine')?.classList.add('active');
+    }else{
+      if(statusSel) statusSel.value='all';
+      if(kind==='hosts') document.getElementById('diCardHosts')?.classList.add('active');
+      else document.getElementById('diCardTotal')?.classList.add('active');
+    }
+    diLoadInventory(false);
+  };
+  // ── SP name localStorage persistence ──────────────────────────────────
+  const _SP_STORAGE_KEY = 'pdtbuddy_sp_names_' + target;
+
+  function diRestoreSavedSp() {
+    try {
+      const saved = localStorage.getItem(_SP_STORAGE_KEY) || '';
+      const inp = document.getElementById('diSpNames');
+      if (inp && saved) {
+        inp.value = saved;
+        const badge = document.getElementById('diSpActive');
+        if (badge) badge.textContent = 'SP filter: ' + saved + ' (saved)';
+      }
+      return saved;
+    } catch(e) { return ''; }
+  }
+
+  window.diSaveSpAndLoad = function() {
+    try {
+      const spVal = (document.getElementById('diSpNames')?.value || '').trim();
+      if (spVal) {
+        localStorage.setItem(_SP_STORAGE_KEY, spVal);
+      } else {
+        localStorage.removeItem(_SP_STORAGE_KEY);
+      }
+    } catch(e) {}
+    diLoadInventory(false);
+  };
+
+  window.diClearSavedSp = function() {
+    try { localStorage.removeItem(_SP_STORAGE_KEY); } catch(e) {}
+    const inp = document.getElementById('diSpNames');
+    if (inp) inp.value = '';
+    const badge = document.getElementById('diSpActive');
+    if (badge) badge.textContent = '';
+    diLoadInventory(false);
+  };
+
+  // ── SP fetch progress polling ──────────────────────────────────────────
+  let _diProgressTimer = null;
+  function _diStartProgressPoll(spNames) {
+    if (!spNames || !spNames.trim()) return;
+    const msg = document.getElementById('diMsg');
+    _diProgressTimer = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/device_summary_data/${encodeURIComponent(target)}/sp_fetch_progress`, {headers:{'Accept':'application/json'}});
+        const p = await r.json().catch(()=>({}));
+        if (p.status === 'fetching' && msg) {
+          const pct = p.total > 0 ? Math.round((p.found / p.total) * 100) : 0;
+          const pathShort = (p.current_path || '').replace('/PDT/', '');
+          msg.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching from Axiom&hellip; `
+            + `<strong>${p.found}/${p.total}</strong> devices found`
+            + (pathShort ? ` &bull; scanning <code>${pathShort}</code>` : '')
+            + (p.paths_total > 1 ? ` &bull; path ${p.paths_done + 1}/${p.paths_total}` : '')
+            + ` <span style="color:#059669;font-weight:900">${pct}%</span>`
+            + ` <em style="font-size:10px;color:#94a3b8">(cached after first load)</em>`;
+        }
+        if (p.status === 'done' || p.status === 'idle') {
+          clearInterval(_diProgressTimer); _diProgressTimer = null;
+        }
+      } catch(e) { clearInterval(_diProgressTimer); _diProgressTimer = null; }
+    }, 800);
+  }
+  function _diStopProgressPoll() {
+    if (_diProgressTimer) { clearInterval(_diProgressTimer); _diProgressTimer = null; }
+  }
+
+  window.diLoadInventory = async function(showSpin=true){
+    const btn=document.getElementById('diRefreshBtn'), forceBtn=document.getElementById('diForceRefreshBtn'), msg=document.getElementById('diMsg');
+    const mcn=document.getElementById('diMcn')?.value||'', host=document.getElementById('diHost')?.value||'', site=document.getElementById('diSite')?.value||'';
+    const spNames=document.getElementById('diSpNames')?.value||'';
+    const pdtVal = "{{ pdt_type or 'SWPDT' }}";
+    const params=new URLSearchParams({pdt:pdtVal, status:document.getElementById('diStatus')?.value||'all', q:document.getElementById('diSearch')?.value||'', mcn:mcn, host:host, site:site, sp_names:spNames, auto_sp:spNames.trim()?'0':'1', refresh:showSpin?'1':'0', _ts:Date.now()});
+    if(showSpin&&forceBtn){forceBtn.disabled=true;forceBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Live refreshing...';}
+    if(!showSpin&&btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Loading cache...';}
+    if(msg)msg.textContent='Loading inventory...';
+    // Start progress polling if SP names are provided (first-time Axiom fetch may take time)
+    if(spNames.trim()) _diStartProgressPoll(spNames);
+    try{
+      const r=await fetch(`/api/device_summary_data/${encodeURIComponent(target)}/inventory_summary?`+params.toString(),{headers:{'Accept':'application/json'}});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false)throw new Error(d.message||'Inventory API failed');
+      const t=d.totals||{};
+      document.getElementById('diTotal').textContent=(t.total??0)+' / '+((d.by_mcn||[]).length||0);
+      document.getElementById('diHosts').textContent=(d.by_host||[]).length;
+      document.getElementById('diRunning').textContent=t.running??0;
+      document.getElementById('diQuarantine').textContent=t.quarantine??0;
+      diUpdateOptions('diMcn',d.mcn_options||[],mcn);
+      diUpdateOptions('diHost',d.host_options||[],host);
+      diUpdateOptions('diSite',d.site_options||[],site);
+      diRenderBucket('diByMcn',d.by_mcn||[],'MCN');
+      diRenderBucket('diByHost',d.by_host||[],'Host / Site fallback');
+      diRenderBucket('diBySite',d.by_site||[],'Site');
+      const activeSp=document.getElementById('diSpActive');
+      const effectiveSp=((d.filters||{}).sp_names||[]).join(', ');
+      if(!spNames.trim() && effectiveSp){
+        const inp=document.getElementById('diSpNames');
+        if(inp) inp.value=effectiveSp;
+      }
+      if(activeSp) activeSp.textContent=effectiveSp?`SP filter: ${effectiveSp}${spNames.trim()?'':' (auto)'}`:'';
+      if(msg)msg.textContent=`${t.total||0} devices, ${(d.by_mcn||[]).length||0} MCNs, ${t.running||0} running, ${t.quarantine||0} quarantine${effectiveSp?' | SP checked: '+effectiveSp:''}`;
+    }catch(e){
+      if(msg)msg.textContent=e.message||'Inventory load failed';
+      diRenderBucket('diByMcn',[],'MCN');diRenderBucket('diByHost',[],'Host / Site fallback');diRenderBucket('diBySite',[],'Site');
+    }finally{
+      _diStopProgressPoll();
+      if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-bolt"></i> Load Cached / Check SP';}
+      if(forceBtn){forceBtn.disabled=false;forceBtn.innerHTML='<i class="fas fa-sync-alt"></i> Force Live Refresh';}
+    }
+  };
+  // On page load: restore saved SP name, then auto-load inventory
+  document.addEventListener('DOMContentLoaded',()=>{
+    const savedSp = diRestoreSavedSp();
+    // Auto-load with saved SP if present, otherwise load without SP
+    diLoadInventory(false);
+  });
 
   window.dsToggleSetup = function(){
     const body=document.getElementById('dsSetupBody'), arrow=document.getElementById('dsSetupArrow');
@@ -594,7 +827,7 @@
   };
 
     /* Devices popup */
-  window.dsOpenDevices  = async ()=>{ document.getElementById('dsDevicesOv').classList.add('open'); await dsRefreshDevices(false); dvBuildFilters(); document.getElementById('devSearch')?.focus(); };
+  window.dsOpenDevices  = async ()=>{ document.getElementById('dsDevicesOv').classList.add('open'); dvBuildFilters(); dvApplyFilters(); document.getElementById('devSearch')?.focus(); };
   window.dsCloseDevices = ()=>document.getElementById('dsDevicesOv').classList.remove('open');
 
   const devSearch=document.getElementById('devSearch'), devShown=document.getElementById('devShown'), devCount=document.getElementById('devCount');
@@ -669,7 +902,7 @@
 
   function applyDeviceSearch(){ dvApplyFilters(); }
 
-    function renderDeviceTable(headers,rows){
+    function renderDeviceTable(headers,rows,liveMode=false){
     deviceHeaders=headers||[]; deviceRows=rows||[];
     // find rework-type and location column indices from headers
     const rwIdx = deviceHeaders.findIndex(h=>/(rework.?type|rework type)/i.test(h));
@@ -680,7 +913,7 @@
       const search=row.join(' ').toLowerCase();
       const rwVal=rwIdx>=0?(row[rwIdx]||'').toLowerCase():'';
       const lcVal=lcIdx>=0?(row[lcIdx]||'').toLowerCase():'';
-      html+=`<tr data-index="${ri}" data-search="${esc(search)}" data-rework="${esc(rwVal)}" data-loc="${esc(lcVal)}"><td class="dev-row-num" style="color:#a16207;font-size:11px;text-align:center;font-weight:700">${ri+1}</td>`;
+      html+=`<tr data-index="${liveMode ? -1 : ri}" data-search="${esc(search)}" data-rework="${esc(rwVal)}" data-loc="${esc(lcVal)}"><td class="dev-row-num" style="color:#a16207;font-size:11px;text-align:center;font-weight:700">${ri+1}</td>`;
       for(let ci=0;ci<deviceHeaders.length;ci++) html+=`<td class="dv-edit-cell" contenteditable="true" data-col="${ci}">${esc(row[ci]||'')}</td>`;
       html+='<td><div class="dv-row-actions"><button class="dv-mini-btn dv-mini-save" onclick="dsSaveDeviceRow(this)"><i class="fas fa-save"></i> Save</button><button class="dv-mini-btn dv-mini-del" onclick="dsDeleteDeviceRow(this)"><i class="fas fa-trash"></i></button></div></td></tr>';
     });
@@ -695,11 +928,43 @@
     const btn=document.getElementById('dvRefreshBtn');
     if(btn){ btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Refreshing\u2026'; }
     try{
-      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/list?_=${Date.now()}`,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
-      const d=await r.json().catch(()=>({}));
-      if(!r.ok||d.success===false) throw new Error(d.message||'Refresh failed');
-      renderDeviceTable(d.headers||[],d.rows||[]);
-      if(showMsg) setMsg(`Refreshed \u2014 ${d.total||0} device(s).`,true);
+      const spNames=(document.getElementById('diSpNames')?.value||'').trim();
+      if(spNames){
+        const params=new URLSearchParams();
+        params.set('pdt','SWPDT');
+        params.set('sp',spNames);
+        params.set('auto_sp','1');
+        params.set('refresh','0');
+        const inv=await fetch(`/api/device_summary_data/${encodeURIComponent(target)}/inventory_summary?`+params.toString(),{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+        const d=await inv.json().catch(()=>({}));
+        if(!inv.ok||d.success===false) throw new Error(d.message||'Live inventory refresh failed');
+        const headers=['Device ID','Host PC','MCN','Storage','Location','Status','Running Jobs','PL IDs','Taxonomy Path','Heartbeat','Serial Number','Asset Tag','Rework Info','Condition','Comments'];
+        const rows=(d.devices||[]).map(x=>[
+          x.device_id||'',
+          x.host||'',
+          x.mcn||'',
+          x.storage||'',
+          x.site||x.location||'',
+          x.status||'',
+          String(x.running_job_count||0),
+          (x.pl_ids||[]).join(', '),
+          x.taxonomy_path||'',
+          x.heartbeat||'',
+          x.serial_number||'',
+          x.asset_tag||'',
+          x.rework_info||'',
+          x.condition||'',
+          ''
+        ]);
+        renderDeviceTable(headers,rows,true);
+        if(showMsg) setMsg(`Loaded live Axiom inventory — ${rows.length} device(s). Edit + Save will add the edited row to Excel.`,true);
+      }else{
+        const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/list?_=${Date.now()}`,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok||d.success===false) throw new Error(d.message||'Refresh failed');
+        renderDeviceTable(d.headers||[],d.rows||[]);
+        if(showMsg) setMsg(`Refreshed \u2014 ${d.total||0} device(s).`,true);
+      }
     }catch(e){ if(showMsg) setMsg(e.message||'Refresh failed',false); }
     finally{ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fas fa-sync-alt"></i> Refresh'; } }
   };
@@ -707,14 +972,16 @@
   window.dsSaveDeviceRow = async function(btn){
     const tr=btn.closest('tr'); if(!tr) return;
     const idx=parseInt(tr.dataset.index||'-1',10), row=[];
-    tr.querySelectorAll('.ds-edit-cell').forEach(td=>row[parseInt(td.dataset.col,10)]=td.innerText.trim());
+    tr.querySelectorAll('.dv-edit-cell').forEach(td=>row[parseInt(td.dataset.col,10)]=td.innerText.trim());
     btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving';
     try{
-      const r=await fetch(`/api/ds/${encodeURIComponent(target)}/devices/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx,row})});
+      const url = idx < 0 ? `/api/ds/${encodeURIComponent(target)}/devices/add` : `/api/ds/${encodeURIComponent(target)}/devices/edit`;
+      const payload = idx < 0 ? {row} : {index:idx,row};
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json().catch(()=>({}));
       if(!r.ok||d.success===false) throw new Error(d.message||'Save failed');
       renderDeviceTable(d.headers||deviceHeaders,d.rows||deviceRows);
-      setMsg('Device row saved to Excel.',true);
+      setMsg(idx < 0 ? 'Live inventory row added to Excel.' : 'Device row saved to Excel.',true);
     }catch(e){ alert(e.message||'Save failed'); }
     finally{ btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save'; }
   };

@@ -1,5 +1,136 @@
 # Active Context
 
+### SP-only Device Inventory via Axiom job playlists — Complete (2026-08-17)
+
+**Issue addressed:**
+- SP-only inventory mode could still show blank MCN/host details when no target/chipset cache existed and `axiom_job_summary.chip_ids` did not directly match cached `/resources` identities.
+- Broad taxonomy `/resources` scans were expensive and could require many pages/API calls.
+
+**Fix in `device_summary_api.py`:**
+- Added `_fetch_sp_devices_via_jobs(sp_names, chip_ids, target_name='')`.
+- The new flow:
+  1. Reads active `Running` / `JobSetup` rows from `pdt_stats_dashboard.axiom_job_summary` for selected SP names.
+  2. Calls Axiom `/axiom/v1/public/jobs/{job_id}/data/playlists`.
+  3. Extracts playlist track `testResource` serial/resource IDs and `hostName`.
+  4. Uses serial/resource IDs to query Axiom `/resources`.
+  5. Returns a `chip_id.upper() -> normalized device dict` map.
+- Added helper normalization/indexing functions:
+  - `_normalise_axiom_device()`
+  - `_index_axiom_device_aliases()`
+  - `_fetch_resource_for_sp_serial()`
+- Kept `_fetch_sp_devices_from_axiom()` as a backward-compatible wrapper that now delegates to `_fetch_sp_devices_via_jobs()`.
+- Updated `api_device_inventory_summary` SP-only refresh path to use `_fetch_sp_devices_via_jobs(...)`.
+- Enriched devices preserve the active-map chip ID as `chip_id` / `device_id`, so `running_jobs` still attach correctly even when Axiom `/resources` returns another serial field as the primary identity.
+
+**Follow-up fix after UI still showed Unknown MCN/site/device ID:**
+- Added `_scan_sp_devices_by_taxonomy()` fallback. If job playlist track identities do not directly match `axiom_job_summary.chip_ids`, the backend now scans `/resources` under the taxonomy paths seen in active jobs and indexes each Device by serial/ADB/MAC/EDL aliases.
+- SP mode now rebuilds active device rows on Refresh even if an older placeholder cache exists with blank MCN values. This prevents stale `Unknown` placeholder rows from masking newly fetched Axiom `/resources` data.
+- Placeholder rows now carry job `taxonomy_path` and `site` fallback, so site/host display is no longer completely blank when Axiom device enrichment still cannot match a chip.
+- Playlist resource alias extraction now checks `id`, `adbId`, normalized `macAddress`, and `edlId` in addition to `name`, `serialNumber`, and `resourceId`.
+- Aligned SP enrichment with the working `scripts/check_alana_jobs.py` approach:
+  - Calls live Axiom `/axiom/v1/public/jobs?taxonomyPath=/PDT&softwareProduct=<SP>&submittedFrom=<UTC>&expand=chipIdSerialNumbers&state=Running`.
+  - Also checks `JobSetup`.
+  - Uses live `jobId` and `chipIdSerialNumbers` from Axiom when local `axiom_job_summary` is stale or does not expose matching chip identities.
+  - Still keeps DB `axiom_job_summary` rows as the first source for active jobs.
+- Adjusted no-match behavior per user requirement:
+  - If refresh/enrichment finds no matching Axiom/cache device data but a previous cache exists, the API preserves the previous inventory state instead of replacing it with `Unknown` placeholder rows.
+  - If this is the first run and no cache/enriched device data exists, the API returns an empty inventory rather than fabricated placeholder devices.
+- Parallelized the slow SP enrichment calls:
+  - `/jobs/{job_id}/data/playlists` calls now run via `ThreadPoolExecutor` with up to 12 workers.
+  - Per-device `/resources` lookups now run via `ThreadPoolExecutor` with up to 16 workers.
+  - Progress updates now report playlist completion counts while parallel fetches complete.
+- Added device-to-host persistence in `pdt_stats_dashboard.axiom_job_summary` via `scripts/fetch_axiom_combined.py`:
+  - New JSON columns: `device_host_map` and `device_hostnames`.
+  - `_ensure_axiom_job_table()` creates/migrates those columns.
+  - `_upsert_jobs_to_db()` derives `device_host_map` from `certicom_playlist[].certicom_results[]` using `certicom_id -> host_name`.
+  - Confirmed ALANA `/jobs/{id}/results` mapping:
+    - `testCaseTestResourceName` is the device ID (example `TDC00002MCCH`).
+    - `testCaseHostName` is the host PC (example `Lab7181`).
+  - `_hwpdt_build_test_result_index()` now preserves those raw fields as `test_resource_name` and `host_name` in each test-case result.
+  - `_upsert_jobs_to_db()` also indexes nested `test_case_results[]` as `test_resource_name/testCaseTestResourceName -> host_name/testCaseHostName`, so `device_host_map` captures the reliable ALANA result-level device-to-host mapping.
+  - Upsert preserves existing non-empty host mappings if the current cycle has no playlist host data.
+
+**Validation:**
+- `.venv\Scripts\python.exe -m py_compile device_summary_api.py`
+- `git diff --check -- device_summary_api.py`
+- Both completed successfully; only Git LF→CRLF working-copy warning was reported.
+
+---
+
+### Axiom /resources chipset device fetch + MCN fix + PL persistence — Complete (2026-08-17)
+
+**Issues fixed:**
+
+1. **MCN shows "Unknown"** — Root cause: `get_devices_by_chipset()` in `src/axiom_client.py` was not checking `properties.deviceMcn` (the correct Axiom field per swagger `TestResourcePropertiesDto.deviceMcn`). Also `_ds_device_mcn()` in `device_summary_api.py` was not checking `raw.properties.deviceMcn`.
+
+   **Fix in `src/axiom_client.py`**: Added `props.get("deviceMcn")` as the primary MCN source in `get_devices_by_chipset()`. Also added `props.get("storageType")` as primary storage source.
+
+   **Fix in `device_summary_api.py`**: Updated `_ds_device_mcn()` to check `raw.get('properties', {}).get('deviceMcn')` directly from Axiom `/resources` API response.
+
+2. **PL name persistence** — SP/PL name input now saves to `localStorage` (key: `pdtbuddy_sp_names_{target}`). On page load, the saved SP name is restored and inventory auto-loads. Added `diSaveSpAndLoad()` and `diClearSavedSp()` functions. Clear button (×) added next to SP input.
+
+3. **Per-device details** — `api_device_inventory_summary` now returns additional fields per device row: `rework_info`, `asset_tag`, `assigned_to`, `condition`, `mes_build`, `serial_number`, `form_factor`, `device_type`, `taxonomy_path`, `heartbeat`, `is_quarantined`, `quarantine_reason`.
+
+**Axiom `/resources` endpoint** (`GET /axiom/v1/public/resources?taxonomyPath=...&type=Device&chipset=...`):
+- Already used by `AxiomClient.get_devices()` — correct endpoint per swagger
+- Returns `ResourceDto` with `properties: TestResourcePropertiesDto` containing `deviceMcn`, `storageType`, `serialNumber`, etc.
+- `get_devices_by_chipset()` now correctly maps `deviceMcn` → `mcn` field
+
+**Validation:** `.venv\Scripts\python.exe -m py_compile src/axiom_client.py device_summary_api.py` → SYNTAX_OK
+
+---
+
+### Device Summary MCN/Host/Running inventory update — Complete (2026-08-17)
+- Added a new authenticated API endpoint:
+  - `GET /api/device_summary_data/<target_name>/inventory_summary`
+- Endpoint combines cached Axiom/QDT device inventory with active Axiom job rows from `pdt_stats_dashboard.axiom_job_summary`.
+- Returned data includes:
+  - Device totals
+  - MCN-wise grouping
+  - Host-wise grouping
+  - Running devices (`state IN ('Running','JobSetup')`)
+  - Quarantine devices inferred from inventory fields containing quarantine/blocked/disabled
+  - Running job details per device including job ID, PL/software product, build name, site, submitter, and started time
+  - Filter options for MCN, host, status, and free-text search
+- Updated `templates/device_summary_page.html` with a new **Live Device Inventory — MCN / Host / Running Status** card on each target's Device Summary tab.
+- UI now provides:
+  - KPI cards for total inventory devices, host count, running devices, and quarantine devices
+  - Filters for search, status, MCN, and host
+  - MCN-wise and host-wise tables showing total/running/idle/quarantine counts
+- `dashboard_routes.device_summary_page` now passes `pdt_type` and `is_compute_bu` to the Device Summary template so the page renders consistently.
+- Validation:
+  - `.venv\Scripts\python.exe -m py_compile device_summary_api.py dashboard_routes.py`
+  - Jinja template load for `device_summary_page.html`
+  - Both completed successfully.
+
+---
+
+### Axiom Swagger device-status analysis + QIPL CSV import fix — Complete (2026-08-17)
+
+**Swagger/device-status findings:**
+- Axiom device state is available through job/device inventory style endpoints, not from the Smart Build UI alone.
+- The relevant persisted local source is `pdt_stats_dashboard.axiom_job_summary`, which stores per-job `state`, `device_count`, `chip_ids`, `taxonomy_path`, `team`, `city_team`, `site`, `started_at`, and `ended_at`.
+- Smart Build running/completed logic is built from Axiom job `state`:
+  - Running devices/build rows: `state IN ('Running','JobSetup')`
+  - Completed/closed rows: `state IN ('Completed','Aborted')`
+- Existing Smart Build endpoints already expose the key device breakdowns:
+  - `/api/sp2/builds`: build/PL-wise rows with status, hours, crashes, device count, chip IDs, BU.
+  - `/api/sp2/consolidate`: Target+PL-wise weekly summary.
+  - `/api/sp2/active_devices`: BU/target-wise active-device aggregation with unique chip deduplication.
+  - `/api/sp2/unique_devices`: target/PL-wise chip list and per-device hours.
+- PL-wise/site-wise running-device reporting can be derived from `axiom_job_summary` by grouping active rows (`Running`, `JobSetup`) by `software_product`/PL, target (`_swpdt_target_from_product`), `site`/`city_team`, and unique `chip_ids`.
+- Quarantine-specific reporting requires confirming the Axiom field/endpoint that labels devices as quarantine. The current local table has job `state` but no clearly named quarantine column.
+
+**QIPL CSV import failure fixed:**
+- Import failed with MySQL `1406 (22001): Data too long for column 'cr_current_ticket' at row 265`.
+- Root cause: `weekly_qipl_data.cr_current_ticket` was defined as `VARCHAR(255)`, while weekly CR_TAT/Jira CSV rows can contain longer multi-ticket strings.
+- Fix in `weekly_summary_routes.py`:
+  - New table DDL now defines `cr_current_ticket TEXT NULL`.
+  - Existing table migration now runs `ALTER TABLE ... MODIFY COLUMN cr_current_ticket TEXT NULL`.
+- This preserves full ticket strings and prevents weekly import failure without truncating data.
+
+---
+
 ### WBC saved-JQL scheduler filter refetch fix — Complete (2026-08-16)
 
 **Problem:** WBC Current Running Builds / live view status showed `0` rows even though the saved JIRA filter (for example filter `324988`) returned ~173 crashes in JIRA. The UI indicated the saved JQL schedule ran, but it was not reflecting filter edits/build-ID changes in the report or Overview page.
