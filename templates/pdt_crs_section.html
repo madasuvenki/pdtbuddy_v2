@@ -496,12 +496,12 @@
                 <button id="pcrCopyBtn" onclick="pcrCopyOutlook()" style="
           display:inline-flex;align-items:center;gap:6px;
           height:34px;padding:0 14px;border-radius:10px;
-          border:1px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#e0e7ff);
-          color:#4338ca;font-size:11px;font-weight:800;cursor:pointer;
-          box-shadow:0 2px 8px rgba(99,102,241,.15);transition:all .15s;
+          border:1px solid #67e8f9;background:linear-gradient(135deg,#0e7490,#06b6d4);
+          color:#fff;font-size:11px;font-weight:800;cursor:pointer;
+          box-shadow:0 2px 8px rgba(6,182,212,.22);transition:all .15s;
           white-space:nowrap;"
-          onmouseover="this.style.background='linear-gradient(135deg,#e0e7ff,#c7d2fe)';this.style.boxShadow='0 4px 14px rgba(99,102,241,.25)'"
-          onmouseout="this.style.background='linear-gradient(135deg,#eef2ff,#e0e7ff)';this.style.boxShadow='0 2px 8px rgba(99,102,241,.15)'">
+          onmouseover="this.style.background='linear-gradient(135deg,#155e75,#0891b2)';this.style.boxShadow='0 4px 14px rgba(6,182,212,.30)'"
+          onmouseout="this.style.background='linear-gradient(135deg,#0e7490,#06b6d4)';this.style.boxShadow='0 2px 8px rgba(6,182,212,.22)'">
                     <i class="fas fa-copy"></i> Copy Table
         </button>
         <button id="pcrExportExcelBtn" onclick="pcrExportExcel()" style="
@@ -2349,14 +2349,26 @@
     const origHtml = btn ? btn.innerHTML : '';
     if(btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Copying...';
 
-    // Truncate text to max chars - Outlook only respects text length, not CSS overflow
-    const trunc = (v, max) => { const s = String(v==null?'':v).trim(); return s.length > max ? s.slice(0,max)+'ΓÇª' : (s||'--'); };
+    const cleanCopyText = (v) => String(v==null?'':v)
+      .replace(/[\uFFFD\u00C2\u00A0]/g, ' ')
+      .replace(/[\u2010-\u2015]/g, '-')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[^\S\r\n]+/g, ' ')
+      .trim();
+    const cleanDateText = (v) => {
+      const s = cleanCopyText(v);
+      if(!s || /^na$/i.test(s)) return 'NA';
+      if(/^[-–—]+$/.test(s)) return '--';
+      return s.replace(/[\uFFFD\u00C2]+/g, '').trim() || '--';
+    };
+    const trunc = (v, max) => { const s = cleanCopyText(v); return s.length > max ? s.slice(0,max)+'...' : (s||'--'); };
 
     // Column definitions: [header, width-px, field-or-fn, maxChars]
     const cols = [
       { h:'#',                  w:30,  fn:(r,i)=>i+1,                                                    max:4  },
-      { h:'CR ID',              w:72,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:12 },
-      { h:'Title',              w:300, fn:(r)=>r.cr_title||'',                                            max:60 },
+      { h:'CR ID',              w:86,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:16 },
+      { h:'Title',              w:360, fn:(r)=>r.cr_title||'',                                            max:90 },
       { h:'Area',               w:70,  fn:(r)=>r.cr_area||'',                                             max:14 },
       { h:'Subsystem',          w:90,  fn:(r)=>r.cr_subsystem||'',                                        max:18 },
       { h:'Functionality',      w:90,  fn:(r)=>r.cr_functionality||r.cr_function||'',                     max:18 },
@@ -2365,21 +2377,20 @@
       { h:'Status',             w:80,  fn:(r)=>r.cr_status||'',                                           max:16 },
       { h:'SI',                 w:80,  fn:(r)=>r.cr_si||'',                                               max:16 },
       { h:'Ready Date',         w:82,  fn:(r)=>r.si_ready_date||'',                                       max:12 },
-      { h:'Build Date',         w:82,  fn:(r)=>r.built_date||r.build_date||'',                            max:12 },
+      { h:'Build Date',         w:100, fn:(r)=>cleanDateText(r.built_date||r.build_date||''),             max:14 },
       { h:'CR Assignee',        w:90,  fn:(r)=>r.cr_assignee||'',                                         max:18 },
       { h:'CR Priority',        w:70,  fn:(r)=>r.cr_priority||'',                                         max:12 },
       { h:'Customer SN (Name)', w:120, fn:(r)=>r.cr_customer_sn?(r.cr_customer_sn+(r.cr_customer_name?' ('+r.cr_customer_name+')':'')):'', max:24 },
       { h:'Matched CR Tags',    w:100, fn:(r)=>[...(r.cr_tags||[]),...(r.cr_tag_alias||'').split(',').map(x=>x.trim()).filter(Boolean)].filter(t=>{ const tl=String(t).trim().toLowerCase(); return _pcrSearchTags.some(st=>tl.includes(st)||st.includes(tl)); }).join(', '), max:20 },
       { h:'PDT Tag',            w:70,  fn:(r)=>pcrDisplayPdtTag(r),                                       max:12 },
-      { h:'Last Reported Date', w:100, fn:(r)=>r.last_reported_date||'',                                  max:16 },
+      { h:'Last Reported Date', w:118, fn:(r)=>cleanDateText(r.last_reported_date||''),                   max:18 },
       { h:'Last Reported JIRA', w:110, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
     ];
 
-    // Build HTML table with real cells/styles so Outlook preserves formatting.
-    // Width attributes are hints only; Outlook users can still resize columns after paste.
-    const colGroup = cols.map(c=>`<col style="width:${c.w}px">`).join('');
+    // Build a real Word/Outlook-editable table. Avoid fixed layout / colgroup so
+    // users can drag column widths after pasting into Outlook.
     const thHtml = cols.map(c=>
-      `<th width="${c.w}" style="background:#1e3a8a;color:#fff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #3b5bdb;white-space:nowrap">${c.h}</th>`
+      `<th style="background:#1e3a8a;color:#fff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #3b5bdb;white-space:normal">${c.h}</th>`
     ).join('');
 
     const rowsHtml = rows.map((r,idx)=>{
@@ -2395,34 +2406,31 @@
       const stColor = st.includes('open')?'#854d0e':st.includes('analysis')?'#5b21b6':st.includes('built')?'#166534':st.includes('fix')?'#c2410c':'#475569';
 
       const cells = cols.map((c,ci)=>{
-        const tdStyle = `padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;vertical-align:middle;background:${bg};`;
+        const tdStyle = `padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;vertical-align:top;background:${bg};`;
         // Special cells with links or color
         if(ci===1){
-          // CR ID ΓÇö hyperlink
-          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#1d4ed8;font-weight:900;text-decoration:none">${crId}</a>` : (crId||'--');
-          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#1d4ed8;font-weight:900;text-decoration:underline">${crId}</a>` : (crId||'--');
+          return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px">${link}</td>`;
         }
         if(ci===8){
-          // Status ΓÇö colored badge
           const badge = r.cr_status ? `<span style="background:${stBg};color:${stColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:900">${trunc(r.cr_status,16)}</span>` : '--';
-          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${badge}</td>`;
+          return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px">${badge}</td>`;
         }
         if(ci===18){
-          // Last Reported JIRA - hyperlink
-          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#0ea5e9;font-weight:900;text-decoration:none">${jiraKey}</a>` : '--';
-          return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
+          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#0ea5e9;font-weight:900;text-decoration:underline">${jiraKey}</a>` : '--';
+          return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px">${link}</td>`;
         }
-        // Standard cell ΓÇö plain truncated text
         const val = c.fn(r, idx);
         const txt = trunc(val, c.max);
         const align = (ci===0||ci===6||ci===7) ? 'text-align:center;' : '';
         const color = ci===0 ? 'color:#94a3b8;' : ci===6 ? 'color:#4f46e5;font-weight:900;' : '';
-        return `<td width="${c.w}" style="${tdStyle}${align}${color}white-space:nowrap">${esc(txt)}</td>`;
+        const wrap = ci===2 ? 'white-space:normal;min-width:260px;max-width:520px;' : `white-space:nowrap;min-width:${c.w}px;`;
+        return `<td style="${tdStyle}${align}${color}${wrap}">${esc(txt)}</td>`;
       }).join('');
       return `<tr>${cells}</tr>`;
     }).join('');
 
-    const fullHtml = `<html><body><table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:auto">${colGroup}<thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+    const fullHtml = `<html><body><table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:auto;width:auto"><thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
 
     // TSV fallback (plain text for non-Outlook paste)
     const tsvHeader = cols.map(c=>c.h).join('\t');
