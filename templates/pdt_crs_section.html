@@ -1216,13 +1216,21 @@
   }
 
   // ΓöÇΓöÇ Apply all filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  function pcrIsHiddenFromMainTable(r){
+    const cat = String((r||{}).cr_category||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    const hits = numVal((r||{}).cr_occurrence);
+    return hits <= 0 || cat === 'dup' || cat === 'duplicate' || cat === 'duplicates' || cat === 'invaliddup';
+  }
+
   window.pcrApply = function(){
     const minHits   = parseInt((document.querySelector('input[name="hitsRadio"]:checked')||{}).value||'0',10)||0;
     const pdtTagFlt = (document.querySelector('input[name="pdttagRadio"]:checked')||{}).value||'';
     const ageFlt    = parseInt((document.querySelector('input[name="ageRadio"]:checked')||{}).value||'0',10)||0;
     const q         = (document.getElementById('fltSearch').value||'').toLowerCase();
 
-    filtered = _applyExclude(allRows).filter(r=>{
+    const kpiRows = _applyExclude(allRows);
+    filtered = kpiRows.filter(r=>{
+      if(pcrIsHiddenFromMainTable(r)) return false;
       const hits   = numVal(r.cr_occurrence);
       const age    = numVal(r.cr_age);
       const area   = (r.cr_area||'').trim();
@@ -1267,7 +1275,7 @@
 
       return true;
     });
-    applySort(); currentPage=1; renderTable(); renderKpi(filtered); pcrUpdateTagSearchSummary(filtered);
+    applySort(); currentPage=1; renderTable(); renderKpi(kpiRows); pcrUpdateTagSearchSummary(filtered);
   };
 
   // ΓöÇΓöÇ Clear all ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -2367,7 +2375,9 @@
       { h:'Last Reported JIRA', w:110, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
     ];
 
-    // Build HTML table ΓÇö use width attribute (Outlook respects this) + plain truncated text
+    // Build HTML table with real cells/styles so Outlook preserves formatting.
+    // Width attributes are hints only; Outlook users can still resize columns after paste.
+    const colGroup = cols.map(c=>`<col style="width:${c.w}px">`).join('');
     const thHtml = cols.map(c=>
       `<th width="${c.w}" style="background:#1e3a8a;color:#fff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #3b5bdb;white-space:nowrap">${c.h}</th>`
     ).join('');
@@ -2397,8 +2407,8 @@
           const badge = r.cr_status ? `<span style="background:${stBg};color:${stColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:900">${trunc(r.cr_status,16)}</span>` : '--';
           return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${badge}</td>`;
         }
-        if(ci===14){
-          // Last Reported JIRA ΓÇö hyperlink
+        if(ci===18){
+          // Last Reported JIRA - hyperlink
           const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#0ea5e9;font-weight:900;text-decoration:none">${jiraKey}</a>` : '--';
           return `<td width="${c.w}" style="${tdStyle}white-space:nowrap">${link}</td>`;
         }
@@ -2412,7 +2422,7 @@
       return `<tr>${cells}</tr>`;
     }).join('');
 
-    const fullHtml = `<html><body><table width="1200" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:fixed"><thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+    const fullHtml = `<html><body><table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:11px;table-layout:auto">${colGroup}<thead><tr>${thHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
 
     // TSV fallback (plain text for non-Outlook paste)
     const tsvHeader = cols.map(c=>c.h).join('\t');
@@ -2440,10 +2450,27 @@
       }
     }catch(e){}
 
-    // 2. Plain TSV via writeText
+    // 2. Rich HTML execCommand fallback (works on HTTP and pastes as table in Outlook)
+    try{
+      const tmp = document.createElement('div');
+      tmp.contentEditable = 'true';
+      tmp.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111827;';
+      tmp.innerHTML = fullHtml;
+      document.body.appendChild(tmp);
+      const range = document.createRange();
+      range.selectNodeContents(tmp);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      const ok = document.execCommand('copy');
+      sel.removeAllRanges();
+      document.body.removeChild(tmp);
+      if(ok){ done(true); return; }
+    }catch(e){}
+
+    // 3. Last resort plain TSV
     try{ await navigator.clipboard.writeText(tsv); done(true); return; }catch(e){}
 
-    // 3. execCommand fallback (HTTP / older browsers)
     try{
       const ta = document.createElement('textarea');
       ta.value = tsv;
