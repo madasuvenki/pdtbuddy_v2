@@ -979,6 +979,9 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
                 token = run_refresh_running(host, token, app_name)
                 token = run_refresh_hwpdt_results(host, token, app_name, running_only=True)
 
+            rebuilt_devices = rebuild_axiom_all_devices_table()
+            logger.info("[POLLER] all-devices table refreshed rows=%d", rebuilt_devices)
+
         except Exception as exc:
             logger.error("[POLLER] cycle=%d ERROR: %s", cycle, exc, exc_info=True)
             token = None  # force token refresh next cycle
