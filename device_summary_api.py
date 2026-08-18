@@ -1811,6 +1811,14 @@ def api_device_inventory_summary(target_name):
         mcn = _ds_device_mcn(d)
         quarantine = _ds_device_quarantine(d)
         jobs = active_map.get(dev_key, [])
+        if not mcn and jobs:
+            # Prefer DB-backed MCN from pdt_stats_dashboard.axiom_all_devices /
+            # axiom_job_summary active map before grouping the device as Unknown.
+            # This keeps SP-only Device Summary DB-only while avoiding stale
+            # placeholder rows when Axiom live enrichment has not run.
+            mcn = _ds_first_non_empty(*(j.get('mcn') for j in jobs))
+        if not host and jobs:
+            host = _ds_first_non_empty(*(j.get('host_pc') for j in jobs))
         running = bool(jobs)
         status = 'quarantine' if quarantine else ('running' if running else 'idle')
         job_sites = sorted({j.get('site') for j in jobs if j.get('site')})
@@ -1898,7 +1906,7 @@ def api_device_inventory_summary(target_name):
         'filters': {'mcn': mcn_filter, 'host': host_filter, 'site': site_filter, 'status': status_filter, 'q': q, 'sp_names': sp_names},
         'totals': totals,
         'devices': devices,
-        'by_mcn': _bucket('mcn'),
+        'by_mcn': [r for r in _bucket('mcn') if r.get('key') != 'Unknown'],
         'by_host': _bucket('host'),
         'by_site': _bucket('site'),
         'running_hosts': [r for r in _bucket('host') if r.get('running')],
