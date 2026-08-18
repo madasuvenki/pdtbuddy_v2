@@ -1357,7 +1357,9 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
                     'build_name': str(row.get('build_running') or row.get('build_name') or ''),
                     'pl_id': str(row.get('software_product') or ''),
                     'state': str(row.get('state') or ''),
-                    'site': str(row.get('host_name') or row.get('site') or row.get('city_team') or ''),
+                    # Host must come only from Axiom results host_name. Do not
+                    # fall back to job site/city/build labels as host PC.
+                    'site': str(row.get('site') or row.get('city_team') or ''),
                     'host_pc': str(row.get('host_name') or ''),
                     'taxonomy_path': str(row.get('taxonomy_path') or ''),
                     'submitter': '',
@@ -1419,7 +1421,6 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
                         continue
                     if include_all_chips or key in wanted:
                         job = dict(base_job)
-                        job['site'] = str(host_name or '').strip() or job.get('site', '')
                         job['host_pc'] = str(host_name or '').strip()
                         active.setdefault(key, []).append(job)
         return active
@@ -1763,7 +1764,7 @@ def api_device_inventory_summary(target_name):
             for chip_id in sorted(active_map.keys()):
                 jobs_for_chip = active_map.get(chip_id, [])
                 first_job = jobs_for_chip[0] if jobs_for_chip else {}
-                host_pc = str(first_job.get('host_pc') or first_job.get('site') or '').strip()
+                host_pc = str(first_job.get('host_pc') or '').strip()
                 if not host_pc:
                     continue
                 raw_devices.append({
@@ -1814,9 +1815,8 @@ def api_device_inventory_summary(target_name):
         # Do NOT use axiom_job_summary.site (anusat/wig/snowcone) — that is the
         # job execution site, not the device inventory site.
         site = _ds_device_location(d)
-        # In SP-only mode (no Axiom device data yet), host falls back to job site name
-        if d.get('_sp_only') and not host:
-            host = (job_sites[0] if job_sites else '') or 'SP-only'
+        # In SP-only mode, host must remain the real Axiom result host_name.
+        # Do not fall back to job site/build labels as host PC.
         # Extract rework and other details from QDT/Axiom data
         raw_d = d.get('_raw') or {}
         props_d = raw_d.get('properties') or {}

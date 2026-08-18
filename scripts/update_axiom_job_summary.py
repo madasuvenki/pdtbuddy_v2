@@ -336,17 +336,23 @@ def rebuild_axiom_all_devices_table() -> int:
             if not isinstance(host_map, dict):
                 host_map = {}
 
-            device_ids = {str(c or "").strip().upper() for c in chips if str(c or "").strip()}
-            device_ids.update(str(k or "").strip().upper() for k in host_map.keys() if str(k or "").strip())
+            # Prefer result-derived playlistTestResource.name -> host mapping.
+            # Do not mix in chip_ids when host_map exists; chip_ids can be ADB/build
+            # identifiers and were causing wrong device ids with NULL host_name.
+            if host_map:
+                device_ids = {str(k or "").strip().upper() for k in host_map.keys() if str(k or "").strip()}
+            else:
+                device_ids = {str(c or "").strip().upper() for c in chips if str(c or "").strip()}
 
             sp = str(row.get("software_product") or "").strip()
             job_id = str(row.get("job_id") or "").strip()
+            host_map_upper = {str(k or "").strip().upper(): v for k, v in host_map.items()}
             for device_id in sorted(device_ids):
                 key = (device_id, sp, job_id)
                 if key in seen:
                     continue
                 seen.add(key)
-                host_name = str(host_map.get(device_id) or "").strip()
+                host_name = str(host_map_upper.get(device_id) or "").strip()
                 started_at = row.get("started_at") or row.get("submitted_at")
                 insert_cur.execute("""
                     INSERT INTO `pdt_stats_dashboard`.`axiom_all_devices`
@@ -466,14 +472,60 @@ def run_incremental_update(host: str, token: str, app_name: str,
     return token
 
 
+def _fetch_job_results_device_host_map(host: str, token: str, app_name: str, job_id: str) -> Tuple[str, dict]:
+    """Fetch one job's /results device-host map.
+
+    Device id is Axiom result `data[].playlistTestResource.name`.
+    Host PC is Axiom result `data[].testCaseHostName`.
+    """
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "X-QCOM-AppName": app_name,
+        "X-QCOM-TokenType": "OAuth",
+        "X-QCOM-ClientType": "Python",
+        "X-QCOM-TracingID": uuid.uuid4().hex,
+    }
+    path = f"/axiom/v1/public/jobs/{job_id}/results?pageNumber=0&pageSize=500"
+    conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
+    try:
+        conn.request("GET", path, body="", headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status == 401:
+            raise _TokenExpired()
+        if resp.status not in (200, 201):
+            return job_id, {}
+        payload = json.loads(raw.decode("utf-8", errors="ignore"))
+    finally:
+        conn.close()
+
+    host_map = {}
+    for row in (payload or {}).get("data") or []:
+        if not isinstance(row, dict):
+            continue
+        resource = row.get("playlistTestResource") or {}
+        if not isinstance(resource, dict):
+            resource = {}
+        dev_id = str(
+            resource.get("name")
+            or row.get("testCaseTestResourceName")
+            or ""
+        ).strip().upper()
+        host_name = str(row.get("testCaseHostName") or "").strip()
+        if dev_id and host_name:
+            host_map[dev_id] = host_name
+    return job_id, host_map
+
+
 def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: str,
                                               builds: Dict[str, dict],
                                               max_workers: int = 16) -> Dict[str, dict]:
     """Populate certicom_playlist host mapping from /jobs/{id}/results.
 
-    For ALANA/SWPDT the reliable mapping is:
-      testCaseTestResourceName -> device id
-      testCaseHostName         -> host PC
+    For ALANA/SWPDT the reliable mapping from /jobs/{id}/results is:
+      data[].playlistTestResource.name -> device id
+      data[].testCaseHostName          -> host PC
 
     _upsert_jobs_to_db() derives axiom_job_summary.device_host_map from this
     certicom_playlist structure.
@@ -487,42 +539,9 @@ def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: s
     if not targets:
         return builds
 
-    def _fetch_result_host_map(job_id: str) -> Tuple[str, dict]:
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-            "X-QCOM-AppName": app_name,
-            "X-QCOM-TokenType": "OAuth",
-            "X-QCOM-ClientType": "Python",
-            "X-QCOM-TracingID": uuid.uuid4().hex,
-        }
-        path = f"/axiom/v1/public/jobs/{job_id}/results?pageNumber=0&pageSize=3"
-        conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
-        try:
-            conn.request("GET", path, body="", headers=headers)
-            resp = conn.getresponse()
-            raw = resp.read()
-            if resp.status == 401:
-                raise _TokenExpired()
-            if resp.status not in (200, 201):
-                return job_id, {}
-            payload = json.loads(raw.decode("utf-8", errors="ignore"))
-        finally:
-            conn.close()
-
-        host_map = {}
-        for row in (payload or {}).get("data") or []:
-            if not isinstance(row, dict):
-                continue
-            dev_id = str(row.get("testCaseTestResourceName") or "").strip().upper()
-            host_name = str(row.get("testCaseHostName") or "").strip()
-            if dev_id and host_name:
-                host_map[dev_id] = host_name
-        return job_id, host_map
-
     enriched = 0
     with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(targets)))) as pool:
-        futures = [pool.submit(_fetch_result_host_map, jid) for jid in targets.keys()]
+        futures = [pool.submit(_fetch_job_results_device_host_map, host, token, app_name, jid) for jid in targets.keys()]
         for fut in as_completed(futures):
             job_id, host_map = fut.result()
             if not host_map:
@@ -553,6 +572,89 @@ def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: s
 
     logger.info("[DEVICE HOST MAP] enriched %d/%d jobs from /results", enriched, len(targets))
     return builds
+
+
+def refresh_active_device_host_maps(host: str, token: str, app_name: str,
+                                    workers: int = 16, limit: int = 2000) -> str:
+    """Refresh device_host_map for active jobs from /jobs/{id}/results.
+
+    This keeps axiom_all_devices accurate during normal poller cycles, not only
+    during QIPL backfill.  It writes only real device/host pairs from:
+      data[].playlistTestResource.name -> data[].testCaseHostName
+    """
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        raise RuntimeError("DB connection failed - cannot refresh active device host maps")
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT job_id
+            FROM `pdt_stats_dashboard`.`axiom_job_summary`
+            WHERE state IN ('Running','JobSetup')
+              AND job_id IS NOT NULL
+              AND TRIM(job_id) <> ''
+            ORDER BY updated_at DESC
+            LIMIT %s
+        """, (int(limit),))
+        job_ids = [str(r.get("job_id") or "").strip() for r in (cur.fetchall() or []) if str(r.get("job_id") or "").strip()]
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+    if not job_ids:
+        return token
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    updated = 0
+    failed = 0
+    auth_failures = 0
+
+    while True:
+        try:
+            conn = get_mysql_connection_db(bu_key=None)
+            if not conn:
+                raise RuntimeError("DB connection failed - cannot write active device host maps")
+            write_cur = conn.cursor()
+            try:
+                with ThreadPoolExecutor(max_workers=max(1, min(int(workers or 1), len(job_ids)))) as pool:
+                    futures = [pool.submit(_fetch_job_results_device_host_map, host, token, app_name, jid) for jid in job_ids]
+                    for idx, fut in enumerate(as_completed(futures), 1):
+                        job_id, host_map = fut.result()
+                        if not host_map:
+                            failed += 1
+                            continue
+                        hostnames = sorted({str(v or "").strip() for v in host_map.values() if str(v or "").strip()})
+                        write_cur.execute("""
+                            UPDATE `pdt_stats_dashboard`.`axiom_job_summary`
+                            SET device_host_map = %s,
+                                device_hostnames = %s,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE job_id = %s
+                        """, (
+                            json.dumps(host_map, ensure_ascii=False),
+                            json.dumps(hostnames, ensure_ascii=False),
+                            job_id,
+                        ))
+                        updated += 1
+                        if idx % 100 == 0:
+                            conn.commit()
+                conn.commit()
+            finally:
+                write_cur.close()
+                conn.close()
+            logger.info("[DEVICE HOST MAP] refreshed active jobs updated=%d no_map=%d total=%d", updated, failed, len(job_ids))
+            break
+        except _TokenExpired:
+            auth_failures += 1
+            if auth_failures >= AUTH_RETRY_LIMIT:
+                raise RuntimeError(f"Token kept expiring after {auth_failures} refresh attempts")
+            client_id = os.environ.get("AXIOM_CLIENT_ID", "").strip()
+            client_secret = os.environ.get("AXIOM_CLIENT_SECRET", "").strip()
+            token = _get_token_with_retry(host, client_id, client_secret)
+    return token
 
 
 def run_refresh_qipl_last_days(host: str, token: str, app_name: str,
@@ -977,7 +1079,11 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
             else:
                 token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10)
                 token = run_refresh_running(host, token, app_name)
+                token = refresh_active_device_host_maps(host, token, app_name)
                 token = run_refresh_hwpdt_results(host, token, app_name, running_only=True)
+
+            if is_first:
+                token = refresh_active_device_host_maps(host, token, app_name)
 
             rebuilt_devices = rebuild_axiom_all_devices_table()
             logger.info("[POLLER] all-devices table refreshed rows=%d", rebuilt_devices)
@@ -1160,6 +1266,8 @@ Examples:
                 days=args.qipl_days,
                 max_jobs=args.qipl_max_jobs,
             )
+
+        token = refresh_active_device_host_maps(host, token, app_name)
 
         if args.refresh_hwpdt_results:
             token = run_refresh_hwpdt_results(
