@@ -262,7 +262,7 @@ def _get_token_with_retry(host: str, client_id: str, client_secret: str,
 # ---------------------------------------------------------------------------
 
 def _ensure_axiom_all_devices_table(cur) -> None:
-    """Create the generated all-devices table used by Device Summary."""
+    """Create/upgrade the generated all-devices table used by Device Summary."""
     cur.execute("""
         CREATE TABLE IF NOT EXISTS `pdt_stats_dashboard`.`axiom_all_devices` (
             id               BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -277,6 +277,10 @@ def _ensure_axiom_all_devices_table(cur) -> None:
             taxonomy_path    VARCHAR(512) NULL,
             site             VARCHAR(64)  NULL,
             city_team        VARCHAR(16)  NULL,
+            mcn              VARCHAR(128) NULL,
+            storage          VARCHAR(128) NULL,
+            resource_id      VARCHAR(64)  NULL,
+            chipset          VARCHAR(64)  NULL,
             started_at       DATETIME     NULL,
             job_date         DATE         NULL,
             source_updated_at DATETIME    NULL,
@@ -284,9 +288,238 @@ def _ensure_axiom_all_devices_table(cur) -> None:
             UNIQUE KEY uniq_device_sp_job (device_id, software_product, job_id),
             KEY idx_device_id (device_id),
             KEY idx_sp_state (software_product, state),
+            KEY idx_mcn (mcn),
             KEY idx_generated_at (generated_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """)
+    for col, ddl in (
+        ("mcn", "VARCHAR(128) NULL AFTER city_team"),
+        ("storage", "VARCHAR(128) NULL AFTER mcn"),
+        ("resource_id", "VARCHAR(64) NULL AFTER storage"),
+        ("chipset", "VARCHAR(64) NULL AFTER resource_id"),
+    ):
+        try:
+            cur.execute(f"ALTER TABLE `pdt_stats_dashboard`.`axiom_all_devices` ADD COLUMN `{col}` {ddl}")
+        except Exception:
+            pass
+
+
+def _normalise_device_site(taxonomy_path: str = "", site: str = "", city_team: str = "") -> str:
+    text = " ".join(str(x or "") for x in (taxonomy_path, site, city_team)).upper()
+    if "QIPL" in text or "HYDERABAD" in text:
+        return "QIPL"
+    if "CHINA" in text or "SHANGHAI" in text or "/CH" in text:
+        return "CH"
+    if "SANDIEGO" in text or "SAN DIEGO" in text or "/SD" in text or city_team == "SD":
+        return "SD"
+    return ""
+
+
+def _extract_resource_mcn_storage(raw: dict) -> tuple[str, str]:
+    raw = raw or {}
+    props = raw.get("properties") or {}
+    deps = raw.get("dependencies") or {}
+    rf_card = props.get("RfCard") or {}
+    mcn = (
+        props.get("deviceMcn")
+        or props.get("mcn")
+        or props.get("MCN")
+        or props.get("mcnType")
+        or rf_card.get("mcn")
+        or deps.get("mcnRev")
+        or deps.get("mcn")
+        or deps.get("MCN")
+        or ""
+    )
+    storage = (
+        props.get("storageType")
+        or props.get("storage")
+        or props.get("Storage")
+        or props.get("flashType")
+        or deps.get("storageType")
+        or deps.get("storage Type")
+        or deps.get("storage")
+        or deps.get("Storage")
+        or deps.get("flashType")
+        or raw.get("storage")
+        or ""
+    )
+    return str(mcn or "").strip(), str(storage or "").strip()
+
+
+def _axiom_get_json(host: str, token: str, app_name: str, path: str) -> dict:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "X-QCOM-AppName": app_name,
+        "X-QCOM-TokenType": "OAuth",
+        "X-QCOM-ClientType": "Python",
+        "X-QCOM-TracingID": uuid.uuid4().hex,
+    }
+    conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
+    try:
+        conn.request("GET", path, body="", headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status == 401:
+            raise _TokenExpired()
+        if resp.status not in (200, 201):
+            return {}
+        return json.loads(raw.decode("utf-8", errors="ignore"))
+    finally:
+        conn.close()
+
+
+def _fetch_resource_details_by_query(host: str, token: str, app_name: str,
+                                     taxonomy_path: str = "", chipset: str = "",
+                                     serial_name: str = "") -> dict:
+    from urllib.parse import quote
+
+    tax = str(taxonomy_path or "/PDT").strip() or "/PDT"
+    chip = str(chipset or "").strip()
+    serial = str(serial_name or "").strip()
+    paths = []
+    if chip:
+        # This is intentionally the same shape as src.axiom_client.AxiomClient.get_devices().
+        paths.append(
+            f"/axiom/v1/public/resources"
+            f"?taxonomyPath={quote(tax, safe='/')}"
+            f"&type=Device"
+            f"&chipset={quote(chip)}"
+            f"&pageNumber=0&pageSize=100"
+        )
+    if serial:
+        paths.extend([
+            f"/axiom/v1/public/resources?taxonomyPath={quote(tax, safe='/')}"
+            f"&type=Device&serialNumber={quote(serial)}&pageNumber=0&pageSize=20",
+            f"/axiom/v1/public/resources?taxonomyPath={quote(tax, safe='/')}"
+            f"&type=Device&name={quote(serial)}&pageNumber=0&pageSize=20",
+        ])
+
+    for path in paths:
+        payload = _axiom_get_json(host, token, app_name, path)
+        items = []
+        if isinstance(payload, dict):
+            for key in ("data", "content", "resources"):
+                if isinstance(payload.get(key), list):
+                    items = payload.get(key) or []
+                    break
+            if not items and payload:
+                items = [payload]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            props = item.get("properties") or {}
+            aliases = {
+                str(item.get("name") or "").strip().upper(),
+                str(item.get("hostname") or "").strip().upper(),
+                str(props.get("serialNumber") or "").strip().upper(),
+            }
+            if serial and serial.upper() not in aliases and len(items) > 1:
+                continue
+            return item
+    return {}
+
+
+def _fetch_resource_details_by_id(host: str, token: str, app_name: str, resource_id: str) -> dict:
+    resource_id = str(resource_id or "").strip()
+    if not resource_id:
+        return {}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "X-QCOM-AppName": app_name,
+        "X-QCOM-TokenType": "OAuth",
+        "X-QCOM-ClientType": "Python",
+        "X-QCOM-TracingID": uuid.uuid4().hex,
+    }
+    path = f"/axiom/v1/public/resources/{resource_id}"
+    conn = http.client.HTTPSConnection(host, context=_ssl_ctx(), timeout=TIMEOUT_SEC)
+    try:
+        conn.request("GET", path, body="", headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status == 401:
+            raise _TokenExpired()
+        if resp.status not in (200, 201):
+            return {}
+        return json.loads(raw.decode("utf-8", errors="ignore"))
+    finally:
+        conn.close()
+
+
+def _load_cached_axiom_device_details() -> dict:
+    """Return device-id/alias -> MCN/storage/resource/chipset from local Axiom caches."""
+    cache_dir = os.path.join(_PROJECT_ROOT, "static", "axiom_cache")
+    out: dict = {}
+    if not os.path.isdir(cache_dir):
+        return out
+
+    for fname in os.listdir(cache_dir):
+        if not fname.endswith(".json"):
+            continue
+        path = os.path.join(cache_dir, fname)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except Exception:
+            continue
+
+        for dev in payload.get("devices") or []:
+            if not isinstance(dev, dict):
+                continue
+            raw = dev.get("_raw") or {}
+            props = raw.get("properties") or {}
+            deps = raw.get("dependencies") or {}
+            mcn = str(
+                dev.get("mcn")
+                or props.get("deviceMcn")
+                or props.get("mcn")
+                or props.get("MCN")
+                or deps.get("mcn")
+                or deps.get("MCN")
+                or ""
+            ).strip()
+            storage = str(
+                dev.get("storage")
+                or props.get("storageType")
+                or props.get("storage")
+                or props.get("Storage")
+                or deps.get("storageType")
+                or deps.get("storage Type")
+                or deps.get("storage")
+                or ""
+            ).strip()
+            rec = {
+                "mcn": mcn,
+                "storage": storage,
+                "resource_id": str(dev.get("id") or raw.get("id") or "").strip(),
+                "chipset": str(dev.get("chipset") or deps.get("chipset") or "").strip(),
+            }
+            if not any(rec.values()):
+                continue
+
+            aliases = {
+                dev.get("device_id"),
+                dev.get("chip_id"),
+                dev.get("serial_number"),
+                dev.get("hostname"),
+                props.get("serialNumber"),
+                props.get("hostname"),
+                raw.get("hostname"),
+            }
+            for field in ("adbId", "edlId", "deviceSerialNumbers", "chipIdSerialNumbers", "serialNumbers"):
+                value = props.get(field) if field in props else raw.get(field)
+                if isinstance(value, list):
+                    aliases.update(value)
+                elif value:
+                    aliases.add(value)
+
+            for alias in aliases:
+                key = str(alias or "").strip().upper()
+                if key:
+                    out.setdefault(key, rec)
+    return out
 
 
 def rebuild_axiom_all_devices_table() -> int:
@@ -321,6 +554,7 @@ def rebuild_axiom_all_devices_table() -> int:
         insert_cur = conn.cursor()
         inserted = 0
         seen = set()
+        cached_device_details = _load_cached_axiom_device_details()
 
         for row in rows:
             try:
@@ -352,15 +586,40 @@ def rebuild_axiom_all_devices_table() -> int:
                 if key in seen:
                     continue
                 seen.add(key)
-                host_name = str(host_map_upper.get(device_id) or "").strip()
+                host_info = host_map_upper.get(device_id) or {}
+                if isinstance(host_info, dict):
+                    host_name = str(host_info.get("host_name") or host_info.get("host") or "").strip()
+                    mcn = str(host_info.get("mcn") or "").strip()
+                    storage = str(host_info.get("storage") or "").strip()
+                    resource_id = str(host_info.get("resource_id") or "").strip()
+                    chipset = str(host_info.get("chipset") or "").strip()
+                else:
+                    host_name = str(host_info or "").strip()
+                    mcn = ""
+                    storage = ""
+                    resource_id = ""
+                    chipset = ""
+                if (not mcn or not storage or not resource_id or not chipset) and device_id in cached_device_details:
+                    cached = cached_device_details.get(device_id) or {}
+                    mcn = mcn or str(cached.get("mcn") or "").strip()
+                    storage = storage or str(cached.get("storage") or "").strip()
+                    resource_id = resource_id or str(cached.get("resource_id") or "").strip()
+                    chipset = chipset or str(cached.get("chipset") or "").strip()
                 started_at = row.get("started_at") or row.get("submitted_at")
+                taxonomy_path = str(row.get("taxonomy_path") or "").strip()
+                normalised_site = _normalise_device_site(
+                    taxonomy_path,
+                    str(row.get("site") or "").strip(),
+                    str(row.get("city_team") or "").strip(),
+                )
                 insert_cur.execute("""
                     INSERT INTO `pdt_stats_dashboard`.`axiom_all_devices`
                         (device_id, host_name, software_product, heartbeat,
                          build_running, build_name, job_id, state, taxonomy_path,
-                         site, city_team, started_at, job_date, source_updated_at)
+                         site, city_team, mcn, storage, resource_id, chipset,
+                         started_at, job_date, source_updated_at)
                     VALUES
-                        (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,DATE(%s),%s)
+                        (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,DATE(%s),%s)
                 """, (
                     device_id,
                     host_name or None,
@@ -370,9 +629,13 @@ def rebuild_axiom_all_devices_table() -> int:
                     str(row.get("build_name") or "").strip() or None,
                     job_id or None,
                     str(row.get("state") or "").strip() or None,
-                    str(row.get("taxonomy_path") or "").strip() or None,
-                    str(row.get("site") or "").strip() or None,
+                    taxonomy_path or None,
+                    normalised_site or None,
                     str(row.get("city_team") or "").strip() or None,
+                    mcn or None,
+                    storage or None,
+                    resource_id or None,
+                    chipset or None,
                     started_at,
                     started_at,
                     row.get("updated_at"),
@@ -501,6 +764,7 @@ def _fetch_job_results_device_host_map(host: str, token: str, app_name: str, job
         conn.close()
 
     host_map = {}
+    resource_cache = {}
     for row in (payload or {}).get("data") or []:
         if not isinstance(row, dict):
             continue
@@ -513,8 +777,42 @@ def _fetch_job_results_device_host_map(host: str, token: str, app_name: str, job
             or ""
         ).strip().upper()
         host_name = str(row.get("testCaseHostName") or "").strip()
+        resource_id = str(resource.get("resourceId") or resource.get("id") or "").strip()
+        chipset = str(resource.get("chipset") or "").strip()
+        taxonomy_path = str(row.get("taxonomyPath") or row.get("playlistTaxonomyPath") or "/PDT").strip() or "/PDT"
+        if taxonomy_path.upper() == "/PDT" and "QIPL" in str(row.get("playlistPool") or row.get("playlistResourceSet") or "").upper():
+            taxonomy_path = "/PDT/QIPL"
+        mcn = ""
+        storage = ""
+        if resource_id:
+            details = resource_cache.get(resource_id)
+            if details is None:
+                try:
+                    details = _fetch_resource_details_by_id(host, token, app_name, resource_id)
+                except Exception:
+                    details = {}
+                resource_cache[resource_id] = details
+            if not details:
+                details = _fetch_resource_details_by_query(
+                    host,
+                    token,
+                    app_name,
+                    taxonomy_path=taxonomy_path,
+                    chipset=chipset,
+                    serial_name=dev_id,
+                )
+            mcn, storage = _extract_resource_mcn_storage(details or {})
+            if not chipset:
+                deps = (details or {}).get("dependencies") or {}
+                chipset = str(deps.get("chipset") or "").strip()
         if dev_id and host_name:
-            host_map[dev_id] = host_name
+            host_map[dev_id] = {
+                "host_name": host_name,
+                "resource_id": resource_id,
+                "chipset": chipset,
+                "mcn": mcn,
+                "storage": storage,
+            }
     return job_id, host_map
 
 
@@ -549,15 +847,19 @@ def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: s
             certicom_results = [
                 {
                     "certicom_id": dev_id,
-                    "host_name": host_name,
+                    "host_name": (info.get("host_name") if isinstance(info, dict) else info),
+                    "resource_id": (info.get("resource_id") if isinstance(info, dict) else ""),
+                    "chipset": (info.get("chipset") if isinstance(info, dict) else ""),
+                    "mcn": (info.get("mcn") if isinstance(info, dict) else ""),
+                    "storage": (info.get("storage") if isinstance(info, dict) else ""),
                     "test_case_results": [
                         {
                             "test_resource_name": dev_id,
-                            "host_name": host_name,
+                            "host_name": (info.get("host_name") if isinstance(info, dict) else info),
                         }
                     ],
                 }
-                for dev_id, host_name in host_map.items()
+                for dev_id, info in host_map.items()
             ]
             builds[job_id]["certicom_playlist"] = [
                 {
@@ -626,7 +928,11 @@ def refresh_active_device_host_maps(host: str, token: str, app_name: str,
                         if not host_map:
                             failed += 1
                             continue
-                        hostnames = sorted({str(v or "").strip() for v in host_map.values() if str(v or "").strip()})
+                        hostnames = sorted({
+                            str((v.get("host_name") if isinstance(v, dict) else v) or "").strip()
+                            for v in host_map.values()
+                            if str((v.get("host_name") if isinstance(v, dict) else v) or "").strip()
+                        })
                         write_cur.execute("""
                             UPDATE `pdt_stats_dashboard`.`axiom_job_summary`
                             SET device_host_map = %s,

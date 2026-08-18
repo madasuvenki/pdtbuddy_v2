@@ -1341,7 +1341,7 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
             cur.execute("""
                 SELECT device_id, host_name, software_product, build_running,
                        build_name, job_id, state, taxonomy_path, site, city_team,
-                       started_at, job_date, heartbeat
+                       started_at, job_date, heartbeat, mcn, storage, resource_id, chipset
                 FROM `pdt_stats_dashboard`.`axiom_all_devices`
                 WHERE state IN ('Running','JobSetup')
             """ + where_extra + """
@@ -1365,6 +1365,10 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
                     'submitter': '',
                     'started_at': str(row.get('started_at') or row.get('job_date') or ''),
                     'heartbeat': str(row.get('heartbeat') or ''),
+                    'mcn': str(row.get('mcn') or ''),
+                    'storage': str(row.get('storage') or ''),
+                    'resource_id': str(row.get('resource_id') or ''),
+                    'chipset': str(row.get('chipset') or ''),
                     '_source': 'axiom_all_devices',
                 })
             if active:
@@ -1770,10 +1774,10 @@ def api_device_inventory_summary(target_name):
                 raw_devices.append({
                     'chip_id': chip_id,
                     'device_id': chip_id,
-                    'mcn': '',
+                    'mcn': str(first_job.get('mcn') or ''),
                     'host': host_pc,
                     'host_pc': host_pc,
-                    'storage': '',
+                    'storage': str(first_job.get('storage') or ''),
                     'location': '',
                     'taxonomy_path': str(first_job.get('taxonomy_path') or '').strip(),
                     '_sp_only': True,
