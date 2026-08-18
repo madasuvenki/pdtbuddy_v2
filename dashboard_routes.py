@@ -7252,18 +7252,6 @@ def dashboard(target_name, section="dashboard"):
         ) or {}
         hw_base_rows = hw_build_report_data.get("rows", [])
         hwpdt_available = bool(hw_build_report_data.get("hwpdt_available"))
-
-        # Some HWPDT-managed targets (for example Shikra_CQ2390_LA_10) may have
-        # no currently visible HW crash rows after filters/exclusions, but the
-        # dashboard_status.is_hwpdt flag is still the authoritative signal that
-        # the HWPDT tab/page should be available for the target.
-        if not hwpdt_available:
-            try:
-                from dashboard_common import get_is_hwpdt_for_target as _get_is_hwpdt_for_target
-                hwpdt_available = bool(_get_is_hwpdt_for_target(target_name))
-            except Exception as _hw_flag_err:
-                logger.warning("[HWPDT] dashboard_status availability check failed for %s: %s", target_name, _hw_flag_err)
-
         perf_marks.append(("build_report_fetch", _perf_elapsed_ms(perf_total_start)))
 
         # For compute BU, preserve stored QC/Product MTBF when available.
