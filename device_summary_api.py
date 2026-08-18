@@ -1311,9 +1311,12 @@ def _enrich_sp_rows_with_live_axiom_status(raw_devices: list, max_workers: int =
 def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
     """Return active Axiom job info keyed by chip/device ID.
 
-    Axiom job_summary is the local persisted source for running devices. It has
-    job state and chip_ids but no confirmed quarantine column, so quarantine is
-    inferred from device inventory fields separately.
+    Prefer the generated pdt_stats_dashboard.axiom_all_devices table populated
+    by scripts/update_axiom_job_summary.py.  That table already expands active
+    jobs to one row per device with host/SP/build/date, so Device Summary can
+    avoid live Axiom job/playlist checks for pages such as Hamoa_LA_1_0.
+    Falls back to axiom_job_summary for older deployments before the generated
+    table exists.
     """
     sp_names = [str(x).strip() for x in (sp_names or []) if str(x).strip()]
     if not device_ids and not sp_names:
@@ -1324,11 +1327,49 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
     cur = conn.cursor(dictionary=True)
     active = {}
     try:
+        wanted = {str(x).strip().upper() for x in device_ids if str(x).strip()}
+        include_all_chips = not wanted and bool(sp_names)
+
         where_extra = ''
         params = []
         if sp_names:
             where_extra = ' AND software_product IN (' + ','.join(['%s'] * len(sp_names)) + ')'
             params.extend(sp_names)
+
+        # Fast path: generated all-devices table from update_axiom_job_summary.py.
+        try:
+            cur.execute("""
+                SELECT device_id, host_name, software_product, build_running,
+                       build_name, job_id, state, taxonomy_path, site, city_team,
+                       started_at, job_date, heartbeat
+                FROM `pdt_stats_dashboard`.`axiom_all_devices`
+                WHERE state IN ('Running','JobSetup')
+            """ + where_extra + """
+                ORDER BY started_at DESC, generated_at DESC
+                LIMIT 20000
+            """, tuple(params))
+            for row in cur.fetchall() or []:
+                key = str(row.get('device_id') or '').strip().upper()
+                if not key or (not include_all_chips and key not in wanted):
+                    continue
+                active.setdefault(key, []).append({
+                    'job_id': str(row.get('job_id') or ''),
+                    'build_name': str(row.get('build_running') or row.get('build_name') or ''),
+                    'pl_id': str(row.get('software_product') or ''),
+                    'state': str(row.get('state') or ''),
+                    'site': str(row.get('host_name') or row.get('site') or row.get('city_team') or ''),
+                    'host_pc': str(row.get('host_name') or ''),
+                    'taxonomy_path': str(row.get('taxonomy_path') or ''),
+                    'submitter': '',
+                    'started_at': str(row.get('started_at') or row.get('job_date') or ''),
+                    'heartbeat': str(row.get('heartbeat') or ''),
+                    '_source': 'axiom_all_devices',
+                })
+            if active:
+                return active
+        except Exception as exc:
+            logger.debug('[DEVICE SUMMARY] axiom_all_devices unavailable, falling back to job_summary: %s', exc)
+
         cur.execute("""
             SELECT job_id, build_name, software_product, state, chip_ids, site,
                    city_team, taxonomy_path, submitter, started_at,
@@ -1340,7 +1381,6 @@ def _ds_active_axiom_device_map(device_ids: set[str], sp_names=None) -> dict:
             ORDER BY started_at DESC
             LIMIT 5000
         """, tuple(params))
-        wanted = {str(x).strip().upper() for x in device_ids if str(x).strip()}
         include_all_chips = not wanted and bool(sp_names)
         for row in cur.fetchall() or []:
             try:
@@ -1623,10 +1663,16 @@ def api_device_inventory_summary(target_name):
     else:
         chip_name, raw_devices, saved_at = _ds_load_cached_devices_for_target(target_name, pdt_type)
 
+    if not cache_hit and sp_names:
+        # SP-backed pages can now use the generated all-devices table directly.
+        # Do this before any live Axiom device fetch so /device-summary/<SP>
+        # can render from local DB data produced by update_axiom_job_summary.py.
+        active_map = _ds_active_axiom_device_map(set(), sp_names=sp_names)
+
     # If the target has not been synced yet, or user clicks Refresh Inventory,
     # pull Axiom/QDT live and save the same unified cache used by the existing
     # Device Summary API. Without this, a never-synced target shows 0 rows.
-    if not cache_hit and (refresh or not raw_devices):
+    if not cache_hit and not sp_names and (refresh or not raw_devices):
         if is_axiom_enabled_for_target(target_name):
             try:
                 live_devices = get_devices_by_chipset(chip_name, pdt_type=pdt_type, include_site_details=True) or []
@@ -1647,7 +1693,7 @@ def api_device_inventory_summary(target_name):
             except Exception as exc:
                 logger.warning('[DEVICE SUMMARY INVENTORY] live refresh failed target=%s pdt=%s: %s', target_name, pdt_type, exc)
 
-    if not cache_hit:
+    if not cache_hit and 'active_map' not in locals():
         device_ids = {_ds_device_identity(d) for d in raw_devices}
         active_map = _ds_active_axiom_device_map(device_ids, sp_names=sp_names)
 

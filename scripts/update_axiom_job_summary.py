@@ -258,6 +258,136 @@ def _get_token_with_retry(host: str, client_id: str, client_secret: str,
 
 
 # ---------------------------------------------------------------------------
+# All-device summary table
+# ---------------------------------------------------------------------------
+
+def _ensure_axiom_all_devices_table(cur) -> None:
+    """Create the generated all-devices table used by Device Summary."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS `pdt_stats_dashboard`.`axiom_all_devices` (
+            id               BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            device_id        VARCHAR(128) NOT NULL,
+            host_name        VARCHAR(255) NULL,
+            software_product VARCHAR(255) NULL,
+            heartbeat        VARCHAR(64)  NULL,
+            build_running    VARCHAR(255) NULL,
+            build_name       VARCHAR(255) NULL,
+            job_id           VARCHAR(64)  NULL,
+            state            VARCHAR(32)  NULL,
+            taxonomy_path    VARCHAR(512) NULL,
+            site             VARCHAR(64)  NULL,
+            city_team        VARCHAR(16)  NULL,
+            started_at       DATETIME     NULL,
+            job_date         DATE         NULL,
+            source_updated_at DATETIME    NULL,
+            generated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_device_sp_job (device_id, software_product, job_id),
+            KEY idx_device_id (device_id),
+            KEY idx_sp_state (software_product, state),
+            KEY idx_generated_at (generated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """)
+
+
+def rebuild_axiom_all_devices_table() -> int:
+    """Regenerate pdt_stats_dashboard.axiom_all_devices from axiom_job_summary.
+
+    One row is emitted per active device/job.  The table intentionally stores the
+    fields Device Summary needs most often (host, device id, SP, heartbeat,
+    running build, date), so pages such as /device-summary/Hamoa_LA_1_0 can read
+    local DB data instead of calling Axiom again.
+    """
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        raise RuntimeError("DB connection failed - cannot rebuild axiom_all_devices")
+    cur = conn.cursor(dictionary=True)
+    try:
+        _ensure_axiom_all_devices_table(cur)
+        cur.execute("TRUNCATE TABLE `pdt_stats_dashboard`.`axiom_all_devices`")
+        cur.execute("""
+            SELECT job_id, software_product, build_name, build_id, state,
+                   chip_ids, device_host_map, device_hostnames,
+                   taxonomy_path, site, city_team, started_at, submitted_at,
+                   updated_at
+            FROM `pdt_stats_dashboard`.`axiom_job_summary`
+            WHERE state IN ('Running','JobSetup')
+              AND (
+                    chip_ids IS NOT NULL
+                 OR device_host_map IS NOT NULL
+              )
+            ORDER BY started_at DESC, updated_at DESC
+        """)
+        rows = cur.fetchall() or []
+        insert_cur = conn.cursor()
+        inserted = 0
+        seen = set()
+
+        for row in rows:
+            try:
+                chips = json.loads(row.get("chip_ids") or "[]") if isinstance(row.get("chip_ids"), str) else list(row.get("chip_ids") or [])
+            except Exception:
+                chips = []
+            try:
+                host_map = row.get("device_host_map") or {}
+                if isinstance(host_map, str):
+                    host_map = json.loads(host_map or "{}")
+            except Exception:
+                host_map = {}
+            if not isinstance(host_map, dict):
+                host_map = {}
+
+            device_ids = {str(c or "").strip().upper() for c in chips if str(c or "").strip()}
+            device_ids.update(str(k or "").strip().upper() for k in host_map.keys() if str(k or "").strip())
+
+            sp = str(row.get("software_product") or "").strip()
+            job_id = str(row.get("job_id") or "").strip()
+            for device_id in sorted(device_ids):
+                key = (device_id, sp, job_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                host_name = str(host_map.get(device_id) or "").strip()
+                started_at = row.get("started_at") or row.get("submitted_at")
+                insert_cur.execute("""
+                    INSERT INTO `pdt_stats_dashboard`.`axiom_all_devices`
+                        (device_id, host_name, software_product, heartbeat,
+                         build_running, build_name, job_id, state, taxonomy_path,
+                         site, city_team, started_at, job_date, source_updated_at)
+                    VALUES
+                        (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,DATE(%s),%s)
+                """, (
+                    device_id,
+                    host_name or None,
+                    sp or None,
+                    None,
+                    str(row.get("build_name") or row.get("build_id") or "").strip() or None,
+                    str(row.get("build_name") or "").strip() or None,
+                    job_id or None,
+                    str(row.get("state") or "").strip() or None,
+                    str(row.get("taxonomy_path") or "").strip() or None,
+                    str(row.get("site") or "").strip() or None,
+                    str(row.get("city_team") or "").strip() or None,
+                    started_at,
+                    started_at,
+                    row.get("updated_at"),
+                ))
+                inserted += 1
+
+        conn.commit()
+        logger.info("[ALL DEVICES] rebuilt axiom_all_devices rows=%d from active jobs=%d", inserted, len(rows))
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Core update functions
 # ---------------------------------------------------------------------------
 
@@ -1037,6 +1167,9 @@ Examples:
                 running_only=not args.hwpdt_results_all,
                 workers=args.hwpdt_results_workers,
             )
+
+        rebuilt_devices = rebuild_axiom_all_devices_table()
+        logger.info("[ALL DEVICES] generated pdt_stats_dashboard.axiom_all_devices rows=%d", rebuilt_devices)
 
     except Exception as exc:
         logger.error("Update failed: %s", exc, exc_info=True)
