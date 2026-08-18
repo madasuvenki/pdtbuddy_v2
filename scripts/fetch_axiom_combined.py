@@ -130,8 +130,9 @@ CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "20"))
 
 # DB table for Axiom job summary (replaces JSON files long-term)
 AXIOM_DB_TABLE = "`pdt_stats_dashboard`.`axiom_job_summary`"
-MAX_RETRIES         = 3
-RETRY_DELAY_SEC     = 5
+MAX_RETRIES         = int(os.environ.get("AXIOM_MAX_RETRIES", "5"))
+RETRY_DELAY_SEC     = int(os.environ.get("AXIOM_RETRY_DELAY_SEC", "5"))
+RETRY_MAX_DELAY_SEC = int(os.environ.get("AXIOM_RETRY_MAX_DELAY_SEC", "90"))
 TIMEOUT_SEC         = 300
 TOKEN_TTL_SEC       = 25 * 60   # refresh every 25 min - Axiom tokens expire ~30 min
 AUTH_RETRY_LIMIT    = 3         # token refresh attempts per cycle before giving up
@@ -855,13 +856,25 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
             if resp.status == 400 and b"must not be ahead of the current time" in raw:
                 logger.info("[GET] HTTP 400 from Axiom time-window guard; stopping this request: %r", raw[:200])
                 return {}
-            logger.warning("[GET] HTTP %s attempt %d/%d: %r", resp.status, attempt, MAX_RETRIES, raw[:200])
+            if resp.status in (502, 503, 504):
+                logger.warning(
+                    "[GET] transient HTTP %s attempt %d/%d for %s: %r",
+                    resp.status,
+                    attempt,
+                    MAX_RETRIES,
+                    path[:180],
+                    raw[:200],
+                )
+            else:
+                logger.warning("[GET] HTTP %s attempt %d/%d: %r", resp.status, attempt, MAX_RETRIES, raw[:200])
         except _TokenExpired:
             raise   # propagate immediately
         except Exception as exc:
             logger.warning("[GET] attempt %d/%d error: %s", attempt, MAX_RETRIES, exc)
         if attempt < MAX_RETRIES:
-            time.sleep(RETRY_DELAY_SEC)
+            delay = min(RETRY_MAX_DELAY_SEC, RETRY_DELAY_SEC * (2 ** (attempt - 1)))
+            time.sleep(delay)
+    logger.warning("[GET] giving up after %d attempts for %s", MAX_RETRIES, path[:180])
     return {}
 
 
