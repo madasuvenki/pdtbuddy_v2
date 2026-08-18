@@ -2364,22 +2364,31 @@
     };
     const trunc = (v, max) => { const s = cleanCopyText(v); return s.length > max ? s.slice(0,max)+'...' : (s||'--'); };
 
-    // Outlook copy table matches the compact CR mail format.
+    // Copy all table columns, but use compact Outlook-friendly sizing.
     const cols = [
-      { h:'#',                  w:34,  fn:(r,i)=>i+1,                                                    max:4  },
-      { h:'CR ID',              w:76,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:16 },
-      { h:'TITLE',              w:620, fn:(r)=>r.cr_title||'',                                            max:150 },
-      { h:'AREA',               w:115, fn:(r)=>r.cr_area||'',                                             max:28 },
-      { h:'JIRA HITS',          w:58,  fn:(r)=>numVal(r.cr_occurrence)||0,                                max:5  },
-      { h:'AGE (DAYS)',         w:74,  fn:(r)=>r.cr_age!=null?String(r.cr_age).replace(/d$/i,'')+'d':'',  max:6  },
-      { h:'STATUS',             w:82,  fn:(r)=>r.cr_status||'',                                           max:16 },
-      { h:'PDT TAG',            w:72,  fn:(r)=>pcrDisplayPdtTag(r),                                       max:12 },
-      { h:'LAST REPORTED DATE', w:108, fn:(r)=>cleanDateText(r.last_reported_date||r.jira_date_last||''), max:18 },
-      { h:'LAST REPORTED JIRA', w:145, fn:(r)=>r.last_reported_jira||'',                                  max:24 },
+      { h:'#',                  w:28,  fn:(r,i)=>i+1,                                                    max:4  },
+      { h:'CR ID',              w:74,  fn:(r)=>pcrCrId(r)?'CR'+String(pcrCrId(r)).replace(/^CR/i,''):'', max:16 },
+      { h:'Title',              w:360, fn:(r)=>r.cr_title||'',                                            max:120 },
+      { h:'Area',               w:70,  fn:(r)=>r.cr_area||'',                                             max:14 },
+      { h:'Subsystem',          w:82,  fn:(r)=>r.cr_subsystem||'',                                        max:16 },
+      { h:'Functionality',      w:92,  fn:(r)=>r.cr_functionality||r.cr_function||'',                     max:18 },
+      { h:'Hits',               w:40,  fn:(r)=>numVal(r.cr_occurrence)||0,                                max:5  },
+      { h:'Age',                w:42,  fn:(r)=>r.cr_age!=null?String(r.cr_age).replace(/d$/i,'')+'d':'',  max:6  },
+      { h:'Status',             w:76,  fn:(r)=>r.cr_status||'',                                           max:14 },
+      { h:'SI',                 w:78,  fn:(r)=>r.cr_si||'',                                               max:14 },
+      { h:'Ready Date',         w:82,  fn:(r)=>cleanDateText(r.si_ready_date||''),                        max:12 },
+      { h:'Build Date',         w:86,  fn:(r)=>cleanDateText(r.built_date||r.build_date||''),             max:12 },
+      { h:'CR Assignee',        w:86,  fn:(r)=>r.cr_assignee||'',                                         max:16 },
+      { h:'CR Priority',        w:62,  fn:(r)=>r.cr_priority||'',                                         max:10 },
+      { h:'Customer SN (Name)', w:112, fn:(r)=>r.cr_customer_sn?(r.cr_customer_sn+(r.cr_customer_name?' ('+r.cr_customer_name+')':'')):'', max:22 },
+      { h:'Matched CR Tags',    w:96,  fn:(r)=>[...(r.cr_tags||[]),...(r.cr_tag_alias||'').split(',').map(x=>x.trim()).filter(Boolean)].filter(t=>{ const tl=String(t).trim().toLowerCase(); return _pcrSearchTags.some(st=>tl.includes(st)||st.includes(tl)); }).join(', '), max:18 },
+      { h:'PDT Tag',            w:62,  fn:(r)=>pcrDisplayPdtTag(r),                                       max:10 },
+      { h:'Last Reported Date', w:98,  fn:(r)=>cleanDateText(r.last_reported_date||r.jira_date_last||''), max:16 },
+      { h:'Last Reported JIRA', w:118, fn:(r)=>r.last_reported_jira||'',                                  max:20 },
     ];
 
     const thHtml = cols.map(c=>
-      `<th style="background:#243a5a;color:#ffffff;padding:6px 8px;font-size:11px;font-weight:900;text-align:left;border:1px solid #dbe3ee;white-space:normal">${c.h}</th>`
+      `<th style="background:#243a5a;color:#ffffff;padding:4px 5px;font-size:9px;font-weight:900;text-align:left;border:1px solid #dbe3ee;white-space:nowrap">${c.h}</th>`
     ).join('');
 
     const rowsHtml = rows.map((r,idx)=>{
@@ -2398,23 +2407,23 @@
         let weight = '600';
         let align = '';
         if(ci===3){ cellBg='#eef2ff'; color='#4f46e5'; weight='900'; }
-        if(ci===4){ cellBg=hits>=100?'#fee2e2':(hits>=10?'#fef3c7':'#dcfce7'); color=hits>=100?'#dc2626':(hits>=10?'#b45309':'#15803d'); weight='900'; align='text-align:center;'; }
-        if(ci===5){ cellBg=age>40?'#fee2e2':(age>14?'#fef3c7':'#ecfdf5'); color=age>40?'#dc2626':(age>14?'#c2410c':'#16a34a'); weight='900'; align='text-align:center;'; }
-        if(ci===6){ cellBg='#f1f5f9'; color=String(r.cr_status||'').toLowerCase().includes('open')?'#ef4444':'#334155'; weight='900'; }
-        if(ci===7){ cellBg=pdtTag?'#fee2e2':'#fff7ed'; color=pdtTag?'#ef4444':'#f87171'; weight='900'; align='text-align:center;'; }
-        const tdStyle = `padding:5px 8px;border:1px solid #dbe3ee;font-size:11px;vertical-align:top;background:${cellBg};color:${color};font-weight:${weight};${align}`;
+        if(ci===6){ cellBg=hits>=100?'#fee2e2':(hits>=10?'#fef3c7':'#dcfce7'); color=hits>=100?'#dc2626':(hits>=10?'#b45309':'#15803d'); weight='900'; align='text-align:center;'; }
+        if(ci===7){ cellBg=age>40?'#fee2e2':(age>14?'#fef3c7':'#ecfdf5'); color=age>40?'#dc2626':(age>14?'#c2410c':'#16a34a'); weight='900'; align='text-align:center;'; }
+        if(ci===8){ cellBg='#f1f5f9'; color=String(r.cr_status||'').toLowerCase().includes('open')?'#ef4444':'#334155'; weight='900'; }
+        if(ci===16){ cellBg=pdtTag?'#fee2e2':'#fff7ed'; color=pdtTag?'#ef4444':'#f87171'; weight='900'; align='text-align:center;'; }
+        const tdStyle = `padding:3px 5px;border:1px solid #dbe3ee;font-size:9px;line-height:1.2;vertical-align:top;background:${cellBg};color:${color};font-weight:${weight};${align}`;
         if(ci===1){
-          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#3f7f8f;font-weight:900;text-decoration:underline">${crId}</a>` : (crId||'--');
-          return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px">${link}</td>`;
+          const link = crId && crUrl ? `<a href="${crUrl}" style="color:#3f7f8f;font-weight:900;text-decoration:underline;white-space:nowrap">${crId}</a>` : (crId||'--');
+          return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px;mso-line-height-rule:exactly">${link}</td>`;
         }
-        if(ci===9){
-          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#3f7f8f;font-weight:900;text-decoration:underline">${jiraKey}</a>` : '--';
+        if(ci===18){
+          const link = jiraKey ? `<a href="https://jira-dc2.qualcomm.com/jira/browse/${jiraKey}" style="color:#3f7f8f;font-weight:900;text-decoration:underline;white-space:nowrap">${jiraKey}</a>` : '--';
           return `<td style="${tdStyle}white-space:nowrap;min-width:${c.w}px">${link}</td>`;
         }
         const val = c.fn(r, idx);
         let txt = trunc(val, c.max);
-        if(ci===7 && !pdtTag) txt = '–';
-        const wrap = ci===2 ? 'white-space:normal;min-width:420px;max-width:760px;' : `white-space:nowrap;min-width:${c.w}px;`;
+        if(ci===16 && !pdtTag) txt = '–';
+        const wrap = ci===2 ? 'white-space:normal;min-width:300px;max-width:520px;' : `white-space:nowrap;min-width:${c.w}px;`;
         return `<td style="${tdStyle}${wrap}">${esc(txt)}</td>`;
       }).join('');
       return `<tr>${cells}</tr>`;
