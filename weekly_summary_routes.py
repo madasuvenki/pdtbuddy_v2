@@ -6868,8 +6868,10 @@ def _monthly_fetch_target_cr_data(
                             a = alias or col
                             return f'`{col}` AS `{a}`' if col in o_cols else f'{default} AS `{a}`'
 
-                        # NO date filter — overallcrs is a cumulative table,
-                        # not time-sliced. Fetch all PDT rows.
+                        # Date scoped: Monthly Report must show only CRs within
+                        # the selected date range, not cumulative/all-time data.
+                        ov_date_clause = "AND DATE(`date`) >= %s AND DATE(`date`) <= %s" if 'date' in o_cols else ""
+                        ov_params = [date_from_s, date_to_s] if 'date' in o_cols else []
                         cur.execute(f"""
                             SELECT
                                 `{cr_col}`          AS mapped_cr,
@@ -6886,7 +6888,8 @@ def _monthly_fetch_target_cr_data(
                             WHERE `{cr_col}` IS NOT NULL
                               AND TRIM(`{cr_col}`) <> ''
                               AND reported_team IN ('PDT_Unique', 'PDT_Reported')
-                        """)
+                              {ov_date_clause}
+                        """, ov_params)
                         for r in (cur.fetchall() or []):
                             row = dict(r)
                             row['target_name'] = pl_id
@@ -7563,31 +7566,38 @@ def _monthly_fetch_target_stats(
         value for site in selected_sites for value in site_team_values[site]
     )
 
-    # Derive base name for overallcrs table
-    _PLATFORM_SEGS = {'le', 'la', 'tx', 'wp', 'xr', 'iot', 'auto', 'mdm'}
-    parts = db_name.split('_')
-    base_parts = []
-    for p in parts:
-        if p.lower() in _PLATFORM_SEGS:
-            break
-        base_parts.append(p)
-    base_name = '_'.join(base_parts) if base_parts else parts[0]
-
     try:
         conn = get_mysql_connection_db(bu_key=None)
         if not conn:
             return result
         cur = conn.cursor(dictionary=True)
 
+        def tbl_exists(t):
+            return _tbl_exists_cur(cur, t)
+
+        # Resolve the real live table prefix per PL.  Do not use only
+        # dashboard_status.target_name because versioned PLs can share a generic
+        # target_name and then Pinnacles.LE.1.2 metrics appear under
+        # Pinnacles.LE.1.0.  Prefer the exact sp_name-derived prefix when that
+        # table exists, then fall back to target_name/db_name for legacy rows.
+        prefix_candidates = []
+        for raw_prefix in (
+            str(sp_name or '').replace('.', '_').replace('-', '_').lower(),
+            str(db_name or '').replace('.', '_').replace('-', '_').lower(),
+        ):
+            raw_prefix = raw_prefix.strip()
+            if raw_prefix and raw_prefix not in prefix_candidates:
+                prefix_candidates.append(raw_prefix)
+        for cand in prefix_candidates:
+            if tbl_exists(f'`{schema}`.`{cand}_jiras`'):
+                db_name = cand
+                break
+
         def tbl(suffix):
             return f'`{schema}`.`{db_name}_{suffix}`'
 
         def base_tbl(suffix):
             return f'`{schema}`.`{db_name.split("_")[0]}_{suffix}`'
-
-
-        def tbl_exists(t):
-            return _tbl_exists_cur(cur, t)
 
         try:
             # 1. jiras: total JIRA count + metabuilds + total_crs (NO site filter)
@@ -7723,7 +7733,9 @@ def _monthly_fetch_target_stats(
                         WHERE build_name IN ({ph})
                           AND team IN ('QIPL','PDT','SD','CH')
                           AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%%'
-                    """, list(metabuilds))
+                          AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
+                          AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
+                    """, list(metabuilds) + [date_to_s, date_from_s])
                     ax_rows = cur2.fetchall() or []
                 finally:
                     cur2.close()
@@ -7846,11 +7858,11 @@ def _monthly_build_overall_status(
     rows = []
     for tgt in bu_targets:
         sp_name = tgt['sp_name']
-        # dashboard_status.db_name can be legacy/stale (for example
-        # `mavroos`), while the live per-target tables are keyed by
-        # dashboard_status.target_name (`mavros_jiras`). Prefer target_name so
-        # the selected target reads its real {target}_jiras table.
-        db_name = str(tgt.get('target_name') or tgt.get('db_name') or '').strip()
+        # Pass exact PL first. _monthly_fetch_target_stats resolves the real
+        # table prefix by checking {sp_name}_jiras before target_name/db_name.
+        # This prevents versioned PL data (for example Pinnacles.LE.1.2) from
+        # being shown under another PL row (Pinnacles.LE.1.0).
+        db_name = str(sp_name or tgt.get('target_name') or tgt.get('db_name') or '').strip()
         display = tgt.get('target_display') or sp_name
 
         stats = _monthly_fetch_target_stats(
@@ -9537,12 +9549,27 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
 
         for tgt in bu_targets:
             sp_name  = tgt["sp_name"]
-            db_name  = tgt["db_name"]
+            # Prefer dashboard_status.target_name. dashboard_status.db_name can
+            # be legacy/stale, while the monthly status-table logic also uses
+            # target_name for live {target}_jiras / {target}_unique_crs tables.
+            db_name  = str(tgt.get("target_name") or tgt.get("db_name") or "").strip()
             base     = db_name.split("_")[0]
             ucrs_tbl = "`%s`.`%s_unique_crs`" % (schema, db_name)
+            jiras_tbl = "`%s`.`%s_jiras`" % (schema, db_name)
             entry    = {"tbl2_unique": [], "tbl3_total": []}
 
-            # Unique CR detail must come only from overall CR tables.
+            mapped_crs = []
+            if _tbl_exists_cur(cur, jiras_tbl):
+                cur.execute(
+                    "SELECT DISTINCT mapped_crs FROM " + jiras_tbl +
+                    " WHERE DATE(jira_date) >= %s AND DATE(jira_date) <= %s"
+                    " AND mapped_crs IS NOT NULL AND mapped_crs != '' AND mapped_crs != 'None'",
+                    (date_from_s, date_to_s))
+                mapped_crs = [r["mapped_crs"] for r in (cur.fetchall() or [])]
+
+            # Unique CR detail must match the top status-table unique count:
+            # overallcrs reported_team='PDT_Unique' intersected with the CRs
+            # mapped by date-scoped JIRA rows. Do not date-filter overallcrs.
             # Prefer PL-wise overall first, then target/base-wise overall.
             ov_tbl = None
             for ov_candidate in (
@@ -9555,21 +9582,23 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                     ov_tbl = ov_candidate
                     break
 
-            if ov_tbl:
+            if ov_tbl and mapped_crs:
+                ph_cr = ",".join(["%s"] * len(mapped_crs))
                 cur.execute(
                     "SELECT crid, date, area, subs, func, si, status, count, label, reported_team, seen_in_targets"
                     " FROM " + ov_tbl +
-                    " WHERE DATE(date) >= %s AND DATE(date) <= %s"
-                    " AND reported_team = 'PDT_Unique'"
+                    " WHERE reported_team = 'PDT_Unique'"
+                    " AND crid IN (" + ph_cr + ")"
                     " AND crid IS NOT NULL AND TRIM(crid) != ''"
                     " ORDER BY date",
-                    (date_from_s, date_to_s))
+                    mapped_crs)
                 seen_tbl2 = set()
                 for r in (cur.fetchall() or []):
                     crid = str(r.get("crid") or "").strip()
-                    if not crid or crid in seen_tbl2:
+                    crid_key = "".join(ch for ch in crid.upper() if ch.isdigit()) or crid.upper()
+                    if not crid_key or crid_key in seen_tbl2:
                         continue
-                    seen_tbl2.add(crid)
+                    seen_tbl2.add(crid_key)
                     entry["tbl2_unique"].append({
                         "program":          sp_name,
                         "cr_id":            crid,
@@ -9585,18 +9614,17 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                         "pdt_site_unique":  "",
                     })
 
-            jiras_tbl = "`%s`.`%s_jiras`" % (schema, db_name)
-            if _tbl_exists_cur(cur, jiras_tbl) and _tbl_exists_cur(cur, ucrs_tbl):
-                cur.execute(
-                    "SELECT DISTINCT mapped_crs FROM " + jiras_tbl +
-                    " WHERE DATE(jira_date) >= %s AND DATE(jira_date) <= %s"
-                    " AND mapped_crs IS NOT NULL AND mapped_crs != '' AND mapped_crs != 'None'",
-                    (date_from_s, date_to_s))
-                mapped_crs = [r["mapped_crs"] for r in (cur.fetchall() or [])]
-                if mapped_crs:
+            # Total CR detail must match the top status-table total_crs:
+            # COUNT(DISTINCT mapped_crs) from date-scoped {target}_jiras.
+            # The unique_crs table is used only to enrich details. If a mapped
+            # CR is missing from unique_crs, still emit a placeholder row so the
+            # lower table count cannot be lower than the top count.
+            if mapped_crs:
+                detail_by_cr = {}
+                if _tbl_exists_cur(cur, ucrs_tbl):
                     ph = ",".join(["%s"] * len(mapped_crs))
                     sql = (
-                                                "SELECT cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
+                        "SELECT cr, mapped_cr, cr_occurrence, jira_date, cr_area, cr_subsystem,"
                         " cr_functionality, cr_title, image, cr_status, cr_category, pdt_site_unique"
                         " FROM " + ucrs_tbl +
                         " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
@@ -9605,20 +9633,33 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                     )
                     cur.execute(sql, mapped_crs * 2)
                     for r in (cur.fetchall() or []):
-                        entry["tbl3_total"].append({
-                            "program":          sp_name,
-                            "cr_id":            str(r.get("cr")               or ""),
-                            "instances":        str(r.get("cr_occurrence")    or ""),
-                            "cr_date":          str(r.get("jira_date")        or "")[:10],
-                            "cr_area":          str(r.get("cr_area")          or ""),
-                            "cr_subsystem":     str(r.get("cr_subsystem")     or ""),
-                            "cr_functionality": str(r.get("cr_functionality") or ""),
-                            "cr_title":         str(r.get("cr_title")         or ""),
-                            "image":            str(r.get("image")            or ""),
-                                                        "cr_status":        str(r.get("cr_status")        or ""),
-                            "cr_category":      str(r.get("cr_category")      or ""),
-                            "pdt_site_unique":  str(r.get("pdt_site_unique")  or ""),
-                        })
+                        cr_val = str(r.get("mapped_cr") or r.get("cr") or "").strip()
+                        cr_key = "".join(ch for ch in cr_val.upper() if ch.isdigit()) or cr_val.upper()
+                        if cr_key and cr_key not in detail_by_cr:
+                            detail_by_cr[cr_key] = r
+
+                seen_total = set()
+                for mapped in mapped_crs:
+                    mapped_val = str(mapped or "").strip()
+                    cr_key = "".join(ch for ch in mapped_val.upper() if ch.isdigit()) or mapped_val.upper()
+                    if not cr_key or cr_key in seen_total:
+                        continue
+                    seen_total.add(cr_key)
+                    r = detail_by_cr.get(cr_key) or {}
+                    entry["tbl3_total"].append({
+                        "program":          sp_name,
+                        "cr_id":            str(r.get("cr") or mapped_val),
+                        "instances":        str(r.get("cr_occurrence") or ""),
+                        "cr_date":          str(r.get("jira_date") or "")[:10],
+                        "cr_area":          str(r.get("cr_area") or ""),
+                        "cr_subsystem":     str(r.get("cr_subsystem") or ""),
+                        "cr_functionality": str(r.get("cr_functionality") or ""),
+                        "cr_title":         str(r.get("cr_title") or ""),
+                        "image":            str(r.get("image") or ""),
+                        "cr_status":        str(r.get("cr_status") or ""),
+                        "cr_category":      str(r.get("cr_category") or ""),
+                        "pdt_site_unique":  str(r.get("pdt_site_unique") or ""),
+                    })
 
             result[sp_name] = entry
 

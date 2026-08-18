@@ -1110,6 +1110,11 @@ var _sp2LastStabilityWeeks = [];
 var _adAllRows=[], _adGrandTotal=0, _adBuTotals=[];
 var _adExpanded={};   /* bu -> true/false */
 
+function _adNormalizeBu(value){
+  var text = String(value == null ? '' : value).trim();
+  return text || 'UNKNOWN';
+}
+
 window.sp2LoadActiveDevices = function(){
   _adLoaded = true;
   var body = g('adTblBody');

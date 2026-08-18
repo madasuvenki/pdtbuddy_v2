@@ -6,6 +6,11 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmt(n) { n = Number(n || 0); return isFinite(n) ? n.toLocaleString() : '0'; }
   function fmtF(n, d) { n = Number(n || 0); return isFinite(n) ? n.toFixed(d == null ? 1 : d) : '0'; }
+  function crKey(v) {
+    v = String(v || '').trim().toUpperCase();
+    var digits = v.replace(/\D/g, '');
+    return digits || v;
+  }
 
       /* ── state ── */
   var state = { data: null, allTargets: [], wbcData: null };
@@ -307,7 +312,9 @@
         Object.keys(wbcTables).sort().forEach(function(sp) {
           var spRows = filterCrRows(wbcTables[sp][flatKind] || []);
           spRows.forEach(function(r) {
-            var key = (r.cr_id || '') + '|' + sp;
+            var crId = crKey(r.cr_id);
+            var key = crId + '|' + sp;
+            if (!key) key = (r.cr_id || '') + '|' + sp + '|' + flatRows.length;
             if (!flatSeen[key]) { flatSeen[key] = true; flatRows.push(r); }
           });
         });
@@ -1963,8 +1970,12 @@
     Object.keys(tables).sort().forEach(function(sp) {
       var rows = filterCrRows(tables[sp][kind] || []);
       rows.forEach(function(r) {
-        /* dedupe by cr_id across targets */
-        var key = r.cr_id + '|' + sp;
+        /* Keep rows per target. The top status-table footer is a SUM of each
+           target's Unique CR count, so the lower flat Unique table must also
+           count CR+target, not global CR only. */
+        var crId = crKey(r.cr_id);
+        var key = crId + '|' + sp;
+        if (!key) key = (r.cr_id || '') + '|' + sp + '|' + allRows.length;
         if (!seenCr[key]) {
           seenCr[key] = true;
           allRows.push(r);
