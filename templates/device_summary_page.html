@@ -731,12 +731,13 @@
     const mcn=document.getElementById('diMcn')?.value||'', host=document.getElementById('diHost')?.value||'', site=document.getElementById('diSite')?.value||'';
     const spNames=document.getElementById('diSpNames')?.value||'';
     const pdtVal = "{{ pdt_type or 'SWPDT' }}";
-    const params=new URLSearchParams({pdt:pdtVal, status:document.getElementById('diStatus')?.value||'all', q:document.getElementById('diSearch')?.value||'', mcn:mcn, host:host, site:site, sp_names:spNames, auto_sp:spNames.trim()?'0':'1', refresh:showSpin?'1':'0', _ts:Date.now()});
-    if(showSpin&&forceBtn){forceBtn.disabled=true;forceBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Live refreshing...';}
-    if(!showSpin&&btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Loading cache...';}
-    if(msg)msg.textContent='Loading inventory...';
-    // Start progress polling if SP names are provided (first-time Axiom fetch may take time)
-    if(spNames.trim()) _diStartProgressPoll(spNames);
+    const forceLive = !!showSpin;
+    const params=new URLSearchParams({pdt:pdtVal, status:document.getElementById('diStatus')?.value||'all', q:document.getElementById('diSearch')?.value||'', mcn:mcn, host:host, site:site, sp_names:spNames, auto_sp:spNames.trim()?'0':'1', refresh:forceLive?'1':'0', _ts:Date.now()});
+    if(forceLive&&forceBtn){forceBtn.disabled=true;forceBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Live refreshing...';}
+    if(!forceLive&&btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Loading DB cache...';}
+    if(msg)msg.textContent=forceLive?'Live refreshing inventory from Axiom...':'Loading inventory from generated DB table...';
+    // Only poll SP fetch progress for explicit live refresh. Normal tab load is DB-only.
+    if(forceLive && spNames.trim()) _diStartProgressPoll(spNames);
     try{
       const r=await fetch(`/api/device_summary_data/${encodeURIComponent(target)}/inventory_summary?`+params.toString(),{headers:{'Accept':'application/json'}});
       const d=await r.json().catch(()=>({}));

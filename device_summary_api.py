@@ -1718,12 +1718,14 @@ def api_device_inventory_summary(target_name):
         # For SP-only mode the target name IS the SP name (e.g. 'ALANA.LA.1.0'), not a
         # chipset, so that check always returns False.  Instead, check Axiom credentials.
         axiom_adb_map = {}
-        if refresh or not any(global_chip_map.get(c.upper()) for c in chip_ids_set):
+        if refresh:
             from src.axiom_client import AXIOM_FETCH_DISABLED
             axiom_creds_ok = (not AXIOM_FETCH_DISABLED) and bool(os.getenv('AXIOM_CLIENT_ID', ''))
             if axiom_creds_ok:
                 axiom_adb_map = _fetch_sp_devices_via_jobs(sp_names, chip_ids_set, target_name=target_name)
-                # Cache the fetched devices into the unified cache for future use
+                # Cache the fetched devices into the unified cache for future use.
+                # This is intentionally only done on explicit Force Live Refresh.
+                # Normal tab load must stay DB-only and use axiom_all_devices.
                 if axiom_adb_map:
                     fetched_devs = list({id(v): v for v in axiom_adb_map.values()}.values())
                     merged = _merge_axiom_qdt_devices(chip_name, pdt_type, fetched_devs)
