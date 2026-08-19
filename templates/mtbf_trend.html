@@ -104,7 +104,8 @@
 
         #trendChart{
     width:100%;
-    height:190px;
+    height:100%;
+    min-height:220px;
     margin-top: 2px;
 }
 #trendChartWrap{
@@ -112,6 +113,45 @@
     overflow-x:auto;
     overflow-y:hidden;
     margin-top:2px;
+    height:calc(50vh - 160px);
+    min-height:220px;
+    max-height:460px;
+}
+#trendTableWrap{
+    margin-top:14px;
+    overflow:auto;
+    max-height:calc(50vh - 160px);
+    min-height:180px;
+    border-radius:14px;
+    border:1px solid #e2e8f0;
+    background:#fff;
+}
+#trendTableWrap table{
+    border-collapse:collapse;
+    width:100%;
+    font-size:12px;
+}
+#trendTableWrap th{
+    position:sticky;
+    top:0;
+    background:#eef4ff;
+    color:#1e3a8a;
+    font-size:10px;
+    text-transform:uppercase;
+    font-weight:800;
+    padding:9px 11px;
+    border-bottom:1px solid #dbeafe;
+    text-align:left;
+    white-space:nowrap;
+}
+#trendTableWrap td{
+    padding:8px 11px;
+    border-bottom:1px solid #f1f5f9;
+    color:#334155;
+    vertical-align:top;
+}
+#trendTableWrap tbody tr:hover td{
+    background:#f8fbff;
 }
 </style>
 {% endblock %}
@@ -200,6 +240,59 @@
 
 
   <div id="trendChartWrap"><div id="trendChart"></div></div>
+
+  <!-- MTBF Build Details Table (bottom half) -->
+  <div style="margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:0 2px">
+      <span style="font-size:12px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,#f97316,#4f46e5)"></span>
+        Build Details Table
+      </span>
+      <span id="trendTableCount" style="font-size:10px;color:#64748b;font-weight:700"></span>
+    </div>
+    <div id="trendTableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Meta ID</th>
+            <th>Build</th>
+            <th>Date</th>
+            <th style="text-align:right">Hours</th>
+            <th style="text-align:right">Crashes</th>
+            {% if is_compute_bu %}
+            <th style="text-align:right">Product MTBF</th>
+            <th style="text-align:right">QC MTBF</th>
+            {% else %}
+            <th style="text-align:right">MTBF</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody id="trendTableBody">
+          {% if trend_rows %}
+            {% for row in trend_rows %}
+            <tr>
+              <td style="color:#94a3b8;font-size:11px">{{ loop.index }}</td>
+              <td style="font-weight:700;color:#1e3a8a;max-width:200px;word-break:break-all">{{ row.meta_id or '—' }}</td>
+              <td style="max-width:220px;word-break:break-all;font-size:11px">{{ row.build or row.build_full or '—' }}</td>
+              <td style="white-space:nowrap;font-size:11px">{{ row.date or '—' }}</td>
+              <td style="text-align:right;font-weight:700">{{ row.hours or row.total_hours or 0 }}</td>
+              <td style="text-align:right;font-weight:700;color:#dc2626">{{ row.crashes or row.total_crashes or 0 }}</td>
+              {% if is_compute_bu %}
+              <td style="text-align:right;font-weight:700;color:#16a34a">{{ row.product_mtbf or '—' }}</td>
+              <td style="text-align:right;font-weight:700;color:#d97706">{{ row.qc_mtbf or '—' }}</td>
+              {% else %}
+              <td style="text-align:right;font-weight:800;color:#16a34a;font-size:13px">{{ row.mtbf or '—' }}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:28px">No trend data available.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
     const trendRows        = {{ trend_rows|default([], true)|tojson }};
@@ -470,8 +563,12 @@
       applyMetaSearch();
       applyTrendFilter();
 
-
-
+      // Update table row count badge
+      const trendTableCount = document.getElementById('trendTableCount');
+      if (trendTableCount) {
+        const rowCount = document.querySelectorAll('#trendTableBody tr').length;
+        trendTableCount.textContent = rowCount + ' build' + (rowCount !== 1 ? 's' : '');
+      }
 
   });
   </script>

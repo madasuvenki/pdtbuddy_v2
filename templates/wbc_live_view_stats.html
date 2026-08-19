@@ -117,6 +117,23 @@
     @media(max-width:900px){.tblwrap{border-radius:16px!important;padding:7px}.card{border-radius:17px!important}.topbar{display:flex!important;flex-direction:row!important;align-items:flex-start!important}.topbar-actions{width:auto!important;flex-direction:row!important;margin-left:auto!important}div[id="targetList"].list{order:3;min-width:0}.ov-row1,.ov-row2{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:560px){.ov-row1,.ov-row2{grid-template-columns:1fr}}
   </style>
+  <style>
+    /* Readability updates: full-height MTBF view, collapsed table, larger overview/chart text. */
+    #tabMtbf .mtbf-full-chart{height:calc(50vh - 80px)!important;min-height:280px!important;max-height:480px!important;overflow:hidden!important}
+    #tabMtbf .mtbf-full-chart canvas{height:100%!important;width:100%!important;max-width:100%!important}
+    #tabMtbf #mtbfTableCard{margin-top:0!important}
+    #tabMtbf #mtbfTableCard .tblwrap{max-height:calc(50vh - 120px)!important;min-height:180px!important;overflow:auto!important}
+    #tabOverview .overview-chartbox{overflow:hidden!important}
+    #tabOverview .overview-chartbox canvas{width:100%!important;max-width:100%!important}
+    #tabOverview .section-title{font-size:13px!important}
+    #tabOverview .head{font-size:15px!important}
+    #tabOverview .metric .lbl{font-size:10px!important;line-height:1.35!important}
+    #tabOverview .metric .num{font-size:42px!important}
+    #tabOverview #ovKMeta{font-size:15px!important}
+    #tabOverview .overview-text{font-size:14px!important;line-height:1.58!important;font-weight:850!important;min-height:126px!important;max-height:170px!important;padding:13px!important}
+    #tabOverview .overview-chartbox{min-height:520px!important}
+    #tabOverview .overview-chart-card .muted{font-size:12px!important}
+  </style>
 </head>
 <style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}</style>
 <body>
@@ -212,7 +229,7 @@
             <div class="lbl" style="margin-top:6px">Open + Mapped JIRAs (Current Meta)</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
-            <div class="ico" style="font-size:18px;margin-bottom:10px">🐛</div><div id="ovKOpenCr" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Open CR (Current Meta)</div>
+            <div class="ico" style="font-size:18px;margin-bottom:10px">🐛</div><div id="ovKOpenCr" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">CRs Count (JIRAs mapped to CR)</div>
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">💥</div><div id="ovKCurrentMetaCrashes" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Total Crashes Excl. Invalid (Current Meta)</div>
@@ -264,7 +281,7 @@
         </div>
       </div>
       <!-- MTBF Trend -->
-      <div class="card overview-chart-card" style="margin-bottom:8px"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:320px"><canvas id="overviewChart" height="280"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
+      <div class="card overview-chart-card" style="margin-bottom:8px"><div class="head"><span><i class="fas fa-chart-bar"></i> MTBF Trend by Build</span><span class="muted">Hours, Crash & MTBF per build</span></div><div class="body overview-chartbox" style="height:clamp(470px,calc(100vh - 445px),760px);min-height:470px;overflow-x:auto;overflow-y:hidden"><canvas id="overviewChart" height="470" style="height:100%!important;max-width:none!important"></canvas><div id="overviewChartEmpty" class="empty">No MTBF rows.</div></div></div>
     </section>
     <section id="tabCurrent" class="section">
             <div class="section-title"><i class="fas fa-bookmark" style="color:#4f46e5"></i> {% if can_edit %}Saved JQL {% endif %}Current Running Build Reports</div>
@@ -297,7 +314,7 @@
         </div>
       </div>
     </section>
-    <section id="tabMtbf" class="section"><div class="card"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span>{% if can_edit %}<input type="file" id="mtbfExcelFileInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="uploadMtbfExcel(this)"><button id="mtbfBrowseBtn" class="btn" onclick="document.getElementById('mtbfExcelFileInput').click()" title="Browse and select an Excel file to read Mainline_Build_Details (one-time import)"><i class="fas fa-folder-open" style="color:#f97316"></i> Browse Excel</button>{% endif %}<button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox"><canvas id="chart" height="330"></canvas><div id="chartEmpty" class="empty">No MTBF data. Use Browse Excel to import Mainline_Build_Details once.</div></div></div><div class="card"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span>{% if can_edit %}<div class="actions"><button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
+    <section id="tabMtbf" class="section"><div class="card" id="mtbfTrendCard"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span>{% if can_edit %}<input type="file" id="mtbfExcelFileInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="uploadMtbfExcel(this)"><button id="mtbfBrowseBtn" class="btn" onclick="document.getElementById('mtbfExcelFileInput').click()" title="Browse and select an Excel file to read Mainline_Build_Details (one-time import)"><i class="fas fa-folder-open" style="color:#f97316"></i> Browse Excel</button>{% endif %}<button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox mtbf-full-chart"><canvas id="chart" height="520"></canvas><div id="chartEmpty" class="empty">No MTBF data. Use Browse Excel to import Mainline_Build_Details once.</div></div></div><div class="card" id="mtbfTableCard"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span><div class="actions">{% if can_edit %}<button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}</div></div><div id="mtbfTablePanel" class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
         <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
     <section id="tabOpenjiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs <span style="font-size:10px;font-weight:700;color:#94a3b8">(incl. Mapped)</span></span><span id="openJirasCount" class="muted"></span></div><div class="body" id="openJirasBox"></div></div></section>
     <section id="tabBuilds" class="section"><div class="card"><div class="head"><span><i class="fas fa-file-alt"></i> Build Report</span><span id="buildSummaryCount" class="muted"></span></div><div class="body" id="buildSummaryBox"></div></div></section>
@@ -540,6 +557,34 @@ async function selectTarget(k){
 }
 function _latestMtbfRow(){const rows=((payload&&payload.excel&&payload.excel.chart_rows)||[]);return rows.length?rows[rows.length-1]:{};}
 function _currentSavedJqlCounts(){const tabs=_wbcSjqlTabs||[];return tabs.reduce((a,t)=>{a.rows+=num(t.cached_row_count);a.crs+=num(t.cached_cr_count);a.jiras+=num(t.cached_jira_count);a.open_jiras+=num(t.cached_open_jira_count);a.mapped_jiras+=num(t.cached_mapped_jira_count);a.invalid+=num(t.cached_invalid_count);return a;},{rows:0,crs:0,jiras:0,open_jiras:0,mapped_jiras:0,invalid:0});}
+function _wbcCountsFromReport(d){
+  const rows=(d&&((d.rows)||(d.flat_rows)))||[];
+  const valid=rows.filter(r=>!_isInvalidRow(r));
+  const uniq=(arr,fn)=>new Set((arr||[]).map(fn).filter(Boolean)).size;
+  const crRows=valid.filter(r=>_wbcRowType(r)==='cr');
+  const mappedRows=valid.filter(r=>_wbcRowType(r)==='mapped_jira');
+  const openRows=valid.filter(r=>_wbcRowType(r)==='open');
+  return {
+    rows: Number((d&&d.row_count)||rows.length||0),
+    crs: d&&d.valid_cr_count!==undefined ? Number(d.valid_cr_count||0) : uniq(crRows,r=>_wbcCrKey(r)),
+    mapped_jiras: d&&d.valid_mapped_jira_count!==undefined ? Number(d.valid_mapped_jira_count||0) : uniq(mappedRows,r=>_wbcCrKey(r)||_wbcIssueKey(r)),
+    open_jiras: d&&d.valid_open_jira_count!==undefined ? Number(d.valid_open_jira_count||0) : uniq(openRows,r=>_wbcIssueKey(r)),
+    jiras: d&&d.valid_jira_count!==undefined ? Number(d.valid_jira_count||0) : uniq(valid,r=>_wbcIssueKey(r)),
+    invalid: d&&d.invalid_count!==undefined ? Number(d.invalid_count||0) : rows.filter(_isInvalidRow).length
+  };
+}
+function _wbcCrCountDisplay(uniqueCrs,jiraMapped){return String(num(uniqueCrs)||0)+' ('+String(num(jiraMapped)||0)+')';}
+function _wbcApplyCurrentMetaCounts(d, buildId){
+  const c=_wbcCountsFromReport(d||{});
+  setText('ovKOpenJira', c.open_jiras || 0);
+  setText('ovKOpenCr', _wbcCrCountDisplay(c.crs, c.jiras));
+  setText('ovKTotalJirasBuild', c.mapped_jiras || 0);
+  setText('ovKCurrentMetaCrashes', c.jiras || Math.max(0,(c.rows||0)-(c.invalid||0)));
+  setText('kOpenJiraMeta', c.jiras || 0);
+  if(buildId){setText('ovKMeta', buildId);setText('kMeta', buildId);}
+  const invNoteEl=document.getElementById('ovKInvalidNote');
+  if(invNoteEl) invNoteEl.textContent=c.invalid>0?(c.invalid+' invalid excl.'):'';
+}
 function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);const _tl=t.label||t.name||active;const _h1r=document.getElementById('title');if(_h1r)_h1r.textContent=_tl?(_tl+' \u2014 Overview'):_tl;const _subr=document.querySelector('.page-title span');if(_subr)_subr.textContent='Overview';document.title=_tl?('Overview \u2014 '+_tl+' | WBC Live View'):('Overview | WBC Live View');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('ovKMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');
 // Pre-fill SP name input with target label (only if empty or different target)
 const spInput=document.getElementById('ovSpNameInput');if(spInput&&(!spInput.value||spInput.dataset.lastTarget!==active)){spInput.value=t.label||t.name||active;spInput.dataset.lastTarget=active;}
@@ -557,16 +602,79 @@ async function loadRunningBuildReport(i,force){const current=(payload.current_bu
 async function forceRunBuildReport(i){return loadRunningBuildReport(i,true);}
 async function showRunningBuildReport(i){return loadRunningBuildReport(i,false);}
 function renderRunningBuildReport(){} // removed - replaced by saved JQL cards
-function renderChart(){const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty');setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));empty.style.display=rows.length?'none':'block';if(!rows.length)empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';if(chart){chart.destroy();chart=null;}if(!rows.length)return;const n=rows.length;const barThick=n<=2?60:n<=4?44:n<=8?28:n<=14?18:n<=22?12:8;const _fewPts=n<=6;const _tabParentW=document.getElementById('chart')?.parentElement?.clientWidth||760;const _tabFixW=n<=2?Math.min(480,_tabParentW):n<=4?Math.min(680,_tabParentW):n<=6?Math.min(900,_tabParentW):null;const canvasW=_fewPts?_tabFixW:Math.max(760,n*Math.max(barThick*2.8,52));const canvas=document.getElementById('chart');if(_fewPts){canvas.style.width=_tabFixW+'px';canvas.width=_tabFixW;}else{canvas.style.width=canvasW+'px';canvas.width=canvasW;}chart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'rgba(59,91,219,0.85)',borderColor:'#3b5bdb',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},{label:'Crashes',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},{label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#b88a00',backgroundColor:'rgba(245,197,66,0.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,font:{size:11}}},tooltip:{mode:'index',intersect:false}},scales:{y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:9}}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9},color:'#b88a00'},ticks:{color:'#b88a00'}},x:{ticks:{autoSkip:false,maxRotation:55,minRotation:35}}}}});}
+function toggleMtbfTable(){}
+function clearWbcBuildSearch(){const e=document.getElementById('wbcBwrSearch');if(e){e.value='';filterWbcBuildReport();e.focus();}}
+function renderChart(){
+  const ex=payload.excel||{}, rows=ex.chart_rows||[], empty=document.getElementById('chartEmpty'), canvas=document.getElementById('chart');
+  setText('mtbfSource',ex.error?('Mainline_Build_Details: '+ex.error):((ex.mtbf_sheet||ex.sheet_name||'Mainline_Build_Details')+' • '+(ex.updated_at||'').slice(0,19)));
+  if(empty) empty.style.display=rows.length?'none':'block';
+  if(!rows.length&&empty) empty.textContent=ex.error||'No MTBF rows found in Mainline_Build_Details.';
+  if(chart){chart.destroy();chart=null;}
+  if(!rows.length||!canvas)return;
+  const n=rows.length, barThick=n<=2?62:n<=4?46:n<=8?30:n<=14?20:n<=22?14:9;
+  const parentW=canvas.parentElement?canvas.parentElement.clientWidth:1160;
+  const canvasW=parentW;
+  canvas.style.width='100%';
+  canvas.width=canvasW;
+  chart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:rows.map(r=>r.crm_build_id||r.meta_id||''),
+      datasets:[
+        {label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'rgba(59,91,219,0.85)',borderColor:'#3b5bdb',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},
+        {label:'Crashes',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:barThick,maxBarThickness:barThick+8,yAxisID:'y'},
+        {label:'MTBF',data:rows.map(r=>num(r.mtbf)),type:'line',borderColor:'#b88a00',backgroundColor:'rgba(245,197,66,0.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,pointStyle:'circle',tension:.25,yAxisID:'y1'}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{bottom:n>40?110:92,top:8,right:14,left:6}},
+      plugins:{
+        legend:{position:'bottom',labels:{usePointStyle:true,font:{size:13,weight:'700'},color:'#334155'}},
+        tooltip:{mode:'index',intersect:false,callbacks:{title:function(items){return items&&items[0]?String(items[0].label||''):'';}}}
+      },
+      scales:{
+        y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:13,weight:'800'},color:'#334155'},ticks:{font:{size:12},color:'#334155'}},
+        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:13,weight:'800'},color:'#b88a00'},ticks:{color:'#b88a00',font:{size:12}}},
+        x:{ticks:{autoSkip:n>70,maxTicksLimit:n>90?48:n>70?60:0,maxRotation:58,minRotation:48,color:'#1f2937',font:{size:n>70?10:11,weight:'800'},padding:8,callback:function(v){return _wbcShortAxisLabel(this.getLabelForValue(v));}}}
+      }
+    }
+  });
+}
 async function copyChart(){try{const canvas=document.getElementById('chart');const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(e){alert('Copy failed.');}}
-function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.jiras||0);setText('ovKOpenCr',jql.crs||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
+function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.open_jiras||0);setText('ovKOpenCr',_wbcCrCountDisplay(jql.crs,jql.jiras));setText('ovKTotalJirasBuild',jql.mapped_jiras||0);setText('ovKCurrentMetaCrashes',jql.jiras||Math.max(0,(jql.rows||0)-(jql.invalid||0)));setText('kOpenJiraMeta',jql.jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
 function openOverviewEditModal(focus){if(!CAN_EDIT)return;renderOverviewSummary();setText('ovSummaryMsg','');setText('ovPdtMsg','');if(focus==='pdt'){document.getElementById('pdtEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovPdtStatus')?.focus(),50);}else{document.getElementById('summaryEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovOverview')?.focus(),50);}}
 function closeOverviewEditModal(){document.getElementById('summaryEditModal')?.classList.remove('open');document.getElementById('pdtEditModal')?.classList.remove('open');}
 async function saveOverviewSummary(which){if(!active)return;const overview_html=editorHtml('ovOverview'), pdt_status_html=editorHtml('ovPdtStatus');const body={engineer:document.getElementById('ovEngineer')?.value||'',summary_title:document.getElementById('ovTitle')?.value||'',overview:editorText('ovOverview'),overview_html:overview_html,highlights:document.getElementById('ovHighlights')?.value||'',highlights_html:'',risks:document.getElementById('ovHighlights')?.value||'',pdt_status:editorText('ovPdtStatus'),pdt_status_html:pdt_status_html,next_steps:document.getElementById('ovNext')?.value||'',next_steps_html:''};const msgId=which==='pdt'?'ovPdtMsg':'ovSummaryMsg';setText(msgId,'Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/overview_summary`,body);payload.overview_summary=d.overview_summary||body;renderOverviewSummary();setText(msgId,'Saved.');setTimeout(closeOverviewEditModal,450);}catch(e){setText(msgId,'Save failed: '+(e.message||e));}}
-function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;const n=rows.length;const _bThick=n<=2?80:n<=4?60:n<=6?40:n<=10?24:n<=18?14:8;const _catPct=n<=4?.55:n<=8?.42:.34;const _barPct=n<=4?.82:n<=8?.65:.42;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'bar',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:1.6,pointRadius:2.6,pointHoverRadius:5,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:6,right:8,left:2,bottom:46}},plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,font:{size:9},padding:8}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:11,weight:'bold'},padding:{top:2,bottom:4}},tooltip:{mode:'index',intersect:false}},scales:{x:{offset:true,grid:{display:false},ticks:{autoSkip:false,maxRotation:58,minRotation:58,color:'#0f172a',font:{size:8,weight:'700'},padding:4,callback:function(v){const s=this.getLabelForValue(v);return s.length>20?s.slice(0,20)+'…':s;}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:9}},ticks:{font:{size:8}}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:9}},ticks:{font:{size:8},color:'#b88a00'}}}}});}
+function _wbcShortAxisLabel(label){const s=String(label||'').split(/[\\/]/).pop();const m=s.match(/^(.+?-\d{4,6})\b/i);return (m?m[1]:s).replace(/_/g,'.');}
+function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;const n=rows.length;const _catPct=n<=4?.55:n<=8?.42:.34;const _barPct=n<=4?.82:n<=8?.65:.42;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'bar',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:2.2,pointRadius:3.4,pointHoverRadius:6,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8,right:18,left:8,bottom:n>35?150:126}},plugins:{legend:{position:'bottom',labels:{boxWidth:11,usePointStyle:true,font:{size:12,weight:'700'},padding:10,color:'#334155'}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:14,weight:'900'},padding:{top:4,bottom:6}},tooltip:{mode:'index',intersect:false,callbacks:{title:function(items){return items&&items[0]?String(items[0].label||''):'';}}}},scales:{x:{offset:true,grid:{display:false},ticks:{autoSkip:true,maxTicksLimit:n>80?28:n>50?36:48,maxRotation:52,minRotation:42,color:'#111827',font:{size:10,weight:'900'},padding:6,callback:function(v){return _wbcShortAxisLabel(this.getLabelForValue(v));}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:13,weight:'900'},color:'#334155'},ticks:{font:{size:12,weight:'700'},color:'#334155'}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:13,weight:'900'},color:'#b88a00'},ticks:{font:{size:12,weight:'700'},color:'#b88a00'}}}}});}
 function mtbfRows(){return ((payload&&payload.excel&&payload.excel.chart_rows)||[]).map((r,i)=>({...r,s_no:r.s_no||i+1}));}
 const MTBF_COLS=[['s_no','S.No'],['crm_build_id','CRM Build ID'],['date','Date'],['hours','Hours+'],['crash','crash'],['mtbf','MTBF']];
-function _wbcGoToBuildReport(metaId){navToTab('builds',null);setTimeout(()=>{const s=document.getElementById('wbcBwrSearch');if(s){s.value=_wbcMetaId(metaId)||metaId;filterWbcBuildReport();}},250);}function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;h.innerHTML='<tr>'+MTBF_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')+'</tr>';b.innerHTML=rows.length?rows.map(r=>'<tr>'+MTBF_COLS.map(c=>{const v=String(r[c[0]]??'');if(c[0]==='crm_build_id'&&v)return `<td><a href="#" data-build="${esc(v)}" onclick="event.preventDefault();_wbcGoToBuildReport(this.dataset.build)" title="Go to Build Report for ${esc(v)}" style="color:#4338ca;font-weight:900;text-decoration:none;cursor:pointer">${esc(v)}</a></td>`;return `<td>${esc(v)}</td>`;}).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
+function _wbcGoToBuildReport(metaId){
+  navToTab('builds',null);
+  setTimeout(()=>{
+    const q=_wbcMetaId(metaId)||metaId;
+    const inp=document.getElementById('wbcBwrSearch');
+    if(inp){inp.value=q;filterWbcBuildReport();}
+    // Expand matching meta group and scroll to it
+    setTimeout(()=>{
+      const visible=Array.from(document.querySelectorAll('.wbc-bwr-item')).filter(el=>el.style.display!=='none');
+      if(!visible.length) return;
+      const first=visible[0];
+      // Expand meta group if present
+      const chevBtn=first.querySelector('[id$="_chev"]');
+      if(chevBtn){
+        const gid=chevBtn.id.replace('_chev','');
+        const body=document.getElementById(gid+'_body');
+        if(body&&body.style.display!=='block'){body.style.display='block';chevBtn.style.transform='rotate(90deg)';}
+      }
+      first.scrollIntoView({behavior:'smooth',block:'start'});
+      first.style.outline='3px solid #f59e0b';
+      setTimeout(()=>{first.style.outline='';},2000);
+    },120);
+  },380);
+}function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;h.innerHTML='<tr>'+MTBF_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')+'</tr>';b.innerHTML=rows.length?rows.map(r=>'<tr>'+MTBF_COLS.map(c=>{const v=String(r[c[0]]??'');if(c[0]==='crm_build_id'&&v)return `<td><a href="#" data-build="${esc(v)}" onclick="event.preventDefault();_wbcGoToBuildReport(this.dataset.build)" title="Go to Build Report for ${esc(v)}" style="color:#4338ca;font-weight:900;text-decoration:none;cursor:pointer">${esc(v)}</a></td>`;return `<td>${esc(v)}</td>`;}).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
 function openMtbfAddModal(){if(!CAN_EDIT)return;const box=document.getElementById('mtbfAddFields');box.innerHTML=MTBF_COLS.filter(c=>c[0]!=='s_no').map(c=>`<div class="field"><label>${esc(c[1])}</label><input class="input" data-field="${esc(c[0])}" type="${c[0]==='date'?'date':'text'}"></div>`).join('');setText('mtbfAddMsg','');document.getElementById('mtbfAddModal')?.classList.add('open');}
 function closeMtbfAddModal(){document.getElementById('mtbfAddModal')?.classList.remove('open');}
 async function saveMtbfAddBuild(){const row={};document.querySelectorAll('#mtbfAddFields [data-field]').forEach(i=>row[i.getAttribute('data-field')]=i.value.trim());if(!row.date||!row.crm_build_id){setText('mtbfAddMsg','Date and CRM Build ID are required.');return;}setText('mtbfAddMsg','Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/mtbf/add_build`,{row});payload.excel=d.excel||payload.excel;renderChart();renderMtbfTable();setText('mtbfAddMsg','Saved.');setTimeout(closeMtbfAddModal,600);}catch(e){setText('mtbfAddMsg','Save failed: '+(e.message||e));}}
@@ -1022,7 +1130,7 @@ function renderBuildSummary(bs){
       gi++;
     }
   });
-  box.innerHTML=`<div id="wbcBwrPanel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div><div style="font-size:15px;font-weight:900;color:#0f172a"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div><div class="muted">Builds with the same Meta ID are grouped. Click to expand.</div></div></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px"><span class="tag">All Builds</span><div style="position:relative;display:flex;align-items:center"><i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none"></i><input id="wbcBwrSearch" class="input" placeholder="Search build / CR / JIRA..." oninput="filterWbcBuildReport()" style="padding-left:28px;width:260px;font-size:11px"></div><span style="flex:1"></span><span class="muted">${totalBuilds} build(s) in ${metaCount} meta group(s)</span></div><div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">${itemsHtml}</div></div>`;
+  box.innerHTML=`<div id="wbcBwrPanel"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div><div style="font-size:15px;font-weight:900;color:#0f172a"><i class="fas fa-layer-group" style="color:#6366f1"></i> Build-wise Consolidated Report</div><div class="muted">Builds with the same Meta ID are grouped. Click to expand.</div></div></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px"><span class="tag">All Builds</span><button type="button" class="btn" onclick="clearWbcBuildSearch()" title="Clear search" style="padding:3px 8px;font-size:10px"><i class="fas fa-times"></i> Clear</button><div style="position:relative;display:flex;align-items:center"><i class="fas fa-magnifying-glass" style="position:absolute;left:9px;color:#94a3b8;font-size:11px;pointer-events:none"></i><input id="wbcBwrSearch" class="input" placeholder="Search build / CR / JIRA..." oninput="filterWbcBuildReport()" style="padding-left:28px;width:260px;font-size:11px"></div><span style="flex:1"></span><span class="muted">${totalBuilds} build(s) in ${metaCount} meta group(s)</span></div><div style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">${itemsHtml}</div></div>`;
 }
 function toggleWbcMetaGroup(gid,metaId){
   const body=document.getElementById(gid+'_body'),chev=document.getElementById(gid+'_chev');
@@ -1126,7 +1234,7 @@ function updateRunningJqlCount(count){
   setText('nBuilds', n);
     // Row 1 hero cards — from saved JQL report (correct classification)
   setText('ovKOpenJira',        jql.open_jiras   || 0);  // Open/Unmapped JIRAs
-  setText('ovKOpenCr',          jql.crs          || 0);  // Unique valid CRs
+  setText('ovKOpenCr',          _wbcCrCountDisplay(jql.crs, jql.jiras));  // CRs Count: unique CRs (JIRAs mapped)
   setText('ovKTotalJirasBuild', jql.mapped_jiras || 0);  // Mapped JIRAs (WPST etc.)
   setText('ovKCurrentMetaCrashes', jql.jiras || Math.max(0,(jql.rows||0)-(jql.invalid||0))); // Total valid crashes/JIRA rows
   setText('kOpenJiraMeta',      jql.jiras || 0);
@@ -1274,13 +1382,9 @@ function wbcSjqlRunCard(id, force){
       };
       wbcSjqlRenderCards();
       updateRunningJqlCount(_wbcSjqlTabs.length);
-      // These three overview cards always describe the report for the Meta ID
-      // currently selected above, never the PL-wide database totals.
-      // Update overview cards with correct classification counts
-      setText('ovKOpenCr',          d.valid_cr_count          !== undefined ? d.valid_cr_count          : (d.cr_count          || 0));
-      setText('ovKTotalJirasBuild', d.valid_mapped_jira_count !== undefined ? d.valid_mapped_jira_count : (d.mapped_jira_count || 0));
-      setText('ovKOpenJira',        d.valid_open_jira_count   !== undefined ? d.valid_open_jira_count   : (d.open_jira_count   || 0));
-      setText('ovKCurrentMetaCrashes', d.valid_jira_count !== undefined ? d.valid_jira_count : Math.max(0,(d.row_count||((d.rows||d.flat_rows||[]).length)||0)-(d.invalid_count||0)));
+      // These overview cards describe the active saved-JQL/current-meta report,
+      // never PL-wide DB totals.
+      _wbcApplyCurrentMetaCounts(d, d.build_id || _wbcBuildIdFromJqlTab(_wbcSjqlTabs[tabIndex]) || _wbcSjqlTabs[tabIndex].name || '');
       }
       const timingEl = document.getElementById('wbctiming_'+_wbcDomId(id));
       if(timingEl) timingEl.innerHTML =
@@ -1391,7 +1495,7 @@ function _wbcRenderReport(el, d, tab){
   // Column sets per tab - only include columns that actually exist in the data
   const crCols     = ['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created'].filter(c=>crRows.some(r=>r[c]!==undefined)||rows.some(r=>r[c]!==undefined));
   const mappedCols = ['CR','CR Count','JIRA','JIRA Title','JIRA Status','JIRA Resolution','Final Ticket','Final Status','Final Resolution','Mapping Type','Resolution Notes','Created'].filter(c=>mappedRows.some(r=>r[c]!==undefined)||rows.some(r=>r[c]!==undefined));
-  const openCols   = ['JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Final Resolution','Resolution Notes','Created'].filter(c=>rows.some(r=>r[c]!==undefined));
+  const openCols   = ['CR','JIRA','JIRA Title','JIRA Status','JIRA Resolution','Final Ticket','Final Status','Final Resolution','Resolution Notes','Created','Matched Build'].filter(c=>rows.some(r=>r[c]!==undefined));
   const allCols    = _wbcCols(rows);
   const tabBar = `<div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin:12px 0 14px;background:#fff;border-radius:8px 8px 0 0;flex-wrap:wrap">`
     +`<button id="${uid}_btn_crs"    onclick="_wbcSwitchReportTab('${uid}','crs')"    style="padding:9px 16px;font-size:12px;font-weight:950;border:none;border-bottom:3px solid #6366f1;background:#f5f3ff;color:#4f46e5;cursor:pointer;margin-bottom:-2px;display:flex;align-items:center;gap:5px"><i class="fas fa-bug" style="color:#6366f1"></i> <b>CRs</b> <span id="${uid}_badge_crs" style="background:#6366f1;color:#fff;border-radius:999px;padding:1px 7px;font-size:10px">${crCount}</span>${_crAllRows.filter(_isInvalidRow).length?`<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:1px 6px;font-size:9px;font-weight:900">inv ${_crAllRows.filter(_isInvalidRow).length}</span>`:''}</button>`
