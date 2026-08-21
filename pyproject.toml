@@ -1,6 +1,6 @@
 [project]
 name = "pdtbuddy"
-version = "2.7.0"
+version = "2.10.0"
 description = "PDT Statistics Dashboard & Reporting Platform (Qualcomm Internal)"
 requires-python = ">=3.10,<3.14"
 dependencies = [
@@ -20,6 +20,7 @@ dependencies = [
     "openpyxl>=3.1",
     "xlsxwriter>=3.0",
     "python-pptx>=1.0",
+    "pywin32>=306; platform_system == 'Windows'",
     # HTTP / APIs
     "requests>=2.28",
     "urllib3>=2.0",
@@ -43,7 +44,8 @@ dependencies = [
 
 [project.scripts]
 app = "app:main"
-
+dev = "build_helper:run_dev"
+build = "build_helper:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -83,6 +85,7 @@ include = [
     "wbc_live_view_stats_routes.py",
     "weekly_summary_routes.py",
     "weekly_summary_service.py",
+    "build_helper.py",
     "src/**",
     "static/**",
     "templates/**",

@@ -6,11 +6,12 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, send_file
 from flask_login import current_user, login_required
 
 import dashboard_common as dc
 from live_status_publish_routes import _all_targets_for_ui, _target_group_access
+from src.core_deck_agent import CoreDeckAgent
 
 core_deck_bp = Blueprint('core_deck_bp', __name__)
 
@@ -21,6 +22,9 @@ _LEGACY_CORE_DECK_BASE_DIR = r'\\Sphere\pdtqipl_internal\PDTBuddy\managed_excel'
 _STATE_FILE = 'core_deck_state.json'
 _REVISIONS_FILE = 'core_deck_revisions.json'
 _CORE_DECK_FLAVOR_PROGRESS: Dict[str, dict] = {}
+_REFERENCE_DIR = 'references'
+_GENERATED_DIR = 'generated'
+_PREVIEW_IMG_DIR = 'preview_images'
 
 
 def _safe_str(value: Any) -> str:
@@ -86,6 +90,18 @@ def _state_paths(target_name: str) -> tuple[str, str]:
 
 def _history_dir(target_name: str) -> str:
     return os.path.join(_target_coredeck_dir(target_name), 'history')
+
+
+def _reference_dir(target_name: str) -> str:
+    return os.path.join(_target_coredeck_dir(target_name), _REFERENCE_DIR)
+
+
+def _generated_dir(target_name: str) -> str:
+    return os.path.join(_target_coredeck_dir(target_name), _GENERATED_DIR)
+
+
+def _preview_img_dir(target_name: str, generated_id: int) -> str:
+    return os.path.join(_target_coredeck_dir(target_name), _PREVIEW_IMG_DIR, str(int(generated_id)))
 
 
 def _history_name_from_state(state: dict) -> str:
@@ -257,6 +273,108 @@ def _save_state(target_name: str, state: dict, action: str = 'save') -> dict:
         # Re-write latest after history_path is known, so UI can display it.
         _write_json_file(state_path, state)
     return state
+
+
+def _ensure_core_slide_tables() -> None:
+    conn = dc.get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS `pdt_stats_dashboard`.`core_slide_templates` (
+              `id` INT NOT NULL AUTO_INCREMENT,
+              `template_name` VARCHAR(255) NULL,
+              `bu` VARCHAR(64) NULL,
+              `target` VARCHAR(255) NULL,
+              `reference_pptx_path` TEXT NULL,
+              `slide_metadata` JSON NULL,
+              `color_scheme` JSON NULL,
+              `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+              `created_by` VARCHAR(100) NULL,
+              `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+              PRIMARY KEY (`id`),
+              KEY `idx_core_slide_templates_target` (`target`, `is_active`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS `pdt_stats_dashboard`.`core_deck_generated` (
+              `id` INT NOT NULL AUTO_INCREMENT,
+              `target` VARCHAR(255) NULL,
+              `bu` VARCHAR(64) NULL,
+              `template_id` INT NULL,
+              `meta_ids` JSON NULL,
+              `build_ids` JSON NULL,
+              `output_path` TEXT NULL,
+              `preview_payload` JSON NULL,
+              `generated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+              `generated_by` VARCHAR(100) NULL,
+              PRIMARY KEY (`id`),
+              KEY `idx_core_deck_generated_target` (`target`, `generated_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        conn.commit()
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _active_template_for_target(target_name: str) -> dict:
+    _ensure_core_slide_tables()
+    bu = _safe_str(dc.get_bu_for_target(target_name)).upper()
+    conn = dc.get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {}
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT * FROM `pdt_stats_dashboard`.`core_slide_templates`
+            WHERE is_active=1 AND (target=%s OR (bu=%s AND (target IS NULL OR target='')))
+            ORDER BY CASE WHEN target=%s THEN 0 ELSE 1 END, created_at DESC, id DESC
+            LIMIT 1
+        """, (target_name, bu, target_name))
+        return dict(cur.fetchone() or {})
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _generated_decks_for_target(target_name: str, limit: int = 30) -> list:
+    _ensure_core_slide_tables()
+    conn = dc.get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return []
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT id, target, bu, template_id, meta_ids, build_ids, output_path,
+                   generated_at, generated_by
+            FROM `pdt_stats_dashboard`.`core_deck_generated`
+            WHERE target=%s
+            ORDER BY generated_at DESC, id DESC
+            LIMIT %s
+        """, (target_name, max(1, min(int(limit or 30), 100))))
+        rows = []
+        for row in cur.fetchall() or []:
+            d = dict(row)
+            for key in ('meta_ids', 'build_ids'):
+                if isinstance(d.get(key), str):
+                    try:
+                        d[key] = json.loads(d[key])
+                    except Exception:
+                        d[key] = []
+            d['file_name'] = os.path.basename(_safe_str(d.get('output_path')))
+            rows.append(d)
+        return rows
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
 
 
 def _load_swpdt_payload() -> tuple[dict, str]:
@@ -2781,6 +2899,299 @@ def _build_preview_payload(data: dict, refresh_crashes_only: bool = False) -> di
         'slide_overrides': data.get('slide_overrides') if isinstance(data.get('slide_overrides'), dict) else {},
         'table_overrides': data.get('table_overrides') if isinstance(data.get('table_overrides'), dict) else {},
     }
+
+
+@core_deck_bp.route('/api/core_deck/reference_status')
+@login_required
+def core_deck_reference_status():
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    target = _safe_str(request.args.get('target'))
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+    tpl = _active_template_for_target(target)
+    meta = {}
+    if isinstance(tpl.get('slide_metadata'), str):
+        try:
+            meta = json.loads(tpl.get('slide_metadata') or '{}')
+        except Exception:
+            meta = {}
+    return jsonify({
+        'ok': True,
+        'target': target,
+        'has_reference': bool(tpl),
+        'template': {
+            'id': tpl.get('id'),
+            'template_name': tpl.get('template_name'),
+            'reference_pptx_path': tpl.get('reference_pptx_path'),
+            'created_at': str(tpl.get('created_at') or ''),
+            'created_by': tpl.get('created_by') or '',
+            'slide_count': meta.get('slide_count') or len(meta.get('slides') or []),
+            'chart_count': meta.get('chart_count') or 0,
+            'table_count': meta.get('table_count') or 0,
+            'analysis': meta,
+        } if tpl else {},
+    })
+
+
+@core_deck_bp.route('/api/core_deck/upload_reference', methods=['POST'])
+@login_required
+def core_deck_upload_reference():
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    target = _safe_str(request.form.get('target') or request.args.get('target'))
+    template_name = _safe_str(request.form.get('template_name'))
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+    file = request.files.get('reference')
+    network_path = _safe_str(request.form.get('network_path'))
+    if not file and not network_path:
+        return jsonify({'ok': False, 'error': 'Upload a PPTX file or provide network_path'}), 400
+    os.makedirs(_reference_dir(target), exist_ok=True)
+    if file:
+        fname = _safe_path_part(file.filename or 'reference.pptx')
+        if not fname.lower().endswith('.pptx'):
+            return jsonify({'ok': False, 'error': 'Only .pptx reference files are supported'}), 400
+        pptx_path = os.path.join(_reference_dir(target), f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{fname}")
+        file.save(pptx_path)
+    else:
+        if not os.path.exists(network_path) or not network_path.lower().endswith('.pptx'):
+            return jsonify({'ok': False, 'error': 'network_path must point to an existing .pptx'}), 400
+        pptx_path = os.path.join(_reference_dir(target), f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{_safe_path_part(os.path.basename(network_path))}")
+        import shutil
+        shutil.copy2(network_path, pptx_path)
+    agent = CoreDeckAgent(_generated_dir(target))
+    analysis = agent.analyze_reference(pptx_path, template_name=template_name or os.path.basename(pptx_path))
+    bu = _safe_str(dc.get_bu_for_target(target)).upper()
+    _ensure_core_slide_tables()
+    conn = dc.get_mysql_connection_db(bu_key=None)
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE `pdt_stats_dashboard`.`core_slide_templates` SET is_active=0 WHERE target=%s", (target,))
+        cur.execute("""
+            INSERT INTO `pdt_stats_dashboard`.`core_slide_templates`
+              (template_name, bu, target, reference_pptx_path, slide_metadata, color_scheme, created_by, is_active)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,1)
+        """, (
+            analysis.get('template_name'), bu, target, pptx_path,
+            json.dumps(analysis, ensure_ascii=False),
+            json.dumps(analysis.get('color_scheme') or {}, ensure_ascii=False),
+            _username(),
+        ))
+        template_id = cur.lastrowid
+        conn.commit()
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+    return jsonify({'ok': True, 'template_id': template_id, 'analysis': analysis})
+
+
+@core_deck_bp.route('/api/core_deck/generate_pptx', methods=['POST'])
+@login_required
+def core_deck_generate_pptx():
+    try:
+        if not _target_group_access():
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
+        data = request.get_json(force=True, silent=True) or {}
+        target = _safe_str(data.get('target'))
+        if not target:
+            return jsonify({'ok': False, 'error': 'target is required'}), 400
+        tpl = _active_template_for_target(target)
+        if not tpl:
+            return jsonify({'ok': False, 'error': 'Reference analysis not available. Upload reference PPTX first.'}), 400
+        reference_path = _safe_str(tpl.get('reference_pptx_path'))
+        if not reference_path or not os.path.exists(reference_path):
+            return jsonify({'ok': False, 'error': 'Reference PPTX file is missing. Upload/analyse reference PPT again.'}), 400
+        preview = _build_preview_payload(data)
+        agent = CoreDeckAgent(_generated_dir(target))
+        gen = agent.generate_pptx(reference_path, preview, _generated_dir(target))
+        meta_ids = [_safe_str(r.get('meta_id')) for r in (preview.get('selected_metas') or []) if isinstance(r, dict)]
+        build_ids = []
+        for r in (preview.get('selected_metas') or []):
+            if isinstance(r, dict):
+                build_ids.extend([_safe_str(b) for b in (r.get('build_ids') or []) if _safe_str(b)])
+        _ensure_core_slide_tables()
+        conn = dc.get_mysql_connection_db(bu_key=None)
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                INSERT INTO `pdt_stats_dashboard`.`core_deck_generated`
+                  (target, bu, template_id, meta_ids, build_ids, output_path, preview_payload, generated_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                target, _safe_str(dc.get_bu_for_target(target)).upper(), tpl.get('id'),
+                json.dumps(meta_ids), json.dumps(build_ids), gen.get('output_path'),
+                json.dumps(preview, ensure_ascii=False, default=str), _username(),
+            ))
+            generated_id = cur.lastrowid
+            conn.commit()
+        finally:
+            try:
+                cur.close(); conn.close()
+            except Exception:
+                pass
+        return jsonify({'ok': True, 'generated_id': generated_id, **gen, 'preview': preview})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': f'Generate failed: {exc}'}), 500
+
+
+@core_deck_bp.route('/api/core_deck/generated_list')
+def core_deck_generated_list():
+    target = _safe_str(request.args.get('target'))
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+    return jsonify({'ok': True, 'target': target, 'generated': _generated_decks_for_target(target, int(request.args.get('limit') or 30))})
+
+
+def _export_pptx_preview_images(pptx_path: str, out_dir: str) -> list:
+    """Export real slide thumbnails so UI preview matches downloaded PPT.
+
+    Uses PowerPoint COM on Windows when Microsoft PowerPoint is installed.
+    This is the only reliable local way to render PPTX exactly as PowerPoint
+    will show it. If COM is unavailable, caller can still fall back to metadata.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    existing = []
+    try:
+        for fname in sorted(os.listdir(out_dir)):
+            if fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+                existing.append(os.path.join(out_dir, fname))
+        if existing:
+            return existing
+    except Exception:
+        pass
+
+    try:
+        import pythoncom
+        import win32com.client
+    except Exception as exc:
+        raise RuntimeError(f'PowerPoint preview export needs pywin32/pythoncom: {exc}')
+
+    app = None
+    pres = None
+    try:
+        pythoncom.CoInitialize()
+        app = win32com.client.DispatchEx('PowerPoint.Application')
+        app.Visible = 1
+        pres = app.Presentations.Open(os.path.abspath(pptx_path), WithWindow=False)
+        pres.Export(os.path.abspath(out_dir), 'PNG', 1280, 720)
+        images = []
+        for fname in sorted(os.listdir(out_dir), key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', x)]):
+            if fname.lower().endswith('.png'):
+                images.append(os.path.join(out_dir, fname))
+        return images
+    finally:
+        try:
+            if pres is not None:
+                pres.Close()
+        except Exception:
+            pass
+        try:
+            if app is not None:
+                app.Quit()
+        except Exception:
+            pass
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+
+def _generated_pptx_row(generated_id: int) -> dict:
+    _ensure_core_slide_tables()
+    conn = dc.get_mysql_connection_db(bu_key=None)
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT id, target, bu, template_id, meta_ids, build_ids, output_path,
+                   preview_payload, generated_by, generated_at
+            FROM `pdt_stats_dashboard`.`core_deck_generated`
+            WHERE id=%s LIMIT 1
+        """, (generated_id,))
+        return cur.fetchone() or {}
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+@core_deck_bp.route('/api/core_deck/preview_pptx/<int:generated_id>')
+def core_deck_preview_pptx(generated_id: int):
+    row = _generated_pptx_row(generated_id)
+    path = _safe_str(row.get('output_path'))
+    if not path or not os.path.exists(path):
+        return jsonify({'ok': False, 'error': 'Generated PPTX not found'}), 404
+    try:
+        agent = CoreDeckAgent(_generated_dir(_safe_str(row.get('target'))))
+        analysis = agent.analyze_reference(path, template_name=os.path.basename(path))
+        payload = {}
+        try:
+            payload = json.loads(row.get('preview_payload') or '{}')
+        except Exception:
+            payload = {}
+        slide_images = []
+        image_error = ''
+        try:
+            image_paths = _export_pptx_preview_images(path, _preview_img_dir(_safe_str(row.get('target')), generated_id))
+            slide_images = [
+                {
+                    'slide_index': idx,
+                    'url': f'/api/core_deck/preview_pptx/{generated_id}/slide/{idx}',
+                }
+                for idx, _p in enumerate(image_paths, start=1)
+            ]
+        except Exception as exc:
+            image_error = str(exc)
+
+        return jsonify({
+            'ok': True,
+            'generated': {
+                'id': row.get('id'),
+                'target': row.get('target'),
+                'bu': row.get('bu'),
+                'meta_ids': json.loads(row.get('meta_ids') or '[]'),
+                'build_ids': json.loads(row.get('build_ids') or '[]'),
+                'file_name': os.path.basename(path),
+                'generated_by': row.get('generated_by') or '',
+                'generated_at': str(row.get('generated_at') or ''),
+            },
+            'analysis': analysis,
+            'slide_images': slide_images,
+            'image_error': image_error,
+            'preview_payload': payload,
+        })
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@core_deck_bp.route('/api/core_deck/preview_pptx/<int:generated_id>/slide/<int:slide_index>')
+def core_deck_preview_pptx_slide(generated_id: int, slide_index: int):
+    row = _generated_pptx_row(generated_id)
+    target = _safe_str(row.get('target'))
+    path = _safe_str(row.get('output_path'))
+    if not target or not path or not os.path.exists(path):
+        return jsonify({'ok': False, 'error': 'Generated PPTX not found'}), 404
+    out_dir = _preview_img_dir(target, generated_id)
+    try:
+        image_paths = _export_pptx_preview_images(path, out_dir)
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+    idx = int(slide_index) - 1
+    if idx < 0 or idx >= len(image_paths) or not os.path.exists(image_paths[idx]):
+        return jsonify({'ok': False, 'error': 'Slide preview image not found'}), 404
+    return send_file(image_paths[idx], mimetype='image/png', as_attachment=False)
+
+
+@core_deck_bp.route('/api/core_deck/download_pptx/<int:generated_id>')
+def core_deck_download_pptx(generated_id: int):
+    row = _generated_pptx_row(generated_id)
+    path = _safe_str(row.get('output_path'))
+    if not path or not os.path.exists(path):
+        return jsonify({'ok': False, 'error': 'Generated PPTX not found'}), 404
+    return send_file(path, as_attachment=True, download_name=os.path.basename(path))
 
 
 @core_deck_bp.route('/api/core_deck/public_state')

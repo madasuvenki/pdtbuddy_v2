@@ -52,24 +52,29 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
         // ── Auto-open in login-popup mode ──
+    // Strategy: ALWAYS start hidden. Check localStorage first.
+    // Only show popup if no saved key exists or the saved key is invalid.
+    // This prevents the popup from flashing before the localStorage check completes.
     if (isLoginPopup) {
-        applyLoginPopupStyle();
-        // If key already saved in browser — auto-submit silently, skip popup
         const savedKey = getSavedKey();
         if (savedKey) {
-                        validateKeyWithBackend(savedKey, false).then(data => {
+            // Key found in browser — try to auto-submit silently (popup stays hidden)
+            validateKeyWithBackend(savedKey, false).then(data => {
                 if (data.success) {
-                    // Key valid — continue to the next post-login step when provided.
+                    // Key valid — redirect without ever showing the popup
                     window.location.href = data.next_url || window.location.href;
                 } else {
-
                     // Saved key invalid — clear it and show popup
                     clearKeyFromBrowser();
-                    showPanel();
+                    applyLoginPopupStyle();
                 }
-            }).catch(() => showPanel());
+            }).catch(() => {
+                // Network error — show popup so user can enter key manually
+                applyLoginPopupStyle();
+            });
         } else {
-            showPanel();
+            // No saved key — show popup immediately and wait for user input
+            applyLoginPopupStyle();
         }
     }
 

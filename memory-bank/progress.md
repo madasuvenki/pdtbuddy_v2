@@ -110,6 +110,58 @@ The new modules are created but app.py has NOT yet been updated to:
 4. Remove duplicate utility functions from `app.py` only after all callers use
    `user_activity.py`, `cache_utils.py`, and `cr_utils.py`.
 
+## Agentic Flow Roadmap (2026-08-20) — Cost-Optimized
+
+Full codebase review completed. Six agentic flow opportunities identified and queued.
+See `activeContext.md` for full design details per item.
+
+**Core design principle (QGenie tokens are cost-based):**
+`Python tools (free) → structured data → ONE LLM call (cost) → cached result`
+- Script-first, LLM-last. No multi-step ReAct loops.
+- LLM always opt-in (user button click), never automatic.
+- Graceful degradation: structured data shown even without QGenie key.
+- Cache LLM results by (input_key, date) — no re-analysis same day.
+- Model tiering: cheapest for classification, medium for summarization, best for synthesis.
+
+### 🔴 High Priority
+- 🔲 **P1 — Chatbot Template-Based SQL Agent** (`src/chatbot_agent.py` new — queued)
+  - Python: rule-based NLP + SQL template selection + query execution + table rendering (free)
+  - LLM: one call only if NLP fails + user opts in; final narrative synthesis
+  - No ReAct loop — Python collects all data in one pass
+- ✅ **P2 — CR Analysis Agent** (`src/cr_analysis_agent.py`) — COMPLETE 2026-08-20
+- ✅ **WBC Open CR Details** (`wbc_live_view_stats_routes.py` + `wbc_live_view_stats.html`) — COMPLETE 2026-08-20
+  - TEA API caller (`_call_tea_api`) — `POST https://10.213.98.5:5001/api/cr-summary`, username: drkrish
+  - QGenie analysis (one call, opt-in, internal team only)
+  - JSON cache: `open_cr_details_{target}.json` — no Excel modification
+  - APIs: `GET /open_cr_details`, `POST /open_cr_details/analyze`
+  - UI: "Open CR Details" nav tab (internal only), SCENARIO DETAILS + QGENIE ANALYSIS columns, Analyse All button
+  - Python: Orbit fetch + JIRA DB query + historical trend + cross-BU lookup (all free)
+  - LLM: one synthesis call when user clicks "Deep Analysis" button
+  - Cache: by (cr_number, target, date) — no re-analysis same day
+  - APIs: `POST /api/cr_agent/analyze/<cr_number>`, `GET /api/cr_agent/data/<cr_number>`
+  - UI: "Deep Analysis" button + modal in `open_cr_analysis.html`
+  - Validated: `py -3 -m py_compile src/cr_analysis_agent.py src/application/blueprints.py` → SYNTAX_OK
+
+### 🟡 Medium Priority
+- 🔲 **P3 — Core Deck LLM Slide Mapping** (`src/core_deck_agent.py` extend)
+  - Python: keyword matching for all slides (already in `DATA_KEYWORDS`) — zero LLM cost for most runs
+  - LLM: one call only if >2 slides unresolved by keywords; cheapest model, JSON output
+- 🔲 **P4 — Expanded MCP Server** (`mcp_mtbf_server.py` extend)
+  - Pure Python tools — zero LLM cost on PDTBuddy side
+  - New tools: `get_cr_summary`, `get_jira_summary`, `get_device_inventory`, `get_live_status`, `get_weekly_summary`, `search_crs`
+  - Env var control: `MCP_CR_TOOLS_ENABLED`, `MCP_JIRA_TOOLS_ENABLED` — disable unused tool groups
+- 🔲 **P5 — Live Status Monitor Agent** (`src/live_status_agent.py` new)
+  - Python: threshold-based change detection (MTBF drop >20%, crash spike >50%) — free
+  - LLM: one call only when significant change detected AND editor requests AI draft
+  - Template-only draft always available as fallback
+  - New API: `POST /api/live_status/agent/draft_update`
+
+### 🟢 Lower Priority
+- 🔲 **P6 — Report Narrative Agent** (`weekly_summary_routes.py` extend)
+  - Python: week-over-week trend detection, anomaly flagging (free)
+  - LLM: one call to convert structured trends to 3-5 executive bullets (opt-in, cheapest model)
+  - Fallback: structured trend table shown without narrative if no QGenie key
+
 ## What's Left to Build / Unknown Status
 
 ### Unknown (Not Verified Without Running)
@@ -123,9 +175,12 @@ The new modules are created but app.py has NOT yet been updated to:
 - 🔄 Live status publish feature (has plan doc + technical doc in `docs/`)
 
 ## Current Status
-**Active production application at v2.7.** Modularization in progress — new modules created, app.py not yet updated to use them.
+**Active production application at v2.10.** Modularization in progress — new modules created, app.py not yet updated to use them.
 
 ## Known Issues
+- Fixed v2.10 (QIPLPDT-11018): Sanitizer JIRAs were incorrectly counted in the system crashes bucket in the Open JIRA section. Sanitizer-type JIRAs are now filtered out from system crash counts.
+- Fixed v2.10 (QIPLPDT-11005): [Hamoa AL] 'Can't dup' CRs were excluded from the Valid CRs Avg Age distribution list. They are now included alongside other valid CR categories in the CR Avg Age chart/distribution.
+- Fixed v2.10 (QIPLPDT-11000): Daily reports for Nord HGY now include two additional columns — CR Assignee (full name) and CR Priority — to provide richer per-CR context in the daily report output.
 - Fixed 2026-08-16: WBC saved-JQL scheduled refresh was not resolving JIRA saved filter IDs before running; the headless scheduler passed raw `324988` / `filter = 324988` as `custom_jql`, so scheduled report caches could show `0` rows even when the JIRA filter had ~170+ crashes. Scheduler now resolves the filter on every due run and caches latest `resolved_jql`/build metadata. Follow-up fix: WBC manual/report endpoint no longer reuses cache for saved-filter rows just because the filter ID matches; cache is reused only when the current filter-resolved JQL exactly matches the cached resolved JQL, so Jira filter edits/build-meta changes invalidate old report cache.
 - Fixed 2026-08-07: unrelated Compute targets (for example Hamoa_AL) were showing Glymur MTBF charts because `_mtbf_json_dir()` routed all Compute targets to `managed_excel/COMPUTE/GLYMUR`.
 - `VIEWER_OVERRIDE_USERS` contains `'akacham'` with comment "TEMP TEST" — suggests a temporary test configuration that may need cleanup
@@ -141,7 +196,18 @@ The new modules are created but app.py has NOT yet been updated to:
 
 ## Evolution of Project Decisions
 
-### v2.7 (Current)
+### v2.10 (Current)
+- QIPLPDT-11018: Sanitizer JIRAs removed from system crashes bucket in Open JIRA section
+- QIPLPDT-11005: 'Can't dup' CRs included in Valid CRs Avg Age distribution (Hamoa AL)
+- QIPLPDT-11000: CR Assignee (full name) + CR Priority columns added to Nord HGY daily reports
+
+### v2.9
+- Weekly Report PPT button removed; CRM section moved to CR Age Report page
+- CR Age Report redesigned with 3-bar chart per area + All CRs table (14 columns) + Download Excel
+- Revision History page added (`/revision-history`)
+- Non-AUTO BU Live Status MTBF full dashboard API parity
+
+### v2.7
 - Multi-region Orbit endpoint routing with priority chain (LDAP location → browser TZ → IP → LDAP group)
 - QGenie AI integration for CR summaries
 - MCP MTBF server as optional component

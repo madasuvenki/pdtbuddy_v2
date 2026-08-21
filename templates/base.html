@@ -816,7 +816,7 @@ body:has(.bu-simple-page) .app-bg-gradient {
   </style>
   {% block extra_css %}{% endblock %}
 </head>
-<body{% if session.get('needs_qgenie_popup') %} style="overflow:hidden"{% endif %}>
+<body>
 {% block topbar %}
 <header>
   <nav class="qc-topbar">
@@ -867,6 +867,12 @@ body:has(.bu-simple-page) .app-bg-gradient {
       </a>
                                                 <a href="{{ url_for('dashboard_docs') }}" target="_blank" rel="noopener noreferrer" class="topbar-compare-pill topbar-docs-pill" title="Help, Architecture &amp; Raise Ticket">
           <i class="fas fa-book"></i><span>Docs</span>
+        </a>
+        <a href="{{ url_for('pdt_dept_bp.pdt_department') }}" target="_blank" rel="noopener noreferrer"
+           class="topbar-compare-pill"
+           style="background:rgba(16,185,129,0.16);color:#065f46;border:1px solid rgba(16,185,129,0.32);box-shadow:0 2px 12px rgba(16,185,129,.10),inset 0 1px 0 rgba(255,255,255,.70);backdrop-filter:blur(12px);font-weight:900;"
+           title="PDT Department Config — QIPL / CH / SD">
+          <i class="fas fa-users" style="color:#10b981;"></i><span>PDT Dept</span>
         </a>
     </div>
     {% endif %}

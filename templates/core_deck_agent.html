@@ -1,0 +1,205 @@
+<div class="cd-agent" data-target="{{ target_name|default(target)|default('') }}" data-mode="{{ mode|default('internal') }}">
+  <style>
+    .cd-agent{font-family:Inter,Arial,sans-serif;color:#0f172a}.cd-shell{background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #dbeafe;border-radius:24px;padding:18px;box-shadow:0 22px 70px rgba(15,23,42,.12)}.cd-hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:20px;border-radius:22px;background:radial-gradient(circle at top left,rgba(239,23,71,.28),transparent 34%),linear-gradient(135deg,#0f172a,#312e81 58%,#7c2d12);color:#fff;margin-bottom:16px;box-shadow:0 18px 45px rgba(15,23,42,.25)}.cd-title{font-size:24px;font-weight:950;display:flex;gap:10px;align-items:center}.cd-sub{font-size:12px;color:#dbeafe;margin-top:6px;font-weight:750;line-height:1.45}.cd-steps{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.cd-step{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:900}.cd-step.on{background:#fff;color:#312e81}.cd-grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:16px}.cd-card{background:rgba(255,255,255,.92);border:1px solid #dbeafe;border-radius:20px;box-shadow:0 12px 34px rgba(15,23,42,.08);overflow:hidden;backdrop-filter:blur(8px)}.cd-card-h{padding:14px 16px;background:linear-gradient(135deg,#fff,#f8fbff);border-bottom:1px solid #e2e8f0;font-weight:950;display:flex;align-items:center;justify-content:space-between;gap:10px}.cd-card-b{padding:16px}.cd-btn{border:none;border-radius:13px;padding:10px 14px;font-weight:950;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none;box-shadow:0 8px 18px rgba(15,23,42,.08);transition:.16s}.cd-btn:hover{transform:translateY(-1px)}.cd-primary{background:linear-gradient(135deg,#ef1747,#f97316);color:#fff}.cd-dark{background:#111827;color:#fff}.cd-soft{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}.cd-green{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.cd-field{margin-bottom:12px}.cd-field label{display:block;font-size:10px;text-transform:uppercase;font-weight:950;color:#64748b;margin-bottom:6px;letter-spacing:.08em}.cd-field input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:13px;padding:11px;font-weight:800;background:#fff}.cd-status{font-size:12px;font-weight:850;color:#475569;margin-top:8px}.cd-pill{display:inline-flex;margin:3px 3px 0 0;border-radius:999px;background:#fee2e2;color:#991b1b;padding:4px 9px;font-size:10px;font-weight:950}.cd-pill.ok{background:#dcfce7;color:#166534}.cd-pill.blue{background:#dbeafe;color:#1d4ed8}.cd-ref-preview{border:1.5px dashed #93c5fd;border-radius:16px;background:linear-gradient(135deg,#eff6ff,#fff);padding:12px;max-height:330px;overflow:auto}.cd-slide-row{border:1px solid #dbeafe;border-radius:13px;padding:10px;margin-bottom:8px;background:#fff}.cd-slide-title{font-weight:950;font-size:12px;display:flex;justify-content:space-between;gap:8px}.cd-slide-meta{font-size:11px;color:#64748b;margin-top:5px}.cd-slide-samples{font-size:10.5px;color:#334155;margin-top:7px;line-height:1.35;background:#f8fafc;border-radius:9px;padding:7px}.cd-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.cd-kpi{border:1px solid #e2e8f0;border-radius:15px;padding:12px;background:linear-gradient(135deg,#fff,#f8fafc)}.cd-kpi b{display:block;font-size:23px;color:#ef1747}.cd-kpi span{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:950}.cd-list{display:flex;flex-direction:column;gap:9px;max-height:390px;overflow:auto;padding-right:3px}.cd-row{border:1.5px solid #e2e8f0;border-radius:16px;padding:12px;background:#fff;transition:.15s}.cd-row:hover{border-color:#93c5fd;box-shadow:0 10px 24px rgba(37,99,235,.10)}.cd-row.selected{border-color:#ef1747;background:#fff7f7}.cd-row-top{display:flex;align-items:flex-start;gap:10px}.cd-row input[type=checkbox]{width:auto;margin-top:4px;accent-color:#ef1747}.cd-history-row{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:14px;padding:11px;margin-bottom:8px;background:#fff}.cd-muted{color:#64748b;font-size:12px}.cd-preview-box{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:14px;min-height:220px}.cd-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cd-mini-table{width:100%;border-collapse:collapse;font-size:11px}.cd-mini-table th{background:#111827;color:#fff;text-align:left;padding:7px}.cd-mini-table td{border:1px solid #e5e7eb;padding:7px}.cd-external .cd-internal-only{display:none!important}@media(max-width:1100px){.cd-grid,.cd-two{grid-template-columns:1fr}.cd-hero{flex-direction:column}.cd-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:640px){.cd-kpis{grid-template-columns:1fr}}
+    .cd-ppt-preview{border:1px solid #cbd5e1;border-radius:18px;background:#f8fafc;padding:12px;max-height:430px;overflow:auto}.cd-ppt-slide{background:#fff;border:1px solid #dbeafe;border-radius:14px;margin-bottom:10px;padding:12px;box-shadow:0 8px 20px rgba(15,23,42,.06)}.cd-ppt-slide h4{margin:0 0 7px;font-size:13px}.cd-ppt-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.cd-warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:9px;font-size:12px;font-weight:850}
+  </style>
+
+  <div class="cd-shell">
+    <div class="cd-hero">
+      <div>
+        <div class="cd-title">📊 Agentic Core Slides Builder</div>
+        <div class="cd-sub">Upload/update one reference PPT. Review detected slides. Select latest Meta builds. Preview DB data. Generate by replacing only reference data fields while keeping the PPT format unchanged.</div>
+        <div class="cd-steps">
+          <span class="cd-step on">1 Reference</span>
+          <span class="cd-step">2 Select Meta</span>
+          <span class="cd-step">3 Preview DB Data</span>
+          <span class="cd-step">4 Generate & Review PPT</span>
+          <span class="cd-step">5 Download / Regenerate</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="cd-btn cd-soft" onclick="cdAgentLoadAll()">Refresh</button>
+        <button class="cd-btn cd-dark cd-internal-only" onclick="cdAgentPreview()">Preview Selected Data</button>
+        <button class="cd-btn cd-primary cd-internal-only" onclick="cdAgentGenerate()" style="outline:3px solid rgba(255,255,255,.45)">⚡ Generate Preview PPT</button>
+      </div>
+    </div>
+
+    <div class="cd-grid">
+      <div>
+        <div class="cd-card">
+          <div class="cd-card-h">Reference PPT <span id="cdRefBadge" class="cd-pill">checking</span></div>
+          <div class="cd-card-b">
+            <div id="cdRefBox" class="cd-muted">Loading reference status...</div>
+            <form id="cdUploadForm" class="cd-internal-only" style="margin-top:14px" onsubmit="return cdAgentUpload(event)">
+              <div class="cd-field"><label>Upload / Update Reference PPTX</label><input name="reference" type="file" accept=".pptx"></div>
+              <div class="cd-field"><label>Template Name</label><input name="template_name" placeholder="Example: AUTO Core Slides Standard"></div>
+              <div class="cd-field"><label>Network PPTX Path optional</label><input name="network_path" placeholder="\\sphere\...\reference.pptx"></div>
+              <button class="cd-btn cd-dark" type="submit">Upload / Analyse Reference</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="cd-card" style="margin-top:16px">
+          <div class="cd-card-h">Generated Deck History</div>
+          <div class="cd-card-b">
+            <select id="cdGeneratedSelect" onchange="cdAgentSelectGenerated()" style="width:100%;border:1px solid #cbd5e1;border-radius:13px;padding:11px;font-weight:850;margin-bottom:10px"></select>
+            <div id="cdGeneratedList" class="cd-muted">No generated decks loaded.</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="cd-card">
+          <div class="cd-card-h">Reference Available Preview <span class="cd-muted">highlighted detected slides/data keys</span></div>
+          <div class="cd-card-b">
+            <div id="cdReferencePreview" class="cd-ref-preview">Reference preview will appear after upload/analyse.</div>
+          </div>
+        </div>
+
+        <div class="cd-card cd-internal-only" style="margin-top:16px">
+          <div class="cd-card-h">Meta Selection <span id="cdSelectedCount" class="cd-pill blue">0 selected</span></div>
+          <div class="cd-card-b">
+            <div class="cd-status" id="cdMetaStatus">Loading metas...</div>
+            <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+              <button class="cd-btn cd-soft" onclick="cdSelectAllMetas(true)">Select Latest</button>
+              <button class="cd-btn cd-soft" onclick="cdSelectAllMetas(false)">Clear</button>
+            </div>
+            <div id="cdMetaList" class="cd-list"></div>
+          </div>
+        </div>
+
+        <div class="cd-card" style="margin-top:16px">
+          <div class="cd-card-h">Selected Data Preview From DB <button class="cd-btn cd-primary cd-internal-only" onclick="cdAgentGenerate()">⚡ Generate Preview PPT</button></div>
+          <div class="cd-card-b">
+            <div class="cd-kpis">
+              <div class="cd-kpi"><b id="cdKpiJiras">-</b><span>Total JIRAs</span></div>
+              <div class="cd-kpi"><b id="cdKpiOpen">-</b><span>Open JIRAs</span></div>
+              <div class="cd-kpi"><b id="cdKpiCrs">-</b><span>Unique CRs</span></div>
+              <div class="cd-kpi"><b id="cdKpiCrash">-</b><span>Crashes</span></div>
+            </div>
+            <div id="cdPreviewRows" class="cd-preview-box cd-muted" style="margin-top:12px">Select metas and click Preview Selected Data.</div>
+          </div>
+        </div>
+
+        <div class="cd-card" style="margin-top:16px">
+          <div class="cd-card-h">Generated PPT Preview Before Download <span id="cdPptBadge" class="cd-pill blue">not generated</span></div>
+          <div class="cd-card-b">
+            <div class="cd-warn">Flow: select meta → preview DB data → click the highlighted Generate Preview PPT button → verify real slide images → download, or regenerate.</div>
+            <div id="cdPptPreview" class="cd-ppt-preview cd-muted" style="margin-top:12px">No generated PPT preview yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){const root=document.currentScript.previousElementSibling;if(root&&root.dataset.mode==='external')root.classList.add('cd-external');})();
+const CD_TARGET=document.querySelector('.cd-agent')?.dataset.target||'';
+const CD_MODE=document.querySelector('.cd-agent')?.dataset.mode||'internal';
+let CD_METAS=[],CD_GENERATED=[],CD_REFERENCE=null;
+function cdEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function cdShort(v,n=120){v=String(v||'');return v.length>n?v.slice(0,n)+'…':v;}
+async function cdJson(resp){
+  const text=await resp.text();
+  try{return JSON.parse(text);}
+  catch(e){return{ok:false,error:'Server returned non-JSON response ('+resp.status+'). '+cdShort(text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '),260)};}
+}
+function cdSelectedMetas(){const selected=[];document.querySelectorAll('.cdMetaChk').forEach(ch=>{if(ch.checked){const m=CD_METAS[Number(ch.dataset.i)];if(m)selected.push(m);}});return selected;}
+function cdUpdateSelectedCount(){const n=cdSelectedMetas().length;const el=document.getElementById('cdSelectedCount');if(el)el.textContent=n+' selected';document.querySelectorAll('.cdMetaChk').forEach(ch=>{const row=ch.closest('.cd-row');if(row)row.classList.toggle('selected',ch.checked);});}
+function cdRenderReferencePreview(analysis){
+  CD_REFERENCE=analysis||{};
+  const box=document.getElementById('cdReferencePreview');
+  const slides=CD_REFERENCE.slides||[];
+  if(!slides.length){box.innerHTML='<span class="cd-muted">No slide metadata available. Upload/reference analysis required.</span>';return;}
+  box.innerHTML=slides.map(s=>{
+    const key=s.data_key||'generic';
+    const samples=(s.text_samples||[]).slice(0,2).map(x=>cdEsc(cdShort(x,180))).join('<br>');
+    return '<div class="cd-slide-row"><div class="cd-slide-title"><span>Slide '+cdEsc(s.slide_index)+': '+cdEsc(cdShort(s.title,70))+'</span><span class="cd-pill '+(key==='generic'?'':'ok')+'">'+cdEsc(key)+'</span></div><div class="cd-slide-meta">'+cdEsc(s.shape_count||0)+' shapes · '+cdEsc(s.chart_count||0)+' charts · '+cdEsc(s.table_count||0)+' tables</div>'+(samples?'<div class="cd-slide-samples">'+samples+'</div>':'')+'</div>';
+  }).join('');
+}
+async function cdAgentLoadRef(){
+  const r=await fetch('/api/core_deck/reference_status?target='+encodeURIComponent(CD_TARGET),{cache:'no-store'});const d=await r.json();
+  const badge=document.getElementById('cdRefBadge'),box=document.getElementById('cdRefBox');
+  if(!d.ok){box.textContent=d.error||'Reference check failed';return;}
+  if(!d.has_reference){badge.textContent='missing';box.innerHTML='No reference PPT available. Upload one sample/reference PPTX first.';cdRenderReferencePreview({});return;}
+  const t=d.template||{};badge.textContent='ready';badge.classList.add('ok');
+  box.innerHTML='<b>'+cdEsc(t.template_name)+'</b><br><span class="cd-muted">'+cdEsc(t.slide_count)+' slides · '+cdEsc(t.chart_count)+' charts · '+cdEsc(t.table_count)+' tables<br>Updated by '+cdEsc(t.created_by)+' at '+cdEsc(t.created_at)+'</span><div style="margin-top:8px"><span class="cd-pill ok">Reference Available</span><span class="cd-pill blue">Format locked</span></div>';
+  cdRenderReferencePreview(t.analysis||{});
+}
+async function cdAgentLoadMetas(){
+  if(CD_MODE==='external')return;
+  const box=document.getElementById('cdMetaList'),st=document.getElementById('cdMetaStatus');
+  const r=await fetch('/api/core_deck/metas?target='+encodeURIComponent(CD_TARGET)+'&limit=10',{cache:'no-store'});const d=await r.json();
+  if(!d.ok){st.textContent=d.error||'Failed';return;}
+  CD_METAS=d.metas||[];st.textContent='Matched entries: '+(d.matched_entries||0)+' | Source: '+(d.source_path||'db');
+  box.innerHTML=CD_METAS.map((m,i)=>{
+    const flavors=(m.product_flavors||[]).slice(0,4).map(f=>'<span class="cd-pill">'+cdEsc(f)+'</span>').join('');
+    const builds=(m.build_ids||[]).slice(0,3).map(b=>'<div class="cd-muted">'+cdEsc(cdShort(b,85))+'</div>').join('');
+    return '<div class="cd-row"><div class="cd-row-top"><input type="checkbox" class="cdMetaChk" data-i="'+i+'" '+(i<5?'checked':'')+' onchange="cdUpdateSelectedCount()"><div style="flex:1"><b>'+cdEsc(m.meta_id)+'</b><div class="cd-muted">Devices '+cdEsc(m.device_count||0)+' | Builds '+cdEsc(m.build_count||0)+' | Latest '+cdEsc((m.latest_submitted||'').slice(0,10))+'</div>'+flavors+'<div style="margin-top:7px">'+builds+'</div></div></div></div>';
+  }).join('')||'<div class="cd-muted">No metas found.</div>';
+  cdUpdateSelectedCount();
+}
+async function cdAgentLoadGenerated(){
+  const r=await fetch('/api/core_deck/generated_list?target='+encodeURIComponent(CD_TARGET),{cache:'no-store'});const d=await r.json();
+  CD_GENERATED=(d.ok&&d.generated)||[];
+  const sel=document.getElementById('cdGeneratedSelect'),list=document.getElementById('cdGeneratedList');
+  sel.innerHTML=CD_GENERATED.length?CD_GENERATED.map((g,i)=>'<option value="'+i+'">'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+' — '+cdEsc(g.generated_at||'')+'</option>').join(''):'<option>No generated decks</option>';
+  list.innerHTML=CD_GENERATED.length?CD_GENERATED.slice(0,8).map(g=>'<div class="cd-history-row"><div><b>'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+'</b><div class="cd-muted">'+cdEsc(g.generated_at||'')+' by '+cdEsc(g.generated_by||'')+'</div></div><button class="cd-btn cd-soft" onclick="cdAgentPreviewPpt('+g.id+')">Preview</button></div>').join(''):'No generated decks yet.';
+}
+async function cdAgentUpload(ev){
+  ev.preventDefault();const fd=new FormData(ev.target);fd.append('target',CD_TARGET);
+  document.getElementById('cdRefBox').textContent='Uploading and analysing reference PPT...';
+  const r=await fetch('/api/core_deck/upload_reference',{method:'POST',body:fd});const d=await r.json();
+  if(!d.ok){alert(d.error||'Upload failed');}
+  await cdAgentLoadRef();return false;
+}
+function cdPayload(){return{target:CD_TARGET,selected_metas:cdSelectedMetas(),exec_summary:[]};}
+async function cdAgentPreview(){
+  const payload=cdPayload();if(!payload.selected_metas.length){alert('Select at least one Meta.');return;}
+  document.getElementById('cdPreviewRows').innerHTML='Loading selected Meta DB preview...';
+  const r=await fetch('/api/core_deck/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();
+  if(!d.ok){alert(d.error||'Preview failed');return;}
+  cdRenderPreview(d);
+}
+async function cdAgentGenerate(){
+  const payload=cdPayload();if(!payload.selected_metas.length){alert('Select at least one Meta.');return;}
+  const pptBox=document.getElementById('cdPptPreview'),badge=document.getElementById('cdPptBadge');
+  pptBox.innerHTML='Generating preview PPT from reference...';badge.textContent='generating';
+  const r=await fetch('/api/core_deck/generate_pptx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d=await cdJson(r);if(!d.ok){badge.textContent='failed';pptBox.innerHTML='<div class="cd-warn"><b>Generate failed.</b><br>'+cdEsc(d.error||'Generate failed')+'</div>';alert(d.error||'Generate failed');return;}
+  cdRenderPreview(d.preview);await cdAgentLoadGenerated();await cdAgentPreviewPpt(d.generated_id);
+}
+async function cdAgentPreviewPpt(id){
+  const pptBox=document.getElementById('cdPptPreview'),badge=document.getElementById('cdPptBadge');
+  if(!id){pptBox.innerHTML='No generated PPT selected.';return;}
+  pptBox.innerHTML='Loading generated PPT preview...';badge.textContent='loading';
+  const r=await fetch('/api/core_deck/preview_pptx/'+id,{cache:'no-store'});const d=await cdJson(r);
+  if(!d.ok){badge.textContent='preview failed';pptBox.innerHTML=cdEsc(d.error||'Preview failed');return;}
+  badge.textContent=(d.slide_images&&d.slide_images.length)?'preview ready':'renderer missing';
+  badge.classList.toggle('ok',!!(d.slide_images&&d.slide_images.length));
+  cdRenderPptPreview(d);
+}
+function cdRenderPptPreview(d){
+  const g=d.generated||{},imgs=d.slide_images||[],p=d.preview_payload||{};
+  const metas=(p.selected_metas||[]).map(m=>m.meta_id).join(', ');
+  let rows='';
+  if(imgs.length){
+    rows=imgs.map(img=>'<div class="cd-ppt-slide"><h4>Slide '+cdEsc(img.slide_index)+'</h4><img src="'+cdEsc(img.url)+'?t='+(Date.now())+'" style="width:100%;border-radius:10px;border:1px solid #cbd5e1;background:#fff"></div>').join('');
+  }else{
+    rows='<div class="cd-warn" style="margin-bottom:10px"><b>Exact reference-look preview is not available in this browser session.</b><br>The earlier slide-mode cards were removed because they do not match the uploaded reference PPT look. To preview exactly as the reference, the server must render the generated PPTX to slide images using Microsoft PowerPoint/LibreOffice. Current renderer detail: '+cdEsc(d.image_error||'No slide images returned')+'<br><br><b>Use Download Verified PPTX</b> to open the generated file in PowerPoint; that file is the source of truth and keeps the reference deck formatting.</div>';
+  }
+  document.getElementById('cdPptPreview').innerHTML='<b>'+cdEsc(g.file_name||'Generated PPT')+'</b><div class="cd-muted">Meta: '+cdEsc(metas||((g.meta_ids||[]).join(', ')))+' | Generated: '+cdEsc(g.generated_at||'')+'</div><div class="cd-ppt-actions"><a class="cd-btn cd-green" href="/api/core_deck/download_pptx/'+g.id+'">Download Verified PPTX</a><button class="cd-btn cd-primary cd-internal-only" onclick="cdAgentGenerate()">Regenerate With Current Selection</button></div><div style="margin-top:12px">'+(rows||'No slides found in PPT.')+'</div>';
+}
+function cdAgentSelectGenerated(){const i=Number(document.getElementById('cdGeneratedSelect').value||0);const g=CD_GENERATED[i];if(g){cdAgentPreviewPpt(g.id);}}
+function cdRenderPreview(p){
+  p=p||{};const c=p.summary_counts||{};const metas=p.selected_metas||[];const crashes=metas.reduce((a,m)=>a+Number(m.crashes||0),0);
+  document.getElementById('cdKpiJiras').textContent=c.total_jiras||0;document.getElementById('cdKpiOpen').textContent=c.open_jiras||0;document.getElementById('cdKpiCrs').textContent=c.unique_crs||0;document.getElementById('cdKpiCrash').textContent=crashes;
+  const metaHtml='<table class="cd-mini-table"><thead><tr><th>Meta</th><th>Devices</th><th>Crashes</th><th>MTBF</th><th>Builds</th></tr></thead><tbody>'+metas.map(m=>'<tr><td>'+cdEsc(m.meta_id)+'</td><td>'+cdEsc(m.device_count||0)+'</td><td>'+cdEsc(m.crashes||0)+'</td><td>'+cdEsc(m.mtbf||'NA')+'</td><td>'+cdEsc((m.build_ids||[]).slice(0,2).join(', '))+'</td></tr>').join('')+'</tbody></table>';
+  const top=(p.top_hitters||[]).slice(0,6).map(r=>'<tr><td>'+cdEsc(r.cr)+'</td><td>'+cdEsc(cdShort(r.cr_title||'',80))+'</td><td>'+cdEsc(r.jira_count||'')+'</td></tr>').join('');
+  document.getElementById('cdPreviewRows').innerHTML='<div class="cd-two"><div><b>Selected Meta Data</b><div style="margin-top:8px">'+metaHtml+'</div></div><div><b>Top CRs from DB</b><table class="cd-mini-table" style="margin-top:8px"><thead><tr><th>CR</th><th>Title</th><th>Count</th></tr></thead><tbody>'+(top||'<tr><td colspan="3">No top CR data</td></tr>')+'</tbody></table></div></div><div class="cd-muted" style="margin-top:10px">Generate will copy the available reference PPT and replace detected values with this DB data.</div>';
+}
+function cdSelectAllMetas(val){document.querySelectorAll('.cdMetaChk').forEach((ch,i)=>{ch.checked=val && i<5;});cdUpdateSelectedCount();}
+async function cdAgentLoadAll(){await cdAgentLoadRef();await cdAgentLoadMetas();await cdAgentLoadGenerated();if(CD_GENERATED[0])cdAgentSelectGenerated();}
+cdAgentLoadAll();
+</script>

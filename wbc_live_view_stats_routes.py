@@ -912,7 +912,12 @@ def _preview_rows_filtered(fq_table: str, limit: int = 100, open_cr_only: bool =
         cur.execute(f"SELECT COUNT(*) AS cnt FROM {_bt(schema, table)}{where_sql}")
         total = _safe_int((cur.fetchone() or {}).get("cnt"))
         cur.execute(f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)}{where_sql} LIMIT %s", (limit,))
-        rows = [{k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in r.items()} for r in (cur.fetchall() or [])]
+        def _fmt_val(v):
+            if v is None: return ""
+            if isinstance(v, datetime): return v.date().isoformat() if v.hour == 0 and v.minute == 0 and v.second == 0 else v.isoformat()
+            if isinstance(v, date): return v.isoformat()
+            return v
+        rows = [{k: _fmt_val(v) for k, v in r.items()} for r in (cur.fetchall() or [])]
         return {"columns": selected, "rows": rows, "count": total, "error": ""}
     except Exception as exc:
         return {"columns": [], "rows": [], "count": 0, "error": str(exc)}
@@ -1272,7 +1277,8 @@ def _wbc_external_saved_jql_row(row: Dict[str, Any]) -> Dict[str, Any]:
     allowed = (
         "id", "name", "build_id", "has_cached_report", "cached_report_stale",
         "last_run_at", "next_run_at", "cache_ttl_minutes", "cached_row_count",
-        "cached_cr_count", "cached_jira_count", "cache_status",
+        "cached_cr_count", "cached_mapped_jira_count", "cached_open_jira_count",
+        "cached_jira_count", "cached_invalid_count", "cache_status",
     )
     return {key: row.get(key) for key in allowed if key in row}
 
@@ -1286,27 +1292,73 @@ def _wbc_external_saved_jql_report(report: Dict[str, Any]) -> Dict[str, Any]:
     return {key: value for key, value in report.items() if key not in hidden_keys}
 
 
+def _wbc_enrich_report_counts(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize WBC saved-JQL report rows and classification counts in-place.
+
+    Scheduler caches can contain the raw consolidated report shape
+    (``hierarchical_report`` / ``jiras``) instead of WBC's flattened rows.  The
+    WBC UI counts and tabs are based on flattened rows, so normalize the cached
+    shape before calculating row/open-jira/total-jira/current-CR metadata.
+    """
+    report = report if isinstance(report, dict) else {}
+    rows = report.get("rows") or report.get("flat_rows") or []
+    has_wbc_flat_shape = any(isinstance(r, dict) and ("Row Type" in r or "JIRA" in r or "Final Ticket" in r) for r in (rows or []))
+    if ((not rows) or (not has_wbc_flat_shape)) and (report.get("hierarchical_report") or report.get("jiras")):
+        rows = _wbc_flatten_consolidated_report(report)
+        report["rows"] = rows
+        report["flat_rows"] = rows
+    rows = [r for r in (rows or []) if isinstance(r, dict)]
+    valid_rows = [r for r in rows if not _is_invalid_row(r)]
+    crs = {str(r.get("CR") or "").strip() for r in rows if _is_true_cr(str(r.get("CR") or ""))}
+    mapped_jiras = {str(r.get("CR") or "").strip() for r in rows if _is_cr_equiv(str(r.get("CR") or ""))}
+    open_jiras = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+    all_jiras = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("JIRA") or "").strip()}
+    valid_crs = {str(r.get("CR") or "").strip() for r in valid_rows if _is_true_cr(str(r.get("CR") or ""))}
+    valid_mapped_jiras = {str(r.get("CR") or "").strip() for r in valid_rows if _is_cr_equiv(str(r.get("CR") or ""))}
+    valid_open_jiras = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
+    valid_all_jiras = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("JIRA") or "").strip()}
+    report.update({
+        "rows": rows,
+        "flat_rows": rows,
+        "row_count": len(rows),
+        "cr_count": len(crs),
+        "mapped_jira_count": len(mapped_jiras),
+        "open_jira_count": len(open_jiras),
+        "jira_count": len(all_jiras),
+        "valid_cr_count": len(valid_crs),
+        "valid_mapped_jira_count": len(valid_mapped_jiras),
+        "valid_open_jira_count": len(valid_open_jiras),
+        "valid_jira_count": len(valid_all_jiras),
+        "invalid_count": len(rows) - len(valid_rows),
+    })
+    return report
+
+
 def _wbc_saved_jql_cache_meta(cached: Dict[str, Any]) -> Dict[str, Any]:
     """Return normalized cache timing/count metadata for a saved-JQL report."""
-    cached = cached if isinstance(cached, dict) else {}
-    ttl = timedelta(minutes=30)
-    generated_at = _parse_iso_dt(cached.get("generated_at"))
+    cached = _wbc_enrich_report_counts(cached if isinstance(cached, dict) else {})
+    ttl_minutes = max(1, _safe_int(cached.get("cache_ttl_minutes") or cached.get("refresh_minutes") or 30))
+    ttl = timedelta(minutes=ttl_minutes)
+    generated_at = _parse_iso_dt(cached.get("generated_at") or cached.get("last_run_at"))
+    next_run_at = _parse_iso_dt(cached.get("next_run_at") or cached.get("next_auto_refresh_at"))
     now = datetime.utcnow()
-    next_run = generated_at + ttl if generated_at != datetime.min else datetime.min
-    expired = bool(generated_at != datetime.min and now >= next_run)
+    next_run = next_run_at if next_run_at != datetime.min else (generated_at + ttl if generated_at != datetime.min else datetime.min)
+    expired = bool(next_run != datetime.min and now >= next_run)
     rows = cached.get("rows") or cached.get("flat_rows") or []
     return {
         "has_cached_report": bool(cached),
         "cached_report_stale": expired,
-        "last_run_at": cached.get("generated_at") or "",
+        "last_run_at": cached.get("generated_at") or cached.get("last_run_at") or "",
         "next_run_at": next_run.isoformat() + "Z" if next_run != datetime.min else "",
-        "cache_ttl_minutes": 30,
+        "cache_ttl_minutes": ttl_minutes,
         "cached_row_count": _safe_int(cached.get("row_count", len(rows))) if cached else 0,
-        "cached_cr_count": _safe_int(cached.get("cr_count")) if cached else 0,
-        "cached_jira_count": _safe_int(cached.get("jira_count")) if cached else 0,
+        "cached_cr_count": _safe_int(cached.get("valid_cr_count", cached.get("cr_count"))) if cached else 0,
+        "cached_mapped_jira_count": _safe_int(cached.get("valid_mapped_jira_count", cached.get("mapped_jira_count"))) if cached else 0,
+        "cached_open_jira_count": _safe_int(cached.get("valid_open_jira_count", cached.get("open_jira_count"))) if cached else 0,
+        "cached_jira_count": _safe_int(cached.get("valid_jira_count", cached.get("jira_count"))) if cached else 0,
+        "cached_invalid_count": _safe_int(cached.get("invalid_count")) if cached else 0,
         "cache_status": "stale" if expired else ("cached" if cached else "not_run"),
     }
-    return rows
 
 
 
@@ -1371,6 +1423,12 @@ def _row_type(cr: str) -> str:
     return "open"
 
 
+def _wbc_pick(mapping: Dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if isinstance(mapping, dict) and mapping.get(key) not in (None, ""):
+            return mapping.get(key)
+    return ""
+
 def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for cr_row in (report.get("hierarchical_report") or []):
@@ -1398,6 +1456,8 @@ def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, A
             continue
         for jira in jiras:
             trav = jira.get("traversal") or {}
+            final_ticket = _wbc_pick(jira, "final_key", "final_ticket", "finalTicket") or _wbc_pick(trav, "final_key", "final_ticket", "finalTicket")
+            jira_key = _wbc_pick(jira, "key", "jira", "jira_key", "jira_id", "stability_ticket", "ticket", "issue_key")
             rows.append({
                 "Row Type": rtype,
                 "CR": cr,
@@ -1408,40 +1468,42 @@ def _wbc_flatten_consolidated_report(report: Dict[str, Any]) -> List[Dict[str, A
                 "CR Area": cr_row.get("cr_area") or "",
                 "CR Subsystem": cr_row.get("cr_subsystem") or "",
                 "CR Function": cr_row.get("cr_function") or "",
-                "JIRA": jira.get("key") or "",
-                "JIRA Title": jira.get("title") or jira.get("summary") or "",
-                "JIRA Status": jira.get("status") or "",
-                "JIRA Resolution": jira.get("resolution") or "",
-                "Final Ticket": jira.get("final_key") or trav.get("final_key") or "",
-                "Final Status": jira.get("final_status") or trav.get("final_status") or "",
-                "Final Resolution": jira.get("final_resolution") or trav.get("final_resolution") or "",
-                "Mapping Type": trav.get("mapping_type") or "",
-                "Resolution Notes": jira.get("resolution_notes_text") or trav.get("resolution_notes_text") or "",
-                "Created": jira.get("created") or "",
-                "Serial No": jira.get("serial_no") or "",
-                "Matched Build": jira.get("matched_build") or "",
+                "JIRA": jira_key,
+                "JIRA Title": _wbc_pick(jira, "title", "summary", "jira_title"),
+                "JIRA Status": _wbc_pick(jira, "status", "jira_status"),
+                "JIRA Resolution": _wbc_pick(jira, "resolution", "jira_resolution"),
+                "Final Ticket": final_ticket,
+                "Final Status": _wbc_pick(jira, "final_status", "finalStatus") or _wbc_pick(trav, "final_status", "finalStatus"),
+                "Final Resolution": _wbc_pick(jira, "final_resolution", "finalResolution") or _wbc_pick(trav, "final_resolution", "finalResolution"),
+                "Mapping Type": _wbc_pick(trav, "mapping_type", "mappingType"),
+                "Resolution Notes": _wbc_pick(jira, "resolution_notes_text", "resolution_notes", "notes") or _wbc_pick(trav, "resolution_notes_text", "resolution_notes", "notes"),
+                "Created": _wbc_pick(jira, "created", "created_at", "jira_date"),
+                "Serial No": _wbc_pick(jira, "serial_no", "serial", "serial_number"),
+                "Matched Build": _wbc_pick(jira, "matched_build", "meta_build", "metabuild", "build"),
             })
     if not rows:
         for jira in (report.get("jiras") or []):
             trav = jira.get("traversal") or {}
             info = jira.get("cr_info") or {}
-            cr = trav.get("final_cr") or jira.get("cr_mapped") or "NO_CR"
+            cr = _wbc_pick(trav, "final_cr", "canonical_cr", "cr") or _wbc_pick(jira, "cr_mapped", "mapped_cr", "cr") or "NO_CR"
+            final_ticket = _wbc_pick(trav, "final_key", "final_ticket", "finalTicket") or _wbc_pick(jira, "final_key", "final_ticket", "finalTicket")
+            jira_key = _wbc_pick(jira, "key", "jira", "jira_key", "jira_id", "stability_ticket", "ticket", "issue_key")
             rows.append({
                 "Row Type": _row_type(cr),
                 "CR": cr,
                 "CR Title": info.get("cr_title") or "",
                 "CR Status": info.get("cr_status") or "",
                 "CR Area": info.get("cr_area") or "",
-                                "JIRA": jira.get("key") or "",
-                "JIRA Title": jira.get("summary") or jira.get("title") or "",
-                "JIRA Status": jira.get("status") or "",
-                "JIRA Resolution": jira.get("resolution") or "",
-                "Final Ticket": trav.get("final_key") or jira.get("final_key") or "",
-                "Final Status": trav.get("final_status") or jira.get("final_status") or "",
-                "Final Resolution": trav.get("final_resolution") or jira.get("final_resolution") or "",
-                "Mapping Type": trav.get("mapping_type") or "",
-                "Resolution Notes": jira.get("resolution_notes_text") or trav.get("resolution_notes_text") or "",
-                "Matched Build": jira.get("matched_build") or "",
+                "JIRA": jira_key,
+                "JIRA Title": _wbc_pick(jira, "summary", "title", "jira_title"),
+                "JIRA Status": _wbc_pick(jira, "status", "jira_status"),
+                "JIRA Resolution": _wbc_pick(jira, "resolution", "jira_resolution"),
+                "Final Ticket": final_ticket,
+                "Final Status": _wbc_pick(trav, "final_status", "finalStatus") or _wbc_pick(jira, "final_status", "finalStatus"),
+                "Final Resolution": _wbc_pick(trav, "final_resolution", "finalResolution") or _wbc_pick(jira, "final_resolution", "finalResolution"),
+                "Mapping Type": _wbc_pick(trav, "mapping_type", "mappingType"),
+                "Resolution Notes": _wbc_pick(jira, "resolution_notes_text", "resolution_notes", "notes") or _wbc_pick(trav, "resolution_notes_text", "resolution_notes", "notes"),
+                "Matched Build": _wbc_pick(jira, "matched_build", "meta_build", "metabuild", "build"),
             })
     return rows
 
@@ -1475,17 +1537,7 @@ def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: boo
             custom_jql=jql,
         )
         flat_rows = _wbc_flatten_consolidated_report(raw_report)
-        valid_rows   = [r for r in flat_rows if not _is_invalid_row(r)]
-        crs          = {str(r.get("CR") or "").strip() for r in flat_rows if _is_true_cr(str(r.get("CR") or ""))}
-        mapped_jiras = {str(r.get("CR") or "").strip() for r in flat_rows if _is_cr_equiv(str(r.get("CR") or ""))}
-        open_jiras   = {str(r.get("JIRA") or "").strip() for r in flat_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
-        all_jiras    = {str(r.get("JIRA") or "").strip() for r in flat_rows if str(r.get("JIRA") or "").strip()}
-        # Valid-only counts (exclude invalid/withdrawn/won't-fix rows) — used for hero cards
-        valid_crs          = {str(r.get("CR") or "").strip() for r in valid_rows if _is_true_cr(str(r.get("CR") or ""))}
-        valid_mapped_jiras = {str(r.get("CR") or "").strip() for r in valid_rows if _is_cr_equiv(str(r.get("CR") or ""))}
-        valid_open_jiras   = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
-        valid_all_jiras    = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("JIRA") or "").strip()}
-        report = {
+        report = _wbc_enrich_report_counts({
             "ok": True,
             "build_id": build,
             "generated_at": now.isoformat() + "Z",
@@ -1494,20 +1546,11 @@ def _wbc_build_report_from_jql(target: Dict[str, str], build_id: str, force: boo
             "next_auto_refresh_at": (now + ttl).isoformat() + "Z",
             "source": "JIRA JQL consolidated report",
             "jql": jql,
-            "cr_count": len(crs),
-            "mapped_jira_count": len(mapped_jiras),
-            "open_jira_count": len(open_jiras),
-            "jira_count": len(all_jiras),
-            "row_count": len(flat_rows),
-            "valid_cr_count": len(valid_crs),
-            "valid_mapped_jira_count": len(valid_mapped_jiras),
-            "valid_open_jira_count": len(valid_open_jiras),
-            "valid_jira_count": len(valid_all_jiras),
-            "invalid_count": len(flat_rows) - len(valid_rows),
             "rows": flat_rows,
+            "flat_rows": flat_rows,
             "summary": raw_report.get("summary") or {},
             "meta": raw_report.get("meta") or {},
-        }
+        })
         _write_json(cache_path, {"generated_at": report["generated_at"], "report": report})
         return report
     except Exception as exc:
@@ -1918,28 +1961,7 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             )
         if cached and jql_match:
             cached = dict(cached)
-            # Flatten rows from hierarchical_report if scheduler stored raw report
-            rows = cached.get("rows") or cached.get("flat_rows") or []
-            if not rows and (cached.get("hierarchical_report") or cached.get("jiras")):
-                rows = _wbc_flatten_consolidated_report(cached)
-                cached["rows"] = rows
-                cached["flat_rows"] = rows
-                cached["row_count"] = len(rows)
-            # Add WBC classification counts if missing (scheduler doesn't classify)
-            if rows and "valid_cr_count" not in cached:
-                _vrows = [r for r in rows if not _is_invalid_row(r)]
-                _vcrs   = {str(r.get("CR") or "").strip() for r in _vrows if _is_true_cr(str(r.get("CR") or ""))}
-                _vmapped= {str(r.get("CR") or "").strip() for r in _vrows if _is_cr_equiv(str(r.get("CR") or ""))}
-                _vopen  = {str(r.get("JIRA") or "").strip() for r in _vrows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
-                _vall   = {str(r.get("JIRA") or "").strip() for r in _vrows if str(r.get("JIRA") or "").strip()}
-                cached.update({
-                    "valid_cr_count": len(_vcrs),
-                    "valid_mapped_jira_count": len(_vmapped),
-                    "valid_open_jira_count": len(_vopen),
-                    "valid_jira_count": len(_vall),
-                    "invalid_count": len(rows) - len(_vrows),
-                    "row_count": cached.get("row_count") or len(rows),
-                })
+            cached = _wbc_enrich_report_counts(cached)
             cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql, "raw_jql": raw_jql, "filter_id": filter_id, "filter_resolved": resolved})
             cached.update(_wbc_saved_jql_cache_meta(cached))
             return jsonify(_wbc_external_saved_jql_report(cached) if external_viewer else cached)
@@ -1963,17 +1985,7 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             custom_jql=jql,
         )
         rows = _wbc_flatten_consolidated_report(raw_report)
-        valid_rows   = [r for r in rows if not _is_invalid_row(r)]
-        crs          = {str(r.get("CR") or "").strip() for r in rows if _is_true_cr(str(r.get("CR") or ""))}
-        mapped_jiras = {str(r.get("CR") or "").strip() for r in rows if _is_cr_equiv(str(r.get("CR") or ""))}
-        open_jiras   = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
-        all_jiras    = {str(r.get("JIRA") or "").strip() for r in rows if str(r.get("JIRA") or "").strip()}
-        # Valid-only counts (exclude invalid/withdrawn/won't-fix rows) — used for hero cards
-        valid_crs          = {str(r.get("CR") or "").strip() for r in valid_rows if _is_true_cr(str(r.get("CR") or ""))}
-        valid_mapped_jiras = {str(r.get("CR") or "").strip() for r in valid_rows if _is_cr_equiv(str(r.get("CR") or ""))}
-        valid_open_jiras   = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("Row Type") or "") == "open" and str(r.get("JIRA") or "").strip()}
-        valid_all_jiras    = {str(r.get("JIRA") or "").strip() for r in valid_rows if str(r.get("JIRA") or "").strip()}
-        report = {
+        report = _wbc_enrich_report_counts({
             "ok": True,
 
             "tab": tab,
@@ -1991,19 +2003,9 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             "build_id": build_id,
             "rows": rows,
             "flat_rows": rows,
-            "row_count": len(rows),
-            "cr_count": len(crs),
-            "mapped_jira_count": len(mapped_jiras),
-            "open_jira_count": len(open_jiras),
-            "jira_count": len(all_jiras),
-            "valid_cr_count": len(valid_crs),
-            "valid_mapped_jira_count": len(valid_mapped_jiras),
-            "valid_open_jira_count": len(valid_open_jiras),
-            "valid_jira_count": len(valid_all_jiras),
-            "invalid_count": len(rows) - len(valid_rows),
             "summary": raw_report.get("summary") or {},
             "meta": raw_report.get("meta") or {},
-        }
+        })
         stored = set_cached_report(_wbc_pdt_key(target), saved_domain, tab_id, report)
         report["generated_at"] = stored.get("generated_at") or report["generated_at"]
         report.update(_wbc_saved_jql_cache_meta(report))
@@ -3143,6 +3145,305 @@ def api_wbc_cr_analysis(target_key: str):
         return jsonify({"ok": True, **result})
     except PermissionError as exc:
         return jsonify({"ok": False, "requires_config": True, "error": str(exc)}), 401
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+# ── Open CR Details JSON cache ────────────────────────────────────────────────
+
+def _open_cr_details_json_path(target_key: str) -> str:
+    """JSON cache path for Open CR Details analysis results."""
+    return os.path.join(_store_dir(), f"open_cr_details_{_slug(target_key)}.json")
+
+
+def _wbc_open_cr_details_payload(excel_path: str) -> Dict[str, Any]:
+    """Read Open_CR_Details sheet from WBC Excel workbook (read-only)."""
+    import openpyxl
+    wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+    try:
+        sheet_names = ("Open_CR_Details", "Open CR Details", "Open CRs", "Open CR")
+        ws = next((wb[name] for name in sheet_names if name in wb.sheetnames), None)
+        if ws is None:
+            return {"headers": [], "rows": [], "sheet": "", "row_count": 0}
+        # Find first non-empty row as header
+        header_row_num = 1
+        for r in range(1, min(ws.max_row or 1, 10) + 1):
+            if any(str(ws.cell(r, c).value or "").strip() for c in range(1, (ws.max_column or 1) + 1)):
+                header_row_num = r
+                break
+        max_col = ws.max_column or 1
+        headers = [str(ws.cell(header_row_num, c).value or "").strip() for c in range(1, max_col + 1)]
+        # Remove trailing empty headers
+        while headers and not headers[-1]:
+            headers.pop()
+        n_cols = len(headers)
+        rows: List[List[str]] = []
+        for r in range(header_row_num + 1, (ws.max_row or 1) + 1):
+            row = [str(ws.cell(r, c).value or "").strip() for c in range(1, n_cols + 1)]
+            if any(row):
+                rows.append(row)
+        return {"headers": headers, "rows": rows, "sheet": ws.title, "row_count": len(rows)}
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+
+
+# ── TEA API caller ────────────────────────────────────────────────────────────
+
+# TEA API configuration — matches the old WBC_Scrum_DB/Open_CR_Script/CR_TEA.py tool
+_TEA_API_BASE = os.environ.get("TEA_API_BASE", "https://10.213.98.5:5000")
+_TEA_API_BASE_ALT = os.environ.get("TEA_API_BASE_ALT", "https://10.213.98.5:5001")
+_TEA_API_USERNAME = os.environ.get("TEA_API_USERNAME", "alalji")
+_TEA_API_KEY = os.environ.get("TEA_API_KEY", "e72501c7-abdd-4971-942c-45ec5a84f65e")
+
+
+def _call_tea_api(cr_number: str) -> Dict[str, Any]:
+    """Call the TEA CR analysis API.
+
+    Matches the old WBC_Scrum_DB/Open_CR_Script/CR_TEA.py tool exactly:
+      POST /api/cr-summary
+      Body: {"message": "<cr_number>", "username": "alalji", "api_key": "...", "stream": false}
+      Returns: data["content"]
+
+    Tries port 5000 first (old tool default), falls back to port 5001.
+    """
+    import requests as _req
+    cr_bare = re.sub(r"^CR", "", str(cr_number or "").strip(), flags=re.IGNORECASE)
+    body: Dict[str, Any] = {
+        "message": cr_bare,
+        "username": _TEA_API_USERNAME,
+        "api_key": _TEA_API_KEY,
+        "stream": False,
+    }
+    # Try primary URL (port 5000), then fallback (port 5001)
+    for base_url in (_TEA_API_BASE, _TEA_API_BASE_ALT):
+        try:
+            resp = _req.post(
+                f"{base_url}/api/cr-summary",
+                json=body,
+                timeout=120,
+                verify=False,
+            )
+            if not resp.ok:
+                continue
+            try:
+                data = resp.json()
+            except Exception:
+                data = {"raw_text": resp.text}
+            # Old tool uses data.get("content", "") — try that first, then fallbacks
+            analysis = ""
+            for key in ("content", "response", "answer", "message", "analysis", "summary", "text", "output", "result"):
+                val = data.get(key) if isinstance(data, dict) else None
+                if val and str(val).strip():
+                    analysis = str(val).strip()
+                    break
+            if not analysis:
+                analysis = str(data).strip()[:3000]
+            if analysis:
+                return {"ok": True, "analysis": analysis, "cr_number": cr_bare}
+        except Exception:
+            continue
+    return {"ok": False, "error": "TEA API unreachable on both port 5000 and 5001", "cr_number": cr_bare}
+
+
+# ── Open CR Details endpoints ─────────────────────────────────────────────────
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/open_cr_details", methods=["GET"])
+@login_required
+def api_wbc_open_cr_details(target_key: str):
+    """Return saved Open CR TEA/QGenie analysis cache (JSON only — no Excel reading).
+
+    The Open CR table data is sourced from payload.previews.open_crs (DB) on the
+    frontend.  This endpoint only returns the per-CR analysis cache so the two
+    sources can be merged client-side.
+    """
+    try:
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+        cache_path = _open_cr_details_json_path(key)
+        analysis_cache = _read_json(cache_path, {})
+        saved_analyses = analysis_cache.get("analyses") or {}
+        return jsonify({"ok": True, "target": target, "analyses": saved_analyses})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/open_cr_details/analyze", methods=["POST"])
+@login_required
+def api_wbc_open_cr_analyze(target_key: str):
+    """Run TEA and/or QGenie analysis for a CR in Open_CR_Details.
+
+    Internal team only (can_edit). Results saved to JSON cache — Excel is NOT modified.
+
+    Body:
+      cr_number : str  — CR number to analyze
+      mode      : str  — "tea" | "qgenie" | "both" (default: "both")
+      context   : str  — optional row context for QGenie prompt
+      force     : bool — bypass today's cache and re-analyze
+
+    Cost note: QGenie call is opt-in (mode includes "qgenie").
+    TEA API call is free (external service, no QGenie tokens).
+    Results cached by (cr_number, date) — no re-analysis same day unless force=true.
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied — internal team only"}), 403
+    try:
+        body = request.get_json(silent=True) or {}
+        cr_number = str(body.get("cr_number") or "").strip()
+        if not cr_number:
+            return jsonify({"ok": False, "error": "cr_number is required"}), 400
+        cr_bare = re.sub(r"^CR", "", cr_number, flags=re.IGNORECASE)
+        mode = str(body.get("mode") or "both").strip().lower()
+        context = str(body.get("context") or "").strip()
+        force = bool(body.get("force", False))
+
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+
+        # Load existing cache
+        cache_path = _open_cr_details_json_path(key)
+        cache = _read_json(cache_path, {})
+        analyses = cache.get("analyses") or {}
+        cr_cache = dict(analyses.get(cr_bare) or {})
+        today = date.today().isoformat()
+
+        result: Dict[str, Any] = {"cr_number": cr_bare, "ok": True}
+
+        # ── TEA analysis (free, external API) ────────────────────────────────
+        if mode in ("tea", "both"):
+            existing_tea = cr_cache.get("tea") or ""
+            if not force and existing_tea and today in existing_tea:
+                result["tea"] = existing_tea
+                result["tea_cached"] = True
+            else:
+                tea_result = _call_tea_api(cr_bare)
+                if tea_result.get("ok") and tea_result.get("analysis"):
+                    tea_text = f"[{today}] {tea_result['analysis'][:2000]}"
+                    cr_cache["tea"] = tea_text
+                    cr_cache["tea_updated"] = today
+                    result["tea"] = tea_text
+                    result["tea_ok"] = True
+                else:
+                    result["tea_error"] = tea_result.get("error") or "TEA API returned no analysis"
+                    result["tea"] = cr_cache.get("tea") or ""
+
+        # ── QGenie analysis — uses TEA response as input (like old tool QGenie.Get_QGenie_Summary(tea_data)) ──
+        if mode in ("qgenie", "both"):
+            existing_qg = cr_cache.get("qgenie") or ""
+            if not force and existing_qg and today in existing_qg:
+                result["qgenie"] = existing_qg
+                result["qgenie_cached"] = True
+            else:
+                try:
+                    from src.qgenie_service import (  # noqa: PLC0415
+                        get_current_qgenie_client,
+                        get_session_qgenie_highlights_model,
+                    )
+                    client = get_current_qgenie_client()
+                    if not client:
+                        result["qgenie_error"] = "QGenie API key not configured for this session"
+                        result["qgenie"] = cr_cache.get("qgenie") or ""
+                    else:
+                        model = get_session_qgenie_highlights_model()
+                        # Use TEA response as the main input for QGenie (old tool pattern):
+                        # QGenie.Get_QGenie_Summary(tea_data) where tea_data = CR_TEA.analyze_cr(...)
+                        # Prompt: "Summarize root cause of this CR in 1 simple sentences..."
+                        tea_input = result.get("tea") or cr_cache.get("tea") or ""
+                        # Strip the date prefix [YYYY-MM-DD] from cached TEA text
+                        tea_input_clean = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", tea_input).strip()
+                        if tea_input_clean:
+                            # Old tool prompt (QGenie.py): "Summarize root cause of this CR in 1 simple sentences..."
+                            prompt = (
+                                "Summarize root cause of this CR in 1 simple sentences using simple technical terms.\n\n"
+                                f"Technical Data: {tea_input_clean[:3000]}"
+                            )
+                        else:
+                            # Fallback when no TEA data: use CR number + context
+                            prompt = (
+                                f"Provide a concise PDT engineering analysis for CR{cr_bare}. "
+                                "State likely impact, current status/risk, and recommended next action. "
+                                "Max 2 sentences. No markdown, no bullet points."
+                            )
+                            if context:
+                                prompt += f"\n\nContext:\n{context[:2000]}"
+                        resp = client.chat(
+                            model=model,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.0,
+                        )
+                        text = str(resp.choices[0].message.content or "").strip()
+                        text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.IGNORECASE)
+                        text = re.sub(r"\n?```$", "", text).strip()
+                        if text:
+                            qg_text = f"[{today}] {text[:2000]}"
+                            cr_cache["qgenie"] = qg_text
+                            cr_cache["qgenie_updated"] = today
+                            result["qgenie"] = qg_text
+                            result["qgenie_ok"] = True
+                        else:
+                            result["qgenie_error"] = "QGenie returned empty response"
+                            result["qgenie"] = cr_cache.get("qgenie") or ""
+                except Exception as exc:
+                    result["qgenie_error"] = str(exc)
+                    result["qgenie"] = cr_cache.get("qgenie") or ""
+
+        # Save updated cache (JSON only — Excel not modified)
+        analyses[cr_bare] = cr_cache
+        cache["analyses"] = analyses
+        cache["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        _write_json(cache_path, cache)
+
+        return jsonify(result)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/open_cr_details/save", methods=["POST"])
+@login_required
+def api_wbc_open_cr_save(target_key: str):
+    """Save PDT comment and/or IS regression flag for a CR (no analysis run).
+
+    Body:
+      cr_number    : str  — CR number
+      pdt_comment  : str  — PDT engineer comment
+      is_regression: bool — whether this is a regression CR
+    """
+    if not _can_edit():
+        return jsonify({"ok": False, "error": "Access denied — internal team only"}), 403
+    try:
+        body = request.get_json(silent=True) or {}
+        cr_number = str(body.get("cr_number") or "").strip()
+        if not cr_number:
+            return jsonify({"ok": False, "error": "cr_number is required"}), 400
+        cr_bare = re.sub(r"^CR", "", cr_number, flags=re.IGNORECASE)
+
+        target = _find_target(target_key)
+        if not target:
+            return jsonify({"ok": False, "error": "WBC target not found"}), 404
+        key = target["key"]
+
+        cache_path = _open_cr_details_json_path(key)
+        cache = _read_json(cache_path, {})
+        analyses = cache.get("analyses") or {}
+        cr_cache = dict(analyses.get(cr_bare) or {})
+
+        if "pdt_comment" in body:
+            cr_cache["pdt_comment"] = str(body.get("pdt_comment") or "").strip()
+        if "is_regression" in body:
+            cr_cache["is_regression"] = bool(body.get("is_regression"))
+
+        analyses[cr_bare] = cr_cache
+        cache["analyses"] = analyses
+        cache["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        _write_json(cache_path, cache)
+
+        return jsonify({"ok": True, "cr_number": cr_bare, "saved": cr_cache})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 

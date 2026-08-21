@@ -16,6 +16,7 @@ def register_feature_blueprints(app: Flask) -> None:
     from dashboard_routes import dashboard_bp
     from device_summary_api import device_summary_api_bp
     from src.orbit_cr_routes import orbit_cr_bp
+    from src.cr_analysis_agent import cr_agent_bp
     from live_status_publish_routes import live_status_publish_bp
     from live_status_view_api import live_status_view_api_bp
     from live_view_stats_routes import live_view_stats_bp
@@ -32,11 +33,14 @@ def register_feature_blueprints(app: Flask) -> None:
     from src.admin_milestone_routes import admin_milestone_bp
     from src.admin_paths_routes import admin_paths_bp
     from src.cr_compare_service import cr_compare_bp
+    from pdt_dept_routes import pdt_dept_bp
+    from excel_sync_routes import excel_sync_bp
 
     blueprints = (
         dashboard_bp,
         device_summary_api_bp,
         orbit_cr_bp,
+        cr_agent_bp,
         live_status_publish_bp,
         live_status_view_api_bp,
         live_view_stats_bp,
@@ -53,6 +57,8 @@ def register_feature_blueprints(app: Flask) -> None:
         admin_milestone_bp,
         admin_paths_bp,
         cr_compare_bp,
+        pdt_dept_bp,
+        excel_sync_bp,
     )
 
     for blueprint in blueprints:

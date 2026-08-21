@@ -135,7 +135,8 @@
     #tabOverview .overview-chart-card .muted{font-size:12px!important}
   </style>
 </head>
-<style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}</style>
+<style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}
+#wbcBwrPanel .tag:first-of-type{background:#eef2ff!important;border:1.5px solid #6366f1!important;color:#4338ca!important;font-size:11px!important;font-weight:900!important;padding:5px 12px!important;border-radius:8px!important}</style>
 <body>
 <div class="shell">
   <aside class="side">
@@ -151,6 +152,7 @@
         <button class="premium-tab" onclick="sideNav('jiras', this)"><span><i class="fas fa-clipboard-list" style="color:#93c5fd"></i> JIRAs</span><b id="nOverallJiras">0</b></button>
         <button class="premium-tab" onclick="sideNav('allcrs', this)"><span><i class="fas fa-gem" style="color:#facc15"></i> All CRs</span><b id="nOverallCrs">0</b></button>
         <button class="premium-tab" onclick="sideNav('opencrs', this)"><span><i class="fas fa-folder-open" style="color:#fdba74"></i> Open CRs</span><b id="nOpenCrs">0</b></button>
+
         <button class="premium-tab" onclick="sideNav('franalysis', this);loadFrAnalysis()"><span><i class="fas fa-file-alt" style="color:#7c3aed"></i> FR Analysis</span><b id="nFrs">0</b></button>
       </div>
         </div>
@@ -315,7 +317,38 @@
       </div>
     </section>
     <section id="tabMtbf" class="section"><div class="card" id="mtbfTrendCard"><div class="head"><span>MTBF Trend <small id="mtbfSource" class="muted" style="margin-left:10px"></small></span>{% if can_edit %}<input type="file" id="mtbfExcelFileInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="uploadMtbfExcel(this)"><button id="mtbfBrowseBtn" class="btn" onclick="document.getElementById('mtbfExcelFileInput').click()" title="Browse and select an Excel file to read Mainline_Build_Details (one-time import)"><i class="fas fa-folder-open" style="color:#f97316"></i> Browse Excel</button>{% endif %}<button class="btn" onclick="copyChart()"><i class="fas fa-copy"></i> Copy Chart</button></div><div class="body chartbox mtbf-full-chart"><canvas id="chart" height="520"></canvas><div id="chartEmpty" class="empty">No MTBF data. Use Browse Excel to import Mainline_Build_Details once.</div></div></div><div class="card" id="mtbfTableCard"><div class="head"><span><i class="fas fa-table" style="color:#f97316"></i> Mainline Build Details Table</span><div class="actions">{% if can_edit %}<button class="btn" onclick="openMtbfEditModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn primary" onclick="openMtbfAddModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}</div></div><div id="mtbfTablePanel" class="tblwrap"><table><thead id="mtbfTableHead"></thead><tbody id="mtbfTableBody"><tr><td class="empty">No MTBF rows.</td></tr></tbody></table></div></div></section>
-        <section id="tabOpencrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-folder"></i> Open CRs</span><span id="openCrsCount" class="muted"></span></div><div class="body" id="openCrsBox"></div></div></section>
+        <section id="tabOpencrs" class="section">
+      <div class="card">
+        <div class="head">
+          <span><i class="fas fa-folder-open" style="color:#fdba74"></i> Open CRs</span>
+          <span id="openCrsCount" class="muted"></span>
+          <div class="actions">
+            <button class="btn" onclick="loadOpenCrsAnalysis()"><i class="fas fa-sync"></i> Refresh</button>
+            {% if can_edit %}
+            <button id="ocdTeaBtn" class="btn" onclick="runOpenCrTeaOnly()" title="Run TEA analysis for all Open CRs — results saved to JSON cache"><i class="fas fa-flask" style="color:#0891b2"></i> Run TEA</button>
+            <button id="ocdQGenieBtn2" class="btn primary" onclick="runOpenCrQGenieOnly()" title="Run QGenie analysis for all Open CRs — results saved to JSON cache"><i class="fas fa-magic"></i> Run QGenie</button>
+            <button id="ocdSaveAllBtn" class="btn green" onclick="saveAllOcdAnalyses()" title="Save all analysis results and PDT comments to JSON cache"><i class="fas fa-save"></i> Save All</button>
+            {% endif %}
+          </div>
+        </div>
+        <div class="body" id="openCrsBox"></div>
+      </div>
+    </section>
+    <section id="tabOpencrdets" class="section">
+      <div class="card">
+        <div class="head">
+          <span><i class="fas fa-table" style="color:#f97316"></i> Open CR Details <span style="font-size:10px;font-weight:700;color:#94a3b8">(Open_CR_Details sheet)</span></span>
+          <div class="actions">
+            <button class="btn" onclick="loadOpenCrDetails()"><i class="fas fa-sync"></i> Refresh</button>
+            {% if can_edit %}<button id="ocdQGenieBtn" class="btn primary" onclick="runOpenCrQGenie()" title="Run QGenie analysis for all CRs in Open_CR_Details — results saved to Excel workbook. CRs already analysed today are skipped."><i class="fas fa-magic"></i> Run QGenie Analysis</button>{% endif %}
+          </div>
+        </div>
+        <div class="body">
+          <div id="openCrDetailsMsg" class="muted" style="margin-bottom:10px;font-size:12px">Select a target to load Open CR Details.</div>
+          <div id="openCrDetailsBox"></div>
+        </div>
+      </div>
+    </section>
     <section id="tabOpenjiras" class="section"><div class="card"><div class="head"><span><i class="fas fa-ticket-alt" style="color:#7c3aed"></i> Open JIRAs <span style="font-size:10px;font-weight:700;color:#94a3b8">(incl. Mapped)</span></span><span id="openJirasCount" class="muted"></span></div><div class="body" id="openJirasBox"></div></div></section>
     <section id="tabBuilds" class="section"><div class="card"><div class="head"><span><i class="fas fa-file-alt"></i> Build Report</span><span id="buildSummaryCount" class="muted"></span></div><div class="body" id="buildSummaryBox"></div></div></section>
     <section id="tabAllcrs" class="section"><div class="card"><div class="head"><span><i class="fas fa-gem" style="color:#d4af37"></i> All CRs</span><span id="allCrsCount" class="muted"></span></div><div class="body" id="allCrsBox"></div></div></section>
@@ -497,7 +530,7 @@ document.addEventListener('focusin',e=>{if(e.target&&e.target.classList&&e.targe
 function richCmd(cmd,val){const id=_activeRichEditor||document.querySelector('.modal.open .rich-editor')?.id;if(id)document.getElementById(id)?.focus();document.execCommand(cmd,false,val||null);}
 async function getJson(url){const r=await fetch(url,{cache:'no-store'});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'API failed');return d;}
 async function postJson(url,p){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p||{})});const d=await r.json();if(!d.ok)throw new Error(d.error||d.message||'Save failed');return d;}
-const TAB_ID_MAP={overview:'tabOverview',current:'tabCurrent',mtbf:'tabMtbf',opencrs:'tabOpencrs',openjiras:'tabOpenjiras',mappedjiras:'tabMappedjiras',builds:'tabBuilds',allcrs:'tabAllcrs',jiras:'tabJiras',franalysis:'tabFranalysis',excel:'tabExcel',config:'tabConfig'};
+const TAB_ID_MAP={overview:'tabOverview',current:'tabCurrent',mtbf:'tabMtbf',opencrs:'tabOpencrs',opencrdets:'tabOpencrdets',openjiras:'tabOpenjiras',mappedjiras:'tabMappedjiras',builds:'tabBuilds',allcrs:'tabAllcrs',jiras:'tabJiras',franalysis:'tabFranalysis',excel:'tabExcel',config:'tabConfig'};
 const TABBTN_ID_MAP={overview:'tabBtnOverview',current:'tabBtnCurrent',mtbf:'tabBtnMtbf',opencrs:'tabBtnOpencrs',openjiras:'tabBtnOpenjiras',builds:'tabBtnBuilds',allcrs:'tabBtnAllcrs',jiras:'tabBtnJiras',excel:'tabBtnExcel',config:'tabBtnConfig'};
 function switchTab(tab){
   Object.keys(TAB_ID_MAP).forEach(t=>{document.getElementById(TAB_ID_MAP[t])?.classList.toggle('active',t===tab);document.getElementById(TABBTN_ID_MAP[t])?.classList.toggle('active',t===tab);});
@@ -1073,7 +1106,7 @@ function _wbcClearTbl(uid){
 }
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
-function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);document.getElementById('openCrsBox').innerHTML=tableHtml(p.open_crs);const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
+function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
 function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows);body.innerHTML=rows.length?`<div class="tblwrap" style="max-height:420px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">No detail rows for this build.</div>';}
@@ -1393,7 +1426,7 @@ function wbcSjqlRunCard(id, force){
         +` &middot; <span style="color:#93c5fd">Cached: <b>${esc(d.row_count||((d.rows||d.flat_rows||[]).length))}</b> rows, <b>${esc(d.cr_count||0)}</b> CRs, <b>${esc(d.jira_count||0)}</b> JIRAs</span>`;
             const rb = document.getElementById('wbcrun_'+_wbcDomId(id));
       if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
-      if(meta) meta.textContent = 'Last run: '+_wbcDisplayTime(genAt);
+      if(meta) meta.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(74,222,128,.18);color:#4ade80;border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:2px 9px;font-size:9px;font-weight:900;margin-right:6px"><i class="fas fa-circle" style="font-size:6px"></i>Live use currently supported</span><span style="color:rgba(255,255,255,.6)">Last run: '+esc(_wbcDisplayTime(genAt))+'</span>';
       if(body) _wbcRenderReport(body, d, tab);
       _wbcScheduleAutoRun(_wbcSjqlTabs[tabIndex>=0?tabIndex:0]||tab, 0);
 
@@ -1787,9 +1820,414 @@ async function fetchOneViewMilestones(){
   }
 }
 
+// ── Open CR Details — reads all columns from Excel (incl. Scenario Details + QGenie Analysis)
+// Target team: can run QGenie (saves to Excel). Viewers: read-only.
+let _ocdData = {analyses: {}};
+
+async function loadOpenCrDetails(){
+  if(!active) return;
+  setText('openCrDetailsMsg','Loading Open CR Details...');
+  const box = document.getElementById('openCrDetailsBox');
+  if(box) box.innerHTML = '<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';
+  try{
+    // Load analysis cache from backend (JSON only — no Excel)
+    const d = await getJson(`${API}/target/${encodeURIComponent(active)}/open_cr_details`);
+    _ocdData = {analyses: d.analyses||{}};
+    renderOpenCrDetails();
+    const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+    const rowCount = openCrs.count||((openCrs.rows||[]).length)||0;
+    setText('nOpenCrDets', rowCount);
+    const analysedCount = Object.keys(_ocdData.analyses).length;
+    setText('openCrDetailsMsg', 'Open CRs from DB \u2022 '+rowCount+' rows'+(analysedCount?' \u2022 '+analysedCount+' analysed':''));
+  }catch(e){
+    setText('openCrDetailsMsg','Load failed: '+(e.message||e));
+    if(box) box.innerHTML = '<div class="empty" style="color:#ef4444">'+esc(e.message||e)+'</div>';
+  }
+}
+
+function renderOpenCrDetails(){
+  const box = document.getElementById('openCrDetailsBox');
+  if(!box) return;
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols = openCrs.columns||[];
+  const rows = openCrs.rows||[];
+  if(!cols.length && !rows.length){
+    box.innerHTML = '<div class="empty" style="padding:48px"><i class="fas fa-table" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No Open CRs data. Select a target with a configured Open CRs table.</div>';
+    return;
+  }
+  // Find CR column (mapped_cr, cr, cr_id, unique_cr, etc.)
+  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  // Merge analysis columns into each row
+  const analyses = _ocdData.analyses||{};
+  const rowObjects = rows.map(r=>{
+    const crVal = String(r[crColName]||'').replace(/^CR/i,'').trim();
+    const analysis = analyses[crVal]||{};
+    return {...r,
+      'SCENARIO DETAILS (TEA)': analysis.tea||'',
+      'QGENIE ANALYSIS': analysis.qgenie||''
+    };
+  });
+  const allCols = [...cols, 'SCENARIO DETAILS (TEA)', 'QGENIE ANALYSIS'];
+  box.innerHTML = tableHtml({columns:allCols, rows:rowObjects, count:rowObjects.length});
+}
+
+// Run QGenie/TEA analysis for all Open CRs — results saved to JSON cache (not Excel)
+async function runOpenCrQGenie(){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols = openCrs.columns||[];
+  const rows = openCrs.rows||[];
+  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const crNumbers = [...new Set(rows.map(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()).filter(Boolean))];
+  if(!crNumbers.length){alert('No CR numbers found in Open CRs data.');return;}
+  if(!confirm('Run QGenie/TEA analysis for '+crNumbers.length+' CRs?\n\nResults saved to JSON cache. CRs already analysed today are skipped.'))return;
+  const btn=document.getElementById('ocdQGenieBtn');
+  const old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Analyzing...';}
+  setText('openCrDetailsMsg','Running analysis on '+crNumbers.length+' CRs...');
+  let done=0;
+  for(const cr of crNumbers){
+    const rowIdx=rows.findIndex(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()===cr);
+    const context=rowIdx>=0?cols.map(c=>c+': '+(rows[rowIdx][c]||'')).join('; ').slice(0,500):'';
+    try{
+      const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cr_number:cr,mode:'both',context,force:false})
+      });
+      const d=await resp.json();
+      if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
+      if(d.tea) _ocdData.analyses[cr].tea=d.tea;
+      if(d.qgenie) _ocdData.analyses[cr].qgenie=d.qgenie;
+    }catch(e){}
+    done++;
+    setText('openCrDetailsMsg','Analyzed '+done+'/'+crNumbers.length+' CRs...');
+    await new Promise(r=>setTimeout(r,300));
+  }
+  renderOpenCrDetails();
+  setText('openCrDetailsMsg','Analysis complete for '+done+' CRs. Results saved to JSON cache.');
+  if(btn){btn.disabled=false;btn.innerHTML=old;}
+}
+
+
+// ── Open CRs Enhanced — DB data + TEA/QGenie/PDT analysis ────────────────
+
+async function loadOpenCrsAnalysis(){
+  if(!active) return;
+  try{
+    const d = await getJson(`${API}/target/${encodeURIComponent(active)}/open_cr_details`);
+    _ocdData = {analyses: d.analyses||{}};
+  }catch(e){
+    _ocdData = {analyses: {}};
+  }
+  renderOpenCrsEnhanced();
+}
+
+function _ocdCrBare(row, crColName){
+  return String(row[crColName]||'').replace(/^CR/i,'').trim();
+}
+
+function renderOpenCrsEnhanced(){
+  const box = document.getElementById('openCrsBox');
+  if(!box) return;
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols = openCrs.columns||[];
+  const rows = openCrs.rows||[];
+  if(!cols.length && !rows.length){
+    box.innerHTML = '<div class="empty" style="padding:48px"><i class="fas fa-folder-open" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No Open CRs data. Configure the Unique CRs table in Config.</div>';
+    return;
+  }
+  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const analyses = _ocdData.analyses||{};
+  const uid = 'ocr_'+Math.random().toString(36).slice(2,7);
+  const search = `<div class="table-filterbar"><input id="${uid}_q" class="input" placeholder="Search Open CRs..." oninput="_ocrFilter('${uid}')"><span class="pill" id="${uid}_cnt">${rows.length} row${rows.length===1?'':'s'}</span><button class="filter-btn" onclick="_ocrClear('${uid}')"><i class="fas fa-times"></i> Clear</button></div>`;
+  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}<th style="min-width:220px">SCENARIO DETAILS (TEA)</th><th style="min-width:220px">QGENIE ANALYSIS</th><th style="min-width:160px">PDT COMMENTS</th><th style="min-width:90px">IS REGRESSION</th>${CAN_EDIT?'<th>ACTION</th>':''}</tr></thead>`;
+  const tbody = rows.map((r,i)=>{
+    const crBare = _ocdCrBare(r, crColName);
+    const analysis = analyses[crBare]||{};
+    const tea = analysis.tea||'';
+    const qgenie = analysis.qgenie||'';
+    const pdtComment = analysis.pdt_comment||'';
+    const isReg = !!analysis.is_regression;
+    // Show full TEA content in a scrollable cell (not truncated)
+    const teaClean = tea.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, '');
+    const qgenieClean = qgenie.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, '');
+    const teaDate = (tea.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
+    const qgenieDate = (qgenie.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
+    const dbCells = cols.map(c=>`<td style="max-width:180px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('');
+    const teaDateBadge = teaDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(teaDate)}</span><br>` : '';
+    const teaCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#0369a1;white-space:pre-wrap;line-height:1.4">${teaDateBadge}${esc(teaClean)||'<span style="color:#94a3b8">—</span>'}</div></td>`;
+    const qgenieDateBadge = qgenieDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(qgenieDate)}</span><br>` : '';
+    const qgenieCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#7c3aed;white-space:pre-wrap;line-height:1.4">${qgenieDateBadge}${esc(qgenieClean)||'<span style="color:#94a3b8">—</span>'}</div></td>`;
+    const pdtCell = `<td style="max-width:180px;white-space:normal;font-size:11px">${esc(pdtComment)||'<span style="color:#94a3b8">—</span>'}</td>`;
+    const regCell = `<td style="text-align:center"><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:${isReg?'#dcfce7':'#f1f5f9'};color:${isReg?'#166534':'#64748b'}">${isReg?'Yes':'No'}</span></td>`;
+    const actionCell = CAN_EDIT ? `<td><button class="btn" onclick="openOcdEdit('${esc(crBare)}')" style="padding:4px 10px;font-size:11px"><i class="fas fa-pen"></i> Edit</button></td>` : '';
+    const rowText = esc(JSON.stringify(r).toLowerCase()+' '+tea.toLowerCase()+' '+qgenie.toLowerCase()+' '+pdtComment.toLowerCase());
+    return `<tr data-cr="${esc(crBare)}" data-text="${rowText}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${dbCells}${teaCell}${qgenieCell}${pdtCell}${regCell}${actionCell}</tr>`;
+  }).join('');
+  box.innerHTML = search + `<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><${thead}<tbody id="${uid}">${tbody}</tbody></table></div>`;
+  window._ocrTblData = window._ocrTblData||{};
+  window._ocrTblData[uid] = {total: rows.length};
+}
+
+function _ocrFilter(uid){
+  const q = (document.getElementById(uid+'_q')?.value||'').toLowerCase();
+  const tbody = document.getElementById(uid);
+  if(!tbody) return;
+  let visible = 0;
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const show = !q || String(tr.getAttribute('data-text')||'').includes(q);
+    tr.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+  const cnt = document.getElementById(uid+'_cnt');
+  const total = (window._ocrTblData&&window._ocrTblData[uid])?window._ocrTblData[uid].total:0;
+  if(cnt) cnt.textContent = visible+' / '+total+' row'+(total===1?'':'s');
+}
+
+function _ocrClear(uid){
+  const q = document.getElementById(uid+'_q'); if(q) q.value='';
+  _ocrFilter(uid);
+}
+
+function openOcdEdit(crBare){
+  if(!CAN_EDIT) return;
+  const analyses = _ocdData.analyses||{};
+  const analysis = analyses[crBare]||{};
+  document.getElementById('ocdEditCr').value = crBare;
+  document.getElementById('ocdEditComment').value = analysis.pdt_comment||'';
+  document.getElementById('ocdEditRegression').checked = !!analysis.is_regression;
+  setText('ocdEditMsg','');
+  document.getElementById('ocdEditModal')?.classList.add('open');
+}
+
+function closeOcdEditModal(){
+  document.getElementById('ocdEditModal')?.classList.remove('open');
+}
+
+async function saveOcdEdit(){
+  if(!active||!CAN_EDIT) return;
+  const crBare = document.getElementById('ocdEditCr').value;
+  const pdtComment = document.getElementById('ocdEditComment').value.trim();
+  const isRegression = document.getElementById('ocdEditRegression').checked;
+  setText('ocdEditMsg','Saving...');
+  try{
+    const d = await postJson(`${API}/target/${encodeURIComponent(active)}/open_cr_details/save`,{
+      cr_number: crBare,
+      pdt_comment: pdtComment,
+      is_regression: isRegression
+    });
+    if(!_ocdData.analyses[crBare]) _ocdData.analyses[crBare]={};
+    _ocdData.analyses[crBare].pdt_comment = pdtComment;
+    _ocdData.analyses[crBare].is_regression = isRegression;
+    renderOpenCrsEnhanced();
+    setText('ocdEditMsg','Saved.');
+    setTimeout(closeOcdEditModal, 600);
+  }catch(e){
+    setText('ocdEditMsg','Save failed: '+(e.message||e));
+  }
+}
+
+function _ocdShowProgress(title, sub, done, total, crBare){
+  const el = document.getElementById('ocdProgressOverlay');
+  if(!el) return;
+  el.style.display = 'block';
+  const titleEl = document.getElementById('ocdProgressTitle');
+  const subEl = document.getElementById('ocdProgressSub');
+  const barEl = document.getElementById('ocdProgressBar');
+  const crEl = document.getElementById('ocdProgressCr');
+  const cntEl = document.getElementById('ocdProgressCount');
+  const iconEl = document.getElementById('ocdProgressIcon');
+  if(titleEl) titleEl.textContent = title;
+  if(subEl) subEl.textContent = sub;
+  if(barEl) barEl.style.width = (total > 0 ? Math.round(done/total*100) : 0) + '%';
+  if(crEl) crEl.textContent = crBare ? ('CR' + crBare) : '—';
+  if(cntEl) cntEl.textContent = done + ' / ' + total;
+  if(iconEl){
+    if(done >= total && total > 0){
+      iconEl.style.animation = 'none';
+      iconEl.style.border = '3px solid #22c55e';
+      iconEl.innerHTML = '<span style="color:#22c55e;font-size:16px;font-weight:900">&#10003;</span>';
+      iconEl.style.display = 'flex';
+      iconEl.style.alignItems = 'center';
+      iconEl.style.justifyContent = 'center';
+    } else {
+      iconEl.style.animation = 'wbcSpinAnim .72s linear infinite';
+      iconEl.style.border = '3px solid rgba(59,130,246,.18)';
+      iconEl.style.borderTopColor = '#3b82f6';
+      iconEl.innerHTML = '';
+    }
+  }
+}
+
+function _ocdHideProgress(delay){
+  setTimeout(()=>{
+    const el = document.getElementById('ocdProgressOverlay');
+    if(el) el.style.display = 'none';
+    // Reset icon
+    const iconEl = document.getElementById('ocdProgressIcon');
+    if(iconEl){
+      iconEl.style.animation = 'wbcSpinAnim .72s linear infinite';
+      iconEl.style.border = '3px solid rgba(59,130,246,.18)';
+      iconEl.style.borderTopColor = '#3b82f6';
+      iconEl.innerHTML = '';
+    }
+  }, delay || 0);
+}
+
+async function runOpenCrTeaOnly(){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols = openCrs.columns||[];
+  const rows = openCrs.rows||[];
+  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const crNumbers = [...new Set(rows.map(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()).filter(Boolean))];
+  if(!crNumbers.length){alert('No CR numbers found in Open CRs data.');return;}
+  if(!confirm('Run TEA analysis for '+crNumbers.length+' CRs?\n\nResults saved to JSON cache. CRs already analysed today are skipped.'))return;
+  const btn=document.getElementById('ocdTeaBtn');
+  const old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running TEA...';}
+  setText('openCrsCount','Running TEA analysis...');
+  _ocdShowProgress('Running TEA Analysis', 'Calling TEA API for each CR...', 0, crNumbers.length, '');
+  let done=0;
+  for(const cr of crNumbers){
+    _ocdShowProgress('Running TEA Analysis', 'Analyzing CR' + cr + '...', done, crNumbers.length, cr);
+    try{
+      const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cr_number:cr,mode:'tea',force:false})
+      });
+      const d=await resp.json();
+      if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
+      if(d.tea) _ocdData.analyses[cr].tea=d.tea;
+    }catch(e){}
+    done++;
+    _ocdShowProgress('Running TEA Analysis', 'Completed ' + done + ' of ' + crNumbers.length + ' CRs', done, crNumbers.length, cr);
+    setText('openCrsCount','TEA: '+done+'/'+crNumbers.length+' CRs...');
+    await new Promise(r=>setTimeout(r,300));
+  }
+  renderOpenCrsEnhanced();
+  _ocdShowProgress('TEA Analysis Complete', done + ' CRs analysed successfully', done, crNumbers.length, '');
+  _ocdHideProgress(3000);
+  setText('openCrsCount',((openCrs.count||rows.length)||0)+' row(s) • TEA complete for '+done+' CRs');
+  _showSaveToast('TEA analysis complete for '+done+' CRs. Results auto-saved to JSON cache.');
+  if(btn){btn.disabled=false;btn.innerHTML=old;}
+}
+
+async function runOpenCrQGenieOnly(){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols = openCrs.columns||[];
+  const rows = openCrs.rows||[];
+  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const crNumbers = [...new Set(rows.map(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()).filter(Boolean))];
+  if(!crNumbers.length){alert('No CR numbers found in Open CRs data.');return;}
+  if(!confirm('Run QGenie analysis for '+crNumbers.length+' CRs?\n\nResults saved to JSON cache. CRs already analysed today are skipped.'))return;
+  const btn=document.getElementById('ocdQGenieBtn2');
+  const old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running QGenie...';}
+  setText('openCrsCount','Running QGenie analysis...');
+  _ocdShowProgress('Running QGenie Analysis', 'Calling QGenie for each CR...', 0, crNumbers.length, '');
+  let done=0;
+  for(const cr of crNumbers){
+    _ocdShowProgress('Running QGenie Analysis', 'Analyzing CR' + cr + '...', done, crNumbers.length, cr);
+    const rowIdx=rows.findIndex(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()===cr);
+    const context=rowIdx>=0?cols.map(c=>c+': '+(rows[rowIdx][c]||'')).join('; ').slice(0,500):'';
+    try{
+      const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cr_number:cr,mode:'qgenie',context,force:false})
+      });
+      const d=await resp.json();
+      if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
+      if(d.qgenie) _ocdData.analyses[cr].qgenie=d.qgenie;
+    }catch(e){}
+    done++;
+    _ocdShowProgress('Running QGenie Analysis', 'Completed ' + done + ' of ' + crNumbers.length + ' CRs', done, crNumbers.length, cr);
+    setText('openCrsCount','QGenie: '+done+'/'+crNumbers.length+' CRs...');
+    await new Promise(r=>setTimeout(r,300));
+  }
+  renderOpenCrsEnhanced();
+  _ocdShowProgress('QGenie Analysis Complete', done + ' CRs analysed successfully', done, crNumbers.length, '');
+  _ocdHideProgress(3000);
+  setText('openCrsCount',((openCrs.count||rows.length)||0)+' row(s) • QGenie complete for '+done+' CRs');
+  _showSaveToast('QGenie analysis complete for '+done+' CRs. Results auto-saved to JSON cache.');
+  if(btn){btn.disabled=false;btn.innerHTML=old;}
+}
+
+
+async function saveAllOcdAnalyses(){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  const analyses = _ocdData.analyses||{};
+  const crList = Object.keys(analyses);
+  if(!crList.length){alert('No analysis data to save. Run TEA or QGenie analysis first.');return;}
+  const btn = document.getElementById('ocdSaveAllBtn');
+  const old = btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving...';}
+  setText('openCrsCount','Saving analysis results...');
+  let saved=0, failed=0;
+  for(const cr of crList){
+    const a = analyses[cr]||{};
+    // Only save if there's PDT comment or is_regression set (TEA/QGenie are auto-saved by backend)
+    if(a.pdt_comment!==undefined || a.is_regression!==undefined){
+      try{
+        await postJson(`${API}/target/${encodeURIComponent(active)}/open_cr_details/save`,{
+          cr_number: cr,
+          pdt_comment: a.pdt_comment||'',
+          is_regression: !!a.is_regression
+        });
+        saved++;
+      }catch(e){ failed++; }
+    }
+  }
+  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
+  const rowCount = openCrs.count||((openCrs.rows||[]).length)||0;
+  const msg = saved>0
+    ? rowCount+' row(s) • Saved '+saved+' CR comment(s) • TEA/QGenie auto-saved'
+    : rowCount+' row(s) • TEA/QGenie results are auto-saved to JSON cache';
+  setText('openCrsCount', msg);
+  if(btn){btn.disabled=false;btn.innerHTML=old;}
+  // Show toast
+  _showSaveToast(saved>0 ? 'Saved '+saved+' PDT comment(s). TEA/QGenie auto-saved.' : 'TEA/QGenie results are automatically saved to JSON cache.');
+}
+
+function _showSaveToast(msg){
+  let toast = document.getElementById('ocdSaveToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'ocdSaveToast';
+    toast.style.cssText = 'position:fixed;bottom:90px;right:28px;z-index:99991;background:linear-gradient(135deg,#166534,#15803d);color:#fff;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:900;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;max-width:360px;transition:opacity .3s';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = '<i class="fas fa-check-circle" style="font-size:16px"></i> '+msg;
+  toast.style.opacity='1';
+  toast.style.display='flex';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>{toast.style.display='none';},300);},3500);
+}
+
 loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';});
 </script>
 
+{% if can_edit %}
+<!-- Open CR Edit Modal -->
+<div id="ocdEditModal" class="modal">
+  <div class="modal-box" style="width:min(580px,96vw)">
+    <div class="modal-head"><span><i class="fas fa-pen"></i> Edit CR Details</span><button class="btn" onclick="closeOcdEditModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ocdEditCr">
+      <div class="field"><label>PDT Comments</label><textarea id="ocdEditComment" class="input" rows="5" placeholder="Enter PDT engineering comments for this CR..."></textarea></div>
+      <div class="field" style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:900">
+          <input type="checkbox" id="ocdEditRegression" style="width:16px;height:16px;cursor:pointer"> Is Regression CR
+        </label>
+      </div>
+      <div id="ocdEditMsg" class="saved" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeOcdEditModal()">Cancel</button><button class="btn primary" onclick="saveOcdEdit()"><i class="fas fa-save"></i> Save</button></div>
+  </div>
+</div>
+{% endif %}
 {% if can_edit %}
 <!-- WBC Saved JQL Tab Modal -->
 <div id="wbcSjqlModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
@@ -1855,6 +2293,27 @@ loadTargets().catch(e=>{document.getElementById('targetList').innerHTML='<div cl
   </div>
 </div>
 <style>@keyframes wbcSpinAnim{to{transform:rotate(360deg)}}@keyframes wbcProgressAnim{0%{width:0%;margin-left:0}50%{width:70%;margin-left:0}100%{width:0%;margin-left:100%}}</style>
+
+<!-- Analysis Progress Popup -->
+<div id="ocdProgressOverlay" style="display:none;position:fixed;bottom:28px;right:28px;z-index:99990;width:min(360px,90vw)">
+  <div style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:18px;padding:18px 20px;box-shadow:0 24px 64px rgba(0,0,0,.55);backdrop-filter:blur(12px)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div id="ocdProgressIcon" style="width:38px;height:38px;flex-shrink:0;border-radius:50%;border:3px solid rgba(59,130,246,.18);border-top-color:#3b82f6;animation:wbcSpinAnim .72s linear infinite"></div>
+      <div style="min-width:0;flex:1">
+        <div id="ocdProgressTitle" style="font-size:14px;font-weight:950;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Running Analysis...</div>
+        <div id="ocdProgressSub" style="font-size:11px;color:#94a3b8;margin-top:2px">Preparing...</div>
+      </div>
+      <button onclick="document.getElementById('ocdProgressOverlay').style.display='none'" style="background:rgba(255,255,255,.08);border:1px solid #334155;color:#94a3b8;border-radius:8px;width:26px;height:26px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div style="background:#0f172a;border-radius:999px;height:7px;overflow:hidden;margin-bottom:10px">
+      <div id="ocdProgressBar" style="height:100%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7c3aed);transition:width .35s ease;width:0%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div id="ocdProgressCr" style="font-size:10px;color:#64748b;font-weight:800;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</div>
+      <div id="ocdProgressCount" style="font-size:12px;font-weight:950;color:#bfdbfe;white-space:nowrap">0 / 0</div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
 

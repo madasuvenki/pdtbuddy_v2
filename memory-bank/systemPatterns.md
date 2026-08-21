@@ -73,6 +73,26 @@ CR summaries use a multi-step pipeline:
 3. Otherwise → use QGenie LLM to compress Orbit CR fields into 1-line summary
 4. Fallback: local text shortening (first sentence, max 14 words)
 
+### 7. QGenie Cost-Optimization Principles (2026-08-20)
+QGenie tokens are cost-based. All AI/LLM features MUST follow these rules:
+
+**Design pattern for all agentic flows:**
+```
+Python tools (free) → structured data → ONE LLM call (cost) → cached result
+```
+
+**Rules:**
+1. **Script-first, LLM-last** — Python handles data collection, filtering, formatting. LLM called only when code genuinely cannot produce the output.
+2. **Single LLM call per user action** — No multi-step ReAct loops. Collect ALL data with Python first, then ONE structured prompt call.
+3. **Prompt templates** — Pre-built templates with data slots. Not free-form prompting. Reduces token variance and cost.
+4. **Model tiering** — Cheapest model for classification/intent; medium for summarization; best only for complex synthesis. Switch models based on task complexity (`QGENIE_HIGHLIGHTS_MODEL_OPTIONS`).
+5. **Opt-in LLM** — LLM features triggered by explicit user action (button click). Never automatic background calls.
+6. **Graceful degradation** — If LLM unavailable or no API key: show structured data card / template output. Never block the workflow.
+7. **Assess script vs AI** — If Python can produce the same output, skip the LLM entirely.
+8. **Cache aggressively** — Cache LLM results by `(input_key, date)`. Never re-call LLM for same input within TTL. Use existing `cache_utils.py` 1-hour TTL infrastructure.
+9. **Disable unused MCPs** — Use env var flags (`MCP_CR_TOOLS_ENABLED`, etc.) to disable tool groups not needed for the current session.
+10. **Use specialized tools** — Prefer QGenie core app / Logtalk / domain-specific tools over general LLM for specialized tasks.
+
 ### 6. PyInstaller Packaging
 `resource_path()` helper resolves paths for both dev mode and PyInstaller `.exe` bundles (uses `sys._MEIPASS` when frozen).
 

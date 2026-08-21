@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+/* ── Layout ── */
+.es-layout { display: flex; gap: 0; min-height: calc(100vh - 58px); }
+
+/* ── Left panel ── */
+.es-sidebar {
+  width: 220px; flex-shrink: 0;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-right: 1px solid rgba(255,255,255,.08);
+  padding: 20px 0 40px;
+  position: sticky; top: 0; height: calc(100vh - 58px); overflow-y: auto;
+}
+.es-sidebar-title {
+  font-size: 10px; font-weight: 900; color: rgba(148,163,184,.7);
+  text-transform: uppercase; letter-spacing: .12em;
+  padding: 0 16px 10px; border-bottom: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 8px;
+}
+.es-bu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px; cursor: pointer;
+  font-size: 12px; font-weight: 700; color: rgba(203,213,225,.85);
+  border-left: 3px solid transparent;
+  transition: all .15s;
+  text-decoration: none;
+}
+.es-bu-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.es-bu-item.active {
+  background: rgba(59,130,246,.18);
+  border-left-color: #3b82f6;
+  color: #93c5fd;
+}
+.es-bu-item .es-bu-count {
+  margin-left: auto; font-size: 10px; font-weight: 800;
+  background: rgba(255,255,255,.10); color: rgba(203,213,225,.7);
+  border-radius: 999px; padding: 1px 7px;
+}
+.es-bu-item.active .es-bu-count { background: rgba(59,130,246,.30); color: #93c5fd; }
+
+/* ── Main content ── */
+.es-main { flex: 1; min-width: 0; padding: 24px 24px 60px; }
+
+/* ── Header ── */
+.es-header {
+  background: linear-gradient(135deg, #0f172a, #1e3a8a, #1e40af);
+  border-radius: 20px; padding: 22px 28px;
+  margin-bottom: 22px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  box-shadow: 0 16px 48px rgba(15,23,42,.28);
+}
+.es-header-left { display: flex; align-items: center; gap: 14px; }
+.es-header-icon {
+  width: 52px; height: 52px; border-radius: 16px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #fff; flex-shrink: 0;
+  box-shadow: 0 10px 24px rgba(59,130,246,.35);
+}
+.es-header-title { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.02em; margin: 0; }
+.es-header-sub { font-size: 12px; color: rgba(186,230,253,.75); font-weight: 600; margin-top: 2px; }
+
+/* ── Stats row ── */
+.es-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.es-stat {
+  flex: 1; min-width: 110px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 2px 8px rgba(15,23,42,.05);
+}
+.es-stat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.es-stat-val { font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1; }
+.es-stat-lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 1px; }
+
+/* ── Toolbar ── */
+.es-toolbar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.es-search {
+  flex: 1; min-width: 200px;
+  border: 1.5px solid #e2e8f0; border-radius: 999px;
+  padding: 8px 16px; font-size: 13px; outline: none;
+  background: #f8fafc; color: #1e293b;
+  transition: border-color .15s, box-shadow .15s;
+}
+.es-search:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); background: #fff; }
+.es-filter-btn {
+  padding: 8px 16px; border-radius: 999px; border: 1.5px solid #e2e8f0;
+  background: #fff; color: #374151; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+}
+.es-filter-btn.active { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+.es-filter-btn:hover { background: #f1f5f9; }
+
+/* ── Table ── */
+.es-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 2px 12px rgba(15,23,42,.05); }
+.es-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.es-table thead th {
+  background: #f8fafc; padding: 10px 14px; text-align: left;
+  font-weight: 800; color: #475569; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+}
+.es-table thead th:first-child { border-radius: 18px 0 0 0; }
+.es-table thead th:last-child  { border-radius: 0 18px 0 0; }
+.es-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .12s; }
+.es-table tbody tr:last-child { border-bottom: none; }
+.es-table tbody tr:hover { background: #f8fafc; }
+.es-table td { padding: 10px 14px; color: #1e293b; vertical-align: middle; }
+
+/* ── Status badges ── */
+.es-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800;
+  white-space: nowrap;
+}
+.es-badge.fresh  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.es-badge.stale  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.es-badge.old    { background: #fee2e2; color: #991b1c; border: 1px solid #fca5a5; }
+.es-badge.never  { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.es-badge.active { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.es-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+
+/* ── Path cell ── */
+.es-path-cell { display: flex; align-items: center; gap: 6px; max-width: 320px; }
+.es-path-text {
+  font-size: 11px; color: #475569; font-family: monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 260px; flex: 1;
+}
+.es-path-text.empty { color: #cbd5e1; font-style: italic; font-family: inherit; }
+.es-edit-btn {
+  width: 22px; height: 22px; border-radius: 6px; border: none;
+  background: #eff6ff; color: #3b82f6; cursor: pointer; font-size: 10px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background .15s;
+}
+.es-edit-btn:hover { background: #dbeafe; }
+
+/* ── Inline edit ── */
+.es-inline-edit { display: none; align-items: center; gap: 6px; }
+.es-inline-edit.visible { display: flex; }
+.es-inline-input {
+  flex: 1; border: 1.5px solid #3b82f6; border-radius: 8px;
+  padding: 4px 10px; font-size: 11px; font-family: monospace; outline: none;
+  background: #fff; color: #1e293b; min-width: 200px;
+}
+.es-inline-save {
+  padding: 4px 10px; border-radius: 8px; border: none;
+  background: #3b82f6; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.es-inline-cancel {
+  padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
+  background: #fff; color: #64748b; font-size: 11px; cursor: pointer;
+}
+
+/* ── BU pill ── */
+.es-bu-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 800; background: #eff6ff; color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* ── Loading ── */
+.es-loading { text-align: center; padding: 60px 20px; color: #94a3b8; }
+.es-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: esSpin .7s linear infinite; margin: 0 auto 12px; }
+@keyframes esSpin { to { transform: rotate(360deg); } }
+
+/* ── Toast ── */
+#esToast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 99999;
+  padding: 12px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; color: #fff;
+  box-shadow: 0 12px 32px rgba(0,0,0,.20); display: none; align-items: center; gap: 10px;
+  max-width: 360px; animation: esToastIn .25s ease;
+}
+@keyframes esToastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#esToast.success { background: linear-gradient(135deg, #059669, #047857); }
+#esToast.error   { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+#esToast.info    { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+
+/* ── Sync time ── */
+.es-time { font-size: 11px; color: #475569; white-space: nowrap; }
+.es-time.fresh { color: #166534; font-weight: 700; }
+.es-time.stale { color: #92400e; }
+.es-time.old   { color: #991b1c; }
+.es-time.never { color: #94a3b8; font-style: italic; }
+
+/* ── Age pill ── */
+.es-age { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+@media (max-width: 768px) {
+  .es-sidebar { display: none; }
+  .es-main { padding: 16px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="es-layout">
+
+  <!-- ── Left sidebar: BU list ── -->
+  <div class="es-sidebar">
+    <div class="es-sidebar-title"><i class="fas fa-layer-group" style="margin-right:5px;"></i>Business Units</div>
+    <a class="es-bu-item active" data-bu="ALL" onclick="esSwitchBU('ALL', this)">
+      <i class="fas fa-globe" style="font-size:11px;"></i>
+      All BUs
+      <span class="es-bu-count" id="buCount_ALL">—</span>
+    </a>
+    {% for bu in bu_list %}
+    <a class="es-bu-item" data-bu="{{ bu.key }}" onclick="esSwitchBU('{{ bu.key }}', this)">
+      <i class="fas fa-microchip" style="font-size:10px;"></i>
+      {{ bu.display_name }}
+      <span class="es-bu-count" id="buCount_{{ bu.key }}">—</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- ── Main content ── -->
+  <div class="es-main">
+
+    <!-- Header -->
+    <div class="es-header">
+      <div class="es-header-left">
+        <div class="es-header-icon"><i class="fas fa-sync-alt"></i></div>
+        <div>
+          <h1 class="es-header-title">Last Excel Sync</h1>
+          <div class="es-header-sub">
+            <i class="fas fa-database" style="margin-right:4px;"></i>
+            pdt_stats_dashboard.dashboard_status &nbsp;·&nbsp; dashboard_latest_update
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="es-filter-btn active" id="btnShowAll" onclick="esSetActiveFilter('all', this)">
+          <i class="fas fa-list"></i> All
+        </button>
+        <button class="es-filter-btn" id="btnActiveOnly" onclick="esSetActiveFilter('active', this)">
+          <i class="fas fa-check-circle"></i> Active Only
+        </button>
+        <button class="es-filter-btn" onclick="esRefresh()" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="es-stats" id="esStats">
+      <div class="es-stat">
+        <div class="es-stat-icon" style="background:#eff6ff;"><i class="fas fa-server" style="color:#3b82f6;"></i></div>
+        <div><div class="es-stat-val" id="statTotal">—</div><div class="es-stat-lbl">Total</div></div>
+      </div>
+      <div class="es-stat">
+        <div class="es-stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div>
+        <div><div class="es-stat-val" id="statFresh" style="color:#16a34a;">—</div><div class="es-stat-lbl">Fresh &lt;48h</div></div>
+      </div>
+      <div class="es-stat">
+        <div class="es-stat-icon" style="background:#fef3c7;"><i class="fas fa-exclamation-circle" style="color:#d97706;"></i></div>
+        <div><div class="es-stat-val" id="statStale" style="color:#d97706;">—</div><div class="es-stat-lbl">Stale &lt;7d</div></div>
+      </div>
+      <div class="es-stat">
+        <div class="es-stat-icon" style="background:#fee2e2;"><i class="fas fa-times-circle" style="color:#dc2626;"></i></div>
+        <div><div class="es-stat-val" id="statOld" style="color:#dc2626;">—</div><div class="es-stat-lbl">Old &gt;7d</div></div>
+      </div>
+      <div class="es-stat">
+        <div class="es-stat-icon" style="background:#f1f5f9;"><i class="fas fa-minus-circle" style="color:#94a3b8;"></i></div>
+        <div><div class="es-stat-val" id="statNever" style="color:#94a3b8;">—</div><div class="es-stat-lbl">Never Synced</div></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="es-toolbar">
+      <input class="es-search" id="esSearch" placeholder="&#128269; Search target, BU, SP name, path..." oninput="esFilterTable()">
+      <select class="es-filter-btn" id="esStatusFilter" onchange="esFilterTable()" style="border-radius:999px;padding:8px 14px;">
+        <option value="">All Status</option>
+        <option value="fresh">Fresh (&lt;48h)</option>
+        <option value="stale">Stale (&lt;7d)</option>
+        <option value="old">Old (&gt;7d)</option>
+        <option value="never">Never Synced</option>
+      </select>
+      <span id="esRowCount" style="font-size:12px;color:#94a3b8;font-weight:700;white-space:nowrap;"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="es-table-wrap">
+      <div id="esLoading" class="es-loading">
+        <div class="es-spinner"></div>
+        <div>Loading sync data...</div>
+      </div>
+      <table class="es-table" id="esTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Target</th>
+            <th>BU</th>
+            <th>SP Name</th>
+            <th>Status</th>
+            <th>Last Excel Sync</th>
+            <th>Unique CR Sync</th>
+            <th>Excel Path</th>
+            <th>Unique CR Path</th>
+          </tr>
+        </thead>
+        <tbody id="esTableBody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /es-main -->
+</div><!-- /es-layout -->
+
+<div id="esToast"></div>
+
+<script>
+var esAllRows = [];
+var esCurrentBU = 'ALL';
+var esActiveFilter = 'all';
+var isAdmin = {{ 'true' if is_admin else 'false' }};
+
+// ── BU switch ──
+function esSwitchBU(bu, el) {
+  esCurrentBU = bu;
+  document.querySelectorAll('.es-bu-item').forEach(function(b){ b.classList.remove('active'); });
+  el.classList.add('active');
+  esLoadData();
+}
+
+// ── Active filter ──
+function esSetActiveFilter(mode, btn) {
+  esActiveFilter = mode;
+  document.querySelectorAll('.es-filter-btn[id^="btn"]').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  esLoadData();
+}
+
+// ── Load data from API ──
+function esLoadData() {
+  document.getElementById('esLoading').style.display = 'block';
+  document.getElementById('esTable').style.display = 'none';
+  var url = '/api/excel_sync/data?bu=' + encodeURIComponent(esCurrentBU) +
+            '&active_only=' + (esActiveFilter === 'active' ? '1' : '0');
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (!data.success) { esToast('Error: ' + data.message, 'error'); return; }
+      esAllRows = data.rows || [];
+      esUpdateStats(data.summary || {});
+      esUpdateBUCounts(esAllRows);
+      esRenderTable(esAllRows);
+      document.getElementById('esLoading').style.display = 'none';
+      document.getElementById('esTable').style.display = 'table';
+    })
+    .catch(function(e){ esToast('Network error: ' + e, 'error'); });
+}
+
+function esRefresh() { esLoadData(); }
+
+// ── Stats ──
+function esUpdateStats(s) {
+  document.getElementById('statTotal').textContent = s.total || 0;
+  document.getElementById('statFresh').textContent = s.fresh || 0;
+  document.getElementById('statStale').textContent = s.stale || 0;
+  document.getElementById('statOld').textContent   = s.old   || 0;
+  document.getElementById('statNever').textContent = s.never || 0;
+}
+
+// ── BU counts ──
+function esUpdateBUCounts(rows) {
+  var counts = {};
+  rows.forEach(function(r){ counts[r.bu] = (counts[r.bu] || 0) + 1; });
+  var total = rows.length;
+  var allEl = document.getElementById('buCount_ALL');
+  if (allEl) allEl.textContent = total;
+  Object.keys(counts).forEach(function(bu) {
+    var el = document.getElementById('buCount_' + bu);
+    if (el) el.textContent = counts[bu];
+  });
+}
+
+// ── Render table ──
+function esRenderTable(rows) {
+  var tbody = document.getElementById('esTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">No targets found</td></tr>';
+    document.getElementById('esRowCount').textContent = '0 targets';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(r, i) {
+    var statusBadge = '<span class="es-badge ' + r.status + '">' +
+      (r.status === 'fresh' ? '&#10003; Fresh' :
+       r.status === 'stale' ? '&#9888; Stale' :
+       r.status === 'old'   ? '&#10007; Old'   : '&#8212; Never') + '</span>';
+    var activeBadge = r.is_active
+      ? '<span class="es-badge active" style="margin-left:4px;">Active</span>'
+      : '<span class="es-badge inactive" style="margin-left:4px;">Inactive</span>';
+
+    var ageStr = '';
+    if (r.dlu_age_hours !== null && r.dlu_age_hours !== undefined) {
+      var h = r.dlu_age_hours;
+      if (h < 1) ageStr = Math.round(h * 60) + 'm ago';
+      else if (h < 24) ageStr = Math.round(h) + 'h ago';
+      else ageStr = Math.round(h / 24) + 'd ago';
+    }
+
+    var dluHtml = r.dashboard_latest_update
+      ? '<div class="es-time ' + r.status + '">' + r.dashboard_latest_update + '</div>' +
+        (ageStr ? '<div class="es-age">' + ageStr + '</div>' : '')
+      : '<div class="es-time never">Never synced</div>';
+
+    var ucluHtml = r.unique_cr_last_update
+      ? '<div class="es-time">' + r.unique_cr_last_update + '</div>'
+      : '<div class="es-time never">—</div>';
+
+    var excelPathHtml = esPathCell(r.target_name, 'excel_path', r.excel_path);
+    var ucrPathHtml   = esPathCell(r.target_name, 'unique_cr_path', r.unique_cr_path);
+
+    html += '<tr data-target="' + esEsc(r.target_name) + '" data-bu="' + esEsc(r.bu) + '" data-status="' + r.status + '"' +
+            ' data-active="' + r.is_active + '">' +
+      '<td style="color:#94a3b8;font-size:11px;">' + (i + 1) + '</td>' +
+      '<td>' +
+        '<div style="font-weight:800;font-size:12px;color:#0f172a;">' + esEsc(r.target_display || r.target_name) + '</div>' +
+        '<div style="font-size:10px;color:#94a3b8;font-family:monospace;">' + esEsc(r.target_name) + '</div>' +
+        (r.chip_name ? '<div style="font-size:10px;color:#6366f1;font-weight:700;">' + esEsc(r.chip_name) + '</div>' : '') +
+      '</td>' +
+      '<td><span class="es-bu-pill">' + esEsc(r.bu) + '</span>' + activeBadge + '</td>' +
+      '<td style="font-size:11px;color:#475569;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esEsc(r.sp_name) + '">' + esEsc(r.sp_name || '—') + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td>' + dluHtml + '</td>' +
+      '<td>' + ucluHtml + '</td>' +
+      '<td>' + excelPathHtml + '</td>' +
+      '<td>' + ucrPathHtml + '</td>' +
+    '</tr>';
+  });
+  tbody.innerHTML = html;
+  document.getElementById('esRowCount').textContent = rows.length + ' target' + (rows.length !== 1 ? 's' : '');
+}
+
+function esPathCell(targetName, field, path) {
+  var displayPath = path || '';
+  var isEmpty = !displayPath;
+  var shortPath = displayPath.length > 50 ? '...' + displayPath.slice(-47) : displayPath;
+  var editBtn = isAdmin
+    ? '<button class="es-edit-btn" onclick="esStartEdit(\'' + esEsc(targetName) + '\',\'' + field + '\',this)" title="Edit path"><i class="fas fa-pencil-alt"></i></button>'
+    : '';
+  return '<div class="es-path-cell">' +
+    '<span class="es-path-text' + (isEmpty ? ' empty' : '') + '" title="' + esEsc(displayPath) + '">' +
+      (isEmpty ? 'Not set' : shortPath) +
+    '</span>' +
+    editBtn +
+    '<div class="es-inline-edit" id="edit_' + esEsc(targetName) + '_' + field + '">' +
+      '<input class="es-inline-input" value="' + esEsc(displayPath) + '" placeholder="Enter path...">' +
+      '<button class="es-inline-save" onclick="esSavePath(\'' + esEsc(targetName) + '\',\'' + field + '\',this)">Save</button>' +
+      '<button class="es-inline-cancel" onclick="esCancelEdit(\'' + esEsc(targetName) + '\',\'' + field + '\')">✕</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function esStartEdit(targetName, field, btn) {
+  var editDiv = document.getElementById('edit_' + targetName + '_' + field);
+  if (!editDiv) return;
+  editDiv.classList.add('visible');
+  btn.style.display = 'none';
+  editDiv.querySelector('input').focus();
+}
+
+function esCancelEdit(targetName, field) {
+  var editDiv = document.getElementById('edit_' + targetName + '_' + field);
+  if (!editDiv) return;
+  editDiv.classList.remove('visible');
+  var btn = editDiv.previousElementSibling && editDiv.previousElementSibling.previousElementSibling;
+  // Re-show edit button
+  var cell = editDiv.closest('.es-path-cell');
+  if (cell) {
+    var editBtns = cell.querySelectorAll('.es-edit-btn');
+    editBtns.forEach(function(b){ b.style.display = ''; });
+  }
+}
+
+function esSavePath(targetName, field, btn) {
+  var editDiv = document.getElementById('edit_' + targetName + '_' + field);
+  if (!editDiv) return;
+  var val = editDiv.querySelector('input').value.trim();
+  btn.disabled = true;
+  btn.textContent = '...';
+  fetch('/api/excel_sync/update_path', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_name: targetName, field: field, value: val })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      esToast('\u2713 ' + field + ' updated for ' + targetName, 'success');
+      // Update in-memory row
+      var row = esAllRows.find(function(r){ return r.target_name === targetName; });
+      if (row) row[field] = val;
+      // Update display
+      var cell = editDiv.closest('.es-path-cell');
+      if (cell) {
+        var pathSpan = cell.querySelector('.es-path-text');
+        if (pathSpan) {
+          var shortPath = val.length > 50 ? '...' + val.slice(-47) : val;
+          pathSpan.textContent = val ? shortPath : 'Not set';
+          pathSpan.title = val;
+          pathSpan.classList.toggle('empty', !val);
+        }
+      }
+      esCancelEdit(targetName, field);
+    } else {
+      esToast('\u2717 ' + (data.message || 'Save failed'), 'error');
+    }
+  })
+  .catch(function(e){ esToast('Network error: ' + e, 'error'); })
+  .finally(function(){ btn.disabled = false; btn.textContent = 'Save'; });
+}
+
+// ── Filter table ──
+function esFilterTable() {
+  var q = (document.getElementById('esSearch').value || '').toLowerCase();
+  var statusF = (document.getElementById('esStatusFilter').value || '').toLowerCase();
+  var filtered = esAllRows.filter(function(r) {
+    var matchQ = !q || (
+      (r.target_name || '').toLowerCase().includes(q) ||
+      (r.target_display || '').toLowerCase().includes(q) ||
+      (r.bu || '').toLowerCase().includes(q) ||
+      (r.sp_name || '').toLowerCase().includes(q) ||
+      (r.excel_path || '').toLowerCase().includes(q) ||
+      (r.chip_name || '').toLowerCase().includes(q)
+    );
+    var matchStatus = !statusF || r.status === statusF;
+    return matchQ && matchStatus;
+  });
+  esRenderTable(filtered);
+}
+
+// ── Toast ──
+function esToast(msg, type) {
+  var t = document.getElementById('esToast');
+  t.textContent = msg;
+  t.className = type || 'info';
+  t.style.display = 'flex';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.style.display = 'none'; }, 3500);
+}
+
+// ── Escape HTML ──
+function esEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+  esLoadData();
+});
+</script>
+{% endblock %}

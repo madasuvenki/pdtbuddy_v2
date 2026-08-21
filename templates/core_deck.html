@@ -13,9 +13,17 @@
 <body {% if embedded %}style="background:#fff;"{% endif %}>
 <div class="page" {% if embedded %}style="padding:0;"{% endif %}>
   <div class="top" {% if embedded %}style="display:none;"{% endif %}>
-    <div><div class="title"><i class="fas fa-file-powerpoint" style="color:#ef1747"></i> Core Deck Preview</div><div class="small">Phase 1–3: select BU/Target/Meta and render slide-style preview. No PPT export.</div></div>
+    <div><div class="title"><i class="fas fa-file-powerpoint" style="color:#ef1747"></i> Core Deck Preview</div><div class="small">Reference-based Agentic Core Slides + legacy slide-style JSON preview.</div></div>
     <a class="btn btn-dark" href="{{ url_for('live_status_publish_bp.landing') }}" style="text-decoration:none">Back to Live Status</a>
   </div>
+  {% if preselected_target %}
+    {% set target_name = preselected_target %}
+    {% set mode = 'internal' %}
+    <div style="margin-bottom:18px">
+      {% include 'core_deck_agent.html' with context %}
+    </div>
+  {% endif %}
+  {% if not preselected_target %}
   <div class="grid">
     <div class="panel">
       <div class="panel-h">Deck Inputs</div>
@@ -39,7 +47,9 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
+{% if not preselected_target %}
 <script>
 const TARGET_OPTIONS = {{ target_options|tojson }};
 const PRESELECTED_TARGET = {{ preselected_target|default('')|tojson }};
@@ -75,5 +85,6 @@ function drawBar(id,rows){const ctx=document.getElementById(id);if(!ctx)return;n
   loadMetas();
 })();
 </script>
+{% endif %}
 </body>
 </html>

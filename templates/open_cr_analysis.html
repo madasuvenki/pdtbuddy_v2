@@ -117,6 +117,53 @@ window.OCR_TARGET  = {{ target_name | tojson }};
 .ocr-state { text-align:center; padding:50px 20px; color:#9ca3af; font-size:13px; }
 .ocr-table-wrap::-webkit-scrollbar { width:6px; height:6px; }
 .ocr-table-wrap::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+/* Deep Analysis agent button + panel */
+.ai-deep-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 11px; border-radius:9px; border:1px solid #a5b4fc;
+  background:#eef2ff; color:#4338ca; font-size:10px; font-weight:800;
+  cursor:pointer; margin-top:5px; transition:all .15s; white-space:nowrap;
+}
+.ai-deep-btn:hover { background:#e0e7ff; border-color:#818cf8; }
+.ai-deep-btn:disabled { opacity:.5; cursor:not-allowed; }
+/* Deep Analysis modal */
+#deepAnalysisModal {
+  display:none; position:fixed; inset:0; z-index:9000;
+  background:rgba(15,23,42,.55); backdrop-filter:blur(3px);
+  align-items:center; justify-content:center;
+}
+#deepAnalysisModal.open { display:flex; }
+.dam-panel {
+  background:#fff; border-radius:20px; box-shadow:0 24px 64px rgba(15,23,42,.22);
+  width:min(780px,96vw); max-height:88vh; overflow-y:auto; padding:28px 30px;
+  position:relative;
+}
+.dam-panel::-webkit-scrollbar { width:5px; }
+.dam-panel::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+.dam-close { position:absolute; top:16px; right:18px; background:none; border:none;
+  font-size:18px; color:#94a3b8; cursor:pointer; line-height:1; }
+.dam-close:hover { color:#1e293b; }
+.dam-title { font-size:16px; font-weight:900; color:#1e293b; margin-bottom:4px; }
+.dam-subtitle { font-size:12px; color:#64748b; margin-bottom:18px; }
+.dam-section { margin-bottom:16px; }
+.dam-section-title { font-size:11px; font-weight:800; color:#6366f1; text-transform:uppercase;
+  letter-spacing:.07em; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.dam-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; }
+.dam-kv { display:flex; flex-direction:column; gap:2px; }
+.dam-kv-label { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; }
+.dam-kv-value { font-size:12px; font-weight:700; color:#1e293b; }
+.dam-analysis-box {
+  background:linear-gradient(135deg,#faf5ff,#f5f3ff);
+  border:1px solid #e9d5ff; border-left:3px solid #7c3aed;
+  border-radius:12px; padding:14px 16px;
+  font-size:12.5px; line-height:1.7; color:#1e293b;
+  white-space:pre-wrap; word-break:break-word;
+}
+.dam-cached-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px;
+  border-radius:999px; background:#f0fdf4; color:#16a34a; font-size:10px; font-weight:700;
+  border:1px solid #bbf7d0; margin-left:8px; }
+.dam-no-llm { background:#fffbeb; border:1px solid #fde68a; border-radius:10px;
+  padding:12px 14px; font-size:12px; color:#92400e; }
 </style>
 
 <div class="ocr-wrap">
@@ -195,6 +242,16 @@ window.OCR_TARGET  = {{ target_name | tojson }};
         </tbody>
       </table>
     </div>
+</div>
+</div>
+
+<!-- Deep Analysis Agent Modal -->
+<div id="deepAnalysisModal" role="dialog" aria-modal="true">
+  <div class="dam-panel">
+    <button class="dam-close" onclick="closeDeepAnalysis()" title="Close">&#10005;</button>
+    <div class="dam-title" id="damTitle">Deep CR Analysis</div>
+    <div class="dam-subtitle" id="damSubtitle">Collecting data…</div>
+    <div id="damBody"><div style="text-align:center;padding:40px 0;color:#9ca3af;"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:12px;font-size:13px;">Collecting CR data…</div></div></div>
   </div>
 </div>
 
@@ -458,13 +515,17 @@ window.OCR_TARGET  = {{ target_name | tojson }};
   };
 
   function _buildAiCell(crId, existingHtml) {
+    const deepBtn = '<button class="ai-deep-btn" onclick="runDeepAnalysis(\'' + esc(crId) + '\')" title="Deep multi-source analysis (Orbit + DB + AI)">' +
+      '<i class="fas fa-search-plus" style="font-size:9px;"></i> Deep Analysis</button>';
     if (existingHtml) {
       return '<div class="ai-result">' + existingHtml + '</div>' +
         '<button class="ai-refresh-btn" onclick="delete AI_CACHE[\'' + esc(crId) + '\'];runAiAnalysis(\'' + esc(crId) + '\',this)" title="Refresh analysis">' +
-        '<i class="fas fa-sync-alt"></i> Refresh</button>';
+        '<i class="fas fa-sync-alt"></i> Refresh</button>' +
+        '<br>' + deepBtn;
     }
     return '<button class="ai-analyse-btn" onclick="runAiAnalysis(\'' + esc(crId) + '\', this)">' +
-      '<i class="fas fa-magic" style="font-size:10px;"></i> ✨ AI Analyse</button>';
+      '<i class="fas fa-magic" style="font-size:10px;"></i> ✨ AI Analyse</button>' +
+      '<br>' + deepBtn;
   }
 
   function renderTable() {
@@ -661,6 +722,115 @@ window.OCR_TARGET  = {{ target_name | tojson }};
       status.textContent = 'Error: ' + e.message;
     } finally {
       btn.disabled = false;
+    }
+  };
+
+  /* ── Deep Analysis Agent (calls /api/cr_agent/analyze) ── */
+  window.closeDeepAnalysis = function() {
+    document.getElementById('deepAnalysisModal').classList.remove('open');
+  };
+  document.getElementById('deepAnalysisModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeepAnalysis();
+  });
+
+  window.runDeepAnalysis = async function(crId) {
+    const modal = document.getElementById('deepAnalysisModal');
+    const title = document.getElementById('damTitle');
+    const subtitle = document.getElementById('damSubtitle');
+    const body = document.getElementById('damBody');
+
+    title.textContent = 'Deep Analysis — CR ' + crId;
+    subtitle.textContent = 'Collecting data from Orbit + DB…';
+    body.innerHTML = '<div style="text-align:center;padding:40px 0;color:#9ca3af;"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:12px;font-size:13px;font-weight:600;">Collecting CR data…</div></div>';
+    modal.classList.add('open');
+
+    try {
+      const resp = await fetch('/api/cr_agent/analyze/' + encodeURIComponent(crId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: TARGET, with_llm: true })
+      });
+      const d = await resp.json();
+      if (!d.ok) {
+        body.innerHTML = '<div style="color:#ef4444;padding:16px;">Error: ' + esc(d.error || 'Analysis failed') + '</div>';
+        return;
+      }
+      const c = d.collected || {};
+      subtitle.textContent = (d.cached ? '⚡ Cached result · ' : '') + 'Analyzed at ' + (d.analyzed_at || '');
+
+      let html = '';
+
+      /* ── Data card ── */
+      html += '<div class="dam-section">';
+      html += '<div class="dam-section-title"><i class="fas fa-database"></i> Collected Data</div>';
+      html += '<div class="dam-grid">';
+      const kv = (label, val) => val ? '<div class="dam-kv"><div class="dam-kv-label">' + esc(label) + '</div><div class="dam-kv-value">' + esc(String(val)) + '</div></div>' : '';
+      html += kv('Status', c.cr_status);
+      html += kv('Area', c.cr_area);
+      html += kv('Subsystem', c.cr_subsystem);
+      html += kv('Functionality', c.cr_functionality);
+      html += kv('Age', c.cr_age ? c.cr_age + ' days' : '');
+      html += kv('Priority', c.cr_priority);
+      html += kv('Severity', c.cr_severity);
+      html += kv('JIRA Occurrences', c.jira_count);
+      html += kv('Open JIRAs', c.open_jira_count);
+      html += kv('First Seen', c.first_seen);
+      html += kv('Last Seen', c.last_seen);
+      html += kv('Targets Affected', c.target_count ? c.target_count + ' target(s)' : '');
+      html += '</div>';
+      if (c.target_list) {
+        html += '<div style="margin-top:8px;font-size:11px;color:#64748b;"><b>Targets:</b> ' + esc(c.target_list) + '</div>';
+      }
+      if (c.orbit_description) {
+        html += '<div style="margin-top:8px;font-size:11px;color:#374151;background:#f8faff;border-radius:8px;padding:8px 10px;border:1px solid #e5e7eb;"><b>Orbit Description:</b> ' + esc(c.orbit_description) + '</div>';
+      }
+      html += '</div>';
+
+      /* ── AI Analysis ── */
+      html += '<div class="dam-section">';
+      if (d.analysis_ok && d.analysis) {
+        html += '<div class="dam-section-title"><i class="fas fa-robot"></i> AI Analysis' +
+          (d.cached ? '<span class="dam-cached-badge"><i class="fas fa-bolt"></i> Cached</span>' : '') +
+          (d.model_used ? '<span style="font-size:9px;color:#94a3b8;font-weight:600;margin-left:6px;">via ' + esc(d.model_used) + '</span>' : '') +
+          '</div>';
+        html += '<div class="dam-analysis-box">' + esc(d.analysis) + '</div>';
+        html += '<button class="ai-refresh-btn" style="margin-top:8px;" onclick="runDeepAnalysisForce(\'' + esc(crId) + '\')">' +
+          '<i class="fas fa-sync-alt"></i> Re-analyze (bypass cache)</button>';
+      } else {
+        html += '<div class="dam-section-title"><i class="fas fa-robot"></i> AI Analysis</div>';
+        html += '<div class="dam-no-llm"><i class="fas fa-info-circle"></i> ' +
+          (d.analysis_error || 'QGenie API key not configured or unavailable.') +
+          ' Data above is available without AI. Configure your QGenie key to enable synthesis.</div>';
+      }
+      html += '</div>';
+
+      body.innerHTML = html;
+    } catch(e) {
+      body.innerHTML = '<div style="color:#ef4444;padding:16px;">Error: ' + esc(e.message) + '</div>';
+    }
+  };
+
+  window.runDeepAnalysisForce = async function(crId) {
+    const body = document.getElementById('damBody');
+    const subtitle = document.getElementById('damSubtitle');
+    subtitle.textContent = 'Re-analyzing (bypassing cache)…';
+    body.innerHTML = '<div style="text-align:center;padding:40px 0;color:#9ca3af;"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:12px;font-size:13px;font-weight:600;">Re-analyzing…</div></div>';
+    try {
+      const resp = await fetch('/api/cr_agent/analyze/' + encodeURIComponent(crId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: TARGET, with_llm: true, force_refresh: true })
+      });
+      const d = await resp.json();
+      // Re-open with fresh data by re-calling runDeepAnalysis (cache now updated)
+      if (d.ok) {
+        document.getElementById('deepAnalysisModal').classList.remove('open');
+        setTimeout(() => runDeepAnalysis(crId), 100);
+      } else {
+        body.innerHTML = '<div style="color:#ef4444;padding:16px;">Error: ' + esc(d.error || 'Failed') + '</div>';
+      }
+    } catch(e) {
+      body.innerHTML = '<div style="color:#ef4444;padding:16px;">Error: ' + esc(e.message) + '</div>';
     }
   };
 

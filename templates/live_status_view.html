@@ -582,6 +582,15 @@
     </div>
   </section>
 
+  <section class="panel" id="coreSlidesPanel" data-lsv-tab="core_slides">
+    <div class="panel-h">
+      <div><i class="fas fa-file-powerpoint" style="color:#ef4444"></i> Core Slides</div>
+      <div class="panel-sub">Latest generated PPTX and history for this target.</div>
+    </div>
+    {% set mode = 'external' %}
+    {% include 'core_deck_agent.html' with context %}
+  </section>
+
   <section id="resultsPanel" class="panel hidden" data-lsv-tab="consolidated_result">
 
 
@@ -2383,6 +2392,7 @@ document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
     { key:'adas_mtbf',          label:'ADAS MTBF Trend',      icon:'fa-chart-line',    color:'#059669', desc:'MTBF chart and builds table (ADAS/IVI/FLEX)' },
     { key:'unique_crs',         label:'Unique CRs by Target', icon:'fa-bug',           color:'#6366f1', desc:'FLEX / ADAS / IVI CR buckets' },
     { key:'current_report',     label:'Current Report',       icon:'fa-circle',        color:'#16a34a', desc:'Running builds, CRs, JIRAs live view' },
+    { key:'core_slides',        label:'Core Slides',          icon:'fa-file-powerpoint',color:'#ef4444', desc:'Latest generated core-slide PPTX and history' },
     { key:'consolidated_result',label:'Consolidated Result',  icon:'fa-table',         color:'#2563eb', desc:'Submitted META consolidated CR/JIRA result' },
   ];
 
@@ -2392,6 +2402,7 @@ document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
     adas_mtbf:           'adasMtbfPanel',
     unique_crs:          'uniqueCrsByTargetPanel',
     current_report:      'currentReportPanel',
+    core_slides:         'coreSlidesPanel',
     consolidated_result: 'resultsPanel',
   };
 

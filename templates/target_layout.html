@@ -577,9 +577,13 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
         {% endif %}
         <div class="on-panel-divider"></div>
         <div class="on-panel-label">Analysis</div>
-                <a href="{{ url_for('dashboard_bp.pdt_analysis_empty', target_name=t) }}" class="on-panel-btn c-green {{ 'active' if s == 'pdt-analysis' else '' }}" data-tip="PDT Analysis" data-tab-key="pdt-analysis">
+        <a href="{{ url_for('dashboard_bp.pdt_analysis_empty', target_name=t) }}" class="on-panel-btn c-green {{ 'active' if s == 'pdt-analysis' else '' }}" data-tip="PDT Analysis" data-tab-key="pdt-analysis">
           <i class="fas fa-chart-bar"></i>
           <span class="on-panel-btn-text">PDT Analysis</span>
+        </a>
+        <a href="{{ url_for('core_deck_bp.core_deck_page', target=t, embed=1) }}" class="on-panel-btn c-indigo" data-tip="Core Slides" data-tab-key="core-slides">
+          <i class="fas fa-file-powerpoint"></i>
+          <span class="on-panel-btn-text">Core Slides</span>
         </a>
           
           

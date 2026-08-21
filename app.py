@@ -8980,63 +8980,6 @@ def cr_overview_help():
 
 
 
-@app.route("/api/qgenie/configure", methods=["POST"])
-@login_required
-def qgenie_configure():
-
-    try:
-        if not QGENIE_SDK_AVAILABLE:
-            return jsonify({
-                "success": False,
-                "message": "QGenie SDK not available."
-            }), 500
-
-        data = request.get_json(silent=True) or {}
-        api_key = (data.get("api_key") or "").strip()
-
-        if not api_key:
-            return jsonify({
-                "success": False,
-                "message": "API key is required."
-            }), 400
-
-        try:
-            client = QGenieClient(api_key=api_key)
-
-            # Lightweight validation call
-            # Replace this with your safest supported test call if needed
-            client.chat(
-                messages=[{"role": "user", "content": "Hello"}],
-                model="qgenie-4.0-mini"
-            )
-
-            session["qgenie_api_key"] = api_key
-            session["qgenie_ready"] = True
-            session.pop("needs_qgenie_popup", None)
-            session.modified = True
-
-            return jsonify({
-                "success": True,
-                "message": "QGenie configured successfully."
-            })
-
-        except Exception as e:
-            logger.info(f"QGenie validation failed: {e}")
-            session.pop("qgenie_api_key", None)
-            session.pop("qgenie_ready", None)
-
-            return jsonify({
-                "success": False,
-                "message": "Invalid QGenie API key."
-            }), 401
-
-    except Exception as e:
-        logger.info(f"/api/qgenie/configure error: {e}")
-        return jsonify({
-            "success": False,
-            "message": "Server error during QGenie validation."
-        }), 500
-    
 
 
 # ====================================================================================
@@ -9141,8 +9084,6 @@ def main():
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
     PORT = int(os.environ.get('BUDDY_PORT', '50'))
-    # HOST = os.environ.get('BUDDY_HOST', '127.0.0.1')
-    # PORT = int(os.environ.get('BUDDY_PORT', '500'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

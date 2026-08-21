@@ -1,0 +1,1115 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+/* ── Page shell ── */
+.pdt-dept-page { max-width: 1400px; margin: 0 auto; padding: 24px 20px 60px; }
+
+/* ── Header ── */
+.pdt-dept-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
+  border-radius: 24px;
+  padding: 28px 32px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 20px 60px rgba(15,23,42,.30);
+  flex-wrap: wrap;
+}
+.pdt-dept-header-left { display: flex; align-items: center; gap: 18px; }
+.pdt-dept-header-icon {
+  width: 60px; height: 60px; border-radius: 18px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; color: #fff;
+  box-shadow: 0 12px 28px rgba(59,130,246,.40);
+  flex-shrink: 0;
+}
+.pdt-dept-title { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: -.03em; margin: 0; }
+.pdt-dept-subtitle { font-size: 13px; color: rgba(186,230,253,.80); font-weight: 600; margin-top: 3px; }
+.pdt-dept-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ── Save bar ── */
+.pdt-save-bar {
+  display: none;
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(135deg, #065f46, #047857);
+  border-radius: 14px;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: 0 8px 24px rgba(5,150,105,.30);
+  flex-wrap: wrap;
+}
+.pdt-save-bar.hidden { display: none !important; }
+.pdt-save-bar-msg { color: #d1fae5; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.pdt-save-bar-actions { display: flex; gap: 8px; }
+
+/* ── Tabs ── */
+.pdt-tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+.pdt-tab {
+  padding: 10px 22px; border-radius: 999px;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  border: 2px solid transparent;
+  background: rgba(255,255,255,.08);
+  color: #64748b;
+  transition: all .18s;
+  display: flex; align-items: center; gap: 8px;
+}
+.pdt-tab:hover { background: #f1f5f9; color: #1e293b; }
+.pdt-tab.active {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 6px 18px rgba(37,99,235,.30);
+}
+.pdt-tab .tab-count {
+  background: rgba(255,255,255,.22); color: #fff;
+  border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 900;
+}
+.pdt-tab:not(.active) .tab-count { background: #e2e8f0; color: #475569; }
+
+/* ── Tab panels ── */
+.pdt-tab-panel { display: none; }
+.pdt-tab-panel.active { display: block; }
+
+/* ── Section cards ── */
+.pdt-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 12px rgba(15,23,42,.05);
+  position: relative;
+  overflow: hidden;
+}
+.pdt-section::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--section-accent, linear-gradient(90deg, #3b82f6, #06b6d4));
+  border-radius: 20px 20px 0 0;
+}
+.pdt-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
+}
+.pdt-section-title {
+  font-size: 14px; font-weight: 900; color: #0f172a;
+  display: flex; align-items: center; gap: 8px;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.pdt-section-title i { color: var(--section-icon-color, #3b82f6); }
+.pdt-section-desc { font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 2px; }
+
+/* ── Tag list ── */
+.pdt-tag-list { display: flex; flex-wrap: wrap; gap: 7px; min-height: 32px; }
+.pdt-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  background: #f1f5f9; color: #334155;
+  border: 1px solid #e2e8f0;
+  transition: all .15s;
+}
+.pdt-tag.dept-id { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; font-family: monospace; font-size: 11px; }
+.pdt-tag.transfer { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.pdt-tag.exclusion { background: #fee2e2; color: #991b1c; border-color: #fecaca; }
+.pdt-tag.hwpdt { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.pdt-tag.additional { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
+.pdt-tag.date-excl { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.pdt-tag-remove {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(0,0,0,.12); color: inherit;
+  border: none; cursor: pointer; font-size: 9px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.pdt-tag-remove:hover { background: rgba(220,38,38,.25); color: #dc2626; }
+
+/* ── Add input row ── */
+.pdt-add-row {
+  display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.pdt-add-input {
+  flex: 1; min-width: 160px;
+  border: 1.5px solid #e2e8f0; border-radius: 999px;
+  padding: 7px 14px; font-size: 12px; outline: none;
+  background: #f8fafc; color: #1e293b;
+  transition: border-color .15s, box-shadow .15s;
+}
+.pdt-add-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); background: #fff; }
+.pdt-add-btn {
+  padding: 7px 16px; border-radius: 999px; border: none;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff; font-size: 12px; font-weight: 800; cursor: pointer;
+  white-space: nowrap;
+  transition: filter .15s;
+}
+.pdt-add-btn:hover { filter: brightness(1.1); }
+
+/* ── Exclusion date map ── */
+.pdt-excl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pdt-excl-table th {
+  background: #f8fafc; padding: 8px 12px; text-align: left;
+  font-weight: 800; color: #475569; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 2px solid #e2e8f0;
+}
+.pdt-excl-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+.pdt-excl-table tr:last-child td { border-bottom: none; }
+.pdt-excl-table tr:hover td { background: #f8fafc; }
+.pdt-excl-date-input {
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 4px 8px; font-size: 11px; outline: none;
+  background: #f8fafc;
+}
+.pdt-excl-date-input:focus { border-color: #3b82f6; background: #fff; }
+.pdt-excl-team-select {
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 4px 8px; font-size: 11px; outline: none;
+  background: #f8fafc;
+}
+
+/* ── Stats row ── */
+.pdt-stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.pdt-stat-card {
+  flex: 1; min-width: 140px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(15,23,42,.05);
+  display: flex; align-items: center; gap: 12px;
+}
+.pdt-stat-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.pdt-stat-val { font-size: 22px; font-weight: 900; color: #0f172a; line-height: 1; }
+.pdt-stat-lbl { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+/* ── Buttons ── */
+.btn-pdt-primary {
+  padding: 9px 20px; border-radius: 999px; border: none;
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: #fff; font-size: 13px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37,99,235,.30);
+  transition: filter .15s, transform .15s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.btn-pdt-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-pdt-secondary {
+  padding: 9px 20px; border-radius: 999px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff; color: #374151; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.btn-pdt-secondary:hover { background: #f1f5f9; }
+.btn-pdt-danger {
+  padding: 9px 20px; border-radius: 999px; border: none;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff; font-size: 13px; font-weight: 800; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+
+/* ── Toast ── */
+#pdtToast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 99999;
+  padding: 12px 20px; border-radius: 14px;
+  font-size: 13px; font-weight: 700; color: #fff;
+  box-shadow: 0 12px 32px rgba(0,0,0,.20);
+  display: none; align-items: center; gap: 10px;
+  max-width: 360px;
+  animation: pdtToastIn .25s ease;
+}
+@keyframes pdtToastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#pdtToast.success { background: linear-gradient(135deg, #059669, #047857); }
+#pdtToast.error   { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+#pdtToast.info    { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+
+/* ── Empty state ── */
+.pdt-empty { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; font-style: italic; }
+
+/* ── Dept ID grid ── */
+.pdt-dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+.pdt-dept-id-card {
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+  padding: 8px 10px; text-align: center;
+  font-family: monospace; font-size: 12px; font-weight: 700; color: #1d4ed8;
+  position: relative;
+}
+.pdt-dept-id-card .remove-dept {
+  position: absolute; top: -5px; right: -5px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #dc2626; color: #fff; border: none; cursor: pointer;
+  font-size: 9px; display: none; align-items: center; justify-content: center;
+}
+.pdt-dept-id-card:hover .remove-dept { display: flex; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .pdt-dept-header { padding: 18px 16px; }
+  .pdt-dept-title { font-size: 20px; }
+  .pdt-stats-row { gap: 8px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pdt-dept-page">
+
+  <!-- ── Header ── -->
+  <div class="pdt-dept-header">
+    <div class="pdt-dept-header-left">
+      <div class="pdt-dept-header-icon"><i class="fas fa-users"></i></div>
+      <div>
+        <h1 class="pdt-dept-title">PDT Department Config</h1>
+        <div class="pdt-dept-subtitle">
+          <i class="fas fa-users" style="margin-right:5px;"></i>
+          QIPL &nbsp;/&nbsp; CH &nbsp;/&nbsp; SD &nbsp;/&nbsp; FF
+        </div>
+      </div>
+    </div>
+    <div class="pdt-dept-header-actions">
+      {% if is_admin %}
+      <button class="btn-pdt-primary" id="pdtSaveAllBtn" onclick="pdtSaveAll()">
+        <i class="fas fa-save"></i> Save All Changes
+      </button>
+      {% endif %}
+      <button class="btn-pdt-secondary" onclick="window.location.reload()">
+        <i class="fas fa-sync-alt"></i> Reload
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Save bar ── -->
+  <div class="pdt-save-bar hidden" id="pdtSaveBar">
+    <div class="pdt-save-bar-msg">
+      <i class="fas fa-exclamation-circle"></i>
+      You have unsaved changes
+    </div>
+    <div class="pdt-save-bar-actions">
+      <button class="btn-pdt-primary" onclick="pdtSaveAll()" style="padding:7px 16px;font-size:12px;">
+        <i class="fas fa-save"></i> Save Now
+      </button>
+      <button class="btn-pdt-secondary" onclick="window.location.reload()" style="padding:7px 16px;font-size:12px;">
+        Discard
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Stats row ── -->
+  <div class="pdt-stats-row" id="pdtStatsRow">
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);">
+        <i class="fas fa-map-marker-alt" style="color:#1d4ed8;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statQIPL">{{ (cfg.get('PDT_QIPL_DEPT') or [])|length }}</div>
+        <div class="pdt-stat-lbl">QIPL Depts</div>
+      </div>
+    </div>
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8);">
+        <i class="fas fa-globe-asia" style="color:#be185d;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statCH">{{ (cfg.get('PDT_CH_DEPT') or [])|length }}</div>
+        <div class="pdt-stat-lbl">CH Depts</div>
+      </div>
+    </div>
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);">
+        <i class="fas fa-flag-usa" style="color:#065f46;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statSD">{{ (cfg.get('PDT_SD_DEPT') or [])|length }}</div>
+        <div class="pdt-stat-lbl">SD Depts</div>
+      </div>
+    </div>
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);">
+        <i class="fas fa-user-times" style="color:#dc2626;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statExcl">{{ (cfg.get('PDT_Exclusion_LIST') or [])|length }}</div>
+        <div class="pdt-stat-lbl">Exclusions</div>
+      </div>
+    </div>
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);">
+        <i class="fas fa-exchange-alt" style="color:#d97706;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statTransfer">
+          {{ ((cfg.get('PDT_QIPL_TRANSFER_LIST') or []) + (cfg.get('PDT_CH_TRANSFER_LIST') or []) + (cfg.get('PDT_FF_TRANSFER_LIST') or []))|length }}
+        </div>
+        <div class="pdt-stat-lbl">Transfers</div>
+      </div>
+    </div>
+    <div class="pdt-stat-card">
+      <div class="pdt-stat-icon" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+        <i class="fas fa-microchip" style="color:#166534;"></i>
+      </div>
+      <div>
+        <div class="pdt-stat-val" id="statHWPDT">{{ (cfg.get('PDT_QIPL_HWPDT_Team') or [])|length }}</div>
+        <div class="pdt-stat-lbl">HWPDT Team</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="pdt-tabs">
+    <button class="pdt-tab active" onclick="pdtShowTab('qipl', this)">
+      <i class="fas fa-map-marker-alt"></i> QIPL (Hyderabad)
+      <span class="tab-count" id="tabCountQIPL">{{ (cfg.get('PDT_QIPL_DEPT') or [])|length }}</span>
+    </button>
+    <button class="pdt-tab" onclick="pdtShowTab('ch', this)">
+      <i class="fas fa-globe-asia"></i> CH (China)
+      <span class="tab-count" id="tabCountCH">{{ (cfg.get('PDT_CH_DEPT') or [])|length }}</span>
+    </button>
+    <button class="pdt-tab" onclick="pdtShowTab('sd', this)">
+      <i class="fas fa-flag-usa"></i> SD (San Diego)
+      <span class="tab-count" id="tabCountSD">{{ (cfg.get('PDT_SD_DEPT') or [])|length }}</span>
+    </button>
+    <button class="pdt-tab" onclick="pdtShowTab('global', this)">
+      <i class="fas fa-shield-alt"></i> Global / Exclusions
+      <span class="tab-count" id="tabCountGlobal">{{ (cfg.get('PDT_Exclusion_LIST') or [])|length }}</span>
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB: QIPL
+  ══════════════════════════════════════════════════════ -->
+  <div class="pdt-tab-panel active" id="panel-qipl">
+
+    <!-- Dept IDs -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#3b82f6,#06b6d4); --section-icon-color:#3b82f6;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-id-badge"></i> QIPL Department IDs</div>
+          <div class="pdt-section-desc">Dept numbers that belong to PDT QIPL team</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="qiplDeptCount">{{ (cfg.get('PDT_QIPL_DEPT') or [])|length }} IDs</span>
+      </div>
+      <div class="pdt-dept-grid" id="qiplDeptGrid">
+        {% for d in (cfg.get('PDT_QIPL_DEPT') or []) %}
+        <div class="pdt-dept-id-card" data-id="{{ d }}">
+          {{ d }}
+          {% if is_admin %}<button class="remove-dept" onclick="pdtRemoveDeptId('PDT_QIPL_DEPT','{{ d }}',this)" title="Remove">×</button>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addQiplDeptInput" placeholder="Dept ID e.g. 12345" maxlength="10">
+        <button class="pdt-add-btn" onclick="pdtAddDeptId('PDT_QIPL_DEPT','addQiplDeptInput','qiplDeptGrid','qiplDeptCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Transfer List -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#f59e0b,#ef4444); --section-icon-color:#f59e0b;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-exchange-alt"></i> QIPL Transfer / Left PDT List</div>
+          <div class="pdt-section-desc">People who moved out of PDT QIPL — excluded from team counts</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="qiplTransferCount">{{ (cfg.get('PDT_QIPL_TRANSFER_LIST') or [])|length }} people</span>
+      </div>
+      <div class="pdt-tag-list" id="qiplTransferList">
+        {% for name in (cfg.get('PDT_QIPL_TRANSFER_LIST') or []) %}
+        <span class="pdt-tag transfer" data-name="{{ name }}">
+          <i class="fas fa-user-minus" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_QIPL_TRANSFER_LIST','{{ name }}',this,'qiplTransferCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_QIPL_TRANSFER_LIST') %}<div class="pdt-empty">No transfers recorded</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addQiplTransferInput" placeholder="Full name e.g. Mohit Dubey">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="pdtAddName('PDT_QIPL_TRANSFER_LIST','addQiplTransferInput','qiplTransferList','transfer','qiplTransferCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- HWPDT Team -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#10b981,#06b6d4); --section-icon-color:#10b981;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-microchip"></i> HWPDT Team (QIPL)</div>
+          <div class="pdt-section-desc">Hardware PDT team members in QIPL</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="hwpdtTeamCount">{{ (cfg.get('PDT_QIPL_HWPDT_Team') or [])|length }} members</span>
+      </div>
+      <div class="pdt-tag-list" id="hwpdtTeamList">
+        {% for name in (cfg.get('PDT_QIPL_HWPDT_Team') or []) %}
+        <span class="pdt-tag hwpdt" data-name="{{ name }}">
+          <i class="fas fa-user-cog" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_QIPL_HWPDT_Team','{{ name }}',this,'hwpdtTeamCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_QIPL_HWPDT_Team') %}<div class="pdt-empty">No members</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addHwpdtTeamInput" placeholder="Full name">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#10b981,#059669);" onclick="pdtAddName('PDT_QIPL_HWPDT_Team','addHwpdtTeamInput','hwpdtTeamList','hwpdt','hwpdtTeamCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- HWPDT Ex-Team -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#6366f1,#8b5cf6); --section-icon-color:#6366f1;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-user-slash"></i> HWPDT Ex-Team (QIPL)</div>
+          <div class="pdt-section-desc">Former HWPDT team members</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="hwpdtExTeamCount">{{ (cfg.get('PDT_QIPL_HWPDT_ExTeam') or [])|length }} members</span>
+      </div>
+      <div class="pdt-tag-list" id="hwpdtExTeamList">
+        {% for name in (cfg.get('PDT_QIPL_HWPDT_ExTeam') or []) %}
+        <span class="pdt-tag additional" data-name="{{ name }}">
+          <i class="fas fa-user-slash" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_QIPL_HWPDT_ExTeam','{{ name }}',this,'hwpdtExTeamCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_QIPL_HWPDT_ExTeam') %}<div class="pdt-empty">No ex-members</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addHwpdtExInput" placeholder="Full name">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5);" onclick="pdtAddName('PDT_QIPL_HWPDT_ExTeam','addHwpdtExInput','hwpdtExTeamList','additional','hwpdtExTeamCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- user_dept_team_map -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#0ea5e9,#6366f1); --section-icon-color:#0ea5e9;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-sitemap"></i> User → Dept → Team Map</div>
+          <div class="pdt-section-desc">Maps dept IDs to specific users and their team</div>
+        </div>
+      </div>
+      <table class="pdt-excl-table">
+        <thead><tr><th>Dept ID</th><th>Team</th><th>Users</th></tr></thead>
+        <tbody>
+          {% for dept_id, info in (cfg.get('user_dept_team_map') or {}).items() %}
+          <tr>
+            <td><span class="pdt-tag dept-id">{{ dept_id }}</span></td>
+            <td><span class="pdt-tag hwpdt">{{ info.get('team','') }}</span></td>
+            <td style="font-size:11px;color:#475569;">{{ (info.get('users') or [])|join(', ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /panel-qipl -->
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB: CH
+  ══════════════════════════════════════════════════════ -->
+  <div class="pdt-tab-panel" id="panel-ch">
+
+    <!-- Dept IDs -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#ec4899,#f43f5e); --section-icon-color:#ec4899;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-id-badge"></i> CH Department IDs</div>
+          <div class="pdt-section-desc">Dept numbers that belong to PDT China team</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="chDeptCount">{{ (cfg.get('PDT_CH_DEPT') or [])|length }} IDs</span>
+      </div>
+      <div class="pdt-dept-grid" id="chDeptGrid">
+        {% for d in (cfg.get('PDT_CH_DEPT') or []) %}
+        <div class="pdt-dept-id-card" style="background:#fdf2f8;border-color:#fbcfe8;color:#be185d;" data-id="{{ d }}">
+          {{ d }}
+          {% if is_admin %}<button class="remove-dept" onclick="pdtRemoveDeptId('PDT_CH_DEPT','{{ d }}',this)" title="Remove">×</button>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addChDeptInput" placeholder="Dept ID e.g. 89068" maxlength="10">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#ec4899,#be185d);" onclick="pdtAddDeptId('PDT_CH_DEPT','addChDeptInput','chDeptGrid','chDeptCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Additional Dept IDs -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#a855f7,#ec4899); --section-icon-color:#a855f7;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-plus-circle"></i> CH Additional Dept IDs</div>
+          <div class="pdt-section-desc">Extra dept IDs added for CH coverage</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="chAddlDeptCount">{{ (cfg.get('PDT_CH_Additional_Dept') or [])|length }} IDs</span>
+      </div>
+      <div class="pdt-dept-grid" id="chAddlDeptGrid">
+        {% for d in (cfg.get('PDT_CH_Additional_Dept') or []) %}
+        <div class="pdt-dept-id-card" style="background:#fdf4ff;border-color:#e9d5ff;color:#7e22ce;" data-id="{{ d }}">
+          {{ d }}
+          {% if is_admin %}<button class="remove-dept" onclick="pdtRemoveDeptId('PDT_CH_Additional_Dept','{{ d }}',this)" title="Remove">×</button>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addChAddlDeptInput" placeholder="Dept ID" maxlength="10">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#a855f7,#7e22ce);" onclick="pdtAddDeptId('PDT_CH_Additional_Dept','addChAddlDeptInput','chAddlDeptGrid','chAddlDeptCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Additional Users -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#8b5cf6,#6366f1); --section-icon-color:#8b5cf6;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-user-plus"></i> CH Additional Users</div>
+          <div class="pdt-section-desc">Extra users added manually for CH team (by username or full name)</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="chAddlUserCount">{{ (cfg.get('PDT_CH_Additional_user') or [])|length }} users</span>
+      </div>
+      <div class="pdt-tag-list" id="chAddlUserList">
+        {% for name in (cfg.get('PDT_CH_Additional_user') or []) %}
+        <span class="pdt-tag additional" data-name="{{ name }}">
+          <i class="fas fa-user" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_CH_Additional_user','{{ name }}',this,'chAddlUserCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_CH_Additional_user') %}<div class="pdt-empty">No additional users</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addChAddlUserInput" placeholder="Username or full name">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);" onclick="pdtAddName('PDT_CH_Additional_user','addChAddlUserInput','chAddlUserList','additional','chAddlUserCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Transfer List -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#f59e0b,#ef4444); --section-icon-color:#f59e0b;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-exchange-alt"></i> CH Transfer / Left PDT List</div>
+          <div class="pdt-section-desc">People who moved out of PDT CH — excluded from team counts</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="chTransferCount">{{ (cfg.get('PDT_CH_TRANSFER_LIST') or [])|length }} people</span>
+      </div>
+      <div class="pdt-tag-list" id="chTransferList">
+        {% for name in (cfg.get('PDT_CH_TRANSFER_LIST') or []) %}
+        <span class="pdt-tag transfer" data-name="{{ name }}">
+          <i class="fas fa-user-minus" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_CH_TRANSFER_LIST','{{ name }}',this,'chTransferCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_CH_TRANSFER_LIST') %}<div class="pdt-empty">No transfers recorded</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addChTransferInput" placeholder="Full name">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="pdtAddName('PDT_CH_TRANSFER_LIST','addChTransferInput','chTransferList','transfer','chTransferCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /panel-ch -->
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB: SD
+  ══════════════════════════════════════════════════════ -->
+  <div class="pdt-tab-panel" id="panel-sd">
+
+    <!-- Dept IDs -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#10b981,#06b6d4); --section-icon-color:#10b981;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-id-badge"></i> SD Department IDs</div>
+          <div class="pdt-section-desc">Dept numbers that belong to PDT San Diego team</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="sdDeptCount">{{ (cfg.get('PDT_SD_DEPT') or [])|length }} IDs</span>
+      </div>
+      <div class="pdt-dept-grid" id="sdDeptGrid">
+        {% for d in (cfg.get('PDT_SD_DEPT') or []) %}
+        <div class="pdt-dept-id-card" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534;" data-id="{{ d }}">
+          {{ d }}
+          {% if is_admin %}<button class="remove-dept" onclick="pdtRemoveDeptId('PDT_SD_DEPT','{{ d }}',this)" title="Remove">×</button>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addSdDeptInput" placeholder="Dept ID e.g. 05411" maxlength="10">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#10b981,#059669);" onclick="pdtAddDeptId('PDT_SD_DEPT','addSdDeptInput','sdDeptGrid','sdDeptCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- FF Dept IDs -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#0ea5e9,#6366f1); --section-icon-color:#0ea5e9;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-id-badge"></i> FF Department IDs</div>
+          <div class="pdt-section-desc">Dept numbers for FF (Far Field) team</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="ffDeptCount">{{ (cfg.get('PDT_FF_DEPT') or [])|length }} IDs</span>
+      </div>
+      <div class="pdt-dept-grid" id="ffDeptGrid">
+        {% for d in (cfg.get('PDT_FF_DEPT') or []) %}
+        <div class="pdt-dept-id-card" style="background:#f0f9ff;border-color:#bae6fd;color:#0369a1;" data-id="{{ d }}">
+          {{ d }}
+          {% if is_admin %}<button class="remove-dept" onclick="pdtRemoveDeptId('PDT_FF_DEPT','{{ d }}',this)" title="Remove">×</button>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addFfDeptInput" placeholder="Dept ID" maxlength="10">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);" onclick="pdtAddDeptId('PDT_FF_DEPT','addFfDeptInput','ffDeptGrid','ffDeptCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- FF Transfer List -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#f59e0b,#ef4444); --section-icon-color:#f59e0b;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-exchange-alt"></i> FF Transfer / Left PDT List</div>
+          <div class="pdt-section-desc">People who moved out of PDT FF</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="ffTransferCount">{{ (cfg.get('PDT_FF_TRANSFER_LIST') or [])|length }} people</span>
+      </div>
+      <div class="pdt-tag-list" id="ffTransferList">
+        {% for name in (cfg.get('PDT_FF_TRANSFER_LIST') or []) %}
+        <span class="pdt-tag transfer" data-name="{{ name }}">
+          <i class="fas fa-user-minus" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_FF_TRANSFER_LIST','{{ name }}',this,'ffTransferCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_FF_TRANSFER_LIST') %}<div class="pdt-empty">No transfers recorded</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addFfTransferInput" placeholder="Full name">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="pdtAddName('PDT_FF_TRANSFER_LIST','addFfTransferInput','ffTransferList','transfer','ffTransferCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /panel-sd -->
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB: GLOBAL / EXCLUSIONS
+  ══════════════════════════════════════════════════════ -->
+  <div class="pdt-tab-panel" id="panel-global">
+
+    <!-- Exclusion List -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#dc2626,#f43f5e); --section-icon-color:#dc2626;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-ban"></i> Global Exclusion List</div>
+          <div class="pdt-section-desc">People excluded from ALL PDT team counts regardless of dept</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="exclListCount">{{ (cfg.get('PDT_Exclusion_LIST') or [])|length }} people</span>
+      </div>
+      <div class="pdt-tag-list" id="exclList">
+        {% for name in (cfg.get('PDT_Exclusion_LIST') or []) %}
+        <span class="pdt-tag exclusion" data-name="{{ name }}">
+          <i class="fas fa-ban" style="font-size:9px;"></i>
+          {{ name }}
+          {% if is_admin %}<button class="pdt-tag-remove" onclick="pdtRemoveName('PDT_Exclusion_LIST','{{ name }}',this,'exclListCount')" title="Remove">×</button>{% endif %}
+        </span>
+        {% endfor %}
+        {% if not cfg.get('PDT_Exclusion_LIST') %}<div class="pdt-empty">No global exclusions</div>{% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="pdt-add-row">
+        <input class="pdt-add-input" id="addExclInput" placeholder="Full name to exclude">
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#dc2626,#b91c1c);" onclick="pdtAddName('PDT_Exclusion_LIST','addExclInput','exclList','exclusion','exclListCount')">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Exclusion Date Map -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#f97316,#dc2626); --section-icon-color:#f97316;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-calendar-times"></i> Exclusion Date Map</div>
+          <div class="pdt-section-desc">
+            People excluded from a specific date — e.g. employee moved out of PDT on a known date.
+            <strong style="color:#dc2626;">Mohit Dubey</strong> is here with date 2026-01-01.
+          </div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;" id="exclDateCount">{{ (cfg.get('PDT_Exclusion_DATE_MAP') or {})|length }} entries</span>
+      </div>
+
+      <table class="pdt-excl-table" id="exclDateTable">
+        <thead>
+          <tr>
+            <th>Name (lowercase key)</th>
+            <th>Exclusion Date</th>
+            <th>Team</th>
+            {% if is_admin %}<th style="width:60px;">Action</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="exclDateBody">
+          {% for name_key, info in (cfg.get('PDT_Exclusion_DATE_MAP') or {}).items() %}
+          <tr data-key="{{ name_key }}">
+            <td>
+              <span class="pdt-tag date-excl" style="font-size:11px;">
+                <i class="fas fa-user-clock" style="font-size:9px;"></i>
+                {{ name_key }}
+              </span>
+            </td>
+            <td>
+              {% if is_admin %}
+              <input type="date" class="pdt-excl-date-input" value="{{ info.get('date','') }}"
+                     onchange="pdtUpdateExclDate('{{ name_key }}', 'date', this.value)">
+              {% else %}
+              <span class="pdt-tag" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa;">{{ info.get('date','') }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if is_admin %}
+              <select class="pdt-excl-team-select" onchange="pdtUpdateExclDate('{{ name_key }}', 'team', this.value)">
+                <option value="PDT_QIPL" {% if info.get('team') == 'PDT_QIPL' %}selected{% endif %}>PDT_QIPL</option>
+                <option value="PDT_CH"   {% if info.get('team') == 'PDT_CH'   %}selected{% endif %}>PDT_CH</option>
+                <option value="PDT_SD"   {% if info.get('team') == 'PDT_SD'   %}selected{% endif %}>PDT_SD</option>
+                <option value="PDT_FF"   {% if info.get('team') == 'PDT_FF'   %}selected{% endif %}>PDT_FF</option>
+              </select>
+              {% else %}
+              <span class="pdt-tag hwpdt">{{ info.get('team','') }}</span>
+              {% endif %}
+            </td>
+            {% if is_admin %}
+            <td>
+              <button class="pdt-tag-remove" style="width:24px;height:24px;font-size:11px;"
+                      onclick="pdtRemoveExclDate('{{ name_key }}', this)" title="Remove">×</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if is_admin %}
+      <div class="pdt-add-row" style="margin-top:14px;align-items:flex-end;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px;">
+          <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Name (lowercase)</label>
+          <input class="pdt-add-input" id="addExclDateName" placeholder="e.g. mohit dubey" style="border-radius:10px;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Date</label>
+          <input type="date" class="pdt-add-input" id="addExclDateDate" style="border-radius:10px;min-width:140px;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Team</label>
+          <select class="pdt-add-input" id="addExclDateTeam" style="border-radius:10px;">
+            <option value="PDT_QIPL">PDT_QIPL</option>
+            <option value="PDT_CH">PDT_CH</option>
+            <option value="PDT_SD">PDT_SD</option>
+            <option value="PDT_FF">PDT_FF</option>
+          </select>
+        </div>
+        <button class="pdt-add-btn" style="background:linear-gradient(135deg,#f97316,#dc2626);align-self:flex-end;" onclick="pdtAddExclDate()">
+          <i class="fas fa-plus"></i> Add Entry
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- dept_team_map summary -->
+    <div class="pdt-section" style="--section-accent: linear-gradient(90deg,#64748b,#475569); --section-icon-color:#64748b;">
+      <div class="pdt-section-header">
+        <div>
+          <div class="pdt-section-title"><i class="fas fa-table"></i> Dept → Team Map (auto-generated)</div>
+          <div class="pdt-section-desc">Read-only summary — auto-built from dept lists above</div>
+        </div>
+        <span style="font-size:11px;color:#94a3b8;font-weight:700;">{{ (cfg.get('dept_team_map') or {})|length }} entries</span>
+      </div>
+      <div style="max-height:200px;overflow-y:auto;">
+        <table class="pdt-excl-table">
+          <thead><tr><th>Dept ID</th><th>Team</th></tr></thead>
+          <tbody>
+            {% for dept_id, team in (cfg.get('dept_team_map') or {}).items() %}
+            <tr>
+              <td><span class="pdt-tag dept-id">{{ dept_id }}</span></td>
+              <td><span class="pdt-tag hwpdt" style="font-size:10px;">{{ team }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /panel-global -->
+
+</div><!-- /pdt-dept-page -->
+
+<!-- Toast -->
+<div id="pdtToast"></div>
+
+<script>
+// ── In-memory config state ──
+var pdtConfig = {{ cfg | tojson }};
+var pdtDirty = false;
+var isAdmin = {{ 'true' if is_admin else 'false' }};
+
+function pdtMarkDirty() {
+  pdtDirty = true;
+  document.getElementById('pdtSaveBar').classList.remove('hidden');
+}
+
+// ── Tab switching ──
+function pdtShowTab(name, btn) {
+  document.querySelectorAll('.pdt-tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.pdt-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Toast ──
+function pdtToast(msg, type) {
+  var t = document.getElementById('pdtToast');
+  t.textContent = msg;
+  t.className = type || 'info';
+  t.style.display = 'flex';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.style.display = 'none'; }, 3500);
+}
+
+// ── Remove dept ID card ──
+function pdtRemoveDeptId(listKey, id, btn) {
+  if (!isAdmin) return;
+  var arr = pdtConfig[listKey] || [];
+  pdtConfig[listKey] = arr.filter(function(x){ return x !== id; });
+  var card = btn.closest('.pdt-dept-id-card');
+  if (card) card.remove();
+  pdtMarkDirty();
+  pdtUpdateCountLabel(listKey);
+}
+
+// ── Add dept ID ──
+function pdtAddDeptId(listKey, inputId, gridId, countId) {
+  if (!isAdmin) return;
+  var input = document.getElementById(inputId);
+  var val = (input.value || '').trim();
+  if (!val) { pdtToast('Please enter a dept ID', 'error'); return; }
+  var arr = pdtConfig[listKey] || [];
+  if (arr.indexOf(val) !== -1) { pdtToast('Already exists: ' + val, 'error'); return; }
+  arr.push(val);
+  pdtConfig[listKey] = arr;
+  // Add card to grid
+  var grid = document.getElementById(gridId);
+  var card = document.createElement('div');
+  card.className = 'pdt-dept-id-card';
+  card.setAttribute('data-id', val);
+  card.innerHTML = val + '<button class="remove-dept" onclick="pdtRemoveDeptId(\'' + listKey + '\',\'' + val + '\',this)" title="Remove">\xd7</button>';
+  grid.appendChild(card);
+  input.value = '';
+  pdtMarkDirty();
+  pdtUpdateCountLabel(listKey);
+}
+
+// ── Remove name tag ──
+function pdtRemoveName(listKey, name, btn, countId) {
+  if (!isAdmin) return;
+  var arr = pdtConfig[listKey] || [];
+  pdtConfig[listKey] = arr.filter(function(x){ return x !== name; });
+  var tag = btn.closest('.pdt-tag');
+  if (tag) tag.remove();
+  pdtMarkDirty();
+  pdtUpdateCountLabel(listKey);
+}
+
+// ── Add name tag ──
+function pdtAddName(listKey, inputId, listContainerId, tagClass, countId) {
+  if (!isAdmin) return;
+  var input = document.getElementById(inputId);
+  var val = (input.value || '').trim();
+  if (!val) { pdtToast('Please enter a name', 'error'); return; }
+  var arr = pdtConfig[listKey] || [];
+  if (arr.indexOf(val) !== -1) { pdtToast('Already exists: ' + val, 'error'); return; }
+  arr.push(val);
+  pdtConfig[listKey] = arr;
+  // Add tag to list
+  var container = document.getElementById(listContainerId);
+  // Remove empty state if present
+  var empty = container.querySelector('.pdt-empty');
+  if (empty) empty.remove();
+  var tag = document.createElement('span');
+  tag.className = 'pdt-tag ' + tagClass;
+  tag.setAttribute('data-name', val);
+  tag.innerHTML = '<i class="fas fa-user" style="font-size:9px;"></i> ' + val +
+    ' <button class="pdt-tag-remove" onclick="pdtRemoveName(\'' + listKey + '\',\'' + val.replace(/'/g, "\\'") + '\',this,\'' + countId + '\')" title="Remove">\xd7</button>';
+  container.appendChild(tag);
+  input.value = '';
+  pdtMarkDirty();
+  pdtUpdateCountLabel(listKey);
+}
+
+// ── Update exclusion date map entry ──
+function pdtUpdateExclDate(nameKey, field, value) {
+  if (!isAdmin) return;
+  var map = pdtConfig['PDT_Exclusion_DATE_MAP'] || {};
+  if (!map[nameKey]) map[nameKey] = {};
+  map[nameKey][field] = value;
+  pdtConfig['PDT_Exclusion_DATE_MAP'] = map;
+  pdtMarkDirty();
+}
+
+// ── Remove exclusion date map entry ──
+function pdtRemoveExclDate(nameKey, btn) {
+  if (!isAdmin) return;
+  var map = pdtConfig['PDT_Exclusion_DATE_MAP'] || {};
+  delete map[nameKey];
+  pdtConfig['PDT_Exclusion_DATE_MAP'] = map;
+  var row = btn.closest('tr');
+  if (row) row.remove();
+  pdtMarkDirty();
+  var count = Object.keys(map).length;
+  var el = document.getElementById('exclDateCount');
+  if (el) el.textContent = count + ' entries';
+}
+
+// ── Add exclusion date map entry ──
+function pdtAddExclDate() {
+  if (!isAdmin) return;
+  var nameVal = (document.getElementById('addExclDateName').value || '').trim().toLowerCase();
+  var dateVal = (document.getElementById('addExclDateDate').value || '').trim();
+  var teamVal = (document.getElementById('addExclDateTeam').value || '').trim();
+  if (!nameVal || !dateVal) { pdtToast('Name and date are required', 'error'); return; }
+  var map = pdtConfig['PDT_Exclusion_DATE_MAP'] || {};
+  if (map[nameVal]) { pdtToast('Entry already exists for: ' + nameVal, 'error'); return; }
+  map[nameVal] = { date: dateVal, team: teamVal };
+  pdtConfig['PDT_Exclusion_DATE_MAP'] = map;
+  // Add row to table
+  var tbody = document.getElementById('exclDateBody');
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-key', nameVal);
+  tr.innerHTML =
+    '<td><span class="pdt-tag date-excl" style="font-size:11px;"><i class="fas fa-user-clock" style="font-size:9px;"></i> ' + nameVal + '</span></td>' +
+    '<td><input type="date" class="pdt-excl-date-input" value="' + dateVal + '" onchange="pdtUpdateExclDate(\'' + nameVal + '\',\'date\',this.value)"></td>' +
+    '<td><select class="pdt-excl-team-select" onchange="pdtUpdateExclDate(\'' + nameVal + '\',\'team\',this.value)">' +
+      '<option value="PDT_QIPL"' + (teamVal==='PDT_QIPL'?' selected':'') + '>PDT_QIPL</option>' +
+      '<option value="PDT_CH"'   + (teamVal==='PDT_CH'  ?' selected':'') + '>PDT_CH</option>' +
+      '<option value="PDT_SD"'   + (teamVal==='PDT_SD'  ?' selected':'') + '>PDT_SD</option>' +
+      '<option value="PDT_FF"'   + (teamVal==='PDT_FF'  ?' selected':'') + '>PDT_FF</option>' +
+    '</select></td>' +
+    '<td><button class="pdt-tag-remove" style="width:24px;height:24px;font-size:11px;" onclick="pdtRemoveExclDate(\'' + nameVal + '\',this)" title="Remove">\xd7</button></td>';
+  tbody.appendChild(tr);
+  document.getElementById('addExclDateName').value = '';
+  document.getElementById('addExclDateDate').value = '';
+  pdtMarkDirty();
+  var count = Object.keys(map).length;
+  var el = document.getElementById('exclDateCount');
+  if (el) el.textContent = count + ' entries';
+}
+
+// ── Update count labels ──
+var countLabelMap = {
+  'PDT_QIPL_DEPT':           ['qiplDeptCount',    ' IDs',     'tabCountQIPL', 'statQIPL'],
+  'PDT_CH_DEPT':             ['chDeptCount',       ' IDs',     'tabCountCH',   'statCH'],
+  'PDT_SD_DEPT':             ['sdDeptCount',       ' IDs',     'tabCountSD',   'statSD'],
+  'PDT_FF_DEPT':             ['ffDeptCount',       ' IDs',     null,           null],
+  'PDT_CH_Additional_Dept':  ['chAddlDeptCount',   ' IDs',     null,           null],
+  'PDT_QIPL_TRANSFER_LIST':  ['qiplTransferCount', ' people',  null,           null],
+  'PDT_CH_TRANSFER_LIST':    ['chTransferCount',   ' people',  null,           null],
+  'PDT_FF_TRANSFER_LIST':    ['ffTransferCount',   ' people',  null,           null],
+  'PDT_Exclusion_LIST':      ['exclListCount',     ' people',  'tabCountGlobal','statExcl'],
+  'PDT_CH_Additional_user':  ['chAddlUserCount',   ' users',   null,           null],
+  'PDT_QIPL_HWPDT_Team':     ['hwpdtTeamCount',    ' members', null,           'statHWPDT'],
+  'PDT_QIPL_HWPDT_ExTeam':   ['hwpdtExTeamCount',  ' members', null,           null],
+};
+
+function pdtUpdateCountLabel(listKey) {
+  var info = countLabelMap[listKey];
+  if (!info) return;
+  var arr = pdtConfig[listKey] || [];
+  var count = Array.isArray(arr) ? arr.length : Object.keys(arr).length;
+  var labelId = info[0], suffix = info[1], tabId = info[2], statId = info[3];
+  var el = document.getElementById(labelId);
+  if (el) el.textContent = count + suffix;
+  if (tabId) { var te = document.getElementById(tabId); if (te) te.textContent = count; }
+  if (statId) { var se = document.getElementById(statId); if (se) se.textContent = count; }
+  // Update transfer total stat
+  var qt = (pdtConfig['PDT_QIPL_TRANSFER_LIST'] || []).length;
+  var ct = (pdtConfig['PDT_CH_TRANSFER_LIST'] || []).length;
+  var ft = (pdtConfig['PDT_FF_TRANSFER_LIST'] || []).length;
+  var st = document.getElementById('statTransfer');
+  if (st) st.textContent = qt + ct + ft;
+}
+
+// ── Save all ──
+function pdtSaveAll() {
+  if (!isAdmin) return;
+  var btn = document.getElementById('pdtSaveAllBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+  fetch('/api/pdt_department/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config: pdtConfig })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      pdtDirty = false;
+      document.getElementById('pdtSaveBar').classList.add('hidden');
+      pdtToast('\u2713 Saved successfully to JSON file', 'success');
+    } else {
+      pdtToast('\u2717 Save failed: ' + (data.message || 'Unknown error'), 'error');
+    }
+  })
+  .catch(function(e) {
+    pdtToast('\u2717 Network error: ' + e, 'error');
+  })
+  .finally(function() {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes'; }
+  });
+}
+
+// Warn on unsaved changes
+window.addEventListener('beforeunload', function(e) {
+  if (pdtDirty) {
+    e.preventDefault();
+    e.returnValue = 'You have unsaved changes. Leave anyway?';
+  }
+});
+</script>
+{% endblock %}
