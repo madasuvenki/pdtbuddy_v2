@@ -10569,7 +10569,12 @@ def api_sp2_active_devices():
         if builds_chip_universe:
             chips.intersection_update(builds_chip_universe)
         if not chips:
-            continue
+            # Fallback: use device_count to create synthetic unique IDs so
+            # targets with no chip_ids still appear in the Active Devices tab.
+            raw_dev = int(row.get('device_count') or 0)
+            if not raw_dev:
+                continue
+            chips = {f'__dev_{target_key}_{i}' for i in range(raw_dev)}
 
         dash = (_match_dashboard_with_fallback(target, dash_map)
                 or _match_dashboard_with_fallback(pl_id, dash_map)
