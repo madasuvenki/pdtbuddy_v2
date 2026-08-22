@@ -5522,6 +5522,21 @@ def weekly_report_card(card_key):
         ctx.update(_build_cr_age_card(rows, sel_start, sel_end))
     elif card_key == 'cr_pie':
         ctx.update(_build_cr_pie_card(rows))
+    elif card_key == 'sharepoint':
+        # Active Weekly Targets section: build sp_targets from saved sharepoint summaries
+        saved = _fetch_sharepoint_summaries(sel_start, sel_end)
+        sp_targets = []
+        seen_sp = set()
+        for rec in saved:
+            target = str(rec.get('target') or '').strip()
+            pl_id = str(rec.get('pl_id') or '').strip()
+            key = (target.upper(), pl_id.upper())
+            if key not in seen_sp and target:
+                seen_sp.add(key)
+                sp_targets.append({'target': target, 'pl_id': pl_id, 'status': 'saved'})
+        ctx['sp_targets'] = sp_targets
+        ctx['sp_known_targets'] = _fetch_sharepoint_known_targets(sel_end)
+        ctx['sp_bu_options'] = _sp_bu_options()
     elif card_key == 'smart_build':
         # Use the full weekly QIPL dataset for the Sharepoint build selector.
         # Older code filtered to rows where CR/Current Ticket was blank, so the
