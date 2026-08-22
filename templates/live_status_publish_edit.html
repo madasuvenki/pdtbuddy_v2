@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>{{ (job.name or "Live Status")|upper }} -- Published</title>
+  <title>{{ (job.name or "Live Status")|upper }}</title>
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -236,37 +236,10 @@
       </div>
       <button class="lsp-public-api-close" type="button" onclick="lspTogglePublicApiPanel(false)" aria-label="Close Public API panel"><i class="fas fa-times"></i></button>
     </div>
-    <div class="lsp-api-category">
-      <div class="lsp-api-category-head"><i class="fas fa-chart-line" style="color:#4f46e5;"></i> MTBF</div>
-      <div class="lsp-api-version-card">
-        <div>
-          <div class="lsp-api-version-name">Gen 4.5</div>
-          <div class="lsp-api-version-desc">Auto Gen4.5 SP information from the managed JSON.</div>
-        </div>
-        <div class="lsp-api-endpoints">
-          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sps</code></div>
-          <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-        </div>
-        <div class="lsp-api-actions">
-          <a class="lsp-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-        </div>
-      </div>
-                    <div class="lsp-api-version-card" style="border-top:1px solid #e2e8f0;">
-      <div>
-        <div class="lsp-api-version-name">Gen 5</div>
-        <div class="lsp-api-version-desc">Auto Gen5 MTBF domains from Live Status JSON. Targets: <strong>nord_hqx</strong> &amp; <strong>nord_hgy</strong>. Domains: <strong>ADAS</strong>, <strong>FLEX</strong>, <strong>IVI</strong> (plus any custom domains added per target).</div>
-      </div>
-      <div class="lsp-api-endpoints">
-        <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domains?target=nord_hqx</code></div>
-        <div class="lsp-api-endpoint"><span class="lsp-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
-      </div>
-              <div class="lsp-api-actions">
-          <a class="lsp-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-          </div>
-        </div>
-      </div>
-      </div>
-    </section>
+    <div style="padding:16px 18px;display:flex;justify-content:center;">
+      <a class="lsp-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener" style="font-size:14px;padding:10px 24px"><i class="fas fa-external-link-alt"></i> PDT Public APIs</a>
+    </div>
+  </section>
   <script>
 function lspTogglePublicApiPanel(forceOpen){
 var panel = document.getElementById('lspPublicApiPanel');
@@ -5902,21 +5875,11 @@ _mtbfOpenInTab(canvas, showMsg);
 function _mtbfOpenInTab(canvas, showMsg){
 try{
 var dataUrl = canvas.toDataURL('image/png');
-var win = window.open('', '_blank');
+var win = window.open(dataUrl, '_blank');
 if(win){
-win.document.write(
-'<html><head><title>MTBF Chart</title>'
-+'<style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}'
-+'.tip{color:#94a3b8;font-family:sans-serif;font-size:13px;background:rgba(255,255,255,.07);padding:8px 18px;border-radius:8px}'
-+'</style></head><body>'
-+'<p class="tip">\u2139\ufe0f Right-click image \u2192 <b>Copy Image</b></p>'
-+'<img src="'+dataUrl+'" style="max-width:98vw;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
-+'</body></html>'
-);
-win.document.close();
-showMsg('\u2139 Opened in new tab \u2014 right-click \u2192 Copy Image');
+showMsg('Image opened in new tab - right-click and Copy Image');
 } else {
-showMsg('Popup blocked \u2014 allow popups and retry.','#dc2626');
+showMsg('Popup blocked - allow popups and retry.','#dc2626');
 }
 }catch(e){ showMsg('Failed: '+e.message,'#dc2626'); }
 }
@@ -6895,8 +6858,44 @@ _lspProgressSrc.onerror=function(){var log=document.getElementById('lspJiraPopup
 }
 function _esc(v){
 return String(v==null?'':v).replace(/[&<>"']/g,function(c){
-return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+return({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'})[c];
 });
+}
+function _sjqlFmtTime(v){
+if(!v) return '';
+var s=String(v);
+var iso=s;
+if(/^\d{4}-\d{2}-\d{2}T/.test(iso) && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)) iso+='Z';
+var d=new Date(iso);
+if(!isNaN(d.getTime())){
+var pad=function(n){return String(n).padStart(2,'0');};
+return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+return s.slice(0,16).replace('T',' ');
+}
+function _sjqlApplyReportMeta(id, r, tab){
+r=r||{}; tab=tab||{};
+var genAt = r.last_run_at || r.generated_at || '';
+var nextAt = r.next_run_at || r.next_auto_refresh_at || '';
+// Extract filter IDs from JQL — don't use build_id (may be a JIRA title)
+var metaFrom = r.meta_from_filter || '';
+if(!metaFrom){
+  var _rjql=r.raw_jql||(tab&&tab.jql)||'';
+  var _fids=(_rjql.match(/filter\s*=\s*(\d+)/gi)||[]).map(function(m){return m.replace(/filter\s*=\s*/i,'').trim();});
+  metaFrom=_fids.join(', ');
+}
+if(!_timers[id]) _timers[id]={};
+_timers[id].lastRun = genAt;
+_timers[id].nextRun = nextAt;
+_timers[id].metaFrom = metaFrom;
+var lrel = document.getElementById('lsplr_'+id);
+if(lrel) lrel.textContent = genAt ? _sjqlFmtTime(genAt) : 'never';
+var nrel = document.getElementById('lspnr_'+id);
+if(nrel) nrel.textContent = nextAt ? _sjqlFmtTime(nextAt) : '-';
+var mrel = document.getElementById('lspmeta_'+id);
+if(mrel) mrel.textContent = metaFrom || '-';
+var meta = document.getElementById('lspSjqlReportMeta');
+if(meta) meta.textContent = 'Meta: '+(metaFrom||'-')+'  |  Last run: '+(genAt?_sjqlFmtTime(genAt):'never')+'  |  Next run: '+(nextAt?_sjqlFmtTime(nextAt):'-')+'  |  Cache: '+(r.cache_status||'');
 }
 // ── Domain button bar ──────────────────────────────────────────────────────
 function _renderDomBtns(){
@@ -6934,7 +6933,9 @@ return;
 }
 el.innerHTML = tabs.map(function(t){
 var active      = t.id === _activeId;
-var lr          = _timers[t.id] ? _timers[t.id].lastRun : (t.last_run||null);
+var lr          = _timers[t.id] ? (_timers[t.id].lastRun||t.last_run_at||t.last_run||null) : (t.last_run_at||t.last_run||null);
+var nr          = _timers[t.id] ? (_timers[t.id].nextRun||t.next_run_at||t.next_auto_refresh_at||null) : (t.next_run_at||t.next_auto_refresh_at||null);
+var metaFrom = (_timers[t.id]&&_timers[t.id].metaFrom)||t.meta_from_filter||'';if(!metaFrom){var _rjql=t.jql||'';var _fids=(_rjql.match(/filter\s*=\s*(\d+)/gi)||[]).map(function(m){return m.replace(/filter\s*=\s*/i,'').trim();});metaFrom=_fids.join(', ');}
 var activeBg    = active ? bg : '#fff';
 var activeBorder= active ? ('2px solid '+col) : '1px solid #e2e8f0';
 var editBtns    = canEdit
@@ -6954,7 +6955,9 @@ return '<div onclick="lspSjqlViewReport(this.dataset.tabid, this.dataset.dom)"'
 +'<div style="min-width:0;flex:1">'
 +'<div style="font-size:12px;font-weight:950;color:'+col+';margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(t.name)+'</div>'
 +'<div style="font-size:9px;color:#94a3b8;font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc((t.jql||'').slice(0,60))+(t.jql&&t.jql.length>60?'\u2026':'')+'</div>'
-+'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?String(lr).slice(0,16).replace('T',' '):'never')+'</span></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Meta: <b id="lspmeta_'+_esc(t.id)+'" style="color:#475569">'+_esc(metaFrom||'-')+'</b></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?_sjqlFmtTime(lr):'never')+'</span></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:2px">Next: <span id="lspnr_'+_esc(t.id)+'">'+_esc(nr?_sjqlFmtTime(nr):'-')+'</span></div>'
 +'</div>'
 +editBtns
 +'</div></div>';
@@ -6989,7 +6992,9 @@ var col = '#6366f1';
 rightEmpty.innerHTML = '<div style="padding:14px 16px;width:100%">'
 +'<div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">'+tabs.length+' Saved JQL Tab'+(tabs.length===1?'':'s')+'</div>'
 +tabs.map(function(t){
-var lr=t.last_run||null;
+var lr=t.last_run_at||t.last_run||null;
+var nr=t.next_run_at||t.next_auto_refresh_at||null;
+var metaFrom=(_timers[t.id]&&_timers[t.id].metaFrom)||t.meta_from_filter||'';if(!metaFrom){var _rjql=t.jql||'';var _fids=(_rjql.match(/filter\s*=\s*(\d+)/gi)||[]).map(function(m){return m.replace(/filter\s*=\s*/i,'').trim();});metaFrom=_fids.join(', ');}
 var editBtns=canEdit
 ?'<div style="display:flex;gap:4px;flex-shrink:0">'
 +'<button onclick="event.stopPropagation();lspSjqlEdit(\''+_esc(t.id)+'\')" style="padding:3px 8px;border-radius:5px;border:1px solid #e2e8f0;background:#fff;font-size:10px;cursor:pointer" title="Edit"><i class="fas fa-pen"></i></button>'
@@ -7001,7 +7006,9 @@ return '<div onclick="lspSjqlViewReport(\''+_esc(t.id)+'\',\''+_esc(singleDom)+'
 +'<div style="min-width:0;flex:1">'
 +'<div style="font-size:12px;font-weight:950;color:'+col+';margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(t.name)+'</div>'
 +'<div style="font-size:9px;color:#94a3b8;font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc((t.jql||'').slice(0,80))+(t.jql&&t.jql.length>80?'\u2026':'')+'</div>'
-+'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?String(lr).slice(0,16).replace('T',' '):'never')+'</span></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Meta: <b id="lspmeta_'+_esc(t.id)+'" style="color:#475569">'+_esc(metaFrom||'-')+'</b></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:3px">Last: <span id="lsplr_'+_esc(t.id)+'">'+_esc(lr?_sjqlFmtTime(lr):'never')+'</span></div>'
++'<div style="font-size:9px;color:#94a3b8;margin-top:2px">Next: <span id="lspnr_'+_esc(t.id)+'">'+_esc(nr?_sjqlFmtTime(nr):'-')+'</span></div>'
 +'</div>'+editBtns+'</div></div>';
 }).join('')
 +'</div>';
@@ -7063,12 +7070,7 @@ _renderTabList();
 fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(_dom)+_sjqlCtParam(),{cache:'no-store'})
 .then(function(r){return r.json();})
 .then(function(r){
-var genAt = r.generated_at || new Date().toISOString();
-if(!_timers[id]) _timers[id]={};
-_timers[id].lastRun = genAt;
-var lrel = document.getElementById('lsplr_'+id);
-if(lrel) lrel.textContent = genAt.slice(0,16).replace('T',' ');
-if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+_sjqlApplyReportMeta(id, r, tab);
 _irRender(body, r, tab, 'lspir_'+id);
 _lspHidePopup(600);
 }).catch(function(e){ _lspHidePopup(0); body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_esc(String(e))+'</div>'; });
@@ -7087,20 +7089,35 @@ var tab  = tabs.find(function(t){return t.id===id;});
 var body = document.getElementById('lspSjqlReportBody');
 var meta = document.getElementById('lspSjqlReportMeta');
 if(!body) return;
-body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running report...</span></div>';
-_lspShowPopup('Running Report','Submitting consolidated report job...');
-fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(_dom)+'&force=1'+_sjqlCtParam(),{cache:'no-store'})
-.then(function(r){return r.json();})
+var progressJobId = 'sjql_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+var timedOut = false;
+var watchdog = null;
+body.innerHTML = '<div style="text-align:center;padding:36px;color:#94a3b8"><i class="fas fa-circle-notch fa-spin" style="font-size:26px"></i><br><br><span style="font-size:13px;font-weight:700">Running report...</span><br><span style="font-size:11px;color:#64748b">Resolving filter and starting JIRA fetch...</span></div>';
+_lspShowPopup('Running Report','Resolving saved filter and starting JIRA fetch...');
+_lspWatchProgress(progressJobId);
+watchdog = setTimeout(function(){
+timedOut = true;
+if(_lspProgressSrc){try{_lspProgressSrc.close();}catch(e){}}
+_lspUpdatePopup({stage:'error',total:100,done:100,message:'Report is taking too long. Please narrow the JQL/filter or try again later.'});
+body.innerHTML='<div class="empty" style="color:#ef4444">Report is taking too long. Please narrow the JQL/filter or try again later.</div>';
+}, 10*60*1000);
+fetch('/api/live_status/targets/'+encodeURIComponent(_TARGET)+'/saved_jql_tabs/'+encodeURIComponent(id)+'/report?domain='+encodeURIComponent(_dom)+'&force=1&progress_job_id='+encodeURIComponent(progressJobId)+_sjqlCtParam(),{cache:'no-store'})
+.then(function(r){return r.json().then(function(d){if(!r.ok||d.ok===false) throw new Error(d.error||d.run_error||('HTTP '+r.status)); return d;});})
 .then(function(r){
-var genAt = r.generated_at || new Date().toISOString();
-if(!_timers[id]) _timers[id]={};
-_timers[id].lastRun = genAt;
-var lrel = document.getElementById('lsplr_'+id);
-if(lrel) lrel.textContent = genAt.slice(0,16).replace('T',' ');
-if(meta) meta.textContent = 'Last run: '+genAt.slice(0,19).replace('T',' ');
+if(timedOut) return;
+if(watchdog) clearTimeout(watchdog);
+if(_lspProgressSrc){try{_lspProgressSrc.close();}catch(e){}}
+_sjqlApplyReportMeta(id, r, tab);
+_lspUpdatePopup({stage:'done',total:100,done:100,message:'Report ready: '+(r.count||r.total_count||0)+' rows.'});
 _irRender(body, r, tab, 'lspir_'+id);
 _lspHidePopup(600);
-}).catch(function(e){ _lspHidePopup(0); body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_esc(String(e))+'</div>'; });
+}).catch(function(e){
+if(watchdog) clearTimeout(watchdog);
+if(_lspProgressSrc){try{_lspProgressSrc.close();}catch(_e){}}
+_lspUpdatePopup({stage:'error',total:100,done:100,message:String(e&&e.message?e.message:e)});
+setTimeout(function(){_lspHidePopup(0);},1200);
+body.innerHTML='<div class="empty" style="color:#ef4444">Failed: '+_esc(String(e&&e.message?e.message:e))+'</div>';
+});
 };
 // ── Close report ──────────────────────────────────────────────────────────
 window.lspSjqlCloseReport = function(){
@@ -7152,7 +7169,7 @@ var tab  = tabs.find(function(t){return t.id===id;}); if(!tab) return;
 var m    = document.getElementById('lsp-sjql-modal'); if(!m) return;
 document.getElementById('lsp-sjql-edit-id').value  = id;
 document.getElementById('lsp-sjql-inp-name').value = tab.name||'';
-document.getElementById('lsp-sjql-inp-jql').value  = tab.jql||'';
+document.getElementById('lsp-sjql-inp-jql').value  = tab.raw_jql||tab.jql||'';
 var _fi2=document.getElementById('lsp-sjql-inp-filter'); if(_fi2) _fi2.value=tab.filter_id||'';
 document.getElementById('lsp-sjql-modal-title').textContent = 'Edit JQL Tab';
 _renderModalDomBtns();
@@ -7174,19 +7191,19 @@ var jq=document.getElementById('lsp-sjql-inp-jql');
 if(!fi||!jq) return;
 var fid=_lspExtractFilterId(fi.value);
 if(!fid) return;
-// Show placeholder while resolving
-if(!jq.value.trim()){
+// Same as Build Report Standalone: when a filter ID/URL is provided,
+// immediately resolve it to the actual Jira filter JQL and replace the
+// Direct JQL box so the user can see exactly what will run.
 jq.placeholder='Resolving filter '+fid+'...';
 _lspResolveFilterToJql(fid)
 .then(function(resolved){
 jq.placeholder='project = QSTABILITY AND ... (or paste filter=346152 / filter URL here)';
-if(resolved && !jq.value.trim()) jq.value=resolved;
+if(resolved) jq.value=resolved;
 })
 .catch(function(){
 jq.placeholder='project = QSTABILITY AND ... (or paste filter=346152 / filter URL here)';
-if(!jq.value.trim()) jq.value='filter = '+fid;
+jq.value='filter = '+fid;
 });
-}
 };
 // ── Resolve filter ID → actual JQL (mirrors brResolveFilterJqlNow) ──────────
 function _lspResolveFilterToJql(filterId){
@@ -7204,14 +7221,15 @@ var jqlRaw  = (document.getElementById('lsp-sjql-inp-jql').value||'').trim();
 var filtEl  = document.getElementById('lsp-sjql-inp-filter');
 var filtRaw = (filtEl ? filtEl.value : '').trim();
 var saveBtn = document.querySelector('#lsp-sjql-modal button[onclick="lspSjqlSave()"]');
-// Extract filter ID from either box (JQL box takes priority if it looks like a filter ref)
-var filterId = _lspExtractFilterId(jqlRaw) || _lspExtractFilterId(filtRaw);
-// Determine the JQL to use:
-//   1. If JQL box has real JQL (not just a filter ref) → use it directly
-//   2. If filter ID found → resolve to actual JQL first
-//   3. Otherwise error
-var isJqlBoxFilterRef = filterId && (jqlRaw === 'filter = '+filterId || jqlRaw === filtRaw || !jqlRaw || _lspExtractFilterId(jqlRaw) === filterId);
-var directJql = (!isJqlBoxFilterRef && jqlRaw) ? jqlRaw : '';
+var filterIdFromFilterBox = _lspExtractFilterId(filtRaw);
+var filterIdFromJqlBox = _lspExtractFilterId(jqlRaw);
+var filterId = filterIdFromFilterBox || filterIdFromJqlBox;
+
+// If the Filter ID / URL field is filled, it is authoritative. Resolve it the
+// same way WBC/build-report standalone does, and save that resolved Jira JQL
+// together with filter_id. Backend still re-resolves on every run to avoid stale
+// Jira saved-filter definitions.
+var directJql = filterIdFromFilterBox ? '' : (jqlRaw && !filterIdFromJqlBox ? jqlRaw : '');
 if(!name){ alert('Tab name is required.'); return; }
 if(!directJql && !filterId){ alert('Enter a JQL query or Filter ID / URL.'); return; }
 function _doSave(resolvedJql){
@@ -7243,23 +7261,19 @@ if(directJql){
 // Direct JQL — no resolution needed
 _doSave(directJql);
 } else {
-// Resolve filter ID → actual JQL first (same as build report standalone)
+// Saved filter — resolve to actual JQL before saving, same as Build Report
+// Standalone. The filter_id is also saved so backend can re-resolve like WBC.
 if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Resolving filter...';}
 _lspResolveFilterToJql(filterId)
 .then(function(resolvedJql){
 if(!resolvedJql) throw new Error('Filter '+filterId+' resolved to empty JQL');
-// Update JQL box so user can see what was resolved
 var jqlEl = document.getElementById('lsp-sjql-inp-jql');
 if(jqlEl) jqlEl.value = resolvedJql;
 _doSave(resolvedJql);
 })
 .catch(function(e){
 if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}
-// Fallback: save as filter = <id> if resolution fails
-var fallbackJql = 'filter = '+filterId;
-var jqlEl = document.getElementById('lsp-sjql-inp-jql');
-if(jqlEl) jqlEl.value = fallbackJql;
-_doSave(fallbackJql);
+alert('Could not resolve filter '+filterId+': '+(e&&e.message?e.message:e));
 });
 }
 };

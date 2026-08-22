@@ -48,6 +48,7 @@ from live_view_saved_jql_service import (
     delete_tab as delete_saved_jql_tab,
     get_tab as get_saved_jql_tab,
     get_cached_report as get_saved_jql_cached_report,
+    get_cached_report_raw as get_saved_jql_cached_report_raw,
     set_cached_report as set_saved_jql_cached_report,
 )
 
@@ -421,10 +422,13 @@ def _is_core_deck_target(target_name: str) -> bool:
     target = str(target_name or '').strip().upper()
     bu = str(get_bu_for_target(target_name) or '').strip().upper()
     return (
-        bu in {'AUTO', 'AUTOMOTIVE'}
+        bu in {'AUTO', 'AUTOMOTIVE', 'AUTO_TELEMATICS'}
         or target.startswith('NORD')
+        or target.startswith('SECA')
         or 'NORD_' in target
         or 'NORD.' in target
+        or 'SECA_' in target
+        or 'SECA.' in target
         or target in {'AUTO_GEN4.5', 'AUTO_GEN45', '4.8.9.0', '4.8.0.9'}
         or target.startswith('AUTO_GEN4')
     )
@@ -667,6 +671,134 @@ def _get_target_report_job_for_api(target_name):
 
 
 
+def _lsp_safe_int(value, default=0):
+    try:
+        return int(value or default)
+    except Exception:
+        return default
+
+
+def _lsp_parse_iso_dt(value):
+    from datetime import datetime
+    text = str(value or '').strip().replace('Z', '')
+    if not text:
+        return datetime.min
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        return datetime.min
+
+
+def _lsp_extract_meta_from_jql(value):
+    """Best-effort meta/build extraction for saved-filter JQL metadata badges."""
+    text = str(value or '')
+    patterns = [
+        r'\b[A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b',
+        r'\b[A-Z][A-Z0-9_.-]+-[0-9]{3,6}-[A-Z0-9_.-]+(?:-[0-9]+)?\b',
+        r'\b(?:META|BUILD)[-_ ]?0*([0-9]{3,6})\b',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, flags=re.I)
+        if m:
+            return m.group(0)
+    quoted = re.findall(r'"([^"\r\n]{6,160})"', text)
+    return next((q for q in quoted if re.search(r'\d{3,6}', q) and re.search(r'[A-Za-z]', q)), '')
+
+
+def _lsp_extract_meta_from_report(cached):
+    """Extract a displayed meta/build from cached report rows when JQL is only filter=N.
+
+    Saved-filter tabs often store/display only ``filter = 346152``. In that case
+    there is no build text in the JQL itself, so derive the badge from the
+    generated report rows exactly like WBC's cache metadata does.
+    """
+    if not isinstance(cached, dict):
+        return ''
+    candidates = []
+    for key in ('build_id', 'meta_id', 'metabuild', 'build', 'build_name', 'build_full', 'display_build'):
+        value = str(cached.get(key) or '').strip()
+        if value:
+            candidates.append(value)
+    row_sets = [
+        cached.get('rows'),
+        cached.get('flat_rows'),
+        cached.get('detail_rows'),
+        cached.get('hierarchical_report'),
+        cached.get('jiras'),
+    ]
+    for rows in row_sets:
+        if isinstance(rows, dict):
+            rows = list(rows.values())
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            for key in (
+                'build_id', 'meta_id', 'metabuild', 'matched_build', 'build',
+                'build_name', 'build_full', 'display_build', 'summary', 'title',
+                'jira_title',
+            ):
+                value = str(row.get(key) or '').strip()
+                if value:
+                    candidates.append(value)
+    for value in candidates:
+        meta = _lsp_extract_meta_from_jql(value)
+        if meta:
+            return meta
+    return next((v for v in candidates if v and not re.match(r'^\s*filter\s*=?\s*\d+\s*$', v, flags=re.I)), '')
+
+
+def _lsp_saved_jql_cache_meta(cached, tab=None, resolved_jql=''):
+    """Return WBC-style Last Run / Next Run / Meta-from-filter metadata."""
+    from datetime import datetime, timedelta
+    cached = cached if isinstance(cached, dict) else {}
+    tab = tab if isinstance(tab, dict) else {}
+    ttl_minutes = max(1, _lsp_safe_int(cached.get('cache_ttl_minutes') or cached.get('refresh_minutes') or tab.get('refresh_minutes') or 30, 30))
+    ttl = timedelta(minutes=ttl_minutes)
+    generated_at = _lsp_parse_iso_dt(cached.get('generated_at') or cached.get('last_run_at') or tab.get('last_run_at') or tab.get('last_run'))
+    next_run_at = _lsp_parse_iso_dt(cached.get('next_run_at') or cached.get('next_auto_refresh_at') or tab.get('next_run_at'))
+    next_run = next_run_at if next_run_at != datetime.min else (generated_at + ttl if generated_at != datetime.min else datetime.min)
+    expired = bool(next_run != datetime.min and datetime.utcnow() >= next_run)
+    rows = cached.get('rows') or cached.get('flat_rows') or cached.get('detail_rows') or []
+    # Priority 1: extract build/meta name from the RESOLVED JQL (same as WBC approach).
+    # The resolved JQL contains summary ~ "BuildName" clauses — extract the build name from those.
+    # This is the correct approach: filter ID is just the lookup key, not the meta label.
+    meta_from_filter = (
+        _lsp_extract_meta_from_jql(resolved_jql)
+        or _lsp_extract_meta_from_jql(cached.get('resolved_jql') or cached.get('jql') or cached.get('raw_jql'))
+        or _lsp_extract_meta_from_jql(tab.get('name'))
+    )
+    # Priority 2: if no build name found in resolved JQL, fall back to filter ID as label
+    if not meta_from_filter:
+        _raw_jql_meta = str(tab.get('jql') or '').strip()
+        _cached_jql_meta = str(cached.get('raw_jql') or cached.get('jql') or '').strip()
+        _filter_ids_meta = (
+            re.findall(r'filter\s*=\s*(\d+)', _raw_jql_meta, flags=re.I)
+            or re.findall(r'filter\s*=\s*(\d+)', _cached_jql_meta, flags=re.I)
+            or re.findall(r'filter\s*=\s*(\d+)', str(resolved_jql or ''), flags=re.I)
+        )
+        if _filter_ids_meta:
+            meta_from_filter = 'Filter: ' + ', '.join(_filter_ids_meta)
+    return {
+        'has_cached_report': bool(cached),
+        'cached_report_stale': expired,
+        'last_run_at': cached.get('generated_at') or cached.get('last_run_at') or tab.get('last_run_at') or tab.get('last_run') or '',
+        'next_run_at': next_run.isoformat() + 'Z' if next_run != datetime.min else '',
+        'next_auto_refresh_at': next_run.isoformat() + 'Z' if next_run != datetime.min else '',
+        'cache_ttl_minutes': ttl_minutes,
+        'cached_row_count': _lsp_safe_int(cached.get('row_count') or cached.get('count') or len(rows)) if cached else 0,
+        'cached_cr_count': _lsp_safe_int(cached.get('valid_cr_count') or cached.get('cr_count')) if cached else 0,
+        'cached_mapped_jira_count': _lsp_safe_int(cached.get('valid_mapped_jira_count') or cached.get('mapped_jira_count')) if cached else 0,
+        'cached_open_jira_count': _lsp_safe_int(cached.get('valid_open_jira_count') or cached.get('open_jira_count')) if cached else 0,
+        'cached_jira_count': _lsp_safe_int(cached.get('valid_jira_count') or cached.get('jira_count') or cached.get('total_count')) if cached else 0,
+        'cached_invalid_count': _lsp_safe_int(cached.get('invalid_count')) if cached else 0,
+        'cache_status': 'stale' if expired else ('cached' if cached else 'not_run'),
+        'meta_from_filter': meta_from_filter or '',
+        'build_id': meta_from_filter or '',
+    }
+
+
 def _saved_jql_domain_or_400(value, target_name: str = ""):
     """Validate and normalise the domain parameter.
 
@@ -708,7 +840,34 @@ def api_live_status_saved_jql_tabs(target_name):
     domain, err = _saved_jql_domain_or_400(request.args.get('domain'), target_name)
     if err:
         return jsonify(err[0]), err[1]
-    tabs = list_saved_jql_tabs(target_name, domain)
+    tabs = []
+    for tab in list_saved_jql_tabs(target_name, domain):
+        row = dict(tab)
+        raw_jql = str(row.get('jql') or '').strip()
+        resolved_jql = raw_jql
+        filter_id = ''
+        filter_resolved = False
+        filter_error = ''
+        try:
+            from dashboard_routes import _jira_filter_id_from_jql, _resolve_jira_filter_jql
+            filter_id = str(row.get('filter_id') or _jira_filter_id_from_jql(raw_jql) or '').strip()
+            if filter_id:
+                latest = str(_resolve_jira_filter_jql(filter_id) or '').strip()
+                if latest:
+                    resolved_jql = latest
+                    filter_resolved = True
+                else:
+                    filter_error = 'Filter lookup returned empty JQL'
+        except Exception as exc:
+            filter_error = str(exc)
+        cached = get_saved_jql_cached_report_raw(target_name, domain, row.get('id')) or {}
+        row['raw_jql'] = raw_jql
+        row['resolved_jql'] = resolved_jql
+        row['filter_id'] = filter_id
+        row['filter_resolved'] = filter_resolved
+        row['filter_error'] = filter_error
+        row.update(_lsp_saved_jql_cache_meta(cached, row, resolved_jql))
+        tabs.append(row)
     return jsonify({'ok': True, 'tabs': tabs, 'target': target_name, 'domain': domain})
 
 
@@ -722,13 +881,22 @@ def api_live_status_saved_jql_tabs_save(target_name):
     if err:
         return jsonify(err[0]), err[1]
     try:
+        raw_jql = str(payload.get('jql') or '').strip()
+        explicit_filter_id = str(payload.get('filter_id') or '').strip()
+        if not explicit_filter_id:
+            try:
+                from dashboard_routes import _jira_filter_id_from_jql
+                explicit_filter_id = str(_jira_filter_id_from_jql(raw_jql) or '').strip()
+            except Exception:
+                explicit_filter_id = ''
         row = save_saved_jql_tab(
             target_name,
             domain,
             tab_id=payload.get('id'),
             name=payload.get('name'),
-            jql=payload.get('jql'),
+            jql=raw_jql,
             username=getattr(current_user, 'id', 'unknown'),
+            filter_id=explicit_filter_id,
         )
         return jsonify({'ok': True, 'tab': row, 'tabs': list_saved_jql_tabs(target_name, domain)})
     except Exception as exc:
@@ -761,18 +929,109 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
 
     force = str(request.args.get('force') or '').lower() in ('1', 'true', 'yes')
 
-    # Return valid cache if not forced and not stale
+    # Saved-JQL tabs are scheduled centrally. Normal page opens should behave like
+    # WBC/current-running-build: return the latest available cache immediately so
+    # viewers never block on a long JIRA traversal. "Run Now" passes force=1 and
+    # executes a foreground refresh.
+    raw_jql = str(tab.get('jql') or '').strip()
+    jql = raw_jql
+    filter_id = ''
+    filter_resolved = False
+    filter_error = ''
+    try:
+        from dashboard_routes import _jira_filter_id_from_jql, _resolve_jira_filter_jql
+        filter_id = str(tab.get('filter_id') or _jira_filter_id_from_jql(raw_jql) or '').strip()
+        if filter_id:
+            resolved_jql = str(_resolve_jira_filter_jql(filter_id) or '').strip()
+            if resolved_jql:
+                jql = resolved_jql
+                filter_resolved = True
+            else:
+                filter_error = 'Filter lookup returned empty JQL'
+    except Exception as exc:
+        filter_error = str(exc)
+        logger.warning('[SAVED JQL REPORT] filter resolve failed for %s/%s: %s', target_name, tab_id, exc)
+
     if not force:
-        cached = get_saved_jql_cached_report(target_name, domain, tab_id)
+        cached = get_saved_jql_cached_report(target_name, domain, tab_id) or get_saved_jql_cached_report_raw(target_name, domain, tab_id)
         if cached:
             cached = dict(cached)
-            cached['ok'] = True
-            cached['from_cache'] = True
-            cached['tab'] = tab
-            return jsonify(cached)
+            cached_filter_id = str(cached.get('filter_id') or '').strip()
+            cached_resolved_jql = str(cached.get('resolved_jql') or '').strip()
+            cached_effective_jql = str(cached.get('jql') or '').strip()
+            cached_raw_jql = str(cached.get('raw_jql') or '').strip()
+            # Match WBC behavior: for saved-filter tabs, the filter id itself is
+            # not enough to trust an old cache because the Jira filter definition
+            # can change while the id stays constant.  Reuse cache only when the
+            # currently resolved JQL exactly matches cached resolved/effective JQL.
+            if filter_id:
+                cache_matches_filter = (
+                    cached_resolved_jql == jql
+                    or (
+                        cached_effective_jql == jql
+                        and cached_effective_jql not in (raw_jql, filter_id, f'filter = {filter_id}')
+                    )
+                )
+            else:
+                cache_matches_filter = (
+                    cached_resolved_jql == jql
+                    or cached_effective_jql == jql
+                    or cached_raw_jql == raw_jql
+                )
+            if cache_matches_filter:
+                cached['ok'] = True
+                cached['from_cache'] = True
+                cached['tab'] = tab
+                cached['jql'] = jql
+                cached['raw_jql'] = raw_jql
+                cached['resolved_jql'] = jql
+                cached['filter_id'] = filter_id
+                cached['filter_resolved'] = filter_resolved
+                cached['filter_error'] = filter_error
+                cached.update(_lsp_saved_jql_cache_meta(cached, tab, jql))
+                # If the scheduled next-run time is already overdue, do not keep
+                # returning the stale raw cache.  Refresh now so the displayed
+                # Last/Next Run behaves like the scheduler/WBC expectation.
+                if cached.get('cached_report_stale'):
+                    logger.info(
+                        '[SAVED JQL REPORT] cache overdue for %s/%s; refreshing now (last=%s next=%s)',
+                        target_name, tab_id, cached.get('last_run_at'), cached.get('next_run_at')
+                    )
+                    force = True
+                else:
+                    return jsonify(cached)
+            logger.info(
+                '[SAVED JQL REPORT] ignoring stale cache for %s/%s: cached_filter=%s current_filter=%s',
+                target_name, tab_id, cached_filter_id, filter_id
+            )
+        if not force:
+            # Do not run a foreground JIRA traversal from the initial page load
+            # when no usable cache exists yet. The central scheduler will
+            # populate this cache; editors can still use "Run Now" (force=1).
+            return jsonify({
+                'ok': True,
+                'from_cache': False,
+                'cache_status': 'pending',
+                'run_error': 'Report cache is not ready yet. The background scheduler will generate it automatically; use Run Now to generate immediately.',
+                'tab': tab,
+                'target': target_name,
+                'domain': domain,
+                'jql': jql,
+                'raw_jql': raw_jql,
+                'resolved_jql': jql,
+                'filter_id': filter_id,
+                'filter_resolved': filter_resolved,
+                'filter_error': filter_error,
+                'rows': [],
+                'flat_rows': [],
+                'detail_rows': [],
+                'count': 0,
+                'total_count': 0,
+                **_lsp_saved_jql_cache_meta({}, tab, jql),
+            })
 
-    # No cache (or forced) — run the full autogen4.5 consolidated report
-    jql = str(tab.get('jql') or '').strip()
+    # Forced/manual refresh — run the full consolidated report in foreground.
+    # The central scheduler will keep this same cache fresh in the background.
 
     # Crash-type filter from query param (default: all types)
     _ct_raw = str(request.args.get('crash_types') or '').strip()
@@ -785,24 +1044,41 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
     payload_extra = {}
 
     if jql:
+        progress = None
+        progress_job_id = str(request.args.get('progress_job_id') or '').strip()
         try:
             import os as _os, sys as _sys
             _scripts_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'scripts')
             if _scripts_dir not in _sys.path:
                 _sys.path.insert(0, _scripts_dir)
-            from fetch_consolidated_report import run_consolidated_report
+            from fetch_consolidated_report import run_consolidated_report, register_progress, unregister_progress
             from automotive_live_view_stats_routes import (
                 _auto_flatten_consolidated_report,
             )
 
+            if progress_job_id:
+                progress = register_progress(progress_job_id)
+                progress.update(stage='start', total=100, done=5, message='Resolving saved JQL and starting JIRA report...')
+
+            try:
+                from live_view_saved_jql_service import _extract_build_id as _sjql_extract_build_id
+                _sjql_build_id = _sjql_extract_build_id(jql) or _sjql_extract_build_id(raw_jql) or _sjql_extract_build_id(tab.get('name'))
+            except Exception:
+                _sjql_build_id = ''
+
+            if progress:
+                progress.update(stage='jira', total=100, done=12, message='Running JIRA query for saved filter...')
             raw_report = run_consolidated_report(
-                build_ids=[],
-                filter_id=None,
+                build_ids=[_sjql_build_id] if _sjql_build_id else [],
+                filter_id=filter_id or JIRA_PDT_FILTER_ID,
                 traverse=True,
                 enrich_orbit=True,
                 target_name=target_name,
                 custom_jql=jql,
+                progress=progress,
             ) or {}
+            if progress:
+                progress.update(stage='flatten', total=100, done=92, message='Preparing report rows...')
 
             all_rows = _auto_flatten_consolidated_report(raw_report)
             detail_rows = [
@@ -821,6 +1097,8 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
                 'crash_types_used':      sorted(crash_types),
                 'crash_types_available': ['system', 'ssr', 'process', 'open_jira'],
             }
+            if progress:
+                progress.update(stage='done', total=100, done=100, message=f'Report ready: {len(detail_rows)} rows.')
         except Exception as exc:
             logger.warning('[SAVED JQL REPORT] consolidated report failed for %s/%s: %s', target_name, tab_id, exc)
             run_error = str(exc)
@@ -858,13 +1136,25 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
             except Exception as exc2:
                 logger.warning('[SAVED JQL REPORT] fallback search also failed: %s', exc2)
                 payload_extra = {'rows': [], 'count': 0, 'fallback': True}
+        finally:
+            if progress_job_id:
+                try:
+                    unregister_progress(progress_job_id)
+                except Exception:
+                    pass
 
     payload = {
-        'tab':        tab,
-        'jql':        jql,
-        'target':     target_name,
-        'domain':     domain,
-        'from_cache': False,
+        'tab':             tab,
+        'jql':             jql,
+        'raw_jql':         raw_jql,
+        'resolved_jql':    jql,
+        'filter_id':       filter_id,
+        'filter_resolved': filter_resolved,
+        'filter_error':    filter_error,
+        'target':          target_name,
+        'domain':          domain,
+        'from_cache':      False,
+        'build_id':        _sjql_build_id if '_sjql_build_id' in locals() else _lsp_extract_meta_from_jql(jql),
     }
     payload.update(payload_extra)
     if run_error:
@@ -872,6 +1162,7 @@ def api_live_status_saved_jql_tab_report(target_name, tab_id):
     stored = set_saved_jql_cached_report(target_name, domain, tab_id, payload)
     stored['ok'] = True
     stored['tab'] = tab
+    stored.update(_lsp_saved_jql_cache_meta(stored, tab, jql))
     return jsonify(stored)
 
 
@@ -2116,9 +2407,12 @@ def live_status_target_by_bu(bu_key, target_name, initial_tab_path=None):
     # ── BU-based routing ──────────────────────────────────────────────────────
     # Determine the effective BU for this target (prefer resolved BU over URL param).
     _bu = str(get_bu_for_target(target_name) or bu_key or '').strip().upper()
+    _target_upper = str(target_name or '').upper()
     _is_auto_bu = _bu in {'AUTO', 'AUTOMOTIVE', 'AUTO_TELEMATICS'} or \
-                  str(target_name or '').upper().startswith('NORD') or \
-                  'NORD_' in str(target_name or '').upper()
+                  _target_upper.startswith('NORD') or \
+                  _target_upper.startswith('SECA') or \
+                  'NORD_' in _target_upper or \
+                  'SECA_' in _target_upper
 
     # Non-AUTO / non-WBC targets → redirect ALL users (editors and viewers)
     # to the correct live-view-stats page for that BU.

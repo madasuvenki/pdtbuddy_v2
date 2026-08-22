@@ -667,6 +667,12 @@ def _sjql_resolve_filter(jql: str) -> str:
         return text
 
 
+def _sjql_extract_filter_ids(jql_text: str) -> List[str]:
+    """Extract all filter IDs from a JQL string (e.g. 'filter = 346152' → ['346152'])."""
+    import re as _re
+    return _re.findall(r'filter\s*=\s*(\d+)', str(jql_text or ""), flags=_re.I)
+
+
 def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = False):
     """Execute a saved-JQL report for any BU target and cache the result."""
     import sys as _sys
@@ -685,11 +691,20 @@ def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = F
     if not jql:
         return {"ok": False, "error": "Saved JQL is empty"}
 
+    # Extract filter IDs from raw JQL for meta display in the UI header
+    filter_ids = _sjql_extract_filter_ids(raw_jql) or _sjql_extract_filter_ids(jql)
+    meta_from_filter = ", ".join(filter_ids) if filter_ids else ""
+
     if not force:
         cached = get_cached_report(target_name, domain, tab_id)
         if cached:
             cached = dict(cached)
-            cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql})
+            cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql,
+                           "cache_status": "cached"})
+            # Inject meta_from_filter if the cached payload doesn't have it yet
+            if not cached.get("meta_from_filter") and meta_from_filter:
+                cached["meta_from_filter"] = meta_from_filter
+                cached["meta_ids"] = filter_ids
             return cached
 
     now = _dt.utcnow()
@@ -735,10 +750,13 @@ def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = F
             "domain": domain,
             "generated_at": now.isoformat() + "Z",
             "from_cache": False,
+            "cache_status": "fresh",
             "source": "Saved JQL consolidated report",
             "jql": jql,
             "raw_jql": raw_jql,
             "filter_id": filter_id,
+            "meta_from_filter": meta_from_filter,
+            "meta_ids": filter_ids,
             "rows": rows,
             "flat_rows": rows,
             "row_count": len(rows),
@@ -749,7 +767,10 @@ def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = F
             "summary": raw_report.get("summary") or {},
         }
         stored = set_cached_report(target_name, domain, tab_id, report)
+        # Use the registry-computed next_run_at (respects per-job refresh_minutes)
         report["generated_at"] = stored.get("generated_at") or report["generated_at"]
+        report["next_run_at"] = stored.get("next_run_at") or report["next_run_at"]
+        report["next_auto_refresh_at"] = stored.get("next_auto_refresh_at") or report["next_auto_refresh_at"]
         return report
     except Exception as exc:
         return {
@@ -759,6 +780,8 @@ def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = F
             "source": "Saved JQL consolidated report",
             "jql": jql,
             "raw_jql": raw_jql,
+            "meta_from_filter": meta_from_filter,
+            "meta_ids": filter_ids,
             "run_error": str(exc),
             "rows": [],
             "flat_rows": [],
@@ -831,6 +854,9 @@ def api_lvs_saved_jql_tab_report(target_name: str, tab_id: str):
     force = str(request.args.get("force") or "").lower() in ("1", "true", "yes")
     domain = _sjql_domain(target_name)
     result = _sjql_run_report(target_name, domain, tab_id, force=force)
+    # Ensure cache_status is always present for UI display
+    if "cache_status" not in result:
+        result["cache_status"] = "cached" if result.get("from_cache") else "fresh"
     status = 200 if result.get("ok") or result.get("run_error") else 404
     return jsonify(result), status
 
