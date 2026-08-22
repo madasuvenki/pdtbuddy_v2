@@ -1,414 +1,617 @@
 ﻿<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Auto Gen5 Public MTBF API</title>
+<title>PDTBuddy Public API Docs</title>
 <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
-.wrap{max-width:1200px;margin:0 auto;padding:28px 20px 80px}
-.hero{border-radius:20px;padding:28px 32px;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#7c3aed 100%);color:#fff;margin-bottom:20px}
-.hero h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
-.hero p{color:#bfdbfe;font-size:13px;font-weight:600}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px 22px;margin-bottom:16px;box-shadow:0 2px 12px rgba(15,23,42,.06)}
-.card-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:800px){.grid2{grid-template-columns:1fr}}
-.tgt{display:inline-block;padding:2px 10px;border-radius:6px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
-.hqx{background:#dbeafe;color:#1e40af}
-.hgy{background:#ede9fe;color:#5b21b6}
+.wrap{max-width:1300px;margin:0 auto;padding:0 20px 80px}
+/* Hero */
+.hero{border-radius:0 0 20px 20px;padding:22px 28px 18px;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#7c3aed 100%);color:#fff;margin-bottom:0}
+.hero h1{font-size:22px;font-weight:900;letter-spacing:-.02em;margin-bottom:4px}
+.hero p{color:#bfdbfe;font-size:12px;font-weight:600}
+.hero .urls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.hero .urls code{background:rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;font-size:11px}
+.hero .urls code.ip{color:#fbbf24}
+/* Tab bar */
+.tab-bar{display:flex;gap:0;background:#fff;border-bottom:2px solid #e2e8f0;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow-x:auto}
+.tab-btn{display:flex;align-items:center;gap:7px;padding:13px 18px;font-size:12px;font-weight:800;color:#64748b;border:none;border-bottom:3px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.tab-btn:hover{color:#1d4ed8;background:#f8fafc}
+.tab-btn.active{color:#1d4ed8;border-bottom-color:#1d4ed8;background:#eff6ff}
+.tab-btn .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* Tab panes */
+.tab-pane{display:none;padding:20px 0}
+.tab-pane.active{display:block}
+/* Cards */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;margin-bottom:14px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+.card-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+/* Target sections */
+.tgt-section{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:12px}
+.tgt-head{padding:10px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tgt-label{font-size:13px;font-weight:900}
+.tgt-pill{font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px}
+.sp-pill{display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;font-size:11px;font-weight:800;padding:1px 8px}
+/* Tables */
 table{width:100%;border-collapse:collapse}
-th{background:#f8fafc;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;padding:8px 10px;border-bottom:2px solid #e2e8f0;text-align:left}
-td{padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12.5px;vertical-align:middle}
+th{background:#f8fafc;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;padding:7px 10px;border-bottom:2px solid #e2e8f0;text-align:left}
+td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:middle}
 tr:last-child td{border-bottom:0}
 tr:hover td{background:#fafbff}
-.mtbf-val{font-weight:900;color:#059669;font-size:13px}
-.meta-cell{font-size:11px;color:#475569;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ep-link{color:#1d4ed8;font-weight:700;font-size:11.5px;text-decoration:none;white-space:nowrap}
+.mtbf-val{font-weight:900;color:#059669}
+.ep-link{color:#1d4ed8;font-weight:700;font-size:11px;text-decoration:none;white-space:nowrap}
 .ep-link:hover{text-decoration:underline}
-.sp-pill{display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;font-size:11px;font-weight:800;padding:1px 8px}
-.no-data{color:#94a3b8;font-size:12px;padding:14px 0;text-align:center}
-.badge{display:inline-block;border-radius:5px;font-size:10px;font-weight:900;padding:1px 7px;vertical-align:middle;margin-left:5px}
-.badge-new{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
-.badge-v2{background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd}
+/* Endpoint blocks */
 .ep-block{margin:6px 0}
-.ep-row{background:#0f172a;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px}
-.ep-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:12px;flex:1;word-break:break-all;line-height:1.5}
+.ep-row{background:#0f172a;border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:9px}
+.ep-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:11.5px;flex:1;word-break:break-all;line-height:1.5}
 .method{font-size:9px;font-weight:900;padding:3px 7px;border-radius:4px;flex-shrink:0;letter-spacing:.04em}
 .m-get{background:#059669;color:#fff}
-.m-new{background:#7c3aed;color:#fff}
-.ep-desc{font-size:11.5px;color:#64748b;margin:4px 0 0 4px}
-.sec{font-size:10px;font-weight:900;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 6px;display:flex;align-items:center;gap:6px}
-.sec::after{content:'';flex:1;height:1px;background:#e0e7ff}
-.code-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
-@media(max-width:800px){.code-wrap{grid-template-columns:1fr}}
-.code-block{background:#0f172a;border-radius:12px;overflow:hidden}
-.code-header{background:#1e293b;padding:8px 14px;font-size:11px;font-weight:700;color:#94a3b8;display:flex;align-items:center;justify-content:space-between}
-.code-header span{color:#38bdf8;font-family:Consolas,monospace;font-size:11px}
-pre{padding:14px;font-size:11.5px;color:#e2e8f0;font-family:Consolas,monospace;line-height:1.65;overflow:auto;margin:0}
-.k{color:#7dd3fc}.s{color:#86efac}.n{color:#fbbf24}.b{color:#f472b6}.c{color:#64748b}
-.param-table{width:100%;border-collapse:collapse;margin-top:10px}
-.param-table th{background:#f0f4ff;color:#3730a3;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:2px solid #e0e7ff;text-align:left}
-.param-table td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
-.param-table tr:last-child td{border-bottom:0}
+.ep-desc{font-size:11px;color:#64748b;margin:3px 0 0 4px}
+/* Badges */
+.badge{display:inline-block;border-radius:5px;font-size:10px;font-weight:900;padding:1px 7px;vertical-align:middle;margin-left:4px}
+.badge-new{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.badge-try{background:#dcfce7;color:#166534;border:1px solid #86efac}
+/* Params table */
+.param-table th{background:#f0f4ff;color:#3730a3;font-size:10px}
 .p-name{font-family:Consolas,monospace;font-weight:700;color:#1e3a8a}
 .p-type{color:#7c3aed;font-size:10px;font-weight:700}
-.p-opt{color:#94a3b8;font-size:10px}
-.highlight-row{background:#fffbeb!important}
-.highlight-row td{border-left:3px solid #f59e0b}
+/* Code blocks */
+.code-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+@media(max-width:800px){.code-wrap{grid-template-columns:1fr}}
+.code-block{background:#0f172a;border-radius:10px;overflow:hidden}
+.code-header{background:#1e293b;padding:7px 12px;font-size:10px;font-weight:700;color:#94a3b8;display:flex;align-items:center;justify-content:space-between}
+.code-header span{color:#38bdf8;font-family:Consolas,monospace;font-size:10px}
+pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;line-height:1.65;overflow:auto;margin:0}
+.k{color:#7dd3fc}.s{color:#86efac}.n{color:#fbbf24}.b{color:#f472b6}.c{color:#64748b}
+/* Tester */
+.tester-out{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;font-size:11px;font-family:Consolas,monospace;overflow:auto;max-height:400px;min-height:50px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.hint-box{font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:7px 10px;margin-bottom:10px}
+/* No data */
+.no-data{color:#94a3b8;font-size:12px;padding:12px 0;text-align:center}
+/* Full docs btn */
+.full-docs-btn{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;padding:4px 12px;border-radius:8px;text-decoration:none;color:#fff;margin-left:auto}
 </style>
 </head>
-<body><div class="wrap">
+<body>
 
 <div class="hero">
-  <h1><i class="fas fa-chart-line"></i> Auto Gen5 Public MTBF API</h1>
-  <p>No login required &mdash; CORS enabled &mdash; SP-scoped MTBF data for Nord HQX &amp; Nord HGY &mdash; 8 endpoints</p>
-  <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-    <span style="font-size:11px;color:#93c5fd;font-weight:700">Access URLs:</span>
-    <code style="background:rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;font-size:12px">https://pdt-buddy.qualcomm.com/public/auto-gen5</code>
-    <span style="color:#93c5fd;font-size:11px">or (VPN/internal)</span>
-    <code style="background:rgba(255,255,255,.12);color:#fbbf24;padding:3px 10px;border-radius:6px;font-size:12px">{{ base_ip }}/public/auto-gen5</code>
+  <h1><i class="fas fa-plug"></i> PDTBuddy Public API Docs</h1>
+  <p>No login required &mdash; CORS enabled &mdash; All BU public MTBF &amp; CR APIs in one place</p>
+  <div class="urls">
+    <span style="font-size:11px;color:#93c5fd;font-weight:700">Access:</span>
+    <code id="_heroUrl">https://pdt-buddy.qualcomm.com/public/auto-gen5</code>
+    <script>document.getElementById('_heroUrl').textContent=window.location.origin+'/public/auto-gen5';</script>
   </div>
 </div>
 
-<!-- SP-SCOPED TABLES -->
-<div class="grid2">
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('gen5',this)">
+    <span class="dot" style="background:#1d4ed8"></span> Gen 5
+  </button>
+  <button class="tab-btn" onclick="switchTab('gen45',this)">
+    <span class="dot" style="background:#7c3aed"></span> Gen 4.5
+  </button>
+  <button class="tab-btn" onclick="switchTab('iot',this)">
+    <span class="dot" style="background:#0891b2"></span> IoT / XR
+  </button>
+  <button class="tab-btn" onclick="switchTab('mobile',this)">
+    <span class="dot" style="background:#059669"></span> Mobile
+  </button>
+  <button class="tab-btn" onclick="switchTab('orbit',this)">
+    <span class="dot" style="background:#7c3aed"></span> Orbit CR
+  </button>
+  <button class="tab-btn" onclick="switchTab('tryit',this)">
+    <span class="dot" style="background:#f59e0b"></span> <i class="fas fa-flask" style="font-size:10px"></i> Try It <span class="badge badge-try" style="margin-left:2px">Live</span>
+  </button>
+</div>
+
+<div class="wrap">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: GEN 5
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-gen5" class="tab-pane active">
   <div class="card">
-    <div class="card-title"><i class="fas fa-layer-group" style="color:#1e40af"></i> Nord HQX &mdash; SP-Scoped Data</div>
-    <span class="tgt hqx">target=nord_hqx</span>
-    {% if hqx_sps %}
-    <table>
-      <thead><tr><th>SP (CPL)</th><th>Domains</th><th>Rows</th><th>Latest MTBF</th><th>Endpoint</th></tr></thead>
-      <tbody>
-      {% for sp in hqx_sps %}
-        {% for dd in sp.get('domain_details', []) %}
-        <tr>
-          {% if loop.first %}<td rowspan="{{ sp.get('domain_details', [sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
-          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
-          <td style="color:#475569">{{ dd.row_count }}</td>
-          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hqx" target="_blank">/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
-        </tr>
-        {% else %}
-        <tr>
-          <td><span class="sp-pill">{{ sp.cpl }}</span></td>
-          <td style="font-size:11.5px;color:#334155">{{ sp.domains | join(', ') }}</td>
-          <td>&mdash;</td><td>&mdash;</td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}?target=nord_hqx" target="_blank">/api/sp/{{ sp.cpl }}</a></td>
-        </tr>
-        {% endfor %}
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="no-data">No SP-scoped data files found yet.</p>
-    {% endif %}
-  </div>
-  <div class="card">
-    <div class="card-title"><i class="fas fa-layer-group" style="color:#5b21b6"></i> Nord HGY &mdash; SP-Scoped Data</div>
-    <span class="tgt hgy">target=nord_hgy</span>
-    {% if hgy_sps %}
-    <table>
-      <thead><tr><th>SP (CPL)</th><th>Domains</th><th>Rows</th><th>Latest MTBF</th><th>Endpoint</th></tr></thead>
-      <tbody>
-      {% for sp in hgy_sps %}
-        {% for dd in sp.get('domain_details', []) %}
-        <tr>
-          {% if loop.first %}<td rowspan="{{ sp.get('domain_details', [sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
-          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
-          <td style="color:#475569">{{ dd.row_count }}</td>
-          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hgy" target="_blank">/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
-        </tr>
-        {% else %}
-        <tr>
-          <td><span class="sp-pill">{{ sp.cpl }}</span></td>
-          <td style="font-size:11.5px;color:#334155">{{ sp.domains | join(', ') }}</td>
-          <td>&mdash;</td><td>&mdash;</td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}?target=nord_hgy" target="_blank">/api/sp/{{ sp.cpl }}</a></td>
-        </tr>
-        {% endfor %}
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="no-data">No SP-scoped data files found yet.</p>
-    {% endif %}
-  </div>
-</div>
-
-<!-- ALL ENDPOINTS -->
-<div class="card">
-  <div class="card-title"><i class="fas fa-plug" style="color:#6366f1"></i> All Endpoints <span class="badge badge-v2">v2 &mdash; Aug 2026</span></div>
-
-    <div class="sec">SP-dedicated endpoints</div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sps?target=nord_hgy</code></div>
-    <div class="ep-desc">List all SPs that have data files &mdash; with per-domain row counts &amp; latest MTBF</div>
-  </div>
-  <div class="ep-block" style="border-left:3px solid #f59e0b;padding-left:8px;border-radius:4px">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.7.7.0/domain/ADAS?target=nord_hqx</code></div>
-    <div class="ep-desc" style="color:#92400e;font-weight:700">&#9733; HQX SP 5.7.7.0 &mdash; ADAS domain MTBF rows</div>
-  </div>
-  <div class="ep-block" style="border-left:3px solid #f59e0b;padding-left:8px;border-radius:4px">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.1.7.0/domain/ADAS?target=nord_hgy</code></div>
-    <div class="ep-desc" style="color:#92400e;font-weight:700">&#9733; HGY SP 5.1.7.0 &mdash; ADAS domain MTBF rows</div>
-  </div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.7.7.0?target=nord_hqx</code></div>
-    <div class="ep-desc">All domains + rows for HQX SP 5.7.7.0 in one call</div>
-  </div>
-  <div class="ep-block">
-    <div class="ep-row"><span class="method m-new">GET</span><code>{{ base }}/public/auto-gen5/api/all?target=nord_hqx&amp;last_n=5</code></div>
-    <div class="ep-desc">Everything in one call &mdash; base domains + all SP domains</div>
-  </div>
-
-  <div class="sec">Query parameters</div>
-  <table class="param-table">
-    <thead><tr><th>Param</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td class="p-name">target</td><td class="p-type">string</td><td class="p-opt">optional</td><td><code>nord_hqx</code> (default) or <code>nord_hgy</code></td></tr>
-      <tr style="background:#fffbeb"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td class="p-opt">optional</td><td>SP CPL like <code>5.1.7.0</code> or compact key <code>5170</code> &mdash; scopes data to that SP&rsquo;s JSON file</td></tr>
-      <tr><td class="p-name">domain</td><td class="p-type">string</td><td class="p-opt">optional</td><td><code>ADAS</code>, <code>FLEX</code>, <code>IVI</code>, <code>CSP</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code></td></tr>
-      <tr><td class="p-name">last_n</td><td class="p-type">integer</td><td class="p-opt">optional</td><td>Return only the latest N rows. <code>0</code> = all (default)</td></tr>
-      <tr><td class="p-name">summary</td><td class="p-type">bool</td><td class="p-opt">optional</td><td>Include summary block. Default <code>true</code></td></tr>
-      <tr><td class="p-name">q</td><td class="p-type">string</td><td class="p-opt">optional</td><td>Free-text search query (search endpoint only)</td></tr>
-      <tr><td class="p-name">limit</td><td class="p-type">integer</td><td class="p-opt">optional</td><td>Max search results. Default <code>50</code></td></tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- JSON EXAMPLES -->
-<div class="card">
-  <div class="card-title"><i class="fas fa-code" style="color:#6366f1"></i> Request &amp; Response Examples</div>
-
-    <!-- HOW TO GET SP DOMAIN MTBF -->
-  <div class="sec" style="color:#92400e">&#9733; How to get SP domain MTBF data (HQX 5.7.7.0 &amp; HGY 5.1.7.0)</div>
-  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f">
-    <b>Endpoint:</b> <code style="background:#fef3c7;padding:2px 6px;border-radius:4px">/api/sp/&lt;cpl&gt;/domain/&lt;domain&gt;?target=&lt;target&gt;</code><br>
-    &bull; <b>HQX SP 5.7.7.0:</b> <code>target=nord_hqx&amp;sp=5.7.7.0</code> &mdash; domains: <code>ADAS</code>, <code>FLEX</code>, <code>IVI</code><br>
-    &bull; <b>HGY SP 5.1.7.0:</b> <code>target=nord_hgy&amp;sp=5.1.7.0</code> &mdash; domains: <code>ADAS</code>, <code>CSP</code>, <code>FLEX</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code><br>
-    &bull; <b>HGY SP 5.1.9.0:</b> <code>target=nord_hgy&amp;sp=5.1.9.0</code> &mdash; domains: <code>ADAS</code>, <code>FLEX</code>, <code>NONSAFE-IVI</code>, <code>SAFE-IVI</code><br>
-    &bull; CPL (<code>5.7.7.0</code>) and compact key (<code>5770</code>) both work &bull; Add <code>?last_n=5</code> to limit rows
-  </div>
-
-  <div class="code-wrap">
-    <div class="code-block">
-      <div class="code-header">HQX &mdash; SP 5.7.7.0 ADAS<span>GET /api/sp/5.7.7.0/domain/ADAS?target=nord_hqx</span></div>
-<pre><span class="c"># Hostname</span>
-curl "https://pdt-buddy.qualcomm.com\
-  /public/auto-gen5/api/sp/5.7.7.0\
-  /domain/ADAS?target=nord_hqx"
-
-<span class="c"># IP fallback (VPN/internal)</span>
-curl "{{ base_ip }}\
-  /public/auto-gen5/api/sp/5770\
-  /domain/ADAS?target=nord_hqx&amp;last_n=3"</pre>
+    <div class="card-title"><i class="fas fa-layer-group" style="color:#1d4ed8"></i> Auto Gen5 MTBF — SP-Scoped Data
+      <span style="font-size:11px;color:#64748b;font-weight:700">Targets: nord_hqx &bull; nord_hgy &bull; seca</span>
     </div>
-    <div class="code-block">
-      <div class="code-header">Response<span>200 OK &mdash; HQX SP 5.7.7.0 ADAS</span></div>
+
+    <!-- Nord HQX -->
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#eff6ff,#f8fafc)">
+        <span class="tgt-label" style="color:#1e40af"><i class="fas fa-microchip" style="margin-right:5px"></i>Nord HQX</span>
+        <span class="tgt-pill" style="background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe">target=nord_hqx</span>
+        <a href="{{ base }}/public/auto-gen5/api/sps?target=nord_hqx" target="_blank" class="ep-link" style="margin-left:auto">List SPs ↗</a>
+      </div>
+      <div style="padding:12px 14px">
+      {% if hqx_sps %}
+      <table>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in hqx_sps %}{% for dd in sp.get('domain_details',[]) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hqx" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No SP data files found for Nord HQX yet.</p>{% endif %}
+      </div>
+    </div>
+
+    <!-- Nord HGY -->
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#faf5ff,#f8fafc)">
+        <span class="tgt-label" style="color:#5b21b6"><i class="fas fa-microchip" style="margin-right:5px"></i>Nord HGY</span>
+        <span class="tgt-pill" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd">target=nord_hgy</span>
+        <a href="{{ base }}/public/auto-gen5/api/sps?target=nord_hgy" target="_blank" class="ep-link" style="margin-left:auto">List SPs ↗</a>
+      </div>
+      <div style="padding:12px 14px">
+      {% if hgy_sps %}
+      <table>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in hgy_sps %}{% for dd in sp.get('domain_details',[]) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hgy" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No SP data files found for Nord HGY yet.</p>{% endif %}
+      </div>
+    </div>
+
+    <!-- SECA -->
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#f0fdf4,#f8fafc)">
+        <span class="tgt-label" style="color:#059669"><i class="fas fa-shield-halved" style="margin-right:5px"></i>SECA LE.1.0</span>
+        <span class="tgt-pill" style="background:#dcfce7;color:#166534;border:1px solid #86efac">target=seca_le_ivi_1_0</span>
+        <a href="{{ base }}/public/auto-gen5/api/sps?target=seca_le_ivi_1_0" target="_blank" class="ep-link" style="margin-left:auto">List SPs ↗</a>
+      </div>
+      <div style="padding:12px 14px">
+      {% if seca_sps %}
+      <table>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in seca_sps %}{% for dd in sp.get('domain_details',[]) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=seca_le_ivi_1_0" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') if sp.domains else 'No SP data yet' }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No SP data files found for SECA LE.1.0 yet.</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Gen5 Endpoints -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-plug" style="color:#6366f1"></i> Gen5 API Endpoints</div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/sps?target=nord_hgy</code></div><div class="ep-desc">List all SPs with data files for a target</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.1.7.0/domain/ADAS?target=nord_hgy&amp;last_n=5</code></div><div class="ep-desc">SP-scoped MTBF rows for one domain</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/sp/5.1.7.0?target=nord_hgy</code></div><div class="ep-desc">All domains for one SP in one call</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div><div class="ep-desc">List base domains for a target</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/all?target=nord_hgy&amp;last_n=3&amp;summary=true</code></div><div class="ep-desc">Everything in one call — base + all SP domains</div></div>
+    <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <b>Params:</b> <code>?target=nord_hqx|nord_hgy|seca</code> &nbsp; <code>?last_n=5</code> &nbsp; <code>?summary=true</code> &nbsp; <code>?domain=ADAS</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: GEN 4.5
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-gen45" class="tab-pane">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-layer-group" style="color:#7c3aed"></i> Auto Gen4.5 MTBF — SP-Scoped Data
+      <a href="{{ base }}/public/auto-gen45" target="_blank" class="full-docs-btn" style="background:linear-gradient(135deg,#7c3aed,#1d4ed8)"><i class="fas fa-book-open"></i> Full Docs</a>
+    </div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen45/api/sps</code></div><div class="ep-desc">List all SPs with data</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div><div class="ep-desc">MTBF rows for SP 8620 (last 5)</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen45/api/search?q=ADAS&amp;last_n=10</code></div><div class="ep-desc">Search across all SP data</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sps</code></div><div class="ep-desc">HGY SP list</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sp/8620?last_n=5</code></div><div class="ep-desc">HGY SP 8620 rows</div></div>
+    <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <b>Params:</b> <code>?last_n=5</code> &nbsp; <code>?summary=true</code> &nbsp; <code>?q=search_text</code>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-code" style="color:#7c3aed"></i> Example Response — SP List</div>
+    <div class="code-wrap">
+      <div class="code-block">
+        <div class="code-header">Request<span>GET /api/sps</span></div>
+<pre>curl "{{ base }}/public/auto-gen45/api/sps"</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header">Response<span>200 OK</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"count"</span>: <span class="n">3</span>,
+  <span class="k">"sps"</span>: [
+    {
+      <span class="k">"sp_key"</span>: <span class="s">"8620"</span>,
+      <span class="k">"row_count"</span>: <span class="n">42</span>,
+      <span class="k">"latest_mtbf"</span>: <span class="n">1.44</span>,
+      <span class="k">"latest_date"</span>: <span class="s">"2026-08-01"</span>
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: IoT / XR
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-iot" class="tab-pane">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-microchip" style="color:#0891b2"></i> IoT / XR Public MTBF API
+      <span style="font-size:10px;font-weight:900;background:#cffafe;color:#0e7490;border-radius:999px;padding:2px 8px;border:1px solid #a5f3fc">Auto-discovers new targets &amp; SPs</span>
+      <a href="{{ base }}/public/mtbf/" target="_blank" class="full-docs-btn" style="background:linear-gradient(135deg,#0891b2,#7c3aed)"><i class="fas fa-book-open"></i> Full Docs</a>
+    </div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/targets</code></div><div class="ep-desc">List all IoT + XR targets with MTBF status. <code style="background:#1e293b;padding:1px 5px;border-radius:3px;color:#93c5fd">?include_sps=1</code></div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/targets?bu=IOT&amp;mtbf_only=1</code></div><div class="ep-desc">IoT targets that have MTBF data only</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/MTBF</code></div><div class="ep-desc">Base MTBF rows. e.g. <code style="background:#1e293b;padding:1px 5px;border-radius:3px;color:#93c5fd">/public/mtbf/Shikra_CQ2390.LA.1.0/MTBF?last_n=5</code></div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/sps</code></div><div class="ep-desc">List all SPs for a target (auto-discovered)</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/sp/&lt;cpl&gt;/MTBF</code></div><div class="ep-desc">SP-scoped MTBF rows. e.g. <code style="background:#1e293b;padding:1px 5px;border-radius:3px;color:#93c5fd">/public/mtbf/bonsai/sp/1.0/MTBF?domain=ADAS</code></div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/MTBF/latest</code></div><div class="ep-desc">Latest MTBF row only</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/all?bu=IOT,XR&amp;last_n=5&amp;include_sps=1</code></div><div class="ep-desc">All IoT + XR targets in one call with SP data</div></div>
+    <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <b>Params:</b> <code>?bu=IOT,XR</code> &nbsp; <code>?last_n=5</code> &nbsp; <code>?summary=1</code> &nbsp; <code>?include_sps=1</code> &nbsp; <code>?mtbf_only=1</code> &nbsp; <code>?domain=ADAS</code>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-code" style="color:#0891b2"></i> Example Response — Target List</div>
+    <div class="code-wrap">
+      <div class="code-block">
+        <div class="code-header">Request<span>GET /api/targets?include_sps=1</span></div>
+<pre>curl "{{ base }}/public/mtbf/api/targets\
+  ?include_sps=1&amp;bu=IOT"</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header">Response<span>200 OK</span></div>
+<pre>{
+  <span class="k">"ok"</span>: <span class="b">true</span>,
+  <span class="k">"total"</span>: <span class="n">4</span>,
+  <span class="k">"with_mtbf"</span>: <span class="n">2</span>,
+  <span class="k">"targets"</span>: [
+    {
+      <span class="k">"target"</span>: <span class="s">"Shikra_CQ2390.LA.1.0"</span>,
+      <span class="k">"bu"</span>: <span class="s">"IOT"</span>,
+      <span class="k">"has_mtbf"</span>: <span class="b">true</span>,
+      <span class="k">"row_count"</span>: <span class="n">12</span>,
+      <span class="k">"latest_mtbf"</span>: <span class="n">3.4</span>,
+      <span class="k">"sps"</span>: [
+        {
+          <span class="k">"cpl"</span>: <span class="s">"5.1.9.0"</span>,
+          <span class="k">"domains"</span>: [<span class="s">"ADAS"</span>,<span class="s">"FLEX"</span>]
+        }
+      ]
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: MOBILE
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-mobile" class="tab-pane">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-mobile-alt" style="color:#059669"></i> Mobile BU Public API</div>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:900;color:#166534;margin-bottom:6px"><i class="fas fa-info-circle"></i> Mobile MTBF API — Same pattern as IoT/XR</div>
+      <div style="font-size:12px;color:#166534">Mobile targets use the same generic MTBF API. Pass <code>?bu=MOBILE</code> to filter Mobile targets.</div>
+    </div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/targets?bu=MOBILE</code></div><div class="ep-desc">List all Mobile targets with MTBF status</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/targets?bu=MOBILE&amp;mtbf_only=1&amp;include_sps=1</code></div><div class="ep-desc">Mobile targets with MTBF + SP list</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/MTBF</code></div><div class="ep-desc">Base MTBF rows for a Mobile target</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/&lt;target&gt;/sp/&lt;cpl&gt;/MTBF?domain=ADAS</code></div><div class="ep-desc">SP-scoped MTBF rows for a Mobile target</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/mtbf/api/all?bu=MOBILE&amp;last_n=5&amp;include_sps=1</code></div><div class="ep-desc">All Mobile targets in one call</div></div>
+    <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <b>Params:</b> <code>?bu=MOBILE</code> &nbsp; <code>?last_n=5</code> &nbsp; <code>?summary=1</code> &nbsp; <code>?include_sps=1</code> &nbsp; <code>?domain=ADAS</code>
+      <br><br><b>Note:</b> Mobile targets are auto-discovered from the MOBILE BU config. When a new Mobile target is added to the BU, it automatically appears in all endpoints.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: ORBIT CR
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-orbit" class="tab-pane">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-satellite-dish" style="color:#7c3aed"></i> Orbit CR Public API
+      <a href="{{ base }}/api/public/orbit/docs" target="_blank" class="full-docs-btn" style="background:linear-gradient(135deg,#7c3aed,#1d4ed8)"><i class="fas fa-book-open"></i> Full Docs</a>
+    </div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">CR data from Orbit — requires API token or active session. Returns open CRs, CR details, and target lists.</div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/api/public/orbit/all-targets</code></div><div class="ep-desc">List all available targets with CR data</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/api/public/orbit/crs?target=&lt;target&gt;&amp;pl=&lt;pl&gt;</code></div><div class="ep-desc">All open CRs for a target/PL — CR ID, title, status, area, assignee, age</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/api/public/orbit/all-crs</code></div><div class="ep-desc">All CRs across all targets (optional <code>?target=</code> filter)</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/api/public/orbit/cr/&lt;cr_id&gt;</code></div><div class="ep-desc">Full details for a single CR including JIRA mappings</div></div>
+    <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <b>Params:</b> <code>?target=&lt;target&gt;</code> &nbsp; <code>?pl=&lt;pl&gt;</code>
+      <br><b>Auth:</b> Pass <code>?api_token=&lt;token&gt;</code> or use an active browser session.
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-code" style="color:#7c3aed"></i> Example Response — CR List</div>
+    <div class="code-wrap">
+      <div class="code-block">
+        <div class="code-header">Request<span>GET /api/public/orbit/crs</span></div>
+<pre>curl "{{ base }}/api/public/orbit/crs\
+  ?target=nord_hqx&amp;pl=ADAS"</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header">Response<span>200 OK</span></div>
 <pre>{
   <span class="k">"ok"</span>: <span class="b">true</span>,
   <span class="k">"target"</span>: <span class="s">"nord_hqx"</span>,
-  <span class="k">"sp"</span>: <span class="s">"5.7.7.0"</span>,
-  <span class="k">"sp_key"</span>: <span class="s">"5770"</span>,
-  <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-  <span class="k">"row_count"</span>: <span class="n">27</span>,
-  <span class="k">"rows"</span>: [
+  <span class="k">"count"</span>: <span class="n">14</span>,
+  <span class="k">"crs"</span>: [
     {
-      <span class="k">"s_no"</span>: <span class="n">26</span>,
-      <span class="k">"date"</span>: <span class="s">"2026-07-27"</span>,
-      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0-00734-STD.PVM-1"</span>,
-      <span class="k">"hours"</span>: <span class="n">410</span>,
-      <span class="k">"system_crashes"</span>: <span class="n">77</span>,
-      <span class="k">"ssr_crashes"</span>: <span class="n">0</span>,
-      <span class="k">"process_crashes"</span>: <span class="n">178</span>,
-      <span class="k">"total_crashes"</span>: <span class="n">255</span>,
-      <span class="k">"mtbf"</span>: <span class="n">1.6</span>
-    },
-    {
-      <span class="k">"s_no"</span>: <span class="n">27</span>,
-      <span class="k">"date"</span>: <span class="s">"2026-07-31"</span>,
-      <span class="k">"meta_id"</span>: <span class="s">"SA8797P_ADAS.HQX.5.7.7.0.r1-00076-STD.PVM-1"</span>,
-      <span class="k">"hours"</span>: <span class="n">460</span>,
-      <span class="k">"system_crashes"</span>: <span class="n">544</span>,
-      <span class="k">"ssr_crashes"</span>: <span class="n">1316</span>,
-      <span class="k">"process_crashes"</span>: <span class="n">64</span>,
-      <span class="k">"total_crashes"</span>: <span class="n">1924</span>,
-      <span class="k">"mtbf"</span>: <span class="n">0.2</span>
-    }
-  ],
-  <span class="k">"summary"</span>: {
-    <span class="k">"cpl"</span>: <span class="s">"5.7.7.0"</span>,
-    <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-    <span class="k">"row_count"</span>: <span class="n">27</span>,
-    <span class="k">"latest_date"</span>: <span class="s">"2026-07-31"</span>,
-    <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span>,
-    <span class="k">"updated_at"</span>: <span class="s">"2026-07-31T09:36:14Z"</span>
-  }
-}</pre>
-    </div>
-  </div>
-
-  <!-- LIST ALL SPs -->
-  <div class="sec">&#9312; GET /api/sps &mdash; discover what SPs exist</div>
-  <div class="code-wrap">
-    <div class="code-block">
-      <div class="code-header">Request<span>GET /api/sps?target=nord_hgy</span></div>
-<pre>curl "https://pdt-buddy.qualcomm.com\
-  /public/auto-gen5/api/sps\
-  ?target=nord_hgy"
-
-<span class="c"># Use this first to see which SPs
-# and domains have data.</span></pre>
-    </div>
-    <div class="code-block">
-      <div class="code-header">Response<span>200 OK</span></div>
-<pre>{
-  <span class="k">"ok"</span>: <span class="b">true</span>,
-  <span class="k">"target"</span>: <span class="s">"nord_hgy"</span>,
-  <span class="k">"count"</span>: <span class="n">2</span>,
-  <span class="k">"sps"</span>: [
-    {
-      <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>,
-      <span class="k">"sp_key"</span>: <span class="s">"5170"</span>,
-      <span class="k">"domains"</span>: [<span class="s">"ADAS"</span>,<span class="s">"CSP"</span>,<span class="s">"FLEX"</span>,<span class="s">"NONSAFE-IVI"</span>,<span class="s">"SAFE-IVI"</span>],
-      <span class="k">"domain_count"</span>: <span class="n">5</span>,
-      <span class="k">"domain_details"</span>: [
-        {
-          <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>,
-          <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-          <span class="k">"row_count"</span>: <span class="n">8</span>,
-          <span class="k">"latest_date"</span>: <span class="s">"2026-06-26"</span>,
-          <span class="k">"latest_meta_id"</span>: <span class="s">"SA8797P_ADAS.HGY.5.1.7.0.r1-00243-STD.PVM-1"</span>,
-          <span class="k">"latest_mtbf"</span>: <span class="n">29.0</span>,
-          <span class="k">"updated_at"</span>: <span class="s">"2026-08-01T10:42:46Z"</span>
-        },
-        { <span class="k">"domain"</span>: <span class="s">"CSP"</span>, <span class="k">"row_count"</span>: <span class="n">13</span>, <span class="k">"latest_mtbf"</span>: <span class="n">9.9</span> },
-        { <span class="k">"domain"</span>: <span class="s">"FLEX"</span>, <span class="k">"row_count"</span>: <span class="n">8</span>, <span class="k">"latest_mtbf"</span>: <span class="n">1.1</span> },
-        { <span class="k">"domain"</span>: <span class="s">"NONSAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">26</span>, <span class="k">"latest_mtbf"</span>: <span class="n">0.5</span> },
-        { <span class="k">"domain"</span>: <span class="s">"SAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">7</span>, <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span> }
-      ]
-    },
-    {
-      <span class="k">"cpl"</span>: <span class="s">"5.1.9.0"</span>,
-      <span class="k">"sp_key"</span>: <span class="s">"5190"</span>,
-      <span class="k">"domains"</span>: [<span class="s">"ADAS"</span>,<span class="s">"FLEX"</span>,<span class="s">"NONSAFE-IVI"</span>,<span class="s">"SAFE-IVI"</span>],
-      <span class="k">"domain_count"</span>: <span class="n">4</span>
+      <span class="k">"cr_id"</span>: <span class="s">"CR12345678"</span>,
+      <span class="k">"title"</span>: <span class="s">"System crash in ADAS"</span>,
+      <span class="k">"status"</span>: <span class="s">"Analysis"</span>,
+      <span class="k">"area"</span>: <span class="s">"ADAS"</span>,
+      <span class="k">"assignee"</span>: <span class="s">"John Doe"</span>,
+      <span class="k">"age_days"</span>: <span class="n">12</span>
     }
   ]
 }</pre>
-    </div>
-  </div>
-
-  <!-- GET ALL SP DOMAINS AT ONCE -->
-  <div class="sec">&#9313; GET /api/sp/5.1.7.0 &mdash; all domains for one SP</div>
-  <div class="code-wrap">
-    <div class="code-block">
-      <div class="code-header">Request<span>GET /api/sp/5.1.7.0?target=nord_hgy</span></div>
-<pre>curl "https://pdt-buddy.qualcomm.com\
-  /public/auto-gen5/api/sp/5.1.7.0\
-  ?target=nord_hgy"
-
-<span class="c"># Returns all 5 domains in one response.
-# Add ?domain=ADAS to filter one domain.
-# Add ?last_n=3 to limit rows per domain.</span></pre>
-    </div>
-    <div class="code-block">
-      <div class="code-header">Response<span>200 OK</span></div>
-<pre>{
-  <span class="k">"ok"</span>: <span class="b">true</span>,
-  <span class="k">"target"</span>: <span class="s">"nord_hgy"</span>,
-  <span class="k">"sp"</span>: <span class="s">"5.1.7.0"</span>,
-  <span class="k">"sp_key"</span>: <span class="s">"5170"</span>,
-  <span class="k">"domain_count"</span>: <span class="n">5</span>,
-  <span class="k">"domains"</span>: [
-    {
-      <span class="k">"domain"</span>: <span class="s">"ADAS"</span>,
-      <span class="k">"row_count"</span>: <span class="n">8</span>,
-      <span class="k">"rows"</span>: [ <span class="c">/* 8 rows */</span> ],
-      <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">29.0</span>, <span class="k">"row_count"</span>: <span class="n">8</span> }
-    },
-    {
-      <span class="k">"domain"</span>: <span class="s">"CSP"</span>,
-      <span class="k">"row_count"</span>: <span class="n">13</span>,
-      <span class="k">"rows"</span>: [ <span class="c">/* 13 rows */</span> ],
-      <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">9.9</span>, <span class="k">"row_count"</span>: <span class="n">13</span> }
-    },
-    { <span class="k">"domain"</span>: <span class="s">"FLEX"</span>, <span class="k">"row_count"</span>: <span class="n">8</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">1.1</span> } },
-    { <span class="k">"domain"</span>: <span class="s">"NONSAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">26</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.5</span> } },
-    { <span class="k">"domain"</span>: <span class="s">"SAFE-IVI"</span>, <span class="k">"row_count"</span>: <span class="n">7</span>, <span class="k">"summary"</span>: { <span class="k">"latest_mtbf"</span>: <span class="n">0.2</span> } }
-  ]
-}</pre>
-    </div>
-  </div>
-
-  <!-- ERROR -->
-  <div class="sec">&#9315; Error responses</div>
-  <div class="code-wrap">
-    <div class="code-block">
-      <div class="code-header">SP not found<span>404</span></div>
-<pre>{
-  <span class="k">"ok"</span>: <span class="b">false</span>,
-  <span class="k">"message"</span>: <span class="s">"SP '5.2.0.0' (key: 5200)
-    not found for target 'nord_hgy'."</span>,
-  <span class="k">"requested_sp"</span>: <span class="s">"5.2.0.0"</span>,
-  <span class="k">"available_sps"</span>: [
-    { <span class="k">"cpl"</span>: <span class="s">"5.1.7.0"</span>, <span class="k">"sp_key"</span>: <span class="s">"5170"</span> },
-    { <span class="k">"cpl"</span>: <span class="s">"5.1.9.0"</span>, <span class="k">"sp_key"</span>: <span class="s">"5190"</span> }
-  ]
-}</pre>
-    </div>
-    <div class="code-block">
-      <div class="code-header">Domain not found<span>404</span></div>
-<pre>{
-  <span class="k">"ok"</span>: <span class="b">false</span>,
-  <span class="k">"message"</span>: <span class="s">"Domain 'XYZ' not available
-    for target 'nord_hqx'."</span>,
-  <span class="k">"available_domains"</span>: [
-    <span class="s">"ADAS"</span>, <span class="s">"FLEX"</span>, <span class="s">"IVI"</span>
-  ],
-  <span class="k">"rows"</span>: [],
-  <span class="k">"row_count"</span>: <span class="n">0</span>
-}</pre>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- FIELD REFERENCE -->
-<div class="card">
-  <div class="card-title"><i class="fas fa-list-alt" style="color:#0891b2"></i> Response Field Reference</div>
-  <div class="sec">Row fields</div>
-  <table class="param-table">
-    <thead><tr><th>Field</th><th>Type</th><th>Example</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td class="p-name">s_no</td><td class="p-type">int</td><td><code>8</code></td><td>Row sequence number</td></tr>
-      <tr><td class="p-name">date</td><td class="p-type">string</td><td><code>"2026-06-26"</code></td><td>Test date (YYYY-MM-DD)</td></tr>
-      <tr><td class="p-name">meta_id</td><td class="p-type">string</td><td><code>"SA8797P_ADAS.HGY.5.1.7.0.r1-00243-STD.PVM-1"</code></td><td>Full build / META identifier</td></tr>
-      <tr><td class="p-name">hours</td><td class="p-type">float</td><td><code>58.0</code></td><td>Total test hours</td></tr>
-      <tr><td class="p-name">system_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>System crash count</td></tr>
-      <tr><td class="p-name">ssr_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>SSR crash count</td></tr>
-      <tr><td class="p-name">process_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>Process crash count</td></tr>
-      <tr><td class="p-name">total_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>Sum of all crash types</td></tr>
-      <tr><td class="p-name">mtbf</td><td class="p-type">float</td><td><code>29.0</code></td><td>Mean Time Between Failures (hours)</td></tr>
-      <tr><td class="p-name">crash_types</td><td class="p-type">array</td><td><code>["system","ssr","process"]</code></td><td>Which crash types were counted</td></tr>
-      <tr><td class="p-name">id</td><td class="p-type">string</td><td><code>"20260707125924619647"</code></td><td>Unique row identifier</td></tr>
-      <tr><td class="p-name">domain</td><td class="p-type">string</td><td><code>"ADAS"</code></td><td>Domain this row belongs to</td></tr>
-      <tr style="background:#f0fdf4"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td><code>"5.1.7.0"</code></td><td>SP CPL &mdash; present in SP-endpoint responses only</td></tr>
-      <tr style="background:#f0fdf4"><td class="p-name">sp_key <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td><code>"5170"</code></td><td>Compact SP key &mdash; present in SP-endpoint responses only</td></tr>
-    </tbody>
-  </table>
-  <div class="sec">Summary block fields</div>
-  <table class="param-table">
-    <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td class="p-name">domain</td><td class="p-type">string</td><td>Domain name</td></tr>
-      <tr><td class="p-name">row_count</td><td class="p-type">int</td><td>Total rows in the full file (not filtered by last_n)</td></tr>
-      <tr><td class="p-name">latest_date</td><td class="p-type">string</td><td>Date of the most recent row</td></tr>
-      <tr><td class="p-name">latest_meta_id</td><td class="p-type">string</td><td>Meta ID of the most recent row</td></tr>
-      <tr><td class="p-name">latest_mtbf</td><td class="p-type">float</td><td>MTBF of the most recent row</td></tr>
-      <tr><td class="p-name">updated_at</td><td class="p-type">ISO 8601</td><td>UTC timestamp of last save &mdash; use for cache invalidation</td></tr>
-      <tr style="background:#f0fdf4"><td class="p-name">cpl <span class="badge badge-new" style="font-size:9px">NEW</span></td><td class="p-type">string</td><td>SP CPL &mdash; present in SP-endpoint summary blocks only</td></tr>
-    </tbody>
-  </table>
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB: TRY IT
+═══════════════════════════════════════════════════════════════ -->
+<div id="tab-tryit" class="tab-pane">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-flask" style="color:#f59e0b"></i> Interactive API Tester <span class="badge badge-try">Live</span></div>
+    <p style="font-size:12px;color:#64748b;margin-bottom:14px">Test any public endpoint directly. No login required. Results shown as live JSON with response time.</p>
+
+    <!-- Endpoint selector -->
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px">
+      <div>
+        <label style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">Select Endpoint</label>
+        <select id="testerEndpointSel" onchange="testerOnEndpointChange()" style="width:100%;height:36px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:inherit;font-size:12px;font-weight:700">
+          <optgroup label="Auto Gen5 MTBF">
+            <option value="/public/auto-gen5/api/sps?target=nord_hqx">Gen5 — List SPs (HQX)</option>
+            <option value="/public/auto-gen5/api/sps?target=nord_hgy">Gen5 — List SPs (HGY)</option>
+            <option value="/public/auto-gen5/api/sps?target=seca_le_ivi_1_0">Gen5 — List SPs (SECA LE.1.0)</option>
+            <option value="/public/auto-gen5/api/domains?target=nord_hqx">Gen5 — List domains (HQX)</option>
+            <option value="/public/auto-gen5/api/domain/ADAS?target=nord_hqx&last_n=5&summary=true">Gen5 — ADAS rows HQX (last 5)</option>
+            <option value="/public/auto-gen5/api/all?target=nord_hgy&last_n=3&summary=true">Gen5 — All domains HGY (last 3)</option>
+          </optgroup>
+          <optgroup label="Auto Gen4.5 MTBF">
+            <option value="/public/auto-gen45/api/sps">Gen4.5 — List SPs</option>
+            <option value="/public/auto-gen45/api/search?q=ADAS&last_n=5">Gen4.5 — Search ADAS (last 5)</option>
+            <option value="/public/auto-gen45/api/hgy/sps">Gen4.5 HGY — List SPs</option>
+          </optgroup>
+          <optgroup label="IoT / XR MTBF">
+            <option value="/public/mtbf/api/targets">IoT/XR — List all targets</option>
+            <option value="/public/mtbf/api/targets?include_sps=1">IoT/XR — List targets + SPs</option>
+            <option value="/public/mtbf/api/targets?bu=IOT&mtbf_only=1">IoT — Targets with MTBF only</option>
+            <option value="/public/mtbf/api/all?last_n=5&summary=1">IoT/XR — All targets (last 5 rows)</option>
+          </optgroup>
+          <optgroup label="Mobile MTBF">
+            <option value="/public/mtbf/api/targets?bu=MOBILE">Mobile — List all targets</option>
+            <option value="/public/mtbf/api/targets?bu=MOBILE&include_sps=1">Mobile — Targets + SPs</option>
+            <option value="/public/mtbf/api/all?bu=MOBILE&last_n=5">Mobile — All targets (last 5)</option>
+          </optgroup>
+          <optgroup label="Orbit CR API">
+            <option value="/api/public/orbit/all-targets">Orbit — List all targets</option>
+            <option value="/api/public/orbit/all-crs">Orbit — All CRs</option>
+          </optgroup>
+        </select>
+      </div>
+      <button onclick="testerRun()" id="testerRunBtn" style="height:36px;padding:0 18px;border-radius:9px;border:0;background:linear-gradient(135deg,#f59e0b,#059669);color:#fff;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap"><i class="fas fa-play" style="margin-right:5px"></i>Run</button>
+    </div>
+
+    <!-- Custom URL -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">Custom URL (overrides selector)</label>
+      <div style="display:flex;gap:8px">
+        <input id="testerCustomUrl" placeholder="e.g. /public/mtbf/bonsai/MTBF?last_n=5" style="flex:1;height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:0 10px;font-family:Consolas,monospace;font-size:12px;outline:none" oninput="testerOnCustomChange()">
+        <button onclick="testerCopyUrl()" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:800;cursor:pointer" title="Copy full URL"><i class="fas fa-copy"></i></button>
+      </div>
+    </div>
+
+    <!-- Param hint -->
+    <div id="testerParamsHint" class="hint-box">Select an endpoint above to see parameter hints.</div>
+
+    <!-- Copyable external command -->
+    <div style="margin:10px 0 12px">
+      <label style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">External Tool URL / cURL</label>
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <pre id="testerCurl" style="flex:1;margin:0;min-height:34px;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 10px;background:#0f172a;color:#e5e7eb;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all">Select an endpoint to generate cURL.</pre>
+        <button onclick="testerCopyCurl()" id="testerCopyCurlBtn" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap" title="Copy cURL"><i class="fas fa-copy"></i> Copy cURL</button>
+      </div>
+    </div>
+
+    <!-- Status + output -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+      <span id="testerStatus" style="font-size:11px;font-weight:900;color:#64748b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <span id="testerBadge" style="display:none;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;flex-shrink:0"></span>
+      <button onclick="testerCopyResult()" id="testerCopyBtn" style="display:none;height:28px;padding:0 10px;border-radius:7px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0"><i class="fas fa-copy"></i> Copy JSON</button>
+    </div>
+    <div id="testerOutput" class="tester-out">Select an endpoint and click Run.</div>
+  </div>
+
+  <!-- Field reference -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list-alt" style="color:#0891b2"></i> Response Field Reference — MTBF Row</div>
+    <table class="param-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Example</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="p-name">date</td><td class="p-type">string</td><td><code>"2026-06-26"</code></td><td>Test date (YYYY-MM-DD)</td></tr>
+        <tr><td class="p-name">meta_id</td><td class="p-type">string</td><td><code>"SA8797P_ADAS.HGY.5.1.7.0.r1-00243"</code></td><td>Full build / META identifier</td></tr>
+        <tr><td class="p-name">hours</td><td class="p-type">float</td><td><code>58.0</code></td><td>Total test hours</td></tr>
+        <tr><td class="p-name">system_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>System crash count</td></tr>
+        <tr><td class="p-name">ssr_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>SSR crash count</td></tr>
+        <tr><td class="p-name">process_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>Process crash count</td></tr>
+        <tr><td class="p-name">total_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>Sum of all crash types</td></tr>
+        <tr><td class="p-name">mtbf</td><td class="p-type">float</td><td><code>29.0</code></td><td>Mean Time Between Failures (hours)</td></tr>
+        <tr><td class="p-name">domain</td><td class="p-type">string</td><td><code>"ADAS"</code></td><td>Domain this row belongs to</td></tr>
+        <tr style="background:#fffbeb"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">SP</span></td><td class="p-type">string</td><td><code>"5.1.7.0"</code></td><td>SP CPL — present in SP-endpoint responses only</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
-</div></body></html>
+</div><!-- /wrap -->
+
+<script>
+var _testerBase = window.location.origin;
+var _testerBaseVpn = window.location.origin;
+var _hints = {
+  '/public/auto-gen5/api/sps': 'Params: <code>?target=nord_hqx|nord_hgy|seca</code>',
+  '/public/auto-gen5/api/domains': 'Params: <code>?target=nord_hqx|nord_hgy|seca</code>',
+  '/public/auto-gen5/api/domain/': 'Params: <code>?target=nord_hqx</code> <code>&last_n=5</code> <code>&summary=true</code>',
+  '/public/auto-gen5/api/sp/': 'Params: <code>?target=nord_hqx</code> <code>&last_n=5</code> <code>&summary=true</code>',
+  '/public/auto-gen5/api/all': 'Params: <code>?target=nord_hgy</code> <code>&last_n=3</code> <code>&summary=true</code>',
+  '/public/auto-gen45/api/sps': 'No required params. Returns all SPs.',
+  '/public/auto-gen45/api/search': 'Params: <code>?q=ADAS</code> <code>&last_n=5</code>',
+  '/public/auto-gen45/api/hgy': 'HGY-specific endpoints. No extra params needed.',
+  '/public/mtbf/api/targets': 'Params: <code>?bu=IOT,XR</code> <code>&mtbf_only=1</code> <code>&include_sps=1</code>',
+  '/public/mtbf/api/all': 'Params: <code>?bu=IOT,XR</code> <code>&last_n=5</code> <code>&summary=1</code> <code>&include_sps=1</code>',
+  '/public/mtbf/': 'Params: <code>?last_n=5</code> <code>&summary=1</code>',
+  '/api/public/orbit/crs': 'Params: <code>?target=&lt;target&gt;</code> <code>&pl=&lt;pl&gt;</code>',
+  '/api/public/orbit/all-targets': 'No params required.',
+  '/api/public/orbit/all-crs': 'Params: <code>?target=&lt;target&gt;</code> (optional)',
+};
+function _hint(url) {
+  var h = '';
+  Object.keys(_hints).forEach(function(k){ if(url.indexOf(k)>=0 && !h) h=_hints[k]; });
+  return h || 'No additional params required.';
+}
+function _testerSelectedPath() {
+  var sel = document.getElementById('testerEndpointSel');
+  var custom = document.getElementById('testerCustomUrl');
+  return (custom && custom.value.trim()) ? custom.value.trim() : (sel ? sel.value : '');
+}
+function _testerFullUrl(path) {
+  path = String(path || '').trim();
+  if(!path) return '';
+  if(/^https?:\/\//i.test(path)) return path;
+  return _testerBase + (path.startsWith('/') ? '' : '/') + path;
+}
+function _shellQuote(value) {
+  return "'" + String(value || '').replace(/'/g, "'\\''") + "'";
+}
+function _testerCurlFor(path) {
+  var url = _testerFullUrl(path);
+  return url ? 'curl -L ' + _shellQuote(url) : '';
+}
+function _testerRefreshCurl() {
+  var curlEl = document.getElementById('testerCurl');
+  if(curlEl) curlEl.textContent = _testerCurlFor(_testerSelectedPath()) || 'Select an endpoint to generate cURL.';
+}
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  var pane = document.getElementById('tab-'+name);
+  if(pane) pane.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+function testerOnEndpointChange() {
+  var sel = document.getElementById('testerEndpointSel');
+  var hint = document.getElementById('testerParamsHint');
+  var custom = document.getElementById('testerCustomUrl');
+  if(custom) custom.value = '';
+  if(hint) hint.innerHTML = _hint(sel.value);
+  _testerRefreshCurl();
+}
+function testerOnCustomChange() {
+  var custom = document.getElementById('testerCustomUrl');
+  var hint = document.getElementById('testerParamsHint');
+  if(hint && custom.value) hint.innerHTML = _hint(custom.value);
+  _testerRefreshCurl();
+}
+function testerRun() {
+  var path = _testerSelectedPath();
+  if(!path) return;
+  var url = _testerFullUrl(path);
+  _testerRefreshCurl();
+  var out = document.getElementById('testerOutput');
+  var status = document.getElementById('testerStatus');
+  var badge = document.getElementById('testerBadge');
+  var copyBtn = document.getElementById('testerCopyBtn');
+  var runBtn = document.getElementById('testerRunBtn');
+  if(out) out.textContent = 'Running...';
+  if(status) status.textContent = url;
+  if(badge) badge.style.display = 'none';
+  if(copyBtn) copyBtn.style.display = 'none';
+  if(runBtn) { runBtn.disabled=true; runBtn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running...'; }
+  var t0 = Date.now();
+  fetch(url, {cache:'no-store'})
+    .then(function(r) {
+      var ms = Date.now()-t0, ok = r.ok;
+      if(badge) {
+        badge.style.display='inline-block';
+        badge.textContent = r.status+' '+(ok?'OK':'ERROR')+' — '+ms+'ms';
+        badge.style.background = ok?'#dcfce7':'#fee2e2';
+        badge.style.color = ok?'#166534':'#b91c1c';
+        badge.style.border = '1px solid '+(ok?'#86efac':'#fca5a5');
+      }
+      return r.json();
+    })
+    .then(function(data) {
+      if(out) out.textContent = JSON.stringify(data, null, 2);
+      if(copyBtn) copyBtn.style.display='inline-flex';
+    })
+    .catch(function(e) {
+      if(out) out.textContent = 'Error: '+e.message;
+      if(badge) { badge.style.display='inline-block'; badge.textContent='ERROR'; badge.style.background='#fee2e2'; badge.style.color='#b91c1c'; badge.style.border='1px solid #fca5a5'; }
+    })
+    .finally(function() {
+      if(runBtn) { runBtn.disabled=false; runBtn.innerHTML='<i class="fas fa-play" style="margin-right:5px"></i>Run'; }
+    });
+}
+function testerCopyResult() {
+  var out = document.getElementById('testerOutput');
+  if(!out) return;
+  var btn = document.getElementById('testerCopyBtn');
+  navigator.clipboard.writeText(out.textContent).then(function() {
+    if(btn) { var orig=btn.innerHTML; btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){btn.innerHTML=orig;},1800); }
+  });
+}
+function testerCopyUrl() {
+  var path = _testerSelectedPath();
+  navigator.clipboard.writeText(_testerFullUrl(path));
+}
+function testerCopyCurl() {
+  var btn = document.getElementById('testerCopyCurlBtn');
+  var curl = _testerCurlFor(_testerSelectedPath());
+  if(!curl) return;
+  navigator.clipboard.writeText(curl).then(function() {
+    if(btn) { var orig=btn.innerHTML; btn.innerHTML='<i class="fas fa-check"></i> Copied!'; setTimeout(function(){btn.innerHTML=orig;},1800); }
+  });
+}
+document.addEventListener('DOMContentLoaded', function(){ testerOnEndpointChange(); _testerRefreshCurl(); });
+</script>
+</body></html>

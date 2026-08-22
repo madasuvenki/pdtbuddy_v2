@@ -115,11 +115,15 @@ def _save_jobs(jobs: List[Dict[str, Any]]) -> None:
     _atomic_write(_registry_path(), jobs)
 
 
-def _identity(target_name: str, domain: str, jql: str) -> Dict[str, str]:
+def _identity(target_name: str, domain: str, jql: str, filter_id: Any = "") -> Dict[str, str]:
     bu = _bu_for_target(target_name)
     pl = _safe_part(target_name, "UNKNOWN_PL")
     dom = _safe_part(domain, "GENERAL").upper()
-    fid = _filter_id(jql)
+    # Prefer the explicit saved filter ID. The UI resolves saved filters to
+    # latest JQL text before saving, so deriving identity only from resolved JQL
+    # can lose the filter identity and point the scheduler/manual run at stale
+    # or wrong cached data after the JIRA filter changes.
+    fid = _filter_id(filter_id) or _filter_id(jql)
     query_key = f"filter_{fid}" if fid else "jql_" + hashlib.sha1(str(jql).encode("utf-8")).hexdigest()[:12]
     unique_key = _safe_part(f"{bu}_{pl}_{dom}_{query_key}", "saved_jql")
     return {"bu": bu, "pl": pl, "domain": dom, "filter_id": fid, "unique_key": unique_key}
@@ -178,7 +182,14 @@ def list_tabs(target_name: str, domain: str) -> List[Dict[str, Any]]:
                 jql = str(legacy.get("jql") or "").strip()
                 if not jql:
                     continue
-                identity = _identity(target_name, domain, jql)
+                legacy_filter_id = (
+                    legacy.get("filter_id")
+                    or legacy.get("filterId")
+                    or legacy.get("jira_filter_id")
+                    or legacy.get("jiraFilterId")
+                    or ""
+                )
+                identity = _identity(target_name, domain, jql, legacy_filter_id)
                 if any(job.get("unique_key") == identity["unique_key"] for job in jobs):
                     continue
                 now = _utc_text()
@@ -219,6 +230,7 @@ def save_tab(
     name: str,
     jql: str,
     username: str = "unknown",
+    filter_id: Any = "",
 ) -> Dict[str, Any]:
     """Create/update one globally unique BU+PL+domain+filter/JQL job."""
     name = str(name or "").strip()
@@ -228,7 +240,7 @@ def save_tab(
     if not jql:
         raise ValueError("JQL is required.")
 
-    identity = _identity(target_name, domain, jql)
+    identity = _identity(target_name, domain, jql, filter_id)
     now = _utc_now_dt()
     with _LOCK:
         jobs = _load_jobs()

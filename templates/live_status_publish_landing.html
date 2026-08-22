@@ -265,34 +265,8 @@
       <button class="ls-public-api-close" id="publicApiCloseBtn" type="button" aria-label="Close Public API panel"><i class="fas fa-times"></i></button>
     </div>
     <div class="ls-public-api-body">
-      <div class="ls-api-category">
-        <div class="ls-api-category-head"><i class="fas fa-chart-line" style="color:#4f46e5;"></i> MTBF</div>
-        <div class="ls-api-version-card">
-          <div>
-            <div class="ls-api-version-name">Gen 4.5</div>
-            <div class="ls-api-version-desc">Auto Gen4.5 SP information from the managed JSON.</div>
-          </div>
-          <div class="ls-api-endpoints">
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sps</code></div>
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-          </div>
-          <div class="ls-api-actions">
-            <a class="ls-api-action primary" href="/public/auto-gen45" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-          </div>
-        </div>
-         <div class="ls-api-version-card" style="border-top:1px solid #e2e8f0;">
-          <div>
-            <div class="ls-api-version-name">Gen 5</div>
-            <div class="ls-api-version-desc">Auto Gen5 MTBF domains from Live Status JSON. Targets: <strong>nord_hqx</strong> &amp; <strong>nord_hgy</strong>. Domains: <strong>ADAS</strong>, <strong>FLEX</strong>, <strong>IVI</strong> (plus any custom domains added per target).</div>
-          </div>
-          <div class="ls-api-endpoints">
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domains?target=nord_hqx</code></div>
-            <div class="ls-api-endpoint"><span class="ls-api-method">GET</span><code>https://pdt-buddy.qualcomm.com/public/auto-gen5/api/domain/ADAS?target=nord_hqx&amp;last_n=5&amp;summary=true</code></div>
-          </div>
-          <div class="ls-api-actions">
-            <a class="ls-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener"><i class="fas fa-book-open"></i> Full Docs</a>
-          </div>
-        </div>
+      <div style="padding:16px 18px;display:flex;justify-content:center;">
+        <a class="ls-api-action primary" href="/public/auto-gen5" target="_blank" rel="noopener" style="font-size:14px;padding:10px 24px"><i class="fas fa-external-link-alt"></i> PDT Public APIs</a>
       </div>
       </div>
     </div>

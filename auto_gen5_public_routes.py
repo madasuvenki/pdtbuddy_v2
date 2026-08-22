@@ -20,12 +20,27 @@ public_auto_gen5_bp = Blueprint("public_auto_gen5_bp", __name__)
 
 _DEFAULT_TARGET = "nord_hqx"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", "IVI"]
-_KNOWN_TARGETS = ["nord_hqx", "nord_hgy"]
+# SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
+_KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
 
 # Default SP CPL per target — used when no SP-scoped files exist yet.
 # HQX base files (mtbf_adas.json etc.) represent SP 5.7.7.0 data.
+# SECA LE.1.0: folder=SECA_LE_IVI_1_0, file=mtbf_ivi_10.json, sp_key="10"
 _DEFAULT_SP_CPL: Dict[str, str] = {
-    "nord_hqx": "5.7.7.0",
+    "nord_hqx":       "5.7.7.0",
+    "seca_le_ivi_1_0": "LE.1.0",
+}
+
+# Default domain per target (used when no domain config exists yet)
+_DEFAULT_DOMAIN: Dict[str, str] = {
+    "seca_le_ivi_1_0": "IVI",
+}
+
+# Display labels for known targets
+_TARGET_LABELS: Dict[str, str] = {
+    "nord_hqx":       "Nord HQX",
+    "nord_hgy":       "Nord HGY",
+    "seca_le_ivi_1_0": "SECA LE.1.0",
 }
 
 
@@ -67,10 +82,20 @@ _FALLBACK_IP   = os.environ.get("BUDDY_PUBLIC_IP",   "10.142.213.5")
 _FALLBACK_PORT = os.environ.get("BUDDY_PUBLIC_PORT",  "80")
 
 
+def _host_without_port(host: str) -> str:
+    """Return host/IP without any :port suffix for public documentation URLs."""
+    host = str(host or "").strip()
+    if host.startswith("[") and "]" in host:
+        return host.split("]", 1)[0] + "]"
+    if ":" in host:
+        return host.split(":", 1)[0]
+    return host
+
+
 def _base_url() -> str:
-    """Return the primary public base URL (hostname preferred, IP fallback)."""
+    """Return the primary public base URL without an explicit port."""
     scheme = request.headers.get("X-Forwarded-Proto") or request.scheme or "http"
-    host   = str(request.host or "").strip()
+    host = _host_without_port(request.headers.get("X-Forwarded-Host") or request.host or "")
     # Replace loopback / unspecified with the real public hostname
     if not host or host.startswith("127.") or host.startswith("localhost") or host.startswith("0.0.0.0"):
         host = "pdt-buddy.qualcomm.com"
@@ -78,12 +103,8 @@ def _base_url() -> str:
 
 
 def _base_url_ip() -> str:
-    """Return the IP-based fallback URL for internal / VPN access."""
-    port = _FALLBACK_PORT
-    base = f"http://{_FALLBACK_IP}"
-    if port and port not in ("80", "443"):
-        base = f"{base}:{port}"
-    return base
+    """Return the IP-based fallback URL for internal / VPN access, without port."""
+    return f"http://{_host_without_port(_FALLBACK_IP)}"
 
 
 def _target_arg() -> str:
@@ -169,7 +190,8 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
     sp_map: Dict[str, Dict[str, Any]] = {}
 
     if folder and os.path.isdir(folder):
-        sp_pattern = re.compile(r'^mtbf_([a-z0-9_\-]+)_(\d{4,8})\.json$', re.IGNORECASE)
+        # Allow 2+ digit SP keys (e.g. "10" for SECA LE.1.0) as well as 4-8 digit keys
+        sp_pattern = re.compile(r'^mtbf_([a-z0-9_\-]+)_(\d{2,8})\.json$', re.IGNORECASE)
         try:
             for fname in os.listdir(folder):
                 m = sp_pattern.match(fname)
@@ -250,6 +272,8 @@ def _sp_arg() -> str:
     return str(request.args.get("sp") or "").strip()
 
 
+@public_auto_gen5_bp.route("/public/apis", methods=["GET", "OPTIONS"])
+@public_auto_gen5_bp.route("/public/all-apis", methods=["GET", "OPTIONS"])
 @public_auto_gen5_bp.route("/public/auto-gen5", methods=["GET", "OPTIONS"])
 def public_auto_gen5_docs():
     if request.method == "OPTIONS":
@@ -288,6 +312,24 @@ def public_auto_gen5_docs():
             hgy_sps.append({**sp, "domain_details": details})
     except Exception:
         hgy_sps = []
+    # SECA LE IVI 1.0 target (folder: SECA_LE_IVI_1_0)
+    try:
+        seca_domains = [_domain_summary("seca_le_ivi_1_0", d) for d in _ordered_domains("seca_le_ivi_1_0")]
+    except Exception:
+        seca_domains = []
+    try:
+        seca_sps_raw = _discover_sps_for_target("seca_le_ivi_1_0")
+        seca_sps = []
+        for sp in seca_sps_raw:
+            details = []
+            for dom in sp["domains"]:
+                try:
+                    details.append(_sp_domain_summary("seca_le_ivi_1_0", dom, sp["cpl"]))
+                except Exception:
+                    pass
+            seca_sps.append({**sp, "domain_details": details})
+    except Exception:
+        seca_sps = []
     return render_template(
         "public_auto_gen5_api.html",
         base=_base_url(),
@@ -296,6 +338,8 @@ def public_auto_gen5_docs():
         hgy_domains=hgy_domains,
         hqx_sps=hqx_sps,
         hgy_sps=hgy_sps,
+        seca_domains=seca_domains,
+        seca_sps=seca_sps,
     )
 
 

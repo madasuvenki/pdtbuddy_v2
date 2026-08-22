@@ -266,6 +266,68 @@ Priority 2 (CR Analysis Agent) — highest value, lowest risk, lowest cost:
 
 ## Current Work Focus
 
+### Live View JQL Meta ID + Next Run Time Fixes — Complete (2026-08-22)
+
+**Issues fixed:**
+
+**1. Meta ID showing "-" in live view JQL tab headers**
+- Root cause: `_sjql_run_report` in `live_view_stats_routes.py` did not extract filter IDs from the JQL, so `meta_from_filter` was never set in the report payload.
+- Fix: Added `_sjql_extract_filter_ids()` helper that uses regex `filter\s*=\s*(\d+)` to extract all filter IDs from the raw JQL.
+  - Single filter JQL (e.g. `filter = 346152`) → `meta_from_filter = "346152"`
+  - Multiple filters (e.g. `filter = 346152 OR filter = 346153`) → `meta_from_filter = "346152, 346153"`
+- `meta_from_filter` and `meta_ids` are now set in the report for both fresh runs and cached responses.
+- `api_lvs_saved_jql_tab_report` now also ensures `cache_status` is always present.
+- Templates updated: `automotive_live_view_stats.html` and `others_live_view_stats.html` now read `data.meta_ids` (joined) → `data.meta_from_filter` → `data.meta_id` → `data.current_meta` → `'-'`.
+
+**2. Next run time showing old time after a run**
+- Root cause: `_sjql_run_report` only copied `generated_at` from `stored` (the registry-persisted cache record) back to `report`, but not `next_run_at` / `next_auto_refresh_at`. The registry uses per-job `refresh_minutes` to compute the next run time, which may differ from the hardcoded 30-minute TTL in the route.
+- Fix: After `set_cached_report`, also copy `next_run_at` and `next_auto_refresh_at` from `stored` back to `report` so the UI always shows the registry-authoritative next run time.
+- Also added `cache_status: "cached"` to cached responses and `cache_status: "fresh"` to fresh responses so the UI cache label is always correct.
+
+**Files changed:**
+- `live_view_stats_routes.py` — `_sjql_extract_filter_ids()`, `_sjql_run_report()`, `api_lvs_saved_jql_tab_report()`
+- `templates/automotive_live_view_stats.html` — `renderReport()` metaId extraction
+- `templates/others_live_view_stats.html` — `renderReport()` metaId extraction
+
+**Validation:** `py -3 -m py_compile live_view_stats_routes.py live_status_publish_routes.py` → SYNTAX_OK
+
+---
+
+### IoT / XR Public MTBF API — Complete (2026-08-22)
+
+**File:** `orbit_public_mtbf_routes.py` (new) — registered in `src/application/blueprints.py`
+
+**Key design: fully auto-discovering — no config needed when new PLs or SPs are added.**
+
+#### How auto-discovery works
+- **New PL/target added to IOT or XR BU config** → automatically appears in all `/public/mtbf/` endpoints on next request. No code change needed.
+- **New SP added** (new `mtbf_<domain>_<sp_key>.json` file in `managed_excel/AUTO/MTBF/<target>/`) → automatically appears in `/sps` and `/sp/<cpl>/MTBF` endpoints. No config change needed.
+- SP files are named `mtbf_<domain>_<sp_key>.json` (e.g. `mtbf_adas_5190.json` for SP 5.1.9.0 ADAS domain).
+- `_discover_sps_for_target(target_name)` scans the ADAS MTBF folder at runtime.
+
+#### Endpoints (all CORS-open, no login required)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /public/mtbf/` | Docs page — shows all targets + SP-scoped data, auto-updates |
+| `GET /public/mtbf/api/targets` | List all IoT+XR targets + MTBF status. `?include_sps=1` |
+| `GET /public/mtbf/<target>/sps` | List all SPs for a target (auto-discovered) |
+| `GET /public/mtbf/<target>/MTBF` | Base MTBF rows (no SP scope) |
+| `GET /public/mtbf/<target>/sp/<cpl>/MTBF` | SP-scoped MTBF rows. `?domain=ADAS` |
+| `GET /public/mtbf/<target>/MTBF/latest` | Latest MTBF row only |
+| `GET /public/mtbf/<target>/MTBF/summary` | Summary (row_count, latest_date, latest_mtbf) |
+| `GET /public/mtbf/api/all` | All targets in one call. `?include_sps=1` |
+
+#### Data loading priority
+1. `_load_adas_mtbf()` from `live_status_view_api` (ADAS MTBF folder — same as Live Status publish page)
+2. `_load_mtbf_json_payload()` from `dashboard_routes` (dashboard JSON backend)
+3. WBC JSON cache fallback
+
+#### Public API panel (live_status_publish_edit.html)
+- IoT/XR MTBF card added to the "Public API" panel alongside Gen 4.5 and Gen 5 cards.
+- Shows 3 example endpoints with Full Docs link to `/public/mtbf/`.
+
+---
+
 ### Excel Sync Tab Missing from CR Overview Left Panel — Fixed (2026-08-21)
 
 **Issue:** Excel Sync tab was not appearing in the left panel of the CR Overview page after all BU and HWPzdt tabs and before the Admin tab.

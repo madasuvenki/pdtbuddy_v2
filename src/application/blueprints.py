@@ -35,6 +35,7 @@ def register_feature_blueprints(app: Flask) -> None:
     from src.cr_compare_service import cr_compare_bp
     from pdt_dept_routes import pdt_dept_bp
     from excel_sync_routes import excel_sync_bp
+    from orbit_public_mtbf_routes import public_mtbf_bp
 
     blueprints = (
         dashboard_bp,
@@ -49,6 +50,7 @@ def register_feature_blueprints(app: Flask) -> None:
         others_live_view_stats_bp,
         public_auto_gen45_bp,
         public_auto_gen5_bp,
+        public_mtbf_bp,
         core_deck_bp,
         jiraquery_api_bp,
         orbit_public_api_bp,

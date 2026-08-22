@@ -301,15 +301,15 @@
       <!-- Inline report panel -->
       <div id="wbcInlineReport" style="display:none;margin-top:0">
         <div class="card" style="border:2px solid #a5b4fc">
-          <div class="head" style="background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff;border-radius:0">
+          <div class="head" style="background:linear-gradient(135deg,#1e3a8a,#4f46e5)!important;color:#fff!important;border-radius:0">
             <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-              <i class="fas fa-bookmark" style="opacity:.85"></i>
-              <span style="font-size:14px;font-weight:950;color:#fff" id="wbcInlineReportTitle">Report</span>
-              <span id="wbcInlineReportMeta" style="font-size:10px;color:rgba(255,255,255,.7);margin-left:4px"></span>
+              <i class="fas fa-bookmark" style="opacity:.95;color:#fff!important"></i>
+              <span style="font-size:14px;font-weight:950;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.35)" id="wbcInlineReportTitle">Report</span>
+              <span id="wbcInlineReportMeta" style="font-size:10px;color:rgba(255,255,255,.88)!important;margin-left:4px"></span>
             </div>
             <div style="display:flex;gap:8px">
-              {% if can_edit %}<button onclick="wbcSjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>{% endif %}
-              <button onclick="wbcCloseInlineReport()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:900"><i class="fas fa-times"></i> Close</button>
+              {% if can_edit %}<button onclick="wbcSjqlRunNow()" style="padding:4px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.55)!important;background:rgba(255,255,255,.22)!important;color:#fff!important;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-rotate"></i> Run Now</button>{% endif %}
+              <button onclick="wbcCloseInlineReport()" style="background:rgba(255,255,255,.22)!important;border:1px solid rgba(255,255,255,.45)!important;color:#fff!important;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:900"><i class="fas fa-times"></i> Close</button>
             </div>
           </div>
           <div id="wbcInlineReportBody" style="padding:16px 18px"></div>
@@ -520,6 +520,7 @@ function sideNav(tab, btn, anchor){
   if(anchor)setTimeout(()=>{const section=document.getElementById(anchor);if(section)section.scrollIntoView({behavior:'smooth',block:'start'});},80);
 }
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function _fmtDt(v){if(!v)return'-';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v).replace('T',' ').slice(0,19);const pad=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}
 function num(v){const x=Number(String(v||0).replace(/,/g,''));return Number.isFinite(x)?x:0;} function fmt(v,d=1){return num(v).toLocaleString(undefined,{maximumFractionDigits:d});}
 function setText(id,v){const e=document.getElementById(id);if(e)e.textContent=v==null?'':v;}
 function setHtml(id,v){const e=document.getElementById(id);if(e)e.innerHTML=v||'';}
@@ -628,7 +629,7 @@ function _normBuildClient(v){return String(v||'').toUpperCase().replace(/[^A-Z0-
 function _buildTokensClient(v){const s=String(v||'').toUpperCase(), n=_normBuildClient(s), out=new Set(n?[n]:[]);(s.match(/\b\d{3,6}\b/g)||[]).forEach(x=>out.add(String(Number(x))));(s.match(/(ROOT[A-Z0-9_.-]+|NON[A-Z0-9_.-]+|TAURIN[A-Z0-9_.-]+|CPFWK[A-Z0-9_.-]+)/g)||[]).forEach(x=>out.add(_normBuildClient(x)));return out;}
 function _buildsMatchClient(a,b){const ak=_normBuildClient(a),bk=_normBuildClient(b);if(!ak||!bk)return false;if(ak===bk||ak.includes(bk)||bk.includes(ak))return true;const at=_buildTokensClient(a),bt=_buildTokensClient(b);let strong=0,total=0;at.forEach(t=>{if(bt.has(t)){total++;if(!/^\d{1,6}$/.test(t))strong++;}});return strong>0||total>=2;}
 function _reportRefreshLabel(rr){return rr&&rr.generated_at?('Last report refresh: '+String(rr.generated_at||'').replace('T',' ').slice(0,19)):'';}
-function _fmtReportDt(v){if(!v)return'-';const d=new Date(v);return Number.isNaN(d.getTime())?String(v).replace('T',' ').slice(0,19):d.toLocaleString();}
+function _fmtReportDt(v){return _fmtDt(v)||'-';}
 function wbcCopyReportJql(btn,id){const el=document.getElementById(id||'wbcCurrentJqlCode');const text=el?String(el.textContent||''):'';if(!text)return;const done=()=>{if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied';setTimeout(()=>{btn.innerHTML='<i class="fas fa-copy"></i> Copy JQL';},1500);}};const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');done();}finally{document.body.removeChild(ta);}};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(fallback);}else fallback();}
 function renderFetchedRunningBuildReport(i,rr){const current=(payload.current_builds||[])[i]||{}, box=document.getElementById('runningReportBox');if(!box)return;const bid=String(current.build_id||''), builds=(rr&&rr.builds)||[], rowsBy=(rr&&rr.rows_by_build)||{};let b=builds.find(x=>_buildsMatchClient(bid,x.build_id))||builds[0]||null;let rows=b?(rowsBy[b.build_id]||rowsBy[bid]||[]):(rowsBy[bid]||[]);const cache=(rr&&rr.cache_status)||(b&&b.cache_status)||'';const generated=(rr&&rr.generated_at)||'';const next=(rr&&rr.next_auto_refresh_at)||'';setText('runningReportStatus',(generated?('Loaded '+_fmtReportDt(generated)):'Report loaded')+(cache?(' • '+cache):''));const regenBtn=`<button class="btn" onclick="forceRunBuildReport(${i})"><i class="fas fa-rotate"></i> Regenerate</button>`;const jql=(rr&&rr.jql)||(b&&b.jql)||((rr&&rr.jql_by_build&&rr.jql_by_build[bid])||'');const err=(rr&&rr.error)||((rr&&rr.errors&&rr.errors[bid])||'');if(err){box.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">${regenBtn}</div><div class="empty"><b>${esc(bid)}</b><br>Report failed: ${esc(err)}${jql?`<div style="margin-top:10px;text-align:left"><b>JQL</b><pre style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px">${esc(jql)}</pre></div>`:''}</div>`;const buildTabBox=document.getElementById('buildSummaryBox');if(buildTabBox)buildTabBox.innerHTML=box.innerHTML;setText('buildSummaryCount','Error');return;}const cols=_wbcCols(rows);const crCount=(b&&b.cr_count)||0,jiraCount=(b&&b.jira_count)||0;const zeroState=`<div class="report-zero"><div style="font-size:13px;font-weight:950;color:#166534;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px"><i class="fas fa-check-circle"></i> Report Generated</div><div class="report-zero-num">0</div><div style="font-size:18px;font-weight:950;color:#0f172a;margin-bottom:8px">CR/JIRA rows found for this running build</div><div class="muted" style="max-width:720px;margin:0 auto">The report completed successfully, but no matching consolidated CR/JIRA rows were returned for the selected current running build.</div></div>`;const jqlBox=jql?`<div style="border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:10px 12px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:10px;font-weight:1000;color:#475569;text-transform:uppercase;letter-spacing:.05em">JQL Used</span><code id="wbcCurrentJqlCode" style="font-size:10px;color:#1e3a8a;word-break:break-all;flex:1">${esc(jql)}</code><button class="btn primary" style="font-size:11px;padding:6px 10px" onclick="wbcCopyReportJql(this,'wbcCurrentJqlCode')"><i class="fas fa-copy"></i> Copy JQL</button></div></div>`:'';box.innerHTML=jqlBox+`<div class="report-time-grid"><div class="report-time-card"><div class="report-time-label"><i class="fas fa-clock"></i> Last Generated</div><div class="report-time-value">${esc(_fmtReportDt(generated))}</div><div class="muted" style="margin-top:4px">${cache==='cached'?'Shared cached report reused':'Fresh report generated and cached'}</div></div><div class="report-time-card green"><div class="report-time-label"><i class="fas fa-rotate"></i> Next Auto Refresh / Next Run</div><div class="report-time-value">${esc(_fmtReportDt(next))}</div><div style="font-size:12px;font-weight:900;color:#166534;margin-top:4px">Auto refresh interval: 30 minutes per build</div></div></div><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><b style="color:#1e3a8a;word-break:break-all">${esc(bid)}</b><div class="muted">${esc(current.meta_id||'')} • ${esc(current.software_product||'')} ${esc(current.product_flavor||'')}</div><div class="muted">Same current-running-build consolidated report flow as HGY/HQX.</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#fff7ed;border-color:#fed7aa;color:#c2410c"><i class="fas fa-bug"></i> ${esc(crCount)} CRs</span><span class="pill">${esc(jiraCount)} JIRAs</span><span class="pill">${esc(rows.length)} rows</span>${regenBtn}</div></div>${rows.length?`<div class="tblwrap" style="max-height:460px;border:1px solid #e2e8f0;border-radius:12px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody>${rows.map((r,idx)=>`<tr><td>${idx+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:zeroState}`;const buildTabBox=document.getElementById('buildSummaryBox');if(buildTabBox){buildTabBox.innerHTML=box.innerHTML;setText('buildSummaryCount',`${esc(bid)} • ${rows.length} row(s)`);}}
 async function loadRunningBuildReport(i,force){const current=(payload.current_builds||[])[i]||{}, bid=String(current.build_id||'');const box=document.getElementById('runningReportBox'), buildTabBox=document.getElementById('buildSummaryBox');if(!active||!bid)return;const loadingHtml=`<div class="empty"><i class="fas fa-circle-notch fa-spin"></i><br>${force?'Force running':'Loading'} report for<br><b>${esc(bid)}</b><br><small>Cached reports are reused for 30 minutes.</small></div>`;if(box)box.innerHTML=loadingHtml;if(buildTabBox)buildTabBox.innerHTML=loadingHtml;setText('buildSummaryCount','Loading '+bid+'...');setText('runningReportStatus',force?'Force running report...':'Loading report...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/running_build_report`,{force:!!force,build_id:bid});payload.running_build_report=d.running_build_report||payload.running_build_report||{};payload.build_summary=payload.running_build_report;renderFetchedRunningBuildReport(i,payload.running_build_report);}catch(e){const errHtml=`<div class="empty">Report failed: ${esc(e.message||e)}</div>`;if(box)box.innerHTML=errHtml;if(buildTabBox)buildTabBox.innerHTML=errHtml;setText('buildSummaryCount','Error');}}
@@ -683,7 +684,7 @@ async function saveOverviewSummary(which){if(!active)return;const overview_html=
 function _wbcShortAxisLabel(label){const s=String(label||'').split(/[\\/]/).pop();const m=s.match(/^(.+?-\d{4,6})\b/i);return (m?m[1]:s).replace(/_/g,'.');}
 function renderOverviewMtbfChart(){const ex=payload.excel||{},rows=ex.chart_rows||[],empty=document.getElementById('overviewChartEmpty'),canvas=document.getElementById('overviewChart');if(!canvas)return;if(empty)empty.style.display=rows.length?'none':'block';if(overviewChart){overviewChart.destroy();overviewChart=null;}if(!rows.length)return;const n=rows.length;const _catPct=n<=4?.55:n<=8?.42:.34;const _barPct=n<=4?.82:n<=8?.65:.42;canvas.style.width='100%';canvas.width=canvas.parentElement?canvas.parentElement.clientWidth:1120;overviewChart=new Chart(canvas,{type:'bar',data:{labels:rows.map(r=>r.crm_build_id||r.meta_id||''),datasets:[{type:'bar',label:'Hours',data:rows.map(r=>num(r.hours)),backgroundColor:'#2563eb',borderColor:'#2563eb',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'bar',label:'Crash',data:rows.map(r=>num(r.crash||r.total_crashes)),backgroundColor:'rgba(220,38,38,0.82)',borderColor:'#dc2626',borderWidth:0,borderRadius:4,categoryPercentage:_catPct,barPercentage:_barPct,yAxisID:'y'},{type:'line',label:'MTBF',data:rows.map(r=>num(r.mtbf)),borderColor:'#b88a00',backgroundColor:'#f5c542',borderWidth:2.2,pointRadius:3.4,pointHoverRadius:6,pointBorderColor:'#fff',pointBorderWidth:1,tension:.18,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8,right:18,left:8,bottom:n>35?150:126}},plugins:{legend:{position:'bottom',labels:{boxWidth:11,usePointStyle:true,font:{size:12,weight:'700'},padding:10,color:'#334155'}},title:{display:true,text:'MTBF by Build',color:'#172554',font:{size:14,weight:'900'},padding:{top:4,bottom:6}},tooltip:{mode:'index',intersect:false,callbacks:{title:function(items){return items&&items[0]?String(items[0].label||''):'';}}}},scales:{x:{offset:true,grid:{display:false},ticks:{autoSkip:true,maxTicksLimit:n>80?28:n>50?36:48,maxRotation:52,minRotation:42,color:'#111827',font:{size:10,weight:'900'},padding:6,callback:function(v){return _wbcShortAxisLabel(this.getLabelForValue(v));}}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours / Crash',font:{size:13,weight:'900'},color:'#334155'},ticks:{font:{size:12,weight:'700'},color:'#334155'}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},display:false},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF',font:{size:13,weight:'900'},color:'#b88a00'},ticks:{font:{size:12,weight:'700'},color:'#b88a00'}}}}});}
 function mtbfRows(){return ((payload&&payload.excel&&payload.excel.chart_rows)||[]).map((r,i)=>({...r,s_no:r.s_no||i+1}));}
-const MTBF_COLS=[['s_no','S.No'],['crm_build_id','CRM Build ID'],['date','Date'],['hours','Hours+'],['crash','crash'],['mtbf','MTBF']];
+const MTBF_COLS=[['crm_build_id','CRM Build ID'],['date','Date'],['hours','Hours+'],['crash','crash'],['mtbf','MTBF']];
 function _wbcGoToBuildReport(metaId){
   navToTab('builds',null);
   setTimeout(()=>{
@@ -707,7 +708,7 @@ function _wbcGoToBuildReport(metaId){
       setTimeout(()=>{first.style.outline='';},2000);
     },120);
   },380);
-}function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;h.innerHTML='<tr>'+MTBF_COLS.map(c=>`<th>${esc(c[1])}</th>`).join('')+'</tr>';b.innerHTML=rows.length?rows.map(r=>'<tr>'+MTBF_COLS.map(c=>{const v=String(r[c[0]]??'');if(c[0]==='crm_build_id'&&v)return `<td><a href="#" data-build="${esc(v)}" onclick="event.preventDefault();_wbcGoToBuildReport(this.dataset.build)" title="Go to Build Report for ${esc(v)}" style="color:#4338ca;font-weight:900;text-decoration:none;cursor:pointer">${esc(v)}</a></td>`;return `<td>${esc(v)}</td>`;}).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
+}function renderMtbfTable(){const rows=mtbfRows();const h=document.getElementById('mtbfTableHead'),b=document.getElementById('mtbfTableBody');if(!h||!b)return;const uid='mtbf_main';b.id=uid;const cols=MTBF_COLS.map(c=>c[0]);window._wbcTblData[uid]={rows,cols,sort:(window._wbcTblData[uid]&&window._wbcTblData[uid].sort)||{col:-1,dir:1},cell:(c,v)=>{if(c==='crm_build_id'&&v)return `<a href="#" data-build="${esc(v)}" onclick="event.preventDefault();_wbcGoToBuildReport(this.dataset.build)" title="Go to Build Report for ${esc(v)}" style="color:#4338ca;font-weight:900;text-decoration:none;cursor:pointer">${esc(v)}</a>`;return esc(v);}};h.innerHTML='<tr><th style="text-align:center;color:#94a3b8;font-size:10px">#</th>'+MTBF_COLS.map((c,i)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="_wbcSortTbl('${uid}',${i})">${esc(c[1])} <span id="${uid}_si_${i}" style="font-size:9px;opacity:.35;color:#6366f1">\u21d5</span></th>`).join('')+'</tr>';_wbcApplyTbl(uid);if(!rows.length)b.innerHTML='<tr><td colspan="99" class="empty">No MTBF rows in Mainline_Build_Details.</td></tr>';}
 function openMtbfAddModal(){if(!CAN_EDIT)return;const box=document.getElementById('mtbfAddFields');box.innerHTML=MTBF_COLS.filter(c=>c[0]!=='s_no').map(c=>`<div class="field"><label>${esc(c[1])}</label><input class="input" data-field="${esc(c[0])}" type="${c[0]==='date'?'date':'text'}"></div>`).join('');setText('mtbfAddMsg','');document.getElementById('mtbfAddModal')?.classList.add('open');}
 function closeMtbfAddModal(){document.getElementById('mtbfAddModal')?.classList.remove('open');}
 async function saveMtbfAddBuild(){const row={};document.querySelectorAll('#mtbfAddFields [data-field]').forEach(i=>row[i.getAttribute('data-field')]=i.value.trim());if(!row.date||!row.crm_build_id){setText('mtbfAddMsg','Date and CRM Build ID are required.');return;}setText('mtbfAddMsg','Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/mtbf/add_build`,{row});payload.excel=d.excel||payload.excel;renderChart();renderMtbfTable();setText('mtbfAddMsg','Saved.');setTimeout(closeMtbfAddModal,600);}catch(e){setText('mtbfAddMsg','Save failed: '+(e.message||e));}}
@@ -720,7 +721,7 @@ function mtbfEditDeleteRow(i){_mtbfEditRows=collectMtbfEditRows();_mtbfEditRows.
 function mtbfEditAddBlankRow(){_mtbfEditRows=collectMtbfEditRows();_mtbfEditRows.push({});renderMtbfEditTable();}
 function mtbfEditCopyLastRow(){_mtbfEditRows=collectMtbfEditRows();_mtbfEditRows.push(_mtbfEditRows.length?{..._mtbfEditRows[_mtbfEditRows.length-1]}:{});renderMtbfEditTable();}
 async function saveMtbfEditTable(){const rows=collectMtbfEditRows().filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));setText('mtbfEditMsg','Saving complete table...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/mtbf/save_table`,{rows});payload.excel=d.excel||payload.excel;renderChart();renderMtbfTable();setText('mtbfEditMsg','Saved '+(d.row_count||0)+' rows.');setTimeout(closeMtbfEditModal,700);}catch(e){setText('mtbfEditMsg','Save failed: '+(e.message||e));}}
-function renderExcel(){const ex=payload.excel||{}, headers=ex.headers||[], rows=ex.rows||[], q=(document.getElementById('filter')?.value||'').toLowerCase();const f=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));document.getElementById('excelHead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':'';document.getElementById('excelBody').innerHTML=f.length?f.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="99" class="empty">No synced Excel rows. Click Sync Target Excel.</td></tr>';}
+function renderExcel(){const ex=payload.excel||{}, headers=ex.headers||[], rawRows=ex.rows||[], q=(document.getElementById('filter')?.value||'').toLowerCase();const rows=rawRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q)).map(r=>{const o={};headers.forEach((h,i)=>o[h]=(r.values||[])[i]||'');return o;});const uid='excel_sync';const eb=document.getElementById('excelBody');if(eb)eb.id=uid;window._wbcTblData[uid]={rows,cols:headers,sort:(window._wbcTblData[uid]&&window._wbcTblData[uid].sort)||{col:-1,dir:1},cell:(c,v)=>esc(v)};document.getElementById('excelHead').innerHTML=headers.length?'<tr>'+headers.map((h,i)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="_wbcSortTbl('${uid}',${i})">${esc(h)} <span id="${uid}_si_${i}" style="font-size:9px;opacity:.35;color:#6366f1">\u21d5</span></th>`).join('')+'</tr>':'';_wbcApplyTbl(uid);if(!rows.length&&eb)eb.innerHTML='<tr><td colspan="99" class="empty">No synced Excel rows. Click Sync Target Excel.</td></tr>';}
 let frData={headers:[],rows:[]};
 function _frStatusBadge(val){
   const v=String(val||'').trim().toLowerCase();
@@ -1048,6 +1049,19 @@ function tableHtml(x, opts){
   return `${search}<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${head}</tr>${filterRow}</thead><tbody id="${uid}"></tbody></table></div>`;
 }
 
+function _wbcSortValue(v){
+  const s=String(v==null?'':v).trim();
+  const n=parseFloat(s.replace(/,/g,''));
+  if(s && !Number.isNaN(n) && /^[-+]?\d[\d,]*(?:\.\d+)?%?$/.test(s)) return {t:'n',v:n};
+  const d=Date.parse(s);
+  if(s && !Number.isNaN(d) && /\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(s)) return {t:'d',v:d};
+  return {t:'s',v:s.toLowerCase()};
+}
+function _wbcCompareVals(a,b){
+  const av=_wbcSortValue(a), bv=_wbcSortValue(b);
+  if(av.t===bv.t && av.t!=='s') return av.v-bv.v;
+  return String(a==null?'':a).localeCompare(String(b==null?'':b),undefined,{numeric:true,sensitivity:'base'});
+}
 function _wbcApplyTbl(uid){
   const d = window._wbcTblData && window._wbcTblData[uid];
   if(!d) return;
@@ -1064,16 +1078,14 @@ function _wbcApplyTbl(uid){
   if(sort.col >= 0){
     const sc = cols[sort.col];
     filtered = [...filtered].sort((a,b)=>{
-      const av=String(a[sc]||''), bv=String(b[sc]||'');
-      const an=parseFloat(av), bn=parseFloat(bv);
-      const cmp = (!isNaN(an)&&!isNaN(bn)) ? (an-bn) : av.localeCompare(bv);
-      return cmp * sort.dir;
+      return _wbcCompareVals(a[sc], b[sc]) * sort.dir;
     });
   }
   const tbody = document.getElementById(uid);
   if(!tbody) return;
+  const cellRenderer = typeof d.cell === 'function' ? d.cell : _cellHtml;
   tbody.innerHTML = filtered.length
-    ? filtered.map((r,i)=>'<tr><td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')+'</tr>').join('')
+    ? filtered.map((r,i)=>'<tr><td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+cols.map(c=>`<td style="max-width:320px;white-space:normal">${cellRenderer(c,r[c],r,i)}</td>`).join('')+'</tr>').join('')
     : '<tr><td class="empty" colspan="99">No rows match filters.</td></tr>';
   const cnt = document.getElementById(uid+'_cnt');
   if(cnt) cnt.textContent = filtered.length+' / '+rows.length+' row'+(rows.length===1?'':'s');
@@ -1104,12 +1116,19 @@ function _wbcClearTbl(uid){
   });
   _wbcApplyTbl(uid);
 }
+function _wbcSimpleTableHtml(rows, cols, uid, opts){
+  rows=rows||[]; cols=cols||[]; opts=opts||{};
+  window._wbcTblData[uid]={rows,cols,sort:{col:-1,dir:1},invalid:opts.invalid||null};
+  const head=cols.map((c,i)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="_wbcSortTbl('${uid}',${i})">${esc(String(c).replace(/_/g,' '))} <span id="${uid}_si_${i}" style="font-size:9px;opacity:.35;color:#6366f1">\u21d5</span></th>`).join('');
+  setTimeout(()=>_wbcApplyTbl(uid),0);
+  return `<div class="tblwrap" style="max-height:${opts.maxHeight||'420px'};border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${head}</tr></thead><tbody id="${uid}"></tbody></table></div>`;
+}
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
 function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
-function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows);body.innerHTML=rows.length?`<div class="tblwrap" style="max-height:420px"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td style="max-width:360px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">No detail rows for this build.</div>';}
+function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows), uid='bwr_'+idx+'_'+Math.random().toString(36).slice(2,5);body.innerHTML=rows.length?_wbcSimpleTableHtml(rows,cols,uid,{maxHeight:'420px'}):'<div class="empty">No detail rows for this build.</div>';}
 function filterWbcBuildReport(){const q=(document.getElementById('wbcBwrSearch')?.value||'').toLowerCase();document.querySelectorAll('.wbc-bwr-item').forEach(el=>{el.style.display=(!q||String(el.getAttribute('data-text')||'').toLowerCase().includes(q))?'':'none';});}
 function _wbcMetaId(bid){const m=String(bid||'').match(/^(.+?-\d{4,6})\b/);return m?m[1].toUpperCase():String(bid||'').toUpperCase();}
 function renderBuildSummary(bs){
@@ -1228,7 +1247,7 @@ function navToTab(tab, anchorId){
 let _wbcSjqlTabs = [], _wbcSjqlTimers = {}, _wbcSjqlTTL = 30*60*1000;
 let _wbcActiveTabId = null;
 function _wbcParseTime(v){const d=new Date(v||'');return Number.isNaN(d.getTime())?null:d;}
-function _wbcDisplayTime(v){const d=_wbcParseTime(v);return d?d.toLocaleString():(v?String(v).replace('T',' ').slice(0,19):'');}
+function _wbcDisplayTime(v){return _fmtDt(v)||'';}
 function _wbcDomId(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]/g,'_');}
 function _wbcTabCacheState(t){const timer=_wbcSjqlTimers[t.id]||{};return {lastRun:timer.lastRun||t.last_run_at||t.generated_at||'',nextRun:timer.nextRun||t.next_run_at||t.next_auto_refresh_at||'',running:!!timer.running,stale:!!t.cached_report_stale,hasCached:!!t.has_cached_report,rowCount:t.cached_row_count||0,crCount:t.cached_cr_count||0,jiraCount:t.cached_jira_count||0};}
 function _wbcScheduleAutoRun(t, spreadMs){
@@ -1236,9 +1255,8 @@ function _wbcScheduleAutoRun(t, spreadMs){
   if(!_wbcSjqlTimers[t.id]) _wbcSjqlTimers[t.id]={};
   clearTimeout(_wbcSjqlTimers[t.id]._timer);
   const st=_wbcTabCacheState(t), next=_wbcParseTime(st.nextRun);
-  if(!st.hasCached) return;
   const delay = next ? Math.max(1000, next.getTime()-Date.now()) : 1000;
-  const dueDelay = st.stale || delay<=1000 ? (spreadMs||1000) : delay;
+  const dueDelay = (!st.hasCached || st.stale || delay<=1000) ? (spreadMs||1000) : delay;
   _wbcSjqlTimers[t.id]._timer=setTimeout(()=>wbcSjqlRunCard(t.id,true), dueDelay);
 }
 
@@ -1388,6 +1406,7 @@ function wbcSjqlRunCard(id, force){
       // A report request can outlive a PL switch. Never apply its rows, counts,
       // timing, or build ID to the newly selected PL.
       if(active!==requestedTarget) return;
+      if(!d || d.ok===false) throw new Error((d&&d.run_error)||(d&&d.error)||'JQL report failed');
             const now    = new Date();
       const genAt  = d.generated_at || d.last_run_at || now.toISOString();
       const nextAt = d.next_run_at || d.next_auto_refresh_at || new Date(now.getTime() + _wbcSjqlTTL).toISOString();
@@ -1426,6 +1445,8 @@ function wbcSjqlRunCard(id, force){
         +` &middot; <span style="color:#93c5fd">Cached: <b>${esc(d.row_count||((d.rows||d.flat_rows||[]).length))}</b> rows, <b>${esc(d.cr_count||0)}</b> CRs, <b>${esc(d.jira_count||0)}</b> JIRAs</span>`;
             const rb = document.getElementById('wbcrun_'+_wbcDomId(id));
       if(rb) rb.innerHTML = '<i class="fas fa-play"></i> Run Now';
+      const liveBuildTitle = d.build_id || _wbcBuildIdFromJqlTab(_wbcSjqlTabs[tabIndex]||tab) || (tab&&tab.name) || '';
+      if(title) title.innerHTML = `<i class="fas fa-bookmark" style="margin-right:6px"></i>${esc(liveBuildTitle||'Current Running Build')}`;
       if(meta) meta.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(74,222,128,.18);color:#4ade80;border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:2px 9px;font-size:9px;font-weight:900;margin-right:6px"><i class="fas fa-circle" style="font-size:6px"></i>Live use currently supported</span><span style="color:rgba(255,255,255,.6)">Last run: '+esc(_wbcDisplayTime(genAt))+'</span>';
       if(body) _wbcRenderReport(body, d, tab);
       _wbcScheduleAutoRun(_wbcSjqlTabs[tabIndex>=0?tabIndex:0]||tab, 0);
@@ -1461,9 +1482,7 @@ function _wbcGroupByCr(allRows, keyFn){
   });
 }
 function _wbcReportTableHtml(rows, cols, uid){
-  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead>`;
-  const tbody = `<tbody id="${uid}">${rows.length?rows.map((r,i)=>{const inv=_isInvalidRow(r);const bg=inv?"background:#fff1f2":i%2?"background:#f8fafc":"";return `<tr style="${bg}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}${inv?"<br><span style=\"background:#fca5a5;color:#7f1d1d;border-radius:3px;font-size:8px;font-weight:900;padding:0 3px\">INV</span>":""}</td>${cols.map(c=>`<td style="max-width:320px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join("")}</tr>`;}).join(''):'<tr><td colspan="99" class="empty">No rows.</td></tr>'}</tbody>`;
-  return `<div style="overflow:auto;border:1px solid #c7d2fe;border-radius:14px;max-height:520px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:auto">${thead}${tbody}</table></div>`;
+  return _wbcSimpleTableHtml(rows, cols, uid, {maxHeight:'520px'});
 }
 function _wbcSwitchReportTab(uid, tab){
   ['crs','mapped','open','all'].forEach(t=>{
@@ -1612,7 +1631,7 @@ function renderCurrentMetaOverview(d, buildId){
   if(crBox){
     const crCols=['CR','CR Count','CR Title','CR Status','CR Area','JIRA','Final Ticket','Final Status'].filter(c=>crRows.some(r=>r[c]!==undefined));
     crBox.innerHTML=crRows.length
-      ?`<div class="tblwrap" style="max-height:300px"><table><thead><tr><th>#</th>${crCols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${crRows.map((r,i)=>{const inv=_isInvalidRow(r);return `<tr style="${inv?'background:#fff1f2':''}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}${inv?'<br><span style="background:#fca5a5;color:#7f1d1d;border-radius:3px;font-size:8px;font-weight:900;padding:0 3px">INV</span>':''}</td>${crCols.map(c=>`<td style="max-width:280px;white-space:normal;font-size:12px">${_cellHtml(c,r[c])}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div>`
+      ? _wbcSimpleTableHtml(crRows, crCols, 'cmcr_'+Math.random().toString(36).slice(2,6), {maxHeight:'300px'})
       :'<div class="empty" style="padding:18px">No CRs found for this meta.</div>';
   }
 
@@ -1927,6 +1946,15 @@ function _ocdCrBare(row, crColName){
   return String(row[crColName]||'').replace(/^CR/i,'').trim();
 }
 
+
+let _ocrSortState={};
+function _ocrSort(uid,col){
+  const st=_ocrSortState[uid]||{col:-1,dir:1};
+  if(st.col===col)st.dir*=-1;else{st.col=col;st.dir=1;}
+  _ocrSortState[uid]=st;
+  renderOpenCrsEnhanced();
+}
+
 function renderOpenCrsEnhanced(){
   const box = document.getElementById('openCrsBox');
   if(!box) return;
@@ -1939,35 +1967,56 @@ function renderOpenCrsEnhanced(){
   }
   const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
   const analyses = _ocdData.analyses||{};
-  const uid = 'ocr_'+Math.random().toString(36).slice(2,7);
-  const search = `<div class="table-filterbar"><input id="${uid}_q" class="input" placeholder="Search Open CRs..." oninput="_ocrFilter('${uid}')"><span class="pill" id="${uid}_cnt">${rows.length} row${rows.length===1?'':'s'}</span><button class="filter-btn" onclick="_ocrClear('${uid}')"><i class="fas fa-times"></i> Clear</button></div>`;
-  const thead = `<thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}<th style="min-width:220px">SCENARIO DETAILS (TEA)</th><th style="min-width:220px">QGENIE ANALYSIS</th><th style="min-width:160px">PDT COMMENTS</th><th style="min-width:90px">IS REGRESSION</th>${CAN_EDIT?'<th>ACTION</th>':''}</tr></thead>`;
-  const tbody = rows.map((r,i)=>{
+  const uid = 'ocr_main';
+  const extraCols=['SCENARIO DETAILS (TEA)','QGENIE ANALYSIS','PDT COMMENTS','IS REGRESSION'];
+  const allSortCols=[...cols,...extraCols];
+  const qVal=(document.getElementById(uid+'_q')?.value||'');
+  const search = `<div class="table-filterbar"><input id="${uid}_q" class="input" placeholder="Search Open CRs..." value="${esc(qVal)}" oninput="_ocrFilter('${uid}')"><span class="pill" id="${uid}_cnt">${rows.length} row${rows.length===1?'':'s'}</span><button class="filter-btn" onclick="_ocrClear('${uid}')"><i class="fas fa-times"></i> Clear</button></div>`;
+  const sortState=_ocrSortState[uid]||{col:-1,dir:1};
+  const theadHtml = '<thead><tr><th>#</th>'+allSortCols.map((c,i)=>'<th style="cursor:pointer;user-select:none;white-space:nowrap;'+(i>=cols.length?'min-width:'+(i===cols.length||i===cols.length+1?'220px':i===cols.length+2?'160px':'90px'):'')+'" onclick="_ocrSort(\''+uid+'\','+i+')">'+esc(String(c).replace(/_/g,' '))+' <span id="'+uid+'_si_'+i+'" style="font-size:9px;opacity:.35;color:#6366f1">\u21d5</span></th>').join('')+(CAN_EDIT?'<th>ACTION</th>':'')+'</tr></thead>';
+  let displayRows=rows.map((r,idx)=>({r,idx}));
+  if(sortState.col>=0){
+    displayRows=displayRows.sort((a,b)=>{
+      const val=(item)=>{
+        const r=item.r, crBare=_ocdCrBare(r, crColName), analysis=analyses[crBare]||{};
+        if(sortState.col<cols.length)return r[cols[sortState.col]];
+        const ec=extraCols[sortState.col-cols.length];
+        if(ec==='SCENARIO DETAILS (TEA)')return analysis.tea||'';
+        if(ec==='QGENIE ANALYSIS')return analysis.qgenie||'';
+        if(ec==='PDT COMMENTS')return analysis.pdt_comment||'';
+        if(ec==='IS REGRESSION')return analysis.is_regression?'Yes':'No';
+        return '';
+      };
+      return _wbcCompareVals(val(a),val(b))*sortState.dir;
+    });
+  }
+  const tbody = displayRows.map(({r},i)=>{
     const crBare = _ocdCrBare(r, crColName);
     const analysis = analyses[crBare]||{};
     const tea = analysis.tea||'';
     const qgenie = analysis.qgenie||'';
     const pdtComment = analysis.pdt_comment||'';
     const isReg = !!analysis.is_regression;
-    // Show full TEA content in a scrollable cell (not truncated)
     const teaClean = tea.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, '');
     const qgenieClean = qgenie.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, '');
     const teaDate = (tea.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
     const qgenieDate = (qgenie.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
     const dbCells = cols.map(c=>`<td style="max-width:180px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('');
     const teaDateBadge = teaDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(teaDate)}</span><br>` : '';
-    const teaCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#0369a1;white-space:pre-wrap;line-height:1.4">${teaDateBadge}${esc(teaClean)||'<span style="color:#94a3b8">—</span>'}</div></td>`;
+    const teaCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#0369a1;white-space:pre-wrap;line-height:1.4">${teaDateBadge}${esc(teaClean)||'<span style="color:#94a3b8">\u2014</span>'}</div></td>`;
     const qgenieDateBadge = qgenieDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(qgenieDate)}</span><br>` : '';
-    const qgenieCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#7c3aed;white-space:pre-wrap;line-height:1.4">${qgenieDateBadge}${esc(qgenieClean)||'<span style="color:#94a3b8">—</span>'}</div></td>`;
-    const pdtCell = `<td style="max-width:180px;white-space:normal;font-size:11px">${esc(pdtComment)||'<span style="color:#94a3b8">—</span>'}</td>`;
+    const qgenieCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#7c3aed;white-space:pre-wrap;line-height:1.4">${qgenieDateBadge}${esc(qgenieClean)||'<span style="color:#94a3b8">\u2014</span>'}</div></td>`;
+    const pdtCell = `<td style="max-width:180px;white-space:normal;font-size:11px">${esc(pdtComment)||'<span style="color:#94a3b8">\u2014</span>'}</td>`;
     const regCell = `<td style="text-align:center"><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:${isReg?'#dcfce7':'#f1f5f9'};color:${isReg?'#166534':'#64748b'}">${isReg?'Yes':'No'}</span></td>`;
     const actionCell = CAN_EDIT ? `<td><button class="btn" onclick="openOcdEdit('${esc(crBare)}')" style="padding:4px 10px;font-size:11px"><i class="fas fa-pen"></i> Edit</button></td>` : '';
     const rowText = esc(JSON.stringify(r).toLowerCase()+' '+tea.toLowerCase()+' '+qgenie.toLowerCase()+' '+pdtComment.toLowerCase());
     return `<tr data-cr="${esc(crBare)}" data-text="${rowText}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${dbCells}${teaCell}${qgenieCell}${pdtCell}${regCell}${actionCell}</tr>`;
   }).join('');
-  box.innerHTML = search + `<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><${thead}<tbody id="${uid}">${tbody}</tbody></table></div>`;
+  box.innerHTML = search + '<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table>'+theadHtml+'<tbody id="'+uid+'">'+tbody+'</tbody></table></div>';
+  allSortCols.forEach((_,i)=>{const el=document.getElementById(uid+'_si_'+i);if(el){if(i===sortState.col){el.textContent=sortState.dir===1?'\u2191':'\u2193';el.style.opacity='1';el.style.color='#4f46e5';}else{el.textContent='\u21d5';el.style.opacity='.35';el.style.color='#6366f1';}}});
   window._ocrTblData = window._ocrTblData||{};
   window._ocrTblData[uid] = {total: rows.length};
+  if(qVal)_ocrFilter(uid);
 }
 
 function _ocrFilter(uid){
