@@ -6809,11 +6809,17 @@ def _monthly_fetch_target_cr_data(
                     )
                     site_params = list(selected_team_values)
 
-                # This table is used only to map CR numbers to reporting site.
-                # Keep that mapping all-time so the "PDT overall & Unique CRs
-                # (All Time)" chart is not restricted by the selected month.
-                date_clause = ''
-                date_params = []
+                # Monthly Report follows CR Overview date scoping:
+                # use the CR's last reported/last instance date when available,
+                # falling back to first jira_date only when no last-instance column exists.
+                if last_col:
+                    date_expr = f"DATE(`{last_col}`)"
+                elif 'jira_date' in u_cols:
+                    date_expr = "DATE(`jira_date`)"
+                else:
+                    date_expr = ""
+                date_clause = f" AND {date_expr} >= %s AND {date_expr} <= %s" if date_expr else ""
+                date_params = [date_from_s, date_to_s] if date_expr else []
 
                 cur.execute(f"""
                     SELECT
