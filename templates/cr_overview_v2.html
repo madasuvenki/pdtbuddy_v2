@@ -34,6 +34,13 @@
       <input type="hidden" id="crv2DateTo">
     </div>
     <div class="crv2-filter">
+      <label><i class="fas fa-check-circle"></i> Include Valid</label>
+      <button type="button" id="crv2ValidBtn" class="crv2-mode-chip crv2-mode-chip--valid" aria-pressed="true">
+        <input type="checkbox" id="crv2IncludeValid" tabindex="-1" checked>
+        <i class="fas fa-check-circle"></i> <span class="crv2-mode-chip__text">Valid</span> <b id="crv2ValidCount">0</b>
+      </button>
+    </div>
+    <div class="crv2-filter">
       <label><i class="fas fa-ban"></i> Include NoSIR</label>
       <button type="button" id="crv2NosirBtn" class="crv2-mode-chip crv2-mode-chip--nosir" aria-pressed="false">
         <input type="checkbox" id="crv2IncludeNosir" tabindex="-1">

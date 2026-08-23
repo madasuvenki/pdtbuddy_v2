@@ -889,6 +889,7 @@ def fetch_cr_overview_data(
     flt_age_unit:  str  = "days",
     flt_statuses:  list = None,
     flt_sites:     list = None,
+    include_valid: bool = True,
     include_nosir: bool = False,
     include_dup: bool = False,
     include_invalid: bool = False,
@@ -920,6 +921,7 @@ def fetch_cr_overview_data(
              flt_statuses=flt_statuses or [],
              flt_sites=flt_sites or [],
              status_filter_list=status_filter_list or [],
+             include_valid=include_valid,
              include_nosir=include_nosir,
              include_dup=include_dup,
              include_invalid=include_invalid,
@@ -955,6 +957,7 @@ def _build_payload_from_crs(
     flt_statuses:       list  = None,
     flt_sites:          list  = None,
     status_filter_list: list  = None,
+    include_valid:      bool  = True,
     include_nosir:      bool  = False,
     include_dup:        bool  = False,
     include_invalid:    bool  = False,
@@ -1036,7 +1039,7 @@ def _build_payload_from_crs(
         for c in all_crs:
             cat = (c.get("cr_category") or "").strip().lower()
             st_lc = (c.get("cr_status") or "").strip().lower()
-            if cat in _VALID_CATS and st_lc != "nosir":
+            if include_valid and cat in _VALID_CATS and st_lc != "nosir":
                 crs.append(c)
             elif include_nosir and st_lc == "nosir":
                 crs.append(c)
@@ -1244,6 +1247,7 @@ def fetch_area_target_breakdown(
     flt_age_min:        str = "",
     flt_age_max:        str = "",
     flt_age_unit:       str = "days",
+    include_valid:      bool = True,
     include_nosir:      bool = False,
     include_dup:        bool = False,
     include_invalid:    bool = False,
@@ -1275,7 +1279,7 @@ def fetch_area_target_breakdown(
                         continue
                 else:
                     st_lc = (cr.get("cr_status") or "").strip().lower()
-                    if cat in _VALID_CATS and st_lc != "nosir":
+                    if include_valid and cat in _VALID_CATS and st_lc != "nosir":
                         pass
                     elif include_nosir and st_lc == "nosir":
                         pass
@@ -1428,6 +1432,7 @@ def fetch_cr_rows(
     flt_age_max:        str  = "",
     flt_age_unit:       str  = "days",
     flt_proj:           str  = "",
+    include_valid:      bool = True,
     include_nosir:      bool = False,
     include_dup:        bool = False,
     include_invalid:    bool = False,
@@ -1454,7 +1459,7 @@ def fetch_cr_rows(
                         if (cr.get("cr_status") or "").strip().lower() != "nosir": continue
                     else:
                         st_lc = (cr.get("cr_status") or "").strip().lower()
-                        if cat in _VALID_CATS and st_lc != "nosir":
+                        if include_valid and cat in _VALID_CATS and st_lc != "nosir":
                             pass
                         elif include_nosir and st_lc == "nosir":
                             pass

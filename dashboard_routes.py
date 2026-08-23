@@ -1353,6 +1353,7 @@ def api_cr_overview():
             tgt_filter = '__MULTI__:' + ','.join(_multi_tgts)
     dimension     = (request.args.get('dim')           or 'cr_area').strip().lower()
     status_filter = (request.args.get('status_filter') or 'all').strip().lower()
+    include_valid = str(request.args.get('include_valid', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -1406,6 +1407,7 @@ def api_cr_overview():
             flt_age_unit=flt_age_unit,
             flt_statuses=flt_statuses,
             flt_sites=flt_sites,
+            include_valid=include_valid,
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,
@@ -1467,6 +1469,7 @@ def api_cr_overview_cr_rows():
     sort_by       = (request.args.get('sort')     or 'age_desc').strip().lower()
     site_filter   = (request.args.get('site')     or 'ALL').strip().upper()
     status_filter = (request.args.get('status_filter') or 'all').strip().lower()
+    include_valid = str(request.args.get('include_valid', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -1518,6 +1521,7 @@ def api_cr_overview_cr_rows():
             flt_age_max=(request.args.get('flt_age_max') or '').strip(),
             flt_age_unit=(request.args.get('flt_age_unit') or 'days').strip().lower(),
             flt_proj=(request.args.get('flt_proj') or '').strip(),
+            include_valid=include_valid,
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,
@@ -1557,6 +1561,7 @@ def api_cr_overview_area_targets():
             tgt_filter = '__MULTI__:' + ','.join(_multi_tgts)
 
     status_filter = (request.args.get('status_filter') or 'all').strip().lower()
+    include_valid = str(request.args.get('include_valid', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -1588,6 +1593,7 @@ def api_cr_overview_area_targets():
             flt_age_min=(request.args.get('flt_age_min') or '').strip(),
             flt_age_max=(request.args.get('flt_age_max') or '').strip(),
             flt_age_unit=(request.args.get('flt_age_unit') or 'days').strip().lower(),
+            include_valid=include_valid,
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,

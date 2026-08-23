@@ -4,7 +4,7 @@
   var $ = function(id){ return document.getElementById(id); };
     var state = {
   bu:'ALL', target:'ALL', dim:'bu_key', mode:'all', ageUnit:'days', dateFrom:'', dateTo:'', datePreset:'all',
-  includeNosir:false, includeDup:false, includeInvalid:false,
+  includeValid:true, includeNosir:false, includeDup:false, includeInvalid:false,
   site:'ALL', selectedSites:[], allSites:[], sitesTouched:false, selectedStatuses:[], allStatuses:[], statusCounts:{}, statusesTouched:false, data:null, statusData:null, chart:null, statusChart:null, drillChart:null,
   fetchSeq:0, fetchTimer:null, rowsRequestSeq:0, rowsPage:1, rowsPerPage:40, rowsSort:'age_desc', lastRowsMeta:null, lastRowsFilters:null, activeAgeBucketKey:'', selectedBreakdownLabel:'',
   allTargets:[], targetsByBu:{}, excludedTargets:[], settingsEditing:false, settingsLoaded:false, selectedProjects:[], allProjects:[], projectsTouched:false,
@@ -566,6 +566,7 @@
     return 'ALL'; // multi handled via targets= param
   }
   function appendIncludeFilters(qs){
+  qs.push('include_valid='+(state.includeValid?'1':'0'));
   qs.push('include_nosir='+(state.includeNosir?'1':'0'));
   qs.push('include_dup='+(state.includeDup?'1':'0'));
   qs.push('include_invalid='+(state.includeInvalid?'1':'0'));
@@ -720,15 +721,18 @@
   return names.reduce(function(a,n){ return a + (isStatusAllowed(n)?Number(map[String(n).toLowerCase()]||0):0); }, 0);
   }
   function renderModeChips(){
-  var nb=$('crv2NosirBtn'), db=$('crv2DupBtn'), ib=$('crv2InvalidBtn');
-  var nc=$('crv2NosirCount'), dc=$('crv2DupCount'), ic=$('crv2InvalidCount');
-  var cbN=$('crv2IncludeNosir'), cbD=$('crv2IncludeDup'), cbI=$('crv2IncludeInvalid');
+  var vb=$('crv2ValidBtn'), nb=$('crv2NosirBtn'), db=$('crv2DupBtn'), ib=$('crv2InvalidBtn');
+  var vc=$('crv2ValidCount'), nc=$('crv2NosirCount'), dc=$('crv2DupCount'), ic=$('crv2InvalidCount');
+  var cbV=$('crv2IncludeValid'), cbN=$('crv2IncludeNosir'), cbD=$('crv2IncludeDup'), cbI=$('crv2IncludeInvalid');
+  if(vc){ vc.textContent=((state.data && Number(state.data.built_crs||0) + Number(state.data.open_analysis||0)) || 0); vc.style.display='inline-flex'; }
   if(nc){ nc.textContent=(state.data && state.data.nosir_count) || 0; nc.style.display='inline-flex'; }
   if(dc){ dc.textContent=(state.data && state.data.dup_count) || 0; dc.style.display='inline-flex'; }
   if(ic){ ic.textContent=(state.data && state.data.invalid_count) || 0; ic.style.display='inline-flex'; }
+  if(cbV) cbV.checked=!!state.includeValid;
   if(cbN) cbN.checked=!!state.includeNosir;
   if(cbD) cbD.checked=!!state.includeDup;
   if(cbI) cbI.checked=!!state.includeInvalid;
+  if(vb){ vb.classList.toggle('active', !!state.includeValid); vb.setAttribute('aria-pressed', state.includeValid?'true':'false'); }
   if(nb){ nb.classList.toggle('active', !!state.includeNosir); nb.setAttribute('aria-pressed', state.includeNosir?'true':'false'); }
   if(db){ db.classList.toggle('active', !!state.includeDup); db.setAttribute('aria-pressed', state.includeDup?'true':'false'); }
   if(ib){ ib.classList.toggle('active', !!state.includeInvalid); ib.setAttribute('aria-pressed', state.includeInvalid?'true':'false'); }
@@ -738,7 +742,8 @@
   if(state.includeNosir) extras.push('NoSIR');
   if(state.includeDup) extras.push('Dup');
   if(state.includeInvalid) extras.push('Invalid');
-  return extras.length ? ('Valid CRs + '+extras.join(' + ')) : 'Valid CRs'; }
+  if(state.includeValid) extras.unshift('Valid');
+  return extras.length ? extras.join(' + ') : 'No CR buckets selected'; }
   function setContext(){
   setText('crv2ContextText', currentTitle()+'    '+modeLabel());
   setText('crv2BuSub', currentTitle());
@@ -1093,7 +1098,7 @@
       'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),
       'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),
       'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo),
-      'include_nosir='+(state.includeNosir?'1':'0'),'include_dup='+(state.includeDup?'1':'0'),'include_invalid='+(state.includeInvalid?'1':'0'),
+      'include_valid='+(state.includeValid?'1':'0'),'include_nosir='+(state.includeNosir?'1':'0'),'include_dup='+(state.includeDup?'1':'0'),'include_invalid='+(state.includeInvalid?'1':'0'),
       'per_page='+perPage,'sort='+sort,'page=1'];
     _appendTargetFilter(qs);
     if(state.selectedBreakdownLabel) qs.push('dim_val='+encodeURIComponent(state.selectedBreakdownLabel));
@@ -1787,7 +1792,8 @@
   el=$('crv2Bu'); if(el) el.addEventListener('change', function(){ state.bu=String(this.value||'ALL').toUpperCase(); state.target='ALL'; state.site='ALL'; state.targetsTouched=false; syncDimOptions(); setTargetOptions(); fetchData(true); });
   el=$('crv2Dim'); if(el) el.addEventListener('change', function(){ state.dim=this.value||'cr_area'; fetchData(true); });
   el=$('crv2AgeUnit'); if(el) el.addEventListener('change', function(){ state.ageUnit=this.value||'days'; renderAll(); });
-  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.includeNosir=false; state.includeDup=false; state.includeInvalid=false; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
+  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.includeValid=true; state.includeNosir=false; state.includeDup=false; state.includeInvalid=false; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
+  el=$('crv2ValidBtn'); if(el) el.addEventListener('click', function(){ state.includeValid=!state.includeValid; fetchData(true); });
   el=$('crv2NosirBtn'); if(el) el.addEventListener('click', function(){ state.includeNosir=!state.includeNosir; fetchData(true); });
   el=$('crv2DupBtn'); if(el) el.addEventListener('click', function(){ state.includeDup=!state.includeDup; fetchData(true); });
   el=$('crv2InvalidBtn'); if(el) el.addEventListener('click', function(){ state.includeInvalid=!state.includeInvalid; fetchData(true); });
