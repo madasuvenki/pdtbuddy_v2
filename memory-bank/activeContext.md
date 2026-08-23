@@ -30,7 +30,8 @@
   - Default/enabled behavior counts repeated CRs across multiple targets separately.
   - Added optional `include_unique_crs` flow that resolves each target's `overallcrs`/`overall_crs` table, fetches `reported_team='PDT_Unique'` rows, normalizes them into CR Overview row shape, and includes them in hero counts, charts, drilldowns, and detail tables.
   - Added `pdt_unique_count` to the summary payload so the frontend can show PDT Unique CRs as a hero KPI count.
-  - `pdt_unique_count` now respects the selected date range using `jira_date_last` / `jira_date` from the OverallCrs PDT_Unique rows instead of always returning all-time counts.
+  - `pdt_unique_count` now cross-checks OverallCrs PDT_Unique tagged CR IDs against the target's cached `unique_crs` rows and counts only CRs present in both sources.
+  - `pdt_unique_count` date filtering now uses `jira_date_last` / `jira_date` from the matched `unique_crs` row, not the OverallCrs date column.
   - Updated CR Overview date filtering to use `jira_date_last` / `jira_date__last_instance` (`qstability__last_instance` fallback) as the selected date-window anchor for summary, drilldown, detail rows, and available year picker. This ensures a CR first reported before the selected period is still included if it was reported again during the selected period.
 
 **Validation:**

@@ -1107,13 +1107,31 @@ def fetch_cr_overview_data(
         for t in targets_to_query:
             crs = _get_target_cached(t)
             if crs is not None:
+                crs = list(crs or [])
                 all_crs.extend(crs)
+
+                def _norm_cr_id(value: Any) -> str:
+                    return str(value or "").strip().upper().replace("-", "")
+
+                crs_by_id: Dict[str, Dict[str, Any]] = {}
+                for cr in crs:
+                    cr_id = _norm_cr_id(cr.get("mapped_cr") or cr.get("cr"))
+                    if cr_id and cr_id not in crs_by_id:
+                        crs_by_id[cr_id] = cr
+
                 conn = get_mysql_connection_db()
                 if conn:
                     try:
                         unique_rows, _ = _fetch_target_overall_unique_crs(conn, t)
                         for unique_row in unique_rows:
-                            unique_jd_last = (unique_row.get("jira_date_last") or unique_row.get("jira_date") or "")[:10]
+                            # OverallCrs provides the PDT_Unique tag. Count it only when
+                            # the same CR is present in this target's cached unique_crs table,
+                            # and use unique_crs jira_date_last/jira_date for date filtering.
+                            unique_cr_id = _norm_cr_id(unique_row.get("mapped_cr") or unique_row.get("cr"))
+                            matching_cr = crs_by_id.get(unique_cr_id)
+                            if not matching_cr:
+                                continue
+                            unique_jd_last = (matching_cr.get("jira_date_last") or matching_cr.get("jira_date") or "")[:10]
                             if date_from:
                                 if not unique_jd_last or unique_jd_last < date_from:
                                     continue
