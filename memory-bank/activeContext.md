@@ -34,6 +34,7 @@
   - `pdt_unique_count` date filtering now uses `jira_date_last` / `jira_date` from the matched `unique_crs` row, not the OverallCrs date column.
   - Updated CR Overview date filtering to use `jira_date_last` / `jira_date__last_instance` (`qstability__last_instance` fallback) as the selected date-window anchor for summary, drilldown, detail rows, and available year picker. This ensures a CR first reported before the selected period is still included if it was reported again during the selected period.
   - Updated Monthly Report `unique_crs` PDT CR date filtering to match CR Overview behavior: use `jira_date__last_instance` / `qstability__last_instance` / `jira_date_last_instance` as the selected date-window anchor, falling back to `jira_date` only when no last-instance column exists.
+  - Added Monthly Report **Include NoSIR** checkbox matching CR Overview behavior. NoSIR CR rows are excluded by default and shown only when enabled. The toggle is wired through `templates/monthly_report.html`, `static/js/monthly_report.js`, and the WBC detail API in `weekly_summary_routes.py`.
 
 **Validation:**
 - `py -3 -m py_compile dashboard_routes.py src\cr_overview_service.py` executed successfully.

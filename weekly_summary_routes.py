@@ -7401,6 +7401,7 @@ def api_monthly_report_data():
     include_hwpdt   = request.args.get('include_hwpdt',   '0') == '1'
     include_dup     = request.args.get('include_dup',     '0') == '1'
     include_invalid = request.args.get('include_invalid', '0') == '1'
+    include_nosir   = request.args.get('include_nosir',   '0') == '1'
     sites_raw       = request.args.get('sites', '').strip()
     sites           = [s.strip().upper() for s in sites_raw.split(',') if s.strip()] if sites_raw else []
     sel_targets_raw = request.args.get('targets', '').strip()
@@ -7466,6 +7467,7 @@ def api_monthly_report_data():
         'include_hwpdt':      include_hwpdt,
         'include_dup':        include_dup,
         'include_invalid':    include_invalid,
+        'include_nosir':      include_nosir,
         'sites':              sites,
         'status_table':       status_table,
                 'overall_status':     overall_status,
@@ -9553,13 +9555,16 @@ def _wbc_subsystem_charts(schema: str, bu_targets: list,
 
 
 def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
-                   include_dup=False, include_invalid=False, sites=None):
-    """Build CR tables with optional Dup/Invalid/Site filters."""
+                   include_dup=False, include_invalid=False,
+                   include_nosir=False, sites=None):
+    """Build CR tables with optional Dup/Invalid/NoSIR/Site filters."""
     dup_clause = "" if include_dup else "AND cr_occurrence != 'Dup'"
     excl_cats = []
     if not include_dup:     excl_cats.append("'Dup'")
     if not include_invalid: excl_cats.append("'Invalid'")
+    if not include_nosir:   excl_cats.append("'NoSIR'")
     cat_clause = ("AND cr_category NOT IN (" + ",".join(excl_cats) + ")") if excl_cats else ""
+    nosir_status_clause = "" if include_nosir else "AND REPLACE(REPLACE(LOWER(COALESCE(cr_status,'')), ' ', ''), '-', '') != 'nosir'"
 
     result = {}
     try:
@@ -9649,7 +9654,7 @@ def _wbc_cr_tables(schema, bu_targets, date_from_s, date_to_s,
                         " cr_functionality, cr_title, image, cr_status, cr_category, pdt_site_unique"
                         " FROM " + ucrs_tbl +
                         " WHERE (cr IN (" + ph + ") OR mapped_cr IN (" + ph + "))"
-                        " " + dup_clause + " " + cat_clause +
+                        " " + dup_clause + " " + cat_clause + " " + nosir_status_clause +
                         " ORDER BY jira_date"
                     )
                     cur.execute(sql, mapped_crs * 2)
@@ -9704,6 +9709,7 @@ def api_monthly_report_wbc_detail():
     date_to_s     = date_to.isoformat()
     include_dup     = request.args.get('include_dup',     '0') == '1'
     include_invalid = request.args.get('include_invalid', '0') == '1'
+    include_nosir   = request.args.get('include_nosir',   '0') == '1'
     sites_raw       = request.args.get('sites', '').strip()
     sites           = [s.strip().upper() for s in sites_raw.split(',') if s.strip()] if sites_raw else []
 
@@ -9735,6 +9741,7 @@ def api_monthly_report_wbc_detail():
         schema, bu_targets, date_from_s, date_to_s,
         include_dup=include_dup,
         include_invalid=include_invalid,
+        include_nosir=include_nosir,
         sites=sites,
     )
 
@@ -9745,6 +9752,7 @@ def api_monthly_report_wbc_detail():
         'date_to':          date_to_s,
         'include_dup':      include_dup,
         'include_invalid':  include_invalid,
+        'include_nosir':    include_nosir,
         'sites':            sites,
         'mtbf_trend':       mtbf_trend,
         'cr_tables':        cr_tables,

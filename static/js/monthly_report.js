@@ -18,6 +18,7 @@
   /* ── CR filter helpers ── */
   function inclDup()  { var c = $('mrDupChk');  return c ? c.checked : false; }
   function inclInv()  { var c = $('mrInvChk');  return c ? c.checked : false; }
+  function inclNoSir(){ var c = $('mrNoSirChk'); return c ? c.checked : false; }
   function siteChkd() { var c = $('mrSiteChk'); return c ? c.checked : false; }
 
   var MR_DIM_LABELS = { area: 'Area', subsystem: 'SubSystem', functionality: 'Functionality' };
@@ -84,14 +85,18 @@
         });
       });
     }
-    /* Dup / Invalid toggles */
-    var dupChk = $('mrDupChk'), invChk = $('mrInvChk');
+    /* Dup / Invalid / NoSIR toggles */
+    var dupChk = $('mrDupChk'), invChk = $('mrInvChk'), noSirChk = $('mrNoSirChk');
     if (dupChk) dupChk.addEventListener('change', function() {
       $('mrDupToggle').classList.toggle('active', this.checked);
       if (state.data) applyAllFilters();
     });
     if (invChk) invChk.addEventListener('change', function() {
       $('mrInvToggle').classList.toggle('active', this.checked);
+      if (state.data) applyAllFilters();
+    });
+    if (noSirChk) noSirChk.addEventListener('change', function() {
+      $('mrNoSirToggle').classList.toggle('active', this.checked);
       if (state.data) applyAllFilters();
     });
   });
@@ -373,9 +378,10 @@
         fields: area, count  — no CR-level fields, pass through
   ── */
   function filterCrRows(rows) {
-    var showDup  = inclDup();
-    var showInv  = inclInv();
-    var sites    = getSelSites();
+    var showDup   = inclDup();
+    var showInv   = inclInv();
+    var showNoSir = inclNoSir();
+    var sites     = getSelSites();
     var allSites = allSitesSelected();
 
     return (rows || []).filter(function(r) {
@@ -399,6 +405,19 @@
       if (!showInv) {
         var cat2 = String(r.cr_category || '').trim().toLowerCase();
         if (cat2 === 'invalid') return false;
+      }
+
+      /* ── NoSIR filter ──
+         Match CR Overview behavior by excluding NoSIR rows unless enabled.
+         Normalize separators/case so values like "NoSIR", "No SIR", "NO_SIR"
+         or "No-SIR" are treated the same. */
+      if (!showNoSir) {
+        var nosirText = [
+          r.cr_category, r.cr_status, r.cr_occurrence, r.instances, r.test_team
+        ].map(function(v) {
+          return String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        }).join('|');
+        if (nosirText.indexOf('nosir') >= 0) return false;
       }
 
             /* ── Site filter ──
@@ -896,7 +915,7 @@
     if ($('mrHwpdtChk')) $('mrHwpdtChk').addEventListener('change', function () {
       $('mrHwpdtToggle').classList.toggle('active', this.checked);
     });
-    /* Dup / Invalid / Site toggles are wired in the earlier DOMContentLoaded block */
+    /* Dup / Invalid / NoSIR / Site toggles are wired in the earlier DOMContentLoaded block */
 
     /* Generate button */
     if ($('mrGenerateBtn')) $('mrGenerateBtn').addEventListener('click', generateReport);
@@ -938,7 +957,8 @@
       + '&date_to='   + encodeURIComponent(dt)
       + '&include_hwpdt=' + incl
       + '&include_dup=1'
-      + '&include_invalid=1';
+      + '&include_invalid=1'
+      + '&include_nosir=1';
     if (selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
     if (!allSites) qs += '&sites=' + encodeURIComponent(selSites.join(','));
 
@@ -1917,7 +1937,8 @@
            + '&date_from=' + encodeURIComponent(df)
            + '&date_to='   + encodeURIComponent(dt)
            + '&include_dup=1'
-           + '&include_invalid=1';
+           + '&include_invalid=1'
+           + '&include_nosir=1';
     if (selTgts && selTgts.length) qs += '&targets=' + encodeURIComponent(selTgts.join(','));
     var selectedSites = getSelSites();
     if (!allSitesSelected()) qs += '&sites=' + encodeURIComponent(selectedSites.join(','));

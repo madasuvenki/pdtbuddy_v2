@@ -20,6 +20,8 @@
 .mr-cr-toggle--dup.active{border-color:#ef4444;background:#fff5f5;color:#b91c1c;}
 .mr-cr-toggle--inv input{accent-color:#f97316;}
 .mr-cr-toggle--inv.active{border-color:#f97316;background:#fff7ed;color:#c2410c;}
+.mr-cr-toggle--nosir input{accent-color:#8b5cf6;}
+.mr-cr-toggle--nosir.active{border-color:#8b5cf6;background:#f5f3ff;color:#6d28d9;}
 .mr-cr-toggle--site input{accent-color:#0ea5e9;}
 .mr-cr-toggle--site.active{border-color:#0ea5e9;background:#f0f9ff;color:#0369a1;}
 /* ── Site filter dropdown ── */
@@ -185,6 +187,11 @@
     <label class="mr-cr-toggle mr-cr-toggle--inv" id="mrInvToggle" title="Include Invalid CRs (cr_category=Invalid)">
       <input type="checkbox" id="mrInvChk">
       <i class="fas fa-ban" style="font-size:11px;"></i> Include Invalid
+    </label>
+    {# ── NoSIR CRs toggle ── #}
+    <label class="mr-cr-toggle mr-cr-toggle--nosir" id="mrNoSirToggle" title="Include NoSIR CRs (cr_category/status=NoSIR)">
+      <input type="checkbox" id="mrNoSirChk">
+      <i class="fas fa-filter-circle-xmark" style="font-size:11px;"></i> Include NoSIR
     </label>
     {# ── Site-wise filter ── #}
     <div class="mr-ctrl-group">
