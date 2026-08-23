@@ -34,12 +34,25 @@
       <input type="hidden" id="crv2DateTo">
     </div>
     <div class="crv2-filter">
-      <label><i class="fas fa-ban"></i> NoSIR</label>
-      <button type="button" id="crv2NosirBtn" class="crv2-mode-chip crv2-mode-chip--nosir"><i class="fas fa-ban"></i> <span class="crv2-mode-chip__text">NoSIR</span> <b id="crv2NosirCount">0</b></button>
+      <label><i class="fas fa-ban"></i> Include NoSIR</label>
+      <button type="button" id="crv2NosirBtn" class="crv2-mode-chip crv2-mode-chip--nosir" aria-pressed="false">
+        <input type="checkbox" id="crv2IncludeNosir" tabindex="-1">
+        <i class="fas fa-ban"></i> <span class="crv2-mode-chip__text">NoSIR</span> <b id="crv2NosirCount">0</b>
+      </button>
     </div>
     <div class="crv2-filter">
-      <label><i class="fas fa-eye-slash"></i> Invalid</label>
-      <button type="button" id="crv2InvalidBtn" class="crv2-mode-chip crv2-mode-chip--invalid"><i class="fas fa-eye-slash"></i> <span class="crv2-mode-chip__text">Invalid</span> <b id="crv2InvalidCount">0</b></button>
+      <label><i class="fas fa-copy"></i> Include Dup</label>
+      <button type="button" id="crv2DupBtn" class="crv2-mode-chip crv2-mode-chip--dup" aria-pressed="false">
+        <input type="checkbox" id="crv2IncludeDup" tabindex="-1">
+        <i class="fas fa-copy"></i> <span class="crv2-mode-chip__text">Dup</span> <b id="crv2DupCount">0</b>
+      </button>
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-eye-slash"></i> Include Invalid</label>
+      <button type="button" id="crv2InvalidBtn" class="crv2-mode-chip crv2-mode-chip--invalid" aria-pressed="false">
+        <input type="checkbox" id="crv2IncludeInvalid" tabindex="-1">
+        <i class="fas fa-eye-slash"></i> <span class="crv2-mode-chip__text">Invalid</span> <b id="crv2InvalidCount">0</b>
+      </button>
     </div>
     <div class="crv2-filter crv2-multi" id="crv2StatusWrap">
       <label>CR Status</label>

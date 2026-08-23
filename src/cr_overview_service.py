@@ -889,6 +889,9 @@ def fetch_cr_overview_data(
     flt_age_unit:  str  = "days",
     flt_statuses:  list = None,
     flt_sites:     list = None,
+    include_nosir: bool = False,
+    include_dup: bool = False,
+    include_invalid: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
     VALID_DIMS = {"bu_key", "cr_area", "cr_status", "cr_functionality", "cr_subsystem"}
     if dimension not in VALID_DIMS:
@@ -914,9 +917,12 @@ def fetch_cr_overview_data(
             flt_func=flt_func, flt_proj=flt_proj,
             flt_age_min=flt_age_min, flt_age_max=flt_age_max,
             flt_age_unit=flt_age_unit,
-            flt_statuses=flt_statuses or [],
-            flt_sites=flt_sites or [],
-            status_filter_list=status_filter_list or [],
+             flt_statuses=flt_statuses or [],
+             flt_sites=flt_sites or [],
+             status_filter_list=status_filter_list or [],
+             include_nosir=include_nosir,
+             include_dup=include_dup,
+             include_invalid=include_invalid,
         ), None
     except Exception as exc:
         _cr_overview_log(f"[CR OVERVIEW] fatal - {exc}")
@@ -949,6 +955,9 @@ def _build_payload_from_crs(
     flt_statuses:       list  = None,
     flt_sites:          list  = None,
     status_filter_list: list  = None,
+    include_nosir:      bool  = False,
+    include_dup:        bool  = False,
+    include_invalid:    bool  = False,
 ) -> Dict[str, Any]:
     from config import BU_ICONS
     import dashboard_common as _dc
@@ -1021,10 +1030,20 @@ def _build_payload_from_crs(
     elif nosir_mode:
         crs = [c for c in all_crs if (c.get("cr_status") or "").strip().lower() == "nosir"]
     else:
-        # Default view: only built/undisposed, strictly exclude NoSIR (by cr_status) and invalid
-        crs = [c for c in all_crs
-               if c["cr_category"] in _VALID_CATS
-               and (c.get("cr_status") or "").strip().lower() != "nosir"]
+        # Default view: valid data only, with optional include checkboxes for NoSIR/Dup/Invalid.
+        # This lets users add those buckets into the same valid-data view and see counts update instantly.
+        crs = []
+        for c in all_crs:
+            cat = (c.get("cr_category") or "").strip().lower()
+            st_lc = (c.get("cr_status") or "").strip().lower()
+            if cat in _VALID_CATS and st_lc != "nosir":
+                crs.append(c)
+            elif include_nosir and st_lc == "nosir":
+                crs.append(c)
+            elif include_dup and cat == "dup":
+                crs.append(c)
+            elif include_invalid and cat == "invalid":
+                crs.append(c)
 
     # 2. site filter
     if site_filter and site_filter != "ALL":
@@ -1225,6 +1244,9 @@ def fetch_area_target_breakdown(
     flt_age_min:        str = "",
     flt_age_max:        str = "",
     flt_age_unit:       str = "days",
+    include_nosir:      bool = False,
+    include_dup:        bool = False,
+    include_invalid:    bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
 
     try:
@@ -1252,10 +1274,16 @@ def fetch_area_target_breakdown(
                     if (cr.get("cr_status") or "").strip().lower() != "nosir":
                         continue
                 else:
-                    if cat not in _VALID_CATS:
-                        continue
-                    # Exclude NoSIR from default view (NoSIR has its own tab)
-                    if (cr.get("cr_status") or "").strip().lower() == "nosir":
+                    st_lc = (cr.get("cr_status") or "").strip().lower()
+                    if cat in _VALID_CATS and st_lc != "nosir":
+                        pass
+                    elif include_nosir and st_lc == "nosir":
+                        pass
+                    elif include_dup and cat == "dup":
+                        pass
+                    elif include_invalid and cat == "invalid":
+                        pass
+                    else:
                         continue
                 if site_filter != "ALL" and cr.get("site_bucket") != site_filter:
                     continue
@@ -1400,6 +1428,9 @@ def fetch_cr_rows(
     flt_age_max:        str  = "",
     flt_age_unit:       str  = "days",
     flt_proj:           str  = "",
+    include_nosir:      bool = False,
+    include_dup:        bool = False,
+    include_invalid:    bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
 
     try:
@@ -1422,9 +1453,17 @@ def fetch_cr_rows(
                     if category == "nosir":
                         if (cr.get("cr_status") or "").strip().lower() != "nosir": continue
                     else:
-                        if cat not in _VALID_CATS:                       continue
-                        # Exclude NoSIR from default view (NoSIR has its own tab)
-                        if (cr.get("cr_status") or "").strip().lower() == "nosir": continue
+                        st_lc = (cr.get("cr_status") or "").strip().lower()
+                        if cat in _VALID_CATS and st_lc != "nosir":
+                            pass
+                        elif include_nosir and st_lc == "nosir":
+                            pass
+                        elif include_dup and cat == "dup":
+                            pass
+                        elif include_invalid and cat == "invalid":
+                            pass
+                        else:
+                            continue
                     if category == "built"      and cat != "built":      continue
                     if category == "undisposed" and cat != "undisposed": continue
                 if site_filter != "ALL" and cr.get("site_bucket") != site_filter:

@@ -4,6 +4,7 @@
   var $ = function(id){ return document.getElementById(id); };
     var state = {
   bu:'ALL', target:'ALL', dim:'bu_key', mode:'all', ageUnit:'days', dateFrom:'', dateTo:'', datePreset:'all',
+  includeNosir:false, includeDup:false, includeInvalid:false,
   site:'ALL', selectedSites:[], allSites:[], sitesTouched:false, selectedStatuses:[], allStatuses:[], statusCounts:{}, statusesTouched:false, data:null, statusData:null, chart:null, statusChart:null, drillChart:null,
   fetchSeq:0, fetchTimer:null, rowsRequestSeq:0, rowsPage:1, rowsPerPage:40, rowsSort:'age_desc', lastRowsMeta:null, lastRowsFilters:null, activeAgeBucketKey:'', selectedBreakdownLabel:'',
   allTargets:[], targetsByBu:{}, excludedTargets:[], settingsEditing:false, settingsLoaded:false, selectedProjects:[], allProjects:[], projectsTouched:false,
@@ -564,8 +565,14 @@
     if(state.selectedTargets.length === 1) return state.selectedTargets[0];
     return 'ALL'; // multi handled via targets= param
   }
+  function appendIncludeFilters(qs){
+  qs.push('include_nosir='+(state.includeNosir?'1':'0'));
+  qs.push('include_dup='+(state.includeDup?'1':'0'));
+  qs.push('include_invalid='+(state.includeInvalid?'1':'0'));
+  }
   function buildUrl(){
   var qs = ['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'mode=daily','dim='+encodeURIComponent(state.dim),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo)];
+  appendIncludeFilters(qs);
   _appendTargetFilter(qs);
   appendStatusFilter(qs);
   appendSiteFilter(qs);
@@ -715,18 +722,23 @@
   function renderModeChips(){
   var nb=$('crv2NosirBtn'), db=$('crv2DupBtn'), ib=$('crv2InvalidBtn');
   var nc=$('crv2NosirCount'), dc=$('crv2DupCount'), ic=$('crv2InvalidCount');
-  if(nc){ nc.textContent=(state.data && state.data.nosir_count) || 0; nc.style.display=(state.mode==='nosir')?'inline-flex':'none'; }
-  if(dc){ dc.textContent=(state.data && state.data.dup_count) || 0; dc.style.display=(state.mode==='dup')?'inline-flex':'none'; }
-  if(ic){ ic.textContent=(state.data && state.data.invalid_count) || 0; ic.style.display=(state.mode==='invalid')?'inline-flex':'none'; }
-  if(nb) nb.classList.toggle('active', state.mode==='nosir');
-  if(db) db.classList.toggle('active', state.mode==='dup');
-  if(ib) ib.classList.toggle('active', state.mode==='invalid');
+  var cbN=$('crv2IncludeNosir'), cbD=$('crv2IncludeDup'), cbI=$('crv2IncludeInvalid');
+  if(nc){ nc.textContent=(state.data && state.data.nosir_count) || 0; nc.style.display='inline-flex'; }
+  if(dc){ dc.textContent=(state.data && state.data.dup_count) || 0; dc.style.display='inline-flex'; }
+  if(ic){ ic.textContent=(state.data && state.data.invalid_count) || 0; ic.style.display='inline-flex'; }
+  if(cbN) cbN.checked=!!state.includeNosir;
+  if(cbD) cbD.checked=!!state.includeDup;
+  if(cbI) cbI.checked=!!state.includeInvalid;
+  if(nb){ nb.classList.toggle('active', !!state.includeNosir); nb.setAttribute('aria-pressed', state.includeNosir?'true':'false'); }
+  if(db){ db.classList.toggle('active', !!state.includeDup); db.setAttribute('aria-pressed', state.includeDup?'true':'false'); }
+  if(ib){ ib.classList.toggle('active', !!state.includeInvalid); ib.setAttribute('aria-pressed', state.includeInvalid?'true':'false'); }
   }
   function modeLabel(){
-  if(state.mode==='nosir') return 'NoSIR CRs';
-  if(state.mode==='dup') return 'Duplicate CRs';
-  if(state.mode==='invalid') return 'Invalid CRs';
-  return 'Valid CRs'; }
+  var extras=[];
+  if(state.includeNosir) extras.push('NoSIR');
+  if(state.includeDup) extras.push('Dup');
+  if(state.includeInvalid) extras.push('Invalid');
+  return extras.length ? ('Valid CRs + '+extras.join(' + ')) : 'Valid CRs'; }
   function setContext(){
   setText('crv2ContextText', currentTitle()+'    '+modeLabel());
   setText('crv2BuSub', currentTitle());
@@ -851,7 +863,8 @@
   var requestSeq=++state.rowsRequestSeq;
   var wrap=$('crv2SiteDetailRows'); if(!wrap) return;
   wrap.innerHTML='<div class="crv2-empty">Loading site CR rows...</div>';
-  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category=all','site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'page=1','per_page=100000'];
+  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category=all','site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'page=1','per_page=100000','date_from='+encodeURIComponent(state.dateFrom||''),'date_to='+encodeURIComponent(state.dateTo||'')];
+  appendIncludeFilters(qs);
   _appendTargetFilter(qs);
   appendStatusFilter(qs);
   fetch('/api/cr_overview/cr_rows?'+qs.join('&')).then(function(r){ return r.json(); }).then(function(d){
@@ -1054,6 +1067,7 @@
   $('crv2DrillKpis').innerHTML='<div class="crv2-empty">Loading...</div>';
   $('crv2DrillTargetTable').innerHTML=''; $('crv2DrillSiteCards').innerHTML='';
   var qs=['area='+encodeURIComponent(label),'dim='+encodeURIComponent(state.dim),'bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo)];
+  appendIncludeFilters(qs);
   _appendTargetFilter(qs);
   if(state.lastRowsFilters && state.lastRowsFilters.ageMin!==undefined && state.lastRowsFilters.ageMin!==null && state.lastRowsFilters.ageMin!=='') qs.push('flt_age_min='+encodeURIComponent(state.lastRowsFilters.ageMin));
   if(state.lastRowsFilters && state.lastRowsFilters.ageMax!==undefined && state.lastRowsFilters.ageMax!==null && state.lastRowsFilters.ageMax!=='') qs.push('flt_age_max='+encodeURIComponent(state.lastRowsFilters.ageMax));
@@ -1079,6 +1093,7 @@
       'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),
       'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),
       'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo),
+      'include_nosir='+(state.includeNosir?'1':'0'),'include_dup='+(state.includeDup?'1':'0'),'include_invalid='+(state.includeInvalid?'1':'0'),
       'per_page='+perPage,'sort='+sort,'page=1'];
     _appendTargetFilter(qs);
     if(state.selectedBreakdownLabel) qs.push('dim_val='+encodeURIComponent(state.selectedBreakdownLabel));
@@ -1206,6 +1221,7 @@
   opts=opts||state.lastRowsFilters||{};
       var cat = state.mode === 'invalid' ? 'invalid' : state.mode === 'nosir' ? 'nosir' : (state.mode === 'dup' ? 'invalid' : 'all');
   var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'sort='+encodeURIComponent(state.rowsSort||'age_desc'),'page='+encodeURIComponent(page||1),'per_page='+encodeURIComponent(perPage||state.rowsPerPage),'date_from='+encodeURIComponent(state.dateFrom||''),'date_to='+encodeURIComponent(state.dateTo||'')];
+  appendIncludeFilters(qs);
   _appendTargetFilter(qs);
   var dimVal = opts.dimVal!=null ? opts.dimVal : state.selectedBreakdownLabel;
   if(dimVal) qs.push('dim_val='+encodeURIComponent(dimVal));
@@ -1222,6 +1238,7 @@
       function fetchAllProjects(opts){
   var _cat = state.mode === 'invalid' ? 'invalid' : state.mode === 'nosir' ? 'nosir' : (state.mode === 'dup' ? 'invalid' : 'all');
   var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+_cat,'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'page=1','per_page=100000','date_from='+encodeURIComponent(state.dateFrom||''),'date_to='+encodeURIComponent(state.dateTo||'')];
+  appendIncludeFilters(qs);
   _appendTargetFilter(qs);
   var dimVal=(opts&&opts.dimVal!=null)?opts.dimVal:state.selectedBreakdownLabel;
   if(dimVal) qs.push('dim_val='+encodeURIComponent(dimVal));
@@ -1770,10 +1787,10 @@
   el=$('crv2Bu'); if(el) el.addEventListener('change', function(){ state.bu=String(this.value||'ALL').toUpperCase(); state.target='ALL'; state.site='ALL'; state.targetsTouched=false; syncDimOptions(); setTargetOptions(); fetchData(true); });
   el=$('crv2Dim'); if(el) el.addEventListener('change', function(){ state.dim=this.value||'cr_area'; fetchData(true); });
   el=$('crv2AgeUnit'); if(el) el.addEventListener('change', function(){ state.ageUnit=this.value||'days'; renderAll(); });
-  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
-  el=$('crv2NosirBtn'); if(el) el.addEventListener('click', function(){ state.mode=(state.mode==='nosir'?'all':'nosir'); fetchData(true); });
-  el=$('crv2DupBtn'); if(el) el.addEventListener('click', function(){ state.mode=(state.mode==='dup'?'all':'dup'); fetchData(true); });
-  el=$('crv2InvalidBtn'); if(el) el.addEventListener('click', function(){ state.mode=(state.mode==='invalid'?'all':'invalid'); fetchData(true); });
+  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.includeNosir=false; state.includeDup=false; state.includeInvalid=false; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
+  el=$('crv2NosirBtn'); if(el) el.addEventListener('click', function(){ state.includeNosir=!state.includeNosir; fetchData(true); });
+  el=$('crv2DupBtn'); if(el) el.addEventListener('click', function(){ state.includeDup=!state.includeDup; fetchData(true); });
+  el=$('crv2InvalidBtn'); if(el) el.addEventListener('click', function(){ state.includeInvalid=!state.includeInvalid; fetchData(true); });
     el=$('crv2TargetBtn'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); _toggleMenu('crv2TargetMenu'); });
   el=$('crv2TargetMenu'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); });
   el=$('crv2TargetClose'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); closeFilterPopup('crv2TargetMenu'); });
