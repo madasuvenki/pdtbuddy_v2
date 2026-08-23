@@ -1205,7 +1205,7 @@
       function buildRowsQuery(opts, page, perPage){
   opts=opts||state.lastRowsFilters||{};
       var cat = state.mode === 'invalid' ? 'invalid' : state.mode === 'nosir' ? 'nosir' : (state.mode === 'dup' ? 'invalid' : 'all');
-  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'sort='+encodeURIComponent(state.rowsSort||'age_desc'),'page='+encodeURIComponent(page||1),'per_page='+encodeURIComponent(perPage||state.rowsPerPage)];
+  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'sort='+encodeURIComponent(state.rowsSort||'age_desc'),'page='+encodeURIComponent(page||1),'per_page='+encodeURIComponent(perPage||state.rowsPerPage),'date_from='+encodeURIComponent(state.dateFrom||''),'date_to='+encodeURIComponent(state.dateTo||'')];
   _appendTargetFilter(qs);
   var dimVal = opts.dimVal!=null ? opts.dimVal : state.selectedBreakdownLabel;
   if(dimVal) qs.push('dim_val='+encodeURIComponent(dimVal));
@@ -1221,7 +1221,7 @@
   }
       function fetchAllProjects(opts){
   var _cat = state.mode === 'invalid' ? 'invalid' : state.mode === 'nosir' ? 'nosir' : (state.mode === 'dup' ? 'invalid' : 'all');
-  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+_cat,'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'page=1','per_page=100000'];
+  var qs=['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'dim='+encodeURIComponent(state.dim),'category='+_cat,'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'page=1','per_page=100000','date_from='+encodeURIComponent(state.dateFrom||''),'date_to='+encodeURIComponent(state.dateTo||'')];
   _appendTargetFilter(qs);
   var dimVal=(opts&&opts.dimVal!=null)?opts.dimVal:state.selectedBreakdownLabel;
   if(dimVal) qs.push('dim_val='+encodeURIComponent(dimVal));
