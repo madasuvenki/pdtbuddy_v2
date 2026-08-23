@@ -2,6 +2,41 @@
 
 ## Current Work Focus
 
+### CR Overview BU Duplicate Counting + PDT Unique Toggles — Complete (2026-08-23)
+
+**User question addressed:** If the same CR is reported across multiple targets and is classified as duplicate at BU level, the CR Overview can count repeated target occurrences through the **Include repeated CRs in BU** checkbox. Per latest user feedback, this option is now enabled by default.
+
+**Additional requested UI:** Added another checkbox on the CR Overview page to include `PDT_Unique` rows from `OverallCrs`.
+
+**Changes made:**
+- `templates/cr_overview_shell.html`
+  - Moved **Include repeated CRs in BU** from the hero card/action area down into the filter bar because it behaves as a filter option.
+  - Removed **Include PDT Unique CRs** as a checkbox from the hero actions.
+  - Added inline styling for `.crv2-repeat-toggle`.
+- `static/js/cr_overview_v2.js`
+  - Added `state.includeRepeatedBuCrs`.
+  - Added `state.includeUniqueCrs`.
+  - Sends `include_repeated_crs_in_bu=1/0` and `include_unique_crs=1/0` to summary, detail rows, site detail, drilldown, project list, and CSV-related API requests through `appendIncludeFilters()`.
+  - Reset button restores repeated CRs as enabled.
+  - Context label displays `Repeated CRs in BU` when enabled.
+  - Hero KPI row now displays **PDT Unique CRs** as a count card alongside Total CRs/Open/Built/JIRAs.
+- `dashboard_routes.py`
+  - Reads `include_repeated_crs_in_bu` and `include_unique_crs` in `/api/cr_overview`, `/api/cr_overview/cr_rows`, and `/api/cr_overview/area_targets`.
+  - Defaults `include_repeated_crs_in_bu` to enabled when the query parameter is absent.
+  - Passes both flags through to `src.cr_overview_service`.
+- `src/cr_overview_service.py`
+  - Added support for `include_repeated_crs_in_bu`.
+  - When `include_repeated_crs_in_bu` is disabled, BU-level duplicate CRs are deduplicated by BU + mapped CR.
+  - Default/enabled behavior counts repeated CRs across multiple targets separately.
+  - Added optional `include_unique_crs` flow that resolves each target's `overallcrs`/`overall_crs` table, fetches `reported_team='PDT_Unique'` rows, normalizes them into CR Overview row shape, and includes them in hero counts, charts, drilldowns, and detail tables.
+  - Added `pdt_unique_count` to the summary payload so the frontend can show PDT Unique CRs as a hero KPI count.
+  - `pdt_unique_count` now respects the selected date range using `jira_date_last` / `jira_date` from the OverallCrs PDT_Unique rows instead of always returning all-time counts.
+  - Updated CR Overview date filtering to use `jira_date_last` / `jira_date__last_instance` (`qstability__last_instance` fallback) as the selected date-window anchor for summary, drilldown, detail rows, and available year picker. This ensures a CR first reported before the selected period is still included if it was reported again during the selected period.
+
+**Validation:**
+- `py -3 -m py_compile dashboard_routes.py src\cr_overview_service.py` executed successfully.
+- Note: bare `python` resolves to Python 2 in this environment and reports syntax errors for Python 3 syntax; use `py -3`.
+
 ### UI Dark Mode + Color Scheme Overhaul — Complete (2026-08-23)
 
 **Issues fixed:**

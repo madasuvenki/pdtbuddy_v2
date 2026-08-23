@@ -1357,6 +1357,8 @@ def api_cr_overview():
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    include_repeated_crs_in_bu = str(request.args.get('include_repeated_crs_in_bu', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
+    include_unique_crs = str(request.args.get('include_unique_crs') or '').strip().lower() in ('1', 'true', 'yes', 'on')
 
     # BU-card status checkbox filter (comma-separated cr_status values from frontend)
     _sfl_raw = (request.args.get('status_filter_list') or '').strip()
@@ -1411,6 +1413,8 @@ def api_cr_overview():
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,
+            include_repeated_crs_in_bu=include_repeated_crs_in_bu,
+            include_unique_crs=include_unique_crs,
         )
 
         if err:
@@ -1473,6 +1477,8 @@ def api_cr_overview_cr_rows():
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    include_repeated_crs_in_bu = str(request.args.get('include_repeated_crs_in_bu', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
+    include_unique_crs = str(request.args.get('include_unique_crs') or '').strip().lower() in ('1', 'true', 'yes', 'on')
 
     # BU-card status checkbox filter (comma-separated cr_status values from frontend)
     _sfl_raw = (request.args.get('status_filter_list') or '').strip()
@@ -1525,6 +1531,8 @@ def api_cr_overview_cr_rows():
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,
+            include_repeated_crs_in_bu=include_repeated_crs_in_bu,
+            include_unique_crs=include_unique_crs,
         )
 
         if err:
@@ -1565,6 +1573,8 @@ def api_cr_overview_area_targets():
     include_nosir = str(request.args.get('include_nosir') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_dup = str(request.args.get('include_dup') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     include_invalid = str(request.args.get('include_invalid') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    include_repeated_crs_in_bu = str(request.args.get('include_repeated_crs_in_bu', '1')).strip().lower() in ('1', 'true', 'yes', 'on')
+    include_unique_crs = str(request.args.get('include_unique_crs') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     site_filter   = (request.args.get('site')          or 'ALL').strip().upper()
     date_from     = (request.args.get('date_from')     or '').strip()[:10]
     date_to       = (request.args.get('date_to')       or '').strip()[:10]
@@ -1597,6 +1607,8 @@ def api_cr_overview_area_targets():
             include_nosir=include_nosir,
             include_dup=include_dup,
             include_invalid=include_invalid,
+            include_repeated_crs_in_bu=include_repeated_crs_in_bu,
+            include_unique_crs=include_unique_crs,
         )
 
         if err:

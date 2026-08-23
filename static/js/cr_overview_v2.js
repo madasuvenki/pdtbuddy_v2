@@ -4,7 +4,7 @@
   var $ = function(id){ return document.getElementById(id); };
     var state = {
   bu:'ALL', target:'ALL', dim:'bu_key', mode:'all', ageUnit:'days', dateFrom:'', dateTo:'', datePreset:'all',
-  includeValid:true, includeNosir:false, includeDup:false, includeInvalid:false,
+  includeValid:true, includeNosir:false, includeDup:false, includeInvalid:false, includeRepeatedBuCrs:true, includeUniqueCrs:false,
   site:'ALL', selectedSites:[], allSites:[], sitesTouched:false, selectedStatuses:[], allStatuses:[], statusCounts:{}, statusesTouched:false, data:null, statusData:null, chart:null, statusChart:null, drillChart:null,
   fetchSeq:0, fetchTimer:null, rowsRequestSeq:0, rowsPage:1, rowsPerPage:40, rowsSort:'age_desc', lastRowsMeta:null, lastRowsFilters:null, activeAgeBucketKey:'', selectedBreakdownLabel:'',
   allTargets:[], targetsByBu:{}, excludedTargets:[], settingsEditing:false, settingsLoaded:false, selectedProjects:[], allProjects:[], projectsTouched:false,
@@ -570,6 +570,8 @@
   qs.push('include_nosir='+(state.includeNosir?'1':'0'));
   qs.push('include_dup='+(state.includeDup?'1':'0'));
   qs.push('include_invalid='+(state.includeInvalid?'1':'0'));
+  qs.push('include_repeated_crs_in_bu='+(state.includeRepeatedBuCrs?'1':'0'));
+  qs.push('include_unique_crs='+(state.includeUniqueCrs?'1':'0'));
   }
   function buildUrl(){
   var qs = ['bu='+encodeURIComponent(state.bu),'target='+encodeURIComponent(_effectiveTargetParam()),'mode=daily','dim='+encodeURIComponent(state.dim),'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo)];
@@ -689,12 +691,13 @@
     total_jiras:Number(d.total_jiras||0),
     active_bu_count:Number(d.active_bu_count||0),
     avg_age_days:Number(d.avg_age_days||0),
-    avg_age_weeks:Number(d.avg_age_weeks||0)
+    avg_age_weeks:Number(d.avg_age_weeks||0),
+    pdt_unique_count:Number(d.pdt_unique_count||0)
   };
   var items = state.bu!=='ALL' && (d.bu_summary||[]).length===1 ? [
-    ['Total CRs',summary.total_crs],['Open / Analysis',summary.open_analysis],['Built',summary.built_crs],['JIRAs',summary.total_jiras],['Avg Age',ageText(summary.avg_age_days, summary.avg_age_weeks)]
+    ['Total CRs',summary.total_crs],['Open / Analysis',summary.open_analysis],['Built',summary.built_crs],['JIRAs',summary.total_jiras],['PDT Unique CRs',summary.pdt_unique_count],['Avg Age',ageText(summary.avg_age_days, summary.avg_age_weeks)]
   ] : [
-    ['Total CRs',summary.total_crs],['Open / Analysis',summary.open_analysis],['Built CRs',summary.built_crs],['Total JIRAs',summary.total_jiras],['Active BUs',summary.active_bu_count]
+    ['Total CRs',summary.total_crs],['Open / Analysis',summary.open_analysis],['Built CRs',summary.built_crs],['Total JIRAs',summary.total_jiras],['PDT Unique CRs',summary.pdt_unique_count],['Active BUs',summary.active_bu_count]
   ];
   $('crv2HeroStats').innerHTML=items.map(function(it){return '<div class="crv2-stat"><b>'+escapeHtml(fmtStat(it[1]))+'</b><span>'+escapeHtml(it[0])+'</span></div>';}).join('');
   }
@@ -723,7 +726,7 @@
   function renderModeChips(){
   var vb=$('crv2ValidBtn'), nb=$('crv2NosirBtn'), db=$('crv2DupBtn'), ib=$('crv2InvalidBtn');
   var vc=$('crv2ValidCount'), nc=$('crv2NosirCount'), dc=$('crv2DupCount'), ic=$('crv2InvalidCount');
-  var cbV=$('crv2IncludeValid'), cbN=$('crv2IncludeNosir'), cbD=$('crv2IncludeDup'), cbI=$('crv2IncludeInvalid');
+  var cbV=$('crv2IncludeValid'), cbN=$('crv2IncludeNosir'), cbD=$('crv2IncludeDup'), cbI=$('crv2IncludeInvalid'), cbR=$('crv2IncludeRepeatedBuCrs');
   if(vc){ vc.textContent=((state.data && Number(state.data.built_crs||0) + Number(state.data.open_analysis||0)) || 0); vc.style.display='inline-flex'; }
   if(nc){ nc.textContent=(state.data && state.data.nosir_count) || 0; nc.style.display='inline-flex'; }
   if(dc){ dc.textContent=(state.data && state.data.dup_count) || 0; dc.style.display='inline-flex'; }
@@ -732,6 +735,7 @@
   if(cbN) cbN.checked=!!state.includeNosir;
   if(cbD) cbD.checked=!!state.includeDup;
   if(cbI) cbI.checked=!!state.includeInvalid;
+  if(cbR) cbR.checked=!!state.includeRepeatedBuCrs;
   if(vb){ vb.classList.toggle('active', !!state.includeValid); vb.setAttribute('aria-pressed', state.includeValid?'true':'false'); }
   if(nb){ nb.classList.toggle('active', !!state.includeNosir); nb.setAttribute('aria-pressed', state.includeNosir?'true':'false'); }
   if(db){ db.classList.toggle('active', !!state.includeDup); db.setAttribute('aria-pressed', state.includeDup?'true':'false'); }
@@ -742,6 +746,7 @@
   if(state.includeNosir) extras.push('NoSIR');
   if(state.includeDup) extras.push('Dup');
   if(state.includeInvalid) extras.push('Invalid');
+  if(state.includeRepeatedBuCrs) extras.push('Repeated CRs in BU');
   if(state.includeValid) extras.unshift('Valid');
   return extras.length ? extras.join(' + ') : 'No CR buckets selected'; }
   function setContext(){
@@ -1098,8 +1103,8 @@
       'dim='+encodeURIComponent(state.dim),'category='+encodeURIComponent(cat),
       'site='+encodeURIComponent(state.site),'status_filter='+encodeURIComponent(state.mode),
       'date_from='+encodeURIComponent(state.dateFrom),'date_to='+encodeURIComponent(state.dateTo),
-      'include_valid='+(state.includeValid?'1':'0'),'include_nosir='+(state.includeNosir?'1':'0'),'include_dup='+(state.includeDup?'1':'0'),'include_invalid='+(state.includeInvalid?'1':'0'),
       'per_page='+perPage,'sort='+sort,'page=1'];
+    appendIncludeFilters(qs);
     _appendTargetFilter(qs);
     if(state.selectedBreakdownLabel) qs.push('dim_val='+encodeURIComponent(state.selectedBreakdownLabel));
     appendStatusFilter(qs);
@@ -1792,11 +1797,12 @@
   el=$('crv2Bu'); if(el) el.addEventListener('change', function(){ state.bu=String(this.value||'ALL').toUpperCase(); state.target='ALL'; state.site='ALL'; state.targetsTouched=false; syncDimOptions(); setTargetOptions(); fetchData(true); });
   el=$('crv2Dim'); if(el) el.addEventListener('change', function(){ state.dim=this.value||'cr_area'; fetchData(true); });
   el=$('crv2AgeUnit'); if(el) el.addEventListener('change', function(){ state.ageUnit=this.value||'days'; renderAll(); });
-  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.includeValid=true; state.includeNosir=false; state.includeDup=false; state.includeInvalid=false; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
+  el=$('crv2Reset'); if(el) el.addEventListener('click', function(){ state.bu='ALL'; state.target='ALL'; state.dim='bu_key'; state.mode='all'; state.includeValid=true; state.includeNosir=false; state.includeDup=false; state.includeInvalid=false; state.includeRepeatedBuCrs=true; state.includeUniqueCrs=false; state.site='ALL'; state.dateFrom=''; state.dateTo=''; state.datePreset='all'; state.statusesTouched=false; state.sitesTouched=false; state.targetsTouched=false; state.selectedStatuses=[]; state.selectedSites=[]; state.selectedTargets=[]; if($('crv2Bu')) $('crv2Bu').value='ALL'; if($('crv2Dim')) $('crv2Dim').value='bu_key'; if($('crv2IncludeRepeatedBuCrs')) $('crv2IncludeRepeatedBuCrs').checked=true; setDateUi('All Time','all','',''); syncDimOptions(); setTargetOptions(); fetchData(true); });
   el=$('crv2ValidBtn'); if(el) el.addEventListener('click', function(){ state.includeValid=!state.includeValid; fetchData(true); });
   el=$('crv2NosirBtn'); if(el) el.addEventListener('click', function(){ state.includeNosir=!state.includeNosir; fetchData(true); });
   el=$('crv2DupBtn'); if(el) el.addEventListener('click', function(){ state.includeDup=!state.includeDup; fetchData(true); });
   el=$('crv2InvalidBtn'); if(el) el.addEventListener('click', function(){ state.includeInvalid=!state.includeInvalid; fetchData(true); });
+  el=$('crv2IncludeRepeatedBuCrs'); if(el) el.addEventListener('change', function(){ state.includeRepeatedBuCrs=!!this.checked; fetchData(true); });
     el=$('crv2TargetBtn'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); _toggleMenu('crv2TargetMenu'); });
   el=$('crv2TargetMenu'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); });
   el=$('crv2TargetClose'); if(el) el.addEventListener('click', function(e){ e.stopPropagation(); closeFilterPopup('crv2TargetMenu'); });

@@ -26,6 +26,7 @@ from dashboard_common import (
     fq_table_for_target,
     get_targets_config,
     get_business_units,
+    get_target_info,
 )
 
 # ---------------------------------------------------------------------------
@@ -63,7 +64,7 @@ _TARGET_CACHE_LOCK = threading.Lock()
 _TARGET_FETCH_LOCKS: Dict[str, threading.Lock] = {}
 _TARGET_FETCH_LOCKS_LOCK = threading.Lock()
 
-_SERVICE_VERSION = "v11-fast-status-lock"
+_SERVICE_VERSION = "v13-bu-repeat-and-overall-unique"
 CR_OVERVIEW_DEBUG = False  # one-switch debug on/off for [CR OVERVIEW] logs
 
 
@@ -369,6 +370,146 @@ def _fetch_target_jira_titles(conn, target_name: str) -> Tuple[Dict[str, List[st
         return result, None
     except Exception as exc:
         return {}, str(exc)
+
+
+def _table_exists(cur, fq_table: str) -> bool:
+    name = str(fq_table or "").replace("`", "")
+    try:
+        schema, table = name.split(".", 1)
+    except ValueError:
+        return False
+    cur.execute(
+        "SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1",
+        (schema, table),
+    )
+    return cur.fetchone() is not None
+
+
+def _overallcrs_candidates(target_name: str) -> List[str]:
+    info = get_target_info(target_name) or {}
+    schema = get_schema_for_target(target_name) or ""
+    raw_prefixes = [
+        info.get("overall_crs_table"),
+        info.get("overallcrs_table"),
+        info.get("db_prefix"),
+        info.get("db_name"),
+        target_name,
+        str(target_name or "").split("_")[0],
+    ]
+    out = []
+    for raw in raw_prefixes:
+        value = str(raw or "").strip().strip("`")
+        if not value:
+            continue
+        if "." in value:
+            out.append("`" + value.replace("`", "").replace(".", "`.`", 1) + "`")
+            continue
+        base = value.lower().replace("-", "_").replace(" ", "_")
+        for suffix in ("overallcrs", "overall_crs"):
+            name = base if base.endswith("_" + suffix) or base.endswith(suffix) else f"{base}_{suffix}"
+            if schema:
+                out.append(f"`{schema}`.`{name}`")
+    return list(dict.fromkeys(out))
+
+
+def _fetch_target_overall_unique_crs(conn, target_name: str) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Fetch PDT_Unique rows from the target OverallCrs table as CR Overview rows."""
+    try:
+        cur = conn.cursor(dictionary=True)
+        overall_table = ""
+        for cand in _overallcrs_candidates(target_name):
+            if _table_exists(cur, cand):
+                overall_table = cand
+                break
+        if not overall_table:
+            cur.close()
+            return [], None
+
+        cols = _get_columns(cur, overall_table)
+
+        def _first(*names):
+            for n in names:
+                if n.lower() in cols:
+                    return n
+            return ""
+
+        cr_col = _first("crid", "mapped_cr", "cr", "cr_id")
+        team_col = _first("reported_team", "test_team")
+        if not cr_col or not team_col:
+            cur.close()
+            return [], None
+
+        date_col = _first("date", "cr_date", "jira_date")
+        area_col = _first("area", "cr_area")
+        sub_col = _first("subs", "subsystem", "cr_subsystem")
+        func_col = _first("func", "functionality", "cr_functionality")
+        status_col = _first("status", "cr_status")
+        title_col = _first("title", "cr_title", "scenario")
+        count_col = _first("count", "occurrence", "cr_occurrence")
+        si_col = _first("si", "image")
+        site_col = _first("pdt_site_unique", "PDT_Site_Unique")
+
+        def _sel(col, alias, fallback="NULL"):
+            return f"`{col}` AS `{alias}`" if col else f"{fallback} AS `{alias}`"
+
+        cur.execute(f"""
+            SELECT
+                `{cr_col}` AS `mapped_cr`,
+                `{cr_col}` AS `cr`,
+                {_sel(status_col, "cr_status", "''")},
+                {_sel(area_col, "cr_area", "''")},
+                {_sel(sub_col, "cr_subsystem", "''")},
+                {_sel(func_col, "cr_functionality", "''")},
+                {_sel(title_col, "cr_title", "''")},
+                {_sel(date_col, "jira_date", "NULL")},
+                {_sel(date_col, "jira_date_last", "NULL")},
+                {_sel(count_col, "cr_occurrence", "1")},
+                {_sel(si_col, "image", "NULL")},
+                {_sel(site_col, "PDT_Site_Unique", "''")}
+            FROM {overall_table}
+            WHERE TRIM(COALESCE(`{team_col}`, '')) = 'PDT_Unique'
+              AND TRIM(COALESCE(`{cr_col}`, '')) <> ''
+        """)
+        rows = cur.fetchall() or []
+        cur.close()
+
+        out = []
+        for raw in rows:
+            try:
+                occ = int(float(raw.get("cr_occurrence") or 1))
+            except (ValueError, TypeError):
+                occ = 1
+            site_raw = (raw.get("PDT_Site_Unique") or "").strip()
+            out.append({
+                "mapped_cr": str(raw.get("mapped_cr") or "").strip(),
+                "cr": str(raw.get("cr") or "").strip(),
+                "cr_category": "undisposed",
+                "cr_status": str(raw.get("cr_status") or "PDT_Unique").strip() or "PDT_Unique",
+                "cr_area": str(raw.get("cr_area") or "").strip(),
+                "cr_subsystem": str(raw.get("cr_subsystem") or "").strip(),
+                "cr_functionality": str(raw.get("cr_functionality") or "").strip(),
+                "cr_age": 0,
+                "cr_age_weeks": 0,
+                "cr_occurrence": occ,
+                "cr_title": str(raw.get("cr_title") or "").strip(),
+                "jira_count": occ,
+                "cr_date": str(raw.get("jira_date") or "").strip(),
+                "jira_date": str(raw.get("jira_date") or "").strip(),
+                "jira_date_last": str(raw.get("jira_date_last") or raw.get("jira_date") or "").strip(),
+                "pdt_site_unique": site_raw,
+                "is_seen_at_qipl_raw": "",
+                "is_seen_at_qipl": False,
+                "has_site_col": bool(site_raw),
+                "has_qipl_col": False,
+                "target_name": target_name,
+                "site_bucket": _classify_site(site_raw, "", [], has_site_col=bool(site_raw), has_qipl_col=False),
+                "regression_cr": "",
+                "image": str(raw.get("image") or "").strip(),
+                "source": "overallcrs_pdt_unique",
+            })
+        return out, None
+    except Exception as exc:
+        return [], str(exc)
 
 
 def _fetch_target_jira_counts(conn, target_name: str) -> Tuple[Dict[str, int], Optional[str]]:
@@ -757,6 +898,61 @@ def _site_jira_counts(crs: List[Dict[str, Any]]) -> Dict[str, int]:
 _HIDDEN_BUS = {"WEEKLY_QIPL_REPORTS"}
 
 
+def _dedupe_repeated_crs_within_bu(crs: List[Dict[str, Any]], targets_config: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Count a CR only once per BU when the same mapped CR is reported by multiple
+    targets in that BU. Default CR Overview behavior uses this de-duplicated view;
+    users can opt into repeated target-level rows with the UI checkbox.
+
+    Deduplication key:
+      (BU key, mapped_cr)
+    Preference:
+      - keep a valid active row over NoSIR/Dup/Invalid when duplicates exist
+      - otherwise keep the row with highest JIRA count / crash occurrence / age
+    """
+    if not crs:
+        return crs
+
+    tc_lower = {str(k).lower(): k for k in (targets_config or {})}
+    best_by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+    def _bu_for(cr: Dict[str, Any]) -> str:
+        tgt = str(cr.get("target_name") or "").strip()
+        tgt_key = tc_lower.get(tgt.lower(), tgt)
+        return str(((targets_config or {}).get(tgt_key) or {}).get("bu") or "UNKNOWN").strip().upper() or "UNKNOWN"
+
+    def _cr_key(cr: Dict[str, Any]) -> str:
+        return str(cr.get("mapped_cr") or cr.get("cr") or "").strip().upper().replace("-", "")
+
+    def _score(cr: Dict[str, Any]) -> Tuple[int, int, int, int]:
+        cat = str(cr.get("cr_category") or "").strip().lower()
+        st_lc = str(cr.get("cr_status") or "").strip().lower()
+        active_rank = 1 if cat in _VALID_CATS and st_lc != "nosir" else 0
+        try:
+            jira_count = int(cr.get("jira_count") or 0)
+        except (ValueError, TypeError):
+            jira_count = 0
+        try:
+            occurrence = int(cr.get("cr_occurrence") or 0)
+        except (ValueError, TypeError):
+            occurrence = 0
+        try:
+            age = int(cr.get("cr_age") or 0)
+        except (ValueError, TypeError):
+            age = 0
+        return (active_rank, jira_count, occurrence, age)
+
+    for cr in crs:
+        key = (_bu_for(cr), _cr_key(cr))
+        if not key[1]:
+            key = (_bu_for(cr), f"__ROW__:{id(cr)}")
+        current = best_by_key.get(key)
+        if current is None or _score(cr) > _score(current):
+            best_by_key[key] = cr
+
+    return list(best_by_key.values())
+
+
 def _bu_summary(by_bu_crs: Dict[str, List], business_units: Dict,
                 bu_icons: Dict, invalid_mode: bool = False) -> List[Dict]:
     cards = []
@@ -893,6 +1089,8 @@ def fetch_cr_overview_data(
     include_nosir: bool = False,
     include_dup: bool = False,
     include_invalid: bool = False,
+    include_repeated_crs_in_bu: bool = False,
+    include_unique_crs: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
     VALID_DIMS = {"bu_key", "cr_area", "cr_status", "cr_functionality", "cr_subsystem"}
     if dimension not in VALID_DIMS:
@@ -905,10 +1103,28 @@ def fetch_cr_overview_data(
         _ensure_targets_cached(targets_to_query)
         all_crs:    List[Dict[str, Any]] = []
         targets_ok: List[str]            = []
+        pdt_unique_count = 0
         for t in targets_to_query:
             crs = _get_target_cached(t)
             if crs is not None:
                 all_crs.extend(crs)
+                conn = get_mysql_connection_db()
+                if conn:
+                    try:
+                        unique_rows, _ = _fetch_target_overall_unique_crs(conn, t)
+                        for unique_row in unique_rows:
+                            unique_jd_last = (unique_row.get("jira_date_last") or unique_row.get("jira_date") or "")[:10]
+                            if date_from:
+                                if not unique_jd_last or unique_jd_last < date_from:
+                                    continue
+                            if date_to:
+                                if not unique_jd_last or unique_jd_last > date_to:
+                                    continue
+                            pdt_unique_count += 1
+                        if include_unique_crs:
+                            all_crs.extend(unique_rows)
+                    finally:
+                        conn.close()
                 targets_ok.append(t)
         return _build_payload_from_crs(
             all_crs, targets_ok,
@@ -923,8 +1139,11 @@ def fetch_cr_overview_data(
              status_filter_list=status_filter_list or [],
              include_valid=include_valid,
              include_nosir=include_nosir,
-             include_dup=include_dup,
-             include_invalid=include_invalid,
+              include_dup=include_dup,
+              include_invalid=include_invalid,
+              include_repeated_crs_in_bu=include_repeated_crs_in_bu,
+              include_unique_crs=include_unique_crs,
+              pdt_unique_count=pdt_unique_count,
         ), None
     except Exception as exc:
         _cr_overview_log(f"[CR OVERVIEW] fatal - {exc}")
@@ -961,6 +1180,9 @@ def _build_payload_from_crs(
     include_nosir:      bool  = False,
     include_dup:        bool  = False,
     include_invalid:    bool  = False,
+    include_repeated_crs_in_bu: bool = False,
+    include_unique_crs: bool = False,
+    pdt_unique_count: int = 0,
 ) -> Dict[str, Any]:
     from config import BU_ICONS
     import dashboard_common as _dc
@@ -1052,12 +1274,27 @@ def _build_payload_from_crs(
     if site_filter and site_filter != "ALL":
         crs = [c for c in crs if c.get("site_bucket") == site_filter]
 
+    # 2b. By default, count a mapped CR only once per BU even if reported by
+    # multiple targets. The CR Overview checkbox can opt back into repeated rows.
+    repeated_crs_in_bu_count = 0
+    if not include_repeated_crs_in_bu:
+        before_dedupe = len(crs)
+        crs = _dedupe_repeated_crs_within_bu(crs, get_targets_config() or {})
+        repeated_crs_in_bu_count = max(0, before_dedupe - len(crs))
+
     # 3. date filter
+    # Use JIRA Reported Last as the date-range anchor so CRs first seen before
+    # the selected window are still included when they were reported again inside it.
     if date_from:
-        crs = [c for c in crs if (c.get("jira_date") or "")[:10] >= date_from]
+        crs = [
+            c for c in crs
+            if (c.get("jira_date_last") or c.get("jira_date") or "")[:10] >= date_from
+        ]
     if date_to:
-        crs = [c for c in crs
-               if (c.get("jira_date_last") or c.get("jira_date") or "")[:10] <= date_to]
+        crs = [
+            c for c in crs
+            if (c.get("jira_date_last") or c.get("jira_date") or "")[:10] <= date_to
+        ]
 
     # Status breakdown is needed by the frontend for the status chips/chart.
     # Compute after mode/site/date filters, but before the selected-status filter,
@@ -1182,13 +1419,13 @@ def _build_payload_from_crs(
         # 10. cr_status list
     cr_statuses = sorted({r.get("label") for r in status_breakdown_rows if r.get("label")})
 
-        # 11. available years from actual JIRA dates in the currently filtered dataset.
+    # 11. available years from JIRA Reported Last dates in the currently filtered dataset.
     # Use all_crs (after top-level filters, before mode split) so the year picker still
-    # reflects the real reporting timeline even when the default view excludes NoSIR/invalid.
+    # reflects the latest reporting timeline even when the default view excludes NoSIR/invalid.
     available_years = sorted({
-        int((c.get("jira_date") or "")[:4])
+        int((c.get("jira_date_last") or c.get("jira_date") or "")[:4])
         for c in all_crs
-        if str(c.get("jira_date") or "")[:4].isdigit()
+        if str(c.get("jira_date_last") or c.get("jira_date") or "")[:4].isdigit()
     }, reverse=True)
 
 
@@ -1226,6 +1463,10 @@ def _build_payload_from_crs(
         "cache_age_sec":       round(cache_age_sec, 1),
         "status_filter":       status_filter,
         "invalid_mode":        invalid_mode,
+        "include_repeated_crs_in_bu": include_repeated_crs_in_bu,
+        "include_unique_crs": include_unique_crs,
+        "pdt_unique_count": pdt_unique_count,
+        "repeated_crs_in_bu_excluded": repeated_crs_in_bu_count,
     }
 
 
@@ -1251,6 +1492,8 @@ def fetch_area_target_breakdown(
     include_nosir:      bool = False,
     include_dup:        bool = False,
     include_invalid:    bool = False,
+    include_repeated_crs_in_bu: bool = False,
+    include_unique_crs: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
 
     try:
@@ -1266,8 +1509,16 @@ def fetch_area_target_breakdown(
 
         all_crs: List[Dict[str, Any]] = []
         for target_name in targets_to_query:
-            crs = _get_target_cached(target_name)
-            if crs is None:
+            crs = list(_get_target_cached(target_name) or [])
+            if include_unique_crs:
+                conn = get_mysql_connection_db()
+                if conn:
+                    try:
+                        unique_rows, _ = _fetch_target_overall_unique_crs(conn, target_name)
+                        crs.extend(unique_rows)
+                    finally:
+                        conn.close()
+            if not crs:
                 continue
             for cr in crs:
                 cat = cr["cr_category"]
@@ -1294,9 +1545,8 @@ def fetch_area_target_breakdown(
                                 # Apply global CR status filter list
                 if status_filter_list and (cr.get("cr_status") or "") not in status_filter_list:
                     continue
-                jd_first = (cr.get("jira_date") or "")[:10]
                 jd_last = (cr.get("jira_date_last") or cr.get("jira_date") or "")[:10]
-                if date_from and jd_first and jd_first < date_from:
+                if date_from and jd_last and jd_last < date_from:
                     continue
                 if date_to and jd_last and jd_last > date_to:
                     continue
@@ -1313,6 +1563,8 @@ def fetch_area_target_breakdown(
                         continue
                 all_crs.append(cr)
 
+        if not include_repeated_crs_in_bu:
+            all_crs = _dedupe_repeated_crs_within_bu(all_crs, targets_config)
 
         def _dim_label_for_cr(cr: Dict[str, Any]) -> str:
             if dimension == "bu_key":
@@ -1436,6 +1688,8 @@ def fetch_cr_rows(
     include_nosir:      bool = False,
     include_dup:        bool = False,
     include_invalid:    bool = False,
+    include_repeated_crs_in_bu: bool = False,
+    include_unique_crs: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
 
     try:
@@ -1449,6 +1703,15 @@ def fetch_cr_rows(
                 _, crs, ok = _fetch_one_target(target_name)
                 if not ok:
                     return []
+            crs = list(crs or [])
+            if include_unique_crs:
+                conn = get_mysql_connection_db()
+                if conn:
+                    try:
+                        unique_rows, _ = _fetch_target_overall_unique_crs(conn, target_name)
+                        crs.extend(unique_rows)
+                    finally:
+                        conn.close()
             result = []
             for cr in crs:
                 cat = cr["cr_category"]
@@ -1476,10 +1739,9 @@ def fetch_cr_rows(
                 # CR status filter list (from top-bar CR Status picker)
                 if status_filter_list and (cr.get("cr_status") or "") not in status_filter_list:
                     continue
-                jd_first = (cr.get("jira_date") or "")[:10]
                 jd_last  = (cr.get("jira_date_last") or cr.get("jira_date") or "")[:10]
-                if date_from and jd_first and jd_first < date_from: continue
-                if date_to   and jd_last  and jd_last  > date_to:   continue
+                if date_from and jd_last and jd_last < date_from: continue
+                if date_to   and jd_last and jd_last > date_to:   continue
                 if dim_val:
                     if dimension == "bu_key":
                         tgt_name = str(cr.get("target_name") or "").strip()
@@ -1517,6 +1779,9 @@ def fetch_cr_rows(
 
         for t in targets_to_query:
             all_crs.extend(_get_rows_for_target(t))
+
+        if not include_repeated_crs_in_bu:
+            all_crs = _dedupe_repeated_crs_within_bu(all_crs, get_targets_config() or {})
 
         def _safe_num(v):
             try:

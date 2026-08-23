@@ -46,7 +46,7 @@ window.CRV2_BU_TARGETS = {
     </div>
     <div class="crv2-hero__stats" id="crv2HeroStats"></div>
     <div class="crv2-hero__actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
-      <a href="/chatbot_help" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:900;text-decoration:none;transition:background .15s;" title="Help &amp; Support"><i class="fas fa-question-circle"></i> Help &amp; Support</a>
+      <a href="/chatbot_help" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid #c7d2fe;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:900;text-decoration:none;transition:background .15s;" title="Help & Support"><i class="fas fa-question-circle"></i> Help & Support</a>
       <a href="/admin/raise_ticket" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid #fde68a;background:#fef9c3;color:#92400e;font-size:12px;font-weight:900;text-decoration:none;transition:background .15s;" title="Raise a Ticket"><i class="fas fa-ticket-alt"></i> Raise Ticket</a>
     </div>
   </section>
@@ -131,6 +131,13 @@ window.CRV2_BU_TARGETS = {
         <option value="days">Days</option>
         <option value="weeks">Weeks</option>
       </select>
+    </div>
+    <div class="crv2-filter">
+      <label><i class="fas fa-copy"></i> BU Repeat</label>
+      <label class="crv2-repeat-toggle" title="Default on: count each target occurrence when the same mapped CR is reported by multiple targets in one BU.">
+        <input type="checkbox" id="crv2IncludeRepeatedBuCrs" checked>
+        <span>Include repeated CRs in BU</span>
+      </label>
     </div>
     <button type="button" id="crv2Reset" class="crv2-btn crv2-btn--ghost"><i class="fas fa-undo"></i> Reset</button>
     <div class="crv2-top-actions">
@@ -424,6 +431,9 @@ window.CRV2_BU_TARGETS = {
   .crv2-target-card--inactive:not(.crv2-target-card--excluded) .crv2-target-card__state{background:#fff7ed;color:#c2410c;border-color:#fed7aa;}
   .crv2-copy-btn{border:1px solid #c7d2fe;border-radius:10px;padding:6px 10px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);font-size:11px;font-weight:800;color:#4338ca;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
   .crv2-copy-btn:hover{background:linear-gradient(135deg,#e0e7ff,#c7d2fe);}
+  .crv2-repeat-toggle{min-height:38px;padding:0 12px;border:1px solid #c7d2fe;border-radius:12px;background:linear-gradient(135deg,#ffffff,#eef2ff);display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:900;color:#334155;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(15,23,42,.04);}
+  .crv2-repeat-toggle input{margin:0;accent-color:#4f46e5;}
+  .crv2-repeat-toggle:has(input:checked){background:linear-gradient(135deg,#eef2ff,#dbeafe);color:#3730a3;border-color:#818cf8;}
 </style>
 
 <script src="{{ url_for('static', filename='js/cr_overview_v2.js') }}?v={{ cache_buster }}"></script>

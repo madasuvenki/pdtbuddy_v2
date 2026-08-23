@@ -9083,7 +9083,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.
