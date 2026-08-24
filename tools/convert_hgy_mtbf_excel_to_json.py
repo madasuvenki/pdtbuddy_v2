@@ -40,12 +40,15 @@ def _sp_slug(sp_key, program):
 
 def _read_sheet(ws):
     import datetime as _dt
-    DATE_KEYS  = {"date","report date","week","report_date"}
-    BUILD_KEYS = {"build","build id","build_id","meta","meta id","meta_id",
-                  "crm build id","crm_build_id","build_s","builds"}
-    HOURS_KEYS = {"hours","total hours","pdt hours","build hours"}
-    CRASH_KEYS = {"crashes","crash","total crashes","crash count"}
-    MTBF_KEYS  = {"mtbf","pdt mtbf"}
+    DATE_KEYS     = {"date","report date","week","report_date"}
+    # "META Build" = full build string (build_s)
+    BUILD_S_KEYS  = {"meta build","build","build_s","builds","crm build id","crm_build_id"}
+    # "META Build Id" = short meta ID (meta_id)
+    META_ID_KEYS  = {"meta build id","meta build id","meta id","meta_id","build id","build_id",
+                     "meta","crm build id"}
+    HOURS_KEYS    = {"hours","total hours","pdt hours","build hours"}
+    CRASH_KEYS    = {"crashes","crash","total crashes","crash count"}
+    MTBF_KEYS     = {"mtbf","pdt mtbf"}
 
     def _norm(h):
         return str(h or "").strip().lower().replace("_"," ")
@@ -60,14 +63,23 @@ def _read_sheet(ws):
     if not headers:
         return []
 
-    col_date=col_build=col_hours=col_crash=col_mtbf=None
+    # Actual HGY Excel has only one build column: "META Build Id" = full build string
+    BUILD_COL_KEYS = {"meta build id","meta build","build id","build_id","build_s",
+                      "build","meta","meta id","meta_id","crm build id","crm_build_id","builds"}
+
+    col_date=col_build_s=col_hours=col_crash=col_mtbf=None
     for i,h in enumerate(headers):
         hn=_norm(h)
-        if hn in DATE_KEYS  and col_date  is None: col_date=i
-        elif hn in BUILD_KEYS and col_build is None: col_build=i
-        elif hn in HOURS_KEYS and col_hours is None: col_hours=i
-        elif hn in CRASH_KEYS and col_crash is None: col_crash=i
-        elif hn in MTBF_KEYS  and col_mtbf  is None: col_mtbf=i
+        if hn in DATE_KEYS and col_date is None:
+            col_date=i
+        elif hn in HOURS_KEYS and col_hours is None:
+            col_hours=i
+        elif hn in CRASH_KEYS and col_crash is None:
+            col_crash=i
+        elif hn in MTBF_KEYS and col_mtbf is None:
+            col_mtbf=i
+        elif col_build_s is None and any(k in hn for k in BUILD_COL_KEYS):
+            col_build_s=i
 
     result=[]
     sno=1
@@ -80,11 +92,21 @@ def _read_sheet(ws):
                 if isinstance(v,(_dt.date,_dt.datetime)): return str(v)[:10]
             except: pass
             return str(v).strip()
-        d=_cell(col_date); b=_cell(col_build)
-        h=_cell(col_hours); c=_cell(col_crash); m=_cell(col_mtbf)
+        d = _cell(col_date)
+        b = _cell(col_build_s)
+        h = _cell(col_hours)
+        c = _cell(col_crash)
+        m = _cell(col_mtbf)
         if not any([d,b,h,c,m]): continue
-        result.append({"sno":sno,"excel_row":sno+1,
-                        "date":d,"build_s":b,"hours":h,"crashes":c,"mtbf":m})
+        # Derive meta_id from build string (e.g. ...-00135-STD... -> Meta-135)
+        mid = ""
+        if b:
+            mn = re.search(r'-0*(\d{3,6})-', b)
+            mid = f"Meta-{mn.group(1)}" if mn else b
+        row = {"sno":sno,"excel_row":sno+1,
+               "date":d,"build_s":b,"meta_id":mid,
+               "hours":h,"crashes":c,"mtbf":m}
+        result.append(row)
         sno+=1
     return result
 
