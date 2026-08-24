@@ -1032,3 +1032,219 @@ def api_public_hgy_remove_sp(sp: str):
                           {"row_count": entry.get("row_count", 0)})
     return jsonify({"ok": True, "sp": sp_val, "program": program,
                     "removed_by": actor, "available_sps": new_index})
+
+
+# =============================================================================
+# HGY MTBF Excel import — reads \\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart
+# Each worksheet = one SP.  Columns mapped: Date, Build/Meta, Hours, Crashes, MTBF.
+# =============================================================================
+
+_HGY_MTBF_EXCEL_PATH = os.environ.get(
+    "PDTBUDDY_HGY_MTBF_EXCEL",
+    r"\\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart",
+)
+
+
+def _hgy_mtbf_excel_path() -> str:
+    return os.path.abspath(os.path.expandvars(_HGY_MTBF_EXCEL_PATH))
+
+
+def _read_hgy_mtbf_excel(excel_path: str) -> dict:
+    """Read every sheet from the MTBF_Trend_chart workbook.
+
+    Returns {sheet_name: [row_dict, ...]} where each row has normalised keys:
+    date, build_s, hours, crashes, mtbf.
+    """
+    import openpyxl  # type: ignore
+
+    wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+    result: dict = {}
+
+    DATE_KEYS   = {"date", "report date", "week", "report_date"}
+    BUILD_KEYS  = {"build", "build id", "build_id", "meta", "meta id", "meta_id",
+                   "crm build id", "crm_build_id", "build_s", "builds"}
+    HOURS_KEYS  = {"hours", "total hours", "pdt hours", "build hours"}
+    CRASH_KEYS  = {"crashes", "crash", "total crashes", "crash count"}
+    MTBF_KEYS   = {"mtbf", "pdt mtbf"}
+
+    def _norm(h: str) -> str:
+        return str(h or "").strip().lower().replace("_", " ")
+
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        rows_iter = ws.iter_rows(values_only=True)
+        # Find header row (first non-empty row)
+        headers = []
+        for raw_row in rows_iter:
+            cells = [str(c or "").strip() for c in raw_row]
+            if any(cells):
+                headers = cells
+                break
+        if not headers:
+            continue
+
+        # Map column indices
+        col_date = col_build = col_hours = col_crash = col_mtbf = None
+        for i, h in enumerate(headers):
+            hn = _norm(h)
+            if hn in DATE_KEYS and col_date is None:
+                col_date = i
+            elif hn in BUILD_KEYS and col_build is None:
+                col_build = i
+            elif hn in HOURS_KEYS and col_hours is None:
+                col_hours = i
+            elif hn in CRASH_KEYS and col_crash is None:
+                col_crash = i
+            elif hn in MTBF_KEYS and col_mtbf is None:
+                col_mtbf = i
+
+        sheet_rows = []
+        sno = 1
+        for raw_row in rows_iter:
+            def _cell(idx):
+                if idx is None or idx >= len(raw_row):
+                    return ""
+                v = raw_row[idx]
+                if v is None:
+                    return ""
+                # Excel date serial → string
+                try:
+                    import datetime as _dt
+                    if isinstance(v, (_dt.date, _dt.datetime)):
+                        return str(v)[:10]
+                except Exception:
+                    pass
+                return str(v).strip()
+
+            date_val  = _cell(col_date)
+            build_val = _cell(col_build)
+            hours_val = _cell(col_hours)
+            crash_val = _cell(col_crash)
+            mtbf_val  = _cell(col_mtbf)
+
+            # Skip completely empty rows
+            if not any([date_val, build_val, hours_val, crash_val, mtbf_val]):
+                continue
+
+            sheet_rows.append({
+                "sno"       : sno,
+                "excel_row" : sno + 1,
+                "date"      : date_val,
+                "build_s"   : build_val,
+                "hours"     : hours_val,
+                "crashes"   : crash_val,
+                "mtbf"      : mtbf_val,
+            })
+            sno += 1
+
+        if sheet_rows:
+            result[sheet_name] = sheet_rows
+
+    wb.close()
+    return result
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/mtbf_excel/import",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_mtbf_excel_import():
+    """Read MTBF_Trend_chart Excel (each sheet = one SP) and save rows into HGY JSON store.
+
+    POST body (optional):
+      { "excel_path": "...", "dry_run": false }
+
+    Returns per-sheet import summary.
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+
+    payload    = request.get_json(force=True, silent=True) or {}
+    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_path()
+    dry_run    = bool(payload.get("dry_run", False))
+
+    if not os.path.exists(excel_path):
+        return jsonify({"ok": False,
+                        "error": f"Excel file not found: {excel_path}"}), 404
+
+    try:
+        sheets = _read_hgy_mtbf_excel(excel_path)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Excel read failed: {exc}"}), 500
+
+    actor   = str(getattr(current_user, "id", "") or "").strip()
+    summary = []
+
+    for sheet_name, rows in sheets.items():
+        sp_raw  = str(sheet_name).strip()
+        digits  = "".join(re.findall(r"\d+", sp_raw))
+        sp_key  = digits or sp_raw
+        program = sp_raw
+
+        if dry_run:
+            summary.append({"sheet": sheet_name, "sp": sp_key,
+                             "rows": len(rows), "action": "dry_run"})
+            continue
+
+        index = _platform_read_index("HGY")
+        entry = _platform_find_entry(index, sp_key)
+
+        if not entry:
+            # Auto-create the SP
+            slug  = _sp_file_slug(program)
+            entry = {"sp": sp_key, "program": program, "domain": "",
+                     "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
+            _atomic_write_json(_platform_sp_file_path("HGY", program, slug), {
+                "sp": sp_key, "program": program, "domain": "",
+                "platform": "HGY", "rows": [],
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+            })
+            index.append(entry)
+            _platform_write_index("HGY", index)
+            action = "created"
+        else:
+            action = "updated"
+
+        _platform_write_sp_rows("HGY", entry, rows)
+        _platform_write_audit("HGY", f"mtbf_excel_import_{action}",
+                              sp_key, program, actor,
+                              {"sheet": sheet_name, "row_count": len(rows),
+                               "excel_path": excel_path})
+        summary.append({"sheet": sheet_name, "sp": sp_key,
+                         "rows": len(rows), "action": action})
+
+    return jsonify({
+        "ok"          : True,
+        "excel_path"  : excel_path,
+        "dry_run"     : dry_run,
+        "sheets_found": len(sheets),
+        "summary"     : summary,
+    })
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/mtbf_excel/list_sheets",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_mtbf_excel_list_sheets():
+    """Return the sheet names in the MTBF_Trend_chart Excel without importing."""
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+
+    payload    = request.get_json(force=True, silent=True) or {}
+    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_path()
+
+    if not os.path.exists(excel_path):
+        return jsonify({"ok": False,
+                        "error": f"Excel file not found: {excel_path}"}), 404
+    try:
+        import openpyxl  # type: ignore
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+        sheets = wb.sheetnames
+        wb.close()
+        return jsonify({"ok": True, "excel_path": excel_path,
+                        "sheets": list(sheets), "count": len(sheets)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
