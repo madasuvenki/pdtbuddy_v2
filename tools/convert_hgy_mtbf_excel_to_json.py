@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
-EXCEL_PATH = r"\\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart"
+EXCEL_PATH = r"\\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart\HGY_MTBF_Trend_Original.xlsx"
 HGY_DIR    = r"\\sphere\pdtqipl_internal\PDTBuddy\managed_excel\AUTO\Automotive\Gen4.5\HGY"
 
 # Try adding extension if file has none
