@@ -1945,7 +1945,7 @@ function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
   // render table with initial state
   _crRenderTable();
 }
-function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
+function rawBuildId(r){return r.build_s||r.builds||r.build||r.build_id||r.meta_id||r.meta||'-';}
 const _MTBF_PL_ALIAS_STORE='auto_gen45_mtbf_pl_aliases';
 const _MTBF_PL_ALIAS_DEFAULTS=[
   {match:'Snapdragon_Auto.HQX.4.5.7.0.2.r1',name:'Snapdragon_Auto.HQX.4.5.7.0'}
