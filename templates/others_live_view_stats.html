@@ -119,10 +119,22 @@
 
   <!-- Top Bar -->
   <div class="topbar">
-    <div class="topbar-left">
-      <div class="eyebrow"><i class="fas fa-satellite-dish"></i> {{ bu or 'Others' }} BU &mdash; Live View Stats</div>
-      <h1>{{ target_display }}</h1>
-    </div>
+      <div class="topbar-left">
+        <div class="eyebrow"><i class="fas fa-satellite-dish"></i> {{ bu or 'Others' }} BU &mdash; Live View Stats</div>
+        <h1>{{ target_display }}</h1>
+        {% if is_compute_mtbf %}
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label for="mtbfViewSelect" style="font-size:11px;font-weight:900;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em">
+            <i class="fas fa-layer-group"></i> MTBF View
+          </label>
+          <select id="mtbfViewSelect" class="inp" style="width:220px;padding:8px 10px" onchange="loadMtbf()">
+            {% for view in mtbf_views %}
+            <option value="{{ view }}" {% if view == selected_mtbf_view %}selected{% endif %}>{{ view }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+      </div>
     <div class="topbar-actions">
       <span class="badge badge-info" id="statusBadge"><i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;</span>
       <button class="btn btn-primary" onclick="refreshAll()"><i class="fas fa-sync" id="refreshIcon"></i> Refresh</button>
@@ -440,7 +452,8 @@
 <script>
 const TARGET   = {{ target_name|tojson }};
 const IS_ADMIN = {{ is_admin|tojson }};
-const COL = { meta:0, build:1, date:2, hours:3, crashes:4, mtbf:5, comments:6 };
+const IS_COMPUTE_MTBF = {{ is_compute_mtbf|tojson }};
+const COL = { meta:0, build:1, date:2, hours:3, crashes:4, mtbf:5, comments:6, product_mtbf:5, qc_mtbf:6 };
 const SJQL_DOMAIN = TARGET.toUpperCase().replace(/[^A-Z0-9_]/g,'_');
 
 let mtbfData = [], mtbfHdrs = [];
@@ -449,7 +462,7 @@ let crRows   = [];
 let weeklyData = {};
 let brRows   = [];
 let sjqlTabs = [], sjqlTimers = {}, activeTabId = null;
-let chartType = 'line', _chart = null;
+let chartType = 'bar', _chart = null;
 
 /* ── Utilities ── */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -473,12 +486,18 @@ function switchTab(name){
 }
 
 /* ── MTBF (same as dashboard) ── */
+function selectedMtbfSheet(){
+  const el=document.getElementById('mtbfViewSelect');
+  return el ? el.value : 'MTBF';
+}
+
 async function loadMtbf(){
   const icon=document.getElementById('refreshIcon');
   icon.className='fas fa-circle-notch spin';
   setBadge('info','<i class="fas fa-circle-notch fa-spin"></i> Loading&hellip;');
   try{
-    const r=await fetch('/api/dashboard/'+TARGET+'/excel/full_table');
+    const sheet=selectedMtbfSheet();
+    const r=await fetch('/api/dashboard/'+TARGET+'/excel/full_table'+(sheet?'?sheet='+encodeURIComponent(sheet):''));
     const d=await r.json();
     if(!d.success){ setBadge('err','<i class="fas fa-exclamation-circle"></i> '+(d.message||'Load failed')); return; }
     mtbfHdrs=d.headers||[]; mtbfData=d.rows||[];
@@ -489,10 +508,21 @@ async function loadMtbf(){
 }
 
 function remapCols(hdrs){
-  const map={meta:['Meta ID','Meta-ID','meta_id','MetaID'],build:['Build(s)','Build','build_id','Builds','Full Build'],date:['Date','date'],hours:['Hours','hours'],crashes:['Total Crashes','Crashes','total_crashes'],mtbf:['MTBF','mtbf'],comments:['Comments','comments']};
+  const map={
+    meta:['Meta ID','Meta-ID','meta_id','MetaID'],
+    build:['Build(s)','Build','build_id','Builds','Full Build'],
+    date:['Date','date','Week'],
+    hours:['Hours','hours','Total Hours','Tested Hours'],
+    crashes:['Total Crashes','Crashes','total_crashes'],
+    mtbf:['MTBF','mtbf'],
+    product_mtbf:['Product MTBF','Prod MTBF'],
+    qc_mtbf:['QC MTBF','QCMTBF'],
+    comments:['Comments','comments','MTBF Details']
+  };
   for(const [key,names] of Object.entries(map)){
     for(const name of names){ const idx=hdrs.indexOf(name); if(idx>=0){COL[key]=idx;break;} }
   }
+  if(IS_COMPUTE_MTBF && COL.product_mtbf >= 0) COL.mtbf = COL.product_mtbf;
 }
 
 function renderMtbfTable(){
@@ -537,7 +567,7 @@ async function saveMtbfTable(){
   btns.forEach(b=>{b.disabled=true;b.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving&hellip;';});
   setMsg('tableMsg','','Saving…');
   try{
-    const r=await fetch('/api/dashboard/'+TARGET+'/excel/save_table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet_name:'MTBF',rows:mtbfData})});
+    const r=await fetch('/api/dashboard/'+TARGET+'/excel/save_table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sheet_name:selectedMtbfSheet(),rows:mtbfData})});
     const d=await r.json();
     if(d.success){setMsg('tableMsg','ok',d.message||'Saved!');await loadMtbf();}
     else setMsg('tableMsg','err',d.message||'Save failed');
@@ -554,38 +584,20 @@ function renderChart(){
   if(_chart)_chart.destroy();
   const n=labels.length;
   const bThick=n<=2?60:n<=4?44:n<=8?28:n<=14?18:n<=22?12:8;
-  if(chartType==='line'){
-    // Line chart: MTBF + Hours + Crashes (same as dashboard MTBF page)
-    _chart=new Chart(ctx,{type:'line',data:{labels,datasets:[
-      {label:'MTBF (hrs)',data:mv,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.1)',fill:true,tension:0.35,yAxisID:'y',pointRadius:5,pointHoverRadius:8,borderWidth:2.5,
-        datalabels:{display:true,align:'top',color:'#2563eb',font:{size:9,weight:'bold'},formatter:v=>v==null?'':v.toFixed(1)}},
-      {label:'Hours',data:hv,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.06)',fill:false,tension:0.35,yAxisID:'y2',borderDash:[5,3],pointRadius:3,pointHoverRadius:6,borderWidth:1.5,
-        datalabels:{display:false}},
-      {label:'Crashes',data:cv,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.06)',fill:false,tension:0.35,yAxisID:'y2',borderDash:[3,3],pointRadius:3,pointHoverRadius:6,borderWidth:1.5,
-        datalabels:{display:false}}
-    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y==null?'N/A':ctx.parsed.y.toFixed(1))}}},
-      scales:{
-        y:{type:'linear',position:'left',title:{display:true,text:'MTBF (hrs)',color:'#2563eb'},ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.15)'}},
-        y2:{type:'linear',position:'right',title:{display:true,text:'Hours / Crashes',color:'#16a34a'},ticks:{color:'#64748b'},grid:{drawOnChartArea:false}},
-        x:{ticks:{color:'#64748b',maxRotation:45},grid:{color:'rgba(148,163,184,.08)'}}
-      }
-    }});
-  } else {
-    // Bar chart: Hours + Crashes bars + MTBF line (WBC style)
-    _chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[
-      {label:'Hours',data:hv,backgroundColor:'rgba(37,99,235,.82)',borderColor:'#2563eb',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
-      {label:'Crashes',data:cv,backgroundColor:'rgba(220,38,38,.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
-      {label:'MTBF (hrs)',data:mv,type:'line',borderColor:'#d97706',backgroundColor:'rgba(217,119,6,.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,tension:0.25,yAxisID:'y1'}
-    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:11}}}},
-      scales:{
-        y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:9}},ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.15)'}},
-        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF (hrs)',font:{size:9},color:'#d97706'},ticks:{color:'#d97706'}},
-        x:{ticks:{color:'#64748b',maxRotation:55,autoSkip:false},grid:{color:'rgba(148,163,184,.08)'}}
-      }
-    }});
-  }
+  // MTBF-only change: Hours and Crashes are bars, MTBF is a line.
+  _chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'Hours',data:hv,backgroundColor:'rgba(37,99,235,.82)',borderColor:'#2563eb',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
+    {label:'Crashes',data:cv,backgroundColor:'rgba(220,38,38,.82)',borderColor:'#dc2626',borderWidth:1,borderRadius:4,barThickness:bThick,yAxisID:'y'},
+    {label:'MTBF (hrs)',data:mv,type:'line',borderColor:'#d97706',backgroundColor:'rgba(217,119,6,.15)',borderWidth:2.5,pointRadius:5,pointHoverRadius:8,tension:0.25,yAxisID:'y1',
+      datalabels:{display:true,align:'top',color:'#d97706',font:{size:9,weight:'bold'},formatter:v=>v==null?'':v.toFixed(1)}}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,font:{size:11}}}},
+    scales:{
+      y:{beginAtZero:true,title:{display:true,text:'Hours / Crashes',font:{size:9}},ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.15)'}},
+      y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF (hrs)',font:{size:9},color:'#d97706'},ticks:{color:'#d97706'}},
+      x:{ticks:{color:'#64748b',maxRotation:55,autoSkip:false},grid:{color:'rgba(148,163,184,.08)'}}
+    }
+  }});
 }
 async function copyChart(){
   const btn=event.currentTarget;
@@ -634,7 +646,7 @@ async function copyChart(){
   btn.innerHTML='<i class="fas fa-download"></i> Saved';
   setTimeout(()=>{btn.innerHTML=orig;},1500);
 }
-function toggleChartType(){ chartType=chartType==='line'?'bar':'line'; renderChart(); }
+function toggleChartType(){ renderChart(); }
 
 function updateKPIs(){
   setText('kpiBuilds',mtbfData.length);
@@ -653,7 +665,7 @@ async function loadSjqlTabs(){
   }catch(e){ sjqlTabs=[]; }
   setText('kpiRunning',sjqlTabs.length);
   renderSjqlCards();
-  if(sjqlTabs.length && !activeTabId){
+  if(sjqlTabs.length && !activeTabId && document.getElementById('tab-running')?.classList.contains('active')){
     setTimeout(()=>sjqlRunCard(sjqlTabs[0].id,false),400);
   }
 }
@@ -1147,6 +1159,9 @@ if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
 /* ── Init ── */
 loadMtbf();
+loadOpenJiras();
+loadOpenCrs();
+loadSjqlTabs();
 </script>
 </body>
 </html>

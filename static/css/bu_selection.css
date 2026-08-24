@@ -1564,3 +1564,52 @@
 [data-theme="dark"] .bu-simple-page--embedded {
   background: #1e2d4a !important;
 }
+
+/* ══════════════════════════════════════════════
+   PREMIUM LIGHT BACKGROUND — all BU/dash pages
+   Keeps empty content area same premium colour
+══════════════════════════════════════════════ */
+:root,
+[data-theme="light"] {
+  --bg-page:
+    radial-gradient(circle at 8% -8%, rgba(79,70,229,.34), transparent 34%),
+    radial-gradient(circle at 92% 0%, rgba(14,165,233,.30), transparent 36%),
+    radial-gradient(circle at 16% 105%, rgba(236,72,153,.18), transparent 34%),
+    linear-gradient(135deg,#eef2ff 0%,#dbeafe 48%,#ecfeff 100%);
+  --bg-sidebar:
+    linear-gradient(180deg,rgba(248,251,255,.88) 0%,rgba(238,244,255,.88) 52%,rgba(248,247,255,.88) 100%);
+}
+
+html:not([data-theme="dark"]) body,
+[data-theme="light"] body,
+html:not([data-theme="dark"]) .bu-shell-page,
+html:not([data-theme="dark"]) .bu-simple-page,
+html:not([data-theme="dark"]) .bu-simple-page--embedded,
+html:not([data-theme="dark"]) .bu-detail-panel,
+html:not([data-theme="dark"]) .bu-detail-panel--embedded,
+html:not([data-theme="dark"]) .bu-shell-inline-content,
+html:not([data-theme="dark"]) #buInlineContent,
+html:not([data-theme="dark"]) .tsel-shell,
+[data-theme="light"] .bu-shell-page,
+[data-theme="light"] .bu-simple-page,
+[data-theme="light"] .bu-simple-page--embedded,
+[data-theme="light"] .bu-detail-panel,
+[data-theme="light"] .bu-detail-panel--embedded,
+[data-theme="light"] .bu-shell-inline-content,
+[data-theme="light"] #buInlineContent,
+[data-theme="light"] .tsel-shell {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(79,70,229,.34), transparent 34%),
+    radial-gradient(circle at 92% 0%, rgba(14,165,233,.30), transparent 36%),
+    radial-gradient(circle at 16% 105%, rgba(236,72,153,.18), transparent 34%),
+    linear-gradient(135deg,#eef2ff 0%,#dbeafe 48%,#ecfeff 100%) !important;
+  background-attachment: fixed !important;
+}
+
+html:not([data-theme="dark"]) .bu-sidebar,
+html:not([data-theme="dark"]) .bu-sidebar--embedded,
+[data-theme="light"] .bu-sidebar,
+[data-theme="light"] .bu-sidebar--embedded {
+  background: linear-gradient(180deg,rgba(239,246,255,.94) 0%,rgba(224,242,254,.90) 52%,rgba(238,242,255,.92) 100%) !important;
+  backdrop-filter: blur(16px);
+}

@@ -4,7 +4,7 @@
 **PDTBuddy** — PDT Statistics Dashboard & Reporting Platform
 
 ## Version
-`v2.7`
+`v2.11`
 
 ## Repository
 - **Primary**: `origin` → `https://github.com/madasuvenki/Buddy_notjson.git`

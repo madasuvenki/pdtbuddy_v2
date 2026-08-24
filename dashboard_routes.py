@@ -7,6 +7,7 @@ from datetime import datetime, date,timedelta
 import json
 from flask import request, url_for, flash
 from flask_login import login_required, current_user
+from src.user_activity import log_user_activity
 import os
 from datetime import datetime as _dt
 
@@ -6987,6 +6988,20 @@ def dashboard(target_name, section="dashboard"):
     section = normalize_dashboard_section(section)
     if section in ('device-summary', 'device_summary'):
         return redirect(url_for('dashboard_bp.dashboard', target_name=target_name, section='dashboard'))
+
+    try:
+        log_user_activity(
+            user_id=current_user.get_id() if current_user.is_authenticated else "UNKNOWN",
+            action_type="DASHBOARD_VIEW",
+            endpoint=request.path,
+            target_name=target_name,
+            query_text=f"section={section}",
+            result_status="SUCCESS",
+            user_type="external" if session.get("viewer_mode") else "internal",
+        )
+    except Exception:
+        pass
+
     toggle_mode = request.args.get("toggle_mode", "CRM")
     pdt_type = request.args.get("pdt_type", "SWPDT")
     compute_bu_flag = request.args.get("compute_bu", "0")

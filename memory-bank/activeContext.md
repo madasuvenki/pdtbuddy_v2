@@ -2,6 +2,130 @@
 
 ## Current Work Focus
 
+### Automotive Live View Stats Build Filter — Complete (2026-08-24)
+
+**User request addressed:** On `/automotive/live_view_stats/4.8.9.0`, added a build selector for the MTBF trend/table so selecting a build from the dropdown updates both the MTBF chart and the Full SP/Excel table.
+
+**Changes made:**
+- `templates/automotive_live_view_stats.html`
+  - Added `Build` dropdown in the MTBF Trend header.
+  - Dropdown is populated from detected build/software-product/meta values in the synced sheet/table data.
+  - Selecting a build filters:
+    - MTBF chart rows
+    - Excel/Full SP table rows
+  - Table header now shows active build filter and filtered row count.
+- `live_view_stats_routes.py`
+  - Added `build_id` into `chart_rows` payload from detected build/software-product column so chart filtering can match selected table builds.
+
+**Validation:**
+- `py -3 -m py_compile live_view_stats_routes.py automotive_live_view_stats_routes.py scripts\update_axiom_job_summary.py src\cr_compare_service.py src\cr_overview_service.py` executed successfully.
+
+---
+
+### Axiom Job Summary Poller Rate-Limit Update — Complete (2026-08-24)
+
+**User request addressed:** Updated `scripts/update_axiom_job_summary.py` so continuous polling does not do full refresh and does not poll Axiom every 10 minutes. This follows the Axiom team's rate-limiting guidance: `https://axiomuserguide.qualcomm.com/workflows/axiom-public-api#rate-limiting`.
+
+**Changes made:**
+- `--poll` default interval changed from `600` seconds to `10800` seconds (3 hours).
+- `--poll --interval < 10800` is now clamped to `10800` seconds with a warning.
+- Poller no longer performs `run_full_update()` on first cycle.
+- Poller now performs regular incremental update every cycle:
+  - `run_incremental_update(..., minutes=interval_sec // 60 + 10)`
+- Removed per-cycle expensive refreshes from poll mode:
+  - `run_refresh_running()`
+  - `refresh_active_device_host_maps()`
+  - `run_refresh_hwpdt_results()`
+- Kept local `rebuild_axiom_all_devices_table()` after each poll cycle because it rebuilds from DB data and does not call Axiom.
+- No-parameter execution now defaults to 3-hour continuous poll mode:
+  - `python scripts/update_axiom_job_summary.py`
+- Updated usage/help text to recommend:
+  - `python scripts/update_axiom_job_summary.py --poll`
+  - `python scripts/update_axiom_job_summary.py --poll --interval 10800`
+
+**Validation:**
+- `py -3 -m py_compile scripts\update_axiom_job_summary.py` executed successfully.
+
+---
+
+### Target Delta Studio Weekwise Jira→CR Percentage — Removed (2026-08-24)
+
+**User request addressed:** Removed the Jira→CR conversion percentage from Target Compare Standalone / Target Delta Studio weekly trend because it was not required.
+
+**Current behavior restored:**
+- `Generate Weekwise Trend of JIRAs, CRs` now shows only:
+  - `<Entity> JIRAs`
+  - `<Entity> CRs`
+- Backend weekly trend response again emits only:
+  - `jira_count`
+  - `cr_count`
+  - existing week/target metadata
+- Removed temporary fields:
+  - `converted_jira_count`
+  - `conversion_pct`
+
+**Validation:**
+- `py -3 -m py_compile src\cr_compare_service.py` executed successfully.
+
+---
+
+### CR Overview Sitewise Distribution SD Marker Fix — Complete (2026-08-24)
+
+**User request addressed:** Investigated CR Overview sitewise distribution for Nord HGY DailyData under `\\sphere\pdtstats\DailyReports\AutoIVI_Data\Nord_HGY_5.1.7.0\DailyData`, where titles containing SD were not being classified into the expected common `QIPL + SD` bucket.
+
+**Findings:**
+- Latest workbook inspected: `NORD_HGY_5.1.7.0__UNIQUE_REPORT_2026y_08m_24d_08h17m40s.xlsx`.
+- `openJiras` / `JIRAs` titles use the SD marker format `..._PDTSD - [...]`.
+- Existing CR Overview logic only detected `PDT-SD` and `PDT_SD`, missing `PDTSD`.
+- Direct workbook scan found 453 CRs with `PDTSD` titles and 200 `PDT_QIPL_Seen` + `PDT_Site_Unique=NA` CRs affected by this marker pattern.
+
+**Changes made:**
+- `src/cr_overview_service.py`
+  - Added `import re`.
+  - Added `_title_has_sd_marker()` helper.
+  - Updated `_classify_site()` SD detection to match:
+    - `PDTSD`
+    - `PDT-SD`
+    - `PDT_SD`
+    - `PDT SD`
+  - This makes `PDT_QIPL_Seen` + SD-title CRs classify as `PDT_QIPL_AND_SD` (`QIPL + SD`).
+
+**Validation:**
+- `py -3 -m py_compile src\cr_overview_service.py` succeeded.
+- Helper checks confirmed:
+  - `PDTSD` → detected
+  - `PDT-SD` → detected
+  - `PDT_SD` → detected
+  - `_classify_site('NA','PDT_QIPL_Seen',['..._PDTSD - ...'])` → `PDT_QIPL_AND_SD`
+
+---
+
+### Target Delta Studio Weekwise Jira/CR Trend — Complete (2026-08-23)
+
+**User request addressed:** Added a new Target Delta Studio option to generate a weekwise trend showing how many Jiras were raised and how many mapped CRs exist for each selected target/delta set.
+
+**Changes made:**
+- `src/cr_compare_service.py`
+  - Added `POST /api/cr_compare/weekwise_trend`.
+  - Added weekly window generation from selected date range, producing non-overlapping 7-day buckets from start date through end date.
+  - Counts Jira rows across `{prefix}_jiras`, `{prefix}_openjiras`, and `{prefix}_closed_jiras` when those tables exist.
+  - Counts unique mapped CR IDs per entity/week.
+  - Returns per-week, per-entity `jira_count` and `cr_count`, plus target-level breakdown.
+- `templates/target_compare_studio.html`
+  - Added **Generate Weekwise Trend of JIRAs, CRs** button.
+  - Added a Weekwise Trend panel with two charts:
+    - JIRAs raised per week
+    - Mapped CRs per week
+  - Added copy-ready weekwise table with columns:
+    - Week
+    - each entity's JIRAs
+    - each entity's CRs
+
+**Validation:**
+- `py -3 -m py_compile src\cr_compare_service.py` executed successfully.
+
+---
+
 ### CR Overview BU Duplicate Counting + PDT Unique Toggles — Complete (2026-08-23)
 
 **User question addressed:** If the same CR is reported across multiple targets and is classified as duplicate at BU level, the CR Overview can count repeated target occurrences through the **Include repeated CRs in BU** checkbox. Per latest user feedback, this option is now enabled by default.

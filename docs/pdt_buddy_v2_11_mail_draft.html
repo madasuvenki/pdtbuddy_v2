@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PDT Buddy v2.11 Feature Update Mail Draft</title>
+  <style>
+    :root {
+      --bg: #eef4ff;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #5b6b84;
+      --line: #d7e3f3;
+      --brand: #2563eb;
+      --brand2: #7c3aed;
+      --brand3: #06b6d4;
+      --soft-blue: #eff6ff;
+      --soft-purple: #f5f3ff;
+      --soft-cyan: #ecfeff;
+      --soft-green: #ecfdf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fff1f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 8% -8%, rgba(37, 99, 235, .20), transparent 34%),
+        radial-gradient(circle at 92% 0%, rgba(124, 58, 237, .18), transparent 32%),
+        linear-gradient(135deg, #f8fbff, var(--bg));
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+    }
+    .mail {
+      max-width: 1080px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .14);
+      overflow: hidden;
+    }
+    .hero {
+      padding: 30px 34px;
+      color: #10254f;
+      background:
+        linear-gradient(135deg, rgba(219, 234, 254, .95), rgba(245, 243, 255, .98), rgba(236, 254, 255, .92));
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: #3730a3;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 12px 0 6px;
+      font-size: 30px;
+      letter-spacing: -0.03em;
+      color: #1e3a8a;
+    }
+    .subtitle {
+      max-width: 900px;
+      color: #475569;
+      font-size: 14px;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .chip {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.76);
+      border: 1px solid rgba(147,197,253,.75);
+      color: #1e40af;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .content { padding: 28px 34px 34px; }
+    .intro {
+      padding: 15px 16px;
+      background: linear-gradient(135deg, #f8fafc, #eff6ff);
+      border: 1px solid #dbeafe;
+      border-radius: 16px;
+      color: #334155;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin: 18px 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      background: linear-gradient(90deg, #f8fafc, #eef2ff, #ecfeff);
+      border-bottom: 1px solid var(--line);
+      color: #4338ca;
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .section-title:before {
+      content: "";
+      width: 7px;
+      height: 24px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--brand), var(--brand2), var(--brand3));
+      box-shadow: 0 6px 14px rgba(79, 70, 229, .22);
+    }
+    ul.feature-list {
+      list-style: none;
+      padding: 14px 18px 18px;
+      margin: 0;
+    }
+    .feature-list li {
+      position: relative;
+      margin: 7px 0;
+      padding: 9px 12px 9px 34px;
+      border-radius: 12px;
+      background: #fbfdff;
+      border: 1px solid #edf2f7;
+      color: #24344d;
+      font-size: 13.5px;
+    }
+    .feature-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 11px;
+      top: 8px;
+      width: 17px;
+      height: 17px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: white;
+      background: linear-gradient(135deg, var(--brand), var(--brand2));
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      margin-left: 4px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .mini {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f8fbff);
+    }
+    .mini b {
+      display: block;
+      color: #1e3a8a;
+      margin-bottom: 5px;
+    }
+    .mini span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--soft-green), #f8fafc);
+      border: 1px solid #bbf7d0;
+      color: #24513c;
+      font-size: 13px;
+    }
+    .footer {
+      margin-top: 22px;
+      color: #334155;
+      font-size: 14px;
+    }
+    @media (max-width: 720px) {
+      body { padding: 12px; }
+      .hero, .content { padding: 22px; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mail">
+    <div class="hero">
+      <div class="eyebrow">PDT Buddy Release Communication</div>
+      <h1>PDT Buddy Feature Update — Rev 1 to Rev 2.11</h1>
+      <div class="subtitle">Single-line feature summary for email communication, based on revision history, memory-bank project context, and active code/module cross-check.</div>
+      <div class="chips">
+        <span class="chip">Current Version: v2.11</span>
+        <span class="chip">Target Delta Studio</span>
+        <span class="chip">CR / JIRA Analytics</span>
+        <span class="chip">Live Status</span>
+        <span class="chip">MTBF</span>
+        <span class="chip">Public APIs</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <p>Hi All,</p>
+
+      <div class="intro">
+        PDT Buddy has evolved from the initial dashboard release to <b>v2.11</b>, bringing multiple dashboard, reporting, CR/JIRA, Live Status, MTBF, Device Summary, API, and automation enhancements.
+      </div>
+
+      <div class="grid">
+        <div class="mini"><b>Purpose</b><span>Centralized PDT statistics, CR, JIRA, MTBF, device, and reporting platform.</span></div>
+        <div class="mini"><b>Coverage</b><span>Supports multiple BUs, targets, regions, and internal/public reporting workflows.</span></div>
+        <div class="mini"><b>Latest Highlight</b><span>Target Delta Studio now includes weekwise JIRA and unique mapped CR trend comparison.</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 1 — Initial Release</div>
+        <ul class="feature-list">
+          <li>Introduced the core PDT Buddy web UI for centralized dashboard access.</li>
+          <li>Added MySQL-backed data retrieval for dashboard, CR, JIRA, and target information.</li>
+          <li>Enabled multiple target support for PDT dashboard workflows.</li>
+          <li>Added BU-wise target segregation for team-specific navigation.</li>
+          <li>Added target-wise dashboard creation for each configured PDT target.</li>
+          <li>Added multiple dashboard tabs per target for organized data review.</li>
+          <li>Added milestone update support directly from the web interface.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2 — Major Feature Expansion</div>
+        <ul class="feature-list">
+          <li>Redesigned the landing page for improved usability and navigation.</li>
+          <li>Added Help section for user guidance.</li>
+          <li>Added Raise Ticket functionality for issue/request submission.</li>
+          <li>Added Feedback module for collecting user inputs.</li>
+          <li>Enhanced target and BU-wise selection with contextual target information.</li>
+          <li>Added automated database ingest support for recurring data updates.</li>
+          <li>Integrated Axiom public API for hours, devices, builds, and job summaries.</li>
+          <li>Added Smart Build Report to reduce manual SharePoint-based weekly updates.</li>
+          <li>Added CR Overview page with CR age and CR status tracking <span class="tag">QIPLPDT-10652</span>.</li>
+          <li>Added Compute BU MTBF support for Hamoa data plotting <span class="tag">QIPLPDT-10651</span>.</li>
+          <li>Added Hawi data integration for CR/JIRA/MTBF reporting <span class="tag">QIPLPDT-10660</span>.</li>
+          <li>Added additional Hawi integration support for reporting continuity <span class="tag">QIPLPDT-10750</span>.</li>
+          <li>Added JQL-based report generation.</li>
+          <li>Added Open CRs view for target-level CR monitoring.</li>
+          <li>Added Open JIRA view for target-level Jira monitoring.</li>
+          <li>Added MTBF trend visualization, update, and edit capabilities.</li>
+          <li>Added HWPDT weekly chip summary reporting.</li>
+          <li>Added HWPDT daily chip information reporting.</li>
+          <li>Added HWPDT playlist update support per Certicom ID.</li>
+          <li>Added monthly-wise report generation.</li>
+          <li>Added weekly-wise reports with SharePoint data, CR age pie charts, and unique CR charts.</li>
+          <li>Added current running build visibility.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.5 — External Page & Multi-BU</div>
+        <ul class="feature-list">
+          <li>Added external page support with multiple BU visibility.</li>
+          <li>Added Auto Core Slides support.</li>
+          <li>Added weekly data view support for external reporting workflows.</li>
+          <li>Added chatbot-based filter report and CR information query support.</li>
+          <li>Added public APIs for HQX Gen4.5 and HGY SP-wise reporting.</li>
+          <li>Added option to remove domain in Live Status MTBF trend external page <span class="tag">QIPLPDT-10904</span>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.6</div>
+        <ul class="feature-list">
+          <li>Added WBC-exclusive data generation flow <span class="tag">QIPLPDT-10905</span>.</li>
+          <li>Added PL-specific external page support <span class="tag">QIPLPDT-10994</span>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.7</div>
+        <ul class="feature-list">
+          <li>Added Daily Report columns for CR Assignee Full Name and CR Priority for Nord HGY <span class="tag">QIPLPDT-11000</span>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.8</div>
+        <ul class="feature-list">
+          <li>Updated PDT CR logic to read and use PDT Tag classification.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.9</div>
+        <ul class="feature-list">
+          <li>Enhanced WBC live external data reporting.</li>
+          <li>Added BU-wise monthly data availability.</li>
+          <li>Added target-wise monthly data availability.</li>
+          <li>Added latest five Mainfarm build selection with chart refresh support <span class="tag">QIPLPDT-10995</span>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.10</div>
+        <ul class="feature-list">
+          <li>Redesigned CR Age Report with three bar categories: New Open/Analysis, CR Age stacked, and Closed CRs.</li>
+          <li>Added Copy Chart button for CR Age Report using SVG-to-PNG clipboard support.</li>
+          <li>Added All CRs table with 14 columns including CR ID, occurrence, title, priority, area, subsystem, functionality, status, age, first instance, date, and type.</li>
+          <li>Added Type column to classify rows as New CR, Closed CR, or Open/Analysis.</li>
+          <li>Added CR Age Report filters for Type, Status, and Search.</li>
+          <li>Added Download Excel support for CR Age Report with active filters applied.</li>
+          <li>Automatically excluded duplicate and invalid rows from CR Age Report calculations.</li>
+          <li>Removed Weekly Report PPT button from the top bar.</li>
+          <li>Moved CRM weekly content into the CR Age Report page.</li>
+          <li>Reduced weekly report area group spacing for tighter chart layout.</li>
+          <li>Added Revision History page at <b>/revision-history</b>.</li>
+          <li>Linked Revision History from the Dashboard Docs page.</li>
+          <li>Added Markdown revision history documentation at <b>docs/REVISION_HISTORY.md</b>.</li>
+          <li>Improved chart grid line visibility and restored bottom axis line.</li>
+          <li>Fixed sanitizer JIRAs being incorrectly counted in system crashes bucket <span class="tag">QIPLPDT-11018</span>.</li>
+          <li>Fixed Can't Duplicate CRs missing from valid CR average age distribution for Hamoa AL <span class="tag">QIPLPDT-11005</span>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rev 2.11 — Latest</div>
+        <ul class="feature-list">
+          <li>Added Target Delta Studio support for Hawi and Kaanapali AU comparison stats <span class="tag">QIPLPDT-11029</span>.</li>
+          <li>Added Generate Weekwise Trend of JIRAs, CRs option in Target Delta Studio.</li>
+          <li>Weekwise JIRA count now includes rows from <b>jiras</b>, <b>openjiras</b>, and <b>closed_jiras</b> tables when available.</li>
+          <li>Weekwise CR count now uses unique mapped CR IDs per week, so duplicate CR mappings are counted once within the same week.</li>
+          <li>Each target/delta set now uses its own selected From JIRA Date and To JIRA Date for weekly trend generation.</li>
+          <li>Different-year comparisons now align by week sequence with month/day labels and without showing year in chart/table labels.</li>
+          <li>Added CS Week selector to mark the selected week as CS, previous weeks as CS-1, and next weeks as CS+1.</li>
+          <li>Combined weekly graph now shows target JIRAs and mapped CRs side-by-side in a single chart.</li>
+          <li>Added copy-ready Chart and Table buttons for weekwise trend output.</li>
+          <li>Improved Outlook paste behavior by copying charts with a stable white background and consistent colors on HTTP/HTTPS.</li>
+          <li>Added Target Delta progress popup while generating weekly trend and target delta results.</li>
+          <li>Enhanced CR Overview BU duplicate handling with an Include repeated CRs in BU option.</li>
+          <li>Added PDT Unique CR support from OverallCrs and exposed PDT Unique CRs as a hero KPI.</li>
+          <li>Updated CR Overview date filtering to use last-instance date when available so repeated CR activity within the selected period is included.</li>
+          <li>Updated Monthly Report unique CR date filtering to match CR Overview last-instance behavior.</li>
+          <li>Added Monthly Report Include NoSIR toggle matching CR Overview behavior.</li>
+          <li>Improved SP-only Device Summary inventory by enriching active devices through Axiom job playlists and resources.</li>
+          <li>Added Device Summary target tab with MCN-wise, host-wise, running-device, and quarantine-inferred inventory reporting.</li>
+          <li>Added WBC Open CR Details with TEA API scenario details and optional QGenie analysis.</li>
+          <li>Added CR Analysis Agent for one-click deep CR analysis with cached QGenie synthesis.</li>
+          <li>Improved UI theme with full dark-mode coverage, soft navy dark colors, and more vibrant light-mode backgrounds.</li>
+          <li>Fixed Compute MTBF JSON routing so non-Glymur Compute targets use target-specific JSON folders.</li>
+          <li>Added application composition registry for centralized blueprint registration.</li>
+          <li>Added modular utility modules for user activity, cache utilities, CR utilities, authentication routes, navigation routes, and HWPDT routes.</li>
+          <li>Maintained Windows PyInstaller packaging support for standalone PDT Buddy executable distribution.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Platform Capabilities Available in Current Codebase</div>
+        <ul class="feature-list">
+          <li>Supports Qualcomm LDAP authentication with region-aware Orbit endpoint routing.</li>
+          <li>Supports role-based access through admin users, bypass users, LDAP groups, and viewer scope controls.</li>
+          <li>Supports multi-BU dashboard routing with target-specific MySQL schema mapping.</li>
+          <li>Supports Live Status publishing, editing, public viewing, and target-specific status pages.</li>
+          <li>Supports saved JQL tabs and saved JQL report generation for Live Status views.</li>
+          <li>Supports public Auto Gen5 APIs for domain, SP, and all-data views without login.</li>
+          <li>Supports public Auto Gen4.5 APIs for SP, HGY SP, search, create, edit, delete, and save-table flows.</li>
+          <li>Supports public Orbit MTBF APIs for external consumers.</li>
+          <li>Supports Device Summary APIs for upload, sheet selection, config save, refresh, devices list, add, edit, delete, restore, and inventory summary.</li>
+          <li>Supports QGenie and ChatWise based AI summary flows with model selection and per-session API key handling.</li>
+          <li>Supports optional MCP MTBF server for external AI/tool access to MTBF trend data.</li>
+          <li>Supports filesystem result caching with signed result tokens for generated reports.</li>
+          <li>Supports Waitress WSGI server deployment for production-style Windows executable hosting.</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        Cross-check summary: This mail draft was prepared from the revision history, memory-bank project notes, and currently present code/templates/routes including <b>app.py</b>, <b>src/cr_compare_service.py</b>, <b>templates/target_compare_studio.html</b>, <b>dashboard_routes.py</b>, <b>weekly_summary_routes.py</b>, <b>device_summary_api.py</b>, <b>device_summary_service.py</b>, <b>live_status_publish_routes.py</b>, <b>live_status_view_api.py</b>, <b>auto_gen5_public_routes.py</b>, <b>auto_gen45_public_routes.py</b>, and <b>src/application/blueprints.py</b>.
+      </div>
+
+      <p class="footer">Thanks,<br><b>PDT Buddy Team</b></p>
+    </div>
+  </div>
+</body>
+</html>

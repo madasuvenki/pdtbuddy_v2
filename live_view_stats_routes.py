@@ -261,6 +261,7 @@ def _sheet_to_payload(target_name: str, excel_path: str, sheet_name: str) -> Dic
 
     idx_date = _find_col(headers, ["date", "week", "build date"])
     idx_meta = _find_col(headers, ["meta id", "meta-id", "meta", "build", "build id", "builds full id"])
+    idx_build = _find_col(headers, ["build id", "build", "builds", "builds full id", "software product", "software_product"])
     idx_hours = _find_col(headers, ["hours", "total hours", "tested hours"])
     idx_system = _find_col(headers, ["system crashes", "system", "sys crashes"])
     idx_ssr = _find_col(headers, ["ssr crashes", "ssr"])
@@ -291,6 +292,7 @@ def _sheet_to_payload(target_name: str, excel_path: str, sheet_name: str) -> Dic
             "s_no": i,
             "date": at(idx_date)[:10] if idx_date >= 0 else "",
             "meta_id": meta_id,
+            "build_id": at(idx_build).strip() if idx_build >= 0 else meta_id,
             "hours": hours,
             "system_crashes": system_c,
             "ssr_crashes": ssr_c,

@@ -127,7 +127,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 
 from src.application import register_feature_blueprints
 
-APP_VERSION = "v2.10"
+APP_VERSION = "v2.11"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -2825,6 +2825,19 @@ def select_target_for_bu():
     bu_key = request.values.get('bu_key', '')
     bu_key_upper = (bu_key or "").upper()
 
+    try:
+        log_user_activity(
+            user_id=current_user.get_id() if current_user.is_authenticated else "UNKNOWN",
+            action_type="BU_TARGET_SELECTION",
+            endpoint=request.path,
+            target_name=None,
+            query_text=f"bu_key={bu_key_upper}",
+            result_status="SUCCESS",
+            user_type="external" if session.get("viewer_mode") else "internal",
+        )
+    except Exception:
+        pass
+
 
     def _mobile_group_from_cfg(cfg: dict) -> str:
         product_family = str((cfg or {}).get("product_family") or "").strip().upper()
@@ -4081,6 +4094,7 @@ def admin_usage_data():
     # daily   = today only,      grouped by hour
     # weekly  = last 7 days,     grouped by day
     # monthly = last 12 months,  grouped by month
+    # yearly  = last 5 years,    grouped by year
     if period == "weekly":
         where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
         group_by     = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
@@ -4089,6 +4103,10 @@ def admin_usage_data():
         where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)"
         group_by     = "DATE_FORMAT(created_at, '%%Y-%%m')"
         label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m')"
+    elif period == "yearly":
+        where_clause = "YEAR(created_at) >= YEAR(CURDATE()) - 4"
+        group_by     = "DATE_FORMAT(created_at, '%%Y')"
+        label_expr   = "DATE_FORMAT(created_at, '%%Y')"
     else:  # daily
         where_clause = "DATE(created_at) = CURDATE()"
         group_by     = "DATE_FORMAT(created_at, '%%H:00')"
@@ -4278,6 +4296,74 @@ def admin_usage_data():
                 'last_login':   last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
+        # - External user tracking by BU / target -
+        # BU is inferred from dashboard_status when target_name is logged.
+        # If target_name is not available, selected BU pages are inferred from the endpoint/query_text.
+        external_filter_sql = (
+            "AND user_id IN ("
+            "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
+            "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='external')"
+        )
+        external_params = user_filter_params
+
+        cursor.execute(f"""
+            SELECT
+                COALESCE(ds.bu, 'UNKNOWN') AS bu,
+                COUNT(*) AS total_actions,
+                COUNT(DISTINCT ud.user_id) AS unique_users,
+                MAX(ud.created_at) AS last_seen
+            FROM pdt_stats_dashboard.user_data ud
+            LEFT JOIN pdt_stats_dashboard.dashboard_status ds
+              ON UPPER(ds.target_name) = UPPER(ud.target_name)
+            WHERE {where_clause}
+              AND ud.user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {external_filter_sql}
+              AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
+            GROUP BY COALESCE(ds.bu, 'UNKNOWN')
+            ORDER BY total_actions DESC
+            LIMIT 30
+        """, external_params)
+        external_by_bu = []
+        for r in (cursor.fetchall() or []):
+            last = r.get('last_seen')
+            external_by_bu.append({
+                'bu': str(r.get('bu') or 'UNKNOWN'),
+                'total_actions': int(r.get('total_actions') or 0),
+                'unique_users': int(r.get('unique_users') or 0),
+                'last_seen': last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
+            })
+
+        cursor.execute(f"""
+            SELECT
+                COALESCE(NULLIF(ud.target_name, ''), 'UNKNOWN') AS target_name,
+                COALESCE(ds.bu, 'UNKNOWN') AS bu,
+                COUNT(*) AS total_actions,
+                COUNT(DISTINCT ud.user_id) AS unique_users,
+                MAX(ud.created_at) AS last_seen
+            FROM pdt_stats_dashboard.user_data ud
+            LEFT JOIN pdt_stats_dashboard.dashboard_status ds
+              ON UPPER(ds.target_name) = UPPER(ud.target_name)
+            WHERE {where_clause}
+              AND ud.user_id NOT IN {EXCLUDE_USERS}
+              {user_filter_sql}
+              {external_filter_sql}
+              AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
+            GROUP BY COALESCE(NULLIF(ud.target_name, ''), 'UNKNOWN'), COALESCE(ds.bu, 'UNKNOWN')
+            ORDER BY total_actions DESC
+            LIMIT 50
+        """, external_params)
+        external_by_target = []
+        for r in (cursor.fetchall() or []):
+            last = r.get('last_seen')
+            external_by_target.append({
+                'target_name': str(r.get('target_name') or 'UNKNOWN'),
+                'bu': str(r.get('bu') or 'UNKNOWN'),
+                'total_actions': int(r.get('total_actions') or 0),
+                'unique_users': int(r.get('unique_users') or 0),
+                'last_seen': last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
+            })
+
         # - All users list for dropdown (no period/user filter) -
         cursor.execute(f"""
             SELECT DISTINCT user_id
@@ -4303,6 +4389,8 @@ def admin_usage_data():
             "recent_users":     recent_users,
             "failure_reasons":  failure_reasons,
             "login_users":      login_users,
+            "external_by_bu":   external_by_bu,
+            "external_by_target": external_by_target,
             "all_users_list":   all_users_list,
             "filter_user":      filter_user,
             "user_type":        user_type,
@@ -9083,7 +9171,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

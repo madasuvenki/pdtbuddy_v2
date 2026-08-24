@@ -3,103 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDT Buddy Architecture — Outputs</title>
+  <title>PDT Buddy Architecture — Premium Overview</title>
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <style>
-    :root{--ink:#0f172a;--line:#334155;--blue:#2563eb;--green:#16a34a;--orange:#f97316;--purple:#7c3aed;--cyan:#0891b2;--rose:#e11d48;--amber:#b45309}
-    *{box-sizing:border-box}body{margin:0;background:#fff;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
-    .page{min-height:100vh;padding:18px;background:radial-gradient(circle at 50% 0,#eef6ff,#fff 58%);display:flex;justify-content:center}
-    .board{width:min(1580px,100%);background:#fff;border:1px solid #e2e8f0;box-shadow:0 24px 70px rgba(15,23,42,.12);padding:18px;overflow:auto;position:relative}
-    .canvas{position:relative;width:1520px;height:980px;border:1px solid #edf2f7;background:linear-gradient(rgba(148,163,184,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.10) 1px,transparent 1px),#fff;background-size:22px 22px;overflow:hidden}
-    .actions{position:absolute;right:26px;top:20px;z-index:30}.btn{border:1px solid #dbeafe;background:#fff;color:#1e3a8a;border-radius:999px;padding:8px 12px;font-weight:900;font-size:12px;text-decoration:none;box-shadow:0 8px 18px rgba(15,23,42,.08);cursor:pointer}
-    .heading{position:absolute;left:26px;top:14px;right:26px;text-align:center;z-index:20}.heading h1{margin:0;font-size:28px;letter-spacing:-.03em}.heading p{margin:5px 0 0;font-size:12px;color:#64748b;font-weight:750}
-
-    .circle{position:absolute;width:96px;height:96px;border-radius:50%;border:2.5px solid #111827;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:8;background:#fff;box-shadow:0 8px 16px rgba(15,23,42,.10)}
-    .circle i{font-size:22px;margin-bottom:3px}.circle b{font-size:12.5px;font-weight:900}.circle span{font-size:9px;color:#64748b;font-weight:800}
-    .circle.jira i{color:#2563eb}.circle.orbit i{color:#e11d48}.circle.axiom i{color:#0891b2}
-
-    .stats-title{position:absolute;left:185px;top:66px;width:270px;text-align:center;font-weight:950;font-size:15px;color:#9a3412;z-index:9}
-    .stats-box{position:absolute;left:185px;top:96px;width:270px;height:610px;border:2px solid #f97316;border-radius:16px;background:#fff7ed;z-index:4}
-    .csv-pill{position:absolute;left:210px;top:126px;width:220px;height:52px;border:2px solid #9a3412;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#9a3412;z-index:9}
-    .map-box{position:absolute;left:205px;top:208px;width:230px;height:210px;border:1.5px dashed #c2410c;border-radius:10px;z-index:7;padding:10px;background:#fffaf3}
-    .map-box h4{margin:0 0 6px;font-size:11px;color:#9a3412;text-transform:uppercase;letter-spacing:.04em}.map-box p{margin:3px 0;font-size:10.6px;color:#7c2d12;line-height:1.28}
-    .db-pill{position:absolute;left:210px;top:462px;width:220px;height:72px;border:2px solid #166534;border-radius:12px;background:#ecfdf5;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9;text-align:center}.db-pill b{font-size:13px;color:#166534}.db-pill span{font-size:10px;color:#166534;font-weight:700;line-height:1.25}
-    .ingest-note{position:absolute;left:205px;top:555px;width:230px;border:1px solid #fed7aa;background:#fff;border-radius:10px;padding:9px;z-index:8;font-size:10px;color:#7c2d12;line-height:1.3;font-weight:700}
-
-    .pdtbuddy-title{position:absolute;left:500px;top:66px;width:980px;text-align:center;font-weight:950;font-size:16px;color:#1e3a8a;z-index:9}
-    .pdtbuddy-box{position:absolute;left:500px;top:96px;width:980px;height:830px;border:2.5px solid #1e3a8a;border-radius:18px;background:#eff6ff;z-index:3}
-    .section-title{position:absolute;z-index:9;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.05em;color:#1e3a8a;background:#dbeafe;border:1px solid #bfdbfe;border-radius:999px;padding:5px 10px}
-
-    .quad{position:absolute;z-index:7;border-radius:12px;padding:10px;background:#fff;border:1.5px solid #c7d2fe;box-shadow:0 8px 18px rgba(15,23,42,.06)}
-    .quad h4{margin:0 0 6px;font-size:11.8px;color:#1e3a8a;text-transform:uppercase;letter-spacing:.035em}.quad p{margin:2px 0;font-size:10.2px;color:#475569;line-height:1.28}.quad ul{margin:4px 0 0 14px;padding:0}.quad li{font-size:9.8px;line-height:1.25;color:#475569;margin:1px 0}
-    .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}.chip{border-radius:999px;padding:3px 7px;font-size:9px;font-weight:850;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af}.chip.g{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.chip.o{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.chip.p{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.chip.c{background:#ecfeff;border-color:#a5f3fc;color:#155e75}.chip.r{background:#fff1f2;border-color:#fecdd3;color:#be123c}
-
-    .q-build{left:535px;top:132px;width:205px;height:128px}.q-daily{left:760px;top:132px;width:220px;height:128px}.q-live{left:1000px;top:132px;width:250px;height:128px}
-    .q-weekly{left:535px;top:305px;width:285px;height:160px}.q-monthly{left:840px;top:305px;width:285px;height:160px}.q-public{left:1145px;top:305px;width:285px;height:160px}
-    .q-target{left:535px;top:515px;width:285px;height:150px}.q-crov{left:840px;top:515px;width:285px;height:150px}.q-apis{left:1145px;top:515px;width:285px;height:150px}
-    .q-ui{left:535px;top:720px;width:895px;height:150px}.cr-nested{position:absolute;left:560px;top:778px;width:280px;height:78px;border:1.5px dashed #7c3aed;border-radius:10px;background:#f5f3ff;padding:7px 9px;z-index:9}.cr-nested h5{margin:0 0 3px;font-size:10px;color:#6d28d9;text-transform:uppercase}.cr-nested p{margin:1px 0;font-size:9.6px;color:#5b21b6;line-height:1.25}
-    .ui-list{position:absolute;left:865px;top:778px;width:530px;z-index:9;display:flex;gap:7px;flex-wrap:wrap}.ui-item{font-size:9.6px;font-weight:850;color:#1e3a8a;background:#fff;border:1px solid #bfdbfe;border-radius:999px;padding:5px 8px}
-
-    .external-box{position:absolute;left:1282px;top:126px;width:165px;height:135px;border:2px solid #0891b2;border-radius:14px;background:#ecfeff;z-index:8;padding:10px;text-align:center}.external-box h4{margin:0 0 5px;font-size:11px;color:#155e75;text-transform:uppercase}.external-box p{font-size:9.5px;line-height:1.25;color:#155e75;margin:2px 0;font-weight:750}
-    .feedback-circle{position:absolute;left:1365px;top:760px;width:70px;height:70px;border-radius:50%;border:2.5px solid #e11d48;display:flex;align-items:center;justify-content:center;font-weight:950;color:#e11d48;font-size:13px;background:#fff1f2;z-index:10}.fb-label{position:absolute;left:1360px;top:835px;width:100px;font-size:10.5px;font-weight:900;color:#be123c;text-align:center;z-index:9}
-
-    svg{position:absolute;inset:0;pointer-events:none;z-index:5}.arrow{stroke:var(--line);stroke-width:2.4;fill:none;marker-end:url(#arrow)}.arrow.orange{stroke:#f97316}.arrow.blue{stroke:#2563eb}.arrow.rose{stroke:#e11d48}.arrow.cyan{stroke:#0891b2}.arrow.green{stroke:#16a34a}.arrow.purple{stroke:#7c3aed}.arrow.dash{stroke-dasharray:6 6}.label{position:absolute;z-index:6;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 9px;font-size:9.6px;font-weight:900;color:#475569;box-shadow:0 5px 10px rgba(15,23,42,.06)}
-    .legend{width:1520px;margin-top:10px;border:1px solid #e2e8f0;background:#fff;border-radius:4px;padding:8px 12px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-size:10.3px;color:#475569;font-weight:800}.lg{display:inline-flex;align-items:center;gap:5px}.sw{width:18px;height:11px;border-radius:2px}
-    @media(max-width:900px){.page{justify-content:flex-start;padding:8px}.board{padding:8px}.actions{display:none}}
-    @media print{.page{padding:0;background:#fff}.board{box-shadow:none;border:0}.actions{display:none}.canvas,.legend{transform:scale(.58);transform-origin:top left}.board{height:620px;overflow:hidden}}
+    :root{
+      --ink:#102033;--muted:#64748b;--line:#dbe5f3;--brand:#2563eb;--violet:#7c3aed;--cyan:#06b6d4;--green:#16a34a;--orange:#f97316;--rose:#e11d48;--card:#ffffff;
+      --shadow:0 26px 80px rgba(15,23,42,.16);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--ink);min-height:100vh;
+      background:
+        radial-gradient(circle at 8% -8%,rgba(37,99,235,.26),transparent 32%),
+        radial-gradient(circle at 94% 0%,rgba(124,58,237,.22),transparent 34%),
+        radial-gradient(circle at 55% 108%,rgba(6,182,212,.14),transparent 30%),
+        linear-gradient(135deg,#f8fbff,#eef4ff 52%,#f8f7ff);
+    }
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.052) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 84%)}
+    .page{position:relative;max-width:1480px;margin:0 auto;padding:24px 18px 60px}
+    .topbar{position:sticky;top:14px;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:15px 18px;margin-bottom:18px;border-radius:22px;background:rgba(255,255,255,.82);backdrop-filter:blur(18px);border:1px solid rgba(203,213,225,.72);box-shadow:0 18px 50px rgba(15,23,42,.10)}
+    .brand{display:flex;align-items:center;gap:12px}.brandIcon{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--brand),var(--violet),var(--cyan));box-shadow:0 14px 30px rgba(37,99,235,.28)}.brandTitle{font-size:18px;font-weight:1000;color:#1e3a8a;letter-spacing:-.02em}.brandSub{font-size:11px;color:var(--muted);font-weight:800;margin-top:2px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:999px;padding:9px 13px;font-weight:950;font-size:12px;text-decoration:none;cursor:pointer;background:#fff;color:#1e3a8a;border:1px solid #c7d2fe;box-shadow:0 10px 22px rgba(15,23,42,.08)}.btn.primary{background:linear-gradient(135deg,#3b82f6,#7c3aed 62%,#06b6d4);color:#fff;border:0}
+    .hero{position:relative;overflow:hidden;border-radius:32px;padding:34px 36px;background:linear-gradient(135deg,#fff 0%,#eff6ff 42%,#f5f3ff 76%,#ecfeff 100%);border:1px solid rgba(191,219,254,.95);box-shadow:var(--shadow)}
+    .hero:after{content:"";position:absolute;right:-80px;top:-90px;width:310px;height:310px;border-radius:999px;background:radial-gradient(circle,rgba(37,99,235,.18),rgba(124,58,237,.08) 55%,transparent 72%)}
+    .eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:11px;font-weight:1000;letter-spacing:.09em;text-transform:uppercase}
+    h1{margin:12px 0 8px;font-size:38px;line-height:1.05;letter-spacing:-.055em;color:#1e3a8a}.hero p{max-width:980px;color:#475569;font-size:14px;line-height:1.65;margin:0}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:22px}.stat{padding:15px;border-radius:18px;background:rgba(255,255,255,.74);border:1px solid rgba(203,213,225,.82);box-shadow:0 12px 26px rgba(15,23,42,.06)}.stat b{display:block;font-size:21px;color:#1e3a8a}.stat span{font-size:12px;color:var(--muted);font-weight:850}
+    .diagram{margin-top:20px;border:1px solid rgba(203,213,225,.86);border-radius:30px;background:rgba(255,255,255,.86);box-shadow:0 22px 60px rgba(15,23,42,.12);overflow:hidden}
+    .diagramHead{padding:17px 20px;background:linear-gradient(90deg,#eef2ff,#eff6ff,#ecfeff);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .diagramTitle{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:1000;color:#1e3a8a}.diagramTitle i{width:36px;height:36px;border-radius:13px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--brand),var(--violet),var(--cyan))}
+    .diagramSub{font-size:12px;color:#64748b;font-weight:850}
+    .diagramCanvas{position:relative;padding:24px;background:linear-gradient(rgba(148,163,184,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.10) 1px,transparent 1px),linear-gradient(135deg,#ffffff,#f8fbff);background-size:26px 26px;overflow:hidden}
+    .blueprint{position:relative;height:860px;min-width:1280px}
+    .bp-title{position:absolute;top:0;left:0;right:0;text-align:center;font-weight:1000;color:#0f172a;font-size:22px;letter-spacing:-.03em}
+    .bp-sub{position:absolute;top:32px;left:0;right:0;text-align:center;color:#64748b;font-size:11px;font-weight:850}
+    .bp-source-title{position:absolute;left:155px;top:56px;width:250px;text-align:center;color:#9a3412;font-size:14px;font-weight:1000}
+    .bp-output-title{position:absolute;left:470px;top:56px;width:760px;text-align:center;color:#1e3a8a;font-size:14px;font-weight:1000}
+    .bp-left-system{position:absolute;left:8px;width:90px;height:90px;border-radius:50%;background:#fff;border:3px solid #0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:#0f172a;box-shadow:0 12px 26px rgba(15,23,42,.10);z-index:3}
+    .bp-left-system i{font-size:22px;margin-bottom:5px}.bp-left-system b{font-size:12px;font-weight:1000}.bp-left-system span{font-size:9px;font-weight:850;color:#64748b}
+    .bp-jira{top:120px}.bp-orbit{top:315px}.bp-axiom{top:510px}
+    .bp-upstream{position:absolute;left:150px;top:78px;width:270px;height:615px;border:2px solid #fb923c;border-radius:18px;background:rgba(255,247,237,.78);box-shadow:0 14px 35px rgba(249,115,22,.09)}
+    .bp-chip,.bp-flow-label{position:absolute;border-radius:999px;padding:6px 12px;background:#fff;border:1px solid #dbeafe;color:#1e3a8a;font-size:10px;font-weight:1000;box-shadow:0 9px 18px rgba(15,23,42,.08);z-index:6}
+    .bp-flow-label{padding:5px 9px;font-size:9.5px;background:#ffffffcc;border-color:#cbd5e1;color:#334155}
+    .bp-csv{position:absolute;left:175px;top:110px;width:220px;height:58px;border:2px solid #9a3412;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;color:#9a3412;font-weight:1000}
+    .bp-map{position:absolute;left:170px;top:205px;width:230px;height:220px;border:1.5px dashed #f97316;border-radius:14px;background:#fffaf3;padding:12px;color:#7c2d12;font-size:11px;line-height:1.38}
+    .bp-map b{display:block;margin-bottom:8px;color:#9a3412;text-transform:uppercase}
+    .bp-db{position:absolute;left:174px;top:470px;width:222px;height:72px;border:2px solid #15803d;border-radius:13px;background:#ecfdf5;color:#166534;text-align:center;padding:12px;font-size:11px;font-weight:900;z-index:3}
+    .bp-note{position:absolute;left:170px;top:575px;width:230px;border:1px solid #fed7aa;background:#fff;border-radius:12px;padding:10px;color:#7c2d12;font-size:10.5px;font-weight:800;line-height:1.35}
+    .bp-pdt{position:absolute;left:465px;top:78px;width:775px;height:780px;border:3px solid #1e3a8a;border-radius:20px;background:linear-gradient(135deg,rgba(239,246,255,.88),rgba(245,243,255,.78));box-shadow:0 20px 60px rgba(30,58,138,.12)}
+    .bp-section{position:absolute;z-index:4;border-radius:999px;background:#dbeafe;border:1px solid #bfdbfe;color:#1e3a8a;font-size:12px;font-weight:1000;padding:7px 12px;text-transform:uppercase;letter-spacing:.04em}
+    .bp-card{position:absolute;z-index:4;border-radius:14px;background:#fff;border:1px solid #c7d2fe;box-shadow:0 14px 30px rgba(15,23,42,.08);padding:13px;text-decoration:none;color:#102033;transition:.18s transform,.18s box-shadow}
+    .bp-card:hover{transform:translateY(-3px);box-shadow:0 22px 44px rgba(37,99,235,.18)}
+    .bp-card:after{content:"↗";position:absolute;right:10px;top:8px;width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:#eef2ff;border:1px solid #c7d2fe;color:#4f46e5;font-size:10px;font-weight:1000}
+    .bp-card h4{margin:0 22px 7px 0;color:#1e3a8a;font-size:13px;text-transform:uppercase;letter-spacing:.04em}.bp-card ul{margin:0;padding-left:15px}.bp-card li{font-size:10.5px;color:#475569;line-height:1.35;margin:2px 0}
+    .bp-card .mini-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.bp-card .mini-chips span{font-size:9px;font-weight:900;border-radius:999px;padding:3px 7px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+    .bp-external{position:absolute;right:26px;top:108px;width:145px;height:120px;border:2px solid #0891b2;border-radius:14px;background:#ecfeff;text-align:center;padding:13px;color:#155e75;font-size:10px;font-weight:900;z-index:4}
+    .bp-feedback{position:absolute;right:22px;bottom:58px;width:78px;height:78px;border-radius:50%;border:3px solid #e11d48;background:#fff1f2;display:grid;place-items:center;color:#e11d48;font-weight:1000;z-index:5}
+    .bp-feedback-label{position:absolute;right:4px;bottom:22px;width:115px;text-align:center;color:#be123c;font-size:10px;font-weight:1000;z-index:5}
+    .bp-ui-box{position:absolute;left:500px;right:48px;bottom:60px;height:150px;border:1px solid #bfdbfe;border-radius:14px;background:#fff;z-index:4;padding:14px}
+    .bp-ui-box h4{margin:0 0 8px;color:#1e3a8a;font-size:13px;text-transform:uppercase}.bp-ui-box p{margin:0;color:#475569;font-size:11px}.bp-ui-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}.bp-ui-tags span{font-size:10px;font-weight:900;border:1px solid #bfdbfe;background:#fff;border-radius:999px;padding:6px 10px;color:#1e40af}
+    .bp-svg{position:absolute;inset:0;z-index:2;pointer-events:none}.bp-svg .line{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}.bp-svg .dash{stroke-dasharray:7 8}
+    .archGrid{display:grid;grid-template-columns:1fr 1.1fr 1.1fr 1.1fr;gap:18px;position:relative;z-index:2}
+    .archCol{display:flex;flex-direction:column;gap:14px}
+    .colTitle{text-align:center;font-size:12px;font-weight:1000;text-transform:uppercase;letter-spacing:.08em;color:#1e3a8a;padding:8px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe}
+    .archBox{position:relative;min-height:98px;padding:14px 14px 14px 16px;border-radius:18px;background:#fff;border:1px solid #dbe5f3;box-shadow:0 12px 28px rgba(15,23,42,.08);text-decoration:none;display:block;color:inherit;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,filter .18s ease}
+    a.archBox:hover{transform:translateY(-3px) scale(1.01);box-shadow:0 22px 46px rgba(37,99,235,.18);border-color:#93c5fd;filter:saturate(1.08)}
+    a.archBox:after{content:"↗";position:absolute;right:12px;top:10px;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(135deg,#eef2ff,#ecfeff);border:1px solid #c7d2fe;color:#4f46e5;font-size:11px;font-weight:1000}
+    .archBox h4{margin:0 0 6px;font-size:14px;color:#102033;display:flex;align-items:center;gap:8px;padding-right:24px}.archBox h4 i{color:#4f46e5}
+    .archBox p{margin:0;font-size:11.8px;color:#64748b;line-height:1.42;font-weight:750}
+    .archBox.source{border-left:6px solid #f97316}.archBox.db{border-left:6px solid #16a34a}.archBox.app{border-left:6px solid #2563eb}.archBox.ai{border-left:6px solid #7c3aed;background:linear-gradient(135deg,#faf5ff,#eff6ff)}.archBox.api{border-left:6px solid #06b6d4}
+    .hub{min-height:154px;background:linear-gradient(135deg,#eff6ff,#eef2ff,#ecfeff);border:2px solid #bfdbfe;display:flex;flex-direction:column;justify-content:center;text-align:center}
+    .hub h4{justify-content:center;font-size:17px;color:#1e3a8a}.hub p{font-size:12.4px}
+    .connectorSvg{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+    .connectorSvg .mainLine{fill:none;stroke:url(#flowGrad);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 4px rgba(37,99,235,.16));opacity:.62}
+    .connectorSvg .softLine{fill:none;stroke:#7c3aed;stroke-width:1.8;stroke-dasharray:8 9;stroke-linecap:round;opacity:.34}
+    .connectorSvg .aiLine{fill:none;stroke:url(#aiGrad);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;opacity:.58}
+    .agentFlow{margin-top:18px;padding:16px;border-radius:22px;border:1px solid #ddd6fe;background:linear-gradient(135deg,#faf5ff,#eff6ff,#ecfeff);display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .agentStep{background:#fff;border:1px solid #ddd6fe;border-radius:16px;padding:12px;box-shadow:0 8px 20px rgba(88,28,135,.07)}.agentStep b{display:block;color:#4c1d95;font-size:12.5px;margin-bottom:5px}.agentStep span{font-size:11.5px;color:#64748b;line-height:1.35;font-weight:750}
+    .diagramLegend{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.legendPill{padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #dbe5f3;font-size:11px;font-weight:900;color:#475569}
+    .lane{margin-top:20px;border:1px solid rgba(203,213,225,.86);border-radius:26px;background:rgba(255,255,255,.78);box-shadow:0 18px 50px rgba(15,23,42,.09);overflow:hidden}
+    .laneHead{padding:16px 18px;background:linear-gradient(90deg,#f8fafc,#eef2ff,#ecfeff);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .laneTitle{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:1000;color:#1e3a8a}.laneTitle i{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--brand),var(--violet))}
+    .laneSub{font-size:12px;color:#64748b;font-weight:800}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px;padding:18px}
+    .card{position:relative;padding:16px;border-radius:18px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 10px 26px rgba(15,23,42,.06);overflow:hidden}
+    .card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,var(--brand),var(--violet),var(--cyan))}
+    .card h3{margin:0 0 8px;font-size:14px;color:#102033;display:flex;align-items:center;gap:8px}.card h3 i{color:#4f46e5}
+    .card ul{margin:0;padding-left:18px}.card li{font-size:12.5px;color:#475569;line-height:1.45;margin:4px 0}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.chip{padding:4px 8px;border-radius:999px;font-size:10px;font-weight:950;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af}.chip.g{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.chip.o{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.chip.p{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.chip.c{background:#ecfeff;border-color:#a5f3fc;color:#155e75}.chip.r{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:18px;align-items:stretch}
+    .node{position:relative;min-height:132px;padding:15px;border-radius:20px;background:#fff;border:1px solid #dbeafe;box-shadow:0 12px 30px rgba(15,23,42,.07)}
+    .node:not(:last-child):after{content:"";position:absolute;right:-16px;top:50%;width:20px;height:3px;background:linear-gradient(90deg,var(--brand),var(--violet));border-radius:999px}
+    .node b{display:flex;align-items:center;gap:8px;color:#1e3a8a;font-size:14px}.node i{color:#7c3aed}.node p{font-size:12px;color:#64748b;line-height:1.45;margin:8px 0 0;font-weight:700}
+    .agentic{background:linear-gradient(135deg,#faf5ff,#eff6ff,#ecfeff);border-color:#c4b5fd}
+    .agentic:before{background:linear-gradient(180deg,#7c3aed,#2563eb,#06b6d4)}
+    .costPattern{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px}
+    .step{padding:16px;border-radius:18px;background:#fff;border:1px solid #ddd6fe;box-shadow:0 10px 26px rgba(88,28,135,.07)}
+    .stepNo{display:inline-flex;width:28px;height:28px;border-radius:999px;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:1000;font-size:12px;margin-bottom:8px}.step b{display:block;font-size:13px;color:#4c1d95}.step span{display:block;font-size:12px;color:#5b6475;line-height:1.45;margin-top:5px}
+    code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:1px 5px;color:#334155}
+    .footer{text-align:center;margin-top:24px;color:#64748b;font-size:12px;font-weight:850}
+    @media(max-width:980px){.flow,.costPattern{grid-template-columns:1fr}.node:not(:last-child):after{display:none}h1{font-size:30px}.hero{padding:26px 22px}.page{padding:14px 10px 40px}.diagramCanvas{padding:14px;overflow:auto}.blueprint{transform:scale(.72);transform-origin:top left;margin-bottom:-240px}}
+    @media print{body{background:#fff}.topbar,.actions{display:none}.page{max-width:none;padding:0}.lane,.hero{box-shadow:none;break-inside:avoid}}
   </style>
 </head>
 <body>
-<div class="page"><div class="board">
-  <div class="actions"><button class="btn" onclick="window.print()"><i class="fas fa-file-pdf"></i> Save PDF</button></div>
-  <div class="canvas">
-    <div class="heading"><h1>PDT Buddy Architecture</h1><p>Sources → PDT Stats mapping → PDT Buddy DB → Daily / Weekly / Monthly / Live View / Public MTBF APIs → UI Features + feedback</p></div>
+  <main class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brandIcon"><i class="fas fa-project-diagram"></i></div>
+        <div>
+          <div class="brandTitle">PDT Buddy Architecture</div>
+          <div class="brandSub">Data sources → PDT Buddy platform → reports, APIs, Live Status, and Agentic AI</div>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/dashboard/docs"><i class="fas fa-book"></i> Docs</a>
+        <button class="btn primary" onclick="window.print()"><i class="fas fa-file-pdf"></i> Save PDF</button>
+      </div>
+    </div>
 
-    <div class="circle jira" style="left:32px;top:132px"><i class="fab fa-jira"></i><b>JIRA</b><span>filter/JQL</span></div>
-    <div class="circle orbit" style="left:32px;top:340px"><i class="fas fa-sitemap"></i><b>Orbit</b><span>CR details</span></div>
-    <div class="circle axiom" style="left:32px;top:548px"><i class="fas fa-server"></i><b>Axiom</b><span>jobs/hours</span></div>
+    <section class="hero">
+      <div class="eyebrow"><i class="fas fa-sparkles"></i> Premium Architecture Overview</div>
+      <h1>PDT Buddy System Architecture</h1>
+      <p>PDT Buddy centralizes Jira/JQL, Orbit CRs, Axiom/QDT job-device data, MySQL target schemas, managed Excel/JSON stores, weekly/monthly reporting, Live Status publishing, public MTBF APIs, and QGenie/Agentic AI flows into a single role-aware PDT quality platform.</p>
+      <div class="stats">
+        <div class="stat"><b>Multi-BU</b><span>AUTO, WBC, HWPDT, SWPDT and configured BUs</span></div>
+        <div class="stat"><b>Multi-Region</b><span>QIPL / SD / CH Orbit endpoint handling</span></div>
+        <div class="stat"><b>Agentic AI</b><span>Python tools first, one optional LLM call</span></div>
+        <div class="stat"><b>Public APIs</b><span>Auto Gen5, Gen4.5, Orbit MTBF endpoints</span></div>
+      </div>
+    </section>
 
-    <div class="stats-title">PDT Stats (upstream tool)</div><div class="stats-box"></div><div class="csv-pill">CSV / Excel</div>
-    <div class="map-box"><h4>Workbook / upstream mapping</h4><p>• JIRAs, openJiras, Closed_JIRAs</p><p>• CRs / Unique CRs / OverallCrs</p><p>• JIRA hopping / CR mapping already resolved</p><p>• CrInfo merge + reported-team classification</p><p>• Target/site fields already available in imported data</p></div>
-    <div class="db-pill"><b>PDT Buddy DB</b><span>MySQL per-target tables<br>+ Axiom cache + weekly data</span></div>
-    <div class="ingest-note">Ingest updates target tables and keeps history/audit logs. DB is the common source for dashboard, CR overview, weekly cards, and live view enrichment.</div>
+    <section class="diagram">
+      <div class="diagramHead">
+        <div>
+          <div class="diagramTitle"><i class="fas fa-sitemap"></i> Architecture Diagram</div>
+          <div class="diagramSub">High-level visual flow from source systems into PDT Buddy core, feature modules, APIs, and Agentic AI.</div>
+        </div>
+      </div>
+      <div class="diagramCanvas">
+        <div class="blueprint">
+          <div class="bp-title">PDT Buddy Architecture</div>
+          <div class="bp-sub">LDAP/session → Jira + Orbit + Axiom + CSV/Excel → ingest/sync/cache → MySQL + JSON/Excel stores → Flask blueprints → UI, Live Status, reports, public APIs, QGenie/MCP</div>
 
-    <div class="pdtbuddy-title">PDT Buddy — outputs we provide</div><div class="pdtbuddy-box"></div>
-    <div class="section-title" style="left:525px;top:104px">Current / Daily</div><div class="section-title" style="left:525px;top:277px">Periodic reports</div><div class="section-title" style="left:525px;top:487px">Analytics + APIs</div><div class="section-title" style="left:525px;top:692px">UI Features</div>
+          <a class="bp-left-system bp-jira" href="/build_report"><i class="fab fa-jira" style="color:#2563eb"></i><b>JIRA</b><span>filter/JQL</span></a>
+          <a class="bp-left-system bp-orbit" href="/api/public/orbit/docs"><i class="fas fa-sitemap" style="color:#e11d48"></i><b>Orbit</b><span>CR details</span></a>
+          <a class="bp-left-system bp-axiom" href="/build_report"><i class="fas fa-server" style="color:#0891b2"></i><b>Axiom</b><span>jobs/hours</span></a>
 
-    <div class="quad q-build"><h4><i class="fas fa-bolt"></i> Build Report</h4><ul><li>Live JQL by build ID / saved filter</li><li>JIRA → CR traversal</li><li>Mapped CR + open JIRA tables</li><li>Serial / MCN / build columns</li></ul><div class="chips"><span class="chip p">live JQL</span><span class="chip">instant report</span></div></div>
-    <div class="quad q-daily"><h4><i class="fas fa-calendar-day"></i> Daily / Target-site Data</h4><ul><li>Target-wise data already present</li><li>QIPL / SD / CH site buckets</li><li>Daily CR age/status/open/mapped views</li><li>Latest target health from DB</li></ul><div class="chips"><span class="chip g">target-wise</span><span class="chip o">site-wise</span></div></div>
-    <div class="quad q-live"><h4><i class="fas fa-satellite-dish"></i> Live View points</h4><ul><li>Running builds per BU/target/domain</li><li>Device count from chip_ids</li><li>Axiom hours / job count</li><li>Published public-token live status</li></ul><div class="chips"><span class="chip c">external users</span><span class="chip">Axiom cache</span></div></div>
+          <div class="bp-source-title">PDT Stats / Upstream Tool</div>
+          <div class="bp-upstream"></div>
+          <div class="bp-csv">CSV / Excel</div>
+          <div class="bp-map"><b>Code-backed mapping</b>• <code>run_ingest.py</code> → <code>src/ingest.py</code> → <code>src/ingest_logic.py</code><br>• <code>dashboard_common.py</code> maps BU/target/schema/table<br>• JIRAs / openJiras / closed_jiras<br>• CRs / unique_crs / overall_crs<br>• Axiom pollers update <code>axiom_job_summary</code><br>• Live Status sidecars save JQL/cache/exclusions</div>
+          <a class="bp-db" href="/dashboard/docs"><b>PDT Buddy DB + Stores</b><br>MySQL BU schemas + pdt_stats_dashboard<br>managed Excel / JSON / workspace caches</a>
+          <div class="bp-note">Single normalized core: target metadata, Jira/CR tables, Orbit enrichment, Axiom job summaries, managed workbooks, MTBF JSON, Live Status job JSON, sidecars, saved-JQL cache and user/workspace state.</div>
 
-    <div class="external-box"><h4>External consumers</h4><p>Automation</p><p>Dashboards</p><p>Management status</p><p>Other tools</p></div>
+          <div class="bp-output-title">PDT Buddy — outputs we provide</div>
+          <div class="bp-pdt"></div>
+          <div class="bp-section" style="left:490px;top:96px">Current / Daily</div>
+          <div class="bp-section" style="left:490px;top:270px">Periodic Reports</div>
+          <div class="bp-section" style="left:490px;top:478px">Analytics + APIs</div>
+          <div class="bp-section" style="left:490px;top:680px">UI + Agentic AI</div>
 
-    <div class="quad q-weekly"><h4><i class="fas fa-calendar-week"></i> Weekly-wise details</h4><ul><li>Weekly CR Age / CR TAT import</li><li>Weekly CR Pie / status distribution</li><li>Smart Build report using Axiom jobs</li><li>Weekly Unique CR report</li><li>Weekly Farm Testing report</li><li>Scheduler: Monday run + QIPL CSV import</li></ul><div class="chips"><span class="chip o">Mon–Sun</span><span class="chip g">QIPL cards</span><span class="chip p">CSV audit</span></div></div>
-    <div class="quad q-monthly"><h4><i class="fas fa-calendar-alt"></i> Monthly-wise data</h4><ul><li>Monthly trend / roll-up from daily + weekly data</li><li>CR aging trend and status movement</li><li>MTBF trend over month</li><li>Target/site health summary</li><li>Usage analytics supports daily / weekly / monthly periods</li></ul><div class="chips"><span class="chip p">monthly trend</span><span class="chip">roll-up</span></div></div>
-    <div class="quad q-public"><h4><i class="fas fa-plug"></i> Public MTBF APIs</h4><ul><li>/public/auto-gen5/api/sps?target=nord_hgy</li><li>/public/auto-gen5/api/sp/&lt;cpl&gt;?target=nord_hqx</li><li>/public/auto-gen5/api/sp/&lt;cpl&gt;/domain/&lt;domain&gt;</li><li>/public/auto-gen5/api/domains</li><li>/public/auto-gen5/api/domain/&lt;domain&gt;</li><li>/public/auto-gen5/api/search?q=&lt;query&gt;</li><li>/public/auto-gen5/api/all?last_n=5</li><li>MCP: get_mtbf_trend / chart / summary / all_views</li></ul><div class="chips"><span class="chip c">CORS</span><span class="chip r">no login for GET</span><span class="chip g">HQX 5770 &bull; HGY 5170/5190</span></div></div>
+          <a class="bp-card" href="/build_report" style="left:500px;top:128px;width:200px;height:125px"><h4><i class="fas fa-bolt"></i> Build Report</h4><ul><li><code>live_status_publish_routes.py</code></li><li>Jira saved filter / custom JQL</li><li>Build → JIRA → CR traversal</li><li>Axiom running-build enrichment</li></ul><div class="mini-chips"><span>/build_report</span><span>/api/build_report/running_builds</span></div></a>
+          <a class="bp-card" href="/dashboard/docs" style="left:720px;top:128px;width:220px;height:125px"><h4><i class="fas fa-calendar-day"></i> Dashboard / Daily</h4><ul><li><code>dashboard_routes.py</code> + <code>dashboard_service.py</code></li><li>Target MTBF, CR age/status, milestones</li><li>QIPL / SD / CH site buckets</li><li>DB + JSON-backed target views</li></ul><div class="mini-chips"><span>/dashboard</span><span>/api/dashboard</span></div></a>
+          <a class="bp-card" href="/live_status_view" style="left:960px;top:128px;width:230px;height:125px"><h4><i class="fas fa-satellite-dish"></i> Live Status</h4><ul><li><code>live_status_publish_routes.py</code></li><li>Draft/save/publish/revoke job JSON</li><li>SP-aware MTBF/current/weekly/build-wise tabs</li><li>Viewer groups + public token views</li></ul><div class="mini-chips"><span>/live_status_view</span><span>/api/live_status/*</span></div></a>
 
-    <div class="quad q-target"><h4><i class="fas fa-chart-bar"></i> By-target Analytics</h4><ul><li>MTBF chart and table</li><li>CR Age / CR Status</li><li>Open vs mapped CR/JIRA drilldown</li><li>HW/SW PDT split where available</li></ul><div class="chips"><span class="chip g">dashboard</span><span class="chip o">drilldown</span></div></div>
-    <div class="quad q-crov"><h4><i class="fas fa-search"></i> CR Overview</h4><ul><li>Cross-BU / cross-target CR search</li><li>Age buckets and site buckets</li><li>Area / subsystem / functionality filters</li><li>Pivot-style summary + detail rows</li></ul><div class="chips"><span class="chip p">cross-BU</span><span class="chip g">QIPL/SD/CH</span></div></div>
-    <div class="quad q-apis"><h4><i class="fas fa-code"></i> Internal API points</h4><ul><li>/api/cr_overview &amp; /cr_rows (login required)</li><li>/api/live_status_view/&lt;target&gt;/running_builds_db</li><li>/api/live_status_view/&lt;target&gt;/adas_mtbf</li><li>/api/build_report/running_builds</li><li>/api/consolidated_report</li><li style="color:#059669;font-weight:700">&#9654; Public: /public/auto-gen5/api/* (no login)</li></ul><div class="chips"><span class="chip">JSON</span><span class="chip c">charts</span><span class="chip g">public CORS</span></div></div>
+          <a class="bp-card" href="/weekly-report" style="left:500px;top:300px;width:285px;height:155px"><h4><i class="fas fa-calendar-week"></i> Weekly-wise Details</h4><ul><li><code>weekly_summary_routes.py</code> + service</li><li>CR Age / CR TAT / Unique CR imports</li><li>Smart Build Report from Axiom summaries</li><li>SharePoint-style cards + QIPL CSV audit</li><li>Mon–Sun normalize/cache/export flow</li></ul><div class="mini-chips"><span>/weekly-report</span><span>/api/sp2/*</span><span>/api/ucr/*</span></div></a>
+          <a class="bp-card" href="/monthly-report" style="left:805px;top:300px;width:260px;height:155px"><h4><i class="fas fa-calendar-alt"></i> Monthly-wise Data</h4><ul><li><code>weekly_summary_routes.py</code> monthly APIs</li><li>Roll-up from daily + weekly records</li><li>CR aging, status movement, MTBF trend</li><li>BU/target/site health summary</li><li>NoSIR and PDT Unique toggles</li></ul><div class="mini-chips"><span>/monthly-report</span><span>/api/monthly-report/*</span></div></a>
+          <a class="bp-card" href="/public/apis" style="left:1085px;top:300px;width:235px;height:155px"><h4><i class="fas fa-plug"></i> Public APIs</h4><ul><li><code>auto_gen5_public_routes.py</code></li><li><code>auto_gen45_public_routes.py</code></li><li><code>orbit_public_*_routes.py</code></li><li>MTBF/domain/SP/search/all + CORS</li></ul><div class="mini-chips"><span>/public/auto-gen5/*</span><span>no-login GET</span></div></a>
 
-    <div class="quad q-ui"><h4><i class="fas fa-desktop"></i> UI Features</h4><p>Everything PDTBuddy renders to users: target dashboard, CR analytics, live status, build report, weekly/monthly reports, and external/public views.</p></div>
-    <div class="cr-nested"><h5>CR Overview in UI</h5><p>Current CR Overview page lives under UI Features and uses the same CR overview API/service.</p></div>
-    <div class="ui-list"><span class="ui-item">Dashboard</span><span class="ui-item">CR Overview</span><span class="ui-item">Build Report</span><span class="ui-item">Live Status</span><span class="ui-item">Live View Stats</span><span class="ui-item">Weekly QIPL</span><span class="ui-item">Monthly roll-up</span><span class="ui-item">Public MTBF docs/API pages</span></div>
+          <a class="bp-card" href="/dashboard/docs" style="left:500px;top:508px;width:270px;height:145px"><h4><i class="fas fa-chart-bar"></i> By-target Analytics</h4><ul><li><code>dashboard_routes.py</code>, <code>dashboard_service.py</code></li><li>MTBF chart/table and CR drilldowns</li><li>Overall CRs, open JIRAs, HWPDT pages</li><li>Target metadata from dashboard_status</li></ul><div class="mini-chips"><span>dashboard</span><span>target tables</span></div></a>
+          <a class="bp-card" href="/target_compare_studio" style="left:790px;top:508px;width:270px;height:145px"><h4><i class="fas fa-search"></i> CR Overview + Delta</h4><ul><li><code>src/cr_overview_service.py</code></li><li><code>src/cr_compare_service.py</code></li><li>Cross-BU/target CR search + filters</li><li>Weekwise Jira/unique-CR target delta</li></ul><div class="mini-chips"><span>/api/cr_overview</span><span>/target_compare_studio</span></div></a>
+          <a class="bp-card" href="/public/apis" style="left:1080px;top:508px;width:250px;height:145px"><h4><i class="fas fa-code"></i> Internal API Points</h4><ul><li>Dashboard, Live Status, Device Summary APIs</li><li>Core Deck and workspace JSON state</li><li>CR Insight / QGenie / CR agent APIs</li><li>Admin sync, path, target, privilege APIs</li></ul><div class="mini-chips"><span>JSON</span><span>Flask blueprints</span><span>RBAC</span></div></a>
 
-    <div class="feedback-circle">★</div><div class="fb-label">User feedback<br>star rating</div>
+          <div class="bp-ui-box"><h4><i class="fas fa-desktop"></i> UI Features + Agentic AI</h4><p>Rendered by Flask/Jinja templates and backed by blueprints: dashboard, CR analytics, target compare, Live Status, build report, weekly/monthly reports, Excel sync, Core Deck, Device Summary, workspace, admin screens and QGenie/MCP-assisted analysis.</p><div class="bp-ui-tags"><span>Dashboard</span><span>CR Overview</span><span>Target Delta</span><span>Build Report</span><span>Live Status</span><span>Device Summary</span><span>Core Deck</span><span>Excel Sync</span><span>Admin</span><span>QGenie</span><span>MCP</span></div></div>
 
-    <svg viewBox="0 0 1520 980" preserveAspectRatio="none">
-      <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#334155"/></marker></defs>
-      <path class="arrow orange" d="M128 168 C150 168 165 160 185 158"/><path class="arrow purple" d="M128 154 C350 58 780 62 620 132"/>
-      <path class="arrow rose" d="M128 376 C150 355 168 320 205 305"/><path class="arrow dash rose" d="M128 382 C440 470 780 420 872 515"/>
-      <path class="arrow cyan" d="M128 585 C165 555 185 520 210 500"/><path class="arrow dash cyan" d="M128 598 C380 735 850 630 1080 210"/>
-      <path class="arrow orange" d="M320 178 V208"/><path class="arrow orange" d="M320 418 V462"/>
-      <path class="arrow green" d="M430 498 C480 400 500 220 535 190"/><path class="arrow green" d="M430 500 C500 500 520 560 535 590"/><path class="arrow green" d="M430 505 C500 620 520 750 535 790"/>
-      <path class="arrow blue" d="M1250 198 C1270 198 1275 198 1282 198"/><path class="arrow blue" d="M1288 370 C1260 340 1210 330 1180 305"/><path class="arrow blue" d="M1288 390 C1260 450 1220 500 1200 515"/>
-      <path class="arrow rose" d="M1430 795 C1455 795 1460 795 1365 795"/>
-    </svg>
-    <div class="label" style="left:145px;top:142px">Filter</div><div class="label" style="left:450px;top:88px">API live JQL</div><div class="label" style="left:136px;top:332px">API CR enrich</div><div class="label" style="left:136px;top:528px">Axiom jobs / chip fetch</div><div class="label" style="left:455px;top:468px">Ingest → DB</div><div class="label" style="left:1258px;top:276px">PDTBuddy outputs</div>
-  </div>
-  <div class="legend"><span class="lg"><span class="sw" style="background:#fff7ed"></span>PDT Stats upstream mapping</span><span class="lg"><span class="sw" style="background:#ecfdf5"></span>PDT Buddy DB</span><span class="lg"><span class="sw" style="background:#eff6ff"></span>PDT Buddy outputs</span><span class="lg"><span class="sw" style="background:#ecfeff"></span>external API consumers</span><span class="lg">solid = main data flow · dashed = fallback/cache/API reuse</span></div>
-</div></div>
+          <div class="bp-flow-label" style="left:92px;top:138px">JQL / filters</div>
+          <div class="bp-flow-label" style="left:98px;top:330px">CR enrich</div>
+          <div class="bp-flow-label" style="left:102px;top:527px">jobs / chips / hours</div>
+          <div class="bp-flow-label" style="left:410px;top:462px">ingest → DB</div>
+          <div class="bp-flow-label" style="left:410px;top:586px">analytics APIs</div>
+          <div class="bp-flow-label" style="left:1062px;top:255px">public/API output</div>
+          <div class="bp-external"><b>External Consumers</b><br><br>Automation<br>Dashboards<br>Management Status<br>Other Tools</div>
+          <div class="bp-feedback">★</div><div class="bp-feedback-label">User feedback<br>star rating</div>
+
+          <svg class="bp-svg" viewBox="0 0 1380 860" preserveAspectRatio="none">
+            <defs><marker id="bpArrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#334155"/></marker></defs>
+            <path class="line" stroke="#7c3aed" marker-end="url(#bpArrow)" d="M100 160 C190 110 360 70 590 98"/>
+            <path class="line" stroke="#f97316" marker-end="url(#bpArrow)" d="M100 162 C125 158 138 150 150 142"/>
+            <path class="line" stroke="#e11d48" marker-end="url(#bpArrow)" d="M100 360 C130 330 145 302 168 292"/>
+            <path class="line dash" stroke="#e11d48" marker-end="url(#bpArrow)" d="M100 365 C335 470 650 445 790 575"/>
+            <path class="line" stroke="#0891b2" marker-end="url(#bpArrow)" d="M100 556 C132 532 145 512 174 506"/>
+            <path class="line dash" stroke="#0891b2" marker-end="url(#bpArrow)" d="M100 565 C365 682 735 560 990 190"/>
+            <path class="line" stroke="#334155" marker-end="url(#bpArrow)" d="M285 168 L285 205"/>
+            <path class="line" stroke="#334155" marker-end="url(#bpArrow)" d="M285 425 L285 470"/>
+            <path class="line" stroke="#16a34a" marker-end="url(#bpArrow)" d="M396 505 C455 400 470 230 500 190"/>
+            <path class="line" stroke="#16a34a" marker-end="url(#bpArrow)" d="M396 506 C455 505 472 585 500 585"/>
+            <path class="line" stroke="#16a34a" marker-end="url(#bpArrow)" d="M396 510 C455 640 472 720 500 748"/>
+            <path class="line" stroke="#2563eb" marker-end="url(#bpArrow)" d="M1190 190 C1220 190 1235 178 1250 168"/>
+            <path class="line" stroke="#2563eb" marker-end="url(#bpArrow)" d="M1190 372 C1220 350 1235 330 1250 300"/>
+            <path class="line dash" stroke="#7c3aed" marker-end="url(#bpArrow)" d="M1040 575 C1030 750 1160 735 1242 715"/>
+          </svg>
+        </div>
+
+        <div class="diagramLegend">
+          <span class="legendPill">Orange = source systems</span>
+          <span class="legendPill">Green = core DB/cache/storage</span>
+          <span class="legendPill">Blue = PDT Buddy features</span>
+          <span class="legendPill">Purple = Agentic AI</span>
+          <span class="legendPill">Cyan = APIs/consumers</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-stream"></i> End-to-End Data Flow</div><div class="laneSub">Source systems feed PDT Buddy DB/cache, then dashboards, APIs, reports, and AI features consume normalized data.</div></div></div>
+      <div class="flow">
+        <div class="node"><b><i class="fas fa-user-lock"></i> LDAP + Session</b><p><code>app.py</code> login binds Qualcomm LDAP, sets QIPL/SD/CH Orbit endpoint, BU access, filesystem session and idle timeout.</p></div>
+        <div class="node"><b><i class="fab fa-jira"></i> Jira + Orbit</b><p>JQL filters, saved filters, build report traversal, open/closed JIRAs, mapped CRs, Orbit CR owner/status/context enrichment.</p></div>
+        <div class="node"><b><i class="fas fa-server"></i> Axiom / QDT</b><p>Job summary, hours, devices, chip IDs, playlists, resources, running builds and inventory enrichment.</p></div>
+        <div class="node"><b><i class="fas fa-database"></i> DB + Cache Stores</b><p>MySQL main schema + per-BU target schemas, <code>managed_excel</code>, <code>static/mtbf_json</code>, workspace JSON, saved-JQL cache.</p></div>
+        <div class="node"><b><i class="fas fa-desktop"></i> UI / APIs / AI</b><p>Flask blueprints render dashboards and expose JSON/public APIs; QGenie/ChatWise run only after deterministic data collection.</p></div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-database"></i> Source, Ingest & Storage Layer</div><div class="laneSub">Deterministic data collection and caching form the trusted base for dashboards and AI.</div></div></div>
+      <div class="cards">
+        <div class="card"><h3><i class="fab fa-jira"></i> Jira Tables</h3><ul><li><code>jiras</code>, <code>openjiras</code>, and <code>closed_jiras</code> feed target dashboards and weekwise trend.</li><li>Saved JQL reports support Live Status and build-specific analysis.</li><li>JIRA-to-CR traversal maps Jira tickets to CR numbers.</li></ul><div class="chips"><span class="chip">JQL</span><span class="chip p">mapped CR</span></div></div>
+        <div class="card"><h3><i class="fas fa-sitemap"></i> Orbit CR Data</h3><ul><li>Orbit provides authoritative CR context, status, ownership, category, title, and metadata.</li><li>Orbit cache avoids repeated API/MCP calls for repeated CR analysis.</li><li>CR Analysis Agent enriches CRs with Orbit + Jira + history context.</li></ul><div class="chips"><span class="chip r">CR details</span><span class="chip">cache</span></div></div>
+        <div class="card"><h3><i class="fas fa-server"></i> Axiom Jobs & Devices</h3><ul><li>Axiom feeds hours, job counts, builds, chip IDs, playlists, and resource/device inventory.</li><li>Device Summary uses Axiom and QDT-style data to show MCN, host, running-device and quarantine views.</li><li>Smart Build Report reduces manual SharePoint updates.</li></ul><div class="chips"><span class="chip c">jobs</span><span class="chip g">devices</span></div></div>
+        <div class="card"><h3><i class="fas fa-file-excel"></i> Managed Excel / JSON</h3><ul><li>Live Status, Device Summary, Core Deck and report pages persist editable data in managed workbook/JSON areas.</li><li>Network-share storage falls back to local app storage where needed.</li><li>Historical caches and audit logs support traceability.</li></ul><div class="chips"><span class="chip o">Excel</span><span class="chip">JSON</span></div></div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-window-restore"></i> Application Feature Layer</div><div class="laneSub">User-facing modules built over common target, BU, DB, cache and authentication helpers.</div></div></div>
+      <div class="cards">
+        <div class="card"><h3><i class="fas fa-chart-line"></i> Dashboard & MTBF</h3><ul><li>Target-wise dashboards show MTBF, CR/JIRA counts, milestones, open issues, and trend data.</li><li>Compute MTBF routing uses target-specific JSON folders for non-legacy targets.</li><li>MTBF APIs power internal and public views.</li></ul><div class="chips"><span class="chip g">MTBF</span><span class="chip">target</span></div></div>
+        <div class="card"><h3><i class="fas fa-search"></i> CR Overview</h3><ul><li>Cross-BU CR overview supports date filters, site filters, BU duplicate handling and PDT Unique CRs.</li><li>CR Age Report provides stacked age, new/open/analysis and closed CR views.</li><li>Detail rows and drilldowns reuse deterministic CR overview service logic.</li></ul><div class="chips"><span class="chip p">CR age</span><span class="chip g">PDT Unique</span></div></div>
+        <div class="card"><h3><i class="fas fa-code-compare"></i> Target Delta Studio</h3><ul><li>Compares targets/delta sets for CR/JIRA stats and AU comparison scenarios.</li><li>Weekwise trend counts JIRAs from all available Jira tables and unique mapped CRs per week.</li><li>CS Week labels and copy-ready chart/table outputs help Outlook reporting.</li></ul><div class="chips"><span class="chip p">QIPLPDT-11029</span><span class="chip c">weekwise</span></div></div>
+        <div class="card"><h3><i class="fas fa-satellite-dish"></i> Live Status</h3><ul><li>Live Status supports editor and read-only viewer modes with target/BU scope control.</li><li>Published pages expose MTBF, weekly, current, build-wise and SP-aware views.</li><li>Saved JQL tabs and public tokens allow controlled status sharing.</li></ul><div class="chips"><span class="chip c">publish</span><span class="chip">viewer</span></div></div>
+        <div class="card"><h3><i class="fas fa-microchip"></i> Device Summary</h3><ul><li>Device Summary shows SW/HW PDT device data, inventory summaries, device pool edits and sync status.</li><li>SP mode enriches devices from Axiom job playlists and resources.</li><li>MCN-wise, host-wise, running-device and quarantine-inferred inventory are available.</li></ul><div class="chips"><span class="chip g">inventory</span><span class="chip c">Axiom</span></div></div>
+        <div class="card"><h3><i class="fas fa-calendar-week"></i> Weekly / Monthly Reports</h3><ul><li>Weekly reports include CR age, CR TAT, unique CRs, farm testing, SharePoint and Axiom job data.</li><li>Monthly reports provide BU/target rollups, site scoping, CR metrics and NoSIR toggle behavior.</li><li>Report data uses cached and normalized backend services.</li></ul><div class="chips"><span class="chip o">weekly</span><span class="chip p">monthly</span></div></div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-brain"></i> Agentic AI Architecture</div><div class="laneSub">PDT Buddy uses a cost-optimized agentic pattern: deterministic Python work first, one optional QGenie/LLM call only when synthesis is needed.</div></div></div>
+      <div class="costPattern">
+        <div class="step"><div class="stepNo">1</div><b>Collect with Python tools</b><span>Fetch DB rows, Orbit data, Jira history, Axiom metrics and cache records using deterministic code.</span></div>
+        <div class="step"><div class="stepNo">2</div><b>Normalize structured facts</b><span>Build compact JSON/table summaries with counts, trends, owners, deltas and evidence references.</span></div>
+        <div class="step"><div class="stepNo">3</div><b>One optional LLM call</b><span>QGenie/ChatWise is called only after user action and only for narrative synthesis or unresolved mapping.</span></div>
+        <div class="step"><div class="stepNo">4</div><b>Cache and reuse output</b><span>Analysis is cached by CR/target/date or input key so repeated reviews do not spend extra tokens.</span></div>
+      </div>
+      <div class="cards">
+        <div class="card agentic"><h3><i class="fas fa-magnifying-glass-chart"></i> CR Analysis Agent</h3><ul><li>Collects Orbit, Jira DB, historical trend and cross-BU lookup data before AI synthesis.</li><li>Provides one-click deep analysis from Open CR Analysis pages.</li><li>Shows structured data even when QGenie key is not configured.</li></ul><div class="chips"><span class="chip p">complete</span><span class="chip g">cached</span></div></div>
+        <div class="card agentic"><h3><i class="fas fa-flask"></i> WBC Open CR Details</h3><ul><li>Runs TEA API scenario analysis for open CRs.</li><li>Optionally runs QGenie analysis and saves results to JSON cache.</li><li>Separates PDT comments from auto-saved TEA/QGenie outputs.</li></ul><div class="chips"><span class="chip c">TEA</span><span class="chip p">QGenie</span></div></div>
+        <div class="card agentic"><h3><i class="fas fa-comments"></i> Chatbot / Text-to-SQL</h3><ul><li>Uses template and rule-based SQL first for numerically correct answers.</li><li>LLM fallback is optional and used only when deterministic parsing fails.</li><li>Supports internal search and QGenie-assisted responses.</li></ul><div class="chips"><span class="chip">SQL first</span><span class="chip o">fallback</span></div></div>
+        <div class="card agentic"><h3><i class="fas fa-diagram-project"></i> Agentic Roadmap</h3><ul><li>Chatbot SQL Agent for template-based ad-hoc analytics.</li><li>Core Deck LLM slide mapping only for unresolved slides.</li><li>Expanded MCP tools, Live Status Monitor Agent and Report Narrative Agent.</li></ul><div class="chips"><span class="chip p">roadmap</span><span class="chip c">MCP</span></div></div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-link"></i> Code Interlink Map</div><div class="laneSub">Direct mapping from source systems to implementation files, blueprints, routes and rendered pages.</div></div></div>
+      <div class="cards">
+        <div class="card"><h3><i class="fas fa-route"></i> Application Composition</h3><ul><li><code>app.py</code> owns app startup, LDAP/session lifecycle, legacy routes, architecture/docs pages.</li><li><code>src/application/blueprints.py</code> registers production blueprints in one place.</li><li>Feature modules attach routes without changing endpoint URLs.</li></ul><div class="chips"><span class="chip">app.py</span><span class="chip p">blueprints</span></div></div>
+        <div class="card"><h3><i class="fas fa-database"></i> DB Routing + Utilities</h3><ul><li><code>dashboard_common.py</code> maps BU/target to schema and fully-qualified target tables.</li><li><code>src/utils.py</code> wraps MySQL connections, safe fetch helpers and column sanitization.</li><li><code>config.py</code> carries DB, LDAP, Orbit, Jira, admin and BU mapping constants.</li></ul><div class="chips"><span class="chip g">MySQL</span><span class="chip">BU mapping</span></div></div>
+        <div class="card"><h3><i class="fas fa-download"></i> Ingest + Sync Paths</h3><ul><li><code>run_ingest.py</code> → <code>src/ingest.py</code> → <code>src/ingest_logic.py</code> writes CR/Jira rows.</li><li><code>scripts/update_axiom_job_summary.py</code> and <code>scripts/axiom_poller.py</code> populate Axiom job summaries.</li><li><code>src/sync_central.py</code> coordinates sync operations used by admin flows.</li></ul><div class="chips"><span class="chip o">ingest</span><span class="chip c">poller</span></div></div>
+        <div class="card"><h3><i class="fas fa-window-maximize"></i> Main UI Modules</h3><ul><li><code>dashboard_routes.py</code> renders target dashboard, MTBF, CR age, HWPDT and CR overview APIs.</li><li><code>live_status_publish_routes.py</code>, <code>live_status_view_api.py</code>, and live-view stats modules power publish/view flows.</li><li><code>device_summary_api.py</code>, <code>weekly_summary_routes.py</code>, <code>core_deck_routes.py</code>, <code>excel_sync_routes.py</code> serve specialized pages.</li></ul><div class="chips"><span class="chip">Jinja UI</span><span class="chip c">JSON APIs</span></div></div>
+        <div class="card"><h3><i class="fas fa-globe"></i> Public / External APIs</h3><ul><li><code>auto_gen5_public_routes.py</code> exposes <code>/public/auto-gen5/*</code> read APIs.</li><li><code>auto_gen45_public_routes.py</code> exposes Gen4.5 SP/HGY docs and API endpoints.</li><li><code>orbit_public_api_routes.py</code> and <code>orbit_public_mtbf_routes.py</code> expose token/public CR and MTBF surfaces.</li></ul><div class="chips"><span class="chip c">public</span><span class="chip g">CORS</span></div></div>
+        <div class="card agentic"><h3><i class="fas fa-brain"></i> AI / Agent Interlinks</h3><ul><li><code>src/cr_analysis_agent.py</code> collects Orbit/Jira/history before one QGenie synthesis call.</li><li><code>src/chatbot_engine.py</code> supports text-to-SQL chatbot behavior.</li><li><code>mcp_mtbf_server.py</code> optionally exposes MTBF tools over MCP when enabled.</li></ul><div class="chips"><span class="chip p">QGenie</span><span class="chip c">MCP</span></div></div>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="laneHead"><div><div class="laneTitle"><i class="fas fa-plug"></i> API, Access & Deployment Layer</div><div class="laneSub">Authentication, role scoping, public API access, modular blueprints and standalone executable packaging.</div></div></div>
+      <div class="cards">
+        <div class="card"><h3><i class="fas fa-shield-halved"></i> Authentication & Authorization</h3><ul><li>LDAP login validates Qualcomm users and supports QIPL/SD/CH behavior.</li><li>Admin users, bypass users, viewer override users and LDAP group scopes control access.</li><li>Public routes are explicitly exempt where external access is intended.</li></ul><div class="chips"><span class="chip r">LDAP</span><span class="chip">RBAC</span></div></div>
+        <div class="card"><h3><i class="fas fa-globe"></i> Public API Surface</h3><ul><li>Auto Gen5 public APIs expose domains, SPs, SP/domain data, search and all-data views.</li><li>Auto Gen4.5 APIs support SP/HGY SP create, edit, delete, save table and search flows.</li><li>Public Orbit MTBF APIs reuse Live Status MTBF backend loaders.</li></ul><div class="chips"><span class="chip c">CORS</span><span class="chip g">no-login GET</span></div></div>
+        <div class="card"><h3><i class="fas fa-puzzle-piece"></i> Modular Flask Blueprints</h3><ul><li>Application composition registry centralizes active production blueprint registration.</li><li>Feature modules include dashboards, live status, APIs, CR analysis, device summary and public routes.</li><li>Modularization continues to reduce legacy monolithic app.py responsibilities.</li></ul><div class="chips"><span class="chip p">blueprints</span><span class="chip">modular</span></div></div>
+        <div class="card"><h3><i class="fas fa-box"></i> Packaging & Runtime</h3><ul><li>Waitress WSGI supports production-style local hosting.</li><li>Filesystem sessions and signed result tokens support single-server deployment.</li><li>PyInstaller packaging enables standalone Windows executable distribution.</li></ul><div class="chips"><span class="chip o">Waitress</span><span class="chip g">EXE</span></div></div>
+      </div>
+    </section>
+
+    <div class="footer"><i class="fas fa-project-diagram"></i> PDT Buddy Architecture — code-read interlink map across sources, stores, Flask blueprints, UI pages, APIs, public consumers and Agentic AI</div>
+  </main>
 </body>
 </html>

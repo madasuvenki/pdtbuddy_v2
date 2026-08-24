@@ -155,12 +155,21 @@ def _get_running_builds(target_name: str, bu: str) -> Dict[str, Any]:
 def others_live_view_stats_page(target_name: str):
     """Render the Others BU live view stats page."""
     bu = (get_bu_for_target(target_name) or "").upper()
+    is_compute = bu == "COMPUTE"
+    try:
+        from dashboard_routes import _MTBF_JSON_VIEW_NAMES
+        mtbf_views = list(_MTBF_JSON_VIEW_NAMES) if is_compute else ["MTBF"]
+    except Exception:
+        mtbf_views = ["Glymur", "Mahua"] if is_compute else ["MTBF"]
     return render_template(
         "others_live_view_stats.html",
         target_name=target_name,
         target_display=get_display_name_for_target(target_name) or target_name,
         bu=bu,
         is_admin=_is_admin_user(),
+        is_compute_mtbf=is_compute,
+        mtbf_views=mtbf_views,
+        selected_mtbf_view=mtbf_views[0] if mtbf_views else "MTBF",
     )
 
 

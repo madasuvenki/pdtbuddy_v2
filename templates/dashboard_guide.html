@@ -7,9 +7,14 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <style>
-    :root{--ink:#0f172a;--muted:#64748b;--border:#e2e8f0;--page-bg:#f1f5f9;}
+    :root{--ink:#0f172a;--muted:#64748b;--border:#dbe5f3;--page-bg:#f0f4ff;}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:var(--page-bg);color:var(--ink);min-height:100vh;font-size:14px;}
+    body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:
+      radial-gradient(circle at 8% -8%,rgba(37,99,235,.26),transparent 32%),
+      radial-gradient(circle at 94% 0%,rgba(124,58,237,.22),transparent 34%),
+      radial-gradient(circle at 55% 108%,rgba(6,182,212,.14),transparent 30%),
+      linear-gradient(135deg,#f8fbff,#eef4ff 52%,#f8f7ff);color:var(--ink);min-height:100vh;font-size:14px;}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.052) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 84%);}
 
     /* Header */
     .hdr{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(15,23,42,.35);}
@@ -18,7 +23,7 @@
     .hdr__title{font-size:18px;font-weight:900;color:#f8fafc;}
     .hdr__sub{font-size:11px;color:#94a3b8;margin-top:2px;font-weight:500;}
     /* Search bar */
-    .search-bar{background:#fff;border-bottom:1px solid var(--border);padding:12px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:76px;z-index:99;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+    .search-bar{background:rgba(255,255,255,.82);backdrop-filter:blur(18px);border-bottom:1px solid rgba(203,213,225,.72);padding:12px 32px;display:flex;align-items:center;gap:12px;position:sticky;top:76px;z-index:99;box-shadow:0 12px 28px rgba(15,23,42,.08);}
     .search-wrap{position:relative;flex:1;max-width:480px;}
     .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;}
     .search-input{width:100%;border:1px solid #c7d2fe;border-radius:10px;padding:9px 14px 9px 36px;font-size:13px;font-weight:700;background:#f8faff;color:#1e293b;outline:none;transition:border-color .15s;}
@@ -33,11 +38,27 @@
     .sec-title{font-size:16px;font-weight:950;color:var(--ink);display:flex;align-items:center;gap:10px;}
     .sec-icon{width:34px;height:34px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:14px;}
 
+    /* Circle tab map */
+    .circle-tabs-wrap{background:rgba(255,255,255,.84);backdrop-filter:blur(16px);border:1px solid rgba(203,213,225,.78);border-radius:22px;padding:22px;margin-bottom:18px;box-shadow:0 18px 46px rgba(15,23,42,.10);}
+    .circle-tabs-title{font-size:13px;font-weight:950;color:#1e293b;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+    .circle-tabs-title i{color:#4f46e5;}
+    .circle-tabs{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;}
+    .circle-tab{width:118px;height:118px;border-radius:50%;border:2px solid #dbeafe;background:linear-gradient(135deg,#ffffff,#eff6ff);box-shadow:0 12px 26px rgba(15,23,42,.10);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px;color:#1e293b;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;}
+    .circle-tab i{font-size:22px;margin-bottom:7px;color:#4f46e5;}
+    .circle-tab b{font-size:11px;line-height:1.18;font-weight:950;}
+    .circle-tab span{font-size:9px;color:#64748b;font-weight:800;margin-top:4px;line-height:1.15;}
+    .circle-tab:hover{transform:translateY(-4px) scale(1.03);box-shadow:0 18px 38px rgba(79,70,229,.18);border-color:#818cf8;}
+    .circle-tab.active{background:linear-gradient(135deg,#2563eb,#7c3aed);border-color:#4338ca;color:#fff;box-shadow:0 18px 42px rgba(67,56,202,.32);}
+    .circle-tab.active i,.circle-tab.active span{color:#fff;}
+    .guide-hint{text-align:center;color:#64748b;font-size:12px;font-weight:750;margin:14px 0 0;}
+    .detail-title{font-size:13px;font-weight:950;color:#475569;margin:0 0 10px;text-align:center;}
+
     /* Guide cards */
     .guide-cards{display:grid;gap:14px;}
-    .guide-card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:box-shadow .15s;}
+    .guide-card{background:rgba(255,255,255,.88);backdrop-filter:blur(14px);border:1px solid rgba(203,213,225,.78);border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(15,23,42,.08);transition:box-shadow .15s;}
+    .guide-card:not(.active){display:none;}
     .guide-card:hover{box-shadow:0 4px 20px rgba(15,23,42,.10);}
-    .guide-card.hidden{display:none;}
+    .guide-card.hidden{display:none!important;}
     .guide-card__head{display:flex;align-items:center;gap:12px;padding:16px 20px;cursor:pointer;border-bottom:1px solid transparent;transition:background .15s;}
     .guide-card__head:hover{background:#f8faff;}
     .guide-card__head.open{border-bottom-color:var(--border);}
@@ -92,7 +113,7 @@
     .tag--red{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
     .tag--teal{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;}
 
-    @media(max-width:640px){.hdr{padding:12px 16px;}.body{padding:16px 12px 48px;}.guide-card__sub{display:none;}}
+    @media(max-width:640px){.hdr{padding:12px 16px;}.body{padding:16px 12px 48px;}.guide-card__sub{display:none;}.circle-tab{width:96px;height:96px}.circle-tab i{font-size:18px}.circle-tab b{font-size:10px}.circle-tabs{gap:10px}}
   </style>
 </head>
 <body>
@@ -126,6 +147,13 @@
       </div>
     </div>
 
+    <div class="circle-tabs-wrap">
+      <div class="circle-tabs-title"><i class="fas fa-circle-nodes"></i> Click any dashboard tab circle to view its guide below</div>
+      <div class="circle-tabs" id="circleTabs"></div>
+      <div class="guide-hint">Selected tab details will open below the circles. Use search to filter visible circles.</div>
+    </div>
+
+    <div class="detail-title" id="detailTitle">Selected tab information</div>
     <div class="guide-cards" id="guideCards">
 
       <!-- CR Overview -->
@@ -516,25 +544,80 @@
   </div>
 
   <script>
+  function cardTitle(card){
+    return (card.querySelector('.guide-card__title') || {}).textContent || 'Guide';
+  }
+
+  function selectGuideCard(index){
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.guide-card'));
+    var circles = Array.prototype.slice.call(document.querySelectorAll('.circle-tab'));
+    cards.forEach(function(card, i){
+      var isActive = i === index;
+      card.classList.toggle('active', isActive);
+      var head = card.querySelector('.guide-card__head');
+      var body = card.querySelector('.guide-card__body');
+      if(head) head.classList.toggle('open', isActive);
+      if(body) body.classList.toggle('open', isActive);
+    });
+    circles.forEach(function(btn, i){
+      btn.classList.toggle('active', i === index);
+      btn.setAttribute('aria-selected', i === index ? 'true' : 'false');
+    });
+    var title = document.getElementById('detailTitle');
+    if(title && cards[index]) title.textContent = cardTitle(cards[index]) + ' — information';
+  }
+
   function toggleCard(head){
-    head.classList.toggle('open');
-    var body = head.nextElementSibling;
-    if(body) body.classList.toggle('open');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.guide-card'));
+    var card = head.closest('.guide-card');
+    var index = cards.indexOf(card);
+    if(index >= 0) selectGuideCard(index);
+  }
+
+  function buildCircleTabs(){
+    var host = document.getElementById('circleTabs');
+    if(!host) return;
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.guide-card'));
+    host.innerHTML = '';
+    cards.forEach(function(card, index){
+      var icon = card.querySelector('.tab-icon i');
+      var title = cardTitle(card);
+      var path = (card.querySelector('.guide-card__path') || {}).textContent || '';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'circle-tab';
+      btn.setAttribute('data-index', index);
+      btn.setAttribute('data-search', card.getAttribute('data-search') || '');
+      btn.setAttribute('aria-selected', 'false');
+      btn.innerHTML = '<i class="' + (icon ? icon.className : 'fas fa-circle') + '"></i><b>' + title + '</b><span>' + path.replace('/dashboard/<target>/', '').replace('/dashboard/<target>/', '') + '</span>';
+      btn.addEventListener('click', function(){ selectGuideCard(index); });
+      host.appendChild(btn);
+    });
+    selectGuideCard(0);
   }
 
   function filterGuide(q){
-    var cards = document.querySelectorAll('.guide-card');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.guide-card'));
+    var circles = Array.prototype.slice.call(document.querySelectorAll('.circle-tab'));
     var lq = (q||'').toLowerCase();
     var visible = 0;
-    cards.forEach(function(c){
+    var firstVisible = -1;
+    cards.forEach(function(c, i){
       var text = (c.getAttribute('data-search')||'') + ' ' + (c.querySelector('.guide-card__title')||{}).textContent + ' ' + (c.querySelector('.guide-card__sub')||{}).textContent;
       var show = !lq || text.toLowerCase().includes(lq);
       c.classList.toggle('hidden', !show);
-      if(show) visible++;
+      if(circles[i]) circles[i].style.display = show ? 'flex' : 'none';
+      if(show){
+        if(firstVisible === -1) firstVisible = i;
+        visible++;
+      }
     });
+    if(firstVisible >= 0) selectGuideCard(firstVisible);
     var cnt = document.getElementById('guideCount');
     if(cnt) cnt.textContent = visible + ' section' + (visible===1?'':'s');
   }
+
+  document.addEventListener('DOMContentLoaded', buildCircleTabs);
   </script>
 </body>
 </html>

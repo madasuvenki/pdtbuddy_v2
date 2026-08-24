@@ -70,8 +70,8 @@
       <div class="card"><div class="ico">🛰️</div><div class="num" id="kRunCnt">0</div><div class="lbl">Running Builds</div></div>
     </section>
     <section class="panel" id="builds"><div class="ph"><span><i class="fas fa-satellite-dish"></i> Current Running Builds</span><span class="muted" id="sourceInfo"></span></div><div class="pb"><div id="buildBox" class="build-grid"></div></div></section>
-    <section class="panel" id="mtbf"><div class="ph"><span><i class="fas fa-chart-line"></i> MTBF Trend</span><span class="muted" id="activeSheetLabel"></span></div><div class="pb"><canvas id="mtbfChart" height="110"></canvas><div id="chartEmpty" class="empty">Sync Excel to show chart.</div></div></section>
-    <section class="panel" id="table"><div class="ph"><span><i class="fas fa-table"></i> Excel Sheet Table</span><input id="filter" class="input" style="max-width:260px" placeholder="Filter rows" oninput="renderTable()"></div><div class="pb table-wrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
+    <section class="panel" id="mtbf"><div class="ph"><span><i class="fas fa-chart-line"></i> MTBF Trend</span><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label class="muted" style="display:flex;gap:6px;align-items:center;margin:0">Build <select id="mtbfBuildFilter" class="input" style="width:360px;max-width:45vw;padding:6px 8px;font-size:11px" onchange="onMtbfBuildFilterChange()"><option value="">All builds</option></select></label><span class="muted" id="activeSheetLabel"></span></span></div><div class="pb"><canvas id="mtbfChart" height="110"></canvas><div id="chartEmpty" class="empty">Sync Excel to show chart.</div></div></section>
+    <section class="panel" id="table"><div class="ph"><span><i class="fas fa-table"></i> Excel Sheet Table</span><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="muted" id="mtbfFilterInfo"></span><input id="filter" class="input" style="max-width:260px" placeholder="Filter rows" oninput="renderTable()"></div></div><div class="pb table-wrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
   </main>
 </div>
 
@@ -85,16 +85,50 @@
 
 <script>
 const TARGET={{ target_name|tojson }}; const API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
-let config={sheet_tables:{},excel_path:'{{ default_excel_path }}'}, data=null, chart=null, activeSheet='';
+let config={sheet_tables:{},excel_path:'{{ default_excel_path }}'}, data=null, chart=null, activeSheet='', activeMtbfBuild='';
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function scrollToSec(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'});} function setText(id,v){const e=document.getElementById(id); if(e)e.textContent=v==null?'':v;}
 async function apiJson(url,opt){const r=await fetch(url,opt); const d=await r.json(); if(!d.ok && d.error) throw new Error(d.error); return d;}
-async function loadDashboard(sheet){data=await apiJson(`${API}/dashboard${sheet?'?sheet='+encodeURIComponent(sheet):''}`,{cache:'no-store'}); config=data.config||config; activeSheet=data.active_sheet||''; renderDashboard();}
-function renderDashboard(){const s=data.summary||{}; setText('kMtbf',s.current_pdt_mtbf);setText('kMeta',s.current_running_meta||'0');setText('kCrashes',s.current_meta_crashes);setText('kHours',s.current_meta_hours);setText('kDate',s.report_date);setText('kOpenJiraMeta',s.open_jira_current_meta);setText('kOverallJira',s.overall_open_jiras);setText('kOverallCrs',s.overall_open_crs);setText('kTotalCrs',s.total_crs);setText('kTotalJiras',s.total_jiras);setText('kRunCnt',s.running_build_count);setText('heroMtbf',s.current_pdt_mtbf);setText('heroCrs',s.overall_open_crs);setText('heroUpdated',(data.index&&data.index.updated_at||data.axiom_updated_at||'').slice(0,19));setText('nOverview',s.current_pdt_mtbf);setText('nBuilds',s.running_build_count);setText('sourceInfo',data.source||'');setText('activeSheetLabel',activeSheet||'No sheet'); renderTabs(); renderBuilds(); renderChart(); renderTable();}
+async function loadDashboard(sheet){data=await apiJson(`${API}/dashboard${sheet?'?sheet='+encodeURIComponent(sheet):''}`,{cache:'no-store'}); config=data.config||config; activeSheet=data.active_sheet||''; activeMtbfBuild=''; renderDashboard();}
+function renderDashboard(){const s=data.summary||{}; setText('kMtbf',s.current_pdt_mtbf);setText('kMeta',s.current_running_meta||'0');setText('kCrashes',s.current_meta_crashes);setText('kHours',s.current_meta_hours);setText('kDate',s.report_date);setText('kOpenJiraMeta',s.open_jira_current_meta);setText('kOverallJira',s.overall_open_jiras);setText('kOverallCrs',s.overall_open_crs);setText('kTotalCrs',s.total_crs);setText('kTotalJiras',s.total_jiras);setText('kRunCnt',s.running_build_count);setText('heroMtbf',s.current_pdt_mtbf);setText('heroCrs',s.overall_open_crs);setText('heroUpdated',(data.index&&data.index.updated_at||data.axiom_updated_at||'').slice(0,19));setText('nOverview',s.current_pdt_mtbf);setText('nBuilds',s.running_build_count);setText('sourceInfo',data.source||'');setText('activeSheetLabel',activeSheet||'No sheet'); renderTabs(); renderBuilds(); renderMtbfBuildFilter(); renderChart(); renderTable();}
 function renderTabs(){const sheets=((data.index||{}).sheets||[]); document.getElementById('sheetTabs').innerHTML=sheets.map(x=>`<button class="${x.sheet_name===activeSheet?'active':''}" onclick="loadDashboard('${esc(x.sheet_name)}')">${esc(x.sheet_name)}</button>`).join('')||'<span class="muted">No synced sheets</span>';}
 function renderBuilds(){const rows=data.current_builds||[]; document.getElementById('buildBox').innerHTML=rows.length?rows.map(r=>`<div class="build"><b>${esc(r.build_id)}</b><div>${esc(r.meta_id)} • devices ${esc(r.device_count)} • jobs ${esc(r.job_count)} • ${esc(r.product_flavor||'')}</div><div>${esc(r.software_product||'')}</div></div>`).join(''):'<div class="empty">No current running builds found for selected table/target.</div>';}
-function renderChart(){const rows=((data.sheet||{}).chart_rows||[]); document.getElementById('chartEmpty').style.display=rows.length?'none':'block'; if(chart){chart.destroy();chart=null;} if(!rows.length)return; chart=new Chart(document.getElementById('mtbfChart'),{type:'bar',data:{labels:rows.map(r=>r.meta_id||''),datasets:[{label:'Hours',data:rows.map(r=>Number(r.hours||0)),backgroundColor:'#2563eb'},{label:'Crashes',data:rows.map(r=>Number(r.total_crashes||0)),type:'line',borderColor:'#f97316',yAxisID:'y1'},{label:'MTBF',data:rows.map(r=>Number(r.mtbf||0)),type:'line',borderColor:'#22c55e',yAxisID:'y1'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});}
-function renderTable(){const sh=data.sheet||{}, headers=sh.headers||[], rows=sh.rows||[], q=(document.getElementById('filter').value||'').toLowerCase(); const filtered=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q)); document.getElementById('thead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':''; document.getElementById('tbody').innerHTML=filtered.length?filtered.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
+function normKey(v){return String(v==null?'':v).trim().toLowerCase();}
+function rowBuildText(r){
+  if(!r)return '';
+  const vals=Array.isArray(r.values)?r.values:[];
+  const keys=['software_product','Software Product','SOFTWARE_PRODUCT','build_s','Build(s)','builds','Builds','build','Build','build_id','Build ID','meta_id','Meta ID','META ID','Meta-ID'];
+  const direct=keys.map(k=>r[k]).filter(v=>v!=null&&String(v).trim()).join(' ');
+  const joined=vals.join(' ');
+  return `${direct} ${joined}`;
+}
+function chartBuildText(r){return rowBuildText(r);}
+function mtbfFilteredRows(rawRows){if(!activeMtbfBuild)return rawRows||[];const key=normKey(activeMtbfBuild);return (rawRows||[]).filter(r=>normKey(rowBuildText(r)).includes(key));}
+function mtbfFilteredChartRows(rawRows){if(!activeMtbfBuild)return rawRows||[];const key=normKey(activeMtbfBuild);return (rawRows||[]).filter(r=>normKey(chartBuildText(r)).includes(key));}
+function renderMtbfBuildFilter(){
+  const sel=document.getElementById('mtbfBuildFilter'); if(!sel)return;
+  const sh=data.sheet||{}, headers=sh.headers||[], rows=sh.rows||[];
+  const preferred=['Build(s)','Builds','Build','Build ID','Software Product','Meta ID','META ID','Meta-ID'];
+  const headerNorm=headers.map(h=>normKey(h));
+  let idx=-1;
+  for(const p of preferred){idx=headerNorm.findIndex(h=>h===normKey(p)||h.includes(normKey(p))); if(idx>=0)break;}
+  const seen=new Map();
+  rows.forEach(r=>{
+    const vals=Array.isArray(r.values)?r.values:[];
+    const raw=idx>=0?vals[idx]:'';
+    String(raw||'').split(/[\n,;|]+/).map(x=>x.trim()).filter(Boolean).forEach(v=>seen.set(normKey(v),v));
+  });
+  (((data.sheet||{}).chart_rows)||[]).forEach(r=>{
+    const v=String(r.build_id||r.meta_id||'').trim();
+    if(v)seen.set(normKey(v),v);
+  });
+  const opts=Array.from(seen.values()).sort((a,b)=>a.localeCompare(b));
+  if(activeMtbfBuild&&!opts.some(v=>normKey(v)===normKey(activeMtbfBuild)))activeMtbfBuild='';
+  sel.innerHTML='<option value="">All builds</option>'+opts.map(v=>`<option value="${esc(v)}" ${normKey(v)===normKey(activeMtbfBuild)?'selected':''}>${esc(v)}</option>`).join('');
+}
+function onMtbfBuildFilterChange(){activeMtbfBuild=(document.getElementById('mtbfBuildFilter')||{}).value||'';renderChart();renderTable();}
+function renderChart(){const rows=mtbfFilteredChartRows(((data.sheet||{}).chart_rows||[])); document.getElementById('chartEmpty').style.display=rows.length?'none':'block'; if(chart){chart.destroy();chart=null;} if(!rows.length)return; chart=new Chart(document.getElementById('mtbfChart'),{type:'bar',data:{labels:rows.map(r=>r.meta_id||r.build_id||''),datasets:[{label:'Hours',data:rows.map(r=>Number(r.hours||0)),backgroundColor:'#2563eb'},{label:'Crashes',data:rows.map(r=>Number(r.total_crashes||0)),type:'line',borderColor:'#f97316',yAxisID:'y1'},{label:'MTBF',data:rows.map(r=>Number(r.mtbf||0)),type:'line',borderColor:'#22c55e',yAxisID:'y1'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});}
+function renderTable(){const sh=data.sheet||{}, headers=sh.headers||[], rows=mtbfFilteredRows(sh.rows||[]), q=(document.getElementById('filter').value||'').toLowerCase(); const filtered=rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q)); setText('mtbfFilterInfo',activeMtbfBuild?`Build filter: ${activeMtbfBuild} · ${filtered.length}/${(sh.rows||[]).length} rows`:`${filtered.length}/${(sh.rows||[]).length} rows`); document.getElementById('thead').innerHTML=headers.length?'<tr>'+headers.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>':''; document.getElementById('tbody').innerHTML=filtered.length?filtered.map(r=>'<tr>'+headers.map((h,i)=>`<td>${esc((r.values||[])[i]||'')}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 async function openConfig(){document.getElementById('cfgModal').classList.add('open'); const c=await apiJson(`${API}/config`,{cache:'no-store'}); config=c.config||config; document.getElementById('excelPath').value=config.excel_path||'{{ default_excel_path }}'; const t=await apiJson(`${API}/db_tables`,{cache:'no-store'}); document.getElementById('dbTableOptions').innerHTML=(t.tables||[]).map(x=>`<option value="${esc(x.fq)}">${esc(x.label)}</option>`).join(''); renderConfigRows(c.workbook_sheets||[]);} function closeConfig(){document.getElementById('cfgModal').classList.remove('open');}
 function renderConfigRows(workbookSheets){const existing=((data&&data.index&&data.index.sheets)||[]).map(x=>x.sheet_name); const names=[...new Set([...existing,...workbookSheets])].filter(Boolean); const input=(name,field,ph,val)=>`<input class="input" list="dbTableOptions" data-sheet="${esc(name)}" data-field="${field}" placeholder="${ph}" value="${esc(val||'')}">`; document.getElementById('sheetMap').innerHTML=names.length?names.map(n=>{const m=(config.sheet_tables||{})[n]||{};return `<div class="dbrow"><b>${esc(n)}</b>${input(n,'target_table','target/current table',m.target_table)}${input(n,'jiras_table','JIRAs table',m.jiras_table||m.target_table)}${input(n,'openjiras_table','Open JIRAs table',m.openjiras_table)}${input(n,'unique_crs_table','Unique CRs table',m.unique_crs_table)}</div>`}).join(''):'<div class="empty">Workbook sheets will appear after Save & Sync.</div>';}
 function collectMap(){const out={}; document.querySelectorAll('[data-sheet][data-field]').forEach(i=>{const s=i.dataset.sheet,f=i.dataset.field; out[s]=out[s]||{}; out[s][f]=i.value.trim();}); return out;}

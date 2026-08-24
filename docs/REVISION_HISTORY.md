@@ -99,7 +99,7 @@
 
 ---
 
-## Rev 2.10 — Latest
+## Rev 2.10
 
 **CR Age Report Redesign**
 
@@ -128,6 +128,24 @@
 - Grid lines: changed to `#d1d5db` (visible gray), bottom axis line restored
 
 **Version:** `APP_VERSION = "v2.10"` in `app.py`
+
+---
+
+## Rev 2.11 — Latest
+
+**Target Delta Studio**
+
+- `QIPLPDT-11029` — Hawi and Kaanapali AU comparison stats request.
+- Added **Generate Weekwise Trend of JIRAs, CRs** option in Target Delta Studio.
+- Weekwise trend supports date ranges such as `June 3-9`, `June 10-16`, etc. from the selected start/end dates.
+- Jira count includes rows from all available target Jira tables:
+  - `{prefix}_jiras`
+  - `{prefix}_openjiras`
+  - `{prefix}_closed_jiras`
+- CR count shows unique mapped CRs per selected target/delta set for each week.
+- Added weekwise Jira and mapped-CR charts plus a copy-ready table.
+
+**Version:** `APP_VERSION = "v2.11"` in `app.py`
 
 ---
 

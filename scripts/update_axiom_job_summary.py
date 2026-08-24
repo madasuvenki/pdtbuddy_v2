@@ -25,8 +25,9 @@ Usage:
     # Full update + refresh running + HWPDT test results (recommended):
     python scripts/update_axiom_job_summary.py --full --refresh-running --refresh-hwpdt-results
 
-    # Run as a continuous poller (every 10 min):
-    python scripts/update_axiom_job_summary.py --poll --interval 600
+    # Run as a continuous poller (every 3 hours; incremental only, no full refresh):
+    python scripts/update_axiom_job_summary.py --poll
+    python scripts/update_axiom_job_summary.py --poll --interval 10800
 
 Environment variables (set in .env or shell):
     AXIOM_CLIENT_ID       Axiom OAuth client ID
@@ -1356,9 +1357,23 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
 # ---------------------------------------------------------------------------
 
 def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
-               interval_sec: int = 600) -> None:
-    """Run as a continuous poller - first cycle is full, subsequent are incremental."""
-    logger.info("[POLLER] Starting - interval=%ds (%d min)", interval_sec, interval_sec // 60)
+               interval_sec: int = 10800) -> None:
+    """Run as a continuous poller - incremental only, no full refresh.
+
+    Axiom public API is rate-limited. Keep poll cadence at 3 hours or slower.
+    """
+    min_interval_sec = 3 * 60 * 60
+    if interval_sec < min_interval_sec:
+        logger.warning(
+            "[POLLER] Requested interval=%ds is below Axiom rate-limit-safe minimum. "
+            "Using %ds (3 hours). See https://axiomuserguide.qualcomm.com/workflows/axiom-public-api#rate-limiting",
+            interval_sec,
+            min_interval_sec,
+        )
+        interval_sec = min_interval_sec
+    logger.info("[POLLER] Starting - interval=%ds (%d min); incremental only, no full refresh",
+                interval_sec, interval_sec // 60)
+    logger.info("[POLLER] Axiom rate limiting: polling is capped to once every 3 hours or slower.")
 
     token: Optional[str] = None
     token_obtained = 0.0
@@ -1380,16 +1395,7 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
                 token = _get_token_with_retry(host, client_id, client_secret)
                 token_obtained = time.time()
 
-            if is_first:
-                token = run_full_update(host, token, app_name)
-            else:
-                token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10)
-                token = run_refresh_running(host, token, app_name)
-                token = refresh_active_device_host_maps(host, token, app_name)
-                token = run_refresh_hwpdt_results(host, token, app_name, running_only=True)
-
-            if is_first:
-                token = refresh_active_device_host_maps(host, token, app_name)
+            token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10)
 
             rebuilt_devices = rebuild_axiom_all_devices_table()
             logger.info("[POLLER] all-devices table refreshed rows=%d", rebuilt_devices)
@@ -1442,8 +1448,9 @@ Examples:
   # Refresh all Running HWPDT /results only:
   python scripts/update_axiom_job_summary.py --refresh-hwpdt-results
 
-  # Continuous poller every 10 min:
-  python scripts/update_axiom_job_summary.py --poll --interval 600
+  # Continuous poller every 3 hours (incremental only, no full refresh; Axiom rate-limit safe):
+  python scripts/update_axiom_job_summary.py --poll
+  python scripts/update_axiom_job_summary.py --poll --interval 10800
         """,
     )
 
@@ -1474,9 +1481,9 @@ Examples:
     parser.add_argument("--hwpdt-results-workers", type=int, default=10,
                         help="Worker threads for --refresh-hwpdt-results (default: 10)")
     parser.add_argument("--poll",           action="store_true",
-                        help="Run as continuous poller (first=full, then incremental)")
-    parser.add_argument("--interval",       type=int, default=600,
-                        help="Poll interval in seconds for --poll (default: 600)")
+                        help="Run as continuous poller (incremental only; no full refresh)")
+    parser.add_argument("--interval",       type=int, default=10800,
+                        help="Poll interval in seconds for --poll (default/minimum: 10800 = 3 hours)")
     parser.add_argument("--api-host",       default=os.environ.get("AXIOM_API_HOST", DEFAULT_API_HOST))
     parser.add_argument("--app-name",       default=os.environ.get("AXIOM_APP_NAME", DEFAULT_APP_NAME))
     parser.add_argument("--client-id",      default=os.environ.get("AXIOM_CLIENT_ID", ""))
@@ -1485,13 +1492,11 @@ Examples:
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
-        args.incremental = True
-        args.minutes = int(os.environ.get("AXIOM_DEFAULT_INCREMENTAL_MINUTES", str(CYCLE_SINCE_MINUTES)))
-        args.incremental_max_jobs = int(os.environ.get("AXIOM_DEFAULT_INCREMENTAL_JOBS", "100"))
+        args.poll = True
+        args.interval = 10800
         logger.info(
-            "No arguments supplied; defaulting to one-shot incremental: minutes=%s max_jobs=%s",
-            args.minutes,
-            args.incremental_max_jobs,
+            "No arguments supplied; defaulting to continuous poll mode: interval=%s seconds (3 hours), incremental only",
+            args.interval,
         )
 
     # - Status only ------------------------------------------------------------------------------------------------------------------------------------------------------------------------

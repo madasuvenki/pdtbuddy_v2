@@ -24,6 +24,7 @@ _LOCAL_EXCLUSIONS_FILE = os.path.join(_LOCAL_ROOT, "live_status_view_exclusions.
 # Nord_HQX -> folder Nord_HQX, Nord_HGY -> folder Nord_HGY
 # ---------------------------------------------------------------------------
 _ADAS_MTBF_VIEWS_DEFAULT = ["ADAS", "IVI", "FLEX"]
+_COMPUTE_MTBF_VIEWS_DEFAULT = ["Glymur", "Mahua"]
 _ADAS_MTBF_VIEWS = _ADAS_MTBF_VIEWS_DEFAULT  # kept for legacy compat
 _ADAS_MTBF_HEADERS = ["S.No", "Date", "Meta-ID", "Hours", "System Crashes", "SSR Crashes", "Process Crashes", "Total Crashes", "MTBF", "Comments"]
 
@@ -66,16 +67,33 @@ def _write_domains_file(target_name: str, custom: List[str], hidden: List[str]) 
     os.replace(tmp, path)
 
 
+def _is_compute_mtbf_target(target_name: str) -> bool:
+    """Return True when this target should use Compute MTBF storage/views."""
+    try:
+        if (get_bu_for_target(target_name) or "").strip().upper() == "COMPUTE":
+            return True
+    except Exception:
+        pass
+    try:
+        if (get_schema_for_target(target_name) or "").strip().lower() == "pdt_stats_compute":
+            return True
+    except Exception:
+        pass
+    return str(target_name or "").strip().upper().replace(".", "_") in {"GLYMUR", "MAHUA"}
+
+
 def _get_target_domains(target_name: str) -> List[str]:
-    """Return ordered domain list for target. Starts with default ADAS/IVI/FLEX
-    domains (unless the user has hidden/deleted one of them), followed by any
-    custom domains added by the user OR discovered from SP JSON files.
-    e.g. mtbf_safe-ivi_5170.json -> SAFE-IVI auto-added for HGY."""
+    """Return ordered MTBF view list for target.
+
+    AUTO-style targets use ADAS/IVI/FLEX/custom domains. Compute targets use
+    the same views as the internal Compute MTBF page: Glymur/Mahua.
+    """
+    defaults = _COMPUTE_MTBF_VIEWS_DEFAULT if _is_compute_mtbf_target(target_name) else _ADAS_MTBF_VIEWS_DEFAULT
     cfg = _read_domains_file(target_name)
     custom = cfg["domains"]
     hidden = set(cfg["hidden"])
     # Merge: default first (unless hidden), then any custom not already in default
-    merged = [d for d in _ADAS_MTBF_VIEWS_DEFAULT if d not in hidden]
+    merged = [d for d in defaults if d.upper() not in hidden and d not in hidden]
     for d in custom:
         if d not in merged and d not in hidden:
             merged.append(d)
@@ -174,7 +192,11 @@ def _adas_mtbf_folder(target_name: str) -> str:
         "NORD_HGY": "Nord_HGY",
     }
     folder = folder_map.get(slug, slug)
-    path = os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "MTBF", folder)
+    if _is_compute_mtbf_target(target_name):
+        folder = slug
+        path = os.path.join(_DATA_ROOT, "managed_excel", "COMPUTE", folder)
+    else:
+        path = os.path.join(_DATA_ROOT, "managed_excel", "AUTO", "MTBF", folder)
     try:
         os.makedirs(path, exist_ok=True)
     except Exception:

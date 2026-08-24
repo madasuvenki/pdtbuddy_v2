@@ -7,401 +7,312 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <style>
-    :root{--ink:#0f172a;--muted:#64748b;--border:#e2e8f0;--indigo:#6366f1;--page-bg:#f1f5f9;}
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:var(--page-bg);color:var(--ink);min-height:100vh;font-size:14px;}
-
-    /* ── Header ── */
-    .rh-header{background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#0f172a 100%);padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 4px 24px rgba(15,23,42,.35);}
-    .rh-header__left{display:flex;align-items:center;gap:14px;}
-    .rh-header__icon{width:44px;height:44px;border-radius:13px;background:rgba(99,102,241,.28);display:flex;align-items:center;justify-content:center;font-size:20px;color:#a5b4fc;flex-shrink:0;border:1px solid rgba(99,102,241,.4);}
-    .rh-header__title{font-size:20px;font-weight:900;color:#f8fafc;line-height:1.2;}
-    .rh-header__sub{font-size:11px;color:#94a3b8;margin-top:3px;font-weight:500;}
-    /* ── Body ── */
-    .rh-body{max-width:960px;margin:0 auto;padding:40px 28px 80px;}
-
-    /* ── Hero banner ── */
-    .rh-hero{background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e3a5f 100%);border-radius:24px;padding:36px 40px;margin-bottom:40px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;box-shadow:0 8px 32px rgba(30,27,75,.35);}
-    .rh-hero__icon{width:72px;height:72px;border-radius:20px;background:rgba(165,180,252,.18);border:1.5px solid rgba(165,180,252,.35);display:flex;align-items:center;justify-content:center;font-size:32px;color:#a5b4fc;flex-shrink:0;}
-    .rh-hero__title{font-size:28px;font-weight:950;color:#f8fafc;line-height:1.2;}
-    .rh-hero__desc{font-size:13px;color:#94a3b8;margin-top:6px;line-height:1.7;max-width:560px;}
-    .rh-hero__badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:6px 14px;border-radius:999px;background:rgba(99,102,241,.25);border:1px solid rgba(165,180,252,.3);color:#c7d2fe;font-size:11px;font-weight:800;}
-
-    /* ── Timeline ── */
-    .rh-timeline{position:relative;padding-left:32px;}
-    .rh-timeline::before{content:'';position:absolute;left:11px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#6366f1,#0d9488,#f59e0b,#dc2626,#6366f1);border-radius:2px;opacity:.35;}
-
-    /* ── Rev card ── */
-    .rh-rev{position:relative;margin-bottom:32px;}
-    .rh-rev__dot{position:absolute;left:-32px;top:18px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 0 0 4px var(--page-bg);}
-    .rh-rev__card{background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,.07);transition:transform .15s,box-shadow .15s;}
-    .rh-rev__card:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(15,23,42,.12);}
-    .rh-rev__head{padding:18px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);}
-    .rh-rev__badge{padding:5px 14px;border-radius:999px;font-size:12px;font-weight:900;white-space:nowrap;}
-    .rh-rev__title{font-size:16px;font-weight:900;color:var(--ink);}
-    .rh-rev__subtitle{font-size:11px;color:var(--muted);margin-top:2px;font-weight:600;}
-    .rh-rev__body{padding:20px 24px;}
-
-    /* ── Feature groups ── */
-    .rh-group{margin-bottom:18px;}
-    .rh-group:last-child{margin-bottom:0;}
-    .rh-group__label{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;padding:4px 12px;border-radius:8px;}
-    .rh-group__items{display:flex;flex-direction:column;gap:7px;}
-    .rh-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#334155;line-height:1.55;}
-    .rh-item__dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px;}
-    .rh-item__jira{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:10px;font-weight:800;white-space:nowrap;margin-right:4px;flex-shrink:0;}
-
-    /* ── Color themes per rev ── */
-    .dot-rev1{background:linear-gradient(135deg,#6366f1,#8b5cf6);}
-    .dot-rev2{background:linear-gradient(135deg,#0d9488,#0891b2);}
-    .dot-rev25{background:linear-gradient(135deg,#0891b2,#3b82f6);}
-    .dot-rev26{background:linear-gradient(135deg,#f59e0b,#f97316);}
-    .dot-rev27{background:linear-gradient(135deg,#dc2626,#f97316);}
-    .dot-rev28{background:linear-gradient(135deg,#7c3aed,#6366f1);}
-    .dot-rev29{background:linear-gradient(135deg,#059669,#0d9488);}
-
-    .badge-rev1{background:#ede9fe;color:#5b21b6;}
-    .badge-rev2{background:#d1fae5;color:#065f46;}
-    .badge-rev25{background:#dbeafe;color:#1e40af;}
-    .badge-rev26{background:#fef3c7;color:#92400e;}
-    .badge-rev27{background:#fee2e2;color:#991b1b;}
-    .badge-rev28{background:#ede9fe;color:#6d28d9;}
-    .badge-rev29{background:#d1fae5;color:#065f46;}
-
-    .head-rev1{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
-    .head-rev2{background:linear-gradient(135deg,#f0fdf4,#d1fae5);}
-    .head-rev25{background:linear-gradient(135deg,#eff6ff,#dbeafe);}
-    .head-rev26{background:linear-gradient(135deg,#fffbeb,#fef3c7);}
-    .head-rev27{background:linear-gradient(135deg,#fff1f2,#fee2e2);}
-    .head-rev28{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
-    .head-rev29{background:linear-gradient(135deg,#f0fdf4,#d1fae5);}
-
-    .grp-ui{background:#eff6ff;color:#1d4ed8;}
-    .grp-data{background:#f0fdf4;color:#166534;}
-    .grp-cr{background:#fdf4ff;color:#7e22ce;}
-    .grp-mtbf{background:#fff7ed;color:#c2410c;}
-    .grp-hw{background:#f0f9ff;color:#0369a1;}
-    .grp-report{background:#fefce8;color:#854d0e;}
-    .grp-ext{background:#f0fdfa;color:#0f766e;}
-    .grp-gen{background:#f8fafc;color:#475569;}
-
-    .dot-ui{background:#3b82f6;}
-    .dot-data{background:#22c55e;}
-    .dot-cr{background:#a855f7;}
-    .dot-mtbf{background:#f97316;}
-    .dot-hw{background:#0ea5e9;}
-    .dot-report{background:#eab308;}
-    .dot-ext{background:#14b8a6;}
-    .dot-gen{background:#94a3b8;}
-
-    /* ── Footer ── */
-    .rh-footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;font-weight:600;border-top:1px solid var(--border);margin-top:40px;}
+    :root{
+      --ink:#102033;--muted:#64748b;--line:#dbe5f3;--page:#eef4ff;--card:#ffffff;
+      --brand:#2563eb;--violet:#7c3aed;--cyan:#06b6d4;--green:#16a34a;--orange:#f97316;--red:#dc2626;
+      --shadow:0 26px 80px rgba(15,23,42,.16);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--ink);min-height:100vh;
+      background:
+        radial-gradient(circle at 10% -10%,rgba(37,99,235,.28),transparent 34%),
+        radial-gradient(circle at 92% 0%,rgba(124,58,237,.22),transparent 32%),
+        radial-gradient(circle at 52% 112%,rgba(6,182,212,.16),transparent 34%),
+        linear-gradient(135deg,#f8fbff 0%,#eef4ff 45%,#f8f7ff 100%);
+    }
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(37,99,235,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.045) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 82%)}
+    .topbar{
+      position:sticky;top:0;z-index:50;margin:16px 16px 0;padding:16px 22px;border-radius:22px;
+      background:rgba(255,255,255,.82);backdrop-filter:blur(18px);border:1px solid rgba(203,213,225,.72);
+      box-shadow:0 18px 50px rgba(15,23,42,.10);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    }
+    .brand{display:flex;align-items:center;gap:12px}
+    .brandIcon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--brand),var(--violet),var(--cyan));box-shadow:0 14px 28px rgba(37,99,235,.28)}
+    .brandTitle{font-weight:1000;font-size:18px;letter-spacing:-.02em;color:#1e3a8a}
+    .brandSub{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+    .topPills{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;background:linear-gradient(135deg,#eef2ff,#ecfeff);border:1px solid #c7d2fe;color:#1e40af;font-size:12px;font-weight:900}
+    .wrap{position:relative;max-width:1180px;margin:0 auto;padding:28px 18px 70px}
+    .hero{
+      border-radius:32px;padding:34px 36px;margin:0 0 22px;overflow:hidden;position:relative;
+      background:linear-gradient(135deg,#ffffff 0%,#eff6ff 42%,#f5f3ff 76%,#ecfeff 100%);
+      border:1px solid rgba(191,219,254,.95);box-shadow:var(--shadow);
+    }
+    .hero:after{content:"";position:absolute;right:-76px;top:-92px;width:290px;height:290px;border-radius:999px;background:radial-gradient(circle,rgba(37,99,235,.18),rgba(124,58,237,.08) 55%,transparent 72%)}
+    .eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:11px;font-weight:1000;letter-spacing:.09em;text-transform:uppercase}
+    h1{margin:12px 0 8px;font-size:38px;line-height:1.05;letter-spacing:-.055em;color:#1e3a8a}
+    .heroDesc{max-width:880px;color:#475569;font-size:14px;line-height:1.65}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:22px}
+    .stat{padding:15px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(203,213,225,.80);box-shadow:0 12px 26px rgba(15,23,42,.06)}
+    .stat b{display:block;font-size:22px;color:#1e3a8a}.stat span{font-size:12px;color:var(--muted);font-weight:800}
+    .toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin:20px 0}
+    .hint{font-size:12px;color:#64748b;font-weight:750}
+    .btn{border:0;border-radius:14px;padding:10px 13px;font-weight:950;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#7c3aed 62%,#06b6d4);color:#fff;box-shadow:0 12px 26px rgba(37,99,235,.24)}
+    .timeline{position:relative;padding-left:28px}
+    .timeline:before{content:"";position:absolute;left:10px;top:0;bottom:0;width:3px;border-radius:999px;background:linear-gradient(to bottom,var(--brand),var(--violet),var(--cyan),var(--green),var(--orange),var(--red))}
+    details.rev{position:relative;margin:0 0 16px}
+    details.rev:before{content:"";position:absolute;left:-27px;top:22px;width:22px;height:22px;border-radius:999px;background:linear-gradient(135deg,var(--brand),var(--violet));box-shadow:0 0 0 5px #eef4ff,0 10px 22px rgba(37,99,235,.26)}
+    details.rev summary{
+      list-style:none;cursor:pointer;border:1px solid rgba(203,213,225,.9);border-radius:22px;background:rgba(255,255,255,.92);
+      box-shadow:0 16px 42px rgba(15,23,42,.10);overflow:hidden;transition:.16s transform,.16s box-shadow,.16s border-color;
+    }
+    details.rev summary::-webkit-details-marker{display:none}
+    details.rev summary:hover{transform:translateY(-1px);box-shadow:0 22px 56px rgba(15,23,42,.13);border-color:#b9ccff}
+    .revHead{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;background:linear-gradient(90deg,#f8fafc,#eef2ff,#ecfeff)}
+    .revMain{display:flex;align-items:center;gap:13px}
+    .revBadge{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:12px;font-weight:1000;white-space:nowrap}
+    .revTitle{font-size:16px;font-weight:1000;color:#102033}.revSub{font-size:12px;color:#64748b;font-weight:750;margin-top:3px}
+    .chev{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:#fff;border:1px solid #dbe5f3;color:#4f46e5;transition:.16s transform}
+    details[open] .chev{transform:rotate(180deg)}
+    .revBody{padding:18px 20px 20px;background:#fff;border:1px solid rgba(203,213,225,.9);border-top:0;border-radius:0 0 22px 22px;box-shadow:0 16px 36px rgba(15,23,42,.08)}
+    .group{margin:0 0 15px}.group:last-child{margin-bottom:0}
+    .groupLabel{display:inline-flex;align-items:center;gap:7px;margin-bottom:9px;padding:5px 11px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:1000;letter-spacing:.06em;text-transform:uppercase;border:1px solid #bfdbfe}
+    .items{display:grid;gap:7px}
+    .item{position:relative;padding:9px 12px 9px 34px;border-radius:13px;background:#fbfdff;border:1px solid #edf2f7;color:#24344d;font-size:13px;line-height:1.48}
+    .item:before{content:"✓";position:absolute;left:11px;top:8px;width:17px;height:17px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(135deg,var(--brand),var(--violet));color:#fff;font-size:11px;font-weight:1000}
+    .jira{display:inline-block;margin-right:5px;padding:2px 8px;border-radius:999px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;font-size:11px;font-weight:900;white-space:nowrap}
+    code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:1px 5px;color:#334155}
+    .note{margin-top:22px;padding:15px 16px;border-radius:18px;background:linear-gradient(135deg,#ecfdf5,#f8fafc);border:1px solid #bbf7d0;color:#24513c;font-size:13px;line-height:1.6}
+    .footer{text-align:center;margin-top:26px;color:#64748b;font-size:12px;font-weight:800}
+    @media(max-width:720px){.wrap{padding:18px 12px 50px}.hero{padding:24px 22px}h1{font-size:28px}.timeline{padding-left:18px}details.rev:before{left:-18px}.revHead{align-items:flex-start}.topbar{margin:10px 10px 0}}
   </style>
 </head>
 <body>
-
-<div class="rh-header">
-  <div class="rh-header__left">
-    <div class="rh-header__icon"><i class="fas fa-code-branch"></i></div>
-    <div>
-      <div class="rh-header__title">PDT Buddy — Revision History</div>
-      <div class="rh-header__sub">Feature releases and enhancements across all versions</div>
+  <div class="topbar">
+    <div class="brand">
+      <div class="brandIcon"><i class="fas fa-code-branch"></i></div>
+      <div>
+        <div class="brandTitle">PDT Buddy — Revision History</div>
+        <div class="brandSub">Premium changelog from initial release to latest v2.11</div>
+      </div>
     </div>
-  </div>
-</div>
-
-<div class="rh-body">
-
-  <!-- Hero -->
-  <div class="rh-hero">
-    <div class="rh-hero__icon"><i class="fas fa-history"></i></div>
-    <div>
-      <div class="rh-hero__title">PDT Buddy Changelog</div>
-      <div class="rh-hero__desc">A complete record of every feature, enhancement, and integration delivered across all PDT Buddy releases — from the initial web UI to the latest live data enhancements.</div>
-      <div class="rh-hero__badge"><i class="fas fa-tag"></i> Latest: Rev 2.10</div>
+    <div class="topPills">
+      <span class="pill"><i class="fas fa-tag"></i> Latest v2.11</span>
+      <span class="pill"><i class="fas fa-list-check"></i> 97+ Feature Notes</span>
     </div>
   </div>
 
-  <!-- Timeline -->
-  <div class="rh-timeline">
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow"><i class="fas fa-sparkles"></i> Complete Product Timeline</div>
+      <h1>PDT Buddy Changelog</h1>
+      <div class="heroDesc">A full, user-friendly revision history based on release notes, memory-bank project context, and active code cross-check across dashboards, CR/JIRA analytics, MTBF, Live Status, Device Summary, APIs, QGenie flows, and Target Delta Studio.</div>
+      <div class="stats">
+        <div class="stat"><b>v2.11</b><span>Current application version</span></div>
+        <div class="stat"><b>8</b><span>Revision groups from Rev 1 onward</span></div>
+        <div class="stat"><b>97+</b><span>Single-line feature statements</span></div>
+        <div class="stat"><b>QIPLPDT-11029</b><span>Latest Target Delta ticket</span></div>
+      </div>
+    </section>
 
-    <!-- Rev 1 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev1">1</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev1">
-          <span class="rh-rev__badge badge-rev1"><i class="fas fa-rocket" style="margin-right:5px;"></i>Rev 1</span>
-          <div>
-            <div class="rh-rev__title">Initial Release — Core Foundation</div>
-            <div class="rh-rev__subtitle">Basic web UI, database setup, multi-target support</div>
-          </div>
-        </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-ui"><i class="fas fa-desktop"></i> Web UI & Navigation</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Basic Web UI</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Multiple targets support</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>BU-wise target segregation</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Target-wise dashboard creation with multiple tabs</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Milestone update by user</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-data"><i class="fas fa-database"></i> Data</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Database creation to fetch related information from MySQL data tables</div>
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Fetch data from Web UI</div>
-            </div>
-          </div>
-        </div>
+    <div class="toolbar">
+      <div class="hint"><i class="fas fa-circle-info"></i> Each revision is collapsed by default; expand any Rev card to view full details.</div>
+      <div>
+        <button class="btn" type="button" onclick="document.querySelectorAll('details.rev').forEach(d=>d.open=true)">Expand All</button>
+        <button class="btn" type="button" onclick="document.querySelectorAll('details.rev').forEach(d=>d.open=false)">Collapse All</button>
       </div>
     </div>
 
-    <!-- Rev 2 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev2">2</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev2">
-          <span class="rh-rev__badge badge-rev2"><i class="fas fa-layer-group" style="margin-right:5px;"></i>Rev 2</span>
-          <div>
-            <div class="rh-rev__title">Major Feature Expansion</div>
-            <div class="rh-rev__subtitle">Redesigned UI, automation, MTBF, HWPDT, reports, chatbot, public APIs</div>
-          </div>
+    <section class="timeline">
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-rocket"></i> Rev 1</span><div><div class="revTitle">Initial Release — Core Foundation</div><div class="revSub">Basic Web UI, MySQL data access, BU/target dashboards, milestones</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody">
+          <div class="group"><div class="groupLabel"><i class="fas fa-desktop"></i> UI & Navigation</div><div class="items">
+            <div class="item">Introduced the core PDT Buddy web UI for centralized dashboard access.</div>
+            <div class="item">Enabled multiple target support for PDT dashboard workflows.</div>
+            <div class="item">Added BU-wise target segregation for team-specific navigation.</div>
+            <div class="item">Added target-wise dashboard creation for each configured PDT target.</div>
+            <div class="item">Added multiple dashboard tabs per target for organized data review.</div>
+            <div class="item">Added milestone update support directly from the web interface.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-database"></i> Data Foundation</div><div class="items">
+            <div class="item">Added MySQL-backed data retrieval for target, CR, JIRA, and dashboard information.</div>
+            <div class="item">Enabled data fetch flows from the web UI.</div>
+          </div></div>
         </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-ui"><i class="fas fa-paint-brush"></i> UI & Navigation</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Redesigned landing page</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Help section, Raise Ticket, and Feedback module</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Target and BU-wise selection with contextual information display</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-data"><i class="fas fa-sync-alt"></i> Data & Automation</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Auto-ingest details to database tables</div>
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Axiom public API integration — hours, devices, and builds auto-update</div>
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Smart Build Report replacing SharePoint data — manual updates reduced, auto-updated weekly</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-cr"><i class="fas fa-bug"></i> CR & JIRA Features</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10652</span>CR Overview page with CR age and status</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10651</span>Compute BU: Plot Hamoa data in MTBF</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10660 / 10750</span>Hawi data integration</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>JQL-based report</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Open CRs view &amp; Open JIRA view</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-mtbf"><i class="fas fa-chart-line"></i> MTBF</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-mtbf"></span>MTBF trend, update, and edit</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-hw"><i class="fas fa-microchip"></i> HWPDT</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-hw"></span>HWPDT weekly chips and daily chip information</div>
-              <div class="rh-item"><span class="rh-item__dot dot-hw"></span>Weekly HWPDT MSM screening summary auto-update</div>
-              <div class="rh-item"><span class="rh-item__dot dot-hw"></span>HWPDT playlist update per Certicom ID</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-report"><i class="fas fa-file-alt"></i> Reports</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Monthly-wise reports</div>
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Weekly-wise reports including SharePoint data, CR Age pie charts, Unique CRs charts</div>
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Current running builds view</div>
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Chatbot to run filter-based reports and CR information queries</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </details>
 
-    <!-- Rev 2.5 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev25" style="font-size:7px;">2.5</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev25">
-          <span class="rh-rev__badge badge-rev25"><i class="fas fa-globe" style="margin-right:5px;"></i>Rev 2.5</span>
-          <div>
-            <div class="rh-rev__title">External Page &amp; Multi-BU</div>
-            <div class="rh-rev__subtitle">Public APIs, Auto Core Slides, external multi-BU page</div>
-          </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-layer-group"></i> Rev 2</span><div><div class="revTitle">Major Feature Expansion</div><div class="revSub">UI redesign, automation, CR/JIRA, MTBF, HWPDT, reports</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody">
+          <div class="group"><div class="groupLabel"><i class="fas fa-paint-brush"></i> UI & Navigation</div><div class="items">
+            <div class="item">Redesigned the landing page for improved usability and navigation.</div>
+            <div class="item">Added Help section for user guidance.</div>
+            <div class="item">Added Raise Ticket functionality for issue/request submission.</div>
+            <div class="item">Added Feedback module for collecting user inputs.</div>
+            <div class="item">Enhanced target and BU-wise selection with contextual target information.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-sync-alt"></i> Data & Automation</div><div class="items">
+            <div class="item">Added automated database ingest support for recurring data updates.</div>
+            <div class="item">Integrated Axiom public API for hours, devices, builds, and job summaries.</div>
+            <div class="item">Added Smart Build Report to reduce manual SharePoint-based weekly updates.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-bug"></i> CR & JIRA Features</div><div class="items">
+            <div class="item"><span class="jira">QIPLPDT-10652</span>Added CR Overview page with CR age, status, and target-level CR insights.</div>
+            <div class="item"><span class="jira">QIPLPDT-10651</span>Added Compute BU MTBF support for Hamoa data plotting.</div>
+            <div class="item"><span class="jira">QIPLPDT-10660</span>Added Hawi data integration for CR/JIRA/MTBF reporting.</div>
+            <div class="item"><span class="jira">QIPLPDT-10750</span>Added additional Hawi integration support for reporting continuity.</div>
+            <div class="item">Added JQL-based report generation.</div>
+            <div class="item">Added Open CRs view for target-level CR monitoring.</div>
+            <div class="item">Added Open JIRA view for target-level Jira monitoring.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-chart-line"></i> MTBF & Reports</div><div class="items">
+            <div class="item">Added MTBF trend visualization, update, and edit capabilities.</div>
+            <div class="item">Added monthly-wise report generation.</div>
+            <div class="item">Added weekly-wise reports with SharePoint data, CR age pie charts, and unique CR charts.</div>
+            <div class="item">Added current running build visibility.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-microchip"></i> HWPDT</div><div class="items">
+            <div class="item">Added HWPDT weekly chip summary reporting.</div>
+            <div class="item">Added HWPDT daily chip information reporting.</div>
+            <div class="item">Added HWPDT playlist update support per Certicom ID.</div>
+          </div></div>
         </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-ext"><i class="fas fa-external-link-alt"></i> External &amp; APIs</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>External page with multiple BU support</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>Auto Core Slides</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>Weekly data view</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>Public APIs for HQX Gen4.5 and HGY SP-wise</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10904</span>External page: option to remove domain in Live Status for MTBF trend</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </details>
 
-    <!-- Rev 2.6 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev26" style="font-size:7px;">2.6</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev26">
-          <span class="rh-rev__badge badge-rev26"><i class="fas fa-broadcast-tower" style="margin-right:5px;"></i>Rev 2.6</span>
-          <div>
-            <div class="rh-rev__title">WBC &amp; PL External Pages</div>
-            <div class="rh-rev__subtitle">WBC exclusive data generation, PL-specific external page</div>
-          </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-globe"></i> Rev 2.5</span><div><div class="revTitle">External Page & Multi-BU</div><div class="revSub">External reporting, Auto Core Slides, chatbot, public APIs</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody">
+          <div class="group"><div class="groupLabel"><i class="fas fa-external-link-alt"></i> External & APIs</div><div class="items">
+            <div class="item">Added external page support with multiple BU visibility.</div>
+            <div class="item">Added Auto Core Slides support.</div>
+            <div class="item">Added weekly data view support for external reporting workflows.</div>
+            <div class="item">Added chatbot-based filter report and CR information query support.</div>
+            <div class="item">Added public APIs for HQX Gen4.5 and HGY SP-wise reporting.</div>
+            <div class="item"><span class="jira">QIPLPDT-10904</span>Added option to remove domain in Live Status MTBF trend external page.</div>
+          </div></div>
         </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-ext"><i class="fas fa-sitemap"></i> Enhancements</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10905</span>[WBC][PDT_Buddy][Enhancement] Data generation exclusive to WBC</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10994</span>External page specific to PL added</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </details>
 
-    <!-- Rev 2.7 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev27" style="font-size:7px;">2.7</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev27">
-          <span class="rh-rev__badge badge-rev27"><i class="fas fa-columns" style="margin-right:5px;"></i>Rev 2.7</span>
-          <div>
-            <div class="rh-rev__title">Daily Report Columns</div>
-            <div class="rh-rev__subtitle">CR Assignee and CR Priority added for Nord HGY</div>
-          </div>
-        </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-report"><i class="fas fa-table"></i> Reports</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-11000</span>Additional columns in daily reports: CR Assignee (Full Name) and CR Priority for Nord HGY</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-broadcast-tower"></i> Rev 2.6</span><div><div class="revTitle">WBC & PL External Pages</div><div class="revSub">WBC-exclusive data generation and PL-specific external page</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody"><div class="group"><div class="groupLabel"><i class="fas fa-sitemap"></i> Enhancements</div><div class="items">
+          <div class="item"><span class="jira">QIPLPDT-10905</span>Added WBC-exclusive data generation flow.</div>
+          <div class="item"><span class="jira">QIPLPDT-10994</span>Added PL-specific external page support.</div>
+        </div></div></div>
+      </details>
 
-    <!-- Rev 2.8 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev28" style="font-size:7px;">2.8</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev28">
-          <span class="rh-rev__badge badge-rev28"><i class="fas fa-tag" style="margin-right:5px;"></i>Rev 2.8</span>
-          <div>
-            <div class="rh-rev__title">PDT Tag Integration</div>
-            <div class="rh-rev__subtitle">PDT CRs updated to read PDT Tag</div>
-          </div>
-        </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-cr"><i class="fas fa-tags"></i> CR Enhancements</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>PDT CRs updated to read PDT Tag</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-columns"></i> Rev 2.7</span><div><div class="revTitle">Daily Report Columns</div><div class="revSub">Additional CR context for Nord HGY daily reporting</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody"><div class="group"><div class="groupLabel"><i class="fas fa-table"></i> Reports</div><div class="items">
+          <div class="item"><span class="jira">QIPLPDT-11000</span>Added Daily Report columns for CR Assignee Full Name and CR Priority for Nord HGY.</div>
+        </div></div></div>
+      </details>
 
-    <!-- Rev 2.10 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot" style="background:linear-gradient(135deg,#0f172a,#1d4ed8);font-size:6px;">2.10</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);">
-          <span class="rh-rev__badge" style="background:#dbeafe;color:#1e40af;"><i class="fas fa-star" style="margin-right:5px;"></i>Rev 2.10 — Latest</span>
-          <div>
-            <div class="rh-rev__title">CR Age Report Redesign &amp; Weekly Report Cleanup</div>
-            <div class="rh-rev__subtitle">New chart layout, All CRs table, Copy Chart, Revision History page</div>
-          </div>
-        </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-cr"><i class="fas fa-chart-bar"></i> CR Age Report</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Redesigned chart: 3 bars per area — New Open/Analysis (single) | CR Age stacked (>3w → <1w) | Closed (single)</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Copy Chart button — copies SVG as PNG to clipboard (fallback: download)</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>All CRs table with 14 columns: S.No, CR-ID, Occurrence Last 1 Week, CR Overall Occurrences, CR Title, PDT Priority, CR Area, CR SubSystem, CR Functionality, CR Status, CR Age, First Instance, First Instance Date, Type</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Type column: New CR / Closed CR / Open/Analysis (color-coded badge)</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Filters: Type dropdown, Status dropdown, Search box</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Download Excel — exports all 14 columns with active filters applied</div>
-              <div class="rh-item"><span class="rh-item__dot dot-cr"></span>Auto-excludes DUP and Invalid/Withdrawn rows from All CRs table</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-ui"><i class="fas fa-desktop"></i> Weekly Report</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Removed "Weekly Report PPT" button from top bar</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Hidden CRM section (description, builds, tables, chart) — content moved to CR Age Report page</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ui"></span>Reduced bar GROUP_GAP 24 → 12 (tighter spacing between area groups)</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-report"><i class="fas fa-history"></i> Revision History</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>New page at <code>/revision-history</code> — premium timeline UI with color-coded revision cards and JIRA badges</div>
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Linked from Docs page hero grid</div>
-              <div class="rh-item"><span class="rh-item__dot dot-report"></span>Markdown version at <code>docs/REVISION_HISTORY.md</code></div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-data"><i class="fas fa-chart-line"></i> Chart Fixes</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span>Grid lines: changed to <code>#d1d5db</code> (visible gray), bottom axis line restored</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-tag"></i> Rev 2.8</span><div><div class="revTitle">PDT Tag Integration</div><div class="revSub">PDT CR classification updates</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody"><div class="group"><div class="groupLabel"><i class="fas fa-tags"></i> CR Enhancements</div><div class="items">
+          <div class="item">Updated PDT CR logic to read and use PDT Tag classification.</div>
+        </div></div></div>
+      </details>
 
-    <!-- Rev 2.9 -->
-    <div class="rh-rev">
-      <div class="rh-rev__dot dot-rev29" style="font-size:7px;">2.9</div>
-      <div class="rh-rev__card">
-        <div class="rh-rev__head head-rev29">
-          <span class="rh-rev__badge badge-rev29"><i class="fas fa-star" style="margin-right:5px;"></i>Rev 2.9</span>
-          <div>
-            <div class="rh-rev__title">WBC Live Data &amp; Build Selector</div>
-            <div class="rh-rev__subtitle">WBC live enhancement, monthly data, latest 5 Mainfarm builds selector</div>
-          </div>
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-wifi"></i> Rev 2.9</span><div><div class="revTitle">WBC Live Data & Build Selector</div><div class="revSub">WBC live enhancement, monthly data, latest five Mainfarm builds</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody"><div class="group"><div class="groupLabel"><i class="fas fa-server"></i> Live Data & Builds</div><div class="items">
+          <div class="item">Enhanced WBC live external data reporting.</div>
+          <div class="item">Added BU-wise monthly data availability.</div>
+          <div class="item">Added target-wise monthly data availability.</div>
+          <div class="item"><span class="jira">QIPLPDT-10995</span>Added latest five Mainfarm build selection with chart refresh support.</div>
+        </div></div></div>
+      </details>
+
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-star"></i> Rev 2.10</span><div><div class="revTitle">CR Age Report Redesign & Weekly Report Cleanup</div><div class="revSub">CR age charts, copy/export, revision history, fixes</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody">
+          <div class="group"><div class="groupLabel"><i class="fas fa-chart-bar"></i> CR Age Report</div><div class="items">
+            <div class="item">Redesigned CR Age Report with three bar categories: New Open/Analysis, CR Age stacked, and Closed CRs.</div>
+            <div class="item">Added Copy Chart button for CR Age Report using SVG-to-PNG clipboard support.</div>
+            <div class="item">Added All CRs table with 14 columns including CR ID, occurrence, title, priority, area, subsystem, functionality, status, age, first instance, date, and type.</div>
+            <div class="item">Added Type column to classify rows as New CR, Closed CR, or Open/Analysis.</div>
+            <div class="item">Added CR Age Report filters for Type, Status, and Search.</div>
+            <div class="item">Added Download Excel support for CR Age Report with active filters applied.</div>
+            <div class="item">Automatically excluded duplicate and invalid rows from CR Age Report calculations.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-file-alt"></i> Weekly Report & Docs</div><div class="items">
+            <div class="item">Removed Weekly Report PPT button from the top bar.</div>
+            <div class="item">Moved CRM weekly content into the CR Age Report page.</div>
+            <div class="item">Reduced weekly report area group spacing for tighter chart layout.</div>
+            <div class="item">Added Revision History page at <code>/revision-history</code>.</div>
+            <div class="item">Linked Revision History from the Dashboard Docs page.</div>
+            <div class="item">Added Markdown revision history documentation at <code>docs/REVISION_HISTORY.md</code>.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-wrench"></i> Fixes</div><div class="items">
+            <div class="item">Improved chart grid line visibility and restored bottom axis line.</div>
+            <div class="item"><span class="jira">QIPLPDT-11018</span>Fixed sanitizer JIRAs being incorrectly counted in system crashes bucket.</div>
+            <div class="item"><span class="jira">QIPLPDT-11005</span>Fixed Can't Duplicate CRs missing from valid CR average age distribution for Hamoa AL.</div>
+          </div></div>
         </div>
-        <div class="rh-rev__body">
-          <div class="rh-group">
-            <div class="rh-group__label grp-ext"><i class="fas fa-wifi"></i> Live Data</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>WBC live external data enhancement completed</div>
-              <div class="rh-item"><span class="rh-item__dot dot-ext"></span>BU and target-wise monthly data available</div>
-            </div>
-          </div>
-          <div class="rh-group">
-            <div class="rh-group__label grp-data"><i class="fas fa-server"></i> Build Management</div>
-            <div class="rh-group__items">
-              <div class="rh-item"><span class="rh-item__dot dot-data"></span><span class="rh-item__jira"><i class="fas fa-ticket-alt"></i>QIPLPDT-10995</span>Option to select latest 5 Mainfarm builds; chart data updates accordingly</div>
-            </div>
-          </div>
+      </details>
+
+      <details class="rev" open>
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-crown"></i> Rev 2.11 — Latest</span><div><div class="revTitle">Target Delta Studio, CR Overview, Device Summary, AI, Theme & Architecture</div><div class="revSub">Latest release with weekwise JIRA/unique CR trend and broader platform improvements</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody">
+          <div class="group"><div class="groupLabel"><i class="fas fa-code-compare"></i> Target Delta Studio</div><div class="items">
+            <div class="item"><span class="jira">QIPLPDT-11029</span>Added Target Delta Studio support for Hawi and Kaanapali AU comparison stats.</div>
+            <div class="item">Added Generate Weekwise Trend of JIRAs, CRs option in Target Delta Studio.</div>
+            <div class="item">Weekwise JIRA count includes rows from <code>jiras</code>, <code>openjiras</code>, and <code>closed_jiras</code> tables when available.</div>
+            <div class="item">Weekwise CR count uses unique mapped CR IDs per week, so duplicate CR mappings are counted once within the same week.</div>
+            <div class="item">Each target/delta set uses its own selected From JIRA Date and To JIRA Date for weekly trend generation.</div>
+            <div class="item">Different-year comparisons align by week sequence with month/day labels and without showing year in chart/table labels.</div>
+            <div class="item">Added CS Week selector to mark selected week as CS, previous weeks as CS-1, and next weeks as CS+1.</div>
+            <div class="item">Combined weekly graph shows target JIRAs and mapped CRs side-by-side in a single chart.</div>
+            <div class="item">Added copy-ready Chart and Table buttons for weekwise trend output.</div>
+            <div class="item">Improved Outlook paste behavior by copying charts with stable white background and consistent colors on HTTP/HTTPS.</div>
+            <div class="item">Added progress popup while generating weekly trend and target delta results.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-chart-pie"></i> CR Overview & Monthly Report</div><div class="items">
+            <div class="item">Enhanced CR Overview BU duplicate handling with an Include repeated CRs in BU option.</div>
+            <div class="item">Added PDT Unique CR support from OverallCrs and exposed PDT Unique CRs as a hero KPI.</div>
+            <div class="item">Updated CR Overview date filtering to use last-instance date when available so repeated CR activity within the selected period is included.</div>
+            <div class="item">Updated Monthly Report unique CR date filtering to match CR Overview last-instance behavior.</div>
+            <div class="item">Added Monthly Report Include NoSIR toggle matching CR Overview behavior.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-microchip"></i> Device Summary</div><div class="items">
+            <div class="item">Improved SP-only Device Summary inventory by enriching active devices through Axiom job playlists and resources.</div>
+            <div class="item">Added Device Summary target tab with MCN-wise, host-wise, running-device, and quarantine-inferred inventory reporting.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-brain"></i> AI, Agentic Flow & Analysis</div><div class="items">
+            <div class="item">Added Agentic AI flow design using a cost-optimized pattern: Python tools collect structured data first, then one optional QGenie/LLM call generates the final insight.</div>
+            <div class="item">Added CR Analysis Agent for one-click deep CR analysis with Orbit/JIRA/history/cross-BU data collection and cached QGenie synthesis.</div>
+            <div class="item">Added WBC Open CR Details with TEA API scenario details and optional QGenie analysis.</div>
+            <div class="item">Added QGenie-powered CR summary support for converting Orbit CR data into concise one-line summaries.</div>
+            <div class="item">Added ChatWise API integration as an alternative LLM-backed summary flow.</div>
+            <div class="item">Added QGenie Chat support with internal Qualcomm search assistance.</div>
+            <div class="item">Added text-to-SQL chatbot support for template/rule-based data queries with optional LLM fallback when required.</div>
+            <div class="item">Maintained per-session QGenie API key handling and model selection through configured QGenie model options.</div>
+            <div class="item">Defined agentic roadmap items for chatbot SQL agent, Core Deck LLM slide mapping, expanded MCP tools, Live Status Monitor Agent, and Report Narrative Agent.</div>
+          </div></div>
+          <div class="group"><div class="groupLabel"><i class="fas fa-palette"></i> UI, MTBF & Architecture</div><div class="items">
+            <div class="item">Improved UI theme with full dark-mode coverage, soft navy dark colors, and more vibrant light-mode backgrounds.</div>
+            <div class="item">Fixed Compute MTBF JSON routing so non-Glymur Compute targets use target-specific JSON folders.</div>
+            <div class="item">Added application composition registry for centralized blueprint registration.</div>
+            <div class="item">Added modular utility modules for user activity, cache utilities, CR utilities, authentication routes, navigation routes, and HWPDT routes.</div>
+            <div class="item">Maintained Windows PyInstaller packaging support for standalone PDT Buddy executable distribution.</div>
+          </div></div>
         </div>
-      </div>
-    </div>
+      </details>
 
-  </div><!-- /timeline -->
+      <details class="rev">
+        <summary><div class="revHead"><div class="revMain"><span class="revBadge"><i class="fas fa-layer-group"></i> Current Platform</span><div><div class="revTitle">Platform Capabilities Available in Current Codebase</div><div class="revSub">Cross-checked active modules, templates, routes, and memory-bank notes</div></div></div><div class="chev"><i class="fas fa-chevron-down"></i></div></div></summary>
+        <div class="revBody"><div class="group"><div class="groupLabel"><i class="fas fa-shield-halved"></i> Current Capabilities</div><div class="items">
+          <div class="item">Supports Qualcomm LDAP authentication with region-aware Orbit endpoint routing.</div>
+          <div class="item">Supports role-based access through admin users, bypass users, LDAP groups, and viewer scope controls.</div>
+          <div class="item">Supports multi-BU dashboard routing with target-specific MySQL schema mapping.</div>
+          <div class="item">Supports Live Status publishing, editing, public viewing, and target-specific status pages.</div>
+          <div class="item">Supports saved JQL tabs and saved JQL report generation for Live Status views.</div>
+          <div class="item">Supports public Auto Gen5 APIs for domain, SP, and all-data views without login.</div>
+          <div class="item">Supports public Auto Gen4.5 APIs for SP, HGY SP, search, create, edit, delete, and save-table flows.</div>
+          <div class="item">Supports public Orbit MTBF APIs for external consumers.</div>
+          <div class="item">Supports Device Summary APIs for upload, sheet selection, config save, refresh, devices list, add, edit, delete, restore, and inventory summary.</div>
+          <div class="item">Supports optional MCP MTBF server for external AI/tool access to MTBF trend data.</div>
+          <div class="item">Supports filesystem result caching with signed result tokens for generated reports.</div>
+          <div class="item">Supports Waitress WSGI server deployment for production-style Windows executable hosting.</div>
+        </div></div></div>
+      </details>
+    </section>
 
-  <div class="rh-footer">
-    <i class="fas fa-code-branch" style="margin-right:6px;color:#6366f1;"></i>
-    PDT Buddy Revision History &mdash; maintained by the PDT Buddy team
-  </div>
-
-</div>
+    <div class="footer"><i class="fas fa-code-branch"></i> PDT Buddy Revision History — maintained by the PDT Buddy team</div>
+  </main>
 </body>
 </html>

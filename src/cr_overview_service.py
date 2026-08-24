@@ -17,6 +17,7 @@ import traceback
 import threading
 import os
 import json
+import re
 from typing import Dict, List, Optional, Tuple, Any
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -570,6 +571,21 @@ SITE_LABELS = {
 }
 
 
+def _title_has_sd_marker(title: str) -> bool:
+    """
+    Return True when a Jira title carries an SD PDT marker.
+
+    DailyData currently emits SD titles like:
+      SA8797P.HGY.5.1.7.0_PDTSD - [...]
+      MASTERQ: SA8797P.HGY.5.1.7.0_PDTSD - [...]
+
+    The previous logic only matched PDT-SD / PDT_SD, so these PDTSD rows were
+    incorrectly left in QIPL when IsSeenAtQIPL_PDT was PDT_QIPL_Seen.
+    """
+    t = str(title or "").upper()
+    return bool(re.search(r"(?:^|[^A-Z0-9])PDT[-_ ]?SD(?:[^A-Z0-9]|$)", t))
+
+
 def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
                    jira_titles: List[str],
                    has_site_col: bool = True,
@@ -610,7 +626,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
         for title in (jira_titles or []):
             t = title.upper()
             if "CNPDT" in t:                    has_ch = True   # CH site marker
-            if "PDT-SD" in t or "PDT_SD" in t:  has_sd = True   # SD site marker
+            if _title_has_sd_marker(t):          has_sd = True   # SD site marker
             if has_ch and has_sd: break
         if has_ch and has_sd: return "PDT_ALL"
         if has_ch:            return "PDT_QIPL_AND_CH"
@@ -623,7 +639,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
         for title in (jira_titles or []):
             t = title.upper()
             if "CNPDT" in t:                    has_ch = True
-            if "PDT-SD" in t or "PDT_SD" in t:  has_sd = True
+            if _title_has_sd_marker(t):          has_sd = True
             if has_ch and has_sd: break
         if has_ch and has_sd: return "PDT_SD_AND_CH"
         if has_ch:            return "PDT_CH"
@@ -635,7 +651,7 @@ def _classify_site(pdt_site_unique: str, is_seen_at_qipl_raw: str,
     for title in (jira_titles or []):
         t = title.upper()
         if "PDT_QIPL" in t or "PDT-QIPL" in t or "CNPDT" in t: has_qipl = True
-        if "PDT-SD" in t or "PDT_SD" in t:                       has_sd   = True
+        if _title_has_sd_marker(t):                              has_sd   = True
         if "PDT-CH" in t or "PDT_CH" in t:                       has_ch   = True
     if has_qipl and has_sd and has_ch: return "PDT_ALL"
     if has_qipl and has_ch:            return "PDT_QIPL_AND_CH"

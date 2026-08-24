@@ -23,6 +23,7 @@ import os
 import re
 import time
 from collections import defaultdict
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -1048,6 +1049,183 @@ def _normalize_compare_entities(raw_entities: List[Dict[str, Any]]) -> List[Dict
     return entities
 
 
+def _parse_iso_date(value: Any) -> Optional[date]:
+    text = str(value or "").strip()[:10]
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _format_week_label(start: date, end: date) -> str:
+    if start.month == end.month:
+        return f"{start.strftime('%b')} {start.day:02d} - {end.day:02d}"
+    return f"{start.strftime('%b')} {start.day:02d} - {end.strftime('%b')} {end.day:02d}"
+
+
+def _build_week_windows(date_from: str, date_to: str) -> List[Dict[str, str]]:
+    start = _parse_iso_date(date_from)
+    end = _parse_iso_date(date_to)
+    if not start or not end:
+        raise ValueError("Select both From JIRA Date and To JIRA Date to generate weekwise trend.")
+    if start > end:
+        start, end = end, start
+
+    weeks: List[Dict[str, str]] = []
+    cursor = start
+    while cursor <= end:
+        week_end = min(cursor + timedelta(days=6), end)
+        weeks.append({
+            "label": _format_week_label(cursor, week_end),
+            "start": cursor.isoformat(),
+            "end": week_end.isoformat(),
+        })
+        cursor = week_end + timedelta(days=1)
+    return weeks
+
+
+def _fetch_entity_weekwise_jira_cr_counts(entity: Dict[str, Any], weeks: List[Dict[str, str]]) -> Dict[str, Dict[str, Any]]:
+    targets = _canonical_targets(entity.get("targets") or [])
+    week_stats: Dict[str, Dict[str, Any]] = {
+        week["start"]: {
+            "label": week["label"],
+            "start": week["start"],
+            "end": week["end"],
+            "jira_count": 0,
+            "cr_ids": set(),
+            "target_breakdown": defaultdict(lambda: {"jira_count": 0, "cr_ids": set()}),
+        }
+        for week in weeks
+    }
+    if not targets or not weeks:
+        return week_stats
+
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return week_stats
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        for target in targets:
+            target_info = dc.get_target_info(target) or {}
+            prefix = str(target_info.get("db_prefix") or target).lower()
+            schema = dc.get_schema_for_target(target)
+            if not schema:
+                continue
+
+            for suffix in ("jiras", "openjiras", "closed_jiras"):
+                table_name = f"{prefix}_{suffix}"
+                cursor.execute(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1",
+                    (schema, table_name),
+                )
+                if cursor.fetchone() is None:
+                    continue
+
+                fq_table = f"`{schema}`.`{table_name}`"
+                cursor.execute(f"SHOW COLUMNS FROM {fq_table}")
+                jira_cols = {str(r.get('Field') or '').lower() for r in (cursor.fetchall() or [])}
+                date_col = next((c for c in ("jira_date", "date", "created") if c in jira_cols), None)
+                cr_col = next((c for c in ("mapped_crs", "mapped_cr", "cr") if c in jira_cols), None)
+                if not date_col or not cr_col:
+                    continue
+
+                cursor.execute(
+                    f"SELECT DATE(`{date_col}`) AS jira_day, `{cr_col}` AS cr_values "
+                    f"FROM {fq_table} WHERE DATE(`{date_col}`) >= %s AND DATE(`{date_col}`) <= %s",
+                    (weeks[0]["start"], weeks[-1]["end"]),
+                )
+                for jira_row in cursor.fetchall() or []:
+                    jira_day = _parse_iso_date(jira_row.get("jira_day"))
+                    if not jira_day:
+                        continue
+                    for week in weeks:
+                        week_start = _parse_iso_date(week["start"])
+                        week_end = _parse_iso_date(week["end"])
+                        if not week_start or not week_end or not (week_start <= jira_day <= week_end):
+                            continue
+                        stats = week_stats[week["start"]]
+                        stats["jira_count"] += 1
+                        stats["target_breakdown"][target]["jira_count"] += 1
+                        for cr_id in _split_cr_tokens(jira_row.get("cr_values")):
+                            stats["cr_ids"].add(cr_id)
+                            stats["target_breakdown"][target]["cr_ids"].add(cr_id)
+                        break
+    finally:
+        cursor.close()
+        conn.close()
+
+    return week_stats
+
+
+def build_weekwise_trend(payload: Dict[str, Any]) -> Dict[str, Any]:
+    entities = _normalize_compare_entities(payload.get("entities") or [])
+    if not entities:
+        raise ValueError("Add at least one target/delta set to generate weekwise trend.")
+
+    global_from = str(payload.get("date_from") or "").strip()[:10]
+    global_to = str(payload.get("date_to") or "").strip()[:10]
+
+    entity_weeks: Dict[str, List[Dict[str, str]]] = {}
+    max_week_count = 0
+    for entity in entities:
+        entity_from = str(entity.get("date_from") or global_from or "").strip()[:10]
+        entity_to = str(entity.get("date_to") or global_to or "").strip()[:10]
+        weeks_for_entity = _build_week_windows(entity_from, entity_to)
+        entity_weeks[entity["label"]] = weeks_for_entity
+        max_week_count = max(max_week_count, len(weeks_for_entity))
+
+    if max_week_count <= 0:
+        raise ValueError("Select From JIRA Date and To JIRA Date for each target/delta set.")
+
+    per_entity = {
+        entity["label"]: _fetch_entity_weekwise_jira_cr_counts(entity, entity_weeks.get(entity["label"]) or [])
+        for entity in entities
+    }
+
+    rows = []
+    for idx in range(max_week_count):
+        label_week = next((entity_weeks.get(entity["label"], [])[idx] for entity in entities if idx < len(entity_weeks.get(entity["label"], []))), None)
+        row = {
+            "label": label_week["label"] if label_week else f"Week {idx + 1}",
+            "start": label_week["start"] if label_week else "",
+            "end": label_week["end"] if label_week else "",
+            "entities": {},
+        }
+        for entity in entities:
+            label = entity["label"]
+            weeks_for_entity = entity_weeks.get(label) or []
+            entity_week = weeks_for_entity[idx] if idx < len(weeks_for_entity) else None
+            stats = per_entity.get(label, {}).get(entity_week["start"], {}) if entity_week else {}
+            target_breakdown = {}
+            for target, tstats in (stats.get("target_breakdown") or {}).items():
+                target_breakdown[target] = {
+                    "jira_count": int(tstats.get("jira_count") or 0),
+                    "cr_count": len(tstats.get("cr_ids") or set()),
+                }
+            row["entities"][label] = {
+                "jira_count": int(stats.get("jira_count") or 0),
+                "cr_count": len(stats.get("cr_ids") or set()),
+                "start": entity_week["start"] if entity_week else "",
+                "end": entity_week["end"] if entity_week else "",
+                "range_label": entity_week["label"] if entity_week else "",
+                "targets": target_breakdown,
+            }
+        rows.append(row)
+
+    all_starts = [weeks[0]["start"] for weeks in entity_weeks.values() if weeks]
+    all_ends = [weeks[-1]["end"] for weeks in entity_weeks.values() if weeks]
+    return {
+        "entities": entities,
+        "weeks": rows,
+        "date_from": min(all_starts) if all_starts else "",
+        "date_to": max(all_ends) if all_ends else "",
+        "generated_at": int(time.time()),
+    }
+
+
 def compare_entities(payload: Dict[str, Any]) -> Dict[str, Any]:
     raw_entities = payload.get("entities") or []
     entities = _normalize_compare_entities(raw_entities)
@@ -1179,6 +1357,19 @@ def api_cr_compare():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@cr_compare_bp.route("/api/cr_compare/weekwise_trend", methods=["POST"])
+@login_required
+def api_cr_compare_weekwise_trend():
+    try:
+        payload = request.get_json(silent=True) or {}
+        return jsonify(build_weekwise_trend(payload))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("cr_compare weekwise trend error")
         return jsonify({"error": str(exc)}), 500
 
 

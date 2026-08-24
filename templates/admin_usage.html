@@ -252,6 +252,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
             <button class="au-period-tab"         data-period="daily"   onclick="event.stopPropagation()">Day</button>
             <button class="au-period-tab"         data-period="weekly"  onclick="event.stopPropagation()">Week</button>
             <button class="au-period-tab active"  data-period="monthly" onclick="event.stopPropagation()">Month</button>
+            <button class="au-period-tab"         data-period="yearly"  onclick="event.stopPropagation()">Year</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-right:8px;">
@@ -318,6 +319,48 @@ table.tm-table tr:hover td { background:#f0f4ff; }
       <div class="au-chart-inner">
         <div class="au-chart-title"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Failure Reasons</div>
         <div class="au-failure-list" id="au-failure-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
+      </div>
+
+      <!-- External user BU / Target tracking -->
+      <div class="au-bottom-row" style="margin-top:14px;">
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-layer-group" style="color:#0ea5e9;"></i> External Users by BU &mdash; <span id="au-ext-bu-period-label">Last 12 months</span></div>
+          <div style="overflow-x:auto;max-height:300px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">#</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">BU</th>
+                  <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Users</th>
+                  <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Actions</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Last Seen</th>
+                </tr>
+              </thead>
+              <tbody id="au-external-bu-tbody">
+                <tr><td colspan="5" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="au-chart-inner">
+          <div class="au-chart-title"><i class="fas fa-bullseye" style="color:#8b5cf6;"></i> External Users by Target &mdash; <span id="au-ext-target-period-label">Last 12 months</span></div>
+          <div style="overflow-x:auto;max-height:300px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">#</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Target</th>
+                  <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">BU</th>
+                  <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Users</th>
+                  <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;border-bottom:2px solid #e5e7eb;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="au-external-target-tbody">
+                <tr><td colspan="5" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Login Users -->
@@ -637,7 +680,7 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
     filterUser = val || '';
     loadUsage();
   };
-  var labels = { daily:'Today', weekly:'Last 7 days', monthly:'Last 12 months' };
+  var labels = { daily:'Today', weekly:'Last 7 days', monthly:'Last 12 months', yearly:'Last 5 years' };
 
   document.querySelectorAll('.au-period-tab').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
@@ -687,6 +730,7 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
         renderActionChart(d);
         renderRecentUsers(d);
         renderFailureReasons(d);
+        renderExternalTracking(d);
         renderLoginUsers(d);
       })
       .catch(function(e){ console.error('Usage load failed:',e); });
@@ -774,6 +818,50 @@ var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
     }).join('');
   }
 
+
+  function renderExternalTracking(d) {
+    var lblText = labels[period] || period;
+    var buLbl = document.getElementById('au-ext-bu-period-label');
+    var targetLbl = document.getElementById('au-ext-target-period-label');
+    if (buLbl) buLbl.textContent = lblText;
+    if (targetLbl) targetLbl.textContent = lblText;
+
+    var buRows = d.external_by_bu || [];
+    var buBody = document.getElementById('au-external-bu-tbody');
+    if (buBody) {
+      if (!buRows.length) {
+        buBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;">No external BU activity for selected period.</td></tr>';
+      } else {
+        buBody.innerHTML = buRows.map(function(r, i) {
+          return '<tr style="border-bottom:1px solid #f1f5f9;">'
+            + '<td style="padding:8px 12px;color:#9ca3af;font-size:11px;">' + (i + 1) + '</td>'
+            + '<td style="padding:8px 12px;font-size:13px;font-weight:800;color:#1e3a8a;">' + escHtml(r.bu || 'UNKNOWN') + '</td>'
+            + '<td style="padding:8px 12px;text-align:center;"><span style="background:#e0f2fe;color:#0369a1;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;">' + parseInt(r.unique_users || 0) + '</span></td>'
+            + '<td style="padding:8px 12px;text-align:center;"><span style="background:#ede9fe;color:#6d28d9;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;">' + parseInt(r.total_actions || 0) + '</span></td>'
+            + '<td style="padding:8px 12px;font-size:11px;color:#64748b;">' + escHtml(r.last_seen || '-') + '</td>'
+            + '</tr>';
+        }).join('');
+      }
+    }
+
+    var targetRows = d.external_by_target || [];
+    var targetBody = document.getElementById('au-external-target-tbody');
+    if (targetBody) {
+      if (!targetRows.length) {
+        targetBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:28px;color:#9ca3af;font-size:13px;">No external target activity for selected period.</td></tr>';
+      } else {
+        targetBody.innerHTML = targetRows.map(function(r, i) {
+          return '<tr style="border-bottom:1px solid #f1f5f9;">'
+            + '<td style="padding:8px 12px;color:#9ca3af;font-size:11px;">' + (i + 1) + '</td>'
+            + '<td style="padding:8px 12px;font-size:13px;font-weight:800;color:#312e81;">' + escHtml(r.target_name || 'UNKNOWN') + '</td>'
+            + '<td style="padding:8px 12px;font-size:12px;color:#475569;">' + escHtml(r.bu || 'UNKNOWN') + '</td>'
+            + '<td style="padding:8px 12px;text-align:center;"><span style="background:#e0f2fe;color:#0369a1;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;">' + parseInt(r.unique_users || 0) + '</span></td>'
+            + '<td style="padding:8px 12px;text-align:center;"><span style="background:#ede9fe;color:#6d28d9;font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;">' + parseInt(r.total_actions || 0) + '</span></td>'
+            + '</tr>';
+        }).join('');
+      }
+    }
+  }
 
   function renderLoginUsers(d) {
     var COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
