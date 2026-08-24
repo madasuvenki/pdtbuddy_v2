@@ -152,8 +152,8 @@
       </div>
     </section>
         <section id="tab-mtbf" class="tab-section">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
-      <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2>{% if can_edit %}<div class="toolbar"><button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button></div>{% endif %}</div><div class="tbl-wrap"><table class="tbl"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;font-size:11px;font-weight:900;color:#3730a3">Build <select id="mtbfBuildSelect" class="input" style="height:28px;min-width:360px;max-width:48vw;padding:0 8px;font-size:11px;border-radius:8px" onchange="mtbfBuildSelectChanged()"><option value="">All builds</option></select></label><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2><div class="toolbar"><span id="mtbfBuildFilterInfo" class="small-muted"></span>{% if can_edit %}<button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}</div></div><div class="tbl-wrap"><table class="tbl"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
     </section>
         <section id="tab-weekly" class="tab-section">
       <div id="wkPlatBanner" class="plat-banner hqx"><i class="fas fa-microchip"></i> <span id="wkPlatBannerText">Showing <b>HQX</b> data for this SP</span></div>
@@ -1246,7 +1246,7 @@ const CAN_EDIT={{ can_edit|tojson }};
 const IS_ADMIN={{ is_admin|tojson }};
 const JIRA_FILTER_ID={{ jira_pdt_filter_id|tojson }};
 const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
-let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null;
+let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null, activeMtbfBuild='';
 let config={sheet_tables:{}}, dbTables=[];
 const CURRENT_REPORT_TTL_MS = 30 * 60 * 1000;
 let currentReportCache = {}, currentReportSelectedBuild = '';
@@ -1372,7 +1372,7 @@ async function doRemoveSp(){
     if(msg) msg.innerHTML='<span style="color:#dc2626">'+_irEsc(e.message||String(e))+'</span>';
   }
 }
-async function selectSp(sp){activeSp=String(sp||'');resetLiveApiTabs();renderSpList();hydrateConfigForm();setText('heroTitle','SP '+activeSp);setText('heroSub','Loading '+activeSp+'...');['currentBox','gen45SjqlBox','snapshotBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';});try{
+async function selectSp(sp){activeSp=String(sp||'');activeMtbfBuild='';resetLiveApiTabs();renderSpList();hydrateConfigForm();setText('heroTitle','SP '+activeSp);setText('heroSub','Loading '+activeSp+'...');['currentBox','gen45SjqlBox','snapshotBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty"><i class="fas fa-circle-notch fa-spin"></i> Loading...</div>';});try{
     // Always load HQX sheet data (used for MTBF chart, table, core slides when HQX active)
     const hqxPromise=getJson(`${PUBLIC_API}/sp/${encodeURIComponent(activeSp)}?summary=1`);
     // Load HGY rows separately from the HGY JSON store
@@ -1899,6 +1899,21 @@ function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
   _crRenderTable();
 }
 function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
+function _normBuild(v){return String(v==null?'':v).trim().toLowerCase();}
+function _rowBuildMatchText(r){return [rawBuildId(r),r.build_id,r.build_s,r.builds,r.build,r.meta_id,r.meta,r.software_product,r.product_flavor].map(v=>String(v||'')).join(' ');}
+function mtbfDisplayRows(){if(!activeMtbfBuild)return rows();const k=_normBuild(activeMtbfBuild);return rows().filter(r=>_normBuild(_rowBuildMatchText(r)).includes(k));}
+function renderMtbfBuildSelect(){
+  const sel=document.getElementById('mtbfBuildSelect'); if(!sel)return;
+  const seen=new Map();
+  rows().forEach(r=>{
+    const val=String(rawBuildId(r)||'').trim();
+    if(val&&val!=='-')seen.set(_normBuild(val),val);
+  });
+  const opts=Array.from(seen.values()).sort((a,b)=>a.localeCompare(b));
+  if(activeMtbfBuild&&!opts.some(v=>_normBuild(v)===_normBuild(activeMtbfBuild)))activeMtbfBuild='';
+  sel.innerHTML='<option value="">All builds</option>'+opts.map(v=>`<option value="${esc(v)}" ${_normBuild(v)===_normBuild(activeMtbfBuild)?'selected':''}>${esc(v)}</option>`).join('');
+}
+function mtbfBuildSelectChanged(){activeMtbfBuild=(document.getElementById('mtbfBuildSelect')||{}).value||'';renderCharts();renderTable();}
 function metaId(r){
   if(r&&(r.meta_id||r.meta))return String(r.meta_id||r.meta).trim();
   const raw=String(rawBuildId(r)||'').trim();
@@ -1912,7 +1927,7 @@ function metaId(r){
 function chartRows(){
   const includeZero=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
   const map=new Map();
-  rows().forEach((r,idx)=>{
+    mtbfDisplayRows().forEach((r,idx)=>{
     const meta=String(metaId(r)||'-').trim()||'-';
     if(meta==='-')return;
     const h=n(r.hours||r.total_hours||r.Hours||r.HOURS);
@@ -2030,9 +2045,11 @@ function fixedTableColumns(){return[
 
     // Sort rows: latest date first
 
-    const _sortedRows=[...rows()].sort((a,b)=>{const da=Date.parse(dateVal(a)||''),db=Date.parse(dateVal(b)||'');return(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)?db-da:0;});
+    renderMtbfBuildSelect();
+    const _baseRows=mtbfDisplayRows();
+    const _sortedRows=[..._baseRows].sort((a,b)=>{const da=Date.parse(dateVal(a)||''),db=Date.parse(dateVal(b)||'');return(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)?db-da:0;});
 
-    const filtered=_sortedRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(rows().flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
+    const filtered=_sortedRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));setText('mtbfBuildFilterInfo',activeMtbfBuild?`Build: ${activeMtbfBuild} · ${filtered.length}/${rows().length} rows`:`${filtered.length}/${rows().length} rows`);const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(_baseRows.flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const cols=fixed.concat(extra);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 // ---------------------------------------------------------------------------
 // Add Build modal â€” appends a new row to this SP's own per-SP JSON file.
 // The form shows every raw column present in the SP's rows (except
