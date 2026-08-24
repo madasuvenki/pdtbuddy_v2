@@ -1035,30 +1035,66 @@ def api_public_hgy_remove_sp(sp: str):
 
 
 # =============================================================================
-# HGY MTBF Excel import — reads \\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart
-# Each worksheet = one SP.  Columns mapped: Date, Build/Meta, Hours, Crashes, MTBF.
+# HGY MTBF sync — reads SP-named Excel from Gen4.5/HGY/ directory
+# Each SP has its own workbook; MTBF rows come from Mainline_Build_Details sheet.
 # =============================================================================
 
-_HGY_MTBF_EXCEL_PATH = os.environ.get(
-    "PDTBUDDY_HGY_MTBF_EXCEL",
-    r"\\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart",
-)
+def _hgy_sp_excel_path(sp: str) -> str:
+    """Return the expected Excel path for a HGY SP in the HGY directory.
+
+    Tries common naming patterns:
+      <HGY_DIR>/<sp>.xlsx
+      <HGY_DIR>/SP<sp>.xlsx
+      <HGY_DIR>/<sp>_*.xlsx  (first match)
+    """
+    hgy_dir = _platform_dir("HGY")
+    candidates = [
+        os.path.join(hgy_dir, f"{sp}.xlsx"),
+        os.path.join(hgy_dir, f"SP{sp}.xlsx"),
+        os.path.join(hgy_dir, f"sp{sp}.xlsx"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    # Glob for any file starting with the SP number
+    import glob
+    pattern = os.path.join(hgy_dir, f"*{sp}*.xlsx")
+    matches = sorted(glob.glob(pattern))
+    if matches:
+        return matches[0]
+    return ""
 
 
-def _hgy_mtbf_excel_path() -> str:
-    return os.path.abspath(os.path.expandvars(_HGY_MTBF_EXCEL_PATH))
+def _read_sp_mtbf_excel(excel_path: str, sheet_hint: str = "") -> list:
+    """Read MTBF rows from an SP Excel workbook.
 
-
-def _read_hgy_mtbf_excel(excel_path: str) -> dict:
-    """Read every sheet from the MTBF_Trend_chart workbook.
-
-    Returns {sheet_name: [row_dict, ...]} where each row has normalised keys:
-    date, build_s, hours, crashes, mtbf.
+    Looks for a sheet named Mainline_Build_Details (or similar).
+    Returns list of row dicts with keys: date, build_s, hours, crashes, mtbf.
     """
     import openpyxl  # type: ignore
+    import datetime as _dt
 
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
-    result: dict = {}
+
+    # Find the MTBF sheet
+    MTBF_SHEET_NAMES = {
+        "mainline_build_details", "mainline build details",
+        "build_details", "build details", "mtbf", "mtbf_trend",
+        "mtbf trend", "pdt_mtbf", "pdt mtbf"
+    }
+    target_sheet = None
+    if sheet_hint and sheet_hint in wb.sheetnames:
+        target_sheet = sheet_hint
+    else:
+        for sn in wb.sheetnames:
+            if sn.strip().lower() in MTBF_SHEET_NAMES:
+                target_sheet = sn
+                break
+        if not target_sheet:
+            target_sheet = wb.sheetnames[0]
+
+    ws = wb[target_sheet]
+    rows_iter = ws.iter_rows(values_only=True)
 
     DATE_KEYS   = {"date", "report date", "week", "report_date"}
     BUILD_KEYS  = {"build", "build id", "build_id", "meta", "meta id", "meta_id",
@@ -1067,93 +1103,78 @@ def _read_hgy_mtbf_excel(excel_path: str) -> dict:
     CRASH_KEYS  = {"crashes", "crash", "total crashes", "crash count"}
     MTBF_KEYS   = {"mtbf", "pdt mtbf"}
 
-    def _norm(h: str) -> str:
+    def _norm(h):
         return str(h or "").strip().lower().replace("_", " ")
 
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows_iter = ws.iter_rows(values_only=True)
-        # Find header row (first non-empty row)
-        headers = []
-        for raw_row in rows_iter:
-            cells = [str(c or "").strip() for c in raw_row]
-            if any(cells):
-                headers = cells
-                break
-        if not headers:
+    headers = []
+    for raw_row in rows_iter:
+        cells = [str(c or "").strip() for c in raw_row]
+        if any(cells):
+            headers = cells
+            break
+
+    col_date = col_build = col_hours = col_crash = col_mtbf = None
+    for i, h in enumerate(headers):
+        hn = _norm(h)
+        if hn in DATE_KEYS and col_date is None:
+            col_date = i
+        elif hn in BUILD_KEYS and col_build is None:
+            col_build = i
+        elif hn in HOURS_KEYS and col_hours is None:
+            col_hours = i
+        elif hn in CRASH_KEYS and col_crash is None:
+            col_crash = i
+        elif hn in MTBF_KEYS and col_mtbf is None:
+            col_mtbf = i
+
+    result = []
+    sno = 1
+    for raw_row in rows_iter:
+        def _cell(idx):
+            if idx is None or idx >= len(raw_row):
+                return ""
+            v = raw_row[idx]
+            if v is None:
+                return ""
+            try:
+                if isinstance(v, (_dt.date, _dt.datetime)):
+                    return str(v)[:10]
+            except Exception:
+                pass
+            return str(v).strip()
+
+        date_val  = _cell(col_date)
+        build_val = _cell(col_build)
+        hours_val = _cell(col_hours)
+        crash_val = _cell(col_crash)
+        mtbf_val  = _cell(col_mtbf)
+
+        if not any([date_val, build_val, hours_val, crash_val, mtbf_val]):
             continue
 
-        # Map column indices
-        col_date = col_build = col_hours = col_crash = col_mtbf = None
-        for i, h in enumerate(headers):
-            hn = _norm(h)
-            if hn in DATE_KEYS and col_date is None:
-                col_date = i
-            elif hn in BUILD_KEYS and col_build is None:
-                col_build = i
-            elif hn in HOURS_KEYS and col_hours is None:
-                col_hours = i
-            elif hn in CRASH_KEYS and col_crash is None:
-                col_crash = i
-            elif hn in MTBF_KEYS and col_mtbf is None:
-                col_mtbf = i
-
-        sheet_rows = []
-        sno = 1
-        for raw_row in rows_iter:
-            def _cell(idx):
-                if idx is None or idx >= len(raw_row):
-                    return ""
-                v = raw_row[idx]
-                if v is None:
-                    return ""
-                # Excel date serial → string
-                try:
-                    import datetime as _dt
-                    if isinstance(v, (_dt.date, _dt.datetime)):
-                        return str(v)[:10]
-                except Exception:
-                    pass
-                return str(v).strip()
-
-            date_val  = _cell(col_date)
-            build_val = _cell(col_build)
-            hours_val = _cell(col_hours)
-            crash_val = _cell(col_crash)
-            mtbf_val  = _cell(col_mtbf)
-
-            # Skip completely empty rows
-            if not any([date_val, build_val, hours_val, crash_val, mtbf_val]):
-                continue
-
-            sheet_rows.append({
-                "sno"       : sno,
-                "excel_row" : sno + 1,
-                "date"      : date_val,
-                "build_s"   : build_val,
-                "hours"     : hours_val,
-                "crashes"   : crash_val,
-                "mtbf"      : mtbf_val,
-            })
-            sno += 1
-
-        if sheet_rows:
-            result[sheet_name] = sheet_rows
+        result.append({
+            "sno"       : sno,
+            "excel_row" : sno + 1,
+            "date"      : date_val,
+            "build_s"   : build_val,
+            "hours"     : hours_val,
+            "crashes"   : crash_val,
+            "mtbf"      : mtbf_val,
+        })
+        sno += 1
 
     wb.close()
     return result
 
 
-@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/mtbf_excel/import",
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/sync_mtbf_excel",
                              methods=["POST", "OPTIONS"])
 @login_required
-def api_public_hgy_mtbf_excel_import():
-    """Read MTBF_Trend_chart Excel (each sheet = one SP) and save rows into HGY JSON store.
+def api_public_hgy_sync_mtbf_excel(sp: str):
+    """Read MTBF rows from the SP-named Excel in the HGY directory and save to JSON.
 
     POST body (optional):
-      { "excel_path": "...", "dry_run": false }
-
-    Returns per-sheet import summary.
+      { "excel_path": "...", "sheet": "Mainline_Build_Details" }
     """
     if request.method == "OPTIONS":
         return "", 204
@@ -1161,90 +1182,51 @@ def api_public_hgy_mtbf_excel_import():
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     payload    = request.get_json(force=True, silent=True) or {}
-    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_path()
-    dry_run    = bool(payload.get("dry_run", False))
+    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_sp_excel_path(sp)
+    sheet_hint = str(payload.get("sheet") or "").strip()
 
+    if not excel_path:
+        return jsonify({"ok": False,
+                        "error": f"No Excel file found for SP {sp!r} in HGY directory. "
+                                 f"Expected: {_platform_dir('HGY')}\\{sp}.xlsx"}), 404
     if not os.path.exists(excel_path):
         return jsonify({"ok": False,
                         "error": f"Excel file not found: {excel_path}"}), 404
 
     try:
-        sheets = _read_hgy_mtbf_excel(excel_path)
+        rows = _read_sp_mtbf_excel(excel_path, sheet_hint)
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Excel read failed: {exc}"}), 500
 
-    actor   = str(getattr(current_user, "id", "") or "").strip()
-    summary = []
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp)
 
-    for sheet_name, rows in sheets.items():
-        sp_raw  = str(sheet_name).strip()
-        digits  = "".join(re.findall(r"\d+", sp_raw))
-        sp_key  = digits or sp_raw
-        program = sp_raw
+    if not entry:
+        # Auto-create the SP
+        digits = "".join(re.findall(r"\d+", sp))
+        sp_key = digits or sp
+        slug   = _sp_file_slug(sp)
+        entry  = {"sp": sp_key, "program": sp, "domain": "",
+                  "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
+        _atomic_write_json(_platform_sp_file_path("HGY", sp, slug), {
+            "sp": sp_key, "program": sp, "domain": "",
+            "platform": "HGY", "rows": [],
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        })
+        index.append(entry)
+        _platform_write_index("HGY", index)
 
-        if dry_run:
-            summary.append({"sheet": sheet_name, "sp": sp_key,
-                             "rows": len(rows), "action": "dry_run"})
-            continue
-
-        index = _platform_read_index("HGY")
-        entry = _platform_find_entry(index, sp_key)
-
-        if not entry:
-            # Auto-create the SP
-            slug  = _sp_file_slug(program)
-            entry = {"sp": sp_key, "program": program, "domain": "",
-                     "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
-            _atomic_write_json(_platform_sp_file_path("HGY", program, slug), {
-                "sp": sp_key, "program": program, "domain": "",
-                "platform": "HGY", "rows": [],
-                "updated_at": datetime.utcnow().isoformat() + "Z",
-            })
-            index.append(entry)
-            _platform_write_index("HGY", index)
-            action = "created"
-        else:
-            action = "updated"
-
-        _platform_write_sp_rows("HGY", entry, rows)
-        _platform_write_audit("HGY", f"mtbf_excel_import_{action}",
-                              sp_key, program, actor,
-                              {"sheet": sheet_name, "row_count": len(rows),
-                               "excel_path": excel_path})
-        summary.append({"sheet": sheet_name, "sp": sp_key,
-                         "rows": len(rows), "action": action})
+    _platform_write_sp_rows("HGY", entry, rows)
+    actor = str(getattr(current_user, "id", "") or "").strip()
+    _platform_write_audit("HGY", "sync_mtbf_excel",
+                          entry["sp"], entry.get("program", sp), actor,
+                          {"excel_path": excel_path, "row_count": len(rows)})
 
     return jsonify({
-        "ok"          : True,
-        "excel_path"  : excel_path,
-        "dry_run"     : dry_run,
-        "sheets_found": len(sheets),
-        "summary"     : summary,
+        "ok"        : True,
+        "sp"        : entry["sp"],
+        "platform"  : "HGY",
+        "excel_path": excel_path,
+        "row_count" : len(rows),
+        "rows"      : rows,
     })
-
-
-@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/mtbf_excel/list_sheets",
-                             methods=["POST", "OPTIONS"])
-@login_required
-def api_public_hgy_mtbf_excel_list_sheets():
-    """Return the sheet names in the MTBF_Trend_chart Excel without importing."""
-    if request.method == "OPTIONS":
-        return "", 204
-    if not _can_edit_auto_gen45():
-        return jsonify({"ok": False, "error": "Access denied"}), 403
-
-    payload    = request.get_json(force=True, silent=True) or {}
-    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_path()
-
-    if not os.path.exists(excel_path):
-        return jsonify({"ok": False,
-                        "error": f"Excel file not found: {excel_path}"}), 404
-    try:
-        import openpyxl  # type: ignore
-        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
-        sheets = wb.sheetnames
-        wb.close()
-        return jsonify({"ok": True, "excel_path": excel_path,
-                        "sheets": list(sheets), "count": len(sheets)})
-    except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
