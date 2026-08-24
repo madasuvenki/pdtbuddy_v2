@@ -63,11 +63,12 @@ def _read_sheet(ws):
     if not headers:
         return []
 
-    # Actual HGY Excel has only one build column: "META Build Id" = full build string
-    BUILD_COL_KEYS = {"meta build id","meta build","build id","build_id","build_s",
-                      "build","meta","meta id","meta_id","crm build id","crm_build_id","builds"}
+    # Column detection:
+    # "META Build"    (no "id") → build_s  (full build string)
+    # "META Build Id" (has "id") → meta_id (short label like Meta-145)
+    # If only "META Build Id" exists → use as build_s, derive meta_id
 
-    col_date=col_build_s=col_hours=col_crash=col_mtbf=None
+    col_date=col_build_s=col_meta_id=col_hours=col_crash=col_mtbf=None
     for i,h in enumerate(headers):
         hn=_norm(h)
         if hn in DATE_KEYS and col_date is None:
@@ -78,8 +79,23 @@ def _read_sheet(ws):
             col_crash=i
         elif hn in MTBF_KEYS and col_mtbf is None:
             col_mtbf=i
-        elif col_build_s is None and any(k in hn for k in BUILD_COL_KEYS):
+        # "META Build Id" → meta_id
+        elif hn == "meta build id" and col_meta_id is None:
+            col_meta_id=i
+        # "META Build" (exact, no "id") → build_s
+        elif hn == "meta build" and col_build_s is None:
             col_build_s=i
+        # Fallback: any build-like column
+        elif col_build_s is None and any(k in hn for k in ("build","meta")):
+            col_build_s=i
+
+    # If no separate "META Build" column, use "META Build Id" as build_s
+    # and derive meta_id from the build string
+    derive_meta_id = False
+    if col_build_s is None and col_meta_id is not None:
+        col_build_s = col_meta_id
+        col_meta_id = None
+        derive_meta_id = True
 
     result=[]
     sno=1
@@ -92,17 +108,17 @@ def _read_sheet(ws):
                 if isinstance(v,(_dt.date,_dt.datetime)): return str(v)[:10]
             except: pass
             return str(v).strip()
-        d = _cell(col_date)
-        b = _cell(col_build_s)
-        h = _cell(col_hours)
-        c = _cell(col_crash)
-        m = _cell(col_mtbf)
-        if not any([d,b,h,c,m]): continue
-        # Derive meta_id from build string (e.g. ...-00135-STD... -> Meta-135)
-        mid = ""
-        if b:
+        d   = _cell(col_date)
+        b   = _cell(col_build_s)
+        mid = _cell(col_meta_id) if not derive_meta_id else ""
+        h   = _cell(col_hours)
+        c   = _cell(col_crash)
+        m   = _cell(col_mtbf)
+        if not any([d,b,mid,h,c,m]): continue
+        # Derive meta_id if needed (e.g. ...-00135-STD... -> Meta-135)
+        if derive_meta_id and b:
             mn = re.search(r'-0*(\d{3,6})-', b)
-            mid = f"Meta-{mn.group(1)}" if mn else b
+            mid = f"Meta-{mn.group(1)}" if mn else ""
         row = {"sno":sno,"excel_row":sno+1,
                "date":d,"build_s":b,"meta_id":mid,
                "hours":h,"crashes":c,"mtbf":m}
