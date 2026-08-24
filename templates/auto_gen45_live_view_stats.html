@@ -1378,7 +1378,18 @@ function renderSpList(){
 function confirmRemoveSp(sp, program){
   var m=document.getElementById('removeSpModal');
   if(!m) return;
-  document.getElementById('removeSpName').textContent='SP '+sp+' — '+program;
+  // Populate SP dropdown with all available SPs
+  var sel=document.getElementById('removeSpSelect');
+  if(sel){
+    sel.innerHTML=spList.map(function(x){
+      return '<option value="'+esc(x.sp)+'"'+(String(x.sp)===String(sp)?' selected':'')+'>SP '+esc(x.sp)+' — '+esc(x.program||x.sp)+'</option>';
+    }).join('');
+  }
+  // Pre-select platform based on current active platform
+  var hqxRadio=document.getElementById('removeSpPlatHqx');
+  var hgyRadio=document.getElementById('removeSpPlatHgy');
+  if(hqxRadio) hqxRadio.checked=(_activePlat!=='HGY');
+  if(hgyRadio) hgyRadio.checked=(_activePlat==='HGY');
   document.getElementById('removeSpMsg').textContent='';
   m.dataset.sp=sp;
   m.style.display='flex';
@@ -1388,12 +1399,18 @@ function closeRemoveSpModal(){
 }
 async function doRemoveSp(){
   var m=document.getElementById('removeSpModal'); if(!m) return;
-  var sp=m.dataset.sp||'';
+  var sel=document.getElementById('removeSpSelect');
+  var sp=(sel&&sel.value)||m.dataset.sp||'';
+  var hgyRadio=document.getElementById('removeSpPlatHgy');
+  var plat=(hgyRadio&&hgyRadio.checked)?'HGY':'HQX';
   var msg=document.getElementById('removeSpMsg');
   if(!sp) return;
-  if(msg) msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing...';
+  if(msg) msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing '+plat+' SP '+sp+'...';
   try{
-    var d=await postJson(PUBLIC_API+'/sp/'+encodeURIComponent(sp)+'/remove',{});
+    var apiUrl=plat==='HGY'
+      ? PUBLIC_API+'/hgy/sp/'+encodeURIComponent(sp)+'/remove'
+      : PUBLIC_API+'/sp/'+encodeURIComponent(sp)+'/remove';
+    var d=await postJson(apiUrl,{});
     if(!d.ok){ if(msg) msg.innerHTML='<span style="color:#dc2626">'+_irEsc(d.error||'Remove failed')+'</span>'; return; }
     closeRemoveSpModal();
     if(String(activeSp)===String(sp)) activeSp='';
@@ -2776,15 +2793,29 @@ loadSps(false); gen45SjqlLoad(); _updatePlatUI();
 {% if is_admin %}
 <!-- ── Remove SP Modal ──────────────────────────────────────────────────── -->
 <div id="removeSpModal" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:18px;width:min(420px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+  <div style="background:#fff;border-radius:18px;width:min(480px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff">
       <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-trash-alt"></i><span style="font-size:15px;font-weight:950">Remove SP</span></div>
       <button onclick="closeRemoveSpModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
     </div>
     <div style="padding:20px">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Select SP to Remove</label>
+        <select id="removeSpSelect" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;background:#fff"></select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:8px">Platform</label>
+        <div style="display:flex;gap:16px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer">
+            <input type="radio" id="removeSpPlatHqx" name="removeSpPlat" value="HQX" checked style="width:16px;height:16px;accent-color:#2563eb"> <span style="color:#1e3a8a">HQX</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer">
+            <input type="radio" id="removeSpPlatHgy" name="removeSpPlat" value="HGY" style="width:16px;height:16px;accent-color:#059669"> <span style="color:#065f46">HGY</span>
+          </label>
+        </div>
+      </div>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <div style="font-size:12px;font-weight:900;color:#991b1b;margin-bottom:4px"><i class="fas fa-exclamation-triangle"></i> Are you sure?</div>
-        <div id="removeSpName" style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:6px"></div>
         <div style="font-size:11px;color:#64748b">The SP data will be archived (not permanently deleted) and the removal will be logged with your username.</div>
       </div>
       <div id="removeSpMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
