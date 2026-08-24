@@ -116,6 +116,85 @@
     @media(max-width:1180px){.ov-row1{grid-template-columns:repeat(2,1fr)}.ov-row2{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:900px){.tblwrap{border-radius:16px!important;padding:7px}.card{border-radius:17px!important}.topbar{display:flex!important;flex-direction:row!important;align-items:flex-start!important}.topbar-actions{width:auto!important;flex-direction:row!important;margin-left:auto!important}div[id="targetList"].list{order:3;min-width:0}.ov-row1,.ov-row2{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:560px){.ov-row1,.ov-row2{grid-template-columns:1fr}}
+
+    /* WBC readability hotfix: meta/build IDs must stay readable on glass/light panels. */
+    #wbcSjqlCardsBox > div:first-child{
+      color:#172554!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"]{
+      background:#ffffff!important;
+      border:1.5px solid #93c5fd!important;
+      box-shadow:0 8px 22px rgba(30,58,138,.12)!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:first-child{
+      background:linear-gradient(135deg,#eff6ff,#eef2ff)!important;
+      border-right:1px solid #bfdbfe!important;
+      color:#172554!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:first-child div:first-child{
+      color:#1d4ed8!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:first-child div:nth-child(2){
+      color:#0f172a!important;
+      text-shadow:none!important;
+      font-size:15px!important;
+      font-weight:1000!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:nth-child(2){
+      background:#f8fbff!important;
+      color:#172554!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:nth-child(2) div:first-child{
+      color:#1d4ed8!important;
+    }
+    #wbcSjqlCardsBox [id^="wbccard_"] > div > div:nth-child(2) div:nth-child(2){
+      background:#ffffff!important;
+      color:#172554!important;
+      border-color:#bfdbfe!important;
+    }
+    #wbctiming_, #wbcSjqlCardsBox [id^="wbctiming_"],
+    #wbcSjqlCardsBox [id^="wbctiming_"] span{
+      color:#334155!important;
+    }
+    #wbcInlineReport .head{
+      background:linear-gradient(135deg,#172554,#1d4ed8)!important;
+      color:#ffffff!important;
+      border-bottom:1px solid #93c5fd!important;
+    }
+    #wbcInlineReportTitle,
+    #wbcInlineReportMeta{
+      color:#ffffff!important;
+      text-shadow:0 1px 2px rgba(0,0,0,.35)!important;
+    }
+    #wbcBwrPanel > div:first-child div:first-child{
+      color:#172554!important;
+    }
+    #wbcBwrPanel > div:nth-child(2){
+      background:#ffffff!important;
+      border:1.5px solid #bfdbfe!important;
+      box-shadow:0 5px 14px rgba(30,58,138,.08)!important;
+    }
+    #wbcBwrPanel > div:nth-child(2) .tag,
+    #wbcBwrPanel > div:nth-child(2) .btn{
+      color:#1e3a8a!important;
+      background:#eff6ff!important;
+      border:1px solid #bfdbfe!important;
+      opacity:1!important;
+    }
+    #wbcBwrPanel .wbc-bwr-item > button,
+    #wbcBwrPanel .wbc-bwr-item > div > div > button{
+      background:#ffffff!important;
+      color:#172554!important;
+    }
+    #wbcBwrPanel .wbc-bwr-item b,
+    #wbcBwrPanel .wbc-bwr-item span[style*="flex:1"]{
+      color:#172554!important;
+      font-weight:1000!important;
+    }
+    #wbcBwrPanel .wbc-bwr-item{
+      background:#ffffff!important;
+      border-bottom:1px solid #dbeafe!important;
+    }
   </style>
   <style>
     /* Readability updates: full-height MTBF view, collapsed table, larger overview/chart text. */
