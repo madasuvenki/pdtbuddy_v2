@@ -1035,66 +1035,56 @@ def api_public_hgy_remove_sp(sp: str):
 
 
 # =============================================================================
-# HGY MTBF sync — reads SP-named Excel from Gen4.5/HGY/ directory
-# Each SP has its own workbook; MTBF rows come from Mainline_Build_Details sheet.
+# HGY MTBF sync — reads \\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart
+# Each sheet = one SP (sheet name has HGY_ prefix; strip it to get SP key).
+# Saves each SP as a JSON file in Gen4.5/HGY/ (same format as HQX).
 # =============================================================================
 
-def _hgy_sp_excel_path(sp: str) -> str:
-    """Return the expected Excel path for a HGY SP in the HGY directory.
+_HGY_MTBF_EXCEL = os.environ.get(
+    "PDTBUDDY_HGY_MTBF_EXCEL",
+    r"\\sphere\targetpdt8\Manisha_hgy\MTBF_Trend_chart",
+)
 
-    Tries common naming patterns:
-      <HGY_DIR>/<sp>.xlsx
-      <HGY_DIR>/SP<sp>.xlsx
-      <HGY_DIR>/<sp>_*.xlsx  (first match)
+
+def _hgy_mtbf_excel_resolved() -> str:
+    """Return the Excel path, trying common extensions if no extension given."""
+    base = os.path.abspath(os.path.expandvars(_HGY_MTBF_EXCEL))
+    if os.path.exists(base):
+        return base
+    for ext in (".xlsx", ".xlsm", ".xltx", ".xltm", ".xls"):
+        candidate = base + ext
+        if os.path.exists(candidate):
+            return candidate
+    return base  # return as-is; caller will report not-found
+
+
+def _hgy_sp_key_from_sheet(sheet_name: str) -> str:
+    """Strip HGY_ prefix and extract the numeric SP key.
+
+    Examples:
+      HGY_SA8775P  -> 8775
+      HGY_SA8255P  -> 8255
+      HGY_SA8650P  -> 8650
+      HGY_SA7255P  -> 7255
+      8255.HGY.4.1.8.0 -> 8255
     """
-    hgy_dir = _platform_dir("HGY")
-    candidates = [
-        os.path.join(hgy_dir, f"{sp}.xlsx"),
-        os.path.join(hgy_dir, f"SP{sp}.xlsx"),
-        os.path.join(hgy_dir, f"sp{sp}.xlsx"),
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return c
-    # Glob for any file starting with the SP number
-    import glob
-    pattern = os.path.join(hgy_dir, f"*{sp}*.xlsx")
-    matches = sorted(glob.glob(pattern))
-    if matches:
-        return matches[0]
-    return ""
+    name = str(sheet_name or "").strip()
+    # Strip HGY_ prefix (case-insensitive)
+    import re as _re
+    name = _re.sub(r'^HGY[_\s]+', '', name, flags=_re.IGNORECASE)
+    # Extract leading digits
+    m = _re.search(r'\d{4,}', name)
+    return m.group(0) if m else name
 
 
-def _read_sp_mtbf_excel(excel_path: str, sheet_hint: str = "") -> list:
-    """Read MTBF rows from an SP Excel workbook.
+def _read_hgy_mtbf_sheet(ws) -> list:
+    """Read MTBF rows from one worksheet.
 
-    Looks for a sheet named Mainline_Build_Details (or similar).
-    Returns list of row dicts with keys: date, build_s, hours, crashes, mtbf.
+    Auto-detects Date / Build / Hours / Crashes / MTBF columns.
+    Returns list of row dicts.
     """
-    import openpyxl  # type: ignore
     import datetime as _dt
-
-    wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
-
-    # Find the MTBF sheet
-    MTBF_SHEET_NAMES = {
-        "mainline_build_details", "mainline build details",
-        "build_details", "build details", "mtbf", "mtbf_trend",
-        "mtbf trend", "pdt_mtbf", "pdt mtbf"
-    }
-    target_sheet = None
-    if sheet_hint and sheet_hint in wb.sheetnames:
-        target_sheet = sheet_hint
-    else:
-        for sn in wb.sheetnames:
-            if sn.strip().lower() in MTBF_SHEET_NAMES:
-                target_sheet = sn
-                break
-        if not target_sheet:
-            target_sheet = wb.sheetnames[0]
-
-    ws = wb[target_sheet]
-    rows_iter = ws.iter_rows(values_only=True)
+    import re as _re
 
     DATE_KEYS   = {"date", "report date", "week", "report_date"}
     BUILD_KEYS  = {"build", "build id", "build_id", "meta", "meta id", "meta_id",
@@ -1106,12 +1096,15 @@ def _read_sp_mtbf_excel(excel_path: str, sheet_hint: str = "") -> list:
     def _norm(h):
         return str(h or "").strip().lower().replace("_", " ")
 
+    rows_iter = ws.iter_rows(values_only=True)
     headers = []
     for raw_row in rows_iter:
         cells = [str(c or "").strip() for c in raw_row]
         if any(cells):
             headers = cells
             break
+    if not headers:
+        return []
 
     col_date = col_build = col_hours = col_crash = col_mtbf = None
     for i, h in enumerate(headers):
@@ -1162,19 +1155,42 @@ def _read_sp_mtbf_excel(excel_path: str, sheet_hint: str = "") -> list:
             "mtbf"      : mtbf_val,
         })
         sno += 1
-
-    wb.close()
     return result
 
 
-@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/sync_mtbf_excel",
+def _hgy_save_sp_rows(sp_key: str, program: str, rows: list, actor: str) -> dict:
+    """Upsert SP in HGY index and write rows to JSON. Returns summary dict."""
+    index = _platform_read_index("HGY")
+    entry = _platform_find_entry(index, sp_key)
+    action = "updated"
+    if not entry:
+        slug  = _sp_file_slug(program or sp_key)
+        entry = {"sp": sp_key, "program": program or sp_key, "domain": "",
+                 "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
+        _atomic_write_json(_platform_sp_file_path("HGY", program or sp_key, slug), {
+            "sp": sp_key, "program": program or sp_key, "domain": "",
+            "platform": "HGY", "rows": [],
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        })
+        index.append(entry)
+        _platform_write_index("HGY", index)
+        action = "created"
+    _platform_write_sp_rows("HGY", entry, rows)
+    _platform_write_audit("HGY", f"hgy_mtbf_excel_{action}",
+                          sp_key, program or sp_key, actor,
+                          {"row_count": len(rows)})
+    return {"sp": sp_key, "program": program or sp_key,
+            "rows": len(rows), "action": action}
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/mtbf_excel/sync_all",
                              methods=["POST", "OPTIONS"])
 @login_required
-def api_public_hgy_sync_mtbf_excel(sp: str):
-    """Read MTBF rows from the SP-named Excel in the HGY directory and save to JSON.
+def api_public_hgy_mtbf_sync_all():
+    """Read all sheets from MTBF_Trend_chart Excel and save each as a HGY SP JSON.
 
-    POST body (optional):
-      { "excel_path": "...", "sheet": "Mainline_Build_Details" }
+    Sheet name HGY_SA8775P → SP key 8775.
+    POST body (optional): { "excel_path": "..." }
     """
     if request.method == "OPTIONS":
         return "", 204
@@ -1182,51 +1198,93 @@ def api_public_hgy_sync_mtbf_excel(sp: str):
         return jsonify({"ok": False, "error": "Access denied"}), 403
 
     payload    = request.get_json(force=True, silent=True) or {}
-    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_sp_excel_path(sp)
-    sheet_hint = str(payload.get("sheet") or "").strip()
+    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_resolved()
 
-    if not excel_path:
-        return jsonify({"ok": False,
-                        "error": f"No Excel file found for SP {sp!r} in HGY directory. "
-                                 f"Expected: {_platform_dir('HGY')}\\{sp}.xlsx"}), 404
     if not os.path.exists(excel_path):
         return jsonify({"ok": False,
                         "error": f"Excel file not found: {excel_path}"}), 404
 
     try:
-        rows = _read_sp_mtbf_excel(excel_path, sheet_hint)
+        import openpyxl  # type: ignore
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
     except Exception as exc:
-        return jsonify({"ok": False, "error": f"Excel read failed: {exc}"}), 500
+        return jsonify({"ok": False, "error": f"Cannot open Excel: {exc}"}), 500
 
-    index = _platform_read_index("HGY")
-    entry = _platform_find_entry(index, sp)
+    actor   = str(getattr(current_user, "id", "") or "").strip()
+    summary = []
 
-    if not entry:
-        # Auto-create the SP
-        digits = "".join(re.findall(r"\d+", sp))
-        sp_key = digits or sp
-        slug   = _sp_file_slug(sp)
-        entry  = {"sp": sp_key, "program": sp, "domain": "",
-                  "platform": "HGY", "row_count": 0, "file": f"{slug}.json"}
-        _atomic_write_json(_platform_sp_file_path("HGY", sp, slug), {
-            "sp": sp_key, "program": sp, "domain": "",
-            "platform": "HGY", "rows": [],
-            "updated_at": datetime.utcnow().isoformat() + "Z",
-        })
-        index.append(entry)
-        _platform_write_index("HGY", index)
+    for sheet_name in wb.sheetnames:
+        sp_key  = _hgy_sp_key_from_sheet(sheet_name)
+        program = sheet_name  # keep original sheet name as program label
+        ws      = wb[sheet_name]
+        rows    = _read_hgy_mtbf_sheet(ws)
+        if not rows:
+            summary.append({"sheet": sheet_name, "sp": sp_key,
+                             "rows": 0, "action": "skipped_empty"})
+            continue
+        result = _hgy_save_sp_rows(sp_key, program, rows, actor)
+        result["sheet"] = sheet_name
+        summary.append(result)
 
-    _platform_write_sp_rows("HGY", entry, rows)
+    wb.close()
+    return jsonify({
+        "ok"          : True,
+        "excel_path"  : excel_path,
+        "sheets_found": len(wb.sheetnames) if hasattr(wb, 'sheetnames') else len(summary),
+        "summary"     : summary,
+    })
+
+
+@public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/sync_mtbf_excel",
+                             methods=["POST", "OPTIONS"])
+@login_required
+def api_public_hgy_sync_mtbf_excel(sp: str):
+    """Read MTBF rows for one SP from MTBF_Trend_chart Excel (sheet matching SP key).
+
+    POST body (optional): { "excel_path": "..." }
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    if not _can_edit_auto_gen45():
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+
+    payload    = request.get_json(force=True, silent=True) or {}
+    excel_path = str(payload.get("excel_path") or "").strip() or _hgy_mtbf_excel_resolved()
+
+    if not os.path.exists(excel_path):
+        return jsonify({"ok": False,
+                        "error": f"Excel file not found: {excel_path}"}), 404
+
+    try:
+        import openpyxl  # type: ignore
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Cannot open Excel: {exc}"}), 500
+
+    # Find the sheet whose SP key matches
+    target_sheet = None
+    for sn in wb.sheetnames:
+        if _hgy_sp_key_from_sheet(sn) == str(sp).strip():
+            target_sheet = sn
+            break
+
+    if not target_sheet:
+        wb.close()
+        available = [f"{sn} -> {_hgy_sp_key_from_sheet(sn)}" for sn in wb.sheetnames]
+        return jsonify({"ok": False,
+                        "error": f"No sheet found for SP {sp!r}. "
+                                 f"Available: {available}"}), 404
+
+    rows  = _read_hgy_mtbf_sheet(wb[target_sheet])
+    wb.close()
     actor = str(getattr(current_user, "id", "") or "").strip()
-    _platform_write_audit("HGY", "sync_mtbf_excel",
-                          entry["sp"], entry.get("program", sp), actor,
-                          {"excel_path": excel_path, "row_count": len(rows)})
+    result = _hgy_save_sp_rows(str(sp), target_sheet, rows, actor)
 
     return jsonify({
         "ok"        : True,
-        "sp"        : entry["sp"],
+        "sp"        : result["sp"],
         "platform"  : "HGY",
+        "sheet"     : target_sheet,
         "excel_path": excel_path,
-        "row_count" : len(rows),
-        "rows"      : rows,
+        "row_count" : result["rows"],
     })
