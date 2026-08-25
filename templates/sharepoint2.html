@@ -237,11 +237,6 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
       <option value="{{ ws }}|{{ we }}" {% if ws == sel_start.isoformat() and we == sel_end.isoformat() %}selected{% endif %}>{{ lbl }}</option>
       {% endfor %}
     </select>
-    <span class="muted" style="font-size:11px">or custom:</span>
-    <label>From</label>
-    <input type="date" id="sp2From" value="{{ sel_start.isoformat() }}" onchange="sp2OnCustomDate()">
-    <label>To</label>
-    <input type="date" id="sp2To" value="{{ sel_end.isoformat() }}" onchange="sp2OnCustomDate()">
     <span id="sp2WeekLabel" class="pill blue" style="font-size:11px"></span>
   </div>
 
@@ -574,6 +569,7 @@ input.editable-num.red{border-color:#fca5a5;color:#991b1b;background:#fff1f2;tex
 (function(){
 'use strict';
 var WEEK_START='{{ sel_start.isoformat() }}', WEEK_END='{{ sel_end.isoformat() }}';
+var SP2_ALLOWED_WEEKS=JSON.parse('{{ week_ranges|tojson|safe }}').map(function(w){return{ws:w[0],we:w[1]};});
 var _allBuilds=[], _allConsolidate=[], _allDevUtil=[], _allUniqueDevices=[];
 var _consLoaded=false, _devLoaded=false, _udLoaded=false, _adLoaded=false;
 var _sp2BuList=[];
@@ -588,22 +584,16 @@ function spinner(on){var s=g('sp2Spinner');if(s)s.style.display=on?'inline-flex'
 
 function getWeek(){
   var sel=g('sp2WeekSel');
-  if(sel&&sel.value&&sel.value.indexOf('|')>=0){var p=sel.value.split('|');return{ws:p[0],we:p[1]};}
-  return{ws:(g('sp2From')&&g('sp2From').value)||WEEK_START,we:(g('sp2To')&&g('sp2To').value)||WEEK_END};
+  if(sel&&sel.value&&sel.value.indexOf('|')>=0){
+    var p=sel.value.split('|');
+    return{ws:p[0],we:p[1]};
+  }
+  if(SP2_ALLOWED_WEEKS.length)return{ws:SP2_ALLOWED_WEEKS[0].ws,we:SP2_ALLOWED_WEEKS[0].we};
+  return{ws:WEEK_START,we:WEEK_END};
 }
 function _currentWeek(){return getWeek();}  /* alias used by sp2SaveBU / sp2SavePlRows */
 window.sp2OnWeekChange=function(){
   var w=getWeek();WEEK_START=w.ws;WEEK_END=w.we;
-  if(g('sp2From'))g('sp2From').value=w.ws;
-  if(g('sp2To'))g('sp2To').value=w.we;
-    _consLoaded=false;_devLoaded=false;_udLoaded=false;_adLoaded=false;
-  sp2Load(false);
-};
-window.sp2OnCustomDate=function(){
-  var ws=g('sp2From')&&g('sp2From').value,we=g('sp2To')&&g('sp2To').value;
-  if(!ws||!we)return;
-  WEEK_START=ws;WEEK_END=we;
-  var sel=g('sp2WeekSel');if(sel)sel.value='';
   _consLoaded=false;_devLoaded=false;_udLoaded=false;_adLoaded=false;
   sp2Load(false);
 };

@@ -22,6 +22,7 @@
 - ✅ Auto-logout on idle with JSON 401 for API requests
 
 ### Dashboard & Reporting
+- ✅ Automotive Gen4.5 MTBF "Merge PL" groups are now shared UI-level settings stored separately in `static/auto_gen45_ui/mtbf_pl_merges_hqx.json` and `static/auto_gen45_ui/mtbf_pl_merges_hgy.json`, visible to all viewers and editable only by target users/admins without modifying existing target/path JSON.
 - ✅ Multi-BU dashboard with per-target MySQL schema routing
 - ✅ Monthly report site checkboxes re-fetch and scope hero cards, target status, charts, CR tables, JIRA metrics, and Axiom metrics through CR-reporting team-to-site mapping
 - ✅ Monthly report Unique CR metrics use only `overall_crs` rows classified as `PDT_Unique`
@@ -44,6 +45,7 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
+- ✅ UniqQC dashboard is integrated as a PDT Buddy blueprint/page and now uses PDT Buddy MySQL `overallcrs` tables via `dashboard_status` metadata/db prefixes, with compatible data, subsystem, CR detail, PPT, and CSV/ZIP export endpoints.
 - ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode
 - ✅ Live status publishing and viewing
 - ✅ Weekly summary reports (run_weekly_summary.py)

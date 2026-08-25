@@ -865,6 +865,12 @@ body:has(.bu-simple-page) .app-bg-gradient {
       <a href="{{ url_for('cr_compare_bp.target_compare_page') }}" class="topbar-compare-pill topbar-compare-pill--compare" title="Target Delta Studio" target="_blank" rel="noopener noreferrer">
         <i class="fas fa-columns"></i><span>Target Delta</span>
       </a>
+      <a href="{{ url_for('uniq_qc_bp.uniq_qc_dashboard') }}" target="_blank" rel="noopener noreferrer"
+         class="topbar-compare-pill"
+         style="background:rgba(168,85,247,0.16);color:#6b21a8;border:1px solid rgba(168,85,247,0.32);box-shadow:0 2px 12px rgba(168,85,247,.10),inset 0 1px 0 rgba(255,255,255,.70);backdrop-filter:blur(12px) saturate(1.6);-webkit-backdrop-filter:blur(12px) saturate(1.6);font-weight:900;"
+         title="UniqQC — Unique CR Quality Dashboard">
+        <i class="fas fa-venn-diagram" style="color:#a855f7;"></i><span>UniqQC</span>
+      </a>
                                                 <a href="{{ url_for('dashboard_docs') }}" target="_blank" rel="noopener noreferrer" class="topbar-compare-pill topbar-docs-pill" title="Help, Architecture &amp; Raise Ticket">
           <i class="fas fa-book"></i><span>Docs</span>
         </a>

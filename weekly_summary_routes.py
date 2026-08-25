@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import (
     Blueprint, jsonify, request, render_template,
-    redirect, url_for, flash,
+    redirect, url_for, flash ,
 )
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -602,6 +602,9 @@ def _ensure_weekly_qipl_table():
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN meta_build VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD UNIQUE KEY uq_stability_ticket (stability_ticket)",
+            # Smart Build crash counts use fetched_date as the selected report
+            # week, so keep this indexed for fast weekly lookups.
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD INDEX idx_fetched_date (fetched_date)",
         ):
             try:
                 cur.execute(alter_sql)
@@ -677,7 +680,11 @@ def _build_row(raw_headers: list, values: list, filepath: str, uploaded_by: str)
         'cr_area':           _get('cr_area'),
         'cr_age':            _safe_int(_get('cr_age')),
         'stability_ticket':  _get('stability_ticket') or _get('stabilityticket'),
-        'meta_build':        _get('metabuild') or _get('meta_build'),
+        # QIPL CR_TAT CSVs often use "Build ID"/"BuildID"/"Build" instead of
+        # "MetaBuild". Smart Build crash totals are matched by meta_build, so
+        # preserve all common build header aliases in the DB column.
+        'meta_build':        (_get('metabuild') or _get('meta_build') or
+                              _get('build_id') or _get('buildid') or _get('build')),
     }
 
 
@@ -823,6 +830,9 @@ def _fetch_rows(week_start: date, week_end: date) -> list:
         return []
     cur = conn.cursor(dictionary=True)
     try:
+        # Weekly report tabs use the selected CR_TAT CSV/reporting week.
+        # week_start/week_end columns are Jira-created-date buckets, which can
+        # be much smaller for a report generated after prior-week executions.
         cur.execute(f"""
             SELECT row_data, week_start, week_end, jira_date, cr_date, jira_category,
                    cr_current_ticket, cr_si, cr_title, jira_title,
@@ -830,7 +840,7 @@ def _fetch_rows(week_start: date, week_end: date) -> list:
                    target, jira_component, pl_id, host_name, type_of_farm,
                    cr_status, cr_area, cr_age, stability_ticket, meta_build
             FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-            WHERE week_start=%s AND week_end=%s
+            WHERE fetched_date >= %s AND fetched_date <= %s
             ORDER BY cr_age DESC
         """, (week_start.isoformat(), week_end.isoformat()))
         result = []
@@ -924,6 +934,22 @@ def _qipl_file_date(fname: str):
         return None
 
 
+def _qipl_report_week_for_file_date(file_date: date):
+    """Map a QIPL CR_TAT source filename date to the report week it represents.
+
+    Most weekly files are generated on Sunday and belong to that Monday-Sunday
+    week. Some runs publish shortly after midnight Monday, e.g.
+    QIPL_CR_AGE__CR_TAT_Jira_2026y_08m_24d_*.csv for the completed
+    Aug 17-Aug 23 report. In that case the filename date is Monday, but the
+    report week is the previous Monday-Sunday.
+    """
+    fd = _safe_date(file_date)
+    if not fd:
+        return None, None
+    report_end = fd - timedelta(days=1) if fd.weekday() == 0 else fd
+    return report_end - timedelta(days=6), report_end
+
+
 def _qipl_exe_output_log_ready(csv_path: str) -> tuple[bool, str]:
     """Return true only after matching QIPL_CR_AGE_Exe_output_*.txt reports completion."""
     import re
@@ -1014,7 +1040,7 @@ def _get_qipl_file_weeks() -> list:
     seen = set()
     weeks = []
     for entry in _list_qipl_source_files():
-        ws, we = _jira_week(entry['file_date'])
+        ws, we = _qipl_report_week_for_file_date(entry['file_date'])
         if we < _QIPL_MIN_DATE:
             continue
         key = (ws, we)
@@ -1196,11 +1222,17 @@ def _finish_import_audit(file_key: str, status: str, row_count: int = 0, message
 
 
 def _find_qipl_source_file_for_week(week_start: date, week_end: date) -> str:
-    """Find the latest ready CR_TAT_Jira source file generated within the selected week."""
-    candidates = [
-        e for e in _list_qipl_source_files()
-        if week_start <= e['file_date'] <= week_end and os.path.isfile(e['path'])
-    ]
+    """Find the latest ready CR_TAT_Jira source file for the selected report week.
+
+    Accept Monday-after-week files because QIPL often publishes the completed
+    week report just after Sunday midnight, e.g. filename date 08/24 for report
+    week 08/17-08/23.
+    """
+    candidates = []
+    for e in _list_qipl_source_files():
+        f_ws, f_we = _qipl_report_week_for_file_date(e.get('file_date'))
+        if f_ws == week_start and f_we == week_end and os.path.isfile(e.get('path') or ''):
+            candidates.append(e)
     candidates.sort(key=lambda x: (x['file_date'], x['mtime']), reverse=True)
     for entry in candidates:
         ready, reason = _is_qipl_file_ready(entry['path'])
@@ -1242,7 +1274,7 @@ def _auto_load_qipl_week(week_start: date, week_end: date, username: str) -> dic
         we = week_end.isoformat()
         selected_rows = [
             r for r in rows
-            if r.get('week_start') == ws and r.get('week_end') == we
+            if ws <= str(r.get('fetched_date') or '')[:10] <= we
         ]
         if not selected_rows:
             msg = f"No rows for selected week. Headers: {[str(h) for h in raw_headers[:10]]}"
@@ -2958,6 +2990,9 @@ def _sp_build_match_sql_expr() -> str:
             JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Metabuild')),
             JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.meta_build')),
             JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.\"Meta Build\"')),
+            JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Build ID')),
+            JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.BuildID')),
+            JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.build_id')),
             JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Build'))
         )))
     """
@@ -2973,11 +3008,18 @@ def _sp2_pl_group(value: str) -> str:
 def _sp2_weekly_crash_map(week_start, week_end) -> dict:
     """Return crash counts keyed by (meta_build_upper, pl_id_upper).
 
-    Rules (confirmed from data analysis):
-      - Each CSV row has a unique stability_ticket (never NULL).
-      - stability_ticket LIKE 'CHIPMD%'  -> HWPDT crashes -> EXCLUDE.
-      - stability_ticket LIKE 'QSTABILITY%' or 'DROIDBUG%' -> PDT crashes -> COUNT.
-      - Crash count = COUNT(DISTINCT stability_ticket) per meta_build + pl_id.
+    Rules:
+      - Smart Build uses weekly_qipl_data as the crash source.
+      - The Smart Build report week is based on the CSV Fetched Date/reporting
+        week, not the JIRA-created week_start/week_end bucket. Using
+        week_start/week_end under-counts because those columns are derived from
+        Jira Date and only include JIRAs created in the selected week.
+      - Count every CSV JIRA row, including repeated stability tickets,
+        sanitizer/sanitized diagnostics, and repeated mapped CRs. The source is
+        an occurrence-level report and Smart Build needs the full reported-JIRA
+        volume for the selected reporting week.
+      - Crash/JIRA count = COUNT(*) per meta_build + pl_id where fetched_date is
+        within selected week_start..week_end.
       - Key: (meta_build.strip().upper(), pl_id.strip().upper())
     """
     ws = _safe_date(week_start)
@@ -2991,17 +3033,9 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
     try:
         cur.execute(f"""
             SELECT {_sp_build_match_sql_expr()} AS meta_build, pl_id,
-                   COUNT(DISTINCT stability_ticket) AS crash_count
+                   COUNT(*) AS crash_count
             FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-            WHERE week_start=%s AND week_end=%s
-              AND stability_ticket IS NOT NULL
-              AND TRIM(stability_ticket) != ''
-              AND stability_ticket NOT LIKE 'CHIPMD%%'
-              AND (stability_ticket LIKE 'QSTABILITY%%' OR stability_ticket LIKE 'DROIDBUG%%')
-              AND UPPER(COALESCE(jira_title, '')) NOT LIKE '%%SANITIZER%%'
-              AND UPPER(COALESCE(jira_title, '')) NOT LIKE '%%SANITIZED%%'
-              AND UPPER(COALESCE(cr_title, '')) NOT LIKE '%%SANITIZER%%'
-              AND UPPER(COALESCE(cr_title, '')) NOT LIKE '%%SANITIZED%%'
+            WHERE fetched_date >= %s AND fetched_date <= %s
             GROUP BY {_sp_build_match_sql_expr()}, pl_id
         """, (ws.isoformat(), we.isoformat()))
         result = {}
@@ -3048,6 +3082,21 @@ def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> li
         str(c).strip() for c in chips
         if str(c).strip() and not str(c).strip().startswith('__')
     ))
+
+
+def _sp2_axiom_window_for_report_week(week_start, week_end):
+    """Return the Axiom execution week that feeds a Smart Build report week.
+
+    QIPL CR_TAT CSV rows are selected by fetched/report week. Those reports are
+    generated after the execution week completes, so the CSV fetched during
+    week N mostly contains crashes from Axiom jobs that ran in week N-1.
+    Example: fetched week Aug 17-23 maps to Axiom execution Aug 10-16.
+    """
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        return week_start, week_end
+    return ws - timedelta(days=7), we - timedelta(days=7)
 
 
 def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
@@ -3279,10 +3328,11 @@ def _sp2_crash_count_for_build(crash_map: dict, build_name: str = '', build_id: 
         if (key, pl_upper) in crash_map:
             return int(crash_map[(key, pl_upper)] or 0)
     # fallback: match meta_build key ignoring pl_id (sum across all PLs for this build)
+    fallback_total = 0
     for (mb, pl), cnt in crash_map.items():
         if mb in candidates:
-            return int(cnt or 0)
-    return 0
+            fallback_total += int(cnt or 0)
+    return fallback_total
 
 
 
@@ -5158,24 +5208,73 @@ def _fetch_sharepoint_summaries(week_start: date, week_end: date) -> list:
 
 
 def _week_ranges_for_templates() -> list:
-    ranges = _merge_week_ranges(_get_available_weeks(), _get_week_ranges(20), limit=52)
+    """Weekly QIPL dropdown: show only fully completed Monday-Sunday weeks."""
+    _last_ws, last_we = _sp2_last_completed_week()
+    ranges = [
+        (s, e) for s, e in _merge_week_ranges(_get_available_weeks(), _get_week_ranges(20), limit=52)
+        if e <= last_we
+    ]
+    if not ranges:
+        ranges = _get_week_ranges(20)
     return [(s.isoformat(), e.isoformat(), f"{s.strftime('%b %d')} - {e.strftime('%b %d, %Y')}") for s, e in ranges]
 
 
-def _selected_week_from_request():
-    ws = _safe_date(request.args.get('week_start'))
-    # Keep Unique CR Report's dropdown isolated. ucr_week_end must not become the
-    # global weekly-report week used by CR Age, CR Pie, Sharepoint, landing, etc.
-    we = _safe_date(request.args.get('week_end'))
+def _sp2_last_completed_week():
+    """Return the last fully completed Monday-Sunday week.
+
+    Smart Build must not default to the in-progress/current week. If today is
+    Tue Aug 25, default is Mon Aug 17 - Sun Aug 23.
+    """
+    today = date.today()
+    this_monday = today - timedelta(days=today.weekday())
+    week_end = this_monday - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
+    return week_start, week_end
+
+
+def _sp2_week_ranges_for_templates() -> list:
+    """Smart Build week dropdown: show only fully completed weeks."""
+    _last_ws, last_we = _sp2_last_completed_week()
+    ranges = [
+        (s, e) for s, e in _merge_week_ranges(_get_available_weeks(), _get_week_ranges(20), limit=52)
+        if e <= last_we
+    ]
+    if not ranges:
+        ranges = _get_week_ranges(20)
+    return [(s.isoformat(), e.isoformat(), f"{s.strftime('%b %d')} - {e.strftime('%b %d, %Y')}") for s, e in ranges]
+
+
+def _sp2_completed_week_or_default(ws=None, we=None):
+    """Clamp any Smart Build request to a fully completed Monday-Sunday week."""
+    ws = _safe_date(ws)
+    we = _safe_date(we)
     if we and not ws:
         ws = we - timedelta(days=6)
-    if not ws or not we:
-        ranges = _merge_week_ranges(_get_available_weeks(), _get_week_ranges(20), limit=52)
-        if ranges:
-            ws, we = ranges[0]
-        else:
-            ws, we = current_monday_sunday()
-    return ws, we
+    if ws and not we:
+        we = ws + timedelta(days=6)
+    if ws and we:
+        _last_ws, last_we = _sp2_last_completed_week()
+        if we <= last_we:
+            return ws, we
+    return _sp2_last_completed_week()
+
+
+def _sp2_selected_week_from_request():
+    """Smart Build week selector: explicit completed week wins, else last completed week."""
+    return _sp2_completed_week_or_default(
+        request.args.get('week_start'),
+        request.args.get('week_end'),
+    )
+
+
+def _selected_week_from_request():
+    # Keep Unique CR Report's dropdown isolated. ucr_week_end must not become the
+    # global weekly-report week used by CR Age, CR Pie, Smart Build card, landing, etc.
+    # Weekly QIPL pages must never default to or accept the in-progress/current week.
+    return _sp2_completed_week_or_default(
+        request.args.get('week_start'),
+        request.args.get('week_end'),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -5388,7 +5487,8 @@ def _sp2_landing_summary(week_start, week_end):
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                live_h = _sp2_week_bounded_device_hours_sql(week_start, week_end)
+                ax_ws, ax_we = _sp2_axiom_window_for_report_week(week_start, week_end)
+                live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
                            chip_ids, state, device_count, submitter,
@@ -5402,7 +5502,7 @@ def _sp2_landing_summary(week_start, week_end):
                       AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
-                """, (week_end.isoformat(), week_start.isoformat()))
+                """, (ax_we.isoformat(), ax_ws.isoformat()))
                 db_rows = cur.fetchall() or []
             finally:
                 cur.close(); conn.close()
@@ -5685,7 +5785,7 @@ def weekly_report_upload():
         else:
             rows, _ = _parse_file(src_path, getattr(current_user, 'username', ''))
             if ws and we:
-                rows = [r for r in rows if r.get('week_start') == ws.isoformat() and r.get('week_end') == we.isoformat()]
+                rows = [r for r in rows if ws.isoformat() <= str(r.get('fetched_date') or '')[:10] <= we.isoformat()]
             inserted, _deleted, msg = _upsert_rows(rows)
             flash(f'Imported {inserted} row(s). {msg}', 'success' if inserted else 'warning')
     except Exception as exc:
@@ -5791,7 +5891,7 @@ def qipl_csv_import_now():
         fdate = entry.get('file_date')
         if not fdate:
             continue
-        file_ws, file_we = _jira_week(fdate)
+        file_ws, file_we = _qipl_report_week_for_file_date(fdate)
         info = _auto_load_qipl_week(file_ws, file_we, user)
         if info.get('loaded'):
             return jsonify(success=True,
@@ -8190,7 +8290,8 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
     cur = conn.cursor(dictionary=True)
     cur2 = None
     try:
-        live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+        ax_ws, ax_we = _sp2_axiom_window_for_report_week(ws, we)
+        live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
                    taxonomy_path, team, city_team, state, device_count, chip_ids, submitted_at, ended_at,
@@ -8205,7 +8306,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
             ORDER BY submitted_at
-        """, (we.isoformat(), ws.isoformat()))
+        """, (ax_we.isoformat(), ax_ws.isoformat()))
         _seed_rows = cur.fetchall() or []
         _explicit_qipl_targets = set()
         for _er in _seed_rows:
@@ -8680,7 +8781,8 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+                ax_ws, ax_we = _sp2_axiom_window_for_report_week(ws, we)
+                live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
                 cur.execute(f"""
                                         SELECT job_id, build_id, build_name, software_product,
                            taxonomy_path, team, city_team, state, device_count, chip_ids, submitter,
@@ -8694,7 +8796,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                       AND team != 'HWPDT'
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
-                """, (we.isoformat(), ws.isoformat()))
+                """, (ax_we.isoformat(), ax_ws.isoformat()))
                 db_rows = cur.fetchall() or []
                 import logging as _log_dbg
                 _log_dbg.getLogger('weekly_summary_routes').info(
@@ -9766,8 +9868,8 @@ def api_monthly_report_wbc_detail():
 @login_required
 def sharepoint2_page():
     """Smart Build Report page - fully auto-populated from Axiom DB."""
-    sel_start, sel_end = _selected_week_from_request()
-    week_ranges = _week_ranges_for_templates()
+    sel_start, sel_end = _sp2_selected_week_from_request()
+    week_ranges = _sp2_week_ranges_for_templates()
     try:
         from dashboard_routes import _build_bu_shell_context
         shell_ctx = _build_bu_shell_context('WEEKLY_QIPL_REPORTS')
@@ -9795,10 +9897,10 @@ def api_sp2_admin_force_refresh_week():
     if not _is_sp2_admin_user():
         return jsonify(success=False, message='Admin only'), 403
     data = request.get_json(silent=True) or {}
-    ws = _safe_date(data.get('week_start') or request.form.get('week_start') or request.args.get('week_start'))
-    we = _safe_date(data.get('week_end') or request.form.get('week_end') or request.args.get('week_end'))
-    if not ws or not we:
-        return jsonify(success=False, message='Invalid week'), 400
+    ws, we = _sp2_completed_week_or_default(
+        data.get('week_start') or request.form.get('week_start') or request.args.get('week_start'),
+        data.get('week_end') or request.form.get('week_end') or request.args.get('week_end'),
+    )
 
     deleted_builds = _clear_sp2_static_snapshot(ws, we)
     deleted_consolidate = _clear_sp2_consolidate_snapshot(ws, we)
@@ -9847,26 +9949,28 @@ def api_sp2_reimport_csv():
         return jsonify(success=False, message='Admin only'), 403
 
     data = request.get_json(silent=True) or {}
-    ws = _safe_date(data.get('week_start') or request.args.get('week_start'))
-    we = _safe_date(data.get('week_end')   or request.args.get('week_end'))
-    if not ws or not we:
-        return jsonify(success=False, message='Invalid week'), 400
+    ws, we = _sp2_completed_week_or_default(
+        data.get('week_start') or request.args.get('week_start'),
+        data.get('week_end') or request.args.get('week_end'),
+    )
 
     # Step 1: find the source file for this week. Admin re-import must ignore
     # audit status, otherwise a stuck in_progress row hides the file.
     src_path = ''
-    candidates = [
-        e for e in _list_qipl_source_files()
-        if ws <= e.get('file_date') <= we and os.path.isfile(e.get('path') or '')
-    ]
+    candidates = []
+    for e in _list_qipl_source_files():
+        f_ws, f_we = _qipl_report_week_for_file_date(e.get('file_date'))
+        if f_ws == ws and f_we == we and os.path.isfile(e.get('path') or ''):
+            candidates.append(e)
     candidates.sort(key=lambda x: (x.get('file_date'), x.get('mtime') or 0), reverse=True)
-    for entry in candidates:
-        ready, _reason = _is_qipl_file_ready(entry.get('path') or '')
-        if ready:
-            src_path = entry.get('path') or ''
-            break
+    # Admin/manual "Re-import CSV" is a hard override.  Do not block on the
+    # EXE-output/ready marker here; operators use this button exactly when the
+    # normal scheduled import/ready audit path is stuck or stale.  Pick the
+    # newest matching week file and re-read it into weekly_qipl_data.
+    if candidates:
+        src_path = candidates[0].get('path') or ''
     if not src_path:
-        return jsonify(success=False, message='No ready CSV file found for this week on the share'), 404
+        return jsonify(success=False, message='No CSV file found for this week on the share'), 404
 
     # Step 2: reset any stuck in_progress/done audit so _auto_load_qipl_week can re-claim it
     try:
@@ -9899,7 +10003,7 @@ def api_sp2_reimport_csv():
         we_iso = we.isoformat()
         selected_rows = [
             r for r in rows
-            if r.get('week_start') == ws_iso and r.get('week_end') == we_iso
+            if ws_iso <= str(r.get('fetched_date') or '')[:10] <= we_iso
         ]
         if not selected_rows:
             msg = f"No rows for selected week. Headers: {[str(h) for h in raw_headers[:10]]}"
@@ -9968,10 +10072,7 @@ def api_sp2_builds():
     import re as _re
     ws_arg = request.args.get('week_start', '').strip()
     we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not ws or not we:
-        ws, we = _selected_week_from_request()
+    ws, we = _sp2_completed_week_or_default(ws_arg, we_arg)
 
     # Static mode: once the weekly CSV is present, seed/read frozen build rows
     # from sp2_build_type_overrides. User edits update this table, so page
@@ -10086,7 +10187,8 @@ def api_sp2_builds():
         if conn:
             cur = conn.cursor(dictionary=True)
             try:
-                live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+                ax_ws, ax_we = _sp2_axiom_window_for_report_week(ws, we)
+                live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
                     taxonomy_path, team, city_team, state, device_count, chip_ids,
@@ -10103,7 +10205,7 @@ def api_sp2_builds():
                       AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                       AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s) OR state IN ('Running','JobSetup'))
                     ORDER BY submitted_at DESC
-                """, (we.isoformat(), ws.isoformat()))
+                """, (ax_we.isoformat(), ax_ws.isoformat()))
                 db_rows = cur.fetchall() or []
             finally:
                 cur.close(); conn.close()
@@ -10357,10 +10459,7 @@ def api_sp2_builds():
 def api_sp2_debug_consolidate():
     ws_arg = request.args.get('week_start','').strip()
     we_arg = request.args.get('week_end','').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we: _, we = _selected_week_from_request()
-    if not ws: ws = we - timedelta(days=6)
+    ws, we = _sp2_completed_week_or_default(ws_arg, we_arg)
     result = {'week_start': ws.isoformat(), 'week_end': we.isoformat()}
     try:
         conn = get_mysql_connection_db(bu_key=None)
@@ -10404,12 +10503,7 @@ def api_sp2_consolidate():
     """Smart Build consolidate: CRM rows shown in UI, Eng rows saved but hidden."""
     ws_arg = request.args.get('week_start', '').strip()
     we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we:
-        _, we = _selected_week_from_request()
-    if not ws:
-        ws = we - timedelta(days=6)
+    ws, we = _sp2_completed_week_or_default(ws_arg, we_arg)
     # Always rebuild from Axiom on every load so consolidate matches builds tab.
     # refresh=1 explicitly re-seeds Axiom-derived device/hour/crash snapshot.
     if str(request.args.get('refresh') or '').strip() in ('1', 'true', 'yes'):
@@ -10435,12 +10529,7 @@ def api_sp2_active_devices():
 
     ws_arg = request.args.get('week_start', '').strip()
     we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not we:
-        _, we = _selected_week_from_request()
-    if not ws:
-        ws = we - timedelta(days=6)
+    ws, we = _sp2_completed_week_or_default(ws_arg, we_arg)
 
     # Match /api/sp2/builds source selection exactly: prefer the frozen weekly
     # Smart Build snapshot, then fall back to the same live Axiom query.
@@ -10468,7 +10557,8 @@ def api_sp2_active_devices():
             return jsonify(success=False, message='DB unavailable'), 503
         cur = conn.cursor(dictionary=True)
         try:
-            live_h = _sp2_week_bounded_device_hours_sql(ws, we)
+            ax_ws, ax_we = _sp2_axiom_window_for_report_week(ws, we)
+            live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
             cur.execute(f"""
                 SELECT software_product, taxonomy_path, city_team,
                        device_count, chip_ids, ({live_h}) AS hours_live
@@ -10482,7 +10572,7 @@ def api_sp2_active_devices():
                   AND started_at < TIMESTAMP(DATE_ADD(%s, INTERVAL 1 DAY))
                   AND (ended_at IS NULL OR ended_at >= TIMESTAMP(%s)
                        OR state IN ('Running','JobSetup'))
-            """, (we.isoformat(), ws.isoformat()))
+            """, (ax_we.isoformat(), ax_ws.isoformat()))
             db_rows = cur.fetchall() or []
         except Exception as exc:
             return jsonify(success=False, message=str(exc)), 500
@@ -10689,7 +10779,7 @@ def api_sp2_stability_health():
     falls back to weekly_sharepoint_consolidate_summary totals so the chart can
     still show the previous 2-3 weeks.
     """
-    we = _safe_date(request.args.get('week_end')) or date.today()
+    _ws_tmp, we = _sp2_completed_week_or_default(None, request.args.get('week_end'))
     try:
         count = int(request.args.get('count') or 20)
     except Exception:
@@ -10786,10 +10876,7 @@ def api_sp2_fetch_all_missing_milestones():
     Returns: {results: [{pl_id, target, status, timelines, error}], total, updated, failed, skipped}
     """
     data = request.get_json(force=True, silent=True) or {}
-    ws   = _safe_date(data.get('week_start'))
-    we   = _safe_date(data.get('week_end'))
-    if not ws or not we:
-        return jsonify(success=False, error='week_start and week_end are required'), 400
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     if not fetch_milestones_for_sp:
         return jsonify(success=False, error='fetch_milestones_for_sp not available'), 503
 
@@ -10925,8 +11012,7 @@ def api_sp2_refetch_timelines():
     POST body: {week_start, week_end, target, pl_id}
     """
     data      = request.get_json(force=True, silent=True) or {}
-    ws        = _safe_date(data.get('week_start'))
-    we        = _safe_date(data.get('week_end'))
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     target    = str(data.get('target') or '').strip()
     pl_id     = str(data.get('pl_id') or '').strip()
     if not ws or not we or not pl_id:
@@ -10974,8 +11060,7 @@ def api_sp2_refetch_timelines():
 def api_sp2_save_build_type():
     """Save build_type (CRM/Eng) for a build row; triggers background consolidate update."""
     data = request.get_json(force=True, silent=True) or {}
-    ws   = _safe_date(data.get('week_start'))
-    we   = _safe_date(data.get('week_end'))
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     build_name = str(data.get('build_name') or '').strip()
     pl_id      = str(data.get('pl_id') or '').strip()
     build_type = str(data.get('build_type') or 'CRM').strip()
@@ -11001,8 +11086,7 @@ def api_sp2_save_pl_rows():
     Called when user clicks the Save button on a PL section.
     """
     data = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     target = str(data.get('target') or '').strip()
     pl_id  = str(data.get('pl_id')  or '').strip()
     rows   = data.get('rows') or []
@@ -11072,8 +11156,7 @@ def api_sp2_save_bu():
     sentinel rows of that target so it survives page reloads.
     """
     data   = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     target = str(data.get('target') or '').strip()
     bu     = str(data.get('bu')     or '').strip()
     if not ws or not we or not target or not bu:
@@ -11145,8 +11228,7 @@ def api_sp2_save_target():
     Replaces the separate save_bu + per-PL save_pl_rows flow.
     """
     data   = request.get_json(force=True, silent=True) or {}
-    ws     = _safe_date(data.get('week_start'))
-    we     = _safe_date(data.get('week_end'))
+    ws, we = _sp2_completed_week_or_default(data.get('week_start'), data.get('week_end'))
     target = str(data.get('target') or '').strip()
     bu     = str(data.get('bu')     or '').strip()
     rows   = data.get('rows') or []   # all build rows across all PLs for this target
@@ -11264,10 +11346,7 @@ def api_sp2_unique_devices():
     """
     ws_arg = request.args.get('week_start', '').strip()
     we_arg = request.args.get('week_end', '').strip()
-    ws = _safe_date(ws_arg)
-    we = _safe_date(we_arg)
-    if not ws or not we:
-        ws, we = _selected_week_from_request()
+    ws, we = _sp2_completed_week_or_default(ws_arg, we_arg)
 
     payload, _src = _load_swpdt_json_payload()
     raw_builds = _flatten_swpdt_build_entries(payload)

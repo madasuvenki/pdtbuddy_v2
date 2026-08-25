@@ -95,6 +95,90 @@ def _cached_current_build_report(cache_key: str, ttl_seconds: int, builder) -> D
 _DEFAULT_AUTO_EXCEL = os.environ.get("AUTO_LIVE_VIEW_STATS_EXCEL", r"C:\Dropbox\4.8.0.9_Auto.xlsx")
 _DEFAULT_AUTO_ROOT = os.environ.get("AUTO_LIVE_VIEW_STATS_ROOT", r"C:\Dropbox")
 _AUTO_CANONICAL_TARGET = "auto_gen4.5"
+_AUTO_MTBF_PL_MERGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "auto_gen45_ui")
+_AUTO_MTBF_PL_MERGE_DEFAULTS = {
+    "HQX": [],
+    "HGY": [],
+}
+
+
+def _auto_mtbf_pl_merge_platform(value: str = "") -> str:
+    text = str(value or "").strip().upper()
+    return "HGY" if text == "HGY" else "HQX"
+
+
+def _auto_mtbf_pl_merge_path(platform: str) -> str:
+    plat = _auto_mtbf_pl_merge_platform(platform).lower()
+    return os.path.join(_AUTO_MTBF_PL_MERGE_DIR, f"mtbf_pl_merges_{plat}.json")
+
+
+def _auto_mtbf_pl_merge_payload(platform: str) -> Dict[str, Any]:
+    plat = _auto_mtbf_pl_merge_platform(platform)
+    payload = _read_json(_auto_mtbf_pl_merge_path(plat), {})
+    rules = payload.get("rules") if isinstance(payload, dict) else []
+    if not isinstance(rules, list):
+        rules = []
+    normalized = []
+    seen = set()
+    for row in list(_AUTO_MTBF_PL_MERGE_DEFAULTS.get(plat, [])) + rules:
+        if not isinstance(row, dict):
+            continue
+        match = str(row.get("match") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not match or not name:
+            continue
+        sp = str(row.get("sp") or "").strip()
+        target = str(row.get("target") or "").strip()
+        family = str(row.get("family") or row.get("pl_family") or "").strip()
+        key = (match.lower(), name.lower(), sp.lower(), target.lower(), family.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        item = {"match": match, "name": name}
+        if sp:
+            item["sp"] = sp
+        if target:
+            item["target"] = target
+        if family:
+            item["family"] = family
+        normalized.append(item)
+    return {"ok": True, "platform": plat, "rules": normalized}
+
+
+def _save_auto_mtbf_pl_merge_payload(platform: str, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+    plat = _auto_mtbf_pl_merge_platform(platform)
+    cleaned = []
+    seen = set()
+    for row in rules or []:
+        if not isinstance(row, dict):
+            continue
+        match = str(row.get("match") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not match or not name:
+            continue
+        sp = str(row.get("sp") or "").strip()
+        target = str(row.get("target") or "").strip()
+        family = str(row.get("family") or row.get("pl_family") or "").strip()
+        key = (match.lower(), name.lower(), sp.lower(), target.lower(), family.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        item = {"match": match, "name": name}
+        if sp:
+            item["sp"] = sp
+        if target:
+            item["target"] = target
+        if family:
+            item["family"] = family
+        cleaned.append(item)
+    payload = {
+        "platform": plat,
+        "rules": cleaned,
+        "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "updated_by": str(getattr(current_user, "id", "") or "").strip(),
+    }
+    _atomic_write_json(_auto_mtbf_pl_merge_path(plat), payload)
+    return _auto_mtbf_pl_merge_payload(plat)
 
 # -- Domain to milestone label mapping (used by automotive live view stats page) --
 DOMAIN_MILESTONE_MAP: dict[str, list[str]] = {
@@ -1630,6 +1714,21 @@ def api_automotive_live_view_stats_db_tables(target_name: str):
         return jsonify({"ok": False, "error": "Access denied"}), 403
     tables = _auto_gen45_db_table_options() if _is_auto_gen45_target(target_name) else _db_table_options(target_name)
     return jsonify({"ok": True, "tables": tables})
+
+
+@automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/mtbf_pl_merges", methods=["GET", "POST"])
+@login_required
+def api_automotive_live_view_stats_mtbf_pl_merges(target_name: str):
+    target_name = _canonical_target(target_name)
+    if not _is_auto_gen45_target(target_name):
+        return jsonify({"ok": False, "error": "MTBF PL merge aliases are Auto Gen4.5 only."}), 404
+    platform = _auto_mtbf_pl_merge_platform(str(request.args.get("platform") or "HQX"))
+    if request.method == "POST":
+        if not _target_group_access():
+            return jsonify({"ok": False, "error": "Access denied"}), 403
+        payload = request.get_json(force=True, silent=True) or {}
+        return jsonify(_save_auto_mtbf_pl_merge_payload(platform, payload.get("rules") or []))
+    return jsonify(_auto_mtbf_pl_merge_payload(platform))
 
 
 @automotive_live_view_stats_bp.route("/api/automotive_live_view_stats/<string:target_name>/sp_db_data")

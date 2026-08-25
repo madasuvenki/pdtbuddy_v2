@@ -152,7 +152,7 @@
       </div>
     </section>
         <section id="tab-mtbf" class="tab-section">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><label style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:12px;font-weight:950;color:#3730a3">Product Line <select id="mtbfBuildSelect" class="input" style="height:38px;min-width:760px;max-width:72vw;padding:0 12px;font-size:13px;border-radius:10px;color:#111827" onchange="mtbfBuildSelectChanged()"><option value="">All product lines</option></select></label><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><label style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:12px;font-weight:950;color:#3730a3">Product Line <select id="mtbfBuildSelect" class="input" style="height:38px;min-width:760px;max-width:72vw;padding:0 12px;font-size:13px;border-radius:10px;color:#111827" onchange="mtbfBuildSelectChanged()"><option value="">All product lines</option></select></label><button class="btn" onclick="openMtbfPlMergeModal()" title="Select product lines using checkboxes and save them as one display name"><i class="fas fa-check-square"></i> Merge PL</button><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
       <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2><div class="toolbar"><span id="mtbfBuildFilterInfo" class="small-muted"></span>{% if can_edit %}<button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}</div></div><div class="tbl-wrap"><table class="tbl"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
     </section>
         <section id="tab-weekly" class="tab-section">
@@ -311,6 +311,36 @@
     </section>
     {% endif %}
   </main>
+</div>
+<!-- Product Line Merge Modal -->
+<div id="mtbfPlMergeModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10004;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:18px;width:min(820px,96vw);max-height:92vh;overflow:hidden;box-shadow:0 28px 80px rgba(15,23,42,.35);display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:linear-gradient(135deg,#1e3a8a,#4f46e5);color:#fff">
+      <div style="font-size:14px;font-weight:950"><i class="fas fa-object-group"></i> Manage Product Line Groups</div>
+      <button onclick="closeMtbfPlMergeModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
+    </div>
+    <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+      <!-- Left: available PLs -->
+      <div style="flex:1;padding:14px 16px;overflow:auto;border-right:1px solid #e2e8f0;min-width:0">
+        <div style="font-size:11px;font-weight:950;text-transform:uppercase;color:#334155;letter-spacing:.06em;margin-bottom:8px">Available Product Lines</div>
+        <div class="small-muted" style="margin-bottom:10px">Check PLs to add to a group, then click <b>Create Group</b>.</div>
+        <div id="mtbfPlAvailRows" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <!-- Right: existing groups -->
+      <div style="width:320px;flex-shrink:0;padding:14px 16px;overflow:auto;background:#f8fafc;min-width:0">
+        <div style="font-size:11px;font-weight:950;text-transform:uppercase;color:#334155;letter-spacing:.06em;margin-bottom:8px">Saved Groups</div>
+        <div id="mtbfPlGroupList" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div id="mtbfPlNoGroups" class="small-muted" style="margin-top:8px">No groups saved yet.</div>
+      </div>
+    </div>
+    <!-- Bottom: create group bar -->
+    <div style="padding:12px 16px;background:#eef2ff;border-top:1px solid #c7d2fe;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:900;color:#3730a3;white-space:nowrap">Group name:</span>
+      <input id="mtbfPlMergeName" class="input" style="flex:1;min-width:180px;max-width:340px" placeholder="e.g. Snapdragon_Auto.HQX.4.5.7.0">
+      <button class="btn btn-primary" onclick="saveMtbfPlMerge()"><i class="fas fa-object-group"></i> Create Group</button>
+      <span id="mtbfPlMergeMsg" class="small-muted" style="flex:1"></span>
+    </div>
+  </div>
 </div>
 <!-- Customize Tabs Modal -->
 <div id="lspCzModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
@@ -787,7 +817,8 @@ function switchPlat(plat) {
   // Reset ALL live-data caches so every tab reloads with the new platform's tables
   resetLiveApiTabs();
   dbPayload = null;
-  // Reload JQL tabs for the new platform domain (HQX vs HGY are separate)
+  // Reload platform-specific shared PL merge rules and JQL tabs
+  loadMtbfPlMerges().then(function(){ renderCharts(); renderTable(); });
   _g45Tabs = [];
   gen45SjqlLoad();
   if (activeSp) {
@@ -1241,10 +1272,10 @@ document.addEventListener("tabswitch", function(e){
   if(e.detail && e.detail.tab === "current") gen45SjqlLoad();
 });
 const PUBLIC_API='/public/auto-gen45/api';
-const TARGET={{ target_name|tojson }};
-const CAN_EDIT={{ can_edit|tojson }};
-const IS_ADMIN={{ is_admin|tojson }};
-const JIRA_FILTER_ID={{ jira_pdt_filter_id|tojson }};
+const TARGET=JSON.parse('{{ target_name|tojson|safe }}');
+const CAN_EDIT=JSON.parse('{{ can_edit|tojson|safe }}');
+const IS_ADMIN=JSON.parse('{{ is_admin|tojson|safe }}');
+const JIRA_FILTER_ID=JSON.parse('{{ jira_pdt_filter_id|tojson|safe }}');
 const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
 let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null, activeMtbfBuild='';
 let config={sheet_tables:{}}, dbTables=[];
@@ -1332,7 +1363,7 @@ function switchTab(tab){
     if(tab==='buildreport') bwrLoad(false);
     if(tab==='weekly') renderWeekly();
   }
-async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
+async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);await loadMtbfPlMerges();const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
 function spCfg(sp){const st=config.sheet_tables||{}, key=String(sp||'').trim(), digits=key.replace(/\D+/g,'');const keys=[key,'SP '+key,'SP'+key,digits,'SP '+digits,'SP'+digits].filter(Boolean);for(const k of keys){if(st[k])return st[k];}return {};}
 function renderSpList(){
   const q=(document.getElementById('spSearch').value||'').toLowerCase();
@@ -1348,7 +1379,18 @@ function renderSpList(){
 function confirmRemoveSp(sp, program){
   var m=document.getElementById('removeSpModal');
   if(!m) return;
-  document.getElementById('removeSpName').textContent='SP '+sp+' — '+program;
+  // Populate SP dropdown with all available SPs
+  var sel=document.getElementById('removeSpSelect');
+  if(sel){
+    sel.innerHTML=spList.map(function(x){
+      return '<option value="'+esc(x.sp)+'"'+(String(x.sp)===String(sp)?' selected':'')+'>SP '+esc(x.sp)+' — '+esc(x.program||x.sp)+'</option>';
+    }).join('');
+  }
+  // Pre-select platform based on current active platform
+  var hqxRadio=document.getElementById('removeSpPlatHqx');
+  var hgyRadio=document.getElementById('removeSpPlatHgy');
+  if(hqxRadio) hqxRadio.checked=(_activePlat!=='HGY');
+  if(hgyRadio) hgyRadio.checked=(_activePlat==='HGY');
   document.getElementById('removeSpMsg').textContent='';
   m.dataset.sp=sp;
   m.style.display='flex';
@@ -1358,12 +1400,18 @@ function closeRemoveSpModal(){
 }
 async function doRemoveSp(){
   var m=document.getElementById('removeSpModal'); if(!m) return;
-  var sp=m.dataset.sp||'';
+  var sel=document.getElementById('removeSpSelect');
+  var sp=(sel&&sel.value)||m.dataset.sp||'';
+  var hgyRadio=document.getElementById('removeSpPlatHgy');
+  var plat=(hgyRadio&&hgyRadio.checked)?'HGY':'HQX';
   var msg=document.getElementById('removeSpMsg');
   if(!sp) return;
-  if(msg) msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing...';
+  if(msg) msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing '+plat+' SP '+sp+'...';
   try{
-    var d=await postJson(PUBLIC_API+'/sp/'+encodeURIComponent(sp)+'/remove',{});
+    var apiUrl=plat==='HGY'
+      ? PUBLIC_API+'/hgy/sp/'+encodeURIComponent(sp)+'/remove'
+      : PUBLIC_API+'/sp/'+encodeURIComponent(sp)+'/remove';
+    var d=await postJson(apiUrl,{});
     if(!d.ok){ if(msg) msg.innerHTML='<span style="color:#dc2626">'+_irEsc(d.error||'Remove failed')+'</span>'; return; }
     closeRemoveSpModal();
     if(String(activeSp)===String(sp)) activeSp='';
@@ -1898,18 +1946,221 @@ function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
   // render table with initial state
   _crRenderTable();
 }
-function rawBuildId(r){return r.meta_id||r.meta||r.build_s||r.builds||r.build||r.build_id||'-';}
-function _normBuild(v){return String(v==null?'':v).trim().toLowerCase();}
-function _plFromBuild(v){
-  let s=String(v||'').trim();
+function rawBuildId(r){return r.build_s||r.builds||r.build||r.build_id||r.meta_id||r.meta||'-';}
+let mtbfPlAliasRules=[];
+let mtbfPlAliasPlatform='';
+function _mtbfPlMergeApi(){
+  return `${CFG_API}/mtbf_pl_merges?platform=${encodeURIComponent(_activePlat==='HGY'?'HGY':'HQX')}`;
+}
+async function loadMtbfPlMerges(){
+  try{
+    const d=await getJson(_mtbfPlMergeApi());
+    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
+    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
+  }catch(e){
+    mtbfPlAliasRules=[];
+    mtbfPlAliasPlatform=_activePlat==='HGY'?'HGY':'HQX';
+  }
+}
+function _mtbfRuleScopeSp(rule){
+  return String((rule&&rule.sp)||'').trim().toLowerCase();
+}
+function _mtbfRuleScopeTarget(rule){
+  return String((rule&&rule.target)||'').trim().toLowerCase();
+}
+function _mtbfActiveScopeSp(){
+  return String(activeSp||'').trim().toLowerCase();
+}
+function _mtbfActiveScopeTarget(){
+  return String(TARGET||'').trim().toLowerCase();
+}
+function _mtbfRuleIsCurrentScope(rule){
+  if(!rule||!rule.match||!rule.name)return false;
+  const rsp=_mtbfRuleScopeSp(rule);
+  const rt=_mtbfRuleScopeTarget(rule);
+  // New UI-created rules are SP scoped. Legacy unscoped rules are intentionally
+  // hidden from this modal/chart to prevent one SP's PL merge leaking into
+  // other SPs such as 8775/8620.
+  if(!rsp)return false;
+  if(rsp!==_mtbfActiveScopeSp())return false;
+  return !rt || rt===_mtbfActiveScopeTarget();
+}
+function _loadMtbfPlAliases(){
+  return (mtbfPlAliasRules||[]).filter(_mtbfRuleIsCurrentScope);
+}
+function _mtbfSavedRulesOnly(){
+  return (mtbfPlAliasRules||[]).filter(x=>x&&x.match&&x.name);
+}
+function _canonicalAutoGen45Pl(v){
+  let s=String(v==null?'':v).trim();
   if(!s||s==='-')return '';
   // Treat "Snapdragon_Auto.HQX.4.8.9.0.2.r1-00066-STD.INT-1" as PL
   // "Snapdragon_Auto.HQX.4.8.9.0.2.r1", not as one separate build.
   s=s.replace(/-\d{3,}.*$/,'');
+  _loadMtbfPlAliases().forEach(rule=>{
+    const m=String(rule.match||'').trim();
+    const n=String(rule.name||'').trim();
+    if(m&&n&&s.toLowerCase().includes(m.toLowerCase()))s=n;
+  });
   return s;
 }
+function _normBuild(v){
+  return _canonicalAutoGen45Pl(v).toLowerCase();
+}
+function _plFromBuild(v){return _canonicalAutoGen45Pl(v);}
+function _rawMtbfProductLines(){
+  const seen=new Map();
+  rows().forEach(r=>{
+    [rawBuildId(r),r.build_id,r.build_s,r.builds,r.build,r.meta_id,r.meta].forEach(v=>{
+      let sv=String(v||'').trim();
+      if(!sv||sv==='-')return;
+      sv=sv.replace(/-\d{3,}.*$/,'');
+      if(sv)seen.set(sv.toLowerCase(),sv);
+    });
+  });
+  return Array.from(seen.values()).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+}
+function _mtbfActivePlRawKey(){
+  return String(activeMtbfBuild||'').trim().toLowerCase();
+}
+function _mtbfCurrentRawPlKeys(){
+  return new Set(_rawMtbfProductLines().map(v=>String(v||'').trim().toLowerCase()).filter(Boolean));
+}
+function _mtbfPlFamilyKey(v){
+  let s=String(v||'').trim().toLowerCase();
+  if(!s)return '';
+  s=s.replace(/^ci[_-]+/,'');
+  const m=s.match(/snapdragon_auto\.(hqx|hgy)\.(\d+\.\d+\.\d+\.\d+)/i);
+  if(m)return 'snapdragon_auto.'+m[1].toLowerCase()+'.'+m[2];
+  s=s.replace(/-\d{3,}.*$/,'');
+  s=s.replace(/(\.\d+)?\.r\d+$/i,'');
+  return s;
+}
+function _mtbfCurrentPlFamilies(){
+  return new Set(_rawMtbfProductLines().map(_mtbfPlFamilyKey).filter(Boolean));
+}
+function _mtbfRuleBelongsToActivePl(rule){
+  if(!_mtbfRuleIsCurrentScope(rule))return false;
+  const name=String((rule&&rule.name)||'').trim().toLowerCase();
+  const match=String((rule&&rule.match)||'').trim().toLowerCase();
+  if(!name||!match)return false;
+  const ruleFamily=_mtbfPlFamilyKey(match)||_mtbfPlFamilyKey(name);
+  const activeKey=_mtbfActivePlRawKey();
+  const activeFamily=_mtbfPlFamilyKey(activeKey);
+  if(activeFamily&&ruleFamily)return ruleFamily===activeFamily;
+  if(activeKey)return name===activeKey || match===activeKey || match.indexOf(activeKey)>=0;
+  const families=_mtbfCurrentPlFamilies();
+  if(ruleFamily)return families.has(ruleFamily);
+  return _mtbfCurrentRawPlKeys().has(match);
+}
+function _loadUserGroups(){
+  const byName=new Map();
+  (mtbfPlAliasRules||[]).forEach(rule=>{
+    if(!rule||!rule.match||!rule.name)return;
+    // Modal "Saved Groups" must show every group created for the current SP,
+    // not only the currently selected Product Line. The active PL filter is
+    // only for chart/table aliasing, otherwise a second saved group appears
+    // to be missing when another PL is selected.
+    if(!_mtbfRuleIsCurrentScope(rule))return;
+    if(!byName.has(rule.name))byName.set(rule.name,{name:rule.name,matches:[]});
+    const g=byName.get(rule.name);
+    if(!g.matches.includes(rule.match))g.matches.push(rule.match);
+  });
+  return Array.from(byName.values());
+}
+async function openMtbfPlMergeModal(){
+  const m=document.getElementById('mtbfPlMergeModal');
+  if(!m)return;
+  setText('mtbfPlMergeMsg','Loading shared '+(_activePlat==='HGY'?'HGY':'HQX')+' PL groups...');
+  await loadMtbfPlMerges();
+  const nameInput=document.getElementById('mtbfPlMergeName');
+  if(nameInput)nameInput.value=activeMtbfBuild||'';
+  _mtbfPlRenderAvail();
+  _mtbfPlRenderGroups();
+  setText('mtbfPlMergeMsg',CAN_EDIT?'':'View only — only target users can create or remove PL groups.');
+  m.style.display='flex';
+}
+function closeMtbfPlMergeModal(){const m=document.getElementById('mtbfPlMergeModal'); if(m)m.style.display='none';}
+function _mtbfPlRenderAvail(){
+  const box=document.getElementById('mtbfPlAvailRows'); if(!box)return;
+  const raw=_rawMtbfProductLines();
+  if(!raw.length){box.innerHTML='<div class="empty">No product lines found for this SP.</div>';return;}
+  const activeKey=_mtbfActivePlRawKey();
+  box.innerHTML=raw.map(v=>{
+    const vKey=String(v||'').trim().toLowerCase();
+    const checked=(activeKey&&(vKey===activeKey||vKey.indexOf(activeKey)>=0))?'checked':'';
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-size:12px;font-weight:800;color:#1e293b;cursor:pointer"><input type="checkbox" class="mtbf-pl-merge-check" value="'+esc(v)+'" '+checked+' style="width:16px;height:16px;accent-color:#4f46e5;flex-shrink:0"> <span style="word-break:break-all">'+esc(v)+'</span></label>';
+  }).join('');
+}
+function _mtbfPlRenderGroups(){
+  const box=document.getElementById('mtbfPlGroupList');
+  const noGrp=document.getElementById('mtbfPlNoGroups');
+  if(!box)return;
+  const groups=_loadUserGroups();
+  if(!groups.length){box.innerHTML='';if(noGrp)noGrp.style.display='block';return;}
+  if(noGrp)noGrp.style.display='none';
+  box.innerHTML=groups.map((g,gi)=>{
+    const matchList=g.matches.map(m=>'<span style="display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;margin:2px">'+esc(m)+'</span>').join(' ');
+    const delBtn='<button onclick="deleteMtbfPlGroup(\''+esc(g.name)+'\')" style="padding:3px 10px;border-radius:7px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i> Remove</button>';
+    return '<div style="border:1.5px solid #c7d2fe;border-radius:12px;padding:10px 12px;background:#fff">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">'
+        +'<span style="font-size:12px;font-weight:950;color:#1e3a8a;word-break:break-all">'+esc(g.name)+'</span>'
+        +delBtn
+      +'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">Merges:</div>'
+      +'<div>'+matchList+'</div>'
+    +'</div>';
+  }).join('');
+}
+async function saveMtbfPlMerge(){
+  if(!CAN_EDIT){setText('mtbfPlMergeMsg','View only — only target users can edit PL groups.');return;}
+  const name=String((document.getElementById('mtbfPlMergeName')||{}).value||'').trim();
+  const selected=Array.from(document.querySelectorAll('.mtbf-pl-merge-check:checked')).map(x=>x.value).filter(Boolean);
+  if(!name){setText('mtbfPlMergeMsg','Enter a group display name.');return;}
+  if(selected.length<2){setText('mtbfPlMergeMsg','Select at least two product lines to merge.');return;}
+  const selectedKeys=new Set(selected.map(v=>v.toLowerCase()));
+  const spScope=String(activeSp||'').trim();
+  const targetScope=String(TARGET||'').trim();
+  const familyScope=_mtbfPlFamilyKey(name)||_mtbfPlFamilyKey(selected[0]||'');
+  let saved=_mtbfSavedRulesOnly().filter(x=>{
+    if(!_mtbfRuleIsCurrentScope(x))return true;
+    return !(selectedKeys.has(String(x.match||'').toLowerCase())||String(x.name||'')===name);
+  });
+  selected.forEach(v=>saved.push({match:v,name:name,sp:spScope,target:targetScope,family:familyScope}));
+  setText('mtbfPlMergeMsg','Saving shared '+(_activePlat==='HGY'?'HGY':'HQX')+' PL group...');
+  try{
+    const d=await postJson(_mtbfPlMergeApi(),{rules:saved});
+    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
+    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
+    activeMtbfBuild=name;
+    _mtbfPlRenderGroups();
+    setText('mtbfPlMergeMsg','Group saved for all viewers. Chart/table updated.');
+    renderCharts();
+    renderTable();
+  }catch(e){
+    setText('mtbfPlMergeMsg','Save failed: '+(e.message||e));
+  }
+}
+async function deleteMtbfPlGroup(name){
+  if(!CAN_EDIT){setText('mtbfPlMergeMsg','View only — only target users can edit PL groups.');return;}
+  if(!confirm('Remove group "'+name+'"? The PLs will appear separately in the dropdown again for all viewers.'))return;
+  const saved=_mtbfSavedRulesOnly().filter(x=>!(String(x.name||'')===name&&_mtbfRuleIsCurrentScope(x)));
+  setText('mtbfPlMergeMsg','Removing shared PL group...');
+  try{
+    const d=await postJson(_mtbfPlMergeApi(),{rules:saved});
+    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
+    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
+    if(activeMtbfBuild===name)activeMtbfBuild='';
+    _mtbfPlRenderGroups();
+    setText('mtbfPlMergeMsg','Group removed for all viewers. Chart/table updated.');
+    renderCharts();
+    renderTable();
+  }catch(e){
+    setText('mtbfPlMergeMsg','Remove failed: '+(e.message||e));
+  }
+}
 function _rowProductLine(r){return _plFromBuild(rawBuildId(r))||_plFromBuild(r.build_id)||_plFromBuild(r.build_s)||_plFromBuild(r.builds)||_plFromBuild(r.build)||'';}
-function _rowBuildMatchText(r){return [_rowProductLine(r),rawBuildId(r),r.build_id,r.build_s,r.builds,r.build,r.meta_id,r.meta,r.software_product,r.product_flavor].map(v=>String(v||'')).join(' ');}
+function _rowBuildMatchText(r){return [_rowProductLine(r),_canonicalAutoGen45Pl(rawBuildId(r)),_canonicalAutoGen45Pl(r.build_id),_canonicalAutoGen45Pl(r.build_s),_canonicalAutoGen45Pl(r.builds),_canonicalAutoGen45Pl(r.build),_canonicalAutoGen45Pl(r.meta_id),_canonicalAutoGen45Pl(r.meta),r.software_product,r.product_flavor].map(v=>String(v||'')).join(' ');}
 function mtbfDisplayRows(){if(!activeMtbfBuild)return rows();const k=_normBuild(activeMtbfBuild);return rows().filter(r=>_normBuild(_rowBuildMatchText(r)).includes(k));}
 function renderMtbfBuildSelect(){
   const sel=document.getElementById('mtbfBuildSelect'); if(!sel)return;
@@ -2616,15 +2867,29 @@ loadSps(false); gen45SjqlLoad(); _updatePlatUI();
 {% if is_admin %}
 <!-- ── Remove SP Modal ──────────────────────────────────────────────────── -->
 <div id="removeSpModal" style="display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,23,42,.6);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:18px;width:min(420px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
+  <div style="background:#fff;border-radius:18px;width:min(480px,96vw);box-shadow:0 28px 80px rgba(15,23,42,.35);overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff">
       <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-trash-alt"></i><span style="font-size:15px;font-weight:950">Remove SP</span></div>
       <button onclick="closeRemoveSpModal()" style="background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;line-height:1">&times;</button>
     </div>
     <div style="padding:20px">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:6px">Select SP to Remove</label>
+        <select id="removeSpSelect" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;background:#fff"></select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:900;text-transform:uppercase;color:#475569;margin-bottom:8px">Platform</label>
+        <div style="display:flex;gap:16px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer">
+            <input type="radio" id="removeSpPlatHqx" name="removeSpPlat" value="HQX" checked style="width:16px;height:16px;accent-color:#2563eb"> <span style="color:#1e3a8a">HQX</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer">
+            <input type="radio" id="removeSpPlatHgy" name="removeSpPlat" value="HGY" style="width:16px;height:16px;accent-color:#059669"> <span style="color:#065f46">HGY</span>
+          </label>
+        </div>
+      </div>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <div style="font-size:12px;font-weight:900;color:#991b1b;margin-bottom:4px"><i class="fas fa-exclamation-triangle"></i> Are you sure?</div>
-        <div id="removeSpName" style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:6px"></div>
         <div style="font-size:11px;color:#64748b">The SP data will be archived (not permanently deleted) and the removal will be logged with your username.</div>
       </div>
       <div id="removeSpMsg" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>

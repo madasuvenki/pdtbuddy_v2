@@ -36,6 +36,7 @@ def register_feature_blueprints(app: Flask) -> None:
     from pdt_dept_routes import pdt_dept_bp
     from excel_sync_routes import excel_sync_bp
     from orbit_public_mtbf_routes import public_mtbf_bp
+    from src.uniq_qc_routes import uniq_qc_bp
 
     blueprints = (
         dashboard_bp,
@@ -61,6 +62,7 @@ def register_feature_blueprints(app: Flask) -> None:
         cr_compare_bp,
         pdt_dept_bp,
         excel_sync_bp,
+        uniq_qc_bp,
     )
 
     for blueprint in blueprints:

@@ -1,0 +1,43 @@
+{
+  "platform": "HQX",
+  "rules": [
+    {
+      "match": "Snapdragon_Auto.HQX.4.5.7.0",
+      "name": "Snapdragon_Auto.HQX.4.5.7.0"
+    },
+    {
+      "match": "Snapdragon_Auto.HQX.4.5.7.0.2.r1",
+      "name": "Snapdragon_Auto.HQX.4.5.7.0"
+    },
+    {
+      "match": "Snapdragon_Auto.HQX.4.5.7.0",
+      "name": "Snapdragon_Auto.HQX.4.5.7.0",
+      "sp": "8775",
+      "target": "auto_gen4.5",
+      "family": "snapdragon_auto.hqx.4.5.7.0"
+    },
+    {
+      "match": "Snapdragon_Auto.HQX.4.5.7.0.2.r1",
+      "name": "Snapdragon_Auto.HQX.4.5.7.0",
+      "sp": "8775",
+      "target": "auto_gen4.5",
+      "family": "snapdragon_auto.hqx.4.5.7.0"
+    },
+    {
+      "match": "Snapdragon_Auto.HQX.4.8.9.0.2",
+      "name": "Snapdragon_Auto.HQX.4.8.9.0.2",
+      "sp": "8775",
+      "target": "auto_gen4.5",
+      "family": "snapdragon_auto.hqx.4.8.9.0"
+    },
+    {
+      "match": "Snapdragon_Auto.HQX.4.8.9.0.2.r1",
+      "name": "Snapdragon_Auto.HQX.4.8.9.0.2",
+      "sp": "8775",
+      "target": "auto_gen4.5",
+      "family": "snapdragon_auto.hqx.4.8.9.0"
+    }
+  ],
+  "updated_at": "2026-08-25T10:00:02Z",
+  "updated_by": "vmadasu"
+}
