@@ -581,10 +581,17 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
           <i class="fas fa-chart-bar"></i>
           <span class="on-panel-btn-text">PDT Analysis</span>
         </a>
+        {% if is_iot_bu %}
+        <a href="{{ url_for('core_deck_bp.iot_core_deck_page', target=t, embed=1) }}" class="on-panel-btn c-indigo" data-tip="Core Slides" data-tab-key="core-slides">
+          <i class="fas fa-file-powerpoint"></i>
+          <span class="on-panel-btn-text">Core Slides</span>
+        </a>
+        {% else %}
         <a href="{{ url_for('core_deck_bp.core_deck_page', target=t, embed=1) }}" class="on-panel-btn c-indigo" data-tip="Core Slides" data-tab-key="core-slides">
           <i class="fas fa-file-powerpoint"></i>
           <span class="on-panel-btn-text">Core Slides</span>
         </a>
+        {% endif %}
           
           
         <div class="on-panel-divider"></div>
@@ -689,6 +696,7 @@ body.page-unique-crs .on-page{overflow-y:auto!important;max-height:calc(100vh - 
         <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='mtbf-table', toggle_mode=m, pdt_type='SWPDT') }}" class="on-tab t-violet {{ 'active' if s == 'mtbf-table' else '' }}" data-tab-key="mtbf-table"><i class="fas fa-table"></i> SWPDT</a>
         {% if hwpdt_available %}<a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='hwpdt', toggle_mode=m, pdt_type='HWPDT') }}" class="on-tab t-cyan {{ 'active' if s == 'hwpdt' else '' }}" data-tab-key="hwpdt"><i class="fas fa-microchip"></i> HWPDT</a>{% endif %}
         <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='weekly-report', toggle_mode=m, pdt_type=p) }}" class="on-tab t-teal {{ 'active' if s == 'weekly-report' else '' }}" data-tab-key="weekly-report"><i class="fas fa-file-alt"></i> Weekly Report</a>
+        <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='cross-pl-compare', toggle_mode=m, pdt_type=p) }}" class="on-tab t-cyan {{ 'active' if s == 'cross-pl-compare' else '' }}" data-tab-key="cross-pl-compare"><i class="fas fa-code-compare"></i> Cross-PL Compare</a>
         <div class="on-tab-sep"></div>
                 <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='open-cr-analysis', toggle_mode=m, pdt_type=p) }}" class="on-tab t-rose {{ 'active' if s == 'open-cr-analysis' else '' }}" data-tab-key="open-cr-analysis"><i class="fas fa-microscope"></i> Open_Analysis CR</a>
         <a href="{{ url_for('dashboard_bp.dashboard', target_name=t, section='pdt-crs', toggle_mode=m, pdt_type=p) }}" class="on-tab t-amber {{ 'active' if s == 'pdt-crs' else '' }}" data-tab-key="pdt-crs"><i class="fas fa-bug"></i> PDT CRs</a>
@@ -1156,6 +1164,7 @@ window.tdMsAddCustomRow = function(name, date) {
     swpdt: 'mtbf-table',
     hwpdt: 'hwpdt',
     weekly_report: 'weekly-report',
+    cross_pl_compare: 'cross-pl-compare',
     open_cr_analysis: 'open-cr-analysis',
     pdt_crs: 'pdt-crs',
 
@@ -1191,6 +1200,7 @@ window.tdMsAddCustomRow = function(name, date) {
     {key:'mtbf-table',     label:'SWPDT',            icon:'fa-table',          color:'#7c3aed', group:'execution'},
         {key:'hwpdt',          label:'HWPDT',            icon:'fa-microchip',      color:'#0891b2', group:'execution'},
     {key:'weekly-report',  label:'Weekly Report',    icon:'fa-file-alt',       color:'#0f766e', group:'execution'},
+    {key:'cross-pl-compare',label:'Cross-PL Compare',icon:'fa-code-compare',   color:'#0891b2', group:'execution'},
             {key:'open-cr-analysis',label:'Open Analysis CR',icon:'fa-microscope',     color:'#be123c', group:'execution'},
 
     {key:'pdt-crs',        label:'PDT CRs',          icon:'fa-bug',            color:'#b45309', group:'execution'},

@@ -2161,6 +2161,7 @@ def _build_sidebar_context(target_name, active_section="mtbf-table"):
         "total_jiras": 0, "total_crs": 0,
     }
     active_bu_key = (get_bu_for_target(target_name) or '').upper()
+    is_iot_bu = active_bu_key in {"IOT", "IOT_SW", "IOT_PDT"} or "IOT" in active_bu_key
     milestone_phase = build_milestone_phase_context(target_name)
     return {
         "target_name": target_name,
@@ -2172,6 +2173,7 @@ def _build_sidebar_context(target_name, active_section="mtbf-table"):
         "pdt_type": "SWPDT",
         "schema_name": schema_name,
         "is_compute_bu": is_compute_bu,
+        "is_iot_bu": is_iot_bu,
         "compute_bu": False,
         "hwpdt_available": False,
         "glance": glance,
@@ -5307,6 +5309,309 @@ def _get_bu_pl_tabs(target_name: str) -> list:
         return []
 
 
+@dashboard_bp.route("/api/dashboard/cross_pl_targets")
+@login_required
+def api_dashboard_cross_pl_targets():
+    """Return table-backed targets for Cross-PL Compare.
+
+    This intentionally returns only targets whose unique_crs table exists, because
+    Cross-PL comparison is based on unique_crs.mapped_cr and should not offer PL
+    names that cannot be queried.
+    """
+    bu_key = (request.args.get("bu") or "").strip().upper()
+    current_target = (request.args.get("current") or "").strip()
+    if not bu_key:
+        return jsonify({"success": False, "message": "bu query parameter is required", "targets": []}), 400
+
+    try:
+        from dashboard_common import get_targets_config, get_auto_target_keys, load_metadata_config
+        from config import BU_DATABASE_MAPPING as _BU_DB_MAP
+
+        cfg = get_targets_config() or {}
+        if bu_key in ("AUTO", "AUTOMOTIVE"):
+            candidates = sorted(get_auto_target_keys(load_metadata_config()) or [])
+        else:
+            candidates = sorted(get_targets_for_bu(bu_key) or [])
+
+        conn = get_mysql_connection_db()
+        cur = conn.cursor(dictionary=True)
+        out = []
+        try:
+            for target_key in candidates:
+                target_key = str(target_key or "").strip()
+                if not target_key or target_key.lower() == current_target.lower():
+                    continue
+                try:
+                    fq = fq_table_for_target(target_key, "unique_crs")
+                except Exception:
+                    info = cfg.get(target_key) or {}
+                    schema = _BU_DB_MAP.get(bu_key) or get_schema_for_target(target_key) or ""
+                    db_name = str(info.get("db_name") or target_key).strip().lower().replace("-", "_").replace(" ", "_")
+                    fq = f"`{schema}`.`{db_name}_unique_crs`" if schema else ""
+                if not fq:
+                    continue
+                name = fq.replace("`", "")
+                try:
+                    schema, table = name.split(".", 1)
+                except ValueError:
+                    continue
+                cur.execute(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1",
+                    (schema, table),
+                )
+                if not cur.fetchone():
+                    continue
+                info = cfg.get(target_key) or {}
+                out.append({
+                    "key": target_key,
+                    "display": str(info.get("display_name") or info.get("target_display") or target_key),
+                })
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except Exception:
+                pass
+
+        return jsonify({"success": True, "bu": bu_key, "targets": out})
+    except Exception as exc:
+        logger.exception("[api_dashboard_cross_pl_targets] error bu=%s", bu_key)
+        return jsonify({"success": False, "message": str(exc), "targets": []}), 500
+
+
+@dashboard_bp.route("/api/dashboard/<string:target_name>/cross_pl_first_jiras", methods=["POST"])
+@login_required
+def api_dashboard_cross_pl_first_jiras(target_name):
+    """Return first reported JIRA/date per mapped CR for Cross-PL Compare."""
+    body = request.get_json(force=True, silent=True) or {}
+    crs = [str(c or "").strip().upper() for c in (body.get("crs") or []) if str(c or "").strip()]
+    crs = list(dict.fromkeys(crs))[:5000]
+
+    conn = cur = None
+    try:
+        conn = get_mysql_connection_db()
+        cur = conn.cursor(dictionary=True)
+
+        def _table_exists(fq_name):
+            name = str(fq_name or "").replace("`", "")
+            try:
+                schema, table = name.split(".", 1)
+            except ValueError:
+                return True
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema=%s AND table_name=%s LIMIT 1", (schema, table))
+            return cur.fetchone() is not None
+
+        def _cols(fq_name):
+            cur.execute(f"SHOW COLUMNS FROM {fq_name}")
+            return {r.get("Field") for r in (cur.fetchall() or []) if r.get("Field")}
+
+        def _norm_cr(v):
+            import re as _re
+            text = str(v or "").strip().upper()
+            m = _re.search(r"(?:CR)?(\d{5,9})", text)
+            return "CR" + m.group(1) if m else text
+
+        def _cr_tokens(v):
+            norm = _norm_cr(v)
+            digits = norm[2:] if norm.startswith("CR") else norm
+            vals = [norm]
+            if digits and digits != norm:
+                vals.append(digits)
+            return [x for x in vals if x]
+
+        requested_all = not crs
+        wanted = set(_norm_cr(c) for c in crs) if crs else set()
+        raw_to_mapped = {}
+        unique_first_rows = {}
+        try:
+            u_table = fq_table_for_target(target_name, "unique_crs")
+            if _table_exists(u_table):
+                u_cols = _cols(u_table)
+                u_date_col = next((c for c in (
+                    "jira_date__first_instance", "first_reported_jira_date",
+                    "first_reported_date", "first_seen_date", "first_seen",
+                    "first_instance", "jira_first_instance", "jira_date", "cr_date",
+                    "created_date", "built_date"
+                ) if c in u_cols), None)
+                u_jira_col = next((c for c in (
+                    "qstability__first_instance", "first_reported_jira",
+                    "first_reported_ticket", "jira_first_instance",
+                    "first_instance_jira", "stability_ticket", "jira_id",
+                    "last_reported_jira", "qstability__last_instance"
+                ) if c in u_cols), None)
+                u_occ_col = next((c for c in ("cr_occurrence", "overall_cr_occurrence", "jira_count", "occurrence") if c in u_cols), None)
+                u_status_col = next((c for c in ("cr_status", "status", "final_status") if c in u_cols), None)
+                u_category_col = next((c for c in ("cr_category", "category") if c in u_cols), None)
+                if wanted:
+                    lookup_tokens = []
+                    for c in crs:
+                        lookup_tokens.extend(_cr_tokens(c))
+                    lookup_tokens = list(dict.fromkeys(lookup_tokens))[:10000]
+                    ph = ",".join(["%s"] * len(lookup_tokens))
+                    where_sql = f"WHERE TRIM(COALESCE(`cr`, '')) IN ({ph}) OR TRIM(COALESCE(`mapped_cr`, '')) IN ({ph})"
+                    params_u = tuple(lookup_tokens) * 2
+                else:
+                    where_sql = "WHERE TRIM(COALESCE(`mapped_cr`, '')) <> ''"
+                    params_u = ()
+                select_u = [
+                    "TRIM(COALESCE(`cr`, '')) AS cr",
+                    "TRIM(COALESCE(`mapped_cr`, '')) AS mapped_cr",
+                    f"`{u_date_col}` AS first_date" if u_date_col else "NULL AS first_date",
+                    f"`{u_jira_col}` AS first_jira" if u_jira_col else "NULL AS first_jira",
+                    f"`{u_occ_col}` AS instances" if u_occ_col else "NULL AS instances",
+                    f"`{u_status_col}` AS cr_status" if u_status_col else "NULL AS cr_status",
+                    f"`{u_category_col}` AS cr_category" if u_category_col else "NULL AS cr_category",
+                ]
+                cur.execute(f"SELECT {', '.join(select_u)} FROM {u_table} {where_sql}", params_u)
+                for r in (cur.fetchall() or []):
+                    raw = _norm_cr(r.get("cr"))
+                    mapped = _norm_cr(r.get("mapped_cr"))
+                    if not mapped:
+                        continue
+                    wanted.add(mapped)
+                    for val in (raw, mapped):
+                        for tok in _cr_tokens(val):
+                            raw_to_mapped[tok] = mapped
+                            raw_to_mapped[_norm_cr(tok)] = mapped
+                    first_date = r.get("first_date")
+                    first_jira = str(r.get("first_jira") or "").strip()
+                    # For full-target/base loads, this is the authoritative
+                    # "first seen CR list" from unique_crs. Keep only CRs that
+                    # have a first-seen date or first-seen JIRA in this target.
+                    if first_date or first_jira:
+                        old = unique_first_rows.get(mapped)
+                        old_date = str((old or {}).get("jira_date") or "")
+                        new_date = first_date.isoformat(sep=" ") if hasattr(first_date, "isoformat") else str(first_date or "")
+                        inst_raw = str(r.get("instances") or "").strip()
+                        try:
+                            inst_val = int(float(inst_raw))
+                        except Exception:
+                            inst_val = 0
+                        old_inst = 0
+                        try:
+                            old_inst = int(float(str((old or {}).get("instances") or "0").strip()))
+                        except Exception:
+                            old_inst = 0
+                        if old is None or (new_date and (not old_date or new_date < old_date)):
+                            unique_first_rows[mapped] = {
+                                "ticket": first_jira,
+                                "jira_date": new_date,
+                                "instances": str(max(inst_val, old_inst) or ""),
+                                "cr_status": str(r.get("cr_status") or "").strip(),
+                                "cr_category": str(r.get("cr_category") or "").strip(),
+                            }
+                        elif mapped in unique_first_rows and inst_val > old_inst:
+                            unique_first_rows[mapped]["instances"] = str(inst_val)
+                            if not unique_first_rows[mapped].get("cr_status"):
+                                unique_first_rows[mapped]["cr_status"] = str(r.get("cr_status") or "").strip()
+                            if not unique_first_rows[mapped].get("cr_category"):
+                                unique_first_rows[mapped]["cr_category"] = str(r.get("cr_category") or "").strip()
+        except Exception:
+            pass
+
+        # When caller requests the full target map (crs=[]), return ONLY the
+        # selected target's unique_crs "first seen / first instance" CR list.
+        # Do not fall back to scanning all JIRA rows here, because that shows
+        # old/all reported data instead of "first seen on this target" data.
+        if requested_all:
+            return jsonify({
+                "success": True,
+                "rows": unique_first_rows,
+                "source": "unique_crs_first_seen",
+                "target": target_name,
+            })
+
+        # Fast path for compared PLs: if its unique_crs table has the requested
+        # mapped CRs, return those first-seen rows directly instead of scanning
+        # the much larger jiras/openjiras tables with thousands of OR/LIKE terms.
+        if unique_first_rows:
+            filtered_unique_rows = {
+                cr_id: row
+                for cr_id, row in unique_first_rows.items()
+                if (not wanted or cr_id in wanted)
+            }
+            if filtered_unique_rows:
+                return jsonify({
+                    "success": True,
+                    "rows": filtered_unique_rows,
+                    "source": "unique_crs_requested_crs",
+                    "target": target_name,
+                })
+
+        out = {}
+
+        for suffix in ("jiras", "openjiras"):
+            try:
+                tbl = fq_table_for_target(target_name, suffix)
+            except Exception:
+                continue
+            if not tbl or not _table_exists(tbl):
+                continue
+            cols = _cols(tbl)
+            ticket_col = next((c for c in ("stability_ticket", "jira_id", "jira_key", "ticket", "key") if c in cols), None)
+            date_col = next((c for c in ("jira_date", "created", "created_date", "date", "reported_date") if c in cols), None)
+            cr_col = next((c for c in ("mapped_crs", "mapped_cr", "cr", "cr_id", "cr_number") if c in cols), None)
+            if not ticket_col or not date_col or not cr_col:
+                continue
+
+            if wanted and not requested_all:
+                lookup_tokens = []
+                for cr in wanted:
+                    lookup_tokens.extend(_cr_tokens(cr))
+                lookup_tokens = list(dict.fromkeys(lookup_tokens))[:10000]
+                clauses = []
+                params = []
+                for cr in lookup_tokens:
+                    if cr_col == "mapped_crs":
+                        clauses.append(f"`{cr_col}` LIKE %s")
+                        params.append(f"%{cr}%")
+                    else:
+                        clauses.append(f"`{cr_col}` = %s")
+                        params.append(cr)
+                where_sql = "WHERE " + " OR ".join(clauses)
+            else:
+                where_sql = f"WHERE TRIM(COALESCE(`{cr_col}`, '')) <> ''"
+                params = []
+            cur.execute(
+                f"SELECT `{ticket_col}` AS ticket, `{date_col}` AS jira_date, `{cr_col}` AS raw_cr "
+                f"FROM {tbl} {where_sql} "
+                f"ORDER BY `{date_col}` ASC",
+                tuple(params),
+            )
+            for r in (cur.fetchall() or []):
+                ticket = str(r.get("ticket") or "").strip()
+                raw_val = str(r.get("raw_cr") or "").strip()
+                if not ticket:
+                    continue
+                raw_parts = [p.strip() for p in raw_val.replace(";", ",").split(",") if p.strip()] if cr_col == "mapped_crs" else [raw_val]
+                for part in raw_parts:
+                    norm_part = _norm_cr(part)
+                    mapped = raw_to_mapped.get(part) or raw_to_mapped.get(norm_part) or raw_to_mapped.get(norm_part[2:] if norm_part.startswith("CR") else norm_part) or norm_part
+                    if mapped not in wanted or mapped in out:
+                        continue
+                    dt = r.get("jira_date")
+                    out[mapped] = {
+                        "ticket": ticket,
+                        "jira_date": dt.isoformat(sep=" ") if hasattr(dt, "isoformat") else str(dt or ""),
+                    }
+
+        return jsonify({
+            "success": True,
+            "rows": out,
+            "source": "jira_tables_requested_crs",
+            "target": target_name,
+        })
+    except Exception as exc:
+        logger.exception("[cross_pl_first_jiras] target=%s", target_name)
+        return jsonify({"success": False, "message": str(exc), "rows": {}}), 500
+    finally:
+        try:
+            if cur: cur.close()
+            if conn: conn.close()
+        except Exception:
+            pass
+
+
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-json")
 @dashboard_bp.route("/dashboard/<string:target_name>/mtbf-excel")
 @login_required
@@ -7477,6 +7782,7 @@ def dashboard(target_name, section="dashboard"):
 
         # 5) Common context
         active_bu_key = (get_bu_for_target(target_name) or '').upper()
+        is_iot_bu = active_bu_key in {"IOT", "IOT_SW", "IOT_PDT"} or "IOT" in active_bu_key
         _tinfo = get_target_info(target_name) or {}
         _sp_name   = str(_tinfo.get("sp_name",   "") or "")
         _chip_name = str(_tinfo.get("chip_name", "") or "")
@@ -7497,6 +7803,7 @@ def dashboard(target_name, section="dashboard"):
             "pdt_type": pdt_type,
             "schema_name": schema_name,
             "is_compute_bu": is_compute_bu,
+            "is_iot_bu": is_iot_bu,
             "compute_bu": compute_bu,
 
             "cr_age_chart_built": cr_age_chart_built,
@@ -7649,6 +7956,19 @@ def dashboard(target_name, section="dashboard"):
                 page_heading=f"{target_display_name} - HWPDT Build Table",
                 page_subtitle="Hardware PDT metrics and CHIPMD tickets",
                 hwpdt_rows=hwpdt_rows,
+                **base_context,
+            )
+        elif section == "cross-pl-compare":
+            _perf_log_dashboard(target_name, section, perf_marks, {
+                "open_crs": len(cr_rows or []),
+                "all_crs": len(all_cr_rows or []),
+                "total": _perf_elapsed_ms(perf_total_start),
+            })
+            return render_template(
+                "cross_pl_compare.html",
+                target=target_name,
+                page_heading=f"{target_display_name} - Cross-PL Compare",
+                page_subtitle="Compare current PL CRs against saved comparison PLs",
                 **base_context,
             )
         elif section == "open-cr-analysis":
@@ -8140,17 +8460,27 @@ def _fetch_grouped_cr_jira_context(cursor, target_name, search_query):
     if not cr_group_rows:
         cr_group_rows = [seed]
 
-    linked_crs = sorted({
+    # Build the Linked CR pill list, de-duplicating by normalized CR number so
+    # "4636924" and "CR4636924" are treated as the same CR.
+    _seen_cr_keys: set = set()
+    linked_crs = []
+    for _lc in sorted({
         str(r.get("cr") or "").strip()
         for r in cr_group_rows
         if str(r.get("cr") or "").strip()
-    })
+    }):
+        _k = _cr_info_key(_lc)
+        if _k and _k not in _seen_cr_keys:
+            _seen_cr_keys.add(_k)
+            linked_crs.append(_lc)
     # Always include the searched tokens too, even if the searched value was
     # the mapped_cr itself and not literally present as a `cr` row.
     for tok in (cr_bare, cr_prefixed):
-        if tok and tok not in linked_crs:
+        _k = _cr_info_key(tok)
+        if tok and _k and _k not in _seen_cr_keys:
+            _seen_cr_keys.add(_k)
             linked_crs.append(tok)
-    linked_crs = sorted(set(linked_crs))
+    linked_crs = sorted(linked_crs)
 
     # -- jiras + openjiras: match by cr column and/or mapped_crs LIKE --
     j_table = o_table = None

@@ -1,0 +1,443 @@
+{% extends "target_layout.html" %}
+
+{% block page_heading %}
+  {{ page_heading }}
+{% endblock %}
+
+{% block page_content %}
+<style>
+.cross-pl-card{background:linear-gradient(135deg,#ffffff,#f8fbff);border:1px solid #dbeafe;border-radius:16px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden;margin-bottom:14px}
+.cross-pl-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:linear-gradient(90deg,rgba(16,185,129,.12),rgba(59,130,246,.10));border-bottom:1px solid #dbeafe}
+.cross-pl-title{font-size:15px;font-weight:950;color:#0f172a;display:flex;align-items:center;gap:8px}
+.cross-pl-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cross-pl-body{padding:16px}
+.cross-pl-grid{display:grid;grid-template-columns:220px minmax(280px,1fr) 220px 180px;gap:12px;align-items:start;margin-bottom:12px}
+.cross-pl-field label{display:block;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#475569;margin-bottom:6px}
+.cross-pl-input{width:100%;border:1px solid #c7d2fe;border-radius:10px;padding:10px 12px;background:#fff;color:#0f172a;font-size:13px;font-weight:750;outline:none}
+.cross-pl-target-picker{border:1px solid #c7d2fe;border-radius:12px;background:#fff;padding:8px;max-height:168px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px}
+.cross-pl-target-option{display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:850;color:#334155;cursor:pointer;background:#f8fafc}
+.cross-pl-target-option:hover{border-color:#60a5fa;background:#eff6ff}
+.cross-pl-target-option input{accent-color:#059669}
+.cross-pl-target-option.is-current{opacity:.55;cursor:not-allowed}
+.cross-pl-btn{border:1px solid rgba(148,163,184,.45);background:linear-gradient(135deg,#fff,#f8fbff);color:#334155;border-radius:12px;padding:10px 15px;font-weight:950;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:0 8px 18px rgba(15,23,42,.08);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.cross-pl-btn:hover{border-color:#60a5fa;color:#1d4ed8;transform:translateY(-1px);box-shadow:0 12px 28px rgba(37,99,235,.16)}
+.cross-pl-btn.primary{border:0;background:linear-gradient(135deg,#059669,#2563eb);color:#fff;box-shadow:0 12px 28px rgba(37,99,235,.28)}
+.cross-pl-btn.green{background:linear-gradient(135deg,#dcfce7,#ecfeff);color:#166534;border-color:#bbf7d0}
+.cross-pl-msg{font-size:12px;font-weight:800;color:#64748b;margin:8px 0 12px}
+.cross-pl-empty{text-align:center;color:#94a3b8;padding:34px;font-weight:800}
+.cross-pl-table-wrap{overflow:auto;max-height:calc(100vh - 330px);border-radius:10px;padding:0;background:#fff;border:1px solid #cbd5e1}
+.cross-pl-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}
+.cross-pl-table th{position:sticky;top:0;background:#f1f5f9;color:#0f172a;padding:8px 10px;text-align:left;text-transform:uppercase;font-size:10px;white-space:nowrap;z-index:1;border:1px solid #cbd5e1}
+.cross-pl-table td{background:#fff;color:#334155;padding:7px 10px;vertical-align:top;border:1px solid #e2e8f0;white-space:nowrap}
+.cross-pl-found{background:#ecfdf5!important}.cross-pl-miss{background:#fff1f2!important;color:#94a3b8!important}
+.cross-pl-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:11px;font-weight:900}
+.cross-pl-filter-dd{position:relative}
+.cross-pl-filter-btn{width:100%;border:1px solid #b7c6ff;border-radius:12px;padding:10px 12px;background:linear-gradient(135deg,#fff,#f7fbff);color:#0f172a;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;box-shadow:0 8px 18px rgba(37,99,235,.08)}
+.cross-pl-filter-btn:hover{border-color:#38bdf8;box-shadow:0 10px 24px rgba(14,165,233,.16)}
+.cross-pl-filter-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;right:0;background:rgba(255,255,255,.98);border:1px solid #bfdbfe;border-radius:16px;box-shadow:0 18px 38px rgba(15,23,42,.20);padding:10px;z-index:20;max-height:245px;overflow:auto}
+.cross-pl-filter-dd.open .cross-pl-filter-menu{display:block}
+.cross-pl-filter-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:11px;color:#334155;font-size:12px;font-weight:850;cursor:pointer}
+.cross-pl-filter-row:hover{background:#eff6ff;color:#1d4ed8}
+.cross-pl-filter-row input{accent-color:#059669}
+.cross-pl-filter-row .dcp-check{width:18px;height:18px;min-width:18px;border-radius:6px;border:2px solid #94a3b8;background:#fff;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
+.cross-pl-filter-row input:checked + .dcp-check{border-color:#059669;background:linear-gradient(135deg,#10b981,#2563eb);box-shadow:0 0 0 3px rgba(16,185,129,.14)}
+.cross-pl-filter-row input:checked + .dcp-check:before{content:"✓";font-weight:950}
+.cross-pl-filter-actions{display:flex;gap:7px;margin-bottom:8px;position:sticky;top:0;background:#fff;padding-bottom:8px;border-bottom:1px solid #e0e7ff}
+.cross-pl-mini-btn{border:0;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:950;cursor:pointer;background:#e0f2fe;color:#075985}
+.cross-pl-mini-btn.clear{background:#fee2e2;color:#991b1b}
+.cross-pl-card{background:#fff;border:1px solid #dbeafe;box-shadow:0 8px 18px rgba(15,23,42,.08)}
+.cross-pl-head{background:#f8fafc;position:relative}
+.cross-pl-title{font-size:17px;color:#0f766e}
+.cross-pl-body{background:#fff}
+.cross-pl-grid{grid-template-columns:220px minmax(320px,1.4fr) 220px 220px 220px minmax(220px,1fr);max-width:100%;box-sizing:border-box}
+.cross-pl-input{border:1px solid rgba(99,102,241,.35);background:linear-gradient(135deg,rgba(255,255,255,.78),rgba(240,249,255,.82));box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 10px 24px rgba(59,130,246,.08);border-radius:14px}
+.cross-pl-target-picker{background:linear-gradient(135deg,rgba(255,255,255,.65),rgba(239,246,255,.78));backdrop-filter:blur(14px);border:1px solid rgba(129,140,248,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 14px 30px rgba(59,130,246,.08)}
+.cross-pl-target-option{background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(224,242,254,.60));border:1px solid rgba(148,163,184,.32);box-shadow:0 8px 18px rgba(15,23,42,.05)}
+.cross-pl-target-option:hover{background:linear-gradient(135deg,#ecfeff,#eef2ff);border-color:#38bdf8;transform:translateY(-1px)}
+.cross-pl-target-option:has(input:checked){background:linear-gradient(135deg,#ccfbf1,#dbeafe);border-color:#14b8a6;color:#0f766e;box-shadow:0 10px 24px rgba(20,184,166,.16)}
+.cross-pl-btn.primary{background:linear-gradient(135deg,#00a88a,#2575fc,#7c3aed);box-shadow:0 14px 32px rgba(37,99,235,.35)}
+.cross-pl-btn.green{background:linear-gradient(135deg,#bbf7d0,#a7f3d0,#cffafe);box-shadow:0 12px 26px rgba(16,185,129,.18)}
+.cross-pl-filter-btn{background:linear-gradient(135deg,rgba(255,255,255,.75),rgba(224,242,254,.92));backdrop-filter:blur(12px);border:1px solid rgba(99,102,241,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 12px 28px rgba(37,99,235,.12)}
+.cross-pl-filter-dd.open .cross-pl-filter-btn{background:linear-gradient(135deg,#dbeafe,#ccfbf1);border-color:#14b8a6;color:#0f766e}
+.cross-pl-filter-menu{background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(239,246,255,.92),rgba(236,253,245,.88));backdrop-filter:blur(20px);border:1px solid rgba(125,211,252,.75);box-shadow:0 24px 60px rgba(37,99,235,.22)}
+.cross-pl-filter-row{background:rgba(255,255,255,.76);margin:4px 0;border:1px solid rgba(148,163,184,.20);box-shadow:0 5px 14px rgba(15,23,42,.05)}
+.cross-pl-filter-row:hover{background:linear-gradient(135deg,#ecfeff,#eef2ff);border-color:#93c5fd}
+.cross-pl-filter-row:has(input:checked){background:linear-gradient(135deg,#ccfbf1,#dbeafe);border-color:#2dd4bf;color:#0f766e}
+.cross-pl-table-wrap{box-shadow:none}
+.cross-pl-field:nth-child(1) .cross-pl-input{border:2px solid #38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.10),0 12px 28px rgba(56,189,248,.14)}
+.cross-pl-field:nth-child(2) .cross-pl-target-picker{border:2px solid #a78bfa;box-shadow:0 0 0 3px rgba(167,139,250,.12),0 16px 34px rgba(124,58,237,.15)}
+.cross-pl-field:nth-child(3) .cross-pl-input{border:2px solid #22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.10),0 12px 28px rgba(34,197,94,.13)}
+.cross-pl-field:nth-child(4) .cross-pl-filter-btn{border:2px solid #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12),0 12px 28px rgba(245,158,11,.14)}
+.cross-pl-field:nth-child(4) .cross-pl-filter-dd.open .cross-pl-filter-btn{border-color:#f97316;background:linear-gradient(135deg,#fff7ed,#ffedd5,#fef3c7)}
+.cross-pl-field:nth-child(4) .cross-pl-filter-menu{border:2px solid #f59e0b}
+.cross-pl-field:nth-child(5) .cross-pl-filter-btn{border:2px solid #ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.12),0 12px 28px rgba(236,72,153,.14)}
+.cross-pl-field:nth-child(5) .cross-pl-filter-dd.open .cross-pl-filter-btn{border-color:#db2777;background:linear-gradient(135deg,#fdf2f8,#fae8ff,#eef2ff)}
+.cross-pl-field:nth-child(5) .cross-pl-filter-menu{border:2px solid #ec4899}
+.cross-pl-field:nth-child(6) .cross-pl-input{border:2px solid #06b6d4;box-shadow:0 0 0 3px rgba(6,182,212,.10),0 12px 28px rgba(6,182,212,.13)}
+.cross-pl-field:nth-child(1) label{color:#0284c7}
+.cross-pl-field:nth-child(2) label{color:#7c3aed}
+.cross-pl-field:nth-child(3) label{color:#16a34a}
+.cross-pl-field:nth-child(4) label{color:#d97706}
+.cross-pl-field:nth-child(5) label{color:#db2777}
+.cross-pl-field:nth-child(6) label{color:#0891b2}
+.cross-pl-card{border-left:4px solid #14b8a6;border-right:4px solid #60a5fa;border-bottom:2px solid #a78bfa;width:100%;max-width:100%;box-sizing:border-box}
+.cross-pl-body{overflow:hidden}
+.cross-pl-head{border-top:3px solid #22c55e;border-bottom:2px solid #38bdf8}
+.cross-pl-table-wrap{border:1px solid #94a3b8;background:#fff;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.cross-pl-table{width:100%;min-width:1180px;table-layout:auto}
+.cross-pl-pill:nth-child(1){border-color:#4f46e5;background:#eef2ff;color:#3730a3}
+.cross-pl-pill:nth-child(2){border-color:#14b8a6;background:#ccfbf1;color:#0f766e}
+.cross-pl-pill:nth-child(3){border-color:#f59e0b;background:#fef3c7;color:#92400e}
+@media(max-width:1700px){.cross-pl-grid{grid-template-columns:220px minmax(320px,1fr) 220px}.cross-pl-field:nth-child(4),.cross-pl-field:nth-child(5),.cross-pl-field:nth-child(6){grid-column:auto}}
+@media(max-width:1600px){.cross-pl-grid{grid-template-columns:220px minmax(320px,1fr) 220px}}
+@media(max-width:1400px){.cross-pl-grid{grid-template-columns:1fr 1.5fr 1fr}.cross-pl-field:nth-child(2){grid-column:span 2}}
+@media(max-width:1100px){.cross-pl-grid{grid-template-columns:1fr 1fr}.cross-pl-head{align-items:flex-start;flex-direction:column}}
+@media(max-width:800px){.cross-pl-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="cross-pl-card">
+  <div class="cross-pl-head">
+    <div>
+      <div class="cross-pl-title"><i class="fas fa-code-compare" style="color:#059669"></i> Cross-PL CR Comparison</div>
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-top:3px">Compare CRs first seen on {{ target_display_name|default(target)|default(target_name) }} against selected PLs.</div>
+    </div>
+    <div class="cross-pl-actions">
+      <button class="cross-pl-btn primary" onclick="loadDashCrossPlCompare(true)"><i class="fas fa-code-compare"></i> Compare & Save</button>
+      <button class="cross-pl-btn" onclick="loadDashCrossPlCompare(false)"><i class="fas fa-rotate"></i> Refresh Table</button>
+      <button class="cross-pl-btn" onclick="clearDashCrossPlCompare()"><i class="fas fa-times"></i> Clear</button>
+      <button class="cross-pl-btn green" onclick="exportDashCrossPlCsv()"><i class="fas fa-file-csv"></i> CSV</button>
+    </div>
+  </div>
+  <div class="cross-pl-body">
+    <div class="cross-pl-grid">
+      <div class="cross-pl-field">
+        <label>BU to Compare</label>
+        <select id="dashCrossPlBu" class="cross-pl-input" onchange="loadDashCrossPlTargetsForBu(this.value)">
+          <option value="{{ active_bu_key|default('') }}">Current BU - {{ active_bu_key|default('') }}</option>
+          {% for bu in (bu_list or []) %}
+            {% set bkey = bu.key|string %}
+            {% if bkey|upper != active_bu_key|default('')|upper and bkey|upper != 'WEEKLY_QIPL_REPORTS' %}
+              <option value="{{ bkey }}">{{ bu.display_name or bkey }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="cross-pl-field">
+        <label>Targets / PLs to Compare (from selected BU tables)</label>
+        <div id="dashCrossPlPicker" class="cross-pl-target-picker">
+          {% for pl in (bu_pl_tabs or []) %}
+            {% if pl.key != target %}
+            <label class="cross-pl-target-option" title="{{ pl.display or pl.key }}">
+              <input type="checkbox" value="{{ pl.key }}" data-label="{{ pl.display or pl.key }}">
+              <span>{{ pl.display or pl.key }}</span>
+            </label>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <input id="dashCrossPlInput" type="hidden">
+      </div>
+      <div class="cross-pl-field">
+        <label>First Reported On</label>
+        <select id="dashCrossPlBase" class="cross-pl-input">
+          <option value="{{ target }}" data-label="{{ target_display_name|default(target) }}">Current Target - {{ target_display_name|default(target) }}</option>
+        </select>
+      </div>
+      <div class="cross-pl-field">
+        <label>CR Status Filter</label>
+        <div id="dashCrossPlStatusDd" class="cross-pl-filter-dd">
+          <button type="button" class="cross-pl-filter-btn" onclick="dcpToggleFilterMenu('dashCrossPlStatusDd')"><span id="dashCrossPlStatusLabel">All Statuses</span><i class="fas fa-chevron-down"></i></button>
+          <div id="dashCrossPlStatusFilter" class="cross-pl-filter-menu"></div>
+        </div>
+      </div>
+      <div class="cross-pl-field">
+        <label>CR Category Filter</label>
+        <div id="dashCrossPlCategoryDd" class="cross-pl-filter-dd">
+          <button type="button" class="cross-pl-filter-btn" onclick="dcpToggleFilterMenu('dashCrossPlCategoryDd')"><span id="dashCrossPlCategoryLabel">All Categories</span><i class="fas fa-chevron-down"></i></button>
+          <div id="dashCrossPlCategoryFilter" class="cross-pl-filter-menu"></div>
+        </div>
+      </div>
+      <div class="cross-pl-field">
+        <label>Compare Source</label>
+        <select id="dashCrossPlSource" class="cross-pl-input" onchange="loadDashCrossPlCompare(false)">
+          <option value="undisposed">Open / Analysis CRs</option>
+          <option value="all">All CRs</option>
+        </select>
+      </div>
+    </div>
+    <div id="dashCrossPlMsg" class="cross-pl-msg">Select PLs from the table-backed target list. Saved PL selections are restored automatically on refresh.</div>
+    <div id="dashCrossPlResultBox"></div>
+  </div>
+</div>
+
+<script>
+const DASH_TARGET=JSON.parse('{{ target|default(target_name)|tojson|safe }}');
+const DASH_TARGET_LABEL=JSON.parse('{{ target_display_name|default(target)|default(target_name)|tojson|safe }}');
+const DASH_CURRENT_BU=JSON.parse('{{ active_bu_key|default("")|tojson|safe }}');
+const DASH_CROSS_PL_STORE='pdt_dash_cross_pl_compare_'+String(DASH_TARGET||'').toLowerCase();
+const JIRA_BASE='https://jira-dc2.qualcomm.com/jira/browse/';
+let _dashCrossPlLastRows=[];
+let _dashCrossPlInitialPickerHtml='';
+
+function dcpEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));}
+function dcpSetText(id,v){const e=document.getElementById(id);if(e)e.textContent=v==null?'':v;}
+function dcpFindCol(cols,names){
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const normalizedCols=(cols||[]).map(c=>({raw:c,norm:norm(c)}));
+  for(const n of names){
+    const nn=norm(n);
+    const exact=normalizedCols.find(c=>c.norm===nn);
+    if(exact)return exact.raw;
+  }
+  for(const n of names){
+    const nn=norm(n);
+    const hit=normalizedCols.find(c=>c.norm.includes(nn)&&nn.length>3);
+    if(hit)return hit.raw;
+  }
+  return (cols||[])[0]||'';
+}
+function dcpPickDateCol(cols){
+  return dcpFindCol(cols,['jira_date_last_instance','jira date -last instance','last_reported_date','reported_date','created_date','jira_date','date']);
+}
+function dcpPickJiraCol(cols){
+  return dcpFindCol(cols,['last_reported_jira','qstability_last_instance','qstability__last_instance','stability_ticket','jira_key','jira_id','ticket']);
+}
+function dcpGetVal(row,col){return String((row||{})[col]||'').trim();}
+function dcpExtractJiraKeys(v){return String(v||'').match(/\b[A-Z][A-Z0-9]+-\d+\b/gi)||[];}
+function dcpPrimaryJiraKey(v){const keys=dcpExtractJiraKeys(v);return keys.length?String(keys[0]).toUpperCase():String(v||'').trim().toUpperCase();}
+function dcpJiraLink(v){const keys=dcpExtractJiraKeys(v);return keys.length?keys.map(k=>`<a href="${JIRA_BASE+encodeURIComponent(k)}" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:950;text-decoration:none">${dcpEsc(k)}</a>`).join(', '):dcpEsc(v||'—');}
+function dcpNormalizeCr(v){const s=String(v||'').trim().toUpperCase();const m=s.match(/\b(?:CR\s*[-:]?\s*)?(\d{5,9})\b/i);return m?('CR'+m[1]):s;}
+function dcpDateMs(v){
+  const s=String(v||'').trim();
+  if(!s)return NaN;
+  const ms=Date.parse(s.replace(' ','T'));
+  return Number.isFinite(ms)?ms:NaN;
+}
+function dcpIsSameOrAfter(candidateDate, baseDate){
+  const c=dcpDateMs(candidateDate), b=dcpDateMs(baseDate);
+  if(!Number.isFinite(c)||!Number.isFinite(b))return false;
+  return c>=b;
+}
+function dcpApiUrl(target,source){const cat=source==='all'?'all':'undisposed';return `/api/cr_overview/cr_rows?target=${encodeURIComponent(target)}&category=${encodeURIComponent(cat)}&per_page=100000&include_valid=1&include_nosir=1&include_dup=1&include_invalid=1`;}
+async function dcpGetJson(url){const r=await fetch(url,{cache:'no-store'});const d=await r.json();if(!r.ok||d.error)throw new Error(d.error||'API failed');return d;}
+function dcpRowsPayload(d){const rows=d.rows||d.data||[];let cols=d.columns||[];if(!cols.length&&rows.length)cols=Object.keys(rows[0]);return {rows,cols};}
+function dcpSelectedTargets(){
+  return Array.from(document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]:checked')).map(cb=>({key:cb.value,label:cb.dataset.label||cb.value}));
+}
+function dcpAllCandidateTargets(){
+  const out=[{key:DASH_TARGET,label:DASH_TARGET_LABEL,current:true}];
+  document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>out.push({key:cb.value,label:cb.dataset.label||cb.value,current:false}));
+  const seen=new Set();
+  return out.filter(x=>{const k=String(x.key||'').toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true;});
+}
+function dcpSyncHiddenInput(){
+  const inp=document.getElementById('dashCrossPlInput');
+  if(inp)inp.value=dcpSelectedTargets().map(x=>x.key).join(',');
+  dcpRefreshBaseOptions();
+}
+function dcpRefreshBaseOptions(savedBase){
+  const baseSel=document.getElementById('dashCrossPlBase');
+  if(!baseSel)return;
+  const old=savedBase||baseSel.value||DASH_TARGET;
+  const targets=dcpAllCandidateTargets().filter(x=>x.current||document.querySelector('#dashCrossPlPicker input[type=checkbox][value="'+CSS.escape(x.key)+'"]')?.checked);
+  baseSel.innerHTML=targets.map(x=>'<option value="'+dcpEsc(x.key)+'" data-label="'+dcpEsc(x.label)+'">'+(x.current?'Current Target - ':'')+dcpEsc(x.label)+'</option>').join('');
+  baseSel.value=targets.some(x=>x.key===old)?old:DASH_TARGET;
+}
+function saveDashCrossPlState(){
+  try{dcpSyncHiddenInput();localStorage.setItem(DASH_CROSS_PL_STORE,JSON.stringify({bu:document.getElementById('dashCrossPlBu')?.value||DASH_CURRENT_BU,pls:dcpSelectedTargets(),base:document.getElementById('dashCrossPlBase')?.value||DASH_TARGET,source:document.getElementById('dashCrossPlSource')?.value||'undisposed',saved_at:new Date().toISOString()}));}catch(e){}
+}
+function restoreDashCrossPlState(){
+  try{
+    const raw=localStorage.getItem(DASH_CROSS_PL_STORE); if(!raw)return null;
+    const st=JSON.parse(raw)||{};
+    const src=document.getElementById('dashCrossPlSource'); if(src)src.value=st.source||'undisposed';
+    const bu=document.getElementById('dashCrossPlBu'); if(bu&&st.bu)bu.value=st.bu;
+    return st;
+  }catch(e){return null;}
+}
+function dcpApplySavedSelection(st){
+  if(!st)return;
+  const saved=Array.isArray(st.pls)?st.pls.map(x=>String(x.key||x).toLowerCase()):String(st.pls||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+  document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>{cb.checked=saved.includes(String(cb.value||'').toLowerCase());});
+  dcpSyncHiddenInput();
+  dcpRefreshBaseOptions(st.base||DASH_TARGET);
+}
+async function loadDashCrossPlTargetsForBu(buKey, savedState){
+  const picker=document.getElementById('dashCrossPlPicker');
+  if(!picker)return;
+  const st=savedState||restoreDashCrossPlState();
+  if(!buKey||String(buKey).toUpperCase()===String(DASH_CURRENT_BU).toUpperCase()){
+    if(_dashCrossPlInitialPickerHtml)picker.innerHTML=_dashCrossPlInitialPickerHtml;
+    document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>cb.addEventListener('change',dcpSyncHiddenInput));
+    dcpApplySavedSelection(st);
+    return;
+  }
+  picker.innerHTML='<div class="cross-pl-empty" style="grid-column:1/-1;padding:18px">Loading targets...</div>';
+  try{
+    const d=await dcpGetJson('/api/dashboard/cross_pl_targets?bu='+encodeURIComponent(buKey)+'&current='+encodeURIComponent(DASH_TARGET));
+    const targets=(d.targets||[]).filter(x=>String(x.key||x||'').toLowerCase()!==String(DASH_TARGET).toLowerCase());
+    picker.innerHTML=targets.length?targets.map(t=>{const key=t.key||t;const label=t.display||key;return '<label class="cross-pl-target-option" title="'+dcpEsc(label)+'"><input type="checkbox" value="'+dcpEsc(key)+'" data-label="'+dcpEsc(label)+'"><span>'+dcpEsc(label)+'</span></label>';}).join(''):'<div class="cross-pl-empty" style="grid-column:1/-1;padding:18px">No targets with unique_crs table found for selected BU.</div>';
+    document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>cb.addEventListener('change',dcpSyncHiddenInput));
+    dcpApplySavedSelection(st);
+  }catch(e){
+    picker.innerHTML='<div class="cross-pl-empty" style="grid-column:1/-1;padding:18px">Target list load failed: '+dcpEsc(e.message||e)+'</div>';
+  }
+}
+async function dcpFirstJiras(target, crs){
+  try{
+    const r=await fetch('/api/dashboard/'+encodeURIComponent(target)+'/cross_pl_first_jiras?_ts='+Date.now(),{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({crs:crs})});
+    const d=await r.json();
+    return (d&&d.rows)||{};
+  }catch(e){return {};}
+}
+async function loadDashCrossPlCompare(saveState){
+  const selected=dcpSelectedTargets();
+  const baseSel=document.getElementById('dashCrossPlBase');
+  const baseTarget=baseSel?.value||DASH_TARGET;
+  const baseLabel=baseSel?.selectedOptions?.[0]?.dataset?.label||baseSel?.selectedOptions?.[0]?.textContent||DASH_TARGET_LABEL;
+  const allTargets=[{key:DASH_TARGET,label:DASH_TARGET_LABEL},...selected];
+  const compareTargets=allTargets.filter(x=>String(x.key).toLowerCase()!==String(baseTarget).toLowerCase());
+  const plList=compareTargets.map(x=>x.key);
+  const labelMap=new Map(compareTargets.map(x=>[x.key,x.label]));
+  if(!plList.length){alert('Select at least one other PL to compare.');return;}
+  const source=document.getElementById('dashCrossPlSource')?.value||'undisposed';
+  if(saveState)saveDashCrossPlState();
+  const box=document.getElementById('dashCrossPlResultBox');
+  if(box)box.innerHTML='<div class="cross-pl-empty"><i class="fas fa-circle-notch fa-spin"></i> Loading comparison data...</div>';
+  dcpSetText('dashCrossPlMsg','Fetching first-reported PL '+baseLabel+' and '+plList.length+' comparison PL(s)...');
+  let baseFirstJiras={};
+  try{baseFirstJiras=await dcpFirstJiras(baseTarget,[]);}catch(e){if(box)box.innerHTML='<div class="cross-pl-empty">First-reported PL load failed: '+dcpEsc(e.message||e)+'</div>';return;}
+  const baseCrs=Object.keys(baseFirstJiras||{}).map(dcpNormalizeCr).filter(Boolean);
+  const otherData=await Promise.all(plList.map(async pl=>{
+    try{
+      // Base target uses crs=[] to load its authoritative unique_crs
+      // first-seen list. Compared PLs are loaded in parallel to avoid slow
+      // sequential waits when multiple PLs are selected.
+      const firstJiras=await dcpFirstJiras(pl,baseCrs);
+      return {pl,label:labelMap.get(pl)||pl,firstJiras:firstJiras||{},error:null};
+    }catch(e){return {pl,label:labelMap.get(pl)||pl,firstJiras:{},error:e.message||'Load failed'};}
+  }));
+  let sno=1;
+  _dashCrossPlLastRows=[];
+  baseCrs.forEach(crId=>{
+    const baseJ=baseFirstJiras[crId]||{};
+    if(!baseJ.ticket&&!baseJ.jira_date)return;
+    const sourceCategory=String(baseJ.cr_category||'').trim().toLowerCase();
+    if(source==='undisposed'&&sourceCategory&&sourceCategory!=='undisposed')return;
+    const baseDate=baseJ.jira_date||'';
+    const baseTicketKey=dcpPrimaryJiraKey(baseJ.ticket||'');
+    const others=otherData.map(od=>{
+      const oj=(od.firstJiras&&od.firstJiras[crId])||{};
+      const hasPlHit=!!(oj.ticket||oj.jira_date);
+      const otherTicketKey=dcpPrimaryJiraKey(oj.ticket||'');
+      const sameJira=!!(baseTicketKey&&otherTicketKey&&baseTicketKey===otherTicketKey);
+      // Cross-PL row is valid only when the compared PL first-reported date
+      // is same/newer than the selected First Reported On target date.
+      // If compared PL has an older date, the CR was already seen there first.
+      // If both PLs point to the same JIRA ticket, it is not a cross-PL delta,
+      // so exclude that match too.
+      const matched=hasPlHit&&!sameJira&&dcpIsSameOrAfter(oj.jira_date,baseDate);
+      return {label:od.label,found:matched,date:hasPlHit?(oj.jira_date||''):'',jira:hasPlHit?(oj.ticket||''):'',error:od.error,older:hasPlHit&&!matched,sameJira};
+    });
+    if(!others.some(o=>o.found))return;
+    _dashCrossPlLastRows.push({sno:sno++,cr:crId,instances:baseJ.instances||'',crStatus:baseJ.cr_status||'',crCategory:baseJ.cr_category||'',curDate:baseJ.jira_date||'',curJira:baseJ.ticket||'',others});
+  });
+  dcpPopulateFilters(_dashCrossPlLastRows);
+  renderDashCrossPlTable();
+}
+function dcpNormFilterVal(v){return String(v||'').trim().toLowerCase();}
+function dcpToggleFilterMenu(id){
+  document.querySelectorAll('.cross-pl-filter-dd').forEach(dd=>{if(dd.id!==id)dd.classList.remove('open');});
+  document.getElementById(id)?.classList.toggle('open');
+}
+function dcpFilterLabel(containerId,labelId,allText){
+  const vals=Array.from(document.querySelectorAll('#'+containerId+' input[type=checkbox]:checked')).map(cb=>cb.value);
+  const el=document.getElementById(labelId);
+  if(el)el.textContent=vals.length?vals.slice(0,2).join(', ')+(vals.length>2?' +'+(vals.length-2):''):allText;
+}
+function dcpSetFilterAll(containerId,checked){
+  document.querySelectorAll('#'+containerId+' input[type=checkbox]').forEach(cb=>{cb.checked=checked;});
+  dcpUpdateFilterLabels();renderDashCrossPlTable();
+}
+function dcpUpdateFilterLabels(){
+  dcpFilterLabel('dashCrossPlStatusFilter','dashCrossPlStatusLabel','All Statuses');
+  dcpFilterLabel('dashCrossPlCategoryFilter','dashCrossPlCategoryLabel','All Categories');
+}
+function dcpPopulateFilters(rows){
+  const stBox=document.getElementById('dashCrossPlStatusFilter');
+  const catBox=document.getElementById('dashCrossPlCategoryFilter');
+  if(!stBox||!catBox)return;
+  const hadStatusInputs=stBox.querySelectorAll('input[type=checkbox]').length>0;
+  const hadCatInputs=catBox.querySelectorAll('input[type=checkbox]').length>0;
+  const oldStatuses=Array.from(stBox.querySelectorAll('input:checked')).map(cb=>cb.value);
+  const oldCats=Array.from(catBox.querySelectorAll('input:checked')).map(cb=>cb.value);
+  const statuses=Array.from(new Set((rows||[]).map(r=>String(r.crStatus||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  const cats=Array.from(new Set((rows||[]).map(r=>String(r.crCategory||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  const mk=(container,vals,oldVals,hadInputs)=>'<div class="cross-pl-filter-actions"><button type="button" class="cross-pl-mini-btn" onclick="dcpSetFilterAll(\''+container+'\',true)">Select All</button><button type="button" class="cross-pl-mini-btn clear" onclick="dcpSetFilterAll(\''+container+'\',false)">Clear</button></div>'+(vals.length?vals.map(v=>'<label class="cross-pl-filter-row"><input type="checkbox" value="'+dcpEsc(v)+'" '+((hadInputs?oldVals.includes(v):true)?'checked':'')+' onchange="dcpUpdateFilterLabels();renderDashCrossPlTable()" style="position:absolute;opacity:0;pointer-events:none"><span class="dcp-check"></span><span>'+dcpEsc(v)+'</span></label>').join(''):'<div class="cross-pl-empty" style="padding:12px;font-size:11px">Run Compare to load filter values.</div>');
+  stBox.innerHTML=mk('dashCrossPlStatusFilter',statuses,oldStatuses,hadStatusInputs);
+  catBox.innerHTML=mk('dashCrossPlCategoryFilter',cats,oldCats,hadCatInputs);
+  dcpUpdateFilterLabels();
+}
+function dcpSelectedFilterValues(id){
+  return new Set(Array.from(document.querySelectorAll('#'+id+' input[type=checkbox]:checked')).map(cb=>dcpNormFilterVal(cb.value)).filter(Boolean));
+}
+function dcpFilteredRows(){
+  const statusInputs=document.querySelectorAll('#dashCrossPlStatusFilter input[type=checkbox]');
+  const catInputs=document.querySelectorAll('#dashCrossPlCategoryFilter input[type=checkbox]');
+  const sts=dcpSelectedFilterValues('dashCrossPlStatusFilter');
+  const cats=dcpSelectedFilterValues('dashCrossPlCategoryFilter');
+  return (_dashCrossPlLastRows||[]).filter(r=>
+    (statusInputs.length===0||sts.has(dcpNormFilterVal(r.crStatus)))&&
+    (catInputs.length===0||cats.has(dcpNormFilterVal(r.crCategory)))
+  );
+}
+function renderDashCrossPlTable(){
+  const box=document.getElementById('dashCrossPlResultBox');
+  const allRows=_dashCrossPlLastRows||[];
+  const rows=dcpFilteredRows();
+  const baseTarget=document.getElementById('dashCrossPlBase')?.value||DASH_TARGET;
+  const plList=allRows.length&&allRows[0].others?allRows[0].others.map(x=>x.label):dcpSelectedTargets().filter(x=>String(x.key).toLowerCase()!==String(baseTarget).toLowerCase()).map(x=>x.key);
+  const matchCount=rows.filter(r=>r.others.some(o=>o.found)).length;
+  const baseSel=document.getElementById('dashCrossPlBase');
+  const baseLabel=baseSel?.selectedOptions?.[0]?.dataset?.label||baseSel?.selectedOptions?.[0]?.textContent||DASH_TARGET_LABEL;
+  dcpSetText('dashCrossPlMsg',rows.length+' of '+allRows.length+' matched mapped CRs shown after CR Status/Category filters. Rows where compared PL date is older than '+baseLabel+' or where both PLs have the same JIRA ticket are excluded.');
+  if(!rows.length){if(box)box.innerHTML='<div class="cross-pl-empty">No matched mapped CRs found for selected status/category filters.</div>';return;}
+  const visibleRows=rows.slice(0,500);
+  const hiddenCount=Math.max(rows.length-visibleRows.length,0);
+  const thead='<thead><tr><th>S.No</th><th>First CR Seen on ('+dcpEsc(baseLabel)+')</th><th>'+dcpEsc(baseLabel)+' Instances</th><th>CR Status</th><th>CR Category</th><th>'+dcpEsc(baseLabel)+' First Reported Date</th><th>'+dcpEsc(baseLabel)+' First Reported JIRA</th>'+rows[0].others.map(o=>'<th>'+dcpEsc(o.label)+(o.error?' ⚠':'')+' First Reported Date</th><th>'+dcpEsc(o.label)+' First Reported JIRA</th>').join('')+'</tr></thead>';
+  const tbody=visibleRows.map((r,idx)=>'<tr><td>'+(idx+1)+'</td><td style="font-weight:950;color:#4338ca">'+dcpEsc(r.cr)+'</td><td>'+dcpEsc(r.instances)+'</td><td>'+dcpEsc(r.crStatus||'—')+'</td><td>'+dcpEsc(r.crCategory||'—')+'</td><td>'+dcpEsc(r.curDate||'—')+'</td><td>'+dcpJiraLink(r.curJira)+'</td>'+r.others.map(o=>o.error?'<td colspan="2" class="cross-pl-miss">Error: '+dcpEsc(o.error)+'</td>':'<td class="'+(o.found?'cross-pl-found':'cross-pl-miss')+'">'+(o.found?dcpEsc(o.date||'—'):'Not found')+'</td><td class="'+(o.found?'cross-pl-found':'cross-pl-miss')+'">'+(o.found?dcpJiraLink(o.jira):'—')+'</td>').join('')+'</tr>').join('');
+  const limitNote=hiddenCount?'<span class="cross-pl-pill" style="background:#fff7ed;color:#92400e;border-color:#f59e0b">Showing first 500 rows for smooth scrolling. CSV exports all '+rows.length+' filtered rows.</span>':'';
+  if(box)box.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span class="cross-pl-pill">'+rows.length+' / '+allRows.length+' '+dcpEsc(baseLabel)+' first-seen CRs</span><span class="cross-pl-pill">'+matchCount+' cross-PL matches</span><span class="cross-pl-pill">'+plList.length+' compared PLs</span>'+limitNote+'</div><div class="cross-pl-table-wrap"><table class="cross-pl-table">'+thead+'<tbody>'+tbody+'</tbody></table></div>';
+}
+function clearDashCrossPlCompare(){
+  const box=document.getElementById('dashCrossPlResultBox'), input=document.getElementById('dashCrossPlInput');
+  document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>{cb.checked=false;});
+  if(input)input.value='';
+  _dashCrossPlLastRows=[];
+  try{localStorage.removeItem(DASH_CROSS_PL_STORE);}catch(e){}
+  if(box)box.innerHTML='';
+  dcpSetText('dashCrossPlMsg','Select PLs from the table-backed target list. Saved PL selections are restored automatically on refresh.');
+}
+function dcpCsvEscape(v){const s=String(v??'').replace(/\r?\n/g,' ').replace(/\s+/g,' ').trim();return /[",]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportDashCrossPlCsv(){
+  if(!_dashCrossPlLastRows.length){alert('Run a comparison first.');return;}
+  const otherLabels=_dashCrossPlLastRows[0]?.others?.map(o=>o.label)||[];
+  const baseSel=document.getElementById('dashCrossPlBase');
+  const baseLabel=baseSel?.selectedOptions?.[0]?.dataset?.label||baseSel?.selectedOptions?.[0]?.textContent||DASH_TARGET_LABEL;
+  const exportRows=dcpFilteredRows();
+  const headers=['S.No','First CR Seen on ('+baseLabel+')',baseLabel+' Instances','CR Status','CR Category',baseLabel+' First Reported Date',baseLabel+' First Reported JIRA',...otherLabels.flatMap(l=>[l+' First Reported Date',l+' First Reported JIRA'])];
+  const csv=[headers.map(dcpCsvEscape).join(',')].concat(exportRows.map((r,idx)=>[idx+1,r.cr,r.instances,r.crStatus,r.crCategory,r.curDate,r.curJira,...r.others.flatMap(o=>[o.found?o.date:'Not found',o.found?o.jira:''])].map(dcpCsvEscape).join(','))).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(DASH_TARGET||'dashboard')+'_cross_pl_compare.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.cross-pl-filter-dd'))document.querySelectorAll('.cross-pl-filter-dd').forEach(dd=>dd.classList.remove('open'));
+});
+document.addEventListener('DOMContentLoaded',()=>{
+  _dashCrossPlInitialPickerHtml=document.getElementById('dashCrossPlPicker')?.innerHTML||'';
+  document.querySelectorAll('#dashCrossPlPicker input[type=checkbox]').forEach(cb=>cb.addEventListener('change',dcpSyncHiddenInput));
+  const st=restoreDashCrossPlState();
+  const finish=()=>{dcpApplySavedSelection(st);const hasSaved=st&&(Array.isArray(st.pls)?st.pls.length:String(st.pls||'').trim());if(hasSaved)loadDashCrossPlCompare(false);};
+  if(st&&st.bu&&String(st.bu).toUpperCase()!==String(DASH_CURRENT_BU).toUpperCase())loadDashCrossPlTargetsForBu(st.bu,st).then(finish);
+  else finish();
+});
+</script>
+{% endblock %}
