@@ -4112,23 +4112,33 @@ def admin_usage_data():
         group_by     = "DATE_FORMAT(created_at, '%%H:00')"
         label_expr   = "DATE_FORMAT(created_at, '%%H:00')"
 
-    EXCLUDE_USERS     = "('UNKNOWN', 'unknown', 'vmadasu')"
+    EXCLUDE_USERS     = "('UNKNOWN', 'unknown', 'vmadasu', 'akacham')"
     user_filter_sql   = ""
     user_filter_params: tuple = ()
     if filter_user:
         user_filter_sql    = "AND user_id = %s"
         user_filter_params = (filter_user,)
 
-                # Internal = TARGET_GROUP / admin login (user_type = 'internal')
-    # External = viewer / extra-group login (user_type = 'external')
+    # Authoritative user type for Admin Usage:
+    #   internal = LDAP-authenticated users who are in TARGET_GROUP/admin/full-access.
+    #   external = scoped PDTBuddy viewer/list users such as PdtBuddy.WBC / PdtBuddy.IoT / PdtBuddy.Wear.
+    #
+    # If a user has any successful internal login, treat that user as internal for all usage analytics.
+    # This prevents target-team members with old viewer/fallback external rows from appearing in External.
+    internal_users_sql = (
+        "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
+        "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='internal'"
+    )
+    external_only_users_sql = (
+        "SELECT DISTINCT e.user_id FROM pdt_stats_dashboard.user_data e "
+        "WHERE e.action_type='LOGIN' AND e.result_status='SUCCESS' AND e.user_type='external' "
+        "AND e.user_id NOT IN (" + internal_users_sql + ")"
+    )
+
     if user_type == 'internal':
-        user_type_sql = ("AND user_id IN ("
-                         "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
-                         "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='internal')")
+        user_type_sql = "AND user_id IN (" + internal_users_sql + ")"
     elif user_type == 'external':
-        user_type_sql = ("AND user_id IN ("
-                         "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
-                         "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='external')")
+        user_type_sql = "AND user_id IN (" + external_only_users_sql + ")"
     else:
         user_type_sql = ""
 
@@ -4299,28 +4309,45 @@ def admin_usage_data():
         # - External user tracking by BU / target -
         # BU is inferred from dashboard_status when target_name is logged.
         # If target_name is not available, selected BU pages are inferred from the endpoint/query_text.
-        external_filter_sql = (
-            "AND user_id IN ("
-            "SELECT DISTINCT user_id FROM pdt_stats_dashboard.user_data "
-            "WHERE action_type='LOGIN' AND result_status='SUCCESS' AND user_type='external')"
-        )
+        external_filter_sql = "AND user_id IN (" + external_only_users_sql + ")"
         external_params = user_filter_params
 
         cursor.execute(f"""
             SELECT
-                COALESCE(ds.bu, 'UNKNOWN') AS bu,
+                x.bu,
                 COUNT(*) AS total_actions,
-                COUNT(DISTINCT ud.user_id) AS unique_users,
-                MAX(ud.created_at) AS last_seen
-            FROM pdt_stats_dashboard.user_data ud
-            LEFT JOIN pdt_stats_dashboard.dashboard_status ds
-              ON UPPER(ds.target_name) = UPPER(ud.target_name)
-            WHERE {where_clause}
-              AND ud.user_id NOT IN {EXCLUDE_USERS}
-              {user_filter_sql}
-              {external_filter_sql}
-              AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
-            GROUP BY COALESCE(ds.bu, 'UNKNOWN')
+                COUNT(DISTINCT x.user_id) AS unique_users,
+                MAX(x.created_at) AS last_seen
+            FROM (
+                SELECT
+                    ud.user_id,
+                    ud.created_at,
+                    COALESCE(
+                        ds.bu,
+                        CASE
+                            WHEN ud.query_text LIKE 'bu_key=%'
+                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1)))
+                            ELSE NULL
+                        END,
+                        'UNKNOWN'
+                    ) AS bu
+                FROM pdt_stats_dashboard.user_data ud
+                LEFT JOIN pdt_stats_dashboard.dashboard_status ds
+                  ON (
+                      UPPER(ds.target_name) = UPPER(ud.target_name)
+                      OR UPPER(ds.target_display) = UPPER(ud.target_name)
+                      OR UPPER(ds.sp_name) = UPPER(ud.target_name)
+                  )
+                WHERE {where_clause}
+                  AND ud.user_id NOT IN {EXCLUDE_USERS}
+                  {user_filter_sql}
+                  {external_filter_sql}
+                  AND (
+                      (ud.target_name IS NOT NULL AND ud.target_name <> '')
+                      OR ud.query_text LIKE 'bu_key=%'
+                  )
+            ) x
+            GROUP BY x.bu
             ORDER BY total_actions DESC
             LIMIT 30
         """, external_params)
@@ -4336,20 +4363,43 @@ def admin_usage_data():
 
         cursor.execute(f"""
             SELECT
-                COALESCE(NULLIF(ud.target_name, ''), 'UNKNOWN') AS target_name,
-                COALESCE(ds.bu, 'UNKNOWN') AS bu,
+                x.target_name,
+                x.bu,
                 COUNT(*) AS total_actions,
-                COUNT(DISTINCT ud.user_id) AS unique_users,
-                MAX(ud.created_at) AS last_seen
-            FROM pdt_stats_dashboard.user_data ud
-            LEFT JOIN pdt_stats_dashboard.dashboard_status ds
-              ON UPPER(ds.target_name) = UPPER(ud.target_name)
-            WHERE {where_clause}
-              AND ud.user_id NOT IN {EXCLUDE_USERS}
-              {user_filter_sql}
-              {external_filter_sql}
-              AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
-            GROUP BY COALESCE(NULLIF(ud.target_name, ''), 'UNKNOWN'), COALESCE(ds.bu, 'UNKNOWN')
+                COUNT(DISTINCT x.user_id) AS unique_users,
+                MAX(x.created_at) AS last_seen
+            FROM (
+                SELECT
+                    ud.user_id,
+                    ud.created_at,
+                    COALESCE(
+                        NULLIF(ds.target_name, ''),
+                        NULLIF(ud.target_name, ''),
+                        'UNKNOWN'
+                    ) AS target_name,
+                    COALESCE(
+                        ds.bu,
+                        CASE
+                            WHEN ud.query_text LIKE 'bu_key=%'
+                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1)))
+                            ELSE NULL
+                        END,
+                        'UNKNOWN'
+                    ) AS bu
+                FROM pdt_stats_dashboard.user_data ud
+                LEFT JOIN pdt_stats_dashboard.dashboard_status ds
+                  ON (
+                      UPPER(ds.target_name) = UPPER(ud.target_name)
+                      OR UPPER(ds.target_display) = UPPER(ud.target_name)
+                      OR UPPER(ds.sp_name) = UPPER(ud.target_name)
+                  )
+                WHERE {where_clause}
+                  AND ud.user_id NOT IN {EXCLUDE_USERS}
+                  {user_filter_sql}
+                  {external_filter_sql}
+                  AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
+            ) x
+            GROUP BY x.target_name, x.bu
             ORDER BY total_actions DESC
             LIMIT 50
         """, external_params)

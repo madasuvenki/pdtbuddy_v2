@@ -158,6 +158,18 @@ def _build_metadata_from_rows(rows: List[dict]) -> dict:
         bu_key = str(bu_raw).upper()
         target_key = str(target_name).strip()
 
+        # Wear targets currently arrive from dashboard_status as IOT.
+        # Keep them separated in the UI by routing LW/LAW Wear PLs to IOT_WEARABLES
+        # while still using the shared pdt_stats_iot schema via BU_DATABASE_MAPPING.
+        _wear_probe = " ".join(str(v or "") for v in (target_name, target_display, sp_name, chip_name)).upper()
+        if bu_key == "IOT" and (
+            "ASPEN_LW" in _wear_probe
+            or ".LW" in _wear_probe
+            or ".LAW" in _wear_probe
+            or "WEAR" in _wear_probe
+        ):
+            bu_key = "IOT_WEARABLES"
+
         # WBC: fix platform/product_family/cpl if DB still has old GENERIC values
         # DB is now fixed but keep this as safety fallback
         if bu_key in ("WBC", "MDM_TELEMATICS", "AUTO_TELEMATICS") and (not platform or platform.upper() in ("GENERIC", "")):

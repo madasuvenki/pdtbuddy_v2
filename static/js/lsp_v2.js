@@ -204,6 +204,11 @@ function deviceMultiplier(r){
 function effectiveHoursValue(r){
   if(!hasHoursCalcInput(r)) return null;
   const base = parseFloat(r.hours||0) || 0;
+  if(r && r.isMerged){
+    // Merge-PL rows are snapshots. Do not keep adding elapsed live hours after
+    // merge/publish, otherwise the merged MTBF changes on every refresh.
+    return base;
+  }
   const reduction = Math.min(100, Math.max(0, parseFloat(r.reduction_percent||0) || 0));
   const elapsed = elapsedHoursForRow(r);  // per-build published time
   return base + (elapsed * (1 - reduction / 100) * deviceMultiplier(r));
@@ -458,6 +463,11 @@ window.lspMergeMeta=function(meta){
   if(rows.length<2) return;
   const totalDevices=rows.reduce((s,r)=>s+parseInt(r.device_count||0),0);
   const totalJobs=rows.reduce((s,r)=>s+parseInt(r.job_count||0),0);
+  const totalHours=rows.reduce((s,r)=>{
+    const h=effectiveHoursValue(r);
+    return s+(h==null?0:h);
+  },0);
+  const totalCrashes=rows.reduce((s,r)=>s+(parseFloat(r.crashes||0)||0),0);
   const builds=rows.map(r=>r.build_full||r.meta_id).filter(Boolean);
   // earliest week
   const weeks=rows.map(r=>r.week||r.first_submitted||'').filter(Boolean).sort();
@@ -468,10 +478,10 @@ window.lspMergeMeta=function(meta){
     merged_builds: builds,
     isMerged:      true,
     run_status:    'running',
-    hours:         rows.find(r=>r.hours)?.hours||'',
-    reduction_percent: rows.find(r=>r.reduction_percent)?.reduction_percent||'',
-    crashes:       rows.find(r=>r.crashes)?.crashes||'',
-    mtbf:          rows.find(r=>r.mtbf)?.mtbf||'',
+    hours:         totalHours ? (Math.round(totalHours*10)/10).toFixed(1) : '',
+    reduction_percent: '',
+    crashes:       totalCrashes ? String(totalCrashes) : '',
+    mtbf:          (totalHours && totalCrashes) ? (Math.round((totalHours/totalCrashes)*10)/10).toFixed(1) : '',
     week:          firstWeek,
     device_count:  totalDevices,
     job_count:     totalJobs,

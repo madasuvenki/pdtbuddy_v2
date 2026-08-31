@@ -3149,6 +3149,91 @@ def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
     )
 
 
+def _sp2_axiom_row_belongs_to_execution_week(row: dict, report_week_start=None, report_week_end=None) -> bool:
+    """Return True when an Axiom row should be considered for the mapped execution week.
+
+    The Smart Build report week maps to the prior Axiom execution week. Rows
+    stuck in Axiom as Running/JobSetup with no ended_at must not be treated as
+    spanning every later week forever. For historical weeks, include no-ended
+    rows only when they started/submitted inside the mapped execution week.
+    """
+    ax_ws, ax_we = _sp2_axiom_window_for_report_week(report_week_start, report_week_end)
+    ax_ws = _safe_date(ax_ws)
+    ax_we = _safe_date(ax_we)
+    if not ax_ws or not ax_we:
+        return True
+
+    started = _safe_date((row or {}).get('started_at')) or _safe_date((row or {}).get('submitted_at'))
+    ended = _safe_date((row or {}).get('ended_at')) or _safe_date((row or {}).get('completed_at'))
+
+    if ended:
+        return bool(started and started <= ax_we and ended >= ax_ws)
+
+    state_l = str((row or {}).get('state') or '').strip().lower()
+    if state_l in ('running', 'jobsetup'):
+        if _sp2_is_effectively_running(state_l, report_week_end, (row or {}).get('updated_at'), (row or {}).get('fetched_at'), (row or {}).get('ended_at')):
+            return bool(started and started <= ax_we)
+        return bool(started and ax_ws <= started <= ax_we)
+
+    return bool(started and ax_ws <= started <= ax_we)
+
+
+def _sp2_display_completed_date(completed_at, status, week_end=None) -> str:
+    """Return a display completion date for SP2 build rows.
+
+    Some stale Axiom rows have no terminal ended_at even though we intentionally
+    suppress them from "running" for historical/stale weeks. In that case the
+    build row should not show an open-looking "-" completion date; use the report
+    week end as the effective completion boundary.
+    """
+    done = str(completed_at or '').strip()[:10]
+    if done:
+        return done
+    if str(status or '').strip().lower() in ('running', 'jobsetup', 'running'):
+        return ''
+    we = _safe_date(week_end)
+    return we.isoformat() if we else ''
+
+
+def _sp2_is_effectively_running(state, week_end=None, updated_at=None, fetched_at=None, ended_at=None) -> bool:
+    """Return True only for jobs that should still be shown as running in SP2.
+
+    Axiom rows can remain in state=Running/JobSetup when the poller missed the
+    terminal transition. For historical Smart Build report weeks, showing those
+    old rows as running is always misleading, so any week that already ended is
+    treated as completed in the UI/snapshot rollups. For the current week, also
+    suppress stale Running/JobSetup rows when the Axiom summary row has not been
+    refreshed recently.
+    """
+    state_l = str(state or '').strip().lower()
+    if state_l not in ('running', 'jobsetup'):
+        return False
+    if ended_at:
+        return False
+
+    we = _safe_date(week_end)
+    today = date.today()
+    if we and we < today:
+        return False
+
+    # If Axiom polling has not touched this row for a long time, do not let an
+    # old missed terminal transition keep a PL/build visually "Running".
+    ts_raw = updated_at or fetched_at
+    if ts_raw:
+        try:
+            if isinstance(ts_raw, datetime):
+                ts = ts_raw
+            else:
+                ts_txt = str(ts_raw).strip().replace('T', ' ').replace('Z', '')
+                ts = datetime.fromisoformat(ts_txt[:19])
+            if datetime.now() - ts > timedelta(hours=12):
+                return False
+        except Exception:
+            pass
+
+    return True
+
+
 def _sp2_pl_week_hour_cap(device_count, week_start=None, week_end=None) -> float:
     """Max device-hours cap for one PL in the selected week.
 
@@ -3846,12 +3931,12 @@ def _sp_bu_options() -> list:
 
 def _normalize_bu(bu: str) -> str:
     """Normalize BU aliases to canonical keys used in BU_DATABASE_MAPPING.
-    e.g. IOT_WEARABLES -> IOT (same schema, same BU, different display name).
+    Keep QLI_IOT and Wear separate even though both use the pdt_stats_iot schema.
     """
     _aliases = {
-        'IOT_WEARABLES': 'IOT',
-        'IOT_WEARABLE':  'IOT',
-        'WEARABLES':     'IOT',
+        'IOT_WEARABLE':  'IOT_WEARABLES',
+        'WEARABLES':     'IOT_WEARABLES',
+        'WEAR':          'IOT_WEARABLES',
         'AUTOMOTIVE':    'AUTO',
     }
     b = str(bu or '').strip().upper()
@@ -5464,7 +5549,11 @@ def _sp2_landing_summary(week_start, week_end):
         all_chips = set()
         total_hours = 0.0
         total_crashes = 0
+        active_static_rows = []
         for r in static_rows:
+            if not _sp2_axiom_row_belongs_to_execution_week(r, week_start, week_end):
+                continue
+            active_static_rows.append(r)
             chips_raw = r.get('chip_ids') or '[]'
             try:
                 chip_ids = _json2.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
@@ -5474,7 +5563,7 @@ def _sp2_landing_summary(week_start, week_end):
             total_hours += float(r.get('hours') or 0)
             total_crashes += int(r.get('total_crashes') or 0)
         return {
-            'sp2_build_count': len(static_rows),
+            'sp2_build_count': len(active_static_rows),
             'sp2_device_count': len(all_chips),
             'sp2_total_hours': round(total_hours, 1),
             'sp2_crash_count': total_crashes,
@@ -8294,8 +8383,9 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
         live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
-                   taxonomy_path, team, city_team, state, device_count, chip_ids, submitted_at, ended_at,
-                submitter, ({live_h}) AS hours_live
+                   taxonomy_path, team, city_team, state, device_count, chip_ids,
+                   submitted_at, ended_at, updated_at,
+                   submitter, ({live_h}) AS hours_live
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
             WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
@@ -8319,6 +8409,8 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
                 _explicit_qipl_targets.add(_tgt)
 
         for r in _seed_rows:
+            if not _sp2_axiom_row_belongs_to_execution_week(r, ws, we):
+                continue
             chips_raw = r.get('chip_ids') or '[]'
             if isinstance(chips_raw, str):
                 try:
@@ -8358,7 +8450,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
             acc['hours'] += _raw_hrs
             acc['chip_ids'].update(str(c).strip() for c in chips if str(c).strip())
             acc['device_count'] = max(acc['device_count'], _raw_dev)
-            if str(r.get('state') or '').lower() in ('running', 'jobsetup'):
+            if _sp2_is_effectively_running(r.get('state'), we, r.get('updated_at'), r.get('fetched_at'), r.get('ended_at')):
                 acc['state'] = str(r.get('state') or 'Running')
             sub = r.get('submitted_at')
             end = r.get('ended_at')
@@ -8483,6 +8575,8 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
     grouped = {}
     order = []
     for r in static_rows:
+        if not _sp2_axiom_row_belongs_to_execution_week(r, ws, we):
+            continue
         target = str(r.get('target') or '').strip() or (_swpdt_target_from_product(r.get('pl_id')) or '')
         pl_id = str(r.get('pl_id') or '').strip()
         key = (target.upper(), pl_id.upper())
@@ -10106,6 +10200,8 @@ def api_sp2_builds():
         out = []
         all_chips = set()
         for r in static_rows:
+            if not _sp2_axiom_row_belongs_to_execution_week(r, ws, we):
+                continue
             chips_raw = r.get('chip_ids') or '[]'
             try:
                 chip_ids = json.loads(chips_raw) if isinstance(chips_raw, str) else list(chips_raw or [])
@@ -10134,6 +10230,7 @@ def api_sp2_builds():
             except Exception:
                 job_ids = []
             state = str(r.get('state') or '').lower()
+            status = 'running' if _sp2_is_effectively_running(state, we, ended_at=r.get('completed_at')) else 'completed'
             out.append({
                 'job_ids':      job_ids,
                 'job_id':       job_ids[0] if job_ids else '',
@@ -10143,8 +10240,8 @@ def api_sp2_builds():
                 'build_id':     str(r.get('build_id') or ''),
                 'build_name':   str(r.get('build_name') or r.get('build_id') or ''),
                 'submitted':    str(r.get('submitted_at') or '')[:10],
-                'completed_at': str(r.get('completed_at') or '')[:10],
-                'status':       'running' if state in ('running', 'jobsetup') else 'completed',
+                'completed_at': _sp2_display_completed_date(r.get('completed_at'), status, we),
+                'status':       status,
                 'hours':        round(float(r.get('hours') or 0), 3),
                 'device_count': max(len(chip_ids), int(r.get('device_count') or 0)),
                 'chip_ids':     chip_ids,
@@ -10192,7 +10289,7 @@ def api_sp2_builds():
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
                     taxonomy_path, team, city_team, state, device_count, chip_ids,
-                           submitted_at, started_at, ended_at,
+                           submitted_at, started_at, ended_at, updated_at,
                            ({live_h}) AS hours_live,
                            product_flavor, submitter, site
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
@@ -10301,6 +10398,8 @@ def api_sp2_builds():
     all_chips = set()
 
     for r in db_rows:
+        if not _sp2_axiom_row_belongs_to_execution_week(r, ws, we):
+            continue
         chips_raw = r.get('chip_ids') or '[]'
         if isinstance(chips_raw, str):
             try:
@@ -10339,7 +10438,7 @@ def api_sp2_builds():
         hours = round(hours, 3)
 
         state      = str(r.get('state') or '').lower()
-        is_running = state in ('running', 'jobsetup')
+        is_running = _sp2_is_effectively_running(state, we, r.get('updated_at'), r.get('fetched_at'), r.get('ended_at'))
         job_id     = str(r.get('job_id') or '')
         submitted  = str(r.get('submitted_at') or '')[:10]
         completed  = str(r.get('ended_at') or '')[:10]
@@ -10403,6 +10502,7 @@ def api_sp2_builds():
         true_dev_count = max(len(chip_ids_sorted), int(acc.get('device_count') or 0))
                 # Cap hours: device_count * days * 20 h/day
         capped_hours = _sp2_capped_pl_hours(acc['hours'], true_dev_count, ws, we)
+        status = 'running' if acc['is_running'] else 'completed'
         out.append({
             'job_ids':      acc['job_ids'],
             'job_id':       acc['job_id'],
@@ -10412,8 +10512,8 @@ def api_sp2_builds():
             'build_id':     acc['build_id'],
             'build_name':   build_name,
             'submitted':    acc['submitted'],
-            'completed_at': acc['completed_at'],
-            'status':       'running' if acc['is_running'] else 'completed',
+            'completed_at': _sp2_display_completed_date(acc['completed_at'], status, we),
+            'status':       status,
             'hours':        capped_hours,
             'device_count': true_dev_count,
             'chip_ids':     chip_ids_sorted,

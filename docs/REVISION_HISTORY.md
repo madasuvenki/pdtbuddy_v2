@@ -136,6 +136,7 @@
 **Target Delta Studio**
 
 - `QIPLPDT-11029` — Hawi and Kaanapali AU comparison stats request.
+- `QIPLPDT-11030` — Merge related JIRA handling updated for mergePL / related-JIRA flows so merged PL data remains stable and consistent.
 - Added **Generate Weekwise Trend of JIRAs, CRs** option in Target Delta Studio.
 - Weekwise trend supports date ranges such as `June 3-9`, `June 10-16`, etc. from the selected start/end dates.
 - Jira count includes rows from all available target Jira tables:
@@ -144,6 +145,14 @@
   - `{prefix}_closed_jiras`
 - CR count shows unique mapped CRs per selected target/delta set for each week.
 - Added weekwise Jira and mapped-CR charts plus a copy-ready table.
+
+**Live Status / BU Access**
+
+- `QIPLPDT-11045` — Separated `Wear` from `QLI_IOT`.
+- Fixed duplicate `Wear` sidebar entry by keeping only `IOT_WEARABLES` visible as `Wear`.
+- Kept `QLI_IOT` as the existing `IOT` BU.
+- Added admin reassignment support in **Admin → Unique CR Paths** to move IoT targets between `QLI_IOT` and `Wear`.
+- Updated Admin Usage Dashboard classification so LDAP + target-group users are treated as internal, while scoped PDTBuddy viewer groups such as `PdtBuddy.WBC`, `PdtBuddy.IoT`, and `PdtBuddy.Wear` are treated as external.
 
 **Version:** `APP_VERSION = "v2.11"` in `app.py`
 

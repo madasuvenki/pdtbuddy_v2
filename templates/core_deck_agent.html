@@ -144,8 +144,32 @@ async function cdAgentLoadGenerated(){
   const r=await fetch('/api/core_deck/generated_list?target='+encodeURIComponent(CD_TARGET),{cache:'no-store'});const d=await r.json();
   CD_GENERATED=(d.ok&&d.generated)||[];
   const sel=document.getElementById('cdGeneratedSelect'),list=document.getElementById('cdGeneratedList');
-  sel.innerHTML=CD_GENERATED.length?CD_GENERATED.map((g,i)=>'<option value="'+i+'">'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+' — '+cdEsc(g.generated_at||'')+'</option>').join(''):'<option>No generated decks</option>';
-  list.innerHTML=CD_GENERATED.length?CD_GENERATED.slice(0,8).map(g=>'<div class="cd-history-row"><div><b>'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+'</b><div class="cd-muted">'+cdEsc(g.generated_at||'')+' by '+cdEsc(g.generated_by||'')+'</div></div><button class="cd-btn cd-soft" onclick="cdAgentPreviewPpt('+g.id+')">Preview</button></div>').join(''):'No generated decks yet.';
+  sel.innerHTML=CD_GENERATED.length?CD_GENERATED.map((g,i)=>'<option value="'+i+'">'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+' — '+cdEsc(g.generated_at||'')+'</option>').join(''):'<option>No generated PPTX history</option>';
+  list.innerHTML=CD_GENERATED.length?CD_GENERATED.slice(0,8).map(g=>'<div class="cd-history-row"><div><b>'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+'</b><div class="cd-muted">'+cdEsc(g.generated_at||'')+' by '+cdEsc(g.generated_by||'')+'</div></div><button class="cd-btn cd-soft" onclick="cdAgentPreviewPpt('+g.id+')">Preview</button></div>').join(''):'No generated PPTX history yet. Showing latest saved JSON below when available.';
+}
+async function cdAgentLoadSavedState(){
+  const previewBox=document.getElementById('cdPreviewRows'),pptBox=document.getElementById('cdPptPreview'),badge=document.getElementById('cdPptBadge');
+  try{
+    const url=(CD_MODE==='external'?'/api/core_deck/public_state':'/api/core_deck/state')+'?target='+encodeURIComponent(CD_TARGET);
+    const r=await fetch(url,{cache:'no-store'});
+    const d=await cdJson(r);
+    if(!d.ok||!d.state){
+      if(previewBox)previewBox.innerHTML='<div class="cd-muted">No saved Core Slides JSON found for this target.</div>';
+      if(pptBox&&(!CD_GENERATED||!CD_GENERATED.length))pptBox.innerHTML='<div class="cd-warn">No generated PPTX history found for this target.</div>';
+      return;
+    }
+    const state=d.state||{},preview=state.saved_preview||{};
+    if(preview&&Object.keys(preview).length){
+      cdRenderPreview(preview);
+      if(badge&&!CD_GENERATED.length){badge.textContent='saved JSON loaded';badge.classList.add('ok');}
+      if(pptBox&&!CD_GENERATED.length){
+        const metas=(state.selected_metas||preview.selected_metas||[]).map(m=>m&&m.meta_id).filter(Boolean).join(', ');
+        pptBox.innerHTML='<div class="cd-warn" style="background:#ecfdf5;border-color:#bbf7d0;color:#166534"><b>Latest saved Core Slides JSON is loaded.</b><br>Meta: '+cdEsc(metas||'-')+'<br>Saved by '+cdEsc(state.updated_by||state.last_modified_by||'-')+' at '+cdEsc(state.updated_at||state.last_modified_at||'-')+'</div>';
+      }
+    }
+  }catch(e){
+    if(previewBox)previewBox.innerHTML='<div class="cd-warn">Saved Core Slides JSON could not be loaded: '+cdEsc(e.message||e)+'</div>';
+  }
 }
 async function cdAgentUpload(ev){
   ev.preventDefault();const fd=new FormData(ev.target);fd.append('target',CD_TARGET);
@@ -200,6 +224,6 @@ function cdRenderPreview(p){
   document.getElementById('cdPreviewRows').innerHTML='<div class="cd-two"><div><b>Selected Meta Data</b><div style="margin-top:8px">'+metaHtml+'</div></div><div><b>Top CRs from DB</b><table class="cd-mini-table" style="margin-top:8px"><thead><tr><th>CR</th><th>Title</th><th>Count</th></tr></thead><tbody>'+(top||'<tr><td colspan="3">No top CR data</td></tr>')+'</tbody></table></div></div><div class="cd-muted" style="margin-top:10px">Generate will copy the available reference PPT and replace detected values with this DB data.</div>';
 }
 function cdSelectAllMetas(val){document.querySelectorAll('.cdMetaChk').forEach((ch,i)=>{ch.checked=val && i<5;});cdUpdateSelectedCount();}
-async function cdAgentLoadAll(){await cdAgentLoadRef();await cdAgentLoadMetas();await cdAgentLoadGenerated();if(CD_GENERATED[0])cdAgentSelectGenerated();}
+async function cdAgentLoadAll(){await cdAgentLoadRef();await cdAgentLoadMetas();await cdAgentLoadGenerated();await cdAgentLoadSavedState();if(CD_GENERATED[0])cdAgentSelectGenerated();}
 cdAgentLoadAll();
 </script>

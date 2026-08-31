@@ -40,6 +40,14 @@
   transition:background .15s;white-space:nowrap;}
 .ap-level-save:hover{background:#0284c7;}
 .ap-level-save.saved{background:#16a34a;}
+.ap-bu-select{height:32px;padding:0 8px;border-radius:9px;border:1.5px solid #c7d2fe;
+  font-size:11px;font-weight:800;color:#334155;background:#fff;outline:none;cursor:pointer;
+  min-width:120px;box-shadow:0 1px 3px rgba(15,23,42,.06);}
+.ap-bu-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.ap-bu-save{height:28px;padding:0 9px;border-radius:8px;border:none;background:#7c3aed;color:#fff;
+  font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;}
+.ap-bu-save:hover{background:#6d28d9;}
+.ap-bu-save.saved{background:#16a34a;}
 </style>
 
 <div class="ap-shell">
@@ -123,6 +131,19 @@
     });
   }
 
+  function apiSaveBu(target_name, bu){
+    return fetch('/admin/update_target_bu', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target_name: target_name, bu: bu})
+    }).then(function(resp){
+      return resp.json().catch(function(){ return {}; }).then(function(data){
+        if(!resp.ok || !data.success) throw new Error((data && data.message) || 'BU save failed');
+        return data;
+      });
+    });
+  }
+
   function pill(ok){
     return ok
       ? '<span class="ap-pill ap-pill-ok"><i class="fas fa-eye"></i> Enabled</span>'
@@ -187,7 +208,19 @@
             <div style="font-weight:950;color:#0f172a">${esc(display)}</div>
             <div style="font-size:10px;color:#94a3b8;font-family:ui-monospace,monospace">${esc(t)}</div>
           </td>
-          <td style="font-weight:800;color:#334155">${esc(bu)}</td>
+          <td>
+            ${(['IOT','IOT_WEARABLES'].indexOf(String(bu).toUpperCase()) >= 0) ? `
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <select class="ap-bu-select" data-bu-target="${esc(t)}">
+                  <option value="IOT" ${String(bu).toUpperCase()==='IOT'?'selected':''}>QLI_IOT</option>
+                  <option value="IOT_WEARABLES" ${String(bu).toUpperCase()==='IOT_WEARABLES'?'selected':''}>Wear</option>
+                </select>
+                <button class="ap-bu-save" data-bu-save="${esc(t)}" title="Move target between QLI_IOT and Wear">
+                  <i class="fas fa-exchange-alt"></i>
+                </button>
+              </div>
+            ` : `<span style="font-weight:800;color:#334155">${esc(bu)}</span>`}
+          </td>
           <td>
             <div style="font-size:11px;font-weight:700;color:#475569">${esc(r.sp_name||'')}</div>
             ${hier ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px">${esc(hier)}</div>` : ''}
@@ -257,6 +290,32 @@
       });
     });
 
+    // BU reassignment buttons (QLI_IOT <-> Wear)
+    tbody.querySelectorAll('button[data-bu-save]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var t   = btn.getAttribute('data-bu-save');
+        var sel = tbody.querySelector('select[data-bu-target="' + t + '"]');
+        var v   = sel ? sel.value : '';
+        if(!v) return;
+        btn.disabled = true;
+        var oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        status.textContent = 'Updating BU for ' + t + '...';
+        apiSaveBu(t, v)
+          .then(function(data){
+            btn.classList.add('saved');
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            status.innerHTML = '<span style="color:#16a34a;font-weight:800">&#10003; ' + esc((data && data.message) || ('BU updated for ' + t)) + '</span>';
+            setTimeout(function(){ btn.classList.remove('saved'); btn.innerHTML = '<i class="fas fa-exchange-alt"></i>'; }, 1600);
+            return load();
+          })
+          .catch(function(e){
+            status.innerHTML = '<span style="color:#dc2626;font-weight:800">&#10007; Error: ' + esc(e.message||e) + '</span>';
+          })
+          .finally(function(){ btn.disabled = false; });
+      });
+    });
+
     // Level save buttons
     tbody.querySelectorAll('button[data-level-save]').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -283,13 +342,13 @@
     });
   }
   function load(){
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#64748b">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:18px;color:#64748b">Loading...</td></tr>';
     status.textContent = '';
     return apiGet().then(function(rows){
       _cache = rows;
       render(_cache);
     }).catch(function(e){
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:18px;color:#b91c1c">Error: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:18px;color:#b91c1c">Error: ' + e.message + '</td></tr>';
       status.textContent = 'Error';
     });
   }

@@ -14,6 +14,7 @@ from flask_login import current_user, login_required
 from config import ADMIN_USERS, BU_DATABASE_MAPPING, JIRA_PDT_FILTER_ID, TARGET_GROUP, VIEWER_OVERRIDE_USERS
 from dashboard_common import get_mysql_connection_db
 from live_view_stats_routes import _sheet_to_payload, _workbook_sheets
+import wbc_legacy_ppt_adapter as legacy_wbc_ppt
 
 
 wbc_live_view_stats_bp = Blueprint("wbc_live_view_stats_bp", __name__)
@@ -2322,13 +2323,21 @@ def api_wbc_mtbf_save_table(target_key: str):
 # PPT EXPORT - same design as WBC_Report.py build_ppt()
 # ---------------------------------------------------------------------------
 
-def _wbc_build_ppt(target_key: str):
-    """Generate a PowerPoint for the given WBC target from the same data used by the UI."""
+def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None, build_ids: List[str] = None):
+    """Generate a PowerPoint for the given WBC target from the same data used by the UI.
+
+    If tab_id/tab_ids is provided, the selected Current Running Build/Saved-JQL
+    card(s) are used as PPT current meta/core slides. If build_ids is provided,
+    already-ran/build-report metas are also included. This keeps the downloaded
+    deck aligned with the meta rows the viewer selected in WBC Live View.
+    """
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
         from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        from pptx.chart.data import CategoryChartData
+        from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
     except ImportError:
         raise RuntimeError("python-pptx is not installed")
 
@@ -2475,13 +2484,17 @@ def _wbc_build_ppt(target_key: str):
         tabs, report_rows = [], []
         try:
             from live_view_saved_jql_service import get_cached_report, list_tabs
-            for tab in list_tabs(target_key, _wbc_saved_jql_domain()):
+            target_row = _find_target(target_key) or {"key": target_key}
+            pdt_key = _wbc_pdt_key(target_row)
+            saved_domain = _wbc_saved_jql_domain(target_row)
+            for tab in list_tabs(pdt_key, saved_domain):
                 row = dict(tab)
                 resolved_jql, filter_id, resolved, err = _wbc_resolve_saved_jql(row.get("jql"))
                 build_id = _wbc_extract_build_id_from_jql(resolved_jql or row.get("jql") or row.get("name")) or row.get("name") or "-"
-                cached = get_cached_report(target_key, _wbc_saved_jql_domain(), row.get("id")) or {}
+                cached = get_cached_report(pdt_key, saved_domain, row.get("id")) or {}
                 cached_rows = cached.get("rows") or cached.get("flat_rows") or []
                 tabs.append({
+                    "id": row.get("id"),
                     "build_id": build_id,
                     "jql": resolved_jql or row.get("jql") or "",
                     "row_count": cached.get("row_count", len(cached_rows)) if cached else "-",
@@ -2495,6 +2508,127 @@ def _wbc_build_ppt(target_key: str):
             pass
         return tabs, report_rows
 
+    def _excel_safe(value):
+        if value is None:
+            return ""
+        if isinstance(value, (datetime, date)):
+            return value.strftime("%Y-%m-%d")
+        return str(value).strip()
+
+    def _excel_canon(value):
+        return re.sub(r"[^a-z0-9]+", "", _excel_safe(value).lower())
+
+    def _excel_read_table(excel_path, candidates):
+        import openpyxl
+        empty = {"columns": [], "rows": []}
+        if not excel_path or not os.path.exists(excel_path):
+            return empty
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+        try:
+            sheet_map = {_excel_canon(name): name for name in wb.sheetnames}
+            sheet_name = ""
+            for cand in candidates:
+                if _excel_canon(cand) in sheet_map:
+                    sheet_name = sheet_map[_excel_canon(cand)]
+                    break
+            if not sheet_name:
+                for name in wb.sheetnames:
+                    nc = _excel_canon(name)
+                    if any(_excel_canon(c) and (_excel_canon(c) in nc or nc in _excel_canon(c)) for c in candidates):
+                        sheet_name = name
+                        break
+            if not sheet_name:
+                return empty
+            ws = wb[sheet_name]
+            raw_rows = []
+            for row in ws.iter_rows(values_only=True):
+                vals = [_excel_safe(v) for v in row]
+                while vals and not vals[-1]:
+                    vals.pop()
+                if any(vals):
+                    raw_rows.append(vals)
+            if not raw_rows:
+                return empty
+            best_idx, best_score = 0, -1
+            for idx, vals in enumerate(raw_rows[:20]):
+                non_empty = [v for v in vals if v]
+                if len(non_empty) < 2:
+                    continue
+                next_count = len([v for v in raw_rows[idx + 1] if v]) if idx + 1 < len(raw_rows) else 0
+                score = len(non_empty) * 2 + len(set(non_empty)) + (1 if next_count else 0)
+                if score > best_score:
+                    best_idx, best_score = idx, score
+            headers = []
+            used = {}
+            for idx, value in enumerate(raw_rows[best_idx]):
+                title = _excel_safe(value) or f"Column_{idx + 1}"
+                title = re.sub(r"\s+", " ", title).strip()
+                base = re.sub(r"[^a-z0-9_]+", "_", title.lower()).strip("_") or f"column_{idx + 1}"
+                key = base
+                used[key] = used.get(key, 0) + 1
+                if used[key] > 1:
+                    key = f"{key}_{used[key]}"
+                headers.append({"title": title, "key": key})
+            rows = []
+            for vals in raw_rows[best_idx + 1:]:
+                rec = {}
+                for idx, col in enumerate(headers):
+                    rec[col["key"]] = vals[idx] if idx < len(vals) else ""
+                if any(str(v or "").strip() for v in rec.values()):
+                    rows.append(rec)
+            return {"sheet_name": sheet_name, "columns": headers, "rows": rows}
+        finally:
+            try:
+                wb.close()
+            except Exception:
+                pass
+
+    def _excel_find_key(table, aliases):
+        alias_tokens = [_excel_canon(a) for a in aliases]
+        for col in table.get("columns", []) or []:
+            title = _excel_canon(col.get("title"))
+            key = _excel_canon(col.get("key"))
+            for alias in alias_tokens:
+                if alias and (alias in title or title in alias or alias in key or key in alias):
+                    return col.get("key")
+        return ""
+
+    def _excel_count_matching(table, aliases, values):
+        key = _excel_find_key(table, aliases)
+        wanted = {str(v).strip().lower() for v in values}
+        return sum(1 for r in (table.get("rows") or []) if str(r.get(key, "")).strip().lower() in wanted) if key else 0
+
+    def _excel_count_startswith(table, aliases, prefix):
+        key = _excel_find_key(table, aliases)
+        pfx = str(prefix or "").lower().rstrip("*")
+        return sum(1 for r in (table.get("rows") or []) if str(r.get(key, "")).strip().lower().startswith(pfx)) if key else 0
+
+    def _excel_latest(table, aliases):
+        key = _excel_find_key(table, aliases)
+        latest = ""
+        if key:
+            for r in table.get("rows") or []:
+                val = _excel_safe(r.get(key))
+                if val:
+                    latest = val
+        return latest
+
+    def _excel_open_rows(overall_cr):
+        status_key = _excel_find_key(overall_cr, ["CR Status", "Status"])
+        rows = []
+        for row in overall_cr.get("rows") or []:
+            status = str(row.get(status_key, "")).strip().lower() if status_key else ""
+            if status in ("open", "analysis"):
+                rows.append(row)
+        return {"columns": overall_cr.get("columns") or [], "rows": rows}
+
+    def _old_wbc_excel_ppt_data(target_row, db_cfg):
+        excel_path = _find_target_excel(target_row, db_cfg)
+        try:
+            return legacy_wbc_ppt.load_legacy_wbc_ppt_data(excel_path)
+        except Exception:
+            return {}
+
     target = _find_target(target_key)
     if not target:
         raise ValueError(f"WBC target not found: {target_key}")
@@ -2505,25 +2639,252 @@ def _wbc_build_ppt(target_key: str):
         raise ValueError(data.get("error") or f"WBC target not found: {target_key}")
 
     project = target.get("label") or target.get("name") or target_key
+    old_excel = _old_wbc_excel_ppt_data(target, db_cfg)
     chart_rows = (data.get("excel") or {}).get("chart_rows") or []
+    overview_for_ppt = data.get("overview_summary") or {}
+    counts_for_ppt = data.get("counts") or {}
+
+    # Always use the single old-layout PPT builder.  If a legacy WBC workbook is
+    # not present for a manually-added/external target, adapt current portal JSON
+    # into the same data contract instead of falling back to the old inline route
+    # layout.  This guarantees new downloads change immediately and keep the old
+    # WBC alignment.
+    ppt_data = old_excel if old_excel else {
+        "builds": {
+            "columns": [
+                {"title": "CRM Build ID", "key": "crm_build_id"},
+                {"title": "Date", "key": "date"},
+                {"title": "Hours+", "key": "hours"},
+                {"title": "crash", "key": "crash"},
+                {"title": "MTBF", "key": "mtbf"},
+            ],
+            "rows": [
+                {
+                    "crm_build_id": r.get("crm_build_id") or r.get("meta_id") or "",
+                    "date": r.get("date") or "",
+                    "hours": r.get("hours") or "",
+                    "crash": r.get("crash") if r.get("crash") not in (None, "") else r.get("total_crashes") or "",
+                    "mtbf": r.get("mtbf") or "",
+                }
+                for r in chart_rows
+            ],
+        },
+        "current_cr": {"columns": [], "rows": []},
+        "current_jira": {"columns": [], "rows": []},
+        "open_cr": {"columns": [], "rows": []},
+        "overall_cr": {"columns": [], "rows": []},
+        "overall_jira": {"columns": [], "rows": []},
+        "open_jira": {"columns": [], "rows": []},
+        "mtbf_chart": {
+            "categories": [r.get("crm_build_id") or r.get("meta_id") or "" for r in chart_rows],
+            "hours": [r.get("hours") or 0 for r in chart_rows],
+            "crashes": [r.get("crash") if r.get("crash") not in (None, "") else r.get("total_crashes") or 0 for r in chart_rows],
+            "mtbf": [r.get("mtbf") or 0 for r in chart_rows],
+        },
+        "computed_kpis": {
+            "current_pdt_mtbf": counts_for_ppt.get("mtbf") or "",
+            "current_meta": (chart_rows[-1].get("crm_build_id") or chart_rows[-1].get("meta_id") or project) if chart_rows else project,
+            "current_meta_hours": (chart_rows[-1].get("hours") if chart_rows else counts_for_ppt.get("hours")) or "",
+            "current_meta_crashes": ((chart_rows[-1].get("crash") if chart_rows else "") or (chart_rows[-1].get("total_crashes") if chart_rows else counts_for_ppt.get("crashes"))) or "",
+            "current_meta_date": (chart_rows[-1].get("date") if chart_rows else "") or datetime.now().strftime("%Y-%m-%d"),
+            "overall_open_crs": counts_for_ppt.get("open_crs") or 0,
+            "overall_open_jiras": counts_for_ppt.get("open_jiras") or 0,
+            "total_crs": counts_for_ppt.get("total_crs") or 0,
+            "total_jiras": counts_for_ppt.get("total_jiras") or 0,
+        },
+    }
+    ppt_data["project"] = project
+    ppt_data["refreshed_at"] = data.get("excel", {}).get("updated_at") or data.get("excel", {}).get("refreshed_at") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ppt_data.setdefault("summary", {})
+    ppt_data["summary"]["summary_text"] = overview_for_ppt.get("overview") or overview_for_ppt.get("summary_title") or ""
+    ppt_data["summary"]["status_text"] = overview_for_ppt.get("pdt_status") or overview_for_ppt.get("next_steps") or ""
+
+    # Apply PPT meta/build selections before handing off to the legacy WBC PPT
+    # renderer.  Earlier this function returned here unconditionally, so the
+    # selected meta UI only changed the query string while the downloaded deck
+    # still used the workbook's latest/default meta.  Keep the old PPT layout,
+    # but reshape its input data to the selected meta(s).
+    selected_tab_ids = [str(x or "").strip() for x in (tab_ids or []) if str(x or "").strip()]
+    if not selected_tab_ids and tab_id:
+        selected_tab_ids = [str(tab_id).strip()]
+    selected_build_ids = [str(x or "").strip() for x in (build_ids or []) if str(x or "").strip()]
+
+    try:
+        jql_tabs, _cached_report_rows = _current_jql_summary(target["key"])
+    except Exception:
+        jql_tabs, _cached_report_rows = [], []
+
+    selected_tabs = [row for row in jql_tabs if str(row.get("id") or "") in set(selected_tab_ids)]
+    selected_meta_ids = [str(row.get("build_id") or "").strip() for row in selected_tabs if str(row.get("build_id") or "").strip()]
+    selected_meta_ids.extend(selected_build_ids)
+    selected_meta_ids = list(dict.fromkeys(selected_meta_ids))
+
+    if selected_meta_ids:
+        def _same_meta(a, b):
+            aa = str(a or "").strip().lower()
+            bb = str(b or "").strip().lower()
+            return bool(aa and bb and (aa == bb or aa in bb or bb in aa))
+
+        builds = ppt_data.get("builds") or {}
+        build_cols = builds.get("columns") or []
+        build_key = legacy_wbc_ppt.find_col_key(builds, ["CRM Build ID", "Build ID", "META-ID", "Meta ID", "Meta"])
+        original_build_rows = list(builds.get("rows") or [])
+        selected_build_rows = [
+            row for row in original_build_rows
+            if any(_same_meta(row.get(build_key), wanted) for wanted in selected_meta_ids)
+        ] if build_key else []
+        if selected_build_rows:
+            ppt_data["builds"] = {**builds, "columns": build_cols, "rows": selected_build_rows}
+            ppt_data["mtbf_chart"] = legacy_wbc_ppt.build_mtbf_chart(ppt_data["builds"])
+
+        # Pull cached Current Running Build / saved-JQL rows for selected tabs so
+        # the old PPT's "Current Meta CR/Jira" sections reflect the UI selection.
+        selected_report_rows: List[Dict[str, Any]] = []
+        if selected_tabs:
+            try:
+                from live_view_saved_jql_service import get_cached_report
+                target_row = _find_target(target_key) or {"key": target_key}
+                pdt_key = _wbc_pdt_key(target_row)
+                saved_domain = _wbc_saved_jql_domain(target_row)
+                for selected_tab in selected_tabs:
+                    selected_cached = get_cached_report(pdt_key, saved_domain, selected_tab.get("id")) or {}
+                    selected_report_rows.extend(selected_cached.get("rows") or selected_cached.get("flat_rows") or [])
+            except Exception:
+                selected_report_rows = []
+
+        if not selected_report_rows:
+            rows_by_build = ((data.get("build_summary") or {}).get("rows_by_build") or {})
+            for build_id in selected_build_ids:
+                selected_report_rows.extend(rows_by_build.get(build_id) or [])
+
+        if selected_report_rows:
+            all_cols = []
+            for row in selected_report_rows:
+                for key in (row.keys() if isinstance(row, dict) else []):
+                    if key not in all_cols:
+                        all_cols.append(key)
+            column_objs = [{"title": str(col).replace("_", " "), "key": col} for col in all_cols]
+            cr_rows = [
+                row for row in selected_report_rows
+                if str(row.get("Row Type") or "").strip().lower() == "cr"
+                or re.match(r"^CR\d{5,9}$", str(row.get("CR") or row.get("mapped_cr") or row.get("cr") or row.get("cr_id") or "").strip(), re.I)
+            ]
+            jira_rows = [
+                row for row in selected_report_rows
+                if str(row.get("Row Type") or "").strip().lower() == "jira"
+                or re.match(r"^[A-Z][A-Z0-9]+-\d+$", str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip(), re.I)
+            ]
+            if cr_rows:
+                ppt_data["current_cr"] = {"columns": column_objs, "rows": cr_rows}
+                ppt_data["open_cr"] = {"columns": column_objs, "rows": cr_rows}
+            if jira_rows:
+                ppt_data["current_jira"] = {"columns": column_objs, "rows": jira_rows}
+
+        kpi = ppt_data.setdefault("computed_kpis", {})
+        first_meta = selected_meta_ids[0]
+        selected_tab = selected_tabs[0] if selected_tabs else {}
+        selected_build_row = (ppt_data.get("builds") or {}).get("rows", [{}])[-1] if (ppt_data.get("builds") or {}).get("rows") else {}
+        kpi["current_meta"] = first_meta
+        if selected_tab:
+            if selected_tab.get("cr_count") not in (None, "", "-"):
+                kpi["current_meta_crashes"] = selected_tab.get("cr_count")
+                kpi["open_cr_current"] = selected_tab.get("cr_count")
+            if selected_tab.get("jira_count") not in (None, "", "-"):
+                kpi["open_jira_current"] = selected_tab.get("jira_count")
+        if selected_build_row:
+            h_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Hours+", "Hours", "Total Hours"])
+            c_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Crash", "Crashes", "Total Crashes"])
+            m_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["MTBF", "Sum of MTBF"])
+            d_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Date"])
+            kpi["current_meta_hours"] = selected_build_row.get(h_key) or kpi.get("current_meta_hours")
+            kpi["current_meta_crashes"] = selected_build_row.get(c_key) or kpi.get("current_meta_crashes")
+            kpi["current_pdt_mtbf"] = selected_build_row.get(m_key) or kpi.get("current_pdt_mtbf")
+            kpi["current_meta_date"] = selected_build_row.get(d_key) or kpi.get("current_meta_date")
+
+    return legacy_wbc_ppt.build_ppt(ppt_data, include_cover=True, include_thankq=True)
     overview = data.get("overview_summary") or {}
     counts = data.get("counts") or {}
     previews = data.get("previews") or {}
+    if old_excel:
+        kpi_old = old_excel.get("computed_kpis") or {}
+        counts = {
+            **counts,
+            "total_jiras": kpi_old.get("total_jiras") or counts.get("total_jiras"),
+            "open_jiras": kpi_old.get("overall_open_jiras") or counts.get("open_jiras"),
+            "total_crs": kpi_old.get("total_crs") or counts.get("total_crs"),
+            "hours": counts.get("hours"),
+            "crashes": counts.get("crashes"),
+            "mtbf": kpi_old.get("current_pdt_mtbf") or counts.get("mtbf"),
+        }
     jql_tabs, cached_report_rows = _current_jql_summary(target["key"])
+    selected_tab_ids = [str(x or "").strip() for x in (tab_ids or []) if str(x or "").strip()]
+    if not selected_tab_ids and tab_id:
+        selected_tab_ids = [str(tab_id).strip()]
+    selected_tabs = [row for row in jql_tabs if str(row.get("id") or "") in set(selected_tab_ids)]
+    if selected_tab_ids and not selected_tabs:
+        selected_tabs = jql_tabs[:1]
+    selected_build_ids = [str(x or "").strip() for x in (build_ids or []) if str(x or "").strip()]
+    build_summary = data.get("build_summary") or {}
+    rows_by_build = build_summary.get("rows_by_build") or {}
+    selected_build_report_rows = []
+    for build_id in selected_build_ids:
+        selected_build_report_rows.extend(rows_by_build.get(build_id) or [])
+    current_cr_rows = [
+        r for r in cached_report_rows
+        if str(r.get("Row Type") or "").strip().lower() == "cr"
+        or re.match(r"^CR\d{5,9}$", str(r.get("CR") or r.get("mapped_cr") or r.get("cr") or "").strip(), re.I)
+    ]
     last_row = chart_rows[-1] if chart_rows else {}
-    first_jql = jql_tabs[0] if jql_tabs else {}
-    current_meta = first_jql.get("build_id") or last_row.get("crm_build_id") or last_row.get("meta_id") or "-"
-    current_mtbf = _fmt(last_row.get("mtbf") or counts.get("mtbf"))
-    current_crashes = _fmt(first_jql.get("cr_count") if first_jql else (last_row.get("crash") or last_row.get("total_crashes")))
-    current_hours = _fmt(last_row.get("hours"))
-    report_date = str(last_row.get("date") or datetime.now().date())[:10]
-    open_cr_count = (previews.get("open_crs") or {}).get("count") or 0
+    selected_jql = selected_tabs[0] if selected_tabs else None
+    first_jql = selected_jql or (jql_tabs[0] if jql_tabs else {})
+    if selected_tabs:
+        selected_rows = []
+        try:
+            from live_view_saved_jql_service import get_cached_report
+            target_row = _find_target(target_key) or {"key": target_key}
+            pdt_key = _wbc_pdt_key(target_row)
+            saved_domain = _wbc_saved_jql_domain(target_row)
+            for selected_tab in selected_tabs:
+                selected_cached = get_cached_report(pdt_key, saved_domain, selected_tab.get("id")) or {}
+                selected_rows.extend(selected_cached.get("rows") or selected_cached.get("flat_rows") or [])
+        except Exception:
+            selected_rows = []
+        if selected_rows:
+            cached_report_rows = selected_rows
+            current_cr_rows = [
+                r for r in cached_report_rows
+                if str(r.get("Row Type") or "").strip().lower() == "cr"
+                or re.match(r"^CR\d{5,9}$", str(r.get("CR") or r.get("mapped_cr") or r.get("cr") or "").strip(), re.I)
+            ]
+    if selected_build_report_rows and not selected_tabs:
+        cached_report_rows = selected_build_report_rows
+        current_cr_rows = [
+            r for r in cached_report_rows
+            if re.match(r"^CR\d{5,9}$", str(r.get("CR") or r.get("mapped_cr") or r.get("cr") or r.get("cr_id") or "").strip(), re.I)
+        ]
+    old_kpi = (old_excel.get("computed_kpis") or {}) if old_excel else {}
+    current_meta = first_jql.get("build_id") or (selected_build_ids[0] if selected_build_ids else "") or old_kpi.get("current_meta") or last_row.get("crm_build_id") or last_row.get("meta_id") or "-"
+    current_mtbf = _fmt(old_kpi.get("current_pdt_mtbf") or last_row.get("mtbf") or counts.get("mtbf"))
+    current_crashes = _fmt(first_jql.get("cr_count") if first_jql else (old_kpi.get("current_meta_crashes") or last_row.get("crash") or last_row.get("total_crashes")))
+    current_hours = _fmt(old_kpi.get("current_meta_hours") or last_row.get("hours"))
+    report_date = str(old_kpi.get("current_meta_date") or last_row.get("date") or datetime.now().date())[:10]
+    open_cr_count = old_kpi.get("overall_open_crs") or (previews.get("open_crs") or {}).get("count") or 0
 
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
 
-    # Slide 1: portal-like overview/status slide.
+    # Slide 1: common WBC core deck cover slide (matches reference deck).
+    cover = _add_slide(prs)
+    _rect(cover, 0, 0, 13.33, 7.5, RGBColor(0x1f, 0x42, 0x68))
+    _rect(cover, 0, 5.12, 13.33, 2.38, RGBColor(0x1d, 0x38, 0x58))
+    _rect(cover, 0, 0, 0.62, 7.5, RGBColor(0x35, 0x67, 0x9d))
+    _rect(cover, 0.62, 0, 9.12, 5.12, RGBColor(0x34, 0x5d, 0x8a))
+    _rect(cover, 9.74, 0, 3.59, 5.12, RGBColor(0x18, 0x30, 0x4d))
+    _rect(cover, 0.62, 5.12, 9.12, 2.38, RGBColor(0x29, 0x4b, 0x70))
+    _text(cover, 0.95, 4.62, 9.2, 0.62, f"PDT WBC SW Core Update {datetime.now().strftime('%d/%m/%Y')}", size=25, bold=False, color=WHITE)
+
+    # Slide 2: portal-like overview/status slide.
     slide = _add_slide(prs)
     _text(slide, 0.16, 0.08, 5.9, 0.28, f"Current Meta: {current_meta}", size=12, bold=True)
     _text(slide, 6.48, 0.05, 6.55, 0.15, f"PDT WBC Stability Dashboard : {project}", size=5.0)
@@ -2531,111 +2892,97 @@ def _wbc_build_ppt(target_key: str):
            [f"Date: {report_date}", f"{project} PDT Status", ""],
            [["Target", "OEM", "Project Timelines"], [project, "-", _plain(overview.get("pdt_status") or overview.get("next_steps") or "-", 95)]],
            widths=[1.6, 1.0, 3.4], font_size=5.8, max_text=110)
-    kpis = [
-        ("Current PDT\nMTBF", current_mtbf),
-        ("Current Running\nMeta", current_meta),
-        ("Current META\nCrashes", current_crashes),
-        ("Current META\nHours", current_hours),
-        ("Running\nBuilds", str(len(jql_tabs))),
-        ("Open Jira\nCurrent Meta", _fmt(counts.get("open_jiras"))),
-        ("Open CR\nCurrent Meta", _fmt(open_cr_count)),
-        ("Total\nCRs", _fmt(counts.get("total_crs"))),
-    ]
-    for idx, (label, value) in enumerate(kpis[:8]):
-        _kpi(slide, 0.20 + (idx % 4) * 1.51, 1.55 + (idx // 4) * 0.62, 1.44, 0.52, label, _plain(value, 28))
+    _table(slide, 0.20, 1.30, 6.00, 0.58,
+           ["Total JIRA’s", "Open JIRA’s", "Open CR’s", "Total CR’s", "Unique CR’s"],
+           [[_fmt(counts.get("total_jiras")), _fmt(counts.get("open_jiras")), _fmt(open_cr_count), _fmt(counts.get("total_crs")), _fmt(first_jql.get("cr_count") if first_jql else len(current_cr_rows))]],
+           widths=[1, 1, 1, 1, 1], font_size=7.0, max_text=50)
 
-    _section(slide, 0.30, 2.85, "Key Updates", w=1.2)
-    _text(slide, 0.32, 3.15, 5.82, 1.02, overview.get("overview") or overview.get("summary_title") or "No summary entered.", size=6.7)
-    _section(slide, 0.30, 4.48, "MTBF Chart", w=1.2)
+    _section(slide, 0.30, 2.58, "Key Updates", w=1.2)
+    _text(slide, 0.32, 2.88, 5.82, 0.62, overview.get("overview") or overview.get("summary_title") or "No summary entered.", size=5.9)
+    _section(slide, 0.30, 4.00, "MTBF Chart", w=1.2)
+    if chart_rows:
+        recent_chart = chart_rows[-7:]
+        chart_data = CategoryChartData()
+        chart_data.categories = [_plain(r.get("crm_build_id") or r.get("meta_id") or "", 24) for r in recent_chart]
+        chart_data.add_series("Hours", [_safe_float(r.get("hours")) for r in recent_chart])
+        chart_data.add_series("Crashes", [_safe_float(r.get("crash") or r.get("total_crashes")) for r in recent_chart])
+        chart_shape = slide.shapes.add_chart(
+            XL_CHART_TYPE.COLUMN_CLUSTERED,
+            _in(0.28), _in(4.28), _in(5.92), _in(1.06),
+            chart_data,
+        )
+        chart = chart_shape.chart
+        chart.has_title = True
+        chart.chart_title.text_frame.text = "MTBF by Build"
+        chart.chart_title.text_frame.paragraphs[0].runs[0].font.size = Pt(4.8)
+        chart.has_legend = True
+        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.legend.include_in_layout = False
+        chart.category_axis.tick_labels.font.size = Pt(2.7)
+        chart.category_axis.tick_labels.rotation = 315
+        chart.value_axis.tick_labels.font.size = Pt(3.2)
+        chart.value_axis.has_major_gridlines = True
+        try:
+            for idx, rgb in enumerate((RGBColor(0x4f, 0x81, 0xbd), RGBColor(0xc0, 0x50, 0x4d))):
+                chart.series[idx].format.fill.solid()
+                chart.series[idx].format.fill.fore_color.rgb = rgb
+        except Exception:
+            pass
     recent_mtbf = chart_rows[-3:] if chart_rows else []
-    _table(slide, 0.32, 4.86, 5.88, 0.68,
+    _table(slide, 0.32, 5.52, 5.88, 0.82,
            ["Team", "Meta", "Total Hours", "Total Crashes", "MTBF"],
            [["PDT", r.get("crm_build_id") or r.get("meta_id"), _fmt(r.get("hours")), _fmt(r.get("crash") or r.get("total_crashes")), _fmt(r.get("mtbf"))] for r in recent_mtbf],
            widths=[0.7, 1.8, 1.05, 1.05, 0.75], font_size=5.8, max_text=80)
-    _section(slide, 0.30, 5.78, "Weekly Stability Stats (SW PDT)", w=2.6)
-    _table(slide, 0.32, 6.14, 5.90, 0.82,
+    _section(slide, 0.30, 6.36, "Weekly Stability Stats (SW PDT)", w=2.6)
+    _table(slide, 0.32, 6.66, 5.90, 0.55,
            ["Team", "Builds Tested", "Total Hours", "Total Crashes"],
-           [["PDT", str(len(chart_rows)), _fmt(counts.get("hours")), _fmt(counts.get("crashes"))]],
-           widths=[1.0, 2.1, 1.5, 1.4], font_size=5.7)
+           [["SW PDT", f"CRM Builds – {len(chart_rows)}", _fmt(counts.get("hours")), _fmt(counts.get("crashes"))],
+            ["", "Engg Builds – 0", "0", "0"]],
+           widths=[1.0, 2.1, 1.5, 1.4], font_size=5.1)
     _rect(slide, 6.38, 0.15, 0.01, 7.12, BORDER, BORDER)
-    _section(slide, 6.50, 0.50, "Saved JQL / Current Running Builds", w=2.8)
-    _table(slide, 6.55, 0.86, 6.45, 1.55,
-           ["S.No.", "Build ID", "CRs", "JIRAs", "Rows", "Last Run"],
-           [[str(i), r.get("build_id"), _fmt(r.get("cr_count")), _fmt(r.get("jira_count")), _fmt(r.get("row_count")), r.get("generated_at") or "-"] for i, r in enumerate(jql_tabs[:5], start=1)],
-           widths=[0.45, 2.6, 0.55, 0.55, 0.55, 1.75], font_size=4.9, title_cols={1}, max_text=80)
-    _section(slide, 6.50, 2.70, "Open CR Details", w=1.6)
-    cr_cols, cr_rows = _preview_table_rows(previews.get("open_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"]], 5)
-    _table(slide, 6.55, 3.04, 6.45, 2.30,
-           [c.replace("_", " ") for c in cr_cols], cr_rows,
-           widths=[0.95, 3.1, 1.0, 0.95][:len(cr_cols)], font_size=4.7, title_cols={1}, max_text=120)
-    _section(slide, 6.50, 5.73, "Open JIRA Details", w=1.55)
-    jira_cols, jira_rows = _preview_table_rows(previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 2)
-    _table(slide, 6.55, 6.08, 6.45, 0.88,
-           [c.replace("_", " ") for c in jira_cols], jira_rows,
-           widths=[1.0, 3.3, 0.8, 0.9][:len(jira_cols)], font_size=4.5, title_cols={1}, max_text=120)
-
-    # Slide 2: custom MTBF trend chart.
-    slide = _add_slide(prs)
-    _rect(slide, 0, 0, 13.33, 7.5, LIGHT)
-    _text(slide, 0.22, 0.14, 3.0, 0.22, "MTBF Trend by Build", size=8, bold=True)
-    _rect(slide, 0.18, 0.44, 12.95, 6.78, WHITE, RGBColor(0xe8, 0xee, 0xf6), 0.5)
-    if chart_rows:
-        max_points = 42
-        rows = chart_rows[-max_points:]
-        cats = [str(r.get("crm_build_id") or r.get("meta_id") or "") for r in rows]
-        hours = [_safe_float(r.get("hours")) for r in rows]
-        crashes = [_safe_float(r.get("crash") or r.get("total_crashes")) for r in rows]
-        mtbf = [_safe_float(r.get("mtbf")) for r in rows]
-        left, top, width, height = 0.90, 0.92, 11.35, 4.85
-        bottom = top + height
-        n = max(1, len(rows))
-        h_max = max([1.0] + hours + crashes)
-        m_max = max([1.0] + mtbf)
-        h_max = (int(h_max / 500) + 1) * 500 if h_max > 500 else max(10, (int(h_max / 10) + 1) * 10)
-        m_max = (int(m_max / 200) + 1) * 200 if m_max > 200 else max(10, (int(m_max / 10) + 1) * 10)
-        _text(slide, left, 0.58, width, 0.20, "MTBF by Build", size=7.4, bold=True, align=PP_ALIGN.CENTER)
-        for i in range(6):
-            y = bottom - (height * i / 5.0)
-            _rect(slide, left, y, width, 0.004, RGBColor(0xee, 0xf1, 0xf5), RGBColor(0xee, 0xf1, 0xf5))
-            _text(slide, left - 0.48, y - 0.06, 0.38, 0.12, int(h_max * i / 5.0), size=4.5, color=RGBColor(0x61, 0x6f, 0x82), align=PP_ALIGN.RIGHT)
-            _text(slide, left + width + 0.08, y - 0.06, 0.38, 0.12, int(m_max * i / 5.0), size=4.5, color=GOLD)
-        step = width / n
-        bar_w = min(0.09, step * 0.38)
-        points = []
-        for i, cat in enumerate(cats):
-            cx = left + step * (i + 0.5)
-            bh = 0 if h_max <= 0 else height * (hours[i] / h_max)
-            _rect(slide, cx - bar_w / 2, bottom - bh, bar_w, max(0.015, bh), RGBColor(0x3b, 0x5b, 0xdb))
-            ch = 0 if h_max <= 0 else height * (crashes[i] / h_max)
-            dot = slide.shapes.add_shape(9, _in(cx - 0.025), _in(bottom - ch - 0.025), _in(0.05), _in(0.05))
-            dot.fill.solid(); dot.fill.fore_color.rgb = RED; dot.line.fill.background()
-            mh = 0 if m_max <= 0 else height * (mtbf[i] / m_max)
-            points.append((cx, bottom - mh))
-        for p1, p2 in zip(points, points[1:]):
-            line = slide.shapes.add_connector(1, _in(p1[0]), _in(p1[1]), _in(p2[0]), _in(p2[1]))
-            line.line.color.rgb = GOLD; line.line.width = Pt(1.05)
-        for x, y in points:
-            marker = slide.shapes.add_shape(9, _in(x - 0.025), _in(y - 0.025), _in(0.05), _in(0.05))
-            marker.fill.solid(); marker.fill.fore_color.rgb = GOLD; marker.line.color.rgb = WHITE; marker.line.width = Pt(0.35)
-        label_step = max(1, int((n + 17) / 18))
-        for i, cat in enumerate(cats):
-            if i % label_step != 0 and i != n - 1:
-                continue
-            lab = _text(slide, left + step * (i + 0.5) - 0.28, bottom + 0.08, 0.56, 0.45, _plain(cat, 28), size=3.6, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.RIGHT)
-            lab.rotation = 315
-        _text(slide, 5.55, 6.66, 2.3, 0.2, "● Hours    ● Crashes    ● MTBF", size=5.0, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.CENTER)
+    _section(slide, 6.50, 0.50, "CR Details", w=1.0)
+    if old_excel and (old_excel.get("current_cr") or {}).get("rows"):
+        cr_rows = legacy_wbc_ppt.current_cr_rows(old_excel, limit=3)
     else:
-        _text(slide, 0.60, 1.30, 11.8, 0.5, "No MTBF chart data available.", size=13, bold=True, color=TEAL, align=PP_ALIGN.CENTER)
+        cr_rows = [[str(i), r.get("CR", ""), r.get("CR Count", "1"), r.get("CR Title", ""), r.get("CR Area", ""), r.get("CR Subsystem", ""), r.get("CR Function", ""), r.get("CR Status", "")] for i, r in enumerate(current_cr_rows[:3], 1)]
+    _table(slide, 6.55, 0.86, 6.45, 1.55,
+           ["S.No.", "CR-ID", "Occurrence", "CR Title", "CR Area", "CR\nSubSystem", "CR Functionality", "CR Status"],
+           cr_rows,
+           widths=[0.45, 0.75, 0.55, 2.45, 0.7, 0.82, 0.98, 0.68], font_size=4.65, title_cols={3}, max_text=120)
+    _section(slide, 6.50, 2.72, "Jira Details", w=1.0)
+    if old_excel and (old_excel.get("current_jira") or {}).get("rows"):
+        jira_rows = legacy_wbc_ppt.current_jira_rows(old_excel, limit=2)
+    else:
+        jira_cols, raw_jira_rows = _preview_table_rows(previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"]], 2)
+        jira_rows = [[str(i)] + row[:4] for i, row in enumerate(raw_jira_rows, 1)]
+    _table(slide, 6.55, 3.08, 6.45, 0.72,
+           ["S.No.", "JIRA-Ticket", "Instances", "Jira Title", "Status"],
+           jira_rows,
+           widths=[0.45, 1.0, 0.65, 3.5, 0.65], font_size=4.1, title_cols={3}, max_text=120)
 
-    # Detail slides from the current UI datasets.
+    ramp_title = f"{project.split('.')[0]} : PDT Device Ramp Up Plan (Global)"
+    _text(slide, 6.65, 4.25, 5.85, 0.24, ramp_title, size=12.0, color=BLACK)
+    _text(slide, 8.15, 4.75, 3.2, 0.22, "Global PDT Device Distribution", size=10.5, bold=True, color=RGBColor(0x46, 0x55, 0x6b), align=PP_ALIGN.CENTER)
+    ramp_labels = ["ES – 29-May", "Pre-FC-1-Jun", "FC-10-Aug", "Pre-CS"]
+    ramp_vals = [5, 10, 15, 70]
+    base_x, base_y, gap, max_h = 7.20, 6.32, 1.35, 0.95
+    for i, (label, val) in enumerate(zip(ramp_labels, ramp_vals)):
+        h = max_h * (val / 70.0)
+        x = base_x + i * gap
+        _rect(slide, x, base_y - h, 0.46, h, RGBColor(0x4f, 0x81, 0xbd))
+        _text(slide, x, base_y - h + 0.09, 0.46, 0.15, str(val), size=6.5, color=WHITE, align=PP_ALIGN.CENTER)
+        _text(slide, x - 0.20, base_y + 0.10, 0.90, 0.15, label, size=4.6, color=RGBColor(0x00, 0x2f, 0x68), align=PP_ALIGN.CENTER)
+    _text(slide, 6.85, 6.92, 5.2, 0.30, "• Device Ramp up Plan from ES to CS – Post CS.\n• All the Projections are dependent on HW Availability.", size=5.0, color=BLACK)
+
+    # Detail slide from the reference deck: Overall Open/Analysis CRs only.
     detail_specs = [
-        ("Open CRs", previews.get("open_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"], ["cr_age", "age"]], 18),
-        ("Open JIRAs", previews.get("open_jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
-        ("All CRs", previews.get("all_crs"), [["mapped_cr", "cr", "cr_id"], ["cr_title", "title", "summary"], ["cr_area", "area"], ["cr_status", "status"]], 18),
-        ("JIRAs", previews.get("jiras"), [["stability_ticket", "jira", "jira_id"], ["jira_title", "title", "summary"], ["status", "jira_status"], ["created", "jira_date", "updated"]], 18),
+        ("Overall Open/Analysis CRs", (old_excel.get("open_cr") if old_excel else previews.get("open_crs")), [["CR-ID", "CR ID", "CR", "mapped_cr", "cr", "cr_id"], ["Jira Date -last instance", "Jira Date", "last instance", "updated"], ["Instance", "Occurrence", "Occur"], ["CR Title", "Title", "Summary"], ["CR Area", "Area"], ["CR SubSystem", "Subsystem"], ["CR Functionality", "Functionality"], ["CR Date", "Date"], ["CR Status", "Status"], ["CR Age", "Age"], ["Priority"]], 17),
     ]
     for title, preview, preferred, limit in detail_specs:
-        cols, rows = _preview_table_rows(preview, preferred, limit)
+        if old_excel:
+            cols, rows = legacy_wbc_ppt.open_cr_columns_and_rows(old_excel, limit=limit)
+        else:
+            cols, rows = _preview_table_rows(preview, preferred, limit)
         if not cols and not rows:
             continue
         slide = _add_slide(prs)
@@ -2643,27 +2990,10 @@ def _wbc_build_ppt(target_key: str):
         _table(slide, 0.28, 0.78, 12.78, 6.15, [c.replace("_", " ") for c in cols], rows,
                font_size=4.8, title_cols={1}, max_text=150)
 
-    if cached_report_rows:
-        cols = []
-        preferred = ["CR", "CR Title", "CR Status", "CR Area", "JIRA", "JIRA Title", "JIRA Status", "Final Ticket"]
-        for col in preferred:
-            if any(col in r for r in cached_report_rows):
-                cols.append(col)
-        for col in list(cached_report_rows[0].keys()):
-            if col not in cols and len(cols) < 8:
-                cols.append(col)
-        slide = _add_slide(prs)
-        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Saved JQL Cached Report - {project}", size=11, bold=True, color=TEAL)
-        _table(slide, 0.28, 0.78, 12.78, 6.15, cols, [[r.get(c, "") for c in cols] for r in cached_report_rows[:18]],
-               font_size=4.5, title_cols={1, 5}, max_text=150)
-
-    if chart_rows:
-        slide = _add_slide(prs)
-        _text(slide, 0.30, 0.28, 5.8, 0.25, f"Mainline Build Details - {project}", size=11, bold=True, color=TEAL)
-        _table(slide, 0.28, 0.78, 12.78, 6.15,
-               ["S.No", "CRM Build ID", "Date", "Hours+", "Crash", "MTBF"],
-               [[r.get("s_no"), r.get("crm_build_id") or r.get("meta_id"), r.get("date"), _fmt(r.get("hours")), _fmt(r.get("crash") or r.get("total_crashes")), _fmt(r.get("mtbf"))] for r in chart_rows[-24:]],
-               widths=[0.45, 3.4, 1.0, 1.0, 1.0, 1.0], font_size=5.4, title_cols={1}, max_text=120)
+    # Last slide: common WBC core deck closing slide.
+    thanks = _add_slide(prs)
+    _rect(thanks, 0, 0, 13.33, 7.5, RGBColor(0xff, 0xff, 0xff))
+    _text(thanks, 0, 3.10, 13.33, 0.80, "ThankQ", size=40, bold=False, color=BLACK, align=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -3453,7 +3783,11 @@ def api_wbc_open_cr_save(target_key: str):
 def api_wbc_export_ppt(target_key: str):
     """Download a PowerPoint for the given WBC target."""
     try:
-        buf = _wbc_build_ppt(target_key)
+        raw_tab_ids = str(request.args.get("tab_ids") or "").strip()
+        tab_ids = [x.strip() for x in raw_tab_ids.split(",") if x.strip()]
+        raw_build_ids = str(request.args.get("build_ids") or "").strip()
+        build_ids = [x.strip() for x in raw_build_ids.split(",") if x.strip()]
+        buf = _wbc_build_ppt(target_key, request.args.get("tab_id", ""), tab_ids, build_ids)
         target = _find_target(target_key)
         label = (target.get("label") or target.get("name") or target_key).replace(" ", "_")
         filename = f"WBC_{label}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"

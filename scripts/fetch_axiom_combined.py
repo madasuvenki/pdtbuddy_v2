@@ -112,20 +112,21 @@ CROSS_MATCH_JOBS = {
 
 RETENTION_DAYS      = 20
 # Default poll interval. Override via AXIOM_POLL_INTERVAL env var.
-POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "600"))  # default 10 min
+POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "10800"))  # default 3 hours
 
 # Job fetch counts per cycle
 # First run  : full 20-day backfill to populate DB from scratch.
 # Regular cycle: only fetch recent jobs (last CYCLE_SINCE_MINUTES minutes).
-#   100 jobs per taxonomy is more than enough for a 10-min poll window.
+#   The standalone updater/poller now runs every 3 hours and pulls up to
+#   400 recent /PDT jobs per cycle by default.
 #   _refresh_running_jobs() handles state updates for already-known Running jobs.
 FIRST_RUN_SWPDT_JOBS  = 15000  # first cycle: full 20-day backfill
 FIRST_RUN_HWPDT_JOBS  = 1000   # first cycle: full 20-day HWPDT backfill
-SWPDT_CYCLE_JOBS      = 100    # regular cycle: last 10-min new jobs
-HWPDT_CYCLE_JOBS      = 100    # regular cycle: last 10-min new HWPDT jobs
+SWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_SWPDT_CYCLE_JOBS", "400"))
+HWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_HWPDT_CYCLE_JOBS", "0"))
 # How far back to look on regular cycles (minutes). Slightly wider than the
 # poll interval so no jobs are missed if a cycle runs a little late.
-CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "20"))
+CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "190"))
 
 
 # DB table for Axiom job summary (replaces JSON files long-term)
@@ -1623,7 +1624,6 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
                    submitted_at, started_at, playlist_name
             FROM pdt_stats_dashboard.axiom_job_summary
             WHERE state IN ('Running', 'JobSetup')
-              AND is_closed = 0
         """)
         open_jobs = cur.fetchall() or []
         cur.close()

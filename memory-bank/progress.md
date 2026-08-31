@@ -22,6 +22,7 @@
 - ✅ Auto-logout on idle with JSON 401 for API requests
 
 ### Dashboard & Reporting
+- ✅ Weekly Smart Build report now suppresses stale/historical Axiom `Running` / `JobSetup` rows so old stopped jobs, including historical PL/build rows such as `SA510-`, no longer remain visually running when Axiom missed a terminal transition.
 - ✅ Automotive Gen4.5 MTBF "Merge PL" groups are now shared UI-level settings stored separately in `static/auto_gen45_ui/mtbf_pl_merges_hqx.json` and `static/auto_gen45_ui/mtbf_pl_merges_hgy.json`, visible to all viewers and editable only by target users/admins without modifying existing target/path JSON.
 - ✅ Multi-BU dashboard with per-target MySQL schema routing
 - ✅ Monthly report site checkboxes re-fetch and scope hero cards, target status, charts, CR tables, JIRA metrics, and Axiom metrics through CR-reporting team-to-site mapping

@@ -25,9 +25,9 @@ Usage:
     # Full update + refresh running + HWPDT test results (recommended):
     python scripts/update_axiom_job_summary.py --full --refresh-running --refresh-hwpdt-results
 
-    # Run as a continuous poller (every 3 hours; incremental only, no full refresh):
+    # Run as a continuous poller (every 3 hours; pulls 400 recent /PDT jobs per cycle):
     python scripts/update_axiom_job_summary.py --poll
-    python scripts/update_axiom_job_summary.py --poll --interval 10800
+    python scripts/update_axiom_job_summary.py --poll --interval 10800 --poll-max-jobs 400
 
 Environment variables (set in .env or shell):
     AXIOM_CLIENT_ID       Axiom OAuth client ID
@@ -1014,6 +1014,57 @@ def run_refresh_qipl_last_days(host: str, token: str, app_name: str,
     return token
 
 
+def _close_stale_running_jobs(max_age_hours: int = 36) -> int:
+    """Close DB rows that are still marked Running/JobSetup long after submission.
+
+    Axiom /info sometimes stops returning old jobs after they have disappeared
+    from the active API window. In that case _refresh_running_jobs() cannot
+    upsert the final state and the weekly SharePoint/dashboard counts continue
+    to treat old jobs as Running. Mark those stale rows closed so current-running
+    counts only reflect genuinely recent jobs.
+    """
+    max_age_hours = max(1, int(max_age_hours or 36))
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        logger.warning("[REFRESH RUNNING] No DB connection - stale close skipped")
+        return 0
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE pdt_stats_dashboard.axiom_job_summary
+            SET state = 'Completed',
+                status = 'Completed',
+                is_closed = 1,
+                ended_at = COALESCE(ended_at, updated_at, started_at, submitted_at),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE state IN ('Running', 'JobSetup')
+              AND is_closed = 0
+              AND COALESCE(submitted_at, started_at, updated_at) < DATE_SUB(NOW(), INTERVAL %s HOUR)
+            """,
+            (max_age_hours,),
+        )
+        changed = int(cur.rowcount or 0)
+        conn.commit()
+        if changed:
+            logger.warning(
+                "[REFRESH RUNNING] Closed %d stale Running/JobSetup rows older than %d hours",
+                changed,
+                max_age_hours,
+            )
+        return changed
+    except Exception as exc:
+        conn.rollback()
+        logger.warning("[REFRESH RUNNING] stale close failed: %s", exc)
+        return 0
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
 def run_refresh_running(host: str, token: str, app_name: str) -> str:
     """Refresh all currently-Running jobs in DB (re-calculates live hours)."""
     logger.info("[REFRESH RUNNING] Refreshing all open/running jobs ...")
@@ -1021,7 +1072,8 @@ def run_refresh_running(host: str, token: str, app_name: str) -> str:
     while True:
         try:
             count = _refresh_running_jobs(host, token, app_name)
-            logger.info("[REFRESH RUNNING] Done - %d jobs refreshed.", count)
+            stale_closed = _close_stale_running_jobs()
+            logger.info("[REFRESH RUNNING] Done - %d jobs refreshed, %d stale jobs closed.", count, stale_closed)
             break
         except _TokenExpired:
             auth_failures += 1
@@ -1357,10 +1409,11 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
 # ---------------------------------------------------------------------------
 
 def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
-               interval_sec: int = 10800) -> None:
+               interval_sec: int = 10800, max_jobs: int = 400) -> None:
     """Run as a continuous poller - incremental only, no full refresh.
 
     Axiom public API is rate-limited. Keep poll cadence at 3 hours or slower.
+    Each cycle pulls up to max_jobs recent /PDT jobs.
     """
     min_interval_sec = 3 * 60 * 60
     if interval_sec < min_interval_sec:
@@ -1371,8 +1424,9 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
             min_interval_sec,
         )
         interval_sec = min_interval_sec
-    logger.info("[POLLER] Starting - interval=%ds (%d min); incremental only, no full refresh",
-                interval_sec, interval_sec // 60)
+    max_jobs = max(1, int(max_jobs or 400))
+    logger.info("[POLLER] Starting - interval=%ds (%d min); max_jobs=%d; incremental only, no full refresh",
+                interval_sec, interval_sec // 60, max_jobs)
     logger.info("[POLLER] Axiom rate limiting: polling is capped to once every 3 hours or slower.")
 
     token: Optional[str] = None
@@ -1395,7 +1449,13 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
                 token = _get_token_with_retry(host, client_id, client_secret)
                 token_obtained = time.time()
 
-            token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10)
+            token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10, max_jobs=max_jobs)
+
+            # Incremental fetch only sees recently submitted jobs. It does not
+            # reliably revisit old rows that are still marked Running in DB
+            # after Axiom has closed them. Refresh/close stale running rows on
+            # every poll cycle before rebuilding weekly/sharepoint device counts.
+            token = run_refresh_running(host, token, app_name)
 
             rebuilt_devices = rebuild_axiom_all_devices_table()
             logger.info("[POLLER] all-devices table refreshed rows=%d", rebuilt_devices)
@@ -1448,9 +1508,9 @@ Examples:
   # Refresh all Running HWPDT /results only:
   python scripts/update_axiom_job_summary.py --refresh-hwpdt-results
 
-  # Continuous poller every 3 hours (incremental only, no full refresh; Axiom rate-limit safe):
+  # Continuous poller every 3 hours (incremental only, no full refresh; pulls 400 recent /PDT jobs per cycle):
   python scripts/update_axiom_job_summary.py --poll
-  python scripts/update_axiom_job_summary.py --poll --interval 10800
+  python scripts/update_axiom_job_summary.py --poll --interval 10800 --poll-max-jobs 400
         """,
     )
 
@@ -1484,6 +1544,8 @@ Examples:
                         help="Run as continuous poller (incremental only; no full refresh)")
     parser.add_argument("--interval",       type=int, default=10800,
                         help="Poll interval in seconds for --poll (default/minimum: 10800 = 3 hours)")
+    parser.add_argument("--poll-max-jobs",  type=int, default=400,
+                        help="Maximum recent /PDT jobs to fetch per poll cycle (default: 400)")
     parser.add_argument("--api-host",       default=os.environ.get("AXIOM_API_HOST", DEFAULT_API_HOST))
     parser.add_argument("--app-name",       default=os.environ.get("AXIOM_APP_NAME", DEFAULT_APP_NAME))
     parser.add_argument("--client-id",      default=os.environ.get("AXIOM_CLIENT_ID", ""))
@@ -1495,8 +1557,9 @@ Examples:
         args.poll = True
         args.interval = 10800
         logger.info(
-            "No arguments supplied; defaulting to continuous poll mode: interval=%s seconds (3 hours), incremental only",
+            "No arguments supplied; defaulting to continuous poll mode: interval=%s seconds (3 hours), max_jobs=%s, incremental only",
             args.interval,
+            args.poll_max_jobs,
         )
 
     # - Status only ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1530,7 +1593,7 @@ Examples:
 
     # - Continuous poller ------------------------------------------------------------------------------------------------------------------------------------------------------
     if args.poll:
-        run_poller(host, app_name, client_id, client_secret, interval_sec=args.interval)
+        run_poller(host, app_name, client_id, client_secret, interval_sec=args.interval, max_jobs=args.poll_max_jobs)
         return  # never returns
 
     # - One-shot operations ------------------------------------------------------------------------------------------------------------------------------------------------

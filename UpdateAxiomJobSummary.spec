@@ -6,9 +6,9 @@ mysql_datas, mysql_binaries, mysql_hiddenimports = collect_all('mysql.connector'
 
 _mysql_binaries = []
 for src, dst in [
-    ('venv/Lib/site-packages/_mysql_connector.cp313-win_amd64.pyd', '.'),
-    ('venv/Lib/site-packages/libmysql.dll', '.'),
-    ('venv/Lib/site-packages/mysql/vendor/plugin/mysql_native_password.dll', 'mysql/vendor/plugin'),
+    ('.venv/Lib/site-packages/_mysql_connector.cp313-win_amd64.pyd', '.'),
+    ('.venv/Lib/site-packages/libmysql.dll', '.'),
+    ('.venv/Lib/site-packages/mysql/vendor/plugin/mysql_native_password.dll', 'mysql/vendor/plugin'),
 ]:
     if os.path.exists(src):
         _mysql_binaries.append((src, dst))

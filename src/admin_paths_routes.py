@@ -21,7 +21,6 @@ def admin_paths_page():
     if not _is_admin_user():
         return jsonify(success=False, message='Forbidden'), 403
 
-    # Use DB-derived metadata so display name / BU etc are consistent.
     metadata = dc.load_metadata_config(active_only=False) or {}
     return render_template(
         'admin_paths.html',
@@ -58,6 +57,51 @@ def admin_targets_paths_api():
     return jsonify(success=True, rows=rows)
 
 
+@admin_paths_bp.route('/admin/update_target_bu', methods=['POST'])
+@login_required
+def admin_update_target_bu_api():
+    if not _is_admin_user():
+        return jsonify(success=False, message='Forbidden'), 403
+
+    data = request.get_json(silent=True) or {}
+    target_name = (data.get('target_name') or '').strip()
+    bu = (data.get('bu') or '').strip().upper()
+    allowed_bus = {'IOT', 'IOT_WEARABLES'}
+
+    if not target_name:
+        return jsonify(success=False, message='target_name is required'), 400
+    if bu not in allowed_bus:
+        return jsonify(success=False, message='Only QLI_IOT and Wear can be selected here'), 400
+
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return jsonify(success=False, message='DB connection failed'), 500
+
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE pdt_stats_dashboard.dashboard_status
+            SET bu=%s
+            WHERE target_name=%s
+            """,
+            (bu, target_name),
+        )
+        conn.commit()
+        try:
+            dc.update_global_targets_config()
+        except Exception:
+            pass
+        label = 'Wear' if bu == 'IOT_WEARABLES' else 'QLI_IOT'
+        return jsonify(success=True, message=f'Updated BU for {target_name} to {label}', bu=bu)
+    except Exception as exc:
+        conn.rollback()
+        logger.exception('Failed to update BU for %s', target_name)
+        return jsonify(success=False, message=str(exc)), 500
+    finally:
+        conn.close()
+
+
 @admin_paths_bp.route('/admin/update_unique_cr_path', methods=['POST'])
 @login_required
 def admin_update_unique_cr_path_api():
@@ -70,7 +114,6 @@ def admin_update_unique_cr_path_api():
     if not target_name:
         return jsonify(success=False, message='target_name is required'), 400
 
-    # Allow clearing by sending empty/null.
     if not unique_cr_path:
         unique_cr_path = None
 

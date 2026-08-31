@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IOT Core Deck</title>
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <script src="/static/js/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827}.wrap{padding:14px 18px 30px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.title{font-size:22px;font-weight:950;color:#0f3f79}.sub{font-size:12px;color:#64748b;font-weight:700;margin-top:3px}.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #c8d7ee;border-radius:14px;padding:10px;box-shadow:0 4px 16px rgba(15,23,42,.06);margin-bottom:12px}label{font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:.04em}select,input,textarea{border:1.5px solid #bcd0ec;border-radius:9px;padding:8px 10px;font-weight:800;background:#fff;min-height:36px}.btn{border:1px solid #bcd0ec;background:#fff;color:#0f3f79;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.btn:hover{transform:translateY(-1px)}.btn-primary{background:#0f4a85;color:#fff;border-color:#0f4a85}.btn-good{background:#169b52;color:#fff;border-color:#169b52}.btn-warn{background:#fb8c00;color:#fff;border-color:#fb8c00}.status{font-size:12px;font-weight:850;color:#64748b}.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px}.panel{background:#fff;border:1px solid #c8d7ee;border-radius:14px;box-shadow:0 4px 16px rgba(15,23,42,.06);overflow:hidden}.panel-h{background:#0f4a85;color:#fff;padding:10px 12px;font-weight:950}.panel-b{padding:12px}.meta-list{display:flex;flex-direction:column;gap:7px;max-height:310px;overflow:auto}.meta-row{border:1px solid #dbe7f7;border-radius:10px;background:#f8fbff;padding:8px;font-size:12px}.meta-row input[type=checkbox]{width:auto;min-height:auto}.meta-id{font-weight:950;color:#0f3f79}.meta-sub{font-size:11px;color:#64748b;margin-top:3px}.slide{width:1366px;min-height:768px;background:#fff;margin:0 auto;border:1px solid #c8c8c8;box-shadow:0 18px 45px rgba(0,0,0,.16);padding:10px 18px 18px}.slide-head{height:48px;background:#0f4a85;color:#fff;border-radius:7px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-weight:950}.slide-head .h{font-size:26px}.slide-head .d{font-size:13px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin:10px 20px 12px}.kpi{height:70px;border:1px solid #b7cbea;border-radius:8px;display:flex;align-items:center;gap:30px;padding:0 18px}.ico{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px}.kv{font-size:22px;font-weight:950;color:#000;text-align:center}.kl{font-size:13px;font-weight:900;color:#111827;margin-bottom:9px}.grid-main{display:grid;grid-template-columns:1.08fr 1fr;gap:14px}.box{border:1px solid #b7cbea;border-radius:8px;background:#fff;overflow:hidden;margin-bottom:10px}.box-title{display:inline-flex;align-items:center;gap:8px;background:#0f4a85;color:#fff;padding:8px 14px;min-width:220px;border-radius:7px;font-weight:950;font-size:13px}.num{background:#fff;color:#0f4a85;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}.box-b{padding:12px}.overview-grid{display:grid;grid-template-columns:.85fr 1px 1.55fr 1px 1.25fr;gap:12px;align-items:center;min-height:125px}.sep{border-left:1px solid #b7cbea;height:100px;width:1px}.target-big{font-size:14px;font-weight:950;text-align:center;line-height:1.35}.pill{display:inline-block;border-radius:5px;background:#0f4a85;color:#fff;padding:5px 12px;font-weight:950;font-size:12px;margin-right:8px;min-width:42px;text-align:center}.pill.green{background:#169b52}.pill.orange{background:#fb8c00}.pill.red{background:#e11d48}.mini3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.mini{display:flex;gap:12px;border-right:1px solid #b7cbea;min-height:90px}.mini:last-child{border-right:0}.mini .ico{flex:0 0 auto}.mini b{color:#169b52}.mini.warn b{color:#fb8c00}.mini.blue b{color:#0b5dbc}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0f4a85;color:#fff;padding:8px}td{border:1px solid #b7cbea;padding:7px;text-align:center}tbody tr:nth-child(even) td{background:#f8fbff}.redtxt{color:#e11d48;font-weight:950}.chartbox{height:160px}.wide-chart{height:310px;border:2px solid #197245;padding:12px;margin:26px auto 0;width:78%}.cr-table th{font-size:11px}.cr-table td{font-size:10px;text-align:left}.cr-table td:nth-child(1),.cr-table td:nth-child(2),.cr-table td:nth-child(5),.cr-table td:nth-child(6){text-align:center}.age0{background:#dcfce7}.age1{background:#ffedd5}.age2{background:#fef3c7}.age3{background:#fee2e2}.muted{color:#64748b}.hidden{display:none}@media(max-width:1200px){.layout{grid-template-columns:1fr}.slide{transform:scale(.75);transform-origin:top left;width:1366px}.preview-scroll{overflow:auto}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><div class="title"><i class="fas fa-file-powerpoint"></i> IOT Core Deck</div><div class="sub">Snapshot dashboard overview data by target/meta/date, save JSON, preview UI, and download PPT.</div></div>
+    {% if not embed %}<a class="btn" href="/live_status_view"><i class="fas fa-arrow-left"></i> Back</a>{% endif %}
+  </div>
+  <div class="toolbar">
+    <label>Target</label>
+    <select id="targetSel"><option value="">Select IOT target</option>{% for t in targets %}<option value="{{ t.target }}" {% if selected_target and selected_target == t.target %}selected{% endif %}>{{ t.display_name or t.target }}</option>{% endfor %}</select>
+    <label>Date</label><input id="deckDate" type="date">
+    <label>ES</label><input id="esDate" type="date">
+    <label>FC</label><input id="fcDate" type="date">
+    <label>CS</label><input id="csDate" type="date">
+    <button class="btn" onclick="fetchOneViewMilestones()"><i class="fas fa-cloud-download-alt"></i> Fetch OneView</button>
+    <button class="btn" onclick="loadMetas()"><i class="fas fa-list"></i> Load Metas</button>
+    <button class="btn btn-primary" onclick="buildSnapshot()"><i class="fas fa-camera"></i> Build Snapshot</button>
+    <button class="btn btn-good" onclick="saveSnapshot()"><i class="fas fa-save"></i> Save JSON</button>
+    <button class="btn btn-warn" onclick="downloadPpt()"><i class="fas fa-download"></i> Download PPT</button>
+    <span id="status" class="status"></span>
+  </div>
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-h">Meta Selection</div>
+      <div class="panel-b">
+        <div id="metaList" class="meta-list"><div class="muted">Select target and load metas.</div></div>
+        <div style="margin-top:12px"><label>Program/OEM notes</label><textarea id="notes" rows="6" placeholder="Optional bullets. One per line."></textarea></div>
+        <div style="margin-top:12px;border-top:1px solid #dbe7f7;padding-top:12px">
+          <label>SWPDT Device Split (editable)</label>
+          <textarea id="deviceSplitText" rows="5" placeholder="One per line, example:&#10;ITP APQ: 28&#10;ITP Modem: 25&#10;eITP Modem: 25&#10;ITPS: 23">ITP APQ: 28
+ITP Modem: 25
+eITP Modem: 25
+ITPS: 23
+eITP Without Modem: 3</textarea>
+          <div class="muted" style="font-size:11px;margin-top:5px">This feeds only the Device Split chart. HWPDT counts stay in MSM section.</div>
+        </div>
+        <div style="margin-top:12px;border-top:1px solid #dbe7f7;padding-top:12px">
+          <label>HWPDT Counts (editable)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px">
+            <input id="hwIntSecure" type="number" min="0" placeholder="Internal Secure">
+            <input id="hwIntNonSecure" type="number" min="0" placeholder="Internal Non-Secure">
+            <input id="hwExtSecure" type="number" min="0" placeholder="External Secure">
+            <input id="hwFailed" type="number" min="0" placeholder="Failed">
+            <input id="hwUnderDebug" type="number" min="0" placeholder="Under Debug">
+          </div>
+          <button class="btn" style="margin-top:7px" onclick="fetchHwpdtCounts()"><i class="fas fa-microchip"></i> Fetch HWPDT</button>
+        </div>
+        <div style="margin-top:12px"><label>Saved snapshots</label><select id="historySel" onchange="loadHistory()"><option value="">No history loaded</option></select></div>
+      </div>
+    </div>
+    <div class="preview-scroll"><div id="deck" class="slide"><div class="slide-head"><div class="h">IOT PDT Status</div><div class="d">Date: --</div></div><div class="box-b muted">Build or load a snapshot.</div></div></div>
+  </div>
+</div>
+<script>
+const TARGETS={{ targets|tojson }};
+let metas=[], snapshot=null, charts=[];
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,function(c){
+    return {'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c];
+  });
+}
+function setStatus(s,err){const el=document.getElementById('status');el.textContent=s||'';el.style.color=err?'#b91c1c':'#64748b'}
+function val(id){return (document.getElementById(id)||{}).value||''}
+function today(){return new Date().toISOString().slice(0,10)}
+document.getElementById('deckDate').value=today();
+if(document.getElementById('targetSel').value){loadMetas();}
+async function jget(url){const r=await fetch(url,{cache:'no-store'});const d=await r.json().catch(()=>({ok:false,error:'Invalid JSON'}));if(!r.ok||d.ok===false)throw new Error(d.error||d.message||('HTTP '+r.status));return d}
+async function jpost(url,p){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p||{})});const d=await r.json().catch(()=>({ok:false,error:'Invalid JSON'}));if(!r.ok||d.ok===false)throw new Error(d.error||d.message||('HTTP '+r.status));return d}
+async function loadMetas(){const t=val('targetSel');if(!t){setStatus('Select target',true);return}setStatus('Loading metas...');try{const d=await jget('/api/iot_core_deck/metas?target='+encodeURIComponent(t));metas=d.metas||[];document.getElementById('metaList').innerHTML=metas.length?metas.map((m,i)=>`<label class="meta-row"><div style="display:flex;gap:8px"><input type="checkbox" data-i="${i}" ${i<5?'checked':''}><div><div class="meta-id">${esc(m.meta_id||m.build||'-')}</div><div class="meta-sub">Build: ${esc(m.build_full||m.build||'')}<br>Week: ${esc(m.week||'')} · Hours: ${esc(m.hours||0)} · Crashes: ${esc(m.crashes||0)} · MTBF: ${esc(m.mtbf||'')}</div></div></div></label>`).join(''):'<div class="muted">No MTBF/meta rows found.</div>';await loadHistoryList();setStatus('Loaded '+metas.length+' metas.')}catch(e){setStatus(e.message,true)}}
+function selectedMetas(){return Array.from(document.querySelectorAll('#metaList input[type=checkbox]:checked')).map(ch=>metas[Number(ch.dataset.i)]).filter(Boolean)}
+function hwpdtOverridePayload(){return {internal_secure:Number(val('hwIntSecure')||0),internal_non_secure:Number(val('hwIntNonSecure')||0),external_secure:Number(val('hwExtSecure')||0),failed:Number(val('hwFailed')||0),under_debug:Number(val('hwUnderDebug')||0)}}
+function deviceSplitPayload(){return val('deviceSplitText').split('\n').map(x=>x.trim()).filter(Boolean).map(line=>{const parts=line.split(':');return {name:(parts[0]||'').trim(),y:Number((parts.slice(1).join(':')||'0').replace(/[^0-9.-]/g,''))||0}}).filter(x=>x.name)}
+async function buildSnapshot(){const t=val('targetSel');if(!t){setStatus('Select target',true);return}setStatus('Building snapshot from dashboard data...');try{const d=await jpost('/api/iot_core_deck/snapshot',{target:t,date:val('deckDate')||today(),selected_metas:selectedMetas(),notes:val('notes').split('\n').map(x=>x.trim()).filter(Boolean),milestones:{ES:val('esDate'),FC:val('fcDate'),CS:val('csDate')},hwpdt_counts:hwpdtOverridePayload(),device_split:deviceSplitPayload()});snapshot=d.snapshot;fillMilestoneInputs(snapshot);fillHwpdtInputs(snapshot);render(snapshot);setStatus('Snapshot ready.')}catch(e){setStatus(e.message,true)}}
+async function saveSnapshot(){if(!snapshot){await buildSnapshot();if(!snapshot)return}setStatus('Saving JSON...');try{const d=await jpost('/api/iot_core_deck/save',snapshot);snapshot=d.snapshot;await loadHistoryList();setStatus('Saved JSON: '+(d.history_id||''));}catch(e){setStatus(e.message,true)}}
+function deckToPngDataUrl(node, height){
+  const rect=node.getBoundingClientRect();
+  const w=Math.ceil(rect.width||1366), h=Math.ceil(height||rect.height||768);
+  const clone=node.cloneNode(true);
+  clone.style.transform='none';
+  clone.style.margin='0';
+  clone.style.width=w+'px';
+  clone.style.height=h+'px';
+  clone.style.minHeight=h+'px';
+  clone.style.overflow='hidden';
+  clone.querySelectorAll('canvas').forEach((c,i)=>{
+    const src=node.querySelectorAll('canvas')[i];
+    if(src){
+      const img=document.createElement('img');
+      img.src=src.toDataURL('image/png');
+      img.style.width=src.style.width||src.getAttribute('width')+'px';
+      img.style.height=src.style.height||src.getAttribute('height')+'px';
+      c.replaceWith(img);
+    }
+  });
+  const html=new XMLSerializer().serializeToString(clone);
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><foreignObject width="100%" height="100%">'+html+'</foreignObject></svg>';
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror=reject;
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  });
+}
+async function downloadPpt(){if(!snapshot){await buildSnapshot();if(!snapshot)return}setStatus('Preparing PPT from current UI slides...');try{const d=await jpost('/api/iot_core_deck/save',snapshot);const deck=document.getElementById('deck');const first=await deckToPngDataUrl(deck,768);const second=await deckToPngDataUrl(deck,Math.max(deck.scrollHeight,768));const r=await fetch('/api/iot_core_deck/download_ui_ppt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({snapshot:snapshot,history_id:d.history_id||'latest',slide_images:[first,second]})});if(!r.ok){const e=await r.json().catch(()=>({error:'PPT download failed'}));throw new Error(e.error||'PPT download failed')}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IOT_Core_Deck_'+(snapshot.target||'target')+'_'+(snapshot.date||'date')+'.pptx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);setStatus('PPT download started.')}catch(e){setStatus(e.message,true)}}
+async function loadHistoryList(){const t=val('targetSel');const sel=document.getElementById('historySel');if(!t)return;try{const d=await jget('/api/iot_core_deck/history?target='+encodeURIComponent(t));const h=d.history||[];sel.innerHTML=h.length?'<option value="">Select saved snapshot</option>'+h.map(x=>`<option value="${esc(x.history_id)}">${esc(x.date||'')} · ${esc((x.metas||[]).join(', '))} · ${esc(x.updated_at||'')}</option>`).join(''):'<option value="">No saved snapshots</option>'}catch(e){sel.innerHTML='<option value="">History unavailable</option>'}}
+async function loadHistory(){const t=val('targetSel'), hid=val('historySel');if(!t||!hid)return;setStatus('Loading saved snapshot...');try{const d=await jget('/api/iot_core_deck/history/load?target='+encodeURIComponent(t)+'&history_id='+encodeURIComponent(hid));snapshot=d.snapshot;fillMilestoneInputs(snapshot);fillHwpdtInputs(snapshot);fillDeviceSplitInputs(snapshot,true);render(snapshot);setStatus('Loaded saved JSON.')}catch(e){setStatus(e.message,true)}}
+function fillMilestoneInputs(s){const p=(s&&s.program)||{};if(p.es)document.getElementById('esDate').value=String(p.es).slice(0,10);if(p.fc)document.getElementById('fcDate').value=String(p.fc).slice(0,10);if(p.cs)document.getElementById('csDate').value=String(p.cs).slice(0,10);}
+function fillHwpdtInputs(s){const h=(s&&s.hwpdt_counts)||{};if(h.internal_secure!=null)document.getElementById('hwIntSecure').value=h.internal_secure||'';if(h.internal_non_secure!=null)document.getElementById('hwIntNonSecure').value=h.internal_non_secure||'';if(h.external_secure!=null)document.getElementById('hwExtSecure').value=h.external_secure||'';if(h.failed!=null)document.getElementById('hwFailed').value=h.failed||'';if(h.under_debug!=null)document.getElementById('hwUnderDebug').value=h.under_debug||'';}
+function fillDeviceSplitInputs(s,force){const el=document.getElementById('deviceSplitText');const rows=(s&&s.device_split)||[];if(rows.length&&(force||!el.value.trim()))el.value=rows.map(x=>(x.name||'')+': '+(x.y||0)).join('\n');}
+async function fetchOneViewMilestones(){const t=val('targetSel');if(!t){setStatus('Select target first',true);return}let sp='';try{sp=(TARGETS.find(x=>x.target===t)||{}).sp_name||'';}catch(e){}sp=prompt('SP name for OneView milestone fetch',sp||t);if(!sp)return;setStatus('Fetching ES/FC/CS from OneView...');try{const d=await jpost('/admin/fetch_sp_milestones',{sp_name:sp,target_name:t});const ms=d.milestones||{};let filled=0;[['ES','esDate'],['FC','fcDate'],['CS','csDate']].forEach(pair=>{const v=ms[pair[0]];if(v){document.getElementById(pair[1]).value=String(v).slice(0,10);filled++;}});setStatus(filled?'Fetched '+filled+' milestone date(s) from OneView. Build Snapshot to apply.':'OneView returned no ES/FC/CS dates.',!filled);}catch(e){setStatus(e.message,true)}}
+async function fetchHwpdtCounts(){const t=val('targetSel');if(!t){setStatus('Select target first',true);return}setStatus('Fetching HWPDT counts for target/PL...');try{const d=await jget('/api/iot_core_deck/hwpdt_counts?target='+encodeURIComponent(t));fillHwpdtInputs({hwpdt_counts:d.hwpdt_counts||{}});setStatus('Fetched HWPDT tested parts. You can edit counts before Build Snapshot.')}catch(e){setStatus(e.message,true)}}
+function destroyCharts(){charts.forEach(c=>{try{c.destroy()}catch(e){}});charts=[]}
+function render(s){destroyCharts();const k=s.kpis||{}, p=s.program||{}, dev=s.device_split||[], area=s.open_jiras_by_area||[], mtbf=s.mtbf_rows||[], age=s.open_crs_by_age||{}, crs=s.open_cr_rows||[], trend=s.mtbf_trend||[];
+document.getElementById('deck').innerHTML=`<div class="slide-head"><div class="h">${esc(s.display_name||s.target)} PDT Status</div><div class="d">□ Date: ${esc(s.date||'')}</div></div>
+<div class="kpis">
+${kpi('fa-list','#0877d8','Total JIRAs',k.total_jiras)}${kpi('fa-folder-open','#169b52','Open JIRAs',k.open_jiras)}${kpi('fa-gear','#6b46c1','Total CRs',k.total_crs)}${kpi('fa-circle','#ff7900','Unique CRs',k.unique_crs)}
+</div>
+<div class="grid-main"><div>
+${box(1,'Program Overview',programHtml(p,s))}
+${box(3,'Key Updates',updatesHtml(s))}
+${box(4,'MTBF Status ('+esc(s.display_name||s.target)+')',mtbfTable(mtbf))}
+${box(6,'MSM Screening Status (HW PDT)',msmHtml(s))}
+</div><div>
+${box(2,'Device Split - '+esc(dev.reduce((a,b)=>a+Number(b.y||0),0)),'<div class="chartbox"><canvas id="devChart"></canvas></div>')}
+${box(3,'Open JIRAs by Area',areaTable(area))}
+<div style="display:grid;grid-template-columns:.9fr 1fr;gap:10px">
+${box(4,'Stability Stats (SW PDT)',stabilityHtml(s))}
+${box(5,'Open/Analysis CRs : '+esc(k.open_analysis_crs||crs.length),ageHtml(age)+'<div class="chartbox"><canvas id="crAgeChart"></canvas></div>')}
+</div>
+</div></div>
+<div style="margin-top:18px">${openCrTable(crs)}</div>
+<div class="wide-chart"><canvas id="trendChart"></canvas></div>`;
+barChart('devChart',dev.map(x=>x.name),dev.map(x=>x.y),'#0b5dbc',true);
+barChart('crAgeChart',(s.open_crs_by_area||[]).map(x=>x.name),(s.open_crs_by_area||[]).map(x=>x.y),undefined,true);
+lineChart('trendChart',trend.map(x=>x.label),trend.map(x=>x.mtbf));}
+function kpi(ic,color,label,num){return `<div class="kpi"><div class="ico" style="background:${color}"><i class="fas ${ic}"></i></div><div style="flex:1;text-align:center"><div class="kl">${esc(label)}</div><div class="kv">${esc(num||0)}</div></div></div>`}
+function box(n,t,b){return `<div class="box"><div class="box-title"><span class="num">${n}</span>${t}</div><div class="box-b">${b}</div></div>`}
+function programHtml(p,s){return `<div class="overview-grid"><div class="target-big">${esc(p.target_label||s.display_name||s.target)}</div><div class="sep"></div><div style="align-self:center"><b>OEM</b><ul style="margin:10px 0 0 18px;padding:0">${(p.oem||[]).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>-</li>'}</ul></div><div class="sep"></div><div style="align-self:center"><b>Project Timelines</b><br>${timeline('ES',p.es,'green')} ${timeline('FC',p.fc,'orange')} ${timeline('CS',p.cs,'red')}</div></div>`}
+function timeline(k,v,c){return `<div style="margin:7px 0"><span class="pill ${c}">${k}</span> - <b>${esc(v||'-')}</b></div>`}
+function updatesHtml(s){const notes=s.notes||[];return `<div class="mini3"><div class="mini"><div class="ico" style="background:#169b52"><i class="fas fa-mobile-screen"></i></div><div><b>${esc((s.kpis||{}).devices||0)} Devices Allocated</b><ul><li>SW PDT – ${esc((s.kpis||{}).sw_devices||0)}</li><li>HW PDT – ${esc((s.kpis||{}).hw_devices||0)}</li></ul></div></div><div class="mini warn"><div class="ico" style="background:#fb8c00"><i class="fas fa-screwdriver-wrench"></i></div><div><b>Key Notes</b><ul>${notes.slice(0,3).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>No manual notes</li>'}</ul></div></div><div class="mini blue"><div class="ico" style="background:#0b5dbc"><i class="fas fa-arrow-up-right-dots"></i></div><div><b>Peak Capacity</b><ul><li>SW PDT – ${esc((s.kpis||{}).sw_devices||0)} Devices</li><li>HW PDT – ${esc((s.kpis||{}).hw_devices||0)} Devices</li></ul></div></div></div>`}
+function mtbfTable(rows){return `<table><thead><tr><th>SP</th><th>Software Product Build</th><th>Total Hours</th><th>Crashes</th><th>MTBF</th></tr></thead><tbody>${(rows||[]).slice(0,5).map((r,i)=>`<tr><td>${i===0?esc(r.sp||'SP'):''}</td><td>${esc(r.build||r.meta_id||'')}</td><td>${esc(r.hours||0)}</td><td>${esc(r.crashes||0)}</td><td class="redtxt">${esc(r.mtbf||'')}</td></tr>`).join('')||'<tr><td colspan="5">No MTBF rows.</td></tr>'}</tbody></table>`}
+function msmHtml(s){const h=s.hwpdt_counts||{}, is=Number(h.internal_secure||0), ins=Number(h.internal_non_secure||0), ex=Number(h.external_secure||0), fail=Number(h.failed||0), dbg=Number(h.under_debug||0), total=is+ins+ex;return `<div style="background:#e8f8e8;border:1px solid #93d29a;border-radius:7px;padding:10px;text-align:center;color:#166534;font-weight:900;margin-bottom:8px">● ${fail?'Failure parts require debug.':'No failure Parts so far in HW PDT Testing.'}</div><table><thead><tr><th>${esc((s.program||{}).chip||s.target)}</th><th>Internal Secure</th><th>Internal Non-Secure</th><th>External Secure</th><th>Total</th></tr></thead><tbody><tr><td>No of MSMs Received</td><td>${is}</td><td>${ins}</td><td>${ex}</td><td>${total}</td></tr><tr><td>No of Tested MSMs</td><td>${is}</td><td>${ins}</td><td>${ex}</td><td>${total}</td></tr><tr><td>No of MSMs Failed</td><td>${fail}</td><td>0</td><td>0</td><td>${fail}</td></tr><tr><td>Under Debug</td><td>${dbg}</td><td>0</td><td>0</td><td>${dbg}</td></tr></tbody></table>`}
+function areaTable(rows){return `<table><thead><tr><th>AREA</th><th># OPEN JIRAS</th></tr></thead><tbody>${(rows||[]).map(r=>`<tr><td><b>${esc(r.name)}</b></td><td class="redtxt">${esc(r.y)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td><b>${(rows||[]).reduce((a,b)=>a+Number(b.y||0),0)}</b></td></tr></tbody></table>`}
+function stabilityHtml(s){const k=s.kpis||{};return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center"><div><div class="ico" style="background:#0877d8;margin:auto"><i class="fas fa-gear"></i></div><b>CRM Builds</b><div class="kv" style="color:#0877d8">${esc(k.crm_builds||0)}</div></div><div><div class="ico" style="background:#169b52;margin:auto"><i class="fas fa-code"></i></div><b>Eng Builds</b><div class="kv" style="color:#169b52">${esc(k.eng_builds||0)}</div></div><div><div class="ico" style="background:#dc2626;margin:auto"><i class="fas fa-certificate"></i></div><b>CRM Crashes</b><div class="kv" style="color:#dc2626">${esc(k.crm_crashes||0)}</div></div><div><div class="ico" style="background:#fb8c00;margin:auto"><i class="fas fa-bolt"></i></div><b>Eng Crashes</b><div class="kv" style="color:#fb8c00">${esc(k.eng_crashes||0)}</div></div></div>`}
+function ageHtml(a){return `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><span class="pill green">0-7d: ${esc(a.d0_7||0)}</span><span class="pill orange">7-14d: ${esc(a.d7_14||0)}</span><span class="pill" style="background:#fde68a;color:#92400e">14-21d: ${esc(a.d14_21||0)}</span><span class="pill red">>21d: ${esc(a.d21p||0)}</span></div>`}
+function openCrTable(rows){if(!rows||!rows.length)return '';return `<div style="font-weight:950;color:red;text-decoration:underline;margin:10px 0">Open CRs By Age (> 2 weeks)</div><table class="cr-table"><thead><tr><th>#</th><th>CR ID</th><th>TITLE</th><th>AREA</th><th>JIRA HITS</th><th>AGE (DAYS)</th><th>STATUS</th><th>PDT TAG</th><th>LAST REPORTED DATE</th><th>LAST REPORTED JIRA</th></tr></thead><tbody>${rows.slice(0,18).map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.cr)}</td><td>${esc(r.title)}</td><td>${esc(r.area)}</td><td>${esc(r.jira_count)}</td><td>${esc(r.age)}</td><td>${esc(r.status)}</td><td>${esc(r.pdt_tag||'--')}</td><td>${esc(r.last_reported_date||'')}</td><td>${esc(r.last_reported_jira||'')}</td></tr>`).join('')}</tbody></table>`}
+function barChart(id,labels,data,color,horizontal){const el=document.getElementById(id);if(!el)return;charts.push(new Chart(el,{type:'bar',data:{labels,datasets:[{data,backgroundColor:color||['#3b82f6','#f97316','#22c55e','#8b5cf6','#ef4444','#06b6d4','#64748b']}]},options:{indexAxis:horizontal?'y':'x',maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true},y:{beginAtZero:true}}}}))}
+function lineChart(id,labels,data){const el=document.getElementById(id);if(!el)return;charts.push(new Chart(el,{type:'line',data:{labels,datasets:[{label:'MTBF',data,borderColor:'#2b73b9',backgroundColor:'rgba(43,115,185,.12)',pointRadius:3,tension:.12}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:(snapshot.display_name||snapshot.target)+' - MTBF Trend',font:{size:16}}},scales:{y:{beginAtZero:false}}}}))}
+</script>
+</body>
+</html>

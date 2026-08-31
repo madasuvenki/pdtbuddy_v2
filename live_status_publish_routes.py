@@ -106,6 +106,30 @@ def _target_group_access() -> bool:
     return result
 
 
+def _log_live_status_usage(action_type, bu_key=None, target_name=None, result_status='SUCCESS', details=None):
+    """Log Live Status BU/target visits so Admin Usage external BU/target tables have real data."""
+    try:
+        import app as _app
+        uid = current_user.get_id() if current_user.is_authenticated else 'UNKNOWN'
+        bu = str(bu_key or get_bu_for_target(target_name) or '').strip().upper()
+        query_parts = []
+        if bu:
+            query_parts.append(f'bu_key={bu}')
+        if details:
+            query_parts.append(str(details))
+        _app.log_user_activity(
+            user_id=uid,
+            action_type=action_type,
+            endpoint=request.path,
+            target_name=target_name or None,
+            query_text=';'.join(query_parts) or None,
+            result_status=result_status,
+            user_type='external' if not _target_group_access() else 'internal',
+        )
+    except Exception:
+        pass
+
+
 def _norm_access_list(values):
     if values is None:
         return set()
@@ -523,8 +547,14 @@ def _published_display_rows(rows, published_at):
         crashes = _f(r.get('crashes'))
         has_calc_input = raw_hours > 0 or reduction > 0
         if has_calc_input:
-            devices = _f(r.get('device_count')) or 1.0
-            final_hours = raw_hours + (elapsed_hours * (1.0 - (reduction / 100.0)) * devices)
+            if r.get('isMerged'):
+                # Merge-PL rows are already aggregated snapshots. Keep their
+                # stored hours/MTBF stable after publish instead of adding
+                # elapsed running device-hours on every refresh.
+                final_hours = raw_hours
+            else:
+                devices = _f(r.get('device_count')) or 1.0
+                final_hours = raw_hours + (elapsed_hours * (1.0 - (reduction / 100.0)) * devices)
             r['display_hours'] = f'{round(final_hours, 1):.1f}'
             r['display_mtbf'] = f'{round(final_hours / crashes, 1):.1f}' if crashes > 0 and final_hours > 0 else 'NA'
         else:
@@ -2097,6 +2127,8 @@ def landing():
     """
 
     requested_target = (request.args.get('target') or request.args.get('target_name') or '').strip()
+    requested_bu_for_log = (request.args.get('bu_key') or '').strip().upper()
+    _log_live_status_usage('LIVE_STATUS_LANDING', bu_key=requested_bu_for_log, target_name=requested_target or None)
     if requested_target:
 
         requested_tab = _requested_live_status_tab('mtbf')
@@ -2403,6 +2435,7 @@ def live_status_target_by_bu(bu_key, target_name, initial_tab_path=None):
     """
 
     initial_tab = _normal_live_status_tab(initial_tab_path, _requested_live_status_tab('mtbf'))
+    _log_live_status_usage('LIVE_STATUS_TARGET_VIEW', bu_key=bu_key, target_name=target_name, details=f'tab={initial_tab}')
 
     # ── BU-based routing ──────────────────────────────────────────────────────
     # Determine the effective BU for this target (prefer resolved BU over URL param).

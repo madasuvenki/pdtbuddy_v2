@@ -113,9 +113,14 @@ ORBIT_ENDPOINT_CH   = "orbit-ch.qualcomm.com"
 import json as _json
 LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS = {
     "PdtBuddy.IoT": {
-        "label": "IOT",
+        "label": "QLI_IOT",
         "bus": ["IOT"],
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.IoT",
+    },
+    "PdtBuddy.Wear": {
+        "label": "Wear",
+        "bus": ["IOT_WEARABLES"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Wear",
     },
     "PdtBuddy.Nord": {
         "label": "Nord",
@@ -231,7 +236,7 @@ _ENV_FALLBACKS = {
     'AXIOM_CLIENT_SECRET': '',
     'AXIOM_TAXONOMY_PATH_SW': '/PDT',
     'AXIOM_TAXONOMY_PATH_HW': '/PDT/QIPL/HW',
-    'AXIOM_POLL_INTERVAL': '900',  # 15 minutes when poller is explicitly enabled
+    'AXIOM_POLL_INTERVAL': '10800',  # 3 hours when poller is explicitly enabled
     # Axiom polling is disabled by default. Enable explicitly in .env only when
     # the production feed/credentials are intended to be used.
     'ENABLE_SWPDT_AXIOM_POLLER': '0',
@@ -278,7 +283,11 @@ STATIC_BUSINESS_UNITS = {
         "targets": [],
     },
         "IOT": {
-        "display_name": "QLI_IOT_Wear",
+        "display_name": "QLI_IOT",
+        "targets": [],
+    },
+    "IOT_WEARABLES": {
+        "display_name": "Wear",
         "targets": [],
     },
     "WEEKLY_QIPL_REPORTS": {
@@ -293,6 +302,8 @@ BU_DATABASE_MAPPING = {
     'MOBILE': 'pdt_stats_mobile',
     'AUTO':   'pdt_stats_auto',
     'IOT':    'pdt_stats_iot',
+    'IOT_WEARABLES': 'pdt_stats_iot',
+    'WEAR':   'pdt_stats_iot',
     'WBC':    'pdt_stats_wbc',
     'XR':     'pdt_stats_xr',
     'COMPUTE': 'pdt_stats_compute',
@@ -308,7 +319,8 @@ BU_ICONS = {
     "AUTOMOTIVE": "fa-car",
     "MOBILE": "fa-mobile-alt",
     "IOT": "fa-satellite-dish",
-    "IOT_WEARABLES": "fa-satellite-dish",
+    "IOT_WEARABLES": "fa-clock",
+    "WEAR": "fa-clock",
     "WBC": "fa-network-wired",
     "XR": "fa-vr-cardboard",
     "COMPUTE": "fa-laptop-code",

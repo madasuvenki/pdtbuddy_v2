@@ -1,0 +1,93 @@
+slides 4 size 12188825 6858000
+
+=== SLIDE 1 ===
+01 type=AUTO_SHAPE (1) name=Rectangle 6 x=0 y=0 w=12188825 h=6858000
+02 type=AUTO_SHAPE (1) name=Rectangle 8 x=0 y=-427 w=12188825 h=6858000
+03 type=AUTO_SHAPE (1) name=Rectangle 10 x=455402 y=-1720 w=11746980 h=6840685
+04 type=AUTO_SHAPE (1) name=Rectangle 12 x=8603812 y=-1291 w=3607240 h=6858864
+05 type=AUTO_SHAPE (1) name=Oval 14 x=6057503 y=779920 w=4967533 h=4987091
+06 type=AUTO_SHAPE (1) name=Rectangle 1 x=312172 y=3804407 w=8256789 h=710357
+   TEXT: PDT WBC SW Core Update 25/08/2026
+07 type=AUTO_SHAPE (1) name=Rectangle 16 x=6312 y=4480038 w=12176199 h=2377962
+08 type=AUTO_SHAPE (1) name=Rectangle 18 x=6964378 y=1633128 w=6857572 h=3591323
+
+=== SLIDE 2 ===
+01 type=TEXT_BOX (17) name=TextBox 1 x=146304 y=73152 w=5394960 h=184666
+   TEXT: Current Meta: Amboseli.LE.2.0-00065
+02 type=TEXT_BOX (17) name=TextBox 2 x=6024888 y=45720 w=5989320 h=73866
+   TEXT: SW PDT :  Pradeep Singh, Rama Krishna, Teja Sai
+03 type=TABLE (19) name=Table 3 x=182880 y=386197 w=5486399 h=654070
+   TABLE rows=3 cols=3
+     1 Date: 08/25/2026 || Amboseli.LE.2.0 PDT Status || 
+     2 Target || OEM || Project Timelines
+     3 Amboseli.LE.2.0 || - || ES = 13-Feb-2026 FC = 15-May-2026
+04 type=TABLE (19) name=Table 4 x=182880 y=1152144 w=5513830 h=530352
+   TABLE rows=2 cols=5
+     1 Total JIRAÆs || Open JIRAÆs || Open CRÆs || Total CRÆs || Unique CRÆs
+     2 1036 || 29 || 17 || 52 || 15
+05 type=TEXT_BOX (17) name=TextBox 5 x=192024 y=1881901 w=5349240 h=1034129
+   TEXT: Key Updates |  | Iterative tests running Completed and Regular PDT Started | Build running on 13 devices | FR Test Enablement in Progress û ETA 2 û weeks. | FR107838 8-way AsDiv for CPE | FR108370 R17 xT8R SRS Antenna Switching | FR108578 6x F+T DL CA with 1F+2T Rel 17 F+T SwUL | FR108895 TDD 8Rx/4L for CPE | FR200833 Amboseli 8Rx support for both FDD and TDD in F+T CA
+06 type=TEXT_BOX (17) name=TextBox 6 x=146304 y=2942371 w=1097280 h=182880
+   TEXT: MTBF Chart
+07 type=TABLE (19) name=Table 7 x=260605 y=4632736 w=5376669 h=984504
+   TABLE rows=4 cols=5
+     1 Team || Meta || Total Hours || Total Crashes || MTBF
+     2 PDT || Amboseli.LE.2.0-00059-QMP5.EBOOT.SUB6.Trestles-1 || 411 || 249 || 1
+     3  || Amboseli.LE.2.0-00062-QMP5.EBOOT.SUB6.Trestles-1 || 100 || 318 || 0
+     4  || Amboseli.LE.2.0-00065-QMP5.EBOOT.SUB6.Trestles-1 || 30 || 78 || 0.3
+08 type=TEXT_BOX (17) name=TextBox 8 x=242315 y=5695957 w=2377440 h=182880
+   TEXT: Weekly Stability Stats (SW PDT)
+09 type=TABLE (19) name=Table 9 x=242315 y=5917203 w=5394959 h=865632
+   TABLE rows=3 cols=4
+     1 Team || Builds Tested || Total Hours || Total Crashes
+     2 SW PDT || CRM Builds û 7 || 846 || 804
+     3  || Engg Builds û 0 || 0 || 0
+10 type=LINE (9) name=Connector 10 x=5833872 y=137160 w=0 h=6510528
+11 type=TEXT_BOX (17) name=TextBox 12 x=5943600 y=409040 w=914400 h=182880
+   TEXT: CR Details
+12 type=TABLE (19) name=Table 13 x=5943600 y=685411 w=5897876 h=1185344
+   TABLE rows=4 cols=8
+     1 S.No. || CR-ID || Occurrence || CR Title || CR Area || CR SubSystem || CR Functionality || CR Status
+     2 1 || CR4607874 || 16 || MODEM - rfdevice_sleep_manager_buffer_ops.cpp:296   [rfdevice_sleep_manager] append_to_script() :script buffer is NULL! || Modem || RFA || RFA_DEVICES_RFFE || Built
+     3 2 || CR4653856 || 57 || MODEM - rfdevice_trx_scouting.cpp:4281   Assertion (0) failed. TRx scouting failed in recall_alloc_algo_to_get_lodiv_linmode_paraà || Modem || RFA || RFA_DEVICES_TRX || Analysis
+     4 3 || CR4612509 || 1 || MODEM - memheap.c:2636   In task 0x1b9: Assertion BOUNDARY_CHECK_SECTIONS(theBlock: heap_ptr) failed. heap is 0xc921d170 and theBà || Modem || RFA || RFA_5G_RFMGR || Built
+13 type=PICTURE (13) name=Picture 17 x=17198 y=3028426 w=5734377 h=1525593
+14 type=TABLE (19) name=Table 19 x=5998466 y=2300227 w=5862309 h=507153
+   TABLE rows=3 cols=5
+     1 S.No. || JIRA-Ticket || Instances || Jira Title || Status
+     2 1 || DROIDBUG-15790249 || 3 || [Amboseli.LE.2.0-00065-QMP5.EBOOT.Trestles.Pictor6R-1] - APPS Crash - Page fault Execute error: PC = ath12k_core_reset+0x328/0xe00 LR = ath12k_core_reset+0x30c/0xe00 || Open
+     3 2 || DROIDBUG-15788761 || 1 || [Amboseli.LE.2.0-00065-QMP5.EBOOT.SUB6.Trestles-1] - APPS Crash - msm_watchdog .* Watchdog bark! Now = 20.454016 || Open
+15 type=TEXT_BOX (17) name=TextBox 21 x=5998466 y=2023187 w=914400 h=123111
+   TEXT: Jira Details
+16 type=CHART (3) name=Chart 23 x=5541264 y=3876295 w=6419172 h=1911102
+17 type=TEXT_BOX (17) name=TextBox 25 x=6984602 y=5644244 w=3993160 h=103426
+   TEXT: ES û 29-May		        Pre-FC-1-Jun   	                   FC-10-Aug		       Pre-CS
+18 type=TEXT_BOX (17) name=TextBox 27 x=6094412 y=6049837 w=4883350 h=307777
+   TEXT: Device Ramp up Plan from ES to CS û Post CS. | All the Projections are dependent on HW Availability.
+19 type=TEXT_BOX (17) name=Title 1 x=5595329 y=3414197 w=4610099 h=414088
+   TEXT: Amboseli : PDT Device Ramp Up Plan (Global)
+
+=== SLIDE 3 ===
+01 type=TEXT_BOX (17) name=TextBox 1 x=310896 y=292608 w=1828800 h=123111
+   TEXT: Overall Open/Analysis CRs:
+02 type=TABLE (19) name=Table 5 x=310896 y=641072 w=11442584 h=5575855
+   TABLE rows=18 cols=12
+     1 S.No || CR || Jira Date -last instance || CR Occurrence || CR Title || CR Area || CR SubSystem || CR Functionality || CR Date || CR Status
+     2 1 || CR4653856 || 25-08-2026 || 57 || MODEM - rfdevice_trx_scouting.cpp:4281   Assertion (0) failed. TRx scouting failed in recall_alloc_algo_to_get_lodiv_linmode_paras: Failed to call get_channel_based_rx_alloc() in scouting || Modem || RFA || RFA_DEVICES_TRX || 22-08-2026 || Analysis
+     3 2 || CR4454989 || 23-08-2026 || 39 || MASTER_DB:[Amboseli.LE.1.0-00093-QMP5.EBOOT.NOWKK.Pictor-1] - TZ - TZBSP_KRNL_FATAL_ERR_TYPE :  Fatal Error type: 1 - 0x00000001   (APPS_ERR_FATAL_NON_SECURE_WDT      ) on CPU 0 WDT stuck due to smc call || Linux || Kernel || Kernel_Baseport_QIPL || 02-03-2026 || Analysis
+     4 3 || CR4644717 || 23-08-2026 || 11 || 8Rx -- MODEM - rflm_ccs.cc:1354   (CCS:1) RF TQ 1 overflow: shadow_active_tasks=0x7fff8700: rd_idx=30 || Modem || RFA || RFA_5GSUB6_RX || 14-08-2026 || Analysis
+     5 4 || CR4643204 || 18-08-2026 || 11 || MODEM - rf_nr5g_mc_config.c:42847   Assertion (req_combo_id < 4) failed. rf_nr5g_mcc_private_slic_db_update: cfg_p 0xe4efa2f0 Invalid combo id 4 for cfg id 3 || Modem || RFA || RFA_5G_RFMGR || 13-08-2026 || Analysis
+     6 5 || CR4651847 || 22-08-2026 || 4 || WPST-1049541[Amboseli.LE.2.0-00062-QMP5.EBOOT.SUB6.Trestles-1] - APSS Crash : Kernel Panic : ModuleOrFile = ath12k  PC = ath12k_core_reset0x328/0xe00 LR = ath12k_core_reset0x30c/0xe00 || Linux Networking || WIN Ath Host SW || WLAN Platform || 20-08-2026 || Open
+     7 6 || CR4648032 || 22-08-2026 || 4 || MODEM - nr5g_ml1_common_timer.c:420   0 || Modem || NR5G || NR5G_L1_BEAM_MGMT || 18-08-2026 || Analysis
+     8 7 || CR4610810 || 21-08-2026 || 4 || MODEM - rf_nr5g_mc_config.c:48118   Assertion (0) failed. RX PLL unlock detected!!! || Modem || RFA || RFA_LTE_DL || 16-07-2026 || Analysis
+
+=== SLIDE 4 ===
+01 type=AUTO_SHAPE (1) name=Rectangle 6 x=0 y=0 w=12188825 h=6858000
+02 type=AUTO_SHAPE (1) name=Rectangle 8 x=0 y=-427 w=12188825 h=6858000
+03 type=AUTO_SHAPE (1) name=Rectangle 10 x=455402 y=-1720 w=11746980 h=6840685
+04 type=AUTO_SHAPE (1) name=Rectangle 12 x=8603812 y=-1291 w=3607240 h=6858864
+05 type=AUTO_SHAPE (1) name=Oval 14 x=6057503 y=779920 w=4967533 h=4987091
+06 type=AUTO_SHAPE (1) name=Rectangle 1 x=6467912 y=3804407 w=2101049 h=710357
+   TEXT: ThankQ
+07 type=AUTO_SHAPE (1) name=Rectangle 16 x=6312 y=4480038 w=12176199 h=2377962
+08 type=AUTO_SHAPE (1) name=Rectangle 18 x=6964378 y=1633128 w=6857572 h=3591323

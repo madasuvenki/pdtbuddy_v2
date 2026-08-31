@@ -2,6 +2,88 @@
 
 ## Current Work Focus
 
+### Live Status Core Slides Saved JSON Load Fix — Complete (2026-08-30)
+
+**User request addressed:** On `/live_status_view/AUTO/nord_hqx`, Core Slides tab was blank/not loading even though latest saved Core Deck JSON exists.
+
+**Changes made:**
+- `templates/core_deck_agent.html`
+  - Added `cdAgentLoadSavedState()` to load saved Core Deck JSON from:
+    - `/api/core_deck/public_state` in external/live-status-view mode
+    - `/api/core_deck/state` in internal mode
+  - The saved `state.saved_preview` now populates KPI cards and the selected-meta/top-CR preview immediately.
+  - If no generated PPTX history exists, the panel now shows a clear green saved-JSON-loaded message with meta and saved-by/saved-at info instead of staying blank.
+  - Existing generated PPTX history still loads/auto-previews when available.
+
+**Validation:**
+- Jinja parse check passed for:
+  - `templates/core_deck_agent.html`
+  - `templates/live_status_view.html`
+  - `templates/bu_target_selection.html`
+
+### Mobile BU Target Selection Layout Fix — Complete (2026-08-30)
+
+**User request addressed:** Mobile BU target selection page looked poor with many targets; cards extended too wide and left empty whitespace / horizontal overflow.
+
+**Changes made:**
+- `templates/bu_target_selection.html`
+  - Adjusted `.tsel-shell` to use full content width with safe side padding and hidden horizontal overflow.
+  - Changed target grids from full-width stretching columns to bounded `auto-fit` columns (`210px–240px`) with `justify-content:start`, so many Mobile targets wrap into compact rows instead of stretching across the page.
+  - Added max-width/overflow guards for grouped Mobile sections.
+  - Kept the existing pastel color combo and left-panel shell styling intact.
+
+**Validation:**
+- Jinja parse check passed:
+  - `py -3 -c "from pathlib import Path; from jinja2 import Environment; Environment().parse(Path('templates/bu_target_selection.html').read_text(encoding='utf-8')); print('JINJA_OK')"`
+
+### Weekly Smart Build Axiom Running Status Guard — Complete (2026-08-29)
+
+**User request addressed:** On `/weekly-report/smart-build-report?week_start=2026-08-17&week_end=2026-08-23`, stale Axiom jobs for PLs such as `SA510-` were still displayed as running even though they had stopped long back.
+
+**Changes made:**
+- `weekly_summary_routes.py`
+  - Added `_sp2_is_effectively_running()` to centralize whether an Axiom job should still be shown as running.
+  - Historical report weeks whose `week_end` is before today no longer display `Running` / `JobSetup` Axiom states as actively running.
+  - Current-week rows with `ended_at` set, or with stale `updated_at` / `fetched_at` older than 12 hours, are treated as completed to avoid missed Axiom terminal transitions keeping PL/build rows visually running forever.
+  - Completed/stale historical rows with missing Axiom `ended_at` now display the selected report `week_end` as the effective Completed date instead of `-`, avoiding an open-looking row after status is marked Done.
+  - Added execution-week filtering so old no-ended Axiom rows do not carry forward into later Smart Build report weeks.
+  - Applied the guard to Smart Build landing totals, SP2 build-type override seeding, `/api/sp2/builds`, and SP2 consolidate rebuild paths.
+- `scripts/fetch_axiom_combined.py`
+  - Fixed `_refresh_running_jobs()` root cause: it was selecting only `state IN ('Running','JobSetup') AND is_closed = 0`.
+  - Removed the `is_closed = 0` filter so rows whose state is still `Running` / `JobSetup` are always rechecked against Axiom, even if `is_closed` was previously set incorrectly.
+
+**Executable rebuild:**
+- Updated `UpdateAxiomJobSummary.spec` to use the active `.venv` path for bundled MySQL connector binaries.
+- Rebuilt `dist\pdtbuddyapp.exe`.
+- Rebuilt `dist\UpdateAxiomJobSummary.exe`.
+
+**Validation:**
+- `py -3 -m py_compile scripts\fetch_axiom_combined.py scripts\update_axiom_job_summary.py weekly_summary_routes.py` executed successfully.
+- Generated executables verified:
+  - `dist\pdtbuddyapp.exe` — last written `2026-08-29 21:21:40`
+  - `dist\UpdateAxiomJobSummary.exe` — last written `2026-08-29 21:22:25`
+- Helper checks confirmed:
+  - historical `Running` week ending `2026-08-23` → not running
+  - historical completed row with missing `ended_at` → displays `2026-08-23`
+  - `Running` with `ended_at` → not running
+  - current-week stale `Running` updated 13 hours ago → not running
+  - current-week fresh `Running` → running
+
+### WBC Live View Status PPT Meta Selection — Complete (2026-08-28)
+
+**User request addressed:** On `/wbc/live_view_status`, keep the existing/current preview flow but make selected meta/build rows affect the downloaded PPT, with PPT/UI using the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` layout.
+
+**Changes made:**
+- `wbc_live_view_stats_routes.py`
+  - Fixed `_wbc_build_ppt()` so selected `tab_ids`, `tab_id`, and `build_ids` are applied before calling `wbc_legacy_ppt_adapter.build_ppt()`.
+  - Preserves the old WBC PPT layout/coordinates through `wbc_legacy_ppt_adapter`.
+  - Filters legacy build/MTBF data to selected meta/build rows when matches are available.
+  - Pulls selected saved-JQL cached rows or build-summary rows into `current_cr`, `current_jira`, and `open_cr` so downloaded PPT reflects the selected meta content.
+  - Updates current-meta KPI fields from the selected saved-JQL/build row.
+
+**Validation:**
+- `py -3 -m py_compile wbc_live_view_stats_routes.py wbc_legacy_ppt_adapter.py` executed successfully.
+
 ### Automotive Gen4.5 MTBF PL Merge Shared UI Store — Complete (2026-08-25)
 
 **User request addressed:** On `/automotive/live_view_stats/4.8.9.0`, make the MTBF Product Line "Merge PL" option a UI-level shared setting only, visible to all viewers and editable only by target users, without changing existing target/path JSON.
