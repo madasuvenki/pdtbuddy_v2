@@ -449,7 +449,47 @@ def _safe_int(val):
 def _norm(v):
     if not v:
         return ''
-    return str(v).strip().lower().replace(' ', '_').replace('-', '_').replace('/', '_')
+    import re as _re
+    return _re.sub(r'[^a-z0-9]+', '_', str(v).strip().lower()).strip('_')
+
+
+def _select_qipl_rows_for_report_week(rows: list, week_start: date, week_end: date) -> list:
+    """Return parsed QIPL rows for the selected report week.
+
+    Preferred path uses the CSV Fetched Date/reporting week. Some Monday-morning
+    QIPL files are dated/published on Monday for the previous completed week and
+    their row-level Fetched Date can be Monday or missing. When the source file
+    itself has already been matched to the requested report week, fall back to
+    importing all parsed rows and stamp out-of-window/missing fetched_date to
+    week_end so the weekly report and Smart Build queries can load the data.
+    """
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        return list(rows or [])
+
+    selected = [
+        r for r in (rows or [])
+        if ws.isoformat() <= str(r.get('fetched_date') or '')[:10] <= we.isoformat()
+    ]
+    source_rows = selected if selected else list(rows or [])
+
+    stamped = []
+    for row in source_rows:
+        if not isinstance(row, dict):
+            continue
+        cleaned = dict(row)
+        fd = _safe_date(cleaned.get('fetched_date'))
+        if not fd or fd < ws or fd > we:
+            cleaned['fetched_date'] = we
+        # The import target week is the selected report week. Keep Jira Date in
+        # jira_date for analytics, but do not let Jira-created week buckets split
+        # or under-delete a weekly CSV upload. Smart Build and trend code can now
+        # consistently use either fetched_date or the stamped report-week bucket.
+        cleaned['week_start'] = ws.isoformat()
+        cleaned['week_end'] = we.isoformat()
+        stamped.append(cleaned)
+    return stamped
 
 
 def _is_snapdragon_auto_target(target: str) -> bool:
@@ -601,7 +641,27 @@ def _ensure_weekly_qipl_table():
             # Dedup: add stability_ticket + meta_build + unique key to weekly_qipl_data
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(255) NULL",
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN meta_build VARCHAR(255) NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD UNIQUE KEY uq_stability_ticket (stability_ticket)",
+            # A stability ticket can legitimately appear more than once in the
+            # weekly CR_TAT source (multiple occurrences / repeated mapped rows).
+            # Older deployments added a global UNIQUE KEY, which caused uploads
+            # to silently lose rows after deduplication and prevented "full
+            # JIRAs" from appearing in Smart Build. Remove it and keep only a
+            # normal lookup index.
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` DROP INDEX uq_stability_ticket",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD INDEX idx_stability_ticket (stability_ticket)",
+            # QIPL CSV free-text fields can exceed the original VARCHAR sizes.
+            # Keep full values in row_data JSON, and make display columns wide
+            # enough so imports do not fail with MySQL 1406 data-too-long.
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN resolution TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN jira_reporter TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN ticket_status TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN target TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN jira_component TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN pl_id TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN host_name TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN type_of_farm TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_status TEXT NULL",
+            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_area TEXT NULL",
             # Smart Build crash counts use fetched_date as the selected report
             # week, so keep this indexed for fast weekly lookups.
             f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD INDEX idx_fetched_date (fetched_date)",
@@ -745,13 +805,30 @@ def _upsert_rows(rows: list):
     except Exception:
         pass
 
-    # Hard safety for already-running deployments / DBs where the ALTER has not
-    # yet taken effect.  The full original value is still preserved inside
-    # row_data JSON; this indexed/display column must never block CSV import.
+    # Hard safety for already-running deployments / DBs where ALTERs may not
+    # have taken effect yet.  The full original values are still preserved
+    # inside row_data JSON; these indexed/display columns must never block CSV
+    # import with MySQL 1406 data-too-long.
+    column_limits = {
+        'cr_current_ticket': 4096,
+        'resolution': 4096,
+        'jira_reporter': 1024,
+        'ticket_status': 1024,
+        'target': 1024,
+        'jira_component': 1024,
+        'pl_id': 1024,
+        'host_name': 1024,
+        'type_of_farm': 1024,
+        'cr_status': 1024,
+        'cr_area': 1024,
+        'stability_ticket': 255,
+        'meta_build': 1024,
+    }
     for row in rows:
-        val = row.get('cr_current_ticket')
-        if val is not None and len(str(val)) > 255:
-            row['cr_current_ticket'] = str(val)[:255]
+        for col, limit in column_limits.items():
+            val = row.get(col)
+            if val is not None and len(str(val)) > limit:
+                row[col] = str(val)[:limit]
 
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
@@ -774,9 +851,10 @@ def _upsert_rows(rows: list):
             for r in rows if r.get('week_start') and r.get('week_end')
         )
 
-        # Step 1: find common rows (stability_tickets already in table for this week)
-        # Step 2: delete those week rows from table (to get latest JIRA status)
-        # Step 3: insert all rows fresh from CSV
+        # Step 1: delete only the report-week rows being refreshed.
+        # Do not delete by stability_ticket: the same ticket can legitimately
+        # appear in another week and can appear multiple times in the same CSV.
+        # Step 2: insert all latest occurrence-level rows fresh from CSV.
         deleted = 0
         for ws_del, we_del in weeks:
             cur.execute(
@@ -785,6 +863,7 @@ def _upsert_rows(rows: list):
                 (ws_del, we_del)
             )
             deleted += cur.rowcount
+
         conn.commit()
 
         sql = f"""
@@ -1272,10 +1351,7 @@ def _auto_load_qipl_week(week_start: date, week_end: date, username: str) -> dic
         rows, raw_headers = _parse_file(src_path, username or 'auto')
         ws = week_start.isoformat()
         we = week_end.isoformat()
-        selected_rows = [
-            r for r in rows
-            if ws <= str(r.get('fetched_date') or '')[:10] <= we
-        ]
+        selected_rows = _select_qipl_rows_for_report_week(rows, week_start, week_end)
         if not selected_rows:
             msg = f"No rows for selected week. Headers: {[str(h) for h in raw_headers[:10]]}"
             _finish_import_audit(fp['key'], 'failed', 0, msg)
@@ -3435,10 +3511,10 @@ def _count_sharepoint_crashes_from_weekly_qipl(cur, target: str, pl_id: str, bui
     ws = _safe_date(week_start)
     we = _safe_date(week_end)
     if ws:
-        where.append("week_start=%s")
+        where.append("fetched_date >= %s")
         params.append(ws.isoformat())
     if we:
-        where.append("week_end=%s")
+        where.append("fetched_date <= %s")
         params.append(we.isoformat())
 
     ph = ','.join(['%s'] * len(normalized_builds))
@@ -5874,7 +5950,7 @@ def weekly_report_upload():
         else:
             rows, _ = _parse_file(src_path, getattr(current_user, 'username', ''))
             if ws and we:
-                rows = [r for r in rows if ws.isoformat() <= str(r.get('fetched_date') or '')[:10] <= we.isoformat()]
+                rows = _select_qipl_rows_for_report_week(rows, ws, we)
             inserted, _deleted, msg = _upsert_rows(rows)
             flash(f'Imported {inserted} row(s). {msg}', 'success' if inserted else 'warning')
     except Exception as exc:
@@ -8354,7 +8430,10 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
         return 0
     cur_chk = conn_chk.cursor()
     try:
-        cur_chk.execute(f"SELECT COUNT(*) FROM `{_QIPL_DB}`.`{_QIPL_TABLE}` WHERE week_start=%s AND week_end=%s", (ws.isoformat(), we.isoformat()))
+        cur_chk.execute(
+            f"SELECT COUNT(*) FROM `{_QIPL_DB}`.`{_QIPL_TABLE}` WHERE fetched_date >= %s AND fetched_date <= %s",
+            (ws.isoformat(), we.isoformat())
+        )
         row = cur_chk.fetchone()
         if int((row[0] if isinstance(row, (tuple, list)) else list(row.values())[0]) or 0) <= 0:
             return 0
@@ -10093,12 +10172,7 @@ def api_sp2_reimport_csv():
     # attempt. Admin re-import is intentionally a hard override.
     try:
         rows, raw_headers = _parse_file(src_path, _current_user_identifier() or 'admin_reimport')
-        ws_iso = ws.isoformat()
-        we_iso = we.isoformat()
-        selected_rows = [
-            r for r in rows
-            if ws_iso <= str(r.get('fetched_date') or '')[:10] <= we_iso
-        ]
+        selected_rows = _select_qipl_rows_for_report_week(rows, ws, we)
         if not selected_rows:
             msg = f"No rows for selected week. Headers: {[str(h) for h in raw_headers[:10]]}"
             _finish_import_audit(_qipl_file_fingerprint(src_path)['key'], 'failed', 0, msg)
@@ -10908,13 +10982,23 @@ def api_sp2_stability_health():
                     (week_start.isoformat(), week_end.isoformat()))
                 rows = cur.fetchall() or []
 
-                # Number of CRs for the JIRA/CR chart comes directly from
-                # pdt_stats_dashboard.weekly_qipl_data for the same week:
-                # distinct CR Current Ticket where jira_category = 'CR Mapped'.
+                # Total JIRAs for the report week = COUNT(*) from weekly_qipl_data
+                # by fetched_date/reporting week. week_start/week_end are derived
+                # from Jira-created date and under-count/shift rows when a Monday
+                # CSV reports the previous completed week.
+                cur.execute(
+                    f"""SELECT COUNT(*) AS total_count
+                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
+                      WHERE fetched_date >= %s AND fetched_date <= %s""",
+                    (week_start.isoformat(), week_end.isoformat()))
+                total_jira_row = cur.fetchone() or {}
+                weekly_total_jiras_count = int(total_jira_row.get('total_count') or 0)
+
+                # Distinct CR Mapped tickets for the Unique CRs bar.
                 cur.execute(
                     f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
                       FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-                      WHERE week_start=%s AND week_end=%s
+                      WHERE fetched_date >= %s AND fetched_date <= %s
                         AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
                     (week_start.isoformat(), week_end.isoformat()))
                 cr_row = cur.fetchone() or {}
@@ -10940,6 +11024,11 @@ def api_sp2_stability_health():
         # SharePoint consolidate unique_crs column.
         old_rows = _fetch_consolidate_summary(week_end)
         unique_crs = weekly_cr_mapped_distinct
+        # Use the total JIRA count from weekly_qipl_data as the authoritative
+        # Total JIRAs metric. Fall back to crash count only when no QIPL data
+        # exists for the week (older weeks before CSV import was available).
+        if weekly_total_jiras_count > 0:
+            crashes = weekly_total_jiras_count
 
         if not (hrs > 0 or crashes > 0 or dev > 0):
             source = 'weekly_sharepoint_consolidate_summary'

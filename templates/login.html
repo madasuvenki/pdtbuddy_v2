@@ -46,7 +46,7 @@
 
         <div class="login-header">
           <h2>Sign In</h2>
-          <p>Qualcomm credentials</p>
+          <p>{% if require_password %}Internal access requires password verification{% else %}User ID only for external Live Status{% endif %}</p>
         </div>
 
         <!-- Inline error banner -->
@@ -81,46 +81,41 @@
                 placeholder="e.g. vmadas or vmadasu@qti.qualcomm.com"
                 value="{% if error %}{{ username or '' }}{% endif %}"
                 autocomplete="username"
-                inputmode="email" enterkeyhint="next"
+                inputmode="email" enterkeyhint="go"
                 autocorrect="off" autocapitalize="off" spellcheck="false"
                 required autofocus>
             </div>
+            <div class="field-hint">{% if require_password %}This user ID is an internal PDT Buddy user. Enter your Qualcomm password to continue to the internal site.{% else %}External Live Status opens with user ID only. Internal users will be asked for password before internal access is granted.{% endif %}</div>
           </div>
 
-                    <!-- Password -->
+          {% if require_password %}
           <div class="form-group">
-            <label for="password">Password</label>
+            <label for="password">Qualcomm Password <span class="label-badge">Internal</span></label>
             <div class="input-wrap">
               <svg class="input-icon" viewBox="0 0 20 20" fill="none">
-                <rect x="4" y="9" width="12" height="9" rx="2" stroke="#a0aec0" stroke-width="1.6"/>
-                <path d="M7 9V6.5a3 3 0 0 1 6 0V9" stroke="#a0aec0" stroke-width="1.6" stroke-linecap="round"/>
+                <rect x="4" y="8" width="12" height="8" rx="2" stroke="#a0aec0" stroke-width="1.6"/>
+                <path d="M7 8V6a3 3 0 0 1 6 0v2" stroke="#a0aec0" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
-                            <input type="password" id="password" name="password"
-                placeholder="Qualcomm LDAP password"
+              <input type="password" id="password" name="password"
+                placeholder="Enter Qualcomm password"
                 autocomplete="current-password"
-                enterkeyhint="go"
-                required>
-              <button type="button" class="eye-btn" onclick="togglePwd('password',this)" tabindex="-1">
+                required autofocus>
+              <button type="button" class="eye-btn" onclick="togglePwd('password', this)" aria-label="Show password">
                 <svg class="eye-icon" viewBox="0 0 20 20" fill="none">
-                  <path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z" stroke="#a0aec0" stroke-width="1.6"/>
-                  <circle cx="10" cy="10" r="2.5" stroke="#a0aec0" stroke-width="1.6"/>
+                  <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke="#64748b" stroke-width="1.5"/>
+                  <circle cx="10" cy="10" r="2.3" stroke="#64748b" stroke-width="1.5"/>
                 </svg>
               </button>
             </div>
+            <div class="field-hint">Password is required only for internal PDT Buddy access.</div>
           </div>
-
-                    <!-- "Set browser selected" checkbox: when checked the browser's
-               password manager will offer to save / update credentials
-               after a successful login. Unchecked = browser will not prompt. -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-            <input type="checkbox" id="rememberMe" name="remember_me" value="1"
-              style="width:16px;height:16px;accent-color:#6366f1;cursor:pointer;">
-            <label for="rememberMe" style="font-size:13px;font-weight:600;color:#64748b;cursor:pointer;margin:0;">Set browser selected (save credentials)</label>
-          </div>
+          {% else %}
+          <input type="hidden" id="password" name="password" value="">
+          {% endif %}
 
           <!-- Submit -->
           <button type="submit" class="login-btn" id="loginBtn">
-            <span id="loginBtnText">Sign In</span>
+            <span id="loginBtnText">Continue</span>
             <span id="loginBtnSpinner" style="display:none;align-items:center;gap:8px">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="animation:lspin .8s linear infinite;flex-shrink:0">
                 <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.3)" stroke-width="3"/>
@@ -134,16 +129,15 @@
         </form>
 
                                   <div class="login-note">
-          Sign in with your Qualcomm user ID &amp; password.<br>
-          Type your username — the browser will suggest your saved password automatically.
-          Tick <b>Set browser selected</b> to let the browser save or update your credentials.
+          Enter your Qualcomm user ID first.<br>
+          External viewers continue to Live Status directly; internal users must verify password before the internal PDT Buddy site is shown.
         </div>
 
         <!-- Step indicators -->
         <div class="login-steps">
           <div class="step {% if error and ('password' in error|lower or 'username' in error|lower or 'ldap' in error|lower or 'incorrect' in error|lower or 'qualcomm' in error|lower) %}step-error{% else %}step-idle{% endif %}">
             <div class="step-dot">1</div>
-            <div class="step-label">LDAP Auth</div>
+            <div class="step-label">LDAP User Check</div>
           </div>
           <div class="step-line"></div>
           <div class="step {% if error and ('group' in error|lower or 'access' in error|lower or 'member' in error|lower) %}step-error{% else %}step-idle{% endif %}">
@@ -242,6 +236,37 @@ function togglePwd(id, btn) {
   btn.style.opacity = inp.type === 'text' ? '1' : '0.55';
 }
 
+
+(function autoSubmitSavedUserId() {
+  var form = document.getElementById('loginForm');
+  var user = document.getElementById('username');
+  var pwd = document.getElementById('password');
+  if (!form || !user || (pwd && pwd.type === 'password')) return;
+
+  var submittedKey = 'pdtBuddyAutoSubmittedUserId';
+  function normaliseUserId(v) {
+    v = (v || '').trim().toLowerCase();
+    if (v.endsWith('@qti.qualcomm.com')) v = v.split('@')[0].trim();
+    return v;
+  }
+
+  function trySubmit() {
+    var uid = normaliseUserId(user.value);
+    if (!uid || uid.length < 3) return;
+    if (sessionStorage.getItem(submittedKey) === uid) return;
+    sessionStorage.setItem(submittedKey, uid);
+    window.setTimeout(function () {
+      if (document.activeElement === user) return;
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    }, 250);
+  }
+
+  window.addEventListener('pageshow', function () {
+    window.setTimeout(trySubmit, 450);
+  });
+  user.addEventListener('change', trySubmit);
+})();
 
 function onLoginSubmit() {
   var tzInput = document.getElementById('browserTimezone');

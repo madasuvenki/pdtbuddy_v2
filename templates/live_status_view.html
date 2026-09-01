@@ -584,8 +584,14 @@
 
   <section class="panel" id="coreSlidesPanel" data-lsv-tab="core_slides">
     <div class="panel-h">
-      <div><i class="fas fa-file-powerpoint" style="color:#ef4444"></i> Core Slides</div>
-      <div class="panel-sub">Latest generated PPTX and history for this target.</div>
+      <div>
+        <div><i class="fas fa-file-powerpoint" style="color:#ef4444"></i> Core Slides</div>
+        <div class="panel-sub">Latest generated PPTX and history for this target.</div>
+      </div>
+      <a href="/api/core_deck/download_latest_pptx?target={{ target_name|urlencode }}"
+         style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:14px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-weight:950;text-decoration:none;box-shadow:0 10px 22px rgba(22,163,74,.22);white-space:nowrap">
+        <i class="fas fa-download"></i> Download PPT
+      </a>
     </div>
     {% set mode = 'external' %}
     {% include 'core_deck_agent.html' with context %}

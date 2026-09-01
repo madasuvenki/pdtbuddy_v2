@@ -92,6 +92,10 @@ LDAP_PORT = 636
 LDAP_BASE_DN = "dc=qualcomm,dc=com"
 LDAP_PEOPLE_DN = "ou=people,dc=qualcomm,dc=com"
 
+LDAP_LOOKUP_CACHE_TTL_SEC = 15 * 60
+_LDAP_USER_EXISTS_CACHE = {}
+_LDAP_GROUP_CACHE = {}
+
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -237,6 +241,20 @@ def _check_session_idle():
     if request.path.startswith('/public/') or request.endpoint in exempt or not request.endpoint:
         return
 
+    # External Live Status viewers should stay on the external pages without
+    # idle auto-logout. They have read-only viewer_mode access and no internal
+    # edit/QGenie privileges, so keep these pages alive like public dashboards.
+    if session.get('viewer_mode') and (
+        request.path.startswith('/live_status_view')
+        or request.path.startswith('/live_status/')
+        or request.path.startswith('/api/live_status_view/')
+        or request.path.startswith('/api/live_status/')
+        or request.path.startswith('/api/core_deck/public_state')
+        or request.path.startswith('/api/core_deck/download_latest_pptx')
+    ):
+        session['last_active'] = datetime.now().timestamp()
+        return
+
     # Skip session check when a valid static API token is provided.
     # Token-authenticated requests never have a browser session.
     try:
@@ -249,7 +267,38 @@ def _check_session_idle():
     if not current_user.is_authenticated:
         return
 
-    if not login_fresh():
+    now_ts = datetime.now().timestamp()
+
+    # Capture activity even when Flask-Login restores the user from the
+    # remember cookie after app/browser restart (auto-login path).
+    try:
+        uid = str(getattr(current_user, "id", "") or "").strip().lower()
+        if uid and not session.get("login_time"):
+            session["login_time"] = now_ts
+            session["last_active"] = now_ts
+            try:
+                _is_internal_restored = uid in ADMIN_USERS or is_user_in_group(uid, TARGET_GROUP) or is_user_in_group(uid, SD_TARGET_GROUP)
+            except Exception:
+                _is_internal_restored = False
+            if not _is_internal_restored:
+                session["viewer_mode"] = True
+                session.pop("needs_qgenie_popup", None)
+            log_user_activity(
+                user_id=uid,
+                action_type="LOGIN_RESTORED",
+                endpoint=request.path,
+                result_status="SUCCESS",
+                error_message="remember_cookie/app_restart",
+                user_type="internal" if _is_internal_restored else "external",
+            )
+            session.modified = True
+    except Exception as _restore_log_err:
+        logger.info(f"[LOGIN] restored-session capture skipped: {_restore_log_err}")
+
+    remember_cookie_name = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
+    has_remember_cookie = bool(request.cookies.get(remember_cookie_name)) or session.get('_remember') == 'set'
+
+    if not login_fresh() and not has_remember_cookie:
         session.clear()
         logout_user()
         flash("Please sign in again.", "warning")
@@ -260,13 +309,10 @@ def _check_session_idle():
             return _jfy(ok=False, error='Please sign in again.', login_required=True), 401
         return redirect(url_for('login'))
 
-    now_ts = datetime.now().timestamp()
     last_active = session.get('last_active')
 
     if last_active is not None:
         idle_secs = now_ts - float(last_active)
-        remember_cookie_name = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
-        has_remember_cookie = bool(request.cookies.get(remember_cookie_name)) or session.get('_remember') == 'set'
         idle_timeout = REMEMBERED_SESSION_IDLE_TIMEOUT if has_remember_cookie else SESSION_IDLE_TIMEOUT
         if idle_secs > idle_timeout:
 
@@ -397,6 +443,55 @@ def authenticate_ldap_user(username, password):
     except Exception as e:
         logger.info(f"LDAP auth failed for {username}: {e}")
         return False
+
+
+def ldap_user_exists(username):
+    """
+    Fast userid-only LDAP lookup for external Live Status access.
+
+    This does not validate the user's password. It only confirms that the uid
+    exists in LDAP, then the normal group/viewer routing decides whether the
+    user gets internal or external read-only access.
+    """
+    username = (username or "").strip().lower()
+    if not username:
+        return False
+
+    now_ts = time.time()
+    cached = _LDAP_USER_EXISTS_CACHE.get(username)
+    if cached and now_ts - cached[0] < LDAP_LOOKUP_CACHE_TTL_SEC:
+        return bool(cached[1])
+
+    conn = None
+    try:
+        server = Server(
+            host=LDAP_SERVER,
+            port=LDAP_PORT,
+            use_ssl=True,
+            get_info=None,
+            connect_timeout=5
+        )
+        conn = Connection(server, auto_bind=True, receive_timeout=5)
+        conn.search(
+            search_base=LDAP_PEOPLE_DN,
+            search_filter=f"(uid={escape_filter_chars(username)})",
+            search_scope=SUBTREE,
+            attributes=["uid"],
+            size_limit=1
+        )
+        exists = bool(conn.entries)
+        _LDAP_USER_EXISTS_CACHE[username] = (now_ts, exists)
+        return exists
+    except Exception as e:
+        logger.info(f"LDAP userid lookup failed for {username}: {e}")
+        _LDAP_USER_EXISTS_CACHE[username] = (now_ts, False)
+        return False
+    finally:
+        try:
+            if conn:
+                conn.unbind()
+        except Exception:
+            pass
 
 
 def _set_orbit_session(username: str):
@@ -1305,6 +1400,66 @@ def is_admin():
     return getattr(current_user, "role", "user") == "admin"
 
 
+def get_cached_login_profile(username, max_age_days=30):
+    """
+    Fast path for userid-only login.
+
+    After a user's first successful LDAP/group-resolved login, later userid-only
+    logins can trust PDT Buddy's internal `user_data` login history and skip
+    LDAP/group checks. This makes repeat browser-saved-ID login much faster.
+    """
+    username = (username or "").strip().lower()
+    if not username or username in {u.lower() for u in ADMIN_USERS}:
+        return None
+
+    conn = None
+    cur = None
+    try:
+        conn = get_mysql_connection_db()
+        if not conn:
+            return None
+        cur = conn.cursor(dictionary=True)
+        ensure_user_data_table(cur)
+        cur.execute(
+            """
+            SELECT user_id, user_type, action_type, created_at
+            FROM pdt_stats_dashboard.user_data
+            WHERE user_id=%s
+              AND result_status='SUCCESS'
+              AND action_type IN ('LOGIN','LOGIN_RESTORED','LOGIN_CACHED')
+              AND created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
+            ORDER BY
+              CASE WHEN user_type='internal' THEN 0 ELSE 1 END,
+              created_at DESC
+            LIMIT 1
+            """,
+            (username, int(max_age_days))
+        )
+        row = cur.fetchone() or {}
+        if not row:
+            return None
+        user_type = (row.get("user_type") or "external").strip().lower()
+        return {
+            "user_id": username,
+            "user_type": "internal" if user_type == "internal" else "external",
+            "source": row.get("action_type") or "LOGIN",
+        }
+    except Exception as e:
+        logger.info(f"[LOGIN] cached login profile lookup failed for {username}: {e}")
+        return None
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
 def is_user_in_group(username, group_name):
     """
     Check whether user belongs to the given LDAP group.
@@ -1316,6 +1471,11 @@ def is_user_in_group(username, group_name):
     if not username or not group_name:
         return False
 
+    cache_key = (username, group_name)
+    now_ts = time.time()
+    cached = _LDAP_GROUP_CACHE.get(cache_key)
+    if cached and now_ts - cached[0] < LDAP_LOOKUP_CACHE_TTL_SEC:
+        return bool(cached[1])
 
     try:
         try:
@@ -1363,11 +1523,13 @@ def is_user_in_group(username, group_name):
         )
 
         is_member = len(conn.entries) > 0
+        _LDAP_GROUP_CACHE[cache_key] = (now_ts, is_member)
 
         return is_member
 
     except Exception as e:
         logger.info(f"LDAP group check error for {username}: {e}")
+        _LDAP_GROUP_CACHE[cache_key] = (now_ts, False)
         return False
 
     finally:
@@ -2256,7 +2418,7 @@ def _qipl_csv_scheduler():
 
     while True:
         try:
-            from weekly_summary_routes import _list_qipl_source_files, _jira_week
+            from weekly_summary_routes import _list_qipl_source_files, _qipl_report_week_for_file_date
             # Catch-up: only try the LATEST file per week (list is newest-first)
             try:
                 all_files = _list_qipl_source_files()
@@ -2265,7 +2427,7 @@ def _qipl_csv_scheduler():
                     fdate = entry.get("file_date")
                     if not fdate:
                         continue
-                    file_ws, file_we = _jira_week(fdate)
+                    file_ws, file_we = _qipl_report_week_for_file_date(fdate)
                     week_key = file_we.isoformat()
                     if week_key in seen_weeks:
                         continue  # already tried newest file for this week
@@ -2506,7 +2668,9 @@ def validate_target_availability(target_name):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET' and current_user.is_authenticated:
-        if not login_fresh():
+        remember_cookie_name = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
+        has_remember_cookie = bool(request.cookies.get(remember_cookie_name)) or session.get('_remember') == 'set'
+        if not login_fresh() and not has_remember_cookie:
             session.clear()
             logout_user()
             flash("Please sign in again.", "warning")
@@ -2536,27 +2700,66 @@ def login():
                 flash("Username is required.", "danger")
                 return render_template("login.html")
 
-            if not password:
-                flash("Password is required.", "danger")
-                return render_template("login.html")
+            # Step 1: Authenticate against Qualcomm LDAP.
+            # Passwordless mode is intentionally userid-only for external Live
+            # Status users: confirm uid exists in LDAP, then route by groups.
+            passwordless_login = not bool(password)
+            print(
+                f"[LOGIN] LDAP {'userid lookup' if passwordless_login else 'auth'} attempt for: {username}",
+                flush=True
+            )
 
-            # Step 1: Authenticate against Qualcomm LDAP
-            print(f"[LOGIN] LDAP auth attempt for: {username}", flush=True)
+            cached_login_profile = get_cached_login_profile(username) if passwordless_login else None
+            if cached_login_profile:
+                cached_user_type = cached_login_profile.get("user_type") or "external"
+                if cached_user_type == "internal":
+                    log_user_activity(
+                        user_id=username,
+                        action_type="LOGIN_PASSWORD_REQUIRED",
+                        result_status="SUCCESS",
+                        error_message=f"cached_internal_requires_password:{cached_login_profile.get('source')}",
+                        user_type="internal",
+                    )
+                    flash("Internal PDT Buddy access requires your Qualcomm password.", "warning")
+                    return render_template("login.html", username=username, require_password=True)
+                user = User(id=username, role="viewer")
+                login_user(user, remember=True)
+                session["login_time"] = datetime.now().timestamp()
+                session["last_active"] = datetime.now().timestamp()
+                session["viewer_mode"] = True
+                session.pop("needs_qgenie_popup", None)
+                session.pop("needs_team_selection", None)
+                session.pop("needs_qgenie_before_team_selection", None)
+                session.modified = True
+                log_user_activity(
+                    user_id=username,
+                    action_type="LOGIN_CACHED",
+                    result_status="SUCCESS",
+                    error_message=f"internal_db_fast_path:{cached_login_profile.get('source')}",
+                    user_type=cached_user_type,
+                )
+                print(f"[LOGIN] Internal DB fast-path login for {username}: user_type={cached_user_type}", flush=True)
+                return redirect(url_for("live_status_publish_bp.landing"))
 
-            if not authenticate_ldap_user(username, password):
+            if passwordless_login:
+                ldap_ok = ldap_user_exists(username)
+            else:
+                ldap_ok = authenticate_ldap_user(username, password)
+
+            if not ldap_ok:
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
                     result_status="FAILURE",
-                    error_message="Invalid Qualcomm username/password"
+                    error_message="Invalid Qualcomm username/userid lookup"
                 )
-                print(f"[LOGIN] LDAP auth failed for: {username}", flush=True)
-                flash("Invalid Qualcomm username or password.", "danger")
+                print(f"[LOGIN] LDAP lookup/auth failed for: {username}", flush=True)
+                flash("Invalid Qualcomm user ID.", "danger")
 
-                return render_template("login.html")
+                return render_template("login.html", username=username)
 
             # Bypass users - land on live_status landing (viewer test mode)
-            print(f"[LOGIN] LDAP auth success for: {username}", flush=True)
+            print(f"[LOGIN] LDAP {'userid lookup' if passwordless_login else 'auth'} success for: {username}", flush=True)
 
             # Detect orbit endpoint (QIPL=HYD / SD) and store in session
             _set_orbit_session(username)
@@ -2567,9 +2770,23 @@ def login():
                 print(f"[LOGIN] Early TARGET_GROUP check error for {username} in '{TARGET_GROUP}': {_login_tg_err}", flush=True)
                 _login_target_group = False
 
+            # Security guard: a userid-only login may prove that the uid exists,
+            # but must never open the internal PDT Buddy site.  If the uid is an
+            # internal/admin identity, stop here and ask for password.
+            if passwordless_login and (username in ADMIN_USERS or _login_target_group):
+                log_user_activity(
+                    user_id=username,
+                    action_type="LOGIN_PASSWORD_REQUIRED",
+                    result_status="SUCCESS",
+                    error_message="internal_userid_requires_password",
+                    user_type="internal",
+                )
+                flash("Internal PDT Buddy access requires your Qualcomm password.", "warning")
+                return render_template("login.html", username=username, require_password=True)
+
             if _login_target_group:
                 user = User.get(username)
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS", user_type='internal')
                 flash(f"Welcome {username}!", "success")
                 _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -2590,7 +2807,7 @@ def login():
 
             if username in BYPASS_USERS:
                 user = User.get(username)
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(user_id=username, action_type='LOGIN', result_status='SUCCESS', user_type='external')
                 session['login_time']  = datetime.now().timestamp()
                 session['last_active'] = datetime.now().timestamp()
@@ -2603,7 +2820,7 @@ def login():
             # Step 2: Admin check
             if username in ADMIN_USERS:
                 user = User.get(username)  # or create/load from DB
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
@@ -2660,10 +2877,22 @@ def login():
                 print(f"[LOGIN] SD group member detected for {username} -> granting full internal access", flush=True)
             _in_target_group = _in_target_group or _in_sd_group
 
+            # Dynamic admins also require password before internal/admin access.
+            if passwordless_login and username.lower() in _dyn_admins:
+                log_user_activity(
+                    user_id=username,
+                    action_type="LOGIN_PASSWORD_REQUIRED",
+                    result_status="SUCCESS",
+                    error_message="dynamic_admin_userid_requires_password",
+                    user_type="internal",
+                )
+                flash("Internal PDT Buddy access requires your Qualcomm password.", "warning")
+                return render_template("login.html", username=username, require_password=True)
+
             # Check dynamic admin
             if username.lower() in _dyn_admins:
                 user = User(id=username, role='admin')
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS", user_type='internal')
                 flash(f"Welcome {username}! (admin)", "success")
                 session['login_time'] = session['last_active'] = datetime.now().timestamp()
@@ -2675,7 +2904,7 @@ def login():
             # Check viewer
             if username.lower() in _viewers and not _in_target_group:
                 user = User(id=username, role='viewer')
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS",
                                    error_message="viewer list login", user_type='external')
                 flash(f"Welcome {username}! (viewer)", "success")
@@ -2698,10 +2927,21 @@ def login():
 
             print(f"[LOGIN] Group resolution for {username}: target_group={_in_target_group}, extra_group_match={_in_extra}, extra_group_hits={_extra_hits}", flush=True)
 
+            if passwordless_login and _in_target_group:
+                log_user_activity(
+                    user_id=username,
+                    action_type="LOGIN_PASSWORD_REQUIRED",
+                    result_status="SUCCESS",
+                    error_message="internal_group_userid_requires_password",
+                    user_type="internal",
+                )
+                flash("Internal PDT Buddy access requires your Qualcomm password.", "warning")
+                return render_template("login.html", username=username, require_password=True)
+
             if _in_target_group:
 
                 user = User.get(username)
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
@@ -2729,7 +2969,7 @@ def login():
 
             if _in_extra:
                 user = User.get(username)
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
@@ -2752,7 +2992,7 @@ def login():
                 # not in the configured editor groups, still allow login as viewer
                 # instead of blocking access entirely.
                 user = User(id=username, role='viewer')
-                login_user(user, remember=remember_me)
+                login_user(user, remember=(remember_me or passwordless_login))
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
@@ -9221,7 +9461,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

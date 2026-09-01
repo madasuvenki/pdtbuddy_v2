@@ -19,6 +19,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="cd-btn cd-soft" onclick="cdAgentLoadAll()">Refresh</button>
+        <a class="cd-btn cd-green" href="/api/core_deck/download_latest_pptx?target={{ target_name|default(target)|default('')|urlencode }}"><i class="fas fa-download"></i> Download PPT</a>
         <button class="cd-btn cd-dark cd-internal-only" onclick="cdAgentPreview()">Preview Selected Data</button>
         <button class="cd-btn cd-primary cd-internal-only" onclick="cdAgentGenerate()" style="outline:3px solid rgba(255,255,255,.45)">⚡ Generate Preview PPT</button>
       </div>
@@ -145,7 +146,7 @@ async function cdAgentLoadGenerated(){
   CD_GENERATED=(d.ok&&d.generated)||[];
   const sel=document.getElementById('cdGeneratedSelect'),list=document.getElementById('cdGeneratedList');
   sel.innerHTML=CD_GENERATED.length?CD_GENERATED.map((g,i)=>'<option value="'+i+'">'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+' — '+cdEsc(g.generated_at||'')+'</option>').join(''):'<option>No generated PPTX history</option>';
-  list.innerHTML=CD_GENERATED.length?CD_GENERATED.slice(0,8).map(g=>'<div class="cd-history-row"><div><b>'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+'</b><div class="cd-muted">'+cdEsc(g.generated_at||'')+' by '+cdEsc(g.generated_by||'')+'</div></div><button class="cd-btn cd-soft" onclick="cdAgentPreviewPpt('+g.id+')">Preview</button></div>').join(''):'No generated PPTX history yet. Showing latest saved JSON below when available.';
+  list.innerHTML=CD_GENERATED.length?CD_GENERATED.slice(0,8).map(g=>'<div class="cd-history-row"><div><b>'+cdEsc((g.meta_ids||[]).join(', ')||'Core Slides')+'</b><div class="cd-muted">'+cdEsc(g.generated_at||'')+' by '+cdEsc(g.generated_by||'')+'</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="cd-btn cd-soft" onclick="cdAgentPreviewPpt('+g.id+')">Preview</button><a class="cd-btn cd-green" href="/api/core_deck/download_pptx/'+g.id+'"><i class="fas fa-download"></i> Download</a></div></div>').join(''):'No generated PPTX history yet. Showing latest saved JSON below when available.';
 }
 async function cdAgentLoadSavedState(){
   const previewBox=document.getElementById('cdPreviewRows'),pptBox=document.getElementById('cdPptPreview'),badge=document.getElementById('cdPptBadge');
@@ -164,7 +165,7 @@ async function cdAgentLoadSavedState(){
       if(badge&&!CD_GENERATED.length){badge.textContent='saved JSON loaded';badge.classList.add('ok');}
       if(pptBox&&!CD_GENERATED.length){
         const metas=(state.selected_metas||preview.selected_metas||[]).map(m=>m&&m.meta_id).filter(Boolean).join(', ');
-        pptBox.innerHTML='<div class="cd-warn" style="background:#ecfdf5;border-color:#bbf7d0;color:#166534"><b>Latest saved Core Slides JSON is loaded.</b><br>Meta: '+cdEsc(metas||'-')+'<br>Saved by '+cdEsc(state.updated_by||state.last_modified_by||'-')+' at '+cdEsc(state.updated_at||state.last_modified_at||'-')+'</div>';
+        pptBox.innerHTML='<div class="cd-warn" style="background:#ecfdf5;border-color:#bbf7d0;color:#166534"><b>Latest saved Core Slides JSON is loaded.</b><br>Meta: '+cdEsc(metas||'-')+'<br>Saved by '+cdEsc(state.updated_by||state.last_modified_by||'-')+' at '+cdEsc(state.updated_at||state.last_modified_at||'-')+'<br><br><a class="cd-btn cd-green" href="/api/core_deck/download_latest_pptx?target='+encodeURIComponent(CD_TARGET)+'"><i class="fas fa-download"></i> Download latest generated PPT</a></div>';
       }
     }
   }catch(e){

@@ -908,7 +908,21 @@ def _preview_rows_filtered(fq_table: str, limit: int = 100, open_cr_only: bool =
         if not cols:
             return {"columns": [], "rows": [], "count": 0, "error": "Table not found"}
         schema, table = _split_table(fq_table)
-        selected = cols[:18]
+        selected = cols[:] if open_cr_only else cols[:18]
+        if open_cr_only:
+            # Open CR details must expose the complete table, including analysis
+            # and age columns that may sit beyond the generic preview slice.
+            # The frontend renders only the user-facing columns it needs, but it
+            # must receive all source values to avoid missing CR Age/data.
+            preferred_open_cr_cols = [
+                "cr_age", "CR Age", "overall_age", "age", "age_days", "days_open",
+                "jira_date__last_instance", "Jira Date -last instance",
+                "last_instance", "updated", "jira_date", "created", "created_date",
+            ]
+            for name in preferred_open_cr_cols:
+                col = _first_col(cols, [name])
+                if col and col not in selected:
+                    selected.append(col)
         where_sql = _where_open_cr(cols) if open_cr_only else ""
         cur.execute(f"SELECT COUNT(*) AS cnt FROM {_bt(schema, table)}{where_sql}")
         total = _safe_int((cur.fetchone() or {}).get("cnt"))
@@ -1701,6 +1715,11 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
             "rows": len(data.get("rows") or []),
             "chart_rows": len(chart_rows),
             "hours": hours,
+            "latest_mtbf_hours": round(_safe_float((chart_rows[-1] if chart_rows else {}).get("hours")), 2),
+            "latest_mtbf_crashes": _safe_int((chart_rows[-1] if chart_rows else {}).get("total_crashes") or (chart_rows[-1] if chart_rows else {}).get("crash")),
+            "latest_mtbf": round(_safe_float((chart_rows[-1] if chart_rows else {}).get("mtbf")), 2),
+            "latest_mtbf_date": str((chart_rows[-1] if chart_rows else {}).get("date") or "")[:10],
+            "latest_mtbf_build": str((chart_rows[-1] if chart_rows else {}).get("crm_build_id") or (chart_rows[-1] if chart_rows else {}).get("meta_id") or ""),
             "crashes": crashes,
             "mtbf": round(hours / crashes, 2) if crashes else hours,
             "running_builds": len(current.get("rows") or []),
@@ -1711,7 +1730,7 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
         "previews": {
             "jiras": _preview_rows_filtered(db_cfg.get("jiras_table") or "", 100),
             "open_jiras": _preview_rows_filtered(db_cfg.get("openjiras_table") or "", 100),
-            "open_crs": _preview_rows_filtered(unique_table, 100, open_cr_only=True),
+            "open_crs": _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
             "all_crs": _preview_rows_filtered(unique_table, 150),
             "crs": _preview_rows_filtered(unique_table, 150),
                 },

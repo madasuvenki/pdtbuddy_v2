@@ -22,6 +22,7 @@
 - ✅ Auto-logout on idle with JSON 401 for API requests
 
 ### Dashboard & Reporting
+- ✅ Weekly Smart Build CSV upload/import now preserves full occurrence-level Jira rows for the selected report week by stamping imports to the report week, filtering Smart Build queries by `fetched_date`, and removing the legacy global unique-ticket constraint/dedup path that dropped repeated stability-ticket rows.
 - ✅ Weekly Smart Build report now suppresses stale/historical Axiom `Running` / `JobSetup` rows so old stopped jobs, including historical PL/build rows such as `SA510-`, no longer remain visually running when Axiom missed a terminal transition.
 - ✅ Automotive Gen4.5 MTBF "Merge PL" groups are now shared UI-level settings stored separately in `static/auto_gen45_ui/mtbf_pl_merges_hqx.json` and `static/auto_gen45_ui/mtbf_pl_merges_hgy.json`, visible to all viewers and editable only by target users/admins without modifying existing target/path JSON.
 - ✅ Multi-BU dashboard with per-target MySQL schema routing
@@ -46,6 +47,7 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
+- ✅ Live Status Core Slides external view now supports direct latest generated PPTX download from `/api/core_deck/download_latest_pptx?target=<target>` without regenerating or modifying slide content.
 - ✅ UniqQC dashboard is integrated as a PDT Buddy blueprint/page and now uses PDT Buddy MySQL `overallcrs` tables via `dashboard_status` metadata/db prefixes, with compatible data, subsystem, CR detail, PPT, and CSV/ZIP export endpoints.
 - ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode
 - ✅ Live status publishing and viewing

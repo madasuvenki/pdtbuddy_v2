@@ -2,6 +2,122 @@
 
 ## Current Work Focus
 
+### WBC Live View Access + Open CR/MTBF Updates — In Progress (2026-09-01)
+
+**User request addressed:** WBC Live View needs internal/external user separation so internal user IDs still require password authentication while external/viewer users can access read-only views, preventing external users from seeing internal-only UI by using another user ID. WBC dashboard also needs Latest MTBF Hours on Summary Dashboard, Open CR Analysis fields for last-instance Jira/Jira Date/CR Age, and CSV export with those details plus QGenie Analysis.
+
+**Changes made in current session:**
+- `app.py`
+  - Added cached LDAP user/group lookup scaffolding and broader internal/external login handling from the current working diff.
+- `wbc_live_view_stats_routes.py`
+  - Added `latest_mtbf_hours`-style count support in target payload counts for WBC summary data.
+- `templates/wbc_live_view_stats.html`
+  - Existing UI already includes a **Latest MTBF Hours** card in Overview and CSV export helper for Open CR details with `Last Instance Jira`, `Jira Date`, `CR Age`, TEA/QGenie/PDT fields.
+  - Attempted targeted template updates for additional alias detection and Open CR displayed analysis columns; command quoting failed and needs follow-up verification/editing.
+
+**Validation notes:**
+- `python -m py_compile ...` on this machine invoked an older Python that does not support type hints used throughout the app, producing syntax errors unrelated to the changed code. Prior project validation uses `py -3`.
+- `git --no-pager diff --stat -- wbc_live_view_stats_routes.py auth_service.py app.py templates/wbc_live_view_stats.html` shows changes in `app.py`, `templates/wbc_live_view_stats.html`, and `wbc_live_view_stats_routes.py`.
+- A previous `git diff` command is still open in a pager terminal; future checks should use `git --no-pager`.
+
+### External Live Status User-ID Login / Session Persistence — Complete (2026-09-01)
+
+**User request addressed:** External Live Status users should be able to enter only their Qualcomm user ID, be redirected to the correct external Live Status view by group access, avoid logout from external read-only Live Status pages, auto-login when the browser restores/saves the user ID, and still capture login information after browser/app restart.
+
+**Changes made:**
+- `app.py`
+  - Added `ldap_user_exists()` userid-only LDAP lookup.
+  - Added internal DB fast-path login: after the first successful login is recorded in `pdt_stats_dashboard.user_data`, later userid-only logins can skip LDAP/group checks and use recent successful login history.
+  - Added short 15-minute in-process LDAP userid/group lookup caches for faster first-login fallback and restored-session checks.
+  - Login now supports passwordless userid lookup while retaining password auth path if a password is posted.
+  - Passwordless logins use remember-session behavior so external pages stay available.
+  - Remember-cookie restored sessions are accepted instead of being cleared as non-fresh sessions.
+  - Restored sessions now create `LOGIN_RESTORED` rows in `user_data`, so auto-login after browser/app restart is captured.
+  - Internal DB fast-path logins create `LOGIN_CACHED` rows in `user_data`.
+  - `viewer_mode` Live Status routes and related public Core Deck APIs are exempted from idle auto-logout.
+  - QIPL CSV scheduler catch-up now uses `_qipl_report_week_for_file_date()` for Monday-generated previous-week QIPL files.
+- `templates/login.html`
+  - Removed the visible password field and updated copy/button text for user-ID-only login.
+  - Added browser autofill/saved-user-id auto-submit so saved IDs can continue without manual click.
+
+**Validation:**
+- `py -3 -m py_compile app.py weekly_summary_routes.py` executed successfully.
+- `git --no-pager diff -- app.py templates/login.html weekly_summary_routes.py` reviewed expected changes.
+
+### Weekly Smart Build Full Jira CSV Upload Fix — Complete (2026-09-01)
+
+**User request addressed:** `/weekly-report/smart-build-report?week_start=2026-08-24&week_end=2026-08-30` uploaded CSV data was showing wrong/partial Jira data instead of the full Jira set.
+
+**Root causes:**
+- Incoming QIPL CSV rows were still allowed to keep `week_start` / `week_end` derived from each row's `jira_date`, splitting one uploaded report across Jira-created-date buckets.
+- Several Smart Build queries relied on the DB `week_start` / `week_end` bucket even though Smart Build is a report-week view based on CSV `fetched_date`.
+- `_upsert_rows()` deduplicated incoming rows by `stability_ticket` and also deleted prior rows by incoming stability ticket. This lost legitimate repeated Jira occurrences from the source CSV.
+- Older DBs had a global `uq_stability_ticket` index that forced one row per stability ticket globally, preventing full occurrence-level imports.
+
+**Changes made:**
+- `weekly_summary_routes.py`
+  - `_select_qipl_rows_for_report_week()` now stamps every selected/fallback imported row to the selected report week while preserving original `jira_date`.
+  - `_upsert_rows()` no longer deduplicates by `stability_ticket` and no longer deletes rows globally by incoming stability tickets; it refreshes only the selected report-week rows and inserts all occurrence-level CSV rows.
+  - `_ensure_weekly_qipl_table()` now drops legacy `uq_stability_ticket` and adds a non-unique `idx_stability_ticket`.
+  - Smart Build weekly stability-health total Jira and unique-CR queries now use `fetched_date` report-week filtering.
+  - SharePoint crash refresh/count helper now uses `fetched_date` report-week filtering.
+  - Static Smart Build seeding readiness check now uses `fetched_date` report-week filtering.
+
+**Validation:**
+- `py -3 -m py_compile weekly_summary_routes.py` executed successfully.
+- `git --no-pager diff --stat -- weekly_summary_routes.py` confirmed expected file-only changes.
+
+### Weekly Smart Build Monday Auto-Import Week Mapping Fix — Complete (2026-09-01)
+
+**User request addressed:** `/weekly-report/smart-build-report?week_start=2026-08-24&week_end=2026-08-30` was failing to auto-import/update the data table after Monday morning scheduler attempts around 8am/10am.
+
+**Root cause:**
+- `weekly_summary_routes._auto_load_qipl_week()` correctly maps Monday-generated QIPL source files to the previous completed Mon–Sun report week via `_qipl_report_week_for_file_date()`.
+- The background QIPL CSV scheduler catch-up loop in `app.py` was instead using `_jira_week(fdate)`.
+- For a Monday-generated file date such as `2026-08-31`, `_jira_week()` maps to the in-progress week `2026-08-31`–`2026-09-06`, while the actual QIPL report belongs to `2026-08-24`–`2026-08-30`.
+- This mismatch meant the scheduler did not import/update the expected completed week, so the Smart Build data table remained stale/empty for the requested week.
+
+**Changes made:**
+- `app.py`
+  - Updated the QIPL CSV Auto-Import Scheduler catch-up import to use `_qipl_report_week_for_file_date(fdate)` instead of `_jira_week(fdate)`.
+- `weekly_summary_routes.py`
+  - Made `_norm()` robust for headers with punctuation so headers like `Fetched Date:`, `Fetched-Date`, and `Fetched/Date` normalize to `fetched_date`.
+  - Added `_select_qipl_rows_for_report_week()` and applied it to auto-import, upload import, and admin Smart Build CSV re-import.
+  - If a source file is already matched to the requested report week but row-level `fetched_date` values are Monday/outside the week or missing, the import now falls back to all parsed rows and stamps `fetched_date`, `week_start`, and `week_end` to the selected report week.
+  - This resolves admin re-import failures with `CSV import failed: no_rows_for_selected_week`.
+  - Updated `_upsert_rows()` to tolerate duplicate `stability_ticket` values:
+    - deduplicates repeated tickets inside the incoming CSV batch.
+    - deletes existing DB rows with incoming stability tickets before insert.
+    - prevents the deployed global `uq_stability_ticket` index from aborting the whole import when a ticket was already imported under a stale/wrong week bucket.
+  - This resolves scheduler/import failures such as `1062 (23000): Duplicate entry 'CHIPMD-888027' for key 'weekly_qipl_data.uq_stability_ticket'`.
+  - Added defensive handling for QIPL CSV free-text columns that can exceed legacy VARCHAR limits:
+    - migrates `resolution`, reporter/status/target/component/PL/host/farm/status/area display columns to `TEXT` where supported.
+    - truncates display-column values before insert when a deployed DB has not applied ALTERs yet.
+    - preserves original full values in `row_data` JSON.
+  - This resolves import failures such as `1406 (22001): Data too long for column 'resolution'`.
+
+**Validation:**
+- `py -3 -m py_compile app.py weekly_summary_routes.py` executed successfully.
+- Direct mapping check confirmed Monday file date `2026-08-31` resolves to report week `2026-08-24`–`2026-08-30`.
+
+### Live Status Core Slides PPT Download — Complete (2026-08-31)
+
+**User request addressed:** On `/live_status_view/AUTO/nord_hqx`, Core Slides should be downloadable as PowerPoint without changing slide content, matching the WBC live view status download pattern.
+
+**Changes made:**
+- `core_deck_routes.py`
+  - Added public/read-only `GET /api/core_deck/download_latest_pptx?target=<target>`.
+  - The endpoint finds the latest generated Core Deck PPTX for the target and returns the existing file directly with `send_file`.
+  - It does not regenerate or rewrite the PPT, preserving slide content/format exactly as saved.
+- `templates/core_deck_agent.html`
+  - Added a visible **Download PPT** button in the Core Slides header for external/live-status-view users.
+  - Added per-history-row **Download** buttons next to **Preview**.
+  - Added a download link in the saved-JSON fallback message so viewers can still download the latest generated PPT when no preview image history is available.
+
+**Validation:**
+- `py -3 -m py_compile core_deck_routes.py` executed successfully.
+- Jinja parse check passed for `templates/core_deck_agent.html`.
+
 ### Live Status Core Slides Saved JSON Load Fix — Complete (2026-08-30)
 
 **User request addressed:** On `/live_status_view/AUTO/nord_hqx`, Core Slides tab was blank/not loading even though latest saved Core Deck JSON exists.

@@ -152,6 +152,19 @@
     #tabOverview .overview-chartbox{min-height:520px!important}
     #tabOverview .overview-chart-card .muted{font-size:12px!important}
   </style>
+
+  <style>
+    /* WBC Open CRs: render as a dense, full data table instead of large rounded row cards. */
+    #openCrsBox .tblwrap{max-height:72vh!important;overflow:auto!important;padding:0!important;background:#fff!important;border:1px solid #dbeafe!important;border-radius:14px!important}
+    #openCrsBox .tblwrap table{width:max-content;min-width:100%;border-collapse:collapse!important;border-spacing:0!important;background:#fff!important}
+    #openCrsBox .tblwrap thead{filter:none!important}
+    #openCrsBox .tblwrap th{border-radius:0!important;background:#eef4ff!important;color:#1e3a8a!important;border-bottom:2px solid #93c5fd!important;white-space:nowrap!important}
+    #openCrsBox .tblwrap td{border-radius:0!important;background:#fff!important;border-bottom:1px solid #e5e7eb!important;vertical-align:top!important}
+    #openCrsBox .tblwrap tbody tr:nth-child(even) td{background:#f8fbff!important}
+    #openCrsBox .tblwrap tbody tr:hover{transform:none!important;filter:none!important}
+    #openCrsBox .tblwrap tbody tr:hover td{background:#eff6ff!important}
+    #openCrsBox .wbc-opencr-long{max-height:86px;overflow:auto;white-space:normal;word-break:break-word;line-height:1.35}
+  </style>
 </head>
 <style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}
 #wbcBwrPanel .tag:first-of-type{background:#eef2ff!important;border:1.5px solid #6366f1!important;color:#4338ca!important;font-size:11px!important;font-weight:900!important;padding:5px 12px!important;border-radius:8px!important}</style>
@@ -253,6 +266,14 @@
           </button>
           <button class="card metric clickable" onclick="navToTab('current','wbcInlineReport')" style="text-align:left;border:none;cursor:pointer;padding:16px 14px;min-height:110px">
             <div class="ico" style="font-size:18px;margin-bottom:10px">💥</div><div id="ovKCurrentMetaCrashes" class="num" style="font-size:38px;line-height:1">0</div><div class="lbl" style="margin-top:6px">Total Crashes Excl. Invalid (Current Meta)</div>
+          </button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px">
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:14px 14px;min-height:94px">
+            <div class="ico" style="font-size:17px;margin-bottom:8px">⏱️</div><div id="ovKHoursCard" class="num" style="font-size:32px;line-height:1">—</div><div class="lbl" style="margin-top:6px">Latest MTBF Hours</div>
+          </button>
+          <button class="card metric clickable" onclick="navToTab('mtbf','mtbfTableBody')" style="text-align:left;border:none;cursor:pointer;padding:14px 14px;min-height:94px">
+            <div class="ico" style="font-size:17px;margin-bottom:8px">💥</div><div id="ovKCrashesCard" class="num" style="font-size:32px;line-height:1">—</div><div class="lbl" style="margin-top:6px">Latest MTBF Crashes</div>
           </button>
         </div>
         <!-- Hidden elements for backward compat (MTBF data, not shown) -->
@@ -640,7 +661,7 @@ function _wbcApplyCurrentMetaCounts(d, buildId){
   const invNoteEl=document.getElementById('ovKInvalidNote');
   if(invNoteEl) invNoteEl.textContent=c.invalid>0?(c.invalid+' invalid excl.'):'';
 }
-function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);const _tl=t.label||t.name||active;const _h1r=document.getElementById('title');if(_h1r)_h1r.textContent=_tl?(_tl+' \u2014 Overview'):_tl;const _subr=document.querySelector('.page-title span');if(_subr)_subr.textContent='Overview';document.title=_tl?('Overview \u2014 '+_tl+' | WBC Live View'):('Overview | WBC Live View');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('kMeta','—');setText('ovKMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');
+function renderAll(){const t=payload.target||{}, c=payload.counts||{}, p=payload.previews||{}, last=_latestMtbfRow(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), bs=(payload.build_summary||{}).builds||[], openCrCount=((p.open_crs||{}).count||0);const _tl=t.label||t.name||active;const _h1r=document.getElementById('title');if(_h1r)_h1r.textContent=_tl?(_tl+' \u2014 Overview'):_tl;const _subr=document.querySelector('.page-title span');if(_subr)_subr.textContent='Overview';document.title=_tl?('Overview \u2014 '+_tl+' | WBC Live View'):('Overview | WBC Live View');setText('heroTitle',(t.label||t.name||active)+' Executive Stability Portal');setText('subtitle','Premium multi-team dashboard for deployment health, MTBF trends, current-meta crash tracking, CR/Jira visibility, and AI-assisted CR analysis.');setText('kMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMtbfBuild',last.crm_build_id||last.build_id||last.meta_id||last.build||last.meta||'-');setText('ovKHours',fmt(last.hours||last.build_hours||last.pdt_hours||0,0));setText('ovKHoursCard',fmt(last.hours||last.build_hours||last.pdt_hours||0,1));setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKCrashesCard',fmt(last.crash||last.total_crashes||0,0));setText('ovKDate',reportDate);setText('ovKDateCard',reportDate);setText('kMeta','—');setText('ovKMeta','—');setText('kRunCnt2',0);setText('kDate',reportDate);setText('kOpenJiraMeta',0);setText('ovKTotalJirasBuild',0);setText('ovKInvalidNote','');setText('kOverallJira',c.open_jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('kOverallCrs',openCrCount);setText('kTotalCrs',c.total_crs||0);setText('ovKTotalCrs',c.total_crs||0);setText('kTotalJiras',c.total_jiras||0);setText('ovKTotalJiras',c.total_jiras||0);setText('kRunCnt',0);setText('nOverview',fmt(last.mtbf||c.mtbf,2));setText('nBuilds',0);setText('nBuildDetails',bs.length||0);setText('nCrashes',fmt(last.crash||last.total_crashes||0,0));setText('nOpenCrs',openCrCount);setText('nOverallCrs',c.total_crs||0);setText('nOverallJiras',c.total_jiras||0);setText('nOpenJiras',c.open_jiras||0);setText('source','');
 // Pre-fill SP name input with target label (only if empty or different target)
 const spInput=document.getElementById('ovSpNameInput');if(spInput&&(!spInput.value||spInput.dataset.lastTarget!==active)){spInput.value=t.label||t.name||active;spInput.dataset.lastTarget=active;}
 renderOverviewSummary();renderOverviewMtbfChart();renderMtbfTable();renderExcel();renderPreviews();renderHgyTabs();hydrateConfig();setTimeout(()=>{renderChart();renderOverviewMtbfChart();},80);}
@@ -698,7 +719,7 @@ function renderChart(){
   });
 }
 async function copyChart(){try{const canvas=document.getElementById('chart');const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(e){alert('Copy failed.');}}
-function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.open_jiras||0);setText('ovKOpenCr',_wbcCrCountDisplay(jql.crs,jql.jiras));setText('ovKTotalJirasBuild',jql.mapped_jiras||0);setText('ovKCurrentMetaCrashes',jql.jiras||Math.max(0,(jql.rows||0)-(jql.invalid||0)));setText('kOpenJiraMeta',jql.jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
+function renderOverviewSummary(){const o=(payload&&payload.overview_summary)||{}, c=(payload&&payload.counts)||{}, p=(payload&&payload.previews)||{}, last=_latestMtbfRow(), jql=_currentSavedJqlCounts(), reportDate=String(last.date||new Date().toISOString().slice(0,10)).slice(0,10), openCrCount=((p.open_crs||{}).count||0);setText('nSummary',o.overview||o.pdt_status?'✓':'—');setText('overviewSaved',o.updated_at?('Saved '+String(o.updated_at).slice(0,19)+' by '+(o.updated_by||'')):'Not saved');setText('ovSummaryHeader',((payload.target||{}).label||active)+' Summary');setText('ovPdtHeader',((payload.target||{}).label||active)+' PDT STATUS');setText('ovKMtbf',fmt(last.mtbf||c.mtbf,2));setText('ovKHoursCard',fmt(last.hours||last.build_hours||last.pdt_hours||0,1));setText('ovKCrashesCard',fmt(last.crash||last.total_crashes||0,0));setText('ovKDateCard',reportDate);setText('ovKMeta','—');setText('ovKCrashes',fmt(last.crash||last.total_crashes||0,0));setText('ovKRunCnt',0);setText('ovKDate',reportDate);setText('ovKOpenJira',jql.open_jiras||0);setText('ovKOpenCr',_wbcCrCountDisplay(jql.crs,jql.jiras));setText('ovKTotalJirasBuild',jql.mapped_jiras||0);setText('ovKCurrentMetaCrashes',jql.jiras||Math.max(0,(jql.rows||0)-(jql.invalid||0)));setText('kOpenJiraMeta',jql.jiras||0);setText('ovKOverallJiras',c.open_jiras||0);setText('ovKOverallCrs',openCrCount);setText('ovKTotalCrs',c.total_crs||0);setText('ovKTotalJiras',c.total_jiras||0);const view=document.getElementById('overviewView');if(view){if(o.overview_html)view.innerHTML=o.overview_html;else view.textContent=o.overview||'No summary entered.';}const pdt=document.getElementById('pdtStatusView');if(pdt){if(o.pdt_status_html)pdt.innerHTML=o.pdt_status_html;else pdt.textContent=o.pdt_status||o.next_steps||'No PDT status entered.';}if(CAN_EDIT){const vals={ovEngineer:o.engineer,ovTitle:o.summary_title,ovHighlights:o.highlights||o.risks,ovNext:o.next_steps};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v||'';});setHtml('ovOverview',o.overview_html||esc(o.overview||''));setHtml('ovPdtStatus',o.pdt_status_html||esc(o.pdt_status||''));}}
 function openOverviewEditModal(focus){if(!CAN_EDIT)return;renderOverviewSummary();setText('ovSummaryMsg','');setText('ovPdtMsg','');if(focus==='pdt'){document.getElementById('pdtEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovPdtStatus')?.focus(),50);}else{document.getElementById('summaryEditModal')?.classList.add('open');setTimeout(()=>document.getElementById('ovOverview')?.focus(),50);}}
 function closeOverviewEditModal(){document.getElementById('summaryEditModal')?.classList.remove('open');document.getElementById('pdtEditModal')?.classList.remove('open');}
 async function saveOverviewSummary(which){if(!active)return;const overview_html=editorHtml('ovOverview'), pdt_status_html=editorHtml('ovPdtStatus');const body={engineer:document.getElementById('ovEngineer')?.value||'',summary_title:document.getElementById('ovTitle')?.value||'',overview:editorText('ovOverview'),overview_html:overview_html,highlights:document.getElementById('ovHighlights')?.value||'',highlights_html:'',risks:document.getElementById('ovHighlights')?.value||'',pdt_status:editorText('ovPdtStatus'),pdt_status_html:pdt_status_html,next_steps:document.getElementById('ovNext')?.value||'',next_steps_html:''};const msgId=which==='pdt'?'ovPdtMsg':'ovSummaryMsg';setText(msgId,'Saving...');try{const d=await postJson(`${API}/target/${encodeURIComponent(active)}/overview_summary`,body);payload.overview_summary=d.overview_summary||body;renderOverviewSummary();setText(msgId,'Saved.');setTimeout(closeOverviewEditModal,450);}catch(e){setText(msgId,'Save failed: '+(e.message||e));}}
@@ -1805,14 +1826,81 @@ function _wbcDownloadCsv(filename, cols, rows){
   a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
-function downloadOpenCrsCsv(){
+function _wbcFindCol(cols,names){
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const all=(cols||[]).map(c=>({raw:c,n:norm(c)}));
+  for(const name of (names||[])){
+    const nn=norm(name);
+    const hit=all.find(c=>c.n===nn)||all.find(c=>nn.length>3&&(c.n.includes(nn)||nn.includes(c.n)));
+    if(hit)return hit.raw;
+  }
+  return '';
+}
+function _wbcOpenCrRowsWithAnalysis(){
   const openCrs=(payload&&payload.previews&&payload.previews.open_crs)||{};
-  const rows=openCrs.rows||[];
-  let cols=openCrs.columns||[];
-  if(!cols.length&&rows.length) cols=Object.keys(rows[0]);
-  if(!rows.length){alert('No Open CRs rows available to export.');return;}
+  const baseRows=openCrs.rows||[];
+  let baseCols=openCrs.columns||[];
+  if(!baseCols.length&&baseRows.length)baseCols=Object.keys(baseRows[0]);
+  const hiddenOpenCrCols=new Set([
+    'hwpdt_count','swpdt_count','pdt_site_unique','isseenatqipl_pdt',
+    'parent_cr','mapped_cr','unique_cr','last_instance_jira','jira_date'
+  ]);
+  const preferredOpenCrCols=[
+    ['CR','CR ID','CR-ID','mapped_cr','cr_id','unique_cr'],
+    ['Stability Ticket','stability_ticket','QSTABILITY Ticket','QSTABILITY','JIRA','jira_id'],
+    ['QSTABILITY Last Instance','qstability_last_instance','last_instance_jira'],
+    ['Jira Date Last Instance','Jira Date -last instance','jira_date__last_instance','jira_date','last_instance','updated'],
+    ['CR Occurrence','cr_occurrence','Occurrence','Instances','Instance'],
+    ['CR Title','cr_title','Title','Summary'],
+    ['CR Area','cr_area','Area'],
+    ['CR SubSystem','cr_subsystem','Subsystem'],
+    ['CR Functionality','cr_functionality','Functionality'],
+    ['CR Date','cr_date','Date','created_date','created']
+  ];
+  const visibleBaseCols=[];
+  preferredOpenCrCols.forEach(names=>{
+    const col=_wbcFindCol(baseCols,names);
+    if(col && !hiddenOpenCrCols.has(_normColName(col)) && !visibleBaseCols.includes(col))visibleBaseCols.push(col);
+  });
+  if(!visibleBaseCols.length)visibleBaseCols.push(...baseCols.filter(c=>!hiddenOpenCrCols.has(_normColName(c))).slice(0,10));
+  const crCol=_wbcFindCol(baseCols,['CR','CR ID','CR-ID','mapped_cr','cr_id','unique_cr'])||baseCols[0]||'CR';
+  const ageCol=_wbcFindCol(baseCols,['CR Age','cr_age','overall_age','Age','age_days','days_open']);
+  const analyses=(_ocdData&&_ocdData.analyses)||{};
+  const crDateCol=_wbcFindCol(baseCols,['CR Date','cr_date','Date','created_date','created','jira_date','first_seen_date']);
+  const _calcCrAge=(r)=>{
+    if(ageCol && r[ageCol]!==undefined && r[ageCol]!==null && String(r[ageCol]).trim()!=='')return r[ageCol];
+    const raw=crDateCol ? String(r[crDateCol]||'').trim() : '';
+    if(!raw)return '';
+    const d=new Date(raw);
+    if(Number.isNaN(d.getTime()))return '';
+    return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000));
+  };
+  const mustCols=['CR Age','SCENARIO DETAILS (TEA)','QGENIE ANALYSIS','PDT COMMENTS','IS REGRESSION'];
+  const cols=[...visibleBaseCols.filter(c=>!['crage','cr_age','overallage','overall_age','age','agedays','age_days','daysopen','days_open'].includes(_normColName(c)))];
+  const insertAfter=_wbcFindCol(cols,['CR Occurrence','cr_occurrence','Occurrence','Instances'])||_wbcFindCol(cols,['CR Date','cr_date','Date']);
+  const insertAt=insertAfter?cols.indexOf(insertAfter)+1:Math.min(cols.length,6);
+  cols.splice(insertAt,0,'CR Age');
+  mustCols.forEach(c=>{if(!cols.includes(c))cols.push(c);});
+  const rows=baseRows.map(r=>{
+    const crBare=String(r[crCol]||'').replace(/^CR/i,'').trim();
+    const analysis=analyses[crBare]||{};
+    const out={__cr_bare:crBare};
+    visibleBaseCols.forEach(c=>{out[c]=r[c];});
+    return {...out,
+      'CR Age': _calcCrAge(r),
+      'SCENARIO DETAILS (TEA)': analysis.tea||'',
+      'QGENIE ANALYSIS': analysis.qgenie||'',
+      'PDT COMMENTS': analysis.pdt_comment||'',
+      'IS REGRESSION': analysis.is_regression?'Yes':'No'
+    };
+  });
+  return {cols,rows,crCol:'__cr_bare'};
+}
+function downloadOpenCrsCsv(){
+  const data=_wbcOpenCrRowsWithAnalysis();
+  if(!data.rows.length){alert('No Open CRs rows available to export.');return;}
   const label=(active||'wbc_open_crs').replace(/[^A-Za-z0-9._-]+/g,'_');
-  _wbcDownloadCsv(label+'_open_crs.csv', cols, rows);
+  _wbcDownloadCsv(label+'_open_cr_details_with_qgenie.csv', data.cols, data.rows);
 }
 function openPptMetaModal(){
   if(!active){alert('Please select a target first.');return;}
@@ -1878,8 +1966,19 @@ function _pptPreviewTable(headers,rows,widths){
 function _pptFindCol(cols,names){
   const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const cs=(cols||[]).map(c=>({raw:c,n:norm(c)}));
-  for(const name of names||[]){const nn=norm(name);const hit=cs.find(c=>c.n===nn)||cs.find(c=>c.n.includes(nn)||nn.includes(c.n));if(hit)return hit.raw;}
-  return (cols||[])[0]||'';
+  for(const name of names||[]){
+    const nn=norm(name);
+    if(!nn)continue;
+    const exact=cs.find(c=>c.n===nn);
+    if(exact)return exact.raw;
+  }
+  for(const name of names||[]){
+    const nn=norm(name);
+    if(!nn||nn.length<4)continue;
+    const hit=cs.find(c=>c.n.length>=4&&(c.n.includes(nn)||nn.includes(c.n)));
+    if(hit)return hit.raw;
+  }
+  return '';
 }
 function _pptRows(preview,aliases,limit,withIndex){
   const cols=(preview&&preview.columns)||[], rows=((preview&&preview.rows)||[]).slice(0,limit||5), keys=(aliases||[]).map(a=>_pptFindCol(cols,a));
@@ -2150,27 +2249,14 @@ async function loadOpenCrDetails(){
 function renderOpenCrDetails(){
   const box = document.getElementById('openCrDetailsBox');
   if(!box) return;
-  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
-  const cols = openCrs.columns||[];
-  const rows = openCrs.rows||[];
-  if(!cols.length && !rows.length){
+  const data = _wbcOpenCrRowsWithAnalysis();
+  const cols = data.cols||[];
+  const rowObjects = data.rows||[];
+  if(!cols.length && !rowObjects.length){
     box.innerHTML = '<div class="empty" style="padding:48px"><i class="fas fa-table" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No Open CRs data. Select a target with a configured Open CRs table.</div>';
     return;
   }
-  // Find CR column (mapped_cr, cr, cr_id, unique_cr, etc.)
-  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
-  // Merge analysis columns into each row
-  const analyses = _ocdData.analyses||{};
-  const rowObjects = rows.map(r=>{
-    const crVal = String(r[crColName]||'').replace(/^CR/i,'').trim();
-    const analysis = analyses[crVal]||{};
-    return {...r,
-      'SCENARIO DETAILS (TEA)': analysis.tea||'',
-      'QGENIE ANALYSIS': analysis.qgenie||''
-    };
-  });
-  const allCols = [...cols, 'SCENARIO DETAILS (TEA)', 'QGENIE ANALYSIS'];
-  box.innerHTML = tableHtml({columns:allCols, rows:rowObjects, count:rowObjects.length});
+  box.innerHTML = tableHtml({columns:cols, rows:rowObjects, count:rowObjects.length});
 }
 
 // Run QGenie/TEA analysis for all Open CRs — results saved to JSON cache (not Excel)
@@ -2241,18 +2327,17 @@ function _ocrSort(uid,col){
 function renderOpenCrsEnhanced(){
   const box = document.getElementById('openCrsBox');
   if(!box) return;
-  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
-  const cols = openCrs.columns||[];
-  const rows = openCrs.rows||[];
+  const data = _wbcOpenCrRowsWithAnalysis();
+  const cols = data.cols||[];
+  const rows = data.rows||[];
   if(!cols.length && !rows.length){
     box.innerHTML = '<div class="empty" style="padding:48px"><i class="fas fa-folder-open" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No Open CRs data. Configure the Unique CRs table in Config.</div>';
     return;
   }
-  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const crColName = data.crCol || cols[0];
   const analyses = _ocdData.analyses||{};
   const uid = 'ocr_main';
-  const extraCols=['SCENARIO DETAILS (TEA)','QGENIE ANALYSIS','PDT COMMENTS','IS REGRESSION'];
-  const allSortCols=[...cols,...extraCols];
+  const allSortCols=[...cols];
   const qVal=(document.getElementById(uid+'_q')?.value||'');
   const search = `<div class="table-filterbar"><input id="${uid}_q" class="input" placeholder="Search Open CRs..." value="${esc(qVal)}" oninput="_ocrFilter('${uid}')"><span class="pill" id="${uid}_cnt">${rows.length} row${rows.length===1?'':'s'}</span><button class="filter-btn" onclick="_ocrClear('${uid}')"><i class="fas fa-times"></i> Clear</button></div>`;
   const sortState=_ocrSortState[uid]||{col:-1,dir:1};
@@ -2263,11 +2348,6 @@ function renderOpenCrsEnhanced(){
       const val=(item)=>{
         const r=item.r, crBare=_ocdCrBare(r, crColName), analysis=analyses[crBare]||{};
         if(sortState.col<cols.length)return r[cols[sortState.col]];
-        const ec=extraCols[sortState.col-cols.length];
-        if(ec==='SCENARIO DETAILS (TEA)')return analysis.tea||'';
-        if(ec==='QGENIE ANALYSIS')return analysis.qgenie||'';
-        if(ec==='PDT COMMENTS')return analysis.pdt_comment||'';
-        if(ec==='IS REGRESSION')return analysis.is_regression?'Yes':'No';
         return '';
       };
       return _wbcCompareVals(val(a),val(b))*sortState.dir;
@@ -2284,16 +2364,15 @@ function renderOpenCrsEnhanced(){
     const qgenieClean = qgenie.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, '');
     const teaDate = (tea.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
     const qgenieDate = (qgenie.match(/^\[(\d{4}-\d{2}-\d{2})\]/) || [])[1] || '';
-    const dbCells = cols.map(c=>`<td style="max-width:180px;white-space:normal">${_cellHtml(c,r[c])}</td>`).join('');
-    const teaDateBadge = teaDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(teaDate)}</span><br>` : '';
-    const teaCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#0369a1;white-space:pre-wrap;line-height:1.4">${teaDateBadge}${esc(teaClean)||'<span style="color:#94a3b8">\u2014</span>'}</div></td>`;
-    const qgenieDateBadge = qgenieDate ? `<span style="display:inline-block;background:#1e3a8a;color:#fff;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;margin-bottom:4px">${esc(qgenieDate)}</span><br>` : '';
-    const qgenieCell = `<td style="max-width:320px;vertical-align:top"><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#7c3aed;white-space:pre-wrap;line-height:1.4">${qgenieDateBadge}${esc(qgenieClean)||'<span style="color:#94a3b8">\u2014</span>'}</div></td>`;
-    const pdtCell = `<td style="max-width:180px;white-space:normal;font-size:11px">${esc(pdtComment)||'<span style="color:#94a3b8">\u2014</span>'}</td>`;
-    const regCell = `<td style="text-align:center"><span style="font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:${isReg?'#dcfce7':'#f1f5f9'};color:${isReg?'#166534':'#64748b'}">${isReg?'Yes':'No'}</span></td>`;
+    const dbCells = cols.map(c=>{
+      const longCol=/analysis|scenario|comment|title|details|summary/i.test(String(c));
+      const maxWidth=longCol?'420':'180';
+      const html=_cellHtml(c,r[c]);
+      return `<td style="max-width:${maxWidth}px;white-space:normal">${longCol?`<div class="wbc-opencr-long">${html}</div>`:html}</td>`;
+    }).join('');
     const actionCell = CAN_EDIT ? `<td><button class="btn" onclick="openOcdEdit('${esc(crBare)}')" style="padding:4px 10px;font-size:11px"><i class="fas fa-pen"></i> Edit</button></td>` : '';
     const rowText = esc(JSON.stringify(r).toLowerCase()+' '+tea.toLowerCase()+' '+qgenie.toLowerCase()+' '+pdtComment.toLowerCase());
-    return `<tr data-cr="${esc(crBare)}" data-text="${rowText}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${dbCells}${teaCell}${qgenieCell}${pdtCell}${regCell}${actionCell}</tr>`;
+    return `<tr data-cr="${esc(crBare)}" data-text="${rowText}"><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td>${dbCells}${actionCell}</tr>`;
   }).join('');
   box.innerHTML = search + '<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table>'+theadHtml+'<tbody id="'+uid+'">'+tbody+'</tbody></table></div>';
   allSortCols.forEach((_,i)=>{const el=document.getElementById(uid+'_si_'+i);if(el){if(i===sortState.col){el.textContent=sortState.dir===1?'\u2191':'\u2193';el.style.opacity='1';el.style.color='#4f46e5';}else{el.textContent='\u21d5';el.style.opacity='.35';el.style.color='#6366f1';}}});
