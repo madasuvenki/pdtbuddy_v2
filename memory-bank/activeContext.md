@@ -2,6 +2,77 @@
 
 ## Current Work Focus
 
+### Axiom Job Summary Hourly Poller + HWPDT Rate-Limit Guard — Complete (2026-09-03)
+
+**User request addressed:** `scripts/update_axiom_job_summary.py` default polling should not use the old 3-hour cadence, should fetch last ~1 hour / 100 jobs, refresh all running jobs, and include auto/HWPDT-related enrichment without hammering Axiom and causing HTTP 429.
+
+**Changes made:**
+- `scripts/update_axiom_job_summary.py`
+  - No-argument/default poll mode now uses `--interval 3600` and `--poll-max-jobs 100`.
+  - `run_poller()` default changed to 1 hour / 100 broad `/PDT` jobs plus 50 direct HWPDT jobs.
+  - Poll cycles now run:
+    1. incremental recent broad `/PDT` fetch,
+    2. incremental direct `/PDT/QIPL/HW` HWPDT fetch,
+    3. running-job refresh, skipping any jobs already fetched/upserted in the current cycle,
+    4. bounded active device/host map refresh for auto/device inventory,
+    5. bounded HWPDT playlist/result refresh,
+    6. local `axiom_all_devices` rebuild.
+  - Added `_AxiomRateLimited` plus HTTP 429 detection for HWPDT playlist/results and device/resource enrichment helpers.
+  - HWPDT result refresh now defaults to sequential worker count `1`, sleeps briefly between jobs, and stops early on Axiom 429 instead of continuing to hammer the API.
+  - `--hwpdt-results-workers` default changed from `10` to `1`.
+- `scripts/fetch_axiom_combined.py`
+  - Default `AXIOM_POLL_INTERVAL` changed from `10800` to `3600`.
+  - Default `AXIOM_SWPDT_CYCLE_JOBS` changed from `400` to `100`.
+  - Default `AXIOM_HWPDT_CYCLE_JOBS` changed from `0` to `50`.
+  - Default `AXIOM_CYCLE_SINCE_MINUTES` changed from `190` to `70`.
+  - Added global `_AxiomRateLimited` handling for generic Axiom `_get()` calls and running-job `/info` refresh.
+  - Regular cycles now fetch broad `/PDT` and direct HWPDT separately, then skip duplicate running refresh for current-cycle fetched jobs.
+- `.env`
+  - Updated active Axiom override values to match required defaults: hourly interval, 100 broad `/PDT`, 50 HWPDT, 70-minute window.
+
+**Follow-up fix (2026-09-03):**
+- Removed invalid `status = 'Completed'` assignment from `_close_stale_running_jobs()` because deployed `pdt_stats_dashboard.axiom_job_summary` does not have a `status` column; `state` is the persisted status field.
+
+**Validation:**
+- `py -3 -m py_compile scripts\update_axiom_job_summary.py scripts\fetch_axiom_combined.py` executed successfully.
+- Import check confirmed effective defaults after `.env` load:
+  - `SWPDT_CYCLE_JOBS 100`
+  - `HWPDT_CYCLE_JOBS 50`
+  - `POLL_INTERVAL_SEC 3600`
+  - `CYCLE_SINCE_MINUTES 70`
+
+### Login Page Internal Password + External Direct Access UI — Complete (2026-09-03)
+
+**User request addressed:** Login/sign-in page should show both user ID and password like the provided screenshot, with external users able to continue directly and internal users requiring password verification. If the browser has saved the user ID and password, those fields should be populated by the browser and login should submit automatically.
+
+**Changes made:**
+- `templates/login.html`
+  - Always renders the Qualcomm Password field with `autocomplete="current-password"` so browser password managers can fill it for internal users.
+  - Password is optional in the UI: leaving it empty keeps the existing external Live Status user-ID-only path; entering/saved password uses the existing internal LDAP authentication path.
+  - Updated page copy/hints to clearly state external direct access vs internal password verification.
+  - Added a visible checked option: **Save/use this User ID and Password in browser**. This is a browser password-manager hint/preference; PDT Buddy cannot directly read stored browser passwords.
+  - Replaced saved-user-id-only auto-submit with saved-credentials auto-submit that waits for browser autofill and only auto-submits when both user ID and password are present.
+  - User-ID-only external login remains available by clicking Continue, but no longer triggers background LDAP userid checks just because the browser restored a saved username.
+  - Suppresses auto-submit when an error banner is visible or the user is actively editing the fields.
+
+**Validation:**
+- Jinja parse check passed:
+  - `py -3 -c "from pathlib import Path; from jinja2 import Environment; Environment().parse(Path('templates/login.html').read_text(encoding='utf-8')); print('LOGIN_JINJA_OK')"`
+
+### Auto Hierarchy Gen5 UTF-8 Template Restore — Complete (2026-09-02)
+
+**User request addressed:** `/auto/hierarchy/Gen5` failed with `UnicodeDecodeError: 'utf-8' codec can't decode byte 0x97` while Flask/Jinja loaded `templates/auto_hierarchy.html`.
+
+**Root cause:**
+- `templates/auto_hierarchy.html` contained two Windows-1252 em dash bytes (`0x97`) in otherwise text content, so Flask's UTF-8 template loader could not decode the file.
+
+**Changes made:**
+- `templates/auto_hierarchy.html`
+  - Re-decoded the template as Windows-1252 and rewrote it as valid UTF-8, preserving the intended em dash characters/content.
+
+**Validation:**
+- `py -3 -c "from pathlib import Path; from jinja2 import Environment; p=Path('templates/auto_hierarchy.html'); text=p.read_text(encoding='utf-8'); Environment().parse(text); print('UTF8_AND_JINJA_OK', len(text))"` passed.
+
 ### WBC Live View Access + Open CR/MTBF Updates — In Progress (2026-09-01)
 
 **User request addressed:** WBC Live View needs internal/external user separation so internal user IDs still require password authentication while external/viewer users can access read-only views, preventing external users from seeing internal-only UI by using another user ID. WBC dashboard also needs Latest MTBF Hours on Summary Dashboard, Open CR Analysis fields for last-instance Jira/Jira Date/CR Age, and CSV export with those details plus QGenie Analysis.

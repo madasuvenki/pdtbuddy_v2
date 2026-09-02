@@ -14,6 +14,7 @@
 
 ### Authentication & Authorization
 - ✅ LDAP bind authentication
+- ✅ Login page now supports the preferred combined flow: external users can continue with user ID only to Live Status, while internal users can use browser-saved user ID/password or manually enter password for internal PDT Buddy access.
 - ✅ LDAP group-based BU access control (TARGET_GROUP, SD_TARGET_GROUP, CH_TARGET_GROUP)
 - ✅ Admin user list (ADMIN_USERS in config.py)
 - ✅ Bypass users and viewer override users
@@ -68,6 +69,7 @@
 - ✅ Orbit CR ingest (run_ingest.py → src/ingest.py)
 - ✅ Jira ticket ingest
 - ✅ Axiom job summary update scripts
+- ✅ Axiom job summary default poller now runs hourly, fetches 100 recent broad `/PDT` jobs plus 50 direct HWPDT jobs, refreshes running jobs while skipping jobs already fetched in the same cycle, performs bounded active device/host enrichment, performs bounded HWPDT result enrichment, and stops/backoffs API work on HTTP 429 instead of retry-hammering Axiom.
 - ✅ Axiom poller (continuous)
 - ✅ Backfill scripts for historical data
 - ✅ City/team backfill

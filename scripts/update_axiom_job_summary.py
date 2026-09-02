@@ -25,9 +25,9 @@ Usage:
     # Full update + refresh running + HWPDT test results (recommended):
     python scripts/update_axiom_job_summary.py --full --refresh-running --refresh-hwpdt-results
 
-    # Run as a continuous poller (every 3 hours; pulls 400 recent /PDT jobs per cycle):
+    # Run as a continuous poller (every 1 hour; pulls 100 recent /PDT jobs per cycle):
     python scripts/update_axiom_job_summary.py --poll
-    python scripts/update_axiom_job_summary.py --poll --interval 10800 --poll-max-jobs 400
+    python scripts/update_axiom_job_summary.py --poll --interval 3600 --poll-max-jobs 100
 
 Environment variables (set in .env or shell):
     AXIOM_CLIENT_ID       Axiom OAuth client ID
@@ -73,6 +73,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger("update_axiom_job_summary")
 
+
+class _AxiomRateLimited(RuntimeError):
+    """Raised when Axiom returns HTTP 429."""
+
+
+def _seconds_until_next_utc_hour(grace_sec: int = 90) -> int:
+    now = datetime.now(timezone.utc)
+    next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    return max(int((next_hour - now).total_seconds()) + int(grace_sec or 0), int(grace_sec or 0))
+
+
+def _is_rate_limit_message(value: object) -> bool:
+    text = str(value or "").lower()
+    return "http 429" in text or "rate limit" in text or "ratelimit" in text or "too many requests" in text
+
 # ---------------------------------------------------------------------------
 # Imports from existing fetcher
 # ---------------------------------------------------------------------------
@@ -98,6 +113,7 @@ try:
         _refresh_running_jobs,
         run_cycle,
         _TokenExpired,
+        _AxiomRateLimited as _CombinedAxiomRateLimited,
         AUTH_RETRY_LIMIT,
     )
 except ImportError as e:
@@ -364,6 +380,9 @@ def _axiom_get_json(host: str, token: str, app_name: str, path: str) -> dict:
         raw = resp.read()
         if resp.status == 401:
             raise _TokenExpired()
+        if resp.status == 429:
+            body = raw.decode("utf-8", errors="ignore")
+            raise _AxiomRateLimited(f"HTTP 429 Too Many Requests for {path}: {body[:200]}")
         if resp.status not in (200, 201):
             return {}
         return json.loads(raw.decode("utf-8", errors="ignore"))
@@ -442,6 +461,9 @@ def _fetch_resource_details_by_id(host: str, token: str, app_name: str, resource
         raw = resp.read()
         if resp.status == 401:
             raise _TokenExpired()
+        if resp.status == 429:
+            body = raw.decode("utf-8", errors="ignore")
+            raise _AxiomRateLimited(f"HTTP 429 Too Many Requests for {path}: {body[:200]}")
         if resp.status not in (200, 201):
             return {}
         return json.loads(raw.decode("utf-8", errors="ignore"))
@@ -695,12 +717,18 @@ def run_full_update(host: str, token: str, app_name: str) -> str:
 
 def run_incremental_update(host: str, token: str, app_name: str,
                             minutes: int = 60,
-                            max_jobs: Optional[int] = None) -> str:
-    """Incremental update - fetch only jobs submitted in the last N minutes."""
+                            max_jobs: Optional[int] = None,
+                            hwpdt_max_jobs: Optional[int] = None) -> str:
+    """Incremental update - fetch jobs submitted in the last N minutes.
+
+    Default/scheduled behavior fetches 100 broad /PDT jobs plus 50 direct HWPDT
+    jobs. HWPDT is fetched separately because broad /PDT can be dominated by
+    Auto/SWPDT/other jobs and miss recent HWPDT activity.
+    """
     swpdt_jobs = int(max_jobs) if max_jobs else SWPDT_CYCLE_JOBS
-    hwpdt_jobs = 0 if max_jobs else HWPDT_CYCLE_JOBS
+    hwpdt_jobs = int(hwpdt_max_jobs) if hwpdt_max_jobs is not None else HWPDT_CYCLE_JOBS
     logger.info("[INCREMENTAL] Fetching jobs from last %d minutes ...", minutes)
-    logger.info("[INCREMENTAL] max /PDT jobs=%d", swpdt_jobs + hwpdt_jobs)
+    logger.info("[INCREMENTAL] max broad /PDT jobs=%d, direct HWPDT jobs=%d", swpdt_jobs, hwpdt_jobs)
 
     # Temporarily override CYCLE_SINCE_MINUTES for this run
     import scripts.fetch_axiom_combined as _fac
@@ -758,6 +786,9 @@ def _fetch_job_results_device_host_map(host: str, token: str, app_name: str, job
         raw = resp.read()
         if resp.status == 401:
             raise _TokenExpired()
+        if resp.status == 429:
+            body = raw.decode("utf-8", errors="ignore")
+            raise _AxiomRateLimited(f"HTTP 429 Too Many Requests for {path}: {body[:200]}")
         if resp.status not in (200, 201):
             return job_id, {}
         payload = json.loads(raw.decode("utf-8", errors="ignore"))
@@ -878,7 +909,7 @@ def _enrich_jobs_device_host_map_from_results(host: str, token: str, app_name: s
 
 
 def refresh_active_device_host_maps(host: str, token: str, app_name: str,
-                                    workers: int = 16, limit: int = 2000) -> str:
+                                    workers: int = 1, limit: int = 100) -> str:
     """Refresh device_host_map for active jobs from /jobs/{id}/results.
 
     This keeps axiom_all_devices accurate during normal poller cycles, not only
@@ -953,6 +984,13 @@ def refresh_active_device_host_maps(host: str, token: str, app_name: str,
                 write_cur.close()
                 conn.close()
             logger.info("[DEVICE HOST MAP] refreshed active jobs updated=%d no_map=%d total=%d", updated, failed, len(job_ids))
+            break
+        except _AxiomRateLimited as exc:
+            logger.warning(
+                "[DEVICE HOST MAP] Axiom rate limit reached; stopping active host-map refresh for this cycle. "
+                "Will resume on next scheduled cycle/UTC hour. %s",
+                exc,
+            )
             break
         except _TokenExpired:
             auth_failures += 1
@@ -1034,7 +1072,6 @@ def _close_stale_running_jobs(max_age_hours: int = 36) -> int:
             """
             UPDATE pdt_stats_dashboard.axiom_job_summary
             SET state = 'Completed',
-                status = 'Completed',
                 is_closed = 1,
                 ended_at = COALESCE(ended_at, updated_at, started_at, submitted_at),
                 updated_at = CURRENT_TIMESTAMP
@@ -1279,7 +1316,12 @@ def _get_hwpdt_json(host: str, app_name: str, token: str, path: str) -> Tuple[in
     try:
         conn.request("GET", path, body="", headers=headers)
         resp = conn.getresponse()
-        return resp.status, resp.read().decode("utf-8", errors="ignore")
+        body = resp.read().decode("utf-8", errors="ignore")
+        if resp.status == 401:
+            raise _TokenExpired()
+        if resp.status == 429:
+            raise _AxiomRateLimited(f"HTTP 429 Too Many Requests for {path}: {body[:200]}")
+        return resp.status, body
     finally:
         conn.close()
 
@@ -1368,7 +1410,7 @@ def _load_hwpdt_jobs_for_result_refresh(limit: Optional[int] = None,
 def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
                               limit: Optional[int] = None,
                               running_only: bool = True,
-                              workers: int = 10) -> str:
+                              workers: int = 1) -> str:
     """Refresh HWPDT certicom_playlist with actual /results test-case status.
 
     This is important for the standalone updater/exe flow because Running HWPDT
@@ -1385,22 +1427,63 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
 
     results = []
     failed = 0
-    with ThreadPoolExecutor(max_workers=max(1, int(workers or 1))) as pool:
-        futures = {
-            pool.submit(_fetch_hwpdt_certicom_one, host, app_name, token, str(j["job_id"])): j
-            for j in jobs
-        }
-        for idx, fut in enumerate(as_completed(futures), 1):
-            row = fut.result()
-            results.append(row)
-            if row[4]:
-                failed += 1
-                logger.warning("[HWPDT RESULTS] job_id=%s failed: %s", row[0], row[4])
-            if idx % 50 == 0:
-                logger.info("[HWPDT RESULTS] progress %d/%d fetched, failed=%d", idx, len(jobs), failed)
+    rate_limited = False
+    worker_count = max(1, int(workers or 1))
+
+    def _handle_hwpdt_row(idx: int, row) -> None:
+        nonlocal failed, rate_limited
+        results.append(row)
+        if row[4]:
+            failed += 1
+            logger.warning("[HWPDT RESULTS] job_id=%s failed: %s", row[0], row[4])
+            if _is_rate_limit_message(row[4]):
+                rate_limited = True
+        if idx % 50 == 0:
+            logger.info("[HWPDT RESULTS] progress %d/%d fetched, failed=%d", idx, len(jobs), failed)
+
+    try:
+        if worker_count <= 1:
+            # Default to sequential HWPDT enrichment. Each job can require both
+            # /data/playlists and /results calls; sequential processing avoids
+            # bursting into Axiom's per-account hourly quota.
+            for idx, job in enumerate(jobs, 1):
+                row = _fetch_hwpdt_certicom_one(host, app_name, token, str(job["job_id"]))
+                _handle_hwpdt_row(idx, row)
+                if rate_limited:
+                    break
+                time.sleep(0.25)
+        else:
+            logger.warning(
+                "[HWPDT RESULTS] workers=%d requested. Parallel HWPDT result refresh can hit Axiom 429 quickly; "
+                "use --hwpdt-results-workers 1 for scheduled runs.",
+                worker_count,
+            )
+            with ThreadPoolExecutor(max_workers=worker_count) as pool:
+                futures = {
+                    pool.submit(_fetch_hwpdt_certicom_one, host, app_name, token, str(j["job_id"])): j
+                    for j in jobs
+                }
+                for idx, fut in enumerate(as_completed(futures), 1):
+                    _handle_hwpdt_row(idx, fut.result())
+                    if rate_limited:
+                        break
+    except _AxiomRateLimited as exc:
+        rate_limited = True
+        failed += 1
+        logger.warning(
+            "[HWPDT RESULTS] Axiom rate limit reached; stopping HWPDT result refresh for this cycle. "
+            "Will resume on next scheduled cycle/UTC hour. %s",
+            exc,
+        )
 
     updated = _update_hwpdt_certicom_rows(results)
-    logger.info("[HWPDT RESULTS] Done - fetched=%d updated=%d failed=%d", len(results), updated, failed)
+    if rate_limited:
+        logger.warning(
+            "[HWPDT RESULTS] Stopped early due to Axiom 429. Next UTC-hour reset in about %d seconds.",
+            _seconds_until_next_utc_hour(),
+        )
+    logger.info("[HWPDT RESULTS] Done - fetched=%d updated=%d failed=%d rate_limited=%s",
+                len(results), updated, failed, rate_limited)
     return token
 
 
@@ -1409,25 +1492,25 @@ def run_refresh_hwpdt_results(host: str, token: str, app_name: str,
 # ---------------------------------------------------------------------------
 
 def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
-               interval_sec: int = 10800, max_jobs: int = 400) -> None:
+               interval_sec: int = 3600, max_jobs: int = 100) -> None:
     """Run as a continuous poller - incremental only, no full refresh.
 
-    Axiom public API is rate-limited. Keep poll cadence at 3 hours or slower.
-    Each cycle pulls up to max_jobs recent /PDT jobs.
+    Axiom public API is account-limited to 10,000 requests/hour. The default
+    cadence is 1 hour and only 100 recent jobs per cycle. Expensive enrichments
+    are sequential/limited and stop immediately on HTTP 429.
     """
-    min_interval_sec = 3 * 60 * 60
+    min_interval_sec = 60 * 60
     if interval_sec < min_interval_sec:
         logger.warning(
-            "[POLLER] Requested interval=%ds is below Axiom rate-limit-safe minimum. "
-            "Using %ds (3 hours). See https://axiomuserguide.qualcomm.com/workflows/axiom-public-api#rate-limiting",
+            "[POLLER] Requested interval=%ds is below the configured safe minimum. Using %ds (1 hour).",
             interval_sec,
             min_interval_sec,
         )
         interval_sec = min_interval_sec
-    max_jobs = max(1, int(max_jobs or 400))
-    logger.info("[POLLER] Starting - interval=%ds (%d min); max_jobs=%d; incremental only, no full refresh",
+    max_jobs = max(1, int(max_jobs or 100))
+    logger.info("[POLLER] Starting - interval=%ds (%d min); max_jobs=%d; incremental + running/auto/HWPDT refresh",
                 interval_sec, interval_sec // 60, max_jobs)
-    logger.info("[POLLER] Axiom rate limiting: polling is capped to once every 3 hours or slower.")
+    logger.info("[POLLER] Axiom rate limiting: 10,000 requests/account/hour; 429 stops optional enrichment until next cycle.")
 
     token: Optional[str] = None
     token_obtained = 0.0
@@ -1449,7 +1532,14 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
                 token = _get_token_with_retry(host, client_id, client_secret)
                 token_obtained = time.time()
 
-            token = run_incremental_update(host, token, app_name, minutes=interval_sec // 60 + 10, max_jobs=max_jobs)
+            token = run_incremental_update(
+                host,
+                token,
+                app_name,
+                minutes=interval_sec // 60 + 10,
+                max_jobs=max_jobs,
+                hwpdt_max_jobs=50,
+            )
 
             # Incremental fetch only sees recently submitted jobs. It does not
             # reliably revisit old rows that are still marked Running in DB
@@ -1457,9 +1547,27 @@ def run_poller(host: str, app_name: str, client_id: str, client_secret: str,
             # every poll cycle before rebuilding weekly/sharepoint device counts.
             token = run_refresh_running(host, token, app_name)
 
+            # Auto/device inventory enrichment for current active jobs. Keep this
+            # limited to the latest max_jobs rows so the hourly poller does not
+            # burn the full Axiom account quota in one burst.
+            token = refresh_active_device_host_maps(host, token, app_name, workers=1, limit=max_jobs)
+
+            # HWPDT-specific playlist/result details are not part of the generic
+            # incremental path. Refresh a bounded set of currently running HWPDT
+            # jobs each cycle so HWPDT pages/tables keep actual result status.
+            token = run_refresh_hwpdt_results(host, token, app_name, limit=max_jobs, running_only=True, workers=1)
+
             rebuilt_devices = rebuild_axiom_all_devices_table()
             logger.info("[POLLER] all-devices table refreshed rows=%d", rebuilt_devices)
 
+        except (_AxiomRateLimited, _CombinedAxiomRateLimited) as exc:
+            logger.warning(
+                "[POLLER] cycle=%d Axiom rate limit reached. Stopping API work for this cycle; next UTC-hour reset in about %d seconds. %s",
+                cycle,
+                _seconds_until_next_utc_hour(),
+                exc,
+            )
+            token = None  # force token refresh next cycle
         except Exception as exc:
             logger.error("[POLLER] cycle=%d ERROR: %s", cycle, exc, exc_info=True)
             token = None  # force token refresh next cycle
@@ -1508,9 +1616,9 @@ Examples:
   # Refresh all Running HWPDT /results only:
   python scripts/update_axiom_job_summary.py --refresh-hwpdt-results
 
-  # Continuous poller every 3 hours (incremental only, no full refresh; pulls 400 recent /PDT jobs per cycle):
+  # Continuous poller every 1 hour (incremental only, no full refresh; pulls 100 recent /PDT jobs per cycle):
   python scripts/update_axiom_job_summary.py --poll
-  python scripts/update_axiom_job_summary.py --poll --interval 10800 --poll-max-jobs 400
+  python scripts/update_axiom_job_summary.py --poll --interval 3600 --poll-max-jobs 100
         """,
     )
 
@@ -1538,14 +1646,14 @@ Examples:
                         help="With --refresh-hwpdt-results, refresh all HWPDT jobs instead of only Running/JobSetup")
     parser.add_argument("--hwpdt-results-limit", type=int, default=0,
                         help="Optional max HWPDT jobs for --refresh-hwpdt-results")
-    parser.add_argument("--hwpdt-results-workers", type=int, default=10,
-                        help="Worker threads for --refresh-hwpdt-results (default: 10)")
+    parser.add_argument("--hwpdt-results-workers", type=int, default=1,
+                        help="Worker threads for --refresh-hwpdt-results (default: 1; avoids Axiom 429 burst)")
     parser.add_argument("--poll",           action="store_true",
                         help="Run as continuous poller (incremental only; no full refresh)")
-    parser.add_argument("--interval",       type=int, default=10800,
-                        help="Poll interval in seconds for --poll (default/minimum: 10800 = 3 hours)")
-    parser.add_argument("--poll-max-jobs",  type=int, default=400,
-                        help="Maximum recent /PDT jobs to fetch per poll cycle (default: 400)")
+    parser.add_argument("--interval",       type=int, default=3600,
+                        help="Poll interval in seconds for --poll (default/minimum: 3600 = 1 hour)")
+    parser.add_argument("--poll-max-jobs",  type=int, default=100,
+                        help="Maximum recent /PDT jobs to fetch per poll cycle (default: 100)")
     parser.add_argument("--api-host",       default=os.environ.get("AXIOM_API_HOST", DEFAULT_API_HOST))
     parser.add_argument("--app-name",       default=os.environ.get("AXIOM_APP_NAME", DEFAULT_APP_NAME))
     parser.add_argument("--client-id",      default=os.environ.get("AXIOM_CLIENT_ID", ""))
@@ -1555,9 +1663,10 @@ Examples:
 
     if len(sys.argv) == 1:
         args.poll = True
-        args.interval = 10800
+        args.interval = 3600
+        args.poll_max_jobs = 100
         logger.info(
-            "No arguments supplied; defaulting to continuous poll mode: interval=%s seconds (3 hours), max_jobs=%s, incremental only",
+            "No arguments supplied; defaulting to continuous poll mode: interval=%s seconds (1 hour), max_jobs=%s, incremental + running/auto/HWPDT refresh",
             args.interval,
             args.poll_max_jobs,
         )
@@ -1627,6 +1736,7 @@ Examples:
                 app_name,
                 minutes=args.minutes,
                 max_jobs=args.incremental_max_jobs or None,
+                hwpdt_max_jobs=HWPDT_CYCLE_JOBS,
             )
 
         if args.refresh_running:

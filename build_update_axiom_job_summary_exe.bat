@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-if not exist "venv\Scripts\python.exe" (
+if not exist ".venv\Scripts\python.exe" (
   echo ERROR: venv\Scripts\python.exe not found.
   exit /b 1
 )
@@ -12,7 +12,7 @@ if not exist ".env" (
 )
 
 echo Building UpdateAxiomJobSummary.exe ...
-"venv\Scripts\python.exe" -m PyInstaller --clean --noconfirm UpdateAxiomJobSummary.spec
+".venv\Scripts\python.exe" -m PyInstaller --clean --noconfirm UpdateAxiomJobSummary.spec
 if errorlevel 1 exit /b %errorlevel%
 
 echo.

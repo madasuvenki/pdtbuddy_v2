@@ -7246,8 +7246,16 @@ def _fmt_size(b):
 
 
 @dashboard_bp.route("/device-summary/<string:target_name>")
+@dashboard_bp.route("/device_summary/<string:target_name>")
 @login_required
 def device_summary_page(target_name):
+    target_aliases = {
+        'lemans_hgy': 'nord_hgy',
+        'lemans-hgy': 'nord_hgy',
+        'lemans_hqx': 'nord_hqx',
+        'lemans-hqx': 'nord_hqx',
+    }
+    target_name = target_aliases.get((target_name or '').strip().lower(), target_name)
     import device_summary_service as ds_svc
     # Ensure each BU/target has a managed Excel workbook for direct Add/Edit/Remove.
     # If a user configured a network Excel, this keeps using it; otherwise it creates:

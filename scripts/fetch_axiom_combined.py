@@ -112,21 +112,21 @@ CROSS_MATCH_JOBS = {
 
 RETENTION_DAYS      = 20
 # Default poll interval. Override via AXIOM_POLL_INTERVAL env var.
-POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "10800"))  # default 3 hours
+POLL_INTERVAL_SEC   = int(os.environ.get("AXIOM_POLL_INTERVAL", "3600"))  # default 1 hour
 
 # Job fetch counts per cycle
 # First run  : full 20-day backfill to populate DB from scratch.
 # Regular cycle: only fetch recent jobs (last CYCLE_SINCE_MINUTES minutes).
-#   The standalone updater/poller now runs every 3 hours and pulls up to
-#   400 recent /PDT jobs per cycle by default.
+#   The standalone updater/poller now runs every 1 hour and pulls up to
+#   100 recent /PDT jobs per cycle by default.
 #   _refresh_running_jobs() handles state updates for already-known Running jobs.
 FIRST_RUN_SWPDT_JOBS  = 15000  # first cycle: full 20-day backfill
 FIRST_RUN_HWPDT_JOBS  = 1000   # first cycle: full 20-day HWPDT backfill
-SWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_SWPDT_CYCLE_JOBS", "400"))
-HWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_HWPDT_CYCLE_JOBS", "0"))
+SWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_SWPDT_CYCLE_JOBS", "100"))
+HWPDT_CYCLE_JOBS      = int(os.environ.get("AXIOM_HWPDT_CYCLE_JOBS", "50"))
 # How far back to look on regular cycles (minutes). Slightly wider than the
 # poll interval so no jobs are missed if a cycle runs a little late.
-CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "190"))
+CYCLE_SINCE_MINUTES   = int(os.environ.get("AXIOM_CYCLE_SINCE_MINUTES", "70"))
 
 
 # DB table for Axiom job summary (replaces JSON files long-term)
@@ -138,6 +138,9 @@ TIMEOUT_SEC         = 300
 TOKEN_TTL_SEC       = 25 * 60   # refresh every 25 min - Axiom tokens expire ~30 min
 AUTH_RETRY_LIMIT    = 3         # token refresh attempts per cycle before giving up
 AUTH_BACKOFF_SEC    = 120       # backoff (seconds) after auth failure before next cycle
+AXIOM_RATE_LIMIT_BACKOFF_SEC = int(os.environ.get("AXIOM_RATE_LIMIT_BACKOFF_SEC", "3600"))
+AXIOM_REFRESH_RUNNING_WORKERS = max(1, int(os.environ.get("AXIOM_REFRESH_RUNNING_WORKERS", "5")))
+AXIOM_HWPDT_PLAYLIST_WORKERS = max(1, int(os.environ.get("AXIOM_HWPDT_PLAYLIST_WORKERS", "2")))
 # Axiom rejects submittedBefore values that are even slightly in the future on
 # skewed nodes. Keep a small configurable lag, but do not hide the last 24 hours
 # of jobs from the poller.
@@ -829,6 +832,10 @@ class _TokenExpired(Exception):
     """Raised by _get() when Axiom returns 401 - signals caller to refresh token."""
 
 
+class _AxiomRateLimited(RuntimeError):
+    """Raised by _get() when Axiom returns 429 - stop API work until next hourly window."""
+
+
 def _get(host: str, token: str, path: str, app_name: str) -> dict:
     if AXIOM_FETCH_DISABLED:
         return {}
@@ -854,6 +861,9 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
                 # Token expired - no point retrying with same token. Log at INFO to avoid noisy WARNING spam.
                 logger.info("[GET] HTTP 401 - token expired, signalling refresh")
                 raise _TokenExpired()
+            if resp.status == 429:
+                logger.warning("[GET] HTTP 429 rate limit reached for %s: %r", path[:180], raw[:200])
+                raise _AxiomRateLimited(f"Axiom API rate limit reached: {raw[:200]!r}")
             if resp.status == 400 and b"must not be ahead of the current time" in raw:
                 logger.info("[GET] HTTP 400 from Axiom time-window guard; stopping this request: %r", raw[:200])
                 return {}
@@ -868,7 +878,7 @@ def _get(host: str, token: str, path: str, app_name: str) -> dict:
                 )
             else:
                 logger.warning("[GET] HTTP %s attempt %d/%d: %r", resp.status, attempt, MAX_RETRIES, raw[:200])
-        except _TokenExpired:
+        except (_TokenExpired, _AxiomRateLimited):
             raise   # propagate immediately
         except Exception as exc:
             logger.warning("[GET] attempt %d/%d error: %s", attempt, MAX_RETRIES, exc)
@@ -1146,8 +1156,8 @@ def _enrich_hwpdt_playlists(host: str, token: str, app_name: str,
 
     enriched = 0
     failed   = 0
-    # 20 threads - fast but not hammering the API
-    MAX_WORKERS = 20
+    # Keep worker count low because Axiom rate limits are per-account/hour.
+    MAX_WORKERS = AXIOM_HWPDT_PLAYLIST_WORKERS
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = {pool.submit(_fetch_playlist, jid): jid for jid in to_enrich}
@@ -1594,7 +1604,8 @@ def _make_payload(builds: Dict[str, dict], taxonomy: str) -> dict:
 # ---------------------------------------------------------------------------
 # Fix 1: Refresh all open (Running/JobSetup) jobs in DB every cycle
 # ---------------------------------------------------------------------------
-def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
+def _refresh_running_jobs(host: str, token: str, app_name: str,
+                          skip_job_ids: Optional[set] = None) -> int:
     """
     Refresh all open (Running/JobSetup) jobs in DB every cycle.
 
@@ -1608,6 +1619,8 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import uuid as _uuid
+
+    skip_job_ids = {str(x or "").strip() for x in (skip_job_ids or set()) if str(x or "").strip()}
 
     # -- Step 1: load all open job_ids from DB ------------------------------
     try:
@@ -1626,6 +1639,13 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
             WHERE state IN ('Running', 'JobSetup')
         """)
         open_jobs = cur.fetchall() or []
+        if skip_job_ids:
+            before_skip = len(open_jobs)
+            open_jobs = [r for r in open_jobs if str(r.get("job_id") or "").strip() not in skip_job_ids]
+            logger.info(
+                "[REFRESH RUNNING] skipping %d open jobs already fetched/upserted in this cycle",
+                before_skip - len(open_jobs),
+            )
         cur.close()
         conn.close()
     except Exception as exc:
@@ -1661,6 +1681,8 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
 
             if resp.status == 401:
                 raise _TokenExpired()
+            if resp.status == 429:
+                raise _AxiomRateLimited(f"Axiom API rate limit reached for {path}: {raw[:200]!r}")
             if resp.status not in (200, 201):
                 return None
 
@@ -1697,7 +1719,7 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
                 "completed_at":     ended_at,
                 "playlist_name":    str(existing.get("playlist_name") or "").strip() or None,
             }
-        except _TokenExpired:
+        except (_TokenExpired, _AxiomRateLimited):
             raise
         except Exception as exc:
             logger.debug("[REFRESH RUNNING] job %s error: %s", jid, exc)
@@ -1706,7 +1728,7 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
     # -- Step 3: run threaded fetch -----------------------------------------
     refreshed_builds: Dict[str, dict] = {}
     failed = 0
-    MAX_WORKERS = 30
+    MAX_WORKERS = AXIOM_REFRESH_RUNNING_WORKERS
 
     try:
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
@@ -1719,6 +1741,9 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
                 except _TokenExpired:
                     logger.info("[REFRESH RUNNING] 401 - aborting, poller will refresh token")
                     raise
+                except _AxiomRateLimited:
+                    logger.warning("[REFRESH RUNNING] 429 - aborting running refresh until next cycle/hour")
+                    raise
                 if result:
                     refreshed_builds[result["job_id"]] = result
                 else:
@@ -1726,7 +1751,7 @@ def _refresh_running_jobs(host: str, token: str, app_name: str) -> int:
                 if done % 100 == 0:
                     logger.info("[REFRESH RUNNING] progress %d/%d  ok=%d  failed=%d",
                                 done, len(open_jobs), len(refreshed_builds), failed)
-    except _TokenExpired:
+    except (_TokenExpired, _AxiomRateLimited):
         raise
 
     logger.info("[REFRESH RUNNING] fetched %d/%d  failed=%d",
@@ -1790,12 +1815,24 @@ def run_cycle(host: str, token: str, app_name: str,
         raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
                               swpdt_jobs + hwpdt_jobs, since_days=RETENTION_DAYS)
     else:
-        # Regular cycle: only last CYCLE_SINCE_MINUTES minutes - fast
+        # Regular cycle: fetch 100 broad /PDT jobs plus 50 HWPDT-specific jobs
+        # by default. The dedicated HWPDT pull avoids missing HW jobs when the
+        # broader /PDT feed is dominated by Auto/SWPDT/other traffic.
         logger.info("[FETCH] cycle: /PDT last %d min (max %d jobs) ...",
-                    CYCLE_SINCE_MINUTES, swpdt_jobs + hwpdt_jobs)
+                    CYCLE_SINCE_MINUTES, swpdt_jobs)
         raw_all = _fetch_jobs(host, token, app_name, TAXONOMY_ALL,
-                              swpdt_jobs + hwpdt_jobs,
+                              swpdt_jobs,
                               since_minutes=CYCLE_SINCE_MINUTES)
+        if hwpdt_jobs:
+            logger.info("[FETCH] cycle: HWPDT %s last %d min (max %d jobs) ...",
+                        HWPDT_TAXONOMY, CYCLE_SINCE_MINUTES, hwpdt_jobs)
+            raw_hwpdt_cycle = _fetch_jobs(host, token, app_name, HWPDT_TAXONOMY,
+                                          hwpdt_jobs,
+                                          since_minutes=CYCLE_SINCE_MINUTES)
+            for j in raw_hwpdt_cycle:
+                j['team'] = 'HWPDT'
+                j['taxonomy_path'] = HWPDT_TAXONOMY
+            raw_all.extend(raw_hwpdt_cycle)
 
     all_by_id = {str(j.get('jobId') or ''): j for j in raw_all if j.get('jobId')}
     logger.info("[FETCH] /PDT fetched: %d jobs", len(all_by_id))
@@ -1889,7 +1926,8 @@ def run_cycle(host: str, token: str, app_name: str,
     upserted = _upsert_jobs_to_db(all_normalised)
 
     # - Refresh all still-Running jobs in DB -
-    refreshed = _refresh_running_jobs(host, token, app_name)
+    # Skip jobs already fetched/upserted above; their state/hours are already fresh.
+    refreshed = _refresh_running_jobs(host, token, app_name, skip_job_ids=set(all_normalised.keys()))
 
     logger.info("[CYCLE] done  fetched=%d  db_upserted=%d  running_refreshed=%d",
                 len(all_normalised), upserted, refreshed)
@@ -1976,6 +2014,13 @@ def run_combined_poller(
                         first_run  = is_first,
                     )
                     break
+                except _AxiomRateLimited:
+                    logger.warning(
+                        "[COMBINED POLLER] 429 rate limit reached; stopping cycle=%d API work and backing off %ds",
+                        cycle,
+                        AXIOM_RATE_LIMIT_BACKOFF_SEC,
+                    )
+                    raise
                 except _TokenExpired:
                     auth_failures += 1
                     if auth_failures >= AUTH_RETRY_LIMIT:
@@ -2007,6 +2052,11 @@ def run_combined_poller(
                     "[COMBINED POLLER] cycle=%d auth error (#%d): %s - token cleared, will retry next cycle.",
                     cycle, consecutive_errors, exc,
                 )
+            elif isinstance(exc, _AxiomRateLimited):
+                logger.warning(
+                    "[COMBINED POLLER] cycle=%d RATE LIMITED (#%d): %s - waiting for hourly quota reset.",
+                    cycle, consecutive_errors, exc,
+                )
             elif is_network_error:
                 # DNS / VPN / network unreachable - not a code bug, no traceback needed
                 logger.warning(
@@ -2023,6 +2073,8 @@ def run_combined_poller(
                 # Network errors: always back off exactly poll_interval (not multiplied)
                 # - the network may come back at any time, no need to escalate
                 backoff = poll_interval
+            elif isinstance(exc, _AxiomRateLimited):
+                backoff = AXIOM_RATE_LIMIT_BACKOFF_SEC
             elif is_auth_error:
                 backoff = AUTH_BACKOFF_SEC
             else:

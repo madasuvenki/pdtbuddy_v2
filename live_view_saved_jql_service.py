@@ -99,11 +99,27 @@ def _read_json(path: str, default: Any = None) -> Any:
 
 
 def _atomic_write(path: str, data: Any) -> None:
+    """Write JSON safely, with a Windows/SMB fallback for locked network shares.
+
+    On the shared \\Sphere path, os.replace() can intermittently raise
+    PermissionError/WinError 5 when another process, antivirus scanner, or SMB
+    client briefly holds the destination file.  In that case, fall back to a
+    direct truncate/write so UI edits do not fail for users.
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = path + f".{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    try:
+        os.replace(tmp, path)
+    except PermissionError:
+        logger.warning("Atomic replace denied for %s; falling back to direct write", path, exc_info=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+        try:
+            os.remove(tmp)
+        except Exception:
+            pass
 
 
 def _load_jobs() -> List[Dict[str, Any]]:

@@ -1,4 +1,4 @@
-﻿# ====================================================================================
+﻿
 # IMPORTS
 # ====================================================================================
 import logging
@@ -131,7 +131,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 
 from src.application import register_feature_blueprints
 
-APP_VERSION = "v2.11"
+APP_VERSION = "v2.12"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -240,6 +240,70 @@ def _check_session_idle():
     exempt = {'login', 'logout', 'static'}
     if request.path.startswith('/public/') or request.endpoint in exempt or not request.endpoint:
         return
+
+    # External/view-only sessions must not be able to reach internal PDT Buddy
+    # pages by manually editing the URL (/, /home, /cr_overview/embed, /admin,
+    # /dashboard, etc.). UI hiding is not enough; enforce this server-side.
+    if session.get('viewer_mode'):
+        _path = request.path.rstrip('/') or '/'
+        _method = request.method.upper()
+
+        def _viewer_path_allowed(path: str, method: str) -> bool:
+            # External landing and published read-only Live Status/report pages.
+            if path == '/live_status_view':
+                return method == 'GET'
+            if path.startswith('/live_status_view/') or path.startswith('/live_status/'):
+                # Explicitly block authoring/editing endpoints even though they
+                # share the same URL prefix as published viewer pages.
+                blocked_parts = ('/edit', '/new', '/manage', '/admin')
+                return method == 'GET' and not any(part in path for part in blocked_parts)
+
+            # Read-only target MTBF/JQL report pages allowed for external viewers.
+            if path.startswith('/others/live_view_stats/'):
+                return method == 'GET'
+            if path.startswith('/wbc/live_view_stats/'):
+                return method == 'GET'
+            if path.startswith('/automotive/live_view_stats'):
+                return method == 'GET'
+
+            # Public/read-only APIs needed by the allowed pages.
+            if path.startswith('/api/live_status_view/') or path.startswith('/api/live_status/'):
+                return method == 'GET'
+            if path.startswith('/api/core_deck/public_state') or path.startswith('/api/core_deck/download_latest_pptx'):
+                return method == 'GET'
+
+            # Read-only dashboard APIs required by external MTBF/live stats pages.
+            # Do not allow dashboard write/admin endpoints for viewer sessions.
+            if path.startswith('/api/dashboard/') and method == 'GET':
+                allowed_dashboard_suffixes = (
+                    '/excel/full_table',
+                    '/open_jiras',
+                )
+                return any(path.endswith(suffix) for suffix in allowed_dashboard_suffixes)
+
+            # Read-only Build Report lookup used by the external live-stats
+            # Build Report tab to show current/running builds. Report execution
+            # remains limited to the saved-JQL report endpoints below.
+            if path == '/api/build_report/running_builds':
+                return method == 'GET'
+
+            # Saved-JQL APIs: external users may list cached rows and view cached
+            # reports only. They must not create/edit/delete or force-run reports.
+            if path.startswith('/api/others_live_view_stats/') or path.startswith('/api/wbc_live_view_stats/') or path.startswith('/api/automotive_live_view_stats/'):
+                if method != 'GET':
+                    return False
+                if path.endswith('/report') and str(request.args.get('force') or '').lower() in ('1', 'true', 'yes', 'on'):
+                    return False
+                return True
+
+            return False
+
+        if not _viewer_path_allowed(_path, _method):
+            if (request.path.startswith('/api/') or
+                    request.headers.get('Accept', '').startswith('application/json') or
+                    request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+                return jsonify(ok=False, success=False, error='External viewer access is limited to published Live Status report pages.'), 403
+            return redirect(url_for('live_status_publish_bp.landing'))
 
     # External Live Status viewers should stay on the external pages without
     # idle auto-logout. They have read-only viewer_mode access and no internal
@@ -366,12 +430,78 @@ def _check_session_idle():
     session['last_active'] = now_ts
 
 
+def _track_page_view_after_request(response):
+    """Log lightweight page-view analytics for authenticated HTML GET pages.
+
+    Keep this deliberately conservative:
+    - only successful HTML GET responses
+    - no /api, /static, login/logout, admin analytics endpoints
+    - per-session endpoint/path throttle to avoid duplicate refresh/poll noise
+    """
+    try:
+        if response.status_code != 200:
+            return
+        if request.method != 'GET':
+            return
+        if not current_user.is_authenticated:
+            return
+
+        path = request.path or ''
+        endpoint = request.endpoint or ''
+        content_type = response.content_type or ''
+
+        if 'text/html' not in content_type:
+            return
+        if endpoint in {'static', 'login', 'logout'}:
+            return
+        if path.startswith('/static/') or path.startswith('/api/') or path.startswith('/favicon'):
+            return
+        if path.startswith('/admin/usage'):
+            return
+
+        # Avoid writing multiple rows for the same page from reloads/redirects in
+        # a short window.  This keeps the user_data table useful and login/page
+        # navigation fast enough.
+        now_ts = datetime.now().timestamp()
+        track_key = f"{endpoint}|{path}"
+        last_key = session.get('_last_page_view_key')
+        last_ts = float(session.get('_last_page_view_ts') or 0)
+        if last_key == track_key and (now_ts - last_ts) < 60:
+            return
+
+        session['_last_page_view_key'] = track_key
+        session['_last_page_view_ts'] = now_ts
+        session.modified = True
+
+        target_name = (
+            request.view_args.get('target') if getattr(request, 'view_args', None) else None
+        ) or (
+            request.view_args.get('target_name') if getattr(request, 'view_args', None) else None
+        ) or request.args.get('target') or request.args.get('target_name')
+
+        user_type = 'external' if session.get('viewer_mode') else 'internal'
+        log_user_activity(
+            user_id=current_user.get_id(),
+            action_type='PAGE_VIEW',
+            endpoint=endpoint[:255],
+            target_name=target_name,
+            query_text=request.query_string.decode('utf-8', errors='ignore')[:5000] if request.query_string else None,
+            result_status='SUCCESS',
+            user_type=user_type,
+            admin_users=ADMIN_USERS,
+        )
+    except Exception as _page_track_err:
+        logger.info(f"[USAGE] PAGE_VIEW tracking skipped: {_page_track_err}")
+
+
 @app.after_request
 def _set_no_cache_html(response):
     """Prevent browsers from caching HTML pages so template changes are always picked up.
     The login page uses 'no-cache' (not 'no-store') so the browser password manager
     can still auto-fill saved credentials.
     """
+    _track_page_view_after_request(response)
+
     ct = response.content_type or ''
     if 'text/html' in ct:
         # Login page: use no-cache (not no-store) so browser password manager works
@@ -9461,7 +9591,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

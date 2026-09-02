@@ -46,7 +46,7 @@
 
         <div class="login-header">
           <h2>Sign In</h2>
-          <p>{% if require_password %}Internal access requires password verification{% else %}User ID only for external Live Status{% endif %}</p>
+          <p>External users continue directly; internal access requires password verification</p>
         </div>
 
         <!-- Inline error banner -->
@@ -85,10 +85,9 @@
                 autocorrect="off" autocapitalize="off" spellcheck="false"
                 required autofocus>
             </div>
-            <div class="field-hint">{% if require_password %}This user ID is an internal PDT Buddy user. Enter your Qualcomm password to continue to the internal site.{% else %}External Live Status opens with user ID only. Internal users will be asked for password before internal access is granted.{% endif %}</div>
+            <div class="field-hint">External Live Status opens with user ID only. Internal PDT Buddy users must enter a Qualcomm password.</div>
           </div>
 
-          {% if require_password %}
           <div class="form-group">
             <label for="password">Qualcomm Password <span class="label-badge">Internal</span></label>
             <div class="input-wrap">
@@ -97,9 +96,8 @@
                 <path d="M7 8V6a3 3 0 0 1 6 0v2" stroke="#a0aec0" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
               <input type="password" id="password" name="password"
-                placeholder="Enter Qualcomm password"
-                autocomplete="current-password"
-                required autofocus>
+                placeholder="Enter Qualcomm password for internal access"
+                autocomplete="current-password">
               <button type="button" class="eye-btn" onclick="togglePwd('password', this)" aria-label="Show password">
                 <svg class="eye-icon" viewBox="0 0 20 20" fill="none">
                   <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke="#64748b" stroke-width="1.5"/>
@@ -107,11 +105,16 @@
                 </svg>
               </button>
             </div>
-            <div class="field-hint">Password is required only for internal PDT Buddy access.</div>
+            <div class="field-hint">Leave password empty for external Live Status viewer access.</div>
           </div>
-          {% else %}
-          <input type="hidden" id="password" name="password" value="">
-          {% endif %}
+
+          <label class="browser-save-row" for="browserSaveHint">
+            <input type="checkbox" id="browserSaveHint" name="browser_save_hint" checked>
+            <span>
+              Save/use this User ID and Password in browser
+              <small>After successful internal login, Chrome/Edge may ask to save or update the password. PDT Buddy cannot read saved passwords directly.</small>
+            </span>
+          </label>
 
           <!-- Submit -->
           <button type="submit" class="login-btn" id="loginBtn">
@@ -210,6 +213,17 @@
   margin-left:6px; vertical-align:middle;
 }
 .field-hint { font-size:11.5px; color:#94a3b8; margin-top:5px; line-height:1.5; }
+.browser-save-row {
+  display:flex; align-items:flex-start; gap:10px;
+  margin:-2px 0 14px; padding:10px 12px;
+  border:1px solid #dbeafe; border-radius:13px;
+  background:linear-gradient(135deg,#eff6ff,#f5f3ff);
+  color:#34415f; font-size:12.5px; font-weight:800;
+  cursor:pointer; user-select:none;
+}
+.browser-save-row input { margin-top:2px; accent-color:#4f46e5; }
+.browser-save-row span { display:flex; flex-direction:column; gap:3px; line-height:1.25; }
+.browser-save-row small { color:#64748b; font-size:11px; font-weight:600; line-height:1.35; }
 .login-steps {
   display:flex; align-items:center; justify-content:center;
   margin-top:20px; padding-top:16px; border-top:1px solid #f1f5f9;
@@ -237,35 +251,76 @@ function togglePwd(id, btn) {
 }
 
 
-(function autoSubmitSavedUserId() {
+(function rememberBrowserPreference() {
+  var chk = document.getElementById('browserSaveHint');
+  if (!chk) return;
+  var key = 'pdtBuddyUseBrowserSavedLogin';
+  var saved = localStorage.getItem(key);
+  if (saved !== null) chk.checked = saved === '1';
+  chk.addEventListener('change', function () {
+    localStorage.setItem(key, chk.checked ? '1' : '0');
+  });
+})();
+
+(function autoSubmitSavedCredentials() {
   var form = document.getElementById('loginForm');
   var user = document.getElementById('username');
   var pwd = document.getElementById('password');
-  if (!form || !user || (pwd && pwd.type === 'password')) return;
+  if (!form || !user) return;
 
-  var submittedKey = 'pdtBuddyAutoSubmittedUserId';
+  var submittedKey = 'pdtBuddyAutoSubmittedLogin';
   function normaliseUserId(v) {
     v = (v || '').trim().toLowerCase();
     if (v.endsWith('@qti.qualcomm.com')) v = v.split('@')[0].trim();
     return v;
   }
 
+  function shouldSkipAutoSubmit() {
+    var err = document.getElementById('loginError');
+    if (err) return true;
+    return !!(document.activeElement === user || document.activeElement === pwd);
+  }
+
   function trySubmit() {
+    var useBrowserSaved = document.getElementById('browserSaveHint');
+    if (useBrowserSaved && !useBrowserSaved.checked) return;
+
     var uid = normaliseUserId(user.value);
     if (!uid || uid.length < 3) return;
-    if (sessionStorage.getItem(submittedKey) === uid) return;
-    sessionStorage.setItem(submittedKey, uid);
+
+    // Auto-login should happen only when the browser has restored BOTH
+    // username and password.  User-ID-only external login stays direct,
+    // but it must be started by clicking Continue to avoid background
+    // LDAP userid checks while merely displaying the page.
+    var hasPassword = !!(pwd && pwd.value);
+    if (!hasPassword) return;
+
+    var submitToken = uid + ':with-password';
+    if (sessionStorage.getItem(submittedKey) === submitToken) return;
+
     window.setTimeout(function () {
-      if (document.activeElement === user) return;
+      if (shouldSkipAutoSubmit()) return;
+
+      var currentUid = normaliseUserId(user.value);
+      var currentHasPassword = !!(pwd && pwd.value);
+      var currentToken = currentUid + ':with-password';
+      if (!currentUid || currentUid.length < 3 || !currentHasPassword) return;
+      if (sessionStorage.getItem(submittedKey) === currentToken) return;
+
+      sessionStorage.setItem(submittedKey, currentToken);
       if (typeof form.requestSubmit === 'function') form.requestSubmit();
       else form.submit();
-    }, 250);
+    }, 350);
   }
 
   window.addEventListener('pageshow', function () {
-    window.setTimeout(trySubmit, 450);
+    // Give Chrome/Edge password manager enough time to populate saved
+    // username/password fields before deciding between internal and external login.
+    window.setTimeout(trySubmit, 700);
+    window.setTimeout(trySubmit, 1400);
   });
   user.addEventListener('change', trySubmit);
+  if (pwd) pwd.addEventListener('change', trySubmit);
 })();
 
 function onLoginSubmit() {

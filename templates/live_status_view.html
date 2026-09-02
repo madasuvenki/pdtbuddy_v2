@@ -161,7 +161,7 @@
       <div class="sub">DB-backed META selection, consolidated CRs, open JIRAs, and saved exclusions.</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding-top:6px;flex-shrink:0">
-      <a id="lsvSpPageBtn" href="/live_status_view/AUTO/{{ target_name }}/sp" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #a5b4fc;background:linear-gradient(135deg,#eef2ff,#fdf4ff);color:#4338ca;font-weight:900;font-size:12px;text-decoration:none" title="View SP-level MTBF breakdown"><i class="fas fa-layer-group"></i> SP MTBF View</a>
+      <a id="lsvSpPageBtn" href="/live_status_view/{{ bu_key|default('AUTO') }}/{{ target_name }}/sp" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #a5b4fc;background:linear-gradient(135deg,#eef2ff,#fdf4ff);color:#4338ca;font-weight:900;font-size:12px;text-decoration:none" title="View SP-level MTBF breakdown"><i class="fas fa-layer-group"></i> SP MTBF View</a>
       <button id="lsvCustomizeBtn" onclick="lsvOpenCustomize()"
         style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.12);transition:all .15s">
         <i class="fas fa-sliders-h"></i> Customize Tabs
@@ -226,9 +226,10 @@
         <div style="display:flex;align-items:center;gap:6px" id="adasSpSelectorWrap"><label style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">SP</label><select id="adasSpSelect" onchange="adasSwitchSp()" style="border:1.5px solid #a5b4fc;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:#4338ca;background:#eef2ff;outline:none"><option value="">All (Base)</option></select></div>
         <div style="width:1px;height:22px;background:#e2e8f0;flex-shrink:0"></div>
         <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-filter"></i> Show</span>
-        <button class="adas-flt-btn" data-n="5" onclick="adasSetFilter(5,this)">Last 5</button>
-        <button class="adas-flt-btn active" data-n="10" onclick="adasSetFilter(10,this)">Last 10</button>
-        <button class="adas-flt-btn" data-n="0" onclick="adasSetFilter(0,this)">All</button>
+        <button class="adas-flt-btn active" data-n="5" onclick="lsvSetLatestLimit(5,this)">Last 5</button>
+        <button class="adas-flt-btn" data-n="10" onclick="lsvSetLatestLimit(10,this)">Last 10</button>
+        <button class="adas-flt-btn" data-n="15" onclick="lsvSetLatestLimit(15,this)">Last 15</button>
+        <button class="adas-flt-btn" data-n="0" onclick="lsvSetLatestLimit(0,this)" title="Open full MTBF chart in a new tab">All ↗</button>
         <span id="adasSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
         <span id="adasMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
         <button class="primary small" onclick="adasOpenAddModal()"><i class="fas fa-plus"></i> Add Build</button>
@@ -472,9 +473,14 @@
         <span id="crJobStatus" class="muted"></span>
         <span id="crReportSpinner" style="display:none;color:#6366f1"><i class="fas fa-circle-notch spin"></i></span>
         <span id="crReportMsg" style="font-size:11px;font-weight:700;color:#059669"></span>
-        <button class="primary small" id="crRefreshBtn" onclick="crRunReport(true)"><i class="fas fa-rotate"></i> Refresh</button>
-        <button class="ghost small" onclick="crLoadData(true)"><i class="fas fa-sync-alt"></i> Reload</button>
-        <button class="primary small" onclick="crAddBuildFromRow()" title="Add to ADAS MTBF"><i class="fas fa-plus"></i> Add Build</button>
+          <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-filter"></i> Scope</span>
+          <button class="adas-flt-btn active" data-n="5" onclick="lsvSetLatestLimit(5,this)">Latest 5</button>
+          <button class="adas-flt-btn" data-n="10" onclick="lsvSetLatestLimit(10,this)">10</button>
+          <button class="adas-flt-btn" data-n="15" onclick="lsvSetLatestLimit(15,this)">15</button>
+          <button class="adas-flt-btn" data-n="0" onclick="lsvSetLatestLimit(0,this)" title="Open full chart in a new tab">All ↗</button>
+          <button class="primary small" id="crRefreshBtn" onclick="crRunReport(true)"><i class="fas fa-rotate"></i> Refresh</button>
+          <button class="ghost small" onclick="crLoadData(true)"><i class="fas fa-sync-alt"></i> Reload</button>
+          <button class="primary small" onclick="crAddBuildFromRow()" title="Add to ADAS MTBF"><i class="fas fa-plus"></i> Add Build</button>
       </div>
     </div>
 
@@ -669,6 +675,10 @@
 
 <script>
 const TARGET = {{ target_name|tojson }};
+const LSV_BU = "{{ bu_key|default('') }}";
+const LSV_IS_COMPUTE = String(LSV_BU || '').toUpperCase() === 'COMPUTE' || /^(COMPUTE|GLYMUR|MAHUA|KALAMBO)/i.test(String(TARGET || ''));
+const LSV_JIRA_PDT_FILTER_ID = "{{ jira_pdt_filter_id|default('76997') }}";
+let _lsvLatestLimit = (new URLSearchParams(window.location.search).get('mtbf_all') === '1') ? 0 : 5;
 const META_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/meta_rows`;
 const CONSOLIDATED_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/consolidated`;
 
@@ -1161,7 +1171,7 @@ function adasSwitchSp(){
   adasLoadData(true);
 }
 
-let _adasNFilter   = 10;    // default: Last 10
+let _adasNFilter   = _lsvLatestLimit;    // default: Last 5, or All when opened with ?mtbf_all=1
 let _adasCrashTypes = ['system','ssr','process']; // which crash types count toward Total Crashes
 let _adasTableRows = [];    // rows shown in table after search
 
@@ -1232,18 +1242,38 @@ function adasCrashTypeChanged(){
   _adasRenderAll(); // re-renders chart + table with new effective totals
 }
 
-function adasSetFilter(n, btn){
-  _adasNFilter = n;
-  document.querySelectorAll('.adas-flt-btn').forEach(b => b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
+function lsvSetLatestLimit(n, btn){
+  _lsvLatestLimit = Number(n || 0);
+  if(_lsvLatestLimit === 0 && btn && !new URLSearchParams(window.location.search).get('mtbf_all')){
+    const u = new URL(window.location.href);
+    u.searchParams.set('mtbf_all','1');
+    window.open(u.toString(), '_blank', 'noopener');
+    return;
+  }
+  _adasNFilter = _lsvLatestLimit;
+  document.querySelectorAll('.adas-flt-btn').forEach(b => {
+    const active = Number(b.getAttribute('data-n') || 0) === _lsvLatestLimit;
+    b.classList.toggle('active', active);
+  });
   _adasRenderAll();
+  if(typeof crRenderBuildSidebar === 'function') crRenderBuildSidebar();
+  if(typeof _crRenderBuildCards === 'function') _crRenderBuildCards();
+  if(typeof _crUpdateRunPill === 'function') _crUpdateRunPill();
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
+}
+
+function adasSetFilter(n, btn){ lsvSetLatestLimit(n, btn); }
+
+function _adasLatestRows(rows){
+  const list = [...(rows || [])];
+  return _adasNFilter > 0 ? list.slice(-_adasNFilter) : list;
 }
 
 function _adasRenderAll(){
   _adasCrashTypes = _adasGetCrashTypes();
-  const chartRows = _adasNFilter > 0 ? _adasRows.slice(-_adasNFilter) : [..._adasRows];
+  const chartRows = _adasLatestRows(_adasRows);
   _adasRenderChart(chartRows, _adasCrashTypes);
-  _adasRenderTable(_adasRows, _adasCrashTypes);
+  _adasRenderTable(chartRows, _adasCrashTypes);
 }
 
 // ── chart ────────────────────────────────────────────────────────────────────────
@@ -1283,9 +1313,12 @@ function _adasRenderChart(rows, crashTypes){
   const crashVals = rows.map(r => _adasEffective(r, crashTypes).total);
   const mtbfVals  = rows.map(r => _adasEffective(r, crashTypes).mtbf);
 
-  const minW = Math.max(600, labels.length * 72);
-  canvas.width  = minW; canvas.height = 420;
-  canvas.style.width = minW + 'px'; canvas.style.height = '420px';
+  const allMode = _adasNFilter === 0;
+  const perRowWidth = allMode ? 46 : 96;
+  const minW = Math.max(allMode ? 1200 : 760, labels.length * perRowWidth);
+  const chartH = allMode ? 620 : 420;
+  canvas.width  = minW; canvas.height = chartH;
+  canvas.style.width = minW + 'px'; canvas.style.height = chartH + 'px';
 
   if(_adasChart){ _adasChart.destroy(); _adasChart = null; }
 
@@ -1410,7 +1443,7 @@ function _adasRenderTable(rows, crashTypes){
   }).join('');
 }
 
-function adasFilterTable(){ _adasRenderTable(_adasRows, _adasCrashTypes); }
+function adasFilterTable(){ _adasRenderTable(_adasLatestRows(_adasRows), _adasCrashTypes); }
 
 // ── modal ────────────────────────────────────────────────────────────────────────
 function _adasModalClear(){
@@ -1639,6 +1672,13 @@ function adasCopyTable(){
 document.getElementById('adasModal').addEventListener('click', e => { if(e.target === document.getElementById('adasModal')) adasCloseModal(); });
 
 // Initial load
+document.addEventListener('DOMContentLoaded', function(){
+  if(_lsvLatestLimit === 0){
+    document.querySelectorAll('.adas-flt-btn').forEach(function(b){
+      b.classList.toggle('active', Number(b.getAttribute('data-n') || 0) === 0);
+    });
+  }
+});
 adasLoadData(false);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1655,7 +1695,7 @@ let _crOpenJiraGroups = [];
 let _crExcludedJiras  = [];
 let _crLastJiraCount  = null;
 let _crJqlCustom      = '';
-let _crCurrentDomain  = 'ADAS';
+let _crCurrentDomain  = LSV_IS_COMPUTE ? 'FLEX' : 'ADAS';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function _crLeafBuild(v){
@@ -1681,16 +1721,27 @@ function _crInferDomain(row){
 
 function _crJqlQuote(v){ return String(v || '').replace(/"/g, '\\"'); }
 
+function _crComputeDefaultJqlBase(){
+  return `(project = QSTABILITY OR project = DROIDBUG OR project = CHIPMD OR project = QWINBUG) AND filter = ${LSV_JIRA_PDT_FILTER_ID} AND summary !~ "tombstone"`;
+}
+
+function _crScopedRowsForLatest(){
+  const rows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain && !_crRemovedGroups.has(_crBuildGroupKey(r)));
+  if(!LSV_IS_COMPUTE && !_lsvLatestLimit) return rows;
+  return _lsvLatestLimit > 0 ? rows.slice(0, _lsvLatestLimit) : rows;
+}
+
 function _crGetJql(){
-  const base = (_crJqlCustom || _crPersistedJql || "").trim();
+  const base = (_crJqlCustom || _crPersistedJql || (LSV_IS_COMPUTE ? _crComputeDefaultJqlBase() : "")).trim();
   if(!base) return "";
   // If a custom search text is active (new PL not yet in DB), scope by that text
   if(_crCustomSearchText){
     const clause = "summary ~ " + JSON.stringify(_crCustomSearchText);
     return "(" + clause + ") AND (" + base + ")";
   }
-  const allBuilds = [...new Set((_crRunningRows || []).flatMap(_crRowBuilds))];
-  const selected  = _crSelectedBuilds();
+  const scopedRows = _crScopedRowsForLatest();
+  const allBuilds = [...new Set(scopedRows.flatMap(_crRowBuilds))];
+  const selected  = _crSelectedBuilds().filter(b => allBuilds.includes(b));
   if(!allBuilds.length || selected.length === allBuilds.length) return base;
   if(!selected.length) return "";
   const buildClause = "(" + selected.map(b => "summary ~ " + JSON.stringify(b)).join(" OR ") + ")";
@@ -1800,7 +1851,9 @@ function crRenderBuildSidebar(){
   if(!host) return;
   _crEnsureSelectedGroups();
   const q = String(document.getElementById("crBuildSearch")?.value || "").toLowerCase().trim();
-  const groups = _crVisibleDomainGroups().filter(g => !q || (g.meta + " " + [...g.builds].join(" ") + " " + g.domain).toLowerCase().includes(q));
+  const groups = _crVisibleDomainGroups()
+    .filter(g => _crScopedRowsForLatest().some(r => _crBuildGroupKey(r) === g.key))
+    .filter(g => !q || (g.meta + " " + [...g.builds].join(" ") + " " + g.domain).toLowerCase().includes(q));
 
   // Active custom-search banner (shown when a manual text filter is active)
   const customBanner = _crCustomSearchText
@@ -1861,7 +1914,7 @@ function crToggleGroup(key, checked){
   _crRenderBuildCards();
   _crUpdateRunPill();
   _crLastJiraCount = null;
-  if(_crPersistedJql) crRunReport(true);
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
 }
 function crSelectAllGroups(checked){
   _crSoloGroup = null;
@@ -1870,7 +1923,7 @@ function crSelectAllGroups(checked){
   _crRenderBuildCards();
   _crUpdateRunPill();
   _crLastJiraCount = null;
-  if(_crPersistedJql) crRunReport(true);
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
 }
 function crRemoveBuildGroup(key){
   if(!confirm('Remove this build group from the current list?')) return;
@@ -1881,7 +1934,7 @@ function crRemoveBuildGroup(key){
   crRenderBuildSidebar();
   _crRenderBuildCards();
   _crUpdateRunPill();
-  if(_crPersistedJql) crRunReport(true);
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
 }
 function crRestoreRemovedBuilds(){
   _crRemovedGroups.clear();
@@ -1922,14 +1975,14 @@ function crNavClickGroup(key){
   _crRenderBuildCards();
   _crUpdateRunPill();
   _crLastJiraCount = null;
-  if(_crPersistedJql) crRunReport(true);
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
 }
 
 // ── right-side build cards ─────────────────────────────────────────────────────────────
 function _crRenderBuildCards(){
   const host = document.getElementById('crBuildCards');
   if(!host) return;
-  const groups = _crVisibleDomainGroups();
+  const groups = _crVisibleDomainGroups().filter(g => _crScopedRowsForLatest().some(r => _crBuildGroupKey(r) === g.key));
   if(!groups.length){
     host.innerHTML = `<div style="padding:14px;color:#94a3b8;font-size:12px"><i class="fas fa-inbox"></i> No running builds for ${esc(_crCurrentDomain)}.</div>`;
     return;
@@ -1958,6 +2011,8 @@ function _crRenderBuildCards(){
     </div>`;
   }).join('');
 }
+
+function _crNormalizeDbRow(r){
   const row = {...(r || {})};
   row.display_build = row.display_build || row.build_full || row.build_name || row.build_id || row.build || '';
   row.build_full = row.build_full || row.build_name || row.build_id || row.display_build || '';
@@ -1984,7 +2039,7 @@ function _crMergeRows(jobRows, dbRows){
 // Override selected builds to use the left grouped build list.
 function _crSelectedBuilds(){
   const selected = [];
-  (_crRunningRows || []).forEach(row => {
+  _crScopedRowsForLatest().forEach(row => {
     const key = _crBuildGroupKey(row);
     if(_crRemovedGroups.has(key) || !_crSelectedGroups.has(key)) return;
     _crRowBuilds(row).forEach(b => selected.push(b));
@@ -1993,7 +2048,7 @@ function _crSelectedBuilds(){
 }
 
 function _crUpdateRunPill(){
-  const visibleGroups = _crVisibleDomainGroups();
+  const visibleGroups = _crVisibleDomainGroups().filter(g => _crScopedRowsForLatest().some(r => _crBuildGroupKey(r) === g.key));
   const selectedGroups = visibleGroups.filter(g => _crSelectedGroups.has(g.key));
   const allBuilds = [...new Set(visibleGroups.flatMap(g => [...g.builds]))];
   const selectedBuilds = _crSelectedBuilds().filter(b => allBuilds.includes(b));
@@ -2016,7 +2071,7 @@ function crOnBuildSelectionChanged(){
   crRenderBuildSidebar();
   _crUpdateRunPill();
   _crLastJiraCount = null;
-  if(_crPersistedJql) crRunReport(true);
+  if(_crPersistedJql || LSV_IS_COMPUTE) crRunReport(true);
 }
 function crApplyDomainFilter(domain){ crNavSetDomain(domain); }
 
@@ -2070,7 +2125,7 @@ async function crLoadData(force){
     _crRenderBuildCards();
     _crUpdateRunPill();
 
-    if(_crPersistedJql && _crRunningRows.length){
+    if((_crPersistedJql || LSV_IS_COMPUTE) && _crRunningRows.length){
       await crRunReport(false);
     } else {
       document.getElementById('crReportBody').innerHTML = `<tr><td colspan="9" class="empty"><i class="fas fa-info-circle"></i><p>${_crRunningRows.length ? 'No JIRA query configured for this job.' : 'No running builds found.'}</p></td></tr>`;
@@ -2091,7 +2146,7 @@ async function crLoadData(force){
 function _crRenderRunningBuilds(){
   const body = document.getElementById('crRunBody');
   if(!body) return;
-  const rows = (_crRunningRows || []).filter(r => _crInferDomain(r) === _crCurrentDomain && !_crRemovedGroups.has(_crBuildGroupKey(r)));
+  const rows = _crScopedRowsForLatest();
   if(!rows.length){
     body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No running builds for ${esc(_crCurrentDomain)} domain.</p></td></tr>`;
     return;
@@ -2127,7 +2182,7 @@ function _crRenderRunningBuilds(){
 function _crRenderBuildChips(){
   const host = document.getElementById('crBuildChips');
   if(!host) return;
-  const groups = _crVisibleDomainGroups();
+  const groups = _crVisibleDomainGroups().filter(g => _crScopedRowsForLatest().some(r => _crBuildGroupKey(r) === g.key));
   const selectedBuilds = _crSelectedBuilds();
   if(!groups.length){ host.innerHTML = '<span class="muted">No builds available</span>'; return; }
   const domainChip = `<button class="cr-build-chip active" onclick="crSelectDomainBuilds()" title="Query all ${esc(_crCurrentDomain)} builds"><i class="fas fa-layer-group"></i> All ${esc(_crCurrentDomain)}</button>`;

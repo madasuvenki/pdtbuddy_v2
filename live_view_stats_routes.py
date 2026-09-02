@@ -767,6 +767,13 @@ def _sjql_run_report(target_name: str, domain: str, tab_id: str, force: bool = F
             "next_run_at": (now + ttl).isoformat() + "Z",
             "next_auto_refresh_at": (now + ttl).isoformat() + "Z",
             "summary": raw_report.get("summary") or {},
+            # Keep the same rich backend payload used by Build Report standalone so
+            # live-view pages can render the same 3-tab report without opening the
+            # standalone template.
+            "hierarchical_report": raw_report.get("hierarchical_report") or [],
+            "jiras": raw_report.get("jiras") or [],
+            "cr_index": raw_report.get("cr_index") or {},
+            "raw_report": raw_report,
         }
         stored = set_cached_report(target_name, domain, tab_id, report)
         # Use the registry-computed next_run_at (respects per-job refresh_minutes)
