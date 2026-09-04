@@ -48,6 +48,8 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
+- ✅ WBC Live View Compose Mail now creates an Outlook desktop draft for the current running build report using `ms-outlook://compose` only, with a report-style body and CR Details columns for CR-ID, occurrence, title, area, subsystem, functionality, date, SI, status, and age.
+- ✅ WBC Live View PPT download now uses the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` teams-ready slide sequence/details via `wbc_legacy_ppt_adapter.py`: optional cover, selected-meta status slide, MTBF trend slide, Open/Analysis CR slides with QGenie/TEA-derived analysis fields, and optional ThankQ slide.
 - ✅ Live Status Core Slides external view now supports direct latest generated PPTX download from `/api/core_deck/download_latest_pptx?target=<target>` without regenerating or modifying slide content.
 - ✅ UniqQC dashboard is integrated as a PDT Buddy blueprint/page and now uses PDT Buddy MySQL `overallcrs` tables via `dashboard_status` metadata/db prefixes, with compatible data, subsystem, CR detail, PPT, and CSV/ZIP export endpoints.
 - ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode

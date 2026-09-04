@@ -1083,6 +1083,132 @@ def _build_summary_from_jiras(jiras_table: str, openjiras_table: str = "") -> Di
 
 
 
+def _wbc_cell_value(row: Dict[str, Any], cols: List[str], candidates: List[str]) -> Any:
+    col = _first_col(cols, candidates)
+    return row.get(col) if col else ""
+
+
+def _wbc_unique_cr_lookup(unique_table: str, cr_values: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Fetch CR metadata from the configured target unique_crs/overallcrs table.
+
+    Current-running JQL rows can have CR status from Orbit traversal but may not
+    include target DB-only fields such as SI/image, area/subsystem/functionality,
+    or an age column. This lookup enriches the current report from the same table
+    configured in WBC Config for that target.
+    """
+    cr_keys = []
+    seen = set()
+    for value in cr_values or []:
+        text = str(value or "").strip().upper()
+        if not text:
+            continue
+        variants = {text}
+        if text.startswith("CR"):
+            variants.add(text[2:])
+        elif re.fullmatch(r"\d{5,9}", text):
+            variants.add("CR" + text)
+        for variant in variants:
+            if variant and variant not in seen:
+                seen.add(variant)
+                cr_keys.append(variant)
+    if not unique_table or not cr_keys:
+        return {}
+    conn = get_mysql_connection_db(database_name=_WBC_SCHEMA) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {}
+    cur = conn.cursor(dictionary=True)
+    try:
+        cols = _table_cols(cur, unique_table)
+        if not cols:
+            return {}
+        cr_col = _first_col(cols, ["CR", "CR-ID", "CR ID", "cr", "mapped_cr", "mapped_crs", "cr_id", "crid", "unique_cr", "cr_number"])
+        if not cr_col:
+            return {}
+        wanted_aliases = [
+            ["CR", "CR-ID", "CR ID", "cr", "mapped_cr", "cr_id", "unique_cr"],
+            ["CR Title", "cr_title", "title", "summary"],
+            ["CR Status", "cr_status", "status", "state"],
+            ["CR Area", "cr_area", "area", "technology_area"],
+            ["CR Subsystem", "CR SubSystem", "cr_subsystem", "subsystem", "sub_system"],
+            ["CR Functionality", "CR Function", "cr_functionality", "functionality", "func", "cr_function"],
+            ["CR Date", "cr_date", "created", "created_date", "date"],
+            ["CR SI", "CR Image", "cr_image", "image", "Image", "software_image", "Software Image", "image_reference", "Image Reference", "si_last_seen", "SI Last Seen", "cr_si", "si"],
+            ["CR Age", "cr_age", "overall_age", "age", "age_days", "days_open"],
+            ["Priority", "priority", "cr_priority"],
+            ["CR Assignee", "assignee", "cr_assignee"],
+        ]
+        selected = []
+        for aliases in wanted_aliases:
+            col = _first_col(cols, aliases)
+            if col and col not in selected:
+                selected.append(col)
+        if cr_col not in selected:
+            selected.insert(0, cr_col)
+        schema, table = _split_table(unique_table)
+        placeholders = ", ".join(["%s"] * len(cr_keys))
+        cur.execute(
+            f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)} "
+            f"WHERE UPPER(TRIM(`{cr_col}`)) IN ({placeholders}) "
+            f"OR REPLACE(UPPER(TRIM(`{cr_col}`)), 'CR', '') IN ({placeholders})",
+            tuple(cr_keys + [k[2:] if k.startswith("CR") else k for k in cr_keys]),
+        )
+        out: Dict[str, Dict[str, Any]] = {}
+        for raw in cur.fetchall() or []:
+            row = {k: (v.isoformat() if isinstance(v, (date, datetime)) else ("" if v is None else v)) for k, v in raw.items()}
+            key_raw = str(row.get(cr_col) or "").strip().upper()
+            keys = {key_raw}
+            if key_raw.startswith("CR"):
+                keys.add(key_raw[2:])
+            elif re.fullmatch(r"\d{5,9}", key_raw):
+                keys.add("CR" + key_raw)
+            mapped = {
+                "CR Title": _wbc_cell_value(row, cols, ["CR Title", "cr_title", "title", "summary"]),
+                "CR Status": _wbc_cell_value(row, cols, ["CR Status", "cr_status", "status", "state"]),
+                "CR Area": _wbc_cell_value(row, cols, ["CR Area", "cr_area", "area", "technology_area"]),
+                "CR Subsystem": _wbc_cell_value(row, cols, ["CR Subsystem", "CR SubSystem", "cr_subsystem", "subsystem", "sub_system"]),
+                "CR Functionality": _wbc_cell_value(row, cols, ["CR Functionality", "CR Function", "cr_functionality", "functionality", "func", "cr_function"]),
+                "CR Date": _wbc_cell_value(row, cols, ["CR Date", "cr_date", "created", "created_date", "date"]),
+                "CR SI": _wbc_cell_value(row, cols, ["CR SI", "CR Image", "cr_image", "image", "Image", "software_image", "Software Image", "image_reference", "Image Reference", "si_last_seen", "SI Last Seen", "cr_si", "si"]),
+                "CR Age": _wbc_cell_value(row, cols, ["CR Age", "cr_age", "overall_age", "age", "age_days", "days_open"]),
+                "Priority": _wbc_cell_value(row, cols, ["Priority", "priority", "cr_priority"]),
+                "CR Assignee": _wbc_cell_value(row, cols, ["CR Assignee", "assignee", "cr_assignee"]),
+            }
+            for key in keys:
+                if key:
+                    out[key] = mapped
+        return out
+    except Exception:
+        return {}
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _wbc_enrich_rows_from_unique_table(rows: List[Dict[str, Any]], unique_table: str) -> List[Dict[str, Any]]:
+    rows = [dict(r) for r in (rows or []) if isinstance(r, dict)]
+    cr_values = [str(r.get("CR") or r.get("cr") or r.get("mapped_cr") or "").strip() for r in rows]
+    lookup = _wbc_unique_cr_lookup(unique_table, cr_values)
+    if not lookup:
+        return rows
+    fill_keys = ["CR Title", "CR Status", "CR Area", "CR Subsystem", "CR Functionality", "CR Date", "CR SI", "CR Age", "Priority", "CR Assignee"]
+    for row in rows:
+        cr = str(row.get("CR") or row.get("cr") or row.get("mapped_cr") or "").strip().upper()
+        info = lookup.get(cr) or (lookup.get(cr[2:]) if cr.startswith("CR") else lookup.get("CR" + cr))
+        if not info:
+            continue
+        for key in fill_keys:
+            if row.get(key) in (None, "") and info.get(key) not in (None, ""):
+                row[key] = info.get(key)
+        # Preserve older frontend aliases too.
+        if row.get("CR Function") in (None, "") and info.get("CR Functionality") not in (None, ""):
+            row["CR Function"] = info.get("CR Functionality")
+        if row.get("CR Image") in (None, "") and info.get("CR SI") not in (None, ""):
+            row["CR Image"] = info.get("CR SI")
+    return rows
+
+
 def _preview_rows(fq_table: str, limit: int = 100) -> Dict[str, Any]:
     if not fq_table:
         return {"columns": [], "rows": [], "count": 0, "error": "No table configured"}
@@ -1981,6 +2107,12 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             )
         if cached and jql_match:
             cached = dict(cached)
+            cfg = _load_config()
+            db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
+            unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
+            enriched_rows = _wbc_enrich_rows_from_unique_table(cached.get("rows") or cached.get("flat_rows") or [], unique_table)
+            cached["rows"] = enriched_rows
+            cached["flat_rows"] = enriched_rows
             cached = _wbc_enrich_report_counts(cached)
             cached.update({"ok": True, "from_cache": True, "tab": tab, "jql": jql, "raw_jql": raw_jql, "filter_id": filter_id, "filter_resolved": resolved})
             cached.update(_wbc_saved_jql_cache_meta(cached))
@@ -2004,7 +2136,10 @@ def api_wbc_saved_jql_tab_report(target_key: str, tab_id: str):
             target_name=target.get("key") or target.get("name") or None,
             custom_jql=jql,
         )
-        rows = _wbc_flatten_consolidated_report(raw_report)
+        cfg = _load_config()
+        db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
+        unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
+        rows = _wbc_enrich_rows_from_unique_table(_wbc_flatten_consolidated_report(raw_report), unique_table)
         report = _wbc_enrich_report_counts({
             "ok": True,
 
@@ -3548,6 +3683,47 @@ _TEA_API_USERNAME = os.environ.get("TEA_API_USERNAME", "alalji")
 _TEA_API_KEY = os.environ.get("TEA_API_KEY", "e72501c7-abdd-4971-942c-45ec5a84f65e")
 
 
+def _extract_wbc_tea_scenario(text: Any) -> str:
+    """Extract 1-2 PDT scenario/testcase names from TEA text.
+
+    TEA output commonly contains labels such as Phase, Scenario, Test Case, or
+    Last testcase.  Prefer repeated/common values and keep the UI concise.
+    """
+    raw = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(text or "")).strip()
+    if not raw:
+        return ""
+    values: List[str] = []
+    patterns = [
+        r"(?:PDT\s*)?Scenario(?:\s*Details)?\s*[:=-]\s*([^\n\r;|]+)",
+        r"Last\s+test\s*case\s*[:=-]\s*([^\n\r;|]+)",
+        r"Test\s*Case\s*[:=-]\s*([^\n\r;|]+)",
+        r"TestCase\s*[:=-]\s*([^\n\r;|]+)",
+        r"Phase\s*[:=-]\s*([^\n\r;|]+)",
+    ]
+    for pat in patterns:
+        for match in re.finditer(pat, raw, flags=re.I):
+            val = re.sub(r"\s+", " ", str(match.group(1) or "")).strip(" :-")
+            val = re.sub(r"\s*(?:Playlist|Attempt|Result|Status|CR|Jira)\s*:.*$", "", val, flags=re.I).strip(" :-")
+            if val and not re.match(r"^(na|n/a|none|not available|no testcase\s*crash)$", val, flags=re.I):
+                values.append(val)
+    if not values:
+        # Fallback for common WBC wording seen in TEA narratives.
+        common = [
+            "Idle crash", "SSR", "Boot crash", "Kernel crash", "WLAN crash",
+            "IPA crash", "Modem crash", "Wakeup", "Suspend resume",
+        ]
+        for name in common:
+            if re.search(r"\b" + re.escape(name).replace(r"\ ", r"\s+") + r"\b", raw, flags=re.I):
+                values.append(name)
+    freq: Dict[str, int] = {}
+    display: Dict[str, str] = {}
+    for val in values:
+        key = val.lower()
+        freq[key] = freq.get(key, 0) + 1
+        display.setdefault(key, val)
+    return " / ".join(display[k] for k in sorted(freq, key=lambda k: (-freq[k], k))[:2])
+
+
 def _call_tea_api(cr_number: str) -> Dict[str, Any]:
     """Call the TEA CR analysis API.
 
@@ -3669,14 +3845,20 @@ def api_wbc_open_cr_analyze(target_key: str):
             existing_tea = cr_cache.get("tea") or ""
             if not force and existing_tea and today in existing_tea:
                 result["tea"] = existing_tea
+                if not cr_cache.get("scenario"):
+                    cr_cache["scenario"] = _extract_wbc_tea_scenario(existing_tea)
+                result["scenario"] = cr_cache.get("scenario") or ""
                 result["tea_cached"] = True
             else:
                 tea_result = _call_tea_api(cr_bare)
                 if tea_result.get("ok") and tea_result.get("analysis"):
-                    tea_text = f"[{today}] {tea_result['analysis'][:2000]}"
+                    tea_text = f"[{today}] {tea_result['analysis'][:4000]}"
+                    scenario_text = _extract_wbc_tea_scenario(tea_text)
                     cr_cache["tea"] = tea_text
+                    cr_cache["scenario"] = scenario_text
                     cr_cache["tea_updated"] = today
                     result["tea"] = tea_text
+                    result["scenario"] = scenario_text
                     result["tea_ok"] = True
                 else:
                     result["tea_error"] = tea_result.get("error") or "TEA API returned no analysis"
@@ -3726,7 +3908,10 @@ def api_wbc_open_cr_analyze(target_key: str):
                             messages=[{"role": "user", "content": prompt}],
                             temperature=0.0,
                         )
-                        text = str(resp.choices[0].message.content or "").strip()
+                        try:
+                            text = str(resp.choices[0].message.content or "").strip()
+                        except Exception:
+                            text = str(getattr(resp, "content", resp) or "").strip()
                         text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.IGNORECASE)
                         text = re.sub(r"\n?```$", "", text).strip()
                         if text:
@@ -3782,6 +3967,13 @@ def api_wbc_open_cr_save(target_key: str):
         analyses = cache.get("analyses") or {}
         cr_cache = dict(analyses.get(cr_bare) or {})
 
+        if "tea" in body:
+            cr_cache["tea"] = str(body.get("tea") or "").strip()
+            cr_cache["scenario"] = _extract_wbc_tea_scenario(cr_cache.get("tea") or "")
+        if "scenario" in body:
+            cr_cache["scenario"] = str(body.get("scenario") or "").strip()
+        if "qgenie" in body:
+            cr_cache["qgenie"] = str(body.get("qgenie") or "").strip()
         if "pdt_comment" in body:
             cr_cache["pdt_comment"] = str(body.get("pdt_comment") or "").strip()
         if "is_regression" in body:

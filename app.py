@@ -480,12 +480,20 @@ def _track_page_view_after_request(response):
         ) or request.args.get('target') or request.args.get('target_name')
 
         user_type = 'external' if session.get('viewer_mode') else 'internal'
+        query_text = request.query_string.decode('utf-8', errors='ignore')[:5000] if request.query_string else None
+        log_daily_active_user_once(
+            current_user.get_id(),
+            endpoint=endpoint[:255],
+            target_name=target_name,
+            query_text=query_text,
+            user_type=user_type,
+        )
         log_user_activity(
             user_id=current_user.get_id(),
             action_type='PAGE_VIEW',
             endpoint=endpoint[:255],
             target_name=target_name,
-            query_text=request.query_string.decode('utf-8', errors='ignore')[:5000] if request.query_string else None,
+            query_text=query_text,
             result_status='SUCCESS',
             user_type=user_type,
             admin_users=ADMIN_USERS,
@@ -1440,6 +1448,14 @@ def ensure_user_data_table(cursor):
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    try:
+        cursor.execute("""
+            CREATE INDEX idx_user_data_user_action_date
+            ON pdt_stats_dashboard.user_data (user_id, action_type, created_at)
+        """)
+    except Exception:
+        # MySQL raises when the index already exists; ignore so older/new DBs both work.
+        pass
         # Add user_type column to existing tables that predate this column
     try:
         cursor.execute("""
@@ -1524,6 +1540,78 @@ def log_user_activity(
                 conn.close()
         except Exception:
             pass
+
+
+def log_daily_active_user_once(user_id, *, endpoint=None, target_name=None, query_text=None, user_type=None):
+    """Record one DAILY_ACTIVE row per user per local day."""
+    uid = str(user_id or "").strip()
+    if not uid or uid.upper() == "UNKNOWN":
+        return False
+    if uid.lower() in {u.lower() for u in ADMIN_USERS}:
+        return False
+
+    today_key = datetime.now().strftime("%Y-%m-%d")
+    session_key = f"_daily_active_logged_{today_key}_{uid.lower()}"
+    if session.get(session_key):
+        return False
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_mysql_connection_db()
+        if not conn:
+            logger.info("ERROR: log_daily_active_user_once - DB connection failed")
+            return False
+        cursor = conn.cursor()
+        ensure_user_data_table(cursor)
+        cursor.execute(
+            """
+            SELECT id
+            FROM pdt_stats_dashboard.user_data
+            WHERE user_id=%s
+              AND action_type='DAILY_ACTIVE'
+              AND DATE(created_at)=CURDATE()
+            LIMIT 1
+            """,
+            (uid[:100],),
+        )
+        if cursor.fetchone():
+            session[session_key] = True
+            session.modified = True
+            return False
+        cursor.execute(
+            """
+            INSERT INTO pdt_stats_dashboard.user_data
+            (user_id, action_type, endpoint, target_name, query_text, result_status, user_type)
+            VALUES (%s, 'DAILY_ACTIVE', %s, %s, %s, 'SUCCESS', %s)
+            """,
+            (
+                uid[:100],
+                str(endpoint)[:255] if endpoint else None,
+                str(target_name)[:100] if target_name else None,
+                str(query_text)[:5000] if query_text else None,
+                str(user_type)[:20] if user_type else None,
+            ),
+        )
+        conn.commit()
+        session[session_key] = True
+        session.modified = True
+        return True
+    except Exception as e:
+        logger.error(f" log_daily_active_user_once failed: {e}")
+        return False
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
 
 
 def is_admin():

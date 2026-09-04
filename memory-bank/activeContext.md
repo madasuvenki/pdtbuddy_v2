@@ -2,6 +2,87 @@
 
 ## Current Work Focus
 
+### WBC Live View Outlook Compose Mail Format — Complete (2026-09-05)
+
+**User request addressed:** On `/wbc/live_view_status`, Compose Mail should create an Outlook desktop draft (not web/mailto fallback) for the current running build report, with CR Details matching the provided mail format and including CR occurrence/age/status/SI/area/subsystem/functionality fields.
+
+**Changes made:**
+- `templates/wbc_live_view_stats.html`
+  - Updated `composeWbcCurrentMail()` to use `ms-outlook://compose` only and removed the `mailto:` fallback to avoid opening web mail.
+  - Keeps copying both rich HTML and plain text to clipboard before opening Outlook, so users can paste manually if Outlook protocol handling is blocked by browser/Windows policy.
+  - Updated mail subject to `[WBC PDT] Report on Meta: <meta/build> <date>`.
+  - Updated HTML mail body to match the requested report style:
+    - `Hi All`
+    - Provided E-Meta/product line text
+    - Build ID
+    - Build Status
+    - Current running build summary table
+    - CR Details table
+    - JIRA Details table
+    - Open JIRA Details table
+  - Updated CR Details mail table column aliases/order:
+    - `S.No.`
+    - `CR-ID`
+    - `Occurrence`
+    - `CR Title`
+    - `CR Area`
+    - `CR Subsystem`
+    - `CR Functionality`
+    - `CR Date`
+    - `CR SI`
+    - `CR Status`
+    - `CR Age`
+  - Extended plain-text fallback table handling to support alias column definitions used by the rich HTML table.
+
+**Follow-up fixes (2026-09-05):**
+- Current Running Builds UI CR tab now renders the new CR Details columns directly instead of the old mixed CR/JIRA table columns.
+- Saved-JQL current report rows are now enriched from the configured target `unique_crs_table` first, falling back to `overall_crs_table`, so CR Area/SubSystem/Functionality/SI/Age/status/title/date are populated from the same WBC Config table when available.
+- CR SI aliases now include `CR Image` / `cr_image`, `image_reference`, `si_last_seen`, and `software_image`. This handles cases where Orbit/JQL already has status and CR image/SI, while CR Age remains blank if the target Unique CRs table has no age column/value.
+- Excel V3 browser fallback value lookup was fixed so generic `CR` no longer fuzzy-matches aliases like `CR SI` or `CR Age`; missing SI/Age now stay blank instead of showing the CR number.
+- Compose Mail keeps using `ms-outlook://compose` from the HTTP PDT Buddy page and copies the formatted HTML/plain report first for environments where Outlook/browser protocol body handling is limited.
+- Outlook launch now uses a hidden anchor click to invoke the desktop Outlook protocol handler. From an HTTP page, JavaScript cannot attach to an already-running Outlook COM instance directly; the registered protocol handler is the supported path and should open a new compose window in the running Outlook desktop instance when Windows/Outlook allows it.
+- Mail body tables now have stronger vertical spacing between sections and include expanded JIRA Details / Open JIRA Details columns so other table information such as resolution/final status/final resolution/resolution notes/date is not dropped.
+- Current Build Report Excel controls were renamed from Excel V3 and visually highlighted with a green/cyan gradient button plus a highlighted Build-wise Consolidated Report header board so users can easily notice the action on the glass/light dashboard.
+
+**Validation:**
+- Jinja parse check passed:
+  - `py -3 -c "from pathlib import Path; from jinja2 import Environment; p=Path('templates/wbc_live_view_stats.html'); Environment().parse(p.read_text(encoding='utf-8')); print('WBC_TEMPLATE_JINJA_OK')"`
+- Content verification confirmed:
+  - `_wbcCurrentCrDisplayRows`
+  - `_WBC_CURRENT_CR_DISPLAY_COLS`
+  - `window.location.assign(outlookUrl)`
+  - clipboard copy path
+  - generic `CR` fuzzy-match guard
+  - Current Build Report Excel rename/highlight (`Excel V3` count = 0, highlight markers present)
+
+### WBC Live View PPT Slide Parity With Old WBC Portal — Complete (2026-09-04)
+
+**User request addressed:** Review old WBC/TEA-assisted report code and make current PDT Buddy WBC live view slide preview/download use the same slide details as the old WBC portal.
+
+**Findings:**
+- Old code is in `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py`.
+- TEA flow is via `Open_CR_Script\CR_TEA.py` / `POST /api/cr-summary`; current PDT Buddy already has the matching TEA integration in `wbc_live_view_stats_routes.py` (`_call_tea_api`) and stores TEA/QGenie results in `open_cr_details_<target>.json`.
+- Old PPT export’s active/overriding builder is the “TEAMS-READY PPT EXPORT” block near the end of `WBC_Report.py`.
+- Old PPT slide sequence:
+  1. Optional WBC cover slide
+  2. First/status slide with current meta, PDT status, KPI tiles, key updates, MTBF summary rows, current-meta CR details, and open JIRA details
+  3. Dedicated MTBF Trend by Build slide using custom drawn chart geometry
+  4. One or more Open/Analysis CR slides, chunked 10 rows per slide, including QGenie Analysis
+  5. Optional ThankQ slide
+
+**Changes made:**
+- `wbc_legacy_ppt_adapter.py`
+  - Ported the old `WBC_Report.py` teams-ready PPT builder into the adapter.
+  - Kept the current public function signature `build_ppt(data, include_cover=True, include_thankq=True)` for compatibility with `wbc_live_view_stats_routes.py`.
+  - Added module-level python-pptx imports and missing `io`/`math` imports.
+  - The current WBC route still builds/adapts `ppt_data` from selected meta/build rows, then calls `legacy_wbc_ppt.build_ppt(...)`, so the downloaded PPT now follows the old WBC slide sequence/details.
+  - Existing WBC slide preview modal remains aligned conceptually with the same selected-meta deck: cover, selected meta status slide(s), open/analysis CR slide, and ThankQ.
+
+**Validation:**
+- `py -3 -m py_compile wbc_legacy_ppt_adapter.py wbc_live_view_stats_routes.py` passed.
+- `import wbc_legacy_ppt_adapter` passed.
+- Direct sample `wbc_legacy_ppt_adapter.build_ppt(...)` runtime generation succeeded and returned a PPTX buffer (`PPT_BYTES 36491`).
+
 ### Build Report Browse Build Info Orbit-Only Override — Complete (2026-09-04)
 
 **User request addressed:** On `/build_report`, browsing a saved `.txt` / browser Build Info file should not overwrite the Builds field and should not change/regenerate Direct JQL. The browsed software images are only meant to check/match Orbit CR Software Image/SIR status.

@@ -9666,8 +9666,21 @@ def api_build_report_export_excel():
     sheets = body.get('sheets') if isinstance(body.get('sheets'), dict) else {}
     cr_rows = sheets.get('cr_summary') or sheets.get('CR_Summary') or []
     mapped_rows = sheets.get('mapped_tickets') or sheets.get('Mapped_Tickets') or []
-    open_rows = sheets.get('qstability_tickets') or sheets.get('Qstability_Tickets') or []
-    if not any(isinstance(v, list) and v for v in (cr_rows, mapped_rows, open_rows)):
+    open_rows = (
+        sheets.get('open_jiras')
+        or sheets.get('Open_JIRAs')
+        or sheets.get('open_jira_tickets')
+        or sheets.get('qstability_tickets')
+        or sheets.get('Qstability_Tickets')
+        or []
+    )
+    all_jira_rows = (
+        sheets.get('all_jiras')
+        or sheets.get('All_JIRAs')
+        or sheets.get('all_jira_tickets')
+        or []
+    )
+    if not any(isinstance(v, list) and v for v in (cr_rows, mapped_rows, open_rows, all_jira_rows)):
         return jsonify({'ok': False, 'error': 'No rendered report rows to export.'}), 400
 
     try:
@@ -9726,7 +9739,7 @@ def api_build_report_export_excel():
         match = _re.search(r'(\d{5,9})', str(cr_value or ''))
         return f'https://orbit/CR/{match.group(1)}' if match else ''
 
-    cr_headers = ['#', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type', 'CR Title', 'CR Area', 'CR SubSystem', 'CR Functionality', 'Created Date', 'Built Date', 'CR Age', 'CR SI', 'CR Status', 'Assignee', 'CR Notes (Latest)']
+    cr_headers = ['S.No.', 'CR-ID', 'Occurrence', 'CR Title', 'CR Area', 'CR Subsystem', 'CR Functionality', 'CR Date', 'CR SI', 'CR Status', 'CR Age']
     ws = _safe_sheet('CR_Summary')
     _write_headers(ws, cr_headers)
     for idx, row in enumerate(cr_rows if isinstance(cr_rows, list) else [], start=1):
@@ -9738,19 +9751,14 @@ def api_build_report_export_excel():
             idx,
             _br_export_text(row.get('cr') or row.get('CR-ID')),
             count,
-            _br_export_text(row.get('priority') or row.get('cr_priority') or row.get('CR Priority')),
-            _br_export_text(row.get('crash_type') or row.get('Crash Type')),
             _br_export_text(row.get('title') or row.get('CR Title')),
             _br_export_text(row.get('area') or row.get('CR Area')),
-            _br_export_text(row.get('sub') or row.get('subsystem') or row.get('CR SubSystem')),
+            _br_export_text(row.get('sub') or row.get('subsystem') or row.get('CR SubSystem') or row.get('CR Subsystem')),
             _br_export_text(row.get('func') or row.get('functionality') or row.get('CR Functionality')),
             _br_export_text(row.get('date') or row.get('created_date') or row.get('Created Date') or row.get('CR Date')),
-            _br_export_text(row.get('built_date') or row.get('Built Date')),
-            _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
             _br_export_text(row.get('si') or row.get('CR SI')),
             _br_export_text(row.get('status') or row.get('CR Status')),
-            _br_export_text(row.get('cr_assignee') or row.get('assignee') or ''),
-            _br_export_text(row.get('cr_notes') or row.get('CR Notes') or ''),
+            _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
         ]
         ws.append(values)
         excel_row = ws.max_row
@@ -9763,43 +9771,63 @@ def api_build_report_export_excel():
     for _nc in ws[_notes_col]:
         _nc.alignment = Alignment(vertical='top', wrap_text=True, horizontal='left')
 
-    mapped_headers = ['#', 'JIRA-Ticket', 'Occurrence', 'Jira Title', 'Jira Date', 'Status', 'JIRA Tickets (Source)']
+    mapped_headers = ['#', 'JIRA-Ticket', 'Jira Title', 'Jira Date', 'Status', 'JIRA Tickets (Source)']
     ws = _safe_sheet('Mapped_Tickets')
     _write_headers(ws, mapped_headers)
     for idx, row in enumerate(mapped_rows if isinstance(mapped_rows, list) else [], start=1):
         if not isinstance(row, dict):
             continue
-        ticket = _br_export_text(row.get('ticket') or row.get('JIRA-Ticket'))
-        keys = _br_export_issue_keys(row.get('src_keys') or row.get('srcKeys') or row.get('jira_keys') or row.get('JIRA Tickets (Source)'))
-        values = [idx, ticket, row.get('occurrence', row.get('count', len(keys) or 1)), _br_export_text(row.get('title') or row.get('Jira Title')), _br_export_text(row.get('date') or row.get('Jira Date')), _br_export_text(row.get('status') or row.get('Status')), ', '.join(keys)]
+        ticket = _br_export_text(row.get('ticket') or row.get('key') or row.get('JIRA') or row.get('jira') or row.get('JIRA-Ticket'))
+        keys = _br_export_issue_keys(row.get('src_keys') or row.get('srcKeys') or row.get('jira_keys') or row.get('JIRA Tickets (Source)') or ticket)
+        values = [idx, ticket, _br_export_text(row.get('title') or row.get('Jira Title') or row.get('JIRA Title')), _br_export_text(row.get('date') or row.get('Jira Date') or row.get('Created')), _br_export_text(row.get('status') or row.get('Status') or row.get('JIRA Status')), ', '.join(keys)]
         ws.append(values)
         excel_row = ws.max_row
         _set_link(ws.cell(excel_row, 2), f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else '')
-        _set_link(ws.cell(excel_row, 3), _br_export_jira_issues_url(keys))
+        _set_link(ws.cell(excel_row, 6), _br_export_jira_issues_url(keys))
     _style_body(ws)
 
-    open_headers = ['#', 'JIRA-Ticket', 'Occurrence', 'Jira Title', 'Jira Date', 'Status']
-    ws = _safe_sheet('Qstability_Tickets')
+    open_headers = ['#', 'JIRA-Ticket', 'Jira Title', 'Jira Date', 'Status']
+    ws = _safe_sheet('OpenJIRAs')
     _write_headers(ws, open_headers)
     for idx, row in enumerate(open_rows if isinstance(open_rows, list) else [], start=1):
         if not isinstance(row, dict):
             continue
-        ticket = _br_export_text(row.get('key') or row.get('ticket') or row.get('JIRA-Ticket'))
-        status = _br_export_text(row.get('status') or row.get('Status'))
+        ticket = _br_export_text(row.get('key') or row.get('ticket') or row.get('JIRA') or row.get('jira') or row.get('JIRA-Ticket'))
+        status = _br_export_text(row.get('status') or row.get('Status') or row.get('JIRA Status'))
         note = _br_export_text(row.get('resolution_notes_text') or row.get('final_resolution'))
         values = [
             idx,
             ticket,
-            row.get('occurrence', row.get('count', 1)),
-            _br_export_text(row.get('title') or row.get('Jira Title')),
-            _br_export_text(row.get('date') or row.get('Jira Date')),
+            _br_export_text(row.get('title') or row.get('Jira Title') or row.get('JIRA Title')),
+            _br_export_text(row.get('date') or row.get('Jira Date') or row.get('Created')),
             (status + (f' - {note}' if note else '')).strip(),
         ]
         ws.append(values)
         excel_row = ws.max_row
         jira_url = f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else ''
         _set_link(ws.cell(excel_row, 2), jira_url)
-        _set_link(ws.cell(excel_row, 3), jira_url)
+    _style_body(ws)
+
+    all_jira_headers = ['#', 'JIRA-Ticket', 'Jira Title', 'Jira Date', 'Status']
+    ws = _safe_sheet('AllJIRAs')
+    _write_headers(ws, all_jira_headers)
+    for idx, row in enumerate(all_jira_rows if isinstance(all_jira_rows, list) else [], start=1):
+        if not isinstance(row, dict):
+            continue
+        ticket = _br_export_text(row.get('key') or row.get('ticket') or row.get('JIRA') or row.get('jira') or row.get('JIRA-Ticket'))
+        status = _br_export_text(row.get('status') or row.get('Status') or row.get('JIRA Status'))
+        note = _br_export_text(row.get('resolution_notes_text') or row.get('final_resolution'))
+        values = [
+            idx,
+            ticket,
+            _br_export_text(row.get('title') or row.get('Jira Title') or row.get('JIRA Title')),
+            _br_export_text(row.get('date') or row.get('Jira Date') or row.get('Created')),
+            (status + (f' - {note}' if note else '')).strip(),
+        ]
+        ws.append(values)
+        excel_row = ws.max_row
+        jira_url = f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else ''
+        _set_link(ws.cell(excel_row, 2), jira_url)
     _style_body(ws)
 
     raw_filename = str(body.get('filename') or 'build_report_v3.xlsx')
