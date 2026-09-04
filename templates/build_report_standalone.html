@@ -92,8 +92,13 @@
       <div class="grid" style="margin-top:12px">
         <div class="field" style="grid-column:1/-1">
           <label>Builds</label>
-          <textarea id="brBuilds" placeholder="Paste one or more builds manually, one per line&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1" oninput="if(typeof brGenerateJql==='function'){brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn();}"></textarea>
-          <div class="mode-help">List build IDs here (one per line) to generate JQL <b>and enable Axiom stability metrics (MTBF)</b>. If left blank, builds are auto-detected from JIRA results after first run.</div>
+          <textarea id="brBuilds" placeholder="Build IDs / extracted software images will appear here&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1&#10;Use Browse Build Info File below to select a saved Jira HTML/text file and extract all software images automatically." oninput="brNormalizeBuildInfoInput();if(typeof brGenerateJql==='function'){brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn();}"></textarea>
+          <div class="mode-help">Select a saved JIRA browser page/text file containing <b>Build Info</b>. PDT Buddy reads the file in the browser, extracts software image/build paths, searches JIRA by those images, then uses the JIRA Build Info software images to select the matching Orbit SIR status for each CR.</div>
+          <div class="toolbar" style="margin-top:7px">
+            <input id="brBuildInfoFile" type="file" accept=".html,.htm,.txt,.log,.csv,.xml,.json,text/html,text/plain" style="display:none" onchange="brReadBuildInfoFile(this.files&&this.files[0])">
+            <button class="btn btn-good" type="button" onclick="g('brBuildInfoFile').click()"><i class="fas fa-folder-open"></i> Browse Build Info File</button>
+            <span id="brBuildInfoHint" class="muted" style="font-size:11px;font-weight:800"></span>
+          </div>
         </div>
 
       </div>
@@ -251,7 +256,140 @@ function esc(v){return BuildReportCommon.escapeHtml(v)}
       + ' <span style="color:#6366f1;font-weight:950">('+elapsed+')</span>';
   }
   var _brElapsedTimer = null;
-function buildList(){return BuildReportCommon.asList(g('brBuilds').value)}
+function brLooksLikeBuildInfoText(text){
+  const raw=String(text||'');
+  return /\bBuild Info\b/i.test(raw) || /\|h6\./i.test(raw) || /\\\\[^|\r\n]+\\[^|\r\n]+/i.test(raw) || /\b(Meta Build|APPS|AOP|TZ|BOOT|WLAN|BTFM|LAGVM|GEARVM|HPASS|NSP|CPUP|GLUE)\b/i.test(raw);
+}
+function brExtractBuildInfoImages(text){
+  const raw=String(text||'');
+  const out=[], seen=new Set();
+  function clean(s){
+    return String(s||'')
+      .replace(/\{color[^}]*\}/gi,'')
+      .replace(/\{color\}/gi,'')
+      .replace(/\bh6\./gi,'')
+      .replace(/<[^>]+>/g,' ')
+      .replace(/&nbsp;/gi,' ')
+      .replace(/&/gi,'&')
+      .trim();
+  }
+  function add(v){
+    v=clean(v).replace(/^"+|"+$/g,'').trim();
+    if(!v || /^(build info|issue tags|scenario|job link)$/i.test(v)) return;
+    if(/^(linux|windows|android)$/i.test(v)) return;
+    // If this is a UNC/local path, use the terminal folder/file as the searchable build image.
+    if(/[\\\/]/.test(v)){
+      const parts=v.replace(/[\/]+/g,'\\').split('\\').filter(Boolean);
+      v=parts.length?parts[parts.length-1]:v;
+    }
+    v=v.replace(/[|]+$/,'').trim();
+    // Keep real SI/build-looking values and avoid component-only labels.
+    if(!/[A-Za-z][A-Za-z0-9_]*\.[A-Za-z0-9_.-]+/.test(v) && !/\d{4,6}[-_.]/.test(v)) return;
+    const k=v.toUpperCase();
+    if(!seen.has(k)){seen.add(k);out.push(v);}
+  }
+  raw.split(/\r?\n/).forEach(line=>{
+    const l=line.trim();
+    if(!l) return;
+    if(l.indexOf('|')>=0){
+      const parts=l.split('|').map(clean).filter(Boolean);
+      if(parts.length>=2){
+        // JIRA wiki table format: component | image-name | image-path
+        add(parts[2] || parts[1]);
+        return;
+      }
+    }
+    const tabParts=l.split(/\t+/).map(clean).filter(Boolean);
+    if(tabParts.length>=2){
+      // Browser-copied rendered table: component, image name, optional image path.
+      add(tabParts[2] || tabParts[1]);
+      return;
+    }
+    // Fallback: if the text file is already a simple one-per-line software image list,
+    // keep each image directly (examples: ACPOLICY.XF.1.0, AOP.HO.6.0, AUDIO.XR.LA.11.1).
+    add(l);
+    // Also pull any UNC path terminal or full build-like token from mixed free text.
+    const pathMatches=l.match(/(?:\\\\|\/\/)[^\s|]+/g)||[];
+    pathMatches.forEach(add);
+    const buildMatches=l.match(/\b[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+-\d{4,6}[A-Za-z0-9_.-]*\b/g)||[];
+    buildMatches.forEach(add);
+  });
+  return out;
+}
+function brExtractBuildInfoImagesToBox(showStatus){
+  const el=g('brBuilds'); if(!el) return [];
+  const raw=String(el.value||'');
+  const imgs=brExtractBuildInfoImages(raw);
+  const hint=g('brBuildInfoHint');
+  if(imgs.length){
+    el.value=imgs.join('\n');
+    if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Extracted '+imgs.length+' software image/build value(s) from Build Info.</span>';
+  }else if(showStatus && hint){
+    hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> No software images found. Select a Jira Build Info HTML/text file.</span>';
+  }
+  return imgs;
+}
+function brHtmlToBuildInfoText(htmlText){
+  const raw=String(htmlText||'');
+  if(!/<[a-z][\s\S]*>/i.test(raw)) return raw;
+  try{
+    const doc=new DOMParser().parseFromString(raw,'text/html');
+    // Prefer tables/sections that contain Build Info; fallback to full body text.
+    const blocks=Array.from(doc.querySelectorAll('table,section,div,td,dd,li')).filter(el=>/\bBuild Info\b/i.test(el.textContent||''));
+    const textParts=[];
+    blocks.slice(0,8).forEach(el=>textParts.push(el.innerText||el.textContent||''));
+    if(!textParts.length && doc.body) textParts.push(doc.body.innerText||doc.body.textContent||'');
+    return textParts.join('\n');
+  }catch(e){
+    return raw.replace(/<br\s*\/?>/gi,'\n').replace(/<\/tr>/gi,'\n').replace(/<\/td>/gi,'\t').replace(/<[^>]+>/g,' ');
+  }
+}
+function brReadBuildInfoFile(file){
+  const hint=g('brBuildInfoHint');
+  if(!file){
+    if(hint) hint.textContent='';
+    return;
+  }
+  if(file.size > 8*1024*1024){
+    if(hint) hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> File is too large. Save/select only the Jira issue page or copied Build Info text.</span>';
+    return;
+  }
+  if(hint) hint.innerHTML='<i class="fas fa-circle-notch spin"></i> Reading '+esc(file.name)+'...';
+  const reader=new FileReader();
+  reader.onload=function(){
+    const raw=String(reader.result||'');
+    const text=brHtmlToBuildInfoText(raw);
+    const imgs=brExtractBuildInfoImages(text);
+    const el=g('brBuilds');
+    if(imgs.length && el){
+      el.value=imgs.join('\n');
+      if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Read '+esc(file.name)+' and extracted '+imgs.length+' software image/build value(s).</span>';
+      if(typeof brGenerateJql==='function') brGenerateJql();
+      brQueueFilterJqlResolve('filter');
+      brUpdateRunBtn();
+    }else{
+      if(el) el.value=text.slice(0,12000);
+      if(hint) hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> No software images found in '+esc(file.name)+'. The readable text was loaded for review.</span>';
+      brUpdateRunBtn();
+    }
+  };
+  reader.onerror=function(){
+    if(hint) hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> Could not read '+esc(file.name)+'.</span>';
+  };
+  reader.readAsText(file);
+}
+function brNormalizeBuildInfoInput(){
+  const el=g('brBuilds'); if(!el) return;
+  const raw=String(el.value||'');
+  if(!brLooksLikeBuildInfoText(raw)) return;
+  const imgs=brExtractBuildInfoImages(raw);
+  if(imgs.length){
+    el.value=imgs.join('\n');
+    const hint=g('brBuildInfoHint');
+    if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Auto-extracted '+imgs.length+' software image/build value(s).</span>';
+  }
+}
+function buildList(){brNormalizeBuildInfoInput();return BuildReportCommon.asList(g('brBuilds').value)}
 function jiraUrl(jql){return BuildReportCommon.jiraIssuesUrl(jql)}
 function brExtractFilterId(value){
   const raw=String(value||'').trim();
@@ -2637,6 +2775,7 @@ async function brRunStabilityReport(btn){
 }
 
 async function brRun(){
+  brExtractBuildInfoImagesToBox(false);
   const builds=buildList();
   const directJql=brNormalizeJqlInput(g('brJql').value||'');
   const filterOnly=brExtractFilterId(g('brFilterInput')&&g('brFilterInput').value);

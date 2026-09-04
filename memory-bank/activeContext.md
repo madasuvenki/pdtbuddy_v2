@@ -2,6 +2,130 @@
 
 ## Current Work Focus
 
+### Ingest Autoupdate UNC Latest Folder Fix — Complete (2026-09-04)
+
+**User question addressed:** Why autoupdate failed for `\\sphere\pdtstats\DailyReports\Hawi_PDT\DailyData\Latest`.
+
+**Root cause:**
+- The configured `Latest` path can behave like a Windows junction/symlink/reparse point on a UNC share.
+- On such paths, `os.path.isdir()` may return `False` even though `os.listdir()` can list the folder.
+- Existing resolver logic only treated the path as a folder when `os.path.isdir(path)` returned `True`, so autoupdate concluded `excel_path file not found`.
+- Direct ingest had the same resolver limitation and could raise `FileNotFoundError`.
+
+**Changes made:**
+- `ingest_autoupdate.py`
+  - Updated `_resolve_excel_file()` to try an `os.listdir()` fallback when the path is not reported as file or directory.
+  - If listing succeeds, the path is treated as a directory and the newest workbook is selected using the existing priority:
+    - `*_Overall_PDT_Stats.xlsx/.xls`
+    - fallback to any `.xlsx/.xls`
+    - excludes Excel temp lock files `~$...`.
+- `src/ingest.py`
+  - Updated `_resolve_actual_excel_file()` with the same `os.listdir()` fallback so actual ingestion can open workbooks inside UNC `Latest` directories.
+
+**Follow-up ingestion failure found/fixed:**
+- After UNC path resolution was confirmed working, HAWI still failed during actual ingest.
+- Manual reproduction showed the real failure:
+  - `1048 (23000): Column 'cr' cannot be null`
+  - Table: `hawi_unique_crs`
+  - Sheet: `Unique_CRs`
+- Root cause: the workbook contains at least one non-empty row where the configured primary key column (`cr`) is blank/null. Since the table has `cr` as a NOT NULL primary/unique key, MySQL rejected that row and ingestion was marked failed.
+- `src/ingest.py` now skips rows whose configured primary key value is blank/null before adding them to the insert batch.
+
+**Validation:**
+- `py -3 -m py_compile ingest_autoupdate.py src\ingest.py` executed successfully with no warnings/errors after docstring cleanup.
+- Manual HAWI ingest succeeded:
+  - `py -3 run_ingest.py --target HAWI --bu MOBILE --triggered-by debug_hawi_manual`
+  - Latest log row status: `SUCCESS`
+  - `dashboard_status.dashboard_latest_update` for `HAWI` updated to `2026-09-04 10:18:37`.
+
+### Excel Sync Hero Card Filtering — Complete (2026-09-04)
+
+**User request addressed:** On `/excel_sync`, hero cards should be clickable and update/filter the table based on the selected card.
+
+**Changes made:**
+- `templates/excel_sync.html`
+  - Hero/stat cards are now clickable with hover/active styling.
+  - Clicking a card updates the status dropdown and filters the table immediately.
+  - Added support for filtering by:
+    - Total / All
+    - Fresh
+    - Stale
+    - Pending File
+    - Old
+    - Never Synced
+  - Added a dedicated **Pending File** hero card so rows where a newer workbook exists on disk can be selected directly.
+
+**Validation:**
+- Jinja parse check passed:
+  - `py -3 -c "from pathlib import Path; from jinja2 import Environment; Environment().parse(Path('templates/excel_sync.html').read_text(encoding='utf-8')); print('EXCEL_SYNC_JINJA_OK')"`
+
+### Excel Sync Latest Folder Visibility Fix — Complete (2026-09-04)
+
+**User feedback addressed:** `\\sphere\pdtstats\DailyReports\Hawi_PDT\DailyData\Latest` already has a latest workbook, but `/excel_sync` still showed old DB sync time and did not make it clear that the folder contains a newer file.
+
+**Changes made:**
+- `excel_sync_routes.py`
+  - `/api/excel_sync/data` now resolves `dashboard_status.excel_path` using the same latest-workbook logic used by ingestion/autoupdate.
+  - Supports direct workbook paths and directory paths like `...\DailyData\Latest`.
+  - Returns:
+    - `resolved_excel_file`
+    - `resolved_excel_mtime`
+    - `excel_file_is_newer`
+  - Marks row status as `pending` when a newer workbook exists on disk than `dashboard_latest_update`.
+- `templates/excel_sync.html`
+  - Added `pending` badge styling.
+  - The Last Excel Sync cell now displays `Latest file: <mtime>` when a newer workbook is present.
+
+**Important behavior clarified:**
+- `/excel_sync` reads `dashboard_latest_update` from DB; that timestamp changes only after ingestion runs successfully.
+- The new UI now distinguishes “DB last ingest is old” from “folder already has a newer file waiting to be ingested.”
+
+**Validation:**
+- `py -3 -m py_compile excel_sync_routes.py` succeeded.
+- Jinja parse check for `templates/excel_sync.html` succeeded.
+
+### Excel Sync Relative Update Path 404 Compatibility — Complete (2026-09-04)
+
+**User feedback addressed:** Browser console showed `api/excel_sync/update_path` returning `404 NOT FOUND`.
+
+**Root cause / likely cause:**
+- The canonical backend route existed as `/api/excel_sync/update_path`.
+- Some browser/page contexts can request the endpoint as a relative URL (`api/excel_sync/update_path`), which resolves under the current page path, e.g. `/excel_sync/api/excel_sync/update_path` or `/build_report/api/excel_sync/update_path`, causing 404.
+
+**Changes made:**
+- `excel_sync_routes.py`
+  - Added compatibility POST routes to the same handler:
+    - `/excel_sync/api/excel_sync/update_path`
+    - `/build_report/api/excel_sync/update_path`
+  - Kept canonical route:
+    - `/api/excel_sync/update_path`
+
+**Validation:**
+- `py -3 -m py_compile excel_sync_routes.py` executed successfully.
+
+### Build Report Standalone Build Info Paste Support — Complete (2026-09-03)
+
+**User request addressed:** `/build_report` standalone page should support copying the JIRA browser **Build Info** table/text (software images) directly into the UI instead of requiring the user to manually read/extract build IDs from Jira. The report should then use those software images to get JIRA results and Orbit CR status.
+
+**Changes made:**
+- `templates/build_report_standalone.html`
+  - Updated the Builds input help/placeholder to explicitly accept the copied JIRA Build Info software-image table.
+  - Added a browser-side **Browse Build Info File** picker so users can select a saved Jira HTML/text file; the page reads the file with `FileReader` and extracts software images without manual paste.
+  - Removed the extra manual **Extract Software Images** button after feedback; file selection now performs extraction automatically.
+  - Added client-side Build Info parsers that support:
+    - JIRA wiki table rows like `|AOP|AOP.HO.5.3|\\server\path\AOP.HO.5.3-00198-NORD_E-1|`
+    - Browser-copied tabular rows like `AOP    AOP.HO.5.3    \\server\path\...`
+    - Free-text UNC paths/build-like tokens.
+    - Plain `.txt` files that already contain one software image per line, such as `ACPOLICY.XF.1.0`, `AOP.HO.6.0`, `AUDIO.XR.LA.11.1`.
+  - The parser extracts the terminal build/image folder from paths when present and de-duplicates extracted values.
+  - `buildList()` now normalizes selected/loaded Build Info before generating JQL/running the report, so existing backend flow remains unchanged.
+  - Existing backend behavior already parses each Jira's `software_components` and uses them during Orbit enrichment (`image_matched`) to select the matching Orbit SIR/status.
+
+**Validation:**
+- Jinja parse check passed:
+  - `py -3 -c "from pathlib import Path; from jinja2 import Environment; p=Path('templates/build_report_standalone.html'); Environment().parse(p.read_text(encoding='utf-8')); print('JINJA_OK')"`
+- VS Code JavaScript diagnostics on the Jinja `{{ ...|tojson }}` lines are expected false positives outside Flask rendering.
+
 ### Axiom Job Summary Hourly Poller + HWPDT Rate-Limit Guard — Complete (2026-09-03)
 
 **User request addressed:** `scripts/update_axiom_job_summary.py` default polling should not use the old 3-hour cadence, should fetch last ~1 hour / 100 jobs, refresh all running jobs, and include auto/HWPDT-related enrichment without hammering Axiom and causing HTTP 429.

@@ -143,29 +143,44 @@ def _resolve_excel_file(excel_path: str) -> Optional[str]:
     """
     Mirror of ingest.py _resolve_actual_excel_file:
     picks newest *_Overall_PDT_Stats.xlsx from folder, or the file itself.
+
+    Some network shares expose "Latest" as a Windows junction/symlink/reparse
+    point.  On those UNC paths, os.path.isdir() can return False even though
+    os.listdir() works.  Treat a listable path as a directory so autoupdate can
+    pick the workbook inside a UNC "Latest" directory.
     """
     if not excel_path:
         return None
     excel_path = excel_path.strip()
+
+    def _newest_from_dir(folder: str) -> Optional[str]:
+        candidates = _exclude_temp(
+            glob.glob(os.path.join(folder, f"*{EXPECTED_EXCEL_SUFFIX}.xlsx")) +
+            glob.glob(os.path.join(folder, f"*{EXPECTED_EXCEL_SUFFIX}.xls"))
+        )
+        if not candidates:
+            candidates = _exclude_temp(
+                glob.glob(os.path.join(folder, "*.xlsx")) +
+                glob.glob(os.path.join(folder, "*.xls"))
+            )
+        try:
+            return max(candidates, key=os.path.getmtime) if candidates else None
+        except OSError:
+            return candidates[0] if candidates else None
 
     try:
         if os.path.isfile(excel_path):
             return excel_path if not os.path.basename(excel_path).startswith('~$') else None
 
         if os.path.isdir(excel_path):
-            candidates = _exclude_temp(
-                glob.glob(os.path.join(excel_path, f"*{EXPECTED_EXCEL_SUFFIX}.xlsx")) +
-                glob.glob(os.path.join(excel_path, f"*{EXPECTED_EXCEL_SUFFIX}.xls"))
-            )
-            if not candidates:
-                candidates = _exclude_temp(
-                    glob.glob(os.path.join(excel_path, "*.xlsx")) +
-                    glob.glob(os.path.join(excel_path, "*.xls"))
-                )
-            try:
-                return max(candidates, key=os.path.getmtime) if candidates else None
-            except OSError:
-                return candidates[0] if candidates else None
+            return _newest_from_dir(excel_path)
+
+        # UNC junction/symlink fallback: isdir() may fail but listdir() succeeds.
+        try:
+            os.listdir(excel_path)
+            return _newest_from_dir(excel_path)
+        except OSError:
+            return None
 
     except OSError as e:
         logger.warning(f"[AUTOUPDATE] Network error resolving excel path '{excel_path}': {e}")

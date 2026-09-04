@@ -88,27 +88,42 @@ def _resolve_actual_excel_file(excel_file_path: str) -> str:
     If multiple matches, picks the newest by mtime.
     Falls back to any .xlsx if no suffix match found.
     Excludes Excel temp/lock files starting with ~$ (open-file locks).
+
+    Some network shares expose "Latest" as a Windows junction/symlink/reparse
+    point.  On those UNC paths, os.path.isdir() can return False even though
+    os.listdir() works.  Treat a listable path as a directory so ingest can
+    pick the workbook inside a UNC "Latest" directory.
     """
+    def _newest_from_dir(folder: str) -> str:
+        matching_files = _exclude_temp_excel_files(
+            glob.glob(os.path.join(folder, f"*{EXPECTED_EXCEL_SUFFIX}.xlsx")) +
+            glob.glob(os.path.join(folder, f"*{EXPECTED_EXCEL_SUFFIX}.xls"))
+        )
+        if not matching_files:
+            matching_files = _exclude_temp_excel_files(
+                glob.glob(os.path.join(folder, "*.xlsx")) +
+                glob.glob(os.path.join(folder, "*.xls"))
+            )
+        if not matching_files:
+            raise FileNotFoundError(f"No Excel file found in '{folder}'.")
+        try:
+            return max(matching_files, key=os.path.getmtime)
+        except OSError:
+            return matching_files[0]
+
     try:
         if os.path.isdir(excel_file_path):
-            matching_files = _exclude_temp_excel_files(
-                glob.glob(os.path.join(excel_file_path, f"*{EXPECTED_EXCEL_SUFFIX}.xlsx")) +
-                glob.glob(os.path.join(excel_file_path, f"*{EXPECTED_EXCEL_SUFFIX}.xls"))
-            )
-            if not matching_files:
-                matching_files = _exclude_temp_excel_files(
-                    glob.glob(os.path.join(excel_file_path, "*.xlsx")) +
-                    glob.glob(os.path.join(excel_file_path, "*.xls"))
-                )
-            if not matching_files:
-                raise FileNotFoundError(f"No Excel file found in '{excel_file_path}'.")
-            try:
-                return max(matching_files, key=os.path.getmtime)
-            except OSError:
-                return matching_files[0]
+            return _newest_from_dir(excel_file_path)
 
         if os.path.isfile(excel_file_path) and (excel_file_path.endswith(".xlsx") or excel_file_path.endswith(".xls")):
             return excel_file_path
+
+        # UNC junction/symlink fallback: isdir() may fail but listdir() succeeds.
+        try:
+            os.listdir(excel_file_path)
+            return _newest_from_dir(excel_file_path)
+        except OSError:
+            pass
 
         raise FileNotFoundError(f"Provided path '{excel_file_path}' is neither a directory nor a valid Excel file.")
     except OSError as e:
@@ -1334,6 +1349,17 @@ def ingest_excel_data(excel_file_path, target_db_prefix, bu_key, target_name, un
                         processed_values.append(out_val)
                     except Exception:
                         processed_values.append(None)
+
+                if primary_key_column:
+                    sanitized_pk = sanitize_column_name(primary_key_column)
+                    pk_idx = next(
+                        (idx for idx, h in enumerate(excel_sanitized_headers) if h.lower() == sanitized_pk.lower()),
+                        None,
+                    )
+                    if pk_idx is not None:
+                        pk_val = processed_values[pk_idx] if pk_idx < len(processed_values) else None
+                        if pk_val is None or str(pk_val).strip() == "":
+                            continue
 
                 batch.append(processed_values)
 

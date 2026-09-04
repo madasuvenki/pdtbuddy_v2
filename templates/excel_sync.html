@@ -69,7 +69,11 @@
   background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
   padding: 14px 16px; display: flex; align-items: center; gap: 10px;
   box-shadow: 0 2px 8px rgba(15,23,42,.05);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
 }
+.es-stat:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(15,23,42,.10); border-color: #bfdbfe; }
+.es-stat.active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.16), 0 8px 22px rgba(15,23,42,.10); }
 .es-stat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
 .es-stat-val { font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1; }
 .es-stat-lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 1px; }
@@ -119,6 +123,7 @@
 .es-badge.fresh  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 .es-badge.stale  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
 .es-badge.old    { background: #fee2e2; color: #991b1c; border: 1px solid #fca5a5; }
+.es-badge.pending { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
 .es-badge.never  { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
 .es-badge.active { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 .es-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
@@ -185,6 +190,7 @@
 .es-time.fresh { color: #166534; font-weight: 700; }
 .es-time.stale { color: #92400e; }
 .es-time.old   { color: #991b1c; }
+.es-time.pending { color: #1d4ed8; font-weight: 700; }
 .es-time.never { color: #94a3b8; font-style: italic; }
 
 /* ── Age pill ── */
@@ -247,23 +253,27 @@
 
     <!-- Stats -->
     <div class="es-stats" id="esStats">
-      <div class="es-stat">
+      <div class="es-stat active" data-hero-status="" onclick="esSetHeroStatus('', this)" title="Show all rows">
         <div class="es-stat-icon" style="background:#eff6ff;"><i class="fas fa-server" style="color:#3b82f6;"></i></div>
         <div><div class="es-stat-val" id="statTotal">—</div><div class="es-stat-lbl">Total</div></div>
       </div>
-      <div class="es-stat">
+      <div class="es-stat" data-hero-status="fresh" onclick="esSetHeroStatus('fresh', this)" title="Show fresh rows">
         <div class="es-stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div>
-        <div><div class="es-stat-val" id="statFresh" style="color:#16a34a;">—</div><div class="es-stat-lbl">Fresh &lt;48h</div></div>
+        <div><div class="es-stat-val" id="statFresh" style="color:#16a34a;">—</div><div class="es-stat-lbl">Fresh under 48h</div></div>
       </div>
-      <div class="es-stat">
+      <div class="es-stat" data-hero-status="stale" onclick="esSetHeroStatus('stale', this)" title="Show stale rows">
         <div class="es-stat-icon" style="background:#fef3c7;"><i class="fas fa-exclamation-circle" style="color:#d97706;"></i></div>
         <div><div class="es-stat-val" id="statStale" style="color:#d97706;">—</div><div class="es-stat-lbl">Stale &lt;7d</div></div>
       </div>
-      <div class="es-stat">
+      <div class="es-stat" data-hero-status="pending" onclick="esSetHeroStatus('pending', this)" title="Show rows with newer files waiting for ingest">
+        <div class="es-stat-icon" style="background:#dbeafe;"><i class="fas fa-file-import" style="color:#2563eb;"></i></div>
+        <div><div class="es-stat-val" id="statPending" style="color:#2563eb;">—</div><div class="es-stat-lbl">Pending File</div></div>
+      </div>
+      <div class="es-stat" data-hero-status="old" onclick="esSetHeroStatus('old', this)" title="Show old rows">
         <div class="es-stat-icon" style="background:#fee2e2;"><i class="fas fa-times-circle" style="color:#dc2626;"></i></div>
         <div><div class="es-stat-val" id="statOld" style="color:#dc2626;">—</div><div class="es-stat-lbl">Old &gt;7d</div></div>
       </div>
-      <div class="es-stat">
+      <div class="es-stat" data-hero-status="never" onclick="esSetHeroStatus('never', this)" title="Show never-synced rows">
         <div class="es-stat-icon" style="background:#f1f5f9;"><i class="fas fa-minus-circle" style="color:#94a3b8;"></i></div>
         <div><div class="es-stat-val" id="statNever" style="color:#94a3b8;">—</div><div class="es-stat-lbl">Never Synced</div></div>
       </div>
@@ -276,6 +286,7 @@
         <option value="">All Status</option>
         <option value="fresh">Fresh (&lt;48h)</option>
         <option value="stale">Stale (&lt;7d)</option>
+        <option value="pending">Pending File</option>
         <option value="old">Old (&gt;7d)</option>
         <option value="never">Never Synced</option>
       </select>
@@ -315,7 +326,8 @@
 var esAllRows = [];
 var esCurrentBU = 'ALL';
 var esActiveFilter = 'all';
-var isAdmin = {{ 'true' if is_admin else 'false' }};
+var esHeroStatusFilter = '';
+var isAdmin = ("{{ 'true' if is_admin else 'false' }}" === "true");
 
 // ── BU switch ──
 function esSwitchBU(bu, el) {
@@ -331,6 +343,17 @@ function esSetActiveFilter(mode, btn) {
   document.querySelectorAll('.es-filter-btn[id^="btn"]').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
   esLoadData();
+}
+
+function esSetHeroStatus(status, card) {
+  esHeroStatusFilter = status || '';
+  document.querySelectorAll('.es-stat[data-hero-status]').forEach(function(c){ c.classList.remove('active'); });
+  if (card) card.classList.add('active');
+
+  var statusSelect = document.getElementById('esStatusFilter');
+  if (statusSelect) statusSelect.value = esHeroStatusFilter;
+
+  esFilterTable();
 }
 
 // ── Load data from API ──
@@ -360,6 +383,7 @@ function esUpdateStats(s) {
   document.getElementById('statTotal').textContent = s.total || 0;
   document.getElementById('statFresh').textContent = s.fresh || 0;
   document.getElementById('statStale').textContent = s.stale || 0;
+  document.getElementById('statPending').textContent = s.pending || 0;
   document.getElementById('statOld').textContent   = s.old   || 0;
   document.getElementById('statNever').textContent = s.never || 0;
 }
@@ -390,6 +414,7 @@ function esRenderTable(rows) {
     var statusBadge = '<span class="es-badge ' + r.status + '">' +
       (r.status === 'fresh' ? '&#10003; Fresh' :
        r.status === 'stale' ? '&#9888; Stale' :
+       r.status === 'pending' ? '&#8635; Pending File' :
        r.status === 'old'   ? '&#10007; Old'   : '&#8212; Never') + '</span>';
     var activeBadge = r.is_active
       ? '<span class="es-badge active" style="margin-left:4px;">Active</span>'
@@ -405,8 +430,10 @@ function esRenderTable(rows) {
 
     var dluHtml = r.dashboard_latest_update
       ? '<div class="es-time ' + r.status + '">' + r.dashboard_latest_update + '</div>' +
-        (ageStr ? '<div class="es-age">' + ageStr + '</div>' : '')
-      : '<div class="es-time never">Never synced</div>';
+        (ageStr ? '<div class="es-age">' + ageStr + '</div>' : '') +
+        (r.excel_file_is_newer && r.resolved_excel_mtime ? '<div class="es-age" style="color:#1d4ed8;font-weight:800;">Latest file: ' + esEsc(r.resolved_excel_mtime) + '</div>' : '')
+      : '<div class="es-time never">Never synced</div>' +
+        (r.resolved_excel_mtime ? '<div class="es-age" style="color:#1d4ed8;font-weight:800;">Latest file: ' + esEsc(r.resolved_excel_mtime) + '</div>' : '');
 
     var ucluHtml = r.unique_cr_last_update
       ? '<div class="es-time">' + r.unique_cr_last_update + '</div>'
@@ -483,7 +510,7 @@ function esSavePath(targetName, field, btn) {
   var val = editDiv.querySelector('input').value.trim();
   btn.disabled = true;
   btn.textContent = '...';
-  fetch('/api/excel_sync/update_path', {
+  fetch('{{ url_for("excel_sync_bp.api_excel_sync_update_path") }}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ target_name: targetName, field: field, value: val })
@@ -518,7 +545,11 @@ function esSavePath(targetName, field, btn) {
 // ── Filter table ──
 function esFilterTable() {
   var q = (document.getElementById('esSearch').value || '').toLowerCase();
-  var statusF = (document.getElementById('esStatusFilter').value || '').toLowerCase();
+  var statusF = ((document.getElementById('esStatusFilter').value || esHeroStatusFilter || '')).toLowerCase();
+  esHeroStatusFilter = statusF;
+  document.querySelectorAll('.es-stat[data-hero-status]').forEach(function(c){
+    c.classList.toggle('active', (c.getAttribute('data-hero-status') || '') === statusF);
+  });
   var filtered = esAllRows.filter(function(r) {
     var matchQ = !q || (
       (r.target_name || '').toLowerCase().includes(q) ||
