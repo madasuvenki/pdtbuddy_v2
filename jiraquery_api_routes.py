@@ -296,6 +296,13 @@ def api_build_report_run():
     if target_name:
         target_name = str(target_name).strip()
 
+    raw_explicit_images = body.get("software_images") or body.get("explicit_software_images") or request.args.get("software_images") or ""
+    if isinstance(raw_explicit_images, list):
+        explicit_software_images = [str(v).strip() for v in raw_explicit_images if str(v).strip()]
+    else:
+        explicit_software_images = _parse_csv_values(raw_explicit_images)
+    explicit_software_images = list(dict.fromkeys(explicit_software_images))
+
     traverse    = _as_bool(body.get("traverse",     request.args.get("traverse")),     default=True)
     enrich_orbit = _as_bool(body.get("orbit",       request.args.get("orbit")) or
                             body.get("enrich_orbit", request.args.get("enrich_orbit")), default=True)
@@ -345,6 +352,7 @@ def api_build_report_run():
             enrich_orbit=enrich_orbit,
             target_name=target_name,
             custom_jql=custom_jql or None,
+            explicit_software_images=explicit_software_images or None,
         )
 
         return jsonify({
@@ -352,6 +360,7 @@ def api_build_report_run():
             "filter_id":           filter_id_raw or None,
             "builds":              builds,
             "target_name":         target_name,
+            "software_images":     explicit_software_images,
             "meta":                report.get("meta") or {},
             "summary":             report.get("summary") or {},
             "cr_index":            report.get("cr_index") or {},

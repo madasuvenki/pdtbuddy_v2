@@ -93,7 +93,7 @@
         <div class="field" style="grid-column:1/-1">
           <label>Builds</label>
           <textarea id="brBuilds" placeholder="Build IDs / extracted software images will appear here&#10;Example: Skyros.LA.1.0.r1-00340-PERF.INT-1&#10;Use Browse Build Info File below to select a saved Jira HTML/text file and extract all software images automatically." oninput="brNormalizeBuildInfoInput();if(typeof brGenerateJql==='function'){brGenerateJql();brQueueFilterJqlResolve('filter');brUpdateRunBtn();}"></textarea>
-          <div class="mode-help">Select a saved JIRA browser page/text file containing <b>Build Info</b>. PDT Buddy reads the file in the browser, extracts software image/build paths, searches JIRA by those images, then uses the JIRA Build Info software images to select the matching Orbit SIR status for each CR.</div>
+          <div class="mode-help">Select a saved JIRA browser page/text file containing <b>Build Info</b>. PDT Buddy reads the file in the browser and stores the extracted software images only for Orbit CR/SIR status matching. Browsing a file does <b>not</b> change the Builds box or the runnable JQL.</div>
           <div class="toolbar" style="margin-top:7px">
             <input id="brBuildInfoFile" type="file" accept=".html,.htm,.txt,.log,.csv,.xml,.json,text/html,text/plain" style="display:none" onchange="brReadBuildInfoFile(this.files&&this.files[0])">
             <button class="btn btn-good" type="button" onclick="g('brBuildInfoFile').click()"><i class="fas fa-folder-open"></i> Browse Build Info File</button>
@@ -344,9 +344,11 @@ function brHtmlToBuildInfoText(htmlText){
     return raw.replace(/<br\s*\/?>/gi,'\n').replace(/<\/tr>/gi,'\n').replace(/<\/td>/gi,'\t').replace(/<[^>]+>/g,' ');
   }
 }
+let brExplicitSoftwareImages=[];
 function brReadBuildInfoFile(file){
   const hint=g('brBuildInfoHint');
   if(!file){
+    brExplicitSoftwareImages=[];
     if(hint) hint.textContent='';
     return;
   }
@@ -360,16 +362,12 @@ function brReadBuildInfoFile(file){
     const raw=String(reader.result||'');
     const text=brHtmlToBuildInfoText(raw);
     const imgs=brExtractBuildInfoImages(text);
-    const el=g('brBuilds');
-    if(imgs.length && el){
-      el.value=imgs.join('\n');
-      if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Read '+esc(file.name)+' and extracted '+imgs.length+' software image/build value(s).</span>';
-      if(typeof brGenerateJql==='function') brGenerateJql();
-      brQueueFilterJqlResolve('filter');
+    brExplicitSoftwareImages=imgs.slice();
+    if(imgs.length){
+      if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Read '+esc(file.name)+' and stored '+imgs.length+' software image/build value(s) for Orbit CR status matching only. Builds/JQL were not changed.</span>';
       brUpdateRunBtn();
     }else{
-      if(el) el.value=text.slice(0,12000);
-      if(hint) hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> No software images found in '+esc(file.name)+'. The readable text was loaded for review.</span>';
+      if(hint) hint.innerHTML='<span class="status-bad"><i class="fas fa-triangle-exclamation"></i> No software images found in '+esc(file.name)+'. Builds/JQL were not changed.</span>';
       brUpdateRunBtn();
     }
   };
@@ -385,11 +383,17 @@ function brNormalizeBuildInfoInput(){
   const imgs=brExtractBuildInfoImages(raw);
   if(imgs.length){
     el.value=imgs.join('\n');
+    brExplicitSoftwareImages=imgs.slice();
     const hint=g('brBuildInfoHint');
     if(hint) hint.innerHTML='<span class="status-ok"><i class="fas fa-check-circle"></i> Auto-extracted '+imgs.length+' software image/build value(s).</span>';
   }
 }
 function buildList(){brNormalizeBuildInfoInput();return BuildReportCommon.asList(g('brBuilds').value)}
+function brCurrentSoftwareImages(){
+  const fromFile=(brExplicitSoftwareImages||[]).map(x=>String(x||'').trim()).filter(Boolean);
+  if(fromFile.length)return Array.from(new Set(fromFile));
+  return buildList();
+}
 function jiraUrl(jql){return BuildReportCommon.jiraIssuesUrl(jql)}
 function brExtractFilterId(value){
   const raw=String(value||'').trim();
@@ -607,7 +611,7 @@ function brAddSelectedBuilds(){
   g('brBuilds').value=current.join('\n');
   brGenerateJql();
 }
-function brClear(){g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="18" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
+function brClear(){brExplicitSoftwareImages=[];g('brBu').value='';brPopulateTargets();g('brBuilds').value='';if(g('brFilterInput'))g('brFilterInput').value='';g('brJql').value='';g('brStatus').textContent='';g('brCounts').innerHTML='';brLastCrRows=[];brLastJiraRows=[];brLastAllJiraRows=[];brAllJiraRawData=[];['brCopyReportBtn','brExcelBtn','brCopyCrBtn','brCsvCrBtn','brCopyJiraBtn','brCsvJiraBtn','brCsvAllJiraBtn','brCopyAllJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});g('brSummary').innerHTML='';g('brMetricCards').style.display='none';g('brMetricCards').innerHTML='';const js=g('brJiraSection');if(js)js.style.display='none';const ajs=g('brAllJiraSection');if(ajs)ajs.style.display='none';const tabs=g('brReportTabs');if(tabs)tabs.style.display='none';g('brCrRows').innerHTML='<tr><td colspan="18" class="empty">Enter builds, JQL, or filter ID and click Run Query.</td></tr>';}
 function waitForResult(jobId){return BuildReportCommon.waitForResult(jobId)}
 let brProgressSource=null, brProgressStartedAt=0;
 function brProgressElapsed(){
@@ -662,9 +666,10 @@ function brWatchProgress(jobId){
   };
 }
 async function brRunConsolidatedWithProgress(opts){
-    const payload={
+  const payload={
     builds:opts.builds||[], traverse:true, orbit:true, target:opts.target||'', force:true,
-    custom_jql:opts.jql||'', include_axiom_metrics:true, axiom_taxonomy_path:'/PDT'
+    custom_jql:opts.jql||'', include_axiom_metrics:true, axiom_taxonomy_path:'/PDT',
+    software_images:opts.software_images||brCurrentSoftwareImages()
   };
   brShowProgress('Running Report','Submitting report job...');
   // Show the exact JQL being sent in the progress popup
@@ -2801,7 +2806,7 @@ async function brRun(){
     try{
       await brCheckJiraReady();
       g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
-      const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||''});
+      const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||'',software_images:brCurrentSoftwareImages()});
       renderReport(data);
       g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
       brHideProgress(1800);

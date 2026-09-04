@@ -9189,6 +9189,23 @@ def api_consolidated_report():
 
     target = str(body.get('target') or body.get('target_name') or '').strip()
     custom_jql = str(body.get('custom_jql') or body.get('jql') or '').strip()
+    raw_explicit_images = body.get('software_images') or body.get('explicit_software_images') or []
+    if isinstance(raw_explicit_images, str):
+        import re as _re
+        explicit_software_images = [
+            item.strip()
+            for item in _re.split(r'[,;\n]+', raw_explicit_images)
+            if item.strip()
+        ]
+    elif isinstance(raw_explicit_images, (list, tuple, set)):
+        explicit_software_images = [
+            str(item).strip()
+            for item in raw_explicit_images
+            if str(item).strip()
+        ]
+    else:
+        explicit_software_images = []
+    explicit_software_images = list(dict.fromkeys(explicit_software_images))
     custom_jql_filter_id = _jira_filter_id_from_jql(custom_jql)
     custom_jql_original = custom_jql
     if custom_jql_filter_id:
@@ -9213,7 +9230,11 @@ def api_consolidated_report():
     except Exception:
         cache_ttl_minutes = 30
 
-    cache_path, cache_key = _consolidated_report_path(target, builds, custom_jql or None)
+    cache_path, cache_key = _consolidated_report_path(
+        target,
+        builds + ([f"si:{img}" for img in explicit_software_images] if explicit_software_images else []),
+        custom_jql or None,
+    )
     if not force and os.path.exists(cache_path):
         try:
             age_seconds = time.time() - os.path.getmtime(cache_path)
@@ -9259,6 +9280,7 @@ def api_consolidated_report():
                     target_name=target,
                     progress=progress,
                     custom_jql=custom_jql or None,
+                    explicit_software_images=explicit_software_images or None,
                 )
 
             meta = report.setdefault('meta', {}) if isinstance(report, dict) else {}
@@ -9271,6 +9293,7 @@ def api_consolidated_report():
                 'custom_jql': custom_jql or meta.get('custom_jql'),
                 'include_axiom_metrics': include_axiom_metrics,
                 'axiom_taxonomy_path': axiom_taxonomy_path,
+                'explicit_software_images': explicit_software_images,
             })
 
             # ── Axiom Stability Metrics ────────────────────────────────

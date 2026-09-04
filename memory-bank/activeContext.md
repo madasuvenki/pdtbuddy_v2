@@ -2,6 +2,38 @@
 
 ## Current Work Focus
 
+### Build Report Browse Build Info Orbit-Only Override — Complete (2026-09-04)
+
+**User request addressed:** On `/build_report`, browsing a saved `.txt` / browser Build Info file should not overwrite the Builds field and should not change/regenerate Direct JQL. The browsed software images are only meant to check/match Orbit CR Software Image/SIR status.
+
+**Changes made:**
+- `templates/build_report_standalone.html`
+  - Browse Build Info now reads/extracts software images into `brExplicitSoftwareImages` only.
+  - It no longer writes extracted names into the **Builds** textarea.
+  - It no longer calls JQL regeneration or filter resolution after file browse.
+  - Help/status text now explicitly says the browsed file is used only for Orbit CR/SIR status matching and Builds/JQL are unchanged.
+  - Clear resets the stored explicit image list.
+  - Run payload sends `software_images` separately to `/api/consolidated_report`.
+- `dashboard_routes.py`
+  - `/api/consolidated_report` accepts `software_images` / `explicit_software_images` and passes them to the consolidated report engine.
+  - Cache key includes explicit software images so reports with different Orbit image override lists do not collide.
+- `jiraquery_api_routes.py`
+  - `/api/build_report/run` accepts `software_images` / `explicit_software_images` for synchronous API use.
+- `scripts/fetch_consolidated_report.py`
+  - `run_consolidated_report()` accepts `explicit_software_images`.
+  - Explicit software images are included in report metadata.
+  - Orbit CR enrichment uses explicit images first for `image_matched` / CR SI matching, instead of relying on per-JIRA build info software components when a file override was supplied.
+
+**Important behavior:**
+- Direct JQL remains the source of JIRA search/filtering.
+- Builds textbox remains user-controlled and is not populated by the browse action.
+- Browsed `.txt` images are used only when resolving Orbit CR status/SIR software image details.
+
+**Validation:**
+- `py -3 -m py_compile dashboard_routes.py jiraquery_api_routes.py scripts\fetch_consolidated_report.py` succeeded.
+- Jinja parse check passed:
+  - `BUILD_REPORT_JINJA_OK`
+
 ### Ingest Autoupdate UNC Latest Folder Fix — Complete (2026-09-04)
 
 **User question addressed:** Why autoupdate failed for `\\sphere\pdtstats\DailyReports\Hawi_PDT\DailyData\Latest`.

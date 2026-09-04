@@ -1249,15 +1249,22 @@ def _image_matches(candidate, jira_images):
 
 
 
-def _build_cr_to_jira_images(issues_dicts):
+def _build_cr_to_jira_images(issues_dicts, explicit_software_images=None):
     """
-    Build {CR1234567: {'IMAGE.NAME', ...}} from JIRA pl_id_raw/software_components.
-    Only images from JIRAs mapped to that CR are used, so Orbit SI selection is
-    based on the exact JIRA's Build Info table.
-    Uses BOTH cr_mapped and traversal final_cr so images are found even before
-    traversal rewrites the final_cr key.
+    Build {CR1234567: {'IMAGE.NAME', ...}} for CR/SIR matching.
+
+    Normal mode uses each JIRA's own pl_id_raw/software_components Build Info table.
+    When a user supplies an explicit Build Info .txt/browser file on /build_report,
+    those software images are applied to every mapped CR so direct JQL/filter runs do
+    not fall back to unrelated/default Jira Build Info values while selecting Orbit
+    Software Image Release status.
     """
     cr_to_images = {}
+    explicit_images = {
+        str(img or '').strip().upper()
+        for img in (explicit_software_images or [])
+        if str(img or '').strip()
+    }
     for d in issues_dicts or []:
         # Collect all CR keys this JIRA is associated with
         cr_keys = set()
@@ -1274,13 +1281,16 @@ def _build_cr_to_jira_images(issues_dicts):
                     cr_keys.add('CR' + num)
         if not cr_keys:
             continue
-        # Collect all image names and build_ids from this JIRA
-        imgs = set()
-        for comp in d.get('software_components', []) or []:
-            for key in ('image_name', 'build_id'):
-                img = str(comp.get(key, '') or '').strip().upper()
-                if img:
-                    imgs.add(img)
+        # Collect all image names and build_ids from this JIRA.  If the caller
+        # supplied an explicit Build Info .txt/browser list, prefer that list and
+        # ignore per-JIRA software_components for Orbit SIR matching.
+        imgs = set(explicit_images)
+        if not imgs:
+            for comp in d.get('software_components', []) or []:
+                for key in ('image_name', 'build_id'):
+                    img = str(comp.get(key, '') or '').strip().upper()
+                    if img:
+                        imgs.add(img)
         for cr in cr_keys:
             cr_to_images.setdefault(cr, set()).update(imgs)
     return cr_to_images
@@ -1291,7 +1301,7 @@ def _build_cr_to_jira_images(issues_dicts):
 # ORBIT CR ENRICHMENT  - Direct Orbit REST API (Kerberos SSPI) / MCP fallback
 # =============================================================================
 
-def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progress_offset=0, progress_total=None):
+def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progress_offset=0, progress_total=None, explicit_software_images=None):
     """
         Batch fetch CR info using orbit_client.fetch_cr() (pure Python 3).
     orbit_client uses ORBIT_DIRECT (Kerberos SSPI via ctypes) first,
@@ -1316,7 +1326,7 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
         return {}
 
     result   = {}
-    cr_to_jira_images = _build_cr_to_jira_images(issues_dicts)
+    cr_to_jira_images = _build_cr_to_jira_images(issues_dicts, explicit_software_images=explicit_software_images)
     num_list = list(set(cr.replace('CR', '').strip() for cr in cr_numbers if cr))
 
     def _fetch_one(cr_num):
@@ -1732,7 +1742,7 @@ def make_summary(build_ids, issues_dicts):
 # DB LOOKUP  - check unique_crs table first before hitting Orbit
 # =============================================================================
 
-def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
+def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_software_images=None):
     """
     Look up CR info from the target's unique_crs DB table.
     For each CR, also tries to match cr_si/image against the JIRA's own
@@ -1747,8 +1757,9 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
         return result
 
 
-    # build image list per mapped CR from the JIRA Build Info table
-    cr_to_jira_images = _build_cr_to_jira_images(issues_dicts)
+    # build image list per mapped CR from the explicit Build Info .txt/browser
+    # upload when supplied, otherwise from each JIRA Build Info table
+    cr_to_jira_images = _build_cr_to_jira_images(issues_dicts, explicit_software_images=explicit_software_images)
 
     try:
         # import here to avoid circular deps when running as standalone script
@@ -1932,11 +1943,15 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None):
 # =============================================================================
 
 def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=True,
-                            target_name=None, progress=None, custom_jql=None):
+                            target_name=None, progress=None, custom_jql=None,
+                            explicit_software_images=None):
     """
     Full pipeline. Returns the complete report dict.
     progress: optional ProgressTracker for live SSE updates.
     custom_jql: if provided, overrides the auto-built JQL entirely.
+    explicit_software_images: optional list from /build_report Build Info .txt/browser
+        file. When present, these images override Jira per-ticket software_components
+        only for CR Software Image Release status matching.
     """
     t0 = time.time()
 
@@ -1974,6 +1989,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
                 'target_name' : target_name,
                 'custom_jql'  : custom_jql or None,
+                'explicit_software_images': list(explicit_software_images or []),
             },
             'limit_exhausted' : True,
             'limit'           : le.limit,
@@ -2017,7 +2033,12 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             )
 
         if target_name:
-            cr_info_map = lookup_cr_info_from_db(list(all_crs), target_name, issues_dicts)
+            cr_info_map = lookup_cr_info_from_db(
+                list(all_crs),
+                target_name,
+                issues_dicts,
+                explicit_software_images=explicit_software_images,
+            )
             if progress:
                 progress.update(
                     stage='orbit',
@@ -2034,6 +2055,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 progress=progress,
                 progress_offset=len(cr_info_map),
                 progress_total=len(all_crs),
+                explicit_software_images=explicit_software_images,
             )
             cr_info_map.update(orbit_map)
 
@@ -2048,7 +2070,11 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 parent_crs.append(parent)
         parent_crs = list(dict.fromkeys(parent_crs))
         if enrich_orbit and parent_crs:
-            parent_map = fetch_cr_info_from_orbit(parent_crs, issues_dicts=issues_dicts)
+            parent_map = fetch_cr_info_from_orbit(
+                parent_crs,
+                issues_dicts=issues_dicts,
+                explicit_software_images=explicit_software_images,
+            )
             cr_info_map.update(parent_map or {})
 
 
